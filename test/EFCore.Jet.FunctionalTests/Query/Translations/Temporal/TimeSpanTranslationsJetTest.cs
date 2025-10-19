@@ -18,9 +18,9 @@ public class TimeSpanTranslationsJetTest : TimeSpanTranslationsTestBase<BasicTyp
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    public override async Task Hours(bool async)
+    public override async Task Hours()
     {
-        await base.Hours(async);
+        await base.Hours();
 
         AssertSql(
             """
@@ -30,9 +30,9 @@ WHERE DATEPART('h', `b`.`TimeSpan`) = 3
 """);
     }
 
-    public override async Task Minutes(bool async)
+    public override async Task Minutes()
     {
-        await base.Minutes(async);
+        await base.Minutes();
 
         AssertSql(
             """
@@ -42,9 +42,9 @@ WHERE DATEPART('n', `b`.`TimeSpan`) = 4
 """);
     }
 
-    public override async Task Seconds(bool async)
+    public override async Task Seconds()
     {
-        await base.Seconds(async);
+        await base.Seconds();
 
         AssertSql(
             """
@@ -54,9 +54,9 @@ WHERE DATEPART('s', `b`.`TimeSpan`) = 5
 """);
     }
 
-    public override async Task Milliseconds(bool async)
+    public override async Task Milliseconds()
     {
-        await base.Milliseconds(async);
+        await base.Milliseconds();
 
         AssertSql(
             """
@@ -66,9 +66,9 @@ WHERE DATEPART(millisecond, [b].[TimeSpan]) = 678
 """);
     }
 
-    public override async Task Microseconds(bool async)
+    public override async Task Microseconds()
     {
-        await base.Microseconds(async);
+        await base.Microseconds();
 
         AssertSql(
             """
@@ -78,9 +78,9 @@ WHERE DATEPART(microsecond, [b].[TimeSpan]) % 1000 = 912
 """);
     }
 
-    public override async Task Nanoseconds(bool async)
+    public override async Task Nanoseconds()
     {
-        await base.Nanoseconds(async);
+        await base.Nanoseconds();
 
         AssertSql(
             """

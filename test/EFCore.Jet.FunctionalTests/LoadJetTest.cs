@@ -652,7 +652,7 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@p")}
                 $"""
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE 0 = 1
+                    WHERE FALSE
                     """);
         }
 
@@ -664,7 +664,7 @@ WHERE `s`.`Id` = {AssertSqlHelper.Parameter("@p")}
                 $"""
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE 0 = 1
+                    WHERE FALSE
                     """);
         }
 
@@ -1367,7 +1367,7 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                 $"""
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE 0 = 1
+                    WHERE FALSE
                     """);
         }
 
@@ -1379,7 +1379,7 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                 $"""
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE 0 = 1
+                    WHERE FALSE
                     """);
         }
 
@@ -1529,7 +1529,7 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     : """
 SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE 0 = 1
+WHERE FALSE
 """);
         }
 
@@ -1543,7 +1543,7 @@ WHERE 0 = 1
                     : """
 SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE 0 = 1
+WHERE FALSE
 """);
         }
 
@@ -1691,7 +1691,7 @@ WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `s`.`Paren
                 $"""
 SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE 0 = 1
+WHERE FALSE
 """);
         }
 
@@ -1703,7 +1703,7 @@ WHERE 0 = 1
                 $"""
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE 0 = 1
+                    WHERE FALSE
                     """);
         }
 

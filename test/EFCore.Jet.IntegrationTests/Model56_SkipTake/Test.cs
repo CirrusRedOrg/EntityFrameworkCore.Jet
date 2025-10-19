@@ -29,7 +29,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model56_SkipTake
 
             {
                 var entities = Context.Entities.OrderBy(_ => _.Date).Skip(10).Take(5).ToList();
-                Assert.AreEqual(5, entities.Count);
+                Assert.HasCount(5, entities);
                 for (int i = 0; i < entities.Count - 1; i++)
                 {
                     Entity entity = entities[i];
@@ -63,7 +63,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model56_SkipTake
 
             {
                 var entities = Context.Entities.OrderBy(_ => _.Date).Skip(10).Take(5).ToList();
-                Assert.AreEqual(5, entities.Count);
+                Assert.HasCount(5, entities);
             }
 
             RemoveAllEntities();

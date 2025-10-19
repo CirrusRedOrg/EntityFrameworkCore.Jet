@@ -30,9 +30,11 @@ public class AdHocMiscellaneousQueryJetTest(NonSharedFixture fixture) : AdHocMis
 {
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;
-    protected override DbContextOptionsBuilder SetTranslateParameterizedCollectionsToConstants(DbContextOptionsBuilder optionsBuilder)
+    protected override DbContextOptionsBuilder SetParameterizedCollectionMode(
+        DbContextOptionsBuilder optionsBuilder,
+        ParameterTranslationMode parameterizedCollectionMode)
     {
-        new JetDbContextOptionsBuilder(optionsBuilder).TranslateParameterizedCollectionsToConstants();
+        new JetDbContextOptionsBuilder(optionsBuilder).UseParameterizedCollectionMode(parameterizedCollectionMode);
 
         return optionsBuilder;
     }
@@ -383,9 +385,11 @@ ORDER BY `p`.`Id`
 
         AssertSql(
             """
+@testDateList1='2018-10-07T00:00:00.0000000' (DbType = DateTime)
+
 SELECT `r`.`Id`, `r`.`MyTime`
 FROM `ReproEntity` AS `r`
-WHERE `r`.`MyTime` = #2018-10-07#
+WHERE `r`.`MyTime` = CDATE(@testDateList1)
 """);
     }
 
@@ -1099,7 +1103,7 @@ WHERE `e`.`Id` = 1
 
         AssertSql(
             """
-SELECT IIF(`c0`.`Id` IS NOT NULL, `c0`.`Processed` BXOR TRUE, NULL) AS `Processing`
+SELECT IIF(`c0`.`Id` IS NOT NULL, NOT (`c0`.`Processed`), NULL) AS `Processing`
 FROM `Carts` AS `c`
 LEFT JOIN `Configuration` AS `c0` ON `c`.`ConfigurationId` = `c0`.`Id`
 """);
@@ -1504,16 +1508,16 @@ SELECT cast(null as int) AS MyValue
             """
 @currentUserId='1'
 
-SELECT IIF(`u`.`Id` IN (
-        SELECT `u0`.`Id`
-        FROM `Memberships` AS `m`
-        INNER JOIN `Users` AS `u0` ON `m`.`UserId` = `u0`.`Id`
-        WHERE `m`.`GroupId` IN (
-            SELECT `m0`.`GroupId`
-            FROM `Memberships` AS `m0`
-            WHERE `m0`.`UserId` = @currentUserId
-        )
-    ), TRUE, FALSE) AS `HasAccess`
+SELECT `u`.`Id` IN (
+    SELECT `u0`.`Id`
+    FROM `Memberships` AS `m`
+    INNER JOIN `Users` AS `u0` ON `m`.`UserId` = `u0`.`Id`
+    WHERE `m`.`GroupId` IN (
+        SELECT `m0`.`GroupId`
+        FROM `Memberships` AS `m0`
+        WHERE `m0`.`UserId` = @currentUserId
+    )
+) AS `HasAccess`
 FROM `Users` AS `u`
 """);
     }
@@ -1526,18 +1530,18 @@ FROM `Users` AS `u`
             """
 @currentUserId='1'
 
-SELECT IIF(`u`.`Id` IN (
-        SELECT `u0`.`Id`
-        FROM (`Memberships` AS `m`
-        INNER JOIN `Groups` AS `g` ON `m`.`GroupId` = `g`.`Id`)
-        INNER JOIN `Users` AS `u0` ON `m`.`UserId` = `u0`.`Id`
-        WHERE `g`.`Id` IN (
-            SELECT `g0`.`Id`
-            FROM `Memberships` AS `m0`
-            INNER JOIN `Groups` AS `g0` ON `m0`.`GroupId` = `g0`.`Id`
-            WHERE `m0`.`UserId` = @currentUserId
-        )
-    ), TRUE, FALSE) AS `HasAccess`
+SELECT `u`.`Id` IN (
+    SELECT `u0`.`Id`
+    FROM (`Memberships` AS `m`
+    INNER JOIN `Groups` AS `g` ON `m`.`GroupId` = `g`.`Id`)
+    INNER JOIN `Users` AS `u0` ON `m`.`UserId` = `u0`.`Id`
+    WHERE `g`.`Id` IN (
+        SELECT `g0`.`Id`
+        FROM `Memberships` AS `m0`
+        INNER JOIN `Groups` AS `g0` ON `m0`.`GroupId` = `g0`.`Id`
+        WHERE `m0`.`UserId` = @currentUserId
+    )
+) AS `HasAccess`
 FROM `Users` AS `u`
 """);
     }
@@ -1550,15 +1554,15 @@ FROM `Users` AS `u`
             """
 @currentUserId='1'
 
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Memberships` AS `m`
-        INNER JOIN `Users` AS `u0` ON `m`.`UserId` = `u0`.`Id`
-        WHERE `m`.`GroupId` IN (
-            SELECT `m0`.`GroupId`
-            FROM `Memberships` AS `m0`
-            WHERE `m0`.`UserId` = @currentUserId
-        ) AND `u0`.`Id` = `u`.`Id`), TRUE, FALSE) AS `HasAccess`
+SELECT EXISTS (
+    SELECT 1
+    FROM `Memberships` AS `m`
+    INNER JOIN `Users` AS `u0` ON `m`.`UserId` = `u0`.`Id`
+    WHERE `m`.`GroupId` IN (
+        SELECT `m0`.`GroupId`
+        FROM `Memberships` AS `m0`
+        WHERE `m0`.`UserId` = @currentUserId
+    ) AND `u0`.`Id` = `u`.`Id`) AS `HasAccess`
 FROM `Users` AS `u`
 """);
     }
@@ -1793,7 +1797,7 @@ ORDER BY `t`.`ParcelNumber`
 
         AssertSql(
             """
-SELECT `c`.`Id`, `c`.`CompanyId`, IIF(`c0`.`Id` IS NOT NULL, TRUE, FALSE), `c0`.`Id`, `c0`.`CompanyName`, `c0`.`CountryId`, `c1`.`Id`, `c1`.`CountryName`
+SELECT `c`.`Id`, `c`.`CompanyId`, `c0`.`Id` IS NOT NULL, `c0`.`Id`, `c0`.`CompanyName`, `c0`.`CountryId`, `c1`.`Id`, `c1`.`CountryName`
 FROM (`Customers` AS `c`
 LEFT JOIN `Companies` AS `c0` ON `c`.`CompanyId` = `c0`.`Id`)
 LEFT JOIN `Countries` AS `c1` ON `c0`.`CountryId` = `c1`.`Id`
@@ -1819,7 +1823,7 @@ SELECT `t`.`Id`, `t`.`Name`
 FROM `TestEntities` AS `t`
 WHERE EXISTS (
     SELECT 1
-    FROM (SELECT ? AS `Value`
+    FROM (SELECT CLNG(?) AS `Value`
     FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
     UNION
     SELECT ? AS `Value`
@@ -1850,7 +1854,7 @@ SELECT `t`.`Id`, `t`.`Name`
 FROM `TestEntities` AS `t`
 WHERE EXISTS (
     SELECT 1
-    FROM (SELECT 1 AS `Value`
+    FROM (SELECT CLNG(1) AS `Value`
     FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
     UNION
     SELECT 2 AS `Value`

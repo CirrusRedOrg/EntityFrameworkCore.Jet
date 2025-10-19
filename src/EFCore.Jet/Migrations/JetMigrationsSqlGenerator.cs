@@ -5,9 +5,10 @@ using EntityFrameworkCore.Jet.Metadata;
 using EntityFrameworkCore.Jet.Metadata.Internal;
 using EntityFrameworkCore.Jet.Migrations.Operations;
 using EntityFrameworkCore.Jet.Storage.Internal;
-using EntityFrameworkCore.Jet.Utilities;
-using System.Text;
 using EntityFrameworkCore.Jet.Update.Internal;
+using EntityFrameworkCore.Jet.Utilities;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using System.Text;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore.Migrations
@@ -840,7 +841,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             DefaultValue(operation.DefaultValue, operation.DefaultValueSql, columnType, builder);
         }
 
-        protected override string? GetColumnType(
+        protected override string GetColumnType(
             string? schema,
             string table,
             string name,
@@ -878,7 +879,14 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 storeType = storeType.Replace("bigint", "decimal");
             }
 
-            return storeType;
+            if (storeType != null)
+            {
+                return storeType;
+            }
+
+            var fullTableName = schema != null ? $"{schema}.{table}" : table;
+            throw new InvalidOperationException(
+                RelationalStrings.UnsupportedTypeForColumn(fullTableName, name, operation.ClrType?.Name ?? "unknown"));
         }
 
         /// <summary>

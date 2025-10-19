@@ -18,9 +18,9 @@ public class MathTranslationsJetTest : MathTranslationsTestBase<BasicTypesQueryJ
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    public override async Task Abs_decimal(bool async)
+    public override async Task Abs_decimal()
     {
-        await base.Abs_decimal(async);
+        await base.Abs_decimal();
 
         AssertSql(
             """
@@ -30,9 +30,9 @@ WHERE ABS(`b`.`Decimal`) = 9.5
 """);
     }
 
-    public override async Task Abs_int(bool async)
+    public override async Task Abs_int()
     {
-        await base.Abs_int(async);
+        await base.Abs_int();
 
         AssertSql(
             """
@@ -42,9 +42,9 @@ WHERE ABS(`b`.`Int`) = 9
 """);
     }
 
-    public override async Task Abs_double(bool async)
+    public override async Task Abs_double()
     {
-        await base.Abs_double(async);
+        await base.Abs_double();
 
         AssertSql(
             """
@@ -54,9 +54,9 @@ WHERE ABS(`b`.`Double`) = 9.5
 """);
     }
 
-    public override async Task Abs_float(bool async)
+    public override async Task Abs_float()
     {
-        await base.Abs_float(async);
+        await base.Abs_float();
 
         AssertSql(
             """
@@ -66,9 +66,9 @@ WHERE IIF(ABS(`b`.`Float`) IS NULL, NULL, CDBL(ABS(`b`.`Float`))) = 9.5
 """);
     }
 
-    public override async Task Ceiling(bool async)
+    public override async Task Ceiling()
     {
-        await base.Ceiling(async);
+        await base.Ceiling();
 
         AssertSql(
             """
@@ -78,9 +78,9 @@ WHERE IIF(FIX(`b`.`Double`) = `b`.`Double`, FIX(`b`.`Double`), FIX(`b`.`Double`)
 """);
     }
 
-    public override async Task Ceiling_float(bool async)
+    public override async Task Ceiling_float()
     {
-        await base.Ceiling_float(async);
+        await base.Ceiling_float();
 
         AssertSql(
             """
@@ -90,9 +90,9 @@ WHERE IIF(FIX(`b`.`Float`) = `b`.`Float`, FIX(`b`.`Float`), FIX(`b`.`Float`) + 1
 """);
     }
 
-    public override async Task Floor_decimal(bool async)
+    public override async Task Floor_decimal()
     {
-        await base.Floor_decimal(async);
+        await base.Floor_decimal();
 
         AssertSql(
             """
@@ -102,9 +102,9 @@ WHERE FIX(`b`.`Decimal`) = 8.0
 """);
     }
 
-    public override async Task Floor_double(bool async)
+    public override async Task Floor_double()
     {
-        await base.Floor_double(async);
+        await base.Floor_double();
 
         AssertSql(
             """
@@ -114,9 +114,9 @@ WHERE FIX(`b`.`Double`) = 8.0
 """);
     }
 
-    public override async Task Floor_float(bool async)
+    public override async Task Floor_float()
     {
-        await base.Floor_float(async);
+        await base.Floor_float();
 
         AssertSql(
             """
@@ -126,9 +126,9 @@ WHERE FIX(`b`.`Float`) = 8
 """);
     }
 
-    public override async Task Power(bool async)
+    public override async Task Power()
     {
-        await base.Power(async);
+        await base.Power();
 
         AssertSql(
             """
@@ -138,9 +138,9 @@ WHERE CDBL(`b`.`Int`)^2.0 = 64.0
 """);
     }
 
-    public override async Task Power_float(bool async)
+    public override async Task Power_float()
     {
-        await base.Power_float(async);
+        await base.Power_float();
 
         AssertSql(
             """
@@ -150,9 +150,9 @@ WHERE `b`.`Float`^2 > 73 AND `b`.`Float`^2 < 74
 """);
     }
 
-    public override async Task Round_decimal(bool async)
+    public override async Task Round_decimal()
     {
-        await base.Round_decimal(async);
+        await base.Round_decimal();
 
         AssertSql(
             """
@@ -167,9 +167,9 @@ FROM `BasicTypesEntities` AS `b`
 """);
     }
 
-    public override async Task Round_double(bool async)
+    public override async Task Round_double()
     {
-        await base.Round_double(async);
+        await base.Round_double();
 
         AssertSql(
             """
@@ -184,9 +184,9 @@ FROM `BasicTypesEntities` AS `b`
 """);
     }
 
-    public override async Task Round_float(bool async)
+    public override async Task Round_float()
     {
-        await base.Round_float(async);
+        await base.Round_float();
 
         AssertSql(
             """
@@ -201,9 +201,9 @@ FROM `BasicTypesEntities` AS `b`
 """);
     }
 
-    public override async Task Round_with_digits_decimal(bool async)
+    public override async Task Round_with_digits_decimal()
     {
-        await base.Round_with_digits_decimal(async);
+        await base.Round_with_digits_decimal();
 
         AssertSql(
             """
@@ -213,9 +213,9 @@ WHERE ROUND(`b`.`Decimal`, 1) = 255.1
 """);
     }
 
-    public override async Task Round_with_digits_double(bool async)
+    public override async Task Round_with_digits_double()
     {
-        await base.Round_with_digits_double(async);
+        await base.Round_with_digits_double();
 
         AssertSql(
             """
@@ -225,9 +225,9 @@ WHERE ROUND(`b`.`Double`, 1) = 255.1
 """);
     }
 
-    public override async Task Round_with_digits_float(bool async)
+    public override async Task Round_with_digits_float()
     {
-        await base.Round_with_digits_float(async);
+        await base.Round_with_digits_float();
 
         AssertSql(
             """
@@ -237,9 +237,9 @@ WHERE ROUND(CDBL(`b`.`Float`), 1) = 255.1
 """);
     }
 
-    public override async Task Truncate_decimal(bool async)
+    public override async Task Truncate_decimal()
     {
-        await base.Truncate_decimal(async);
+        await base.Truncate_decimal();
 
         AssertSql(
             """
@@ -254,9 +254,9 @@ FROM [BasicTypesEntities] AS [b]
 """);
     }
 
-    public override async Task Truncate_double(bool async)
+    public override async Task Truncate_double()
     {
-        await base.Truncate_double(async);
+        await base.Truncate_double();
 
         AssertSql(
             """
@@ -271,9 +271,9 @@ FROM [BasicTypesEntities] AS [b]
 """);
     }
 
-    public override async Task Truncate_float(bool async)
+    public override async Task Truncate_float()
     {
-        await base.Truncate_float(async);
+        await base.Truncate_float();
 
         AssertSql(
             """
@@ -288,9 +288,9 @@ FROM [BasicTypesEntities] AS [b]
 """);
     }
 
-    public override async Task Truncate_project_and_order_by_it_twice(bool async)
+    public override async Task Truncate_project_and_order_by_it_twice()
     {
-        await base.Truncate_project_and_order_by_it_twice(async);
+        await base.Truncate_project_and_order_by_it_twice();
 
         AssertSql(
             """
@@ -306,9 +306,9 @@ ORDER BY ROUND([b].[Double], 0, 1)
     //FROM [Orders] AS [o]
     //WHERE [o].[OrderID] < 10250
     //ORDER BY [A]");
-    public override async Task Truncate_project_and_order_by_it_twice2(bool async)
+    public override async Task Truncate_project_and_order_by_it_twice2()
     {
-        await base.Truncate_project_and_order_by_it_twice2(async);
+        await base.Truncate_project_and_order_by_it_twice2();
 
         AssertSql(
             """
@@ -324,9 +324,9 @@ ORDER BY ROUND([b].[Double], 0, 1) DESC
     //FROM [Orders] AS [o]
     //WHERE [o].[OrderID] < 10250
     //ORDER BY [A] DESC");
-    public override async Task Truncate_project_and_order_by_it_twice3(bool async)
+    public override async Task Truncate_project_and_order_by_it_twice3()
     {
-        await base.Truncate_project_and_order_by_it_twice3(async);
+        await base.Truncate_project_and_order_by_it_twice3();
 
         AssertSql(
             """
@@ -336,9 +336,9 @@ ORDER BY ROUND([b].[Double], 0, 1) DESC
 """);
     }
 
-    public override async Task Exp(bool async)
+    public override async Task Exp()
     {
-        await base.Exp(async);
+        await base.Exp();
 
         AssertSql(
             """
@@ -348,9 +348,9 @@ WHERE EXP(`b`.`Double`) > 1.0
 """);
     }
 
-    public override async Task Exp_float(bool async)
+    public override async Task Exp_float()
     {
-        await base.Exp_float(async);
+        await base.Exp_float();
 
         AssertSql(
             """
@@ -360,9 +360,9 @@ WHERE EXP(`b`.`Float`) > 1
 """);
     }
 
-    public override async Task Log(bool async)
+    public override async Task Log()
     {
-        await base.Log(async);
+        await base.Log();
 
         AssertSql(
             """
@@ -372,9 +372,9 @@ WHERE `b`.`Double` > 0.0 AND LOG(`b`.`Double`) <> 0.0
 """);
     }
 
-    public override async Task Log_float(bool async)
+    public override async Task Log_float()
     {
-        await base.Log_float(async);
+        await base.Log_float();
 
         AssertSql(
             """
@@ -384,9 +384,9 @@ WHERE `b`.`Float` > 0 AND LOG(`b`.`Float`) <> 0
 """);
     }
 
-    public override async Task Log_with_newBase(bool async)
+    public override async Task Log_with_newBase()
     {
-        await base.Log_with_newBase(async);
+        await base.Log_with_newBase();
 
         AssertSql(
             """
@@ -396,9 +396,9 @@ WHERE `b`.`Double` > 0.0 AND (LOG(`b`.`Double`) / LOG(7.0)) <> 0.0
 """);
     }
 
-    public override async Task Log_with_newBase_float(bool async)
+    public override async Task Log_with_newBase_float()
     {
-        await base.Log_with_newBase_float(async);
+        await base.Log_with_newBase_float();
 
         AssertSql(
             """
@@ -408,9 +408,9 @@ WHERE `b`.`Float` > 0 AND (LOG(`b`.`Float`) / LOG(7)) <> 0
 """);
     }
 
-    public override async Task Log10(bool async)
+    public override async Task Log10()
     {
-        await base.Log10(async);
+        await base.Log10();
 
         AssertSql(
             """
@@ -420,9 +420,9 @@ WHERE `b`.`Double` > 0.0 AND (LOG(`b`.`Double`) / 2.30258509299405) <> 0.0
 """);
     }
 
-    public override async Task Log10_float(bool async)
+    public override async Task Log10_float()
     {
-        await base.Log10_float(async);
+        await base.Log10_float();
 
         AssertSql(
             """
@@ -432,12 +432,12 @@ WHERE `b`.`Float` > 0 AND (LOG(`b`.`Float`) / 2.302585) <> 0
 """);
     }
 
-    public override async Task Log2(bool async)
-        => await AssertTranslationFailed(() => base.Log2(async));
+    public override async Task Log2()
+        => await AssertTranslationFailed(() => base.Log2());
 
-    public override async Task Sqrt(bool async)
+    public override async Task Sqrt()
     {
-        await base.Sqrt(async);
+        await base.Sqrt();
 
         AssertSql(
             """
@@ -447,9 +447,9 @@ WHERE `b`.`Double` > 0.0 AND SQR(`b`.`Double`) > 0.0
 """);
     }
 
-    public override async Task Sqrt_float(bool async)
+    public override async Task Sqrt_float()
     {
-        await base.Sqrt_float(async);
+        await base.Sqrt_float();
 
         AssertSql(
             """
@@ -459,9 +459,9 @@ WHERE `b`.`Float` > 0 AND SQR(`b`.`Float`) > 0
 """);
     }
 
-    public override async Task Sign(bool async)
+    public override async Task Sign()
     {
-        await base.Sign(async);
+        await base.Sign();
 
         AssertSql(
             """
@@ -471,9 +471,9 @@ WHERE SGN(`b`.`Double`) > 0.0
 """);
     }
 
-    public override async Task Sign_float(bool async)
+    public override async Task Sign_float()
     {
-        await base.Sign_float(async);
+        await base.Sign_float();
 
         AssertSql(
             """
@@ -483,27 +483,27 @@ WHERE SGN(`b`.`Float`) > 0
 """);
     }
 
-    public override Task Max(bool async)
-        => AssertTranslationFailed(() => base.Max(async));
+    public override Task Max()
+        => AssertTranslationFailed(() => base.Max());
 
-    public override Task Max_nested(bool async)
-        => AssertTranslationFailed(() => base.Max_nested(async));
+    public override Task Max_nested()
+        => AssertTranslationFailed(() => base.Max_nested());
 
-    public override Task Max_nested_twice(bool async)
-        => AssertTranslationFailed(() => base.Max_nested_twice(async));
+    public override Task Max_nested_twice()
+        => AssertTranslationFailed(() => base.Max_nested_twice());
 
-    public override Task Min(bool async)
-        => AssertTranslationFailed(() => base.Min(async));
+    public override Task Min()
+        => AssertTranslationFailed(() => base.Min());
 
-    public override Task Min_nested(bool async)
-        => AssertTranslationFailed(() => base.Min_nested(async));
+    public override Task Min_nested()
+        => AssertTranslationFailed(() => base.Min_nested());
 
-    public override Task Min_nested_twice(bool async)
-        => AssertTranslationFailed(() => base.Min_nested_twice(async));
+    public override Task Min_nested_twice()
+        => AssertTranslationFailed(() => base.Min_nested_twice());
 
-    public override async Task Degrees(bool async)
+    public override async Task Degrees()
     {
-        await base.Degrees(async);
+        await base.Degrees();
 
         AssertSql(
             """
@@ -513,9 +513,9 @@ WHERE (`b`.`Double` * (180.0 / 3.14159265358979)) > 0.0
 """);
     }
 
-    public override async Task Degrees_float(bool async)
+    public override async Task Degrees_float()
     {
-        await base.Degrees_float(async);
+        await base.Degrees_float();
 
         AssertSql(
             """
@@ -525,9 +525,9 @@ WHERE (`b`.`Float` * (180 / 3.141593)) > 0
 """);
     }
 
-    public override async Task Radians(bool async)
+    public override async Task Radians()
     {
-        await base.Radians(async);
+        await base.Radians();
 
         AssertSql(
             """
@@ -537,9 +537,9 @@ WHERE (`b`.`Double` * (3.14159265358979 / 180.0)) > 0.0
 """);
     }
 
-    public override async Task Radians_float(bool async)
+    public override async Task Radians_float()
     {
-        await base.Radians_float(async);
+        await base.Radians_float();
 
         AssertSql(
             """
@@ -551,9 +551,9 @@ WHERE (`b`.`Float` * (3.141593 / 180)) > 0
 
     #region Trigonometry
 
-    public override async Task Acos(bool async)
+    public override async Task Acos()
     {
-        await base.Acos(async);
+        await base.Acos();
 
         AssertSql(
             """
@@ -563,9 +563,9 @@ WHERE `b`.`Double` >= -1.0 AND `b`.`Double` <= 1.0 AND (1.5707963267949 + ATN(-`
 """);
     }
 
-    public override async Task Acos_float(bool async)
+    public override async Task Acos_float()
     {
-        await base.Acos_float(async);
+        await base.Acos_float();
 
         AssertSql(
             """
@@ -575,12 +575,12 @@ WHERE `b`.`Float` >= -1 AND `b`.`Float` <= 1 AND (1.5707963267949 + ATN(-`b`.`Fl
 """);
     }
 
-    public override async Task Acosh(bool async)
-        => await AssertTranslationFailed(() => base.Acosh(async));
+    public override async Task Acosh()
+        => await AssertTranslationFailed(() => base.Acosh());
 
-    public override async Task Asin(bool async)
+    public override async Task Asin()
     {
-        await base.Asin(async);
+        await base.Asin();
 
         AssertSql(
             """
@@ -590,9 +590,9 @@ WHERE [b].[Double] >= -1.0E0 AND [b].[Double] <= 1.0E0 AND ASIN([b].[Double]) > 
 """);
     }
 
-    public override async Task Asin_float(bool async)
+    public override async Task Asin_float()
     {
-        await base.Asin_float(async);
+        await base.Asin_float();
 
         AssertSql(
             """
@@ -602,12 +602,12 @@ WHERE [b].[Float] >= CAST(-1 AS real) AND [b].[Float] <= CAST(1 AS real) AND CAS
 """);
     }
 
-    public override async Task Asinh(bool async)
-        => await AssertTranslationFailed(() => base.Asinh(async));
+    public override async Task Asinh()
+        => await AssertTranslationFailed(() => base.Asinh());
 
-    public override async Task Atan(bool async)
+    public override async Task Atan()
     {
-        await base.Atan(async);
+        await base.Atan();
 
         AssertSql(
             """
@@ -617,9 +617,9 @@ WHERE ATN(`b`.`Double`) > 0.0
 """);
     }
 
-    public override async Task Atan_float(bool async)
+    public override async Task Atan_float()
     {
-        await base.Atan_float(async);
+        await base.Atan_float();
 
         AssertSql(
             """
@@ -629,12 +629,12 @@ WHERE ATN(`b`.`Float`) > 0
 """);
     }
 
-    public override async Task Atanh(bool async)
-        => await AssertTranslationFailed(() => base.Atanh(async));
+    public override async Task Atanh()
+        => await AssertTranslationFailed(() => base.Atanh());
 
-    public override async Task Atan2(bool async)
+    public override async Task Atan2()
     {
-        await base.Atan2(async);
+        await base.Atan2();
 
         AssertSql(
             """
@@ -644,9 +644,9 @@ WHERE ATN(`b`.`Double` / 1.0) > 0.0
 """);
     }
 
-    public override async Task Atan2_float(bool async)
+    public override async Task Atan2_float()
     {
-        await base.Atan2_float(async);
+        await base.Atan2_float();
 
         AssertSql(
             """
@@ -656,9 +656,9 @@ WHERE ATN(`b`.`Float` / 1) > 0
 """);
     }
 
-    public override async Task Cos(bool async)
+    public override async Task Cos()
     {
-        await base.Cos(async);
+        await base.Cos();
 
         AssertSql(
             """
@@ -668,9 +668,9 @@ WHERE COS(`b`.`Double`) > 0.0
 """);
     }
 
-    public override async Task Cos_float(bool async)
+    public override async Task Cos_float()
     {
-        await base.Cos_float(async);
+        await base.Cos_float();
 
         AssertSql(
             """
@@ -680,12 +680,12 @@ WHERE COS(`b`.`Float`) > 0
 """);
     }
 
-    public override async Task Cosh(bool async)
-        => await AssertTranslationFailed(() => base.Cosh(async));
+    public override async Task Cosh()
+        => await AssertTranslationFailed(() => base.Cosh());
 
-    public override async Task Sin(bool async)
+    public override async Task Sin()
     {
-        await base.Sin(async);
+        await base.Sin();
 
         AssertSql(
             """
@@ -695,9 +695,9 @@ WHERE SIN(`b`.`Double`) > 0.0
 """);
     }
 
-    public override async Task Sin_float(bool async)
+    public override async Task Sin_float()
     {
-        await base.Sin_float(async);
+        await base.Sin_float();
 
         AssertSql(
             """
@@ -707,12 +707,12 @@ WHERE SIN(`b`.`Float`) > 0
 """);
     }
 
-    public override async Task Sinh(bool async)
-        => await AssertTranslationFailed(() => base.Sinh(async));
+    public override async Task Sinh()
+        => await AssertTranslationFailed(() => base.Sinh());
 
-    public override async Task Tan(bool async)
+    public override async Task Tan()
     {
-        await base.Tan(async);
+        await base.Tan();
 
         AssertSql(
             """
@@ -722,9 +722,9 @@ WHERE TAN(`b`.`Double`) > 0.0
 """);
     }
 
-    public override async Task Tan_float(bool async)
+    public override async Task Tan_float()
     {
-        await base.Tan_float(async);
+        await base.Tan_float();
 
         AssertSql(
             """
@@ -734,8 +734,8 @@ WHERE TAN(`b`.`Float`) > 0
 """);
     }
 
-    public override async Task Tanh(bool async)
-        => await AssertTranslationFailed(() => base.Tanh(async));
+    public override async Task Tanh()
+        => await AssertTranslationFailed(() => base.Tanh());
 
     #endregion Trigonometry
 

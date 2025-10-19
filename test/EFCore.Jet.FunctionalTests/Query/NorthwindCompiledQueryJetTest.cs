@@ -179,16 +179,20 @@ WHERE `c`.`CustomerID` = @customerID
             base.Query_with_contains();
 
             AssertSql(
-"""
+                """
+@args1='ALFKI' (Size = 5)
+
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = 'ALFKI'
+WHERE `c`.`CustomerID` = @args1
 """,
-//
-"""
+                //
+                """
+@args1='ANATR' (Size = 5)
+
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE `c`.`CustomerID` = 'ANATR'
+WHERE `c`.`CustomerID` = @args1
 """);
         }
 
@@ -554,10 +558,10 @@ ORDER BY `m`.`CompanyName`
             await base.Query_with_closure_async_null();
 
             AssertSql(
-"""
+                """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE 0 = 1
+WHERE FALSE
 """);
         }
 
@@ -663,7 +667,7 @@ ORDER BY `m`.`CompanyName`
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE 0 = 1
+WHERE FALSE
 """);
         }
 

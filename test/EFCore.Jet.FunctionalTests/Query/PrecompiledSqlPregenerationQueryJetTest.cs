@@ -249,9 +249,12 @@ var blogs = await context.Blogs.Where(b => names.Contains(b.Name)).ToListAsync()
 
         AssertSql(
             """
+@names1='foo' (Size = 255)
+@names2='bar' (Size = 255)
+
 SELECT `b`.`Id`, `b`.`Name`
 FROM `Blogs` AS `b`
-WHERE `b`.`Name` IN ('foo', 'bar')
+WHERE `b`.`Name` IN (@names1, @names2)
 """);
     }
 

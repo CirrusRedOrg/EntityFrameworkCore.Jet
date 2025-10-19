@@ -39,6 +39,9 @@ public class JetParameterBasedSqlProcessor(
 
         */
 
+        // Run the compatibility checks as late in the query pipeline (before the actual SQL translation happens) as reasonable.
+        afterSearchConditionConversion = new JetCompatibilityExpressionVisitor().Visit(afterSearchConditionConversion);
+
         return afterSearchConditionConversion;
     }
 

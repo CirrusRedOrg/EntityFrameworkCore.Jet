@@ -160,11 +160,11 @@ WHERE `o`.`OrderDate` = CDATE(@arg)
             await base.Static_equals_int_compared_to_long(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                    FROM `Orders` AS `o`
-                    WHERE 0 = 1
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE FALSE
+""");
         }
 
        [ConditionalTheory]

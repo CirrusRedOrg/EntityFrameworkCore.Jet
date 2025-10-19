@@ -239,10 +239,10 @@ FROM `Customers` AS `c`
             await base.Select_anonymous_conditional_expression(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `p`.`ProductID`, IIF(`p`.`UnitsInStock` > 0, TRUE, FALSE) AS `IsAvailable`
-                    FROM `Products` AS `p`
-                    """);
+                """
+SELECT `p`.`ProductID`, `p`.`UnitsInStock` > 0 AS `IsAvailable`
+FROM `Products` AS `p`
+""");
         }
 
         public override async Task Select_constant_int(bool isAsync)
@@ -690,11 +690,11 @@ ORDER BY `c`.`CustomerID`
             await base.Select_conditional_with_null_comparison_in_test(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT IIF(`o`.`CustomerID` IS NULL, TRUE, IIF(`o`.`OrderID` < 100, TRUE, FALSE))
-                    FROM `Orders` AS `o`
-                    WHERE `o`.`CustomerID` = 'ALFKI'
-                    """);
+                """
+SELECT IIF(`o`.`CustomerID` IS NULL, TRUE, `o`.`OrderID` < 100)
+FROM `Orders` AS `o`
+WHERE `o`.`CustomerID` = 'ALFKI'
+""");
         }
 
         public override async Task Select_over_10_nested_ternary_condition(bool isAsync)
@@ -1194,8 +1194,8 @@ FROM `Customers` AS `c`
             await base.Projecting_nullable_struct(isAsync);
 
             AssertSql(
-"""
-SELECT `o`.`CustomerID`, IIF(`o`.`CustomerID` = 'ALFKI' AND `o`.`CustomerID` IS NOT NULL, TRUE, FALSE), `o`.`OrderID`, IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
+                """
+SELECT `o`.`CustomerID`, `o`.`CustomerID` = 'ALFKI' AND `o`.`CustomerID` IS NOT NULL, `o`.`OrderID`, IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
 FROM `Orders` AS `o`
 """);
         }
@@ -1542,12 +1542,12 @@ ORDER BY `o`.`OrderID`, `c`.`CustomerID`
             await base.Select_entity_compared_to_null(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT IIF(`c`.`CustomerID` IS NULL, TRUE, FALSE)
-                    FROM `Orders` AS `o`
-                    LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-                    WHERE `o`.`CustomerID` = 'ALFKI'
-                    """);
+                """
+SELECT `c`.`CustomerID` IS NULL
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+WHERE `o`.`CustomerID` = 'ALFKI'
+""");
         }
 
         public override async Task Explicit_cast_in_arithmetic_operation_is_preserved(bool async)
@@ -1583,14 +1583,14 @@ WHERE [o].[OrderID] = 10243
             await base.Collection_FirstOrDefault_with_entity_equality_check_in_projection(isAsync);
 
             AssertSql(
-"""
-SELECT IIF(NOT EXISTS (
-        SELECT 1
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`) OR NOT EXISTS (
-        SELECT 1
-        FROM `Orders` AS `o0`
-        WHERE `c`.`CustomerID` = `o0`.`CustomerID`), TRUE, FALSE)
+                """
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) OR NOT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o0`
+    WHERE `c`.`CustomerID` = `o0`.`CustomerID`)
 FROM `Customers` AS `c`
 """);
         }
@@ -1981,8 +1981,8 @@ ORDER BY `c`.`CustomerID`
             await base.Projection_custom_type_in_both_sides_of_ternary(async);
 
             AssertSql(
-"""
-SELECT IIF(`c`.`City` = 'Seattle' AND `c`.`City` IS NOT NULL, TRUE, FALSE)
+                """
+SELECT `c`.`City` = 'Seattle' AND `c`.`City` IS NOT NULL
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`
 """);
@@ -2171,11 +2171,11 @@ ORDER BY `c0`.`CustomerID`
 
             AssertSql(
                 """
-                    SELECT `o`.`CustomerID`, IIF(`o`.`OrderDate` IS NOT NULL, TRUE, FALSE), `o`.`OrderDate`, `o`.`OrderID` - 10000, IIF(`o`.`OrderDate` IS NULL, TRUE, FALSE)
-                    FROM `Orders` AS `o`
-                    WHERE `o`.`OrderID` < 10300
-                    ORDER BY `o`.`OrderID`
-                    """);
+SELECT `o`.`CustomerID`, `o`.`OrderDate` IS NOT NULL, `o`.`OrderDate`, `o`.`OrderID` - 10000, `o`.`OrderDate` IS NULL
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` < 10300
+ORDER BY `o`.`OrderID`
+""");
         }
 
         public override async Task Projecting_after_navigation_and_distinct(bool async)

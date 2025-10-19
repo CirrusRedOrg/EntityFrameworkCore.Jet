@@ -179,7 +179,7 @@ WHERE `r`.`Rot_ApartmentNo` IS NOT NULL OR `r`.`Rot_ServiceType` IS NOT NULL
 
         AssertSql(
             """
-SELECT IIF(`r`.`Rot_ApartmentNo` IS NULL AND `r`.`Rot_ServiceType` IS NULL, TRUE, FALSE), `r`.`Rot_ApartmentNo`, `r`.`Rot_ServiceType`
+SELECT `r`.`Rot_ApartmentNo` IS NULL AND `r`.`Rot_ServiceType` IS NULL, `r`.`Rot_ApartmentNo`, `r`.`Rot_ServiceType`
 FROM `RotRutCases` AS `r`
 ORDER BY `r`.`Id`
 """);
@@ -191,7 +191,7 @@ ORDER BY `r`.`Id`
 
         AssertSql(
             """
-SELECT IIF(`r`.`Rot_ApartmentNo` IS NOT NULL OR `r`.`Rot_ServiceType` IS NOT NULL, TRUE, FALSE), `r`.`Rot_ApartmentNo`, `r`.`Rot_ServiceType`
+SELECT `r`.`Rot_ApartmentNo` IS NOT NULL OR `r`.`Rot_ServiceType` IS NOT NULL, `r`.`Rot_ApartmentNo`, `r`.`Rot_ServiceType`
 FROM `RotRutCases` AS `r`
 ORDER BY `r`.`Id`
 """);

@@ -83,7 +83,7 @@ WHERE `u`.`CountryId` = 1 AND `u`.`Discriminator` = 'Kiwi' AND `u`.`CountryId` =
 
         AssertSql(
             """
-SELECT IIF(`u`.`Discriminator` = 'Kiwi', TRUE, FALSE)
+SELECT `u`.`Discriminator` = 'Kiwi'
 FROM (
     SELECT `e`.`CountryId`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`

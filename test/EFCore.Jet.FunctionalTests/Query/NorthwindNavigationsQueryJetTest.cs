@@ -511,13 +511,13 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`, `o0`.`OrderID`, `c`.`CustomerID`
             await base.Collection_select_nav_prop_any(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT IIF(EXISTS (
-                            SELECT 1
-                            FROM `Orders` AS `o`
-                            WHERE `c`.`CustomerID` = `o`.`CustomerID`), TRUE, FALSE) AS `Any`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Any`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Collection_select_nav_prop_predicate(bool isAsync)
@@ -526,10 +526,10 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`, `o0`.`OrderID`, `c`.`CustomerID`
 
             AssertSql(
                 """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)
 FROM `Customers` AS `c`
 """);
         }
@@ -569,11 +569,11 @@ FROM `Customers` AS `c`
             await base.Collection_select_nav_prop_all(isAsync);
 
             AssertSql(
-"""
-SELECT IIF(NOT EXISTS (
-        SELECT 1
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID` AND (`o`.`CustomerID` <> 'ALFKI' OR `o`.`CustomerID` IS NULL)), TRUE, FALSE) AS `All`
+                """
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND (`o`.`CustomerID` <> 'ALFKI' OR `o`.`CustomerID` IS NULL)) AS `All`
 FROM `Customers` AS `c`
 """);
         }
@@ -674,17 +674,17 @@ ORDER BY `c0`.`c`, `c0`.`CustomerID`
             await base.Select_multiple_complex_projections(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT (
     SELECT COUNT(*)
     FROM `Order Details` AS `o0`
-    WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `collection1`, `o`.`OrderDate` AS `scalar1`, IIF(EXISTS (
-        SELECT 1
-        FROM `Order Details` AS `o1`
-        WHERE `o`.`OrderID` = `o1`.`OrderID` AND `o1`.`UnitPrice` > 10.0), TRUE, FALSE) AS `any`, IIF(`o`.`CustomerID` = 'ALFKI', '50', '10') AS `conditional`, `o`.`OrderID` AS `scalar2`, IIF(NOT EXISTS (
-        SELECT 1
-        FROM `Order Details` AS `o2`
-        WHERE `o`.`OrderID` = `o2`.`OrderID` AND `o2`.`OrderID` <> 42), TRUE, FALSE) AS `all`, (
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `collection1`, `o`.`OrderDate` AS `scalar1`, EXISTS (
+    SELECT 1
+    FROM `Order Details` AS `o1`
+    WHERE `o`.`OrderID` = `o1`.`OrderID` AND `o1`.`UnitPrice` > 10.0) AS `any`, IIF(`o`.`CustomerID` = 'ALFKI', '50', '10') AS `conditional`, `o`.`OrderID` AS `scalar2`, NOT EXISTS (
+    SELECT 1
+    FROM `Order Details` AS `o2`
+    WHERE `o`.`OrderID` = `o2`.`OrderID` AND `o2`.`OrderID` <> 42) AS `all`, (
     SELECT COUNT(*)
     FROM `Order Details` AS `o3`
     WHERE `o`.`OrderID` = `o3`.`OrderID`) AS `collection2`

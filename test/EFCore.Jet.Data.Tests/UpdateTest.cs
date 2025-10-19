@@ -27,7 +27,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         public void UpdateTestRun()
         {
             var queries = Helpers.GetQueries(Properties.Resources.UpdateTestQueries);
-            Assert.AreEqual(6, queries.Length);
+            Assert.HasCount(6, queries);
 
             DbDataReader reader;
             for (var index = 0; index < queries.Length - 2; index++)
@@ -49,7 +49,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         public void UpdateTestWithTransactionsRun()
         {
             var queries = Helpers.GetQueries(Properties.Resources.UpdateTestQueries);
-            Assert.AreEqual(6, queries.Length);
+            Assert.HasCount(6, queries);
 
             DbDataReader reader;
             for (var index = 0; index < queries.Length - 2; index++)

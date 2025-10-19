@@ -25,7 +25,7 @@ public class TPTInheritanceQueryJetTest(TPTInheritanceQueryJetFixture fixture, I
 
         AssertSql(
             """
-SELECT IIF(`b`.`IsFlightless` = TRUE, CBYTE(0), CBYTE(1))
+SELECT IIF(`b`.`IsFlightless`, CBYTE(0), CBYTE(1))
 FROM (`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
@@ -148,7 +148,7 @@ SELECT `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `d`.`AdditionalI
 FROM (`Plants` AS `p`
 INNER JOIN `Flowers` AS `f` ON `p`.`Species` = `f`.`Species`)
 INNER JOIN `Daisies` AS `d` ON `p`.`Species` = `d`.`Species`
-WHERE `d`.`AdditionalInfo_LeafStructure_AreLeavesBig` = TRUE
+WHERE `d`.`AdditionalInfo_LeafStructure_AreLeavesBig`
 """);
     }
 
@@ -274,8 +274,8 @@ LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
         await base.Can_use_is_kiwi_in_projection(async);
 
         AssertSql(
-"""
-SELECT IIF(`k`.`Id` IS NOT NULL, TRUE, FALSE)
+            """
+SELECT `k`.`Id` IS NOT NULL
 FROM `Animals` AS `a`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 """);
@@ -671,13 +671,13 @@ WHERE `k`.`Id` IS NOT NULL AND `e`.`Id` IS NOT NULL
         await base.GetType_in_hierarchy_in_abstract_base_type(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE 0 = 1
+WHERE FALSE
 """);
     }
 
@@ -686,13 +686,13 @@ WHERE 0 = 1
         await base.GetType_in_hierarchy_in_intermediate_type(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-WHERE 0 = 1
+WHERE FALSE
 """);
     }
 

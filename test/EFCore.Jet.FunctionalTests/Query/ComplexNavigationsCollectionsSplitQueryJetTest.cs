@@ -1247,7 +1247,7 @@ ORDER BY `l`.`Id`
 SELECT `s`.`c`, `s`.`Name`, `l`.`Id`
 FROM `LevelOne` AS `l`
 INNER JOIN (
-    SELECT IIF(`l5`.`Id` IS NULL, TRUE, FALSE) AS `c`, `l5`.`Name`, `l4`.`OneToMany_Optional_Inverse2Id`
+    SELECT `l5`.`Id` IS NULL AS `c`, `l5`.`Name`, `l4`.`OneToMany_Optional_Inverse2Id`
     FROM `LevelTwo` AS `l4`
     LEFT JOIN `LevelThree` AS `l5` ON `l4`.`Id` = `l5`.`Level2_Required_Id`
 ) AS `s` ON `l`.`Id` = `s`.`OneToMany_Optional_Inverse2Id`
@@ -1270,7 +1270,7 @@ ORDER BY `l`.`Id`
 SELECT `s`.`c`, `s`.`Name`, `l`.`Id`
 FROM `LevelOne` AS `l`
 INNER JOIN (
-    SELECT IIF(`l5`.`Id` IS NULL, TRUE, FALSE) AS `c`, `l5`.`Name`, `l4`.`OneToMany_Optional_Inverse2Id`
+    SELECT `l5`.`Id` IS NULL AS `c`, `l5`.`Name`, `l4`.`OneToMany_Optional_Inverse2Id`
     FROM `LevelTwo` AS `l4`
     LEFT JOIN `LevelThree` AS `l5` ON `l4`.`Id` = `l5`.`Level2_Required_Id`
 ) AS `s` ON `l`.`Id` = `s`.`OneToMany_Optional_Inverse2Id`
@@ -3231,19 +3231,25 @@ ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
 
         AssertSql(
             """
+@validIds1='L1 01' (Size = 255)
+@validIds2='L1 02' (Size = 255)
+
 SELECT IIF(`l0`.`Id` IS NULL, 0, `l0`.`Id`), `l`.`Id`, `l0`.`Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`
-WHERE `l`.`Name` IN ('L1 01', 'L1 02')
+WHERE `l`.`Name` IN (@validIds1, @validIds2)
 ORDER BY `l`.`Id`, `l0`.`Id`
 """,
             //
             """
+@validIds3='L1 01' (Size = 255)
+@validIds4='L1 02' (Size = 255)
+
 SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Required_Inverse3Id`
-WHERE (`l`.`Name` IN ('L1 01', 'L1 02')) AND (`l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Required_Inverse3Id` IS NOT NULL)
+WHERE (`l`.`Name` IN (@validIds3, @validIds4)) AND (`l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Required_Inverse3Id` IS NOT NULL)
 ORDER BY `l`.`Id`, `l0`.`Id`
 """);
     }
@@ -3776,25 +3782,33 @@ ORDER BY [l].[Id], [t].[Date], [t0].[Name], [t0].[Date]
 
         AssertSql(
             """
+@validIds1='L1 01' (Size = 255)
+@validIds2='L1 02' (Size = 255)
+
 SELECT `l`.`Date`
 FROM `LevelOne` AS `l`
-WHERE `l`.`Name` IN ('L1 01', 'L1 02')
+WHERE `l`.`Name` IN (@validIds1, @validIds2)
 GROUP BY `l`.`Date`
 ORDER BY `l`.`Date`
 """,
             //
             """
+@validIds3='L1 01' (Size = 255)
+@validIds4='L1 02' (Size = 255)
+@validIds3='L1 01' (Size = 255)
+@validIds4='L1 02' (Size = 255)
+
 SELECT `l5`.`Id`, `l4`.`Date`
 FROM (
     SELECT `l`.`Date`
     FROM `LevelOne` AS `l`
-    WHERE `l`.`Name` IN ('L1 01', 'L1 02')
+    WHERE `l`.`Name` IN (@validIds3, @validIds4)
     GROUP BY `l`.`Date`
 ) AS `l4`
 INNER JOIN (
     SELECT `l3`.`Id`, `l3`.`Date`
     FROM `LevelOne` AS `l3`
-    WHERE `l3`.`Name` IN ('L1 01', 'L1 02')
+    WHERE `l3`.`Name` IN (@validIds3, @validIds4)
 ) AS `l5` ON `l4`.`Date` = `l5`.`Date`
 ORDER BY `l4`.`Date`
 """);

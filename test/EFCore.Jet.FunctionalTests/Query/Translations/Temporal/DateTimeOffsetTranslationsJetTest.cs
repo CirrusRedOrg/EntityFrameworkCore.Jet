@@ -18,9 +18,9 @@ public class DateTimeOffsetTranslationsJetTest : DateTimeOffsetTranslationsTestB
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    public override async Task Now(bool async)
+    public override async Task Now()
     {
-        await base.Now(async);
+        await base.Now();
 
         AssertSql(
             """
@@ -30,9 +30,9 @@ WHERE `b`.`DateTimeOffset` <> NOW()
 """);
     }
 
-    public override async Task UtcNow(bool async)
+    public override async Task UtcNow()
     {
-        await base.UtcNow(async);
+        await base.UtcNow();
 
         AssertSql(
             """
@@ -42,9 +42,9 @@ WHERE `b`.`DateTimeOffset` <> DATEADD('n', -480.0, NOW())
 """);
     }
 
-    public override async Task Date(bool async)
+    public override async Task Date()
     {
-        await base.Date(async);
+        await base.Date();
 
         AssertSql(
             """
@@ -56,9 +56,9 @@ WHERE CONVERT(date, [b].[DateTimeOffset]) > @Date
 """);
     }
 
-    public override async Task Year(bool async)
+    public override async Task Year()
     {
-        await base.Year(async);
+        await base.Year();
 
         AssertSql(
             """
@@ -68,9 +68,9 @@ WHERE DATEPART('yyyy', `b`.`DateTimeOffset`) = 1998
 """);
     }
 
-    public override async Task Month(bool async)
+    public override async Task Month()
     {
-        await base.Month(async);
+        await base.Month();
 
         AssertSql(
             """
@@ -80,9 +80,9 @@ WHERE DATEPART('m', `b`.`DateTimeOffset`) = 5
 """);
     }
 
-    public override async Task DayOfYear(bool async)
+    public override async Task DayOfYear()
     {
-        await base.DayOfYear(async);
+        await base.DayOfYear();
 
         AssertSql(
             """
@@ -92,9 +92,9 @@ WHERE DATEPART('y', `b`.`DateTimeOffset`) = 124
 """);
     }
 
-    public override async Task Day(bool async)
+    public override async Task Day()
     {
-        await base.Day(async);
+        await base.Day();
 
         AssertSql(
             """
@@ -104,9 +104,9 @@ WHERE DATEPART('d', `b`.`DateTimeOffset`) = 4
 """);
     }
 
-    public override async Task Hour(bool async)
+    public override async Task Hour()
     {
-        await base.Hour(async);
+        await base.Hour();
 
         AssertSql(
             """
@@ -116,9 +116,9 @@ WHERE DATEPART(hour, [b].[DateTimeOffset]) = 15
 """);
     }
 
-    public override async Task Minute(bool async)
+    public override async Task Minute()
     {
-        await base.Minute(async);
+        await base.Minute();
 
         AssertSql(
             """
@@ -128,9 +128,9 @@ WHERE DATEPART(minute, [b].[DateTimeOffset]) = 30
 """);
     }
 
-    public override async Task Second(bool async)
+    public override async Task Second()
     {
-        await base.Second(async);
+        await base.Second();
 
         AssertSql(
             """
@@ -140,9 +140,9 @@ WHERE DATEPART('s', `b`.`DateTimeOffset`) = 10
 """);
     }
 
-    public override async Task Millisecond(bool async)
+    public override async Task Millisecond()
     {
-        await base.Millisecond(async);
+        await base.Millisecond();
 
         AssertSql(
             """
@@ -152,9 +152,9 @@ WHERE DATEPART(millisecond, [b].[DateTimeOffset]) = 123
 """);
     }
 
-    public override async Task Microsecond(bool async)
+    public override async Task Microsecond()
     {
-        await base.Microsecond(async);
+        await base.Microsecond();
 
         AssertSql(
             """
@@ -164,9 +164,9 @@ WHERE DATEPART(microsecond, [b].[DateTimeOffset]) % 1000 = 456
 """);
     }
 
-    public override async Task Nanosecond(bool async)
+    public override async Task Nanosecond()
     {
-        await base.Nanosecond(async);
+        await base.Nanosecond();
 
         AssertSql(
             """
@@ -176,9 +176,9 @@ WHERE DATEPART(nanosecond, [b].[DateTimeOffset]) % 1000 = 400
 """);
     }
 
-    public override async Task TimeOfDay(bool async)
+    public override async Task TimeOfDay()
     {
-        await base.TimeOfDay(async);
+        await base.TimeOfDay();
 
         AssertSql(
             """
@@ -187,9 +187,9 @@ FROM [BasicTypesEntities] AS [b]
 """);
     }
 
-    public override async Task AddYears(bool async)
+    public override async Task AddYears()
     {
-        await base.AddYears(async);
+        await base.AddYears();
 
         AssertSql(
             """
@@ -198,9 +198,9 @@ FROM `BasicTypesEntities` AS `b`
 """);
     }
 
-    public override async Task AddMonths(bool async)
+    public override async Task AddMonths()
     {
-        await base.AddMonths(async);
+        await base.AddMonths();
 
         AssertSql(
             """
@@ -209,9 +209,9 @@ FROM `BasicTypesEntities` AS `b`
 """);
     }
 
-    public override async Task AddDays(bool async)
+    public override async Task AddDays()
     {
-        await base.AddDays(async);
+        await base.AddDays();
 
         AssertSql(
             """
@@ -220,9 +220,9 @@ FROM `BasicTypesEntities` AS `b`
 """);
     }
 
-    public override async Task AddHours(bool async)
+    public override async Task AddHours()
     {
-        await base.AddHours(async);
+        await base.AddHours();
 
         AssertSql(
             """
@@ -231,9 +231,9 @@ FROM `BasicTypesEntities` AS `b`
 """);
     }
 
-    public override async Task AddMinutes(bool async)
+    public override async Task AddMinutes()
     {
-        await base.AddMinutes(async);
+        await base.AddMinutes();
 
         AssertSql(
             """
@@ -242,9 +242,9 @@ FROM `BasicTypesEntities` AS `b`
 """);
     }
 
-    public override async Task AddSeconds(bool async)
+    public override async Task AddSeconds()
     {
-        await base.AddSeconds(async);
+        await base.AddSeconds();
 
         AssertSql(
             """
@@ -253,9 +253,9 @@ FROM `BasicTypesEntities` AS `b`
 """);
     }
 
-    public override async Task AddMilliseconds(bool async)
+    public override async Task AddMilliseconds()
     {
-        await base.AddMilliseconds(async);
+        await base.AddMilliseconds();
 
         AssertSql(
             """
@@ -264,9 +264,9 @@ FROM [BasicTypesEntities] AS [b]
 """);
     }
 
-    public override async Task ToUnixTimeMilliseconds(bool async)
+    public override async Task ToUnixTimeMilliseconds()
     {
-        await base.ToUnixTimeMilliseconds(async);
+        await base.ToUnixTimeMilliseconds();
 
         AssertSql(
             """
@@ -278,9 +278,9 @@ WHERE DATEDIFF_BIG(millisecond, '1970-01-01T00:00:00.0000000+00:00', [b].[DateTi
 """);
     }
 
-    public override async Task ToUnixTimeSecond(bool async)
+    public override async Task ToUnixTimeSecond()
     {
-        await base.ToUnixTimeSecond(async);
+        await base.ToUnixTimeSecond();
 
         AssertSql(
             """
@@ -292,9 +292,9 @@ WHERE DATEDIFF('s', CDATE('1970-01-01 00:00:00'), `b`.`DateTimeOffset`) = @unixE
 """);
     }
 
-    public override async Task Milliseconds_parameter_and_constant(bool async)
+    public override async Task Milliseconds_parameter_and_constant()
     {
-        await base.Milliseconds_parameter_and_constant(async);
+        await base.Milliseconds_parameter_and_constant();
 
         AssertSql(
             """

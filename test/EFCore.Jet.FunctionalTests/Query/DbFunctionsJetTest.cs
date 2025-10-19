@@ -454,7 +454,7 @@ WHERE DATEDIFF(week, NULL, [o].[OrderDate]) = 5
                 """
 SELECT CBOOL(ISDATE(`o`.`CustomerID`))
 FROM `Orders` AS `o`
-WHERE CBOOL(ISDATE(`o`.`CustomerID`)) = FALSE
+WHERE NOT (CBOOL(ISDATE(`o`.`CustomerID`)))
 """);
         }
 
@@ -473,7 +473,7 @@ WHERE CBOOL(ISDATE(`o`.`CustomerID`)) = FALSE
                 """
 SELECT CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & ''))))
 FROM `Orders` AS `o`
-WHERE CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & '')))) = TRUE
+WHERE CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & ''))))
 """);
         }
 
@@ -489,11 +489,11 @@ WHERE CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & ''
                 c => false);
 
             AssertSql(
-                $"""
-                    SELECT COUNT(*)
-                    FROM `Orders` AS `o`
-                    WHERE CBOOL(ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`OrderID` & ''))) = TRUE
-                    """);
+                """
+SELECT COUNT(*)
+FROM `Orders` AS `o`
+WHERE CBOOL(ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`OrderID` & '')))
+""");
         }
 
         [ConditionalFact]

@@ -27,8 +27,8 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model55_Unicode
             base.DisposeContext();
             base.CreateContext();
             {
-                Assert.IsTrue(Context.Entities.SingleOrDefault(_ => _.Description == text1) != null);
-                Assert.IsTrue(Context.Entities.SingleOrDefault(_ => _.Description == text2) != null);
+                Assert.IsNotNull(Context.Entities.SingleOrDefault(_ => _.Description == text1));
+                Assert.IsNotNull(Context.Entities.SingleOrDefault(_ => _.Description == text2));
             }
         }
     }

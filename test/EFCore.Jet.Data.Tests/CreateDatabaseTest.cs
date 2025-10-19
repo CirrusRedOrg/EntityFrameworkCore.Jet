@@ -57,7 +57,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         {
             using var connection = new JetConnection();
 
-            Assert.ThrowsException<InvalidOperationException>(
+            Assert.Throws<InvalidOperationException>(
                 () => { using var command = connection.CreateCommand(); });
         }
         
@@ -111,7 +111,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             
             connection.ConnectionString = csb.ConnectionString;
             connection.Open();
-            Assert.IsTrue(connection.State == ConnectionState.Open);
+            Assert.AreEqual(ConnectionState.Open, connection.State);
         }
         
         [TestMethod]

@@ -204,11 +204,11 @@ ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
             AssertSql(
                 """
 SELECT IIF((
-        SELECT TOP 1 CBOOL(`o0`.`Id` BXOR 42)
+        SELECT TOP 1 `o0`.`Id` <> 42
         FROM `Order` AS `o0`
         WHERE `o`.`Id` = `o0`.`ClientId`
         ORDER BY `o0`.`Id`) IS NULL, FALSE, (
-        SELECT TOP 1 CBOOL(`o0`.`Id` BXOR 42)
+        SELECT TOP 1 `o0`.`Id` <> 42
         FROM `Order` AS `o0`
         WHERE `o`.`Id` = `o0`.`ClientId`
         ORDER BY `o0`.`Id`))

@@ -56,7 +56,7 @@ WHERE `o`.`Quantity` = @quantity
             //
             """
 DELETE FROM `Order Details` AS `o`
-WHERE 0 = 1
+WHERE FALSE
 """);
     }
 
@@ -760,7 +760,7 @@ WHERE `c`.`CustomerID` = @customer
             """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE 0 = 1
+WHERE FALSE
 """,
             //
             """
@@ -768,7 +768,7 @@ WHERE 0 = 1
 
 UPDATE `Customers` AS `c`
 SET `c`.`ContactName` = @p
-WHERE 0 = 1
+WHERE FALSE
 """);
     }
 
@@ -1620,7 +1620,7 @@ UPDATE (`Order Details` AS `o`
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 SET `o`.`Quantity` = IIF(@p IS NULL, NULL, CINT(@p))
-WHERE `p`.`Discontinued` = TRUE AND `o0`.`OrderDate` > #1990-01-01#
+WHERE `p`.`Discontinued` AND `o0`.`OrderDate` > #1990-01-01#
 """);
     }
 

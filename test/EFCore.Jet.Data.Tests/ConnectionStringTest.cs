@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
     [TestClass]
     public class ConnectionStringTest
     {
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(DataAccessProviderType.Odbc)]
         [DataRow(DataAccessProviderType.OleDb)]
         public void Escape_double_quoted_connection_string(DataAccessProviderType providerType)
@@ -24,7 +24,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             Assert.AreEqual(expectedDatabaseName, csb.DataSource);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(DataAccessProviderType.Odbc)]
         [DataRow(DataAccessProviderType.OleDb)]
         public void Escape_single_quoted_connection_string(DataAccessProviderType providerType)
@@ -47,11 +47,11 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             const string connectionString = @"driver={Microsoft Access Driver (*.mdb, *.accdb)};dbq=ConnectionStringTest.accdb;uid=Admin;pwd=hunter2;systemdb=SysDb";
             var csb = new JetConnectionStringBuilder(DataAccessProviderType.Odbc) { ConnectionString = connectionString };
 
-            Assert.AreEqual(csb.Provider, @"Microsoft Access Driver (*.mdb, *.accdb)");
-            Assert.AreEqual(csb.DataSource, @"ConnectionStringTest.accdb");
-            Assert.AreEqual(csb.UserId, "Admin");
-            Assert.AreEqual(csb.Password, "hunter2");
-            Assert.AreEqual(csb.SystemDatabase, "SysDb");
+            Assert.AreEqual(@"Microsoft Access Driver (*.mdb, *.accdb)", csb.Provider);
+            Assert.AreEqual(@"ConnectionStringTest.accdb", csb.DataSource);
+            Assert.AreEqual("Admin", csb.UserId);
+            Assert.AreEqual("hunter2", csb.Password);
+            Assert.AreEqual("SysDb", csb.SystemDatabase);
             Assert.IsNull(csb.DatabasePassword);
         }
 
@@ -92,12 +92,12 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             const string connectionString = @"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=ConnectionStringTest.accdb;User ID=Admin;Password=hunter2;Jet OLEDB:System Database=SysDb;Jet OLEDB:Database Password=DbPwd";
             var csb = new JetConnectionStringBuilder(DataAccessProviderType.OleDb) { ConnectionString = connectionString };
 
-            Assert.AreEqual(csb.Provider, "Microsoft.ACE.OLEDB.12.0");
-            Assert.AreEqual(csb.DataSource, @"ConnectionStringTest.accdb");
-            Assert.AreEqual(csb.UserId, "Admin");
-            Assert.AreEqual(csb.Password, "hunter2");
-            Assert.AreEqual(csb.SystemDatabase, "SysDb");
-            Assert.AreEqual(csb.DatabasePassword, "DbPwd");
+            Assert.AreEqual("Microsoft.ACE.OLEDB.12.0", csb.Provider);
+            Assert.AreEqual(@"ConnectionStringTest.accdb", csb.DataSource);
+            Assert.AreEqual("Admin", csb.UserId);
+            Assert.AreEqual("hunter2", csb.Password);
+            Assert.AreEqual("SysDb", csb.SystemDatabase);
+            Assert.AreEqual("DbPwd", csb.DatabasePassword);
         }
 
         [TestMethod]

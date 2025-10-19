@@ -2064,12 +2064,12 @@ ORDER BY [o].[OrderID], [t].[ProductID]
             await base.Select_GroupBy_All(isAsync);
 
             AssertSql(
-"""
-SELECT IIF(NOT EXISTS (
-        SELECT 1
-        FROM `Orders` AS `o`
-        GROUP BY `o`.`CustomerID`
-        HAVING `o`.`CustomerID` <> 'ALFKI' OR `o`.`CustomerID` IS NULL), TRUE, FALSE)
+                """
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`
+    HAVING `o`.`CustomerID` <> 'ALFKI' OR `o`.`CustomerID` IS NULL)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -2516,14 +2516,14 @@ FROM (
             await base.All_after_GroupBy_aggregate(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT IIF(NOT EXISTS (
-                            SELECT 1
-                            FROM `Orders` AS `o`
-                            GROUP BY `o`.`CustomerID`
-                            HAVING 0 = 1), TRUE, FALSE)
-                    FROM (SELECT COUNT(*) FROM `#Dual`)
-                    """);
+                """
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`
+    HAVING FALSE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
+""");
         }
 
         public override async Task All_after_GroupBy_aggregate2(bool isAsync)
@@ -2531,14 +2531,14 @@ FROM (
             await base.All_after_GroupBy_aggregate2(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT IIF(NOT EXISTS (
-                            SELECT 1
-                            FROM `Orders` AS `o`
-                            GROUP BY `o`.`CustomerID`
-                            HAVING IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`)) < 0), TRUE, FALSE)
-                    FROM (SELECT COUNT(*) FROM `#Dual`)
-                    """);
+                """
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`
+    HAVING IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`)) < 0)
+FROM (SELECT COUNT(*) FROM `#Dual`)
+""");
         }
 
         public override async Task Any_after_GroupBy_aggregate(bool isAsync)
@@ -2546,13 +2546,13 @@ FROM (
             await base.Any_after_GroupBy_aggregate(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT IIF(EXISTS (
-                            SELECT 1
-                            FROM `Orders` AS `o`
-                            GROUP BY `o`.`CustomerID`), TRUE, FALSE)
-                    FROM (SELECT COUNT(*) FROM `#Dual`)
-                    """);
+                """
+SELECT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`)
+FROM (SELECT COUNT(*) FROM `#Dual`)
+""");
         }
 
         public override async Task Count_after_GroupBy_without_aggregate(bool isAsync)
@@ -2623,10 +2623,10 @@ FROM (
 
             AssertSql(
                 """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Orders` AS `o`
-        GROUP BY `o`.`CustomerID`), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -2637,11 +2637,11 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Orders` AS `o`
-        GROUP BY `o`.`CustomerID`
-        HAVING COUNT(*) > 1), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`
+    HAVING COUNT(*) > 1)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -2652,11 +2652,11 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
-SELECT IIF(NOT EXISTS (
-        SELECT 1
-        FROM `Orders` AS `o`
-        GROUP BY `o`.`CustomerID`
-        HAVING COUNT(*) <= 1), TRUE, FALSE)
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`
+    HAVING COUNT(*) <= 1)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -3161,7 +3161,7 @@ ORDER BY `o1`.`CustomerID`
                 """
 SELECT `o0`.`Key`, COUNT(*) AS `Count`
 FROM (
-    SELECT IIF((`o`.`CustomerID` LIKE 'A%') AND `o`.`CustomerID` IS NOT NULL, TRUE, FALSE) AS `Key`
+    SELECT (`o`.`CustomerID` LIKE 'A%') AND `o`.`CustomerID` IS NOT NULL AS `Key`
     FROM `Orders` AS `o`
 ) AS `o0`
 GROUP BY `o0`.`Key`

@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         private void AssertDataReaderContent(string actual, string expected)
             => Assert.AreEqual(expected.Trim(), actual);
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(DataAccessProviderType.Odbc)]
         [DataRow(DataAccessProviderType.OleDb)]
         public void Tables(DataAccessProviderType providerType)
@@ -78,7 +78,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
                 """);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(DataAccessProviderType.Odbc)]
         [DataRow(DataAccessProviderType.OleDb)]
         public void Columns(DataAccessProviderType providerType)
@@ -125,7 +125,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
                 """);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(DataAccessProviderType.Odbc)]
         [DataRow(DataAccessProviderType.OleDb)]
         public void Indexes(DataAccessProviderType providerType)
@@ -168,7 +168,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
                 """);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(DataAccessProviderType.Odbc)]
         [DataRow(DataAccessProviderType.OleDb)]
         public void IndexColumns(DataAccessProviderType providerType)
@@ -213,7 +213,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
                 """);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(DataAccessProviderType.Odbc)]
         [DataRow(DataAccessProviderType.OleDb)]
         public void Relations(DataAccessProviderType providerType)
@@ -236,7 +236,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
                 """);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(DataAccessProviderType.Odbc)]
         [DataRow(DataAccessProviderType.OleDb)]
         public void RelationColumns(DataAccessProviderType providerType)
@@ -258,7 +258,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
                 """);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(DataAccessProviderType.Odbc)]
         [DataRow(DataAccessProviderType.OleDb)]
         public void CheckConstraints(DataAccessProviderType providerType)

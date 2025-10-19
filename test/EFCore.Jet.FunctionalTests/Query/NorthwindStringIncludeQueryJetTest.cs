@@ -1711,10 +1711,10 @@ ORDER BY `c`.`PostalCode`, `c`.`CustomerID`
         await base.Include_when_result_operator(async);
 
         AssertSql(
-"""
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Customers` AS `c`), TRUE, FALSE)
+            """
+SELECT EXISTS (
+    SELECT 1
+    FROM `Customers` AS `c`)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
@@ -1900,8 +1900,8 @@ ORDER BY `o`.`OrderID`, `c`.`CustomerID`, `o0`.`OrderID`
         await base.Include_is_not_ignored_when_projection_contains_client_method_and_complex_expression(async);
 
         AssertSql(
-"""
-SELECT IIF(`e0`.`EmployeeID` IS NOT NULL, TRUE, FALSE), `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
+            """
+SELECT `e0`.`EmployeeID` IS NOT NULL, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
 FROM `Employees` AS `e`
 LEFT JOIN `Employees` AS `e0` ON `e`.`ReportsTo` = `e0`.`EmployeeID`
 WHERE `e`.`EmployeeID` IN (1, 2)

@@ -61,12 +61,12 @@ WHERE `o`.`CustomerID` LIKE 'F%'
             await base.Include_when_result_operator(async);
 
             AssertSql(
-                $"""
-                    SELECT IIF(EXISTS (
-                            SELECT 1
-                            FROM `Customers` AS `c`), TRUE, FALSE)
-                    FROM (SELECT COUNT(*) FROM `#Dual`)
-                    """);
+                """
+SELECT EXISTS (
+    SELECT 1
+    FROM `Customers` AS `c`)
+FROM (SELECT COUNT(*) FROM `#Dual`)
+""");
         }
 
         public override async Task Include_collection(bool async)
@@ -1641,13 +1641,13 @@ ORDER BY `c0`.`CustomerID`
             await base.Include_is_not_ignored_when_projection_contains_client_method_and_complex_expression(async);
 
             AssertSql(
-                $"""
-                    SELECT IIF(`e0`.`EmployeeID` IS NOT NULL, TRUE, FALSE), `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
-                    FROM `Employees` AS `e`
-                    LEFT JOIN `Employees` AS `e0` ON `e`.`ReportsTo` = `e0`.`EmployeeID`
-                    WHERE `e`.`EmployeeID` IN (1, 2)
-                    ORDER BY `e`.`EmployeeID`
-                    """);
+                """
+SELECT `e0`.`EmployeeID` IS NOT NULL, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
+FROM `Employees` AS `e`
+LEFT JOIN `Employees` AS `e0` ON `e`.`ReportsTo` = `e0`.`EmployeeID`
+WHERE `e`.`EmployeeID` IN (1, 2)
+ORDER BY `e`.`EmployeeID`
+""");
         }
 
         public override async Task Multi_level_includes_are_applied_with_skip(bool async)

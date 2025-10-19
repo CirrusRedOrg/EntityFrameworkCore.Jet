@@ -18,9 +18,9 @@ public class DateTimeTranslationsJetTest : DateTimeTranslationsTestBase<BasicTyp
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    public override async Task Now(bool async)
+    public override async Task Now()
     {
-        await base.Now(async);
+        await base.Now();
 
         AssertSql(
             """
@@ -32,9 +32,9 @@ WHERE NOW() <> CDATE(@myDatetime)
 """);
     }
 
-    public override async Task UtcNow(bool async)
+    public override async Task UtcNow()
     {
-        await base.UtcNow(async);
+        await base.UtcNow();
 
         AssertSql(
             """
@@ -46,9 +46,9 @@ WHERE DATEADD('n', -480.0, NOW()) <> CDATE(@myDatetime)
 """);
     }
 
-    public override async Task Today(bool async)
+    public override async Task Today()
     {
-        await base.Today(async);
+        await base.Today();
 
         AssertSql(
             """
@@ -58,9 +58,9 @@ WHERE `b`.`DateTime` = DATEVALUE(DATE())
 """);
     }
 
-    public override async Task Date(bool async)
+    public override async Task Date()
     {
-        await base.Date(async);
+        await base.Date();
 
         AssertSql(
             """
@@ -72,9 +72,9 @@ WHERE DATEVALUE(`b`.`DateTime`) = CDATE(@myDatetime)
 """);
     }
 
-    public override async Task AddYear(bool async)
+    public override async Task AddYear()
     {
-        await base.AddYear(async);
+        await base.AddYear();
 
         AssertSql(
             """
@@ -84,9 +84,9 @@ WHERE DATEPART('yyyy', DATEADD('yyyy', 1, `b`.`DateTime`)) = 1999
 """);
     }
 
-    public override async Task Year(bool async)
+    public override async Task Year()
     {
-        await base.Year(async);
+        await base.Year();
 
         AssertSql(
             """
@@ -96,9 +96,9 @@ WHERE DATEPART('yyyy', `b`.`DateTime`) = 1998
 """);
     }
 
-    public override async Task Month(bool async)
+    public override async Task Month()
     {
-        await base.Month(async);
+        await base.Month();
 
         AssertSql(
             """
@@ -108,9 +108,9 @@ WHERE DATEPART('m', `b`.`DateTime`) = 5
 """);
     }
 
-    public override async Task DayOfYear(bool async)
+    public override async Task DayOfYear()
     {
-        await base.DayOfYear(async);
+        await base.DayOfYear();
 
         AssertSql(
             """
@@ -120,9 +120,9 @@ WHERE DATEPART('y', `b`.`DateTime`) = 124
 """);
     }
 
-    public override async Task Day(bool async)
+    public override async Task Day()
     {
-        await base.Day(async);
+        await base.Day();
 
         AssertSql(
             """
@@ -132,9 +132,9 @@ WHERE DATEPART('d', `b`.`DateTime`) = 4
 """);
     }
 
-    public override async Task Hour(bool async)
+    public override async Task Hour()
     {
-        await base.Hour(async);
+        await base.Hour();
 
         AssertSql(
             """
@@ -144,9 +144,9 @@ WHERE DATEPART('h', `b`.`DateTime`) = 15
 """);
     }
 
-    public override async Task Minute(bool async)
+    public override async Task Minute()
     {
-        await base.Minute(async);
+        await base.Minute();
 
         AssertSql(
             """
@@ -156,9 +156,9 @@ WHERE DATEPART('n', `b`.`DateTime`) = 30
 """);
     }
 
-    public override async Task Second(bool async)
+    public override async Task Second()
     {
-        await base.Second(async);
+        await base.Second();
 
         AssertSql(
             """
@@ -168,9 +168,9 @@ WHERE DATEPART('s', `b`.`DateTime`) = 10
 """);
     }
 
-    public override async Task Millisecond(bool async)
+    public override async Task Millisecond()
     {
-        await base.Millisecond(async);
+        await base.Millisecond();
 
         AssertSql(
             """
@@ -180,9 +180,9 @@ WHERE DATEPART(millisecond, [b].[DateTime]) = 123
 """);
     }
 
-    public override async Task TimeOfDay(bool async)
+    public override async Task TimeOfDay()
     {
-        await base.TimeOfDay(async);
+        await base.TimeOfDay();
 
         AssertSql(
             """
@@ -192,12 +192,12 @@ WHERE TIMEVALUE(`b`.`DateTime`) = TIMEVALUE('00:00:00')
 """);
     }
 
-    public override Task subtract_and_TotalDays(bool async)
-        => AssertTranslationFailed(() => base.subtract_and_TotalDays(async));
+    public override Task subtract_and_TotalDays()
+        => AssertTranslationFailed(() => base.subtract_and_TotalDays());
 
-    public override async Task Parse_with_constant(bool async)
+    public override async Task Parse_with_constant()
     {
-        await base.Parse_with_constant(async);
+        await base.Parse_with_constant();
 
         AssertSql(
             """
@@ -207,9 +207,9 @@ WHERE [b].[DateTime] = '1998-05-04T15:30:10.0000000'
 """);
     }
 
-    public override async Task Parse_with_parameter(bool async)
+    public override async Task Parse_with_parameter()
     {
-        await base.Parse_with_parameter(async);
+        await base.Parse_with_parameter();
 
         AssertSql(
             """
@@ -221,9 +221,9 @@ WHERE [b].[DateTime] = @Parse
 """);
     }
 
-    public override async Task New_with_constant(bool async)
+    public override async Task New_with_constant()
     {
-        await base.New_with_constant(async);
+        await base.New_with_constant();
 
         AssertSql(
             """
@@ -233,9 +233,9 @@ WHERE `b`.`DateTime` = #1998-05-04 15:30:10#
 """);
     }
 
-    public override async Task New_with_parameters(bool async)
+    public override async Task New_with_parameters()
     {
-        await base.New_with_parameters(async);
+        await base.New_with_parameters();
 
         AssertSql(
             """

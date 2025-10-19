@@ -87,7 +87,7 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0-rc.2.*" />
 	</ItemGroup>
 	
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">

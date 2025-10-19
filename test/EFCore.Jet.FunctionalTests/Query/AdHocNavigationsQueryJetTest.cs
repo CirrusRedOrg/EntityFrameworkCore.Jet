@@ -444,10 +444,10 @@ ORDER BY [o0].[Id], [s0].[Id], [s0].[Id0]
 
         AssertSql(
             """
-SELECT TOP 2 IIF(EXISTS (
-        SELECT 1
-        FROM `CoverIllustrations` AS `c`
-        WHERE `b0`.`Id` = `c`.`CoverId` AND `c`.`State` >= 2), TRUE, FALSE), (
+SELECT TOP 2 EXISTS (
+    SELECT 1
+    FROM `CoverIllustrations` AS `c`
+    WHERE `b0`.`Id` = `c`.`CoverId` AND `c`.`State` >= 2), (
     SELECT TOP 1 `c0`.`Uri`
     FROM `CoverIllustrations` AS `c0`
     WHERE `b0`.`Id` = `c0`.`CoverId` AND `c0`.`State` >= 2)

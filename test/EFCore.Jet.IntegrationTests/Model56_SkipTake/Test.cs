@@ -94,7 +94,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model56_SkipTake
                 var entities = Context.Entities.OrderBy(_ => _.Description).Skip(10).Take(5).ToList();
                 foreach (Entity entity in entities)
                     Console.WriteLine(entity.Description);
-                Assert.AreEqual(5, entities.Count);
+                Assert.HasCount(5, entities);
                 for (int i = 0; i < entities.Count - 1; i++)
                 {
                     Entity entity = entities[i];
@@ -122,7 +122,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model56_SkipTake
 
             {
                 var entities = Context.Entities.OrderBy(_ => _.Description).Skip(10).Take(5).ToList();
-                Assert.AreEqual(5, entities.Count);
+                Assert.HasCount(5, entities);
                 foreach (Entity entity in Context.Entities.ToList())
                     Assert.AreEqual("This is the same old song", entity.Description);
             }
@@ -154,11 +154,13 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model56_SkipTake
 
             {
                 var entities = Context.Entities.OrderBy(_ => _.Value).Skip(10).Take(5).ToList();
-                Assert.AreEqual(5, entities.Count);
+                Assert.HasCount(5, entities);
                 for (int i = 0; i < entities.Count - 1; i++)
                 {
                     Entity entity = entities[i];
+#pragma warning disable MSTEST0037
                     Assert.IsTrue(entity.Value < entities[i + 1].Value);
+#pragma warning restore MSTEST0037
                 }
             }
 

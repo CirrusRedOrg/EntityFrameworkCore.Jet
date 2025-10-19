@@ -71,7 +71,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
             // Try to retrieve the student
             base.CreateContext();
             student = Context.Students.Where(s => s.StudentName == "Student updated" || s.StudentId == studentId).FirstOrDefault();
-            Assert.AreEqual(student, null);
+            Assert.IsNull(student);
 
 
         }
@@ -93,7 +93,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
 
             standard = Context.Standards.Where(s => s.StandardId == standardId).First();
 
-            Assert.AreEqual(standard.Students.Count, 2);
+            Assert.HasCount(2, standard.Students);
 
             foreach (Student student2 in standard.Students)
                 Console.WriteLine(student2);

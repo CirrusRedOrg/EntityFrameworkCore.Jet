@@ -106,8 +106,4 @@
 		<ProjectReference Include="..\..\src\EFCore.Jet\EFCore.Jet.csproj" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<Folder Include="Properties" />
-	</ItemGroup>
-
 </Project>

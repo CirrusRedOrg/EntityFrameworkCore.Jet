@@ -1398,26 +1398,6 @@ WHERE `b`.`Id` > 8
             """
 SELECT COUNT(*)
 FROM `Blogs` AS `b`
-WHERE `b`.`Id` = 9 AND `b`.`Name` = 'NewValue'
-""");
-    }
-
-    public override async Task Terminating_ExecuteUpdateAsync_with_lambda()
-    {
-        await base.Terminating_ExecuteUpdateAsync_with_lambda();
-
-        AssertSql(
-            """
-@suffix='Suffix' (Size = 255)
-
-UPDATE `Blogs` AS `b`
-SET `b`.`Name` = IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & @suffix
-WHERE `b`.`Id` > 8
-""",
-            //
-            """
-SELECT COUNT(*)
-FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 9 AND `b`.`Name` = 'Blog2Suffix'
 """);
     }

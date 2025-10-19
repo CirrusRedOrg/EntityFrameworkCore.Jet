@@ -580,8 +580,9 @@ FROM `Weapons` AS `w`
 
             AssertSql(
                 """
-SELECT `w`.`Id`, IIF(NOT (`w`.`IsAutomatic`), IIF(`w`.`AmmunitionType` = 1, 'ManualCartridge', 'Manual'), 'Auto') AS `IsManualCartridge`
-FROM `Weapons` AS `w`
+SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
+FROM `Gears` AS `g`
+WHERE `g`.`LeaderNickname` = 'Marcus'
 """);
         }
 
@@ -688,8 +689,9 @@ FROM `Gears` AS `g`
 
             AssertSql(
                 """
-SELECT IIF(`g`.`LeaderNickname` IS NOT NULL, IIF(LEN(`g`.`Nickname`) IS NULL, NULL, CLNG(LEN(`g`.`Nickname`))) = 5, NULL)
-FROM `Gears` AS `g`
+SELECT IIF(`g`.`LeaderNickname` IS NOT NULL, `g0`.`LeaderNickname`, NULL)
+FROM `Gears` AS `g`,
+`Gears` AS `g0`
 """);
         }
 
@@ -853,9 +855,10 @@ ORDER BY `g`.`Nickname`
             await base.Where_conditional_equality_1(async);
             
             AssertSql(
-    """
-SELECT `g`.`LeaderNickname` IS NOT NULL, `g`.`Nickname`, `g`.`FullName`
+                """
+SELECT `g`.`Nickname`
 FROM `Gears` AS `g`
+WHERE `g`.`LeaderNickname` IS NULL
 ORDER BY `g`.`Nickname`
 """);
         }
@@ -1754,14 +1757,13 @@ WHERE `c`.`Location` IN (@cities1, @cities2, @cities3)
             await base.Non_unicode_string_literals_is_used_for_non_unicode_column_with_subquery(isAsync);
             
             AssertSql(
-    """
-@cities1='Unknown' (Size = 100)
-@cities2='Jacinto's location' (Size = 100)
-@cities3='Ephyra's location' (Size = 100)
-
+                """
 SELECT `c`.`Name`, `c`.`Location`, `c`.`Nation`
 FROM `Cities` AS `c`
-WHERE `c`.`Location` IN (@cities1, @cities2, @cities3)
+WHERE `c`.`Location` = 'Unknown' AND (
+    SELECT COUNT(*)
+    FROM `Gears` AS `g`
+    WHERE `c`.`Name` = `g`.`CityOfBirthName` AND `g`.`Nickname` = 'Paduk') = 1
 """);
         }
 
@@ -2059,10 +2061,11 @@ LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSqu
             await base.Optional_navigation_type_compensation_works_with_projection(isAsync);
             
             AssertSql(
-    """
-SELECT `g`.`HasSoulPatch` AND (`t`.`Note` LIKE '%Cole%') AND `t`.`Note` IS NOT NULL
+                """
+SELECT `g`.`SquadId`
 FROM `Tags` AS `t`
 LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
+WHERE `t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL
 """);
         }
 
@@ -4615,10 +4618,11 @@ LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSqu
             await base.Order_by_entity_qsre(isAsync);
             
             AssertSql(
-    """
-SELECT NOT (IIF(`g`.`HasSoulPatch`, TRUE, IIF(`g`.`HasSoulPatch` IS NULL, TRUE, `g`.`HasSoulPatch`))) AS `c`
-FROM `Tags` AS `t`
-LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
+                """
+SELECT `g`.`FullName`
+FROM `Gears` AS `g`
+LEFT JOIN `Cities` AS `c` ON `g`.`AssignedCityName` = `c`.`Name`
+ORDER BY `c`.`Name`, `g`.`Nickname` DESC
 """);
         }
 
@@ -6112,10 +6116,10 @@ LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
             await base.Left_join_projection_using_coalesce_tracking(isAsync);
             
             AssertSql(
-    """
-SELECT `w`.`SynergyWithId` IS NOT NULL, `w0`.`OwnerFullName`
-FROM `Weapons` AS `w`
-LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
+                """
+SELECT `g0`.`Nickname`, `g0`.`SquadId`, `g0`.`AssignedCityName`, `g0`.`CityOfBirthName`, `g0`.`Discriminator`, `g0`.`FullName`, `g0`.`HasSoulPatch`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`, `g0`.`Rank`, `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
+FROM `Gears` AS `g`
+LEFT JOIN `Gears` AS `g0` ON `g`.`LeaderNickname` = `g0`.`Nickname`
 """);
         }
 
@@ -6382,8 +6386,15 @@ FROM `Missions` AS `m`
 
             AssertSql(
                 """
-SELECT `m`.`Timeline` > NOW()
-FROM `Missions` AS `m`
+SELECT `s`.`Name`, `s`.`Location`, `s`.`Nation`
+FROM `Gears` AS `g`
+INNER JOIN (
+    SELECT `c`.`Name`, `c`.`Location`, `c`.`Nation`, `g0`.`LeaderNickname`, `g0`.`LeaderSquadId`
+    FROM `Gears` AS `g0`
+    LEFT JOIN `Cities` AS `c` ON `g0`.`AssignedCityName` = `c`.`Name`
+    WHERE `g0`.`Discriminator` = 'Officer'
+) AS `s` ON `g`.`Nickname` = `s`.`LeaderNickname` AND `g`.`SquadId` = `s`.`LeaderSquadId`
+WHERE `g`.`Discriminator` = 'Officer'
 """);
         }
 

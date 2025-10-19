@@ -1,9 +1,10 @@
-﻿using System;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
 using System.Data.Common;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model68_sbyte
 {
-    //[TestClass]
+    [TestClass]
     public class Model68_SByte_Jet : Test
     {
         protected override DbConnection GetConnection()

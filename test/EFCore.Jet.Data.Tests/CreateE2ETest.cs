@@ -20,6 +20,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace EntityFrameworkCore.Jet.Data.Tests
 {
     [TestClass]
+    [DoNotParallelize]
     public class CreateE2ETest
     {
         private const string StoreName = nameof(CreateE2ETest) + ".accdb";

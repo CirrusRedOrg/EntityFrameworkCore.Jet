@@ -3,6 +3,7 @@
 namespace EntityFrameworkCore.Jet.Data.Tests
 {
     [TestClass]
+    [DoNotParallelize]
     public class TransactionTest
     {
         private const string StoreName = nameof(TransactionTest) + ".accdb";

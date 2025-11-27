@@ -5,6 +5,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
 {
     // TODO: Call all tests for ODBC and OLE DB.
     [TestClass]
+    [DoNotParallelize]
     public class JetInformationSchemaTest
     {
         private const string StoreName = nameof(JetInformationSchemaTest) + ".accdb";

@@ -44,6 +44,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             AssertSql();
         }
 
+        public override async Task Contains_with_local_tuple_array_closure(bool async)
+        => await AssertTranslationFailed(() => base.Contains_with_local_tuple_array_closure(async));
+
         public override async Task Array_cast_to_IEnumerable_Contains_with_constant(bool async)
         {
             await base.Array_cast_to_IEnumerable_Contains_with_constant(async);
@@ -149,6 +152,60 @@ WHERE `o`.`OrderID` = 10248
 SELECT MIN(`o`.`OrderID` - 10248)
 FROM `Orders` AS `o`
 WHERE `o`.`OrderID` = 10248
+""");
+        }
+
+        public override async Task Average_after_DefaultIfEmpty_does_not_throw(bool async)
+        {
+            await base.Average_after_DefaultIfEmpty_does_not_throw(async);
+
+            AssertSql(
+                """
+SELECT AVG(CAST(COALESCE([o0].[OrderID], 0) AS float))
+FROM (
+    SELECT 1 AS empty
+) AS [e]
+LEFT JOIN (
+    SELECT [o].[OrderID]
+    FROM [Orders] AS [o]
+    WHERE [o].[OrderID] = 10243
+) AS [o0] ON 1 = 1
+""");
+        }
+
+        public override async Task Max_after_DefaultIfEmpty_does_not_throw(bool async)
+        {
+            await base.Max_after_DefaultIfEmpty_does_not_throw(async);
+
+            AssertSql(
+                """
+SELECT MAX(COALESCE([o0].[OrderID], 0))
+FROM (
+    SELECT 1 AS empty
+) AS [e]
+LEFT JOIN (
+    SELECT [o].[OrderID]
+    FROM [Orders] AS [o]
+    WHERE [o].[OrderID] = 10243
+) AS [o0] ON 1 = 1
+""");
+        }
+
+        public override async Task Min_after_DefaultIfEmpty_does_not_throw(bool async)
+        {
+            await base.Min_after_DefaultIfEmpty_does_not_throw(async);
+
+            AssertSql(
+                """
+SELECT MIN(COALESCE([o0].[OrderID], 0))
+FROM (
+    SELECT 1 AS empty
+) AS [e]
+LEFT JOIN (
+    SELECT [o].[OrderID]
+    FROM [Orders] AS [o]
+    WHERE [o].[OrderID] = 10243
+) AS [o0] ON 1 = 1
 """);
         }
 
@@ -1600,6 +1657,29 @@ WHERE `e`.`EmployeeID` = @ids1
 """);
         }
 
+        public override async Task Contains_with_local_nullable_uint_array_closure(bool async)
+        {
+            await base.Contains_with_local_nullable_uint_array_closure(async);
+
+            AssertSql(
+                """
+@ids1='0'
+@ids2='1'
+
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE `e`.`EmployeeID` IN (@ids1, @ids2)
+""",
+                //
+                """
+@ids1='0'
+
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE `e`.`EmployeeID` = @ids1
+""");
+        }
+
         public override async Task Contains_with_local_array_inline(bool isAsync)
         {
             await base.Contains_with_local_array_inline(isAsync);
@@ -2086,6 +2166,13 @@ SELECT @p IN (
 )
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
+        }
+
+        public override async Task Contains_with_local_anonymous_type_array_closure(bool async)
+        {
+            await AssertTranslationFailed(() => base.Contains_with_local_anonymous_type_array_closure(async));
+
+            AssertSql();
         }
 
         public override async Task OfType_Select(bool async)

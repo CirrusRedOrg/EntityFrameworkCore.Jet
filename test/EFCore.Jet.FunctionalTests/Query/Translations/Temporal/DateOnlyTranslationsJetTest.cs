@@ -73,17 +73,17 @@ WHERE DATEPART('y', `b`.`DateOnly`) = 314
         AssertSql();
     }
 
-    /*public override async Task DayNumber(bool async)
+    public override async Task DayNumber()
     {
-        await base.DayNumber(async);
+        await base.DayNumber();
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE DATEDIFF(day, '0001-01-01', [b].[DateOnly]) = 726780
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE (DATEDIFF('d', #0100-01-01#, `b`.`DateOnly`) + 36159) = 726780
 """);
-    }*/
+    }
 
     public override async Task AddYears()
     {
@@ -121,19 +121,19 @@ WHERE DATEADD('d', CLNG(3), `b`.`DateOnly`) = #1990-11-13#
 """);
     }
 
-    /*public override async Task DayNumber_subtraction(bool async)
+    public override async Task DayNumber_subtraction()
     {
-        await base.DayNumber_subtraction(async);
+        await base.DayNumber_subtraction();
 
         AssertSql(
             """
 @DayNumber='726775'
 
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE DATEDIFF(day, '0001-01-01', [b].[DateOnly]) - @DayNumber = 5
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE ((DATEDIFF('d', #0100-01-01#, `b`.`DateOnly`) + 36159) - @DayNumber) = 5
 """);
-    }*/
+    }
 
     public override async Task FromDateTime()
     {
@@ -141,9 +141,9 @@ WHERE DATEDIFF(day, '0001-01-01', [b].[DateOnly]) - @DayNumber = 5
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE CAST([b].[DateTime] AS date) = '1998-05-04'
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEVALUE(`b`.`DateTime`) = #1998-05-04#
 """);
     }
 
@@ -155,7 +155,7 @@ WHERE CAST([b].[DateTime] AS date) = '1998-05-04'
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`DateTime` = `b`.`DateOnly`
+WHERE DATEVALUE(`b`.`DateTime`) = `b`.`DateOnly`
 """);
     }
 
@@ -165,11 +165,11 @@ WHERE `b`.`DateTime` = `b`.`DateOnly`
 
         AssertSql(
             """
-@dateOnly='10/11/0002' (DbType = Date)
+@dateOnly='0002-10-11T00:00:00.0000000' (DbType = Date)
 
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE CAST([b].[DateTime] AS date) IN (@dateOnly, '1998-05-04')
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEVALUE(`b`.`DateTime`) IN (@dateOnly, #1998-05-04#)
 """);
     }
 

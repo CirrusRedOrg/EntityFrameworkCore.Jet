@@ -37,7 +37,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             typeof(int),
             typeof(long),
             typeof(short),
-            typeof(string)
+            typeof(string),
+            typeof(object)
         ];
 
         private static readonly IEnumerable<MethodInfo> _supportedMethods

@@ -1690,12 +1690,27 @@ WHERE (((@i & '') & `c`.`CustomerID`) & (@i & '')) = '10ALFKI10'
 
             AssertSql(
                 """
-@p='11'
-@p0='12'
+@customerId='ANATR' (Size = 5)
+@customerId0='ALFKI' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE ((`c`.`CustomerID` & (@p & '')) & (`c`.`CustomerID` & (@p0 & ''))) = 'ALFKI11ALFKI12'
+WHERE `c`.`CustomerID` = @customerId OR `c`.`CustomerID` = @customerId0
+""");
+        }
+
+        public override async Task Two_parameters_with_same_case_insensitive_name_get_uniquified(bool async)
+        {
+            await base.Two_parameters_with_same_case_insensitive_name_get_uniquified(async);
+
+            AssertSql(
+                """
+@customerID='ANATR' (Size = 5)
+@customerId0='ALFKI' (Size = 5)
+
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = @customerID OR `c`.`CustomerID` = @customerId0
 """);
         }
 
@@ -1913,6 +1928,25 @@ ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
                     """);
         }
 
+        public override async Task Where_collection_navigation_ToArray_Contains(bool async)
+        {
+            await base.Where_collection_navigation_ToArray_Contains(async);
+
+            AssertSql(
+                """
+@entity_equality_order_OrderID='10248' (Nullable = true)
+
+SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` = @entity_equality_order_OrderID)
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+""");
+        }
+
         public override async Task Where_collection_navigation_AsEnumerable_Count(bool async)
         {
             await base.Where_collection_navigation_AsEnumerable_Count(async);
@@ -1986,6 +2020,21 @@ ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
         public override async Task Where_list_object_contains_over_value_type(bool async)
         {
             await base.Where_list_object_contains_over_value_type(async);
+
+            AssertSql(
+                """
+@orderIds1='10248'
+@orderIds2='10249'
+
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` IN (@orderIds1, @orderIds2)
+""");
+        }
+
+        public override async Task Where_array_of_object_contains_over_value_type(bool async)
+        {
+            await base.Where_array_of_object_contains_over_value_type(async);
 
             AssertSql(
                 """
@@ -2915,6 +2964,13 @@ SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 WHERE `o`.`OrderID` = @p
 """);
+        }
+
+        public override async Task EF_MultipleParameters_with_non_evaluatable_argument_throws(bool async)
+        {
+            await base.EF_MultipleParameters_with_non_evaluatable_argument_throws(async);
+
+            AssertSql();
         }
 
         #region Evaluation order of predicates

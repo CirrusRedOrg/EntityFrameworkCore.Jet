@@ -19,17 +19,6 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal;
 /// </remarks>
 public class JetDateOnlyMemberTranslator(ISqlExpressionFactory sqlExpressionFactory) : IMemberTranslator
 {
-    private static readonly Dictionary<string, string> DatePartMapping
-        = new()
-        {
-            { nameof(DateTime.Year), "yyyy" },
-            { nameof(DateTime.Month), "m" },
-            { nameof(DateTime.DayOfYear), "y" },
-            { nameof(DateTime.Day), "d" }
-        };
-
-    private readonly ISqlExpressionFactory _sqlExpressionFactory = sqlExpressionFactory;
-
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
     ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
@@ -41,12 +30,39 @@ public class JetDateOnlyMemberTranslator(ISqlExpressionFactory sqlExpressionFact
         MemberInfo member,
         Type returnType,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
-        => member.DeclaringType == typeof(DateOnly) && DatePartMapping.TryGetValue(member.Name, out var datePart)
-            ? _sqlExpressionFactory.Function(
+    {
+        if (member.DeclaringType != typeof(DateOnly) || instance is null)
+        {
+            return null;
+        }
+
+        return member.Name switch
+        {
+            nameof(DateOnly.Year) => DatePart("yyyy"),
+            nameof(DateOnly.Month) => DatePart("m"),
+            nameof(DateOnly.DayOfYear) => DatePart("y"),
+            nameof(DateOnly.Day) => DatePart("d"),
+
+            nameof(DateOnly.DayNumber) => sqlExpressionFactory.Add(sqlExpressionFactory.Function(
+                "DATEDIFF",
+                [
+                    sqlExpressionFactory.Constant("d"),
+                    sqlExpressionFactory.Constant(new DateOnly(100, 1, 1)),
+                    instance
+                ],
+                nullable: true,
+                argumentsPropagateNullability: [false, true, true],
+                returnType),sqlExpressionFactory.Constant(new DateOnly(100,1,1).DayNumber)),
+
+            _ => null
+        };
+
+        SqlExpression DatePart(string datePart)
+            => sqlExpressionFactory.Function(
                 "DATEPART",
-                [_sqlExpressionFactory.Constant(datePart), instance!],
+                [sqlExpressionFactory.Constant(datePart), instance],
                 nullable: true,
                 argumentsPropagateNullability: [false, true],
-                returnType)
-            : null;
+                returnType);
+    }
 }

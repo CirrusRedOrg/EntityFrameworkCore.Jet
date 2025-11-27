@@ -1,23 +1,17 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-
-using System.Collections.Generic;
-using System.Data.Common;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
 using System.Threading.Tasks;
-using EntityFrameworkCore.Jet.Diagnostics.Internal;
-using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Diagnostics.Internal;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit;
-using System.Linq;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
-#nullable disable
-
-public class AdHocJsonQueryJetTest : AdHocJsonQueryJetTestBase
+public class AdHocJsonQueryJetTest(NonSharedFixture fixture) : AdHocJsonQueryJetTestBase(fixture)
 {
+    public override async Task Read_enum_property_with_legacy_values(bool async)
+    {
+        var exception = await Assert.ThrowsAsync<Exception>(() => base.Read_enum_property_with_legacy_values_core(async));
+    }
+
+    protected override string JsonColumnType
+        => "nvarchar(max)";
 }

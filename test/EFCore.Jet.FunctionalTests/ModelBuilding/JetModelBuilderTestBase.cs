@@ -1,28 +1,26 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel.DataAnnotations.Schema;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.ModelBuilding;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit;
+using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
-using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.ModelBuilding;
 
 public class JetModelBuilderTestBase : RelationalModelBuilderTest
 {
-    public abstract class JetNonRelationship(JetModelBuilderFixture fixture) : RelationalNonRelationshipTestBase(fixture), IClassFixture<JetModelBuilderFixture>
+    public abstract class JetNonRelationship(JetModelBuilderFixture fixture)
+        : RelationalNonRelationshipTestBase(fixture), IClassFixture<JetModelBuilderFixture>
     {
         [ConditionalFact]
         public virtual void Index_has_a_filter_if_nonclustered_unique_with_nullable_properties()
@@ -66,9 +64,9 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
 
             Assert.Equal("[RelationalName] IS NOT NULL", index.GetFilter());
 
-            entityTypeBuilder.Property(e => e.Name).HasColumnName("SqlServerName");
+            entityTypeBuilder.Property(e => e.Name).HasColumnName("JetName");
 
-            Assert.Equal("[SqlServerName] IS NOT NULL", index.GetFilter());
+            Assert.Equal("[JetName] IS NOT NULL", index.GetFilter());
 
             entityTypeBuilder.Property(e => e.Name).HasColumnName(null);
 
@@ -114,22 +112,20 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         [ConditionalFact]
         public virtual void Can_set_store_type_for_property_type()
         {
-            var modelBuilder = CreateModelBuilder(
-                c =>
-                {
-                    c.Properties<int>().HaveColumnType("smallint");
-                    c.Properties<string>().HaveColumnType("nchar(max)");
-                    c.Properties(typeof(Nullable<>)).HavePrecision(2);
-                });
+            var modelBuilder = CreateModelBuilder(c =>
+            {
+                c.Properties<int>().HaveColumnType("smallint");
+                c.Properties<string>().HaveColumnType("nchar(max)");
+                c.Properties(typeof(Nullable<>)).HavePrecision(2);
+            });
 
-            modelBuilder.Entity<Quarks>(
-                b =>
-                {
-                    b.Property<int>("Charm");
-                    b.Property<string>("Strange");
-                    b.Property<int?>("Top");
-                    b.Property<string>("Bottom");
-                });
+            modelBuilder.Entity<Quarks>(b =>
+            {
+                b.Property<int>("Charm");
+                b.Property<string>("Strange");
+                b.Property<int?>("Top");
+                b.Property<string>("Bottom");
+            });
 
             var model = modelBuilder.FinalizeModel();
             var entityType = model.FindEntityType(typeof(Quarks))!;
@@ -150,21 +146,19 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         [ConditionalFact]
         public virtual void Can_set_fixed_length_for_property_type()
         {
-            var modelBuilder = CreateModelBuilder(
-                c =>
-                {
-                    c.Properties<int>().AreFixedLength(false);
-                    c.Properties<string>().AreFixedLength();
-                });
+            var modelBuilder = CreateModelBuilder(c =>
+            {
+                c.Properties<int>().AreFixedLength(false);
+                c.Properties<string>().AreFixedLength();
+            });
 
-            modelBuilder.Entity<Quarks>(
-                b =>
-                {
-                    b.Property<int>("Charm");
-                    b.Property<string>("Strange");
-                    b.Property<int>("Top");
-                    b.Property<string>("Bottom");
-                });
+            modelBuilder.Entity<Quarks>(b =>
+            {
+                b.Property<int>("Charm");
+                b.Property<string>("Strange");
+                b.Property<int>("Top");
+                b.Property<string>("Bottom");
+            });
 
             var model = modelBuilder.FinalizeModel();
             var entityType = model.FindEntityType(typeof(Quarks))!;
@@ -181,21 +175,19 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         [ConditionalFact]
         public virtual void Can_set_collation_for_property_type()
         {
-            var modelBuilder = CreateModelBuilder(
-                c =>
-                {
-                    c.Properties<int>().UseCollation("Latin1_General_CS_AS_KS_WS");
-                    c.Properties<string>().UseCollation("Latin1_General_BIN");
-                });
+            var modelBuilder = CreateModelBuilder(c =>
+            {
+                c.Properties<int>().UseCollation("Latin1_General_CS_AS_KS_WS");
+                c.Properties<string>().UseCollation("Latin1_General_BIN");
+            });
 
-            modelBuilder.Entity<Quarks>(
-                b =>
-                {
-                    b.Property<int>("Charm");
-                    b.Property<string>("Strange");
-                    b.Property<int>("Top");
-                    b.Property<string>("Bottom");
-                });
+            modelBuilder.Entity<Quarks>(b =>
+            {
+                b.Property<int>("Charm");
+                b.Property<string>("Strange");
+                b.Property<int>("Top");
+                b.Property<string>("Bottom");
+            });
 
             var model = modelBuilder.FinalizeModel();
             var entityType = model.FindEntityType(typeof(Quarks))!;
@@ -213,18 +205,15 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         public virtual void Can_set_store_type_for_primitive_collection()
         {
             var modelBuilder = CreateModelBuilder();
-            modelBuilder.Entity<CollectionQuarks>(
-                b =>
-                {
-                    b.PrimitiveCollection(e => e.Up).HasColumnType("national character varying(255)");
-                    b.PrimitiveCollection(e => e.Down).HasColumnType("nchar(10)");
-                    b.PrimitiveCollection<int[]>("Charm").HasColumnType("nvarchar(25)");
-                    b.PrimitiveCollection<string[]>("Strange").HasColumnType("text");
-                    b.PrimitiveCollection<ObservableCollection<int>>("Top").HasColumnType("char(100)");
-                    ;
-                    b.PrimitiveCollection<ObservableCollection<string>?>("Bottom").HasColumnType("varchar(max)");
-                    ;
-                });
+            modelBuilder.Entity<CollectionQuarks>(b =>
+            {
+                b.PrimitiveCollection(e => e.Up).HasColumnType("national character varying(255)");
+                b.PrimitiveCollection(e => e.Down).HasColumnType("nchar(10)");
+                b.PrimitiveCollection<int[]>("Charm").HasColumnType("nvarchar(25)");
+                b.PrimitiveCollection<string[]>("Strange").HasColumnType("text");
+                b.PrimitiveCollection<ObservableCollection<int>>("Top").HasColumnType("char(100)");
+                b.PrimitiveCollection<ObservableCollection<string>?>("Bottom").HasColumnType("varchar(max)");
+            });
 
             var model = modelBuilder.FinalizeModel();
             var entityType = model.FindEntityType(typeof(CollectionQuarks))!;
@@ -242,13 +231,12 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         public virtual void Can_set_fixed_length_for_primitive_collection()
         {
             var modelBuilder = CreateModelBuilder();
-            modelBuilder.Entity<CollectionQuarks>(
-                b =>
-                {
-                    b.PrimitiveCollection(e => e.Up).IsFixedLength(false);
-                    b.PrimitiveCollection(e => e.Down).IsFixedLength();
-                    b.PrimitiveCollection<int[]>("Charm").IsFixedLength();
-                });
+            modelBuilder.Entity<CollectionQuarks>(b =>
+            {
+                b.PrimitiveCollection(e => e.Up).IsFixedLength(false);
+                b.PrimitiveCollection(e => e.Down).IsFixedLength();
+                b.PrimitiveCollection<int[]>("Charm").IsFixedLength();
+            });
 
             var model = modelBuilder.FinalizeModel();
             var entityType = model.FindEntityType(typeof(CollectionQuarks))!;
@@ -262,13 +250,12 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         public virtual void Can_set_collation_for_primitive_collection()
         {
             var modelBuilder = CreateModelBuilder();
-            modelBuilder.Entity<CollectionQuarks>(
-                b =>
-                {
-                    b.PrimitiveCollection(e => e.Up).UseCollation("Latin1_General_CS_AS_KS_WS");
-                    b.PrimitiveCollection(e => e.Down).UseCollation("Latin1_General_BIN");
-                    b.PrimitiveCollection<int[]>("Charm").UseCollation("Latin1_General_CI_AI");
-                });
+            modelBuilder.Entity<CollectionQuarks>(b =>
+            {
+                b.PrimitiveCollection(e => e.Up).UseCollation("Latin1_General_CS_AS_KS_WS");
+                b.PrimitiveCollection(e => e.Down).UseCollation("Latin1_General_BIN");
+                b.PrimitiveCollection<int[]>("Charm").UseCollation("Latin1_General_CI_AI");
+            });
 
             var model = modelBuilder.FinalizeModel();
             var entityType = model.FindEntityType(typeof(CollectionQuarks))!;
@@ -278,14 +265,11 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Equal("Latin1_General_CI_AI", entityType.FindProperty("Charm")!.GetCollation());
         }
 
-        /*[ConditionalTheory]
-        [InlineData(true)]
-        [InlineData(false)]
+        [ConditionalTheory, InlineData(true), InlineData(false)]
         public virtual void Can_avoid_attributes_when_discovering_properties(bool useAttributes)
         {
-            var modelBuilder = CreateModelBuilder(c => c.Conventions.Replace(
-                s => new PropertyDiscoveryConvention(
-                    s.GetService<ProviderConventionSetBuilderDependencies>()!, useAttributes)));
+            var modelBuilder = CreateModelBuilder(c => c.Conventions.Replace(s => new PropertyDiscoveryConvention(
+                s.GetService<ProviderConventionSetBuilderDependencies>()!, useAttributes)));
             modelBuilder.Entity<SqlVariantEntity>();
 
             if (useAttributes)
@@ -293,27 +277,35 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
                 var model = modelBuilder.FinalizeModel();
                 var entityType = model.FindEntityType(typeof(SqlVariantEntity))!;
 
-                Assert.Equal([nameof(SqlVariantEntity.Id), nameof(SqlVariantEntity.Value),],
+                Assert.Equal(
+                    [nameof(SqlVariantEntity.Id), nameof(SqlVariantEntity.Value),],
                     entityType.GetProperties().Select(p => p.Name));
             }
             else
             {
-                Assert.Equal(CoreStrings.PropertyNotAdded(nameof(SqlVariantEntity), nameof(SqlVariantEntity.Value), "object"),
+                Assert.Equal(
+                    CoreStrings.PropertyNotAdded(nameof(SqlVariantEntity), nameof(SqlVariantEntity.Value), "object"),
                     Assert.Throws<InvalidOperationException>(modelBuilder.FinalizeModel).Message);
             }
-        }*/
+        }
 
         protected class SqlVariantEntity
         {
             public int Id { get; set; }
+
             [Column(TypeName = "sql_variant")]
             public object? Value { get; set; }
         }
     }
 
-    public abstract class JetComplexType(JetModelBuilderFixture fixture) : RelationalComplexTypeTestBase(fixture), IClassFixture<JetModelBuilderFixture>;
+    public abstract class JetComplexType(JetModelBuilderFixture fixture)
+        : RelationalComplexTypeTestBase(fixture), IClassFixture<JetModelBuilderFixture>;
 
-    public abstract class JetInheritance(JetModelBuilderFixture fixture) : RelationalInheritanceTestBase(fixture), IClassFixture<JetModelBuilderFixture>
+    public abstract class JetComplexCollection(JetModelBuilderFixture fixture)
+        : RelationalComplexCollectionTestBase(fixture), IClassFixture<JetModelBuilderFixture>;
+
+    public abstract class JetInheritance(JetModelBuilderFixture fixture)
+        : RelationalInheritanceTestBase(fixture), IClassFixture<JetModelBuilderFixture>
     {
         [ConditionalFact] // #7240
         public void Can_use_shadow_FK_that_collides_with_convention_shadow_FK_on_other_derived_type()
@@ -363,7 +355,7 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
 
             var index = modelBuilder.Model.FindEntityType(typeof(CustomerDetails))!.GetIndexes().Single();
 
-            Assert.Equal("IGNORE NULL", index.GetFilter());
+            Assert.Equal("[CustomerId] IS NOT NULL", index.GetFilter());
         }
 
         [ConditionalFact]
@@ -379,7 +371,7 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
 
             var index = modelBuilder.Model.FindEntityType(typeof(CustomerDetails))!.GetIndexes().Single();
 
-            Assert.Equal("IGNORE NULL", index.GetFilter());
+            Assert.Equal("[CustomerId] IS NOT NULL", index.GetFilter());
 
             modelBuilder.Ignore<DetailsBase>();
 
@@ -413,23 +405,20 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
             modelBuilder.Entity<BigMak>()
                 .Ignore(b => b.Bun)
                 .Ignore(b => b.Pickles);
-            modelBuilder.Entity<Ingredient>(
-                b =>
-                {
-                    b.ToTable("Ingredients");
-                    b.Ignore(i => i.BigMak);
-                });
-            modelBuilder.Entity<Bun>(
-                b =>
-                {
-                    b.ToTable("Buns");
-                    b.HasOne(i => i.BigMak).WithOne().HasForeignKey<Bun>(i => i.Id);
-                });
-            modelBuilder.Entity<SesameBun>(
-                b =>
-                {
-                    b.ToTable("SesameBuns");
-                });
+            modelBuilder.Entity<Ingredient>(b =>
+            {
+                b.ToTable("Ingredients");
+                b.Ignore(i => i.BigMak);
+            });
+            modelBuilder.Entity<Bun>(b =>
+            {
+                b.ToTable("Buns");
+                b.HasOne(i => i.BigMak).WithOne().HasForeignKey<Bun>(i => i.Id);
+            });
+            modelBuilder.Entity<SesameBun>(b =>
+            {
+                b.ToTable("SesameBuns");
+            });
 
             var model = modelBuilder.FinalizeModel();
 
@@ -478,26 +467,23 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
             modelBuilder.Entity<BigMak>()
                 .Ignore(b => b.Bun)
                 .Ignore(b => b.Pickles);
-            modelBuilder.Entity<Ingredient>(
-                b =>
-                {
-                    b.ToTable("Ingredients");
-                    b.Ignore(i => i.BigMak);
-                    b.HasIndex(e => e.BurgerId);
-                    b.UseTpcMappingStrategy();
-                });
-            modelBuilder.Entity<Bun>(
-                b =>
-                {
-                    b.ToTable("Buns");
-                    b.HasOne(i => i.BigMak).WithOne().HasForeignKey<Bun>(i => i.Id);
-                    b.UseTpcMappingStrategy();
-                });
-            modelBuilder.Entity<SesameBun>(
-                b =>
-                {
-                    b.ToTable("SesameBuns");
-                });
+            modelBuilder.Entity<Ingredient>(b =>
+            {
+                b.ToTable("Ingredients");
+                b.Ignore(i => i.BigMak);
+                b.HasIndex(e => e.BurgerId);
+                b.UseTpcMappingStrategy();
+            });
+            modelBuilder.Entity<Bun>(b =>
+            {
+                b.ToTable("Buns");
+                b.HasOne(i => i.BigMak).WithOne().HasForeignKey<Bun>(i => i.Id);
+                b.UseTpcMappingStrategy();
+            });
+            modelBuilder.Entity<SesameBun>(b =>
+            {
+                b.ToTable("SesameBuns");
+            });
 
             var model = modelBuilder.FinalizeModel();
 
@@ -545,21 +531,19 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
             modelBuilder.Entity<BigMak>()
                 .Ignore(b => b.Bun)
                 .Ignore(b => b.Pickles);
-            modelBuilder.Entity<Ingredient>(
-                b =>
-                {
-                    b.ToTable("Ingredients");
-                    b.Property<int?>("NullableProp");
-                    b.Ignore(i => i.BigMak);
-                });
-            modelBuilder.Entity<Bun>(
-                b =>
-                {
-                    b.ToTable("Buns");
-                    b.HasIndex(bun => bun.BurgerId);
-                    b.HasIndex("NullableProp");
-                    b.HasOne(i => i.BigMak).WithOne().HasForeignKey<Bun>(i => i.Id);
-                });
+            modelBuilder.Entity<Ingredient>(b =>
+            {
+                b.ToTable("Ingredients");
+                b.Property<int?>("NullableProp");
+                b.Ignore(i => i.BigMak);
+            });
+            modelBuilder.Entity<Bun>(b =>
+            {
+                b.ToTable("Buns");
+                b.HasIndex(bun => bun.BurgerId);
+                b.HasIndex("NullableProp");
+                b.HasOne(i => i.BigMak).WithOne().HasForeignKey<Bun>(i => i.Id);
+            });
 
             var model = modelBuilder.FinalizeModel();
 
@@ -575,12 +559,11 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
                 .HasBaseType(null)
                 .ToTable(tb => tb.HasCheckConstraint("CK_ChildBase_LargeId", "Id > 1000").HasName("CK_LargeId"));
             modelBuilder.Entity<ChildBase>()
-                .ToTable(
-                    tb =>
-                    {
-                        tb.HasCheckConstraint("PositiveId", "Id > 0");
-                        tb.HasCheckConstraint("CK_ChildBase_LargeId", "Id > 1000");
-                    });
+                .ToTable(tb =>
+                {
+                    tb.HasCheckConstraint("PositiveId", "Id > 0");
+                    tb.HasCheckConstraint("CK_ChildBase_LargeId", "Id > 1000");
+                });
             modelBuilder.Entity<Child>()
                 .HasBaseType<ChildBase>();
             modelBuilder.Entity<DisjointChildSubclass1>();
@@ -614,8 +597,8 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
 
             Assert.Equal(
                 RelationalStrings.DuplicateCheckConstraint("LargeId", nameof(Child), nameof(ChildBase)),
-                Assert.Throws<InvalidOperationException>(
-                    () => modelBuilder.Entity<Child>().ToTable(tb => tb.HasCheckConstraint("LargeId", "Id > 1000"))).Message);
+                Assert.Throws<InvalidOperationException>(()
+                    => modelBuilder.Entity<Child>().ToTable(tb => tb.HasCheckConstraint("LargeId", "Id > 1000"))).Message);
         }
 
         [ConditionalFact]
@@ -630,8 +613,7 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
 
             Assert.Equal(
                 RelationalStrings.DuplicateCheckConstraint("LargeId", nameof(Child), nameof(ChildBase)),
-                Assert.Throws<InvalidOperationException>(
-                    () => modelBuilder.Entity<Child>().HasBaseType<ChildBase>()).Message);
+                Assert.Throws<InvalidOperationException>(() => modelBuilder.Entity<Child>().HasBaseType<ChildBase>()).Message);
         }
 
         protected class Parent
@@ -656,7 +638,8 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         protected class DisjointChildSubclass2 : Child;
     }
 
-    public abstract class JetOneToMany(JetModelBuilderFixture fixture) : RelationalOneToManyTestBase(fixture), IClassFixture<JetModelBuilderFixture>
+    public abstract class JetOneToMany(JetModelBuilderFixture fixture)
+        : RelationalOneToManyTestBase(fixture), IClassFixture<JetModelBuilderFixture>
     {
         [ConditionalFact]
         public virtual void Shadow_foreign_keys_to_generic_types_have_terrible_names_that_should_not_change()
@@ -709,11 +692,14 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         protected class User;
     }
 
-    public abstract class JetManyToOne(JetModelBuilderFixture fixture) : RelationalManyToOneTestBase(fixture), IClassFixture<JetModelBuilderFixture>;
+    public abstract class JetManyToOne(JetModelBuilderFixture fixture)
+        : RelationalManyToOneTestBase(fixture), IClassFixture<JetModelBuilderFixture>;
 
-    public abstract class JetOneToOne(JetModelBuilderFixture fixture) : RelationalOneToOneTestBase(fixture), IClassFixture<JetModelBuilderFixture>;
+    public abstract class JetOneToOne(JetModelBuilderFixture fixture)
+        : RelationalOneToOneTestBase(fixture), IClassFixture<JetModelBuilderFixture>;
 
-    public abstract class JetManyToMany(JetModelBuilderFixture fixture) : RelationalManyToManyTestBase(fixture), IClassFixture<JetModelBuilderFixture>
+    public abstract class JetManyToMany(JetModelBuilderFixture fixture)
+        : RelationalManyToManyTestBase(fixture), IClassFixture<JetModelBuilderFixture>
     {
         [ConditionalFact]
         public virtual void Join_entity_type_uses_same_schema()
@@ -772,7 +758,8 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         }
     }
 
-    public abstract class JetOwnedTypes(JetModelBuilderFixture fixture) : RelationalOwnedTypesTestBase(fixture), IClassFixture<JetModelBuilderFixture>
+    public abstract class JetOwnedTypes(JetModelBuilderFixture fixture)
+        : RelationalOwnedTypesTestBase(fixture), IClassFixture<JetModelBuilderFixture>
     {
         [ConditionalFact]
         public virtual void Owned_types_use_table_splitting_by_default()
@@ -895,86 +882,85 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
             Assert.All(bookId.PropertyMappings, m => Assert.Equal(ValueGenerated.OnUpdateSometimes, m.Property.ValueGenerated));
         }
 
-        [ConditionalFact]
+        /*[ConditionalFact]
         public virtual void Owned_types_can_be_mapped_to_different_tables()
         {
             var modelBuilder = CreateModelBuilder();
             var model = modelBuilder.Model;
 
-            modelBuilder.Entity<Book>(
-                bb =>
-                {
-                    bb.ToTable(
-                        "BT", "BS", t =>
-                        {
-                            t.ExcludeFromMigrations();
+            modelBuilder.Entity<Book>(bb =>
+            {
+                bb.ToTable(
+                    "BT", "BS", t =>
+                    {
+                        t.ExcludeFromMigrations();
 
-                            Assert.Equal("BT", t.Name);
-                            Assert.Equal("BS", t.Schema);
-                        });
-                    bb.OwnsOne(
-                        b => b.AlternateLabel, tb =>
-                        {
-                            tb.Ignore(l => l.Book);
-                            tb.WithOwner()
-                                .HasConstraintName("AlternateLabelFK");
-                            tb.ToTable("TT", "TS");
-                            tb.OwnsOne(
-                                l => l.AnotherBookLabel, ab =>
-                                {
-                                    ab.Ignore(l => l.Book);
-                                    ab.ToTable(
-                                        "AT1", "AS1", t =>
-                                        {
-                                            t.ExcludeFromMigrations(false);
+                        Assert.Equal("BT", t.Name);
+                        Assert.Equal("BS", t.Schema);
+                    });
+                bb.OwnsOne(
+                    b => b.AlternateLabel, tb =>
+                    {
+                        tb.Ignore(l => l.Book);
+                        tb.WithOwner()
+                            .HasConstraintName("AlternateLabelFK");
+                        tb.ToTable("TT", "TS", tb => tb.IsMemoryOptimized());
+                        tb.OwnsOne(
+                            l => l.AnotherBookLabel, ab =>
+                            {
+                                ab.Ignore(l => l.Book);
+                                ab.ToTable(
+                                    "AT1", "AS1", t =>
+                                    {
+                                        t.ExcludeFromMigrations(false);
 
-                                            Assert.Equal("AT1", t.Name);
-                                            Assert.Equal("AS1", t.Schema);
-                                        });
-                                    ab.OwnsOne(s => s.SpecialBookLabel)
-                                        .ToTable("ST11", "SS11")
-                                        .Ignore(l => l.Book)
-                                        .Ignore(l => l.BookLabel);
+                                        Assert.Equal("AT1", t.Name);
+                                        Assert.Equal("AS1", t.Schema);
+                                    });
+                                ab.OwnsOne(s => s.SpecialBookLabel)
+                                    .ToTable("ST11", "SS11")
+                                    .Ignore(l => l.Book)
+                                    .Ignore(l => l.BookLabel);
 
-                                    ab.OwnedEntityType.FindNavigation(nameof(BookLabel.SpecialBookLabel))!
-                                        .AddAnnotation("Foo", "Bar");
-                                });
-                            tb.OwnsOne(
-                                l => l.SpecialBookLabel, sb =>
-                                {
-                                    sb.Ignore(l => l.Book);
-                                    sb.ToTable("ST2", "SS2");
-                                    sb.OwnsOne(s => s.AnotherBookLabel)
-                                        .ToTable("AT21", "AS21")
-                                        .Ignore(l => l.Book);
-                                });
-                        });
-                    bb.OwnsOne(
-                        b => b.Label, lb =>
-                        {
-                            lb.Ignore(l => l.Book);
-                            lb.ToTable("LT", "LS");
-                            lb.OwnsOne(
-                                l => l.SpecialBookLabel, sb =>
-                                {
-                                    sb.Ignore(l => l.Book);
-                                    sb.ToTable("ST1", "SS1");
-                                    sb.OwnsOne(a => a.AnotherBookLabel)
-                                        .ToTable("AT11", "AS11")
-                                        .Ignore(l => l.Book);
-                                });
-                            lb.OwnsOne(
-                                l => l.AnotherBookLabel, ab =>
-                                {
-                                    ab.Ignore(l => l.Book);
-                                    ab.ToTable("AT2", "AS2");
-                                    ab.OwnsOne(a => a.SpecialBookLabel)
-                                        .ToTable("ST21", "SS21")
-                                        .Ignore(l => l.BookLabel)
-                                        .Ignore(l => l.Book);
-                                });
-                        });
-                });
+                                ab.OwnedEntityType.FindNavigation(nameof(BookLabel.SpecialBookLabel))!
+                                    .AddAnnotation("Foo", "Bar");
+                            });
+                        tb.OwnsOne(
+                            l => l.SpecialBookLabel, sb =>
+                            {
+                                sb.Ignore(l => l.Book);
+                                sb.ToTable("ST2", "SS2");
+                                sb.OwnsOne(s => s.AnotherBookLabel)
+                                    .ToTable("AT21", "AS21")
+                                    .Ignore(l => l.Book);
+                            });
+                    });
+                bb.OwnsOne(
+                    b => b.Label, lb =>
+                    {
+                        lb.Ignore(l => l.Book);
+                        lb.ToTable("LT", "LS");
+                        lb.OwnsOne(
+                            l => l.SpecialBookLabel, sb =>
+                            {
+                                sb.Ignore(l => l.Book);
+                                sb.ToTable("ST1", "SS1");
+                                sb.OwnsOne(a => a.AnotherBookLabel)
+                                    .ToTable("AT11", "AS11")
+                                    .Ignore(l => l.Book);
+                            });
+                        lb.OwnsOne(
+                            l => l.AnotherBookLabel, ab =>
+                            {
+                                ab.Ignore(l => l.Book);
+                                ab.ToTable("AT2", "AS2");
+                                ab.OwnsOne(a => a.SpecialBookLabel)
+                                    .ToTable("ST21", "SS21")
+                                    .Ignore(l => l.BookLabel)
+                                    .Ignore(l => l.Book);
+                            });
+                    });
+            });
 
             modelBuilder.FinalizeModel();
 
@@ -1001,9 +987,11 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
             Assert.True(book.IsTableExcludedFromMigrations());
             Assert.Equal("LS", bookOwnership1.DeclaringEntityType.GetSchema());
             Assert.Equal("LT", bookOwnership1.DeclaringEntityType.GetTableName());
+            //Assert.False(bookOwnership1.DeclaringEntityType.IsMemoryOptimized());
             Assert.True(bookOwnership1.DeclaringEntityType.IsTableExcludedFromMigrations());
             Assert.Equal("TS", bookOwnership2.DeclaringEntityType.GetSchema());
             Assert.Equal("TT", bookOwnership2.DeclaringEntityType.GetTableName());
+            //Assert.True(bookOwnership2.DeclaringEntityType.IsMemoryOptimized());
             Assert.True(bookOwnership2.DeclaringEntityType.IsTableExcludedFromMigrations());
             Assert.Equal("AS2", bookLabel1Ownership1.DeclaringEntityType.GetSchema());
             Assert.Equal("AT2", bookLabel1Ownership1.DeclaringEntityType.GetTableName());
@@ -1080,7 +1068,7 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
                 r =>
                 {
                     r.HasKey(o => o.OrderId);
-                    //r.ToTable(tb => tb.IsMemoryOptimized());
+                    r.ToTable(tb => tb.IsMemoryOptimized());
                     r.Ignore(o => o.OrderCombination);
                     r.Ignore(o => o.Details);
                 });
@@ -1098,6 +1086,7 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
                 owned.GetProperties().Select(p => p.GetColumnName()));
             Assert.Equal(nameof(Order), owned.GetTableName());
             Assert.Null(owned.GetSchema());
+            Assert.True(owned.IsMemoryOptimized());
 
             modelBuilder.Entity<Customer>().OwnsMany(
                 c => c.Orders,
@@ -1119,6 +1108,53 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
 
             Assert.Equal("blah", owned.GetTableName());
             Assert.Null(owned.GetSchema());
+        }*/
+
+        [ConditionalFact]
+        public virtual void Owned_type_collections_are_mapped_to_same_tables_by_default()
+        {
+            var modelBuilder = CreateModelBuilder();
+
+            modelBuilder.Entity<JsonEntityWithNesting>(b =>
+            {
+                b.OwnsOne(x => x.OwnedReference1, bb =>
+                {
+                    bb.OwnsOne(x => x.Reference1);
+                    bb.OwnsOne(x => x.Reference2);
+                    bb.OwnsMany(x => x.Collection1);
+                    bb.OwnsMany(x => x.Collection2);
+                });
+
+                b.OwnsOne(x => x.OwnedReference2, bb =>
+                {
+                    bb.OwnsOne(x => x.Reference1);
+                    bb.OwnsOne(x => x.Reference2);
+                    bb.OwnsMany(x => x.Collection1);
+                    bb.OwnsMany(x => x.Collection2);
+                });
+
+                b.OwnsMany(x => x.OwnedCollection1, bb =>
+                {
+                    bb.OwnsOne(x => x.Reference1);
+                    bb.OwnsOne(x => x.Reference2);
+                    bb.OwnsMany(x => x.Collection1);
+                    bb.OwnsMany(x => x.Collection2);
+                });
+
+                b.OwnsMany(x => x.OwnedCollection2, bb =>
+                {
+                    bb.OwnsOne(x => x.Reference1);
+                    bb.OwnsOne(x => x.Reference2);
+                    bb.OwnsMany(x => x.Collection1);
+                    bb.OwnsMany(x => x.Collection2);
+                });
+            });
+
+            Assert.Equal(RelationalStrings.IncompatibleTableNoRelationship(
+                "JsonEntityWithNesting_Collection1",
+                "JsonEntityWithNesting.OwnedReference2#OwnedEntityExtraLevel.Collection1#OwnedEntity",
+                "JsonEntityWithNesting.OwnedReference1#OwnedEntityExtraLevel.Collection1#OwnedEntity"),
+                Assert.Throws<InvalidOperationException>(() => modelBuilder.FinalizeModel()).Message);
         }
 
         [ConditionalFact]
@@ -1204,14 +1240,13 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         {
             var modelBuilder = CreateModelBuilder();
 
-            modelBuilder.Entity<JsonEntity>(
-                b =>
-                {
-                    b.OwnsOne(x => x.OwnedReference1);
-                    b.OwnsOne(x => x.OwnedReference2, bb => bb.ToJson("reference"));
-                    b.OwnsMany(x => x.OwnedCollection1);
-                    b.OwnsMany(x => x.OwnedCollection2, bb => bb.ToJson("collection"));
-                });
+            modelBuilder.Entity<JsonEntity>(b =>
+            {
+                b.OwnsOne(x => x.OwnedReference1);
+                b.OwnsOne(x => x.OwnedReference2, bb => bb.ToJson("reference"));
+                b.OwnsMany(x => x.OwnedCollection1);
+                b.OwnsMany(x => x.OwnedCollection2, bb => bb.ToJson("collection"));
+            });
 
             var model = modelBuilder.FinalizeModel();
             var owner = model.FindEntityType(typeof(JsonEntity))!;
@@ -1243,20 +1278,18 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         {
             var modelBuilder = CreateModelBuilder();
 
-            modelBuilder.Entity<JsonEntityInheritanceBase>(
-                b =>
-                {
-                    b.OwnsOne(x => x.OwnedReferenceOnBase, bb => bb.ToJson("reference_on_base"));
-                    b.OwnsMany(x => x.OwnedCollectionOnBase, bb => bb.ToJson("collection_on_base"));
-                });
+            modelBuilder.Entity<JsonEntityInheritanceBase>(b =>
+            {
+                b.OwnsOne(x => x.OwnedReferenceOnBase, bb => bb.ToJson("reference_on_base"));
+                b.OwnsMany(x => x.OwnedCollectionOnBase, bb => bb.ToJson("collection_on_base"));
+            });
 
-            modelBuilder.Entity<JsonEntityInheritanceDerived>(
-                b =>
-                {
-                    b.HasBaseType<JsonEntityInheritanceBase>();
-                    b.OwnsOne(x => x.OwnedReferenceOnDerived, bb => bb.ToJson("reference_on_derived"));
-                    b.OwnsMany(x => x.OwnedCollectionOnDerived, bb => bb.ToJson("collection_on_derived"));
-                });
+            modelBuilder.Entity<JsonEntityInheritanceDerived>(b =>
+            {
+                b.HasBaseType<JsonEntityInheritanceBase>();
+                b.OwnsOne(x => x.OwnedReferenceOnDerived, bb => bb.ToJson("reference_on_derived"));
+                b.OwnsMany(x => x.OwnedCollectionOnDerived, bb => bb.ToJson("collection_on_derived"));
+            });
 
             var model = modelBuilder.FinalizeModel();
             var ownedEntities = model.FindEntityTypes(typeof(OwnedEntity)).ToList();
@@ -1280,114 +1313,134 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         public virtual void Json_entity_with_nested_structure_same_property_names()
         {
             var modelBuilder = CreateModelBuilder();
-            modelBuilder.Entity<JsonEntityWithNesting>(
-                b =>
-                {
-                    b.OwnsOne(
-                        x => x.OwnedReference1, bb =>
-                        {
-                            bb.ToJson("ref1");
-                            bb.OwnsOne(x => x.Reference1);
-                            bb.OwnsOne(x => x.Reference2);
-                            bb.OwnsMany(x => x.Collection1);
-                            bb.OwnsMany(x => x.Collection2);
-                        });
+            modelBuilder.Entity<JsonEntityWithNesting>(b =>
+            {
+                b.OwnsOne(
+                    x => x.OwnedReference1, bb =>
+                    {
+                        bb.ToJson("ref1");
+                        bb.OwnsOne(x => x.Reference1);
+                        bb.OwnsOne(x => x.Reference2);
+                        bb.OwnsMany(x => x.Collection1);
+                        bb.OwnsMany(x => x.Collection2);
+                    });
 
-                    b.OwnsOne(
-                        x => x.OwnedReference2, bb =>
-                        {
-                            bb.ToJson("ref2");
-                            bb.OwnsOne(x => x.Reference1);
-                            bb.OwnsOne(x => x.Reference2);
-                            bb.OwnsMany(x => x.Collection1);
-                            bb.OwnsMany(x => x.Collection2);
-                        });
+                b.OwnsOne(
+                    x => x.OwnedReference2, bb =>
+                    {
+                        bb.ToJson("ref2");
+                        bb.OwnsOne(x => x.Reference1);
+                        bb.OwnsOne(x => x.Reference2);
+                        bb.OwnsMany(x => x.Collection1);
+                        bb.OwnsMany(x => x.Collection2);
+                    });
 
-                    b.OwnsMany(
-                        x => x.OwnedCollection1, bb =>
-                        {
-                            bb.ToJson("col1");
-                            bb.OwnsOne(x => x.Reference1);
-                            bb.OwnsOne(x => x.Reference2);
-                            bb.OwnsMany(x => x.Collection1);
-                            bb.OwnsMany(x => x.Collection2);
-                        });
+                b.OwnsMany(
+                    x => x.OwnedCollection1, bb =>
+                    {
+                        bb.ToJson("col1");
+                        bb.OwnsOne(x => x.Reference1);
+                        bb.OwnsOne(x => x.Reference2);
+                        bb.OwnsMany(x => x.Collection1);
+                        bb.OwnsMany(x => x.Collection2);
+                    });
 
-                    b.OwnsMany(
-                        x => x.OwnedCollection2, bb =>
-                        {
-                            bb.ToJson("col2");
-                            bb.OwnsOne(x => x.Reference1);
-                            bb.OwnsOne(x => x.Reference2);
-                            bb.OwnsMany(x => x.Collection1);
-                            bb.OwnsMany(x => x.Collection2);
-                        });
-                });
+                b.OwnsMany(
+                    x => x.OwnedCollection2, bb =>
+                    {
+                        bb.ToJson("col2");
+                        bb.OwnsOne(x => x.Reference1)
+                            .HasAnnotation(RelationalAnnotationNames.JsonPropertyName, null);
+                        bb.OwnsOne(x => x.Reference2)
+                            .ToTable("Ref2")
+                            .HasAnnotation(RelationalAnnotationNames.ContainerColumnName, null);
+                        bb.OwnsMany(x => x.Collection1);
+                        bb.OwnsMany(x => x.Collection2);
+                    });
+            });
 
             var model = modelBuilder.FinalizeModel();
             var outerOwnedEntities = model.FindEntityTypes(typeof(OwnedEntityExtraLevel));
-            Assert.Equal(4, outerOwnedEntities.Count());
+
+            Assert.Collection(
+                outerOwnedEntities,
+                e => Assert.Equal("col1", e.GetContainerColumnName()),
+                e => Assert.Equal("col2", e.GetContainerColumnName()),
+                e => Assert.Equal("ref1", e.GetContainerColumnName()),
+                e => Assert.Equal("ref2", e.GetContainerColumnName()));
 
             foreach (var outerOwnedEntity in outerOwnedEntities)
             {
                 Assert.Equal("Date", outerOwnedEntity.GetProperty("Date").GetJsonPropertyName());
                 Assert.Equal("Fraction", outerOwnedEntity.GetProperty("Fraction").GetJsonPropertyName());
                 Assert.Equal("Enum", outerOwnedEntity.GetProperty("Enum").GetJsonPropertyName());
-                Assert.Equal(
-                    "Reference1",
-                    outerOwnedEntity.GetNavigations().Single(n => n.Name == "Reference1").TargetEntityType.GetJsonPropertyName());
-                Assert.Equal(
-                    "Reference2",
-                    outerOwnedEntity.GetNavigations().Single(n => n.Name == "Reference2").TargetEntityType.GetJsonPropertyName());
-                Assert.Equal(
-                    "Collection1",
-                    outerOwnedEntity.GetNavigations().Single(n => n.Name == "Collection1").TargetEntityType.GetJsonPropertyName());
-                Assert.Equal(
-                    "Collection2",
-                    outerOwnedEntity.GetNavigations().Single(n => n.Name == "Collection2").TargetEntityType.GetJsonPropertyName());
+
+                var nestedOwnedTypes = outerOwnedEntity.GetNavigations().Select(n => n.TargetEntityType).ToList();
+                Assert.Collection(
+                    nestedOwnedTypes,
+                    e => Assert.Equal("Collection1", e.GetJsonPropertyName()),
+                    e => Assert.Equal("Collection2", e.GetJsonPropertyName()),
+                    e => Assert.Equal(
+                        outerOwnedEntity.GetContainerColumnName() == "col2" ? null : "Reference1",
+                        e.GetJsonPropertyName()),
+                    e => Assert.Equal(
+                        outerOwnedEntity.GetContainerColumnName() == "col2" ? null : "Reference2",
+                        e.GetJsonPropertyName()));
+
+                Assert.Collection(
+                    nestedOwnedTypes,
+                    e => Assert.Equal(outerOwnedEntity.GetContainerColumnName(), e.GetContainerColumnName()),
+                    e => Assert.Equal(outerOwnedEntity.GetContainerColumnName(), e.GetContainerColumnName()),
+                    e => Assert.Equal(outerOwnedEntity.GetContainerColumnName(), e.GetContainerColumnName()),
+                    e => Assert.Equal(
+                        outerOwnedEntity.GetContainerColumnName() == "col2" ? null : outerOwnedEntity.GetContainerColumnName(),
+                        e.GetContainerColumnName()));
+
+                foreach (var ownedEntity in nestedOwnedTypes)
+                {
+                    if (ownedEntity.GetContainerColumnName() == null)
+                    {
+                        continue;
+                    }
+
+                    Assert.Equal("Date", ownedEntity.GetProperty("Date").GetJsonPropertyName());
+                    Assert.Equal("Fraction", ownedEntity.GetProperty("Fraction").GetJsonPropertyName());
+                    Assert.Equal("Enum", ownedEntity.GetProperty("Enum").GetJsonPropertyName());
+                }
             }
 
-            var ownedEntities = model.FindEntityTypes(typeof(OwnedEntity));
-            Assert.Equal(16, ownedEntities.Count());
-
-            foreach (var ownedEntity in ownedEntities)
-            {
-                Assert.Equal("Date", ownedEntity.GetProperty("Date").GetJsonPropertyName());
-                Assert.Equal("Fraction", ownedEntity.GetProperty("Fraction").GetJsonPropertyName());
-                Assert.Equal("Enum", ownedEntity.GetProperty("Enum").GetJsonPropertyName());
-            }
+            Assert.Equal(16, model.FindEntityTypes(typeof(OwnedEntity)).Count());
         }
 
         [ConditionalFact]
         public virtual void Json_entity_nested_enums_have_conversions_to_int_by_default_ToJson_first()
         {
             var modelBuilder = CreateModelBuilder();
-            modelBuilder.Entity<JsonEntityWithNesting>(
-                b =>
-                {
-                    b.OwnsOne(
-                        x => x.OwnedReference1, bb =>
-                        {
-                            bb.ToJson();
-                            bb.OwnsOne(x => x.Reference1);
-                            bb.OwnsOne(x => x.Reference2);
-                            bb.OwnsMany(x => x.Collection1);
-                            bb.OwnsMany(x => x.Collection2);
-                        });
+            modelBuilder.Entity<JsonEntityWithNesting>(b =>
+            {
+                b.OwnsOne(
+                    x => x.OwnedReference1, bb =>
+                    {
+                        bb.ToJson();
+                        bb.OwnsOne(x => x.Reference1);
+                        bb.OwnsOne(x => x.Reference2);
+                        bb.OwnsMany(x => x.Collection1);
+                        bb.OwnsMany(x => x.Collection2);
+                    });
 
-                    b.Ignore(x => x.OwnedReference2);
-                    b.OwnsMany(
-                        x => x.OwnedCollection1, bb =>
-                        {
-                            bb.ToJson();
-                            bb.OwnsOne(x => x.Reference1);
-                            bb.OwnsOne(x => x.Reference2);
-                            bb.OwnsMany(x => x.Collection1);
-                            bb.OwnsMany(x => x.Collection2);
-                        });
+                b.Ignore(x => x.OwnedReference2);
+                b.OwnsMany(
+                    x => x.OwnedCollection1, bb =>
+                    {
+                        bb.ToJson();
+                        bb.OwnsOne(x => x.Reference1);
+                        bb.OwnsOne(x => x.Reference2);
+                        bb.OwnsMany(x => x.Collection1);
+                        bb.OwnsMany(x => x.Collection2);
+                    });
 
-                    b.Ignore(x => x.OwnedCollection2);
-                });
+                b.Ignore(x => x.OwnedCollection2);
+            });
 
             var model = modelBuilder.FinalizeModel();
             var outerOwnedEntities = model.FindEntityTypes(typeof(OwnedEntityExtraLevel));
@@ -1417,32 +1470,31 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         public virtual void Json_entity_nested_enums_have_conversions_to_int_by_default_ToJson_last()
         {
             var modelBuilder = CreateModelBuilder();
-            modelBuilder.Entity<JsonEntityWithNesting>(
-                b =>
-                {
-                    b.OwnsOne(
-                        x => x.OwnedReference1, bb =>
-                        {
-                            bb.OwnsOne(x => x.Reference1);
-                            bb.OwnsOne(x => x.Reference2);
-                            bb.OwnsMany(x => x.Collection1);
-                            bb.OwnsMany(x => x.Collection2);
-                            bb.ToJson();
-                        });
+            modelBuilder.Entity<JsonEntityWithNesting>(b =>
+            {
+                b.OwnsOne(
+                    x => x.OwnedReference1, bb =>
+                    {
+                        bb.OwnsOne(x => x.Reference1);
+                        bb.OwnsOne(x => x.Reference2);
+                        bb.OwnsMany(x => x.Collection1);
+                        bb.OwnsMany(x => x.Collection2);
+                        bb.ToJson();
+                    });
 
-                    b.Ignore(x => x.OwnedReference2);
-                    b.OwnsMany(
-                        x => x.OwnedCollection1, bb =>
-                        {
-                            bb.OwnsOne(x => x.Reference1);
-                            bb.OwnsOne(x => x.Reference2);
-                            bb.OwnsMany(x => x.Collection1);
-                            bb.OwnsMany(x => x.Collection2);
-                            bb.ToJson();
-                        });
+                b.Ignore(x => x.OwnedReference2);
+                b.OwnsMany(
+                    x => x.OwnedCollection1, bb =>
+                    {
+                        bb.OwnsOne(x => x.Reference1);
+                        bb.OwnsOne(x => x.Reference2);
+                        bb.OwnsMany(x => x.Collection1);
+                        bb.OwnsMany(x => x.Collection2);
+                        bb.ToJson();
+                    });
 
-                    b.Ignore(x => x.OwnedCollection2);
-                });
+                b.Ignore(x => x.OwnedCollection2);
+            });
 
             var model = modelBuilder.FinalizeModel();
             var outerOwnedEntities = model.FindEntityTypes(typeof(OwnedEntityExtraLevel));
@@ -1472,34 +1524,33 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         public virtual void Entity_mapped_to_json_and_unwound_afterwards_properly_cleans_up_its_state()
         {
             var modelBuilder = CreateModelBuilder();
-            modelBuilder.Entity<JsonEntityWithNesting>(
-                b =>
-                {
-                    b.OwnsOne(
-                        x => x.OwnedReference1, bb =>
-                        {
-                            bb.ToJson();
-                            bb.OwnsOne(x => x.Reference1);
-                            bb.OwnsOne(x => x.Reference2);
-                            bb.OwnsMany(x => x.Collection1);
-                            bb.OwnsMany(x => x.Collection2);
-                            bb.ToJson(null);
-                        });
+            modelBuilder.Entity<JsonEntityWithNesting>(b =>
+            {
+                b.OwnsOne(
+                    x => x.OwnedReference1, bb =>
+                    {
+                        bb.ToJson();
+                        bb.OwnsOne(x => x.Reference1);
+                        bb.OwnsOne(x => x.Reference2);
+                        bb.OwnsMany(x => x.Collection1);
+                        bb.OwnsMany(x => x.Collection2);
+                        bb.ToJson(null);
+                    });
 
-                    b.Ignore(x => x.OwnedReference2);
-                    b.OwnsMany(
-                        x => x.OwnedCollection1, bb =>
-                        {
-                            bb.OwnsOne(x => x.Reference1);
-                            bb.OwnsOne(x => x.Reference2);
-                            bb.OwnsMany(x => x.Collection1);
-                            bb.OwnsMany(x => x.Collection2);
-                            bb.ToJson();
-                            bb.ToJson(null);
-                        });
+                b.Ignore(x => x.OwnedReference2);
+                b.OwnsMany(
+                    x => x.OwnedCollection1, bb =>
+                    {
+                        bb.OwnsOne(x => x.Reference1);
+                        bb.OwnsOne(x => x.Reference2);
+                        bb.OwnsMany(x => x.Collection1);
+                        bb.OwnsMany(x => x.Collection2);
+                        bb.ToJson();
+                        bb.ToJson(null);
+                    });
 
-                    b.Ignore(x => x.OwnedCollection2);
-                });
+                b.Ignore(x => x.OwnedCollection2);
+            });
 
             var model = modelBuilder.FinalizeModel();
             var outerOwnedEntities = model.FindEntityTypes(typeof(OwnedEntityExtraLevel));
@@ -1536,15 +1587,14 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         public virtual void Json_entity_mapped_to_view()
         {
             var modelBuilder = CreateModelBuilder();
-            modelBuilder.Entity<JsonEntity>(
-                b =>
-                {
-                    b.ToView("MyView");
-                    b.OwnsOne(x => x.OwnedReference1, bb => bb.ToJson());
-                    b.Ignore(x => x.OwnedReference2);
-                    b.OwnsMany(x => x.OwnedCollection1, bb => bb.ToJson());
-                    b.Ignore(x => x.OwnedCollection2);
-                });
+            modelBuilder.Entity<JsonEntity>(b =>
+            {
+                b.ToView("MyView");
+                b.OwnsOne(x => x.OwnedReference1, bb => bb.ToJson());
+                b.Ignore(x => x.OwnedReference2);
+                b.OwnsMany(x => x.OwnedCollection1, bb => bb.ToJson());
+                b.Ignore(x => x.OwnedCollection2);
+            });
 
             var model = modelBuilder.FinalizeModel();
 
@@ -1558,97 +1608,121 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
         }
 
         [ConditionalFact]
+        public virtual void Json_entity_mapped_to_view_with_custom_schema()
+        {
+            var modelBuilder = CreateModelBuilder();
+            modelBuilder.Entity<JsonEntity>(b =>
+            {
+                b.ToView("MyView", "MySchema");
+                b.OwnsOne(x => x.OwnedReference1, bb => bb.ToJson());
+                b.Ignore(x => x.OwnedReference2);
+                b.OwnsMany(x => x.OwnedCollection1, bb => bb.ToJson());
+                b.Ignore(x => x.OwnedCollection2);
+            });
+
+            var model = modelBuilder.FinalizeModel();
+
+            var owner = model.FindEntityType(typeof(JsonEntity))!;
+            Assert.Equal("MyView", owner.GetViewName());
+
+            var ownedEntities = model.FindEntityTypes(typeof(OwnedEntity));
+            Assert.Equal(2, ownedEntities.Count());
+            Assert.Equal(2, ownedEntities.Where(e => e.IsMappedToJson()).Count());
+            Assert.True(ownedEntities.All(x => x.GetViewName() == "MyView"));
+            Assert.True(ownedEntities.All(x => x.GetViewSchema() == "MySchema"));
+        }
+
+        [ConditionalFact]
         public virtual void Json_entity_with_custom_property_names()
         {
             var modelBuilder = CreateModelBuilder();
-            modelBuilder.Entity<JsonEntityWithNesting>(
-                b =>
-                {
-                    b.OwnsOne(
-                        x => x.OwnedReference1, bb =>
-                        {
-                            bb.ToJson();
-                            bb.Property(x => x.Date).HasJsonPropertyName("OuterDate");
-                            bb.Property(x => x.Fraction).HasJsonPropertyName("OuterFraction");
-                            bb.Property(x => x.Enum).HasJsonPropertyName("OuterEnum");
-                            bb.OwnsOne(
-                                x => x.Reference1, bbb =>
-                                {
-                                    bbb.HasJsonPropertyName("RenamedReference1");
-                                    bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
-                                    bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
-                                    bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
-                                });
-                            bb.OwnsOne(
-                                x => x.Reference2, bbb =>
-                                {
-                                    bbb.HasJsonPropertyName("RenamedReference2");
-                                    bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
-                                    bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
-                                    bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
-                                });
-                            bb.OwnsMany(
-                                x => x.Collection1, bbb =>
-                                {
-                                    bbb.HasJsonPropertyName("RenamedCollection1");
-                                    bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
-                                    bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
-                                    bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
-                                });
-                            bb.OwnsMany(
-                                x => x.Collection2, bbb =>
-                                {
-                                    bbb.HasJsonPropertyName("RenamedCollection2");
-                                    bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
-                                    bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
-                                    bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
-                                });
-                        });
+            modelBuilder.Entity<JsonEntityWithNesting>(b =>
+            {
+                b.OwnsOne(
+                    x => x.OwnedReference1, bb =>
+                    {
+                        bb.ToJson();
+                        bb.Property(x => x.Date).HasJsonPropertyName("OuterDate");
+                        bb.Property(x => x.Fraction).HasJsonPropertyName("OuterFraction");
+                        bb.Property(x => x.Enum).HasJsonPropertyName("OuterEnum");
+                        bb.OwnsOne(
+                            x => x.Reference1, bbb =>
+                            {
+                                bbb.HasJsonPropertyName("RenamedReference1");
+                                bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
+                                bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
+                                bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
+                            });
+                        bb.OwnsOne(
+                            x => x.Reference2, bbb =>
+                            {
+                                bbb.HasJsonPropertyName("RenamedReference2");
+                                bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
+                                bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
+                                bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
+                            });
+                        bb.OwnsMany(
+                            x => x.Collection1, bbb =>
+                            {
+                                bbb.HasJsonPropertyName("RenamedCollection1");
+                                bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
+                                bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
+                                bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
+                            });
+                        bb.OwnsMany(
+                            x => x.Collection2, bbb =>
+                            {
+                                bbb.HasJsonPropertyName("RenamedCollection2");
+                                bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
+                                bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
+                                bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
+                            });
+                    });
 
-                    b.OwnsMany(
-                        x => x.OwnedCollection1, bb =>
-                        {
-                            bb.Property(x => x.Date).HasJsonPropertyName("OuterDate");
-                            bb.Property(x => x.Fraction).HasJsonPropertyName("OuterFraction");
-                            bb.Property(x => x.Enum).HasJsonPropertyName("OuterEnum");
-                            bb.OwnsOne(
-                                x => x.Reference1, bbb =>
-                                {
-                                    bbb.HasJsonPropertyName("RenamedReference1");
-                                    bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
-                                    bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
-                                    bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
-                                });
-                            bb.OwnsOne(
-                                x => x.Reference2, bbb =>
-                                {
-                                    bbb.HasJsonPropertyName("RenamedReference2");
-                                    bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
-                                    bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
-                                    bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
-                                });
-                            bb.OwnsMany(
-                                x => x.Collection1, bbb =>
-                                {
-                                    bbb.HasJsonPropertyName("RenamedCollection1");
-                                    bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
-                                    bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
-                                    bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
-                                });
-                            bb.OwnsMany(
-                                x => x.Collection2, bbb =>
-                                {
-                                    bbb.HasJsonPropertyName("RenamedCollection2");
-                                    bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
-                                    bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
-                                    bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
-                                });
-                            bb.ToJson();
-                        });
+                b.OwnsMany(
+                    x => x.OwnedCollection1, bb =>
+                    {
+                        bb.Property(x => x.Date).HasJsonPropertyName("OuterDate");
+                        bb.Property(x => x.Fraction).HasJsonPropertyName("OuterFraction");
+                        bb.Property(x => x.Enum).HasJsonPropertyName("OuterEnum");
+                        bb.OwnsOne(
+                            x => x.Reference1, bbb =>
+                            {
+                                bbb.HasJsonPropertyName("RenamedReference1");
+                                bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
+                                bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
+                                bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
+                            });
+                        bb.OwnsOne(
+                            x => x.Reference2, bbb =>
+                            {
+                                bbb.HasJsonPropertyName("RenamedReference2");
+                                bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
+                                bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
+                                bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
+                            });
+                        bb.OwnsMany(
+                            x => x.Collection1, bbb =>
+                            {
+                                bbb.HasJsonPropertyName("RenamedCollection1");
+                                bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
+                                bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
+                                bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
+                            });
+                        bb.OwnsMany(
+                            x => x.Collection2, bbb =>
+                            {
+                                bbb.HasJsonPropertyName("RenamedCollection2");
+                                bbb.Property(x => x.Date).HasJsonPropertyName("InnerDate");
+                                bbb.Property(x => x.Fraction).HasJsonPropertyName("InnerFraction");
+                                bbb.Property(x => x.Enum).HasJsonPropertyName("InnerEnum");
+                            });
+                        bb.ToJson();
+                    });
 
-                    b.Ignore(x => x.OwnedReference2);
-                    b.Ignore(x => x.OwnedCollection2);
-                });
+                b.Ignore(x => x.OwnedReference2);
+                b.Ignore(x => x.OwnedCollection2);
+            });
 
             var model = modelBuilder.FinalizeModel();
             var outerOwnedEntities = model.FindEntityTypes(typeof(OwnedEntityExtraLevel));
@@ -1683,88 +1757,11 @@ public class JetModelBuilderTestBase : RelationalModelBuilderTest
                 Assert.Equal("InnerEnum", ownedEntity.GetProperty("Enum").GetJsonPropertyName());
             }
         }
-
-        [ConditionalFact]
-        public virtual void Json_entity_and_normal_owned_can_exist_side_to_side_on_same_entity()
-        {
-            var modelBuilder = CreateModelBuilder();
-
-            modelBuilder.Entity<JsonEntity>(
-                b =>
-                {
-                    b.OwnsOne(x => x.OwnedReference1);
-                    b.OwnsOne(x => x.OwnedReference2, bb => bb.ToJson("reference"));
-                    b.OwnsMany(x => x.OwnedCollection1);
-                    b.OwnsMany(x => x.OwnedCollection2, bb => bb.ToJson("collection"));
-                });
-
-            var model = modelBuilder.FinalizeModel();
-
-            var ownedEntities = model.FindEntityTypes(typeof(OwnedEntity));
-            Assert.Equal(4, ownedEntities.Count());
-            Assert.Equal(2, ownedEntities.Where(e => e.IsMappedToJson()).Count());
-            Assert.Equal(2, ownedEntities.Where(e => e.IsOwned() && !e.IsMappedToJson()).Count());
-        }
-
-        [ConditionalFact]
-        public virtual void Json_entity_with_nested_structure_same_property_names_()
-        {
-            var modelBuilder = CreateModelBuilder();
-            modelBuilder.Entity<JsonEntityWithNesting>(
-                b =>
-                {
-                    b.OwnsOne(
-                        x => x.OwnedReference1, bb =>
-                        {
-                            bb.ToJson("ref1");
-                            bb.OwnsOne(x => x.Reference1);
-                            bb.OwnsOne(x => x.Reference2);
-                            bb.OwnsMany(x => x.Collection1);
-                            bb.OwnsMany(x => x.Collection2);
-                        });
-
-                    b.OwnsOne(
-                        x => x.OwnedReference2, bb =>
-                        {
-                            bb.ToJson("ref2");
-                            bb.OwnsOne(x => x.Reference1);
-                            bb.OwnsOne(x => x.Reference2);
-                            bb.OwnsMany(x => x.Collection1);
-                            bb.OwnsMany(x => x.Collection2);
-                        });
-
-                    b.OwnsMany(
-                        x => x.OwnedCollection1, bb =>
-                        {
-                            bb.ToJson("col1");
-                            bb.OwnsOne(x => x.Reference1);
-                            bb.OwnsOne(x => x.Reference2);
-                            bb.OwnsMany(x => x.Collection1);
-                            bb.OwnsMany(x => x.Collection2);
-                        });
-
-                    b.OwnsMany(
-                        x => x.OwnedCollection2, bb =>
-                        {
-                            bb.ToJson("col2");
-                            bb.OwnsOne(x => x.Reference1);
-                            bb.OwnsOne(x => x.Reference2);
-                            bb.OwnsMany(x => x.Collection1);
-                            bb.OwnsMany(x => x.Collection2);
-                        });
-                });
-
-            var model = modelBuilder.FinalizeModel();
-            var outerOwnedEntities = model.FindEntityTypes(typeof(OwnedEntityExtraLevel));
-            Assert.Equal(4, outerOwnedEntities.Count());
-
-            var ownedEntities = model.FindEntityTypes(typeof(OwnedEntity));
-            Assert.Equal(16, ownedEntities.Count());
-        }
     }
 
     public class JetModelBuilderFixture : RelationalModelBuilderFixture
     {
-        public override TestHelpers TestHelpers => JetTestHelpers.Instance;
+        public override TestHelpers TestHelpers
+            => JetTestHelpers.Instance;
     }
 }

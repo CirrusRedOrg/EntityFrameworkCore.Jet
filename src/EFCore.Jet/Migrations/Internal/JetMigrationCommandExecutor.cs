@@ -27,10 +27,8 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
                 output += base.ExecuteNonQuery(batch.Item1, connection, executionState, true, isolationLevel);
                 if (batch.Item2) Thread.Sleep(4000);//Wait for adox/dao to complete
             }
-            if (connection.CurrentTransaction != null)
-            {
-                connection.CurrentTransaction.Commit();
-            }
+
+            connection.CurrentTransaction?.Commit();
             return output;
         }
 

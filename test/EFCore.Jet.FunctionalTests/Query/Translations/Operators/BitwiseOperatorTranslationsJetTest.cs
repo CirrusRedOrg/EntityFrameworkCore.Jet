@@ -60,7 +60,7 @@ FROM `BasicTypesEntities` AS `b`
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (CLNG(`b`.`Int` BOR `b`.`Short`) BOR `b`.`Long`) = 7
+WHERE (IIF((`b`.`Int` BOR CLNG(`b`.`Short`)) IS NULL, NULL, CLNG(`b`.`Int` BOR CLNG(`b`.`Short`))) BOR `b`.`Long`) = 7
 """);
     }
 
@@ -72,11 +72,11 @@ WHERE (CLNG(`b`.`Int` BOR `b`.`Short`) BOR `b`.`Long`) = 7
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (`b`.`Int` BAND `b`.`Short`) = 2
+WHERE (`b`.`Int` BAND CLNG(`b`.`Short`)) = 2
 """,
             //
             """
-SELECT `b`.`Int` BAND `b`.`Short`
+SELECT `b`.`Int` BAND CLNG(`b`.`Short`)
 FROM `BasicTypesEntities` AS `b`
 """);
     }
@@ -104,14 +104,14 @@ FROM `BasicTypesEntities` AS `b`
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE [b].[Int] ^ [b].[Short] = 1
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE (`b`.`Int` BXOR CLNG(`b`.`Short`)) = 1
 """,
             //
             """
-SELECT [b].[Int] ^ [b].[Short]
-FROM [BasicTypesEntities] AS [b]
+SELECT `b`.`Int` BXOR CLNG(`b`.`Short`)
+FROM `BasicTypesEntities` AS `b`
 """);
     }
 

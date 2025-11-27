@@ -6,6 +6,7 @@ using System.Globalization;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using System.Text;
 using EntityFrameworkCore.Jet.Internal;
+using EntityFrameworkCore.Jet.Storage.Internal;
 using ExpressionExtensions = Microsoft.EntityFrameworkCore.Query.ExpressionExtensions;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
@@ -103,6 +104,27 @@ public class JetSqlTranslatingExpressionVisitor(
 
         var visitedExpression = base.VisitBinary(binaryExpression);
 
+        if (visitedExpression is SqlBinaryExpression be)
+        {
+            if (be.OperatorType is ExpressionType.And
+                or ExpressionType.Or
+                or ExpressionType.ExclusiveOr)
+            {
+                var left = CoerceIfNeeded(be.Left);
+                var right = CoerceIfNeeded(be.Right);
+
+                if (!ReferenceEquals(left, be.Left) || !ReferenceEquals(right, be.Right))
+                {
+                    visitedExpression = new SqlBinaryExpression(
+                        be.OperatorType,
+                        left,
+                        right,
+                        be.Type,
+                        be.TypeMapping);
+                }
+            }
+        }
+
         if (visitedExpression is SqlBinaryExpression sqlBinaryExpression
             && ArithmeticOperatorTypes.Contains(sqlBinaryExpression.OperatorType))
         {
@@ -127,6 +149,25 @@ public class JetSqlTranslatingExpressionVisitor(
         }
 
         return visitedExpression;
+    }
+
+    private SqlExpression CoerceIfNeeded(SqlExpression operand)
+    {
+        // Skip if already a LONG (Jet) or if already a CLNG(...) call
+        var storeType = operand.TypeMapping?.StoreType;
+        if (storeType is "long" or "integer" or "int") return operand;
+        var clr = operand.Type;
+        if (clr == typeof(byte) || clr == typeof(short))
+        {
+            return _sqlExpressionFactory.Function(
+                "CLNG",
+                [operand],
+                true,
+                argumentsPropagateNullability: [true],
+                typeof(long),
+                IntTypeMapping.Default);
+        }
+        return operand;
     }
 
     /// <summary>

@@ -3,8 +3,9 @@
 
 // ReSharper disable InconsistentNaming
 
-using System;
 using Microsoft.EntityFrameworkCore;
+using NetTopologySuite.Features;
+using System;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.ModelBuilding;
 
@@ -18,6 +19,13 @@ public class JetModelBuilderGenericTest : JetModelBuilderTestBase
     }
 
     public class JetGenericComplexType(JetModelBuilderFixture fixture) : JetComplexType(fixture)
+    {
+        protected override TestModelBuilder CreateModelBuilder(
+            Action<ModelConfigurationBuilder>? configure)
+            => new GenericTestModelBuilder(Fixture, configure);
+    }
+
+    public class JetGenericComplexCollection(JetModelBuilderFixture fixture) : JetComplexCollection(fixture)
     {
         protected override TestModelBuilder CreateModelBuilder(
             Action<ModelConfigurationBuilder>? configure)

@@ -420,6 +420,125 @@ ORDER BY `o2`.`c` DESC, `o2`.`c0` DESC
 """);
         }
 
+        public override async Task DefaultIfEmpty_top_level(bool async)
+        {
+            await base.DefaultIfEmpty_top_level(async);
+
+            AssertSql(
+                """
+SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
+FROM (
+    SELECT 1 AS empty
+) AS [e0]
+LEFT JOIN (
+    SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+    WHERE [e].[EmployeeID] = -1
+) AS [e1] ON 1 = 1
+""");
+        }
+
+        public override async Task Join_with_DefaultIfEmpty_on_both_sources(bool async)
+        {
+            await base.Join_with_DefaultIfEmpty_on_both_sources(async);
+
+            AssertSql(
+                """
+SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
+FROM (
+    SELECT 1 AS empty
+) AS [e0]
+LEFT JOIN (
+    SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+    WHERE [e].[EmployeeID] = -1
+) AS [e1] ON 1 = 1
+INNER JOIN (
+    SELECT [e4].[EmployeeID]
+    FROM (
+        SELECT 1 AS empty
+    ) AS [e3]
+    LEFT JOIN (
+        SELECT [e2].[EmployeeID]
+        FROM [Employees] AS [e2]
+        WHERE [e2].[EmployeeID] = -1
+    ) AS [e4] ON 1 = 1
+) AS [s] ON [e1].[EmployeeID] = [s].[EmployeeID]
+""");
+        }
+
+        public override async Task DefaultIfEmpty_top_level_followed_by_constant_Select(bool async)
+        {
+            await base.DefaultIfEmpty_top_level_followed_by_constant_Select(async);
+
+            AssertSql(
+                """
+SELECT N'Foo'
+FROM (
+    SELECT 1 AS empty
+) AS [e0]
+LEFT JOIN (
+    SELECT 1 AS empty
+    FROM [Employees] AS [e]
+    WHERE [e].[EmployeeID] = -1
+) AS [e1] ON 1 = 1
+""");
+        }
+
+        public override async Task DefaultIfEmpty_top_level_preceded_by_constant_Select(bool async)
+        {
+            await base.DefaultIfEmpty_top_level_preceded_by_constant_Select(async);
+
+            AssertSql(
+                """
+SELECT [e1].[c]
+FROM (
+    SELECT 1 AS empty
+) AS [e0]
+LEFT JOIN (
+    SELECT N'Foo' AS [c]
+    FROM [Employees] AS [e]
+    WHERE [e].[EmployeeID] = -1
+) AS [e1] ON 1 = 1
+""");
+        }
+
+        public override async Task DefaultIfEmpty_top_level_positive(bool async)
+        {
+            await base.DefaultIfEmpty_top_level_positive(async);
+
+            AssertSql(
+                """
+SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
+FROM (
+    SELECT 1 AS empty
+) AS [e0]
+LEFT JOIN (
+    SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
+    FROM [Employees] AS [e]
+    WHERE [e].[EmployeeID] > 0
+) AS [e1] ON 1 = 1
+""");
+        }
+
+        public override async Task DefaultIfEmpty_top_level_projection(bool async)
+        {
+            await base.DefaultIfEmpty_top_level_projection(async);
+
+            AssertSql(
+                """
+SELECT COALESCE([e1].[EmployeeID], 0)
+FROM (
+    SELECT 1 AS empty
+) AS [e0]
+LEFT JOIN (
+    SELECT [e].[EmployeeID]
+    FROM [Employees] AS [e]
+    WHERE [e].[EmployeeID] = -1
+) AS [e1] ON 1 = 1
+""");
+        }
+
         public override async Task Where_query_composition(bool isAsync)
         {
             await base.Where_query_composition(isAsync);
@@ -6213,6 +6332,38 @@ ORDER BY `c`.`CustomerID`, `e`.`EmployeeID`
 """);
         }
 
+        public override async Task SelectMany_correlated_with_DefaultIfEmpty_and_Select_value_type_in_selector_throws(bool async)
+        {
+            await base.SelectMany_correlated_with_DefaultIfEmpty_and_Select_value_type_in_selector_throws(async);
+
+            AssertSql(
+                """
+SELECT `o0`.`OrderID`
+FROM `Customers` AS `c`
+LEFT JOIN (
+    SELECT `o`.`OrderID`, `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = 'NONEXISTENT'
+) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+""");
+        }
+
+        public override async Task SelectMany_correlated_with_Select_value_type_and_DefaultIfEmpty_in_selector(bool async)
+        {
+            await base.SelectMany_correlated_with_Select_value_type_and_DefaultIfEmpty_in_selector(async);
+
+            AssertSql(
+                """
+SELECT COALESCE([o0].[OrderID], 0)
+FROM [Customers] AS [c]
+OUTER APPLY (
+    SELECT TOP(2) [o].[OrderID]
+    FROM [Orders] AS [o]
+    WHERE [c].[CustomerID] = [o].[CustomerID] AND [o].[CustomerID] = N'NONEXISTENT'
+) AS [o0]
+""");
+        }
+
         public override async Task Select_Property_when_shadow_unconstrained_generic_method(bool async)
         {
             await base.Select_Property_when_shadow_unconstrained_generic_method(async);
@@ -6681,6 +6832,20 @@ FROM `Orders` AS `o`
         public override async Task SelectMany_mixed(bool async)
         {
             await base.SelectMany_mixed(async);
+
+            AssertSql();
+        }
+
+        public override async Task DefaultIfEmpty_top_level_arg(bool async)
+        {
+            await base.DefaultIfEmpty_top_level_arg(async);
+
+            AssertSql();
+        }
+
+        public override async Task DefaultIfEmpty_top_level_arg_followed_by_projecting_constant(bool async)
+        {
+            await base.DefaultIfEmpty_top_level_arg_followed_by_projecting_constant(async);
 
             AssertSql();
         }

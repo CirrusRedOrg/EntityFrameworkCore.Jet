@@ -73,137 +73,109 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Migrations
 
             Assert.Equal(
                 """
-IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
-BEGIN
-    CREATE TABLE [__EFMigrationsHistory] (
-        [MigrationId] nvarchar(150) NOT NULL,
-        [ProductVersion] nvarchar(32) NOT NULL,
-        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
+IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
+        `MigrationId` varchar(150) NOT NULL,
+        `ProductVersion` varchar(32) NOT NULL,
+        CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
     );
-END;
-GO
+;
 
 BEGIN TRANSACTION;
-CREATE TABLE [Table1] (
-    [Id] int NOT NULL,
-    [Foo] int NOT NULL,
-    [Description] nvarchar(max) NOT NULL,
-    CONSTRAINT [PK_Table1] PRIMARY KEY ([Id])
+CREATE TABLE `Table1` (
+    `Id` integer NOT NULL,
+    `Foo` integer NOT NULL,
+    `Description` varchar(255) NOT NULL,
+    CONSTRAINT `PK_Table1` PRIMARY KEY (`Id`)
 );
 
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'00000000000001_Migration1', N'7.0.0-test');
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('00000000000001_Migration1', '7.0.0-test');
 
-EXEC sp_rename N'[Table1].[Foo]', N'Bar', 'COLUMN';
-
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'00000000000002_Migration2', N'7.0.0-test');
-
-COMMIT;
-GO
-
-CREATE DATABASE TransactionSuppressed;
-GO
-
-DROP DATABASE TransactionSuppressed;
-GO
-
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'00000000000003_Migration3', N'7.0.0-test');
-GO
-
-CREATE PROCEDURE [dbo].[GotoReproduction]
-AS
-BEGIN
-    DECLARE @Counter int;
-    SET @Counter = 1;
-    WHILE @Counter < 10
-    BEGIN
-        SELECT @Counter
-        SET @Counter = @Counter + 1
-        IF @Counter = 4 GOTO Branch_One --Jumps to the first branch.
-        IF @Counter = 5 GOTO Branch_Two --This will never execute.
-    END
-    Branch_One:
-        SELECT 'Jumping To Branch One.'
-        GOTO Branch_Three; --This will prevent Branch_Two from executing.'
-    Branch_Two:
-        SELECT 'Jumping To Branch Two.'
-    Branch_Three:
-        SELECT 'Jumping To Branch Three.'
-END;
-
-GO
-
-SELECT GetDate();
---GO
-SELECT GetDate()
-GO
-
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'00000000000004_Migration4', N'7.0.0-test');
-GO
+COMMIT TRANSACTION;
 
 BEGIN TRANSACTION;
-INSERT INTO Table1 (Id, Bar, Description) VALUES (-1, 3, 'Value With
+ALTER TABLE `Table1` RENAME COLUMN `Foo` TO `Bar`;
 
-Empty Lines')
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('00000000000002_Migration2', '7.0.0-test');
 
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'00000000000005_Migration5', N'7.0.0-test');
-
-INSERT INTO Table1 (Id, Bar, Description) VALUES (-2, 4, 'GO
-Value With
-
-Empty Lines')
-
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'00000000000006_Migration6', N'7.0.0-test');
-
-INSERT INTO Table1 (Id, Bar, Description) VALUES (-3, 5, '--Start
-GO
-Value With
-
-GO
-
-Empty Lines;
-GO
-')
-
-INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
-VALUES (N'00000000000007_Migration7', N'7.0.0-test');
-
-COMMIT;
-GO
+COMMIT TRANSACTION;
 
 BEGIN TRANSACTION;
-DELETE FROM [__EFMigrationsHistory]
-WHERE [MigrationId] = N'00000000000007_Migration7';
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('00000000000003_Migration3', '7.0.0-test');
 
-DELETE FROM [__EFMigrationsHistory]
-WHERE [MigrationId] = N'00000000000006_Migration6';
+COMMIT TRANSACTION;
 
-DELETE FROM [__EFMigrationsHistory]
-WHERE [MigrationId] = N'00000000000005_Migration5';
+BEGIN TRANSACTION;
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('00000000000004_Migration4', '7.0.0-test');
 
-DELETE FROM [__EFMigrationsHistory]
-WHERE [MigrationId] = N'00000000000004_Migration4';
+COMMIT TRANSACTION;
 
-DELETE FROM [__EFMigrationsHistory]
-WHERE [MigrationId] = N'00000000000003_Migration3';
+BEGIN TRANSACTION;
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('00000000000005_Migration5', '7.0.0-test');
 
-EXEC sp_rename N'[Table1].[Bar]', N'Foo', 'COLUMN';
+COMMIT TRANSACTION;
 
-DELETE FROM [__EFMigrationsHistory]
-WHERE [MigrationId] = N'00000000000002_Migration2';
+BEGIN TRANSACTION;
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('00000000000006_Migration6', '7.0.0-test');
 
-DROP TABLE [Table1];
+COMMIT TRANSACTION;
 
-DELETE FROM [__EFMigrationsHistory]
-WHERE [MigrationId] = N'00000000000001_Migration1';
+BEGIN TRANSACTION;
+INSERT INTO `__EFMigrationsHistory` (`MigrationId`, `ProductVersion`)
+VALUES ('00000000000007_Migration7', '7.0.0-test');
 
-COMMIT;
-GO
+COMMIT TRANSACTION;
+
+BEGIN TRANSACTION;
+DELETE FROM `__EFMigrationsHistory`
+WHERE `MigrationId` = '00000000000007_Migration7';
+
+COMMIT TRANSACTION;
+
+BEGIN TRANSACTION;
+DELETE FROM `__EFMigrationsHistory`
+WHERE `MigrationId` = '00000000000006_Migration6';
+
+COMMIT TRANSACTION;
+
+BEGIN TRANSACTION;
+DELETE FROM `__EFMigrationsHistory`
+WHERE `MigrationId` = '00000000000005_Migration5';
+
+COMMIT TRANSACTION;
+
+BEGIN TRANSACTION;
+DELETE FROM `__EFMigrationsHistory`
+WHERE `MigrationId` = '00000000000004_Migration4';
+
+COMMIT TRANSACTION;
+
+BEGIN TRANSACTION;
+DELETE FROM `__EFMigrationsHistory`
+WHERE `MigrationId` = '00000000000003_Migration3';
+
+COMMIT TRANSACTION;
+
+BEGIN TRANSACTION;
+ALTER TABLE `Table1` RENAME COLUMN `Bar` TO `Foo`;
+
+DELETE FROM `__EFMigrationsHistory`
+WHERE `MigrationId` = '00000000000002_Migration2';
+
+COMMIT TRANSACTION;
+
+BEGIN TRANSACTION;
+DROP TABLE `Table1`;
+
+DELETE FROM `__EFMigrationsHistory`
+WHERE `MigrationId` = '00000000000001_Migration1';
+
+COMMIT TRANSACTION;
 
 
 """,

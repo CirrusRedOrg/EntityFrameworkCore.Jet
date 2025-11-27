@@ -492,23 +492,77 @@ WHERE SGN(`b`.`Float`) > 0
 """);
     }
 
-    public override Task Max()
-        => AssertTranslationFailed(() => base.Max());
+    public override async Task Max()
+    {
+        await base.Max();
 
-    public override Task Max_nested()
-        => AssertTranslationFailed(() => base.Max_nested());
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE IIF(`b`.`Int` > (`b`.`Short` - 3), `b`.`Int`, `b`.`Short` - 3) = `b`.`Int`
+""");
+    }
 
-    public override Task Max_nested_twice()
-        => AssertTranslationFailed(() => base.Max_nested_twice());
+    public override async Task Max_nested()
+    {
+        await base.Max_nested();
 
-    public override Task Min()
-        => AssertTranslationFailed(() => base.Min());
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE IIF(IIF((`b`.`Short` - 3) > `b`.`Int`, `b`.`Short` - 3, `b`.`Int`) > 1, IIF((`b`.`Short` - 3) > `b`.`Int`, `b`.`Short` - 3, `b`.`Int`), 1) = `b`.`Int`
+""");
+    }
 
-    public override Task Min_nested()
-        => AssertTranslationFailed(() => base.Min_nested());
+    public override async Task Max_nested_twice()
+    {
+        await base.Max_nested_twice();
 
-    public override Task Min_nested_twice()
-        => AssertTranslationFailed(() => base.Min_nested_twice());
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE IIF(IIF(IIF(1 > `b`.`Int`, 1, `b`.`Int`) > 2, IIF(1 > `b`.`Int`, 1, `b`.`Int`), 2) > (`b`.`Short` - 3), IIF(IIF(1 > `b`.`Int`, 1, `b`.`Int`) > 2, IIF(1 > `b`.`Int`, 1, `b`.`Int`), 2), `b`.`Short` - 3) = `b`.`Int`
+""");
+    }
+
+    public override async Task Min()
+    {
+        await base.Min();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE IIF(`b`.`Int` < (`b`.`Short` + 3), `b`.`Int`, `b`.`Short` + 3) = `b`.`Int`
+""");
+    }
+
+    public override async Task Min_nested()
+    {
+        await base.Min_nested();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE IIF(IIF((`b`.`Short` + 3) < `b`.`Int`, `b`.`Short` + 3, `b`.`Int`) < 99999, IIF((`b`.`Short` + 3) < `b`.`Int`, `b`.`Short` + 3, `b`.`Int`), 99999) = `b`.`Int`
+""");
+    }
+
+    public override async Task Min_nested_twice()
+    {
+        await base.Min_nested_twice();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE IIF(IIF(IIF(99999 < `b`.`Int`, 99999, `b`.`Int`) < 99998, IIF(99999 < `b`.`Int`, 99999, `b`.`Int`), 99998) < (`b`.`Short` + 3), IIF(IIF(99999 < `b`.`Int`, 99999, `b`.`Int`) < 99998, IIF(99999 < `b`.`Int`, 99999, `b`.`Int`), 99998), `b`.`Short` + 3) = `b`.`Int`
+""");
+    }
 
     public override async Task Degrees()
     {

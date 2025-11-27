@@ -5,6 +5,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace EntityFrameworkCore.Jet.Data.Tests
 {
     [TestClass]
+    [DoNotParallelize]
     public class ConnectionPoolingTest
     {
         private const string StoreName = nameof(ConnectionPoolingTest) + ".accdb";
@@ -297,12 +298,11 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         }
 
         [TestMethod]
-        //[ExpectedException(typeof(InvalidOperationException))]
         public void OpenSeveralTimes()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            connection.Open();
+            Assert.Throws<InvalidOperationException>(() => connection.Open());
         }
 
         [TestMethod]

@@ -9,6 +9,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace EntityFrameworkCore.Jet.Data.Tests
 {
     [TestClass]
+    [DoNotParallelize]
     public class CreateDatabaseTest
     {
         private const string StoreName = nameof(CreateDatabaseTest) + ".accdb";

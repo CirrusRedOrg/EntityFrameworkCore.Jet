@@ -7,9 +7,9 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public class PropertyValuesJetTest(PropertyValuesJetTest.PropertyValuesJetFixture fixture)
-        : PropertyValuesTestBase<PropertyValuesJetTest.PropertyValuesJetFixture>(fixture)
+        : PropertyValuesRelationalTestBase<PropertyValuesJetTest.PropertyValuesJetFixture>(fixture)
     {
-        public class PropertyValuesJetFixture : PropertyValuesFixtureBase
+        public class PropertyValuesJetFixture : PropertyValuesRelationalFixture
         {
             protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
 

@@ -32,7 +32,7 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
             //
             """
-@p1='2'
+@p1='1'
 @p2='Alice' (Size = 255)
 
 INSERT INTO `Author` (`AuthorsClubId`, `Name`)
@@ -43,7 +43,7 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
             //
             """
-@p3='2'
+@p3='1'
 @p4=NULL (Size = 255)
 
 INSERT INTO `Book` (`AuthorId`, `Title`)
@@ -70,7 +70,7 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
             //
             """
-@p1='3'
+@p1='2'
 @p2='Author of the year 2023' (Size = 255)
 
 INSERT INTO `Author` (`AuthorsClubId`, `Name`)
@@ -81,8 +81,8 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
             //
             """
-@p3='3'
-@p4='2'
+@p3='2'
+@p4='1'
 
 UPDATE `Book` SET `AuthorId` = @p3
 WHERE `Id` = @p4;
@@ -90,7 +90,7 @@ SELECT @@ROWCOUNT;
 """,
             //
             """
-@p0='2'
+@p0='1'
 
 DELETE FROM `Author`
 WHERE `Id` = @p0;

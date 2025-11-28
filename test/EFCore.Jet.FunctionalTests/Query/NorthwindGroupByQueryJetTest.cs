@@ -3053,9 +3053,9 @@ FROM (
         FROM (
             SELECT `o`.`CustomerID`
             FROM `Orders` AS `o`
-            WHERE 0 = 1
+            WHERE FALSE
         ) AS `o1`
-        WHERE 0 = 1
+        WHERE FALSE
     ) AS `o2`
 ) AS `o0`
 GROUP BY `o0`.`CustomerID`
@@ -3076,9 +3076,9 @@ FROM (
         FROM `Orders` AS `o`
         WHERE `o`.`OrderID` > 10500
         GROUP BY `o`.`CustomerID`
-        HAVING 0 = 1
+        HAVING FALSE
     ) AS `o0`
-    WHERE 0 = 1
+    WHERE FALSE
 ) AS `o1`
 """);
         }

@@ -5813,9 +5813,9 @@ FROM (
     FROM (
         SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
         FROM `Customers` AS `c`
-        WHERE 0 = 1
+        WHERE FALSE
     ) AS `c0`
-    WHERE 0 = 1
+    WHERE FALSE
 ) AS `c1`
 ORDER BY `c1`.`CustomerID`
 """,

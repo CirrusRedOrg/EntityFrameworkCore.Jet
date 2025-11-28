@@ -216,7 +216,7 @@ AS DELETE FROM [Entity] WHERE [Id] = @Id
 
         AssertSql(
             """
-@p0='2'
+@p0='1'
 
 EXEC `Entity_Delete` p0;
 """);

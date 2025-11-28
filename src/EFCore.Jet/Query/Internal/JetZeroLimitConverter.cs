@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+﻿using EntityFrameworkCore.Jet.Storage.Internal;
+using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
@@ -14,7 +15,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal;
 ///     any release. You should only use it directly in your code with extreme caution and knowing that
 ///     doing so can result in application failures when updating to a new Entity Framework Core release.
 /// </remarks>
-public class SkipTakeCollapsingExpressionVisitor : ExpressionVisitor
+public class JetZeroLimitConverter : ExpressionVisitor
 {
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
 
@@ -26,7 +27,7 @@ public class SkipTakeCollapsingExpressionVisitor : ExpressionVisitor
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    public SkipTakeCollapsingExpressionVisitor(ISqlExpressionFactory sqlExpressionFactory)
+    public JetZeroLimitConverter(ISqlExpressionFactory sqlExpressionFactory)
     {
         _sqlExpressionFactory = sqlExpressionFactory;
         _parametersDecorator = null!;
@@ -59,9 +60,9 @@ public class SkipTakeCollapsingExpressionVisitor : ExpressionVisitor
             {
                 var result = selectExpression.Update(
                     selectExpression.Tables,
-                    selectExpression.GroupBy.Count > 0 ? selectExpression.Predicate : _sqlExpressionFactory.Constant(false),
+                    selectExpression.GroupBy.Count > 0 ? selectExpression.Predicate : _sqlExpressionFactory.Constant(false, JetBoolTypeMapping.Default),
                     selectExpression.GroupBy,
-                    selectExpression.GroupBy.Count > 0 ? _sqlExpressionFactory.Constant(false) : null,
+                    selectExpression.GroupBy.Count > 0 ? _sqlExpressionFactory.Constant(false, JetBoolTypeMapping.Default) : null,
                     selectExpression.Projection,
                     [],
                     limit: null,
@@ -71,23 +72,16 @@ public class SkipTakeCollapsingExpressionVisitor : ExpressionVisitor
 
             bool IsZero(SqlExpression? sqlExpression)
             {
-                switch (sqlExpression)
+                return sqlExpression switch
                 {
-                    case SqlConstantExpression { Value: int intValue }:
-                        return intValue == 0;
-                    case SqlParameterExpression parameter:
-                        return _parametersDecorator.GetAndDisableCaching()[parameter.Name] is 0;
-                    case SqlBinaryExpression { Left: SqlConstantExpression left, Right: SqlConstantExpression right }:
-                        return left.Value is int leftValue && right.Value is int rightValue && leftValue + rightValue == 0;
-                    case SqlBinaryExpression { Left: SqlParameterExpression left, Right: SqlConstantExpression right }:
-                        return _parametersDecorator.GetAndDisableCaching()[left.Name] is 0 && right.Value is int and 0;
-                    case SqlBinaryExpression { Left: SqlConstantExpression left, Right: SqlParameterExpression right }:
-                        return _parametersDecorator.GetAndDisableCaching()[right.Name] is 0 && left.Value is int and 0;
-                    case SqlBinaryExpression { Left: SqlParameterExpression left, Right: SqlParameterExpression right }:
-                        return _parametersDecorator.GetAndDisableCaching()[left.Name] is 0 && _parametersDecorator.GetAndDisableCaching()[right.Name] is 0;
-                    default:
-                        return false;
-                }
+                    SqlConstantExpression { Value: int intValue } => intValue == 0,
+                    SqlParameterExpression parameter => _parametersDecorator.GetAndDisableCaching()[parameter.Name] is 0,
+                    SqlBinaryExpression { Left: SqlConstantExpression left, Right: SqlConstantExpression right } => left.Value is int leftValue && right.Value is int rightValue && leftValue + rightValue == 0,
+                    SqlBinaryExpression { Left: SqlParameterExpression left, Right: SqlConstantExpression right } => _parametersDecorator.GetAndDisableCaching()[left.Name] is 0 && right.Value is int and 0,
+                    SqlBinaryExpression { Left: SqlConstantExpression left, Right: SqlParameterExpression right } => _parametersDecorator.GetAndDisableCaching()[right.Name] is 0 && left.Value is int and 0,
+                    SqlBinaryExpression { Left: SqlParameterExpression left, Right: SqlParameterExpression right } => _parametersDecorator.GetAndDisableCaching()[left.Name] is 0 && _parametersDecorator.GetAndDisableCaching()[right.Name] is 0,
+                    _ => false,
+                };
             }
         }
 

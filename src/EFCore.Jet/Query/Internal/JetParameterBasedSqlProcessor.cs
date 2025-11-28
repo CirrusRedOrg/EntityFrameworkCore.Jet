@@ -29,7 +29,7 @@ public class JetParameterBasedSqlProcessor(
     /// </summary>
     public override Expression Process(Expression queryExpression, ParametersCacheDecorator parametersDecorator)
     {
-        var optimizedQueryExpression = new SkipTakeCollapsingExpressionVisitor(Dependencies.SqlExpressionFactory)
+        var optimizedQueryExpression = new JetZeroLimitConverter(Dependencies.SqlExpressionFactory)
             .Process(queryExpression, parametersDecorator);
 
         var afterBaseProcessing = base.Process(optimizedQueryExpression, parametersDecorator);

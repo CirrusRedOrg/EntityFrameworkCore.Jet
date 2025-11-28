@@ -817,8 +817,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             if (selectExpression.Limit != null)
             {
                 Sql.Append("TOP ");
+                parent.Push(selectExpression);
                 Visit(selectExpression.Limit);
                 Sql.Append(" ");
+                parent.Pop();
             }
         }
 

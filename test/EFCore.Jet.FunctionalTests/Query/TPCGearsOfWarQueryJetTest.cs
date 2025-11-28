@@ -9964,7 +9964,7 @@ FROM (
     SELECT `o`.`Nickname`, `o`.`SquadId`, `o`.`AssignedCityName`, `o`.`CityOfBirthName`, `o`.`FullName`, `o`.`HasSoulPatch`, `o`.`LeaderNickname`, `o`.`LeaderSquadId`, `o`.`Rank`, 'Officer' AS `Discriminator`
     FROM `Officers` AS `o`
 ) AS `u`
-WHERE (@prm BAND CLNG(`u`.`Rank`)) = CLNG(`u`.`Rank`)
+WHERE (@prm BAND CLNG(CINT(`u`.`Rank`))) = CLNG(`u`.`Rank`)
 """);
     }
 

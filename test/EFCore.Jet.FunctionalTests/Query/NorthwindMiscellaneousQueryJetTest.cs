@@ -2298,18 +2298,18 @@ FROM (
 
             AssertSql(
                 """
-SELECT IIF(EXISTS (
-        SELECT 1
+SELECT EXISTS (
+    SELECT 1
+    FROM (
+        SELECT TOP @p0 `c0`.`ContactName`
         FROM (
-            SELECT TOP @p0 `c0`.`ContactName`
-            FROM (
-                SELECT TOP @p + @p0 `c`.`ContactName`
-                FROM `Customers` AS `c`
-                ORDER BY `c`.`ContactName`
-            ) AS `c0`
-            ORDER BY `c0`.`ContactName` DESC
-        ) AS `c1`
-        ORDER BY `c1`.`ContactName`), TRUE, FALSE)
+            SELECT TOP @p + @p0 `c`.`ContactName`
+            FROM `Customers` AS `c`
+            ORDER BY `c`.`ContactName`
+        ) AS `c0`
+        ORDER BY `c0`.`ContactName` DESC
+    ) AS `c1`
+    ORDER BY `c1`.`ContactName`)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -2320,22 +2320,22 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
-SELECT IIF(NOT EXISTS (
-        SELECT 1
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM (
+        SELECT `c2`.`CustomerID`
         FROM (
-            SELECT `c2`.`CustomerID`
+            SELECT TOP @p0 `c1`.`CustomerID`
             FROM (
-                SELECT TOP @p0 `c1`.`CustomerID`
-                FROM (
-                    SELECT TOP @p + @p0 `c`.`CustomerID`
-                    FROM `Customers` AS `c`
-                    ORDER BY `c`.`CustomerID`
-                ) AS `c1`
-                ORDER BY `c1`.`CustomerID` DESC
-            ) AS `c2`
-            ORDER BY `c2`.`CustomerID`
-        ) AS `c0`
-        WHERE `c0`.`CustomerID` NOT LIKE 'B%'), TRUE, FALSE)
+                SELECT TOP @p + @p0 `c`.`CustomerID`
+                FROM `Customers` AS `c`
+                ORDER BY `c`.`CustomerID`
+            ) AS `c1`
+            ORDER BY `c1`.`CustomerID` DESC
+        ) AS `c2`
+        ORDER BY `c2`.`CustomerID`
+    ) AS `c0`
+    WHERE `c0`.`CustomerID` NOT LIKE 'B%')
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -2346,14 +2346,14 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
-SELECT IIF(NOT EXISTS (
-        SELECT 1
-        FROM (
-            SELECT TOP @p `c`.`CustomerID`
-            FROM `Customers` AS `c`
-            ORDER BY `c`.`CustomerID`
-        ) AS `c0`
-        WHERE `c0`.`CustomerID` NOT LIKE 'A%'), TRUE, FALSE)
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM (
+        SELECT TOP @p `c`.`CustomerID`
+        FROM `Customers` AS `c`
+        ORDER BY `c`.`CustomerID`
+    ) AS `c0`
+    WHERE `c0`.`CustomerID` NOT LIKE 'A%')
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -2364,22 +2364,22 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
-SELECT IIF(EXISTS (
-        SELECT 1
+SELECT EXISTS (
+    SELECT 1
+    FROM (
+        SELECT `c2`.`CustomerID`
         FROM (
-            SELECT `c2`.`CustomerID`
+            SELECT TOP @p0 `c1`.`CustomerID`
             FROM (
-                SELECT TOP @p0 `c1`.`CustomerID`
-                FROM (
-                    SELECT TOP @p + @p0 `c`.`CustomerID`
-                    FROM `Customers` AS `c`
-                    ORDER BY `c`.`CustomerID`
-                ) AS `c1`
-                ORDER BY `c1`.`CustomerID` DESC
-            ) AS `c2`
-            ORDER BY `c2`.`CustomerID`
-        ) AS `c0`
-        WHERE `c0`.`CustomerID` LIKE 'C%'), TRUE, FALSE)
+                SELECT TOP @p + @p0 `c`.`CustomerID`
+                FROM `Customers` AS `c`
+                ORDER BY `c`.`CustomerID`
+            ) AS `c1`
+            ORDER BY `c1`.`CustomerID` DESC
+        ) AS `c2`
+        ORDER BY `c2`.`CustomerID`
+    ) AS `c0`
+    WHERE `c0`.`CustomerID` LIKE 'C%')
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -2390,14 +2390,14 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM (
-            SELECT TOP @p `c`.`CustomerID`
-            FROM `Customers` AS `c`
-            ORDER BY `c`.`CustomerID`
-        ) AS `c0`
-        WHERE `c0`.`CustomerID` LIKE 'B%'), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM (
+        SELECT TOP @p `c`.`CustomerID`
+        FROM `Customers` AS `c`
+        ORDER BY `c`.`CustomerID`
+    ) AS `c0`
+    WHERE `c0`.`CustomerID` LIKE 'B%')
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }

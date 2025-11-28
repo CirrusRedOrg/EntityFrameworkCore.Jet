@@ -7961,7 +7961,7 @@ WHERE (@prm BAND `g`.`Rank`) = `g`.`Rank`
 SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`, IIF(`o`.`Nickname` IS NOT NULL, 'Officer', NULL) AS `Discriminator`
 FROM `Gears` AS `g`
 LEFT JOIN `Officers` AS `o` ON `g`.`Nickname` = `o`.`Nickname` AND `g`.`SquadId` = `o`.`SquadId`
-WHERE (@prm BAND CLNG(`g`.`Rank`)) = CLNG(`g`.`Rank`)
+WHERE (@prm BAND CLNG(CINT(`g`.`Rank`))) = CLNG(`g`.`Rank`)
 """);
     }
 

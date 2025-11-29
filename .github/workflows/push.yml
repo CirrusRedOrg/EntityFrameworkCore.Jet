@@ -273,7 +273,7 @@ jobs:
               break
             }
 
-            $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$(''${{ matrix.dataAccessProviderType }}''.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
+            $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
             $failIfKeepsCrashing = Test-Path $establishedGreenTestsFilePath
             if ($i -ge 3 -and $failIfKeepsCrashing) {
               echo "Shard $shard: Test runner keeps crashing."
@@ -285,7 +285,7 @@ jobs:
         if: always() && env.skipTests != 'true'
         shell: pwsh
         run: |
-          Get-ChildItem -Filter '*.trx' -Recurse | Sort-Object LastWriteTime | ForEach { Rename-Item $_.FullName "ace_${{ matrix.aceVersion }}_$(''${{ matrix.dataAccessProviderType }}''.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}_$($_.Name)" -Verbose }
+          Get-ChildItem -Filter '*.trx' -Recurse | Sort-Object LastWriteTime | ForEach { Rename-Item $_.FullName "ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}_$($_.Name)" -Verbose }
       - name: 'Upload Test Results'
         if: always() && env.skipTests != 'true' && env.uploadTestResults == 'true'
         uses: actions/upload-artifact@v4
@@ -335,7 +335,7 @@ jobs:
           Get-Content $allTestsFilePath | Where-Object { $_.StartsWith('P ') } | ForEach-Object { $_.Substring(2) } | Add-Content $greenTestsFilePath
 
           # Compare test file against previously committed file.
-          $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$(''${{ matrix.dataAccessProviderType }}''.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
+          $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
 
           if (Test-Path $establishedGreenTestsFilePath) {
               $diffResult = Compare-Object (Get-Content $establishedGreenTestsFilePath) (Get-Content $greenTestsFilePath)

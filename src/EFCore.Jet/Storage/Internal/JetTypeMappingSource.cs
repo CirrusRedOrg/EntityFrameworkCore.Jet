@@ -1,5 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using EntityFrameworkCore.Jet.Data;
 using System.Collections;
 using System.Data;
 using System.Text.Json;
@@ -49,7 +50,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetStringTypeMapping _variableLengthUnicodeString = new("varchar", unicode: true);
         private readonly JetStringTypeMapping _variableLengthMaxUnicodeString = new("varchar", unicode: true, size: 255, storeTypePostfix: StoreTypePostfix.Size);
         private readonly JetStringTypeMapping _unboundedUnicodeString = new("longchar", unicode: true, storeTypePostfix: StoreTypePostfix.None);
-        private readonly JetGuidTypeMapping _guid = new("uniqueidentifier", DbType.Guid);
+        private readonly JetGuidTypeMapping _guid;
         private readonly JetByteArrayTypeMapping _rowversion = new("varbinary", size: 8,
             comparer: new ValueComparer<byte[]>(
                 (v1, v2) => StructuralComparisons.StructuralEqualityComparer.Equals(v1, v2),
@@ -78,6 +79,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             // https://support.office.com/en-us/article/equivalent-ansi-sql-data-types-7a0a6bef-ef25-45f9-8a9a-3c5f21b5c65d
             // https://sourcedaddy.com/ms-access/sql-data-types.html
 
+            _guid = options.DataAccessProviderType == DataAccessProviderType.Odbc
+                ? new JetOdbcGuidTypeMapping("uniqueidentifier")
+                : new JetGuidTypeMapping("uniqueidentifier", DbType.Guid);
+
             // TODO: Check the types and their mappings against
             //       https://docs.microsoft.com/en-us/previous-versions/office/developer/office2000/aa140015(v=office.10)
 
@@ -87,7 +92,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             _dateonly = new JetDateOnlyTypeMapping("date", options, dbType: DbType.Date);
             _timeonly = new JetTimeOnlyTypeMapping("time", options);
             _timespan = new JetTimeSpanTypeMapping("datetime", options);
-
+            
             _storeTypeMappings
                 = new Dictionary<string, RelationalTypeMapping[]>(StringComparer.OrdinalIgnoreCase)
                 {

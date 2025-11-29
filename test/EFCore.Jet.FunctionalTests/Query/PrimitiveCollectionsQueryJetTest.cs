@@ -1,17 +1,18 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System;
-using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using System;
+using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 using Xunit.Sdk;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
@@ -23,6 +24,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 public class PrimitiveCollectionsQueryJetTest : PrimitiveCollectionsQueryRelationalTestBase<
     PrimitiveCollectionsQueryJetTest.PrimitiveCollectionsQueryJetFixture>
 {
+    public override int? NumberOfValuesForHugeParameterCollectionTests { get; } = 5000;
+
     public PrimitiveCollectionsQueryJetTest(PrimitiveCollectionsQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
         : base(fixture)
     {
@@ -506,8 +509,23 @@ WHERE (
 """);
     }
 
-    public override Task Parameter_collection_Count()
-        => AssertTranslationFailedWithDetails(() => base.Parameter_collection_Count(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
+    public override async Task Parameter_collection_Count()
+    {
+        await base.Parameter_collection_Count();
+
+        AssertSql(
+            """
+@ids1='2'
+@ids2='999'
+
+SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
+FROM [PrimitiveCollectionsEntity] AS [p]
+WHERE (
+    SELECT COUNT(*)
+    FROM (VALUES (@ids1), (@ids2)) AS [i]([Value])
+    WHERE [i].[Value] > [p].[Id]) = 1
+""");
+    }
 
     public override async Task Parameter_collection_of_ints_Contains_int()
     {
@@ -1045,11 +1063,15 @@ WHERE (
 """);
     }
 
-    public override Task Parameter_collection_index_Column_equal_Column()
-        => AssertTranslationFailedWithDetails(() => base.Parameter_collection_index_Column_equal_Column(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
+    public override async Task Parameter_collection_index_Column_equal_Column()
+    {
+        await base.Parameter_collection_index_Column_equal_Column();
+    }
 
-    public override Task Parameter_collection_index_Column_equal_constant()
-        => AssertTranslationFailedWithDetails(() => base.Parameter_collection_index_Column_equal_constant(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
+    public override async Task Parameter_collection_index_Column_equal_constant()
+    {
+        await base.Parameter_collection_index_Column_equal_constant();
+    }
 
     public override Task Column_collection_ElementAt()
         => AssertTranslationFailedWithDetails(() => base.Column_collection_ElementAt(), JetStrings.QueryingIntoJsonCollectionsNotSupported());

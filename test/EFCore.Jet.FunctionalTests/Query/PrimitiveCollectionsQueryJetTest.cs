@@ -1227,16 +1227,22 @@ WHERE `p`.`Ints` = '[1,10]'
         // Base implementation asserts that a different exception is thrown
     }
 
-    public override Task Parameter_collection_in_subquery_Count_as_compiled_query()
-        => AssertTranslationFailed(() => base.Parameter_collection_in_subquery_Count_as_compiled_query());
+    public override async Task Parameter_collection_in_subquery_Count_as_compiled_query()
+    {
+        await base.Parameter_collection_in_subquery_Count_as_compiled_query();
+
+        AssertSql();
+    }
 
     public override Task Column_collection_in_subquery_Union_parameter_collection()
         => AssertTranslationFailedWithDetails(() => base.Column_collection_in_subquery_Union_parameter_collection(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    // Base implementation asserts that a different exception is thrown
-    public override Task Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query()
-        => Assert.ThrowsAsync<EqualException>(
-            () => base.Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query());
+    public override async Task Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query()
+    {
+        await base.Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query();
+
+        AssertSql();
+    }
 
     public override async Task Project_collection_of_ints_simple()
     {

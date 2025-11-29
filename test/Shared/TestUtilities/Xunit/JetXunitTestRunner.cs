@@ -35,6 +35,9 @@ public class JetXunitTestRunner(
         aggregator,
         cancellationTokenSource)
 {
+    private const int ResourceExceededMaxRetries = 3;
+    private const int ResourceExceededDelayMilliseconds = 5000;
+
     public new async Task<RunSummary> RunAsync()
     {
         var runSummary = new RunSummary { Total = 1 };
@@ -52,8 +55,7 @@ public class JetXunitTestRunner(
             {
                 ++runSummary.Skipped;
 
-                if (!MessageBus.QueueMessage(
-                        new TestSkipped(Test, SkipReason)))
+                if (!MessageBus.QueueMessage(new TestSkipped(Test, SkipReason)))
                 {
                     CancellationTokenSource.Cancel();
                 }
@@ -61,13 +63,37 @@ public class JetXunitTestRunner(
             else
             {
                 var aggregator = new ExceptionAggregator(Aggregator);
+
                 if (!aggregator.HasExceptions)
                 {
-                    var tuple = await aggregator.RunAsync(() => InvokeTestAsync(aggregator));
-                    if (tuple != null)
+                    // Retry loop for transient \"system resource exceeded\" errors.
+                    for (int attempt = 1; attempt <= ResourceExceededMaxRetries; attempt++)
                     {
-                        runSummary.Time = tuple.Item1;
-                        output = tuple.Item2;
+                        var attemptAggregator = new ExceptionAggregator(aggregator);
+                        var tuple = await attemptAggregator.RunAsync(() => InvokeTestAsync(attemptAggregator));
+
+                        var attemptException = attemptAggregator.ToException();
+                        if (attemptException != null && ContainsSystemResourceExceeded(attemptException))
+                        {
+                            if (attempt < ResourceExceededMaxRetries)
+                            {
+                                // Pause then retry.
+                                await Task.Delay(ResourceExceededDelayMilliseconds, CancellationTokenSource.Token);
+                                continue;
+                            }
+                        }
+
+                        // Either success, non-retryable failure, or final failed retry.
+                        if (tuple != null)
+                        {
+                            runSummary.Time = tuple.Item1;
+                            output = tuple.Item2;
+                        }
+
+                        // Merge attempt exceptions back into main aggregator.
+                        aggregator.Add(attemptAggregator.ToException());
+
+                        break;
                     }
                 }
 
@@ -78,7 +104,6 @@ public class JetXunitTestRunner(
                 {
                     testResultMessage = new TestPassed(Test, runSummary.Time, output);
                 }
-                    
                 #region Customized
                 /// This is what we are after. Mark failed tests as 'Skipped', if the failure is expected.
                 else if (SkipFailedTest(exception))
@@ -87,7 +112,6 @@ public class JetXunitTestRunner(
                     ++runSummary.Skipped;
                 }
                 #endregion Customized
-
                 else
                 {
                     testResultMessage = new TestFailed(Test, runSummary.Time, output, exception);
@@ -105,8 +129,8 @@ public class JetXunitTestRunner(
 
             BeforeTestFinished();
 
-            if (Aggregator.HasExceptions && !MessageBus.QueueMessage(
-                    new TestCleanupFailure(Test, Aggregator.ToException())))
+            if (Aggregator.HasExceptions &&
+                !MessageBus.QueueMessage(new TestCleanupFailure(Test, Aggregator.ToException())))
             {
                 CancellationTokenSource.Cancel();
             }
@@ -120,6 +144,21 @@ public class JetXunitTestRunner(
         return runSummary;
     }
 
+    private static bool ContainsSystemResourceExceeded(Exception exception)
+    {
+        const string marker = "system resource exceeded";
+        var aggregate = exception as AggregateException ?? new AggregateException(exception);
+        foreach (var inner in aggregate.Flatten().InnerExceptions.SelectMany(e => e.FlattenHierarchy()))
+        {
+            if (inner.Message.IndexOf(marker, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Mark failed tests as 'Skipped', if they failed because they use an expression, that we explicitly marked as
     /// supported by Jet.
@@ -128,7 +167,7 @@ public class JetXunitTestRunner(
     {
         var skip = false;
         var unexpectedUnsupportedTranslation = false;
-        
+
         var aggregateException = exception as AggregateException ??
                                  new AggregateException(exception);
 
@@ -137,7 +176,7 @@ public class JetXunitTestRunner(
             if (innerException is InvalidOperationException or OleDbException or OdbcException)
             {
                 var message = innerException.Message;
-                
+
                 if (message.StartsWith("Jet does not support "))
                 {
                     var expectedUnsupportedTranslation = message.Contains("APPLY statements") ||

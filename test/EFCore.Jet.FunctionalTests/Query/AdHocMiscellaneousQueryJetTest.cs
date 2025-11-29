@@ -195,7 +195,7 @@ FROM `Customers` AS `c`
 """,
             //
             """
-@id='2'
+@id='1'
 
 SELECT TOP 2 `c`.`Id`, `c`.`Name`
 FROM `Customers` AS `c`
@@ -203,7 +203,7 @@ WHERE `c`.`Id` = @id
 """,
             //
             """
-@id='3'
+@id='2'
 
 SELECT TOP 2 `c`.`Id`, `c`.`Name`
 FROM `Customers` AS `c`
@@ -923,7 +923,7 @@ ORDER BY `p`.`Id`
 """,
             //
             """
-@p0='3'
+@p0='2'
 
 DELETE FROM `Products`
 WHERE `Id` = @p0;

@@ -31,7 +31,7 @@ public abstract class JetValueGenerationScenariosTestBase
     protected abstract int IntSentinel { get; }
     protected abstract uint UIntSentinel { get; }
     protected abstract IntKey IntKeySentinel { get; }
-    protected abstract ULongKey ULongKeySentinel { get; }
+    //protected abstract ULongKey ULongKeySentinel { get; }
     protected abstract int? NullableIntSentinel { get; }
     protected abstract string StringSentinel { get; }
     protected abstract DateTime DateTimeSentinel { get; }
@@ -334,7 +334,8 @@ public abstract class JetValueGenerationScenariosTestBase
         SixSixSeven,
     }
 
-    [ConditionalFact]
+    //Does not support ulong as identity
+    /*[ConditionalFact]
     public async Task Insert_ulong_enum_to_Identity_column()
     {
         await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -387,7 +388,7 @@ public abstract class JetValueGenerationScenariosTestBase
     {
         Zero,
         Sentinel
-    }
+    }*/
 
     [ConditionalFact]
     public async Task Insert_string_to_Identity_column_using_value_converter()

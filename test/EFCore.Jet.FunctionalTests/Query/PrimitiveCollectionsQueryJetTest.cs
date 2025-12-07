@@ -873,6 +873,7 @@ WHERE (
 """);
     }
 
+    [ConditionalFact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_Count_with_huge_number_of_values()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values();

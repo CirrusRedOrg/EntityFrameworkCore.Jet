@@ -76,12 +76,8 @@ WHERE [l].[Id] < 3
             AssertSql(
                 """
 SELECT (
-    SELECT TOP 1 `l1`.`Name`
-    FROM (
-        SELECT TOP 1 `l0`.`Id`, `l0`.`Name`
-        FROM `LevelThree` AS `l0`
-    ) AS `l1`
-    ORDER BY `l1`.`Id`)
+    SELECT TOP 1 `l0`.`Name`
+    FROM `LevelThree` AS `l0`)
 FROM `LevelOne` AS `l`
 WHERE `l`.`Id` < 3
 """);
@@ -1080,11 +1076,11 @@ WHERE ((`l1`.`Id` <> `l2`.`Id` OR `l2`.`Id` IS NULL) AND (`l2`.`Id` <> 7 OR `l2`
             await base.Optional_navigation_projected_into_DTO(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `l`.`Id`, `l`.`Name`, IIF(`l0`.`Id` IS NOT NULL, TRUE, FALSE), `l0`.`Id`, `l0`.`Name`
-                    FROM `LevelOne` AS `l`
-                    LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-                    """);
+                """
+SELECT `l`.`Id`, `l`.`Name`, `l0`.`Id` IS NOT NULL, `l0`.`Id`, `l0`.`Name`
+FROM `LevelOne` AS `l`
+LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
+""");
         }
 
         public override async Task OrderBy_nav_prop_reference_optional(bool isAsync)
@@ -1824,10 +1820,10 @@ SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN (
-    SELECT `l1`.`Id`, `l1`.`OneToMany_Required_Inverse3Id`
+    SELECT `l1`.`Id`, `l1`.`OneToMany_Required_Inverse3Id` AS `OneToMany_Required_Inverse3Id0`
     FROM `LevelThree` AS `l1`
     WHERE `l1`.`Id` > 5
-) AS `l2` ON `l0`.`Id` = `l2`.`OneToMany_Required_Inverse3Id`
+) AS `l2` ON `l0`.`Id` = `l2`.`OneToMany_Required_Inverse3Id0`
 WHERE `l2`.`Id` IS NOT NULL
 """);
         }
@@ -2834,16 +2830,16 @@ FROM `LevelTwo` AS `l`
             await base.Select_subquery_with_client_eval_and_navigation2(isAsync);
 
             AssertSql(
-"""
-SELECT IIF((
-        SELECT TOP 1 `l1`.`Name`
-        FROM `LevelTwo` AS `l0`
-        INNER JOIN `LevelOne` AS `l1` ON `l0`.`Level1_Required_Id` = `l1`.`Id`
-        ORDER BY `l0`.`Id`) = 'L1 02' AND (
-        SELECT TOP 1 `l1`.`Name`
-        FROM `LevelTwo` AS `l0`
-        INNER JOIN `LevelOne` AS `l1` ON `l0`.`Level1_Required_Id` = `l1`.`Id`
-        ORDER BY `l0`.`Id`) IS NOT NULL, TRUE, FALSE)
+                """
+SELECT (
+    SELECT TOP 1 `l1`.`Name`
+    FROM `LevelTwo` AS `l0`
+    INNER JOIN `LevelOne` AS `l1` ON `l0`.`Level1_Required_Id` = `l1`.`Id`
+    ORDER BY `l0`.`Id`) = 'L1 02' AND (
+    SELECT TOP 1 `l1`.`Name`
+    FROM `LevelTwo` AS `l0`
+    INNER JOIN `LevelOne` AS `l1` ON `l0`.`Level1_Required_Id` = `l1`.`Id`
+    ORDER BY `l0`.`Id`) IS NOT NULL
 FROM `LevelTwo` AS `l`
 """);
         }
@@ -3129,11 +3125,14 @@ WHERE `l0`.`Id` IS NOT NULL
             await base.Accessing_optional_property_inside_result_operator_subquery(isAsync);
 
             AssertSql(
-"""
+                """
+@names1='Name1' (Size = 255)
+@names2='Name2' (Size = 255)
+
 SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-WHERE `l0`.`Name` NOT IN ('Name1', 'Name2') OR `l0`.`Name` IS NULL
+WHERE `l0`.`Name` NOT IN (@names1, @names2) OR `l0`.`Name` IS NULL
 """);
         }
 
@@ -3512,10 +3511,10 @@ FROM (
 
             AssertSql(
                 """
-SELECT IIF(NOT EXISTS (
-        SELECT 1
-        FROM `LevelOne` AS `l`
-        WHERE `l`.`Name` = 'Foo'), TRUE, FALSE)
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM `LevelOne` AS `l`
+    WHERE `l`.`Name` = 'Foo')
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -3855,11 +3854,11 @@ OUTER APPLY (
 
             AssertSql(
                 """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `LevelOne` AS `l`
-        LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-        WHERE `l0`.`Id` IS NULL), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM `LevelOne` AS `l`
+    LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
+    WHERE `l0`.`Id` IS NULL)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -3870,11 +3869,11 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `LevelOne` AS `l`
-        LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-        WHERE `l0`.`Id` IS NULL), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM `LevelOne` AS `l`
+    LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
+    WHERE `l0`.`Id` IS NULL)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
@@ -3885,11 +3884,11 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
-SELECT `l`.`Name`, `l0`.`Name` AS `OptionalName`, IIF(EXISTS (
-        SELECT 1
-        FROM `LevelOne` AS `l1`
-        LEFT JOIN `LevelTwo` AS `l2` ON `l1`.`Id` = `l2`.`Level1_Optional_Id`
-        WHERE `l2`.`Name` = `l0`.`Name` OR (`l2`.`Name` IS NULL AND `l0`.`Name` IS NULL)), TRUE, FALSE) AS `Contains`
+SELECT `l`.`Name`, `l0`.`Name` AS `OptionalName`, EXISTS (
+    SELECT 1
+    FROM `LevelOne` AS `l1`
+    LEFT JOIN `LevelTwo` AS `l2` ON `l1`.`Id` = `l2`.`Level1_Optional_Id`
+    WHERE `l2`.`Name` = `l0`.`Name` OR (`l2`.`Name` IS NULL AND `l0`.`Name` IS NULL)) AS `Contains`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
 """);
@@ -3901,11 +3900,11 @@ LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
 
             AssertSql(
                 """
-SELECT `l`.`Name`, `l0`.`Name` AS `OptionalName`, IIF(EXISTS (
-        SELECT 1
-        FROM `LevelOne` AS `l2`
-        LEFT JOIN `LevelTwo` AS `l3` ON `l2`.`Id` = `l3`.`Level1_Optional_Id`
-        WHERE `l3`.`Id` = `l1`.`Id` OR (`l3`.`Id` IS NULL AND `l1`.`Id` IS NULL)), TRUE, FALSE) AS `Contains`
+SELECT `l`.`Name`, `l0`.`Name` AS `OptionalName`, EXISTS (
+    SELECT 1
+    FROM `LevelOne` AS `l2`
+    LEFT JOIN `LevelTwo` AS `l3` ON `l2`.`Id` = `l3`.`Level1_Optional_Id`
+    WHERE `l3`.`Id` = `l1`.`Id` OR (`l3`.`Id` IS NULL AND `l1`.`Id` IS NULL)) AS `Contains`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelTwo` AS `l1` ON `l`.`Id` = `l1`.`OneToOne_Optional_PK_Inverse2Id`
@@ -3982,7 +3981,7 @@ HAVING MAX(`l`.`Id`) < 2 OR MAX(`l`.`Id`) > 2
 
             AssertSql(
                 """
-SELECT `l`.`Id`, `l`.`Name`, IIF(`l0`.`Id` IS NULL, TRUE, FALSE), `l0`.`Id`, `l0`.`Name`
+SELECT `l`.`Id`, `l`.`Name`, `l0`.`Id` IS NULL, `l0`.`Id`, `l0`.`Name`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
 ORDER BY `l0`.`Name`, `l`.`Id`
@@ -3995,7 +3994,7 @@ ORDER BY `l0`.`Name`, `l`.`Id`
 
             AssertSql(
                 """
-SELECT `l`.`Id`, `l`.`Name`, IIF(`l0`.`Id` IS NULL, TRUE, FALSE), `l0`.`Id`, `l0`.`Name`, IIF(`l1`.`Id` IS NULL, TRUE, FALSE), `l1`.`Id`, `l1`.`Name`
+SELECT `l`.`Id`, `l`.`Name`, `l0`.`Id` IS NULL, `l0`.`Id`, `l0`.`Name`, `l1`.`Id` IS NULL, `l1`.`Id`, `l1`.`Name`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Optional_Id`
@@ -4031,7 +4030,7 @@ ORDER BY [l].[Id], [t].[Id]
 
             AssertSql(
                 """
-SELECT `l`.`Id`, `l0`.`Name`, IIF(`l1`.`Id` IS NULL, TRUE, FALSE)
+SELECT `l`.`Id`, `l0`.`Name`, `l1`.`Id` IS NULL
 FROM (`LevelTwo` AS `l`
 LEFT JOIN `LevelThree` AS `l0` ON `l`.`Id` = `l0`.`Level2_Optional_Id`)
 LEFT JOIN `LevelOne` AS `l1` ON `l`.`Level1_Optional_Id` = `l1`.`Id`
@@ -4773,13 +4772,13 @@ FROM (
     ORDER BY `l`.`Id`
 ) AS `l4`
 LEFT JOIN (
-    SELECT `l0`.`Id`, `l1`.`Id` AS `Id0`, `l2`.`Id` AS `Id1`, IIF(IIF((
-                SELECT MAX(`l3`.`Id`)
-                FROM `LevelFour` AS `l3`
-                WHERE `l1`.`Id` IS NOT NULL AND `l1`.`Id` = `l3`.`OneToMany_Optional_Inverse4Id`) IS NULL, 0, (
-                SELECT MAX(`l3`.`Id`)
-                FROM `LevelFour` AS `l3`
-                WHERE `l1`.`Id` IS NOT NULL AND `l1`.`Id` = `l3`.`OneToMany_Optional_Inverse4Id`)) > 1, TRUE, FALSE) AS `Result`, `l0`.`OneToMany_Optional_Inverse2Id`
+    SELECT `l0`.`Id`, `l1`.`Id` AS `Id0`, `l2`.`Id` AS `Id1`, IIF((
+            SELECT MAX(`l3`.`Id`)
+            FROM `LevelFour` AS `l3`
+            WHERE `l1`.`Id` IS NOT NULL AND `l1`.`Id` = `l3`.`OneToMany_Optional_Inverse4Id`) IS NULL, 0, (
+            SELECT MAX(`l3`.`Id`)
+            FROM `LevelFour` AS `l3`
+            WHERE `l1`.`Id` IS NOT NULL AND `l1`.`Id` = `l3`.`OneToMany_Optional_Inverse4Id`)) > 1 AS `Result`, `l0`.`OneToMany_Optional_Inverse2Id`
     FROM (`LevelTwo` AS `l0`
     LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Required_Id`)
     LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`Level3_Required_Id`

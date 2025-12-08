@@ -7,6 +7,7 @@
 		<RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
 		<PackageTags>$(PackageTags);ODBC;System.Data.Odbc</PackageTags>
 		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -18,7 +19,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="System.Data.Odbc" />
+		<PackageReference Include="System.Data.Odbc" Version="4.5.2" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
@@ -28,6 +29,12 @@
 		<Reference Include="Microsoft.EntityFrameworkCore.Abstractions">
 			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational\Debug\$(EfCoreTargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
 		</Reference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Using Include="Microsoft.EntityFrameworkCore.Diagnostics" />
+	  <Using Include="System.Diagnostics" />
+	  <Using Include="System.Diagnostics.CodeAnalysis" />
 	</ItemGroup>
 
 </Project>

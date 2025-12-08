@@ -189,10 +189,10 @@ SET `v`.`SeatingCapacity` = @p
 """,
                 //
                 """
-SELECT IIF(NOT EXISTS (
-        SELECT 1
-        FROM `Vehicles` AS `v`
-        WHERE `v`.`SeatingCapacity` <> 1), TRUE, FALSE)
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM `Vehicles` AS `v`
+    WHERE `v`.`SeatingCapacity` <> 1)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }

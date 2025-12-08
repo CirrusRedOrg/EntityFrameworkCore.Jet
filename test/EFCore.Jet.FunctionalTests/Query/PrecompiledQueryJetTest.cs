@@ -468,18 +468,18 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT IIF(NOT EXISTS (
-        SELECT 1
-        FROM `Blogs` AS `b`
-        WHERE `b`.`Id` <= 7), TRUE, FALSE)
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Id` <= 7)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT IIF(NOT EXISTS (
-        SELECT 1
-        FROM `Blogs` AS `b`
-        WHERE `b`.`Id` <= 8), TRUE, FALSE)
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Id` <= 8)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
@@ -490,18 +490,18 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
         AssertSql(
             """
-SELECT IIF(NOT EXISTS (
-        SELECT 1
-        FROM `Blogs` AS `b`
-        WHERE `b`.`Id` <= 7), TRUE, FALSE)
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Id` <= 7)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT IIF(NOT EXISTS (
-        SELECT 1
-        FROM `Blogs` AS `b`
-        WHERE `b`.`Id` <= 8), TRUE, FALSE)
+SELECT NOT EXISTS (
+    SELECT 1
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Id` <= 8)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
@@ -512,34 +512,34 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
         AssertSql(
             """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Blogs` AS `b`
-        WHERE `b`.`Id` > 7), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Id` > 7)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Blogs` AS `b`
-        WHERE `b`.`Id` < 7), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Id` < 7)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Blogs` AS `b`
-        WHERE `b`.`Id` > 7), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Id` > 7)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Blogs` AS `b`
-        WHERE `b`.`Id` < 7), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Id` < 7)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
@@ -550,34 +550,34 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
         AssertSql(
             """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Blogs` AS `b`
-        WHERE `b`.`Id` > 7), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Id` > 7)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Blogs` AS `b`
-        WHERE `b`.`Id` < 7), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Id` < 7)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Blogs` AS `b`
-        WHERE `b`.`Id` > 7), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Id` > 7)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Blogs` AS `b`
-        WHERE `b`.`Id` < 7), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Id` < 7)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
@@ -622,20 +622,20 @@ FROM `Blogs` AS `b`
             """
 @p='8'
 
-SELECT IIF(@p IN (
-        SELECT `b`.`Id`
-        FROM `Blogs` AS `b`
-    ), TRUE, FALSE)
+SELECT @p IN (
+    SELECT `b`.`Id`
+    FROM `Blogs` AS `b`
+)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
 @p='7'
 
-SELECT IIF(@p IN (
-        SELECT `b`.`Id`
-        FROM `Blogs` AS `b`
-    ), TRUE, FALSE)
+SELECT @p IN (
+    SELECT `b`.`Id`
+    FROM `Blogs` AS `b`
+)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
@@ -648,20 +648,20 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
             """
 @p='8'
 
-SELECT IIF(@p IN (
-        SELECT `b`.`Id`
-        FROM `Blogs` AS `b`
-    ), TRUE, FALSE)
+SELECT @p IN (
+    SELECT `b`.`Id`
+    FROM `Blogs` AS `b`
+)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
 @p='7'
 
-SELECT IIF(@p IN (
-        SELECT `b`.`Id`
-        FROM `Blogs` AS `b`
-    ), TRUE, FALSE)
+SELECT @p IN (
+    SELECT `b`.`Id`
+    FROM `Blogs` AS `b`
+)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
@@ -1625,9 +1625,13 @@ WHERE (
 
         AssertSql(
             """
+@p1='1'
+@p2='2'
+@p3='3'
+
 SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
-WHERE `b`.`Id` IN (1, 2, 3)
+WHERE `b`.`Id` IN (@p1, @p2, @p3)
 """);
     }
 

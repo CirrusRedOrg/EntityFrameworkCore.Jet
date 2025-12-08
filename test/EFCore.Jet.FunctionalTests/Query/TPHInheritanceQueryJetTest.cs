@@ -150,8 +150,8 @@ WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`CountryId` = 1
         await base.Can_use_is_kiwi_in_projection(async);
 
         AssertSql(
-"""
-SELECT IIF(`a`.`Discriminator` = 'Kiwi', TRUE, FALSE)
+            """
+SELECT `a`.`Discriminator` = 'Kiwi'
 FROM `Animals` AS `a`
 """);
     }
@@ -419,8 +419,8 @@ WHERE `a`.`Discriminator` = 'Kiwi'
         await base.Byte_enum_value_constant_used_in_projection(async);
 
         AssertSql(
-"""
-SELECT IIF(`a`.`IsFlightless` = TRUE, CBYTE(0), CBYTE(1))
+            """
+SELECT IIF(`a`.`IsFlightless`, CBYTE(0), CBYTE(1))
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
 """);
@@ -622,7 +622,7 @@ FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
 """,
             //
-            $"""
+            """
 @p0='0'
 @p1='Eagle' (Nullable = false) (Size = 8)
 @p2='2' (Nullable = true)
@@ -632,7 +632,7 @@ WHERE `a`.`Discriminator` = 'Kiwi'
 @p6='Haliaeetus leucocephalus' (Size = 100)
 
 INSERT INTO `Animals` (`CountryId`, `Discriminator`, `EagleId`, `Group`, `IsFlightless`, `Name`, `Species`)
-VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")}, {AssertSqlHelper.Parameter("@p4")}, {AssertSqlHelper.Parameter("@p5")}, {AssertSqlHelper.Parameter("@p6")});
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6);
 SELECT `Id`
 FROM `Animals`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
@@ -644,10 +644,10 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
         await base.Using_is_operator_on_multiple_type_with_no_result(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-WHERE 0 = 1
+WHERE FALSE
 """);
     }
 
@@ -656,10 +656,10 @@ WHERE 0 = 1
         await base.Using_is_operator_with_of_type_on_multiple_type_with_no_result(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`
 FROM `Animals` AS `a`
-WHERE 0 = 1
+WHERE FALSE
 """);
     }
 
@@ -675,10 +675,10 @@ WHERE 0 = 1
         await base.GetType_in_hierarchy_in_abstract_base_type(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-WHERE 0 = 1
+WHERE FALSE
 """);
     }
 
@@ -687,10 +687,10 @@ WHERE 0 = 1
         await base.GetType_in_hierarchy_in_intermediate_type(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-WHERE 0 = 1
+WHERE FALSE
 """);
     }
 

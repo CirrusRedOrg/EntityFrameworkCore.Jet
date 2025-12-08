@@ -17,7 +17,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
             Context.Standards.Add(standard);
             Context.SaveChanges();
 
-            Assert.IsTrue(Context.Standards.Select(c => new {MyNewProperty = true }).ToList().Count > 0);
+            Assert.IsNotEmpty(Context.Standards.Select(c => new { MyNewProperty = true }).ToList());
             Context.Dispose();
         }
 

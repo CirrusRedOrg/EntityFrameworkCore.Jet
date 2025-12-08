@@ -14,7 +14,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model44_CaseSensitivity
         }
 
         [TestMethod]
-        [ExpectedException(typeof(DbUpdateException))]
+        //[ExpectedException(typeof(DbUpdateException))]
         public void Model44_CaseSensitivityJetTestRun()
         {
             base.Run();

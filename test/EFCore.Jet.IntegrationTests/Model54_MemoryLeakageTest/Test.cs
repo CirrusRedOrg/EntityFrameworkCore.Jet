@@ -63,7 +63,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model54_MemoryLeakageTest
             connection.Dispose();
             GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
 
-            Assert.IsFalse(GetUsedMemory()-usedMemory > 10000000, "Memory leakage");
+            Assert.IsLessThanOrEqualTo(10000000, GetUsedMemory() - usedMemory, "Memory leakage");
 
             JetConfiguration.ShowSqlStatements = oldJetShowSqlStatements;
 

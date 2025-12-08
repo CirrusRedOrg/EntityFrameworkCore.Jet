@@ -136,9 +136,12 @@ WHERE ([t].[Name] <> 'Bar') OR [t].[Name] IS NULL
 
         AssertSql(
             """
+@ef_filter___ids1='1'
+@ef_filter___ids2='7'
+
 SELECT `e`.`Id`, `e`.`Name`
 FROM `Entities` AS `e`
-WHERE `e`.`Id` NOT IN (1, 7)
+WHERE `e`.`Id` NOT IN (@ef_filter___ids1, @ef_filter___ids2)
 """);
     }
 
@@ -178,10 +181,10 @@ WHERE `b`.`SomeValue` = @ef_filter__Tenant
 
         AssertSql(
             """
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Definitions` AS `d`
-        WHERE `d`.`ChangeInfo_RemovedPoint_Timestamp` IS NULL), TRUE, FALSE)
+SELECT EXISTS (
+    SELECT 1
+    FROM `Definitions` AS `d`
+    WHERE `d`.`ChangeInfo_RemovedPoint_Timestamp` IS NULL)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
@@ -192,12 +195,12 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
         AssertSql(
             """
-SELECT TOP 2 `e`.`Id`, IIF(`r0`.`Id` IS NULL, TRUE, FALSE), `r0`.`Id`, `r0`.`Public`, `e`.`RefEntityId`
+SELECT TOP 2 `e`.`Id`, `r0`.`Id` IS NULL, `r0`.`Id`, `r0`.`Public`, `e`.`RefEntityId`
 FROM `Entities` AS `e`
 LEFT JOIN (
     SELECT `r`.`Id`, `r`.`Public`
     FROM `RefEntities` AS `r`
-    WHERE `r`.`Public` = TRUE
+    WHERE `r`.`Public`
 ) AS `r0` ON `e`.`RefEntityId` = `r0`.`Id`
 WHERE `e`.`Id` = 1
 """);

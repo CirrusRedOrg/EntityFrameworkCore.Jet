@@ -18,9 +18,9 @@ public class DateOnlyTranslationsJetTest : DateOnlyTranslationsTestBase<BasicTyp
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    public override async Task Year(bool async)
+    public override async Task Year()
     {
-        await base.Year(async);
+        await base.Year();
 
         AssertSql(
             """
@@ -30,9 +30,9 @@ WHERE DATEPART('yyyy', `b`.`DateOnly`) = 1990
 """);
     }
 
-    public override async Task Month(bool async)
+    public override async Task Month()
     {
-        await base.Month(async);
+        await base.Month();
 
         AssertSql(
             """
@@ -42,9 +42,9 @@ WHERE DATEPART('m', `b`.`DateOnly`) = 11
 """);
     }
 
-    public override async Task Day(bool async)
+    public override async Task Day()
     {
-        await base.Day(async);
+        await base.Day();
 
         AssertSql(
             """
@@ -54,9 +54,9 @@ WHERE DATEPART('d', `b`.`DateOnly`) = 10
 """);
     }
 
-    public override async Task DayOfYear(bool async)
+    public override async Task DayOfYear()
     {
-        await base.DayOfYear(async);
+        await base.DayOfYear();
 
         AssertSql(
             """
@@ -66,28 +66,28 @@ WHERE DATEPART('y', `b`.`DateOnly`) = 314
 """);
     }
 
-    public override async Task DayOfWeek(bool async)
+    public override async Task DayOfWeek()
     {
-        await AssertTranslationFailed(() => base.DayOfWeek(async));
+        await AssertTranslationFailed(() => base.DayOfWeek());
 
         AssertSql();
     }
 
-    public override async Task DayNumber(bool async)
+    public override async Task DayNumber()
     {
-        await base.DayNumber(async);
+        await base.DayNumber();
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE DATEDIFF(day, '0001-01-01', [b].[DateOnly]) = 726780
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE (DATEDIFF('d', #0100-01-01#, `b`.`DateOnly`) + 36159) = 726780
 """);
     }
 
-    public override async Task AddYears(bool async)
+    public override async Task AddYears()
     {
-        await base.AddYears(async);
+        await base.AddYears();
 
         AssertSql(
             """
@@ -97,9 +97,9 @@ WHERE DATEADD('yyyy', CLNG(3), `b`.`DateOnly`) = #1993-11-10#
 """);
     }
 
-    public override async Task AddMonths(bool async)
+    public override async Task AddMonths()
     {
-        await base.AddMonths(async);
+        await base.AddMonths();
 
         AssertSql(
             """
@@ -109,9 +109,9 @@ WHERE DATEADD('m', CLNG(3), `b`.`DateOnly`) = #1991-02-10#
 """);
     }
 
-    public override async Task AddDays(bool async)
+    public override async Task AddDays()
     {
-        await base.AddDays(async);
+        await base.AddDays();
 
         AssertSql(
             """
@@ -121,61 +121,61 @@ WHERE DATEADD('d', CLNG(3), `b`.`DateOnly`) = #1990-11-13#
 """);
     }
 
-    public override async Task DayNumber_subtraction(bool async)
+    public override async Task DayNumber_subtraction()
     {
-        await base.DayNumber_subtraction(async);
+        await base.DayNumber_subtraction();
 
         AssertSql(
             """
 @DayNumber='726775'
 
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE DATEDIFF(day, '0001-01-01', [b].[DateOnly]) - @DayNumber = 5
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE ((DATEDIFF('d', #0100-01-01#, `b`.`DateOnly`) + 36159) - @DayNumber) = 5
 """);
     }
 
-    public override async Task FromDateTime(bool async)
+    public override async Task FromDateTime()
     {
-        await base.FromDateTime(async);
-
-        AssertSql(
-            """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE CAST([b].[DateTime] AS date) = '1998-05-04'
-""");
-    }
-
-    public override async Task FromDateTime_compared_to_property(bool async)
-    {
-        await base.FromDateTime_compared_to_property(async);
+        await base.FromDateTime();
 
         AssertSql(
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`DateTime` = `b`.`DateOnly`
+WHERE DATEVALUE(`b`.`DateTime`) = #1998-05-04#
 """);
     }
 
-    public override async Task FromDateTime_compared_to_constant_and_parameter(bool async)
+    public override async Task FromDateTime_compared_to_property()
     {
-        await base.FromDateTime_compared_to_constant_and_parameter(async);
+        await base.FromDateTime_compared_to_property();
 
         AssertSql(
             """
-@dateOnly='10/11/0002' (DbType = Date)
-
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE CAST([b].[DateTime] AS date) IN (@dateOnly, '1998-05-04')
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEVALUE(`b`.`DateTime`) = `b`.`DateOnly`
 """);
     }
 
-    public override async Task ToDateTime_property_with_constant_TimeOnly(bool async)
+    public override async Task FromDateTime_compared_to_constant_and_parameter()
     {
-        await base.ToDateTime_property_with_constant_TimeOnly(async);
+        await base.FromDateTime_compared_to_constant_and_parameter();
+
+        AssertSql(
+            """
+@dateOnly='0002-10-11T00:00:00.0000000' (DbType = Date)
+
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEVALUE(`b`.`DateTime`) IN (@dateOnly, #1998-05-04#)
+""");
+    }
+
+    public override async Task ToDateTime_property_with_constant_TimeOnly()
+    {
+        await base.ToDateTime_property_with_constant_TimeOnly();
 
         AssertSql(
             """
@@ -185,9 +185,9 @@ WHERE DATETIME2FROMPARTS(DATEPART(year, [b].[DateOnly]), DATEPART(month, [b].[Da
 """);
     }
 
-    public override async Task ToDateTime_property_with_property_TimeOnly(bool async)
+    public override async Task ToDateTime_property_with_property_TimeOnly()
     {
-        await base.ToDateTime_property_with_property_TimeOnly(async);
+        await base.ToDateTime_property_with_property_TimeOnly();
 
         AssertSql(
             """
@@ -197,9 +197,9 @@ WHERE DATETIME2FROMPARTS(DATEPART(year, [b].[DateOnly]), DATEPART(month, [b].[Da
 """);
     }
 
-    public override async Task ToDateTime_constant_DateTime_with_property_TimeOnly(bool async)
+    public override async Task ToDateTime_constant_DateTime_with_property_TimeOnly()
     {
-        await base.ToDateTime_constant_DateTime_with_property_TimeOnly(async);
+        await base.ToDateTime_constant_DateTime_with_property_TimeOnly();
 
         AssertSql(
             """
@@ -209,16 +209,16 @@ WHERE DATETIME2FROMPARTS(1990, 11, 10, DATEPART(hour, [b].[TimeOnly]), DATEPART(
 """);
     }
 
-    public override async Task ToDateTime_with_complex_DateTime(bool async)
+    public override async Task ToDateTime_with_complex_DateTime()
     {
-        await AssertTranslationFailed(() => base.ToDateTime_with_complex_DateTime(async));
+        await AssertTranslationFailed(() => base.ToDateTime_with_complex_DateTime());
 
         AssertSql();
     }
 
-    public override async Task ToDateTime_with_complex_TimeOnly(bool async)
+    public override async Task ToDateTime_with_complex_TimeOnly()
     {
-        await AssertTranslationFailed(() => base.ToDateTime_with_complex_TimeOnly(async));
+        await AssertTranslationFailed(() => base.ToDateTime_with_complex_TimeOnly());
 
         AssertSql();
     }

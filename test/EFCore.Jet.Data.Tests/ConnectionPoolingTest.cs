@@ -5,6 +5,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace EntityFrameworkCore.Jet.Data.Tests
 {
     [TestClass]
+    [DoNotParallelize]
     public class ConnectionPoolingTest
     {
         private const string StoreName = nameof(ConnectionPoolingTest) + ".accdb";
@@ -29,79 +30,46 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Open_Connection_Without_Connection_String()
         {
             using var connection = new JetConnection();
-            connection.Open();
+            Assert.Throws<InvalidOperationException>(() => connection.Open());
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void ExecuteReader_From_Closed_Connection()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory), Helpers.DataAccessProviderFactory);
-            try
-            {
-                using var command = connection.CreateCommand($"select * from `{JetConnection.DefaultDualTableName}`");
-                command.ExecuteReader();
-            }
-            catch (Exception e)
-            {
-                Assert.AreEqual("\"ExecuteReader\" requires a connection in Open state. Current connection state is Closed", e.Message);
-                throw;
-            }
+            using var command = connection.CreateCommand($"select * from `{JetConnection.DefaultDualTableName}`");
+            var ex = Assert.Throws<InvalidOperationException>(() => command.ExecuteReader());
+            Assert.AreEqual("\"ExecuteReader\" requires a connection in Open state. Current connection state is Closed", ex.Message);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void ExecuteNonQuery_From_Closed_Connection()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory), Helpers.DataAccessProviderFactory);
-            try
-            {
-                using var command = connection.CreateCommand($"select * from `{JetConnection.DefaultDualTableName}`");
-                command.ExecuteNonQuery();
-            }
-            catch (Exception e)
-            {
-                Assert.AreEqual("\"ExecuteNonQuery\" requires a connection in Open state. Current connection state is Closed", e.Message);
-                throw;
-            }
+            using var command = connection.CreateCommand($"select * from `{JetConnection.DefaultDualTableName}`");
+            var ex = Assert.Throws<InvalidOperationException>(() => command.ExecuteNonQuery());
+            Assert.AreEqual("\"ExecuteNonQuery\" requires a connection in Open state. Current connection state is Closed", ex.Message);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void ExecuteScalar_From_Closed_Connection()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory), Helpers.DataAccessProviderFactory);
-            try
-            {
-                using var command = connection.CreateCommand($"select * from `{JetConnection.DefaultDualTableName}`");
-                command.ExecuteScalar();
-            }
-            catch (Exception e)
-            {
-                Assert.AreEqual("\"ExecuteScalar\" requires a connection in Open state. Current connection state is Closed", e.Message);
-                throw;
-            }
+            using var command = connection.CreateCommand($"select * from `{JetConnection.DefaultDualTableName}`");
+            var ex = Assert.Throws<InvalidOperationException>(() => command.ExecuteScalar());
+            Assert.AreEqual("\"ExecuteScalar\" requires a connection in Open state. Current connection state is Closed", ex.Message);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Prepare_From_Closed_Connection()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory), Helpers.DataAccessProviderFactory);
-            try
-            {
-                using var command = connection.CreateCommand($"select * from `{JetConnection.DefaultDualTableName}`");
-                command.Prepare();
-            }
-            catch (Exception e)
-            {
-                Assert.AreEqual("\"Prepare\" requires a connection in Open state. Current connection state is Closed", e.Message);
-                throw;
-            }
+            using var command = connection.CreateCommand($"select * from `{JetConnection.DefaultDualTableName}`");
+            var ex = Assert.Throws<InvalidOperationException>(() => command.Prepare());
+            Assert.AreEqual("\"Prepare\" requires a connection in Open state. Current connection state is Closed", ex.Message);
         }
 
         [TestMethod]
@@ -118,28 +86,25 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void GetTransaction_From_Closed_Connection()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
-            using var transaction = connection.BeginTransaction();
+            Assert.Throws<InvalidOperationException>(() => connection.BeginTransaction());
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Change_Database_From_Closed_Connection()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
-            connection.ChangeDatabase("abcd");
+            Assert.Throws<InvalidOperationException>(() => connection.ChangeDatabase("abcd"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Change_Database_From_Open_Connection()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            connection.ChangeDatabase("abcd");
+            Assert.Throws<InvalidOperationException>(() => connection.ChangeDatabase("abcd"));
         }
 
         [TestMethod]
@@ -150,12 +115,11 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Change_ConnectionString_From_Open_Connection()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            connection.ConnectionString = DummyStoreName;
+            Assert.Throws<InvalidOperationException>(() => connection.ConnectionString = DummyStoreName);
         }
 
         [TestMethod]
@@ -217,7 +181,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         public void Read_Database_From_Closed_Connection()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
-            Assert.IsTrue(connection.Database == string.Empty);
+            Assert.AreEqual(string.Empty, connection.Database);
         }
 
         [TestMethod]
@@ -225,15 +189,14 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            Assert.IsTrue(connection.Database == string.Empty);
+            Assert.AreEqual(string.Empty, connection.Database);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Read_ServerVersion_From_Closed_Connection()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
-            Assert.IsTrue(connection.ServerVersion == string.Empty);
+            Assert.Throws<InvalidOperationException>(() => _ = connection.ServerVersion);
         }
 
         [TestMethod]
@@ -249,7 +212,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Dispose();
-            Assert.IsTrue(connection.Database == string.Empty);
+            Assert.AreEqual(string.Empty, connection.Database);
         }
 
         [TestMethod]
@@ -335,12 +298,11 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void OpenSeveralTimes()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
             connection.Open();
-            connection.Open();
+            Assert.Throws<InvalidOperationException>(() => connection.Open());
         }
 
         [TestMethod]
@@ -410,11 +372,10 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void GetSchema_From_Closed_Connection()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
-            connection.GetSchema();
+            Assert.Throws<InvalidOperationException>(() => connection.GetSchema());
         }
 
         [TestMethod]
@@ -488,7 +449,6 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Transaction_Execute_Close_Open_Commit()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
@@ -505,7 +465,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             connection.Close();
             JetConnection.ClearAllPools();
             connection.Open();
-            transaction.Commit();
+            Assert.Throws<InvalidOperationException>(() => transaction.Commit());
 
             using (var command = connection.CreateCommand("select count(*) from SimpleTable"))
             {
@@ -539,7 +499,6 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Transaction_Transaction()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
@@ -550,15 +509,8 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             command.Transaction = firstTransaction;
             command.ExecuteScalar();
 
-            try
-            {
-                using var secondTransaction = connection.BeginTransaction();
-            }
-            catch (Exception e)
-            {
-                Assert.AreEqual("JetConnection does not support parallel transactions", e.Message);
-                throw;
-            }
+            var ex = Assert.Throws<InvalidOperationException>(() => connection.BeginTransaction());
+            Assert.AreEqual("JetConnection does not support parallel transactions", ex.Message);
         }
 
         [TestMethod]
@@ -620,7 +572,6 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Transaction_Execute_Commit_Execute_Transaction()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
@@ -640,11 +591,10 @@ namespace EntityFrameworkCore.Jet.Data.Tests
                 command.Transaction = transaction;
                 command.ExecuteScalar();
             }
-            transaction.Commit();
+            Assert.Throws<InvalidOperationException>(() => transaction.Commit());
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Transaction_Execute_Commit_Commit()
         {
             using var connection = new JetConnection(JetConnection.GetConnectionString(StoreName, Helpers.DataAccessProviderFactory));
@@ -655,7 +605,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             command.Transaction = transaction;
             command.ExecuteScalar();
             transaction.Commit();
-            transaction.Commit();
+            Assert.Throws<InvalidOperationException>(() => transaction.Commit());
         }
     }
 }

@@ -74,14 +74,14 @@ LEFT JOIN `Categories` AS `c` ON `p`.`CategoryId` = `c`.`Id`
             """
 SELECT `r`.`Id`, `r`.`IsRemoved`, `r`.`Removed`, `r`.`RemovedByUser`, `r`.`OwnedEntity_Exists`, `r`.`OwnedEntity_OwnedValue`
 FROM `RemovableEntities` AS `r`
-WHERE `r`.`IsRemoved` = FALSE
+WHERE NOT (`r`.`IsRemoved`)
 """,
             //
             """
 SELECT `p`.`Id`, `p`.`RemovableEntityId`
 FROM `Parents` AS `p`
 LEFT JOIN `RemovableEntities` AS `r` ON `p`.`RemovableEntityId` = `r`.`Id`
-WHERE `r`.`IsRemoved` = TRUE
+WHERE `r`.`IsRemoved`
 """,
             //
             """

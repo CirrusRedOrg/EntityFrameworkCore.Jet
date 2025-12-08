@@ -23,7 +23,7 @@ public abstract class TPCInheritanceQueryJetTestBase<TFixture>(TFixture fixture,
 
         AssertSql(
             """
-SELECT IIF(`k`.`IsFlightless` = TRUE, CBYTE(0), CBYTE(1))
+SELECT IIF(`k`.`IsFlightless`, CBYTE(0), CBYTE(1))
 FROM `Kiwi` AS `k`
 """);
     }
@@ -153,7 +153,7 @@ ORDER BY `u`.`Species`
             """
 SELECT `d`.`Species`, `d`.`CountryId`, `d`.`Genus`, `d`.`Name`, `d`.`AdditionalInfo_Nickname`, `d`.`AdditionalInfo_LeafStructure_AreLeavesBig`, `d`.`AdditionalInfo_LeafStructure_NumLeaves`
 FROM `Daisies` AS `d`
-WHERE `d`.`AdditionalInfo_LeafStructure_AreLeavesBig` = TRUE
+WHERE `d`.`AdditionalInfo_LeafStructure_AreLeavesBig`
 """);
     }
 
@@ -276,7 +276,7 @@ FROM (
 
         AssertSql(
             """
-SELECT IIF(`u`.`Discriminator` = 'Kiwi', TRUE, FALSE)
+SELECT `u`.`Discriminator` = 'Kiwi'
 FROM (
     SELECT 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
@@ -662,7 +662,7 @@ FROM (
     SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
-WHERE 0 = 1
+WHERE FALSE
 """);
     }
 
@@ -680,7 +680,7 @@ FROM (
     SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
-WHERE 0 = 1
+WHERE FALSE
 """);
     }
 

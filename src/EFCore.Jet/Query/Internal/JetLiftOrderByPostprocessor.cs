@@ -97,10 +97,10 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
                     }
 
                     selectExpression.ClearOrdering();
+                    var limit = selectExpression.Limit;
                     //Keep the limit in parent expression
-                    if (selectExpression.Limit != null)
+                    if (limit != null)
                     {
-                        var limit = selectExpression.Limit;
                         MethodInfo? dynMethod1 = selectExpression.GetType().GetMethod("set_Limit",
                             BindingFlags.NonPublic | BindingFlags.Instance);
                         dynMethod1?.Invoke(selectExpression, [null]);
@@ -111,7 +111,6 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
                             selectExpression.Orderings, null, null);*/
                         selectExpression = AddAliasManager(selectExpression);
                         selectExpression.PushdownIntoSubquery();
-                        selectExpression.ApplyLimit(limit);
                     }
                     else
                     {
@@ -134,6 +133,11 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
                                 col.TypeMapping, col.IsNullable);
                             selectExpression.AppendOrdering(new OrderingExpression(newcolexp, ascending));
                         }
+                    }
+
+                    if (limit != null)
+                    {
+                        selectExpression.ApplyLimit(limit);
                     }
 
                     if (isscalarselect && selectExpression.Projection.Count > 1)

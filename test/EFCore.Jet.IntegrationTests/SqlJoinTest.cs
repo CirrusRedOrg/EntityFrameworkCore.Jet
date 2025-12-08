@@ -27,7 +27,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
 
             standard = Context.Standards.Where(s => s.StandardId == standardId).First();
 
-            Assert.AreEqual(standard.Students.Count, 2);
+            Assert.HasCount(2, standard.Students);
 
             foreach (Student student2 in standard.Students)
                 Console.WriteLine(student2);
@@ -37,8 +37,8 @@ namespace EntityFrameworkCore.Jet.IntegrationTests
         [TestMethod]
         public void JoinTest()
         {
-            Assert.AreEqual(2, Context.Students.Where(s => s.Standard.StandardName == THESTANDARD).ToList().Count);
-            Assert.AreEqual(2, Context.Students.Where(s => s.Standard.StandardName == THESTANDARD).Select(s => new { MyStudentName = s.StudentName, MyStudentStandardName = s.Standard.StandardName }).ToList().Count);
+            Assert.HasCount(2, Context.Students.Where(s => s.Standard.StandardName == THESTANDARD).ToList());
+            Assert.HasCount(2, Context.Students.Where(s => s.Standard.StandardName == THESTANDARD).Select(s => new { MyStudentName = s.StudentName, MyStudentStandardName = s.Standard.StandardName }).ToList());
 
         }
 

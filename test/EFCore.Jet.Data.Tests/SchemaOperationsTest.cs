@@ -4,6 +4,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace EntityFrameworkCore.Jet.Data.Tests
 {
     [TestClass]
+    [DoNotParallelize]
     public class SchemaOperationsTest
     {
         private const string StoreName = nameof(SchemaOperationsTest) + ".accdb";

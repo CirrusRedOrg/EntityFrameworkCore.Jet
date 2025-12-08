@@ -76,8 +76,8 @@ WHERE `a`.`CountryId` = 1 AND `k`.`Id` IS NOT NULL AND `a`.`CountryId` = 1
         await base.Can_use_is_kiwi_in_projection(async);
 
         AssertSql(
-"""
-SELECT IIF(`k`.`Id` IS NOT NULL, TRUE, FALSE)
+            """
+SELECT `k`.`Id` IS NOT NULL
 FROM `Animals` AS `a`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `a`.`CountryId` = 1

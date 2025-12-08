@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model04
         {
             SeedHelper.SeedPersons(Context);
             List<Person> persons = [.. Context.Persons.OrderBy(p => p.Name).Skip(3).Take(5)];
-            Assert.AreEqual(5, persons.Count);
+            Assert.HasCount(5, persons);
             foreach (Person person in persons)
                 Console.WriteLine(person.Name);
             Console.WriteLine("=====================");

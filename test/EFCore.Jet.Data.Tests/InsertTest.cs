@@ -26,7 +26,7 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         public void InsertTestRun()
         {
             var queries = Helpers.GetQueries(Properties.Resources.InsertTestQueries);
-            Assert.AreEqual(4, queries.Length);
+            Assert.HasCount(4, queries);
 
             for (var index = 0; index < queries.Length - 1; index++)
             {

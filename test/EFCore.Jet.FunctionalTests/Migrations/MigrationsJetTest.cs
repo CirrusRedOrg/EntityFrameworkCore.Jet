@@ -2176,6 +2176,9 @@ CREATE TABLE `Contacts` (
     `MyComplex_Prop` varchar(255) NULL,
     `MyComplex_MyNestedComplex_Bar` datetime NULL,
     `MyComplex_MyNestedComplex_Foo` integer NULL,
+    `MyComplex_Nested_Bar` datetime NULL,
+    `MyComplex_Nested_Foo` integer NULL,
+    `NestedCollection` longchar NULL,
     CONSTRAINT `PK_Contacts` PRIMARY KEY (`Id`)
 );
 """);

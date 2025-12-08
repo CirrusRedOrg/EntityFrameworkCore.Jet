@@ -32,7 +32,7 @@ SELECT `o`.`Value` AS `Value1`, `o0`.`Value` AS `Value2`, `o1`.`Value` AS `Value
 FROM `OperatorEntityString` AS `o`,
 `OperatorEntityString` AS `o0`,
 `OperatorEntityBool` AS `o1`
-WHERE (((`o0`.`Value` LIKE 'B') AND `o0`.`Value` IS NOT NULL) OR `o1`.`Value` = TRUE) AND `o`.`Value` IS NOT NULL
+WHERE (((`o0`.`Value` LIKE 'B') AND `o0`.`Value` IS NOT NULL) OR `o1`.`Value`) AND `o`.`Value` IS NOT NULL
 ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`
 """);
     }
@@ -63,7 +63,7 @@ SELECT `o`.`Value` AS `Value0`, `o0`.`Value` AS `Value1`, `o1`.`Value` AS `Value
 FROM `OperatorEntityInt` AS `o`,
 `OperatorEntityInt` AS `o0`,
 `OperatorEntityBool` AS `o1`
-WHERE (((`o0`.`Value` BAND (`o`.`Value` + `o`.`Value`)) BAND `o`.`Value`) \ 1) > (`o0`.`Value` BAND 10) AND `o1`.`Value` = TRUE
+WHERE (((`o0`.`Value` BAND (`o`.`Value` + `o`.`Value`)) BAND `o`.`Value`) \ 1) > (`o0`.`Value` BAND 10) AND `o1`.`Value`
 ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`
 """);
     }

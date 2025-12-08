@@ -97,28 +97,33 @@ WHERE `m`.`Tenant` = @ef_filter__p
             base.DbContext_list_is_parameterized();
 
             AssertSql(
-"""
+                """
 SELECT `l`.`Id`, `l`.`Tenant`
 FROM `ListFilter` AS `l`
-WHERE 0 = 1
+WHERE FALSE
 """,
                 //
-"""
+                """
 SELECT `l`.`Id`, `l`.`Tenant`
 FROM `ListFilter` AS `l`
-WHERE 0 = 1
+WHERE FALSE
 """,
                 //
-"""
+                """
+@ef_filter__TenantIds1='1'
+
 SELECT `l`.`Id`, `l`.`Tenant`
 FROM `ListFilter` AS `l`
-WHERE `l`.`Tenant` = 1
+WHERE `l`.`Tenant` = @ef_filter__TenantIds1
 """,
                 //
-"""
+                """
+@ef_filter__TenantIds1='2'
+@ef_filter__TenantIds2='3'
+
 SELECT `l`.`Id`, `l`.`Tenant`
 FROM `ListFilter` AS `l`
-WHERE `l`.`Tenant` IN (2, 3)
+WHERE `l`.`Tenant` IN (@ef_filter__TenantIds1, @ef_filter__TenantIds2)
 """);
         }
 
@@ -183,7 +188,7 @@ WHERE `m`.`Tenant` = @ef_filter__p
 
 SELECT `c`.`Id`, `c`.`IsEnabled`
 FROM `ComplexFilter` AS `c`
-WHERE `c`.`IsEnabled` = @ef_filter__Property AND @ef_filter__p0 = TRUE
+WHERE `c`.`IsEnabled` = @ef_filter__Property AND @ef_filter__p0
 """,
                 //
                 """
@@ -192,7 +197,7 @@ WHERE `c`.`IsEnabled` = @ef_filter__Property AND @ef_filter__p0 = TRUE
 
 SELECT `c`.`Id`, `c`.`IsEnabled`
 FROM `ComplexFilter` AS `c`
-WHERE `c`.`IsEnabled` = @ef_filter__Property AND @ef_filter__p0 = TRUE
+WHERE `c`.`IsEnabled` = @ef_filter__Property AND @ef_filter__p0
 """,
                 //
                 """
@@ -201,7 +206,7 @@ WHERE `c`.`IsEnabled` = @ef_filter__Property AND @ef_filter__p0 = TRUE
 
 SELECT `c`.`Id`, `c`.`IsEnabled`
 FROM `ComplexFilter` AS `c`
-WHERE `c`.`IsEnabled` = @ef_filter__Property AND @ef_filter__p0 = TRUE
+WHERE `c`.`IsEnabled` = @ef_filter__Property AND @ef_filter__p0
 """);
         }
 
@@ -216,7 +221,7 @@ WHERE `c`.`IsEnabled` = @ef_filter__Property AND @ef_filter__p0 = TRUE
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE `s`.`IsDeleted` = FALSE AND (@ef_filter__p0 = TRUE OR @ef_filter__IsModerated = `s`.`IsModerated`)
+WHERE NOT (`s`.`IsDeleted`) AND (@ef_filter__p0 OR @ef_filter__IsModerated = `s`.`IsModerated`)
 """,
                 //
                 """
@@ -225,7 +230,7 @@ WHERE `s`.`IsDeleted` = FALSE AND (@ef_filter__p0 = TRUE OR @ef_filter__IsModera
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE `s`.`IsDeleted` = FALSE AND (@ef_filter__p0 = TRUE OR @ef_filter__IsModerated = `s`.`IsModerated`)
+WHERE NOT (`s`.`IsDeleted`) AND (@ef_filter__p0 OR @ef_filter__IsModerated = `s`.`IsModerated`)
 """,
                 //
                 """
@@ -233,7 +238,7 @@ WHERE `s`.`IsDeleted` = FALSE AND (@ef_filter__p0 = TRUE OR @ef_filter__IsModera
 
 SELECT `s`.`Id`, `s`.`IsDeleted`, `s`.`IsModerated`
 FROM `ShortCircuitFilter` AS `s`
-WHERE `s`.`IsDeleted` = FALSE AND @ef_filter__p0 = TRUE
+WHERE NOT (`s`.`IsDeleted`) AND @ef_filter__p0
 """);
         }
 
@@ -473,11 +478,11 @@ WHERE EXISTS (
             base.Static_member_from_non_dbContext_is_inlined();
 
             AssertSql(
-                $"""
-                    SELECT `s`.`Id`, `s`.`IsEnabled`
-                    FROM `StaticMemberFilter` AS `s`
-                    WHERE `s`.`IsEnabled` = TRUE
-                    """);
+                """
+SELECT `s`.`Id`, `s`.`IsEnabled`
+FROM `StaticMemberFilter` AS `s`
+WHERE `s`.`IsEnabled`
+""");
         }
 
         public override void Local_variable_from_OnModelCreating_is_inlined()
@@ -485,11 +490,11 @@ WHERE EXISTS (
             base.Local_variable_from_OnModelCreating_is_inlined();
 
             AssertSql(
-                $"""
-                    SELECT `l`.`Id`, `l`.`IsEnabled`
-                    FROM `LocalVariableFilter` AS `l`
-                    WHERE `l`.`IsEnabled` = TRUE
-                    """);
+                """
+SELECT `l`.`Id`, `l`.`IsEnabled`
+FROM `LocalVariableFilter` AS `l`
+WHERE `l`.`IsEnabled`
+""");
         }
 
         public override void Method_parameter_is_inlined()

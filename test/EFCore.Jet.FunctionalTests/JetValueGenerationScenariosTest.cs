@@ -23,8 +23,8 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         protected override IntKey IntKeySentinel
             => IntKey.Zero;
 
-        protected override ULongKey ULongKeySentinel
-            => ULongKey.Zero;
+        /*protected override ULongKey ULongKeySentinel
+            => ULongKey.Zero;*/
 
         protected override int? NullableIntSentinel
             => null;

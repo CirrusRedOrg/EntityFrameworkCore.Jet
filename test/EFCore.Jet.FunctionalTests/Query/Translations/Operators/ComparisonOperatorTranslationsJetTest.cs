@@ -18,9 +18,9 @@ public class ComparisonOperatorTranslationsJetTest : ComparisonOperatorTranslati
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    public override async Task Equal(bool async)
+    public override async Task Equal()
     {
-        await base.Equal(async);
+        await base.Equal();
 
         AssertSql(
             """
@@ -30,9 +30,9 @@ WHERE `b`.`Int` = 8
 """);
     }
 
-    public override async Task NotEqual(bool async)
+    public override async Task NotEqual()
     {
-        await base.NotEqual(async);
+        await base.NotEqual();
 
         AssertSql(
             """
@@ -42,9 +42,9 @@ WHERE `b`.`Int` <> 8
 """);
     }
 
-    public override async Task GreaterThan(bool async)
+    public override async Task GreaterThan()
     {
-        await base.GreaterThan(async);
+        await base.GreaterThan();
 
         AssertSql(
             """
@@ -54,9 +54,9 @@ WHERE `b`.`Int` > 8
 """);
     }
 
-    public override async Task GreaterThanOrEqual(bool async)
+    public override async Task GreaterThanOrEqual()
     {
-        await base.GreaterThanOrEqual(async);
+        await base.GreaterThanOrEqual();
 
         AssertSql(
             """
@@ -66,9 +66,9 @@ WHERE `b`.`Int` >= 8
 """);
     }
 
-    public override async Task LessThan(bool async)
+    public override async Task LessThan()
     {
-        await base.LessThan(async);
+        await base.LessThan();
 
         AssertSql(
             """
@@ -78,9 +78,9 @@ WHERE `b`.`Int` < 8
 """);
     }
 
-    public override async Task LessThanOrEqual(bool async)
+    public override async Task LessThanOrEqual()
     {
-        await base.LessThanOrEqual(async);
+        await base.LessThanOrEqual();
 
         AssertSql(
             """

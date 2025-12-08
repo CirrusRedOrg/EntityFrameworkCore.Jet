@@ -24,6 +24,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         ///     Gets the string format to be used to generate SQL literals of this type.
         /// </summary>
         protected override string SqlLiteralFormatString
-            => "'{{{0}}}'";
+            => "{{{0}}}";
     }
 }

@@ -44,7 +44,6 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model16_OwnCollection
 
 
         [TestMethod]
-        [ExpectedException(typeof(DbUpdateConcurrencyException))]
         public void UpdateOnUpdatedConcurrencyTest()
         {
             var firstPost = Context.Posts.First();
@@ -54,41 +53,38 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model16_OwnCollection
             Context.Database.ExecuteSqlInterpolated(
                 $"UPDATE Blogs SET Name = 'Another Name' WHERE BlogId = {firstBlog.BlogId}");
             firstBlog.Name = "Changed";
-            Context.SaveChanges();
+            Assert.Throws<DbUpdateConcurrencyException>(() => Context.SaveChanges());
         }
 
         [TestMethod]
-        [ExpectedException(typeof(DbUpdateConcurrencyException))]
         public void UpdateOnDeletedConcurrencyTest()
         {
             var firstBlog = Context.Blogs.First();
             Context.Database.ExecuteSqlInterpolated(
                 $"DELETE FROM Blogs WHERE BlogId = {firstBlog.BlogId}");
             firstBlog.Name = "Changed";
-            Context.SaveChanges();
+            Assert.Throws<DbUpdateConcurrencyException>(() => Context.SaveChanges());
         }
 
         [TestMethod]
-        [ExpectedException(typeof(DbUpdateConcurrencyException))]
         public void DeleteOnUpdatedConcurrencyTest()
         {
             var firstBlog = Context.Blogs.First();
             Context.Database.ExecuteSqlInterpolated(
                 $"UPDATE Blogs SET Name = 'Another Name2' WHERE BlogId ={firstBlog.BlogId} ");
             Context.Blogs.Remove(firstBlog);
-            Context.SaveChanges();
+            Assert.Throws<DbUpdateConcurrencyException>(() => Context.SaveChanges());
         }
 
 
         [TestMethod]
-        [ExpectedException(typeof(DbUpdateConcurrencyException))]
         public void DeleteOnDeletedConcurrencyTest()
         {
             var firstBlog = Context.Blogs.First();
             Context.Database.ExecuteSqlInterpolated(
                 $"DELETE FROM Blogs WHERE BlogId = {firstBlog.BlogId}");
             Context.Blogs.Remove(firstBlog);
-            Context.SaveChanges();
+            Assert.Throws<DbUpdateConcurrencyException>(() => Context.SaveChanges());
         }
 
 

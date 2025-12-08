@@ -629,6 +629,13 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 {
                     notnullsqlexp = new SqlFunctionExpression(function, [convertExpression.Operand],
                         false, [false], typeMapping.ClrType, null);
+                    if (convertExpression.Operand.Type == typeof(bool))
+                    {
+                        //create a new expression to multiply the result by -1 to flip the boolean value
+                        notnullsqlexp = new SqlBinaryExpression(ExpressionType.Multiply, notnullsqlexp,
+                            new SqlConstantExpression(-1, IntTypeMapping.Default), notnullsqlexp.Type, notnullsqlexp.TypeMapping);
+                    }
+
                 }
 
                 SqlConstantExpression nullcons = new(null,typeof(string), RelationalTypeMapping.NullMapping);
@@ -810,8 +817,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             if (selectExpression.Limit != null)
             {
                 Sql.Append("TOP ");
+                parent.Push(selectExpression);
                 Visit(selectExpression.Limit);
                 Sql.Append(" ");
+                parent.Pop();
             }
         }
 

@@ -18,9 +18,9 @@ public class MiscellaneousOperatorTranslationsJetTest : MiscellaneousOperatorTra
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    public override async Task Conditional(bool async)
+    public override async Task Conditional()
     {
-        await base.Conditional(async);
+        await base.Conditional();
 
         AssertSql(
             """
@@ -30,9 +30,9 @@ WHERE IIF(`b`.`Int` = 8, `b`.`String`, 'Foo') = 'Seattle'
 """);
     }
 
-    public override async Task Coalesce(bool async)
+    public override async Task Coalesce()
     {
-        await base.Coalesce(async);
+        await base.Coalesce();
 
         AssertSql(
             """

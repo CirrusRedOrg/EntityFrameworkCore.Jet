@@ -74,10 +74,10 @@ WHERE `o`.`CustomerID` LIKE 'F%'
         await base.Include_when_result_operator(async);
 
         AssertSql(
-"""
-SELECT IIF(EXISTS (
-        SELECT 1
-        FROM `Customers` AS `c`), TRUE, FALSE)
+            """
+SELECT EXISTS (
+    SELECT 1
+    FROM `Customers` AS `c`)
 FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
@@ -1512,7 +1512,7 @@ ORDER BY [t].[ContactName], [t].[CustomerID]
 SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-ORDER BY NOT (IIF(`o`.`OrderID` > 0, TRUE, FALSE)), IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, ''), `o`.`OrderID`, `c`.`CustomerID`
+ORDER BY NOT (`o`.`OrderID` > 0), IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, ''), `o`.`OrderID`, `c`.`CustomerID`
 """,
             //
             """
@@ -1520,7 +1520,7 @@ SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.
 FROM (
     SELECT TOP @p `s0`.`OrderID`, `s0`.`CustomerID`, `s0`.`c`, `s0`.`c0`
     FROM (
-        SELECT `o`.`OrderID`, `c`.`CustomerID`, IIF(`o`.`OrderID` > 0, TRUE, FALSE) AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, '') AS `c0`
+        SELECT `o`.`OrderID`, `c`.`CustomerID`, `o`.`OrderID` > 0 AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, '') AS `c0`
         FROM `Orders` AS `o`
         LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
     ) AS `s0`
@@ -2198,8 +2198,8 @@ ORDER BY [t].[c], [t].[CustomerID]
         await base.Include_is_not_ignored_when_projection_contains_client_method_and_complex_expression(async);
 
         AssertSql(
-"""
-SELECT IIF(`e0`.`EmployeeID` IS NOT NULL, TRUE, FALSE), `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
+            """
+SELECT `e0`.`EmployeeID` IS NOT NULL, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
 FROM `Employees` AS `e`
 LEFT JOIN `Employees` AS `e0` ON `e`.`ReportsTo` = `e0`.`EmployeeID`
 WHERE `e`.`EmployeeID` IN (1, 2)
@@ -2989,7 +2989,7 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`, `o0`.`OrderID`, `c`.`CustomerID`, `p`.`
 SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-ORDER BY NOT (IIF(`c`.`CustomerID` IS NOT NULL, TRUE, FALSE)), IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, ''), `o`.`OrderID`, `c`.`CustomerID`
+ORDER BY NOT (`c`.`CustomerID` IS NOT NULL), IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, ''), `o`.`OrderID`, `c`.`CustomerID`
 """,
             //
             """
@@ -2997,7 +2997,7 @@ SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.
 FROM (
     SELECT TOP @p `s0`.`OrderID`, `s0`.`CustomerID`, `s0`.`c`, `s0`.`c0`
     FROM (
-        SELECT `o`.`OrderID`, `c`.`CustomerID`, IIF(`c`.`CustomerID` IS NOT NULL, TRUE, FALSE) AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, '') AS `c0`
+        SELECT `o`.`OrderID`, `c`.`CustomerID`, `c`.`CustomerID` IS NOT NULL AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, '') AS `c0`
         FROM `Orders` AS `o`
         LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
     ) AS `s0`

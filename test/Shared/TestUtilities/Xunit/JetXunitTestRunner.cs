@@ -173,14 +173,14 @@ public class JetXunitTestRunner(
 
         foreach (var innerException in aggregateException.Flatten().InnerExceptions.SelectMany(e => e.FlattenHierarchy()))
         {
-            if (innerException is InvalidOperationException or OleDbException or OdbcException)
+            if (innerException is InvalidOperationException or OleDbException or OdbcException or NotSupportedException)
             {
                 var message = innerException.Message;
 
-                if (message.StartsWith("Jet does not support "))
+                if (message.ToLower().StartsWith("jet does not support "))
                 {
                     var expectedUnsupportedTranslation = message.Contains("APPLY statements") ||
-                                                         message.Contains("skipping rows");
+                                                         message.Contains("skipping rows") || message.Contains("sequences");
 
                     skip = expectedUnsupportedTranslation;
                     unexpectedUnsupportedTranslation = !expectedUnsupportedTranslation;

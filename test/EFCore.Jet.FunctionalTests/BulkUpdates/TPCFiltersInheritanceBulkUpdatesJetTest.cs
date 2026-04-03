@@ -188,11 +188,11 @@ WHERE (
         AssertExecuteUpdateSql(
             """
 @p='Kiwi' (Size = 255)
-@p0='0' (Size = 1)
+@p1='0' (Size = 1)
 
 UPDATE `Kiwi` AS `k`
 SET `k`.`Name` = @p,
-    `k`.`FoundOn` = @p0
+    `k`.`FoundOn` = @p1
 WHERE `k`.`CountryId` = 1
 """);
     }

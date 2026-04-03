@@ -385,11 +385,11 @@ WHERE `s`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
                     ? ""
                     : $"""
 {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p0='707' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p1='707' (Nullable = true)")}
 
 SELECT `c`.`Id`, `c`.`ParentAlternateId`, `c`.`ParentId`
 FROM `ChildCompositeKey` AS `c`
-WHERE `c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `c`.`ParentId` = {AssertSqlHelper.Parameter("@p0")}
+WHERE `c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `c`.`ParentId` = {AssertSqlHelper.Parameter("@p1")}
 """);
         }
 
@@ -402,11 +402,11 @@ WHERE `c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `c`.`Paren
                     ? ""
                     : $"""
 {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p0='707'")}
+{AssertSqlHelper.Declaration("@p1='707'")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p0")}
+WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p1")}
 """);
         }
 
@@ -419,11 +419,11 @@ WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {Asse
                     ? ""
                     : $"""
 {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p0='707'")}
+{AssertSqlHelper.Declaration("@p1='707'")}
 
 SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
 FROM `Parent` AS `p`
-WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p0")}
+WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p1")}
 """);
         }
 
@@ -436,11 +436,11 @@ WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {Asse
                     ? ""
                     : $"""
 {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p0='707' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p1='707' (Nullable = true)")}
 
 SELECT TOP 1 `s`.`Id`, `s`.`ParentAlternateId`, `s`.`ParentId`
 FROM `SingleCompositeKey` AS `s`
-WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `s`.`ParentId` = {AssertSqlHelper.Parameter("@p0")}
+WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `s`.`ParentId` = {AssertSqlHelper.Parameter("@p1")}
 """);
         }
 
@@ -1554,11 +1554,11 @@ WHERE FALSE
             AssertSql(
                 $"""
                     {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@p0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p1='707' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentAlternateId`, `c`.`ParentId`
                     FROM `ChildCompositeKey` AS `c`
-                    WHERE `c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `c`.`ParentId` = {AssertSqlHelper.Parameter("@p0")}
+                    WHERE `c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `c`.`ParentId` = {AssertSqlHelper.Parameter("@p1")}
                     """);
         }
 
@@ -1569,11 +1569,11 @@ WHERE FALSE
             AssertSql(
                 $"""
                     {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@p0='707'")}
+                    {AssertSqlHelper.Declaration("@p1='707'")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p0")}
+                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p1")}
                     """);
         }
 
@@ -1584,11 +1584,11 @@ WHERE FALSE
             AssertSql(
                 $"""
                     {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@p0='707'")}
+                    {AssertSqlHelper.Declaration("@p1='707'")}
                     
                     SELECT TOP 1 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p0")}
+                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p1")}
                     """);
         }
 
@@ -1599,11 +1599,11 @@ WHERE FALSE
             AssertSql(
                 $"""
                     {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@p0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p1='707' (Nullable = true)")}
                     
                     SELECT TOP 1 `s`.`Id`, `s`.`ParentAlternateId`, `s`.`ParentId`
                     FROM `SingleCompositeKey` AS `s`
-                    WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `s`.`ParentId` = {AssertSqlHelper.Parameter("@p0")}
+                    WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `s`.`ParentId` = {AssertSqlHelper.Parameter("@p1")}
                     """);
         }
 
@@ -1614,11 +1614,11 @@ WHERE FALSE
             AssertSql(
                 $"""
                     {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@p0='707' (Nullable = true)")}
+                    {AssertSqlHelper.Declaration("@p1='707' (Nullable = true)")}
                     
                     SELECT `c`.`Id`, `c`.`ParentAlternateId`, `c`.`ParentId`
                     FROM `ChildCompositeKey` AS `c`
-                    WHERE `c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `c`.`ParentId` = {AssertSqlHelper.Parameter("@p0")}
+                    WHERE `c`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `c`.`ParentId` = {AssertSqlHelper.Parameter("@p1")}
                     """);
         }
 
@@ -1629,11 +1629,11 @@ WHERE FALSE
             AssertSql(
                 $"""
                     {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@p0='707'")}
+                    {AssertSqlHelper.Declaration("@p1='707'")}
                     
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p0")}
+                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p1")}
                     """);
         }
 
@@ -1644,11 +1644,11 @@ WHERE FALSE
             AssertSql(
                 $"""
                     {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@p0='707'")}
+                    {AssertSqlHelper.Declaration("@p1='707'")}
                     
                     SELECT TOP 2 `p`.`Id`, `p`.`AlternateId`
                     FROM `Parent` AS `p`
-                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p0")}
+                    WHERE `p`.`AlternateId` = {AssertSqlHelper.Parameter("@p")} AND `p`.`Id` = {AssertSqlHelper.Parameter("@p1")}
                     """);
         }
 
@@ -1661,11 +1661,11 @@ WHERE FALSE
                     ? ""
                     : $"""
 {AssertSqlHelper.Declaration("@p='Root' (Size = 255)")}
-{AssertSqlHelper.Declaration("@p0='707' (Nullable = true)")}
+{AssertSqlHelper.Declaration("@p1='707' (Nullable = true)")}
 
 SELECT TOP 2 `s`.`Id`, `s`.`ParentAlternateId`, `s`.`ParentId`
 FROM `SingleCompositeKey` AS `s`
-WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `s`.`ParentId` = {AssertSqlHelper.Parameter("@p0")}
+WHERE `s`.`ParentAlternateId` = {AssertSqlHelper.Parameter("@p")} AND `s`.`ParentId` = {AssertSqlHelper.Parameter("@p1")}
 """);
         }
 

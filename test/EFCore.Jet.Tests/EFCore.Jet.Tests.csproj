@@ -34,7 +34,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Build.Tasks.Core" Version="17.14.28" />
+		<PackageReference Include="Microsoft.Build.Tasks.Core" Version="18.4.0" />
 		<PackageReference Include="xunit.core" />
 		<PackageReference Include="xunit.assert" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" />
@@ -43,12 +43,12 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0-rc.2.*">
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.*">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0-rc.2.*" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="10.0.0-rc.2.*" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.*" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="10.0.*" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">

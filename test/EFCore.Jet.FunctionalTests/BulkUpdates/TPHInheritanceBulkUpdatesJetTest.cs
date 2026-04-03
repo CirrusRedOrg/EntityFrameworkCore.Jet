@@ -119,9 +119,9 @@ DELETE FROM `Animals` AS `a`
 WHERE `a`.`Id` IN (
     SELECT `a2`.`Id`
     FROM (
-        SELECT TOP @p0 `a1`.`Id`, `a1`.`Name`
+        SELECT TOP @p1 `a1`.`Id`, `a1`.`Name`
         FROM (
-            SELECT TOP @p + @p0 `a0`.`Id`, `a0`.`Name`
+            SELECT TOP @p + @p1 `a0`.`Id`, `a0`.`Name`
             FROM `Animals` AS `a0`
             WHERE `a0`.`Name` = 'Great spotted kiwi'
             ORDER BY `a0`.`Name`
@@ -220,11 +220,11 @@ WHERE (
         AssertExecuteUpdateSql(
             """
 @p='Kiwi' (Size = 255)
-@p0='0' (Size = 1)
+@p1='0' (Size = 1)
 
 UPDATE `Animals` AS `a`
 SET `a`.`Name` = @p,
-    `a`.`FoundOn` = @p0
+    `a`.`FoundOn` = @p1
 WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }

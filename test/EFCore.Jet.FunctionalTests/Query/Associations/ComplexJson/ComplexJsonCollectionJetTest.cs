@@ -128,6 +128,18 @@ WHERE CAST(JSON_VALUE([r].[AssociateCollection], '$[' + CAST([r].[Id] - 1 AS nva
 """);
     }
 
+    public override async Task Index_on_nested_collection()
+    {
+        await base.Index_on_nested_collection();
+
+        AssertSql(
+            """
+SELECT [r].[Id], [r].[Name], [r].[AssociateCollection], [r].[OptionalAssociate], [r].[RequiredAssociate]
+FROM [RootEntity] AS [r]
+WHERE CAST(JSON_VALUE([r].[RequiredAssociate], '$.NestedCollection[0].Int') AS int) = 8
+""");
+    }
+
     public override async Task Index_out_of_bounds()
     {
         await base.Index_out_of_bounds();

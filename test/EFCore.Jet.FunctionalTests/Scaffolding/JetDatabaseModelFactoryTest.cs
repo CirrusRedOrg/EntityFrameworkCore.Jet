@@ -1458,6 +1458,31 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Scaffolding
                 "DROP TABLE ValueGeneratedProperties;");
 
         [ConditionalFact]
+        public void Identity_columns_are_not_nullable()
+            => Test(
+                """
+        
+        CREATE TABLE IdentityTable (
+            Id counter CONSTRAINT PK_IdentityTable PRIMARY KEY,
+            Name varchar(255) NULL
+        );
+        """,
+                [],
+                [],
+                dbModel =>
+                {
+                    var table = dbModel.Tables.Single(t => t.Name == "IdentityTable");
+                    var idColumn = table.Columns.Single(c => c.Name == "Id");
+
+                    // Identity (AutoNumber/counter) must be non-nullable
+                    Assert.False(idColumn.IsNullable);
+
+                    // And still marked as value-generated
+                    Assert.Equal(ValueGenerated.OnAdd, idColumn.ValueGenerated);
+                },
+                "DROP TABLE IdentityTable;");
+
+        [ConditionalFact]
         public void ConcurrencyToken_is_set_for_rowVersion()
             => Test(
                 """

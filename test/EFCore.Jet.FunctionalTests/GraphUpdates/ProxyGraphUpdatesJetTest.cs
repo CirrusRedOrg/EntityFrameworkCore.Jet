@@ -78,6 +78,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         public class ChangeTracking(ChangeTracking.ProxyGraphUpdatesWithChangeTrackingJetFixture fixture)
             : ProxyGraphUpdatesJetTestBase<ChangeTracking.ProxyGraphUpdatesWithChangeTrackingJetFixture>(fixture)
         {
+            // Needs lazy loading
+            public override Task Save_two_entity_cycle_with_lazy_loading()
+                => Task.CompletedTask;
+
             protected override bool DoesLazyLoading => false;
             protected override bool DoesChangeTracking => true;
 
@@ -114,7 +118,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
             public class ProxyGraphUpdatesWithChangeTrackingAndLazyLoadingJetFixture : ProxyGraphUpdatesJetFixtureBase
             {
-                protected override string StoreName { get; } = "ProxyGraphChangeTrackingAndLazyLoadingUpdatesTest";
+                protected override string StoreName => "ProxyGraphChangeTrackingAndLazyLoadingUpdatesTest";
 
                 public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
                     => base.AddOptions(builder.UseLazyLoadingProxies().UseChangeTrackingProxies());

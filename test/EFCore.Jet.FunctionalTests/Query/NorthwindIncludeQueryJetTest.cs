@@ -801,9 +801,9 @@ ORDER BY `c1`.`CustomerID`
                     """
 SELECT `o0`.`CustomerID`
 FROM (
-    SELECT TOP @p0 `o2`.`OrderID`, `o2`.`ProductID`
+    SELECT TOP @p1 `o2`.`OrderID`, `o2`.`ProductID`
     FROM (
-        SELECT TOP @p + @p0 `o`.`OrderID`, `o`.`ProductID`
+        SELECT TOP @p + @p1 `o`.`OrderID`, `o`.`ProductID`
         FROM `Order Details` AS `o`
         WHERE `o`.`Quantity` = 10
         ORDER BY `o`.`OrderID`, `o`.`ProductID`

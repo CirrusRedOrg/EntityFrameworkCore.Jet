@@ -45,6 +45,7 @@ WHERE CAST(JSON_VALUE([j].[IntList], '$[' + CAST(@__id_0 AS nvarchar(max)) + ']'
 """);
     }
 
+    [ConditionalFact(Skip = "Not supported in Jet")]
     public override async Task JsonScalar()
     {
         await base.JsonScalar();

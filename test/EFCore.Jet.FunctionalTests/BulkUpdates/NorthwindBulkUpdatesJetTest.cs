@@ -273,9 +273,9 @@ WHERE EXISTS (
     FROM (
         SELECT `o4`.`OrderID`, `o4`.`ProductID`
         FROM (
-            SELECT TOP @p2 `o3`.`OrderID`, `o3`.`ProductID`
+            SELECT TOP @p3 `o3`.`OrderID`, `o3`.`ProductID`
             FROM (
-                SELECT TOP @p1 + @p2 `o0`.`OrderID`, `o0`.`ProductID`
+                SELECT TOP @p2 + @p3 `o0`.`OrderID`, `o0`.`ProductID`
                 FROM (
                     SELECT `o6`.`OrderID`, `o6`.`ProductID`
                     FROM (
@@ -528,9 +528,9 @@ WHERE EXISTS (
     INNER JOIN (
         SELECT `o4`.`OrderID`
         FROM (
-            SELECT TOP @p0 `o3`.`OrderID`
+            SELECT TOP @p1 `o3`.`OrderID`
             FROM (
-                SELECT TOP @p + @p0 `o2`.`OrderID`
+                SELECT TOP @p + @p1 `o2`.`OrderID`
                 FROM `Orders` AS `o2`
                 WHERE `o2`.`OrderID` < 10300
                 ORDER BY `o2`.`OrderID`
@@ -556,9 +556,9 @@ WHERE EXISTS (
     LEFT JOIN (
         SELECT `o4`.`OrderID`
         FROM (
-            SELECT TOP @p0 `o3`.`OrderID`
+            SELECT TOP @p1 `o3`.`OrderID`
             FROM (
-                SELECT TOP @p + @p0 `o2`.`OrderID`
+                SELECT TOP @p + @p1 `o2`.`OrderID`
                 FROM `Orders` AS `o2`
                 WHERE `o2`.`OrderID` < 10300
                 ORDER BY `o2`.`OrderID`
@@ -584,9 +584,9 @@ WHERE EXISTS (
     LEFT JOIN (
         SELECT `o4`.`OrderID`
         FROM (
-            SELECT TOP @p0 `o3`.`OrderID`
+            SELECT TOP @p1 `o3`.`OrderID`
             FROM (
-                SELECT TOP @p + @p0 `o2`.`OrderID`
+                SELECT TOP @p + @p1 `o2`.`OrderID`
                 FROM `Orders` AS `o2`
                 WHERE `o2`.`OrderID` < 10300
                 ORDER BY `o2`.`OrderID`
@@ -678,9 +678,9 @@ WHERE EXISTS (
     RIGHT JOIN (
         SELECT `o4`.`OrderID`
         FROM (
-            SELECT TOP @p0 `o3`.`OrderID`
+            SELECT TOP @p1 `o3`.`OrderID`
             FROM (
-                SELECT TOP @p + @p0 `o2`.`OrderID`
+                SELECT TOP @p + @p1 `o2`.`OrderID`
                 FROM `Orders` AS `o2`
                 WHERE `o2`.`OrderID` < 10300
                 ORDER BY `o2`.`OrderID`
@@ -855,7 +855,7 @@ INNER JOIN (
 
         AssertExecuteUpdateSql(
             """
-@p0='Updated' (Size = 30)
+@p1='Updated' (Size = 30)
 
 UPDATE `Customers` AS `c0`
 INNER JOIN (
@@ -863,7 +863,7 @@ INNER JOIN (
     FROM `Customers` AS `c`
     WHERE `c`.`CustomerID` LIKE 'F%'
 ) AS `c1` ON `c0`.`CustomerID` = `c1`.`CustomerID`
-SET `c0`.`ContactName` = @p0
+SET `c0`.`ContactName` = @p1
 """);
     }
 
@@ -873,21 +873,21 @@ SET `c0`.`ContactName` = @p0
 
         AssertExecuteUpdateSql(
             """
-@p1='Updated' (Size = 30)
+@p2='Updated' (Size = 30)
 
 UPDATE `Customers` AS `c0`
 INNER JOIN (
     SELECT `c3`.`CustomerID`
     FROM (
-        SELECT TOP @p0 `c2`.`CustomerID`
+        SELECT TOP @p1 `c2`.`CustomerID`
         FROM (
-            SELECT TOP @p + @p0 `c`.`CustomerID`
+            SELECT TOP @p + @p1 `c`.`CustomerID`
             FROM `Customers` AS `c`
             WHERE `c`.`CustomerID` LIKE 'F%'
         ) AS `c2`
     ) AS `c3`
 ) AS `c1` ON `c0`.`CustomerID` = `c1`.`CustomerID`
-SET `c0`.`ContactName` = @p1
+SET `c0`.`ContactName` = @p2
 """);
     }
 
@@ -936,7 +936,7 @@ INNER JOIN (
 
         AssertExecuteUpdateSql(
             """
-@p0='Updated' (Size = 30)
+@p1='Updated' (Size = 30)
 
 UPDATE `Customers` AS `c0`
 INNER JOIN (
@@ -945,7 +945,7 @@ INNER JOIN (
     WHERE `c`.`CustomerID` LIKE 'F%'
     ORDER BY `c`.`City`
 ) AS `c1` ON `c0`.`CustomerID` = `c1`.`CustomerID`
-SET `c0`.`ContactName` = @p0
+SET `c0`.`ContactName` = @p1
 """);
     }
 
@@ -955,15 +955,15 @@ SET `c0`.`ContactName` = @p0
 
         AssertExecuteUpdateSql(
             """
-@p1='Updated' (Size = 30)
+@p2='Updated' (Size = 30)
 
 UPDATE `Customers` AS `c0`
 INNER JOIN (
     SELECT `c3`.`CustomerID`
     FROM (
-        SELECT TOP @p0 `c2`.`CustomerID`, `c2`.`City`
+        SELECT TOP @p1 `c2`.`CustomerID`, `c2`.`City`
         FROM (
-            SELECT TOP @p + @p0 `c`.`CustomerID`, `c`.`City`
+            SELECT TOP @p + @p1 `c`.`CustomerID`, `c`.`City`
             FROM `Customers` AS `c`
             WHERE `c`.`CustomerID` LIKE 'F%'
             ORDER BY `c`.`City`
@@ -972,7 +972,7 @@ INNER JOIN (
     ) AS `c3`
     ORDER BY `c3`.`City`
 ) AS `c1` ON `c0`.`CustomerID` = `c1`.`CustomerID`
-SET `c0`.`ContactName` = @p1
+SET `c0`.`ContactName` = @p2
 """);
     }
 
@@ -982,7 +982,7 @@ SET `c0`.`ContactName` = @p1
 
         AssertExecuteUpdateSql(
             """
-@p3='Updated' (Size = 30)
+@p4='Updated' (Size = 30)
 
 UPDATE `Customers` AS `c1`
 INNER JOIN (
@@ -992,9 +992,9 @@ INNER JOIN (
         FROM (
             SELECT TOP @p + @p `c0`.`CustomerID`, `c0`.`City`
             FROM (
-                SELECT TOP @p0 `c5`.`CustomerID`, `c5`.`City`
+                SELECT TOP @p1 `c5`.`CustomerID`, `c5`.`City`
                 FROM (
-                    SELECT TOP @p + @p0 `c`.`CustomerID`, `c`.`City`
+                    SELECT TOP @p + @p1 `c`.`CustomerID`, `c`.`City`
                     FROM `Customers` AS `c`
                     WHERE `c`.`CustomerID` LIKE 'F%'
                     ORDER BY `c`.`City`
@@ -1007,7 +1007,7 @@ INNER JOIN (
     ) AS `c4`
     ORDER BY `c4`.`City`
 ) AS `c2` ON `c1`.`CustomerID` = `c2`.`CustomerID`
-SET `c1`.`ContactName` = @p3
+SET `c1`.`ContactName` = @p4
 """);
     }
 
@@ -1624,6 +1624,62 @@ WHERE `p`.`Discontinued` AND `o0`.`OrderDate` > #1990-01-01#
 """);
     }
 
+    [ConditionalTheory, MemberData(nameof(IsAsyncData))]
+    public override async Task Update_with_PK_pushdown_and_join_and_multiple_setters(bool async)
+    {
+        await base.Update_with_PK_pushdown_and_join_and_multiple_setters(async);
+
+        AssertExecuteUpdateSql(
+            """
+@p='1'
+@p2='10' (DbType = Currency)
+
+UPDATE [o2]
+SET [o2].[Quantity] = CAST(@p AS smallint),
+    [o2].[UnitPrice] = @p2
+FROM [Order Details] AS [o2]
+INNER JOIN (
+    SELECT [o1].[OrderID], [o1].[ProductID]
+    FROM (
+        SELECT [o].[OrderID], [o].[ProductID]
+        FROM [Order Details] AS [o]
+        ORDER BY [o].[OrderID]
+        OFFSET @p ROWS
+    ) AS [o1]
+    INNER JOIN [Orders] AS [o0] ON [o1].[OrderID] = [o0].[OrderID]
+    WHERE [o0].[CustomerID] = N'ALFKI'
+) AS [s] ON [o2].[OrderID] = [s].[OrderID] AND [o2].[ProductID] = [s].[ProductID]
+""");
+    }
+
+    /*public override async Task Update_with_select_mixed_entity_scalar_anonymous_projection(bool async)
+    {
+        await base.Update_with_select_mixed_entity_scalar_anonymous_projection(async);
+
+        AssertSql(
+            """
+@p='Updated' (Size = 30)
+
+UPDATE [c]
+SET [c].[ContactName] = @p
+FROM [Customers] AS [c]
+""");
+    }
+
+    public override async Task Update_with_select_scalar_anonymous_projection(bool async)
+    {
+        await base.Update_with_select_scalar_anonymous_projection(async);
+
+        AssertSql(
+            """
+@p='Updated' (Size = 30)
+
+UPDATE [c]
+SET [c].[ContactName] = @p
+FROM [Customers] AS [c]
+""");
+    }
+    */
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 

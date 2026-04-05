@@ -31,6 +31,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
         [
             typeof(bool),
             typeof(byte),
+            typeof(DateTime),
             typeof(decimal),
             typeof(double),
             typeof(float),

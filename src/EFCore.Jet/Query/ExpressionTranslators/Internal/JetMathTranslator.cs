@@ -115,7 +115,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     nullable: true,
                     argumentsPropagateNullability: newArguments.Select(_ => true).ToArray(),
                     method.ReturnType,
-                    sqlFunctionName == "SIGN" ? null : typeMapping);
+                    sqlFunctionName == "SGN" ? null : typeMapping);
             }
 
             if (_supportedMethodTranslationsIndirect.Contains(method))
@@ -132,7 +132,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                     _sqlExpressionFactory.Negate(arguments[0]),
                                     Translate(
                                         null,
-                                        typeof(Math).GetMethod(nameof(Math.Sqrt))!,
+                                        method.DeclaringType == typeof(MathF)
+                                            ? typeof(MathF).GetRuntimeMethod(nameof(MathF.Sqrt), [typeof(float)])!
+                                            : typeof(Math).GetRuntimeMethod(nameof(Math.Sqrt), [typeof(double)])!,
                                         [
                                             _sqlExpressionFactory.Add(
                                                 _sqlExpressionFactory.Negate(
@@ -141,7 +143,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                                         arguments[0]
                                                     )
                                                 ),
-                                                _sqlExpressionFactory.Constant(1d)
+                                                _sqlExpressionFactory.Constant(method.DeclaringType == typeof(MathF) ? 1f : 1d)
                                             )
                                         ],
                                         logger
@@ -160,7 +162,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                 arguments[0],
                                 Translate(
                                     null,
-                                    typeof(Math).GetMethod(nameof(Math.Sqrt)) !,
+                                    method.DeclaringType == typeof(MathF)
+                                        ? typeof(MathF).GetRuntimeMethod(nameof(MathF.Sqrt), [typeof(float)])!
+                                        : typeof(Math).GetRuntimeMethod(nameof(Math.Sqrt), [typeof(double)])!,
                                     [
                                         _sqlExpressionFactory.Add(
                                             _sqlExpressionFactory.Negate(
@@ -169,7 +173,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                                     arguments[0]
                                                 )
                                             ),
-                                            _sqlExpressionFactory.Constant(1d)
+                                            _sqlExpressionFactory.Constant(method.DeclaringType == typeof(MathF) ? 1f : 1d)
                                         )
                                     ],
                                     logger

@@ -258,7 +258,7 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                         Table = table,
                         Name = columnName!,
                         StoreType = storeType,
-                        IsNullable = nullable,
+                        IsNullable = storeType != "counter" && nullable,
                         DefaultValue = defaultValueobj,
                         DefaultValueSql = defaultValue,
                         ComputedColumnSql = null,

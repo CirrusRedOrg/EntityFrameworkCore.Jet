@@ -221,26 +221,31 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
                 const int maxTablesWithoutBrackets = 2;
 
+                var nonCrossTableCount = Tables.Count(t => t is not CrossJoinExpression and not CrossApplyExpression);
+
                 Sql.Append(
                     new string(
                         '(',
-                        Math.Max(
-                            0,
-                            Tables
-                                .Count(t => !(t is CrossJoinExpression or CrossApplyExpression)) -
-                            maxTablesWithoutBrackets)));
+                        Math.Max(0, nonCrossTableCount - maxTablesWithoutBrackets)));
+
+                var nonCrossTablesSeen = 0;
 
                 for (var index = 0; index < Tables.Count; index++)
                 {
                     var tableExpression = Tables[index];
 
                     var isApplyExpression = tableExpression is CrossApplyExpression or OuterApplyExpression;
-
                     var isCrossExpression = tableExpression is CrossJoinExpression or CrossApplyExpression;
+                    var isNonCrossExpression = !isCrossExpression;
 
                     if (isApplyExpression)
                     {
                         throw new UnreachableException();
+                    }
+
+                    if (isNonCrossExpression)
+                    {
+                        nonCrossTablesSeen++;
                     }
 
                     if (index > 0)
@@ -249,7 +254,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         {
                             Sql.Append(",");
                         }
-                        else if (index >= maxTablesWithoutBrackets)
+                        else if (nonCrossTablesSeen > maxTablesWithoutBrackets)
                         {
                             Sql.Append(")");
                         }
@@ -262,28 +267,28 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     {
                         if (expression.JoinPredicate is SqlBinaryExpression binaryJoin)
                         {
-                            tempcolexp = ExtractColumnExpressions(binaryJoin!);
+                            tempcolexp = ExtractColumnExpressions(binaryJoin);
                         }
                         else if (expression.JoinPredicate is SqlUnaryExpression unaryJoin)
                         {
-                            tempcolexp = ExtractColumnExpressions(unaryJoin!);
+                            tempcolexp = ExtractColumnExpressions(unaryJoin);
                         }
                         else
                         {
                             tempcolexp = [];
                         }
 
-                        bool refrencesfirsttable = false;
-                        foreach (ColumnExpression col in tempcolexp)
+                        var referencesFirstTable = false;
+                        foreach (var col in tempcolexp)
                         {
                             if (col.TableAlias == Tables[0].Alias)
                             {
-                                refrencesfirsttable = true;
+                                referencesFirstTable = true;
                                 break;
                             }
                         }
 
-                        if (refrencesfirsttable)
+                        if (referencesFirstTable)
                         {
                             Visit(tableExpression);
                             continue;

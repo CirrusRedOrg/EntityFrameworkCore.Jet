@@ -184,12 +184,18 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
                 if (_substringMethodInfoWithTwoArgs.Equals(method))
                 {
+                    var argument = arguments[0];
+                    //if argument is a function expression, coalesce to 0
+                    if (argument is SqlFunctionExpression or SqlBinaryExpression or SqlUnaryExpression)
+                    {
+                        argument = _sqlExpressionFactory.Coalesce(argument, _sqlExpressionFactory.Constant(0));
+                    }
                     return _sqlExpressionFactory.Function(
                         "MID",
                         [
                             instance,
                             _sqlExpressionFactory.Add(
-                                arguments[0],
+                                argument,
                                 _sqlExpressionFactory.Constant(1)),
                             arguments[1]
                         ],
@@ -296,7 +302,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
 
             var argumentsPropagateNullability = Enumerable.Repeat(true, charIndexArguments.Count);
 
-            SqlExpression charIndexExpression = charIndexExpression = _sqlExpressionFactory.Function(
+            SqlExpression charIndexExpression = _sqlExpressionFactory.Function(
                 "INSTR",
                 charIndexArguments,
                 nullable: true,

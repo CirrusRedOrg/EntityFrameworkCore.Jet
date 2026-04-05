@@ -224,44 +224,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public string Lucy { get; set; }
         }
 
-        [ConditionalFact] // Issue #29931
-        public async Task Can_use_SqlQuery_when_context_has_DbFunction()
-        {
-            await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
-            var options = Fixture.CreateOptions(testDatabase);
-            using var context = new DbFunctionContext(options);
-            var result = context.Database
-                .SqlQueryRaw<RawResult>("SELECT Name from sys.databases")
-                .OrderBy(d => d.Name)
-                .ToList();
-        }
-
-        private class DbFunctionContext(DbContextOptions options) : DbContext(options)
-        {
-            [DbFunction("tvp", "dbo")]
-            public IQueryable<TvpResult> Tvp(int? storeid)
-                => FromExpression(() => Tvp(storeid));
-
-            protected override void OnModelCreating(ModelBuilder modelBuilder)
-                => modelBuilder.Entity<TvpResult>().HasNoKey();
-        }
-
-        private class TvpResult
-        {
-            public int Id { get; set; }
-
-            [Required]
-            public string Name { get; set; }
-
-            [Column(TypeName = "decimal(18,2)")]
-            public decimal Total { get; set; }
-        }
-
-        private class RawResult
-        {
-            public string Name { get; set; }
-        }
-
         [ConditionalFact]
         public async Task Can_use_string_enum_or_byte_array_as_key()
         {

@@ -243,19 +243,19 @@ ORDER BY `b`.`Name`
         await Test(
             """
 string[] names = ["foo", "bar"];
-var blogs = await context.Blogs.Where(b => names.Contains(b.Name)).ToListAsync();
+var blogs = await context.Blogs.Where(b => ((IEnumerable<string>)names).Contains(b.Name)).ToListAsync();
 """,
             interceptorCodeAsserter: code => Assert.Contains(nameof(RelationalCommandCache), code));
 
         AssertSql(
             """
-@names1='foo' (Size = 255)
-@names2='bar' (Size = 255)
-
-SELECT `b`.`Id`, `b`.`Name`
-FROM `Blogs` AS `b`
-WHERE `b`.`Name` IN (@names1, @names2)
-""");
+    @p1='foo' (Size = 255)
+    @p2='bar' (Size = 255)
+    
+    SELECT `b`.`Id`, `b`.`Name`
+    FROM `Blogs` AS `b`
+    WHERE `b`.`Name` IN (@p1, @p2)
+    """);
     }
 
     public class PrecompiledSqlPregenerationQueryJetFixture : PrecompiledSqlPregenerationQueryRelationalFixture

@@ -21,19 +21,19 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetByteArrayTypeMapping _unboundedBinary = new("longbinary", storeTypePostfix: StoreTypePostfix.None);
 
         private readonly JetBoolTypeMapping _bit = new("bit"); // JET bits are not nullable
-        private readonly JetBoolTypeMapping _bool = new("smallint");
+        private readonly JetBoolTypeMapping _bool = JetBoolTypeMapping.Default;
 
         // We just map counter etc. to integer. Whether an integer property/column is actually a counter
         // is determined by the value generation type.
-        private readonly IntTypeMapping _counter = new JetIntTypeMapping("integer");
+        private readonly JetIntTypeMapping _counter = JetIntTypeMapping.Default;
 
-        private readonly JetByteTypeMapping _byte = new("byte", DbType.Byte); // unsigned, there is no signed byte in Jet
+        private readonly JetByteTypeMapping _byte = JetByteTypeMapping.Default; // unsigned, there is no signed byte in Jet
         private readonly ShortTypeMapping _smallint = new("smallint", DbType.Int16);
-        private readonly IntTypeMapping _integer = new JetIntTypeMapping("integer");
-        private readonly JetLongTypeMapping _bigint = new("decimal(20, 0)", precision: 20, scale: 0, StoreTypePostfix.PrecisionAndScale);
+        private readonly JetIntTypeMapping _integer = JetIntTypeMapping.Default;
+        private readonly JetLongTypeMapping _bigint = JetLongTypeMapping.Default;
 
-        private readonly JetFloatTypeMapping _single = new("single");
-        private readonly JetDoubleTypeMapping _double = new("double");
+        private readonly JetFloatTypeMapping _single = JetFloatTypeMapping.Default;
+        private readonly JetDoubleTypeMapping _double = JetDoubleTypeMapping.Default;
 
         private readonly JetDecimalTypeMapping _decimal = new("decimal(18,2)", DbType.Decimal, precision: 18, scale: 2, StoreTypePostfix.PrecisionAndScale);
         private readonly JetDecimalTypeMapping _decimal18_0 = new("decimal", DbType.Decimal, precision: 18, scale: 0);
@@ -80,18 +80,18 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             // https://sourcedaddy.com/ms-access/sql-data-types.html
 
             _guid = options.DataAccessProviderType == DataAccessProviderType.Odbc
-                ? new JetOdbcGuidTypeMapping("uniqueidentifier")
-                : new JetGuidTypeMapping("uniqueidentifier", DbType.Guid);
+                ? JetOdbcGuidTypeMapping.Default
+                : JetGuidTypeMapping.Default;
 
             // TODO: Check the types and their mappings against
             //       https://docs.microsoft.com/en-us/previous-versions/office/developer/office2000/aa140015(v=office.10)
 
-            _datetime = new JetDateTimeTypeMapping("datetime", options, dbType: DbType.DateTime);
-            _dateasdatetime = new JetDateTimeTypeMapping("date", options, dbType: DbType.Date);
-            _datetimeoffset = new JetDateTimeOffsetTypeMapping("datetime", options);
-            _dateonly = new JetDateOnlyTypeMapping("date", options, dbType: DbType.Date);
-            _timeonly = new JetTimeOnlyTypeMapping("time", options);
-            _timespan = new JetTimeSpanTypeMapping("datetime", options);
+            _datetime = JetDateTimeTypeMapping.Default;
+            _dateasdatetime = new JetDateTimeTypeMapping("date", dbType: DbType.Date);
+            _datetimeoffset = JetDateTimeOffsetTypeMapping.Default;
+            _dateonly = JetDateOnlyTypeMapping.Default;
+            _timeonly = JetTimeOnlyTypeMapping.Default;
+            _timespan = JetTimeSpanTypeMapping.Default;
             
             _storeTypeMappings
                 = new Dictionary<string, RelationalTypeMapping[]>(StringComparer.OrdinalIgnoreCase)
@@ -126,9 +126,10 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"integer2", [_smallint] },
 
                     {"integer", [_integer] },
-                    {"long", [_bigint] },
+                    {"long", [_bigint] },//is this right
                     {"int", [_integer] },
                     {"integer4", [_integer] },
+                    {"bigint", [_bigint] },
 
                     {"single", [_single] },
                     {"real", [_single] },

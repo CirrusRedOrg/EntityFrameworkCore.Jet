@@ -13,6 +13,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal;
 /// </summary>
 public class JetByteTypeMapping : ByteTypeMapping
 {
+    public static new JetByteTypeMapping Default { get; } = new("byte", System.Data.DbType.Byte);
+
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
     ///     the same compatibility standards as public APIs. It may be changed or removed without notice in

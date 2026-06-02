@@ -267,6 +267,16 @@ public class ComplexTypesTrackingProxiesJetTest(
     }
 
     // Issue #36175: Complex types with notification change tracking are not supported
+    public override void Can_remove_from_complex_collection_with_nested_complex_collection(bool trackFromQuery)
+    {
+    }
+
+    // Fields can't be proxied
+    public override void Can_remove_from_complex_field_collection_with_nested_complex_collection(bool trackFromQuery)
+    {
+    }
+
+    // Issue #36175: Complex types with notification change tracking are not supported
     public override void Throws_when_accessing_complex_entries_using_incorrect_cardinality()
     {
     }
@@ -341,6 +351,30 @@ public class ComplexTypesTrackingProxiesJetTest(
     public override void Can_write_original_values_for_properties_of_complex_property_bag_collections(bool trackFromQuery)
     {
     }
+
+    // Issue #36175: Complex types with notification change tracking are not supported
+    public override Task Can_save_default_values_in_optional_complex_property_with_multiple_properties(bool async)
+        => Task.CompletedTask;
+
+    // Issue #36175: Complex types with notification change tracking are not supported
+    public override Task Can_null_complex_property_with_default_values_and_multiple_properties(bool async)
+        => Task.CompletedTask;
+
+    // Fields can't be proxied
+    public override Task Can_change_state_from_Deleted_with_complex_field_collection(EntityState newState, bool async)
+        => Task.CompletedTask;
+
+    // Fields can't be proxied
+    public override Task Can_change_state_from_Deleted_with_complex_field_record_collection(EntityState newState, bool async)
+        => Task.CompletedTask;
+
+    // Issue #36175: Complex types with notification change tracking are not supported
+    public override Task Can_change_state_from_Deleted_with_complex_collection(EntityState newState, bool async)
+        => Task.CompletedTask;
+
+    // Issue #36175: Complex types with notification change tracking are not supported
+    public override Task Can_change_state_from_Deleted_with_complex_record_collection(EntityState newState, bool async)
+        => Task.CompletedTask;
 
     public class JetFixture : JetFixtureBase
     {

@@ -629,6 +629,8 @@ public class GraphUpdatesJetOwnedTest(GraphUpdatesJetOwnedTest.JetFixture fixtur
             modelBuilder.Entity<SharedFkRoot>().Property(x => x.Id).HasColumnType("int");
             modelBuilder.Entity<SharedFkDependant>().Property(x => x.Id).HasColumnType("int");
             modelBuilder.Entity<SharedFkParent>().Property(x => x.Id).HasColumnType("int");
+
+            modelBuilder.Entity<EntityZ>().Property(x => x.Id).HasColumnType("int");
         }
     }
 }

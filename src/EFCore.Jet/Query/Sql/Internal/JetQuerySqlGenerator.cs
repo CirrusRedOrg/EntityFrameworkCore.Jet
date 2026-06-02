@@ -561,7 +561,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         {
             if (sqlConstantExpression.TypeMapping == RelationalTypeMapping.NullMapping && sqlConstantExpression.Value is DateTime)
             {
-                sqlConstantExpression = (SqlConstantExpression)sqlConstantExpression.ApplyTypeMapping(new JetDateTimeTypeMapping("datetime", _options));
+                sqlConstantExpression = (SqlConstantExpression)sqlConstantExpression.ApplyTypeMapping(new JetDateTimeTypeMapping("datetime"));
             }
 
             parent.TryPeek(out var exp);

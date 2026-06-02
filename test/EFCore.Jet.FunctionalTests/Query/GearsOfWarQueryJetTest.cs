@@ -5878,11 +5878,11 @@ WHERE `g`.`Nickname` <> 'Dom'
             await base.Null_semantics_is_correctly_applied_for_function_comparisons_that_take_arguments_from_optional_navigation(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
 FROM `Tags` AS `t`
 LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
-WHERE IIF(`g`.`SquadId` IS NULL, NULL, MID(`t`.`Note`, 0 + 1, `g`.`SquadId`)) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `g`.`SquadId` IS NULL) AND `t`.`GearNickName` IS NULL)
+WHERE IIF(`g`.`SquadId` IS NULL, NULL, MID(`t`.`Note`, IIF(0 = -1, 0, 0) + 1, `g`.`SquadId`)) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR IIF(0 = -1, 0, 0) IS NULL OR `g`.`SquadId` IS NULL) AND `t`.`GearNickName` IS NULL)
 """);
         }
 
@@ -5893,12 +5893,12 @@ WHERE IIF(`g`.`SquadId` IS NULL, NULL, MID(`t`.`Note`, 0 + 1, `g`.`SquadId`)) = 
                 isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
 FROM (`Tags` AS `t`
 LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`)
 LEFT JOIN `Squads` AS `s` ON `g`.`SquadId` = `s`.`Id`
-WHERE IIF(LEN(`s`.`Name`) IS NULL, NULL, MID(`t`.`Note`, 0 + 1, IIF(LEN(`s`.`Name`) IS NULL, NULL, CLNG(LEN(`s`.`Name`))))) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
+WHERE IIF(LEN(`s`.`Name`) IS NULL, NULL, MID(`t`.`Note`, IIF(0 = -1, 0, 0) + 1, IIF(LEN(`s`.`Name`) IS NULL, NULL, CLNG(LEN(`s`.`Name`))))) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR IIF(0 = -1, 0, 0) IS NULL OR `s`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
 """);
         }
 
@@ -7905,8 +7905,8 @@ LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSqu
             await base.Projecting_property_converted_to_nullable_with_function_call(async);
 
             AssertSql(
-"""
-SELECT MID(IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL), 0 + 1, 3)
+                """
+SELECT MID(IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL), IIF(0 = -1, 0, 0) + 1, 3)
 FROM `Tags` AS `t`
 LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
 """);
@@ -7917,8 +7917,8 @@ LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSqu
             await base.Projecting_property_converted_to_nullable_with_function_call2(async);
 
             AssertSql(
-"""
-SELECT `t`.`Note`, MID(`t`.`Note`, 0 + 1, IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL)) AS `Function`
+                """
+SELECT `t`.`Note`, MID(`t`.`Note`, IIF(0 = -1, 0, 0) + 1, IIF(`t`.`GearNickName` IS NOT NULL, `g`.`SquadId`, NULL)) AS `Function`
 FROM `Tags` AS `t`
 LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
 WHERE IIF(`t`.`GearNickName` IS NOT NULL, `g`.`Nickname`, NULL) IS NOT NULL

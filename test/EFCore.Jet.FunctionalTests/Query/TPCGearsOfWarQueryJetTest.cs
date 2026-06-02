@@ -8002,7 +8002,7 @@ LEFT JOIN (
     SELECT `o`.`Nickname`, `o`.`SquadId`
     FROM `Officers` AS `o`
 ) AS `u` ON `t`.`GearNickName` = `u`.`Nickname` AND `t`.`GearSquadId` = `u`.`SquadId`
-WHERE IIF(`u`.`SquadId` IS NULL, NULL, MID(`t`.`Note`, 0 + 1, `u`.`SquadId`)) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `u`.`SquadId` IS NULL) AND `t`.`GearNickName` IS NULL)
+WHERE IIF(`u`.`SquadId` IS NULL, NULL, MID(`t`.`Note`, IIF(0 = -1, 0, 0) + 1, `u`.`SquadId`)) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR IIF(0 = -1, 0, 0) IS NULL OR `u`.`SquadId` IS NULL) AND `t`.`GearNickName` IS NULL)
 """);
     }
 
@@ -8024,7 +8024,7 @@ LEFT JOIN (
     FROM `Officers` AS `o`
 ) AS `u` ON `t`.`GearNickName` = `u`.`Nickname` AND `t`.`GearSquadId` = `u`.`SquadId`)
 LEFT JOIN `Squads` AS `s` ON `u`.`SquadId` = `s`.`Id`
-WHERE IIF(LEN(`s`.`Name`) IS NULL, NULL, MID(`t`.`Note`, 0 + 1, IIF(LEN(`s`.`Name`) IS NULL, NULL, CLNG(LEN(`s`.`Name`))))) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
+WHERE IIF(LEN(`s`.`Name`) IS NULL, NULL, MID(`t`.`Note`, IIF(0 = -1, 0, 0) + 1, IIF(LEN(`s`.`Name`) IS NULL, NULL, CLNG(LEN(`s`.`Name`))))) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR IIF(0 = -1, 0, 0) IS NULL OR `s`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
 """);
     }
 
@@ -10625,7 +10625,7 @@ LEFT JOIN (
 
         AssertSql(
             """
-SELECT MID(IIF(`t`.`GearNickName` IS NOT NULL, `u`.`Nickname`, NULL), 0 + 1, 3)
+SELECT MID(IIF(`t`.`GearNickName` IS NOT NULL, `u`.`Nickname`, NULL), IIF(0 = -1, 0, 0) + 1, 3)
 FROM `Tags` AS `t`
 LEFT JOIN (
     SELECT `g`.`Nickname`, `g`.`SquadId`
@@ -10643,7 +10643,7 @@ LEFT JOIN (
 
         AssertSql(
             """
-SELECT `t`.`Note`, MID(`t`.`Note`, 0 + 1, IIF(`t`.`GearNickName` IS NOT NULL, `u`.`SquadId`, NULL)) AS `Function`
+SELECT `t`.`Note`, MID(`t`.`Note`, IIF(0 = -1, 0, 0) + 1, IIF(`t`.`GearNickName` IS NOT NULL, `u`.`SquadId`, NULL)) AS `Function`
 FROM `Tags` AS `t`
 LEFT JOIN (
     SELECT `g`.`Nickname`, `g`.`SquadId`

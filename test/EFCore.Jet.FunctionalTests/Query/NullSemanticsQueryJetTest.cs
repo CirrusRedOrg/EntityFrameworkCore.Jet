@@ -3227,10 +3227,10 @@ WHERE IIF(`e`.`BoolA`, `e`.`NullableBoolB`, NOT (`e`.`NullableBoolC`)) IS NULL
             await base.Null_semantics_function(async);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (MID(`e`.`NullableStringA`, 0 + 1, `e`.`IntA`) <> `e`.`NullableStringB` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL)
+WHERE (MID(`e`.`NullableStringA`, IIF(0 = -1, 0, 0) + 1, `e`.`IntA`) <> `e`.`NullableStringB` OR `e`.`NullableStringA` IS NULL OR IIF(0 = -1, 0, 0) IS NULL OR `e`.`NullableStringB` IS NULL) AND ((`e`.`NullableStringA` IS NOT NULL AND IIF(0 = -1, 0, 0) IS NOT NULL) OR `e`.`NullableStringB` IS NOT NULL)
 """);
         }
 

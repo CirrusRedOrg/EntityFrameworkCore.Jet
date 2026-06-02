@@ -2141,7 +2141,7 @@ ORDER BY `c`.`CustomerID`
                 """
 SELECT (IIF(`c0`.`FirstLetter` IS NULL, '', `c0`.`FirstLetter`) & ' ') & `c0`.`Foo` AS `Aggregate`
 FROM (
-    SELECT DISTINCT `c`.`CustomerID`, MID(`c`.`CustomerID`, 0 + 1, 1) AS `FirstLetter`, 'Foo' AS `Foo`
+    SELECT DISTINCT `c`.`CustomerID`, MID(`c`.`CustomerID`, IIF(0 = -1, 0, 0) + 1, 1) AS `FirstLetter`, 'Foo' AS `Foo`
     FROM `Customers` AS `c`
 ) AS `c0`
 """);

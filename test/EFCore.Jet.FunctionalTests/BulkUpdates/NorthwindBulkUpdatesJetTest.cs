@@ -735,6 +735,18 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
+    public override async Task Update_Where_set_nullable_int_constant_via_discard_lambda(bool async)
+    {
+        await base.Update_Where_set_nullable_int_constant_via_discard_lambda(async);
+
+        AssertExecuteUpdateSql(
+            """
+UPDATE `Products` AS `p`
+SET `p`.`SupplierID` = 1
+WHERE `p`.`ProductID` < 5
+""");
+    }
+
     public override async Task Update_Where_parameter_set_constant(bool async)
     {
         await base.Update_Where_parameter_set_constant(async);
@@ -1652,7 +1664,7 @@ INNER JOIN (
 """);
     }
 
-    /*public override async Task Update_with_select_mixed_entity_scalar_anonymous_projection(bool async)
+    public override async Task Update_with_select_mixed_entity_scalar_anonymous_projection(bool async)
     {
         await base.Update_with_select_mixed_entity_scalar_anonymous_projection(async);
 
@@ -1660,9 +1672,8 @@ INNER JOIN (
             """
 @p='Updated' (Size = 30)
 
-UPDATE [c]
-SET [c].[ContactName] = @p
-FROM [Customers] AS [c]
+UPDATE `Customers` AS `c`
+SET `c`.`ContactName` = @p
 """);
     }
 
@@ -1674,12 +1685,11 @@ FROM [Customers] AS [c]
             """
 @p='Updated' (Size = 30)
 
-UPDATE [c]
-SET [c].[ContactName] = @p
-FROM [Customers] AS [c]
+UPDATE `Customers` AS `c`
+SET `c`.`ContactName` = @p
 """);
     }
-    */
+    
     private void AssertSql(params string[] expected)
         => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
 

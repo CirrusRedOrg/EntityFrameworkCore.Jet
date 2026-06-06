@@ -1,0 +1,6 @@
+# Copilot Instructions
+
+## Project Guidelines
+- This project (EntityFrameworkCore.Jet) targets the Microsoft Access Jet/ACE database engine, not SQL Server. Generated SQL, type mappings, and literals must be Jet/ACE-compliant (e.g. decimal/currency instead of bigint, #...# date literals, TIMEVALUE()). Note: Access 2016+ (ACE) does have a native BIGINT (Large Number) type, which is a SIGNED 64-bit integer and cannot hold unsigned values like ulong.MaxValue; unsigned ulong/uint should map to decimal(20,0) to avoid overflow. Provider distinctions are OLE DB / ODBC via the ACE/Jet driver rather than SqlClient. Do not assume SQL Server/T-SQL semantics.
+- Jet/Access SQL dialect used in this project does not support COALESCE or NZ. When rewriting queries for Jet, prefer using IIF(<expr> IS NULL, <default>, <expr>) or 'CASE WHEN <expr> IS NULL THEN <default> ELSE <expr> END' instead.
+- Deferred enhancement for EntityFrameworkCore.Jet: add ACE engine-version detection so that on Access 2016+ the provider can map to native BIGINT (signed long; unsigned ulong/uint still go to decimal(20,0)) and native DATETIME2, while falling back to decimal(20,0)/legacy datetime on older ACE versions. Not a priority right now.

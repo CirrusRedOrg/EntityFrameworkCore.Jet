@@ -129,7 +129,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"long", [_bigint] },//is this right
                     {"int", [_integer] },
                     {"integer4", [_integer] },
-                    {"bigint", [_bigint] },
+                    //{"bigint", [_bigint] },
 
                     {"single", [_single] },
                     {"real", [_single] },

@@ -126,7 +126,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"integer2", [_smallint] },
 
                     {"integer", [_integer] },
-                    {"long", [_bigint] },//is this right
+                    {"long", [_integer] },
                     {"int", [_integer] },
                     {"integer4", [_integer] },
                     //{"bigint", [_bigint] },

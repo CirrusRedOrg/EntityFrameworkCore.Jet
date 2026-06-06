@@ -756,16 +756,16 @@ ALTER TABLE `People` ADD `IdentityColumn` counter(100, 5) NOT NULL;
                         Assert.Equal("Cats", t.Name);
                         var column = Assert.Single(t.Columns, c => c.Name == "IdentityColumn");
                         Assert.Equal(ValueGenerated.OnAdd, column.ValueGenerated);
-                        Assert.Equal(100, column[JetAnnotationNames.IdentitySeed]);
-                        Assert.Equal(5, column[JetAnnotationNames.IdentityIncrement]);
+                        Assert.Equal(1, column[JetAnnotationNames.IdentitySeed]);
+                        Assert.Equal(2, column[JetAnnotationNames.IdentityIncrement]);
                     },
                     t =>
                     {
                         Assert.Equal("Dogs", t.Name);
                         var column = Assert.Single(t.Columns, c => c.Name == "IdentityColumn");
                         Assert.Equal(ValueGenerated.OnAdd, column.ValueGenerated);
-                        Assert.Equal(100, column[JetAnnotationNames.IdentitySeed]);
-                        Assert.Equal(5, column[JetAnnotationNames.IdentityIncrement]);
+                        Assert.Equal(2, column[JetAnnotationNames.IdentitySeed]);
+                        Assert.Equal(2, column[JetAnnotationNames.IdentityIncrement]);
                     });
             });
 

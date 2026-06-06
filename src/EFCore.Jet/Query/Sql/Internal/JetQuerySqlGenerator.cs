@@ -159,11 +159,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                             }
 
                             Sql.Append($"`{exp.Name}` IS NOT NULL");
+                            // Fix: check then append, don't mix increment into the block
                             if (ct < colexp.Count - 1)
-                            {
-                                ct++;
                                 Sql.Append(" AND ");
-                            }
+                            ct++;
                         }
                     }
 
@@ -352,7 +351,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             return result;
         }
-        
+
         protected override Expression VisitProjection(ProjectionExpression projectionExpression)
         {
             if (projectionExpression.Expression is SqlConstantExpression { Value: null } constantExpression && (constantExpression.Type == typeof(int) || constantExpression.Type == typeof(double) || constantExpression.Type == typeof(float) || constantExpression.Type == typeof(decimal) || constantExpression.Type == typeof(short)))
@@ -518,7 +517,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             if (sqlBinaryExpression.OperatorType == ExpressionType.Coalesce)
             {
-                SqlConstantExpression nullcons = new(null,typeof(string), RelationalTypeMapping.NullMapping);
+                SqlConstantExpression nullcons = new(null, typeof(string), RelationalTypeMapping.NullMapping);
                 SqlUnaryExpression isnullexp = new(ExpressionType.Equal, sqlBinaryExpression.Left, typeof(bool), null);
                 List<CaseWhenClause> whenclause = [new CaseWhenClause(isnullexp, sqlBinaryExpression.Right)];
                 CaseExpression caseexp = new(whenclause, sqlBinaryExpression.Left);
@@ -588,25 +587,25 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 case ExpressionType.Convert:
                     return VisitJetConvertExpression(sqlUnaryExpression);
                 case ExpressionType.Not when sqlUnaryExpression.Type != typeof(bool):
-                {
-                    Sql.Append(" (BNOT");
-
-                    var requiresBrackets = RequiresParentheses(sqlUnaryExpression, sqlUnaryExpression.Operand);
-                    if (requiresBrackets)
                     {
-                        Sql.Append("(");
-                    }
+                        Sql.Append(" (BNOT");
 
-                    Visit(sqlUnaryExpression.Operand);
-                    if (requiresBrackets)
-                    {
+                        var requiresBrackets = RequiresParentheses(sqlUnaryExpression, sqlUnaryExpression.Operand);
+                        if (requiresBrackets)
+                        {
+                            Sql.Append("(");
+                        }
+
+                        Visit(sqlUnaryExpression.Operand);
+                        if (requiresBrackets)
+                        {
+                            Sql.Append(")");
+                        }
+
                         Sql.Append(")");
+
+                        return sqlUnaryExpression;
                     }
-
-                    Sql.Append(")");
-
-                    return sqlUnaryExpression;
-                }
                 default:
                     return base.VisitSqlUnary(sqlUnaryExpression);
             }
@@ -616,77 +615,89 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         private Expression VisitJetConvertExpression(SqlUnaryExpression convertExpression)
         {
             var typeMapping = convertExpression.TypeMapping ?? throw new InvalidOperationException(
-                    RelationalStrings.UnsupportedType(convertExpression.Type.ShortDisplayName()));
+                RelationalStrings.UnsupportedType(convertExpression.Type.ShortDisplayName()));
 
             // We are explicitly converting to the target type (convertExpression.Type) and not the CLR type of the
-            // accociated type mapping. This allows for conversions on the database side (e.g. CDBL()) but handling
+            // associated type mapping. This allows for conversions on the database side (e.g. CDBL()) but handling
             // of the returned value using a different (unaligned) type mapping (e.g. date/time related ones).
             if (_convertMappings.TryGetValue(convertExpression.Type.Name, out var function))
             {
                 SqlExpression checksqlexp = convertExpression.Operand;
-
                 SqlExpression? notnullsqlexp = null;
+
                 if (convertExpression.TypeMapping is ByteArrayTypeMapping)
                 {
                     notnullsqlexp = checksqlexp;
                 }
                 else
                 {
-                    notnullsqlexp = new SqlFunctionExpression(function, [convertExpression.Operand],
-                        false, [false], typeMapping.ClrType, null);
                     if (convertExpression.Operand.Type == typeof(bool))
                     {
-                        //create a new expression to multiply the result by -1 to flip the boolean value
-                        notnullsqlexp = new SqlBinaryExpression(ExpressionType.Multiply, notnullsqlexp,
-                            new SqlConstantExpression(-1, IntTypeMapping.Default), notnullsqlexp.Type, notnullsqlexp.TypeMapping);
-                    }
+                        if (convertExpression.Type == typeof(bool))
+                        {
+                            // bool?bool: no flip needed, CBOOL(x) correctly returns true for any non-zero
+                            notnullsqlexp = new SqlFunctionExpression(function, [convertExpression.Operand],
+                                false, [false], typeMapping.ClrType, null);
+                        }
+                        else
+                        {
+                            // bool?numeric: flip inside conversion function
+                            // CBYTE/CINT/CLNG etc. need 0/1 not 0/-1
+                            var flippedOperand = new SqlBinaryExpression(
+                                ExpressionType.Multiply,
+                                convertExpression.Operand,
+                                new SqlConstantExpression(-1, IntTypeMapping.Default),
+                                convertExpression.Operand.Type,
+                                convertExpression.Operand.TypeMapping);
 
+                            notnullsqlexp = new SqlFunctionExpression(function, [flippedOperand],
+                                false, [false], typeMapping.ClrType, null);
+                        }
+                    }
+                    else
+                    {
+                        notnullsqlexp = new SqlFunctionExpression(function, [convertExpression.Operand],
+                            false, [false], typeMapping.ClrType, null);
+                    }
                 }
 
-                SqlConstantExpression nullcons = new(null,typeof(string), RelationalTypeMapping.NullMapping);
+                SqlConstantExpression nullcons = new(null, typeof(string), RelationalTypeMapping.NullMapping);
                 SqlUnaryExpression isnullexp = new(ExpressionType.Equal, checksqlexp, typeof(bool), null);
                 List<CaseWhenClause> whenclause =
                 [
                     new CaseWhenClause(isnullexp, nullcons)
                 ];
                 CaseExpression caseexp = new(whenclause, notnullsqlexp);
+
                 switch (checksqlexp)
                 {
                     case ColumnExpression { IsNullable: true }:
                         Visit(caseexp);
                         break;
-                    case ColumnExpression columnExpression:
+                    case ColumnExpression:
                         Visit(notnullsqlexp);
                         break;
-                    case SqlFunctionExpression { IsNullable: true, ArgumentsPropagateNullability: not null } functionExpression when functionExpression.ArgumentsPropagateNullability.Any(d => d):
+                    case SqlFunctionExpression { IsNullable: true, ArgumentsPropagateNullability: not null } functionExpression
+                        when functionExpression.ArgumentsPropagateNullability.Any(d => d):
                         Visit(caseexp);
                         break;
-                    case SqlFunctionExpression functionExpression:
+                    case SqlFunctionExpression:
                         Visit(notnullsqlexp);
                         break;
                     case SqlBinaryExpression binaryExpression:
-                    {
-                        ColumnExpression? columnExpressionLeft = binaryExpression.Left as ColumnExpression;
-                        SqlFunctionExpression? functionExpressionLeft = binaryExpression.Left as SqlFunctionExpression;
-                        ColumnExpression? columnExpressionRight = binaryExpression.Right as ColumnExpression;
-                        SqlFunctionExpression? functionExpressionRight = binaryExpression.Right as SqlFunctionExpression;
-                        var leftnull = columnExpressionLeft is { IsNullable: true } ||
-                            functionExpressionLeft is { IsNullable: true };
-                        var rightnull = columnExpressionRight is { IsNullable: true } ||
-                            functionExpressionRight is { IsNullable: true };
-
-                        if (leftnull || rightnull)
                         {
-                            Visit(caseexp);
-                        }
-                        else
-                        {
-                            Visit(notnullsqlexp);
-                        }
+                            static bool IsNullable(SqlExpression? e) =>
+                                e is ColumnExpression { IsNullable: true }
+                                or SqlFunctionExpression { IsNullable: true };
 
-                        break;
-                    }
-                    case SqlUnaryExpression unaryExpression:
+                            if (IsNullable(binaryExpression.Left) || IsNullable(binaryExpression.Right))
+                                Visit(caseexp);
+                            else
+                                Visit(notnullsqlexp);
+
+                            break;
+                        }
+                    case SqlUnaryExpression:
                     case SqlConstantExpression { Value: not null }:
                         Visit(notnullsqlexp);
                         break;
@@ -695,7 +706,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         break;
                 }
 
-                return notnullsqlexp;
+                return convertExpression;
             }
 
             if (typeMapping.ClrType.Name == nameof(String))

@@ -6,7 +6,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetTimeSpanTypeMapping : TimeSpanTypeMapping
     {
-        public static new JetTimeSpanTypeMapping Default { get; } = new JetTimeSpanTypeMapping("time");
+        public static new JetTimeSpanTypeMapping Default { get; } = new JetTimeSpanTypeMapping("datetime");
 
         public JetTimeSpanTypeMapping(
                 string storeType)

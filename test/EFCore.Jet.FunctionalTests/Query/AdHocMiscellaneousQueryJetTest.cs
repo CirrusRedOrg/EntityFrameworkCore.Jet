@@ -962,37 +962,49 @@ FROM `Posts` AS `p`
 
     public override async Task Enum_has_flag_applies_explicit_cast_for_constant()
     {
-        await base.Enum_has_flag_applies_explicit_cast_for_constant();
+        var contextFactory = await InitializeAsync<Context8538>(seed: c => c.SeedAsync());
+        //Context8538.Permission is Int64 and ontext8538.Permission.READ_WRITE is 36 bit and jet/ace cant do maths on bigint/decimal
+        /*using (var context = contextFactory.CreateContext())
+        {
+            var query = context.Entities.Where(e => e.Permission.HasFlag(Context8538.Permission.READ_WRITE)).ToList();
+            Assert.Single(query);
+        }*/
+
+        using (var context = contextFactory.CreateContext())
+        {
+            var query = context.Entities.Where(e => e.PermissionShort.HasFlag(Context8538.PermissionShort.READ_WRITE)).ToList();
+            Assert.Single(query);
+        }
 
         AssertSql(
             """
-SELECT [e].[Id], [e].[Permission], [e].[PermissionByte], [e].[PermissionShort]
-FROM [Entities] AS [e]
-WHERE [e].[Permission] & CAST(17179869184 AS bigint) = CAST(17179869184 AS bigint)
-""",
-            //
-            """
-SELECT [e].[Id], [e].[Permission], [e].[PermissionByte], [e].[PermissionShort]
-FROM [Entities] AS [e]
-WHERE [e].[PermissionShort] & CAST(4 AS smallint) = CAST(4 AS smallint)
+SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
+FROM `Entities` AS `e`
+WHERE (`e`.`PermissionShort` BAND 4) = 4
 """);
     }
 
     public override async Task Enum_has_flag_does_not_apply_explicit_cast_for_non_constant()
     {
-        await base.Enum_has_flag_does_not_apply_explicit_cast_for_non_constant();
+        var contextFactory = await InitializeAsync<Context8538>(seed: c => c.SeedAsync());
+
+        /*using (var context = contextFactory.CreateContext())
+        {
+            var query = context.Entities.Where(e => e.Permission.HasFlag(e.Permission)).ToList();
+            Assert.Equal(3, query.Count);
+        }*/
+
+        using (var context = contextFactory.CreateContext())
+        {
+            var query = context.Entities.Where(e => e.PermissionByte.HasFlag(e.PermissionByte)).ToList();
+            Assert.Equal(3, query.Count);
+        }
 
         AssertSql(
             """
-SELECT [e].[Id], [e].[Permission], [e].[PermissionByte], [e].[PermissionShort]
-FROM [Entities] AS [e]
-WHERE [e].[Permission] & [e].[Permission] = [e].[Permission]
-""",
-            //
-            """
-SELECT [e].[Id], [e].[Permission], [e].[PermissionByte], [e].[PermissionShort]
-FROM [Entities] AS [e]
-WHERE [e].[PermissionByte] & [e].[PermissionByte] = [e].[PermissionByte]
+SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
+FROM `Entities` AS `e`
+WHERE (`e`.`PermissionByte` BAND `e`.`PermissionByte`) = `e`.`PermissionByte`
 """);
     }
 

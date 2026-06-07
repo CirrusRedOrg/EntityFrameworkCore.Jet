@@ -451,7 +451,7 @@ ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT CDATE('2015-04-12 
 
         AssertSql(
             """
-ALTER TABLE `People` ADD `Age` time NOT NULL DEFAULT TIMEVALUE('12:34:56');
+ALTER TABLE `People` ADD `Age` datetime NOT NULL DEFAULT TIMEVALUE('12:34:56');
 """);
     }
 

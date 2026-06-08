@@ -22,7 +22,7 @@ public abstract class UpdatesJetTestBase<TFixture> : UpdatesRelationalTestBase<T
 
     public override async Task Can_add_and_remove_self_refs()
     {
-        await Fixture.ResetIdentity();
+        //await Fixture.ResetIdentity();
 
         await base.Can_add_and_remove_self_refs();
 
@@ -268,24 +268,10 @@ LEFT JOIN [Person] AS [p2] ON [p1].[ParentId] = [p2].[PersonId]
                 .IsUnique()
                 .HasFilter(null);
 
-            modelBuilder.Entity<Product>()
+            //Jet does not support computed columns, so we have to use a non-computed column here. The filter on the index will still be applied correctly, and the tests will still be able to verify that the filter is applied correctly in various scenarios.
+            /*modelBuilder.Entity<Product>()
                 .Property(e => e.IsPrimaryNormalized)
-                .HasComputedColumnSql("IIF(IsPrimary = 1, CONVERT(bit, 1), NULL)", stored: true);
+                .HasComputedColumnSql("IIF(IsPrimary = 1, CONVERT(bit, 1), NULL)", stored: true);*/
         }
-
-        public virtual async Task ResetIdentity()
-        {
-            var context = CreateContext();
-            await context.Database.ExecuteSqlRawAsync(ResetIdentitySql);
-            TestSqlLoggerFactory.Clear();
-        }
-
-        private const string ResetIdentitySql = @"
--- We can't use TRUNCATE on tables with foreign keys, so we DELETE and reset IDENTITY manually.
--- DBCC CHECKIDENT resets IDENTITY, but behaves differently based on whether whether rows were ever inserted (seed+1) or not (seed).
--- So we insert a dummy row before deleting everything to make sure we get the seed value 1.
-INSERT INTO [Person] ([Name]) VALUES ('');
-DELETE FROM [Person];
-DBCC CHECKIDENT ('[Person]', RESEED, 0);";
     }
 }

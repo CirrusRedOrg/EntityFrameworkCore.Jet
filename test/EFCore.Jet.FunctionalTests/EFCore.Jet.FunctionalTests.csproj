@@ -80,10 +80,6 @@
 		</None>
 		<None Include="Query\AdHocJsonQueryJetTest.cs" />
 		<None Include="Query\AdHocJsonQueryJetTestBase.cs" />
-		<None Include="Update\UpdatesJetTest.cs" />
-		<None Include="Update\UpdatesJetTestBase.cs" />
-		<None Include="Update\UpdatesJetTPCTest.cs" />
-		<None Include="Update\UpdatesJetTPTTest.cs" />
 		<None Remove="TestResults\**" />
 	</ItemGroup>
 
@@ -116,10 +112,6 @@
 		<Compile Remove="PropertyEntryJetTest.cs" />
 		<Compile Remove="Query\AdHocJsonQueryJetTest.cs" />
 		<Compile Remove="Query\AdHocJsonQueryJetTestBase.cs" />
-		<Compile Remove="Update\UpdatesJetTest.cs" />
-		<Compile Remove="Update\UpdatesJetTestBase.cs" />
-		<Compile Remove="Update\UpdatesJetTPCTest.cs" />
-		<Compile Remove="Update\UpdatesJetTPTTest.cs" />
 	</ItemGroup>
 
 	<ItemGroup>

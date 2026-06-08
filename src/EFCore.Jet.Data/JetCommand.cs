@@ -683,7 +683,7 @@ namespace EntityFrameworkCore.Jet.Data
             var indices = GetParameterIndices(commandText[..count]);
             var parameter = parameters[indices.Count];
 
-                parameters.RemoveAt(indices.Count);
+            parameters.RemoveAt(indices.Count);
 
             return parameter;
         }
@@ -708,16 +708,19 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 MatchParametersAndPlaceholders(placeholders);
 
-                foreach (var placeholder in placeholders.Reverse())
+                if (JetConnection.GetDataAccessProviderType(_connection.DataAccessProviderFactory) == DataAccessProviderType.Odbc)
                 {
-                    InnerCommand.CommandText = InnerCommand.CommandText
-                        .Remove(placeholder.Index, placeholder.Name.Length)
-                        .Insert(placeholder.Index, "?");
+                    foreach (var placeholder in placeholders.Reverse())
+                    {
+                        InnerCommand.CommandText = InnerCommand.CommandText
+                            .Remove(placeholder.Index, placeholder.Name.Length)
+                            .Insert(placeholder.Index, "?");
+                    }
                 }
 
                 InnerCommand.Parameters.Clear();
                 InnerCommand.Parameters.AddRange(
-                placeholders.Select(p => p.Parameter)
+                    placeholders.Select(p => p.Parameter)
                         .ToArray());
             }
             else if (placeholders.All(t => t.Name == "?"))

@@ -77,6 +77,13 @@ namespace EntityFrameworkCore.Jet.Data
 #endif
         }
 
+        private void ClearSplitCommandList()
+        {
+            foreach (var cmd in SplitCommandList)
+                if (cmd != this) cmd.Dispose();
+            SplitCommandList = [];
+        }
+
         internal DbCommand InnerCommand { get; }
 
         internal IList<JetCommand> SplitCommandList { get; set; } = [];
@@ -191,6 +198,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             ExpandParameters();
 
+            ClearSplitCommandList();
             SplitCommandList = SplitCommands();
 
             for (var i = 0; i < SplitCommandList.Count - 1; i++)
@@ -245,6 +253,7 @@ namespace EntityFrameworkCore.Jet.Data
                 throw new InvalidOperationException(Messages.PropertyNotInitialized(nameof(Connection)));
 
             ExpandParameters();
+            ClearSplitCommandList();
             SplitCommandList = SplitCommands();
             return SplitCommandList
                 .Aggregate(0, (_, command) => command.ExecuteNonQueryCore());
@@ -333,6 +342,7 @@ namespace EntityFrameworkCore.Jet.Data
 
             ExpandParameters();
 
+            ClearSplitCommandList();
             SplitCommandList = SplitCommands();
 
             for (var i = 0; i < SplitCommandList.Count - 1; i++)
@@ -363,13 +373,16 @@ namespace EntityFrameworkCore.Jet.Data
             if (JetInformationSchema.TryGetDataReaderFromInformationSchemaCommand(this, out var dataReader))
             {
                 // Retrieve from store schema definition.
-                if (dataReader.HasRows)
+                using (dataReader)
                 {
-                    dataReader.Read();
-                    return dataReader[0];
-                }
+                    if (dataReader.HasRows)
+                    {
+                        dataReader.Read();
+                        return dataReader[0];
+                    }
 
-                return DBNull.Value;
+                    return DBNull.Value;
+                }
             }
 
             FixupGlobalVariables();
@@ -529,7 +542,7 @@ namespace EntityFrameworkCore.Jet.Data
             => FixupGlobalVariablePlaceholder(
                 commandText, "@@identity", (outerCommand, placeholder) =>
                 {
-                    var command = (DbCommand)((ICloneable)outerCommand.InnerCommand).Clone();
+                    using var command = (DbCommand)((ICloneable)outerCommand.InnerCommand).Clone();
                     command.CommandText = $"SELECT {placeholder}";
                     command.Parameters.Clear();
 

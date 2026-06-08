@@ -442,8 +442,8 @@ namespace EntityFrameworkCore.Jet.Data
 
             try
             {
-                CreateCommand($"select count(*) from `{tableName}` where 1=2")
-                    .ExecuteNonQuery();
+                using var command = CreateCommand($"select count(*) from `{tableName}` where 1=2");
+                command.ExecuteNonQuery();
                 tableExists = true;
             }
             catch
@@ -483,9 +483,10 @@ namespace EntityFrameworkCore.Jet.Data
         /// </returns>
         object ICloneable.Clone()
         {
-            var clone = new JetConnection();
+            var clone = new JetConnection(_connectionString, JetFactory?.InnerFactory);
+            clone.IsEmpty = IsEmpty;
             if (InnerConnection != null)
-                clone.InnerConnection = InnerConnectionFactory.Instance.OpenConnection(_connectionString, JetFactory.InnerFactory);
+                clone.Open();
             return clone;
         }
 

@@ -34,9 +34,12 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         private readonly DbDataReader _wrappedDataReader;
+        private bool _isClosed;
 
         public override void Close()
         {
+            if (_isClosed) return;
+            _isClosed = true;
             _wrappedDataReader.Close();
 #if DEBUG
             Interlocked.Decrement(ref _activeObjectsCount);
@@ -551,9 +554,6 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 _wrappedDataReader.Dispose();
             }
-#if DEBUG
-            Interlocked.Decrement(ref _activeObjectsCount);
-#endif
             base.Dispose(disposing);
         }
     }

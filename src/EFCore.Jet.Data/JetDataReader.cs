@@ -314,12 +314,27 @@ namespace EntityFrameworkCore.Jet.Data
         {
             // Fix for discussion https://jetentityframeworkprovider.codeplex.com/discussions/647028
             var value = _wrappedDataReader.GetValue(ordinal);
-            return JetConfiguration.UseDefaultValueOnDBNullConversionError &&
-                   Convert.IsDBNull(value)
-                ? Guid.Empty
-                : value is byte[] bytes
-                    ? new Guid(bytes)
-                    : (Guid)value;
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
+                Convert.IsDBNull(value))
+            {
+                return default;
+            }
+            if (value is byte[] bytes)
+            {
+                return new Guid(bytes);
+            }
+            try
+            {
+                return (Guid)value;
+            }
+            catch
+            {
+                if (value is string s)
+                {
+                    return new Guid(s);
+                }
+            }
+            return (Guid)value;
         }
 
         public override short GetInt16(int ordinal)
@@ -543,6 +558,10 @@ namespace EntityFrameworkCore.Jet.Data
             if (typeof(T) == typeof(DateTimeOffset))
             {
                 return (T)(object)GetDateTimeOffset(ordinal);
+            }
+            if (typeof(T) == typeof(Guid))
+            {
+                return (T)(object)GetGuid(ordinal);
             }
 
             return (T)GetValue(ordinal);

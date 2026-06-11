@@ -1039,14 +1039,14 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 
             AssertSql(
                 """
-SELECT [c].[CustomerID] AS [A], [t].[CustomerID] AS [B], [o0].[CustomerID] AS [C]
-FROM [Customers] AS [c]
-CROSS JOIN (
-    SELECT TOP(1) [o].[CustomerID]
-    FROM [Orders] AS [o]
-    ORDER BY [o].[OrderID]
-) AS [t]
-INNER JOIN [Orders] AS [o0] ON [c].[CustomerID] = [o0].[CustomerID]
+SELECT `c`.`CustomerID` AS `A`, `o0`.`CustomerID` AS `B`, `o1`.`CustomerID` AS `C`
+FROM (`Customers` AS `c`
+INNER JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`),
+(
+    SELECT TOP 1 `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    ORDER BY `o`.`OrderID`
+) AS `o0`
 """);
         }
 

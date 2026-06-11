@@ -640,24 +640,20 @@ ALTER TABLE `People` ADD `FullName` varchar(255) NULL;
 """);
     }
 
+    [ConditionalFact(Skip = "Jet does not support collation")]
     public override async Task Add_column_with_collation()
     {
         await base.Add_column_with_collation();
 
-        AssertSql(
-            """
-ALTER TABLE [People] ADD [Name] nvarchar(max) COLLATE German_PhoneBook_CI_AS NULL;
-""");
+        AssertSql("");
     }
 
+    [ConditionalFact(Skip = "Jet does not support collation")]
     public override async Task Add_column_computed_with_collation(bool stored)
     {
         await base.Add_column_computed_with_collation(stored);
 
-        AssertSql(
-            stored
-                ? """ALTER TABLE [People] ADD [Name] AS 'hello' COLLATE German_PhoneBook_CI_AS PERSISTED;"""
-                : """ALTER TABLE [People] ADD [Name] AS 'hello' COLLATE German_PhoneBook_CI_AS;""");
+        AssertSql("");
     }
 
     public override async Task Add_column_shared()

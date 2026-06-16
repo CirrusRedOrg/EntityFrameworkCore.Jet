@@ -314,16 +314,18 @@ namespace Microsoft.EntityFrameworkCore
                 return (JetValueGenerationStrategy?)annotation.Value ?? JetValueGenerationStrategy.None;
             }
 
+            var defaultValueGenerationStrategy = GetDefaultValueGenerationStrategy(property);
+
             if (property.ValueGenerated != ValueGenerated.OnAdd
                 || property.IsForeignKey()
                 || property.TryGetDefaultValue(out _)
-                || property.GetDefaultValueSql() != null
+                || (defaultValueGenerationStrategy != JetValueGenerationStrategy.Sequence && property.GetDefaultValueSql() != null)
                 || property.GetComputedColumnSql() != null)
             {
                 return JetValueGenerationStrategy.None;
             }
 
-            return GetDefaultValueGenerationStrategy(property);
+            return defaultValueGenerationStrategy;
         }
         /// <summary>
         ///     <para>
@@ -364,16 +366,15 @@ namespace Microsoft.EntityFrameworkCore
             if (sharedTableRootProperty != null)
             {
                 return sharedTableRootProperty.GetValueGenerationStrategy(storeObject, typeMappingSource)
-                       == JetValueGenerationStrategy.IdentityColumn
-                       && table.StoreObjectType == StoreObjectType.Table
-                       && !property.GetContainingForeignKeys().Any(
-                           fk =>
-                               !fk.IsBaseLinking()
-                               || (StoreObjectIdentifier.Create(fk.PrincipalEntityType, StoreObjectType.Table)
-                                       is StoreObjectIdentifier principal
-                                   && fk.GetConstraintName(table, principal) != null))
-                    ? JetValueGenerationStrategy.IdentityColumn
-                    : JetValueGenerationStrategy.None;
+                    == JetValueGenerationStrategy.IdentityColumn
+                    && table.StoreObjectType == StoreObjectType.Table
+                    && !property.GetContainingForeignKeys().Any(fk =>
+                        !fk.IsBaseLinking()
+                        || (StoreObjectIdentifier.Create(fk.PrincipalEntityType, StoreObjectType.Table)
+                                is { } principal
+                            && fk.GetConstraintName(table, principal) != null))
+                        ? JetValueGenerationStrategy.IdentityColumn
+                        : JetValueGenerationStrategy.None;
             }
 
             if (property.ValueGenerated != ValueGenerated.OnAdd
@@ -382,12 +383,11 @@ namespace Microsoft.EntityFrameworkCore
                 || property.GetDefaultValueSql(storeObject) != null
                 || property.GetComputedColumnSql(storeObject) != null
                 || property.GetContainingForeignKeys()
-                    .Any(
-                        fk =>
-                            !fk.IsBaseLinking()
-                            || (StoreObjectIdentifier.Create(fk.PrincipalEntityType, StoreObjectType.Table)
-                                    is StoreObjectIdentifier principal
-                                && fk.GetConstraintName(table, principal) != null)))
+                    .Any(fk =>
+                        !fk.IsBaseLinking()
+                        || (StoreObjectIdentifier.Create(fk.PrincipalEntityType, StoreObjectType.Table)
+                                is { } principal
+                            && fk.GetConstraintName(table, principal) != null)))
             {
                 return JetValueGenerationStrategy.None;
             }
@@ -414,6 +414,19 @@ namespace Microsoft.EntityFrameworkCore
                     : JetValueGenerationStrategy.None;
         }
 
+        /// <summary>
+        ///     Returns the <see cref="JetValueGenerationStrategy" /> to use for the property.
+        /// </summary>
+        /// <remarks>
+        ///     If no strategy is set for the property, then the strategy to use will be taken from the <see cref="IModel" />.
+        /// </remarks>
+        /// <param name="overrides">The property overrides.</param>
+        /// <returns>The strategy, or <see cref="JetValueGenerationStrategy.None" /> if none was set.</returns>
+        public static JetValueGenerationStrategy? GetValueGenerationStrategy(
+            this IReadOnlyRelationalPropertyOverrides overrides)
+            => (JetValueGenerationStrategy?)overrides.FindAnnotation(JetAnnotationNames.ValueGenerationStrategy)
+                ?.Value;
+
         private static JetValueGenerationStrategy GetDefaultValueGenerationStrategy(
             IReadOnlyProperty property,
             in StoreObjectIdentifier storeObject,
@@ -426,7 +439,7 @@ namespace Microsoft.EntityFrameworkCore
                 ? property.DeclaringType.GetMappingStrategy() == RelationalAnnotationNames.TpcMappingStrategy
                     ? JetValueGenerationStrategy.None
                     : JetValueGenerationStrategy.IdentityColumn
-                : JetValueGenerationStrategy.None;
+                    : JetValueGenerationStrategy.None;
         }
 
         /// <summary>
@@ -522,12 +535,12 @@ namespace Microsoft.EntityFrameworkCore
         public static bool IsCompatibleWithValueGeneration(IReadOnlyProperty property)
         {
             var valueConverter = property.GetValueConverter()
-                                 ?? property.FindTypeMapping()?.Converter;
+                ?? property.FindTypeMapping()?.Converter;
 
             var type = (valueConverter?.ProviderClrType ?? property.ClrType).UnwrapNullableType();
             return type.IsInteger()
-                   || type.IsEnum
-                   || type == typeof(decimal);
+                || type.IsEnum
+                || type == typeof(decimal);
         }
 
         private static bool IsCompatibleWithValueGeneration(

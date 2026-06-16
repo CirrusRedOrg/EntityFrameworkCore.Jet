@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.Associations.ComplexJson;
 using Microsoft.EntityFrameworkCore.Query.Associations.ComplexProperties;
+using Microsoft.EntityFrameworkCore.Query.Associations.ComplexTableSplitting;
 using Microsoft.EntityFrameworkCore.Query.Associations.OwnedJson;
 using Microsoft.EntityFrameworkCore.Query.Associations.OwnedTableSplitting;
 using Microsoft.EntityFrameworkCore.Update;
@@ -47,6 +48,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             typeof(ComplexJsonSetOperationsRelationalTestBase<>),
             typeof(ComplexJsonStructuralEqualityRelationalTestBase<>),
             typeof(OwnedTableSplittingPrimitiveCollectionRelationalTestBase<>),
+            typeof(ComplexTableSplittingPrimitiveCollectionRelationalTestBase<>),
             //Too complex table structure for Jet/MS Access. Too many indexes on table.
             //Caused by having too many navs (foreign keys) on a single table.
             //Also having a primary key (and its related foreign keys) being over more than 14 fields.

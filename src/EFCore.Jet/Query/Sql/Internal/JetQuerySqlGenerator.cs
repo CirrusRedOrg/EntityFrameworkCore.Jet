@@ -1010,6 +1010,72 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return sqlFunctionExpression;
             }
 
+            if (sqlFunctionExpression.Name.Equals("REPLACE", StringComparison.OrdinalIgnoreCase) &&
+                sqlFunctionExpression.Arguments is { Count: 3 })
+            {
+                // Access VBA's Replace() throws "Type mismatch" when ANY argument is NULL rather than
+                // propagating NULL as relational semantics require. Access IIF is also non-short-circuit
+                // (evaluates both branches), so a simple IIF wrapper doesn't prevent the crash.
+                // Solution: outer IIF returns NULL when any nullable arg IS NULL, while inner IIFs
+                // substitute safe non-NULL placeholders so REPLACE never actually receives NULL.
+                static SqlExpression? GetNullableTarget(SqlExpression arg) => arg switch
+                {
+                    ColumnExpression { IsNullable: true } col => col,
+                    SqlUnaryExpression { OperatorType: ExpressionType.Convert, Operand: ColumnExpression { IsNullable: true } inner } => inner,
+                    SqlUnaryExpression { OperatorType: ExpressionType.Convert, Operand: SqlFunctionExpression { IsNullable: true } inner } => inner,
+                    _ => null
+                };
+
+                var arg0Check = GetNullableTarget(sqlFunctionExpression.Arguments[0]);
+                var arg1Check = GetNullableTarget(sqlFunctionExpression.Arguments[1]);
+                var arg2Check = GetNullableTarget(sqlFunctionExpression.Arguments[2]);
+
+                if (arg0Check != null || arg1Check != null || arg2Check != null)
+                {
+                    Sql.Append("IIF(");
+                    var nullChecks = new SqlExpression?[] { arg0Check, arg1Check, arg2Check }
+                        .Where(c => c != null).ToList();
+                    for (int i = 0; i < nullChecks.Count; i++)
+                    {
+                        if (i > 0) Sql.Append(" OR ");
+                        Visit(nullChecks[i]!);
+                        Sql.Append(" IS NULL");
+                    }
+                    Sql.Append(", NULL, REPLACE(");
+
+                    // Arg 0 (expression): '' prevents Type mismatch if NULL slips past outer IIF
+                    if (arg0Check != null)
+                    {
+                        Sql.Append("IIF("); Visit(arg0Check); Sql.Append(" IS NULL, '', ");
+                        Visit(sqlFunctionExpression.Arguments[0]); Sql.Append(")");
+                    }
+                    else Visit(sqlFunctionExpression.Arguments[0]);
+
+                    Sql.Append(", ");
+
+                    // Arg 1 (find): CHR(1) is a safe non-empty placeholder unlikely to appear in data
+                    if (arg1Check != null)
+                    {
+                        Sql.Append("IIF("); Visit(arg1Check); Sql.Append(" IS NULL, CHR(1), ");
+                        Visit(sqlFunctionExpression.Arguments[1]); Sql.Append(")");
+                    }
+                    else Visit(sqlFunctionExpression.Arguments[1]);
+
+                    Sql.Append(", ");
+
+                    // Arg 2 (replacewith): CHR(1) placeholder; result is discarded by outer IIF anyway
+                    if (arg2Check != null)
+                    {
+                        Sql.Append("IIF("); Visit(arg2Check); Sql.Append(" IS NULL, CHR(1), ");
+                        Visit(sqlFunctionExpression.Arguments[2]); Sql.Append(")");
+                    }
+                    else Visit(sqlFunctionExpression.Arguments[2]);
+
+                    Sql.Append("))");
+                    return sqlFunctionExpression;
+                }
+            }
+
             if (sqlFunctionExpression.Name.Equals("MID", StringComparison.OrdinalIgnoreCase) &&
                 sqlFunctionExpression.Arguments is { Count: > 2 })
             {

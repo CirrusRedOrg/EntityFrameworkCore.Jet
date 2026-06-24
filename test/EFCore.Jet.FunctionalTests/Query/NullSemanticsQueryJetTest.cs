@@ -3144,17 +3144,17 @@ WHERE ((INSTR(1, `e`.`NullableStringA`, 'oo', 1) - 1) <> (INSTR(1, `e`.`Nullable
             await base.Null_semantics_applied_when_comparing_two_functions_with_multiple_nullable_arguments(async);
 
             AssertSql(
-                $"""
-                    SELECT `e`.`Id`
-                    FROM `Entities1` AS `e`
-                    WHERE (REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) = `e`.`NullableStringA`) OR (REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) IS NULL AND `e`.`NullableStringA` IS NULL)
-                    """,
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE IIF(`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL OR `e`.`NullableStringC` IS NULL, NULL, REPLACE(IIF(`e`.`NullableStringA` IS NULL, '', `e`.`NullableStringA`), IIF(`e`.`NullableStringB` IS NULL, CHR(1), `e`.`NullableStringB`), IIF(`e`.`NullableStringC` IS NULL, CHR(1), `e`.`NullableStringC`))) = `e`.`NullableStringA` OR ((`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL OR `e`.`NullableStringC` IS NULL) AND `e`.`NullableStringA` IS NULL)
+""",
                 //
-                $"""
-                    SELECT `e`.`Id`
-                    FROM `Entities1` AS `e`
-                    WHERE ((REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) <> `e`.`NullableStringA`) OR (REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) IS NULL OR `e`.`NullableStringA` IS NULL)) AND (REPLACE(`e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`) IS NOT NULL OR `e`.`NullableStringA` IS NOT NULL)
-                    """);
+                """
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+WHERE (IIF(`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL OR `e`.`NullableStringC` IS NULL, NULL, REPLACE(IIF(`e`.`NullableStringA` IS NULL, '', `e`.`NullableStringA`), IIF(`e`.`NullableStringB` IS NULL, CHR(1), `e`.`NullableStringB`), IIF(`e`.`NullableStringC` IS NULL, CHR(1), `e`.`NullableStringC`))) <> `e`.`NullableStringA` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL OR `e`.`NullableStringC` IS NULL OR `e`.`NullableStringA` IS NULL) AND ((`e`.`NullableStringA` IS NOT NULL AND `e`.`NullableStringB` IS NOT NULL AND `e`.`NullableStringC` IS NOT NULL) OR `e`.`NullableStringA` IS NOT NULL)
+""");
         }
 
         public override async Task Null_semantics_coalesce(bool async)

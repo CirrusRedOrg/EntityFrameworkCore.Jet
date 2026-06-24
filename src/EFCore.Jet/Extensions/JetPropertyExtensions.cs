@@ -18,6 +18,10 @@ namespace Microsoft.EntityFrameworkCore
         /// <returns> The identity seed. </returns>
         public static int? GetJetIdentitySeed(this IReadOnlyProperty property)
         {
+            if (property.DeclaringType.Model is RuntimeModel)
+            {
+                throw new InvalidOperationException(CoreStrings.RuntimeModelMissingData);
+            }
             var annotation = property.FindAnnotation(JetAnnotationNames.IdentitySeed);
             return (int?)annotation?.Value;
         }
@@ -172,8 +176,14 @@ namespace Microsoft.EntityFrameworkCore
         /// <param name="property"> The property. </param>
         /// <returns> The identity increment. </returns>
         public static int? GetJetIdentityIncrement(this IReadOnlyProperty property)
-            => (int?)property[JetAnnotationNames.IdentityIncrement]
+        {
+            if (property.DeclaringType.Model is RuntimeModel)
+            {
+                throw new InvalidOperationException(CoreStrings.RuntimeModelMissingData);
+            }
+            return (int?)property[JetAnnotationNames.IdentityIncrement]
                 ?? property.DeclaringType.Model.GetJetIdentityIncrement();
+        }
 
         /// <summary>
         ///     Returns the identity increment.

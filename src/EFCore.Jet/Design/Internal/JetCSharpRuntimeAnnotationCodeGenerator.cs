@@ -69,7 +69,6 @@ public class JetCSharpRuntimeAnnotationCodeGenerator : RelationalCSharpRuntimeAn
         if (!parameters.IsRuntime)
         {
             var annotations = parameters.Annotations;
-            //annotations.Remove(JetAnnotationNames.Identity);
         }
 
         base.Generate(column, parameters);

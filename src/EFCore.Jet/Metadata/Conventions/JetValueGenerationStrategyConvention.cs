@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using EntityFrameworkCore.Jet.Metadata;
+using EntityFrameworkCore.Jet.Metadata.Internal;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
@@ -75,6 +76,10 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                         property.Builder.HasValueGenerationStrategy(strategy);
                     }
                 }
+
+                // Complex type properties can never be identity columns; annotate them with None so
+                // the compiled model and runtime model both carry the annotation for comparison.
+                SetComplexTypePropertyStrategies(entityType);
             }
 
             static bool IsStrategyNoneNeeded(IReadOnlyProperty property, StoreObjectIdentifier storeObject)
@@ -88,11 +93,31 @@ namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
                     var providerClrType = (property.GetValueConverter() ?? property.FindRelationalTypeMapping(storeObject)?.Converter)
                         ?.ProviderClrType.UnwrapNullableType();
 
-                    return providerClrType != null
-                        && (providerClrType.IsInteger() || providerClrType == typeof(decimal));
+                    // Fall back to property CLR type when there is no converter (e.g. long? with no HasConversion).
+                    // Type mappings may not yet be applied during ProcessModelFinalizing, so FindRelationalTypeMapping
+                    // returns null and providerClrType would be null even for integer-CLR-typed properties.
+                    var clrType = providerClrType ?? property.ClrType.UnwrapNullableType();
+                    return clrType.IsInteger() || clrType == typeof(decimal);
                 }
 
                 return false;
+            }
+
+            static void SetComplexTypePropertyStrategies(IConventionTypeBase typeBase)
+            {
+                foreach (var complexProperty in typeBase.GetComplexProperties())
+                {
+                    var complexType = complexProperty.ComplexType;
+                    foreach (var property in complexType.GetDeclaredProperties())
+                    {
+                        var declaringTable = property.GetMappedStoreObjects(StoreObjectType.Table).FirstOrDefault();
+                        if (declaringTable.Name != null)
+                        {
+                            property.SetAnnotation(JetAnnotationNames.ValueGenerationStrategy, JetValueGenerationStrategy.None, false);
+                        }
+                    }
+                    SetComplexTypePropertyStrategies(complexType);
+                }
             }
         }
     }

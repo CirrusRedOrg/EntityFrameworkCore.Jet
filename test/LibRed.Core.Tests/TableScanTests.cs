@@ -28,6 +28,21 @@ public class TableScanTests
     }
 
     [Fact]
+    public void Decodes_boolean_columns_from_the_null_bitmap()
+    {
+        using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
+
+        var products = db.OpenTable("Products");
+        int discontinued = products.Definition.Columns.First(c => c.Name == "Discontinued").Index;
+
+        var rows = products.Rows().ToList();
+
+        Assert.All(rows, r => Assert.IsType<bool>(r[discontinued]));
+        // Northwind has exactly 8 discontinued products.
+        Assert.Equal(8, rows.Count(r => (bool)r[discontinued]!));
+    }
+
+    [Fact]
     public void Scans_a_small_lookup_table()
     {
         using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);

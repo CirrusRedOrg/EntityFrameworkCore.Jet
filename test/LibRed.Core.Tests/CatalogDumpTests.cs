@@ -7,9 +7,11 @@ using Xunit.Abstractions;
 namespace LibRed.Core.Tests;
 
 /// <summary>
-/// Not an assertion-heavy test: it dumps the whole catalog (every table, its
-/// properties, and its columns with data types) so the schema decode can be eyeballed.
-/// Run with: dotnet test -l "console;verbosity=detailed"
+/// Dumps every object in the database (user and system tables, in page order) with its
+/// properties and columns/data types, then asserts the whole rendering against a golden
+/// file (Expected/catalog-dump.txt). This pins the schema decode end to end; regenerate
+/// the golden file if the decode intentionally changes.
+/// Run with: dotnet test -l "console;verbosity=detailed" to see the dump.
 /// </summary>
 public class CatalogDumpTests(ITestOutputHelper output)
 {
@@ -21,29 +23,33 @@ public class CatalogDumpTests(ITestOutputHelper output)
         using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
 
         var sb = new StringBuilder();
-        sb.AppendLine($"Database: {db.DefinitionPage.FormatIdentifier}  ({db.Format.Version}, page size {db.Format.PageSize})");
+        sb.Append($"Database: {db.DefinitionPage.FormatIdentifier}  ({db.Format.Version}, page size {db.Format.PageSize})\n");
 
-        foreach (TableDef table in db.Catalog.Tables.OrderBy(t => t.IsSystem).ThenBy(t => t.Name))
+        foreach (TableDef table in db.Catalog.Tables.OrderBy(t => t.DefinitionPage))
         {
             // Re-read the TDEF page for per-table properties (row count, type, index count).
             var tdef = db.ReadTableDefinition(table.DefinitionPage);
 
-            sb.AppendLine();
-            sb.AppendLine($"{(table.IsSystem ? "[SYS] " : "      ")}{table.Name}");
-            sb.AppendLine($"        tdefPage={table.DefinitionPage}  type={tdef.TableType}  rows={tdef.RowCount}  columns={tdef.ColumnCount}  indexes={tdef.IndexCount}");
+            sb.Append('\n');
+            sb.Append($"{(table.IsSystem ? "[SYS] " : "      ")}{table.Name}\n");
+            sb.Append($"        tdefPage={table.DefinitionPage}  type={tdef.TableType}  rows={tdef.RowCount}  columns={tdef.ColumnCount}  indexes={tdef.IndexCount}\n");
 
             foreach (ColumnDef c in table.Columns)
             {
                 string store = c.IsFixedLength ? $"fixed@{c.FixedOffset}" : $"var#{c.VariableIndex}";
                 string extra = c.IsAutoNumber ? " auto" : "";
-                sb.AppendLine($"          {c.Index,2}. {c.Name,-26} {c.Type,-9} len={c.Length,3} {store}{extra}");
+                sb.Append($"          {c.Index,2}. {c.Name,-26} {c.Type,-9} len={c.Length,3} {store}{extra}\n");
             }
         }
 
-        _output.WriteLine(sb.ToString());
+        string actual = Normalize(sb.ToString());
+        _output.WriteLine(actual);
 
-        // Light sanity assertions so this still functions as a test.
-        Assert.True(db.Catalog.UserTables.Count() >= 12);
-        Assert.All(db.Catalog.Tables, t => Assert.NotEmpty(t.Columns));
+        string expectedPath = Path.Combine(AppContext.BaseDirectory, "Expected", "catalog-dump.txt");
+        string expected = Normalize(File.ReadAllText(expectedPath));
+
+        Assert.Equal(expected, actual);
     }
+
+    private static string Normalize(string s) => s.Replace("\r\n", "\n").TrimEnd() + "\n";
 }

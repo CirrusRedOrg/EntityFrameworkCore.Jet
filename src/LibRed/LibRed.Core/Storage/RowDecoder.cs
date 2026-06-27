@@ -45,7 +45,17 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
 
         foreach (ColumnDef column in _columns)
         {
-            if (!IsPresent(nullBitmap, column.ColumnId))
+            bool present = IsPresent(nullBitmap, column.ColumnId);
+
+            // Jet stores Boolean (YesNo) columns with no fixed/variable data: the value
+            // IS the null-bitmap bit (set = true). Booleans are never null.
+            if (column.Type == JetDataType.Boolean)
+            {
+                values[column.Index] = present;
+                continue;
+            }
+
+            if (!present)
             {
                 values[column.Index] = null;
                 continue;

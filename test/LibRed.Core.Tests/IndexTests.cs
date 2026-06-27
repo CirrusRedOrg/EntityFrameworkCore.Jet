@@ -104,6 +104,63 @@ public class IndexTests
             Assert.Equal(rowCount, new IndexCursor(table.Channel, ix.RootPage).RowIds().Count()));
     }
 
+    [Fact]
+    public void Decodes_numeric_index_keys()
+    {
+        using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
+
+        var table = db.OpenTable("Categories");
+        var pk = table.Definition.Indexes.First(i => i.IsPrimaryKey);
+
+        var keys = new IndexCursor(table.Channel, pk.RootPage)
+            .Entries(pk.Columns)
+            .Select(e => (int)e.Key[0]!)
+            .ToList();
+
+        Assert.Equal(Enumerable.Range(1, 8), keys);
+    }
+
+    [Fact]
+    public void Decodes_composite_index_keys()
+    {
+        using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
+
+        var table = db.OpenTable("Order Details");
+        var pk = table.Definition.Indexes.First(i => i.IsPrimaryKey); // [OrderID, ProductID]
+
+        var first = new IndexCursor(table.Channel, pk.RootPage).Entries(pk.Columns).First();
+
+        Assert.Equal(2, first.Key.Length);
+        Assert.Equal(10248, first.Key[0]);
+        Assert.Equal(11, first.Key[1]);
+    }
+
+    [Theory]
+    [InlineData("Categories")]
+    [InlineData("Orders")]        // includes a DateTime index and node-rooted (prefix-compressed) pages
+    [InlineData("Order Details")]
+    public void Decoded_keys_match_the_row_they_point_at(string tableName)
+    {
+        using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
+
+        var table = db.OpenTable(tableName);
+        var decoder = NewDecoder(db, table);
+
+        foreach (var index in table.Definition.Indexes)
+        {
+            foreach (var entry in new IndexCursor(table.Channel, index.RootPage).Entries(index.Columns))
+            {
+                var row = decoder.Decode(db.ReadDataPage(entry.Row.Page).GetRow(entry.Row.Row));
+                for (int c = 0; c < index.Columns.Count; c++)
+                {
+                    object? keyValue = entry.Key[c];
+                    if (keyValue is null) break; // lossy (text) key column — not decoded
+                    Assert.Equal(row[index.Columns[c].Column.Index], keyValue);
+                }
+            }
+        }
+    }
+
     private static RowDecoder NewDecoder(JetDatabase db, Table table) =>
         new(table.Definition.Columns, db.Format, new LongValueReader(table.Channel));
 }

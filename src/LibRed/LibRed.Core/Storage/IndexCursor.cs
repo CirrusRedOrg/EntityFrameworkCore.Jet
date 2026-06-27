@@ -1,7 +1,11 @@
+using LibRed.Catalog;
 using LibRed.IO;
 using LibRed.Pages;
 
 namespace LibRed.Storage;
+
+/// <summary>An index entry: the decoded key values (in index column order) and the row they point at.</summary>
+public readonly record struct IndexEntry(object?[] Key, RowId Row);
 
 /// <summary>
 /// Walks an index B-tree and yields the row pointers in index (key) order.
@@ -19,6 +23,9 @@ public sealed class IndexCursor(PageChannel channel, int rootPage)
     private const int EntryMaskOffset = 0x1B;
     private const int EntryDataOffset = 0x1E0;
 
+    /// <summary>Per-page count of leading key bytes shared by every entry (prefix compression).</summary>
+    private const int CompressedByteCountOffset = 0x18;
+
     /// <summary>On a node page, the rightmost child page — not referenced by any entry.</summary>
     private const int ChildTailOffset = 0x14;
 
@@ -26,6 +33,62 @@ public sealed class IndexCursor(PageChannel channel, int rootPage)
     private readonly int _rootPage = rootPage;
 
     public IEnumerable<RowId> RowIds() => Walk(_rootPage);
+
+    /// <summary>
+    /// Yields each entry with its decoded key (per <paramref name="columns"/>) in index order.
+    /// Key columns that use Jet's lossy text/binary collation decode as null.
+    /// </summary>
+    public IEnumerable<IndexEntry> Entries(IReadOnlyList<(ColumnDef Column, bool Ascending)> columns) =>
+        WalkEntries(_rootPage, columns);
+
+    private IEnumerable<IndexEntry> WalkEntries(int pageNumber, IReadOnlyList<(ColumnDef, bool)> columns)
+    {
+        PageBuffer page = _channel.ReadPage(pageNumber);
+        var type = (PageType)page.ReadByte(0);
+
+        if (type == PageType.LeafIndexPage)
+        {
+            int compress = page.ReadUInt16(CompressedByteCountOffset);
+            byte[] prefix = [];
+            bool first = true;
+
+            foreach ((int start, int end) in EntryRanges(page))
+            {
+                int entryStart = EntryDataOffset + start;
+                int pointer = ReadInt32BigEndian(page, EntryDataOffset + end - 4);
+
+                ReadOnlySpan<byte> storedKey = page.Slice(entryStart, end - start - 4);
+                byte[] key = first ? storedKey.ToArray() : Concat(prefix, storedKey);
+                if (first)
+                {
+                    prefix = key[..compress];
+                    first = false;
+                }
+
+                yield return new IndexEntry(IndexKeyDecoder.Decode(columns, key), new RowId(pointer >> 8, pointer & 0xFF));
+            }
+        }
+        else if (type == PageType.IntermediateIndexPage)
+        {
+            foreach ((int _, int end) in EntryRanges(page))
+                foreach (IndexEntry e in WalkEntries(ReadInt32BigEndian(page, EntryDataOffset + end - 4), columns))
+                    yield return e;
+            foreach (IndexEntry e in WalkEntries(page.ReadInt32(ChildTailOffset), columns))
+                yield return e;
+        }
+        else
+        {
+            throw new NotSupportedException($"Page {pageNumber} is not an index page (type 0x{(byte)type:X2}).");
+        }
+    }
+
+    private static byte[] Concat(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
+    {
+        var result = new byte[a.Length + b.Length];
+        a.CopyTo(result);
+        b.CopyTo(result.AsSpan(a.Length));
+        return result;
+    }
 
     private IEnumerable<RowId> Walk(int pageNumber)
     {

@@ -66,7 +66,7 @@ public sealed class JetCatalog(PageChannel channel)
     private TableDef ReadTableDefinition(int definitionPage, string name, bool isSystem)
     {
         var tdef = new TableDefinitionPage();
-        tdef.Read(_channel.ReadPage(definitionPage), _channel.Format);
+        tdef.Read(_channel, definitionPage);
 
         return new TableDef
         {

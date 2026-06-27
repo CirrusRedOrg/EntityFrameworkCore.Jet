@@ -26,6 +26,39 @@ public sealed class TableDefinitionPage : Page
 
     public IReadOnlyList<ColumnDef> Columns => _columns;
 
+    /// <summary>Bytes of a continuation TDEF page that precede the resumed definition data.</summary>
+    private const int ContinuationHeaderSize = 8;
+
+    /// <summary>
+    /// Reads a table definition starting at <paramref name="page"/>, transparently
+    /// stitching continuation pages (wide tables whose definition spans multiple pages)
+    /// into one contiguous buffer before parsing.
+    /// </summary>
+    public void Read(PageChannel channel, int page)
+        => Read(AssembleDefinition(channel, page), channel.Format);
+
+    private static PageBuffer AssembleDefinition(PageChannel channel, int page)
+    {
+        PageBuffer first = channel.ReadPage(page);
+        int next = first.ReadInt32(channel.Format.TdefNextPageOffset);
+        if (next == 0)
+            return first;
+
+        // The column offsets are absolute from the first page's start, so the first page
+        // is taken whole and each continuation contributes its data after the 8-byte header.
+        var assembled = new List<byte>(first.Span.Length * 2);
+        assembled.AddRange(first.Span);
+
+        while (next != 0)
+        {
+            PageBuffer continuation = channel.ReadPage(next);
+            next = continuation.ReadInt32(channel.Format.TdefNextPageOffset);
+            assembled.AddRange(continuation.Span[ContinuationHeaderSize..]);
+        }
+
+        return new PageBuffer(assembled.ToArray(), page);
+    }
+
     public override void Read(PageBuffer buffer, JetFormatBase format)
     {
         PageNumber = buffer.PageNumber;
@@ -41,8 +74,7 @@ public sealed class TableDefinitionPage : Page
         // The column descriptors follow a per-index block sized by the index count at
         // 0x33 (IndexCount) — NOT the index-slot count at 0x2F. The two are equal for
         // MSysObjects but differ for user tables (e.g. slots=2, indexes=1).
-        // NOTE: assumes a single-page TDEF. A multi-page TDEF (NextDefinitionPage != 0)
-        // must have its pages stitched into one contiguous buffer first. TODO.
+        // The buffer here may already be a stitched multi-page definition (see Read(channel, page)).
         int columnBlock = format.TdefRealIndexBlockOffset + IndexCount * format.RealIndexEntrySize;
         ReadColumns(buffer, format, columnBlock);
     }

@@ -32,7 +32,7 @@ public sealed class JetDatabase : IDisposable
     public TableDefinitionPage ReadTableDefinition(int pageNumber)
     {
         var tdef = new TableDefinitionPage();
-        tdef.Read(_channel.ReadPage(pageNumber), _channel.Format);
+        tdef.Read(_channel, pageNumber);
         return tdef;
     }
 

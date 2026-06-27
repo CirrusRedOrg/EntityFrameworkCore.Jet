@@ -5,6 +5,11 @@ Jet/ACE database engine — the format behind Access `.mdb` and `.accdb` files.
 Unlike the `EntityFrameworkCore.Jet` projects (which rely on Windows-only ODBC/OleDb),
 LibRed reads and writes the file format directly.
 
+> **Format spec:** [`docs/jet-ace-file-format.md`](docs/jet-ace-file-format.md) is LibRed's
+> authoritative, verified reference for the on-disk Jet 4 / ACE format — every page type,
+> structure, and encoding we implement. Treat it as the source of truth (it supersedes
+> ad-hoc reads of mdbtools/Jackcess) and update it whenever the format understanding changes.
+
 ## Projects
 
 | Project | Responsibility | Depends on |

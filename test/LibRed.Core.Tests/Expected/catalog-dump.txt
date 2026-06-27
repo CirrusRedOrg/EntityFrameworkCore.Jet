@@ -19,6 +19,9 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
           14. RmtInfoLong                Ole       len=  0 var#6
           15. RmtInfoShort               Binary    len=510 var#5
           16. Type                       Int16     len=  2 fixed@8
+        --- indexes ---
+          U  "ParentIdName"             [ParentId, Name] root=7
+          PK "Id"                       [Id] root=8
 
 [SYS] MSysACEs
         tdefPage=3  type=System  rows=183  columns=4  indexes=1
@@ -26,6 +29,8 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            1. FInheritable               Boolean   len=  1 fixed@0
            2. ObjectId                   Int32     len=  4 fixed@0
            3. SID                        Binary    len=510 var#0
+        --- indexes ---
+             "ObjectId"                 [ObjectId] root=10
 
 [SYS] MSysQueries
         tdefPage=4  type=System  rows=279  columns=8  indexes=1
@@ -37,6 +42,8 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            5. Name2                      Text      len=510 var#2
            6. ObjectId                   Int32     len=  4 fixed@0
            7. Order                      Binary    len=510 var#0
+        --- indexes ---
+          PK "ObjectIdAttribute"        [ObjectId, Attribute, Order] root=12
 
 [SYS] MSysRelationships
         tdefPage=5  type=System  rows=15  columns=8  indexes=3
@@ -48,6 +55,10 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            5. szReferencedColumn         Text      len=510 var#4
            6. szReferencedObject         Text      len=510 var#3
            7. szRelationship             Text      len=510 var#0
+        --- indexes ---
+             "szRelationship"           [szRelationship] root=14
+             "szObject"                 [szObject] root=15
+             "szReferencedObject"       [szReferencedObject] root=16
 
 [SYS] MSysComplexColumns
         tdefPage=18  type=User  rows=1  columns=5  indexes=3
@@ -56,6 +67,10 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            2. ComplexTypeObjectID        Int32     len=  4 fixed@0
            3. ConceptualTableID          Int32     len=  4 fixed@8
            4. FlatTableID                Int32     len=  4 fixed@4
+        --- indexes ---
+          PK "IdxID"                    [ComplexID] root=20
+             "IdxConceptualTableID"     [ConceptualTableID] root=21
+             "IdxFlatTableID"           [FlatTableID] root=22
 
 [SYS] MSysComplexType_UnsignedByte
         tdefPage=23  type=User  rows=0  columns=1  indexes=0
@@ -104,16 +119,25 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            1. CategoryName               Text      len= 30 var#0
            2. Description                Memo      len=  0 var#1
            3. Picture                    Ole       len=  0 var#2
+        --- indexes ---
+             "CategoryName"             [CategoryName] root=71
+          PK "PK_Categories"            [CategoryID] root=72
 
       CustomerCustomerDemo
         tdefPage=73  type=User  rows=0  columns=2  indexes=3
            0. CustomerID                 Text      len= 10 fixed@0
            1. CustomerTypeID             Text      len= 20 fixed@10
+        --- indexes ---
+          PK "PK_CustomerCustomerDemo"  [CustomerID, CustomerTypeID] root=75
+             "FK_CustomerCustomerDemo"  [CustomerTypeID] root=303
+             "FK_CustomerCustomerDemo_Customers" [CustomerID] root=304
 
       CustomerDemographics
         tdefPage=76  type=User  rows=0  columns=2  indexes=1
            0. CustomerTypeID             Text      len= 20 fixed@0
            1. CustomerDesc               Memo      len=  0 var#0
+        --- indexes ---
+          PK "PK_CustomerDemographics"  [CustomerTypeID] root=78
 
       Customers
         tdefPage=79  type=User  rows=91  columns=11  indexes=5
@@ -128,6 +152,12 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            8. Country                    Text      len= 30 var#7
            9. Phone                      Text      len= 48 var#8
           10. Fax                        Text      len= 48 var#9
+        --- indexes ---
+             "City"                     [City] root=87
+             "CompanyName"              [CompanyName] root=88
+          PK "PK_Customers"             [CustomerID] root=89
+             "PostalCode"               [PostalCode] root=90
+             "Region"                   [Region] root=91
 
       Employees
         tdefPage=92  type=User  rows=9  columns=18  indexes=4
@@ -149,6 +179,11 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
           15. Notes                      Memo      len=  0 var#12
           16. ReportsTo                  Int32     len=  4 fixed@20
           17. PhotoPath                  Text      len=510 var#13
+        --- indexes ---
+             "LastName"                 [LastName] root=151
+          PK "PK_Employees"             [EmployeeID] root=152
+             "PostalCode"               [PostalCode] root=153
+             "FK_Employees_Employees"   [ReportsTo] root=305
 
 [SYS] MSysAccessStorage
         tdefPage=159  type=User  rows=23  columns=7  indexes=3
@@ -159,6 +194,10 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            4. Name                       Text      len=256 var#1
            5. ParentId                   Int32     len=  4 fixed@20
            6. Type                       Int32     len=  4 fixed@24
+        --- indexes ---
+          PK "Id"                       [Id] root=161
+          U  "ParentIdId"               [ParentId, Id] root=162
+          U  "ParentIdName"             [ParentId, Name] root=163
 
       Order Details
         tdefPage=164  type=User  rows=2155  columns=5  indexes=3
@@ -167,6 +206,10 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            2. UnitPrice                  Currency  len=  8 fixed@8
            3. Quantity                   Int16     len=  2 fixed@16
            4. Discount                   Single    len=  4 fixed@18
+        --- indexes ---
+             "OrderID"                  [OrderID] root=181
+          PK "PK_Order_Details"         [OrderID, ProductID] root=186
+             "ProductID"                [ProductID] root=194
 
       Orders
         tdefPage=198  type=User  rows=830  columns=14  indexes=7
@@ -184,6 +227,14 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
           11. ShipRegion                 Text      len= 30 var#3
           12. ShipPostalCode             Text      len= 20 var#4
           13. ShipCountry                Text      len= 30 var#5
+        --- indexes ---
+             "CustomerID"               [CustomerID] root=240
+             "EmployeeID"               [EmployeeID] root=244
+             "OrderDate"                [OrderDate] root=247
+          PK "PK_Orders"                [OrderID] root=251
+             "ShippedDate"              [ShippedDate] root=254
+             "ShippersOrders"           [ShipVia] root=258
+             "ShipPostalCode"           [ShipPostalCode] root=261
 
       Products
         tdefPage=266  type=User  rows=77  columns=10  indexes=4
@@ -197,17 +248,26 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            7. UnitsOnOrder               Int16     len=  2 fixed@22
            8. ReorderLevel               Int16     len=  2 fixed@24
            9. Discontinued               Boolean   len=  1 fixed@0
+        --- indexes ---
+             "CategoriesProducts"       [CategoryID] root=270
+          PK "PK_Products"              [ProductID] root=271
+             "ProductName"              [ProductName] root=272
+             "SupplierID"               [SupplierID] root=273
 
       Region
         tdefPage=275  type=User  rows=4  columns=2  indexes=1
            0. RegionID                   Int32     len=  4 fixed@0
            1. RegionDescription          Text      len=100 fixed@4
+        --- indexes ---
+          PK "PK_Region"                [RegionID] root=278
 
       Shippers
         tdefPage=283  type=User  rows=3  columns=3  indexes=1
            0. ShipperID                  Int32     len=  4 fixed@0 auto
            1. CompanyName                Text      len= 80 var#0
            2. Phone                      Text      len= 48 var#1
+        --- indexes ---
+          PK "PK_Shippers"              [ShipperID] root=286
 
       Suppliers
         tdefPage=287  type=User  rows=29  columns=12  indexes=3
@@ -223,12 +283,19 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            9. Phone                      Text      len= 48 var#8
           10. Fax                        Text      len= 48 var#9
           11. HomePage                   Memo      len=  0 var#10
+        --- indexes ---
+             "CompanyName"              [CompanyName] root=292
+          PK "PK_Suppliers"             [SupplierID] root=293
+             "PostalCode"               [PostalCode] root=294
 
       Territories
         tdefPage=295  type=User  rows=53  columns=3  indexes=2
            0. TerritoryID                Text      len= 40 var#0
            1. TerritoryDescription       Text      len=100 fixed@0
            2. RegionID                   Int32     len=  4 fixed@100
+        --- indexes ---
+          PK "PK_Territories"           [TerritoryID] root=299
+             "FK_Territories_Region"    [RegionID] root=308
 
 [SYS] MSysNavPaneGroupCategories
         tdefPage=312  type=User  rows=3  columns=7  indexes=1
@@ -239,6 +306,8 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            4. Position                   Int32     len=  4 var#5
            5. SelectedObjectID           Int32     len=  4 var#3
            6. Type                       Int32     len=  4 var#2
+        --- indexes ---
+          PK "Id"                       [Id] root=314
 
 [SYS] MSysNavPaneGroups
         tdefPage=315  type=User  rows=10  columns=7  indexes=2
@@ -249,6 +318,9 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            4. Object Type Group          Int32     len=  4 var#5
            5. ObjectID                   Int32     len=  4 var#3
            6. Position                   Int32     len=  4 var#4
+        --- indexes ---
+          PK "Id"                       [Id] root=317
+             "GroupCategoryID"          [GroupCategoryID] root=318
 
 [SYS] MSysNavPaneGroupToObjects
         tdefPage=319  type=User  rows=47  columns=7  indexes=2
@@ -259,6 +331,9 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            4. Name                       Text      len=510 var#3
            5. ObjectID                   Int32     len=  4 var#1
            6. Position                   Int32     len=  4 var#4
+        --- indexes ---
+          PK "Id"                       [Id] root=321
+             "GroupID"                  [GroupID] root=322
 
 [SYS] MSysNavPaneObjectIDs
         tdefPage=327  type=User  rows=57  columns=3  indexes=0
@@ -273,6 +348,9 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            2. Id                         Int32     len=  4 var#0 auto
            3. Name                       Text      len=510 var#1
            4. Type                       Text      len=510 var#2
+        --- indexes ---
+          U  "Data_BF92175BD03C433695464F95CDF97589" [Data] root=340
+          PK "Id"                       [Id] root=341
 
 [SYS] f_3B3D4E1F479C4CCCA9CB8E549B05D3B7_Data
         tdefPage=334  type=User  rows=1  columns=8  indexes=3
@@ -284,3 +362,7 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
            5. FileType                   Text      len=510 var#2
            6. FileURL                    Memo      len=  0 var#3
            7. MSysResources_Data         Int32     len=  4 var#4 auto
+        --- indexes ---
+          PK "MSysComplexPKIndex"       [MSysResources_Data] root=336
+             "_Data"                    [_Data] root=337
+          U  "IdxFKPrimaryScalar"       [_Data, FileName] root=338

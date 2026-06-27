@@ -1,6 +1,7 @@
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
+using LibRed.Pages;
 using LibRed.Storage;
 
 namespace LibRed;
@@ -17,8 +18,15 @@ public sealed class JetDatabase : IDisposable
     private JetDatabase(PageChannel channel)
     {
         _channel = channel;
+
+        DefinitionPage = new DatabaseDefinitionPage();
+        DefinitionPage.Read(channel.ReadPage(0));
+
         Catalog = new JetCatalog(channel);
     }
+
+    /// <summary>The decoded database definition page (page 0).</summary>
+    public DatabaseDefinitionPage DefinitionPage { get; }
 
     /// <summary>Opens a database file (read-only by default).</summary>
     public static JetDatabase Open(string path, bool readOnly = true) =>

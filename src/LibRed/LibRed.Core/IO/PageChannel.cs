@@ -38,8 +38,16 @@ public sealed class PageChannel : IDisposable
             readOnly ? FileAccess.Read : FileAccess.ReadWrite,
             readOnly ? FileShare.Read : FileShare.None);
 
-        var format = JetFormatBase.Detect(stream);
-        return new PageChannel(stream, format, readOnly);
+        try
+        {
+            var format = JetFormatBase.Detect(stream);
+            return new PageChannel(stream, format, readOnly);
+        }
+        catch
+        {
+            stream.Dispose();
+            throw;
+        }
     }
 
     /// <summary>Reads a single page into a freshly allocated buffer.</summary>

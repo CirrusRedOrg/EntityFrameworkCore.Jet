@@ -94,6 +94,9 @@ public abstract class JetFormatBase
     /// <summary>Page number of the system catalog table MSysObjects (its TDEF page).</summary>
     public virtual int CatalogPage => 2;
 
+    /// <summary>Offset in a TDEF of the owned-pages usage-map pointer: 1 byte row, then a 3-byte page.</summary>
+    public virtual int TdefOwnedPagesOffset => 0x37;
+
     /// <summary>Page size in bytes (2048 for Jet 3, 4096 for Jet 4 and all ACE versions).</summary>
     public int PageSize { get; protected set; } = 4096;
 

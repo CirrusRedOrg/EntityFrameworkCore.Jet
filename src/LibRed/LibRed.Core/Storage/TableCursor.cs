@@ -13,7 +13,10 @@ public sealed class TableCursor(Table table) : IEnumerable<object?[]>
 
     public IEnumerator<object?[]> GetEnumerator()
     {
-        var decoder = new RowDecoder(_table.Definition.Columns, _table.Channel.Format);
+        var decoder = new RowDecoder(
+            _table.Definition.Columns,
+            _table.Channel.Format,
+            new LongValueReader(_table.Channel));
 
         foreach (int pageNumber in _table.UsageMap.DataPages())
         {

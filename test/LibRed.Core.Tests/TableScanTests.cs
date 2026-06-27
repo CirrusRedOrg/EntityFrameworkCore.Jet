@@ -54,6 +54,40 @@ public class TableScanTests
     }
 
     [Fact]
+    public void Resolves_memo_long_values_including_compressed_unicode()
+    {
+        using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
+
+        var categories = db.OpenTable("Categories");
+        int nameIdx = categories.Definition.Columns.First(c => c.Name == "CategoryName").Index;
+        int descIdx = categories.Definition.Columns.First(c => c.Name == "Description").Index;
+
+        var byName = categories.Rows().ToDictionary(r => (string)r[nameIdx]!, r => (string)r[descIdx]!);
+
+        // UTF-16 stored memo:
+        Assert.Equal("Soft drinks, coffees, teas, beers, and ales", byName["Beverages"]);
+        // Compressed-Unicode (0xFF 0xFE marker, 1 byte/char) memos:
+        Assert.Equal("Cheeses", byName["Dairy Products"]);
+        Assert.Equal("Prepared meats", byName["Meat/Poultry"]);
+    }
+
+    [Fact]
+    public void Resolves_ole_long_values_across_chained_pages()
+    {
+        using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
+
+        var categories = db.OpenTable("Categories");
+        int picIdx = categories.Definition.Columns.First(c => c.Name == "Picture").Index;
+
+        // Each Picture is a ~10 KB OLE blob chained across multiple LVAL pages.
+        Assert.All(categories.Rows(), r =>
+        {
+            var blob = Assert.IsType<byte[]>(r[picIdx]);
+            Assert.Equal(10746, blob.Length);
+        });
+    }
+
+    [Fact]
     public void Scans_a_small_lookup_table()
     {
         using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);

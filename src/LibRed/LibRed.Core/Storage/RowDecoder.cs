@@ -16,10 +16,11 @@ namespace LibRed.Storage;
 /// Jet 4 / ACE uses 2-byte variable offsets at any row size — there is no Jet 3-style
 /// jump table (1-byte offsets), so rows larger than 256 bytes decode the same way.
 /// </summary>
-public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase format)
+public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase format, LongValueReader? longValues = null)
 {
     private readonly IReadOnlyList<ColumnDef> _columns = columns;
     private readonly JetFormatBase _format = format;
+    private readonly LongValueReader? _longValues = longValues;
 
     /// <summary>Decodes the row into one value per column (aligned to <see cref="ColumnDef.Index"/>).</summary>
     public object?[] Decode(ReadOnlySpan<byte> row)
@@ -60,6 +61,16 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
             ReadOnlySpan<byte> raw = column.IsFixedLength
                 ? FixedSlice(row, column)
                 : VariableSlice(row, varTableStart, numVarCols, column.VariableIndex);
+
+            // Memo / OLE columns store a long-value descriptor, not the data itself.
+            if (_longValues is not null && column.Type is JetDataType.Memo or JetDataType.Ole)
+            {
+                byte[] data = _longValues.Resolve(raw);
+                values[column.Index] = column.Type == JetDataType.Memo
+                    ? JetTypeCodec.DecodeText(data)
+                    : data;
+                continue;
+            }
 
             values[column.Index] = JetTypeCodec.Decode(column, raw);
         }

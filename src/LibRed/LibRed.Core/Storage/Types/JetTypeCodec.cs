@@ -36,7 +36,7 @@ public static class JetTypeCodec
             case JetDataType.Guid:
                 return new Guid(value[..16]);
             case JetDataType.Text:
-                return Encoding.Unicode.GetString(value);
+                return DecodeText(value);
             case JetDataType.Binary:
                 return value.ToArray();
 
@@ -48,6 +48,23 @@ public static class JetTypeCodec
             default:
                 return value.ToArray();
         }
+    }
+
+    /// <summary>
+    /// Decodes a Jet text value, honoring compressed Unicode. A value beginning with the
+    /// 0xFF 0xFE marker stores ASCII-range characters as one byte each; otherwise it is
+    /// UTF-16LE.
+    /// </summary>
+    /// <remarks>
+    /// TODO: the full compressed format can toggle between 1-byte and 2-byte runs mid-string
+    /// (via embedded markers) for mixed scripts; this handles the common all-compressed case.
+    /// </remarks>
+    public static string DecodeText(ReadOnlySpan<byte> value)
+    {
+        if (value.Length >= 2 && value[0] == 0xFF && value[1] == 0xFE)
+            return Encoding.Latin1.GetString(value[2..]);
+
+        return Encoding.Unicode.GetString(value);
     }
 
     /// <summary>Encodes a CLR value back to its on-disk representation.</summary>

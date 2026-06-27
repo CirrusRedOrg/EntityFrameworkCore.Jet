@@ -1,3 +1,4 @@
+using LibRed.Formats;
 using LibRed.IO;
 
 namespace LibRed.Pages;
@@ -11,7 +12,7 @@ public sealed class LvalPage : Page
 {
     public override PageType Type => PageType.DataPage; // LVAL pages reuse the data-page type marker.
 
-    public override void Read(PageBuffer buffer)
+    public override void Read(PageBuffer buffer, JetFormatBase format)
     {
         PageNumber = buffer.PageNumber;
         // TODO: decode LVAL chunk header and payload / next-chunk pointer.

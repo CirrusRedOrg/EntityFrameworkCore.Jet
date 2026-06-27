@@ -1,3 +1,4 @@
+using LibRed.Formats;
 using LibRed.IO;
 
 namespace LibRed.Pages;
@@ -11,7 +12,7 @@ public sealed class UsageMapPage : Page
 {
     public override PageType Type => PageType.PageUsageBitmap;
 
-    public override void Read(PageBuffer buffer)
+    public override void Read(PageBuffer buffer, JetFormatBase format)
     {
         PageNumber = buffer.PageNumber;
         // TODO: decode the bitmap payload.

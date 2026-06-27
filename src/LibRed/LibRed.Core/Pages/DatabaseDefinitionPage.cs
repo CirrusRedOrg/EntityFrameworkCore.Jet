@@ -23,7 +23,7 @@ public sealed class DatabaseDefinitionPage : Page
     public DateTime DatabaseCreationDate { get; internal set; }
     public string? CreateProgramName { get; internal set; }
 
-    public override void Read(PageBuffer buffer)
+    public override void Read(PageBuffer buffer, Formats.JetFormatBase format)
     {
         PageNumber = buffer.PageNumber;
         FormatIdentifier = Formats.JetFormatBase.ReadFormatIdentifier(buffer.Span);

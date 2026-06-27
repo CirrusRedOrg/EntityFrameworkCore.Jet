@@ -20,13 +20,21 @@ public sealed class JetDatabase : IDisposable
         _channel = channel;
 
         DefinitionPage = new DatabaseDefinitionPage();
-        DefinitionPage.Read(channel.ReadPage(0));
+        DefinitionPage.Read(channel.ReadPage(0), channel.Format);
 
         Catalog = new JetCatalog(channel);
     }
 
     /// <summary>The decoded database definition page (page 0).</summary>
     public DatabaseDefinitionPage DefinitionPage { get; }
+
+    /// <summary>Reads and decodes the table definition (TDEF) page at <paramref name="pageNumber"/>.</summary>
+    public TableDefinitionPage ReadTableDefinition(int pageNumber)
+    {
+        var tdef = new TableDefinitionPage();
+        tdef.Read(_channel.ReadPage(pageNumber), _channel.Format);
+        return tdef;
+    }
 
     /// <summary>Opens a database file (read-only by default).</summary>
     public static JetDatabase Open(string path, bool readOnly = true) =>

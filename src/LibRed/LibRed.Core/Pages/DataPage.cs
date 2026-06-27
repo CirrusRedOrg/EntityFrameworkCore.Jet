@@ -1,3 +1,4 @@
+using LibRed.Formats;
 using LibRed.IO;
 
 namespace LibRed.Pages;
@@ -17,7 +18,7 @@ public sealed class DataPage : Page
     /// <summary>Number of row slots present on the page.</summary>
     public int RowCount { get; internal set; }
 
-    public override void Read(PageBuffer buffer)
+    public override void Read(PageBuffer buffer, JetFormatBase format)
     {
         PageNumber = buffer.PageNumber;
         // TODO: read free-space, owning-table pointer and the row-offset slot table.

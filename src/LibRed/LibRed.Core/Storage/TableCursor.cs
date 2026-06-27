@@ -18,7 +18,7 @@ public sealed class TableCursor(Table table) : IEnumerable<object?[]>
         {
             PageBuffer buffer = _table.Channel.ReadPage(pageNumber);
             var dataPage = new DataPage();
-            dataPage.Read(buffer);
+            dataPage.Read(buffer, _table.Channel.Format);
 
             // TODO: walk the page's row slot directory and decode each row record.
             _ = decoder;

@@ -1,3 +1,4 @@
+using LibRed.Formats;
 using LibRed.IO;
 
 namespace LibRed.Pages;
@@ -14,7 +15,7 @@ public sealed class IndexPage : Page
 
     public override PageType Type => IsLeaf ? PageType.LeafIndexPage : PageType.IntermediateIndexPage;
 
-    public override void Read(PageBuffer buffer)
+    public override void Read(PageBuffer buffer, JetFormatBase format)
     {
         PageNumber = buffer.PageNumber;
         // TODO: decode index entries (column-order-preserving encoded keys) and child pointers.

@@ -26,8 +26,23 @@ public sealed class TableDefinitionPage : Page
 
     public IReadOnlyList<ColumnDef> Columns => _columns;
 
+    private readonly List<IndexDef> _indexes = [];
+    public IReadOnlyList<IndexDef> Indexes => _indexes;
+
     /// <summary>Bytes of a continuation TDEF page that precede the resumed definition data.</summary>
     private const int ContinuationHeaderSize = 8;
+
+    // Index column block layout (Jet 4 / ACE), one per real index, following the column names.
+    private const int IndexBlockSize = 52;
+    private const int IndexMaxColumns = 10;
+    private const int IndexColumnSlotSize = 3;   // 2-byte column id + 1-byte flags
+    private const int IndexColumnsOffset = 0x04;
+    private const int IndexRootPageOffset = 0x26;
+    private const int IndexFlagsOffset = 0x2E;
+    private const short IndexColumnUnused = -1;   // 0xFFFF
+    private const byte IndexColumnAscending = 0x01;
+    private const ushort IndexFlagUnique = 0x0001;
+    private const ushort IndexFlagRequired = 0x0008;
 
     /// <summary>
     /// Reads a table definition starting at <paramref name="page"/>, transparently
@@ -76,10 +91,49 @@ public sealed class TableDefinitionPage : Page
         // MSysObjects but differ for user tables (e.g. slots=2, indexes=1).
         // The buffer here may already be a stitched multi-page definition (see Read(channel, page)).
         int columnBlock = format.TdefRealIndexBlockOffset + IndexCount * format.RealIndexEntrySize;
-        ReadColumns(buffer, format, columnBlock);
+        int afterNames = ReadColumns(buffer, format, columnBlock);
+        ReadIndexes(buffer, afterNames);
     }
 
-    private void ReadColumns(PageBuffer buffer, JetFormatBase format, int columnBlock)
+    /// <summary>
+    /// Parses the per-index column blocks (52 bytes each) that follow the column names:
+    /// indexed columns + sort order, the unique/required flags, and the B-tree root page.
+    /// </summary>
+    private void ReadIndexes(PageBuffer buffer, int blockStart)
+    {
+        _indexes.Clear();
+        var byColumnId = _columns.ToDictionary(c => c.ColumnId);
+
+        for (int i = 0; i < IndexCount; i++)
+        {
+            int block = blockStart + i * IndexBlockSize;
+
+            var columns = new List<(ColumnDef Column, bool Ascending)>();
+            for (int slot = 0; slot < IndexMaxColumns; slot++)
+            {
+                int entry = block + IndexColumnsOffset + slot * IndexColumnSlotSize;
+                short columnId = buffer.ReadInt16(entry);
+                if (columnId == IndexColumnUnused) continue;
+                if (byColumnId.TryGetValue(columnId, out ColumnDef? column))
+                    columns.Add((column, (buffer.ReadByte(entry + 2) & IndexColumnAscending) != 0));
+            }
+
+            ushort flags = buffer.ReadUInt16(block + IndexFlagsOffset);
+            bool unique = (flags & IndexFlagUnique) != 0;
+            bool required = (flags & IndexFlagRequired) != 0;
+
+            _indexes.Add(new IndexDef
+            {
+                Name = string.Empty, // index names live further on, after the logical-index entries (TODO)
+                Columns = columns,
+                IsUnique = unique,
+                IsPrimaryKey = unique && required, // heuristic; the precise flag is in the logical-index entry
+                RootPage = buffer.ReadInt32(block + IndexRootPageOffset),
+            });
+        }
+    }
+
+    private int ReadColumns(PageBuffer buffer, JetFormatBase format, int columnBlock)
     {
         _columns.Clear();
 
@@ -133,5 +187,7 @@ public sealed class TableDefinitionPage : Page
                 IsAutoNumber = (d.Flags & JetFormatBase.ColumnFlagAutoNumber) != 0,
             });
         }
+
+        return namePos;
     }
 }

@@ -73,6 +73,7 @@ public sealed class JetCatalog(PageChannel channel)
             Name = name,
             DefinitionPage = definitionPage,
             Columns = tdef.Columns,
+            Indexes = tdef.Indexes,
             IsSystem = isSystem,
         };
     }

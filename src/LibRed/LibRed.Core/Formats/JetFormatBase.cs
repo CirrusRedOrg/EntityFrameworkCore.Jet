@@ -91,6 +91,9 @@ public abstract class JetFormatBase
     /// <summary>Size of the column-count field at the start of a row record (2 bytes in Jet 4 / ACE, 1 in Jet 3).</summary>
     public virtual int RowColumnCountSize => 2;
 
+    /// <summary>Page number of the system catalog table MSysObjects (its TDEF page).</summary>
+    public virtual int CatalogPage => 2;
+
     /// <summary>Page size in bytes (2048 for Jet 3, 4096 for Jet 4 and all ACE versions).</summary>
     public int PageSize { get; protected set; } = 4096;
 

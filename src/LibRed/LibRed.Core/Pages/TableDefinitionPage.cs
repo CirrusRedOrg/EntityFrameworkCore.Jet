@@ -38,10 +38,12 @@ public sealed class TableDefinitionPage : Page
         RealIndexCount = buffer.ReadInt32(format.TdefRealIndexCountOffset);
         IndexCount = buffer.ReadInt32(format.TdefIndexCountOffset);
 
-        // The column descriptors follow the real-index block.
+        // The column descriptors follow a per-index block sized by the index count at
+        // 0x33 (IndexCount) — NOT the index-slot count at 0x2F. The two are equal for
+        // MSysObjects but differ for user tables (e.g. slots=2, indexes=1).
         // NOTE: assumes a single-page TDEF. A multi-page TDEF (NextDefinitionPage != 0)
         // must have its pages stitched into one contiguous buffer first. TODO.
-        int columnBlock = format.TdefRealIndexBlockOffset + RealIndexCount * format.RealIndexEntrySize;
+        int columnBlock = format.TdefRealIndexBlockOffset + IndexCount * format.RealIndexEntrySize;
         ReadColumns(buffer, format, columnBlock);
     }
 

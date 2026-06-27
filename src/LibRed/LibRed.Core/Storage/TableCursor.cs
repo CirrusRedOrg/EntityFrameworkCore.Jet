@@ -4,8 +4,8 @@ using LibRed.Pages;
 namespace LibRed.Storage;
 
 /// <summary>
-/// A forward-only cursor over the rows of a table. Walks the table's usage map,
-/// reads each data page and yields decoded rows via <see cref="RowDecoder"/>.
+/// A forward-only cursor over the rows of a table. Walks the table's data pages,
+/// decodes each inline row, and yields one value array per row.
 /// </summary>
 public sealed class TableCursor(Table table) : IEnumerable<object?[]>
 {
@@ -14,17 +14,32 @@ public sealed class TableCursor(Table table) : IEnumerable<object?[]>
     public IEnumerator<object?[]> GetEnumerator()
     {
         var decoder = new RowDecoder(_table.Definition.Columns, _table.Channel.Format);
+
         foreach (int pageNumber in _table.UsageMap.DataPages())
         {
             PageBuffer buffer = _table.Channel.ReadPage(pageNumber);
-            var dataPage = new DataPage();
-            dataPage.Read(buffer, _table.Channel.Format);
+            var page = new DataPage();
+            page.Read(buffer, _table.Channel.Format);
 
-            // TODO: walk the page's row slot directory and decode each row record.
-            _ = decoder;
+            for (int i = 0; i < page.RowCount; i++)
+            {
+                RowSlot slot = page.Rows[i];
+                if (slot.IsDeleted || slot.HasOverflow) continue;
+
+                object?[]? values = null;
+                try
+                {
+                    values = decoder.Decode(page.GetRow(i));
+                }
+                catch (NotSupportedException)
+                {
+                    // Rows >= 256 bytes use the variable-offset jump table (not yet
+                    // implemented). Skip rather than fail the whole scan. TODO.
+                }
+
+                if (values is not null) yield return values;
+            }
         }
-
-        yield break;
     }
 
     System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();

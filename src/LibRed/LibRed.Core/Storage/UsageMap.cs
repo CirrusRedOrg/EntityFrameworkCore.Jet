@@ -12,13 +12,17 @@ namespace LibRed.Storage;
 /// <remarks>
 /// The TDEF holds a pointer (row + page) to the usage-map record. An inline map
 /// (type 0x00) stores a start page and a bitmap where bit i marks page (startPage + i)
-/// as owned. A reference map (type 0x01, only for very large tables) instead points at
-/// dedicated bitmap pages — not yet parsed, so we fall back to a full owner-scan there.
+/// as owned. A reference map (type 0x01, for very large tables) instead stores a list of
+/// pointers to dedicated bitmap pages (type 0x05); pointer k's bitmap covers the page
+/// range starting at k * (pageSize - 4) * 8.
 /// </remarks>
 public sealed class UsageMap(PageChannel channel, TableDef table)
 {
     private const byte MapTypeInline = 0x00;
     private const byte MapTypeReference = 0x01;
+
+    /// <summary>Bytes preceding the bitmap on a dedicated usage-bitmap page (type 0x05).</summary>
+    private const int BitmapPageHeaderSize = 4;
 
     private readonly PageChannel _channel = channel;
     private readonly TableDef _table = table;
@@ -39,8 +43,7 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
         return map[0] switch
         {
             MapTypeInline => ReadInlineMap(map),
-            // TODO: parse reference maps (dedicated bitmap pages). Fall back meanwhile.
-            MapTypeReference => OwnerScan(),
+            MapTypeReference => ReadReferenceMap(map),
             byte t => throw new NotSupportedException($"Unknown usage map type 0x{t:X2}."),
         };
     }
@@ -49,30 +52,41 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
     {
         int startPage = BinaryPrimitives.ReadInt32LittleEndian(map.Slice(1, 4));
         var pages = new List<int>();
+        AppendSetBits(pages, map[5..], startPage);
+        return pages;
+    }
 
-        for (int i = 5; i < map.Length; i++)
+    private List<int> ReadReferenceMap(ReadOnlySpan<byte> map)
+    {
+        int pagesPerBitmap = (_channel.PageSize - BitmapPageHeaderSize) * 8;
+        var pages = new List<int>();
+
+        // The record is a list of 4-byte pointers to bitmap pages; pointer k's bitmap
+        // covers the page range starting at k * pagesPerBitmap. A zero pointer means the
+        // range has no owned pages.
+        int entryCount = (map.Length - 1) / 4;
+        for (int e = 0; e < entryCount; e++)
         {
-            byte b = map[i];
-            if (b == 0) continue;
-            for (int bit = 0; bit < 8; bit++)
-                if ((b & (1 << bit)) != 0)
-                    pages.Add(startPage + (i - 5) * 8 + bit);
+            int bitmapPage = BinaryPrimitives.ReadInt32LittleEndian(map.Slice(1 + e * 4, 4));
+            if (bitmapPage == 0) continue;
+
+            int rangeBase = e * pagesPerBitmap;
+            ReadOnlySpan<byte> bitmap = _channel.ReadPage(bitmapPage).Span[BitmapPageHeaderSize..];
+            AppendSetBits(pages, bitmap, rangeBase);
         }
 
         return pages;
     }
 
-    /// <summary>Fallback: scan every page and match the owning-table pointer.</summary>
-    private IEnumerable<int> OwnerScan()
+    private static void AppendSetBits(List<int> pages, ReadOnlySpan<byte> bitmap, int basePage)
     {
-        for (int p = 0; p < _channel.PageCount; p++)
+        for (int i = 0; i < bitmap.Length; i++)
         {
-            PageBuffer buffer = _channel.ReadPage(p);
-            if (buffer.ReadByte(0) != (byte)PageType.DataPage) continue;
-
-            var page = new DataPage();
-            page.Read(buffer, _channel.Format);
-            if (page.OwningTablePage == _table.DefinitionPage) yield return p;
+            byte b = bitmap[i];
+            if (b == 0) continue;
+            for (int bit = 0; bit < 8; bit++)
+                if ((b & (1 << bit)) != 0)
+                    pages.Add(basePage + i * 8 + bit);
         }
     }
 }

@@ -1,23 +1,53 @@
+using System.Buffers.Binary;
+using System.Text;
 using LibRed.Catalog;
 
 namespace LibRed.Storage.Types;
 
 /// <summary>
-/// Encodes and decodes individual column values to/from their on-disk byte
-/// representation. Centralises the per-type quirks: Jet CURRENCY (scaled int64),
-/// the 1899-12-30 OLE date epoch, fixed-point NUMERIC, GUID byte order, and the
-/// code-page/Unicode text handling.
+/// Decodes individual column values from their on-disk byte representation. Centralises
+/// the per-type quirks: the 1899-12-30 OLE date epoch, Jet CURRENCY (scaled int64),
+/// GUID byte order, and UTF-16LE text. Long values (memo/OLE) that live on LVAL pages
+/// are not resolved here yet.
 /// </summary>
 public static class JetTypeCodec
 {
-    /// <summary>Decodes a single fixed-or-variable value for <paramref name="column"/>.</summary>
+    /// <summary>Decodes a single non-null column value from its raw bytes.</summary>
     public static object? Decode(ColumnDef column, ReadOnlySpan<byte> value)
     {
-        // TODO: switch on column.Type and decode accordingly.
-        return column.Type switch
+        switch (column.Type)
         {
-            _ => null,
-        };
+            case JetDataType.Boolean:
+                return value.Length > 0 && value[0] != 0;
+            case JetDataType.Byte:
+                return value[0];
+            case JetDataType.Int16:
+                return BinaryPrimitives.ReadInt16LittleEndian(value);
+            case JetDataType.Int32:
+                return BinaryPrimitives.ReadInt32LittleEndian(value);
+            case JetDataType.Single:
+                return BinaryPrimitives.ReadSingleLittleEndian(value);
+            case JetDataType.Double:
+                return BinaryPrimitives.ReadDoubleLittleEndian(value);
+            case JetDataType.DateTime:
+                return DateTime.FromOADate(BinaryPrimitives.ReadDoubleLittleEndian(value));
+            case JetDataType.Currency:
+                return BinaryPrimitives.ReadInt64LittleEndian(value) / 10000m;
+            case JetDataType.Guid:
+                return new Guid(value[..16]);
+            case JetDataType.Text:
+                return Encoding.Unicode.GetString(value);
+            case JetDataType.Binary:
+                return value.ToArray();
+
+            // Long values stored on LVAL pages — needs the long-value reader. TODO.
+            case JetDataType.Memo:
+            case JetDataType.Ole:
+            case JetDataType.Complex:
+            case JetDataType.FixedPoint:
+            default:
+                return value.ToArray();
+        }
     }
 
     /// <summary>Encodes a CLR value back to its on-disk representation.</summary>

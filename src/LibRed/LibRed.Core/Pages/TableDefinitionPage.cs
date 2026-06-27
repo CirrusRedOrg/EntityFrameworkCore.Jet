@@ -50,7 +50,7 @@ public sealed class TableDefinitionPage : Page
         _columns.Clear();
 
         // Pass 1: fixed-size column descriptors.
-        var descriptors = new (JetDataType Type, int ColumnId, byte Flags, int Length)[ColumnCount];
+        var descriptors = new (JetDataType Type, int ColumnId, byte Flags, int FixedOffset, int Length)[ColumnCount];
         for (int i = 0; i < ColumnCount; i++)
         {
             int entry = columnBlock + i * format.ColumnDescriptorSize;
@@ -58,7 +58,20 @@ public sealed class TableDefinitionPage : Page
                 (JetDataType)buffer.ReadByte(entry + format.ColumnTypeOffset),
                 buffer.ReadUInt16(entry + format.ColumnNumberOffset),
                 buffer.ReadByte(entry + format.ColumnFlagsOffset),
+                buffer.ReadUInt16(entry + format.ColumnFixedOffsetOffset),
                 buffer.ReadUInt16(entry + format.ColumnLengthOffset));
+        }
+
+        // Variable columns are addressed (in the row's var-offset table) in ascending
+        // column-id order, so assign each variable column its rank in that ordering.
+        var variableIndex = new Dictionary<int, int>();
+        int rank = 0;
+        foreach (int columnId in descriptors
+                     .Where(d => (d.Flags & JetFormatBase.ColumnFlagFixedLength) == 0)
+                     .Select(d => d.ColumnId)
+                     .OrderBy(id => id))
+        {
+            variableIndex[columnId] = rank++;
         }
 
         // Pass 2: column names, in the same order, immediately after the descriptor block.
@@ -72,6 +85,7 @@ public sealed class TableDefinitionPage : Page
             namePos += byteLength;
 
             var d = descriptors[i];
+            bool isFixed = (d.Flags & JetFormatBase.ColumnFlagFixedLength) != 0;
             _columns.Add(new ColumnDef
             {
                 Name = name,
@@ -79,7 +93,9 @@ public sealed class TableDefinitionPage : Page
                 Index = i,
                 ColumnId = d.ColumnId,
                 Length = d.Length,
-                IsFixedLength = (d.Flags & JetFormatBase.ColumnFlagFixedLength) != 0,
+                FixedOffset = d.FixedOffset,
+                VariableIndex = isFixed ? -1 : variableIndex[d.ColumnId],
+                IsFixedLength = isFixed,
                 IsAutoNumber = (d.Flags & JetFormatBase.ColumnFlagAutoNumber) != 0,
             });
         }

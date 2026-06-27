@@ -13,6 +13,8 @@ namespace LibRed.Storage;
 /// </code>
 /// The null bitmap is indexed by column id (bit set = value present). Variable columns
 /// are addressed via the trailing offset table in ascending column-id order.
+/// Jet 4 / ACE uses 2-byte variable offsets at any row size — there is no Jet 3-style
+/// jump table (1-byte offsets), so rows larger than 256 bytes decode the same way.
 /// </summary>
 public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase format)
 {
@@ -36,12 +38,6 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
 
         int numVarCols = BinaryPrimitives.ReadUInt16LittleEndian(row.Slice(row.Length - nullBitmapSize - 2, 2));
         int varTableStart = row.Length - nullBitmapSize - 2 - (numVarCols + 1) * 2;
-
-        // The 2-byte variable offset table assumed here is only valid for rows that do
-        // not use the >256-byte jump-table encoding. Guard so we never silently misparse.
-        if (numVarCols > 0 && row.Length > 256)
-            throw new NotSupportedException(
-                "Rows >= 256 bytes use the variable-offset jump table, which is not yet implemented.");
 
         foreach (ColumnDef column in _columns)
         {

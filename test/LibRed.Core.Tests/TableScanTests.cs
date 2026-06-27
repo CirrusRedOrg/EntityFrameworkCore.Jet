@@ -27,6 +27,17 @@ public class TableScanTests
         Assert.All(rows, r => Assert.IsType<int>(r[idIdx]));
     }
 
+    [Theory]
+    [InlineData("Customers", 91)]   // 43 rows are >= 256 bytes
+    [InlineData("Employees", 9)]    // every row is >= 256 bytes
+    [InlineData("Orders", 830)]
+    [InlineData("Order Details", 2155)]
+    public void Scans_all_rows_including_large_ones(string table, int expectedRows)
+    {
+        using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
+        Assert.Equal(expectedRows, db.OpenTable(table).Rows().Count());
+    }
+
     [Fact]
     public void Decodes_boolean_columns_from_the_null_bitmap()
     {

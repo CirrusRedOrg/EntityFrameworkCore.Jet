@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(JetTargetFramework)</TargetFramework>
+    <RootNamespace>LibRed.Sql</RootNamespace>
+    <AssemblyName>LibRed.Sql</AssemblyName>
+    <Description>Jet/ACE SQL front end: lexer, parser, AST and binder. Has no dependency on the storage engine; binding resolves names through an injected schema abstraction.</Description>
+  </PropertyGroup>
+
+  <!--
+    SQL parsing uses ANTLR4. To wire up code generation, add the following and
+    drop the grammar in Grammar/AccessSql.g4 (kept as a plain file for now so the
+    project builds without the ANTLR tool installed):
+
+      <ItemGroup>
+        <PackageReference Include="Antlr4BuildTasks" Version="*" PrivateAssets="all" />
+        <PackageReference Include="Antlr4.Runtime.Standard" Version="*" />
+        <Antlr4 Include="Grammar\AccessSql.g4" Listener="false" Visitor="true" />
+      </ItemGroup>
+  -->
+
+</Project>

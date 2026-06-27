@@ -1,0 +1,42 @@
+using LibRed.Catalog;
+using LibRed.Formats;
+using LibRed.IO;
+using LibRed.Storage;
+
+namespace LibRed;
+
+/// <summary>
+/// The public entry point to the Core layer: opens a Jet/ACE database file and
+/// exposes its catalog and tables. This is what the SQL engine and ADO provider
+/// build on; consumers wanting raw storage access start here.
+/// </summary>
+public sealed class JetDatabase : IDisposable
+{
+    private readonly PageChannel _channel;
+
+    private JetDatabase(PageChannel channel)
+    {
+        _channel = channel;
+        Catalog = new JetCatalog(channel);
+    }
+
+    /// <summary>Opens a database file (read-only by default).</summary>
+    public static JetDatabase Open(string path, bool readOnly = true) =>
+        new(PageChannel.Open(path, readOnly));
+
+    /// <summary>The resolved on-disk format/version of the database.</summary>
+    public JetFormatBase Format => _channel.Format;
+
+    /// <summary>The system catalog, used to enumerate and resolve tables.</summary>
+    public JetCatalog Catalog { get; }
+
+    /// <summary>Opens a table by name for row access.</summary>
+    public Table OpenTable(string name)
+    {
+        TableDef def = Catalog.FindTable(name)
+            ?? throw new ArgumentException($"Table '{name}' was not found.", nameof(name));
+        return new Table(_channel, def);
+    }
+
+    public void Dispose() => _channel.Dispose();
+}

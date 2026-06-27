@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(JetTargetFramework)</TargetFramework>
+    <RootNamespace>LibRed.EntityFrameworkCore</RootNamespace>
+    <AssemblyName>LibRed.EntityFrameworkCore</AssemblyName>
+    <Description>Entity Framework Core provider built on the LibRed ADO.NET provider and native engine.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LibRed.Ado\LibRed.Ado.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0-rc.2.*" PrivateAssets="none" />
+  </ItemGroup>
+
+</Project>

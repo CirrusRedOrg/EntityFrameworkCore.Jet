@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(JetTargetFramework)</TargetFramework>
+    <RootNamespace>LibRed.Data</RootNamespace>
+    <AssemblyName>LibRed.Ado</AssemblyName>
+    <Description>ADO.NET provider over the LibRed engine: DbConnection, DbCommand, DbDataReader, DbParameter, DbTransaction and DbProviderFactory.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LibRed.Engine\LibRed.Engine.csproj" />
+  </ItemGroup>
+
+</Project>

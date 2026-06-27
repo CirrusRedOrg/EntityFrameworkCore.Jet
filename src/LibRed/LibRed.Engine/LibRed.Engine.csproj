@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(JetTargetFramework)</TargetFramework>
+    <RootNamespace>LibRed.Engine</RootNamespace>
+    <AssemblyName>LibRed.Engine</AssemblyName>
+    <Description>Query engine: plans and executes bound SQL statements (select/insert/update/delete, joins, filters, expressions) against the LibRed.Core storage layer.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LibRed.Core\LibRed.Core.csproj" />
+    <ProjectReference Include="..\LibRed.Sql\LibRed.Sql.csproj" />
+  </ItemGroup>
+
+</Project>

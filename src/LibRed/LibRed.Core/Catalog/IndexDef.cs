@@ -1,7 +1,7 @@
 namespace LibRed.Catalog;
 
 /// <summary>Describes an index: its columns (with sort direction), uniqueness and root page.</summary>
-public sealed class IndexDef
+public sealed record IndexDef
 {
     public required string Name { get; init; }
 

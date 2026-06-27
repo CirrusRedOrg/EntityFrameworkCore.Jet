@@ -32,7 +32,11 @@ public sealed class TableDefinitionPage : Page
     /// <summary>Bytes of a continuation TDEF page that precede the resumed definition data.</summary>
     private const int ContinuationHeaderSize = 8;
 
-    // Index column block layout (Jet 4 / ACE), one per real index, following the column names.
+    // Index structures (Jet 4 / ACE) follow the column names, in this order:
+    //   IndexCount  (0x33) data blocks  : 52 bytes each — columns, flags, root page
+    //   LogicalIndexCount (0x2F) info blocks : 28 bytes each — links a name to a data block
+    //   LogicalIndexCount names         : 2-byte length + UTF-16
+    // A logical index may be a relationship (FK) sharing a data block with a real index.
     private const int IndexBlockSize = 52;
     private const int IndexMaxColumns = 10;
     private const int IndexColumnSlotSize = 3;   // 2-byte column id + 1-byte flags
@@ -42,7 +46,12 @@ public sealed class TableDefinitionPage : Page
     private const short IndexColumnUnused = -1;   // 0xFFFF
     private const byte IndexColumnAscending = 0x01;
     private const ushort IndexFlagUnique = 0x0001;
-    private const ushort IndexFlagRequired = 0x0008;
+
+    private const int IndexInfoBlockSize = 28;
+    private const int IndexInfoDataNumberOffset = 0x08;
+    private const int IndexInfoFkTablePageOffset = 0x11;
+    private const int IndexInfoTypeOffset = 0x17;
+    private const byte IndexTypePrimary = 0x01;
 
     /// <summary>
     /// Reads a table definition starting at <paramref name="page"/>, transparently
@@ -96,14 +105,16 @@ public sealed class TableDefinitionPage : Page
     }
 
     /// <summary>
-    /// Parses the per-index column blocks (52 bytes each) that follow the column names:
-    /// indexed columns + sort order, the unique/required flags, and the B-tree root page.
+    /// Parses the index structures following the column names into <see cref="IndexDef"/>s
+    /// (one per index-data block): columns + sort order, unique/primary flags, root page,
+    /// and the index name (resolved from the logical-index info blocks).
     /// </summary>
     private void ReadIndexes(PageBuffer buffer, int blockStart)
     {
         _indexes.Clear();
         var byColumnId = _columns.ToDictionary(c => c.ColumnId);
 
+        // 1. Index-data blocks (one IndexDef each): columns, unique flag, root page.
         for (int i = 0; i < IndexCount; i++)
         {
             int block = blockStart + i * IndexBlockSize;
@@ -118,18 +129,61 @@ public sealed class TableDefinitionPage : Page
                     columns.Add((column, (buffer.ReadByte(entry + 2) & IndexColumnAscending) != 0));
             }
 
-            ushort flags = buffer.ReadUInt16(block + IndexFlagsOffset);
-            bool unique = (flags & IndexFlagUnique) != 0;
-            bool required = (flags & IndexFlagRequired) != 0;
-
             _indexes.Add(new IndexDef
             {
-                Name = string.Empty, // index names live further on, after the logical-index entries (TODO)
+                Name = string.Empty,
                 Columns = columns,
-                IsUnique = unique,
-                IsPrimaryKey = unique && required, // heuristic; the precise flag is in the logical-index entry
+                IsUnique = (buffer.ReadUInt16(block + IndexFlagsOffset) & IndexFlagUnique) != 0,
+                IsPrimaryKey = false,
                 RootPage = buffer.ReadInt32(block + IndexRootPageOffset),
             });
+        }
+
+        ResolveIndexNames(buffer, blockStart + IndexCount * IndexBlockSize);
+    }
+
+    /// <summary>
+    /// Reads the logical-index info blocks and their names, then attaches each name (and the
+    /// primary-key flag) to the index-data block it references. A data block may be referenced
+    /// by several logical indexes (e.g. a relationship plus the real index); the real index's
+    /// name wins over a foreign-key relationship's.
+    /// </summary>
+    private void ResolveIndexNames(PageBuffer buffer, int infoStart)
+    {
+        int logicalCount = RealIndexCount; // 0x2F — the logical-index (slot) count
+        var info = new (int DataNumber, bool IsRelationship, byte Type)[logicalCount];
+        for (int i = 0; i < logicalCount; i++)
+        {
+            int block = infoStart + i * IndexInfoBlockSize;
+            info[i] = (
+                buffer.ReadInt32(block + IndexInfoDataNumberOffset),
+                buffer.ReadInt32(block + IndexInfoFkTablePageOffset) != 0,
+                buffer.ReadByte(block + IndexInfoTypeOffset));
+        }
+
+        int namePos = infoStart + logicalCount * IndexInfoBlockSize;
+        var priority = new int[_indexes.Count];
+        for (int i = 0; i < logicalCount; i++)
+        {
+            int byteLength = buffer.ReadUInt16(namePos);
+            namePos += 2;
+            string name = Encoding.Unicode.GetString(buffer.Slice(namePos, byteLength));
+            namePos += byteLength;
+
+            (int dataNumber, bool isRelationship, byte type) = info[i];
+            if (dataNumber < 0 || dataNumber >= _indexes.Count) continue;
+
+            // Prefer a real index name over a relationship's; prefer the primary among real ones.
+            int p = isRelationship ? 1 : type == IndexTypePrimary ? 3 : 2;
+            if (p > priority[dataNumber])
+            {
+                priority[dataNumber] = p;
+                _indexes[dataNumber] = _indexes[dataNumber] with
+                {
+                    Name = name,
+                    IsPrimaryKey = !isRelationship && type == IndexTypePrimary,
+                };
+            }
         }
     }
 

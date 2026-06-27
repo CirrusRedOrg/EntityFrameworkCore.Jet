@@ -15,13 +15,37 @@ public class IndexTests
         Assert.Equal(2, categories.Indexes.Count);
 
         var pk = Assert.Single(categories.Indexes, i => i.IsPrimaryKey);
+        Assert.Equal("PK_Categories", pk.Name);
         Assert.True(pk.IsUnique);
         Assert.Equal(["CategoryID"], pk.Columns.Select(c => c.Column.Name));
         Assert.True(pk.RootPage > 0);
 
         var byName = Assert.Single(categories.Indexes, i => !i.IsPrimaryKey);
+        Assert.Equal("CategoryName", byName.Name);
         Assert.False(byName.IsUnique);
         Assert.Equal(["CategoryName"], byName.Columns.Select(c => c.Column.Name));
+    }
+
+    [Fact]
+    public void Resolves_index_names_including_relationships()
+    {
+        using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
+
+        string[] Names(string table) =>
+            db.Catalog.FindTable(table)!.Indexes.Select(i => i.Name).OrderBy(n => n).ToArray();
+
+        // Composite primary key.
+        var orderDetails = db.Catalog.FindTable("Order Details")!;
+        var pk = Assert.Single(orderDetails.Indexes, i => i.IsPrimaryKey);
+        Assert.Equal("PK_Order_Details", pk.Name);
+        Assert.Equal(["OrderID", "ProductID"], pk.Columns.Select(c => c.Column.Name));
+
+        // Real-index names win over the relationship sharing the same data block, and
+        // relationship/FK indexes keep their own names.
+        Assert.Contains("PK_Orders", Names("Orders"));
+        Assert.Contains("ShippersOrders", Names("Orders"));            // relationship to Shippers
+        Assert.Contains("FK_Employees_Employees", Names("Employees")); // self-referencing FK
+        Assert.All(db.Catalog.FindTable("Customers")!.Indexes, i => Assert.NotEqual("", i.Name));
     }
 
     [Fact]

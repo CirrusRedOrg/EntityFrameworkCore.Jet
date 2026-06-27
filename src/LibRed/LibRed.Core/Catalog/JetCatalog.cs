@@ -20,11 +20,24 @@ public sealed class JetCatalog(PageChannel channel)
     /// <summary>MSysObjects.Flags bits marking a system object.</summary>
     private const uint SystemObjectFlags = 0x80000002;
 
+    // MSysRelationships.grbit flags (DAO RelationAttributeEnum).
+    private const int RelationshipDontEnforce = 0x00000002;
+    private const int RelationshipUpdateCascade = 0x00000100;
+    private const int RelationshipDeleteCascade = 0x00001000;
+
     private readonly PageChannel _channel = channel;
     private List<TableDef>? _tables;
+    private List<ForeignKey>? _relationships;
 
     /// <summary>All tables in the database (user and system).</summary>
     public IReadOnlyList<TableDef> Tables => _tables ??= LoadTables();
+
+    /// <summary>All relationships (foreign keys) defined in the database.</summary>
+    public IReadOnlyList<ForeignKey> Relationships => _relationships ??= LoadRelationships();
+
+    /// <summary>Relationships for which <paramref name="table"/> is the referencing (child) table.</summary>
+    public IEnumerable<ForeignKey> ForeignKeysOf(string table) =>
+        Relationships.Where(r => string.Equals(r.Table, table, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>User (non-system) tables only.</summary>
     public IEnumerable<TableDef> UserTables => Tables.Where(t => !t.IsSystem);
@@ -61,6 +74,48 @@ public sealed class JetCatalog(PageChannel channel)
         }
 
         return tables;
+    }
+
+    private List<ForeignKey> LoadRelationships()
+    {
+        TableDef? def = FindTable("MSysRelationships");
+        if (def is null) return [];
+
+        var c = def.Columns;
+        int nameIdx = ColumnIndex(c, "szRelationship");
+        int childTableIdx = ColumnIndex(c, "szObject");
+        int childColumnIdx = ColumnIndex(c, "szColumn");
+        int parentTableIdx = ColumnIndex(c, "szReferencedObject");
+        int parentColumnIdx = ColumnIndex(c, "szReferencedColumn");
+        int orderIdx = ColumnIndex(c, "icolumn");
+        int flagsIdx = ColumnIndex(c, "grbit");
+
+        // One row per column; group by relationship name and order columns by icolumn.
+        var groups = new Dictionary<string, (string Child, string Parent, int Flags,
+            List<(int Order, string Column, string ReferencedColumn)> Columns)>();
+
+        foreach (object?[] row in new Table(_channel, def).Rows())
+        {
+            string name = (string)row[nameIdx]!;
+            if (!groups.TryGetValue(name, out var g))
+            {
+                g = ((string)row[childTableIdx]!, (string)row[parentTableIdx]!,
+                     (int)row[flagsIdx]!, []);
+                groups[name] = g;
+            }
+            g.Columns.Add(((int)row[orderIdx]!, (string)row[childColumnIdx]!, (string)row[parentColumnIdx]!));
+        }
+
+        return groups
+            .Select(kvp => new ForeignKey(
+                kvp.Key,
+                kvp.Value.Child,
+                kvp.Value.Parent,
+                kvp.Value.Columns.OrderBy(x => x.Order).Select(x => (x.Column, x.ReferencedColumn)).ToList(),
+                (kvp.Value.Flags & RelationshipDontEnforce) == 0,
+                (kvp.Value.Flags & RelationshipUpdateCascade) != 0,
+                (kvp.Value.Flags & RelationshipDeleteCascade) != 0))
+            .ToList();
     }
 
     private TableDef ReadTableDefinition(int definitionPage, string name, bool isSystem)

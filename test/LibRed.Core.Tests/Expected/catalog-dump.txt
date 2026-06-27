@@ -131,6 +131,9 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
           PK "PK_CustomerCustomerDemo"  [CustomerID, CustomerTypeID] root=75
              "FK_CustomerCustomerDemo"  [CustomerTypeID] root=303
              "FK_CustomerCustomerDemo_Customers" [CustomerID] root=304
+        --- foreign keys ---
+          "FK_CustomerCustomerDemo"                    [CustomerTypeID] -> CustomerDemographics [CustomerTypeID]
+          "FK_CustomerCustomerDemo_Customers"          [CustomerID] -> Customers [CustomerID]
 
       CustomerDemographics
         tdefPage=76  type=User  rows=0  columns=2  indexes=1
@@ -184,6 +187,8 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
           PK "PK_Employees"             [EmployeeID] root=152
              "PostalCode"               [PostalCode] root=153
              "FK_Employees_Employees"   [ReportsTo] root=305
+        --- foreign keys ---
+          "FK_Employees_Employees"                     [ReportsTo] -> Employees [EmployeeID]
 
 [SYS] MSysAccessStorage
         tdefPage=159  type=User  rows=23  columns=7  indexes=3
@@ -210,6 +215,9 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
              "OrderID"                  [OrderID] root=181
           PK "PK_Order_Details"         [OrderID, ProductID] root=186
              "ProductID"                [ProductID] root=194
+        --- foreign keys ---
+          "FK_Order_Details_Orders"                    [OrderID] -> Orders [OrderID]
+          "FK_Order_Details_Products"                  [ProductID] -> Products [ProductID]
 
       Orders
         tdefPage=198  type=User  rows=830  columns=14  indexes=7
@@ -235,6 +243,10 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
              "ShippedDate"              [ShippedDate] root=254
              "ShippersOrders"           [ShipVia] root=258
              "ShipPostalCode"           [ShipPostalCode] root=261
+        --- foreign keys ---
+          "FK_Orders_Customers"                        [CustomerID] -> Customers [CustomerID]
+          "FK_Orders_Employees"                        [EmployeeID] -> Employees [EmployeeID]
+          "FK_Orders_Shippers"                         [ShipVia] -> Shippers [ShipperID]
 
       Products
         tdefPage=266  type=User  rows=77  columns=10  indexes=4
@@ -253,6 +265,9 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
           PK "PK_Products"              [ProductID] root=271
              "ProductName"              [ProductName] root=272
              "SupplierID"               [SupplierID] root=273
+        --- foreign keys ---
+          "FK_Products_Categories"                     [CategoryID] -> Categories [CategoryID]
+          "FK_Products_Suppliers"                      [SupplierID] -> Suppliers [SupplierID]
 
       Region
         tdefPage=275  type=User  rows=4  columns=2  indexes=1
@@ -296,6 +311,8 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
         --- indexes ---
           PK "PK_Territories"           [TerritoryID] root=299
              "FK_Territories_Region"    [RegionID] root=308
+        --- foreign keys ---
+          "FK_Territories_Region"                      [RegionID] -> Region [RegionID]
 
 [SYS] MSysNavPaneGroupCategories
         tdefPage=312  type=User  rows=3  columns=7  indexes=1
@@ -321,6 +338,8 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
         --- indexes ---
           PK "Id"                       [Id] root=317
              "GroupCategoryID"          [GroupCategoryID] root=318
+        --- foreign keys ---
+          "MSysNavPaneGroupCategoriesMSysNavPaneGroups" [GroupCategoryID] -> MSysNavPaneGroupCategories [Id] cascadeUpdate cascadeDelete
 
 [SYS] MSysNavPaneGroupToObjects
         tdefPage=319  type=User  rows=47  columns=7  indexes=2
@@ -334,6 +353,8 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
         --- indexes ---
           PK "Id"                       [Id] root=321
              "GroupID"                  [GroupID] root=322
+        --- foreign keys ---
+          "MSysNavPaneGroupsMSysNavPaneGroupToObjects" [GroupID] -> MSysNavPaneGroups [Id] cascadeUpdate cascadeDelete
 
 [SYS] MSysNavPaneObjectIDs
         tdefPage=327  type=User  rows=57  columns=3  indexes=0

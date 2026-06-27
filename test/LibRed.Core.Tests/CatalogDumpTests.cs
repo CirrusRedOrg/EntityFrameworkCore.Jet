@@ -64,6 +64,21 @@ public class CatalogDumpTests(ITestOutputHelper output)
                     sb.Append($"          {kind}{("\"" + ix.Name + "\""),-26} [{cols}] root={ix.RootPage}\n");
                 }
             }
+
+            var fks = db.Catalog.ForeignKeysOf(table.Name).OrderBy(f => f.Name).ToList();
+            if (fks.Count > 0)
+            {
+                sb.Append("        --- foreign keys ---\n");
+                foreach (ForeignKey fk in fks)
+                {
+                    string cols = string.Join(", ", fk.Columns.Select(c => c.Column));
+                    string refcols = string.Join(", ", fk.Columns.Select(c => c.ReferencedColumn));
+                    string extra = (fk.IsEnforced ? "" : " (not enforced)")
+                                 + (fk.CascadeUpdate ? " cascadeUpdate" : "")
+                                 + (fk.CascadeDelete ? " cascadeDelete" : "");
+                    sb.Append($"          {("\"" + fk.Name + "\""),-44} [{cols}] -> {fk.ReferencedTable} [{refcols}]{extra}\n");
+                }
+            }
         }
 
         return Normalize(sb.ToString());

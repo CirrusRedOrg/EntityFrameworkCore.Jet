@@ -36,6 +36,14 @@ public sealed class JetDatabase : IDisposable
         return tdef;
     }
 
+    /// <summary>Reads and decodes the data page at <paramref name="pageNumber"/>.</summary>
+    public DataPage ReadDataPage(int pageNumber)
+    {
+        var page = new DataPage();
+        page.Read(_channel.ReadPage(pageNumber), _channel.Format);
+        return page;
+    }
+
     /// <summary>Opens a database file (read-only by default).</summary>
     public static JetDatabase Open(string path, bool readOnly = true) =>
         new(PageChannel.Open(path, readOnly));

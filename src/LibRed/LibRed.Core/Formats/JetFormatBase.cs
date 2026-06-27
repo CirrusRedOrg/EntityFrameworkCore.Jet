@@ -74,6 +74,20 @@ public abstract class JetFormatBase
     /// <summary>Column flag: the column is an AutoNumber.</summary>
     public const byte ColumnFlagAutoNumber = 0x04;
 
+    // --- Data page layout (Jet 4 / ACE) ---
+
+    /// <summary>Offset of the 2-byte free-space count on a data page.</summary>
+    public virtual int DataFreeSpaceOffset => 0x02;
+
+    /// <summary>Offset of the 4-byte owning-table TDEF page (or the "LVAL" marker on long-value pages).</summary>
+    public virtual int DataOwnerOffset => 0x04;
+
+    /// <summary>Offset of the 2-byte row count on a data page.</summary>
+    public virtual int DataRowCountOffset => 0x0C;
+
+    /// <summary>Offset of the row-offset slot directory (2 bytes per row).</summary>
+    public virtual int DataRowDirectoryOffset => 0x0E;
+
     /// <summary>Page size in bytes (2048 for Jet 3, 4096 for Jet 4 and all ACE versions).</summary>
     public int PageSize { get; protected set; } = 4096;
 

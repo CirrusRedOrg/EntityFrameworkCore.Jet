@@ -20,7 +20,8 @@ public sealed class QueryPlanner
         };
     }
 
-    private static PlanNode PlanSelect(SelectStatement select)
+    /// <summary>Plans a SELECT statement directly (used for subqueries).</summary>
+    public static PlanNode PlanSelect(SelectStatement select)
     {
         // Shape: From (Scan/Join/Derived) → Filter → Sort → Project → Limit. ORDER BY is
         // applied over the source columns (before projection) so it can reference them.

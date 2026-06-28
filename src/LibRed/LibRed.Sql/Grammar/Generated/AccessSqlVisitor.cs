@@ -135,6 +135,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitAndExpr([NotNull] AccessSqlParser.AndExprContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>LikeExpr</c>
+	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitLikeExpr([NotNull] AccessSqlParser.LikeExprContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>MulDivExpr</c>
 	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
 	/// </summary>
@@ -197,6 +204,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitParamPrimary([NotNull] AccessSqlParser.ParamPrimaryContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>ScalarSubqueryPrimary</c>
+	/// labeled alternative in <see cref="AccessSqlParser.primary"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitScalarSubqueryPrimary([NotNull] AccessSqlParser.ScalarSubqueryPrimaryContext context);
 	/// <summary>
 	/// Visit a parse tree produced by the <c>ParenPrimary</c>
 	/// labeled alternative in <see cref="AccessSqlParser.primary"/>.

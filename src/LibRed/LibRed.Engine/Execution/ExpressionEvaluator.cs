@@ -1,26 +1,30 @@
 using System.Globalization;
+using System.Text;
+using System.Text.RegularExpressions;
 using LibRed.Sql.Ast;
 
 namespace LibRed.Engine.Execution;
 
 /// <summary>
 /// Evaluates an AST <see cref="Expression"/> against a single row, resolving column
-/// references through an ordinal lookup. Comparisons coerce numeric operands; SQL nulls
-/// propagate (a comparison involving null yields null, treated as "not true" by filters).
+/// references through an <see cref="EvalScope"/> (which chains to outer scopes for
+/// correlation). Comparisons coerce numeric operands; SQL nulls propagate (a comparison
+/// involving null yields null, treated as "not true" by filters).
 /// </summary>
-internal sealed class ExpressionEvaluator(Func<ColumnReference, int> resolveColumn, object?[] row)
+internal sealed class ExpressionEvaluator(EvalScope scope, IScalarSubqueryRunner subqueries)
 {
     public object? Evaluate(Expression expression) => expression switch
     {
         LiteralExpression l => l.Value,
-        ColumnReference c => row[resolveColumn(c)],
+        ColumnReference c => scope.TryResolve(c, out object? v) ? v
+            : throw new InvalidOperationException($"Column '{EvalScope.Describe(c)}' was not found."),
+        ScalarSubquery s => subqueries.ExecuteScalar(s.Query, scope),
         UnaryExpression u => EvaluateUnary(u),
         BinaryExpression b => EvaluateBinary(b),
         ParameterExpression => throw new NotSupportedException("Query parameters are not yet supported."),
         _ => throw new NotSupportedException($"Cannot evaluate {expression.GetType().Name}."),
     };
 
-    /// <summary>True iff the expression evaluates to boolean true (null/other → false).</summary>
     public bool IsTrue(Expression expression) => Evaluate(expression) is true;
 
     private object? EvaluateUnary(UnaryExpression u)
@@ -29,7 +33,7 @@ internal sealed class ExpressionEvaluator(Func<ColumnReference, int> resolveColu
         return u.Operator switch
         {
             UnaryOperator.Not => v is bool b ? !b : null,
-            UnaryOperator.Negate => Negate(v),
+            UnaryOperator.Negate => v is null ? null : -Convert.ToDecimal(v, CultureInfo.InvariantCulture),
             UnaryOperator.IsNull => v is null,
             UnaryOperator.IsNotNull => v is not null,
             _ => throw new NotSupportedException($"Unary operator {u.Operator}."),
@@ -38,7 +42,6 @@ internal sealed class ExpressionEvaluator(Func<ColumnReference, int> resolveColu
 
     private object? EvaluateBinary(BinaryExpression b)
     {
-        // Logical operators first (they define their own null handling).
         if (b.Operator is BinaryOperator.And or BinaryOperator.Or)
         {
             bool? l = AsBool(Evaluate(b.Left));
@@ -53,7 +56,7 @@ internal sealed class ExpressionEvaluator(Func<ColumnReference, int> resolveColu
             return (left?.ToString() ?? "") + (right?.ToString() ?? "");
 
         if (left is null || right is null)
-            return null; // arithmetic/comparison with null is null
+            return null;
 
         return b.Operator switch
         {
@@ -63,6 +66,7 @@ internal sealed class ExpressionEvaluator(Func<ColumnReference, int> resolveColu
             BinaryOperator.LessThanOrEqual => Compare(left, right) <= 0,
             BinaryOperator.GreaterThan => Compare(left, right) > 0,
             BinaryOperator.GreaterThanOrEqual => Compare(left, right) >= 0,
+            BinaryOperator.Like => Like(left.ToString()!, right.ToString()!),
             BinaryOperator.Add => Arithmetic(left, right, (a, c) => a + c),
             BinaryOperator.Subtract => Arithmetic(left, right, (a, c) => a - c),
             BinaryOperator.Multiply => Arithmetic(left, right, (a, c) => a * c),
@@ -73,19 +77,22 @@ internal sealed class ExpressionEvaluator(Func<ColumnReference, int> resolveColu
         };
     }
 
-    /// <summary>Orders two values for SORT (nulls first), using the same numeric/string coercion as comparisons.</summary>
-    public static int CompareForSort(object? a, object? b) =>
-        (a, b) switch
-        {
-            (null, null) => 0,
-            (null, _) => -1,
-            (_, null) => 1,
-            _ => Compare(a, b),
-        };
+    /// <summary>SQL LIKE: '%'/'*' match any run, '_'/'?' match one char; case-insensitive.</summary>
+    private static bool Like(string value, string pattern)
+    {
+        var sb = new StringBuilder("^");
+        foreach (char ch in pattern)
+            sb.Append(ch switch
+            {
+                '%' or '*' => ".*",
+                '_' or '?' => ".",
+                _ => Regex.Escape(ch.ToString()),
+            });
+        sb.Append('$');
+        return Regex.IsMatch(value, sb.ToString(), RegexOptions.IgnoreCase | RegexOptions.Singleline);
+    }
 
     private static bool? AsBool(object? v) => v switch { bool b => b, null => null, _ => Convert.ToBoolean(v) };
-
-    private static object Negate(object? v) => v is null ? throw new InvalidOperationException() : -Convert.ToDecimal(v, CultureInfo.InvariantCulture);
 
     private static object Arithmetic(object left, object right, Func<decimal, decimal, decimal> op) =>
         op(Convert.ToDecimal(left, CultureInfo.InvariantCulture), Convert.ToDecimal(right, CultureInfo.InvariantCulture));
@@ -104,6 +111,15 @@ internal sealed class ExpressionEvaluator(Func<ColumnReference, int> resolveColu
 
         return string.CompareOrdinal(left.ToString(), right.ToString());
     }
+
+    /// <summary>Orders two values for SORT (nulls first), using the same coercion as comparisons.</summary>
+    public static int CompareForSort(object? a, object? b) => (a, b) switch
+    {
+        (null, null) => 0,
+        (null, _) => -1,
+        (_, null) => 1,
+        _ => Compare(a, b),
+    };
 
     private static bool IsNumeric(object v) =>
         v is byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;

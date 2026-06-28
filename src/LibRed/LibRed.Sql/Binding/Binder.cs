@@ -20,22 +20,10 @@ public sealed class Binder(ISchemaProvider schema)
 
     private void BindSelect(SelectStatement select)
     {
+        // Validate that referenced tables exist. Column existence is resolved at execution
+        // time, because columns may be alias-qualified across joins/derived tables or
+        // correlated to an outer query, which single-table binding cannot see.
         ValidateSources(select.From);
-
-        // Column-existence validation only for the simple single-table case; with joins and
-        // derived tables, columns are alias-qualified and resolved at execution time.
-        if (select.From is NamedTable named)
-        {
-            ITableSchema table = _schema.GetTable(named.Name)!;
-
-            var referenced = select.Projection.SelectMany(i => ColumnsOf(i.Value));
-            if (select.Where is not null)
-                referenced = referenced.Concat(ColumnsOf(select.Where));
-
-            foreach (ColumnReference column in referenced)
-                if (table.FindColumn(column.Column) is null)
-                    throw new SqlBindException($"Column '{column.Column}' does not exist in table '{table.Name}'.");
-        }
     }
 
     private void ValidateSources(TableReference from)
@@ -53,13 +41,4 @@ public sealed class Binder(ISchemaProvider schema)
                 break;
         }
     }
-
-    private static IEnumerable<ColumnReference> ColumnsOf(Expression expression) => expression switch
-    {
-        ColumnReference c => [c],
-        BinaryExpression b => ColumnsOf(b.Left).Concat(ColumnsOf(b.Right)),
-        UnaryExpression u => ColumnsOf(u.Operand),
-        FunctionCall f => f.Arguments.SelectMany(ColumnsOf),
-        _ => [],
-    };
 }

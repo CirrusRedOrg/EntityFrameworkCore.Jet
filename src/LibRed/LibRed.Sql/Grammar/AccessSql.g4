@@ -50,16 +50,18 @@ expression
     | left=expression op=(STAR | SLASH | MOD | BACKSLASH) right=expression   # MulDivExpr
     | left=expression op=(PLUS | MINUS | AMP) right=expression               # AddConcatExpr
     | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression   # ComparisonExpr
+    | left=expression LIKE right=expression                                 # LikeExpr
     | left=expression AND right=expression                                  # AndExpr
     | left=expression OR right=expression                                   # OrExpr
     | primary                                                               # PrimaryExpr
     ;
 
 primary
-    : literal                    # LiteralPrimary
-    | columnRef                  # ColumnPrimary
-    | PARAM                      # ParamPrimary
-    | LPAREN expression RPAREN   # ParenPrimary
+    : literal                          # LiteralPrimary
+    | columnRef                        # ColumnPrimary
+    | PARAM                            # ParamPrimary
+    | LPAREN selectStatement RPAREN    # ScalarSubqueryPrimary
+    | LPAREN expression RPAREN         # ParenPrimary
     ;
 
 columnRef : (qualifier=identifier DOT)? name=identifier ;
@@ -85,6 +87,7 @@ AS     : [Aa][Ss] ;
 AND    : [Aa][Nn][Dd] ;
 OR     : [Oo][Rr] ;
 NOT    : [Nn][Oo][Tt] ;
+LIKE   : [Ll][Ii][Kk][Ee] ;
 MOD    : [Mm][Oo][Dd] ;
 INNER  : [Ii][Nn][Nn][Ee][Rr] ;
 LEFT   : [Ll][Ee][Ff][Tt] ;

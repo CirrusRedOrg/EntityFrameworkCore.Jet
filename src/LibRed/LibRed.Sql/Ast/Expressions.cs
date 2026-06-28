@@ -30,3 +30,6 @@ public sealed record UnaryExpression(UnaryOperator Operator, Expression Operand)
 
 /// <summary>A scalar/aggregate function call, e.g. <c>Count(*)</c>, <c>IIf(...)</c>, <c>Format(...)</c>.</summary>
 public sealed record FunctionCall(string Name, IReadOnlyList<Expression> Arguments) : Expression;
+
+/// <summary>A subquery used as a scalar value: <c>(SELECT … )</c>. May correlate to the outer query.</summary>
+public sealed record ScalarSubquery(SelectStatement Query) : Expression;

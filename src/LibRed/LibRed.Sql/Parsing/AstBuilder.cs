@@ -68,6 +68,7 @@ internal sealed class AstBuilder
         MulDivExprContext m => Binary(m.op, m.left, m.right),
         AddConcatExprContext a => Binary(a.op, a.left, a.right),
         ComparisonExprContext c => Binary(c.op, c.left, c.right),
+        LikeExprContext l => new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right)),
         AndExprContext a => new BinaryExpression(BinaryOperator.And, BuildExpression(a.left), BuildExpression(a.right)),
         OrExprContext o => new BinaryExpression(BinaryOperator.Or, BuildExpression(o.left), BuildExpression(o.right)),
         PrimaryExprContext p => BuildPrimary(p.primary()),
@@ -79,6 +80,7 @@ internal sealed class AstBuilder
         LiteralPrimaryContext l => BuildLiteral(l.literal()),
         ColumnPrimaryContext c => BuildColumn(c.columnRef()),
         ParamPrimaryContext p => new ParameterExpression(p.PARAM().GetText()),
+        ScalarSubqueryPrimaryContext s => new ScalarSubquery(BuildSelect(s.selectStatement())),
         ParenPrimaryContext p => BuildExpression(p.expression()),
         _ => throw new SqlParseException($"Unsupported primary: {ctx.GetText()}"),
     };

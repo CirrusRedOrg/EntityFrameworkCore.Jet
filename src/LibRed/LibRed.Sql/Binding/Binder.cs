@@ -12,10 +12,22 @@ public sealed class Binder(ISchemaProvider schema)
 
     public BoundStatement Bind(SqlStatement statement)
     {
-        if (statement is SelectStatement select)
-            BindSelect(select);
-
+        BindStatement(statement);
         return new BoundStatement(statement);
+    }
+
+    private void BindStatement(SqlStatement statement)
+    {
+        switch (statement)
+        {
+            case SelectStatement select:
+                BindSelect(select);
+                break;
+            case SetOperationStatement set:
+                BindStatement(set.Left);
+                BindStatement(set.Right);
+                break;
+        }
     }
 
     private void BindSelect(SelectStatement select)

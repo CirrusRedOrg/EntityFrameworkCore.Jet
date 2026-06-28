@@ -1,0 +1,60 @@
+using LibRed;
+using LibRed.Engine;
+using Xunit;
+
+namespace LibRed.Engine.Tests;
+
+public class UnionTests
+{
+    private static readonly string Northwind = Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb");
+
+    private static List<object?[]> Query(string sql, out IReadOnlyList<string> columns)
+    {
+        using var db = JetDatabase.Open(Northwind);
+        var rs = new QueryEngine(db).ExecuteQuery(sql);
+        columns = rs.ColumnNames;
+        return rs.Rows.ToList();
+    }
+
+    [Fact]
+    public void Union_of_two_cities()
+    {
+        const string sql = """
+            SELECT `c`.`CustomerID`, `c`.`City`
+            FROM `Customers` AS `c`
+            WHERE `c`.`City` = 'Berlin'
+            UNION
+            SELECT `c0`.`CustomerID`, `c0`.`City`
+            FROM `Customers` AS `c0`
+            WHERE `c0`.`City` = 'London'
+            """;
+
+        var rows = Query(sql, out var columns);
+        Assert.Equal(["CustomerID", "City"], columns); // names from the leading query
+        Assert.Equal(7, rows.Count); // 1 Berlin + 6 London, all distinct
+        Assert.Contains(rows, r => (string)r[0]! == "ALFKI" && (string)r[1]! == "Berlin");
+        Assert.Equal(6, rows.Count(r => (string)r[1]! == "London"));
+    }
+
+    [Fact]
+    public void Union_removes_duplicate_rows()
+    {
+        // Same query on both sides (6 distinct London customers): UNION dedupes the two
+        // identical sets back to 6, UNION ALL keeps all 12.
+        const string one = "SELECT CustomerID FROM Customers WHERE City = 'London'";
+        var distinct = Query($"{one} UNION {one}", out _);
+        var all = Query($"{one} UNION ALL {one}", out _);
+
+        Assert.Equal(6, distinct.Count); // duplicates removed
+        Assert.Equal(12, all.Count);     // UNION ALL keeps both copies
+    }
+
+    [Fact]
+    public void Union_collapses_identical_values_to_one()
+    {
+        // Selecting only City, all 6 London rows are the same value 'London'.
+        var rows = Query("SELECT City FROM Customers WHERE City = 'London' UNION " +
+            "SELECT City FROM Customers WHERE City = 'London'", out _);
+        Assert.Equal("London", Assert.Single(rows)[0]);
+    }
+}

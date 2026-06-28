@@ -10,7 +10,10 @@
 
 grammar AccessSql;
 
-statement : selectStatement EOF ;
+statement : queryExpression EOF ;
+
+// Set operations over SELECTs (left-associative). UNION dedupes; UNION ALL keeps duplicates.
+queryExpression : selectStatement (UNION ALL? selectStatement)* ;
 
 selectStatement
     : SELECT topClause? selectList fromClause whereClause? groupByClause? orderByClause?
@@ -109,6 +112,8 @@ ORDER  : [Oo][Rr][Dd][Ee][Rr] ;
 GROUP  : [Gg][Rr][Oo][Uu][Pp] ;
 IS     : [Ii][Ss] ;
 BY     : [Bb][Yy] ;
+UNION  : [Uu][Nn][Ii][Oo][Nn] ;
+ALL    : [Aa][Ll][Ll] ;
 ASC    : [Aa][Ss][Cc] ;
 DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;

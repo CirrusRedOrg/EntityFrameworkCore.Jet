@@ -10,7 +10,24 @@ namespace LibRed.Sql.Parsing;
 /// </summary>
 internal sealed class AstBuilder
 {
-    public SqlStatement Build(StatementContext ctx) => BuildSelect(ctx.selectStatement());
+    public SqlStatement Build(StatementContext ctx) => BuildQueryExpression(ctx.queryExpression());
+
+    private static SqlStatement BuildQueryExpression(QueryExpressionContext ctx)
+    {
+        SelectStatementContext[] selects = ctx.selectStatement();
+        SqlStatement result = BuildSelect(selects[0]);
+        // ANTLR exposes one UNION token per set operator, each optionally followed by ALL.
+        var unions = ctx.UNION();
+        var alls = ctx.ALL();
+        for (int i = 0; i < unions.Length; i++)
+        {
+            // ALL belongs to this operator if its token sits between this UNION and the next select.
+            bool all = alls.Any(a => a.Symbol.TokenIndex > unions[i].Symbol.TokenIndex
+                && a.Symbol.TokenIndex < selects[i + 1].Start.TokenIndex);
+            result = new SetOperationStatement(result, all ? SetOperator.UnionAll : SetOperator.Union, BuildSelect(selects[i + 1]));
+        }
+        return result;
+    }
 
     private static SelectStatement BuildSelect(SelectStatementContext ctx)
     {

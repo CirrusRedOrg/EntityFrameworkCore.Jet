@@ -16,6 +16,14 @@ public sealed record SelectStatement(
     IReadOnlyList<OrderByItem> OrderBy,
     int? Top) : SqlStatement;
 
+public enum SetOperator { Union, UnionAll }
+
+/// <summary>A set operation combining two queries; UNION dedupes, UNION ALL keeps duplicates.</summary>
+public sealed record SetOperationStatement(
+    SqlStatement Left,
+    SetOperator Operator,
+    SqlStatement Right) : SqlStatement;
+
 public sealed record InsertStatement(
     string Table,
     IReadOnlyList<string> Columns,

@@ -93,6 +93,15 @@ public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
                 return (output, projected);
             }
 
+            case UnionNode union:
+            {
+                // Column names come from the left (leading) query, per SQL.
+                var (columns, leftRows) = Execute(union.Left, outer);
+                var (_, rightRows) = Execute(union.Right, outer);
+                IEnumerable<object?[]> all = leftRows.Concat(rightRows);
+                return (columns, union.Distinct ? Distinct(all) : all);
+            }
+
             case LimitNode limit:
             {
                 var (columns, rows) = Execute(limit.Input, outer);
@@ -102,6 +111,15 @@ public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
             default:
                 throw new NotSupportedException($"Plan node {node.GetType().Name} is not supported yet.");
         }
+    }
+
+    /// <summary>Yields rows with duplicates removed by structural (value-wise) equality.</summary>
+    private static IEnumerable<object?[]> Distinct(IEnumerable<object?[]> rows)
+    {
+        var seen = new HashSet<GroupKey>();
+        foreach (object?[] row in rows)
+            if (seen.Add(new GroupKey(row)))
+                yield return row;
     }
 
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteJoin(JoinNode join, EvalScope? outer)

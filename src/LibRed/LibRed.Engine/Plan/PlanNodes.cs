@@ -54,6 +54,12 @@ public sealed record SortNode(PlanNode Input, IReadOnlyList<OrderByItem> Keys) :
     public override IReadOnlyList<PlanNode> Children => [Input];
 }
 
+/// <summary>Concatenates two inputs; when <paramref name="Distinct"/>, duplicate rows are removed (UNION vs UNION ALL).</summary>
+public sealed record UnionNode(PlanNode Left, PlanNode Right, bool Distinct) : PlanNode
+{
+    public override IReadOnlyList<PlanNode> Children => [Left, Right];
+}
+
 /// <summary>Limits the number of rows (Access <c>TOP n</c>).</summary>
 public sealed record LimitNode(PlanNode Input, int Count) : PlanNode
 {

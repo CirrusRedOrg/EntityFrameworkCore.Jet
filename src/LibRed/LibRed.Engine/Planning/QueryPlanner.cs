@@ -12,13 +12,17 @@ public sealed class QueryPlanner
 {
     public PlanNode Plan(BoundStatement bound)
     {
-        return bound.Statement switch
-        {
-            SelectStatement select => PlanSelect(select),
-            _ => throw new NotImplementedException(
-                $"Planning for {bound.Statement.GetType().Name} is not yet implemented."),
-        };
+        return PlanStatement(bound.Statement);
     }
+
+    private static PlanNode PlanStatement(SqlStatement statement) => statement switch
+    {
+        SelectStatement select => PlanSelect(select),
+        SetOperationStatement set => new UnionNode(
+            PlanStatement(set.Left), PlanStatement(set.Right), set.Operator == SetOperator.Union),
+        _ => throw new NotImplementedException(
+            $"Planning for {statement.GetType().Name} is not yet implemented."),
+    };
 
     /// <summary>Plans a SELECT statement directly (used for subqueries).</summary>
     public static PlanNode PlanSelect(SelectStatement select)

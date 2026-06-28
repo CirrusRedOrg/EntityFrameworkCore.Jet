@@ -5,8 +5,12 @@ namespace LibRed.Core.Tests;
 
 public class IndexStatisticsTests
 {
+    // Note: UniqueEntryCount is cumulative and never decremented by Access, so these
+    // assertions rely on Northwind having no deleted rows (uniqueEntryCount == current
+    // distinct count). They would not hold on a database that has had deletions.
+
     [Fact]
-    public void Unique_indexes_have_cardinality_equal_to_row_count()
+    public void Unique_indexes_have_entry_count_equal_to_row_count()
     {
         using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
 
@@ -15,9 +19,9 @@ public class IndexStatisticsTests
             int rows = db.ReadTableDefinition(table.DefinitionPage).RowCount;
             foreach (var ix in table.Indexes)
             {
-                Assert.InRange(ix.UniqueValueCount, 0, rows);
+                Assert.InRange(ix.UniqueEntryCount, 0, rows);
                 if (ix.IsUnique)
-                    Assert.Equal(rows, ix.UniqueValueCount); // a unique index cannot have duplicates
+                    Assert.Equal(rows, ix.UniqueEntryCount); // a unique index cannot have duplicates
             }
         }
     }
@@ -26,7 +30,7 @@ public class IndexStatisticsTests
     [InlineData("EmployeeID", 9)]      // 9 employees
     [InlineData("ShippersOrders", 3)]  // 3 shippers (ShipVia)
     [InlineData("PK_Orders", 830)]     // unique = row count
-    public void Cardinality_matches_actual_distinct_values(string indexName, int expected)
+    public void Unique_entry_count_matches_actual_distinct_values(string indexName, int expected)
     {
         using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
 
@@ -36,11 +40,11 @@ public class IndexStatisticsTests
 
         int actualDistinct = table.Rows()
             .Select(r => r[columnIndex])
-            .Where(v => v is not null) // index cardinality excludes nulls
+            .Where(v => v is not null) // index entries exclude nulls
             .Distinct()
             .Count();
 
-        Assert.Equal(expected, index.UniqueValueCount);
+        Assert.Equal(expected, index.UniqueEntryCount);
         Assert.Equal(expected, actualDistinct);
     }
 }

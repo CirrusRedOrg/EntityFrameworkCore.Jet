@@ -120,9 +120,10 @@ public sealed class TableDefinitionPage : Page
             int block = blockStart + i * IndexBlockSize;
 
             // Per-index statistics live in the 12-byte block at TdefRealIndexBlockOffset:
-            // [+0] total entries (= row count), [+4] distinct value count, [+8] reserved.
+            // [+0] total entries (= row count), [+4] unique entry count (cumulative, never
+            // decremented by Access), [+8] reserved.
             int statsBlock = format.TdefRealIndexBlockOffset + i * format.RealIndexEntrySize;
-            int uniqueValueCount = buffer.ReadInt32(statsBlock + 4);
+            int uniqueEntryCount = buffer.ReadInt32(statsBlock + 4);
 
             var columns = new List<(ColumnDef Column, bool Ascending)>();
             for (int slot = 0; slot < IndexMaxColumns; slot++)
@@ -140,7 +141,7 @@ public sealed class TableDefinitionPage : Page
                 Columns = columns,
                 IsUnique = (buffer.ReadUInt16(block + IndexFlagsOffset) & IndexFlagUnique) != 0,
                 IsPrimaryKey = false,
-                UniqueValueCount = uniqueValueCount,
+                UniqueEntryCount = uniqueEntryCount,
                 RootPage = buffer.ReadInt32(block + IndexRootPageOffset),
             });
         }

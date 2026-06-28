@@ -126,12 +126,15 @@ statistics:
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 4 | Total entry count (= the table's row count; every row is indexed) |
-| `0x04` | 4 | **Distinct value count** (index cardinality) |
+| `0x04` | 4 | **Unique entry count** — distinct entries ever added (see note) |
 | `0x08` | 4 | Reserved (zero observed) |
 
-A unique index necessarily has `distinct == rowCount`; the converse does not hold (a
-non-unique index can have all-distinct data). LibRed exposes the cardinality as
-`IndexDef.UniqueValueCount`.
+The unique entry count is **cumulative**: Access increments it but never decrements it (the
+same behaviour Jackcess documents for `uniqueEntryCount`). It therefore equals the *current*
+distinct-value count only when no rows have been deleted; after deletions it drifts higher.
+On a database with no deletions a unique index has `uniqueEntryCount == rowCount`; the converse
+does not hold (a non-unique index can have all-distinct data). LibRed exposes it as
+`IndexDef.UniqueEntryCount`.
 
 ### 3.4 Column descriptor (25 bytes)
 

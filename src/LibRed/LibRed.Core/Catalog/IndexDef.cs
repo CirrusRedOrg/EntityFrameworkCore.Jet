@@ -11,8 +11,13 @@ public sealed record IndexDef
     public bool IsUnique { get; init; }
     public bool IsPrimaryKey { get; init; }
 
-    /// <summary>Number of distinct key values in the index (cardinality), from the TDEF statistics block.</summary>
-    public int UniqueValueCount { get; init; }
+    /// <summary>
+    /// The index's unique-entry count from the TDEF statistics block. This is a cumulative
+    /// count of distinct entries ever added that Access increments but <b>never decrements</b>,
+    /// so it equals the current distinct-value count (cardinality) only when no rows have been
+    /// deleted. (Same semantics as Jackcess's <c>uniqueEntryCount</c>.)
+    /// </summary>
+    public int UniqueEntryCount { get; init; }
 
     /// <summary>Page number of the index B-tree root.</summary>
     public int RootPage { get; init; }

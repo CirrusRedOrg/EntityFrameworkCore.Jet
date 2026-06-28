@@ -61,7 +61,7 @@ public class CatalogDumpTests(ITestOutputHelper output)
                 {
                     string kind = ix.IsPrimaryKey ? "PK " : ix.IsUnique ? "U  " : "   ";
                     string cols = string.Join(", ", ix.Columns.Select(c => c.Column.Name + (c.Ascending ? "" : " DESC")));
-                    sb.Append($"          {kind}{("\"" + ix.Name + "\""),-26} [{cols}] root={ix.RootPage} distinct={ix.UniqueValueCount}\n");
+                    sb.Append($"          {kind}{("\"" + ix.Name + "\""),-26} [{cols}] root={ix.RootPage} uniqueEntries={ix.UniqueEntryCount}\n");
                 }
             }
 

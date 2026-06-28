@@ -158,10 +158,10 @@ does not hold (a non-unique index can have all-distinct data). LibRed exposes it
 **Flags (`0x0F`):** `0x01` fixed-length, `0x02` updatable, `0x04` auto-number,
 `0x40` auto-number GUID, `0x80` hyperlink (on a Memo column).
 
-> `0x0B`–`0x0C` reads as the constant `0x0409` (the en-US LCID / text collation) on every
-> non-numeric column in the files inspected; per Jackcess these two bytes instead hold the
-> precision and scale for Decimal/Numeric columns. Northwind has no Decimal column, so the
-> numeric interpretation is taken from Jackcess and not independently verified here.
+> `0x0B`–`0x0C` is a union keyed by type: for a Decimal/Numeric column (type `0x10`) it holds
+> the **precision** (`0x0B`) and **scale** (`0x0C`) — verified with a `DECIMAL(12,3)` column,
+> which reads precision = 12, scale = 3; for every other type it reads the constant `0x0409`
+> (the en-US LCID / text collation).
 >
 > LibRed currently *derives* the variable-table index (`0x07`) by ranking variable columns by
 > column id rather than reading it; the stored value matches that ranking in every file tested.

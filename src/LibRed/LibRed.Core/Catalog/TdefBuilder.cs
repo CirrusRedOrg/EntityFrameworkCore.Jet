@@ -15,6 +15,14 @@ public sealed record ColumnSpec(
     byte Precision = 0,
     byte Scale = 0);
 
+/// <summary>An index to create over the named columns, anchored at an already-allocated root page.</summary>
+public sealed record IndexSpec(
+    string Name,
+    IReadOnlyList<string> Columns,
+    bool IsPrimaryKey,
+    bool IsUnique,
+    int RootPage);
+
 /// <summary>
 /// Serializes a table schema into a Jet 4 / ACE table-definition (TDEF) page — the inverse of
 /// <see cref="TableDefinitionPage"/>. This first cut builds a single-page definition with no
@@ -29,10 +37,35 @@ public static class TdefBuilder
     // Column-descriptor sub-offsets the reader doesn't consume but Access does.
     private const int ColumnVariableIndexOffset = 0x07;
 
+    // Index-data block (52 bytes): a 0x783 marker, 10 column slots, root page, unique flag.
+    private const int IndexBlockSize = 52;
+    private const int IndexMaxColumns = 10;
+    private const int IndexColumnSlotSize = 3;
+    private const int IndexColumnsOffset = 0x04;
+    private const int IndexRootPageOffset = 0x26;
+    private const int IndexFlagsOffset = 0x2E;
+    private const short IndexColumnUnused = -1; // 0xFFFF
+    private const byte IndexColumnAscending = 0x01;
+    private const ushort IndexFlagUnique = 0x0001;
+    private const uint IndexDataMarker = 0x783;
+
+    // Index-info block (28 bytes, one per logical index): links a name to a data block.
+    private const int IndexInfoBlockSize = 28;
+    private const int IndexInfoNumberOffset = 0x04;
+    private const int IndexInfoDataNumberOffset = 0x08;
+    private const int IndexInfoTypeOffset = 0x17;
+    private const byte IndexTypePrimary = 0x01;
+    private const byte IndexTypeRegular = 0x02;
+
     public sealed record Result(byte[] Page, IReadOnlyList<ColumnDef> Columns);
 
-    public static Result Build(JetFormatBase format, TableType tableType, IReadOnlyList<ColumnSpec> specs)
+    public static Result Build(
+        JetFormatBase format,
+        TableType tableType,
+        IReadOnlyList<ColumnSpec> specs,
+        IReadOnlyList<IndexSpec>? indexes = null)
     {
+        indexes ??= [];
         var columns = ResolveColumns(format, specs);
         var page = new byte[format.PageSize];
 
@@ -43,15 +76,68 @@ public static class TdefBuilder
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefVariableColumnsOffset, 2),
             (ushort)columns.Count(c => !c.IsFixedLength));
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefColumnCountOffset, 2), (ushort)columns.Count);
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRealIndexCountOffset, 4), 0); // logical
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefIndexCountOffset, 4), 0);      // real
+        // Logical (0x2F) and real (0x33) index counts — equal here (no shared relationship indexes).
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRealIndexCountOffset, 4), indexes.Count);
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefIndexCountOffset, 4), indexes.Count);
 
-        // No indexes, so column descriptors start right at the real-index block offset.
-        int columnBlock = format.TdefRealIndexBlockOffset;
+        // The per-index statistics blocks (12 bytes each) precede the columns; entry counts start 0.
+        int columnBlock = format.TdefRealIndexBlockOffset + indexes.Count * format.RealIndexEntrySize;
         WriteColumnDescriptors(page, format, columns, columnBlock);
-        WriteColumnNames(page, format, columns, columnBlock + columns.Count * format.ColumnDescriptorSize);
+        int afterNames = WriteColumnNames(page, format, columns, columnBlock + columns.Count * format.ColumnDescriptorSize);
 
+        WriteIndexes(page, format, columns, indexes, afterNames);
         return new Result(page, columns);
+    }
+
+    private static void WriteIndexes(byte[] page, JetFormatBase format, List<ColumnDef> columns, IReadOnlyList<IndexSpec> indexes, int dataBlockStart)
+    {
+        var columnIdByName = columns.ToDictionary(c => c.Name, c => c.ColumnId, StringComparer.OrdinalIgnoreCase);
+
+        // 1. Index-data blocks: columns, root page, unique flag.
+        for (int i = 0; i < indexes.Count; i++)
+        {
+            IndexSpec index = indexes[i];
+            int block = dataBlockStart + i * IndexBlockSize;
+
+            BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(block, 4), IndexDataMarker);
+            for (int slot = 0; slot < IndexMaxColumns; slot++)
+            {
+                int entry = block + IndexColumnsOffset + slot * IndexColumnSlotSize;
+                if (slot < index.Columns.Count)
+                {
+                    BinaryPrimitives.WriteInt16LittleEndian(page.AsSpan(entry, 2), (short)columnIdByName[index.Columns[slot]]);
+                    page[entry + 2] = IndexColumnAscending;
+                }
+                else
+                {
+                    BinaryPrimitives.WriteInt16LittleEndian(page.AsSpan(entry, 2), IndexColumnUnused);
+                }
+            }
+            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexRootPageOffset, 4), index.RootPage);
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(block + IndexFlagsOffset, 2),
+                (ushort)(index.IsUnique ? IndexFlagUnique : 0));
+        }
+
+        // 2. Index-info blocks: link each name to its data block.
+        int infoStart = dataBlockStart + indexes.Count * IndexBlockSize;
+        for (int i = 0; i < indexes.Count; i++)
+        {
+            int block = infoStart + i * IndexInfoBlockSize;
+            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexInfoNumberOffset, 4), i);
+            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexInfoDataNumberOffset, 4), i);
+            page[block + IndexInfoTypeOffset] = indexes[i].IsPrimaryKey ? IndexTypePrimary : IndexTypeRegular;
+        }
+
+        // 3. Index names.
+        int namePos = infoStart + indexes.Count * IndexInfoBlockSize;
+        foreach (IndexSpec index in indexes)
+        {
+            byte[] name = System.Text.Encoding.Unicode.GetBytes(index.Name);
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(namePos, 2), (ushort)name.Length);
+            namePos += 2;
+            name.CopyTo(page.AsSpan(namePos));
+            namePos += name.Length;
+        }
     }
 
     private static List<ColumnDef> ResolveColumns(JetFormatBase format, IReadOnlyList<ColumnSpec> specs)
@@ -113,7 +199,7 @@ public static class TdefBuilder
         }
     }
 
-    private static void WriteColumnNames(byte[] page, JetFormatBase format, List<ColumnDef> columns, int namePos)
+    private static int WriteColumnNames(byte[] page, JetFormatBase format, List<ColumnDef> columns, int namePos)
     {
         _ = format;
         foreach (ColumnDef c in columns)
@@ -124,5 +210,6 @@ public static class TdefBuilder
             name.CopyTo(page.AsSpan(namePos));
             namePos += name.Length;
         }
+        return namePos;
     }
 }

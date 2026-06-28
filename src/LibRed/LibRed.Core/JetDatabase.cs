@@ -55,12 +55,13 @@ public sealed class JetDatabase : IDisposable
     public JetCatalog Catalog { get; }
 
     /// <summary>
-    /// Creates a new heap table (no indexes yet) and registers it in the catalog. The database
-    /// must have been opened writable. The table is usable immediately for inserts and scans.
+    /// Creates a new table and registers it in the catalog. An optional primary key creates a
+    /// unique index over the named columns. The database must have been opened writable; the
+    /// table is usable immediately for inserts and scans.
     /// </summary>
-    public void CreateTable(string name, IReadOnlyList<ColumnSpec> columns)
+    public void CreateTable(string name, IReadOnlyList<ColumnSpec> columns, IReadOnlyList<string>? primaryKey = null)
     {
-        new Storage.TableCreator(_channel, Catalog).Create(name, columns);
+        new Storage.TableCreator(_channel, Catalog).Create(name, columns, primaryKey);
         Catalog.Invalidate();
     }
 

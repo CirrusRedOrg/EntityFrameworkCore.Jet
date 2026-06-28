@@ -63,6 +63,33 @@ public class TdefBuilderTests
     }
 
     [Fact]
+    public void Built_tdef_with_primary_key_index_round_trips()
+    {
+        var specs = new ColumnSpec[]
+        {
+            new("Id", JetDataType.Int32, 4, IsFixedLength: true),
+            new("Name", JetDataType.Text, 510, IsFixedLength: false),
+        };
+        var indexes = new[] { new IndexSpec("PrimaryKey", ["Id"], IsPrimaryKey: true, IsUnique: true, RootPage: 42) };
+
+        var result = TdefBuilder.Build(Format, TableType.User, specs, indexes);
+
+        var page = new TableDefinitionPage();
+        page.Read(new PageBuffer(result.Page, 7), Format);
+
+        var pk = Assert.Single(page.Indexes);
+        Assert.Equal("PrimaryKey", pk.Name);
+        Assert.True(pk.IsPrimaryKey);
+        Assert.True(pk.IsUnique);
+        Assert.Equal(42, pk.RootPage);
+        Assert.Equal(["Id"], pk.Columns.Select(c => c.Column.Name));
+        Assert.True(pk.Columns[0].Ascending);
+
+        // Columns still parse correctly after the index blocks shifted them.
+        Assert.Equal(["Id", "Name"], page.Columns.Select(c => c.Name));
+    }
+
+    [Fact]
     public void Built_tdef_columns_can_encode_and_decode_a_row()
     {
         // The resolved column layout must round-trip an actual row through the row codec.

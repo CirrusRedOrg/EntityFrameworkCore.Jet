@@ -1,5 +1,6 @@
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Storage;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -67,6 +68,42 @@ public class TableCreatorTests
                 Assert.Equal(2, rows.Count);
                 Assert.Equal([1, "first", new DateTime(2020, 1, 2)], rows[0]);
                 Assert.Equal([2, "second", new DateTime(2021, 3, 4)], rows[1]);
+            }
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Created_table_with_primary_key_has_a_working_index()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Widgets", Schema, primaryKey: ["Id"]);
+                var table = db.OpenTable("Widgets");
+                // Insert out of order; the index must keep key order.
+                table.Insert([3, "c", new DateTime(2022, 1, 1)]);
+                table.Insert([1, "a", new DateTime(2020, 1, 1)]);
+                table.Insert([2, "b", new DateTime(2021, 1, 1)]);
+            }
+
+            using (var db = JetDatabase.Open(path))
+            {
+                var def = db.Catalog.FindTable("Widgets")!;
+                var pk = Assert.Single(def.Indexes, i => i.IsPrimaryKey);
+                Assert.Equal("PrimaryKey", pk.Name);
+                Assert.True(pk.IsUnique);
+                Assert.Equal(["Id"], pk.Columns.Select(c => c.Column.Name));
+
+                // The index B-tree returns the rows in key order, even though they were inserted out of order.
+                var table = db.OpenTable("Widgets");
+                var ids = new IndexCursor(table.Channel, pk.RootPage)
+                    .Entries(pk.Columns)
+                    .Select(e => (int)e.Key[0]!)
+                    .ToList();
+                Assert.Equal([1, 2, 3], ids);
             }
         }
         finally { File.Delete(path); }

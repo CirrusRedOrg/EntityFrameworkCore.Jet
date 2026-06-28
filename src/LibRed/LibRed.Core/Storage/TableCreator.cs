@@ -17,11 +17,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     private readonly PageChannel _channel = channel;
     private readonly JetCatalog _catalog = catalog;
 
-    public void Create(string name, IReadOnlyList<ColumnSpec> columns)
+    public void Create(string name, IReadOnlyList<ColumnSpec> columns, IReadOnlyList<string>? primaryKey = null)
     {
         JetFormatBase format = _channel.Format;
 
-        // Allocate the three pages the table needs.
+        // Allocate the pages the table needs.
         int tdefPage = _channel.AllocatePage();
         int dataPage = _channel.AllocatePage();
         int usageMapPage = _channel.AllocatePage();
@@ -29,13 +29,37 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         WriteEmptyDataPage(format, dataPage, owner: tdefPage);
         WriteOwnedPagesMap(format, usageMapPage, owner: tdefPage, ownedPage: dataPage);
 
+        // A primary key is one unique index over an empty leaf root, populated as rows are inserted.
+        IndexSpec[] indexes = [];
+        if (primaryKey is { Count: > 0 })
+        {
+            int rootPage = _channel.AllocatePage();
+            WriteEmptyLeafIndexPage(format, rootPage, owner: tdefPage);
+            indexes = [new IndexSpec("PrimaryKey", primaryKey, IsPrimaryKey: true, IsUnique: true, rootPage)];
+        }
+
         // Build the definition, point it at the owned-pages map, and write it.
-        byte[] tdef = TdefBuilder.Build(format, TableType.User, columns).Page;
+        byte[] tdef = TdefBuilder.Build(format, TableType.User, columns, indexes).Page;
         tdef[format.TdefOwnedPagesOffset] = 0; // map record row
         WriteInt24(tdef, format.TdefOwnedPagesOffset + 1, usageMapPage);
         _channel.WritePage(tdefPage, tdef);
 
         AddCatalogRow(name, tdefPage);
+    }
+
+    /// <summary>Writes an empty B-tree leaf (no entries) to serve as a fresh index root.</summary>
+    private void WriteEmptyLeafIndexPage(JetFormatBase format, int pageNumber, int owner)
+    {
+        const int EntryDataOffset = 0x1E0;
+        const int OwnerOffset = 0x04;
+
+        var page = new byte[format.PageSize];
+        page[0] = (byte)PageType.LeafIndexPage;
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(OwnerOffset, 4), owner);
+        // No entries: empty mask, no prefix compression, free space is the whole entry region.
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
+            (ushort)(format.PageSize - EntryDataOffset));
+        _channel.WritePage(pageNumber, page);
     }
 
     private void WriteEmptyDataPage(JetFormatBase format, int pageNumber, int owner)

@@ -45,9 +45,8 @@ public class AggregateTests
     {
         // Northwind has no negative values, so this guards the FIX-vs-INT distinction
         // directly: FIX truncates toward zero, INT floors toward -infinity.
-        // (-2.7 is written as 0 - 2.7 since unary minus isn't in the grammar yet.)
         var rows = Query(
-            "SELECT FIX(0 - 2.7) AS f, INT(0 - 2.7) AS i, FIX(2.7) AS fp, INT(2.7) AS ip, ABS(0 - 3.5) AS a " +
+            "SELECT FIX(-2.7) AS f, INT(-2.7) AS i, FIX(2.7) AS fp, INT(2.7) AS ip, ABS(-3.5) AS a " +
             "FROM Products WHERE ProductID = 1", out _);
         var r = Assert.Single(rows);
         Assert.Equal(-2m, Convert.ToDecimal(r[0])); // FIX(-2.7) -> -2 (toward zero)
@@ -55,6 +54,19 @@ public class AggregateTests
         Assert.Equal(2m, Convert.ToDecimal(r[2]));  // FIX(2.7)  -> 2
         Assert.Equal(2m, Convert.ToDecimal(r[3]));  // INT(2.7)  -> 2 (equal for positives)
         Assert.Equal(3.5m, Convert.ToDecimal(r[4])); // ABS(-3.5) -> 3.5
+    }
+
+    [Fact]
+    public void Unary_minus_negates_and_binds_tightly()
+    {
+        var rows = Query(
+            "SELECT -3 AS a, 10 - -3 AS b, -2 * 3 AS c, -(2 + 3) AS d " +
+            "FROM Products WHERE ProductID = 1", out _);
+        var r = Assert.Single(rows);
+        Assert.Equal(-3m, Convert.ToDecimal(r[0]));
+        Assert.Equal(13m, Convert.ToDecimal(r[1])); // 10 - (-3)
+        Assert.Equal(-6m, Convert.ToDecimal(r[2])); // (-2) * 3, binds tighter than *
+        Assert.Equal(-5m, Convert.ToDecimal(r[3])); // -(2 + 3)
     }
 
     [Fact]

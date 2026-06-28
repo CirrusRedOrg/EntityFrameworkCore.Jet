@@ -18,8 +18,8 @@ public sealed class QueryPlanner
     private static PlanNode PlanStatement(SqlStatement statement) => statement switch
     {
         SelectStatement select => PlanSelect(select),
-        SetOperationStatement set => new UnionNode(
-            PlanStatement(set.Left), PlanStatement(set.Right), set.Operator == SetOperator.Union),
+        SetOperationStatement set => new SetOperationNode(
+            PlanStatement(set.Left), PlanStatement(set.Right), set.Operator),
         _ => throw new NotImplementedException(
             $"Planning for {statement.GetType().Name} is not yet implemented."),
     };

@@ -12,8 +12,10 @@ grammar AccessSql;
 
 statement : queryExpression EOF ;
 
-// Set operations over SELECTs (left-associative). UNION dedupes; UNION ALL keeps duplicates.
-queryExpression : selectStatement (UNION ALL? selectStatement)* ;
+// Set operations over SELECTs (left-associative). UNION dedupes; UNION ALL keeps
+// duplicates; INTERSECT/EXCEPT dedupe. (Access has no INTERSECT/EXCEPT — LibRed owns the dialect.)
+queryExpression : selectStatement (setOperator selectStatement)* ;
+setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 
 selectStatement
     : SELECT topClause? selectList fromClause whereClause? groupByClause? orderByClause?
@@ -112,8 +114,10 @@ ORDER  : [Oo][Rr][Dd][Ee][Rr] ;
 GROUP  : [Gg][Rr][Oo][Uu][Pp] ;
 IS     : [Ii][Ss] ;
 BY     : [Bb][Yy] ;
-UNION  : [Uu][Nn][Ii][Oo][Nn] ;
-ALL    : [Aa][Ll][Ll] ;
+UNION     : [Uu][Nn][Ii][Oo][Nn] ;
+ALL       : [Aa][Ll][Ll] ;
+INTERSECT : [Ii][Nn][Tt][Ee][Rr][Ss][Ee][Cc][Tt] ;
+EXCEPT    : [Ee][Xx][Cc][Ee][Pp][Tt] ;
 ASC    : [Aa][Ss][Cc] ;
 DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;

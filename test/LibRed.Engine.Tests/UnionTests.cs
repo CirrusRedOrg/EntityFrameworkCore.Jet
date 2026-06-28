@@ -50,6 +50,33 @@ public class UnionTests
     }
 
     [Fact]
+    public void Intersect_keeps_rows_in_both()
+    {
+        // Customers in (London or Berlin) INTERSECT customers in (London or Madrid) = London only.
+        var rows = Query(
+            "SELECT CustomerID, City FROM Customers WHERE City = 'London' OR City = 'Berlin' " +
+            "INTERSECT " +
+            "SELECT CustomerID, City FROM Customers WHERE City = 'London' OR City = 'Madrid'", out _);
+
+        Assert.NotEmpty(rows);
+        Assert.All(rows, r => Assert.Equal("London", r[1])); // only the shared London rows survive
+        Assert.Equal(6, rows.Count);
+    }
+
+    [Fact]
+    public void Except_keeps_left_rows_not_in_right()
+    {
+        // (London or Berlin) EXCEPT (London) = Berlin only.
+        var rows = Query(
+            "SELECT CustomerID, City FROM Customers WHERE City = 'London' OR City = 'Berlin' " +
+            "EXCEPT " +
+            "SELECT CustomerID, City FROM Customers WHERE City = 'London'", out _);
+
+        Assert.All(rows, r => Assert.Equal("Berlin", r[1]));
+        Assert.Equal("ALFKI", Assert.Single(rows)[0]); // Berlin has a single customer
+    }
+
+    [Fact]
     public void Union_collapses_identical_values_to_one()
     {
         // Selecting only City, all 6 London rows are the same value 'London'.

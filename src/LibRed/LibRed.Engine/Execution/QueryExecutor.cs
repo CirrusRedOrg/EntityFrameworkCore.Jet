@@ -93,13 +93,12 @@ public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
                 return (output, projected);
             }
 
-            case UnionNode union:
+            case SetOperationNode setOp:
             {
                 // Column names come from the left (leading) query, per SQL.
-                var (columns, leftRows) = Execute(union.Left, outer);
-                var (_, rightRows) = Execute(union.Right, outer);
-                IEnumerable<object?[]> all = leftRows.Concat(rightRows);
-                return (columns, union.Distinct ? Distinct(all) : all);
+                var (columns, leftRows) = Execute(setOp.Left, outer);
+                var (_, rightRows) = Execute(setOp.Right, outer);
+                return (columns, ExecuteSetOp(setOp.Operator, leftRows, rightRows));
             }
 
             case LimitNode limit:
@@ -110,6 +109,29 @@ public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
 
             default:
                 throw new NotSupportedException($"Plan node {node.GetType().Name} is not supported yet.");
+        }
+    }
+
+    private static IEnumerable<object?[]> ExecuteSetOp(SetOperator op, IEnumerable<object?[]> left, IEnumerable<object?[]> right)
+    {
+        switch (op)
+        {
+            case SetOperator.UnionAll:
+                return left.Concat(right);
+            case SetOperator.Union:
+                return Distinct(left.Concat(right));
+            case SetOperator.Intersect:
+            {
+                var keep = new HashSet<GroupKey>(right.Select(r => new GroupKey(r)));
+                return Distinct(left).Where(r => keep.Contains(new GroupKey(r)));
+            }
+            case SetOperator.Except:
+            {
+                var remove = new HashSet<GroupKey>(right.Select(r => new GroupKey(r)));
+                return Distinct(left).Where(r => !remove.Contains(new GroupKey(r)));
+            }
+            default:
+                throw new NotSupportedException($"Set operator {op} is not supported.");
         }
     }
 

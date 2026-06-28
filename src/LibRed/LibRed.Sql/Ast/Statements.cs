@@ -16,9 +16,12 @@ public sealed record SelectStatement(
     IReadOnlyList<OrderByItem> OrderBy,
     int? Top) : SqlStatement;
 
-public enum SetOperator { Union, UnionAll }
+public enum SetOperator { Union, UnionAll, Intersect, Except }
 
-/// <summary>A set operation combining two queries; UNION dedupes, UNION ALL keeps duplicates.</summary>
+/// <summary>
+/// A set operation combining two queries. UNION dedupes, UNION ALL keeps duplicates,
+/// INTERSECT keeps rows in both, EXCEPT keeps rows in the left not in the right.
+/// </summary>
 public sealed record SetOperationStatement(
     SqlStatement Left,
     SetOperator Operator,

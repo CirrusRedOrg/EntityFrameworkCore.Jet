@@ -85,12 +85,14 @@ version. (Page-level encryption for password-protected files is not implemented.
 | `0x3B` | 4 | Free-space-pages usage-map pointer |
 | `0x3F` | — | Start of the real-index block (precedes column descriptors) |
 
-> The `0x0C` and `0x18` entries are constants across every file inspected; their exact
-> meaning is unconfirmed, so they are recorded as observed rather than named. LibRed does not
-> read them. Note `0x0C` is **not** the code page — `0x659` (1625) is not a valid code page,
-> and the code page is a database-wide value on page 0, not per-table. 1625 is in fact the
-> same magic constant used as the index-info block marker (and `1923`/`0x783` is the
-> index-data block marker), so `0x0C` is most likely a format sentinel.
+> **The `0x659` / `0x783` record markers.** `0x0C` holds `0x659` (1625) in every file. This is
+> not isolated: `0x659` recurs as a fixed 4-byte field at the start of each repeating TDEF
+> record — column descriptor `+1` (§3.4), index-info block `+0` (§3.6), and this header slot —
+> while `0x783` (1923) marks each index-data block `+0` (§3.5). They are constant within and
+> across files; mdbtools describes them as "usually 1625 / 1923 *or 0*", so they appear to be
+> reserved record markers/tags the engine does not depend on (LibRed ignores them). `0x0C` is
+> therefore **not** the code page — `1625` is not a valid code page, and the code page is a
+> database-wide value on page 0, not per-table.
 
 > ⚠️ `0x2F` vs `0x33`: these are equal for MSysObjects (which hid the distinction during
 > reverse-engineering) but differ for user tables. `0x33` (real index count) sizes the
@@ -121,10 +123,14 @@ absolute from the first page, so parsing is otherwise unchanged.
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 1 | Data type (see §6) |
+| `0x01` | 4 | Record marker constant `0x659` (see §3.1 note); ignored |
 | `0x05` | 2 | Column id (a.k.a. column number) |
 | `0x0F` | 1 | Flags: `0x01` fixed-length, `0x04` auto-number |
 | `0x15` | 2 | Fixed-data offset within the row's fixed region |
 | `0x17` | 2 | Length (bytes) |
+
+Bytes `0x07`–`0x0E` and `0x10`–`0x14` carry additional per-column flags/metadata LibRed does
+not currently use.
 
 Variable-length columns are assigned a *variable index* = their rank among variable columns
 ordered by ascending column id (used by the row's variable-offset table, §5).

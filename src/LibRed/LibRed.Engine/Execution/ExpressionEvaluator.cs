@@ -40,6 +40,9 @@ internal sealed class ExpressionEvaluator(
             "IIF" => IsTrue(f.Arguments[0]) ? Evaluate(f.Arguments[1]) : Evaluate(f.Arguments[2]),
             "DATEPART" => DatePart(Evaluate(f.Arguments[0]), Evaluate(f.Arguments[1])),
             "ROUND" => Round(f),
+            "FIX" => UnaryNumeric(f, d => Math.Truncate(d)),     // toward zero
+            "INT" => UnaryNumeric(f, d => Math.Floor(d)),        // toward -infinity
+            "ABS" => UnaryNumeric(f, Math.Abs),
             _ => throw new NotSupportedException($"Function {f.Name} is not supported."),
         };
     }
@@ -53,6 +56,13 @@ internal sealed class ExpressionEvaluator(
             ? Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture)
             : 0;
         return Math.Round(Convert.ToDecimal(value, CultureInfo.InvariantCulture), digits, MidpointRounding.ToEven);
+    }
+
+    /// <summary>Applies a numeric transform to a single argument, propagating NULL.</summary>
+    private object? UnaryNumeric(FunctionCall f, Func<decimal, decimal> op)
+    {
+        object? value = Evaluate(f.Arguments[0]);
+        return value is null ? null : op(Convert.ToDecimal(value, CultureInfo.InvariantCulture));
     }
 
     /// <summary>Access DATEPART(interval, date): extracts a component of a date as an int.</summary>

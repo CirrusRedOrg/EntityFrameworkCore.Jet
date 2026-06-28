@@ -78,6 +78,37 @@ public class CorrelatedSubqueryTests
     }
 
     [Fact]
+    public void Correlated_aggregate_subquery_with_fix_truncation()
+    {
+        // Like the ROUND test, but FIX truncates each term toward zero before summing.
+        const string sql = """
+            SELECT `o`.`OrderID`, (
+                SELECT IIF(SUM(FIX(`o0`.`UnitPrice` * `o0`.`UnitPrice`)) IS NULL, 0.0, SUM(FIX(`o0`.`UnitPrice` * `o0`.`UnitPrice`)))
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
+            FROM `Orders` AS `o`
+            WHERE `o`.`OrderID` < 10300
+            """;
+
+        var rows = Query(sql, out _);
+        Assert.Equal(52, rows.Count);
+
+        using var db = JetDatabase.Open(Northwind);
+        var details = db.OpenTable("Order Details");
+        int oid = details.Definition.Columns.Single(c => c.Name == "OrderID").Index;
+        int price = details.Definition.Columns.Single(c => c.Name == "UnitPrice").Index;
+        var expected = details.Rows()
+            .GroupBy(r => Convert.ToInt32(r[oid]))
+            .ToDictionary(
+                g => g.Key,
+                g => g.Sum(r => Math.Truncate(Convert.ToDecimal(r[price]) * Convert.ToDecimal(r[price]))));
+
+        foreach (var row in rows)
+            Assert.Equal(expected.TryGetValue(Convert.ToInt32(row[0]), out var sum) ? sum : 0m, Convert.ToDecimal(row[1]));
+        Assert.Equal(1503m, Convert.ToDecimal(rows.Single(r => Convert.ToInt32(r[0]) == 10248)[1]));
+    }
+
+    [Fact]
     public void Nested_derived_tables_with_correlation_and_like_and_left_join()
     {
         const string sql = """

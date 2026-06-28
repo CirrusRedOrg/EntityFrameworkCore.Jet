@@ -4,7 +4,10 @@ This is LibRed's own specification of the Microsoft Jet 4 / ACE (Access `.mdb` /
 on-disk format. **Every offset and structure here has been verified byte-for-byte against
 real database files** (the Northwind ACE-2007 sample, a generated 200-column wide table,
 and a generated ~150 MB large table) and cross-checked against mdbtools (`src/libmdb/`)
-and Jackcess. Where something is assumed or unverified, it says so explicitly.
+and Jackcess. Several structures are additionally verified from the **write** side: LibRed
+produces them and Access's own OLE DB engine reads the result back (a LibRed-inserted row is
+found by an Access indexed primary-key seek; encoded index keys match Access's stored bytes).
+Where something is assumed or unverified, it says so explicitly.
 
 Unless noted, everything below describes **Jet 4 and ACE (12/14/16/17)**, which share one
 structural layout. **Jet 3** (Access 97) differs in many of these and is *not yet
@@ -214,6 +217,16 @@ Row slot entry: lower 13 bits (`& 0x1FFF`) = the row's byte offset in the page; 
 deleted, `0x4000` = overflow/lookup pointer (not an inline row). Rows are packed from the end
 of the page backward, so a slot runs from its offset up to where the previous slot's row began.
 
+> **Inserting a row** (verified — Access reads the result): place the record at
+> `lowestRowOffset − recordLength` (just below the current lowest row, or `pageSize − recordLength`
+> on an empty page), append its offset as a new slot at `0x0E + rowCount×2`, increment the row
+> count (`0x0C`), and decrease free space (`0x02`) by `recordLength + 2` (record bytes plus the
+> slot entry). The new row's **row id** is `(thisPage, oldRowCount)`. The fixed-region length of
+> the encoded record must match the table's existing rows — read it off any existing row's
+> variable-offset table (its last entry is the variable-data start = `2 + fixedRegionLength`).
+> A row is found by **table scan** as soon as it is in the heap, but an **indexed lookup** (and
+> Access's PK seek) misses it until it is also added to every index B-tree (§10.4).
+
 ---
 
 ## 5. Row record format
@@ -234,7 +247,10 @@ of the page backward, so a slot runs from its offset up to where the previous sl
   `offset(k)` is the little-endian 16-bit value at `varTableStart + k×2`. (The table is stored
   end-first, i.e. ascending column-id order maps to descending table index.)
 - **Booleans** carry **no data** — the value *is* the null-bitmap bit (set = true). Boolean
-  columns are never null.
+  columns are never null, and they occupy **no fixed-region bytes**: their descriptor's fixed
+  offset is 0 and the fixed offsets of other columns skip over them. (Verified: Northwind's
+  `Products.Discontinued` is `fixed@0` even though it follows several fixed columns. A writer
+  must therefore *not* advance the fixed offset for a Boolean column.)
 - Variable offsets are **always 2 bytes** in Jet 4 / ACE, at any row size. There is **no
   jump table** (that is a Jet 3 construct for its 1-byte offsets).
 
@@ -359,10 +375,20 @@ Entries on a page share a leading key prefix of `compressedByteCount` (`0x18`) b
 which every subsequent entry omits. Reconstruct: `fullKey = prefix ++ storedKey`. (The trailing
 pointer is never compressed, so reading row pointers needs none of this.)
 
+> **Compression is optional.** A `compressedByteCount` of 0 (every entry stored in full) is a
+> valid page that Access reads without complaint — verified by inserting into a leaf: LibRed
+> rewrites the whole leaf uncompressed, sets `0x18` to 0, and Access still seeks it. A
+> minimal/correct writer need not reproduce Access's prefix compression.
+
 ### 10.4 Key encoding (order-preserving)
 
-Each key column is encoded so that raw byte comparison equals value comparison. Non-boolean
-columns are prefixed by a **flag byte**:
+Each key column is encoded so that raw byte comparison equals value comparison. LibRed both
+**decodes** these keys and **encodes** them (`IndexKeyEncoder`, the inverse), so it can insert
+into an index. The encoder is verified **byte-for-byte against Access**: re-encoding the value
+decoded from Access's own stored key reproduces the exact bytes, and after a LibRed insert
+Access satisfies an indexed primary-key seek over the entry LibRed wrote.
+
+Non-boolean columns are prefixed by a **flag byte**:
 
 | | Ascending | Descending |
 | --- | --- | --- |
@@ -380,8 +406,10 @@ Then the value, transformed:
   (true sorts first).
 - **Text / Binary / GUID:** Jet's collation encoding, which is **lossy** (case/diacritics
   folded) and **not reversible**. LibRed extracts row pointers from such indexes and decodes
-  the leading reversible columns, but cannot recover text key *values*. (A future keyed *seek*
-  needs the *encoder* + collation tables, not a decoder.)
+  the leading reversible columns, but cannot recover text key *values* — and the **encoder does
+  not yet reproduce this collation** either, so inserting into a text/binary-keyed index is not
+  supported. Producing these keys needs Jet's collation weight tables, the remaining gap before
+  string primary keys can be written.
 
 ---
 
@@ -424,4 +452,7 @@ Verified against: `Northwind.accdb` (ACE 2007), a generated 200-column ACCDB (mu
 and a generated ~150 MB ACCDB (reference usage map). Cross-referenced with mdbtools
 `src/libmdb/` (`table.c`, `data.c`, `index.c`) and Jackcess (`TableImpl`, `ColumnImpl`,
 `IndexData`, `IndexCodes`). The LibRed test suite (`test/LibRed.Core.Tests/`) pins these
-structures, including whole-database golden dumps.
+structures, including whole-database golden dumps. Write-side structures (row insertion,
+order-preserving key encoding, leaf-entry layout) are additionally cross-checked against
+Access's own engine via OLE DB: insert the same row through LibRed and through Access, then
+confirm the row sets match and that Access seeks the LibRed-written index entry.

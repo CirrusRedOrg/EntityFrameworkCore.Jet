@@ -1,18 +1,19 @@
 // ANTLR4 grammar for the Jet/ACE (Microsoft Access) SQL dialect.
 //
-// Current scope: SELECT <list> FROM <table> [WHERE <predicate>]. Grows by adding rules;
-// the parse tree is lowered into LibRed.Sql.Ast by AstBuildingVisitor, so the rest of the
-// engine never depends on these generated types.
+// Scope: SELECT with projection/aliases, multi-table FROM with INNER/LEFT/RIGHT JOIN and
+// derived-table subqueries, WHERE, ORDER BY, TOP. The parse tree is lowered into
+// LibRed.Sql.Ast by AstBuilder, so the rest of the engine never sees these generated types.
 //
-// Dialect notes (vs ANSI): '&' string concat; '*'/'?' LIKE wildcards; TOP n (no OFFSET);
-// IIF()/Format()/Nz(); #1/1/2020# date literals; [bracketed identifiers]; booleans -1/0.
+// Dialect notes (vs ANSI): '&' string concat; MOD / '\' operators; '*'/'?' LIKE wildcards;
+// TOP n (no OFFSET); #1/1/2020# date literals; [bracketed] and `backtick` identifiers;
+// booleans -1/0.
 
 grammar AccessSql;
 
 statement : selectStatement EOF ;
 
 selectStatement
-    : SELECT topClause? selectList FROM tableSource whereClause?
+    : SELECT topClause? selectList fromClause whereClause? orderByClause?
     ;
 
 topClause : TOP INTEGER_LITERAL ;
@@ -24,18 +25,34 @@ selectList
 
 selectItem : expression (AS? alias=identifier)? ;
 
-tableSource : table=identifier (AS? alias=identifier)? ;
+fromClause : FROM tablePrimary joinClause* ;
+
+tablePrimary
+    : table=identifier (AS? alias=identifier)?                  # NamedTablePrimary
+    | LPAREN selectStatement RPAREN (AS? alias=identifier)?     # SubqueryPrimary
+    ;
+
+joinClause : joinType JOIN tablePrimary ON expression ;
+
+joinType
+    : INNER?            # InnerJoin
+    | LEFT OUTER?       # LeftJoin
+    | RIGHT OUTER?      # RightJoin
+    ;
 
 whereClause : WHERE expression ;
 
+orderByClause : ORDER BY orderByItem (COMMA orderByItem)* ;
+orderByItem : expression (dir=(ASC | DESC))? ;
+
 expression
-    : NOT expression                                                  # NotExpr
-    | left=expression op=(STAR | SLASH) right=expression              # MulDivExpr
-    | left=expression op=(PLUS | MINUS | AMP) right=expression        # AddConcatExpr
-    | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression  # ComparisonExpr
-    | left=expression AND right=expression                            # AndExpr
-    | left=expression OR right=expression                             # OrExpr
-    | primary                                                         # PrimaryExpr
+    : NOT expression                                                        # NotExpr
+    | left=expression op=(STAR | SLASH | MOD | BACKSLASH) right=expression   # MulDivExpr
+    | left=expression op=(PLUS | MINUS | AMP) right=expression               # AddConcatExpr
+    | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression   # ComparisonExpr
+    | left=expression AND right=expression                                  # AndExpr
+    | left=expression OR right=expression                                   # OrExpr
+    | primary                                                               # PrimaryExpr
     ;
 
 primary
@@ -47,7 +64,7 @@ primary
 
 columnRef : (qualifier=identifier DOT)? name=identifier ;
 
-identifier : IDENTIFIER | BRACKET_ID ;
+identifier : IDENTIFIER | BRACKET_ID | BACKTICK_ID ;
 
 literal
     : INTEGER_LITERAL   # IntLiteral
@@ -68,15 +85,27 @@ AS     : [Aa][Ss] ;
 AND    : [Aa][Nn][Dd] ;
 OR     : [Oo][Rr] ;
 NOT    : [Nn][Oo][Tt] ;
+MOD    : [Mm][Oo][Dd] ;
+INNER  : [Ii][Nn][Nn][Ee][Rr] ;
+LEFT   : [Ll][Ee][Ff][Tt] ;
+RIGHT  : [Rr][Ii][Gg][Hh][Tt] ;
+OUTER  : [Oo][Uu][Tt][Ee][Rr] ;
+JOIN   : [Jj][Oo][Ii][Nn] ;
+ON     : [Oo][Nn] ;
+ORDER  : [Oo][Rr][Dd][Ee][Rr] ;
+BY     : [Bb][Yy] ;
+ASC    : [Aa][Ss][Cc] ;
+DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;
 FALSE  : [Ff][Aa][Ll][Ss][Ee] ;
 NULL   : [Nn][Uu][Ll][Ll] ;
 
-STAR  : '*' ;
-SLASH : '/' ;
-PLUS  : '+' ;
-MINUS : '-' ;
-AMP   : '&' ;
+STAR     : '*' ;
+SLASH    : '/' ;
+BACKSLASH: '\\' ;
+PLUS     : '+' ;
+MINUS    : '-' ;
+AMP      : '&' ;
 EQ    : '=' ;
 NEQ   : '<>' | '!=' ;
 LTE   : '<=' ;
@@ -93,6 +122,7 @@ INTEGER_LITERAL : [0-9]+ ;
 NUMBER_LITERAL  : [0-9]+ '.' [0-9]* | '.' [0-9]+ ;
 STRING_LITERAL  : '"' (~["])* '"' | '\'' (~['])* '\'' ;
 BRACKET_ID      : '[' ~[\]]+ ']' ;
+BACKTICK_ID     : '`' ~[`]+ '`' ;
 IDENTIFIER      : [A-Za-z_][A-Za-z_0-9]* ;
 
 WS      : [ \t\r\n]+ -> skip ;

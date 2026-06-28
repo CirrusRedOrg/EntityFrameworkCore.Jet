@@ -63,17 +63,70 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitSelectItem([NotNull] AccessSqlParser.SelectItemContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AccessSqlParser.tableSource"/>.
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.fromClause"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitTableSource([NotNull] AccessSqlParser.TableSourceContext context);
+	Result VisitFromClause([NotNull] AccessSqlParser.FromClauseContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>NamedTablePrimary</c>
+	/// labeled alternative in <see cref="AccessSqlParser.tablePrimary"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitNamedTablePrimary([NotNull] AccessSqlParser.NamedTablePrimaryContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>SubqueryPrimary</c>
+	/// labeled alternative in <see cref="AccessSqlParser.tablePrimary"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitSubqueryPrimary([NotNull] AccessSqlParser.SubqueryPrimaryContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.joinClause"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitJoinClause([NotNull] AccessSqlParser.JoinClauseContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>InnerJoin</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinType"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitInnerJoin([NotNull] AccessSqlParser.InnerJoinContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>LeftJoin</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinType"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitLeftJoin([NotNull] AccessSqlParser.LeftJoinContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>RightJoin</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinType"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitRightJoin([NotNull] AccessSqlParser.RightJoinContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.whereClause"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitWhereClause([NotNull] AccessSqlParser.WhereClauseContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.orderByClause"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitOrderByClause([NotNull] AccessSqlParser.OrderByClauseContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.orderByItem"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitOrderByItem([NotNull] AccessSqlParser.OrderByItemContext context);
 	/// <summary>
 	/// Visit a parse tree produced by the <c>AndExpr</c>
 	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.

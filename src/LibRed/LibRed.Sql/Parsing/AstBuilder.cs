@@ -20,15 +20,47 @@ internal sealed class AstBuilder
             ? (IReadOnlyList<SelectItem>)[]
             : list.selectItem().Select(BuildSelectItem).ToList();
 
-        var from = new NamedTable(Identifier(ctx.tableSource().table), OptionalIdentifier(ctx.tableSource().alias));
+        TableReference from = BuildFrom(ctx.fromClause());
         Expression? where = ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null;
+        var orderBy = ctx.orderByClause() is { } o
+            ? o.orderByItem().Select(BuildOrderByItem).ToList()
+            : (IReadOnlyList<OrderByItem>)[];
         int? top = ctx.topClause() is { } t ? int.Parse(t.INTEGER_LITERAL().GetText(), CultureInfo.InvariantCulture) : null;
 
-        return new SelectStatement(projection, star, from, where, [], null, [], top);
+        return new SelectStatement(projection, star, from, where, [], null, orderBy, top);
     }
 
     private static SelectItem BuildSelectItem(SelectItemContext ctx) =>
         new(BuildExpression(ctx.expression()), OptionalIdentifier(ctx.alias));
+
+    private static TableReference BuildFrom(FromClauseContext ctx)
+    {
+        TableReference table = BuildTablePrimary(ctx.tablePrimary());
+        foreach (JoinClauseContext join in ctx.joinClause())
+        {
+            TableReference right = BuildTablePrimary(join.tablePrimary());
+            table = new JoinTable(table, right, JoinKindOf(join.joinType()), BuildExpression(join.expression()));
+        }
+        return table;
+    }
+
+    private static TableReference BuildTablePrimary(TablePrimaryContext ctx) => ctx switch
+    {
+        NamedTablePrimaryContext n => new NamedTable(Identifier(n.table), OptionalIdentifier(n.alias)),
+        SubqueryPrimaryContext s => new SubqueryTable(BuildSelect(s.selectStatement()), OptionalIdentifier(s.alias)),
+        _ => throw new SqlParseException($"Unsupported table source: {ctx.GetText()}"),
+    };
+
+    private static JoinKind JoinKindOf(JoinTypeContext ctx) => ctx switch
+    {
+        LeftJoinContext => JoinKind.Left,
+        RightJoinContext => JoinKind.Right,
+        _ => JoinKind.Inner,
+    };
+
+    private static OrderByItem BuildOrderByItem(OrderByItemContext ctx) =>
+        new(BuildExpression(ctx.expression()),
+            ctx.dir?.Type == DESC ? SortDirection.Descending : SortDirection.Ascending);
 
     private static Expression BuildExpression(ExpressionContext ctx) => ctx switch
     {
@@ -80,6 +112,8 @@ internal sealed class AstBuilder
         MINUS => BinaryOperator.Subtract,
         STAR => BinaryOperator.Multiply,
         SLASH => BinaryOperator.Divide,
+        MOD => BinaryOperator.Modulo,
+        BACKSLASH => BinaryOperator.IntDivide,
         AMP => BinaryOperator.Concat,
         _ => throw new SqlParseException($"Unsupported operator token {tokenType}"),
     };
@@ -90,7 +124,10 @@ internal sealed class AstBuilder
     private static string Identifier(IdentifierContext ctx)
     {
         string text = ctx.GetText();
-        return text.Length >= 2 && text[0] == '[' && text[^1] == ']' ? text[1..^1] : text;
+        // Strip delimiters: [bracketed] or `backtick`.
+        return text.Length >= 2 && ((text[0] == '[' && text[^1] == ']') || (text[0] == '`' && text[^1] == '`'))
+            ? text[1..^1]
+            : text;
     }
 
     private static string? OptionalIdentifier(IdentifierContext? ctx) => ctx is null ? null : Identifier(ctx);

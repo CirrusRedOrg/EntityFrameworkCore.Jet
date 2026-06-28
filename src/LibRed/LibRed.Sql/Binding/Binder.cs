@@ -20,19 +20,38 @@ public sealed class Binder(ISchemaProvider schema)
 
     private void BindSelect(SelectStatement select)
     {
-        if (select.From is not NamedTable named)
-            throw new SqlBindException("Only a single named table is supported in FROM.");
+        ValidateSources(select.From);
 
-        ITableSchema table = _schema.GetTable(named.Name)
-            ?? throw new SqlBindException($"Table '{named.Name}' does not exist.");
+        // Column-existence validation only for the simple single-table case; with joins and
+        // derived tables, columns are alias-qualified and resolved at execution time.
+        if (select.From is NamedTable named)
+        {
+            ITableSchema table = _schema.GetTable(named.Name)!;
 
-        var referenced = select.Projection.SelectMany(i => ColumnsOf(i.Value));
-        if (select.Where is not null)
-            referenced = referenced.Concat(ColumnsOf(select.Where));
+            var referenced = select.Projection.SelectMany(i => ColumnsOf(i.Value));
+            if (select.Where is not null)
+                referenced = referenced.Concat(ColumnsOf(select.Where));
 
-        foreach (ColumnReference column in referenced)
-            if (table.FindColumn(column.Column) is null)
-                throw new SqlBindException($"Column '{column.Column}' does not exist in table '{table.Name}'.");
+            foreach (ColumnReference column in referenced)
+                if (table.FindColumn(column.Column) is null)
+                    throw new SqlBindException($"Column '{column.Column}' does not exist in table '{table.Name}'.");
+        }
+    }
+
+    private void ValidateSources(TableReference from)
+    {
+        switch (from)
+        {
+            case NamedTable n when _schema.GetTable(n.Name) is null:
+                throw new SqlBindException($"Table '{n.Name}' does not exist.");
+            case JoinTable j:
+                ValidateSources(j.Left);
+                ValidateSources(j.Right);
+                break;
+            case SubqueryTable s:
+                BindSelect(s.Query);
+                break;
+        }
     }
 
     private static IEnumerable<ColumnReference> ColumnsOf(Expression expression) => expression switch

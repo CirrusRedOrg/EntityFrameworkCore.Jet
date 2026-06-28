@@ -22,16 +22,15 @@ public sealed class QueryPlanner
 
     private static PlanNode PlanSelect(SelectStatement select)
     {
-        // Naive single-table shape: Scan → Filter → Project → Limit. (Joins, aggregation,
-        // and ORDER BY, plus index-based scans, are future node types.)
-        PlanNode node = select.From switch
-        {
-            NamedTable t => new ScanNode(t.Name),
-            _ => throw new NotImplementedException("Only single-table FROM is implemented."),
-        };
+        // Shape: From (Scan/Join/Derived) → Filter → Sort → Project → Limit. ORDER BY is
+        // applied over the source columns (before projection) so it can reference them.
+        PlanNode node = PlanFrom(select.From);
 
         if (select.Where is not null)
             node = new FilterNode(node, select.Where);
+
+        if (select.OrderBy.Count > 0)
+            node = new SortNode(node, select.OrderBy);
 
         if (!select.IsSelectStar)
             node = new ProjectNode(node, select.Projection);
@@ -41,4 +40,13 @@ public sealed class QueryPlanner
 
         return node;
     }
+
+    private static PlanNode PlanFrom(TableReference from) => from switch
+    {
+        NamedTable t => new ScanNode(t.Name, t.Alias),
+        JoinTable j => new JoinNode(PlanFrom(j.Left), PlanFrom(j.Right), j.Kind, j.On),
+        SubqueryTable s => new DerivedTableNode(PlanSelect(s.Query), s.Alias
+            ?? throw new NotSupportedException("A derived table requires an alias.")),
+        _ => throw new NotSupportedException($"Unsupported FROM source {from.GetType().Name}."),
+    };
 }

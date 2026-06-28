@@ -67,9 +67,21 @@ internal sealed class ExpressionEvaluator(Func<ColumnReference, int> resolveColu
             BinaryOperator.Subtract => Arithmetic(left, right, (a, c) => a - c),
             BinaryOperator.Multiply => Arithmetic(left, right, (a, c) => a * c),
             BinaryOperator.Divide => Arithmetic(left, right, (a, c) => a / c),
+            BinaryOperator.Modulo => Convert.ToInt64(left, CultureInfo.InvariantCulture) % Convert.ToInt64(right, CultureInfo.InvariantCulture),
+            BinaryOperator.IntDivide => Convert.ToInt64(left, CultureInfo.InvariantCulture) / Convert.ToInt64(right, CultureInfo.InvariantCulture),
             _ => throw new NotSupportedException($"Binary operator {b.Operator}."),
         };
     }
+
+    /// <summary>Orders two values for SORT (nulls first), using the same numeric/string coercion as comparisons.</summary>
+    public static int CompareForSort(object? a, object? b) =>
+        (a, b) switch
+        {
+            (null, null) => 0,
+            (null, _) => -1,
+            (_, null) => 1,
+            _ => Compare(a, b),
+        };
 
     private static bool? AsBool(object? v) => v switch { bool b => b, null => null, _ => Convert.ToBoolean(v) };
 

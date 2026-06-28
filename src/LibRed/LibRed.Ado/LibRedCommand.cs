@@ -36,7 +36,7 @@ public sealed class LibRedCommand : DbCommand
 
     public override void Prepare() { }
 
-    public override int ExecuteNonQuery() => RequireEngine().ExecuteNonQuery(CommandText);
+    public override int ExecuteNonQuery() => RequireEngine().ExecuteNonQuery(CommandText, BuildParameters());
 
     public override object? ExecuteScalar()
     {
@@ -48,10 +48,20 @@ public sealed class LibRedCommand : DbCommand
 
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
     {
-        var result = RequireEngine().ExecuteQuery(CommandText);
+        var result = RequireEngine().ExecuteQuery(CommandText, BuildParameters());
         return new LibRedDataReader(result);
     }
 
     private Engine.QueryEngine RequireEngine() =>
         Connection?.Engine ?? throw new InvalidOperationException("Connection is not open.");
+
+    /// <summary>Snapshots the command's parameters as a name→value map for the engine,
+    /// translating <see cref="DBNull"/> to a SQL null.</summary>
+    private IReadOnlyDictionary<string, object?> BuildParameters()
+    {
+        var map = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        foreach (LibRedParameter parameter in _parameters.Cast<LibRedParameter>())
+            map[parameter.ParameterName] = parameter.Value is DBNull ? null : parameter.Value;
+        return map;
+    }
 }

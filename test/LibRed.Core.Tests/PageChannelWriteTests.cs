@@ -1,0 +1,95 @@
+using LibRed.IO;
+using Xunit;
+
+namespace LibRed.Core.Tests;
+
+public class PageChannelWriteTests
+{
+    private static string CopyToTemp()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"libred-write-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        return path;
+    }
+
+    [Fact]
+    public void Rewriting_a_page_unchanged_is_a_no_op_byte_for_byte()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            byte[] original;
+            using (var channel = PageChannel.Open(path, readOnly: false))
+            {
+                var page = channel.ReadPage(5);
+                original = page.Span.ToArray();
+                channel.WritePage(5, original); // identity write
+            }
+
+            using (var channel = PageChannel.Open(path, readOnly: true))
+                Assert.Equal(original, channel.ReadPage(5).Span.ToArray());
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Written_bytes_survive_a_reopen()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using (var channel = PageChannel.Open(path, readOnly: false))
+            {
+                var buffer = channel.ReadPage(5).Span.ToArray();
+                buffer[100] = 0xAB;
+                buffer[101] = 0xCD;
+                channel.WritePage(5, buffer);
+            }
+
+            using (var channel = PageChannel.Open(path, readOnly: true))
+            {
+                var reread = channel.ReadPage(5).Span;
+                Assert.Equal(0xAB, reread[100]);
+                Assert.Equal(0xCD, reread[101]);
+            }
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void AllocatePage_grows_the_file_by_one_zeroed_page()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            int allocated;
+            int countBefore;
+            using (var channel = PageChannel.Open(path, readOnly: false))
+            {
+                countBefore = channel.PageCount;
+                allocated = channel.AllocatePage();
+                Assert.Equal(countBefore, allocated);
+                Assert.Equal(countBefore + 1, channel.PageCount);
+            }
+
+            using (var channel = PageChannel.Open(path, readOnly: true))
+            {
+                Assert.Equal(countBefore + 1, channel.PageCount);
+                Assert.All(channel.ReadPage(allocated).Span.ToArray(), b => Assert.Equal(0, b));
+            }
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Read_only_channel_refuses_writes()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using var channel = PageChannel.Open(path, readOnly: true);
+            Assert.Throws<InvalidOperationException>(() => channel.WritePage(5, new byte[channel.PageSize]));
+        }
+        finally { File.Delete(path); }
+    }
+}

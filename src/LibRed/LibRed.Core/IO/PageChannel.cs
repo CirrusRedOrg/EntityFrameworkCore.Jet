@@ -72,5 +72,42 @@ public sealed class PageChannel : IDisposable
         // keyed off Format + the database definition page. See LibRed.Crypto.JetCrypto.
     }
 
-    public void Dispose() => _stream.Dispose();
+    /// <summary>Writes a full page back to the file at <paramref name="pageNumber"/>.</summary>
+    public void WritePage(int pageNumber, ReadOnlySpan<byte> source)
+    {
+        if (_readOnly)
+            throw new InvalidOperationException("This channel was opened read-only.");
+        if (source.Length != PageSize)
+            throw new ArgumentException($"A page write must be exactly {PageSize} bytes.", nameof(source));
+        if (pageNumber < 0 || pageNumber > PageCount)
+            throw new ArgumentOutOfRangeException(nameof(pageNumber));
+
+        // TODO: page-level encryption mirrors the decryption in ReadPage once that lands.
+        long offset = (long)pageNumber * PageSize;
+        _stream.Seek(offset, SeekOrigin.Begin);
+        _stream.Write(source[..PageSize]);
+    }
+
+    /// <summary>
+    /// Allocates a fresh page by growing the file by one page, returning its number. Jet also
+    /// recycles freed pages via usage maps; appending at the end is always valid since the page
+    /// count is simply the file length divided by the page size.
+    /// </summary>
+    public int AllocatePage()
+    {
+        if (_readOnly)
+            throw new InvalidOperationException("This channel was opened read-only.");
+
+        int pageNumber = PageCount;
+        WritePage(pageNumber, new byte[PageSize]);
+        return pageNumber;
+    }
+
+    public void Flush() => _stream.Flush(flushToDisk: true);
+
+    public void Dispose()
+    {
+        if (!_readOnly) _stream.Flush(flushToDisk: true);
+        _stream.Dispose();
+    }
 }

@@ -41,6 +41,53 @@ public sealed class IndexCursor(PageChannel channel, int rootPage)
     public IEnumerable<IndexEntry> Entries(IReadOnlyList<(ColumnDef Column, bool Ascending)> columns) =>
         WalkEntries(_rootPage, columns);
 
+    /// <summary>
+    /// Yields each entry's full (decompressed) key bytes and row pointer, without decoding — used
+    /// to verify the order-preserving key encoding byte-for-byte against what Access stored.
+    /// </summary>
+    public IEnumerable<(byte[] Key, RowId Row)> RawEntries() => WalkRaw(_rootPage);
+
+    private IEnumerable<(byte[] Key, RowId Row)> WalkRaw(int pageNumber)
+    {
+        PageBuffer page = _channel.ReadPage(pageNumber);
+        var type = (PageType)page.ReadByte(0);
+
+        if (type == PageType.LeafIndexPage)
+        {
+            int compress = page.ReadUInt16(CompressedByteCountOffset);
+            byte[] prefix = [];
+            bool first = true;
+
+            foreach ((int start, int end) in EntryRanges(page))
+            {
+                int entryStart = EntryDataOffset + start;
+                int pointer = ReadInt32BigEndian(page, EntryDataOffset + end - 4);
+
+                ReadOnlySpan<byte> storedKey = page.Slice(entryStart, end - start - 4);
+                byte[] key = first ? storedKey.ToArray() : Concat(prefix, storedKey);
+                if (first)
+                {
+                    prefix = key[..compress];
+                    first = false;
+                }
+
+                yield return (key, new RowId(pointer >> 8, pointer & 0xFF));
+            }
+        }
+        else if (type == PageType.IntermediateIndexPage)
+        {
+            foreach ((int _, int end) in EntryRanges(page))
+                foreach (var e in WalkRaw(ReadInt32BigEndian(page, EntryDataOffset + end - 4)))
+                    yield return e;
+            foreach (var e in WalkRaw(page.ReadInt32(ChildTailOffset)))
+                yield return e;
+        }
+        else
+        {
+            throw new NotSupportedException($"Page {pageNumber} is not an index page (type 0x{(byte)type:X2}).");
+        }
+    }
+
     private IEnumerable<IndexEntry> WalkEntries(int pageNumber, IReadOnlyList<(ColumnDef, bool)> columns)
     {
         PageBuffer page = _channel.ReadPage(pageNumber);

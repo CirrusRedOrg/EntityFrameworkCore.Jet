@@ -1,60 +1,98 @@
 // ANTLR4 grammar for the Jet/ACE (Microsoft Access) SQL dialect.
 //
-// This file is intentionally a starting skeleton. It is kept as a plain file (not
-// wired into the build) so the project compiles without the ANTLR tool installed.
-// To enable code generation, see the commented PackageReference block in
-// LibRed.Sql.csproj, then flesh out the rules below.
+// Current scope: SELECT <list> FROM <table> [WHERE <predicate>]. Grows by adding rules;
+// the parse tree is lowered into LibRed.Sql.Ast by AstBuildingVisitor, so the rest of the
+// engine never depends on these generated types.
 //
-// Dialect notes that make Access SQL differ from ANSI:
-//   * String concatenation uses '&' (and '+'); strings are delimited by " or '.
-//   * Wildcards in LIKE are '*' and '?' (ANSI '%' / '_' under ANSI-92 mode).
-//   * TOP n  instead of LIMIT; no OFFSET.
-//   * IIF(), SWITCH(), Format(), Nz(), and VBA-style date literals (#1/1/2020#).
-//   * Bracketed identifiers [Order Details]; parameters are positional or named.
-//   * Jet-specific joins: nested (INNER JOIN ... ) chains, and the Access-only
-//     "Iif"/domain aggregate functions (DLookup, DCount, ...).
+// Dialect notes (vs ANSI): '&' string concat; '*'/'?' LIKE wildcards; TOP n (no OFFSET);
+// IIF()/Format()/Nz(); #1/1/2020# date literals; [bracketed identifiers]; booleans -1/0.
 
 grammar AccessSql;
 
-// ---- Parser rules -------------------------------------------------------------
+statement : selectStatement EOF ;
 
-statement
-    : selectStatement
-    | insertStatement
-    | updateStatement
-    | deleteStatement
+selectStatement
+    : SELECT topClause? selectList FROM tableSource whereClause?
     ;
 
-selectStatement : SELECT topClause? selectList FROM tableSource whereClause? ;
+topClause : TOP INTEGER_LITERAL ;
 
-insertStatement : INSERT INTO IDENTIFIER /* ... */ ;
-updateStatement : UPDATE IDENTIFIER SET /* ... */ ;
-deleteStatement : DELETE FROM IDENTIFIER whereClause? ;
+selectList
+    : STAR
+    | selectItem (COMMA selectItem)*
+    ;
 
-topClause  : TOP INTEGER_LITERAL ;
-selectList : STAR | expression (COMMA expression)* ;
-tableSource : IDENTIFIER ;            // TODO: joins, subqueries, aliases
+selectItem : expression (AS? alias=identifier)? ;
+
+tableSource : table=identifier (AS? alias=identifier)? ;
+
 whereClause : WHERE expression ;
 
-expression : IDENTIFIER | STRING_LITERAL | INTEGER_LITERAL ; // TODO
+expression
+    : NOT expression                                                  # NotExpr
+    | left=expression op=(STAR | SLASH) right=expression              # MulDivExpr
+    | left=expression op=(PLUS | MINUS | AMP) right=expression        # AddConcatExpr
+    | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression  # ComparisonExpr
+    | left=expression AND right=expression                            # AndExpr
+    | left=expression OR right=expression                             # OrExpr
+    | primary                                                         # PrimaryExpr
+    ;
 
-// ---- Lexer rules --------------------------------------------------------------
+primary
+    : literal                    # LiteralPrimary
+    | columnRef                  # ColumnPrimary
+    | PARAM                      # ParamPrimary
+    | LPAREN expression RPAREN   # ParenPrimary
+    ;
+
+columnRef : (qualifier=identifier DOT)? name=identifier ;
+
+identifier : IDENTIFIER | BRACKET_ID ;
+
+literal
+    : INTEGER_LITERAL   # IntLiteral
+    | NUMBER_LITERAL    # NumberLiteral
+    | STRING_LITERAL    # StringLiteral
+    | TRUE              # TrueLiteral
+    | FALSE             # FalseLiteral
+    | NULL              # NullLiteral
+    ;
+
+// ---- Lexer ----
 
 SELECT : [Ss][Ee][Ll][Ee][Cc][Tt] ;
 FROM   : [Ff][Rr][Oo][Mm] ;
 WHERE  : [Ww][Hh][Ee][Rr][Ee] ;
-INSERT : [Ii][Nn][Ss][Ee][Rr][Tt] ;
-INTO   : [Ii][Nn][Tt][Oo] ;
-UPDATE : [Uu][Pp][Dd][Aa][Tt][Ee] ;
-DELETE : [Dd][Ee][Ll][Ee][Tt][Ee] ;
-SET    : [Ss][Ee][Tt] ;
 TOP    : [Tt][Oo][Pp] ;
+AS     : [Aa][Ss] ;
+AND    : [Aa][Nn][Dd] ;
+OR     : [Oo][Rr] ;
+NOT    : [Nn][Oo][Tt] ;
+TRUE   : [Tt][Rr][Uu][Ee] ;
+FALSE  : [Ff][Aa][Ll][Ss][Ee] ;
+NULL   : [Nn][Uu][Ll][Ll] ;
 
-STAR   : '*' ;
+STAR  : '*' ;
+SLASH : '/' ;
+PLUS  : '+' ;
+MINUS : '-' ;
+AMP   : '&' ;
+EQ    : '=' ;
+NEQ   : '<>' | '!=' ;
+LTE   : '<=' ;
+GTE   : '>=' ;
+LT    : '<' ;
+GT    : '>' ;
+LPAREN : '(' ;
+RPAREN : ')' ;
 COMMA  : ',' ;
+DOT    : '.' ;
+PARAM  : '?' | '@' [A-Za-z_][A-Za-z_0-9]* ;
 
-IDENTIFIER      : [A-Za-z_][A-Za-z_0-9]* | '[' ~[\]]+ ']' ;
 INTEGER_LITERAL : [0-9]+ ;
+NUMBER_LITERAL  : [0-9]+ '.' [0-9]* | '.' [0-9]+ ;
 STRING_LITERAL  : '"' (~["])* '"' | '\'' (~['])* '\'' ;
+BRACKET_ID      : '[' ~[\]]+ ']' ;
+IDENTIFIER      : [A-Za-z_][A-Za-z_0-9]* ;
 
 WS      : [ \t\r\n]+ -> skip ;

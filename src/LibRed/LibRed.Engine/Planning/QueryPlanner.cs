@@ -22,8 +22,8 @@ public sealed class QueryPlanner
 
     private static PlanNode PlanSelect(SelectStatement select)
     {
-        // TODO: build Scan/Join from FROM, push WHERE into FilterNode (or IndexScanNode),
-        // add Aggregate/Sort/Limit, then Project. This is the naive shape:
+        // Naive single-table shape: Scan → Filter → Project → Limit. (Joins, aggregation,
+        // and ORDER BY, plus index-based scans, are future node types.)
         PlanNode node = select.From switch
         {
             NamedTable t => new ScanNode(t.Name),
@@ -33,9 +33,12 @@ public sealed class QueryPlanner
         if (select.Where is not null)
             node = new FilterNode(node, select.Where);
 
+        if (!select.IsSelectStar)
+            node = new ProjectNode(node, select.Projection);
+
         if (select.Top is { } top)
             node = new LimitNode(node, top);
 
-        return new ProjectNode(node, select.Projection);
+        return node;
     }
 }

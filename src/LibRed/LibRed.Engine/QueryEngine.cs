@@ -21,7 +21,7 @@ public sealed class QueryEngine
     public QueryEngine(JetDatabase database, ISqlParser? parser = null)
     {
         _database = database;
-        _parser = parser ?? new AccessSqlParser();
+        _parser = parser ?? new AntlrSqlParser();
         _binder = new Binder(new CatalogSchemaProvider(database.Catalog));
         _executor = new QueryExecutor(database);
     }

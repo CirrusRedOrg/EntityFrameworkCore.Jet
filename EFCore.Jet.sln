@@ -70,6 +70,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LibRed.EFCore", "src\LibRed
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LibRed.Core.Tests", "test\LibRed.Core.Tests\LibRed.Core.Tests.csproj", "{0624D868-C3E5-411D-A533-6E57F8F79F01}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LibRed.Engine.Tests", "test\LibRed.Engine.Tests\LibRed.Engine.Tests.csproj", "{7D554ADF-EDD4-4880-8B37-C6D700A98612}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -260,6 +262,18 @@ Global
 		{0624D868-C3E5-411D-A533-6E57F8F79F01}.Release|x64.Build.0 = Release|Any CPU
 		{0624D868-C3E5-411D-A533-6E57F8F79F01}.Release|x86.ActiveCfg = Release|Any CPU
 		{0624D868-C3E5-411D-A533-6E57F8F79F01}.Release|x86.Build.0 = Release|Any CPU
+		{7D554ADF-EDD4-4880-8B37-C6D700A98612}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7D554ADF-EDD4-4880-8B37-C6D700A98612}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7D554ADF-EDD4-4880-8B37-C6D700A98612}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7D554ADF-EDD4-4880-8B37-C6D700A98612}.Debug|x64.Build.0 = Debug|Any CPU
+		{7D554ADF-EDD4-4880-8B37-C6D700A98612}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7D554ADF-EDD4-4880-8B37-C6D700A98612}.Debug|x86.Build.0 = Debug|Any CPU
+		{7D554ADF-EDD4-4880-8B37-C6D700A98612}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7D554ADF-EDD4-4880-8B37-C6D700A98612}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7D554ADF-EDD4-4880-8B37-C6D700A98612}.Release|x64.ActiveCfg = Release|Any CPU
+		{7D554ADF-EDD4-4880-8B37-C6D700A98612}.Release|x64.Build.0 = Release|Any CPU
+		{7D554ADF-EDD4-4880-8B37-C6D700A98612}.Release|x86.ActiveCfg = Release|Any CPU
+		{7D554ADF-EDD4-4880-8B37-C6D700A98612}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -280,6 +294,7 @@ Global
 		{0932994D-79FA-48B5-8EB1-6EC9F8A0CE63} = {53AEDF4E-744F-DCCC-ECB4-9EF88FC7B191}
 		{4B82F36F-FC75-4F0D-B19C-C605FBCA7B71} = {53AEDF4E-744F-DCCC-ECB4-9EF88FC7B191}
 		{0624D868-C3E5-411D-A533-6E57F8F79F01} = {53AEDF4E-744F-DCCC-ECB4-9EF88FC7B191}
+		{7D554ADF-EDD4-4880-8B37-C6D700A98612} = {53AEDF4E-744F-DCCC-ECB4-9EF88FC7B191}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {9359773D-6399-447E-9814-6CB41C2FB664}

@@ -33,3 +33,6 @@ public sealed record FunctionCall(string Name, IReadOnlyList<Expression> Argumen
 
 /// <summary>A subquery used as a scalar value: <c>(SELECT … )</c>. May correlate to the outer query.</summary>
 public sealed record ScalarSubquery(SelectStatement Query) : Expression;
+
+/// <summary><c>EXISTS (SELECT … )</c>: true when the (possibly correlated) subquery returns any row.</summary>
+public sealed record ExistsExpression(SelectStatement Query) : Expression;

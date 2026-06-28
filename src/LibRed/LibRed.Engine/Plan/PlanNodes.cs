@@ -43,7 +43,8 @@ public sealed record JoinNode(PlanNode Left, PlanNode Right, JoinKind Kind, Expr
 public sealed record AggregateNode(
     PlanNode Input,
     IReadOnlyList<Expression> GroupBy,
-    IReadOnlyList<SelectItem> Projection) : PlanNode
+    IReadOnlyList<SelectItem> Projection,
+    Expression? Having) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }

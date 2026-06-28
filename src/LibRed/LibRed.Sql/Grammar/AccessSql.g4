@@ -18,10 +18,11 @@ queryExpression : selectStatement (setOperator selectStatement)* ;
 setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 
 selectStatement
-    : SELECT topClause? selectList fromClause whereClause? groupByClause? orderByClause?
+    : SELECT topClause? selectList fromClause whereClause? groupByClause? havingClause? orderByClause?
     ;
 
 groupByClause : GROUP BY expression (COMMA expression)* ;
+havingClause : HAVING expression ;
 
 topClause : TOP INTEGER_LITERAL ;
 
@@ -73,6 +74,7 @@ primary
     | functionCall                     # FunctionCallPrimary
     | columnRef                        # ColumnPrimary
     | PARAM                            # ParamPrimary
+    | EXISTS LPAREN selectStatement RPAREN # ExistsPrimary
     | LPAREN selectStatement RPAREN    # ScalarSubqueryPrimary
     | LPAREN expression RPAREN         # ParenPrimary
     ;
@@ -114,6 +116,8 @@ ORDER  : [Oo][Rr][Dd][Ee][Rr] ;
 GROUP  : [Gg][Rr][Oo][Uu][Pp] ;
 IS     : [Ii][Ss] ;
 BY     : [Bb][Yy] ;
+HAVING : [Hh][Aa][Vv][Ii][Nn][Gg] ;
+EXISTS : [Ee][Xx][Ii][Ss][Tt][Ss] ;
 UNION     : [Uu][Nn][Ii][Oo][Nn] ;
 ALL       : [Aa][Ll][Ll] ;
 INTERSECT : [Ii][Nn][Tt][Ee][Rr][Ss][Ee][Cc][Tt] ;

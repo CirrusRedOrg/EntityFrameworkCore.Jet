@@ -22,6 +22,7 @@ internal sealed class ExpressionEvaluator(
         ColumnReference c => scope.TryResolve(c, out object? v) ? v
             : throw new InvalidOperationException($"Column '{EvalScope.Describe(c)}' was not found."),
         ScalarSubquery s => subqueries.ExecuteScalar(s.Query, scope),
+        ExistsExpression e => subqueries.ExecuteExists(e.Query, scope),
         FunctionCall f => EvaluateFunction(f),
         UnaryExpression u => EvaluateUnary(u),
         BinaryExpression b => EvaluateBinary(b),

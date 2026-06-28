@@ -34,9 +34,10 @@ public sealed class QueryPlanner
         if (select.Where is not null)
             node = new FilterNode(node, select.Where);
 
-        bool aggregate = select.GroupBy.Count > 0 || select.Projection.Any(i => HasAggregate(i.Value));
+        bool aggregate = select.GroupBy.Count > 0 || select.Having is not null
+            || select.Projection.Any(i => HasAggregate(i.Value));
         if (aggregate)
-            node = new AggregateNode(node, select.GroupBy, select.Projection);
+            node = new AggregateNode(node, select.GroupBy, select.Projection, select.Having);
 
         if (select.OrderBy.Count > 0)
             node = new SortNode(node, select.OrderBy);

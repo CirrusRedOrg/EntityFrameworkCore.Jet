@@ -37,6 +37,12 @@ public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
         return null; // no rows → NULL
     }
 
+    bool IScalarSubqueryRunner.ExecuteExists(SelectStatement query, EvalScope outerScope)
+    {
+        var (_, rows) = Execute(QueryPlanner.PlanSelect(query), outerScope);
+        return rows.Any();
+    }
+
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) Execute(PlanNode node, EvalScope? outer)
     {
         switch (node)
@@ -199,7 +205,9 @@ public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
     {
         var (inColumns, inRowsEnum) = Execute(node.Input, outer);
         var inRows = inRowsEnum.ToList();
-        var aggregateCalls = node.Projection.SelectMany(i => Aggregates(i.Value)).ToList();
+        // Aggregates can appear in both the projection and HAVING (e.g. HAVING COUNT(*) > 30).
+        var aggregateCalls = node.Projection.SelectMany(i => Aggregates(i.Value))
+            .Concat(node.Having is { } h ? Aggregates(h) : []).ToList();
 
         var outColumns = node.Projection
             .Select((item, i) => new OutputColumn(null, item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}")))
@@ -218,6 +226,11 @@ public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
             // columns to resolve, so a null row suffices.
             object?[] keyRow = group.Count > 0 ? group[0] : new object?[inColumns.Count];
             var eval = new ExpressionEvaluator(new EvalScope(inColumns, keyRow, outer), this, values);
+
+            // HAVING filters whole groups after aggregation.
+            if (node.Having is not null && !eval.IsTrue(node.Having))
+                continue;
+
             outRows.Add(node.Projection.Select(item => eval.Evaluate(item.Value)).ToArray());
         }
 

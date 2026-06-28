@@ -109,6 +109,39 @@ public class CorrelatedSubqueryTests
     }
 
     [Fact]
+    public void Exists_with_having_count_threshold()
+    {
+        // Orders whose customer has more than 30 orders, via a correlated EXISTS over a
+        // GROUP BY ... HAVING COUNT(*) > 30 subquery.
+        const string sql = """
+            SELECT `o`.`OrderID`, `o`.`CustomerID`
+            FROM `Orders` AS `o`
+            WHERE EXISTS (
+                SELECT 1
+                FROM `Orders` AS `o0`
+                GROUP BY `o0`.`CustomerID`
+                HAVING COUNT(*) > 30 AND (`o0`.`CustomerID` = `o`.`CustomerID` OR (`o0`.`CustomerID` IS NULL AND `o`.`CustomerID` IS NULL)))
+            """;
+
+        var rows = Query(sql, out var columns);
+        Assert.Equal(["OrderID", "CustomerID"], columns);
+
+        // Independent check: which customers have > 30 orders, and how many orders total.
+        using var db = JetDatabase.Open(Northwind);
+        var orders = db.OpenTable("Orders");
+        int cust = orders.Definition.Columns.Single(c => c.Name == "CustomerID").Index;
+        var bigCustomers = orders.Rows()
+            .GroupBy(r => r[cust]?.ToString())
+            .Where(g => g.Count() > 30)
+            .Select(g => g.Key)
+            .ToHashSet();
+
+        Assert.Equal(["SAVEA"], bigCustomers.OrderBy(x => x)); // only Save-a-lot Markets has > 30
+        Assert.All(rows, r => Assert.Contains((string)r[1]!, bigCustomers!));
+        Assert.Equal(31, rows.Count); // SAVEA's 31 orders
+    }
+
+    [Fact]
     public void Nested_derived_tables_with_correlation_and_like_and_left_join()
     {
         const string sql = """

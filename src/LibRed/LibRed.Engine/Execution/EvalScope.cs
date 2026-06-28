@@ -40,8 +40,11 @@ internal sealed class EvalScope(IReadOnlyList<OutputColumn> schema, object?[] ro
     internal static string Describe(ColumnReference r) => r.Table is null ? r.Column : $"{r.Table}.{r.Column}";
 }
 
-/// <summary>Executes a scalar subquery, correlating it to <paramref name="outerScope"/>.</summary>
+/// <summary>Executes a subquery, correlating it to <paramref name="outerScope"/>.</summary>
 internal interface IScalarSubqueryRunner
 {
     object? ExecuteScalar(SelectStatement query, EvalScope outerScope);
+
+    /// <summary>True when the (possibly correlated) subquery returns at least one row.</summary>
+    bool ExecuteExists(SelectStatement query, EvalScope outerScope);
 }

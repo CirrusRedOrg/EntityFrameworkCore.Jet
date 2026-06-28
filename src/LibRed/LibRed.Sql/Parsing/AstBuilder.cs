@@ -42,12 +42,13 @@ internal sealed class AstBuilder
         var groupBy = ctx.groupByClause() is { } g
             ? g.expression().Select(BuildExpression).ToList()
             : (IReadOnlyList<Expression>)[];
+        Expression? having = ctx.havingClause() is { } h ? BuildExpression(h.expression()) : null;
         var orderBy = ctx.orderByClause() is { } o
             ? o.orderByItem().Select(BuildOrderByItem).ToList()
             : (IReadOnlyList<OrderByItem>)[];
         int? top = ctx.topClause() is { } t ? int.Parse(t.INTEGER_LITERAL().GetText(), CultureInfo.InvariantCulture) : null;
 
-        return new SelectStatement(projection, star, from, where, groupBy, null, orderBy, top);
+        return new SelectStatement(projection, star, from, where, groupBy, having, orderBy, top);
     }
 
     private static SelectItem BuildSelectItem(SelectItemContext ctx) =>
@@ -113,6 +114,7 @@ internal sealed class AstBuilder
         ParamPrimaryContext p => new ParameterExpression(p.PARAM().GetText()),
         FunctionCallPrimaryContext f => BuildFunctionCall(f.functionCall()),
         ScalarSubqueryPrimaryContext s => new ScalarSubquery(BuildSelect(s.selectStatement())),
+        ExistsPrimaryContext e => new ExistsExpression(BuildSelect(e.selectStatement())),
         ParenPrimaryContext p => BuildExpression(p.expression()),
         _ => throw new SqlParseException($"Unsupported primary: {ctx.GetText()}"),
     };

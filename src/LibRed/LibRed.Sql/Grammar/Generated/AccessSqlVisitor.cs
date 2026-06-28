@@ -63,6 +63,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitGroupByClause([NotNull] AccessSqlParser.GroupByClauseContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.havingClause"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitHavingClause([NotNull] AccessSqlParser.HavingClauseContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.topClause"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
@@ -249,6 +255,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitParamPrimary([NotNull] AccessSqlParser.ParamPrimaryContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>ExistsPrimary</c>
+	/// labeled alternative in <see cref="AccessSqlParser.primary"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitExistsPrimary([NotNull] AccessSqlParser.ExistsPrimaryContext context);
 	/// <summary>
 	/// Visit a parse tree produced by the <c>ScalarSubqueryPrimary</c>
 	/// labeled alternative in <see cref="AccessSqlParser.primary"/>.

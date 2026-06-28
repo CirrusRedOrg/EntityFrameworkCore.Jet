@@ -41,6 +41,49 @@ public class AggregateTests
     }
 
     [Fact]
+    public void Datepart_extracts_year()
+    {
+        var rows = Query("SELECT DATEPART('yyyy', OrderDate) AS y FROM Orders WHERE OrderID = 10248", out _);
+        Assert.Equal(1996, Assert.Single(rows)[0]); // first Northwind order is 1996-07-04
+    }
+
+    [Fact]
+    public void Group_by_multiple_keys_with_datepart_then_count()
+    {
+        // Per customer, how many distinct years did they place orders in.
+        const string sql = """
+            SELECT `o1`.`CustomerID` AS `Key`, COUNT(*) AS `Count`
+            FROM (
+                SELECT `o0`.`CustomerID`
+                FROM (
+                    SELECT `o`.`CustomerID`, DATEPART('yyyy', `o`.`OrderDate`) AS `Year`
+                    FROM `Orders` AS `o`
+                ) AS `o0`
+                GROUP BY `o0`.`CustomerID`, `o0`.`Year`
+            ) AS `o1`
+            GROUP BY `o1`.`CustomerID`
+            """;
+
+        var rows = Query(sql, out var columns);
+        Assert.Equal(["Key", "Count"], columns);
+
+        var got = rows.ToDictionary(r => r[0]!.ToString()!, r => (long)r[1]!);
+        Assert.Equal(89, got.Count); // 89 of 91 customers have orders
+
+        using var db = JetDatabase.Open(Northwind);
+        var orders = db.OpenTable("Orders");
+        int cust = orders.Definition.Columns.Single(c => c.Name == "CustomerID").Index;
+        int odate = orders.Definition.Columns.Single(c => c.Name == "OrderDate").Index;
+        var expected = orders.Rows()
+            .Where(r => r[cust] is not null)
+            .GroupBy(r => r[cust]!.ToString()!)
+            .ToDictionary(g => g.Key, g => (long)g.Select(r => ((DateTime)r[odate]!).Year).Distinct().Count());
+
+        Assert.Equal(expected.Count, got.Count);
+        foreach (var (k, v) in expected) Assert.Equal(v, got[k]);
+    }
+
+    [Fact]
     public void Nested_aggregate_with_sum_iif_and_constant_group_key()
     {
         const string sql = """

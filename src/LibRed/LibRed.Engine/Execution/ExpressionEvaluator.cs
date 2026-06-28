@@ -38,7 +38,29 @@ internal sealed class ExpressionEvaluator(
         return f.Name.ToUpperInvariant() switch
         {
             "IIF" => IsTrue(f.Arguments[0]) ? Evaluate(f.Arguments[1]) : Evaluate(f.Arguments[2]),
+            "DATEPART" => DatePart(Evaluate(f.Arguments[0]), Evaluate(f.Arguments[1])),
             _ => throw new NotSupportedException($"Function {f.Name} is not supported."),
+        };
+    }
+
+    /// <summary>Access DATEPART(interval, date): extracts a component of a date as an int.</summary>
+    private static object? DatePart(object? interval, object? date)
+    {
+        if (date is null) return null;
+        var d = Convert.ToDateTime(date, CultureInfo.InvariantCulture);
+        return (interval?.ToString() ?? "").ToLowerInvariant() switch
+        {
+            "yyyy" => d.Year,
+            "q" => (d.Month + 2) / 3,
+            "m" => d.Month,
+            "y" => d.DayOfYear,
+            "d" => d.Day,
+            "w" => (int)d.DayOfWeek + 1,
+            "ww" => CultureInfo.InvariantCulture.Calendar.GetWeekOfYear(d, CalendarWeekRule.FirstDay, DayOfWeek.Sunday),
+            "h" => d.Hour,
+            "n" => d.Minute,
+            "s" => d.Second,
+            _ => throw new NotSupportedException($"DATEPART interval '{interval}' is not supported."),
         };
     }
 

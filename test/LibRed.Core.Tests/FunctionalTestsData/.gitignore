@@ -1,0 +1,2 @@
+# EF Core functional-test databases — large local-only corpus for the smoke test.
+*.accdb

@@ -18,4 +18,8 @@ internal static class TestDatabases
     /// <summary>An ACE 16 (version 0x06) ACCDB using the Office 2016 BIGINT and DATETIME2 types.</summary>
     public static string Ace16TypesAccdb { get; } =
         Path.Combine(AppContext.BaseDirectory, "Data", "Ace16Types.accdb");
+
+    /// <summary>EF Core's BuiltInDataTypes database — broad coverage of every mapped column type.</summary>
+    public static string BuiltInDataTypesAccdb { get; } =
+        Path.Combine(AppContext.BaseDirectory, "Data", "BuiltInDataTypes.accdb");
 }

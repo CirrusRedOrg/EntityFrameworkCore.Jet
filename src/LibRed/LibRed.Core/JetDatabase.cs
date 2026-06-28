@@ -54,6 +54,16 @@ public sealed class JetDatabase : IDisposable
     /// <summary>The system catalog, used to enumerate and resolve tables.</summary>
     public JetCatalog Catalog { get; }
 
+    /// <summary>
+    /// Creates a new heap table (no indexes yet) and registers it in the catalog. The database
+    /// must have been opened writable. The table is usable immediately for inserts and scans.
+    /// </summary>
+    public void CreateTable(string name, IReadOnlyList<ColumnSpec> columns)
+    {
+        new Storage.TableCreator(_channel, Catalog).Create(name, columns);
+        Catalog.Invalidate();
+    }
+
     /// <summary>Opens a table by name for row access.</summary>
     public Table OpenTable(string name)
     {

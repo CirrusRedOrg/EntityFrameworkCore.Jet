@@ -32,6 +32,13 @@ public sealed class JetCatalog(PageChannel channel)
     /// <summary>All tables in the database (user and system).</summary>
     public IReadOnlyList<TableDef> Tables => _tables ??= LoadTables();
 
+    /// <summary>Drops the cached catalog so a freshly created table is picked up on next read.</summary>
+    public void Invalidate()
+    {
+        _tables = null;
+        _relationships = null;
+    }
+
     /// <summary>All relationships (foreign keys) defined in the database.</summary>
     public IReadOnlyList<ForeignKey> Relationships => _relationships ??= LoadRelationships();
 

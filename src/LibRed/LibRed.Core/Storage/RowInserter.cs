@@ -22,21 +22,27 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private readonly TableDef _table = table;
 
     /// <summary>Encodes and writes <paramref name="values"/> (aligned to column Index) into the table.</summary>
-    public void Insert(object?[] values)
+    public void Insert(object?[] values) => Insert(values, updateIndexes: true);
+
+    /// <summary>
+    /// Inserts a row, optionally skipping index maintenance. Heap-only inserts are used for the
+    /// MSysObjects catalog row (whose text indexes are not yet writable), which the catalog reader
+    /// finds by table scan anyway.
+    /// </summary>
+    public void Insert(object?[] values, bool updateIndexes)
     {
         JetFormatBase format = _channel.Format;
 
-        // Find a page with room and a reference row to mirror the on-disk fixed-region length.
-        (int pageNumber, byte[] page, int fixedDataLength) = FindWritablePage(format);
-
-        var encoder = new RowEncoder(_table.Columns, format, fixedDataLength);
+        // Encode first: the fixed-region length is pinned by any existing row (to match Access),
+        // or derived from the columns for a just-created empty table.
+        var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format));
         byte[] record = encoder.Encode(values);
+
+        // Then find an owned page with room for the record plus its 2-byte slot entry.
+        (int pageNumber, byte[] page) = FindPageWithRoom(format, record.Length + 2);
 
         int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
         int freeSpace = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2));
-
-        if (freeSpace < record.Length + 2)
-            throw new InvalidOperationException("Chosen page lacks room — page allocation is not implemented yet.");
 
         // Rows are packed from the page end backward, with strictly decreasing slot offsets,
         // so the new row goes just below the current lowest row start.
@@ -54,7 +60,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         _channel.WritePage(pageNumber, page);
 
         BumpTableRowCount(format);
-        UpdateIndexes(values, new RowId(pageNumber, rowCount));
+        if (updateIndexes)
+            UpdateIndexes(values, new RowId(pageNumber, rowCount));
     }
 
     /// <summary>Adds the new row to every index B-tree (deduped by root page, since relationship
@@ -71,21 +78,31 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         }
     }
 
-    private (int PageNumber, byte[] Page, int FixedDataLength) FindWritablePage(JetFormatBase format)
+    private (int PageNumber, byte[] Page) FindPageWithRoom(JetFormatBase format, int needed)
     {
         foreach (int pageNumber in new UsageMap(_channel, _table).DataPages())
         {
             byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
             int freeSpace = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2));
-            int? fixedLength = InferFixedDataLength(page, format);
-
-            // Need a reference row (to mirror the fixed-region length) and enough free space.
-            if (fixedLength is { } len && freeSpace > 2)
-                return (pageNumber, page, len);
+            if (freeSpace >= needed)
+                return (pageNumber, page);
         }
 
         throw new InvalidOperationException(
-            "No existing data page with a reference row was found; empty-table / new-page insert is not implemented yet.");
+            "No owned data page has room for the row; new-page allocation on insert is not implemented yet.");
+    }
+
+    /// <summary>Pins the fixed-region length to an existing row anywhere in the table (so the layout
+    /// matches Access), or returns null for an empty table (the encoder then derives it).</summary>
+    private int? InferFixedDataLength(JetFormatBase format)
+    {
+        foreach (int pageNumber in new UsageMap(_channel, _table).DataPages())
+        {
+            byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
+            if (InferFixedDataLength(page, format) is { } length)
+                return length;
+        }
+        return null;
     }
 
     private static int LowestRowOffset(byte[] page, JetFormatBase format, int rowCount)

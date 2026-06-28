@@ -39,8 +39,20 @@ internal sealed class ExpressionEvaluator(
         {
             "IIF" => IsTrue(f.Arguments[0]) ? Evaluate(f.Arguments[1]) : Evaluate(f.Arguments[2]),
             "DATEPART" => DatePart(Evaluate(f.Arguments[0]), Evaluate(f.Arguments[1])),
+            "ROUND" => Round(f),
             _ => throw new NotSupportedException($"Function {f.Name} is not supported."),
         };
+    }
+
+    /// <summary>Access ROUND(number[, digits]): banker's rounding, like VBA/Access.</summary>
+    private object? Round(FunctionCall f)
+    {
+        object? value = Evaluate(f.Arguments[0]);
+        if (value is null) return null;
+        int digits = f.Arguments.Count > 1
+            ? Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture)
+            : 0;
+        return Math.Round(Convert.ToDecimal(value, CultureInfo.InvariantCulture), digits, MidpointRounding.ToEven);
     }
 
     /// <summary>Access DATEPART(interval, date): extracts a component of a date as an int.</summary>

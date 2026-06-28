@@ -41,6 +41,43 @@ public class CorrelatedSubqueryTests
     }
 
     [Fact]
+    public void Correlated_aggregate_subquery_with_round_and_iif()
+    {
+        // Per order (< 10300), SUM of ROUND(UnitPrice^2, 2) over its details; 0.0 when none.
+        const string sql = """
+            SELECT `o`.`OrderID`, (
+                SELECT IIF(SUM(ROUND(`o0`.`UnitPrice` * `o0`.`UnitPrice`, 2)) IS NULL, 0.0, SUM(ROUND(`o0`.`UnitPrice` * `o0`.`UnitPrice`, 2)))
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
+            FROM `Orders` AS `o`
+            WHERE `o`.`OrderID` < 10300
+            """;
+
+        var rows = Query(sql, out var columns);
+        Assert.Equal(["OrderID", "Sum"], columns);
+        Assert.Equal(52, rows.Count); // orders 10248..10299
+
+        // Independent cross-check straight from Order Details.
+        using var db = JetDatabase.Open(Northwind);
+        var details = db.OpenTable("Order Details");
+        int oid = details.Definition.Columns.Single(c => c.Name == "OrderID").Index;
+        int price = details.Definition.Columns.Single(c => c.Name == "UnitPrice").Index;
+        var expected = details.Rows()
+            .GroupBy(r => Convert.ToInt32(r[oid]))
+            .ToDictionary(
+                g => g.Key,
+                g => g.Sum(r => Math.Round(Convert.ToDecimal(r[price]) * Convert.ToDecimal(r[price]), 2, MidpointRounding.ToEven)));
+
+        foreach (var row in rows)
+        {
+            int id = Convert.ToInt32(row[0]);
+            decimal got = Convert.ToDecimal(row[1]);
+            Assert.Equal(expected.TryGetValue(id, out var sum) ? sum : 0m, got);
+        }
+        Assert.Equal(1503.08m, Convert.ToDecimal(rows.Single(r => Convert.ToInt32(r[0]) == 10248)[1]));
+    }
+
+    [Fact]
     public void Nested_derived_tables_with_correlation_and_like_and_left_join()
     {
         const string sql = """

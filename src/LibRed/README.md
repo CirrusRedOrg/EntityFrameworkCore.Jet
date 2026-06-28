@@ -9,6 +9,9 @@ LibRed reads and writes the file format directly.
 > authoritative, verified reference for the on-disk Jet 4 / ACE format — every page type,
 > structure, and encoding we implement. Treat it as the source of truth (it supersedes
 > ad-hoc reads of mdbtools/Jackcess) and update it whenever the format understanding changes.
+> **Any change to `LibRed.Core`'s read/write code must check the spec for needed updates in the
+> same change** — see the rule in the repo-root `CLAUDE.md`. Record only facts verified against
+> real files or Access's own engine.
 
 ## Projects
 

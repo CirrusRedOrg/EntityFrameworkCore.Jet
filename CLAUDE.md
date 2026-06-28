@@ -137,7 +137,18 @@ node types rather than rewrites):
 **Format spec:** `src/LibRed/docs/jet-ace-file-format.md` is LibRed's own verified
 reference for the on-disk Jet 4 / ACE format (page types, TDEF/row/index/usage-map/long-value
 layouts, key encodings). It is the source of truth — keep it updated as the format
-understanding grows. Reference implementations for the binary layouts: **mdbtools**
+understanding grows.
+
+> **Rule — spec sync on every `LibRed.Core` change.** Whenever you touch the actual on-disk
+> read/write code in `src/LibRed/LibRed.Core/` (page/row/index/TDEF/usage-map parsing or
+> writing, type codecs, key encoding), you **must** check whether
+> `src/LibRed/docs/jet-ace-file-format.md` needs updating in the same change, and update it if
+> so. New offsets, structures, type behaviours, or write mechanics go in the spec; only record
+> facts **verified** against real files (or Access's own engine) — mark anything assumed as
+> such. If a `LibRed.Core` change genuinely needs no spec edit, that's fine — but the check is
+> not optional.
+
+Reference implementations for the binary layouts: **mdbtools**
 (`src/libmdb/`) and **Jackcess**. The build order and project detail live in `src/LibRed/README.md`.
 ANTLR is present but **not** wired into the build yet (commented `Antlr4BuildTasks`
 block in `LibRed.Sql.csproj`).

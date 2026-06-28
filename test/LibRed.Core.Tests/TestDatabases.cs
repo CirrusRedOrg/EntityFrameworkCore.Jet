@@ -10,4 +10,8 @@ internal static class TestDatabases
     /// <summary>A 200-column ACCDB whose table definition spans multiple TDEF pages.</summary>
     public static string WideTableAccdb { get; } =
         Path.Combine(AppContext.BaseDirectory, "Data", "WideTable.accdb");
+
+    /// <summary>An ACCDB with Decimal/Numeric columns and known values.</summary>
+    public static string DecimalsAccdb { get; } =
+        Path.Combine(AppContext.BaseDirectory, "Data", "Decimals.accdb");
 }

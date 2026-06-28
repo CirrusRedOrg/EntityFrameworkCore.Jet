@@ -39,15 +39,35 @@ public static class JetTypeCodec
                 return DecodeText(value);
             case JetDataType.Binary:
                 return value.ToArray();
+            case JetDataType.FixedPoint:
+                return DecodeNumeric(value, column.Scale);
 
             // Long values stored on LVAL pages — needs the long-value reader. TODO.
             case JetDataType.Memo:
             case JetDataType.Ole:
             case JetDataType.Complex:
-            case JetDataType.FixedPoint:
             default:
                 return value.ToArray();
         }
+    }
+
+    /// <summary>
+    /// Decodes a Jet Decimal/Numeric value (17 bytes): a sign byte (0x80 = negative) followed
+    /// by a 128-bit magnitude stored as four 32-bit little-endian words in big-endian word
+    /// order (the low word last). The value is the magnitude divided by 10^scale.
+    /// </summary>
+    private static decimal DecodeNumeric(ReadOnlySpan<byte> value, byte scale)
+    {
+        bool negative = (value[0] & 0x80) != 0;
+        uint lo = BinaryPrimitives.ReadUInt32LittleEndian(value.Slice(13, 4));
+        uint mid = BinaryPrimitives.ReadUInt32LittleEndian(value.Slice(9, 4));
+        uint hi = BinaryPrimitives.ReadUInt32LittleEndian(value.Slice(5, 4));
+        uint top = BinaryPrimitives.ReadUInt32LittleEndian(value.Slice(1, 4));
+
+        if (top != 0)
+            throw new OverflowException("Numeric value exceeds the range of System.Decimal.");
+
+        return new decimal((int)lo, (int)mid, (int)hi, negative, scale);
     }
 
     /// <summary>

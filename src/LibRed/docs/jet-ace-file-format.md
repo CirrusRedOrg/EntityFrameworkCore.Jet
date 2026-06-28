@@ -257,7 +257,7 @@ of the page backward, so a slot runs from its offset up to where the previous sl
 | `0x0B` | OLE | long value (§8) |
 | `0x0C` | Memo | long value (§8); text once resolved |
 | `0x0F` | GUID | 16 raw bytes |
-| `0x10` | FixedPoint (Numeric/Decimal) | not yet decoded |
+| `0x10` | FixedPoint (Numeric/Decimal) | 17 bytes: sign byte (`0x80` = negative) + 128-bit magnitude (four 32-bit little-endian words, low word last); value = magnitude / 10^scale. Precision/scale from the column descriptor (§3.4) |
 | `0x12` | Complex (multi-value / attachment) | descriptor parsed; contents not materialized (out of scope for SQL/EF) |
 
 ---

@@ -199,16 +199,23 @@ public sealed class TableDefinitionPage : Page
         _columns.Clear();
 
         // Pass 1: fixed-size column descriptors.
-        var descriptors = new (JetDataType Type, int ColumnId, byte Flags, int FixedOffset, int Length)[ColumnCount];
+        var descriptors = new (JetDataType Type, int ColumnId, byte Flags, int FixedOffset, int Length, byte Precision, byte Scale)[ColumnCount];
         for (int i = 0; i < ColumnCount; i++)
         {
             int entry = columnBlock + i * format.ColumnDescriptorSize;
+            var type = (JetDataType)buffer.ReadByte(entry + format.ColumnTypeOffset);
+
+            // Precision/scale share these bytes with a locale id; they are only meaningful
+            // for Decimal/Numeric columns.
+            bool numeric = type == JetDataType.FixedPoint;
             descriptors[i] = (
-                (JetDataType)buffer.ReadByte(entry + format.ColumnTypeOffset),
+                type,
                 buffer.ReadUInt16(entry + format.ColumnNumberOffset),
                 buffer.ReadByte(entry + format.ColumnFlagsOffset),
                 buffer.ReadUInt16(entry + format.ColumnFixedOffsetOffset),
-                buffer.ReadUInt16(entry + format.ColumnLengthOffset));
+                buffer.ReadUInt16(entry + format.ColumnLengthOffset),
+                numeric ? buffer.ReadByte(entry + format.ColumnPrecisionOffset) : (byte)0,
+                numeric ? buffer.ReadByte(entry + format.ColumnScaleOffset) : (byte)0);
         }
 
         // Variable columns are addressed (in the row's var-offset table) in ascending
@@ -246,6 +253,8 @@ public sealed class TableDefinitionPage : Page
                 VariableIndex = isFixed ? -1 : variableIndex[d.ColumnId],
                 IsFixedLength = isFixed,
                 IsAutoNumber = (d.Flags & JetFormatBase.ColumnFlagAutoNumber) != 0,
+                Precision = d.Precision,
+                Scale = d.Scale,
             });
         }
 

@@ -1,4 +1,7 @@
+using LibRed.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Xunit;
 
 namespace LibRed.EFCore.Tests;
@@ -34,6 +37,24 @@ public class RoundTripTests
             .UseLibRed($"Data Source={Northwind}")
             .Options;
         return new NorthwindContext(options);
+    }
+
+    [Fact]
+    public void Provider_uses_the_libred_connection_not_oledb()
+    {
+        using var context = CreateContext();
+
+        // The DbConnection EF actually uses must be ours, not the OLE DB/ODBC JetConnection.
+        var dbConnection = context.Database.GetDbConnection();
+        Assert.IsType<LibRedConnection>(dbConnection);
+
+        // And the relational connection service resolved to the LibRed override.
+        var relational = context.GetService<IRelationalConnection>();
+        Assert.Equal("LibRedRelationalConnection", relational.GetType().Name);
+
+        // Force the query to execute and confirm the same LibRed connection opened.
+        _ = context.Customers.Where(c => c.City == "Berlin").ToList();
+        Assert.IsType<LibRedConnection>(context.Database.GetDbConnection());
     }
 
     [Fact]

@@ -21,7 +21,8 @@ createTableStatement
 
 columnDefinition : name=identifier dataType columnConstraint* ;
 
-dataType : typeName=identifier (LPAREN size=INTEGER_LITERAL (COMMA scale=INTEGER_LITERAL)? RPAREN)? ;
+// A second word handles two-word ANSI aliases like CHARACTER VARYING / BIT VARYING.
+dataType : typeName=identifier extra=identifier? (LPAREN size=INTEGER_LITERAL (COMMA scale=INTEGER_LITERAL)? RPAREN)? ;
 
 columnConstraint
     : NOT NULL          # NotNullConstraint

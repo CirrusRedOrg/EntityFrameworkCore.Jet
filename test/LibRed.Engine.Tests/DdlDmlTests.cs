@@ -63,6 +63,49 @@ public class DdlDmlTests
     }
 
     [Fact]
+    public void Width_suffixed_and_two_word_type_aliases_work()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var engine = new QueryEngine(db);
+
+            // integer4 = Int32, integer2 = Int16, integer1 = Byte, and the two-word CHARACTER VARYING.
+            engine.ExecuteNonQuery(
+                "CREATE TABLE `Aliased` (`Id` INTEGER4 PRIMARY KEY, `Small` INTEGER2, `Tiny` INTEGER1, `Label` CHARACTER VARYING(40))");
+            engine.ExecuteNonQuery(
+                "INSERT INTO `Aliased` (`Id`, `Small`, `Tiny`, `Label`) VALUES (1, 200, 7, 'hi')");
+
+            var only = Assert.Single(engine.ExecuteQuery("SELECT `Id`, `Small`, `Tiny`, `Label` FROM `Aliased`").Rows);
+            Assert.Equal(1, Convert.ToInt32(only[0]));
+            Assert.Equal(200, Convert.ToInt32(only[1]));
+            Assert.Equal(7, Convert.ToInt32(only[2]));
+            Assert.Equal("hi", only[3]);
+
+            var def = db.Catalog.FindTable("Aliased")!;
+            Assert.Equal(LibRed.Catalog.JetDataType.Int16, def.FindColumn("Small")!.Type);
+            Assert.Equal(LibRed.Catalog.JetDataType.Byte, def.FindColumn("Tiny")!.Type);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Memo_column_fails_with_a_clear_message()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var engine = new QueryEngine(db);
+            var ex = Assert.Throws<NotSupportedException>(() =>
+                engine.ExecuteNonQuery("CREATE TABLE `M` (`Id` INTEGER, `Body` MEMO)"));
+            Assert.Contains("long values", ex.Message);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void Create_without_primary_key_is_allowed()
     {
         string path = CopyToTemp();

@@ -35,10 +35,15 @@ internal sealed class AstBuilder
         int? size = type.size is { } s ? int.Parse(s.Text, CultureInfo.InvariantCulture) : null;
         int? scale = type.scale is { } sc ? int.Parse(sc.Text, CultureInfo.InvariantCulture) : null;
 
+        // Two-word type names (e.g. CHARACTER VARYING) join with a single space.
+        string typeName = type.extra is null
+            ? Identifier(type.typeName)
+            : $"{Identifier(type.typeName)} {Identifier(type.extra)}";
+
         bool notNull = ctx.columnConstraint().OfType<NotNullConstraintContext>().Any();
         bool primaryKey = ctx.columnConstraint().OfType<PrimaryKeyConstraintContext>().Any();
 
-        return new ColumnDefinition(Identifier(ctx.name), Identifier(type.typeName), size, scale, notNull, primaryKey);
+        return new ColumnDefinition(Identifier(ctx.name), typeName, size, scale, notNull, primaryKey);
     }
 
     private static SqlStatement BuildInsert(InsertStatementContext ctx)

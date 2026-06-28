@@ -11,16 +11,17 @@ internal static class AccessTypeMapper
 {
     public static ColumnSpec ToColumnSpec(ColumnDefinition column)
     {
-        string t = column.TypeName.ToUpperInvariant();
+        // Collapse any internal whitespace so two-word aliases ("character  varying") match.
+        string t = string.Join(' ', column.TypeName.ToUpperInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         return t switch
         {
             "COUNTER" or "AUTOINCREMENT" or "IDENTITY"
                 => Fixed(column, JetDataType.Int32, 4, autoNumber: true),
-            "INTEGER" or "INT" or "LONG"
+            "INTEGER" or "INT" or "LONG" or "INTEGER4"
                 => Fixed(column, JetDataType.Int32, 4),
-            "SMALLINT" or "SHORT"
+            "SMALLINT" or "SHORT" or "INTEGER2"
                 => Fixed(column, JetDataType.Int16, 2),
-            "BYTE" or "TINYINT"
+            "BYTE" or "TINYINT" or "INTEGER1"
                 => Fixed(column, JetDataType.Byte, 1),
             "BIGINT"
                 => Fixed(column, JetDataType.Int64, 8),
@@ -40,8 +41,18 @@ internal static class AccessTypeMapper
                 => new ColumnSpec(column.Name, JetDataType.FixedPoint, 17, IsFixedLength: true,
                     Precision: (byte)(column.Size ?? 18), Scale: (byte)(column.Scale ?? 0)),
             "TEXT" or "VARCHAR" or "NVARCHAR" or "CHAR" or "NCHAR" or "STRING"
+            or "CHARACTER" or "CHARACTER VARYING" or "CHAR VARYING"
                 // Access TEXT length is in characters; on disk it is UTF-16 (2 bytes each).
                 => new ColumnSpec(column.Name, JetDataType.Text, (column.Size ?? 255) * 2, IsFixedLength: false),
+            "BINARY" or "VARBINARY" or "BIT VARYING"
+                => new ColumnSpec(column.Name, JetDataType.Binary, column.Size ?? 255, IsFixedLength: false),
+
+            // Long-value (LVAL-page) columns: recognised but not writable yet — fail clearly.
+            "MEMO" or "LONGTEXT" or "LONGCHAR"
+                => throw new NotSupportedException($"Memo/long-text columns ('{column.TypeName}') cannot be created yet (long values are not writable)."),
+            "OLEOBJECT" or "IMAGE" or "LONGBINARY"
+                => throw new NotSupportedException($"OLE/long-binary columns ('{column.TypeName}') cannot be created yet (long values are not writable)."),
+
             _ => throw new NotSupportedException($"CREATE TABLE column type '{column.TypeName}' is not supported yet."),
         };
     }

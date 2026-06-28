@@ -25,12 +25,16 @@ public static class JetTypeCodec
                 return BinaryPrimitives.ReadInt16LittleEndian(value);
             case JetDataType.Int32:
                 return BinaryPrimitives.ReadInt32LittleEndian(value);
+            case JetDataType.Int64: // ACE 16 BIGINT
+                return BinaryPrimitives.ReadInt64LittleEndian(value);
             case JetDataType.Single:
                 return BinaryPrimitives.ReadSingleLittleEndian(value);
             case JetDataType.Double:
                 return BinaryPrimitives.ReadDoubleLittleEndian(value);
             case JetDataType.DateTime:
                 return DateTime.FromOADate(BinaryPrimitives.ReadDoubleLittleEndian(value));
+            case JetDataType.DateTimeExtended: // ACE 16 DATETIME2
+                return DecodeExtendedDateTime(value);
             case JetDataType.Currency:
                 return BinaryPrimitives.ReadInt64LittleEndian(value) / 10000m;
             case JetDataType.Guid:
@@ -49,6 +53,26 @@ public static class JetTypeCodec
             default:
                 return value.ToArray();
         }
+    }
+
+    /// <summary>
+    /// Decodes an ACE 16 DATETIME2 value: a fixed 42-byte ASCII string
+    /// "&lt;day&gt;:&lt;time&gt;:&lt;precision&gt;" where <c>day</c> is the .NET day number and
+    /// <c>time</c> is the count of 100-ns ticks within the day. Both are zero-padded to 19
+    /// digits so that byte order equals chronological order.
+    /// </summary>
+    private static DateTime DecodeExtendedDateTime(ReadOnlySpan<byte> value)
+    {
+        Span<char> chars = stackalloc char[value.Length];
+        int n = Encoding.ASCII.GetChars(value, chars);
+        ReadOnlySpan<char> s = chars[..n];
+
+        int c1 = s.IndexOf(':');
+        int c2 = s.Slice(c1 + 1).IndexOf(':') + c1 + 1;
+        long day = long.Parse(s[..c1]);
+        long time = long.Parse(s.Slice(c1 + 1, c2 - c1 - 1));
+
+        return new DateTime(day * TimeSpan.TicksPerDay + time);
     }
 
     /// <summary>

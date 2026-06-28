@@ -14,4 +14,8 @@ internal static class TestDatabases
     /// <summary>An ACCDB with Decimal/Numeric columns and known values.</summary>
     public static string DecimalsAccdb { get; } =
         Path.Combine(AppContext.BaseDirectory, "Data", "Decimals.accdb");
+
+    /// <summary>An ACE 16 (version 0x06) ACCDB using the Office 2016 BIGINT and DATETIME2 types.</summary>
+    public static string Ace16TypesAccdb { get; } =
+        Path.Combine(AppContext.BaseDirectory, "Data", "Ace16Types.accdb");
 }

@@ -20,4 +20,6 @@ public enum JetDataType : byte
     Guid = 0x0F,
     FixedPoint = 0x10, // NUMERIC / DECIMAL
     Complex = 0x12,    // ACE complex/multi-value columns
+    Int64 = 0x13,      // ACE 16: BIGINT (Large Number)
+    DateTimeExtended = 0x14, // ACE 16: DATETIME2
 }

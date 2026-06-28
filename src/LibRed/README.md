@@ -78,3 +78,26 @@ text → ISqlParser → AST → Binder(ISchemaProvider) → BoundStatement
 The grammar lives at `LibRed.Sql/Grammar/AccessSql.g4` but is **not** wired into the
 build yet (so the solution compiles without the ANTLR tool). To turn it on, uncomment
 the `Antlr4BuildTasks` block in `LibRed.Sql.csproj`.
+
+## EF Core provider (LibRed.EFCore)
+
+The plan for the (currently placeholder) `LibRed.EFCore` provider: mirror EFCore.Jet's
+DI registration. That provider wires all its services through
+`JetServiceCollectionExtensions.AddEntityFrameworkJet()`
+(`src/EFCore.Jet/Extensions/JetServiceCollectionExtensions.cs`) via an
+`EntityFrameworkRelationalServicesBuilder`. LibRed.EFCore exposes its own
+`AddEntityFrameworkLibRed()` that **keeps as much of EFCore.Jet as possible** and
+overrides only the LibRed-specific pieces on top:
+
+- **`IQuerySqlGeneratorFactory`** (today `JetQuerySqlGeneratorFactory` → creates
+  `JetQuerySqlGenerator`) — the biggest difference. Owning both SQL generation and the
+  engine/parser means the generator can drop the ACE-pleasing contortions (parenthesised
+  multi-way joins, comma-vs-JOIN quirks, CBOOL/CLNG/TOP-SKIP gymnastics) that exist only
+  to satisfy the OLE DB/ODBC → ACE path. Subclass/customise rather than rewrite.
+- **The connection** (`IRelationalConnection` / `IJetRelationalConnection`) → a LibRed
+  connection over `LibRed.Ado` instead of the OLE DB/ODBC `JetConnection`.
+
+Because EF SQL generation is controlled top-to-bottom, the engine only needs to accept
+the SQL EF actually emits — so grow the SQL layer against real EF-generated queries, not
+arbitrary Jet syntax. (Note: the Jet builder uses `TryAdd` / add-if-absent, so confirm the
+override ordering when implementing.)

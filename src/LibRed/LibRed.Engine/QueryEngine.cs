@@ -16,28 +16,26 @@ public sealed class QueryEngine
     private readonly ISqlParser _parser;
     private readonly Binder _binder;
     private readonly QueryPlanner _planner = new();
-    private readonly QueryExecutor _executor;
 
     public QueryEngine(JetDatabase database, ISqlParser? parser = null)
     {
         _database = database;
         _parser = parser ?? new AntlrSqlParser();
         _binder = new Binder(new CatalogSchemaProvider(database.Catalog));
-        _executor = new QueryExecutor(database);
     }
 
     public JetDatabase Database => _database;
 
-    public ResultSet ExecuteQuery(string sql)
+    public ResultSet ExecuteQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
         var plan = Compile(sql);
-        return _executor.ExecuteQuery(plan);
+        return new QueryExecutor(_database, parameters).ExecuteQuery(plan);
     }
 
-    public int ExecuteNonQuery(string sql)
+    public int ExecuteNonQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
         var plan = Compile(sql);
-        return _executor.ExecuteNonQuery(plan);
+        return new QueryExecutor(_database, parameters).ExecuteNonQuery(plan);
     }
 
     private Plan.PlanNode Compile(string sql)

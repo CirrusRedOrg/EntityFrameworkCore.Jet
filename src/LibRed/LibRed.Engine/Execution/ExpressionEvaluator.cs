@@ -14,7 +14,8 @@ namespace LibRed.Engine.Execution;
 internal sealed class ExpressionEvaluator(
     EvalScope scope,
     IScalarSubqueryRunner subqueries,
-    IReadOnlyDictionary<FunctionCall, object?>? aggregates = null)
+    IReadOnlyDictionary<FunctionCall, object?>? aggregates = null,
+    ParameterBag? parameters = null)
 {
     public object? Evaluate(Expression expression) => expression switch
     {
@@ -26,7 +27,9 @@ internal sealed class ExpressionEvaluator(
         FunctionCall f => EvaluateFunction(f),
         UnaryExpression u => EvaluateUnary(u),
         BinaryExpression b => EvaluateBinary(b),
-        ParameterExpression => throw new NotSupportedException("Query parameters are not yet supported."),
+        ParameterExpression p => parameters is not null
+            ? parameters.Resolve(p.Name)
+            : throw new InvalidOperationException($"No parameters were supplied for '{p.Name}'."),
         _ => throw new NotSupportedException($"Cannot evaluate {expression.GetType().Name}."),
     };
 

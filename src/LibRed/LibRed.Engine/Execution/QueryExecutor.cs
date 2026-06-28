@@ -13,9 +13,16 @@ internal readonly record struct OutputColumn(string? Qualifier, string Name);
 /// (alias-qualified columns), and an optional outer <see cref="EvalScope"/> is threaded so
 /// correlated subqueries can resolve outer columns.
 /// </summary>
-public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
+public sealed class QueryExecutor : IScalarSubqueryRunner
 {
-    private readonly JetDatabase _database = database;
+    private readonly JetDatabase _database;
+    private readonly ParameterBag _parameters;
+
+    public QueryExecutor(JetDatabase database, IReadOnlyDictionary<string, object?>? parameters = null)
+    {
+        _database = database;
+        _parameters = new ParameterBag(parameters);
+    }
 
     public ResultSet ExecuteQuery(PlanNode plan)
     {
@@ -199,7 +206,7 @@ public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
     }
 
     private ExpressionEvaluator Eval(IReadOnlyList<OutputColumn> columns, object?[] row, EvalScope? outer) =>
-        new(new EvalScope(columns, row, outer), this);
+        new(new EvalScope(columns, row, outer), this, parameters: _parameters);
 
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteAggregate(AggregateNode node, EvalScope? outer)
     {
@@ -225,7 +232,7 @@ public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
             // an aggregate with no GROUP BY over zero rows (e.g. COUNT(*) -> 0); there are no key
             // columns to resolve, so a null row suffices.
             object?[] keyRow = group.Count > 0 ? group[0] : new object?[inColumns.Count];
-            var eval = new ExpressionEvaluator(new EvalScope(inColumns, keyRow, outer), this, values);
+            var eval = new ExpressionEvaluator(new EvalScope(inColumns, keyRow, outer), this, values, _parameters);
 
             // HAVING filters whole groups after aggregation.
             if (node.Having is not null && !eval.IsTrue(node.Having))

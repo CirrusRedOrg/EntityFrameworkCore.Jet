@@ -1,6 +1,7 @@
 using System.Data.OleDb;
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Storage;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -62,6 +63,39 @@ public class RowInserterTests
     }
 
     [Fact]
+    public void Index_stays_sorted_across_inserts_including_a_middle_key()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var table = db.OpenTable("Shippers");
+                // Insert 5 (appends), then 4 (must slot between 3 and 5).
+                foreach (int id in new[] { 5, 4 })
+                    table.Insert(BuildValues(table.Definition, new Dictionary<string, object?>
+                    {
+                        ["ShipperID"] = id,
+                        ["CompanyName"] = $"Shipper {id}",
+                        ["Phone"] = "(000) 000-0000",
+                    }));
+            }
+
+            using (var db = JetDatabase.Open(path))
+            {
+                var table = db.OpenTable("Shippers");
+                var pk = table.Definition.Indexes.Single(i => i.IsPrimaryKey);
+                var ids = new IndexCursor(table.Channel, pk.RootPage)
+                    .Entries(pk.Columns)
+                    .Select(e => (int)e.Key[0]!)
+                    .ToList();
+                Assert.Equal([1, 2, 3, 4, 5], ids); // index order, with 4 inserted in the middle
+            }
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void Insert_matches_access_own_engine_and_is_readable_by_access()
     {
         string ours = CopyToTemp();
@@ -92,18 +126,16 @@ public class RowInserterTests
             // Both databases, read through our reader, must contain the same Shippers rows.
             Assert.Equal(ReadShippers(access), ReadShippers(ours));
 
-            // And Access must be able to read the row we wrote — via a table scan. (An indexed
-            // lookup like WHERE ShipperID = 4 would miss it until index maintenance lands: the row
-            // is in the heap but not yet in the primary-key B-tree. That is the next stage.)
+            // Access must find the row we wrote via an indexed primary-key seek — which only
+            // works because we maintained the PK B-tree, not just the heap.
             using (var conn = OpenOleDb(ours))
             {
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = "SELECT ShipperID, CompanyName, Phone FROM Shippers";
+                cmd.CommandText = "SELECT CompanyName, Phone FROM Shippers WHERE ShipperID = 4";
                 using var reader = cmd.ExecuteReader();
-                var byAccess = new List<(int, string, string)>();
-                while (reader.Read())
-                    byAccess.Add((reader.GetInt32(0), reader.GetString(1), reader.GetString(2)));
-                Assert.Contains((4, "Speedy Express 2", "(503) 555-0000"), byAccess);
+                Assert.True(reader.Read());
+                Assert.Equal("Speedy Express 2", reader.GetString(0));
+                Assert.Equal("(503) 555-0000", reader.GetString(1));
             }
         }
         finally

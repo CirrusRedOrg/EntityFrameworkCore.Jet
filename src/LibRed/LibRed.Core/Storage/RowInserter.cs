@@ -45,6 +45,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         record.CopyTo(page.AsSpan(newOffset));
 
         // Append the slot, bump the row count, shrink free space by row + slot-entry bytes.
+        // The new row's slot index is the old row count, giving its row id on this page.
         BinaryPrimitives.WriteUInt16LittleEndian(
             page.AsSpan(format.DataRowDirectoryOffset + rowCount * 2, 2), (ushort)(newOffset & RowOffsetMask));
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), (ushort)(rowCount + 1));
@@ -53,6 +54,21 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         _channel.WritePage(pageNumber, page);
 
         BumpTableRowCount(format);
+        UpdateIndexes(values, new RowId(pageNumber, rowCount));
+    }
+
+    /// <summary>Adds the new row to every index B-tree (deduped by root page, since relationship
+    /// indexes share a real index's data) so indexed lookups — and Access — find it.</summary>
+    private void UpdateIndexes(object?[] values, RowId rowId)
+    {
+        var writer = new IndexWriter(_channel);
+        foreach (IndexDef index in _table.Indexes
+            .Where(i => i.RootPage > 0)
+            .GroupBy(i => i.RootPage)
+            .Select(g => g.First()))
+        {
+            writer.AddEntry(index, values, rowId);
+        }
     }
 
     private (int PageNumber, byte[] Page, int FixedDataLength) FindWritablePage(JetFormatBase format)

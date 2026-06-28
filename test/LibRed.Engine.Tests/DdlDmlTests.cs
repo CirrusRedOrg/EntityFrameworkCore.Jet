@@ -91,6 +91,19 @@ public class DdlDmlTests
     }
 
     [Fact]
+    public void Boolean_alias_logical1_maps_to_boolean()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            new QueryEngine(db).ExecuteNonQuery("CREATE TABLE `B` (`Id` INTEGER, `Flag` LOGICAL1)");
+            Assert.Equal(LibRed.Catalog.JetDataType.Boolean, db.Catalog.FindTable("B")!.FindColumn("Flag")!.Type);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void Memo_column_fails_with_a_clear_message()
     {
         string path = CopyToTemp();

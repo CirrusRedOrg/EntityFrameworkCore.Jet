@@ -66,11 +66,17 @@ version. (Page-level encryption for password-protected files is not implemented.
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 1 | Page type `0x02` |
+| `0x01` | 1 | Flags (observed `0x01`) |
+| `0x02` | 2 | Free space remaining in this page |
 | `0x04` | 4 | Next TDEF page (0 if the definition fits one page) |
 | `0x08` | 4 | TDEF length (total logical bytes) |
+| `0x0C` | 4 | Unknown — a constant `0x00000659` (1625) observed in every file |
 | `0x10` | 4 | Row count |
-| `0x14` | 4 | Next auto-number value |
+| `0x14` | 4 | Next auto-number value (e.g. next AutoNumber id) |
+| `0x18` | 4 | Unknown — observed constant `0x01` (possibly the ACE complex-type auto-number) |
+| `0x1C` | 12 | Unknown / reserved (zero observed) |
 | `0x28` | 1 | Table type: `0x4E` 'N' user, `0x53` 'S' system |
+| `0x29` | 2 | Maximum column count |
 | `0x2B` | 2 | Variable-length column count |
 | `0x2D` | 2 | Column count |
 | `0x2F` | 4 | **Logical** index count (a.k.a. index slots) |
@@ -78,6 +84,10 @@ version. (Page-level encryption for password-protected files is not implemented.
 | `0x37` | 4 | Owned-pages usage-map pointer: 1-byte row + 3-byte page |
 | `0x3B` | 4 | Free-space-pages usage-map pointer |
 | `0x3F` | — | Start of the real-index block (precedes column descriptors) |
+
+> The `0x0C` and `0x18` entries are constants across every file inspected; their exact
+> meaning is unconfirmed, so they are recorded as observed rather than named. LibRed does not
+> read them.
 
 > ⚠️ `0x2F` vs `0x33`: these are equal for MSysObjects (which hid the distinction during
 > reverse-engineering) but differ for user tables. `0x33` (real index count) sizes the

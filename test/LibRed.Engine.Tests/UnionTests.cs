@@ -77,6 +77,26 @@ public class UnionTests
     }
 
     [Fact]
+    public void Union_with_correlated_count_subquery_per_customer()
+    {
+        // Correlated COUNT(*) of each customer's orders, unioned with the same query.
+        // Exercises the empty-group case: customers with zero orders must yield COUNT 0,
+        // not crash (an aggregate with no GROUP BY over zero rows forms an empty group).
+        const string side = """
+            SELECT `c`.`CustomerID`, (
+                SELECT COUNT(*) FROM `Orders` AS `o`
+                WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Orders`
+            FROM `Customers` AS `c`
+            """;
+
+        var rows = Query($"{side} UNION {side.Replace("`c`", "`c0`").Replace("`o`", "`o0`")}", out var columns);
+        Assert.Equal(["CustomerID", "Orders"], columns);
+        Assert.Equal(91, rows.Count); // all customers; UNION dedupes the identical sides
+        Assert.Equal(830L, rows.Sum(r => (long)r[1]!)); // total Northwind orders
+        Assert.Equal(2, rows.Count(r => (long)r[1]! == 0)); // FISSA and PARIS have no orders
+    }
+
+    [Fact]
     public void Union_collapses_identical_values_to_one()
     {
         // Selecting only City, all 6 London rows are the same value 'London'.

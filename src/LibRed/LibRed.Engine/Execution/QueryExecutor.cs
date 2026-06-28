@@ -213,8 +213,11 @@ public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
                 values[call] = ComputeAggregate(call, group, inColumns, outer);
 
             // Within a group every key value is constant, so the first row resolves group keys;
-            // aggregate calls resolve from the precomputed map.
-            var eval = new ExpressionEvaluator(new EvalScope(inColumns, group[0], outer), this, values);
+            // aggregate calls resolve from the precomputed map. An empty group only happens for
+            // an aggregate with no GROUP BY over zero rows (e.g. COUNT(*) -> 0); there are no key
+            // columns to resolve, so a null row suffices.
+            object?[] keyRow = group.Count > 0 ? group[0] : new object?[inColumns.Count];
+            var eval = new ExpressionEvaluator(new EvalScope(inColumns, keyRow, outer), this, values);
             outRows.Add(node.Projection.Select(item => eval.Evaluate(item.Value)).ToArray());
         }
 

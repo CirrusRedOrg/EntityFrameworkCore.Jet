@@ -111,11 +111,67 @@ public static class JetTypeCodec
         return Encoding.Unicode.GetString(value);
     }
 
-    /// <summary>Encodes a CLR value back to its on-disk representation.</summary>
-    public static byte[] Encode(ColumnDef column, object? value)
+    /// <summary>
+    /// Encodes a non-null CLR value to its on-disk bytes — the inverse of <see cref="Decode"/>.
+    /// Boolean is not handled here (its value lives in the null bitmap). Text is written as
+    /// uncompressed UTF-16LE. Long values (memo/OLE) are not written yet.
+    /// </summary>
+    public static byte[] Encode(ColumnDef column, object value)
     {
-        // TODO: inverse of Decode.
-        _ = (column, value);
-        return [];
+        var c = System.Globalization.CultureInfo.InvariantCulture;
+        switch (column.Type)
+        {
+            case JetDataType.Byte:
+                return [Convert.ToByte(value, c)];
+            case JetDataType.Int16:
+                return Bytes(2, b => BinaryPrimitives.WriteInt16LittleEndian(b, Convert.ToInt16(value, c)));
+            case JetDataType.Int32:
+                return Bytes(4, b => BinaryPrimitives.WriteInt32LittleEndian(b, Convert.ToInt32(value, c)));
+            case JetDataType.Int64:
+                return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, Convert.ToInt64(value, c)));
+            case JetDataType.Single:
+                return Bytes(4, b => BinaryPrimitives.WriteSingleLittleEndian(b, Convert.ToSingle(value, c)));
+            case JetDataType.Double:
+                return Bytes(8, b => BinaryPrimitives.WriteDoubleLittleEndian(b, Convert.ToDouble(value, c)));
+            case JetDataType.DateTime:
+                return Bytes(8, b => BinaryPrimitives.WriteDoubleLittleEndian(b, Convert.ToDateTime(value, c).ToOADate()));
+            case JetDataType.Currency:
+                return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, (long)decimal.Round(Convert.ToDecimal(value, c) * 10000m)));
+            case JetDataType.Guid:
+                return ((Guid)value).ToByteArray();
+            case JetDataType.Text:
+                return Encoding.Unicode.GetBytes((string)value);
+            case JetDataType.Binary:
+                return (byte[])value;
+            case JetDataType.FixedPoint:
+                return EncodeNumeric(Convert.ToDecimal(value, c), column.Scale);
+
+            default:
+                throw new NotSupportedException($"Encoding {column.Type} is not supported yet.");
+        }
+    }
+
+    private static byte[] Bytes(int length, Action<Span<byte>> write)
+    {
+        var b = new byte[length];
+        write(b);
+        return b;
+    }
+
+    /// <summary>Inverse of <see cref="DecodeNumeric"/>: 17 bytes, sign + 128-bit magnitude (top word 0).</summary>
+    private static byte[] EncodeNumeric(decimal value, byte scale)
+    {
+        decimal factor = 1m;
+        for (int i = 0; i < scale; i++) factor *= 10m;
+        decimal magnitude = decimal.Truncate(decimal.Round(Math.Abs(value) * factor, 0));
+
+        int[] bits = decimal.GetBits(magnitude); // [lo, mid, hi, flags]; magnitude has scale 0
+        var result = new byte[17];
+        result[0] = (byte)(value < 0 ? 0x80 : 0x00);
+        // bytes[1..5) top word = 0; hi at 5, mid at 9, lo at 13 (see DecodeNumeric).
+        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(5, 4), (uint)bits[2]);
+        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(9, 4), (uint)bits[1]);
+        BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(13, 4), (uint)bits[0]);
+        return result;
     }
 }

@@ -38,6 +38,15 @@ internal sealed class AstBuilder
 
     private static TableReference BuildFrom(FromClauseContext ctx)
     {
+        TableReference table = BuildTableSource(ctx.tableSource(0));
+        // Comma between sources is an implicit cross join (no ON).
+        foreach (TableSourceContext src in ctx.tableSource().Skip(1))
+            table = new JoinTable(table, BuildTableSource(src), JoinKind.Cross, null);
+        return table;
+    }
+
+    private static TableReference BuildTableSource(TableSourceContext ctx)
+    {
         TableReference table = BuildTablePrimary(ctx.tablePrimary());
         foreach (JoinClauseContext join in ctx.joinClause())
         {

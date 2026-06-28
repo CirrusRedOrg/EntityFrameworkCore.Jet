@@ -111,7 +111,9 @@ public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
 
         var columns = leftColumns.Concat(rightColumns).ToList();
         var rightRows = rightRowsEnum.ToList(); // re-iterated per left row
-        Expression on = join.On ?? throw new NotSupportedException("Joins require an ON condition.");
+        Expression? on = join.On; // null for a CROSS join (cartesian product)
+        if (on is null && join.Kind != JoinKind.Cross)
+            throw new NotSupportedException("Joins require an ON condition.");
         bool leftOuter = join.Kind == JoinKind.Left;
 
         IEnumerable<object?[]> Rows()
@@ -122,7 +124,7 @@ public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
                 foreach (object?[] right in rightRows)
                 {
                     object?[] combined = [.. left, .. right];
-                    if (Eval(columns, combined, outer).IsTrue(on))
+                    if (on is null || Eval(columns, combined, outer).IsTrue(on))
                     {
                         matched = true;
                         yield return combined;

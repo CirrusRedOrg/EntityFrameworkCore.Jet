@@ -41,6 +41,39 @@ public class AggregateTests
     }
 
     [Fact]
+    public void Min_aggregate_with_comma_cross_join()
+    {
+        // Each customer's earliest order: MIN(OrderID) per customer, comma-joined back to Orders.
+        const string sql = """
+            SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+            FROM (
+                SELECT MIN(`o`.`OrderID`) AS `c`
+                FROM `Orders` AS `o`
+                GROUP BY `o`.`CustomerID`
+            ) AS `o1`,
+            `Orders` AS `o0`
+            WHERE `o0`.`OrderID` = `o1`.`c`
+            """;
+
+        var rows = Query(sql, out var columns);
+        Assert.Equal(["OrderID", "CustomerID", "EmployeeID", "OrderDate"], columns);
+
+        using var db = JetDatabase.Open(Northwind);
+        var orders = db.OpenTable("Orders");
+        int id = orders.Definition.Columns.Single(c => c.Name == "OrderID").Index;
+        int cust = orders.Definition.Columns.Single(c => c.Name == "CustomerID").Index;
+        var expectedMinIds = orders.Rows()
+            .Where(r => r[cust] is not null)
+            .GroupBy(r => r[cust]!.ToString()!)
+            .Select(g => g.Min(r => (int)r[id]!))
+            .OrderBy(x => x)
+            .ToList();
+
+        Assert.Equal(expectedMinIds.Count, rows.Count); // 89 customers with orders
+        Assert.Equal(expectedMinIds, rows.Select(r => (int)r[0]!).OrderBy(x => x).ToList());
+    }
+
+    [Fact]
     public void Datepart_extracts_year()
     {
         var rows = Query("SELECT DATEPART('yyyy', OrderDate) AS y FROM Orders WHERE OrderID = 10248", out _);

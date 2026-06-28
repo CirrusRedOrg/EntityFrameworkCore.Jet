@@ -75,6 +75,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitFromClause([NotNull] AccessSqlParser.FromClauseContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.tableSource"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitTableSource([NotNull] AccessSqlParser.TableSourceContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>NamedTablePrimary</c>
 	/// labeled alternative in <see cref="AccessSqlParser.tablePrimary"/>.
 	/// </summary>

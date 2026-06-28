@@ -27,7 +27,10 @@ selectList
 
 selectItem : expression (AS? alias=identifier)? ;
 
-fromClause : FROM tablePrimary joinClause* ;
+fromClause : FROM tableSource (COMMA tableSource)* ;
+
+// A table source and its explicit JOINs; comma between sources is an implicit cross join.
+tableSource : tablePrimary joinClause* ;
 
 tablePrimary
     : table=identifier (AS? alias=identifier)?                  # NamedTablePrimary

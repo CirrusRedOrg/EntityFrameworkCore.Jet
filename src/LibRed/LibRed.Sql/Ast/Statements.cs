@@ -32,6 +32,20 @@ public sealed record InsertStatement(
     IReadOnlyList<string> Columns,
     IReadOnlyList<IReadOnlyList<Expression>> Rows) : SqlStatement;
 
+/// <summary>A column in a CREATE TABLE: its declared SQL type, optional size/scale and constraints.</summary>
+public sealed record ColumnDefinition(
+    string Name,
+    string TypeName,
+    int? Size,
+    int? Scale,
+    bool NotNull,
+    bool PrimaryKey);
+
+public sealed record CreateTableStatement(
+    string Table,
+    IReadOnlyList<ColumnDefinition> Columns,
+    IReadOnlyList<string> PrimaryKey) : SqlStatement;
+
 public sealed record Assignment(string Column, Expression Value) : SqlNode;
 
 public sealed record UpdateStatement(

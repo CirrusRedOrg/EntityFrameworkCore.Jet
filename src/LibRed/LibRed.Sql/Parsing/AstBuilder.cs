@@ -10,7 +10,43 @@ namespace LibRed.Sql.Parsing;
 /// </summary>
 internal sealed class AstBuilder
 {
-    public SqlStatement Build(StatementContext ctx) => BuildQueryExpression(ctx.queryExpression());
+    public SqlStatement Build(StatementContext ctx)
+    {
+        if (ctx.createTableStatement() is { } create) return BuildCreateTable(create);
+        if (ctx.insertStatement() is { } insert) return BuildInsert(insert);
+        return BuildQueryExpression(ctx.queryExpression());
+    }
+
+    private static SqlStatement BuildCreateTable(CreateTableStatementContext ctx)
+    {
+        var columns = ctx.columnDefinition().Select(BuildColumnDefinition).ToList();
+
+        // Primary key from inline column constraints and any table-level PRIMARY KEY (cols).
+        var primaryKey = columns.Where(c => c.PrimaryKey).Select(c => c.Name).ToList();
+        foreach (TableConstraintContext tc in ctx.tableConstraint())
+            primaryKey.AddRange(tc.identifier().Select(Identifier));
+
+        return new CreateTableStatement(Identifier(ctx.table), columns, primaryKey);
+    }
+
+    private static ColumnDefinition BuildColumnDefinition(ColumnDefinitionContext ctx)
+    {
+        DataTypeContext type = ctx.dataType();
+        int? size = type.size is { } s ? int.Parse(s.Text, CultureInfo.InvariantCulture) : null;
+        int? scale = type.scale is { } sc ? int.Parse(sc.Text, CultureInfo.InvariantCulture) : null;
+
+        bool notNull = ctx.columnConstraint().OfType<NotNullConstraintContext>().Any();
+        bool primaryKey = ctx.columnConstraint().OfType<PrimaryKeyConstraintContext>().Any();
+
+        return new ColumnDefinition(Identifier(ctx.name), Identifier(type.typeName), size, scale, notNull, primaryKey);
+    }
+
+    private static SqlStatement BuildInsert(InsertStatementContext ctx)
+    {
+        var columns = ctx._columns.Select(Identifier).ToList();
+        var values = ctx.expression().Select(BuildExpression).ToList();
+        return new InsertStatement(Identifier(ctx.table), columns, [values]);
+    }
 
     private static SqlStatement BuildQueryExpression(QueryExpressionContext ctx)
     {

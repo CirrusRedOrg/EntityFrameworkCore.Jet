@@ -74,6 +74,45 @@ public class LibRedCommandTests
     }
 
     [Fact]
+    public void Create_table_and_insert_via_ado_commands()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"libred-ado-ddl-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+
+            using (var ddl = conn.CreateCommand())
+            {
+                ddl.CommandText = "CREATE TABLE `Thing` (`Id` INTEGER PRIMARY KEY, `Label` TEXT(50))";
+                ddl.ExecuteNonQuery();
+            }
+            using (var insert = conn.CreateCommand())
+            {
+                insert.CommandText = "INSERT INTO `Thing` (`Id`, `Label`) VALUES (@id, @label)";
+                Add(insert, "@id", 99);
+                Add(insert, "@label", "widget");
+                Assert.Equal(1, insert.ExecuteNonQuery());
+            }
+            using (var select = conn.CreateCommand())
+            {
+                select.CommandText = "SELECT `Label` FROM `Thing` WHERE `Id` = 99";
+                Assert.Equal("widget", select.ExecuteScalar());
+            }
+        }
+        finally { File.Delete(path); }
+
+        static void Add(System.Data.Common.DbCommand cmd, string name, object value)
+        {
+            var p = cmd.CreateParameter();
+            p.ParameterName = name;
+            p.Value = value;
+            cmd.Parameters.Add(p);
+        }
+    }
+
+    [Fact]
     public void Reader_reports_dbnull_for_missing_values()
     {
         using var conn = OpenConnection();

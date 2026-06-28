@@ -155,6 +155,9 @@ public static class TdefBuilder
         for (int i = 0; i < specs.Count; i++)
         {
             ColumnSpec s = specs[i];
+            // Booleans live in the null bitmap and occupy no fixed-data bytes, so they don't
+            // advance the fixed offset (matching how the row codec skips them).
+            bool occupiesFixedData = s.IsFixedLength && s.Type != JetDataType.Boolean;
             columns.Add(new ColumnDef
             {
                 Name = s.Name,
@@ -162,14 +165,14 @@ public static class TdefBuilder
                 Index = i,
                 ColumnId = i,
                 Length = s.Length,
-                FixedOffset = s.IsFixedLength ? fixedOffset : 0,
+                FixedOffset = occupiesFixedData ? fixedOffset : 0,
                 VariableIndex = s.IsFixedLength ? -1 : variableRank[i],
                 IsFixedLength = s.IsFixedLength,
                 IsAutoNumber = s.IsAutoNumber,
                 Precision = s.Precision,
                 Scale = s.Scale,
             });
-            if (s.IsFixedLength) fixedOffset += s.Length;
+            if (occupiesFixedData) fixedOffset += s.Length;
         }
         return columns;
     }

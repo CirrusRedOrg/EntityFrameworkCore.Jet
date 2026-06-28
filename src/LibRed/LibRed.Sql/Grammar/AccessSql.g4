@@ -10,7 +10,31 @@
 
 grammar AccessSql;
 
-statement : queryExpression EOF ;
+statement : (createTableStatement | insertStatement | queryExpression) EOF ;
+
+// ---- DDL / DML ----
+
+createTableStatement
+    : CREATE TABLE table=identifier
+      LPAREN columnDefinition (COMMA columnDefinition)* (COMMA tableConstraint)* RPAREN
+    ;
+
+columnDefinition : name=identifier dataType columnConstraint* ;
+
+dataType : typeName=identifier (LPAREN size=INTEGER_LITERAL (COMMA scale=INTEGER_LITERAL)? RPAREN)? ;
+
+columnConstraint
+    : NOT NULL          # NotNullConstraint
+    | PRIMARY KEY       # PrimaryKeyConstraint
+    ;
+
+tableConstraint : PRIMARY KEY LPAREN identifier (COMMA identifier)* RPAREN ;
+
+insertStatement
+    : INSERT INTO table=identifier
+      (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)?
+      VALUES LPAREN expression (COMMA expression)* RPAREN
+    ;
 
 // Set operations over SELECTs (left-associative). UNION dedupes; UNION ALL keeps
 // duplicates; INTERSECT/EXCEPT dedupe. (Access has no INTERSECT/EXCEPT — LibRed owns the dialect.)
@@ -122,6 +146,13 @@ UNION     : [Uu][Nn][Ii][Oo][Nn] ;
 ALL       : [Aa][Ll][Ll] ;
 INTERSECT : [Ii][Nn][Tt][Ee][Rr][Ss][Ee][Cc][Tt] ;
 EXCEPT    : [Ee][Xx][Cc][Ee][Pp][Tt] ;
+CREATE    : [Cc][Rr][Ee][Aa][Tt][Ee] ;
+TABLE     : [Tt][Aa][Bb][Ll][Ee] ;
+INSERT    : [Ii][Nn][Ss][Ee][Rr][Tt] ;
+INTO      : [Ii][Nn][Tt][Oo] ;
+VALUES    : [Vv][Aa][Ll][Uu][Ee][Ss] ;
+PRIMARY   : [Pp][Rr][Ii][Mm][Aa][Rr][Yy] ;
+KEY       : [Kk][Ee][Yy] ;
 ASC    : [Aa][Ss][Cc] ;
 DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;

@@ -1,0 +1,51 @@
+using LibRed.Catalog;
+using LibRed.Sql.Ast;
+
+namespace LibRed.Engine.Execution;
+
+/// <summary>
+/// Maps a CREATE TABLE column's declared SQL/Access type name to a storage <see cref="ColumnSpec"/>.
+/// Covers the type names the EFCore.Jet generator emits plus common ANSI aliases.
+/// </summary>
+internal static class AccessTypeMapper
+{
+    public static ColumnSpec ToColumnSpec(ColumnDefinition column)
+    {
+        string t = column.TypeName.ToUpperInvariant();
+        return t switch
+        {
+            "COUNTER" or "AUTOINCREMENT" or "IDENTITY"
+                => Fixed(column, JetDataType.Int32, 4, autoNumber: true),
+            "INTEGER" or "INT" or "LONG"
+                => Fixed(column, JetDataType.Int32, 4),
+            "SMALLINT" or "SHORT"
+                => Fixed(column, JetDataType.Int16, 2),
+            "BYTE" or "TINYINT"
+                => Fixed(column, JetDataType.Byte, 1),
+            "BIGINT"
+                => Fixed(column, JetDataType.Int64, 8),
+            "REAL" or "SINGLE"
+                => Fixed(column, JetDataType.Single, 4),
+            "FLOAT" or "DOUBLE"
+                => Fixed(column, JetDataType.Double, 8),
+            "CURRENCY" or "MONEY"
+                => Fixed(column, JetDataType.Currency, 8),
+            "DATETIME" or "DATE" or "TIME" or "TIMESTAMP"
+                => Fixed(column, JetDataType.DateTime, 8),
+            "BIT" or "YESNO" or "BOOLEAN" or "LOGICAL"
+                => Fixed(column, JetDataType.Boolean, 1),
+            "GUID" or "UNIQUEIDENTIFIER"
+                => Fixed(column, JetDataType.Guid, 16),
+            "DECIMAL" or "NUMERIC"
+                => new ColumnSpec(column.Name, JetDataType.FixedPoint, 17, IsFixedLength: true,
+                    Precision: (byte)(column.Size ?? 18), Scale: (byte)(column.Scale ?? 0)),
+            "TEXT" or "VARCHAR" or "NVARCHAR" or "CHAR" or "NCHAR" or "STRING"
+                // Access TEXT length is in characters; on disk it is UTF-16 (2 bytes each).
+                => new ColumnSpec(column.Name, JetDataType.Text, (column.Size ?? 255) * 2, IsFixedLength: false),
+            _ => throw new NotSupportedException($"CREATE TABLE column type '{column.TypeName}' is not supported yet."),
+        };
+    }
+
+    private static ColumnSpec Fixed(ColumnDefinition column, JetDataType type, int length, bool autoNumber = false)
+        => new(column.Name, type, length, IsFixedLength: true, IsAutoNumber: autoNumber);
+}

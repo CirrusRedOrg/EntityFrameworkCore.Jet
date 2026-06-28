@@ -34,8 +34,10 @@ public sealed class QueryEngine
 
     public int ExecuteNonQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
-        var plan = Compile(sql);
-        return new QueryExecutor(_database, parameters).ExecuteNonQuery(plan);
+        // DDL/DML run directly against storage from the AST — they have no row plan.
+        SqlStatement ast = _parser.ParseStatement(sql);
+        BoundStatement bound = _binder.Bind(ast);
+        return new StatementExecutor(_database, parameters).Execute(bound.Statement);
     }
 
     private Plan.PlanNode Compile(string sql)

@@ -30,12 +30,6 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         return new ResultSet(columns.Select(c => c.Name).ToList(), rows);
     }
 
-    public int ExecuteNonQuery(PlanNode plan)
-    {
-        _ = plan;
-        throw new NotSupportedException("Only SELECT statements are supported so far.");
-    }
-
     object? IScalarSubqueryRunner.ExecuteScalar(SelectStatement query, EvalScope outerScope)
     {
         var (_, rows) = Execute(QueryPlanner.PlanSelect(query), outerScope);

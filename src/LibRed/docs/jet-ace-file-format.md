@@ -86,9 +86,9 @@ version. (Page-level encryption for password-protected files is not implemented.
 | `0x3F` | — | Start of the real-index block (precedes column descriptors) |
 
 > **The `0x659` / `0x783` record markers.** `0x0C` holds `0x659` (1625) in every file. This is
-> not isolated: `0x659` recurs as a fixed 4-byte field at the start of each repeating TDEF
-> record — column descriptor `+1` (§3.4), index-info block `+0` (§3.6), and this header slot —
-> while `0x783` (1923) marks each index-data block `+0` (§3.5). They are constant within and
+> not isolated: `0x659` recurs as a fixed marker at the start of each repeating TDEF record —
+> column descriptor `+1` (2 bytes, §3.4), index-info block `+0` (4 bytes, §3.6), and this header
+> slot (4 bytes) — while `0x783` (1923) marks each index-data block `+0` (§3.5). They are constant within and
 > across files; mdbtools describes them as "usually 1625 / 1923 *or 0*", so they appear to be
 > reserved record markers/tags the engine does not depend on (LibRed ignores them). `0x0C` is
 > therefore **not** the code page — `1625` is not a valid code page, and the code page is a
@@ -141,14 +141,30 @@ does not hold (a non-unique index can have all-distinct data). LibRed exposes it
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 1 | Data type (see §6) |
-| `0x01` | 4 | Record marker constant `0x659` (see §3.1 note); ignored |
-| `0x05` | 2 | Column id (a.k.a. column number) |
-| `0x0F` | 1 | Flags: `0x01` fixed-length, `0x04` auto-number |
+| `0x01` | 2 | Record marker `0x0659` (see §3.1 note); ignored |
+| `0x03` | 2 | Unknown (zero observed) |
+| `0x05` | 2 | Column id |
+| `0x07` | 2 | Variable-length table index — this column's position among the variable columns (0 for fixed columns) |
+| `0x09` | 2 | Column number (equals the column id `0x05` in every file observed) |
+| `0x0B` | 1 | Numeric **precision** (Decimal/Numeric columns); otherwise the low byte of the locale id, `0x09` |
+| `0x0C` | 1 | Numeric **scale** (Decimal/Numeric columns); otherwise the high byte of the locale id, `0x04` |
+| `0x0D` | 2 | Unknown (zero observed) |
+| `0x0F` | 1 | Flags (see below) |
+| `0x10` | 1 | Extended flags: `0x01` compressed-Unicode capable, `0xC0` calculated column |
+| `0x11` | 4 | Unknown (zero observed) |
 | `0x15` | 2 | Fixed-data offset within the row's fixed region |
 | `0x17` | 2 | Length (bytes) |
 
-Bytes `0x07`–`0x0E` and `0x10`–`0x14` carry additional per-column flags/metadata LibRed does
-not currently use.
+**Flags (`0x0F`):** `0x01` fixed-length, `0x02` updatable, `0x04` auto-number,
+`0x40` auto-number GUID, `0x80` hyperlink (on a Memo column).
+
+> `0x0B`–`0x0C` reads as the constant `0x0409` (the en-US LCID / text collation) on every
+> non-numeric column in the files inspected; per Jackcess these two bytes instead hold the
+> precision and scale for Decimal/Numeric columns. Northwind has no Decimal column, so the
+> numeric interpretation is taken from Jackcess and not independently verified here.
+>
+> LibRed currently *derives* the variable-table index (`0x07`) by ranking variable columns by
+> column id rather than reading it; the stored value matches that ranking in every file tested.
 
 Variable-length columns are assigned a *variable index* = their rank among variable columns
 ordered by ascending column id (used by the row's variable-offset table, §5).

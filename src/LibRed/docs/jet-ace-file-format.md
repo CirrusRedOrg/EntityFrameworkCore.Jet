@@ -87,7 +87,10 @@ version. (Page-level encryption for password-protected files is not implemented.
 
 > The `0x0C` and `0x18` entries are constants across every file inspected; their exact
 > meaning is unconfirmed, so they are recorded as observed rather than named. LibRed does not
-> read them.
+> read them. Note `0x0C` is **not** the code page — `0x659` (1625) is not a valid code page,
+> and the code page is a database-wide value on page 0, not per-table. 1625 is in fact the
+> same magic constant used as the index-info block marker (and `1923`/`0x783` is the
+> index-data block marker), so `0x0C` is most likely a format sentinel.
 
 > ⚠️ `0x2F` vs `0x33`: these are equal for MSysObjects (which hid the distinction during
 > reverse-engineering) but differ for user tables. `0x33` (real index count) sizes the

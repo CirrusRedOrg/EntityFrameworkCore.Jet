@@ -37,7 +37,7 @@ public class AggregateTests
     public void Iif_function()
     {
         var rows = Query("SELECT IIF(Discontinued, 1, 0) AS d FROM Products WHERE ProductID = 5", out _);
-        Assert.Equal(1L, Convert.ToInt64(Assert.Single(rows)[0])); // product 5 is discontinued
+        Assert.Equal(1, Assert.Single(rows)[0]); // product 5 is discontinued (int literal stays int)
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public class AggregateTests
         var rows = Query(sql, out var columns);
         Assert.Equal(["Key", "Count"], columns);
         var only = Assert.Single(rows);
-        Assert.Equal(1L, Convert.ToInt64(only[0]));
-        Assert.Equal(830m, Convert.ToDecimal(only[1])); // SUM of per-customer counts = total orders
+        Assert.Equal(1, only[0]); // constant `1 AS Key0` stays int
+        Assert.Equal(830m, only[1]); // SUM of per-customer counts = total orders
     }
 }

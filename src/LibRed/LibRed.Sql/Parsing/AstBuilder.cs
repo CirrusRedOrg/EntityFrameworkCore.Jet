@@ -134,7 +134,10 @@ internal sealed class AstBuilder
     };
 
     private static object ParseInteger(string text) =>
-        int.TryParse(text, out int i) ? i : long.Parse(text, CultureInfo.InvariantCulture);
+        // Box each branch independently: a bare `? i : long.Parse(...)` would infer the
+        // conditional's type as `long` and silently widen the int branch, so every literal
+        // (even `1`) would arrive as a boxed long.
+        int.TryParse(text, out int i) ? i : (object)long.Parse(text, CultureInfo.InvariantCulture);
 
     private static string Identifier(IdentifierContext ctx)
     {

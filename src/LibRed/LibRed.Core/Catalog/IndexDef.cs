@@ -11,6 +11,9 @@ public sealed record IndexDef
     public bool IsUnique { get; init; }
     public bool IsPrimaryKey { get; init; }
 
+    /// <summary>Number of distinct key values in the index (cardinality), from the TDEF statistics block.</summary>
+    public int UniqueValueCount { get; init; }
+
     /// <summary>Page number of the index B-tree root.</summary>
     public int RootPage { get; init; }
 }

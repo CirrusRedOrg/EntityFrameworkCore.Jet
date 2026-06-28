@@ -110,13 +110,28 @@ absolute from the first page, so parsing is otherwise unchanged.
 ### 3.3 Body layout (in order, after the header)
 
 ```
-0x3F : real-index block      RealIndexCount(0x33) × 12 bytes   (skipped to find columns)
+0x3F : index statistics      RealIndexCount(0x33) × 12 bytes   (per-index, §3.3.1)
        column descriptors    ColumnCount(0x2D)    × 25 bytes
        column names          ColumnCount          × (2-byte length + UTF-16LE)
        index-data blocks     RealIndexCount(0x33) × 52 bytes
        index-info blocks     LogicalIndexCount(0x2F) × 28 bytes
        index names           LogicalIndexCount    × (2-byte length + UTF-16LE)
 ```
+
+### 3.3.1 Index statistics block (12 bytes, one per real index)
+
+The block at `0x3F`, in the same order as the index-data blocks (§3.5), holds per-index
+statistics:
+
+| Offset | Size | Meaning |
+| --- | --- | --- |
+| `0x00` | 4 | Total entry count (= the table's row count; every row is indexed) |
+| `0x04` | 4 | **Distinct value count** (index cardinality) |
+| `0x08` | 4 | Reserved (zero observed) |
+
+A unique index necessarily has `distinct == rowCount`; the converse does not hold (a
+non-unique index can have all-distinct data). LibRed exposes the cardinality as
+`IndexDef.UniqueValueCount`.
 
 ### 3.4 Column descriptor (25 bytes)
 

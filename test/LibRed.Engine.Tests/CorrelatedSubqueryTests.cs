@@ -142,6 +142,23 @@ public class CorrelatedSubqueryTests
     }
 
     [Fact]
+    public void Not_exists_finds_customers_without_orders()
+    {
+        // NOT EXISTS composes from NOT over the boolean EXISTS — the complement of the
+        // EXISTS case: customers with no orders at all.
+        const string sql = """
+            SELECT `c`.`CustomerID`
+            FROM `Customers` AS `c`
+            WHERE NOT EXISTS (
+                SELECT 1 FROM `Orders` AS `o`
+                WHERE `o`.`CustomerID` = `c`.`CustomerID`)
+            """;
+
+        var rows = Query(sql, out _);
+        Assert.Equal(["FISSA", "PARIS"], rows.Select(r => (string)r[0]!).OrderBy(s => s));
+    }
+
+    [Fact]
     public void Nested_derived_tables_with_correlation_and_like_and_left_join()
     {
         const string sql = """

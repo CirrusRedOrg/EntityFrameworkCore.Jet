@@ -30,10 +30,14 @@ public sealed class QueryPlanner
         if (select.Where is not null)
             node = new FilterNode(node, select.Where);
 
+        bool aggregate = select.GroupBy.Count > 0 || select.Projection.Any(i => HasAggregate(i.Value));
+        if (aggregate)
+            node = new AggregateNode(node, select.GroupBy, select.Projection);
+
         if (select.OrderBy.Count > 0)
             node = new SortNode(node, select.OrderBy);
 
-        if (!select.IsSelectStar)
+        if (!aggregate && !select.IsSelectStar)
             node = new ProjectNode(node, select.Projection);
 
         if (select.Top is { } top)
@@ -41,6 +45,19 @@ public sealed class QueryPlanner
 
         return node;
     }
+
+    /// <summary>The aggregate function names recognised by the planner/executor.</summary>
+    internal static bool IsAggregate(string name) =>
+        name.ToUpperInvariant() is "COUNT" or "SUM" or "AVG" or "MIN" or "MAX";
+
+    private static bool HasAggregate(Expression e) => e switch
+    {
+        FunctionCall f when IsAggregate(f.Name) => true,
+        FunctionCall f => f.Arguments.Any(HasAggregate),
+        BinaryExpression b => HasAggregate(b.Left) || HasAggregate(b.Right),
+        UnaryExpression u => HasAggregate(u.Operand),
+        _ => false,
+    };
 
     private static PlanNode PlanFrom(TableReference from) => from switch
     {

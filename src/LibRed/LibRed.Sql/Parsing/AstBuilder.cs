@@ -22,12 +22,15 @@ internal sealed class AstBuilder
 
         TableReference from = BuildFrom(ctx.fromClause());
         Expression? where = ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null;
+        var groupBy = ctx.groupByClause() is { } g
+            ? g.expression().Select(BuildExpression).ToList()
+            : (IReadOnlyList<Expression>)[];
         var orderBy = ctx.orderByClause() is { } o
             ? o.orderByItem().Select(BuildOrderByItem).ToList()
             : (IReadOnlyList<OrderByItem>)[];
         int? top = ctx.topClause() is { } t ? int.Parse(t.INTEGER_LITERAL().GetText(), CultureInfo.InvariantCulture) : null;
 
-        return new SelectStatement(projection, star, from, where, [], null, orderBy, top);
+        return new SelectStatement(projection, star, from, where, groupBy, null, orderBy, top);
     }
 
     private static SelectItem BuildSelectItem(SelectItemContext ctx) =>
@@ -69,6 +72,7 @@ internal sealed class AstBuilder
         AddConcatExprContext a => Binary(a.op, a.left, a.right),
         ComparisonExprContext c => Binary(c.op, c.left, c.right),
         LikeExprContext l => new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right)),
+        IsNullExprContext n => new UnaryExpression(n.not is null ? UnaryOperator.IsNull : UnaryOperator.IsNotNull, BuildExpression(n.operand)),
         AndExprContext a => new BinaryExpression(BinaryOperator.And, BuildExpression(a.left), BuildExpression(a.right)),
         OrExprContext o => new BinaryExpression(BinaryOperator.Or, BuildExpression(o.left), BuildExpression(o.right)),
         PrimaryExprContext p => BuildPrimary(p.primary()),
@@ -80,10 +84,19 @@ internal sealed class AstBuilder
         LiteralPrimaryContext l => BuildLiteral(l.literal()),
         ColumnPrimaryContext c => BuildColumn(c.columnRef()),
         ParamPrimaryContext p => new ParameterExpression(p.PARAM().GetText()),
+        FunctionCallPrimaryContext f => BuildFunctionCall(f.functionCall()),
         ScalarSubqueryPrimaryContext s => new ScalarSubquery(BuildSelect(s.selectStatement())),
         ParenPrimaryContext p => BuildExpression(p.expression()),
         _ => throw new SqlParseException($"Unsupported primary: {ctx.GetText()}"),
     };
+
+    private static Expression BuildFunctionCall(FunctionCallContext ctx)
+    {
+        IReadOnlyList<Expression> args = ctx.star is not null
+            ? [new StarExpression()]
+            : ctx.expression().Select(BuildExpression).ToList();
+        return new FunctionCall(Identifier(ctx.name), args);
+    }
 
     private static Expression BuildColumn(ColumnRefContext ctx) =>
         new ColumnReference(OptionalIdentifier(ctx.qualifier), Identifier(ctx.name));

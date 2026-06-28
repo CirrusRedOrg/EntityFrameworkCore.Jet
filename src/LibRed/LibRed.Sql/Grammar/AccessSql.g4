@@ -13,8 +13,10 @@ grammar AccessSql;
 statement : selectStatement EOF ;
 
 selectStatement
-    : SELECT topClause? selectList fromClause whereClause? orderByClause?
+    : SELECT topClause? selectList fromClause whereClause? groupByClause? orderByClause?
     ;
+
+groupByClause : GROUP BY expression (COMMA expression)* ;
 
 topClause : TOP INTEGER_LITERAL ;
 
@@ -51,6 +53,7 @@ expression
     | left=expression op=(PLUS | MINUS | AMP) right=expression               # AddConcatExpr
     | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression   # ComparisonExpr
     | left=expression LIKE right=expression                                 # LikeExpr
+    | operand=expression IS not=NOT? NULL                                   # IsNullExpr
     | left=expression AND right=expression                                  # AndExpr
     | left=expression OR right=expression                                   # OrExpr
     | primary                                                               # PrimaryExpr
@@ -58,11 +61,14 @@ expression
 
 primary
     : literal                          # LiteralPrimary
+    | functionCall                     # FunctionCallPrimary
     | columnRef                        # ColumnPrimary
     | PARAM                            # ParamPrimary
     | LPAREN selectStatement RPAREN    # ScalarSubqueryPrimary
     | LPAREN expression RPAREN         # ParenPrimary
     ;
+
+functionCall : name=identifier LPAREN (star=STAR | (expression (COMMA expression)*))? RPAREN ;
 
 columnRef : (qualifier=identifier DOT)? name=identifier ;
 
@@ -96,6 +102,8 @@ OUTER  : [Oo][Uu][Tt][Ee][Rr] ;
 JOIN   : [Jj][Oo][Ii][Nn] ;
 ON     : [Oo][Nn] ;
 ORDER  : [Oo][Rr][Dd][Ee][Rr] ;
+GROUP  : [Gg][Rr][Oo][Uu][Pp] ;
+IS     : [Ii][Ss] ;
 BY     : [Bb][Yy] ;
 ASC    : [Aa][Ss][Cc] ;
 DESC   : [Dd][Ee][Ss][Cc] ;

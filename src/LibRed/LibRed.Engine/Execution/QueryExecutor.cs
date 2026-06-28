@@ -65,6 +65,9 @@ public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
             case JoinNode join:
                 return ExecuteJoin(join, outer);
 
+            case AggregateNode aggregate:
+                return ExecuteAggregate(aggregate, outer);
+
             case SortNode sort:
             {
                 var (columns, rows) = Execute(sort.Input, outer);
@@ -149,4 +152,119 @@ public sealed class QueryExecutor(JetDatabase database) : IScalarSubqueryRunner
 
     private ExpressionEvaluator Eval(IReadOnlyList<OutputColumn> columns, object?[] row, EvalScope? outer) =>
         new(new EvalScope(columns, row, outer), this);
+
+    private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteAggregate(AggregateNode node, EvalScope? outer)
+    {
+        var (inColumns, inRowsEnum) = Execute(node.Input, outer);
+        var inRows = inRowsEnum.ToList();
+        var aggregateCalls = node.Projection.SelectMany(i => Aggregates(i.Value)).ToList();
+
+        var outColumns = node.Projection
+            .Select((item, i) => new OutputColumn(null, item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}")))
+            .ToList();
+
+        var outRows = new List<object?[]>();
+        foreach (List<object?[]> group in GroupRows(inRows, node.GroupBy, inColumns, outer))
+        {
+            var values = new Dictionary<FunctionCall, object?>(ReferenceComparer.Instance);
+            foreach (FunctionCall call in aggregateCalls)
+                values[call] = ComputeAggregate(call, group, inColumns, outer);
+
+            // Within a group every key value is constant, so the first row resolves group keys;
+            // aggregate calls resolve from the precomputed map.
+            var eval = new ExpressionEvaluator(new EvalScope(inColumns, group[0], outer), this, values);
+            outRows.Add(node.Projection.Select(item => eval.Evaluate(item.Value)).ToArray());
+        }
+
+        return (outColumns, outRows);
+    }
+
+    private List<List<object?[]>> GroupRows(List<object?[]> rows, IReadOnlyList<Expression> keys, IReadOnlyList<OutputColumn> columns, EvalScope? outer)
+    {
+        if (keys.Count == 0)
+            return [rows]; // a single group over all rows (even if empty)
+
+        var order = new List<GroupKey>();
+        var groups = new Dictionary<GroupKey, List<object?[]>>();
+        foreach (object?[] row in rows)
+        {
+            var eval = Eval(columns, row, outer);
+            var key = new GroupKey(keys.Select(k => eval.Evaluate(k)).ToArray());
+            if (!groups.TryGetValue(key, out var list))
+            {
+                groups[key] = list = [];
+                order.Add(key);
+            }
+            list.Add(row);
+        }
+        return order.Select(k => groups[k]).ToList();
+    }
+
+    private object? ComputeAggregate(FunctionCall call, List<object?[]> group, IReadOnlyList<OutputColumn> columns, EvalScope? outer)
+    {
+        string name = call.Name.ToUpperInvariant();
+        Expression? arg = call.Arguments.Count > 0 ? call.Arguments[0] : null;
+
+        if (name == "COUNT")
+            return arg is StarExpression or null
+                ? (long)group.Count
+                : (long)group.Count(r => Eval(columns, r, outer).Evaluate(arg) is not null);
+
+        var values = group.Select(r => Eval(columns, r, outer).Evaluate(arg!)).Where(v => v is not null).ToList();
+        if (values.Count == 0)
+            return name == "COUNT" ? 0L : null; // SUM/AVG/MIN/MAX of nothing is NULL
+
+        return name switch
+        {
+            "SUM" => values.Sum(v => Convert.ToDecimal(v, System.Globalization.CultureInfo.InvariantCulture)),
+            "AVG" => values.Average(v => Convert.ToDecimal(v, System.Globalization.CultureInfo.InvariantCulture)),
+            "MIN" => values.Aggregate((a, b) => ExpressionEvaluator.CompareForSort(a, b) <= 0 ? a : b),
+            "MAX" => values.Aggregate((a, b) => ExpressionEvaluator.CompareForSort(a, b) >= 0 ? a : b),
+            _ => throw new NotSupportedException($"Aggregate {call.Name} is not supported."),
+        };
+    }
+
+    private static IEnumerable<FunctionCall> Aggregates(Expression e)
+    {
+        switch (e)
+        {
+            case FunctionCall f when QueryPlanner.IsAggregate(f.Name):
+                yield return f;
+                break;
+            case FunctionCall f:
+                foreach (FunctionCall a in f.Arguments.SelectMany(Aggregates)) yield return a;
+                break;
+            case BinaryExpression b:
+                foreach (FunctionCall a in Aggregates(b.Left).Concat(Aggregates(b.Right))) yield return a;
+                break;
+            case UnaryExpression u:
+                foreach (FunctionCall a in Aggregates(u.Operand)) yield return a;
+                break;
+        }
+    }
+
+    /// <summary>Groups by structural equality of the key value tuple.</summary>
+    private sealed class GroupKey(object?[] values) : IEquatable<GroupKey>
+    {
+        private readonly object?[] _values = values;
+
+        public bool Equals(GroupKey? other) =>
+            other is not null && _values.Length == other._values.Length
+            && _values.Zip(other._values).All(p => Equals(p.First, p.Second));
+
+        public override bool Equals(object? obj) => Equals(obj as GroupKey);
+        public override int GetHashCode()
+        {
+            var hash = new HashCode();
+            foreach (object? v in _values) hash.Add(v);
+            return hash.ToHashCode();
+        }
+    }
+
+    private sealed class ReferenceComparer : IEqualityComparer<FunctionCall>
+    {
+        public static readonly ReferenceComparer Instance = new();
+        public bool Equals(FunctionCall? x, FunctionCall? y) => ReferenceEquals(x, y);
+        public int GetHashCode(FunctionCall obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
+    }
 }

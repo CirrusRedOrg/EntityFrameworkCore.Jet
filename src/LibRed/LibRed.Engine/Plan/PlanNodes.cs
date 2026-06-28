@@ -35,11 +35,15 @@ public sealed record JoinNode(PlanNode Left, PlanNode Right, JoinKind Kind, Expr
     public override IReadOnlyList<PlanNode> Children => [Left, Right];
 }
 
-/// <summary>Groups rows and computes aggregates.</summary>
+/// <summary>
+/// Groups input rows by the <paramref name="GroupBy"/> key expressions and emits one row per
+/// group by evaluating <paramref name="Projection"/> — where aggregate calls are computed over
+/// the group and other expressions see the group's key values.
+/// </summary>
 public sealed record AggregateNode(
     PlanNode Input,
     IReadOnlyList<Expression> GroupBy,
-    IReadOnlyList<SelectItem> Aggregates) : PlanNode
+    IReadOnlyList<SelectItem> Projection) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }

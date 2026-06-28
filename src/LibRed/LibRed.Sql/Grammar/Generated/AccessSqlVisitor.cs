@@ -45,6 +45,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitSelectStatement([NotNull] AccessSqlParser.SelectStatementContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.groupByClause"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitGroupByClause([NotNull] AccessSqlParser.GroupByClauseContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.topClause"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
@@ -149,6 +155,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitMulDivExpr([NotNull] AccessSqlParser.MulDivExprContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>IsNullExpr</c>
+	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitIsNullExpr([NotNull] AccessSqlParser.IsNullExprContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>ComparisonExpr</c>
 	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
 	/// </summary>
@@ -191,6 +204,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitLiteralPrimary([NotNull] AccessSqlParser.LiteralPrimaryContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>FunctionCallPrimary</c>
+	/// labeled alternative in <see cref="AccessSqlParser.primary"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitFunctionCallPrimary([NotNull] AccessSqlParser.FunctionCallPrimaryContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>ColumnPrimary</c>
 	/// labeled alternative in <see cref="AccessSqlParser.primary"/>.
 	/// </summary>
@@ -218,6 +238,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitParenPrimary([NotNull] AccessSqlParser.ParenPrimaryContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.functionCall"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitFunctionCall([NotNull] AccessSqlParser.FunctionCallContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.columnRef"/>.
 	/// </summary>

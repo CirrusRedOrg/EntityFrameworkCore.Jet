@@ -11,7 +11,10 @@ namespace LibRed.Engine.Execution;
 /// correlation). Comparisons coerce numeric operands; SQL nulls propagate (a comparison
 /// involving null yields null, treated as "not true" by filters).
 /// </summary>
-internal sealed class ExpressionEvaluator(EvalScope scope, IScalarSubqueryRunner subqueries)
+internal sealed class ExpressionEvaluator(
+    EvalScope scope,
+    IScalarSubqueryRunner subqueries,
+    IReadOnlyDictionary<FunctionCall, object?>? aggregates = null)
 {
     public object? Evaluate(Expression expression) => expression switch
     {
@@ -19,11 +22,25 @@ internal sealed class ExpressionEvaluator(EvalScope scope, IScalarSubqueryRunner
         ColumnReference c => scope.TryResolve(c, out object? v) ? v
             : throw new InvalidOperationException($"Column '{EvalScope.Describe(c)}' was not found."),
         ScalarSubquery s => subqueries.ExecuteScalar(s.Query, scope),
+        FunctionCall f => EvaluateFunction(f),
         UnaryExpression u => EvaluateUnary(u),
         BinaryExpression b => EvaluateBinary(b),
         ParameterExpression => throw new NotSupportedException("Query parameters are not yet supported."),
         _ => throw new NotSupportedException($"Cannot evaluate {expression.GetType().Name}."),
     };
+
+    private object? EvaluateFunction(FunctionCall f)
+    {
+        // Aggregate calls are precomputed per group and resolved by reference.
+        if (aggregates is not null && aggregates.TryGetValue(f, out object? aggregate))
+            return aggregate;
+
+        return f.Name.ToUpperInvariant() switch
+        {
+            "IIF" => IsTrue(f.Arguments[0]) ? Evaluate(f.Arguments[1]) : Evaluate(f.Arguments[2]),
+            _ => throw new NotSupportedException($"Function {f.Name} is not supported."),
+        };
+    }
 
     public bool IsTrue(Expression expression) => Evaluate(expression) is true;
 

@@ -24,4 +24,7 @@ public sealed class Table
 
     /// <summary>Returns a forward-only cursor over all rows in the table.</summary>
     public TableCursor Rows() => new(this);
+
+    /// <summary>Inserts a row (values aligned to column <see cref="ColumnDef.Index"/>) into the table.</summary>
+    public void Insert(object?[] values) => new RowInserter(Channel, Definition).Insert(values);
 }

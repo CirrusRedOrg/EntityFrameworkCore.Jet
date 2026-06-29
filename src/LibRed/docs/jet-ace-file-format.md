@@ -161,6 +161,18 @@ does not hold (a non-unique index can have all-distinct data). LibRed exposes it
 **Flags (`0x0F`):** `0x01` fixed-length, `0x02` updatable, `0x04` auto-number,
 `0x40` auto-number GUID, `0x80` hyperlink (on a Memo column).
 
+> **Nullability is *not* in the descriptor.** The column's *Required* (NOT NULL) property is
+> **not** encoded anywhere in the 25-byte descriptor — verified against Northwind: a nullable
+> column (`Orders.ShippedDate`) and a non-null column of the same type (`Orders.OrderDate`) have
+> **byte-identical** descriptors; the flag byte `0x0F` only ever distinguishes fixed-length
+> (`0x01`), the always-set updatable bit (`0x02`), and auto-number (`0x04`), while the extended
+> flags (`0x10`) and reserved bytes (`0x03`, `0x0D`) are zero for every column. The *Required*
+> property instead lives in the table's **column-properties blob** (Jet's per-object extended
+> properties, a.k.a. `LvProp`), which LibRed does **not** parse yet — *(location assumed from
+> Jet's documented property storage, not yet verified against a file; needs a fixture with
+> explicit Required columns to confirm)*. Consequently LibRed currently reports every column as
+> nullable.
+
 > `0x0B`–`0x0C` is a union keyed by type: for a Decimal/Numeric column (type `0x10`) it holds
 > the **precision** (`0x0B`) and **scale** (`0x0C`) — verified with a `DECIMAL(12,3)` column,
 > which reads precision = 12, scale = 3; for every other type it reads the constant `0x0409`

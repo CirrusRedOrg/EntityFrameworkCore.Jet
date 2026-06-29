@@ -108,7 +108,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     /// Adds the MSysObjects row describing the new table so Access (and the catalog) see it: Id =
     /// TDEF page, ParentId = Tables container, Type = table, Name, Flags, Owner, and create/update
     /// dates. The extended-properties blob (LvProp, a long value) is left null — not writable yet.
-    /// Written heap-only; MSysObjects' own (text-keyed) indexes are not updated.
+    /// MSysObjects' own indexes (Id, and the composite ParentId+Name used for name resolution) are
+    /// maintained so Access can open the table by name, not just enumerate it.
     /// </summary>
     private void AddCatalogRow(string name, int tdefPage)
     {
@@ -126,7 +127,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         SetByName(msysObjects, values, "DateCreate", now);
         SetByName(msysObjects, values, "DateUpdate", now);
 
-        new RowInserter(_channel, msysObjects).Insert(values, updateIndexes: false);
+        new RowInserter(_channel, msysObjects).Insert(values, updateIndexes: true);
     }
 
     private static void SetByName(TableDef table, object?[] values, string column, object value)

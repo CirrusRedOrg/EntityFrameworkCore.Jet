@@ -60,13 +60,10 @@ public class CreateTableAccessTests
     }
 
     [Fact]
-    public void Access_cannot_yet_open_the_table_by_name_pending_msysobjects_index()
+    public void Msysobjects_index_update_does_not_corrupt_the_database()
     {
-        // The MSysObjects row is complete enough that Access *enumerates* the table (test above),
-        // but opening it by name resolves through MSysObjects' indexes — which we don't update
-        // because the Name key is text and collation key-encoding isn't implemented. So a query
-        // still fails with "cannot find the input table". This pins that boundary; flip the
-        // assertion to a successful COUNT once MSysObjects index maintenance lands.
+        // Maintaining MSysObjects' indexes when creating a table must not break the file:
+        // Access still resolves and queries the pre-existing tables.
         string path = CopyToTemp();
         try
         {
@@ -78,9 +75,31 @@ public class CreateTableAccessTests
 
             using var conn = OpenOleDb(path);
             using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM Shippers";
+            Assert.Equal(3, Convert.ToInt32(cmd.ExecuteScalar())); // existing table still queryable
+        }
+        finally { TryDelete(path); }
+    }
+
+    [Fact]
+    public void Access_cannot_yet_open_a_created_table_pending_full_tdef()
+    {
+        // With MSysObjects' indexes maintained, Access now resolves the created table by name and
+        // tries to open it — getting further than before ("cannot find the input table"), but it
+        // rejects our minimal TDEF ("unrecognized database format"). Making the created table's
+        // TDEF/structures fully ACE-valid is the next step; flip this to a COUNT when it lands.
+        string path = CopyToTemp();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                db.CreateTable("Widgets", [
+                    new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                ], primaryKey: ["Id"]);
+
+            using var conn = OpenOleDb(path);
+            using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT COUNT(*) FROM Widgets";
-            var ex = Assert.Throws<OleDbException>(() => cmd.ExecuteScalar());
-            Assert.Contains("Widgets", ex.Message);
+            Assert.Throws<OleDbException>(() => cmd.ExecuteScalar());
         }
         finally { TryDelete(path); }
     }

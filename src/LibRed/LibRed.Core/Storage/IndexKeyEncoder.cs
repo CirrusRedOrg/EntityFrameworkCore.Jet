@@ -45,10 +45,23 @@ public static class IndexKeyEncoder
                 continue;
             }
 
+            // Text uses Jet's collation: start flag, primary weights, then a 01 00 terminator.
+            if (column.Type == JetDataType.Text)
+            {
+                if (!ascending)
+                    throw new NotSupportedException("Descending text index keys are not supported yet.");
+                buffer.Add(AscStartFlag);
+                if (!JetTextCollation.TryEncodePrimary((string)value, buffer))
+                    throw new NotSupportedException($"Text index key '{value}' contains a character whose collation weight is not implemented yet.");
+                buffer.Add(0x01);
+                buffer.Add(0x00);
+                continue;
+            }
+
             int size = FixedKeySize(column.Type);
             if (size <= 0)
                 throw new NotSupportedException(
-                    $"Index key encoding for {column.Type} (text/binary collation) is not supported yet.");
+                    $"Index key encoding for {column.Type} (binary collation) is not supported yet.");
 
             buffer.Add(ascending ? AscStartFlag : DescStartFlag);
             byte[] raw = EncodeFixed(column.Type, value);

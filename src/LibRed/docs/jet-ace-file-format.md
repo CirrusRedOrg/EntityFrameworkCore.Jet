@@ -416,12 +416,18 @@ Then the value, transformed:
   else ⇒ was negative (invert all). DateTime is the resulting double via the OLE epoch.
 - **Boolean:** no flag byte — a single constant: ascending `0x00` = true, `0xFF` = false
   (true sorts first).
-- **Text / Binary / GUID:** Jet's collation encoding, which is **lossy** (case/diacritics
-  folded) and **not reversible**. LibRed extracts row pointers from such indexes and decodes
-  the leading reversible columns, but cannot recover text key *values* — and the **encoder does
-  not yet reproduce this collation** either, so inserting into a text/binary-keyed index is not
-  supported. Producing these keys needs Jet's collation weight tables, the remaining gap before
-  string primary keys can be written.
+- **Text:** Jet's "General" collation. The key is the start flag, then one or two
+  **primary-weight** bytes per character, then a `01 00` terminator. Weights are **case-folded**
+  (lowercase weighs the same as uppercase), **trailing spaces are dropped**, and an internal
+  space weighs `0x07`. Most characters weigh one byte; `^ _ \` { | } ~` weigh two (sharing the
+  `0x2B` page). The weight table is a fixed lookup (A=`4A`, B=`4C`, C=`4D`, …, digits step by two
+  from `0x36`), **verified byte-for-byte against the ACE engine** over printable ASCII and
+  implemented by `JetTextCollation` — so LibRed can now *write* ASCII text index keys (e.g. a
+  string primary key). Decoding remains lossy (case is discarded — that is why a text primary key
+  treats `'A'` and `'a'` as duplicates). *Not yet handled:* apostrophe and hyphen (Jet sorts them
+  as "ignorable" via a different multi-byte placeholder form, e.g. `… 01 01 01 01 80 07 06 …`),
+  non-ASCII characters, and descending text keys.
+- **Binary / GUID:** collation encoding not implemented (read-only as before).
 
 ---
 

@@ -432,6 +432,22 @@ Then the value, transformed:
   page number**. An object is a system object if `Flags & 0x80000002` is set, or its name
   begins with `MSys`/`~`. Bootstrap: build a TableDef for MSysObjects from page 2 and read its
   rows like any table.
+
+  **Writing a table object** (verified against Northwind rows). A complete user-table row sets:
+  `Id` = TDEF page; `ParentId` = `0x0F000001` (the database's "Tables" container, constant);
+  `Type` = `1`; `Name`; `Flags` = `0`; `Owner` = a 2-byte binary SID (`0x69 0x0C` for a
+  workgroup-less database, constant across tables); and `DateCreate` / `DateUpdate`. The other
+  columns (`Connect`, `Database`, `ForeignName`, `Lv*`, `RmtInfo*`) are null **except `LvProp`**,
+  an OLE long-value blob (~110 bytes, "MR2"-prefixed) holding the object's **extended
+  properties** — including column-level properties such as *Required* (see §3.4). LibRed leaves
+  `LvProp` null (long values are not writable yet).
+
+  > With those fields set, Access **enumerates** a LibRed-created table (it appears in the
+  > schema/Tables rowset) — verified via OLE DB. But **opening it by name still fails** ("cannot
+  > find the input table"), because Access resolves names through MSysObjects' own indexes, which
+  > a heap-only insert does not update; the `Name` index is text, so populating it needs the
+  > (not-yet-implemented) collation key encoder. The complete-row work and the index work are
+  > therefore separate gates to full Access interop.
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`
   (parent table), `szReferencedColumn`, `icolumn` (order), `grbit` (flags: `0x02` don't-enforce,

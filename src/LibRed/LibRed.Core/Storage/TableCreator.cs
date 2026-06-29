@@ -97,21 +97,34 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         _channel.WritePage(pageNumber, page);
     }
 
+    // A user table's parent object is the database's "Tables" container; observed constant.
+    private const int TablesContainerParentId = 0x0F000001;
+
+    // The creating user's owner SID; for a workgroup-less database this 2-byte value is constant
+    // across all user tables (verified on Northwind).
+    private static readonly byte[] DefaultOwner = [0x69, 0x0C];
+
     /// <summary>
-    /// Adds a minimal MSysObjects row (Id = TDEF page, Type = table, Name, Flags = 0) so the
-    /// catalog enumerates the table. Written heap-only since MSysObjects' indexes include text
-    /// keys (not yet writable) and the catalog is read by table scan.
+    /// Adds the MSysObjects row describing the new table so Access (and the catalog) see it: Id =
+    /// TDEF page, ParentId = Tables container, Type = table, Name, Flags, Owner, and create/update
+    /// dates. The extended-properties blob (LvProp, a long value) is left null — not writable yet.
+    /// Written heap-only; MSysObjects' own (text-keyed) indexes are not updated.
     /// </summary>
     private void AddCatalogRow(string name, int tdefPage)
     {
         TableDef msysObjects = _catalog.FindTable("MSysObjects")
             ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
 
+        DateTime now = DateTime.Now;
         var values = new object?[msysObjects.Columns.Count];
         SetByName(msysObjects, values, "Id", tdefPage);
+        SetByName(msysObjects, values, "ParentId", TablesContainerParentId);
         SetByName(msysObjects, values, "Type", (short)1); // table object
         SetByName(msysObjects, values, "Name", name);
         SetByName(msysObjects, values, "Flags", 0);
+        SetByName(msysObjects, values, "Owner", DefaultOwner);
+        SetByName(msysObjects, values, "DateCreate", now);
+        SetByName(msysObjects, values, "DateUpdate", now);
 
         new RowInserter(_channel, msysObjects).Insert(values, updateIndexes: false);
     }

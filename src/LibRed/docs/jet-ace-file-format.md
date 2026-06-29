@@ -120,7 +120,16 @@ absolute from the first page, so parsing is otherwise unchanged.
        index-data blocks     RealIndexCount(0x33) × 52 bytes
        index-info blocks     LogicalIndexCount(0x2F) × 28 bytes
        index names           LogicalIndexCount    × (2-byte length + UTF-16LE)
+       0xFFFF                2 bytes  — trailing terminator (see note)
 ```
+
+> **Trailing `0xFFFF` after the index names is mandatory for write.** Access closes the
+> index-name list with a 2-byte `0xFFFF`, and the **definition length** (`0x08`) points just
+> *past* it (so it counts toward the definition, not free space). Omitting it makes Access
+> reject the whole table with *"Unrecognized database format"* even though every other byte of
+> the TDEF is valid — verified by byte-diffing an ACE-created single-index table against a LibRed
+> one whose only substantive difference was the missing terminator. LibRed's reader does not need
+> it (it stops after the named indexes), but it **must be written**.
 
 ### 3.3.1 Index statistics block (12 bytes, one per real index)
 
@@ -232,21 +241,25 @@ Only a few fields are *not* fixed constants and so warrant a write note:
   relationship); the FK index number (`+0x0D`) is `0xFFFFFFFF` when there is no foreign key.
 - **Usage maps** — Access keeps *both* an owned-pages map (`0x37`) and a free-pages map (`0x3B`);
   an indexed table adds a third usage-map record (the index's own pages, §3.5 `+0x22`) covering the
-  index root.
+  index root. A **fresh table has no data page** (Access allocates the first lazily on the first
+  insert), so all of these maps start **empty** — `[0x00][startPage = 0][all-zero bitmap]` inline
+  records — and the usage-map page's own owner field is `0`.
 
-> **Still blocking a full open — the real root cause (verified by elimination).** Every *per-table*
-> page can be made to match an ACE-created table **byte-for-byte** — TDEF, both usage-map records,
-> and the empty index leaf (an empty table even matches Access's model of **no data page**: its
-> owned/free maps are empty 69-byte inline records, the usage-map page's own owner field is `0`,
-> and the index's usage map is empty because the root is referenced by the index-data block, not the
-> map). Yet Access still reports "unrecognized database format" when opening such a table. The
-> reason is **global**, not per-table: LibRed's `AllocatePage` simply grows the file and **never
-> registers the new pages in the database's global page-allocation map**, which LibRed does not yet
-> read or maintain at all. Access therefore treats the freshly written TDEF/usage-map/index pages as
-> outside the allocated database and rejects them. Implementing the **global usage map** (read +
-> update on every allocation) is the foundational piece between "Access resolves the table" (§11)
-> and "Access opens it" — and it also subsumes the lazy-data-page model (allocate-on-insert then
-> just marks the new page in both the table's and the global map).
+> **Access now opens and round-trips a LibRed-created table** (empty `COUNT`, `INSERT`, read-back —
+> verified through the ACE OLE DB provider). Getting there required *all* of the following together;
+> each was independently necessary (removing any one reproduces "Unrecognized database format"):
+>
+> 1. **TDEF byte-validity** — every constant/marker written (§3.1), and the **trailing `0xFFFF`
+>    index-name terminator** included in the definition length (§3.3). This terminator was the last
+>    blocker found: with it omitted the TDEF was otherwise byte-identical to ACE's yet still rejected.
+> 2. **Global page allocation** — pages must be taken from the database's **global free-pages map**
+>    (§9.1), not by blindly growing the file, so Access accounts for them. LibRed allocates by
+>    clearing a free bit there.
+> 3. **Lazy data page** — match Access's model of a fresh table with *no* data page and empty usage
+>    maps (above). The first insert (LibRed's or Access's) allocates the data page on demand and sets
+>    its bit in both the table's owned- and free-pages maps.
+> 4. **Catalog rows** — a complete MSysObjects row with its indexes maintained (§11) and the
+>    MSysACEs permission rows, so Access resolves the table by name before it opens it.
 
 ---
 

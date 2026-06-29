@@ -82,12 +82,37 @@ public class CreateTableAccessTests
     }
 
     [Fact]
-    public void Access_cannot_yet_open_a_created_table_pending_full_tdef()
+    public void Access_reads_rows_that_libred_inserted_into_a_created_table()
     {
-        // With MSysObjects' indexes maintained, Access now resolves the created table by name and
-        // tries to open it — getting further than before ("cannot find the input table"), but it
-        // rejects our minimal TDEF ("unrecognized database format"). Making the created table's
-        // TDEF/structures fully ACE-valid is the next step; flip this to a COUNT when it lands.
+        // End to end through LibRed's own write path: create the table, then insert rows with
+        // LibRed (which allocates the table's first data page on demand and records it in the
+        // owned/free usage maps). Access must then read those rows back.
+        string path = CopyToTemp();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Widgets", [
+                    new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                ], primaryKey: ["Id"]);
+                var table = db.OpenTable("Widgets");
+                table.Insert([7]);
+                table.Insert([11]);
+            }
+
+            using var conn = OpenOleDb(path);
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT SUM(Id) FROM Widgets";
+            Assert.Equal(18, Convert.ToInt32(cmd.ExecuteScalar()));
+        }
+        finally { TryDelete(path); }
+    }
+
+    [Fact]
+    public void Access_opens_and_round_trips_a_created_table_with_primary_key()
+    {
+        // The created table's TDEF and per-table pages are now fully ACE-valid: Access resolves it
+        // by name, opens it (empty COUNT = 0), accepts an INSERT into it, and reads the value back.
         string path = CopyToTemp();
         try
         {
@@ -97,9 +122,21 @@ public class CreateTableAccessTests
                 ], primaryKey: ["Id"]);
 
             using var conn = OpenOleDb(path);
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT COUNT(*) FROM Widgets";
-            Assert.Throws<OleDbException>(() => cmd.ExecuteScalar());
+            using (var count = conn.CreateCommand())
+            {
+                count.CommandText = "SELECT COUNT(*) FROM Widgets";
+                Assert.Equal(0, Convert.ToInt32(count.ExecuteScalar()));
+            }
+            using (var insert = conn.CreateCommand())
+            {
+                insert.CommandText = "INSERT INTO Widgets (Id) VALUES (42)";
+                Assert.Equal(1, insert.ExecuteNonQuery());
+            }
+            using (var read = conn.CreateCommand())
+            {
+                read.CommandText = "SELECT Id FROM Widgets";
+                Assert.Equal(42, Convert.ToInt32(read.ExecuteScalar()));
+            }
         }
         finally { TryDelete(path); }
     }

@@ -78,6 +78,10 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         }
     }
 
+    // The TDEF free-pages-map pointer (row + page); the owned-pages pointer lives at
+    // format.TdefOwnedPagesOffset. Both maps mark the table's own data pages.
+    private const int TdefFreePagesOffset = 0x3B;
+
     private (int PageNumber, byte[] Page) FindPageWithRoom(JetFormatBase format, int needed)
     {
         foreach (int pageNumber in new UsageMap(_channel, _table).DataPages())
@@ -88,8 +92,58 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
                 return (pageNumber, page);
         }
 
-        throw new InvalidOperationException(
-            "No owned data page has room for the row; new-page allocation on insert is not implemented yet.");
+        return AllocateDataPage(format);
+    }
+
+    /// <summary>
+    /// Grows the table by one data page — like Access does for the first insert into a fresh
+    /// (data-page-less) table: takes a page from the global free-pages map, initialises it as an
+    /// empty data page owned by this table, and records it in the table's owned- and free-pages
+    /// usage maps so both Access and LibRed find it.
+    /// </summary>
+    private (int PageNumber, byte[] Page) AllocateDataPage(JetFormatBase format)
+    {
+        int pageNumber = new PageAllocator(_channel).Allocate();
+
+        var page = new byte[format.PageSize];
+        page[0] = (byte)PageType.DataPage;
+        page[1] = 0x01; // page flags (observed constant)
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4), _table.DefinitionPage);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), 0);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
+            (ushort)(format.PageSize - format.DataRowDirectoryOffset));
+        _channel.WritePage(pageNumber, page);
+
+        // Mark the page in the table's owned- and free-pages maps (it owns the page and the page
+        // has free space).
+        SetUsageBit(format.TdefOwnedPagesOffset, pageNumber);
+        SetUsageBit(TdefFreePagesOffset, pageNumber);
+
+        return (pageNumber, page);
+    }
+
+    /// <summary>Sets the bit for <paramref name="targetPage"/> in the inline usage map referenced by
+    /// the TDEF pointer at <paramref name="tdefPointerOffset"/> (row byte + 3-byte page).</summary>
+    private void SetUsageBit(int tdefPointerOffset, int targetPage)
+    {
+        JetFormatBase format = _channel.Format;
+        PageBuffer tdef = _channel.ReadPage(_table.DefinitionPage);
+        int mapRow = tdef.ReadByte(tdefPointerOffset);
+        int mapPage = tdef.ReadInt24(tdefPointerOffset + 1);
+
+        byte[] page = _channel.ReadPage(mapPage).Span.ToArray();
+        var holder = new DataPage();
+        holder.Read(_channel.ReadPage(mapPage), format);
+        int mapOffset = holder.Rows[mapRow].Offset;
+
+        if (page[mapOffset] != 0x00)
+            throw new NotSupportedException("Reference-type usage map growth is not implemented yet.");
+
+        int startPage = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(mapOffset + 1, 4));
+        int bitIndex = targetPage - startPage;
+        int byteIndex = mapOffset + 5 + bitIndex / 8;
+        page[byteIndex] |= (byte)(1 << (bitIndex % 8));
+        _channel.WritePage(mapPage, page);
     }
 
     /// <summary>Pins the fixed-region length to an existing row anywhere in the table (so the layout

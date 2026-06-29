@@ -185,6 +185,12 @@ public static class TdefBuilder
             name.CopyTo(page.AsSpan(namePos));
             namePos += name.Length;
         }
+
+        // Trailing terminator: Access closes the index-name list with a 2-byte 0xFFFF, and the
+        // definition length includes it. Without it Access rejects the table ("Unrecognized
+        // database format"). Verified byte-for-byte against an ACE-created single-index table.
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(namePos, 2), 0xFFFF);
+        namePos += 2;
         return namePos;
     }
 

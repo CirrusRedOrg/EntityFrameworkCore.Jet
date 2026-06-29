@@ -23,17 +23,18 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         JetFormatBase format = _channel.Format;
 
         // Allocate the pages the table needs through the global free-pages map (so Access accounts
-        // for them). Index root too, so the usage map can cover it.
+        // for them). Like Access, a fresh table has NO data page — the first is allocated lazily on
+        // the first insert — so its usage maps start empty.
         int tdefPage = _allocator.Allocate();
-        int dataPage = _allocator.Allocate();
         int usageMapPage = _allocator.Allocate();
 
         bool hasPk = primaryKey is { Count: > 0 };
         int indexRootPage = hasPk ? _allocator.Allocate() : 0;
 
-        WriteEmptyDataPage(format, dataPage, owner: tdefPage);
-        // Usage-map records on one page: row 0 = table owned, row 1 = table free, row 2 = index owned.
-        WriteUsageMaps(format, usageMapPage, owner: tdefPage, tablePage: dataPage, indexPage: hasPk ? indexRootPage : null);
+        // Usage-map records on one page: row 0 = table owned, row 1 = table free, and (with an
+        // index) row 2 = the index's pages. All start empty (the index root is referenced by the
+        // index-data block, not the usage map).
+        WriteUsageMaps(format, usageMapPage, mapCount: hasPk ? 3 : 2);
 
         // A primary key is one unique index over an empty leaf root, populated as rows are inserted.
         IndexSpec[] indexes = [];
@@ -55,6 +56,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         _channel.WritePage(tdefPage, tdef);
 
         AddCatalogRow(name, tdefPage);
+        AddPermissionRows(tdefPage);
     }
 
     /// <summary>Writes an empty B-tree leaf (no entries) to serve as a fresh index root.</summary>
@@ -73,46 +75,36 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         _channel.WritePage(pageNumber, page);
     }
 
-    private void WriteEmptyDataPage(JetFormatBase format, int pageNumber, int owner)
+    /// <summary>
+    /// Writes a data page of <paramref name="mapCount"/> empty inline usage-map records — like
+    /// Access does for a fresh table that has no data page yet. Each record is
+    /// <c>[0x00][startPage = 0][all-zero bitmap]</c>: row 0 = table owned-pages, row 1 = table
+    /// free-pages, and (with an index) row 2 = the index's owned-pages. The first insert allocates a
+    /// data page and sets the corresponding bit.
+    /// </summary>
+    private void WriteUsageMaps(JetFormatBase format, int pageNumber, int mapCount)
     {
+        // An empty inline usage map: type byte + start page (0) + a bitmap of all-zero bytes. Access
+        // writes a full-width bitmap; match its record length so the page layout matches byte-for-byte.
+        const int BitmapBytes = 64;
+        const int MapLength = 1 + 4 + BitmapBytes;
+
         var page = new byte[format.PageSize];
         page[0] = (byte)PageType.DataPage;
         page[1] = 0x01; // page flags (observed constant)
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4), owner);
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), 0);
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
-            (ushort)(format.PageSize - format.DataRowDirectoryOffset));
-        _channel.WritePage(pageNumber, page);
-    }
+        // Owner of a usage-map page is 0 (it belongs to no table).
 
-    /// <summary>
-    /// Writes a data page of inline usage-map records, each <c>[0x00][startPage:4][bit 0 set]</c>:
-    /// row 0 = table owned-pages, row 1 = table free-pages (Access expects both, both marking the
-    /// table's single empty data page), and — when the table has an index — row 2 = the index's
-    /// owned-pages map, marking its root page.
-    /// </summary>
-    private void WriteUsageMaps(JetFormatBase format, int pageNumber, int owner, int tablePage, int? indexPage)
-    {
-        var page = new byte[format.PageSize];
-        page[0] = (byte)PageType.DataPage;
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4), owner);
-
-        static byte[] InlineMap(int startPage) { var m = new byte[] { 0x00, 0, 0, 0, 0, 0x01 }; BinaryPrimitives.WriteInt32LittleEndian(m.AsSpan(1, 4), startPage); return m; }
-
-        // Rows are packed from the page end backward; slot directory in the same order.
-        int[] startPages = indexPage is { } ip ? [tablePage, tablePage, ip] : [tablePage, tablePage];
         int offset = format.PageSize;
-        for (int row = 0; row < startPages.Length; row++)
+        for (int row = 0; row < mapCount; row++)
         {
-            byte[] map = InlineMap(startPages[row]);
-            offset -= map.Length;
-            map.CopyTo(page.AsSpan(offset));
+            offset -= MapLength;
+            // page[offset] already 0x00 (inline type), start page already 0, bitmap already zero.
             BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + row * 2, 2), (ushort)offset);
         }
 
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), (ushort)startPages.Length);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), (ushort)mapCount);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
-            (ushort)(offset - format.DataRowDirectoryOffset - startPages.Length * 2));
+            (ushort)(offset - format.DataRowDirectoryOffset - mapCount * 2));
         _channel.WritePage(pageNumber, page);
     }
 
@@ -147,6 +139,31 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         SetByName(msysObjects, values, "DateUpdate", now);
 
         new RowInserter(_channel, msysObjects).Insert(values, updateIndexes: true);
+    }
+
+    // Permissions for a newly created table object: the owner (SID 0x690C) and the Admin/Users
+    // SID (0x680C), each with full access (verified against an ACE-created table).
+    private const int FullAccessMask = 1048319; // 0xFFEFF
+    private static readonly byte[] AdminSid = [0x68, 0x0C];
+
+    /// <summary>
+    /// Adds the two MSysACEs permission rows Access writes for a new table object (owner + admin,
+    /// full access), maintaining the table's ObjectId index so Access's security check sees them.
+    /// </summary>
+    private void AddPermissionRows(int objectId)
+    {
+        TableDef msysAces = _catalog.FindTable("MSysACEs")
+            ?? throw new InvalidOperationException("MSysACEs catalog table was not found.");
+
+        foreach (byte[] sid in new[] { DefaultOwner, AdminSid })
+        {
+            var values = new object?[msysAces.Columns.Count];
+            SetByName(msysAces, values, "ACM", FullAccessMask);
+            SetByName(msysAces, values, "FInheritable", false);
+            SetByName(msysAces, values, "ObjectId", objectId);
+            SetByName(msysAces, values, "SID", sid);
+            new RowInserter(_channel, msysAces).Insert(values, updateIndexes: true);
+        }
     }
 
     private static void SetByName(TableDef table, object?[] values, string column, object value)

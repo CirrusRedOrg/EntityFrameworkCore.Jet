@@ -10,11 +10,18 @@ public class ScaffoldingTests
 {
     private static readonly string Northwind = Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb");
 
+    // Resolve the factory through the design-time container so the scaffolding logger is injected.
+    private static IDatabaseModelFactory Factory()
+    {
+        var services = new ServiceCollection();
+        new LibRedDesignTimeServices().ConfigureDesignTimeServices(services);
+        return services.BuildServiceProvider().GetRequiredService<IDatabaseModelFactory>();
+    }
+
     [Fact]
     public void Model_factory_reads_tables_columns_keys_from_the_catalog()
     {
-        var factory = new LibRedDatabaseModelFactory();
-        var model = factory.Create($"Data Source={Northwind}", new DatabaseModelFactoryOptions());
+        var model = Factory().Create($"Data Source={Northwind}", new DatabaseModelFactoryOptions());
 
         // User tables are present; system (MSys*) tables are excluded.
         var tableNames = model.Tables.Select(t => t.Name).ToList();
@@ -43,7 +50,7 @@ public class ScaffoldingTests
     [Fact]
     public void Composite_primary_key_is_read()
     {
-        var model = new LibRedDatabaseModelFactory()
+        var model = Factory()
             .Create($"Data Source={Northwind}", new DatabaseModelFactoryOptions());
 
         var orderDetails = model.Tables.Single(t => t.Name == "Order Details");
@@ -53,7 +60,7 @@ public class ScaffoldingTests
     [Fact]
     public void Table_filter_is_honoured()
     {
-        var model = new LibRedDatabaseModelFactory()
+        var model = Factory()
             .Create($"Data Source={Northwind}",
                 new DatabaseModelFactoryOptions(tables: ["Shippers"], schemas: []));
 

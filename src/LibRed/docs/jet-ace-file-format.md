@@ -247,6 +247,7 @@ Only a few fields are *not* fixed constants and so warrant a write note:
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 1 | Page type `0x01` |
+| `0x01` | 1 | Flags (observed constant `0x01`; the same byte appears on TDEF and index pages — verified) |
 | `0x02` | 2 | Free space |
 | `0x04` | 4 | Owning table's TDEF page — **or** the ASCII marker `LVAL` (`0x4C41564C`) for long-value pages |
 | `0x0C` | 2 | Row count on this page |
@@ -390,7 +391,11 @@ begins at **offset 4**.
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 1 | Page type (`0x03` node / `0x04` leaf) |
+| `0x01` | 1 | Flags (observed constant `0x01` — verified) |
+| `0x02` | 2 | Free space |
 | `0x04` | 4 | Owning table TDEF page |
+| `0x08` | 4 | Previous leaf page (`0` if none) — observed `0` on single-leaf samples, semantics unverified |
+| `0x0C` | 4 | Next leaf page (`0` if none) — observed `0` on single-leaf samples, semantics unverified |
 | `0x14` | 4 | **Child-tail** page (node pages: the rightmost child, referenced by no entry) |
 | `0x18` | 2 | Compressed-byte count (shared key prefix length, §10.3) |
 | `0x1B` | … | Entry-position bitmask |

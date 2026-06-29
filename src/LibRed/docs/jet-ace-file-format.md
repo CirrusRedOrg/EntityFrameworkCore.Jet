@@ -93,7 +93,8 @@ version. (Page-level encryption for password-protected files is not implemented.
 > column descriptor `+1` (2 bytes, §3.4), index-info block `+0` (4 bytes, §3.6), and this header
 > slot (4 bytes) — while `0x783` (1923) marks each index-data block `+0` (§3.5). They are constant within and
 > across files; mdbtools describes them as "usually 1625 / 1923 *or 0*", so they appear to be
-> reserved record markers/tags the engine does not depend on (LibRed ignores them). `0x0C` is
+> reserved record markers/tags. LibRed's *reader* ignores them, but they are part of the format
+> and a *writer* must emit them — Access validates them when opening a table (see §3.7). `0x0C` is
 > therefore **not** the code page — `1625` is not a valid code page, and the code page is a
 > database-wide value on page 0, not per-table.
 
@@ -215,24 +216,23 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 
 ### 3.7 Writing a TDEF Access accepts (in progress)
 
-The reader ignores several header/marker/constant fields above, but **Access validates them** when
-it opens a table, so a written TDEF must populate them. With the following set, a LibRed-created
-TDEF matches an ACE-created one **byte-for-byte** (verified by diffing; only page numbers and the
-auto-generated index name differ):
+Every field documented above is part of the format and must be written — **including the constants
+and markers the reader ignores** (`0x01` flags, the `0x0659`/`0x0783` markers, the en-US locale
+`0x0409`, the `0x80`/`0x08` index-flag bits, …). The reader being lenient about a field does **not**
+make it optional on write; Access validates them when it opens the table. With every documented
+field populated, a LibRed-written TDEF matches an ACE-created one **byte-for-byte** (verified by
+diffing; only page numbers and the auto-generated index name differ).
 
-- **Header (§3.1):** flags `0x01` at `0x01`; free space at `0x02` (= page size − definition length
-  − 8); definition length at `0x08`; the `0x659` marker at `0x0C`; the constant `0x01` at `0x18`;
-  **maximum** column count at `0x29`; and **both** usage-map pointers — owned-pages at `0x37` and
-  **free-pages at `0x3B`**.
-- **Column descriptor (§3.4):** the `0x0659` marker at `+0x01`; the column id duplicated at
-  `+0x09`; and for non-numeric columns the en-US locale `0x0409` in the precision/scale bytes
-  (`+0x0B/+0x0C`).
-- **Index-data block (§3.5):** the index's own usage-map pointer at `+0x22`; flags `0x89` for a
-  primary key (`0x80` always-set | `0x08` required | `0x01` unique).
-- **Index-info block (§3.6):** the `0x0659` marker at `+0x00`; FK index number `0xFFFFFFFF` (no FK)
-  at `+0x0D`; update/delete actions `0x04` at `+0x15/+0x16`.
-- **Data and index pages** carry the `0x01` flags byte at offset `0x01`. The index's usage map is a
-  third record on the table's usage-map page, covering the index root page.
+Only a few fields are *not* fixed constants and so warrant a write note:
+
+- **Definition length** (`0x08`) — the byte offset just past the last structure written.
+- **Free space** (`0x02`) — `page size − definition length − 8` (Access reserves an 8-byte
+  continuation header).
+- **Index-info update/delete actions** (`+0x15/+0x16`, §3.6) — `0x04` on a plain primary key (no
+  relationship); the FK index number (`+0x0D`) is `0xFFFFFFFF` when there is no foreign key.
+- **Usage maps** — Access keeps *both* an owned-pages map (`0x37`) and a free-pages map (`0x3B`);
+  an indexed table adds a third usage-map record (the index's own pages, §3.5 `+0x22`) covering the
+  index root.
 
 > **Still blocking a full open (not yet resolved):** Access creates an **empty table with no data
 > page** — its owned-pages map is empty and the first data page is allocated lazily on the first

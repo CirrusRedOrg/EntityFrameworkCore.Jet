@@ -16,18 +16,20 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
 {
     private readonly PageChannel _channel = channel;
     private readonly JetCatalog _catalog = catalog;
+    private readonly PageAllocator _allocator = new(channel);
 
     public void Create(string name, IReadOnlyList<ColumnSpec> columns, IReadOnlyList<string>? primaryKey = null)
     {
         JetFormatBase format = _channel.Format;
 
-        // Allocate the pages the table needs (index root too, so the usage map can cover it).
-        int tdefPage = _channel.AllocatePage();
-        int dataPage = _channel.AllocatePage();
-        int usageMapPage = _channel.AllocatePage();
+        // Allocate the pages the table needs through the global free-pages map (so Access accounts
+        // for them). Index root too, so the usage map can cover it.
+        int tdefPage = _allocator.Allocate();
+        int dataPage = _allocator.Allocate();
+        int usageMapPage = _allocator.Allocate();
 
         bool hasPk = primaryKey is { Count: > 0 };
-        int indexRootPage = hasPk ? _channel.AllocatePage() : 0;
+        int indexRootPage = hasPk ? _allocator.Allocate() : 0;
 
         WriteEmptyDataPage(format, dataPage, owner: tdefPage);
         // Usage-map records on one page: row 0 = table owned, row 1 = table free, row 2 = index owned.

@@ -403,13 +403,15 @@ the file when no free page remains. Verified: creating a table in Northwind reus
 (for the TDEF, usage map, etc.) and grew the file by a single page; the only change to page 1 was
 one cleared bit per page taken.
 
-> **This is the create-table blocker (§3.7).** LibRed's `AllocatePage` grows the file and never
-> reads or updates this map, so Access's allocator never accounts for LibRed's pages and rejects
-> the table. The fix is to allocate *through* the global map (take a free page, clear its bit; grow
-> + extend the map only when none is free). LibRed does not yet read or maintain page 1 at all.
+> LibRed allocates **through** this map (`PageAllocator`): it takes a free page, clears its bit,
+> and reuses it — only growing the file when none is free — so its pages now match Access's
+> allocation. Free bits beyond the current file end are the pre-allocated growth region; taking one
+> grows the file. The reference-type global map (very large databases) is not handled yet.
 >
-> (When an ACE `CREATE TABLE` runs it also bumps a counter in page 0's obfuscated region at
-> `~0xE02`; its exact meaning is not yet decoded.)
+> **Remaining create-table gaps (Access still rejects):** an ACE `CREATE TABLE` *also* (1) adds two
+> rows to **`MSysACEs`** (the new object's permission entries) and updates its `ObjectId` index, and
+> (2) bumps a counter in page 0's obfuscated region at `~0xE02` (meaning not yet decoded). Those two
+> remain between "Access resolves the table" (§11) and "Access opens it".
 
 ---
 

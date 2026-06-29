@@ -234,11 +234,19 @@ Only a few fields are *not* fixed constants and so warrant a write note:
   an indexed table adds a third usage-map record (the index's own pages, §3.5 `+0x22`) covering the
   index root.
 
-> **Still blocking a full open (not yet resolved):** Access creates an **empty table with no data
-> page** — its owned-pages map is empty and the first data page is allocated lazily on the first
-> insert — whereas LibRed creates a data page eagerly (its row inserter currently requires an
-> existing page). Reconciling that (lazy allocation + allocate-on-insert), plus any remaining
-> structural checks, is what stands between "Access resolves the table" (§11) and "Access opens it".
+> **Still blocking a full open — the real root cause (verified by elimination).** Every *per-table*
+> page can be made to match an ACE-created table **byte-for-byte** — TDEF, both usage-map records,
+> and the empty index leaf (an empty table even matches Access's model of **no data page**: its
+> owned/free maps are empty 69-byte inline records, the usage-map page's own owner field is `0`,
+> and the index's usage map is empty because the root is referenced by the index-data block, not the
+> map). Yet Access still reports "unrecognized database format" when opening such a table. The
+> reason is **global**, not per-table: LibRed's `AllocatePage` simply grows the file and **never
+> registers the new pages in the database's global page-allocation map**, which LibRed does not yet
+> read or maintain at all. Access therefore treats the freshly written TDEF/usage-map/index pages as
+> outside the allocated database and rejects them. Implementing the **global usage map** (read +
+> update on every allocation) is the foundational piece between "Access resolves the table" (§11)
+> and "Access opens it" — and it also subsumes the lazy-data-page model (allocate-on-insert then
+> just marks the new page in both the table's and the global map).
 
 ---
 

@@ -213,6 +213,33 @@ The index **name** read at the same ordinal applies to this logical index. To na
 physical (data-block) index, prefer a real index's name over a foreign-key relationship's
 (distinguished by `0x11` ≠ 0), and take `IsPrimaryKey` from the type byte `0x17`.
 
+### 3.7 Writing a TDEF Access accepts (in progress)
+
+The reader ignores several header/marker/constant fields above, but **Access validates them** when
+it opens a table, so a written TDEF must populate them. With the following set, a LibRed-created
+TDEF matches an ACE-created one **byte-for-byte** (verified by diffing; only page numbers and the
+auto-generated index name differ):
+
+- **Header (§3.1):** flags `0x01` at `0x01`; free space at `0x02` (= page size − definition length
+  − 8); definition length at `0x08`; the `0x659` marker at `0x0C`; the constant `0x01` at `0x18`;
+  **maximum** column count at `0x29`; and **both** usage-map pointers — owned-pages at `0x37` and
+  **free-pages at `0x3B`**.
+- **Column descriptor (§3.4):** the `0x0659` marker at `+0x01`; the column id duplicated at
+  `+0x09`; and for non-numeric columns the en-US locale `0x0409` in the precision/scale bytes
+  (`+0x0B/+0x0C`).
+- **Index-data block (§3.5):** the index's own usage-map pointer at `+0x22`; flags `0x89` for a
+  primary key (`0x80` always-set | `0x08` required | `0x01` unique).
+- **Index-info block (§3.6):** the `0x0659` marker at `+0x00`; FK index number `0xFFFFFFFF` (no FK)
+  at `+0x0D`; update/delete actions `0x04` at `+0x15/+0x16`.
+- **Data and index pages** carry the `0x01` flags byte at offset `0x01`. The index's usage map is a
+  third record on the table's usage-map page, covering the index root page.
+
+> **Still blocking a full open (not yet resolved):** Access creates an **empty table with no data
+> page** — its owned-pages map is empty and the first data page is allocated lazily on the first
+> insert — whereas LibRed creates a data page eagerly (its row inserter currently requires an
+> existing page). Reconciling that (lazy allocation + allocate-on-insert), plus any remaining
+> structural checks, is what stands between "Access resolves the table" (§11) and "Access opens it".
+
 ---
 
 ## 4. Data page — type `0x01`
@@ -463,30 +490,9 @@ Then the value, transformed:
   > With those fields set, Access **enumerates** a LibRed-created table (it appears in the
   > schema/Tables rowset) — verified via OLE DB. Maintaining MSysObjects' indexes (the composite
   > `ParentId+Name` and `Id` indexes) then lets Access **resolve the table by name** and attempt
-  > to open it. Opening it still requires the table's own structures to be byte-valid to Access.
+  > to open it. Opening it then requires the table's own structures to be byte-valid to Access
+  > (see §3.7).
 
-### 11.1 Writing an Access-valid table (in progress)
-
-A LibRed-created table's TDEF can be made to match an ACE-created one byte-for-byte (verified by
-diffing). The fields beyond what the reader consumes that Access requires (all verified vs ACE):
-
-- **TDEF header:** flags `0x01` at `0x01`; free space at `0x02` (= page size − definition length
-  − 8); definition length at `0x08`; the `0x659` record marker at `0x0C`; the constant `0x01` at
-  `0x18`; **maximum** column count at `0x29`; and a **free-pages** usage-map pointer at `0x3B`
-  (Access keeps both an owned-pages map at `0x37` and a free-pages map).
-- **Column descriptor:** the `0x0659` marker at `+0x01`; the column id duplicated at `+0x09`; and
-  for non-numeric columns the en-US locale `0x0409` in the precision/scale bytes (`+0x0B/+0x0C`).
-- **Index-data block (§3.5):** a usage-map pointer at `+0x22` (the index's own pages); flags
-  `0x89` for a primary key (`0x80` always-set | `0x08` required | `0x01` unique).
-- **Index-info block (§3.6):** the `0x0659` marker at `+0x00`; FK index number `0xFFFFFFFF` (no
-  FK) at `+0x0D`; update/delete actions `0x04` at `+0x15/+0x16`.
-- **Data and index pages** carry the same `0x01` flags byte at offset `0x01`.
-
-> **Still blocking full open (not yet resolved):** Access creates an **empty table with no data
-> page** — its owned-pages map is empty and the first data page is allocated lazily on the first
-> insert. LibRed instead creates a data page eagerly (its row inserter currently requires an
-> existing page). Reconciling this (lazy allocation + allocate-on-insert) — and any remaining
-> structural checks — is what stands between "Access resolves the table" and "Access opens it".
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`
   (parent table), `szReferencedColumn`, `icolumn` (order), `grbit` (flags: `0x02` don't-enforce,

@@ -28,6 +28,8 @@ public class TextKeyEncodingTests
             "Apple", "Banana", "Cherry", "A B", " A",
             "0", "1", "9", "Order123", "Customer", "Z9",
             "(paren)", "a.b", "x/y", "p+q", "k=v",
+            // Ignorable apostrophe/hyphen in various positions.
+            "'", "-", "A'", "'A", "A-B", "O'Brien", "IT'S", "ANNE-MARIE", "A''B", "x-y-z",
         ];
 
         string path = Path.Combine(Path.GetTempPath(), $"libred-textkey-{Guid.NewGuid():N}.accdb");

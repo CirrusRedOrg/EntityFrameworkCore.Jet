@@ -45,16 +45,15 @@ public static class IndexKeyEncoder
                 continue;
             }
 
-            // Text uses Jet's collation: start flag, primary weights, then a 01 00 terminator.
+            // Text uses Jet's collation: start flag then the collation key body (weights, inline
+            // ignorable codes, terminator) from JetTextCollation.
             if (column.Type == JetDataType.Text)
             {
                 if (!ascending)
                     throw new NotSupportedException("Descending text index keys are not supported yet.");
                 buffer.Add(AscStartFlag);
-                if (!JetTextCollation.TryEncodePrimary((string)value, buffer))
+                if (!JetTextCollation.TryEncode((string)value, buffer))
                     throw new NotSupportedException($"Text index key '{value}' contains a character whose collation weight is not implemented yet.");
-                buffer.Add(0x01);
-                buffer.Add(0x00);
                 continue;
             }
 

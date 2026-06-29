@@ -424,9 +424,16 @@ Then the value, transformed:
   from `0x36`), **verified byte-for-byte against the ACE engine** over printable ASCII and
   implemented by `JetTextCollation` — so LibRed can now *write* ASCII text index keys (e.g. a
   string primary key). Decoding remains lossy (case is discarded — that is why a text primary key
-  treats `'A'` and `'a'` as duplicates). *Not yet handled:* apostrophe and hyphen (Jet sorts them
-  as "ignorable" via a different multi-byte placeholder form, e.g. `… 01 01 01 01 80 07 06 …`),
-  non-ASCII characters, and descending text keys.
+  treats `'A'` and `'a'` as duplicates).
+
+  **Apostrophe and hyphen are "ignorable"** (so `O'Brien` sorts next to `OBrien`): they add **no
+  primary weight**, but each appends an inline record to a trailing section. After the primary's
+  `0x01` end marker, if any ignorable char is present the key adds `01 01 01` once, then per
+  ignorable char four bytes `80 <pos> 06 <code>`, then the final `00`. `<pos> = 0x07 + 4 × (count
+  of non-ignorable characters before it)` and `<code>` is `0x80` for apostrophe / `0x82` for
+  hyphen — verified against ACE (e.g. `ANNE-MARIE` → `… 80 17 06 82 …`, the hyphen at position 4).
+
+  *Not yet handled:* non-ASCII characters and descending text keys.
 - **Binary / GUID:** collation encoding not implemented (read-only as before).
 
 ---

@@ -7,11 +7,19 @@ namespace LibRed.Storage;
 /// characters weigh one byte (a handful — <c>^ _ ` { | } ~</c> — weigh two, sharing the 0x2B page).
 /// </summary>
 /// <remarks>
-/// Not handled yet: apostrophe and hyphen (Jet sorts them as "ignorable" with a different,
-/// multi-byte placeholder form), and any non-ASCII character. Such keys are reported unencodable.
+/// Apostrophe and hyphen are "ignorable": they add no primary weight but append a trailing inline
+/// group recording their position (verified against ACE). Non-ASCII characters are still reported
+/// unencodable.
 /// </remarks>
 internal static class JetTextCollation
 {
+    private const byte EndPrimary = 0x01;
+    private const byte EndKey = 0x00;
+    private const byte InlineStart = 0x80;
+    private const byte InlineMid = 0x06;
+    private const byte ApostropheCode = 0x80;
+    private const byte HyphenCode = 0x82;
+
     // Primary weight for 'A'..'Z' (general collation; mostly +2 with a few +1 steps).
     private static readonly byte[] Letters =
     [
@@ -32,15 +40,26 @@ internal static class JetTextCollation
     };
 
     /// <summary>
-    /// Appends the order-preserving primary weights for <paramref name="value"/> (trailing spaces
-    /// dropped) to <paramref name="output"/>. Returns false if any character is not yet supported.
+    /// Appends the order-preserving collation key body for <paramref name="value"/> (everything
+    /// after the start flag: primary weights, end-of-primary marker, any ignorable-char inline
+    /// codes, and the terminator). Trailing spaces are dropped. Returns false if any character is
+    /// not yet supported.
     /// </summary>
-    public static bool TryEncodePrimary(string value, List<byte> output)
+    public static bool TryEncode(string value, List<byte> output)
     {
         ReadOnlySpan<char> s = value.AsSpan().TrimEnd(' ');
+
+        // Apostrophe/hyphen carry no primary weight; they record (position, code) for the inline
+        // section, where position is the count of non-ignorable characters before them.
+        var inline = new List<(int Position, byte Code)>();
+        int primaryChars = 0;
+
         foreach (char c in s)
         {
             char u = char.ToUpperInvariant(c);
+            if (u == '\'') { inline.Add((primaryChars, ApostropheCode)); continue; }
+            if (u == '-') { inline.Add((primaryChars, HyphenCode)); continue; }
+
             if (u is >= 'A' and <= 'Z')
                 output.Add(Letters[u - 'A']);
             else if (u is >= '0' and <= '9')
@@ -48,8 +67,26 @@ internal static class JetTextCollation
             else if (Symbols.TryGetValue(u, out byte[]? weights))
                 output.AddRange(weights);
             else
-                return false; // apostrophe, hyphen, non-ASCII — not handled yet
+                return false; // non-ASCII — not handled yet
+
+            primaryChars++;
         }
+
+        output.Add(EndPrimary);
+        if (inline.Count > 0)
+        {
+            output.Add(0x01);
+            output.Add(0x01);
+            output.Add(0x01);
+            foreach (var (position, code) in inline)
+            {
+                output.Add(InlineStart);
+                output.Add((byte)(0x07 + 4 * position));
+                output.Add(InlineMid);
+                output.Add(code);
+            }
+        }
+        output.Add(EndKey);
         return true;
     }
 }

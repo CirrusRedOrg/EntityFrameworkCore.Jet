@@ -21,27 +21,35 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     {
         JetFormatBase format = _channel.Format;
 
-        // Allocate the pages the table needs.
+        // Allocate the pages the table needs (index root too, so the usage map can cover it).
         int tdefPage = _channel.AllocatePage();
         int dataPage = _channel.AllocatePage();
         int usageMapPage = _channel.AllocatePage();
 
+        bool hasPk = primaryKey is { Count: > 0 };
+        int indexRootPage = hasPk ? _channel.AllocatePage() : 0;
+
         WriteEmptyDataPage(format, dataPage, owner: tdefPage);
-        WriteOwnedPagesMap(format, usageMapPage, owner: tdefPage, ownedPage: dataPage);
+        // Usage-map records on one page: row 0 = table owned, row 1 = table free, row 2 = index owned.
+        WriteUsageMaps(format, usageMapPage, owner: tdefPage, tablePage: dataPage, indexPage: hasPk ? indexRootPage : null);
 
         // A primary key is one unique index over an empty leaf root, populated as rows are inserted.
         IndexSpec[] indexes = [];
-        if (primaryKey is { Count: > 0 })
+        if (hasPk)
         {
-            int rootPage = _channel.AllocatePage();
-            WriteEmptyLeafIndexPage(format, rootPage, owner: tdefPage);
-            indexes = [new IndexSpec("PrimaryKey", primaryKey, IsPrimaryKey: true, IsUnique: true, rootPage)];
+            WriteEmptyLeafIndexPage(format, indexRootPage, owner: tdefPage);
+            indexes = [new IndexSpec("PrimaryKey", primaryKey!, IsPrimaryKey: true, IsUnique: true,
+                indexRootPage, UsageMapRow: 2, UsageMapPage: usageMapPage)];
         }
 
-        // Build the definition, point it at the owned-pages map, and write it.
+        // Build the definition and point it at the usage maps: owned-pages = row 0, free-pages =
+        // row 1, both on the usage-map page.
         byte[] tdef = TdefBuilder.Build(format, TableType.User, columns, indexes).Page;
-        tdef[format.TdefOwnedPagesOffset] = 0; // map record row
+        const int FreePagesOffset = 0x3B;
+        tdef[format.TdefOwnedPagesOffset] = 0; // owned map record row
         WriteInt24(tdef, format.TdefOwnedPagesOffset + 1, usageMapPage);
+        tdef[FreePagesOffset] = 1; // free map record row
+        WriteInt24(tdef, FreePagesOffset + 1, usageMapPage);
         _channel.WritePage(tdefPage, tdef);
 
         AddCatalogRow(name, tdefPage);
@@ -55,6 +63,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
 
         var page = new byte[format.PageSize];
         page[0] = (byte)PageType.LeafIndexPage;
+        page[1] = 0x01; // page flags (observed constant)
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(OwnerOffset, 4), owner);
         // No entries: empty mask, no prefix compression, free space is the whole entry region.
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
@@ -66,6 +75,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     {
         var page = new byte[format.PageSize];
         page[0] = (byte)PageType.DataPage;
+        page[1] = 0x01; // page flags (observed constant)
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4), owner);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), 0);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
@@ -74,26 +84,33 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     }
 
     /// <summary>
-    /// Writes a data page holding a single inline usage-map record (row 0) that owns exactly
-    /// <paramref name="ownedPage"/>: <c>[0x00 type][startPage:4][bitmap: bit 0 set]</c>.
+    /// Writes a data page of inline usage-map records, each <c>[0x00][startPage:4][bit 0 set]</c>:
+    /// row 0 = table owned-pages, row 1 = table free-pages (Access expects both, both marking the
+    /// table's single empty data page), and — when the table has an index — row 2 = the index's
+    /// owned-pages map, marking its root page.
     /// </summary>
-    private void WriteOwnedPagesMap(JetFormatBase format, int pageNumber, int owner, int ownedPage)
+    private void WriteUsageMaps(JetFormatBase format, int pageNumber, int owner, int tablePage, int? indexPage)
     {
         var page = new byte[format.PageSize];
         page[0] = (byte)PageType.DataPage;
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4), owner);
 
-        byte[] map = new byte[6];
-        map[0] = 0x00; // inline map
-        BinaryPrimitives.WriteInt32LittleEndian(map.AsSpan(1, 4), ownedPage);
-        map[5] = 0x01; // bit 0 → startPage (ownedPage) is owned
+        static byte[] InlineMap(int startPage) { var m = new byte[] { 0x00, 0, 0, 0, 0, 0x01 }; BinaryPrimitives.WriteInt32LittleEndian(m.AsSpan(1, 4), startPage); return m; }
 
-        int offset = format.PageSize - map.Length;
-        map.CopyTo(page.AsSpan(offset));
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), 1);
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset, 2), (ushort)offset);
+        // Rows are packed from the page end backward; slot directory in the same order.
+        int[] startPages = indexPage is { } ip ? [tablePage, tablePage, ip] : [tablePage, tablePage];
+        int offset = format.PageSize;
+        for (int row = 0; row < startPages.Length; row++)
+        {
+            byte[] map = InlineMap(startPages[row]);
+            offset -= map.Length;
+            map.CopyTo(page.AsSpan(offset));
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + row * 2, 2), (ushort)offset);
+        }
+
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), (ushort)startPages.Length);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
-            (ushort)(offset - format.DataRowDirectoryOffset - 2));
+            (ushort)(offset - format.DataRowDirectoryOffset - startPages.Length * 2));
         _channel.WritePage(pageNumber, page);
     }
 

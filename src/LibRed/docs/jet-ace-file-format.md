@@ -390,6 +390,27 @@ begins at **offset 4**.
 > The usage map is authoritative: a brute-force owner-scan can over-count, because deleted/
 > orphaned pages can retain a stale owner stamp that the map correctly omits.
 
+### 9.1 Global free-pages map — page 1 (page allocation)
+
+Besides the per-table maps, the database has a **global free-pages map** at **page 1, row 0** (a
+data page; its row 0 is an inline usage map, start page `0`). Here a **set bit means the page is
+free / available**, the *opposite* of a per-table owned map — verified against Northwind (161 free
+pages among 353) and by diffing before/after an ACE `CREATE TABLE`.
+
+**Page allocation works through this map.** Access does **not** simply grow the file: it finds a
+set bit (a free page), **clears it** (marking the page used), and reuses that page — only growing
+the file when no free page remains. Verified: creating a table in Northwind reused four free pages
+(for the TDEF, usage map, etc.) and grew the file by a single page; the only change to page 1 was
+one cleared bit per page taken.
+
+> **This is the create-table blocker (§3.7).** LibRed's `AllocatePage` grows the file and never
+> reads or updates this map, so Access's allocator never accounts for LibRed's pages and rejects
+> the table. The fix is to allocate *through* the global map (take a free page, clear its bit; grow
+> + extend the map only when none is free). LibRed does not yet read or maintain page 1 at all.
+>
+> (When an ACE `CREATE TABLE` runs it also bumps a counter in page 0's obfuscated region at
+> `~0xE02`; its exact meaning is not yet decoded.)
+
 ---
 
 ## 10. Index B-tree pages — types `0x03` (node) and `0x04` (leaf)

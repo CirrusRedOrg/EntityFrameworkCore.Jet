@@ -74,4 +74,53 @@ public class TextKeyEncodingTests
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
+
+    [Fact]
+    public void Encoded_descending_text_keys_match_access_byte_for_byte()
+    {
+        string[] values = ["A", "B", "AB", "Z", "Apple", "A-B", "O'Brien", "0", "Order9"];
+
+        string path = Path.Combine(Path.GetTempPath(), $"libred-textdesc-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var conn = OpenOleDb(path))
+            {
+                using (var c = conn.CreateCommand())
+                { c.CommandText = "CREATE TABLE TD (Id int PRIMARY KEY, K varchar(30))"; c.ExecuteNonQuery(); }
+                using (var c = conn.CreateCommand())
+                { c.CommandText = "CREATE INDEX ixK ON TD (K DESC)"; c.ExecuteNonQuery(); }
+                for (int i = 0; i < values.Length; i++)
+                {
+                    using var c = conn.CreateCommand();
+                    c.CommandText = "INSERT INTO TD (Id, K) VALUES (?, ?)";
+                    c.Parameters.AddWithValue("id", i);
+                    c.Parameters.AddWithValue("k", values[i]);
+                    c.ExecuteNonQuery();
+                }
+            }
+
+            using var db = JetDatabase.Open(path);
+            var table = db.OpenTable("TD");
+            var def = table.Definition;
+            IndexDef ixK = def.Indexes.First(i => i.Columns.Any(c => c.Column.Name == "K"));
+            Assert.False(ixK.Columns.First(c => c.Column.Name == "K").Ascending); // descending
+            int kIdx = def.FindColumn("K")!.Index;
+            var decoder = new RowDecoder(def.Columns, db.Format);
+
+            int checkd = 0;
+            foreach (var (accessKey, rowId) in new IndexCursor(table.Channel, ixK.RootPage).RawEntries())
+            {
+                string k = (string)decoder.Decode(db.ReadDataPage(rowId.Page).GetRow(rowId.Row))[kIdx]!;
+                var vals = new object?[def.Columns.Count];
+                vals[kIdx] = k;
+                byte[] ours = IndexKeyEncoder.Encode(ixK.Columns, vals);
+                Assert.True(accessKey.AsSpan().SequenceEqual(ours),
+                    $"'{k}': access={Convert.ToHexString(accessKey)} ours={Convert.ToHexString(ours)}");
+                checkd++;
+            }
+            Assert.Equal(values.Length, checkd);
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
 }

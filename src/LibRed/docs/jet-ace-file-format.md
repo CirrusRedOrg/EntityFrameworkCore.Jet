@@ -433,7 +433,12 @@ Then the value, transformed:
   of non-ignorable characters before it)` and `<code>` is `0x80` for apostrophe / `0x82` for
   hyphen — verified against ACE (e.g. `ANNE-MARIE` → `… 80 17 06 82 …`, the hyphen at position 4).
 
-  *Not yet handled:* non-ASCII characters and descending text keys.
+  **Descending** text keys are the **bitwise inverse of the ascending key, with a `0x00`
+  appended** — verified against ACE (e.g. ascending `A` = `7F 4A 01 00` → descending
+  `80 B5 FE FF 00`). The inverted start flag is `~0x7F = 0x80`, matching the descending flag of
+  the fixed-type keys.
+
+  *Not yet handled:* non-ASCII characters.
 - **Binary / GUID:** collation encoding not implemented (read-only as before).
 
 ---

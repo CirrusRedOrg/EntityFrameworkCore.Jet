@@ -46,14 +46,23 @@ public static class IndexKeyEncoder
             }
 
             // Text uses Jet's collation: start flag then the collation key body (weights, inline
-            // ignorable codes, terminator) from JetTextCollation.
+            // ignorable codes, terminator). Descending inverts every byte of that ascending key
+            // and appends a 0x00 (verified against ACE).
             if (column.Type == JetDataType.Text)
             {
-                if (!ascending)
-                    throw new NotSupportedException("Descending text index keys are not supported yet.");
-                buffer.Add(AscStartFlag);
-                if (!JetTextCollation.TryEncode((string)value, buffer))
+                var ascendingKey = new List<byte> { AscStartFlag };
+                if (!JetTextCollation.TryEncode((string)value, ascendingKey))
                     throw new NotSupportedException($"Text index key '{value}' contains a character whose collation weight is not implemented yet.");
+
+                if (ascending)
+                {
+                    buffer.AddRange(ascendingKey);
+                }
+                else
+                {
+                    foreach (byte b in ascendingKey) buffer.Add((byte)~b);
+                    buffer.Add(0x00);
+                }
                 continue;
             }
 

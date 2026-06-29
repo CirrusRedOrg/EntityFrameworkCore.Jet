@@ -17,6 +17,8 @@ public static class LibRedServiceCollectionExtensions
     {
         serviceCollection.AddEntityFrameworkJet();
         serviceCollection.AddScoped<IJetRelationalConnection, LibRedRelationalConnection>();
+        // Answer existence / has-tables from LibRed's catalog instead of INFORMATION_SCHEMA + ADOX.
+        serviceCollection.AddScoped<Microsoft.EntityFrameworkCore.Storage.IRelationalDatabaseCreator, LibRedDatabaseCreator>();
         return serviceCollection;
     }
 }

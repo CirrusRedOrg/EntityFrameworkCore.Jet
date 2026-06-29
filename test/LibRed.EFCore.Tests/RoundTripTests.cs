@@ -58,6 +58,30 @@ public class RoundTripTests
     }
 
     [Fact]
+    public void EnsureCreated_uses_the_catalog_not_information_schema()
+    {
+        // Copy Northwind so the file exists and already has tables. EnsureCreated must consult
+        // LibRed's catalog (Exists + HasTables) and return without issuing an INFORMATION_SCHEMA
+        // query (which LibRed doesn't implement and which would otherwise route to DAO/ADOX).
+        string path = Path.Combine(Path.GetTempPath(), $"libred-ensure-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            var options = new DbContextOptionsBuilder<NorthwindContext>()
+                .UseLibRed($"Data Source={path}")
+                .Options;
+            using var context = new NorthwindContext(options);
+
+            // The creator service is ours.
+            Assert.Equal("LibRedDatabaseCreator", context.GetService<IDatabaseCreator>().GetType().Name);
+
+            // Existing file with tables -> EnsureCreated reports "already created" (false), no throw.
+            Assert.False(context.Database.EnsureCreated());
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void Where_query_round_trips_through_the_provider()
     {
         using var context = CreateContext();

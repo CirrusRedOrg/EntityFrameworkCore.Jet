@@ -37,6 +37,24 @@ public sealed class LibRedConnection : DbConnection
 
     public override ConnectionState State => _state;
 
+    /// <summary>True if the database file named by <paramref name="connectionString"/> exists.</summary>
+    public static bool DatabaseExists(string? connectionString)
+    {
+        string path = ParseDataSource(connectionString ?? string.Empty);
+        return !string.IsNullOrEmpty(path) && File.Exists(path);
+    }
+
+    /// <summary>
+    /// True if the open database has any user (non-system) tables. Read from LibRed's own catalog —
+    /// no INFORMATION_SCHEMA or DAO/ADOX — so schema checks work cross-platform on LibRed files.
+    /// </summary>
+    public bool HasUserTables()
+    {
+        if (_database is null)
+            throw new InvalidOperationException("The connection is not open.");
+        return _database.Catalog.UserTables.Any();
+    }
+
     public override void Open()
     {
         if (_state == ConnectionState.Open) return;

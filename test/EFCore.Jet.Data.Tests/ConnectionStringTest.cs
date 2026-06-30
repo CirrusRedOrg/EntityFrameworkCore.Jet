@@ -87,6 +87,20 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         }
 
         [TestMethod]
+        public void Odbc_connection_string_preserves_native_driver_braces_when_normalized()
+        {
+            const string connectionString = """driver="{Microsoft Access Driver (*.mdb, *.accdb)}";dbq=D:\toolkits\myefcorejet9\test\EFCore.Jet.Data.Tests\bin\x86\Debug\net10.0-windows7.0\ConnectionPoolingTest.accdb;extendedansisql=1""";
+
+            var normalizedConnectionString = JetConnection.GetConnectionString(connectionString, OdbcFactory.Instance);
+
+            StringAssert.Contains(normalizedConnectionString, "Driver={Microsoft Access Driver (*.mdb, *.accdb)}");
+            Assert.IsFalse(
+                normalizedConnectionString.Contains("driver=\"{Microsoft Access Driver (*.mdb, *.accdb)}\"", System.StringComparison.OrdinalIgnoreCase),
+                normalizedConnectionString);
+            StringAssert.Contains(normalizedConnectionString, "extendedansisql=1");
+        }
+
+        [TestMethod]
         public void OleDb_read_connection_string_with_all_properties()
         {
             const string connectionString = @"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=ConnectionStringTest.accdb;User ID=Admin;Password=hunter2;Jet OLEDB:System Database=SysDb;Jet OLEDB:Database Password=DbPwd";

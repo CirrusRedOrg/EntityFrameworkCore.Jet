@@ -360,22 +360,17 @@ namespace EntityFrameworkCore.Jet.Data
             // It is possible, that a connection string was provided, that left out the actual ACE/Jet provider
             // information, but is in a distinctive style (ODBC or OLE DB) anyway.
             // In that case, we need to retrieving the data access provider type's most recent ACE/Jet provider.
-            var connectionStringBuilder = new JetConnectionStringBuilder(dataAccessProviderType);
-            connectionStringBuilder.ConnectionString = connectionString;
+            var connectionStringBuilder = CreateConnectionStringBuilderForNormalization(connectionString, dataAccessProviderType);
 
             if (connectionStringBuilder.Remove("IgnoreMsys"))
-            {
                 _ignoreMSys = true;
-                connectionString = connectionStringBuilder.ToString();
-            }
 
-            if (string.IsNullOrWhiteSpace(connectionStringBuilder.Provider))
+            if (string.IsNullOrWhiteSpace(connectionStringBuilder.GetProvider(dataAccessProviderType)))
             {
                 var provider = GetMostRecentCompatibleProviders(dataAccessProviderType)
                     .FirstOrDefault()
                     .Key ?? throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(typeof(DataAccessProviderType), dataAccessProviderType)} provider for the connection string: {fileNameOrConnectionString}");
-                connectionStringBuilder.Provider = provider;
-                connectionString = connectionStringBuilder.ToString();
+                connectionStringBuilder.SetProvider(provider, dataAccessProviderType);
             }
 
             // Enable ExtendedAnsiSQL when using ODBC to support ODBC 4.0 statements (like CREATE VIEW).
@@ -384,11 +379,13 @@ namespace EntityFrameworkCore.Jet.Data
                 if (!connectionStringBuilder.ContainsKey("ExtendedAnsiSQL"))
                 {
                     connectionStringBuilder["ExtendedAnsiSQL"] = 1;
-                    connectionString = connectionStringBuilder.ToString();
                 }
             }
 
-            connectionString = ExpandDatabaseFilePath(connectionString, DataAccessProviderFactory);
+            connectionStringBuilder.SetDataSource(
+                JetStoreDatabaseHandling.ExpandFileName(connectionStringBuilder.GetDataSource(dataAccessProviderType)),
+                dataAccessProviderType);
+            connectionString = RebuildConnectionString(connectionStringBuilder, dataAccessProviderType, DataAccessProviderFactory);
 
             try
             {
@@ -597,11 +594,80 @@ namespace EntityFrameworkCore.Jet.Data
         private static string ExpandDatabaseFilePath(string connectionString, DbProviderFactory dataAccessProviderFactory)
         {
             var providerType = GetDataAccessProviderType(dataAccessProviderFactory);
-            var connectionStringBuilder = new JetConnectionStringBuilder(providerType);
-            connectionStringBuilder.ConnectionString = connectionString;
-            connectionStringBuilder.DataSource = JetStoreDatabaseHandling.ExpandFileName(connectionStringBuilder.DataSource);
+            var connectionStringBuilder = CreateConnectionStringBuilderForNormalization(connectionString, providerType);
+            connectionStringBuilder.SetDataSource(
+                JetStoreDatabaseHandling.ExpandFileName(connectionStringBuilder.GetDataSource(providerType)),
+                providerType);
 
-            return connectionStringBuilder.ToString();
+            return RebuildConnectionString(connectionStringBuilder, providerType, dataAccessProviderFactory);
+        }
+
+        private static DbConnectionStringBuilder CreateConnectionStringBuilderForNormalization(
+            string connectionString,
+            DataAccessProviderType providerType)
+            => new(providerType == DataAccessProviderType.Odbc)
+            {
+                ConnectionString = NormalizeConnectionStringForBuilder(connectionString, providerType)
+            };
+
+        private static string RebuildConnectionString(
+            DbConnectionStringBuilder sourceBuilder,
+            DataAccessProviderType providerType,
+            DbProviderFactory dataAccessProviderFactory)
+        {
+            var targetBuilder = providerType == DataAccessProviderType.OleDb
+                ? new JetConnectionStringBuilder(providerType)
+                : dataAccessProviderFactory.CreateConnectionStringBuilder();
+
+            foreach (string key in sourceBuilder.Keys)
+            {
+                if (providerType == DataAccessProviderType.Odbc &&
+                    string.Equals(key, "Driver", StringComparison.OrdinalIgnoreCase))
+                {
+                    targetBuilder.SetProvider(NormalizeOdbcDriverValue(sourceBuilder[key]?.ToString()), providerType);
+                    continue;
+                }
+
+                if (string.Equals(key, "Provider", StringComparison.OrdinalIgnoreCase))
+                {
+                    targetBuilder.SetProvider(sourceBuilder[key]?.ToString()!, providerType);
+                    continue;
+                }
+
+                if (string.Equals(key, "Data Source", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(key, "DBQ", StringComparison.OrdinalIgnoreCase))
+                {
+                    targetBuilder.SetDataSource(sourceBuilder[key]?.ToString()!, providerType);
+                    continue;
+                }
+
+                targetBuilder[key] = sourceBuilder[key];
+            }
+
+            return targetBuilder.ToString();
+        }
+
+        private static string NormalizeConnectionStringForBuilder(string connectionString, DataAccessProviderType providerType)
+            => providerType == DataAccessProviderType.Odbc
+                ? Regex.Replace(
+                    connectionString,
+                    @"(^|;)(\s*driver\s*=\s*)[""'](?<driver>\{[^;]*\})[""'](?=\s*(?:;|$))",
+                    "$1$2${driver}",
+                    RegexOptions.IgnoreCase)
+                : connectionString;
+
+        private static string NormalizeOdbcDriverValue(string? driver)
+        {
+            driver = driver?.Trim() ?? string.Empty;
+
+            if (driver.Length >= 2 &&
+                ((driver[0] == '"' && driver[^1] == '"') ||
+                 (driver[0] == '\'' && driver[^1] == '\'')))
+            {
+                driver = driver[1..^1];
+            }
+
+            return driver.TrimStart('{').TrimEnd('}');
         }
 
         public void DropDatabase()

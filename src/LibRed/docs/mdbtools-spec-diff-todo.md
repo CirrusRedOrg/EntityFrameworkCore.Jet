@@ -65,10 +65,11 @@ confirming against real files. **Source:** mdbtools `HACKING.md` (github.com/mdb
 Audited every offset table in the spec for silent skips and made each explicit (observed values
 verified against Northwind):
 
-- [x] **Index B-tree page header (§10.1) `0x10`–`0x13`** — zero in ACE; this is the extra field
-  that puts ACE's child-tail at `0x14` where mdbtools' Jet3 layout has `tail_page` at `0x10`. Tail
-  pointer reads correctly at `0x14` (e.g. 243), zero at `0x10`. Also documented `0x1A` (1 byte,
-  observed `0x01`).
+- [x] **Index B-tree page header (§10.1) `0x10`–`0x13`** — zero in ACE; ACE's child-tail reads
+  correctly at `0x14` (e.g. 243), zero at `0x10`, whereas mdbtools' (version-unlabelled) header puts
+  `tail_page` at `0x10`. *Hypothesis* (not confirmed by mdbtools): an ACE-inserted 4-byte field, in
+  line with ACE adding bytes between earlier Jet3 values. Needs a Jet3 file to confirm. Also
+  documented `0x1A` (1 byte, observed `0x01`).
 - [x] **Index-data block (§3.5) `0x2A`–`0x2D` and `0x30`–`0x33`** — both zero; documented (see flags
   item above).
 - [x] **Index-info block (§3.6) `0x18`–`0x1B`** — zero; documented as trailing reserved bytes.

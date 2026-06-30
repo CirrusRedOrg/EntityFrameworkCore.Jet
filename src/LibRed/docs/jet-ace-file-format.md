@@ -463,7 +463,7 @@ one cleared bit per page taken.
 | `0x04` | 4 | Owning table TDEF page |
 | `0x08` | 4 | Previous leaf page (`0` if none) — observed `0` on single-leaf samples, semantics unverified |
 | `0x0C` | 4 | Next leaf page (`0` if none) — observed `0` on single-leaf samples, semantics unverified |
-| `0x10` | 4 | Unknown / reserved (zero observed). ACE has this field where mdbtools' (Jet3) layout puts `tail_page`; in ACE the child-tail is 4 bytes later at `0x14` (verified: a node page's tail pointer reads correctly at `0x14`, zero at `0x10`) |
+| `0x10` | 4 | Unknown / reserved (zero observed). mdbtools' (combined Jet3/Jet4) header puts `tail_page` here at `0x10`, but in ACE the child-tail is 4 bytes later at `0x14` (verified: a node page's tail pointer reads correctly at `0x14`, zero at `0x10`). *Hypothesis:* this is a Jet4/ACE-inserted field — consistent with ACE adding 4-byte fields between earlier Jet3 values (cf. the data-page `0x08` field) — but mdbtools doesn't label its table by version, so the attribution is unconfirmed |
 | `0x14` | 4 | **Child-tail** page (node pages: the rightmost child, referenced by no entry) |
 | `0x18` | 2 | Compressed-byte count (shared key prefix length, §10.3) |
 | `0x1A` | 1 | Unknown (observed `0x01`) |

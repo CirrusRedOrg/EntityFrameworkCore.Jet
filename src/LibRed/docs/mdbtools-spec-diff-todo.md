@@ -56,9 +56,10 @@ confirming against real files. **Source:** mdbtools `HACKING.md` (github.com/mdb
   if confirmed, our LVAL-only framing is the more accurate one and the naming divergence is just
   mdbtools being loose.
 
-- [ ] **Jet4 data-page header — the extra 4 bytes.** mdbtools notes the Jet4 data page adds an
-  unknown 4-byte field after `tdef_pg` (before `num_rows`) vs Jet3. Our reader handles the offsets
-  correctly; confirm §4 explicitly documents that 4-byte field for completeness.
+- [x] **Jet4 data-page header — the extra 4 bytes.** mdbtools notes the Jet4 data page adds an
+  unknown 4-byte field after `tdef_pg` (before `num_rows`) vs Jet3. **Resolved:** §4 now documents
+  `0x08` (4 bytes, Jet4-only, observed zero across all data/usage-map/LVAL pages; Jet3 has the row
+  count here). Our writer already leaves it zero.
 
 ## For later (not present in LibRed yet — record for when implemented)
 

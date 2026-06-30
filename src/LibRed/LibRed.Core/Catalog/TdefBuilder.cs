@@ -186,9 +186,11 @@ public static class TdefBuilder
             namePos += name.Length;
         }
 
-        // Trailing terminator: Access closes the index-name list with a 2-byte 0xFFFF, and the
-        // definition length includes it. Without it Access rejects the table ("Unrecognized
-        // database format"). Verified byte-for-byte against an ACE-created single-index table.
+        // After the index names comes a per-long-value-column usage-map list, each entry
+        // {col_num:2, used_pages:4, free_pages:4}, terminated by col_num 0xFFFF (spec §3.3.2). We
+        // don't create memo/OLE columns yet, so the list is empty — but the terminator is still
+        // mandatory, and the definition length includes it. Omitting it makes Access reject the
+        // table ("Unrecognized database format"), verified byte-for-byte against ACE.
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(namePos, 2), 0xFFFF);
         namePos += 2;
         return namePos;

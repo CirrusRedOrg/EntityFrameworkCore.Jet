@@ -120,16 +120,32 @@ absolute from the first page, so parsing is otherwise unchanged.
        index-data blocks     RealIndexCount(0x33) × 52 bytes
        index-info blocks     LogicalIndexCount(0x2F) × 28 bytes
        index names           LogicalIndexCount    × (2-byte length + UTF-16LE)
-       0xFFFF                2 bytes  — trailing terminator (see note)
+       column usage maps     (per long-value column) × 10 bytes, then 0xFFFF  (§3.3.2)
 ```
 
-> **Trailing `0xFFFF` after the index names is mandatory for write.** Access closes the
-> index-name list with a 2-byte `0xFFFF`, and the **definition length** (`0x08`) points just
-> *past* it (so it counts toward the definition, not free space). Omitting it makes Access
-> reject the whole table with *"Unrecognized database format"* even though every other byte of
-> the TDEF is valid — verified by byte-diffing an ACE-created single-index table against a LibRed
-> one whose only substantive difference was the missing terminator. LibRed's reader does not need
-> it (it stops after the named indexes), but it **must be written**.
+### 3.3.2 Column usage-map list (trailing the index names)
+
+After the index names comes a list of per-**long-value-column** (memo/OLE) usage-map pointers,
+terminated by a `col_num` of `0xFFFF`. Iterate reading 10-byte records *until* `col_num == 0xFFFF`:
+
+| Offset | Size | Meaning |
+| --- | --- | --- |
+| `0x00` | 2 | `col_num` — the column's index; `0xFFFF` terminates the list |
+| `0x02` | 4 | `used_pages` pointer (1-byte row + 3-byte page) to the column's owned-pages usage map |
+| `0x06` | 4 | `free_pages` pointer (1-byte row + 3-byte page) to its free-pages usage map |
+
+The **definition length** (`0x08`) points just *past* the terminating `0xFFFF`, so the whole
+list (terminator included) counts toward the definition, not free space.
+
+> **The terminating `0xFFFF` is mandatory on write — even for a table with no long-value
+> columns** (where the list is empty and the `0xFFFF` is the only bytes here). Omitting it makes
+> Access reject the whole table with *"Unrecognized database format"* even though every other byte
+> of the TDEF is valid — verified by byte-diffing an ACE-created single-index table against a LibRed
+> one whose only difference was the missing terminator. LibRed's reader doesn't consume this list
+> (it stops after the named indexes; long values are located via the in-row LVAL pointer, not these
+> maps), but the terminator **must be written**. A table with memo/OLE columns must additionally
+> allocate the usage-map records and emit a real `{col_num, used, free}` entry per long-value column
+> — verified against Northwind's Categories (cols 2/3) and Employees (cols 14/15).
 
 ### 3.3.1 Index statistics block (12 bytes, one per real index)
 

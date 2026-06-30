@@ -42,8 +42,11 @@ Implemented by `src/LibRed/LibRed.Core/`. The canonical offsets live in
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 1 | Page type, `0x00` |
+| `0x01` | 3 | Unknown (not decoded) |
 | `0x04` | 15 | Format identifier ASCII: `Standard Jet DB` or `Standard ACE DB` |
-| `0x14` | 1 | Version byte (see below) |
+| `0x13` | 1 | Unknown — string padding/terminator (not decoded) |
+| `0x14` | 1 | Version byte (see below). mdbtools reads `jet_version` as a 4-byte word at `0x14`; the version is its low byte and `0x15`–`0x17` are zero |
+| `0x15` | 3 | Unknown — upper bytes of the version word (zero observed; not decoded) |
 | `0x18`+ | … | Obfuscated/encrypted (code page, collation, creation date, password) — **not decoded** |
 
 Version byte → format:
@@ -219,7 +222,9 @@ ordered by ascending column id (used by the row's variable-offset table, §5).
 | `0x22` | 1 | Usage-map row |
 | `0x23` | 3 | Usage-map page |
 | `0x26` | 4 | **B-tree root page** |
+| `0x2A` | 4 | Unknown / reserved (zero observed). mdbtools places a 1-byte index-flags field at `+0x2A`, but ACE's effective flags are at `0x2E` and this is zero in every file checked |
 | `0x2E` | 2 | Flags: `0x01` unique, `0x08` required, `0x80` always-set (Access 2000+) |
+| `0x30` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 52-byte block |
 
 ### 3.6 Index-info block (28 bytes) — one per *logical* index
 
@@ -233,7 +238,8 @@ ordered by ascending column id (used by the row's variable-offset table, §5).
 | `0x11` | 4 | Foreign-key table page (non-zero ⇒ a relationship index) |
 | `0x15` | 1 | Update action |
 | `0x16` | 1 | Delete action |
-| `0x17` | 1 | Index type (`1` = primary) |
+| `0x17` | 1 | Index type (`1` = primary, `2` = foreign) |
+| `0x18` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 28-byte block |
 
 The index **name** read at the same ordinal applies to this logical index. To name the
 physical (data-block) index, prefer a real index's name over a foreign-key relationship's
@@ -457,8 +463,10 @@ one cleared bit per page taken.
 | `0x04` | 4 | Owning table TDEF page |
 | `0x08` | 4 | Previous leaf page (`0` if none) — observed `0` on single-leaf samples, semantics unverified |
 | `0x0C` | 4 | Next leaf page (`0` if none) — observed `0` on single-leaf samples, semantics unverified |
+| `0x10` | 4 | Unknown / reserved (zero observed). ACE has this field where mdbtools' (Jet3) layout puts `tail_page`; in ACE the child-tail is 4 bytes later at `0x14` (verified: a node page's tail pointer reads correctly at `0x14`, zero at `0x10`) |
 | `0x14` | 4 | **Child-tail** page (node pages: the rightmost child, referenced by no entry) |
 | `0x18` | 2 | Compressed-byte count (shared key prefix length, §10.3) |
+| `0x1A` | 1 | Unknown (observed `0x01`) |
 | `0x1B` | … | Entry-position bitmask |
 | `0x1E0` | — | Start of entry data |
 

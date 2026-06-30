@@ -27,12 +27,11 @@ confirming against real files. **Source:** mdbtools `HACKING.md` (github.com/mdb
   a 1-byte autonumber-enable flag — test with a table that has an AutoNumber and/or a multi-value
   (complex) column so `ct_autonum` is non-zero.
 
-- [ ] **Index-data block (§3.5) — flags offset.** mdbtools puts `flags`(1 byte) at block **`+0x2A`**
-  (right after `first_dp`), then `unknown`(9). We document the index flags at **`+0x2E`** (2 bytes:
-  `0x01` unique / `0x08` required / `0x80` always-set, verified `0x89` for a PK). Our `+0x2E` sits
-  *inside* mdbtools' `unknown(9)`. Reconcile: what is at `+0x2A`, and is it a separate flags byte or
-  the same field at a different offset? (Our `+0x2E` is empirically grounded, so the likeliest
-  outcome is mdbtools' `+0x2A` is a *different* byte we should also document.)
+- [x] **Index-data block (§3.5) — flags offset.** mdbtools puts `flags`(1 byte) at block **`+0x2A`**;
+  we document the index flags at **`+0x2E`**. **Resolved:** in real files `+0x2A`–`+0x2D` is **zero**
+  (4 bytes) and the effective flags (`0x80` always-set on Orders' first index, `0x89` on a PK) are at
+  `+0x2E`. So our `+0x2E` is correct; mdbtools' `+0x2A` flags byte is zero/unused in ACE. §3.5 now
+  documents `+0x2A` (4 reserved) and `+0x30` (4 reserved) explicitly.
 
 - [ ] **Index statistics block (§3.3.1) — field meaning.** mdbtools labels the 12 bytes as
   unknown(4) / `num_idx_rows`(4)@`+0x04` / unknown(4). We read `+0x00` = total entry count
@@ -60,6 +59,22 @@ confirming against real files. **Source:** mdbtools `HACKING.md` (github.com/mdb
   unknown 4-byte field after `tdef_pg` (before `num_rows`) vs Jet3. **Resolved:** §4 now documents
   `0x08` (4 bytes, Jet4-only, observed zero across all data/usage-map/LVAL pages; Jet3 has the row
   count here). Our writer already leaves it zero.
+
+## Offset-gap audit (resolved)
+
+Audited every offset table in the spec for silent skips and made each explicit (observed values
+verified against Northwind):
+
+- [x] **Index B-tree page header (§10.1) `0x10`–`0x13`** — zero in ACE; this is the extra field
+  that puts ACE's child-tail at `0x14` where mdbtools' Jet3 layout has `tail_page` at `0x10`. Tail
+  pointer reads correctly at `0x14` (e.g. 243), zero at `0x10`. Also documented `0x1A` (1 byte,
+  observed `0x01`).
+- [x] **Index-data block (§3.5) `0x2A`–`0x2D` and `0x30`–`0x33`** — both zero; documented (see flags
+  item above).
+- [x] **Index-info block (§3.6) `0x18`–`0x1B`** — zero; documented as trailing reserved bytes.
+- [x] **Page 0 (§2) `0x01`–`0x03`, `0x13`, `0x15`–`0x17`** — small gaps in the otherwise-undecoded
+  page-0 header; now shown explicitly (incl. the note that mdbtools reads the version as a 4-byte
+  word at `0x14`).
 
 ## For later (not present in LibRed yet — record for when implemented)
 

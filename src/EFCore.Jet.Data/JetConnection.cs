@@ -360,7 +360,7 @@ namespace EntityFrameworkCore.Jet.Data
             // It is possible, that a connection string was provided, that left out the actual ACE/Jet provider
             // information, but is in a distinctive style (ODBC or OLE DB) anyway.
             // In that case, we need to retrieving the data access provider type's most recent ACE/Jet provider.
-            var connectionStringBuilder = DataAccessProviderFactory.CreateConnectionStringBuilder();
+            var connectionStringBuilder = new JetConnectionStringBuilder(dataAccessProviderType);
             connectionStringBuilder.ConnectionString = connectionString;
 
             if (connectionStringBuilder.Remove("IgnoreMsys"))
@@ -369,12 +369,12 @@ namespace EntityFrameworkCore.Jet.Data
                 connectionString = connectionStringBuilder.ToString();
             }
 
-            if (string.IsNullOrWhiteSpace(connectionStringBuilder.GetProvider()))
+            if (string.IsNullOrWhiteSpace(connectionStringBuilder.Provider))
             {
                 var provider = GetMostRecentCompatibleProviders(dataAccessProviderType)
                     .FirstOrDefault()
                     .Key ?? throw new InvalidOperationException($"Unable to find any compatible {Enum.GetName(typeof(DataAccessProviderType), dataAccessProviderType)} provider for the connection string: {fileNameOrConnectionString}");
-                connectionStringBuilder.SetProvider(provider);
+                connectionStringBuilder.Provider = provider;
                 connectionString = connectionStringBuilder.ToString();
             }
 
@@ -596,9 +596,10 @@ namespace EntityFrameworkCore.Jet.Data
 
         private static string ExpandDatabaseFilePath(string connectionString, DbProviderFactory dataAccessProviderFactory)
         {
-            var connectionStringBuilder = dataAccessProviderFactory.CreateConnectionStringBuilder();
+            var providerType = GetDataAccessProviderType(dataAccessProviderFactory);
+            var connectionStringBuilder = new JetConnectionStringBuilder(providerType);
             connectionStringBuilder.ConnectionString = connectionString;
-            connectionStringBuilder.SetDataSource(JetStoreDatabaseHandling.ExpandFileName(connectionStringBuilder.GetDataSource()));
+            connectionStringBuilder.DataSource = JetStoreDatabaseHandling.ExpandFileName(connectionStringBuilder.DataSource);
 
             return connectionStringBuilder.ToString();
         }

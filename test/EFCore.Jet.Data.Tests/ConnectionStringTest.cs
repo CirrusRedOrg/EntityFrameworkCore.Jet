@@ -101,6 +101,26 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         }
 
         [TestMethod]
+        public void OleDb_connection_string_preserves_extra_keywords_when_normalized()
+        {
+            const string connectionString = @"Provider=Microsoft.ACE.OLEDB.12.0;Jet OLEDB:Engine Type=4;Jet OLEDB:MaxLocksPerFile=100000;Mode=Share Deny None;Persist Security Info=False;Extended Properties='MaxLocksPerFile=100000';Data Source=c:\Temp\Access97EF\test.mdb;";
+
+            var normalizedConnectionString = JetConnection.GetConnectionString(connectionString, OleDbFactory.Instance);
+            var csb = new JetConnectionStringBuilder(DataAccessProviderType.OleDb) { ConnectionString = normalizedConnectionString };
+
+            Assert.IsTrue(csb.TryGetValue("Jet OLEDB:Engine Type", out var engineType), normalizedConnectionString);
+            Assert.AreEqual("4", engineType);
+            Assert.IsTrue(csb.TryGetValue("Jet OLEDB:MaxLocksPerFile", out var maxLocksPerFile), normalizedConnectionString);
+            Assert.AreEqual("100000", maxLocksPerFile);
+            Assert.IsTrue(csb.TryGetValue("Mode", out var mode), normalizedConnectionString);
+            Assert.AreEqual("Share Deny None", mode);
+            Assert.IsTrue(csb.TryGetValue("Persist Security Info", out var persistSecurityInfo), normalizedConnectionString);
+            Assert.AreEqual("False", persistSecurityInfo);
+            Assert.IsTrue(csb.TryGetValue("Extended Properties", out var extendedProperties), normalizedConnectionString);
+            Assert.AreEqual("MaxLocksPerFile=100000", extendedProperties);
+        }
+
+        [TestMethod]
         public void OleDb_connection_string_with_all_properties()
         {
             var csb = new JetConnectionStringBuilder(DataAccessProviderType.OleDb)

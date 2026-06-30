@@ -66,10 +66,12 @@ Audited every offset table in the spec for silent skips and made each explicit (
 verified against Northwind):
 
 - [x] **Index B-tree page header (§10.1) `0x10`–`0x13`** — zero in ACE; ACE's child-tail reads
-  correctly at `0x14` (e.g. 243), zero at `0x10`, whereas mdbtools' (version-unlabelled) header puts
-  `tail_page` at `0x10`. *Hypothesis* (not confirmed by mdbtools): an ACE-inserted 4-byte field, in
-  line with ACE adding bytes between earlier Jet3 values. Needs a Jet3 file to confirm. Also
-  documented `0x1A` (1 byte, observed `0x01`).
+  correctly at `0x14` (e.g. 243), zero at `0x10`, whereas mdbtools puts `tail_page` at `0x10`.
+  **Corroborated:** mdbtools *version-labels* the entry bitmask offset — `0x16` (Jet3) / `0x1B`
+  (Jet4) — and that +5 Jet3→Jet4 shift is accounted for *exactly* by the inserted 4-byte field at
+  `0x10` plus the 1-byte field at `0x1A` (observed `0x01`). So `0x10`/`0x1A` are Jet4 insertions and
+  our `0x14` tail / `0x1B` bitmask offsets are confirmed. (A Jet3 file would still let us read the
+  pre-insertion layout directly.)
 - [x] **Index-data block (§3.5) `0x2A`–`0x2D` and `0x30`–`0x33`** — both zero; documented (see flags
   item above).
 - [x] **Index-info block (§3.6) `0x18`–`0x1B`** — zero; documented as trailing reserved bytes.

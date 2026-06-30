@@ -463,11 +463,11 @@ one cleared bit per page taken.
 | `0x04` | 4 | Owning table TDEF page |
 | `0x08` | 4 | Previous leaf page (`0` if none) — observed `0` on single-leaf samples, semantics unverified |
 | `0x0C` | 4 | Next leaf page (`0` if none) — observed `0` on single-leaf samples, semantics unverified |
-| `0x10` | 4 | Unknown / reserved (zero observed). mdbtools' (combined Jet3/Jet4) header puts `tail_page` here at `0x10`, but in ACE the child-tail is 4 bytes later at `0x14` (verified: a node page's tail pointer reads correctly at `0x14`, zero at `0x10`). *Hypothesis:* this is a Jet4/ACE-inserted field — consistent with ACE adding 4-byte fields between earlier Jet3 values (cf. the data-page `0x08` field) — but mdbtools doesn't label its table by version, so the attribution is unconfirmed |
+| `0x10` | 4 | Unknown / reserved (zero observed). mdbtools' header puts `tail_page` at `0x10`, but in ACE the child-tail is 4 bytes later at `0x14` (verified: a node page's tail pointer reads correctly at `0x14`, zero at `0x10`). This is a **Jet4-inserted field** — corroborated by mdbtools' version-labelled bitmask offset (see `0x1B` below): the Jet3→Jet4 bitmask shift of +5 is accounted for *exactly* by this 4-byte field plus the 1-byte field at `0x1A` |
 | `0x14` | 4 | **Child-tail** page (node pages: the rightmost child, referenced by no entry). For Jet4/ACE this offset is **definitive — byte-for-byte verified** (the tail pointer reads correctly here and drives correct multi-level traversal; the hypothesis on `0x10` above concerns only *why* mdbtools lists `0x10`, not whether `0x14` is correct) |
 | `0x18` | 2 | Compressed-byte count (shared key prefix length, §10.3) |
-| `0x1A` | 1 | Unknown (observed `0x01`) |
-| `0x1B` | … | Entry-position bitmask |
+| `0x1A` | 1 | Unknown (observed `0x01`) — a Jet4-inserted byte (the +1 of the +5 bitmask shift; see `0x1B`) |
+| `0x1B` | … | Entry-position bitmask. mdbtools **version-labels** this: bitmask at `0x16` (Jet3) / **`0x1B` (Jet4)** — confirming our offset. The +5 Jet3→Jet4 shift equals the inserted 4-byte (`0x10`) + 1-byte (`0x1A`) fields |
 | `0x1E0` | — | Start of entry data |
 
 ### 10.2 Entries

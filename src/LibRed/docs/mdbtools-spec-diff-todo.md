@@ -58,9 +58,14 @@ confirming against real files. **Source:** mdbtools `HACKING.md` (github.com/mdb
   handle. Documented in spec §3.4 + §10.4 and in `JetTextCollation`. See memory
   `libred-text-collation-v1-gap`. (No v1 fixture available to reverse-engineer.)
 
-- [ ] **Logical index block (§3.6) — `index_num` / `index_num2`.** mdbtools has `index_num`(4)@`+0x04`
-  and `index_num2`(4)@`+0x08` ("index into index cols list"). Confirm our §3.6 documents both and
-  that we understand `index_num2`'s role (mapping a logical index to its real-index column list).
+- [x] **Logical index block (§3.6) — `index_num` / `index_num2`.** **Resolved** against Northwind.
+  `+0x04` (`index_num`) is the logical index's unique id (`0..logicalCount-1`); `+0x08` (`index_num2`,
+  our reader's `DataNumber`) is the ordinal of the real index-data block it maps to
+  (`0..realIndexCount-1`). They differ because multiple logical indexes share one real block: a
+  relationship reuses the real index on *this table's* side of the FK (child column for outgoing, the
+  referenced PK for incoming), so the PK block is referenced by its own PRIMARY logical block *and* by
+  incoming relationships — verified on Orders (real block 3 = OrderID PK, shared). mdbtools' "index
+  into index cols list" = index into the real index-data blocks. Spec §3.6 note added.
 
 - [ ] **§3.3.2 naming — "variable column" vs LVAL-only.** mdbtools calls our trailing column
   usage-map list "Variable Column Tracking" (implying *any* variable-length column). We observed it

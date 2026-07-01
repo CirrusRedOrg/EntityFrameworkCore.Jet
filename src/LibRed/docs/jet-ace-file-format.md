@@ -268,8 +268,8 @@ ordered by ascending column id (used by the row's variable-offset table, §5).
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 4 | Marker (`0x00000659` = 1625, or 0) |
-| `0x04` | 4 | Logical index number |
-| `0x08` | 4 | Index-data block number this logical index uses |
+| `0x04` | 4 | **Logical index number** (`index_num`) — a unique id per logical index, `0 … logicalCount-1` |
+| `0x08` | 4 | **Real index-data block ordinal** (`index_num2`) this logical index uses, `0 … realIndexCount-1` |
 | `0x0C` | 1 | Foreign-key index type |
 | `0x0D` | 4 | Foreign-key index number |
 | `0x11` | 4 | Foreign-key table page (non-zero ⇒ a relationship index) |
@@ -281,6 +281,18 @@ ordered by ascending column id (used by the row's variable-offset table, §5).
 The index **name** read at the same ordinal applies to this logical index. To name the
 physical (data-block) index, prefer a real index's name over a foreign-key relationship's
 (distinguished by `0x11` ≠ 0), and take `IsPrimaryKey` from the type byte `0x17`.
+
+> **`index_num` (`0x04`) vs `index_num2` (`0x08`) — verified against Northwind.** `0x04` is the
+> logical index's own unique number; `0x08` is the ordinal of the **real index-data block** (§3.5)
+> it maps to. They differ because **several logical indexes share one real block**: a relationship
+> (`0x11` ≠ 0) reuses the real index on *this table's* side of the foreign key rather than owning its
+> own. Confirmed on Orders (7 real / 13 logical): real block 3 = `OrderID` `PK_Orders` is referenced
+> both by its own PRIMARY logical block (`index_num2 = 3`) and by an **incoming** relationship
+> (`index_num2 = 3`, `fkTablePage` = Order Details), while the **outgoing** FK relationships map to
+> the child-column real indexes (CustomerID/EmployeeID/ShipVia). So `index_num2` points to the real
+> index on this table's side — the child FK column for an outgoing FK, the referenced key (PK) for an
+> incoming one — which is exactly mdbtools' "index into index cols list". LibRed's reader keys off
+> `0x08` (its `DataNumber`) and does not use `0x04`.
 
 ### 3.7 Writing a TDEF Access accepts (in progress)
 

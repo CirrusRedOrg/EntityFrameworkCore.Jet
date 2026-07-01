@@ -67,12 +67,12 @@ confirming against real files. **Source:** mdbtools `HACKING.md` (github.com/mdb
   incoming relationships — verified on Orders (real block 3 = OrderID PK, shared). mdbtools' "index
   into index cols list" = index into the real index-data blocks. Spec §3.6 note added.
 
-- [ ] **§3.3.2 naming — "variable column" vs LVAL-only.** mdbtools calls our trailing column
-  usage-map list "Variable Column Tracking" (implying *any* variable-length column). We observed it
-  is populated only for **memo/OLE (LVAL)** columns — Text-only tables (Customers, Suppliers, Orders)
-  had empty lists. Confirm plain Text variable columns never appear here (strong evidence already);
-  if confirmed, our LVAL-only framing is the more accurate one and the naming divergence is just
-  mdbtools being loose.
+- [x] **§3.3.2 naming — "variable column" vs LVAL-only.** **Resolved: LVAL-only.** Correlated each
+  trailing-list entry with its column type: only Memo (`0x0C`) and OLE (`0x0B`) appear — never plain
+  Text (`0x0A`). Clincher: **Customers (11 Text columns, no memo/OLE) has an empty list**; Categories
+  → {col2 Memo, col3 OLE}, Employees → {col14 OLE, col15 Memo}, Suppliers → {col11 Memo}. Only
+  memo/OLE have LVAL page chains needing usage maps (Text is inline), so mdbtools' "Variable Column
+  Tracking" name is imprecise. Spec §3.3.2 note added.
 
 - [x] **Jet4 data-page header — the extra 4 bytes.** mdbtools notes the Jet4 data page adds an
   unknown 4-byte field after `tdef_pg` (before `num_rows`) vs Jet3. **Resolved:** §4 now documents

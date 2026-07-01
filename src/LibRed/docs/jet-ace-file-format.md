@@ -142,6 +142,14 @@ absolute from the first page, so parsing is otherwise unchanged.
 After the index names comes a list of per-**long-value-column** (memo/OLE) usage-map pointers,
 terminated by a `col_num` of `0xFFFF`. Iterate reading 10-byte records *until* `col_num == 0xFFFF`:
 
+> **LVAL-only, despite mdbtools calling it "Variable Column Tracking".** Only **Memo (`0x0C`) and
+> OLE (`0x0B`)** columns appear here — *not* plain **Text (`0x0A`)**, even though Text is
+> variable-length — because only memo/OLE have their own long-value (LVAL) page chains that need
+> usage maps; Text is stored inline in the row. Verified by correlating each entry with its column
+> type: Categories → `{col2 Memo, col3 OLE}`, Employees → `{col14 OLE, col15 Memo}`, Suppliers →
+> `{col11 Memo}`, and — the clincher — **Customers, with 11 Text columns and no memo/OLE, has an
+> empty list**. So mdbtools' name is imprecise; the list is keyed to long-value columns.
+
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 2 | `col_num` — the column's index; `0xFFFF` terminates the list |

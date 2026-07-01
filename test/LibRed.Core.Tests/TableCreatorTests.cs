@@ -9,6 +9,40 @@ namespace LibRed.Core.Tests;
 public class TableCreatorTests
 {
     [Fact]
+    public void Autonumber_is_generated_when_the_column_is_omitted()
+    {
+        string path = CopyToTemp();
+        ColumnSpec[] schema =
+        [
+            new("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true),
+            new("V", JetDataType.Text, 40, IsFixedLength: false),
+        ];
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Auto", schema, primaryKey: ["Id"]);
+                var table = db.OpenTable("Auto");
+                table.Insert([null, "a"]);   // Id omitted -> generated 1
+                table.Insert([null, "b"]);   // -> 2
+                table.Insert([7, "seven"]);  // explicit value jumps the high-water to 7 (Jet allows it)
+                table.Insert([null, "c"]);   // -> 8 (continues from 7)
+            }
+
+            using (var db = JetDatabase.Open(path))
+            {
+                var byV = db.OpenTable("Auto").Rows()
+                    .ToDictionary(r => (string)r[1]!, r => Convert.ToInt32(r[0]));
+                Assert.Equal(1, byV["a"]);
+                Assert.Equal(2, byV["b"]);
+                Assert.Equal(7, byV["seven"]);
+                Assert.Equal(8, byV["c"]);
+            }
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void Autonumber_insert_tracks_the_tdef_high_water_mark()
     {
         string path = CopyToTemp();

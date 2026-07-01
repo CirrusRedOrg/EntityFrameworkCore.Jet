@@ -14,6 +14,28 @@ public class DdlDmlTests
     }
 
     [Fact]
+    public void Autonumber_is_generated_for_inserts_that_omit_the_column()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var engine = new QueryEngine(db);
+
+            engine.ExecuteNonQuery("CREATE TABLE `Auto` (`Id` COUNTER PRIMARY KEY, `V` TEXT(20))");
+            Assert.Equal(1, engine.ExecuteNonQuery("INSERT INTO `Auto` (`V`) VALUES ('a')")); // -> Id 1
+            engine.ExecuteNonQuery("INSERT INTO `Auto` (`V`) VALUES ('b')");                  // -> 2
+            engine.ExecuteNonQuery("INSERT INTO `Auto` (`Id`, `V`) VALUES (10, 'ten')");       // explicit, jumps
+            engine.ExecuteNonQuery("INSERT INTO `Auto` (`V`) VALUES ('after')");              // -> 11 (continues)
+
+            var ids = engine.ExecuteQuery("SELECT `Id` FROM `Auto` ORDER BY `Id`")
+                .Rows.Select(r => Convert.ToInt32(r[0])).ToList();
+            Assert.Equal([1, 2, 10, 11], ids);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void Create_insert_select_round_trips_through_sql()
     {
         string path = CopyToTemp();

@@ -33,6 +33,12 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     {
         JetFormatBase format = _channel.Format;
 
+        // Assign AutoNumber ids for any AutoNumber column the caller left unset (the usual case —
+        // Jet SQL omits the AutoNumber column from the insert). An explicitly supplied value is kept
+        // as-is (Jet, unlike SQL Server, permits explicit AutoNumber values); either way the row's
+        // final id drives both the row encoding and the high-water update below.
+        AssignAutoNumbers(format, values);
+
         // Encode first: the fixed-region length is pinned by any existing row (to match Access),
         // or derived from the columns for a just-created empty table.
         var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format));
@@ -200,6 +206,28 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Fills each AutoNumber column the caller left null with the next id — the TDEF high-water value
+    /// (`0x14`) plus one — matching how Jet assigns AutoNumbers. A value the caller supplied
+    /// explicitly is left untouched (Jet allows it, and <see cref="UpdateTdefCounters"/> then bumps
+    /// the high-water to it). Access permits only one AutoNumber column per table, but any number are
+    /// handled here for safety.
+    /// </summary>
+    private void AssignAutoNumbers(JetFormatBase format, object?[] values)
+    {
+        bool needed = false;
+        foreach (ColumnDef column in _table.Columns)
+            if (column.IsAutoNumber && values[column.Index] is null or DBNull) { needed = true; break; }
+        if (!needed) return;
+
+        ReadOnlySpan<byte> tdef = _channel.ReadPage(_table.DefinitionPage).Span;
+        int highWater = BinaryPrimitives.ReadInt32LittleEndian(tdef.Slice(format.TdefLastAutoNumberOffset, 4));
+
+        foreach (ColumnDef column in _table.Columns)
+            if (column.IsAutoNumber && values[column.Index] is null or DBNull)
+                values[column.Index] = ++highWater;
     }
 
     /// <summary>

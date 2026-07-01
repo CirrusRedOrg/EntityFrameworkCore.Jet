@@ -62,6 +62,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             affected++;
         }
 
+        // TODO(last-insert-id): surface the generated AutoNumber id to the caller (Jet's @@IDENTITY /
+        // SCOPE_IDENTITY). RowInserter now assigns it (into `values[autoNumberColumn.Index]`) but we
+        // only return the affected-row count, so it is discarded. EF Core needs the key back after an
+        // insert, so this must be plumbed Engine -> Ado (LibRedCommand) -> EFCore before the provider
+        // can support store-generated keys. See memory: libred-last-insert-id-todo.
         return affected;
     }
 }

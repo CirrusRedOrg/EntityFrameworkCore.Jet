@@ -47,13 +47,16 @@ confirming against real files. **Source:** mdbtools `HACKING.md` (github.com/mdb
   corrected our spec's "total = row count" claim. LibRed now maintains `+0x04` on insert and leaves
   `+0x00` at 0 (fix committed).
 
-- [x] **Column descriptor `0x0D` — text sort-order version, not "unknown".** **Resolved (as far as
-  ACE 2007 allows).** `0x0B`–`0x0E` is a 4-byte sort-order descriptor: locale `0x0409` at `0x0B`,
-  version at `0x0D`. Surveyed Customers/Categories/Orders/Employees: `0x0D` = `0` on *every* column
-  (text, memo, OLE, int, date, money) and `0x0B` = `0x0409` on all — the default General collation is
-  version 0. mdbtools' "text sort order version" label fits (as the version half), but there is **no
-  non-zero example**: it needs a non-default collation (Access 2010+ `General_CI_AS`) that OLE DB DDL
-  can't create. Spec §3.4 updated; our writer leaves `0x0D` at 0 (matches ACE 2007).
+- [x] **Column descriptor `0x0D` — text sort-order version.** **Resolved.** `0x0B`–`0x0E` is a 4-byte
+  sort-order descriptor: locale `0x0409` at `0x0B`, **version** at `0x0D`. mdbtools states it
+  explicitly (note after its index-record section): the encoding is Access 2000–2007 **General** =
+  (1033, **version 0**); Access 2010 renamed that **"General legacy"** and made a *new* default
+  **General** = (1033, **version 1**) with different key bytes. Observed `0x0D = 0` on every ACE-2007
+  Northwind column and on a text column freshly created by the ACE 16 engine (the file is ACE-2007
+  format, so the engine writes v0). **Implication:** LibRed's `JetTextCollation` is the version-0
+  order; a v1 file (Access 2010+, version byte ≥ 3) uses a different text-key encoding LibRed does not
+  handle. Documented in spec §3.4 + §10.4 and in `JetTextCollation`. See memory
+  `libred-text-collation-v1-gap`. (No v1 fixture available to reverse-engineer.)
 
 - [ ] **Logical index block (§3.6) — `index_num` / `index_num2`.** mdbtools has `index_num`(4)@`+0x04`
   and `index_num2`(4)@`+0x08` ("index into index cols list"). Confirm our §3.6 documents both and

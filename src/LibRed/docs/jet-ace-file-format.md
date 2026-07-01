@@ -229,15 +229,20 @@ insert/delete/insert sequence and against saved Northwind tables:**
 > which reads precision = 12, scale = 3; for every other type it reads the constant `0x0409`
 > (the en-US LCID / text collation).
 >
-> **Sort-order version (`0x0D`).** For non-Numeric columns, `0x0B`–`0x0E` together form a 4-byte
-> **sort-order descriptor**: locale `0x0409` at `0x0B`, version at `0x0D`. mdbtools names `0x0D`
-> `misc_ext` ("text sort order version"); Jackcess models the sort order as a (value, version)
-> pair. In ACE 2007 the version is `0` on **every** column — text/memo *and* numeric/date — because
-> the default **General** collation (§10.4, which LibRed's `JetTextCollation` implements and matches
-> byte-for-byte) is version 0. We have **no non-zero example**: raising it needs a column created
-> with a non-default collation (e.g. Access 2010+ `General_CI_AS`), which OLE DB DDL can't set — so
-> "it is the sort-order version" is strongly indicated but not positively demonstrated non-zero.
-> LibRed's writer leaves `0x0D` at 0, matching ACE 2007.
+> **Sort-order version (`0x0D`) — confirmed.** For non-Numeric columns, `0x0B`–`0x0E` form a 4-byte
+> **sort-order descriptor**: locale `0x0409` (1033) at `0x0B`, **version** at `0x0D`. mdbtools states
+> it explicitly (note after its index-record section): the encoding is the **"General" sort order in
+> Access 2000–2007 = (1033, version 0)**; as of Access 2010 that is renamed **"General legacy"** and
+> the new default **"General" = (1033, version 1)** is a *different* key encoding. So `0x0D` selects
+> which collation the text keys use.
+>
+> Observed `0` on **every** column of ACE-2007 Northwind, *and* on a text column freshly created by
+> the installed ACE 16 engine — because the file is ACE-2007 format (version byte `2`), the engine
+> writes the version-0 "General legacy" order regardless of its own age. LibRed's `JetTextCollation`
+> (§10.4) implements exactly this **version-0** order and its writer leaves `0x0D` at 0 — correct for
+> ACE-2007 files. A **version-1** file (Access 2010+, version byte ≥ `3`, created with the default
+> General order) would carry `0x0D = 1` and different index-key bytes that LibRed does not yet handle
+> (no version-1 fixture available here to verify against).
 >
 > LibRed currently *derives* the variable-table index (`0x07`) by ranking variable columns by
 > column id rather than reading it; the stored value matches that ranking in every file tested.
@@ -532,6 +537,16 @@ Each key column is encoded so that raw byte comparison equals value comparison. 
 into an index. The encoder is verified **byte-for-byte against Access**: re-encoding the value
 decoded from Access's own stored key reproduces the exact bytes, and after a LibRed insert
 Access satisfies an indexed primary-key seek over the entry LibRed wrote.
+
+> **Text keys are the version-0 "General legacy" collation only.** The text weights below are the
+> Access 2000–2007 **General** sort order = (locale 1033, **version 0**), selected by the column
+> descriptor's sort-order version (`0x0D`, §3.4). Access 2010+ introduced a *new* default **General**
+> order = (1033, **version 1**) with different key bytes (the old one was renamed "General legacy").
+> LibRed implements version 0 only; a version-1 column/index (a database created by Access 2010+ with
+> the default order, `0x0D = 1`) would need a separate weight table for both decode and encode.
+> Before writing/seeking a text index key, a version-aware implementation should check `0x0D` and
+> refuse (or switch tables) on version 1 rather than emit version-0 bytes. Not yet handled — no
+> version-1 fixture available to reverse-engineer against.
 
 Non-boolean columns are prefixed by a **flag byte**:
 

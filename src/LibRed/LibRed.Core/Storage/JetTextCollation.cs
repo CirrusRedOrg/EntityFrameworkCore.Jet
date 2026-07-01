@@ -1,15 +1,23 @@
 namespace LibRed.Storage;
 
 /// <summary>
-/// Jet's "General" text collation: maps characters to the order-preserving primary weight bytes
-/// used in index keys. Verified byte-for-byte against the ACE engine over printable ASCII.
-/// Case is folded (lowercase weighs the same as uppercase), trailing spaces are ignored, and most
-/// characters weigh one byte (a handful — <c>^ _ ` { | } ~</c> — weigh two, sharing the 0x2B page).
+/// Jet's "General" text collation — specifically the **version-0 "General legacy"** order (locale
+/// 1033, version 0) used by Access 2000–2007 and by any newer engine writing an ACE-2007-format
+/// file. It maps characters to the order-preserving primary weight bytes used in index keys,
+/// verified byte-for-byte against the ACE engine over printable ASCII. Case is folded (lowercase
+/// weighs the same as uppercase), trailing spaces are ignored, and most characters weigh one byte
+/// (a handful — <c>^ _ ` { | } ~</c> — weigh two, sharing the 0x2B page).
 /// </summary>
 /// <remarks>
 /// Apostrophe and hyphen are "ignorable": they add no primary weight but append a trailing inline
 /// group recording their position (verified against ACE). Non-ASCII characters are still reported
 /// unencodable.
+/// <para>
+/// The sort-order version is the column descriptor's <c>0x0D</c> field (spec §3.4). Access 2010+
+/// introduced a different default "General" order (1033, version 1) with other key bytes; this class
+/// does <b>not</b> implement it. A version-1 column/index therefore needs a separate weight table —
+/// see the spec §10.4 note.
+/// </para>
 /// </remarks>
 internal static class JetTextCollation
 {

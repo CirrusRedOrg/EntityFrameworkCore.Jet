@@ -20,12 +20,17 @@ confirming against real files. **Source:** mdbtools `HACKING.md` (github.com/mdb
   between tables/files — i.e. is it a universal magic number or a tdef-scoped id that is merely
   `0x659` in the files checked? Check across several tables and a second database.
 
-- [ ] **TDEF header `0x18`–`0x27` semantics.** mdbtools splits this as: `autonum_flag`(1)@`0x18`
-  (`0x01` "makes autonumbers work"), unknown(3), `ct_autonum`(4)@`0x1C` (**complex-type
-  autonumber**), unknown(8). Our §3.1 has `0x18` as a 4-byte const `0x01` and `0x1C`–`0x27` as a
-  12-byte reserved/zero blob. Confirm `0x1C` is the complex-type autonumber (4 bytes) and `0x18` is
-  a 1-byte autonumber-enable flag — test with a table that has an AutoNumber and/or a multi-value
-  (complex) column so `ct_autonum` is non-zero.
+- [x] **TDEF header `0x18`–`0x27` semantics.** **Investigated** (read Northwind + ACE-created
+  autonumber vs plain tables). Findings, now in §3.1:
+  - `0x18` is **not** a per-table autonumber flag — it's `0x01` on *every* table (autonumber,
+    non-autonumber, text-PK), i.e. a plain constant. mdbtools' "autonum_flag" label is misleading.
+  - `0x14` (which we already document) is the **highest AutoNumber assigned**, not the "next":
+    Categories (8 rows) = 8, an ACE table after 2 inserts = 2, non-autonumber tables = 0. Next id is
+    `+1`. Corrected the label.
+  - `0x1C` (`ct_autonum`, complex-type autonumber) split out as its own 4-byte field; `0` in every
+    table observed. **Not** positively confirmed non-zero — OLE DB DDL can't create a complex
+    (multi-value/attachment) column, so this needs a fixture built another way to see it populated.
+  - `0x20`–`0x27` reserved, zero observed.
 
 - [x] **Index-data block (§3.5) — flags offset.** mdbtools puts `flags`(1 byte) at block **`+0x2A`**;
   we document the index flags at **`+0x2E`**. **Resolved:** in real files `+0x2A`–`+0x2D` is **zero**

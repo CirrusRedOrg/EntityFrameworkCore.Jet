@@ -78,9 +78,11 @@ version. (Page-level encryption for password-protected files is not implemented.
 | `0x08` | 4 | TDEF length (total logical bytes) |
 | `0x0C` | 4 | Unknown — a constant `0x00000659` (1625) observed in every file |
 | `0x10` | 4 | Row count |
-| `0x14` | 4 | Next auto-number value (e.g. next AutoNumber id) |
-| `0x18` | 4 | Unknown — observed constant `0x01` (possibly the ACE complex-type auto-number) |
-| `0x1C` | 12 | Unknown / reserved (zero observed) |
+| `0x14` | 4 | **Highest AutoNumber value assigned** (the *next* id is this `+ 1`); `0` when the table has no AutoNumber column. Verified: Northwind Categories (8 rows) = `8`, an ACE table after 2 inserts = `2`, non-autonumber/text-PK tables = `0` |
+| `0x18` | 1 | Constant `0x01` — set on **every** table, autonumber or not (verified across autonumber, non-autonumber, and text-PK tables). mdbtools calls it a 1-byte "autonumber enable" flag, but it is not conditional on having an AutoNumber column, so it reads as a plain constant |
+| `0x19` | 3 | Unknown (zero observed) |
+| `0x1C` | 4 | Complex-type AutoNumber (mdbtools `ct_autonum`) — the high-water value for a *complex* column (multi-value / attachment). `0` in every table observed; LibRed has no complex-column fixture to confirm a non-zero value (OLE DB DDL can't create such a column) |
+| `0x20` | 8 | Unknown / reserved (zero observed) |
 | `0x28` | 1 | Table type: `0x4E` 'N' user, `0x53` 'S' system |
 | `0x29` | 2 | Maximum column count |
 | `0x2B` | 2 | Variable-length column count |

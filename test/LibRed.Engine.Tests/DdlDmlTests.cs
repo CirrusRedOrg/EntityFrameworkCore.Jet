@@ -63,6 +63,42 @@ public class DdlDmlTests
     }
 
     [Fact]
+    public void Insert_round_trips_nulls_booleans_negative_numbers_and_double_quoted_text()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var engine = new QueryEngine(db);
+
+            engine.ExecuteNonQuery(
+                "CREATE TABLE `Mixed` (`Id` INTEGER PRIMARY KEY, `Name` TEXT(80), `Qty` INTEGER2, `Price` CURRENCY, `Flag` YESNO)");
+            Assert.Equal(1, engine.ExecuteNonQuery(
+                "INSERT INTO `Mixed` (`Id`, `Name`, `Qty`, `Price`, `Flag`) VALUES (1, \"O'Brien & Sons\", -12, -42.75, true)"));
+            Assert.Equal(1, engine.ExecuteNonQuery(
+                "INSERT INTO `Mixed` (`Id`, `Name`, `Flag`) VALUES (2, NULL, false)"));
+
+            var rows = engine.ExecuteQuery(
+                "SELECT `Id`, `Name`, `Qty`, `Price`, `Flag`, `Name` & '-checked' AS `Label` FROM `Mixed` ORDER BY `Id`")
+                .Rows.ToList();
+
+            Assert.Equal(2, rows.Count);
+            Assert.Equal("O'Brien & Sons", rows[0][1]);
+            Assert.Equal(-12, Convert.ToInt32(rows[0][2]));
+            Assert.Equal(-42.75m, Convert.ToDecimal(rows[0][3]));
+            Assert.True((bool)rows[0][4]!);
+            Assert.Equal("O'Brien & Sons-checked", rows[0][5]);
+
+            Assert.Null(rows[1][1]);
+            Assert.Null(rows[1][2]);
+            Assert.Null(rows[1][3]);
+            Assert.False((bool)rows[1][4]!);
+            Assert.Equal("-checked", rows[1][5]);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void Width_suffixed_and_two_word_type_aliases_work()
     {
         string path = CopyToTemp();

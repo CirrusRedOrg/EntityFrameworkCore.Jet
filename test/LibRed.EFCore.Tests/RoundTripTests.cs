@@ -110,6 +110,21 @@ public class RoundTripTests
     }
 
     [Fact]
+    public void Ordered_projection_materializes_multiple_rows()
+    {
+        using var context = CreateContext();
+
+        var customers = context.Customers
+            .Where(c => c.City == "London")
+            .OrderBy(c => c.CustomerID)
+            .Select(c => new { c.CustomerID, c.CompanyName })
+            .ToList();
+
+        Assert.Equal(["AROUT", "BSBEV", "CONSH", "EASTC", "NORTS", "SEVES"], customers.Select(c => c.CustomerID));
+        Assert.Equal("Around the Horn", customers[0].CompanyName);
+    }
+
+    [Fact]
     public void Find_by_key_round_trips()
     {
         using var context = CreateContext();

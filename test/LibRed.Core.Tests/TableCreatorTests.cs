@@ -74,6 +74,52 @@ public class TableCreatorTests
     }
 
     [Fact]
+    public void Created_table_round_trips_nulls_and_numeric_edges()
+    {
+        string path = CopyToTemp();
+        ColumnSpec[] schema =
+        [
+            new("Id", JetDataType.Int32, 4, IsFixedLength: true),
+            new("Small", JetDataType.Int16, 2, IsFixedLength: true),
+            new("Tiny", JetDataType.Byte, 1, IsFixedLength: true),
+            new("Money", JetDataType.Currency, 8, IsFixedLength: true),
+            new("Flag", JetDataType.Boolean, 1, IsFixedLength: true),
+            new("Label", JetDataType.Text, 40, IsFixedLength: false),
+        ];
+
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Edges", schema, primaryKey: ["Id"]);
+                var table = db.OpenTable("Edges");
+                table.Insert([int.MinValue, short.MinValue, byte.MinValue, -1234.5678m, false, "min"]);
+                table.Insert([0, null, null, null, null, null]);
+                table.Insert([int.MaxValue, short.MaxValue, byte.MaxValue, 999999.9999m, true, "max"]);
+            }
+
+            using (var db = JetDatabase.Open(path))
+            {
+                var table = db.OpenTable("Edges");
+                var rows = table.Rows().OrderBy(r => Convert.ToInt32(r[0])).ToList();
+
+                Assert.Equal(3, rows.Count);
+                Assert.Equal([int.MinValue, short.MinValue, byte.MinValue, -1234.5678m, false, "min"], rows[0]);
+                Assert.Equal([0, null, null, null, false, null], rows[1]); // Jet has no nullable BIT.
+                Assert.Equal([int.MaxValue, short.MaxValue, byte.MaxValue, 999999.9999m, true, "max"], rows[2]);
+
+                var pk = Assert.Single(table.Definition.Indexes, i => i.IsPrimaryKey);
+                var ids = new IndexCursor(table.Channel, pk.RootPage)
+                    .Entries(pk.Columns)
+                    .Select(e => (int)e.Key[0]!)
+                    .ToList();
+                Assert.Equal([int.MinValue, 0, int.MaxValue], ids);
+            }
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void Created_table_with_primary_key_has_a_working_index()
     {
         string path = CopyToTemp();

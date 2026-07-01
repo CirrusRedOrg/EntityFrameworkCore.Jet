@@ -50,6 +50,33 @@ public class LibRedCommandTests
     }
 
     [Fact]
+    public void Getordinal_getvalues_and_typed_accessors_work_after_read()
+    {
+        using var conn = OpenConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT ProductID, ProductName, UnitPrice FROM Products WHERE ProductID = @id";
+        var p = cmd.CreateParameter();
+        p.ParameterName = "@id";
+        p.Value = 1;
+        cmd.Parameters.Add(p);
+
+        using var reader = cmd.ExecuteReader();
+        Assert.True(reader.HasRows);
+        Assert.True(reader.Read());
+
+        Assert.Equal(0, reader.GetOrdinal("productid")); // case-insensitive lookup
+        Assert.Equal(1, reader.GetInt32(0));
+        Assert.Equal("Chai", reader.GetString(reader.GetOrdinal("ProductName")));
+        Assert.Equal(18.0m, reader.GetDecimal(2));
+
+        object[] values = new object[5];
+        Assert.Equal(3, reader.GetValues(values));
+        Assert.Equal(1, values[0]);
+        Assert.Equal("Chai", values[1]);
+        Assert.Equal(18.0m, Convert.ToDecimal(values[2]));
+    }
+
+    [Fact]
     public void Null_parameter_value_maps_to_sql_null()
     {
         using var conn = OpenConnection();

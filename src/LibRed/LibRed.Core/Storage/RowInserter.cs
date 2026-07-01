@@ -59,7 +59,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
         _channel.WritePage(pageNumber, page);
 
-        BumpTableRowCount(format);
+        UpdateTdefCounters(format, values);
         if (updateIndexes)
             UpdateIndexes(values, new RowId(pageNumber, rowCount));
     }
@@ -202,11 +202,29 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         return null;
     }
 
-    private void BumpTableRowCount(JetFormatBase format)
+    /// <summary>
+    /// Updates the TDEF's row-count (`0x10`) and, for a table with an AutoNumber column, its
+    /// highest-AutoNumber-assigned high-water mark (`0x14`) — set to the max of the current value and
+    /// the id just written. Access reads `0x14` to pick the *next* AutoNumber (= this + 1), so
+    /// leaving it stale makes Access reissue ids that already exist and reject the insert as a
+    /// duplicate primary key. Both counters share one read-modify-write of the TDEF page.
+    /// </summary>
+    private void UpdateTdefCounters(JetFormatBase format, object?[] values)
     {
         byte[] tdef = _channel.ReadPage(_table.DefinitionPage).Span.ToArray();
+
         int count = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4));
         BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4), count + 1);
+
+        foreach (ColumnDef column in _table.Columns)
+        {
+            if (!column.IsAutoNumber || values[column.Index] is not { } value) continue;
+            int assigned = Convert.ToInt32(value);
+            int highWater = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4));
+            if (assigned > highWater)
+                BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4), assigned);
+        }
+
         _channel.WritePage(_table.DefinitionPage, tdef);
     }
 }

@@ -109,6 +109,42 @@ public class CreateTableAccessTests
     }
 
     [Fact]
+    public void Access_continues_autonumber_after_libred_populates_the_table()
+    {
+        // When LibRed writes rows into an AutoNumber table it must advance the TDEF high-water mark
+        // (0x14) so Access issues the *next* id, not one that already exists. Without it Access
+        // reuses id 1 and rejects the insert as a duplicate primary key.
+        string path = CopyToTemp();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Auto", [
+                    new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true),
+                    new ColumnSpec("V", JetDataType.Text, 20, IsFixedLength: false),
+                ], primaryKey: ["Id"]);
+                var table = db.OpenTable("Auto");
+                table.Insert([1, "a"]);
+                table.Insert([2, "b"]);
+                table.Insert([3, "c"]);
+            }
+
+            using var conn = OpenOleDb(path);
+            using (var insert = conn.CreateCommand())
+            {
+                insert.CommandText = "INSERT INTO Auto (V) VALUES ('d')"; // Access assigns the Id
+                Assert.Equal(1, insert.ExecuteNonQuery());
+            }
+            using (var read = conn.CreateCommand())
+            {
+                read.CommandText = "SELECT Id FROM Auto WHERE V = 'd'";
+                Assert.Equal(4, Convert.ToInt32(read.ExecuteScalar())); // continued from 3, not reused 1
+            }
+        }
+        finally { TryDelete(path); }
+    }
+
+    [Fact]
     public void Access_opens_and_round_trips_a_created_table_with_primary_key()
     {
         // The created table's TDEF and per-table pages are now fully ACE-valid: Access resolves it

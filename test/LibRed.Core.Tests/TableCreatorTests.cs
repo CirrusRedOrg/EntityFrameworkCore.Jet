@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using LibRed;
 using LibRed.Catalog;
 using LibRed.Storage;
@@ -7,6 +8,37 @@ namespace LibRed.Core.Tests;
 
 public class TableCreatorTests
 {
+    [Fact]
+    public void Autonumber_insert_tracks_the_tdef_high_water_mark()
+    {
+        string path = CopyToTemp();
+        ColumnSpec[] schema =
+        [
+            new("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true),
+            new("V", JetDataType.Text, 40, IsFixedLength: false),
+        ];
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Auto", schema, primaryKey: ["Id"]);
+                var table = db.OpenTable("Auto");
+                table.Insert([5, "five"]);   // out of order on purpose: the field is a high-water
+                table.Insert([2, "two"]);    // mark (max assigned), not the last value written
+            }
+
+            using (var db = JetDatabase.Open(path))
+            {
+                var table = db.OpenTable("Auto");
+                int highWater = BinaryPrimitives.ReadInt32LittleEndian(
+                    table.Channel.ReadPage(table.Definition.DefinitionPage)
+                        .Span.Slice(table.Channel.Format.TdefLastAutoNumberOffset, 4));
+                Assert.Equal(5, highWater); // Access reads this to pick the next id (= 6)
+            }
+        }
+        finally { File.Delete(path); }
+    }
+
     private static string CopyToTemp()
     {
         string path = Path.Combine(Path.GetTempPath(), $"libred-create-{Guid.NewGuid():N}.accdb");

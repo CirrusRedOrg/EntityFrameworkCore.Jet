@@ -37,6 +37,9 @@ public abstract class JetFormatBase
     /// <summary>Offset of the 4-byte row count.</summary>
     public virtual int TdefRowCountOffset => 0x10;
 
+    /// <summary>Offset of the 4-byte highest-AutoNumber-assigned value (the last id used; next = +1).</summary>
+    public virtual int TdefLastAutoNumberOffset => 0x14;
+
     /// <summary>Offset of the 1-byte table type (0x4E 'N' user, 0x53 'S' system).</summary>
     public virtual int TdefTableTypeOffset => 0x28;
 

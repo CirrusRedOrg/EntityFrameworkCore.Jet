@@ -38,11 +38,13 @@ confirming against real files. **Source:** mdbtools `HACKING.md` (github.com/mdb
   `+0x2E`. So our `+0x2E` is correct; mdbtools' `+0x2A` flags byte is zero/unused in ACE. §3.5 now
   documents `+0x2A` (4 reserved) and `+0x30` (4 reserved) explicitly.
 
-- [ ] **Index statistics block (§3.3.1) — field meaning.** mdbtools labels the 12 bytes as
-  unknown(4) / `num_idx_rows`(4)@`+0x04` / unknown(4). We read `+0x00` = total entry count
-  (= row count) and `+0x04` = unique entry count. Our read is more specific and verified; just
-  confirm `+0x00` really is total-entries (mdbtools leaves it unknown) and that mdbtools'
-  `num_idx_rows`@`+0x04` is our unique-entry count.
+- [x] **Index statistics block (§3.3.1) — field meaning.** **Resolved** via an ACE
+  insert/delete/insert probe. `+0x04` (mdbtools `num_idx_rows`) is the **unique-entry count**:
+  maintained live per insert, cumulative, never decremented (3 → 3 after delete → 4). `+0x00`
+  ("total") is **not** live-maintained — Access leaves it `0` through inserts and only writes the
+  row count on compact (saved Northwind reads `total == rowCount`, a live insert reads `0`), which
+  corrected our spec's "total = row count" claim. LibRed now maintains `+0x04` on insert and leaves
+  `+0x00` at 0 (fix committed).
 
 - [ ] **Column descriptor `0x0D` — text sort-order version, not "unknown".** mdbtools calls the
   2 bytes at col `+0x0D` `misc_ext` = "text sort order version number". Our §3.4 lists `0x0D` as

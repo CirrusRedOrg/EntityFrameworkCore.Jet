@@ -143,6 +143,7 @@ public sealed class TableDefinitionPage : Page
                 IsPrimaryKey = false,
                 UniqueEntryCount = uniqueEntryCount,
                 RootPage = buffer.ReadInt32(block + IndexRootPageOffset),
+                RealIndexOrdinal = i,
             });
         }
 

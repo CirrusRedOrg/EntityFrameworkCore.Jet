@@ -9,6 +9,40 @@ namespace LibRed.Core.Tests;
 public class TableCreatorTests
 {
     [Fact]
+    public void Insert_maintains_the_unique_index_stat_and_leaves_total_at_zero()
+    {
+        string path = CopyToTemp();
+        ColumnSpec[] schema = [new("Id", JetDataType.Int32, 4, IsFixedLength: true)];
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Stats", schema, primaryKey: ["Id"]);
+                var table = db.OpenTable("Stats");
+                table.Insert([10]);
+                table.Insert([20]);
+                table.Insert([30]);
+            }
+
+            using (var db = JetDatabase.Open(path))
+            {
+                var table = db.OpenTable("Stats");
+                var span = table.Channel.ReadPage(table.Definition.DefinitionPage).Span;
+                var format = table.Channel.Format;
+                int total = BinaryPrimitives.ReadInt32LittleEndian(span.Slice(format.TdefRealIndexBlockOffset, 4));
+                int unique = BinaryPrimitives.ReadInt32LittleEndian(span.Slice(format.TdefRealIndexBlockOffset + 4, 4));
+
+                // Access maintains the cumulative unique-entry count live (one distinct key per row
+                // for a unique index) but leaves the total-entry count at 0 until compact.
+                Assert.Equal(3, unique);
+                Assert.Equal(0, total);
+                Assert.Equal(3, table.Definition.Indexes.Single(i => i.IsPrimaryKey).UniqueEntryCount);
+            }
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void Autonumber_is_generated_when_the_column_is_omitted()
     {
         string path = CopyToTemp();

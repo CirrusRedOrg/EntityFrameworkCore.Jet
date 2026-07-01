@@ -21,4 +21,11 @@ public sealed record IndexDef
 
     /// <summary>Page number of the index B-tree root.</summary>
     public int RootPage { get; init; }
+
+    /// <summary>
+    /// This index's position among the table's real indexes — the ordinal of its 12-byte statistics
+    /// block (at <c>TdefRealIndexBlockOffset + ordinal × RealIndexEntrySize</c>) and its index-data
+    /// block. Used to locate the stats block when maintaining the unique-entry count on insert.
+    /// </summary>
+    public int RealIndexOrdinal { get; init; }
 }

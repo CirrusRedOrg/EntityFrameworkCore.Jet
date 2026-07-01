@@ -159,16 +159,27 @@ statistics:
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 4 | Total entry count (= the table's row count; every row is indexed) |
-| `0x04` | 4 | **Unique entry count** — distinct entries ever added (see note) |
+| `0x00` | 4 | Total entry count — **compact-time only** (see note): the row count in a *saved/compacted* file, but `0` in a live-edited one |
+| `0x04` | 4 | **Unique entry count** — distinct entries ever added; maintained live on every insert (see note) |
 | `0x08` | 4 | Reserved (zero observed) |
 
-The unique entry count is **cumulative**: Access increments it but never decrements it (the
-same behaviour Jackcess documents for `uniqueEntryCount`). It therefore equals the *current*
-distinct-value count only when no rows have been deleted; after deletions it drifts higher.
-On a database with no deletions a unique index has `uniqueEntryCount == rowCount`; the converse
-does not hold (a non-unique index can have all-distinct data). LibRed exposes it as
-`IndexDef.UniqueEntryCount`.
+**These two fields are maintained very differently — verified with an ACE
+insert/delete/insert sequence and against saved Northwind tables:**
+
+- **Total entry count (`+0`) is *not* maintained on insert.** Access leaves it `0` through live
+  inserts and only writes the row count on **compact/repair**. Saved Northwind tables read
+  `total == rowCount` (Categories 8, Orders 830, Order Details 2155) precisely because they were
+  compacted; a freshly SQL-inserted table reads `total == 0` while `rowCount` climbs. A writer
+  should therefore **leave `+0` at `0`** on insert (LibRed does), not set it to the row count —
+  doing so would falsely mark the file as compacted.
+- **Unique entry count (`+4`) *is* maintained live and is cumulative** — Access increments it per
+  insert and **never decrements** it. Verified: after 3 inserts it is `3`; after deleting a row it
+  stays `3` (not decremented); after one more insert it is `4`. It equals the current
+  distinct-value count only with no deletions. A **unique** index gains one distinct key per row,
+  so a writer increments `+4` by one per insert per unique index (LibRed does this in
+  `RowInserter`). A **non-unique** index should advance `+4` only when the inserted key is
+  genuinely new — not yet handled (LibRed creates only unique indexes; see the
+  `TODO(non-unique-index-stats)` marker). LibRed exposes `+4` as `IndexDef.UniqueEntryCount`.
 
 ### 3.4 Column descriptor (25 bytes)
 

@@ -231,11 +231,20 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     }
 
     /// <summary>
-    /// Updates the TDEF's row-count (`0x10`) and, for a table with an AutoNumber column, its
-    /// highest-AutoNumber-assigned high-water mark (`0x14`) — set to the max of the current value and
-    /// the id just written. Access reads `0x14` to pick the *next* AutoNumber (= this + 1), so
-    /// leaving it stale makes Access reissue ids that already exist and reject the insert as a
-    /// duplicate primary key. Both counters share one read-modify-write of the TDEF page.
+    /// Updates the TDEF counters Access maintains on insert, in one read-modify-write of the TDEF
+    /// page:
+    /// <list type="bullet">
+    /// <item>Row count (`0x10`) — incremented.</item>
+    /// <item>AutoNumber high-water (`0x14`) — set to the max of its current value and the id just
+    /// written (Access reads it to pick the *next* id = this + 1; leaving it stale makes Access
+    /// reissue an existing id and reject the insert as a duplicate primary key).</item>
+    /// <item>Per-index **unique-entry count** (`0x3F + ordinal×12`, `+4`) — incremented by one for
+    /// each **unique** index (a unique index gets a distinct key per row). This is the cumulative
+    /// count Access advances on every insert and never decrements. The sibling **total-entry count**
+    /// (`+0`) is deliberately left untouched: Access does **not** maintain it live — it stays `0`
+    /// through inserts and is only written (to the row count) on compact/repair (verified: a live
+    /// ACE-inserted table reads total `0` while saved Northwind tables read total = row count).</item>
+    /// </list>
     /// </summary>
     private void UpdateTdefCounters(JetFormatBase format, object?[] values)
     {
@@ -251,6 +260,18 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             int highWater = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4));
             if (assigned > highWater)
                 BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4), assigned);
+        }
+
+        // TODO(non-unique-index-stats): a non-unique index's unique-entry count must advance only
+        // when the inserted key is genuinely new (Access's cumulative-distinct semantics), which
+        // needs a probe of the existing keys. LibRed only creates unique (PK) indexes today, so we
+        // handle just those; extend this when secondary/non-unique indexes are supported.
+        foreach (IndexDef index in _table.Indexes)
+        {
+            if (!index.IsUnique) continue;
+            int statsUnique = format.TdefRealIndexBlockOffset + index.RealIndexOrdinal * format.RealIndexEntrySize + 4;
+            int unique = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(statsUnique, 4));
+            BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(statsUnique, 4), unique + 1);
         }
 
         _channel.WritePage(_table.DefinitionPage, tdef);

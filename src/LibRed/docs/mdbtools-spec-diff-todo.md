@@ -47,10 +47,13 @@ confirming against real files. **Source:** mdbtools `HACKING.md` (github.com/mdb
   corrected our spec's "total = row count" claim. LibRed now maintains `+0x04` on insert and leaves
   `+0x00` at 0 (fix committed).
 
-- [ ] **Column descriptor `0x0D` — text sort-order version, not "unknown".** mdbtools calls the
-  2 bytes at col `+0x0D` `misc_ext` = "text sort order version number". Our §3.4 lists `0x0D` as
-  "Unknown (zero observed)". Confirm `0x0D` is the text-collation/sort-order version (likely 0 for
-  Jet4 General, which is why we see zero) rather than truly reserved.
+- [x] **Column descriptor `0x0D` — text sort-order version, not "unknown".** **Resolved (as far as
+  ACE 2007 allows).** `0x0B`–`0x0E` is a 4-byte sort-order descriptor: locale `0x0409` at `0x0B`,
+  version at `0x0D`. Surveyed Customers/Categories/Orders/Employees: `0x0D` = `0` on *every* column
+  (text, memo, OLE, int, date, money) and `0x0B` = `0x0409` on all — the default General collation is
+  version 0. mdbtools' "text sort order version" label fits (as the version half), but there is **no
+  non-zero example**: it needs a non-default collation (Access 2010+ `General_CI_AS`) that OLE DB DDL
+  can't create. Spec §3.4 updated; our writer leaves `0x0D` at 0 (matches ACE 2007).
 
 - [ ] **Logical index block (§3.6) — `index_num` / `index_num2`.** mdbtools has `index_num`(4)@`+0x04`
   and `index_num2`(4)@`+0x08` ("index into index cols list"). Confirm our §3.6 documents both and

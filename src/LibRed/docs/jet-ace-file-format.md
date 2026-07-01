@@ -202,7 +202,7 @@ insert/delete/insert sequence and against saved Northwind tables:**
 | `0x09` | 2 | Column number (equals the column id `0x05` in every file observed) |
 | `0x0B` | 1 | Numeric **precision** (Decimal/Numeric columns); otherwise the low byte of the locale id, `0x09` |
 | `0x0C` | 1 | Numeric **scale** (Decimal/Numeric columns); otherwise the high byte of the locale id, `0x04` |
-| `0x0D` | 2 | Unknown (zero observed) |
+| `0x0D` | 2 | Text sort-order **version** (mdbtools `misc_ext`; Jackcess's sort-order version) — the high half of a 4-byte sort-order descriptor whose low half is the locale at `0x0B` (`0x0409` = General, §10.4). `0` for **every** column (all types) in ACE 2007 — the General collation is version 0; see note |
 | `0x0F` | 1 | Flags (see below) |
 | `0x10` | 1 | Extended flags: `0x01` compressed-Unicode capable, `0xC0` calculated column |
 | `0x11` | 4 | Unknown (zero observed) |
@@ -228,6 +228,16 @@ insert/delete/insert sequence and against saved Northwind tables:**
 > the **precision** (`0x0B`) and **scale** (`0x0C`) — verified with a `DECIMAL(12,3)` column,
 > which reads precision = 12, scale = 3; for every other type it reads the constant `0x0409`
 > (the en-US LCID / text collation).
+>
+> **Sort-order version (`0x0D`).** For non-Numeric columns, `0x0B`–`0x0E` together form a 4-byte
+> **sort-order descriptor**: locale `0x0409` at `0x0B`, version at `0x0D`. mdbtools names `0x0D`
+> `misc_ext` ("text sort order version"); Jackcess models the sort order as a (value, version)
+> pair. In ACE 2007 the version is `0` on **every** column — text/memo *and* numeric/date — because
+> the default **General** collation (§10.4, which LibRed's `JetTextCollation` implements and matches
+> byte-for-byte) is version 0. We have **no non-zero example**: raising it needs a column created
+> with a non-default collation (e.g. Access 2010+ `General_CI_AS`), which OLE DB DDL can't set — so
+> "it is the sort-order version" is strongly indicated but not positively demonstrated non-zero.
+> LibRed's writer leaves `0x0D` at 0, matching ACE 2007.
 >
 > LibRed currently *derives* the variable-table index (`0x07`) by ranking variable columns by
 > column id rather than reading it; the stored value matches that ranking in every file tested.

@@ -13,12 +13,13 @@ confirming against real files. **Source:** mdbtools `HACKING.md` (github.com/mdb
 
 ## Items to confirm
 
-- [ ] **TDEF `0x0C` — constant `0x659`, or a per-TDEF "definition id"?** mdbtools frames the 4-byte
-  field at TDEF `0x0C`, column-descriptor `+0x01`, and logical-index `+0x00` as **one recurring
-  value** ("Matches definition block unknown field"), not a fixed constant. We assert it is always
-  `0x0659` (1625). Both can be true (constant *and* recurring), but confirm whether it can differ
-  between tables/files — i.e. is it a universal magic number or a tdef-scoped id that is merely
-  `0x659` in the files checked? Check across several tables and a second database.
+- [x] **TDEF `0x0C` — constant `0x659`, or a per-TDEF "definition id"?** **Resolved: a fixed
+  constant.** Surveyed `0x0C` across all 33 Northwind tables (user/system/complex-type/hidden) and
+  freshly ACE-created tables — every one reads `1625` (`0x659`), and the header value equals the
+  first column-descriptor marker in each. So mdbtools' "Matches definition block" is just a shared
+  constant appearing in several spots, not a table-scoped id. Our writer's fixed `0x659` is correct
+  (no write bug). The mdbtools "*or 0*" variant never appeared (possibly Jet 3 / degenerate).
+  Spec §3.1 note updated.
 
 - [x] **TDEF header `0x18`–`0x27` semantics.** **Investigated** (read Northwind + ACE-created
   autonumber vs plain tables). Findings, now in §3.1:

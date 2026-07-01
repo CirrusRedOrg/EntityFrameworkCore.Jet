@@ -102,6 +102,15 @@ version. (Page-level encryption for password-protected files is not implemented.
 > and a *writer* must emit them — Access validates them when opening a table (see §3.7). `0x0C` is
 > therefore **not** the code page — `1625` is not a valid code page, and the code page is a
 > database-wide value on page 0, not per-table.
+>
+> **`0x659` is a fixed constant, not a per-TDEF "definition id".** mdbtools labels the `0x0C` word
+> (and the column-descriptor `+0x01` / index-info `+0x00` markers) *"Matches definition block
+> unknown field"*, which could suggest a per-table id that these locations cross-reference.
+> Verified otherwise: `0x0C` reads `1625` on **all 33 tables** of Northwind — user, system,
+> complex-type, and hidden data tables — and on freshly ACE-created tables, and the header value
+> equals the first column-descriptor marker in every one. So the "match" is simply that a shared
+> constant appears in each spot, not a table-scoped identifier. (The mdbtools "*or 0*" variant was
+> not observed in any ACE table; it may be a Jet 3 or degenerate-record case.)
 
 > ⚠️ `0x2F` vs `0x33`: these are equal for MSysObjects (which hid the distinction during
 > reverse-engineering) but differ for user tables. `0x33` (real index count) sizes the

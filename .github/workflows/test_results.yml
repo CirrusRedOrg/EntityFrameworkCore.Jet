@@ -17,7 +17,7 @@ jobs:
         shell: bash
         run: |
           #
-          # The later used dorny/test-reporter@v1 action can throw the following exception when enough tests have been
+          # The later used dorny/test-reporter action can throw the following exception when enough tests have been
           # executed:
           #     RangeError: Maximum call stack size exceeded
           #
@@ -36,16 +36,15 @@ jobs:
           which node
           node --version
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ${{ github.event.workflow_run.head_repository.full_name }}
           ref: ${{ github.event.workflow_run.head_branch }}
           fetch-depth: 1
-      # The dorny/test-reporter@v1 action doesn't support actions/upload-artifact@v4 yet.
-      # We therefore download the artifact manually and feed it to dorny/test-reporter@v1 as local files.
+      # Download the artifact manually and feed it to dorny/test-reporter as local files.
       - name: 'Download Test Results'
         id: DownloadTestResults
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             var allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
@@ -83,7 +82,7 @@ jobs:
           dir -Recurse | Select-Object -ExpandProperty FullName
       - name: 'Publish Test Report'
         if: steps.ExtractArtifact.conclusion == 'success'
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@v3
         env:
           #
           # Can throw the following exception, when enough tests have been executed:

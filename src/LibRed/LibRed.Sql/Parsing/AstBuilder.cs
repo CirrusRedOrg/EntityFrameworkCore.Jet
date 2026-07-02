@@ -137,6 +137,7 @@ internal sealed class AstBuilder
     {
         NotExprContext n => new UnaryExpression(UnaryOperator.Not, BuildExpression(n.expression())),
         NegateExprContext n => new UnaryExpression(UnaryOperator.Negate, BuildExpression(n.expression())),
+        PowExprContext p => new BinaryExpression(BinaryOperator.Power, BuildExpression(p.left), BuildExpression(p.right)),
         MulDivExprContext m => Binary(m.op, m.left, m.right),
         AddConcatExprContext a => Binary(a.op, a.left, a.right),
         ComparisonExprContext c => Binary(c.op, c.left, c.right),

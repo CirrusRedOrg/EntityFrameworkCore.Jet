@@ -17,7 +17,7 @@ public sealed record StarExpression : Expression;
 
 public enum BinaryOperator
 {
-    Add, Subtract, Multiply, Divide, Modulo, IntDivide, Concat,
+    Add, Subtract, Multiply, Divide, Modulo, IntDivide, Power, Concat,
     Equal, NotEqual, LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual,
     And, Or, Like, In,
 }

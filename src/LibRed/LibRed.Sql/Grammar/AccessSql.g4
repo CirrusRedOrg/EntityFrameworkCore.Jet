@@ -87,6 +87,7 @@ orderByItem : expression (dir=(ASC | DESC))? ;
 expression
     : NOT expression                                                        # NotExpr
     | MINUS expression                                                      # NegateExpr
+    | left=expression CARET right=expression                                 # PowExpr
     | left=expression op=(STAR | SLASH | MOD | BACKSLASH) right=expression   # MulDivExpr
     | left=expression op=(PLUS | MINUS | AMP) right=expression               # AddConcatExpr
     | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression   # ComparisonExpr
@@ -167,6 +168,7 @@ NULL   : [Nn][Uu][Ll][Ll] ;
 STAR     : '*' ;
 SLASH    : '/' ;
 BACKSLASH: '\\' ;
+CARET    : '^' ;
 PLUS     : '+' ;
 MINUS    : '-' ;
 AMP      : '&' ;

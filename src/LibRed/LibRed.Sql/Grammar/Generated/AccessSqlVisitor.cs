@@ -244,6 +244,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitComparisonExpr([NotNull] AccessSqlParser.ComparisonExprContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>PowExpr</c>
+	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitPowExpr([NotNull] AccessSqlParser.PowExprContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>PrimaryExpr</c>
 	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
 	/// </summary>

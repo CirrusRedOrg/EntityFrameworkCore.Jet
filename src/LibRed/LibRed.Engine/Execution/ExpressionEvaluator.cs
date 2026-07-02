@@ -47,6 +47,17 @@ internal sealed class ExpressionEvaluator(
             "FIX" => UnaryNumeric(f, d => Math.Truncate(d)),     // toward zero
             "INT" => UnaryNumeric(f, d => Math.Floor(d)),        // toward -infinity
             "ABS" => UnaryNumeric(f, Math.Abs),
+            // Jet VBA math functions (double precision). SQR = sqrt, ATN = atan, SGN = sign, LOG =
+            // natural log. Acos/Asin/Atan2/Floor/Ceiling/Log10/Log-base are emitted by EF as
+            // expressions built from these plus arithmetic, so they need no dedicated cases.
+            "SIN" => UnaryDouble(f, Math.Sin),
+            "COS" => UnaryDouble(f, Math.Cos),
+            "TAN" => UnaryDouble(f, Math.Tan),
+            "ATN" => UnaryDouble(f, Math.Atan),
+            "EXP" => UnaryDouble(f, Math.Exp),
+            "LOG" => UnaryDouble(f, Math.Log),
+            "SQR" => UnaryDouble(f, Math.Sqrt),
+            "SGN" => UnaryDouble(f, d => Math.Sign(d)),
             _ => throw new NotSupportedException($"Function {f.Name} is not supported."),
         };
     }
@@ -67,6 +78,14 @@ internal sealed class ExpressionEvaluator(
     {
         object? value = Evaluate(f.Arguments[0]);
         return value is null ? null : op(Convert.ToDecimal(value, CultureInfo.InvariantCulture));
+    }
+
+    /// <summary>Applies a double-precision transform to a single argument, propagating NULL. Used for
+    /// the trig/exp/log/sqrt VBA functions, which are inherently floating-point.</summary>
+    private object? UnaryDouble(FunctionCall f, Func<double, double> op)
+    {
+        object? value = Evaluate(f.Arguments[0]);
+        return value is null ? null : op(Convert.ToDouble(value, CultureInfo.InvariantCulture));
     }
 
     /// <summary>Access DATEPART(interval, date): extracts a component of a date as an int.</summary>
@@ -138,6 +157,7 @@ internal sealed class ExpressionEvaluator(
             BinaryOperator.Divide => Arithmetic(left, right, (a, c) => a / c),
             BinaryOperator.Modulo => Convert.ToInt64(left, CultureInfo.InvariantCulture) % Convert.ToInt64(right, CultureInfo.InvariantCulture),
             BinaryOperator.IntDivide => Convert.ToInt64(left, CultureInfo.InvariantCulture) / Convert.ToInt64(right, CultureInfo.InvariantCulture),
+            BinaryOperator.Power => Math.Pow(Convert.ToDouble(left, CultureInfo.InvariantCulture), Convert.ToDouble(right, CultureInfo.InvariantCulture)),
             _ => throw new NotSupportedException($"Binary operator {b.Operator}."),
         };
     }

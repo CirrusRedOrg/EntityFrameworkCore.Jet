@@ -1,8 +1,9 @@
+using System.Data.Common;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace LibRed.EntityFrameworkCore.Infrastructure.Internal;
+namespace EntityFrameworkCore.LibRed.Infrastructure.Internal;
 
 /// <summary>
 /// Options extension for the LibRed provider. It reuses EFCore.Jet's options extension wholesale
@@ -27,4 +28,18 @@ public class LibRedOptionsExtension : JetOptionsExtension
     // and a plain JetOptionsExtension clone would silently revert ApplyServices to AddEntityFrameworkJet.
     protected override RelationalOptionsExtension Clone()
         => new LibRedOptionsExtension(this);
+
+    // Covariant overrides: the base With...() methods clone via the (overridden) Clone() above, so the
+    // returned instance is already a LibRedOptionsExtension at runtime; this just fixes the static type.
+    public override LibRedOptionsExtension WithUseOuterSelectSkipEmulationViaDataReader(bool enabled)
+        => (LibRedOptionsExtension)base.WithUseOuterSelectSkipEmulationViaDataReader(enabled);
+
+    public override LibRedOptionsExtension WithEnableMillisecondsSupport(bool enabled)
+        => (LibRedOptionsExtension)base.WithEnableMillisecondsSupport(enabled);
+
+    public override LibRedOptionsExtension WithUseShortTextForSystemString(bool enabled)
+        => (LibRedOptionsExtension)base.WithUseShortTextForSystemString(enabled);
+
+    public override LibRedOptionsExtension WithDataAccessProviderFactory(DbProviderFactory dataAccessProviderFactory)
+        => (LibRedOptionsExtension)base.WithDataAccessProviderFactory(dataAccessProviderFactory);
 }

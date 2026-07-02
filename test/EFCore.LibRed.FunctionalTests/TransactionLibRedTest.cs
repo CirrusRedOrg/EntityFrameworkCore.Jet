@@ -1,0 +1,71 @@
+﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using System.Threading.Tasks;
+using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.LibRed.Infrastructure;
+using EntityFrameworkCore.LibRed.Storage.Internal;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.TestUtilities;
+using Xunit;
+
+namespace EntityFrameworkCore.LibRed.FunctionalTests
+{
+    public class TransactionLibRedTest(TransactionLibRedTest.TransactionLibRedFixture fixture)
+        : TransactionTestBase<TransactionLibRedTest.TransactionLibRedFixture>(fixture)
+    {
+        protected override bool SnapshotSupported => false;
+        protected override bool AmbientTransactionsSupported => false;
+        protected override bool DirtyReadsOccur => false;
+        protected override bool SavepointsSupported => false;
+
+        protected override DbContext CreateContextWithConnectionString()
+        {
+            var options = Fixture.AddOptions(
+                    new DbContextOptionsBuilder()
+                        .UseLibRed(
+                            TestStore.ConnectionString,
+                            TestEnvironment.DataAccessProviderFactory,
+                            b => b.ApplyConfiguration().UseShortTextForSystemString().ExecutionStrategy(c => new LibRedExecutionStrategy(c))))
+                .UseInternalServiceProvider(Fixture.ServiceProvider);
+
+            return new DbContext(options.Options);
+        }
+
+        [ConditionalTheory(Skip = "LibRed does not support savepoints")]
+        [InlineData(true)]
+        [InlineData(false)]
+        public override Task Savepoint_can_be_released(bool async)
+        {
+            return base.Savepoint_can_be_released(async);
+        }
+
+        [ConditionalTheory(Skip = "LibRed does not support savepoints")]
+        [InlineData(true)]
+        [InlineData(false)]
+        public override Task Savepoint_can_be_rolled_back(bool async)
+        {
+            return base.Savepoint_can_be_rolled_back(async);
+        }
+
+        [ConditionalTheory(Skip = "LibRed does not support savepoints")]
+        [InlineData(true)]
+        [InlineData(false)]
+        public override Task Savepoint_name_is_quoted(bool async)
+        {
+            return base.Savepoint_name_is_quoted(async);
+        }
+
+        public class TransactionLibRedFixture : TransactionFixtureBase
+        {
+            protected override ITestStoreFactory TestStoreFactory => LibRedTestStoreFactory.Instance;
+            
+            public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
+            {
+                new LibRedDbContextOptionsBuilder(
+                        base.AddOptions(builder))
+                    .ExecutionStrategy(c => new LibRedExecutionStrategy(c));
+                return builder;
+            }
+        }
+    }
+}

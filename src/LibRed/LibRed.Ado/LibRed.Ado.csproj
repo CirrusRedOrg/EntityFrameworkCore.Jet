@@ -5,10 +5,17 @@
     <RootNamespace>LibRed.Data</RootNamespace>
     <AssemblyName>LibRed.Ado</AssemblyName>
     <Description>ADO.NET provider over the LibRed engine: DbConnection, DbCommand, DbDataReader, DbParameter, DbTransaction and DbProviderFactory.</Description>
+    <!-- CA1416: LibRedConnection.CreateDatabase bootstraps off EFCore.Jet.Data's Windows-only
+         JetConnection.CreateDatabase (DAO/ADOX) until LibRed can write a new Jet/ACE file itself.
+         Transitional, same as LibRed.EFCore.csproj - remove once that's implemented natively. -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\LibRed.Engine\LibRed.Engine.csproj" />
+    <!-- Transitional: bootstrap physical database creation via EFCore.Jet.Data (DAO/ADOX) until
+         LibRed.Core/LibRed.Engine can write a new Jet/ACE file from scratch. -->
+    <ProjectReference Include="..\..\EFCore.Jet.Data\EFCore.Jet.Data.csproj" />
   </ItemGroup>
 
 </Project>

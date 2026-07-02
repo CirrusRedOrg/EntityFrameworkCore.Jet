@@ -1,4 +1,6 @@
-namespace LibRed.EntityFrameworkCore;
+using LibRed.Data;
+
+namespace EntityFrameworkCore.LibRed;
 
 /// <summary>
 /// Placeholder for the EF Core provider built on the native LibRed engine
@@ -7,7 +9,7 @@ namespace LibRed.EntityFrameworkCore;
 /// <remarks>
 /// The existing <c>EntityFrameworkCore.Jet</c> provider targets ODBC/OleDb and is the
 /// reference for the EF Core surface to mirror here, but this provider will sit on
-/// <see cref="LibRed.Data.LibRedConnection"/> instead, making it cross-platform.
+/// <see cref="LibRedConnection"/> instead, making it cross-platform.
 /// <para>
 /// <b>Registration plan.</b> EFCore.Jet wires every provider service through DI in
 /// <c>JetServiceCollectionExtensions.AddEntityFrameworkJet()</c>

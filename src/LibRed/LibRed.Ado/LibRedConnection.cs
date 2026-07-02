@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using EntityFrameworkCore.Jet.Data;
 using LibRed.Engine;
 
 namespace LibRed.Data;
@@ -42,6 +43,58 @@ public sealed class LibRedConnection : DbConnection
     {
         string path = ParseDataSource(connectionString ?? string.Empty);
         return !string.IsNullOrEmpty(path) && File.Exists(path);
+    }
+
+    /// <summary>
+    /// Builds a canonical <c>Data Source=...</c> connection string from a bare file name. If
+    /// <paramref name="fileNameOrConnectionString"/> already looks like a connection string
+    /// (contains a <c>key=value</c> pair), it is returned unchanged.
+    /// </summary>
+    public static string GetConnectionString(string fileNameOrConnectionString)
+    {
+        if (string.IsNullOrWhiteSpace(fileNameOrConnectionString))
+            return string.Empty;
+
+        return fileNameOrConnectionString.Contains('=')
+            ? fileNameOrConnectionString
+            : $"Data Source={fileNameOrConnectionString}";
+    }
+
+    /// <summary>
+    /// Creates a new, empty Jet/ACE database file at the location named by
+    /// <paramref name="connectionString"/>.
+    /// </summary>
+    /// <remarks>
+    /// Bootstrap: LibRed can read and write into an existing Jet/ACE file, but can't yet write a
+    /// brand-new file's header/catalog/system tables from scratch. So - same as EFCore.Jet itself,
+    /// which also can't create a database via pure SQL - this hands off to
+    /// <see cref="JetConnection.CreateDatabase(string, DatabaseVersion, CollatingOrder, string, SchemaProviderType, DataAccessProviderType?)"/>,
+    /// which creates the file via DAO/ADOX. Windows-only for now; replace with a native writer once
+    /// LibRed.Core/LibRed.Engine can create a file itself.
+    /// </remarks>
+    public static void CreateDatabase(string connectionString)
+    {
+        string path = ParseDataSource(connectionString);
+        if (string.IsNullOrEmpty(path))
+            throw new ArgumentException("The connection string is missing a Data Source.", nameof(connectionString));
+
+        JetConnection.CreateDatabase(path);
+    }
+
+    /// <summary>Deletes the database file named by <paramref name="connectionString"/>, if it exists.</summary>
+    public static void DropDatabase(string connectionString)
+    {
+        string path = ParseDataSource(connectionString);
+        if (!string.IsNullOrEmpty(path) && File.Exists(path))
+            File.Delete(path);
+    }
+
+    /// <summary>
+    /// No-op: LibRed opens/closes the underlying file directly and does not pool connections.
+    /// Exists for API parity with <c>JetConnection.ClearPool</c>.
+    /// </summary>
+    public static void ClearPool(LibRedConnection connection)
+    {
     }
 
     /// <summary>
@@ -94,6 +147,7 @@ public sealed class LibRedConnection : DbConnection
     {
         if (string.IsNullOrWhiteSpace(connectionString)) return string.Empty;
 
+        string? raw = null;
         foreach (string part in connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries))
         {
             int eq = part.IndexOf('=');
@@ -103,11 +157,29 @@ public sealed class LibRedConnection : DbConnection
                 key.Equals("DataSource", StringComparison.OrdinalIgnoreCase) ||
                 key.Equals("DBQ", StringComparison.OrdinalIgnoreCase))
             {
-                return part[(eq + 1)..].Trim().Trim('"');
+                raw = part[(eq + 1)..].Trim().Trim('"');
+                break;
             }
         }
 
         // Allow a bare path as the whole connection string.
-        return connectionString.Contains('=') ? string.Empty : connectionString.Trim();
+        raw ??= connectionString.Contains('=') ? null : connectionString.Trim();
+
+        return string.IsNullOrEmpty(raw) ? string.Empty : ExpandPath(raw);
+    }
+
+    /// <summary>
+    /// Resolves to a full path and defaults to a ".accdb" extension - matches EFCore.Jet.Data's
+    /// internal <c>JetStoreDatabaseHandling.ExpandFileName</c>/<c>EnsureFileExtension</c>, so
+    /// LibRedConnection agrees with <see cref="JetConnection" />'s bootstrap (see
+    /// <see cref="CreateDatabase" />) about which file e.g. <c>Data Source=Foo</c> actually names.
+    /// Without this, a bare name like "Foo" would resolve here to a different path than the
+    /// "Foo.accdb" that DAO/ADOX actually creates, and DatabaseExists/DropDatabase/Open would all
+    /// silently look in the wrong place.
+    /// </summary>
+    private static string ExpandPath(string path)
+    {
+        var fullPath = Path.GetFullPath(path);
+        return string.IsNullOrEmpty(Path.GetExtension(fullPath)) ? fullPath + ".accdb" : fullPath;
     }
 }

@@ -1,5 +1,5 @@
+using EntityFrameworkCore.LibRed.Scaffolding.Internal;
 using LibRed.EntityFrameworkCore.Design;
-using LibRed.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;

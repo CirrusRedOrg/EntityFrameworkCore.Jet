@@ -11,6 +11,8 @@ public sealed class LibRedDataReader : DbDataReader
     private readonly IEnumerator<object?[]> _rows;
     private readonly int _recordsAffected;
     private object?[] _current = [];
+    private bool _pendingFirst;
+    private bool _hadRows;
     private bool _closed;
 
     /// <param name="recordsAffected">Rows affected for a DML command; -1 for a query (ADO convention).</param>
@@ -19,11 +21,20 @@ public sealed class LibRedDataReader : DbDataReader
         _result = result;
         _rows = result.Rows.GetEnumerator();
         _recordsAffected = recordsAffected;
+
+        // Buffer the first row eagerly so column types (GetFieldType/GetDataTypeName) are available
+        // before the first Read — EF's BufferedDataReader reads that metadata before reading any rows.
+        if (_rows.MoveNext())
+        {
+            _current = _rows.Current;
+            _pendingFirst = true;
+            _hadRows = true;
+        }
     }
 
     public override int FieldCount => _result.ColumnNames.Count;
     public override int Depth => 0;
-    public override bool HasRows => _result.Rows.Any();
+    public override bool HasRows => _hadRows;
     public override bool IsClosed => _closed;
     public override int RecordsAffected => _recordsAffected;
 
@@ -32,6 +43,7 @@ public sealed class LibRedDataReader : DbDataReader
 
     public override bool Read()
     {
+        if (_pendingFirst) { _pendingFirst = false; return true; } // yield the pre-buffered first row
         if (!_rows.MoveNext()) return false;
         _current = _rows.Current;
         return true;
@@ -78,7 +90,8 @@ public sealed class LibRedDataReader : DbDataReader
 
     public override bool IsDBNull(int ordinal) => _current[ordinal] is null;
 
-    public override Type GetFieldType(int ordinal) => _current[ordinal]?.GetType() ?? typeof(object);
+    public override Type GetFieldType(int ordinal) =>
+        ordinal >= 0 && ordinal < _current.Length && _current[ordinal] is { } v ? v.GetType() : typeof(object);
 
     public override string GetDataTypeName(int ordinal) => GetFieldType(ordinal).Name;
 

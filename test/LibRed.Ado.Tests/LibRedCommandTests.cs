@@ -50,6 +50,22 @@ public class LibRedCommandTests
     }
 
     [Fact]
+    public void Column_metadata_is_available_before_the_first_read()
+    {
+        // EF Core's BufferedDataReader reads GetFieldType/GetDataTypeName before any Read().
+        using var conn = OpenConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT ProductID, ProductName FROM Products";
+
+        using var reader = cmd.ExecuteReader();
+        Assert.True(reader.HasRows);
+        Assert.Equal(2, reader.FieldCount);
+        Assert.Equal("ProductID", reader.GetName(0));
+        Assert.Equal(typeof(int), reader.GetFieldType(0));         // must not throw before Read()
+        Assert.NotEmpty(reader.GetDataTypeName(1));
+    }
+
+    [Fact]
     public void TimeSpan_parameter_round_trips_through_a_datetime_column()
     {
         // Jet has no TimeSpan type; EF stores it in a datetime column as an offset from 1899-12-30.

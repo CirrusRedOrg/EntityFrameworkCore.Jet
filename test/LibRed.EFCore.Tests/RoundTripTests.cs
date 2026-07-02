@@ -40,6 +40,33 @@ public class RoundTripTests
     }
 
     [Fact]
+    public void SaveChanges_inserts_a_new_entity()
+    {
+        // The path the user hit: EF Core executes the INSERT through ExecuteReader and inspects
+        // RecordsAffected. Insert on a copy so the shared Northwind isn't mutated.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-save-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            var options = new DbContextOptionsBuilder<NorthwindContext>()
+                .UseLibRed($"Data Source={path}").Options;
+
+            using (var context = new NorthwindContext(options))
+            {
+                context.Customers.Add(new Customer { CustomerID = "ZZTOP", CompanyName = "LibRed Co", City = "Testville" });
+                Assert.Equal(1, context.SaveChanges());
+            }
+            using (var context = new NorthwindContext(options))
+            {
+                var c = context.Customers.Single(x => x.CustomerID == "ZZTOP");
+                Assert.Equal("LibRed Co", c.CompanyName);
+                Assert.Equal("Testville", c.City);
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Provider_uses_the_libred_connection_not_oledb()
     {
         using var context = CreateContext();

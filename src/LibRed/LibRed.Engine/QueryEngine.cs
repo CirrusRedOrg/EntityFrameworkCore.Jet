@@ -33,11 +33,28 @@ public sealed class QueryEngine
     }
 
     public int ExecuteNonQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
+        => Execute(sql, parameters).RecordsAffected;
+
+    /// <summary>
+    /// Parses and binds once, then routes by statement kind: a query (<c>SELECT</c> / set operation)
+    /// is planned and executed into a <see cref="ResultSet"/>; a DML/DDL statement (<c>INSERT</c>,
+    /// <c>CREATE TABLE</c>) runs directly against storage and reports rows affected. This is the
+    /// single entry point the ADO layer uses so that <c>ExecuteReader</c> works for *any* statement —
+    /// EF Core executes inserts through the reader path to read results back.
+    /// </summary>
+    public CommandResult Execute(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
-        // DDL/DML run directly against storage from the AST — they have no row plan.
         SqlStatement ast = _parser.ParseStatement(sql);
         BoundStatement bound = _binder.Bind(ast);
-        return new StatementExecutor(_database, parameters).Execute(bound.Statement);
+
+        if (bound.Statement is SelectStatement or SetOperationStatement)
+        {
+            ResultSet rows = new QueryExecutor(_database, parameters).ExecuteQuery(_planner.Plan(bound));
+            return new CommandResult(rows, RecordsAffected: -1);
+        }
+
+        int affected = new StatementExecutor(_database, parameters).Execute(bound.Statement);
+        return new CommandResult(ResultSet.Empty, affected);
     }
 
     private Plan.PlanNode Compile(string sql)
@@ -47,3 +64,7 @@ public sealed class QueryEngine
         return _planner.Plan(bound);
     }
 }
+
+/// <summary>The outcome of <see cref="QueryEngine.Execute"/>: query rows (with
+/// <see cref="RecordsAffected"/> = -1) or an empty set with the DML rows-affected count.</summary>
+public sealed record CommandResult(ResultSet Rows, int RecordsAffected);

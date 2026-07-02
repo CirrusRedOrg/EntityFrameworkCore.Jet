@@ -36,7 +36,7 @@ public sealed class LibRedCommand : DbCommand
 
     public override void Prepare() { }
 
-    public override int ExecuteNonQuery() => RequireEngine().ExecuteNonQuery(CommandText, BuildParameters());
+    public override int ExecuteNonQuery() => RequireEngine().Execute(CommandText, BuildParameters()).RecordsAffected;
 
     public override object? ExecuteScalar()
     {
@@ -48,8 +48,11 @@ public sealed class LibRedCommand : DbCommand
 
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
     {
-        var result = RequireEngine().ExecuteQuery(CommandText, BuildParameters());
-        return new LibRedDataReader(result);
+        // Route through Execute so the reader path also handles DML/DDL: EF Core runs inserts through
+        // ExecuteReader and inspects RecordsAffected. A query yields rows (RecordsAffected -1); an
+        // INSERT/CREATE runs and yields an empty result carrying its rows-affected count.
+        Engine.CommandResult result = RequireEngine().Execute(CommandText, BuildParameters());
+        return new LibRedDataReader(result.Rows, result.RecordsAffected);
     }
 
     private Engine.QueryEngine RequireEngine() =>

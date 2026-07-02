@@ -50,6 +50,45 @@ public class LibRedCommandTests
     }
 
     [Fact]
+    public void ExecuteReader_runs_an_insert_and_reports_records_affected()
+    {
+        // EF Core executes inserts through ExecuteReader and inspects RecordsAffected — so the reader
+        // path must handle DML, not just queries.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-ado-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using (var conn = new LibRedConnection($"Data Source={path}"))
+            {
+                conn.Open();
+
+                using (var create = conn.CreateCommand())
+                {
+                    create.CommandText = "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `N` TEXT(10))";
+                    using var cr = create.ExecuteReader();      // DDL via the reader path
+                    Assert.Equal(0, cr.RecordsAffected);
+                }
+                using (var insert = conn.CreateCommand())
+                {
+                    insert.CommandText = "INSERT INTO `T` (`Id`, `N`) VALUES (@id, @n)";
+                    var pid = insert.CreateParameter(); pid.ParameterName = "@id"; pid.Value = 1; insert.Parameters.Add(pid);
+                    var pn = insert.CreateParameter(); pn.ParameterName = "@n"; pn.Value = "x"; insert.Parameters.Add(pn);
+
+                    using var ir = insert.ExecuteReader();       // the EF path
+                    Assert.Equal(1, ir.RecordsAffected);
+                    Assert.False(ir.Read());                     // an insert yields no rows
+                }
+                using (var sel = conn.CreateCommand())
+                {
+                    sel.CommandText = "SELECT `N` FROM `T` WHERE `Id` = 1";
+                    Assert.Equal("x", sel.ExecuteScalar());
+                }
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Getordinal_getvalues_and_typed_accessors_work_after_read()
     {
         using var conn = OpenConnection();

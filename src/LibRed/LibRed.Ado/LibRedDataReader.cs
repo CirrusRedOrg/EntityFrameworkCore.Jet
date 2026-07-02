@@ -9,20 +9,23 @@ public sealed class LibRedDataReader : DbDataReader
 {
     private readonly ResultSet _result;
     private readonly IEnumerator<object?[]> _rows;
+    private readonly int _recordsAffected;
     private object?[] _current = [];
     private bool _closed;
 
-    internal LibRedDataReader(ResultSet result)
+    /// <param name="recordsAffected">Rows affected for a DML command; -1 for a query (ADO convention).</param>
+    internal LibRedDataReader(ResultSet result, int recordsAffected = -1)
     {
         _result = result;
         _rows = result.Rows.GetEnumerator();
+        _recordsAffected = recordsAffected;
     }
 
     public override int FieldCount => _result.ColumnNames.Count;
     public override int Depth => 0;
     public override bool HasRows => _result.Rows.Any();
     public override bool IsClosed => _closed;
-    public override int RecordsAffected => -1;
+    public override int RecordsAffected => _recordsAffected;
 
     public override object this[int ordinal] => GetValue(ordinal);
     public override object this[string name] => GetValue(GetOrdinal(name));

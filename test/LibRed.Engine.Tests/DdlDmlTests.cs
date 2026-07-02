@@ -14,6 +14,27 @@ public class DdlDmlTests
     }
 
     [Fact]
+    public void Statements_with_a_trailing_semicolon_parse()
+    {
+        // EF Core terminates each statement with ';'. The grammar accepts an optional trailing one.
+        string path = CopyToTemp();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var engine = new QueryEngine(db);
+
+            engine.ExecuteNonQuery("CREATE TABLE `S` (`Id` INTEGER PRIMARY KEY, `N` TEXT(10));");
+            Assert.Equal(1, engine.ExecuteNonQuery("INSERT INTO `S` (`Id`, `N`) VALUES (1, 'a');"));
+
+            var rows = engine.ExecuteQuery("SELECT `Id`, `N` FROM `S`;").Rows.ToList();
+            Assert.Single(rows);
+            Assert.Equal(1, Convert.ToInt32(rows[0][0]));
+            Assert.Equal("a", rows[0][1]);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void Autonumber_is_generated_for_inserts_that_omit_the_column()
     {
         string path = CopyToTemp();

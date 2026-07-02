@@ -10,7 +10,8 @@
 
 grammar AccessSql;
 
-statement : (createTableStatement | insertStatement | queryExpression) EOF ;
+// A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
+statement : (createTableStatement | insertStatement | queryExpression) SEMI? EOF ;
 
 // ---- DDL / DML ----
 
@@ -176,6 +177,7 @@ LPAREN : '(' ;
 RPAREN : ')' ;
 COMMA  : ',' ;
 DOT    : '.' ;
+SEMI   : ';' ;
 PARAM  : '?' | '@' [A-Za-z_][A-Za-z_0-9]* ;
 
 INTEGER_LITERAL : [0-9]+ ;

@@ -3,7 +3,7 @@
 This is LibRed's own specification of the Microsoft Jet 4 / ACE (Access `.mdb` / `.accdb`)
 on-disk format. **Every offset and structure here has been verified byte-for-byte against
 real database files** (the Northwind ACE-2007 sample, a generated 200-column wide table,
-and a generated ~150 MB large table) and cross-checked against mdbtools (`src/libmdb/`)
+and a generated ~150 MB large table) and cross-checked against mdbtools (its `HACKING.md`)
 and Jackcess. Several structures are additionally verified from the **write** side: LibRed
 produces them and Access's own OLE DB engine reads the result back (a LibRed-inserted row is
 found by an Access indexed primary-key seek; encoded index keys match Access's stored bytes).
@@ -664,8 +664,8 @@ Jet 4/ACE defaults; a future `Jet3Format` overrides the ones that differ.
 
 Verified against: `Northwind.accdb` (ACE 2007), a generated 200-column ACCDB (multi-page TDEF),
 and a generated ~150 MB ACCDB (reference usage map). Cross-referenced with mdbtools
-`src/libmdb/` (`table.c`, `data.c`, `index.c`) and Jackcess (`TableImpl`, `ColumnImpl`,
-`IndexData`, `IndexCodes`). The LibRed test suite (`test/LibRed.Core.Tests/`) pins these
+(`HACKING.md`, and its `table.c` / `data.c` / `index.c`) and Jackcess (`TableImpl`, `ColumnImpl`,
+`IndexData`, `IndexCodes`) — consulted upstream, not vendored here. The LibRed test suite (`test/LibRed.Core.Tests/`) pins these
 structures, including whole-database golden dumps. Write-side structures (row insertion,
 order-preserving key encoding, leaf-entry layout) are additionally cross-checked against
 Access's own engine via OLE DB: insert the same row through LibRed and through Access, then

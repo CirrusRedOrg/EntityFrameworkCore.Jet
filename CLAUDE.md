@@ -123,7 +123,9 @@ src/LibRed/
   LibRed.Engine/    Logical Plan nodes, QueryPlanner, CatalogSchemaProvider (bridges the
                     catalog to the binder), QueryExecutor, QueryEngine facade
   LibRed.Ado/       ADO.NET surface: DbConnection/Command/DataReader/Parameter/Transaction/Factory
-  LibRed.EFCore/    Placeholder for the future EF Core provider over LibRed.Ado
+  LibRed.EFCore/    EF Core provider over LibRed.Ado: AddEntityFrameworkLibRed/UseLibRed,
+                    connection, database creator, database-first scaffolding (query round-trips
+                    + scaffolding pass; IQuerySqlGeneratorFactory override still planned)
 ```
 
 **Build configuration:** `src/LibRed/Directory.Build.props` deliberately bypasses
@@ -148,10 +150,12 @@ understanding grows.
 > such. If a `LibRed.Core` change genuinely needs no spec edit, that's fine — but the check is
 > not optional.
 
-Reference implementations for the binary layouts: **mdbtools**
-(`src/libmdb/`) and **Jackcess**. The build order and project detail live in `src/LibRed/README.md`.
-ANTLR is present but **not** wired into the build yet (commented `Antlr4BuildTasks`
-block in `LibRed.Sql.csproj`).
+Reference implementations for the binary layouts: **mdbtools** (its `HACKING.md` documents the
+on-disk structures) and **Jackcess** — neither is vendored in this repo; consult them upstream.
+The project detail and current status live in `src/LibRed/README.md`. ANTLR **is** the active SQL
+parser: the lexer/parser are pre-generated and committed under `LibRed.Sql/Grammar/Generated/`
+(managed `Antlr4.Runtime.Standard` runtime only, no build-time codegen), regenerated via
+`LibRed.Sql/Grammar/generate.ps1` after editing `AccessSql.g4`.
 
 ## Versioning
 

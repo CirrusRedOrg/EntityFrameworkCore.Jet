@@ -630,9 +630,17 @@ Then the value, transformed:
 
 - **MSysObjects** (TDEF at page **2**) lists every object. Columns include `Id`, `Name`,
   `Type`, `Flags`, `ParentId`. For a **table** object (`Type == 1`), **`Id` is the table's TDEF
-  page number**. An object is a system object if `Flags & 0x80000002` is set, or its name
-  begins with `MSys`/`~`. Bootstrap: build a TableDef for MSysObjects from page 2 and read its
-  rows like any table.
+  page number**. An object is excluded from the **user-table** list (as Access's own schema view
+  does — it hides system *and* hidden objects) if `Flags & 0x80000002` (system: `0x80000000` +
+  `0x00000002`) **or** `Flags & 0x00000008` (**hidden** — observed on nav-pane tables and on
+  EFCore.Jet's `#Dual` helper) is set, **or** its name begins with `MSys` / `~` / `#`. Bootstrap:
+  build a TableDef for MSysObjects from page 2 and read its rows like any table.
+
+  > **Why the hidden bit / `#` prefix matter.** Missing them makes a hidden helper such as
+  > EFCore.Jet's `#Dual` (`Flags = 0x08`) count as a *user* table, so a "has any user tables?" check
+  > wrongly reports a schema-less database as populated — which makes EF Core's `EnsureCreated` skip
+  > creating the model's tables. Real user tables carry `Flags = 0x00000000`, so excluding the
+  > system/hidden bits never drops a genuine table.
 
   **Writing a table object** (verified against Northwind rows). A complete user-table row sets:
   `Id` = TDEF page; `ParentId` = `0x0F000001` (the database's "Tables" container, constant);

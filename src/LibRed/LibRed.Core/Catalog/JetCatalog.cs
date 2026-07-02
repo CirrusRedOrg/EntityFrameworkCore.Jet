@@ -17,8 +17,14 @@ public sealed class JetCatalog(PageChannel channel)
     /// <summary>MSysObjects.Type value for a table object.</summary>
     private const short ObjectTypeTable = 1;
 
-    /// <summary>MSysObjects.Flags bits marking a system object.</summary>
+    /// <summary>MSysObjects.Flags bits marking a system object (`0x80000000` system, `0x00000002`
+    /// system attribute).</summary>
     private const uint SystemObjectFlags = 0x80000002;
+
+    /// <summary>MSysObjects.Flags bit marking a <b>hidden</b> object (`0x08`, observed on Access's
+    /// nav-pane tables and on EFCore.Jet's `#Dual` helper). Access excludes hidden objects from its
+    /// user-table list, so we treat them as non-user too.</summary>
+    private const uint HiddenObjectFlags = 0x00000008;
 
     // MSysRelationships.grbit flags (DAO RelationAttributeEnum).
     private const int RelationshipDontEnforce = 0x00000002;
@@ -73,9 +79,13 @@ public sealed class JetCatalog(PageChannel channel)
             int definitionPage = (int)row[idIndex]!;
             string name = (string)row[nameIndex]!;
             uint flags = unchecked((uint)(int)row[flagsIndex]!);
-            bool isSystem = (flags & SystemObjectFlags) != 0
+            // A table is "system" (excluded from the user-table list, as Access's own schema view
+            // does) if it is flagged system or hidden, or is named as engine/temporary infrastructure:
+            // MSys*, a leading '~' (temp), or a leading '#' (e.g. EFCore.Jet's hidden #Dual helper).
+            bool isSystem = (flags & (SystemObjectFlags | HiddenObjectFlags)) != 0
                             || name.StartsWith("MSys", StringComparison.Ordinal)
-                            || name.StartsWith('~');
+                            || name.StartsWith('~')
+                            || name.StartsWith('#');
 
             tables.Add(ReadTableDefinition(definitionPage, name, isSystem));
         }

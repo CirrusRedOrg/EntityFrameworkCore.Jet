@@ -21,7 +21,7 @@ LibRed reads and writes the file format directly.
 | **LibRed.Sql** | SQL front end: ANTLR grammar, AST, parser, binder. No engine dependency; binds through an injected `ISchemaProvider` | — |
 | **LibRed.Engine** | Plans and executes bound statements over Core; bridges the catalog to the SQL binder | Core, Sql |
 | **LibRed.Ado** | ADO.NET surface: `DbConnection`/`DbCommand`/`DbDataReader`/`DbParameter`/`DbTransaction`/`DbProviderFactory` | Engine |
-| **LibRed.EFCore** | EF Core provider built on the ADO layer (placeholder) | Ado |
+| **LibRed.EFCore** | EF Core provider over the ADO layer: `AddEntityFrameworkLibRed()` / `UseLibRed()`, connection, database creator, database-first scaffolding | Ado |
 
 Dependency graph (a clean DAG, no cycles):
 
@@ -41,29 +41,44 @@ Pages    (DatabaseDefinition, TableDefinition, Data, Index, UsageMap, Lval)
    ↓
 IO       (PageChannel, PageBuffer)   ← Crypto decrypts pages here
    ↓
-Formats  (JetFormatBase + Jet3/4/12/14/16/17 — offsets & constants only)
+Formats  (JetFormatBase — Jet 4 / ACE offsets & constants; a future Jet3Format overrides)
 ```
 
 ## Status
 
-This is a structural scaffold. Almost every method body is a documented `TODO`.
-The binary-layout work (steps 3–8 below) is best driven from the
-[mdbtools](https://github.com/mdbtools/mdbtools) (`src/libmdb/`) and
-[Jackcess](https://jackcess.sourceforge.io/) sources, which thoroughly document the
-on-disk structures.
+Well past scaffolding — LibRed reads and writes real `.accdb` files, runs SQL end-to-end, and an
+EF Core `DbContext` round-trips through it. The binary layout is documented and **verified** in
+[`docs/jet-ace-file-format.md`](docs/jet-ace-file-format.md) (against real files and Access's own
+engine), cross-checked with [mdbtools](https://github.com/mdbtools/mdbtools) and
+[Jackcess](https://jackcess.sourceforge.io/).
 
-### Suggested build order
+**Working today:**
 
-1. `PageBuffer` + `PageChannel` — read raw bytes from a file
-2. Fill in `JetFormatBase` constants for Jet 3 / Jet 4
-3. `DatabaseDefinitionPage` — parse page 0, confirm version & page size
-4. `TableDefinitionPage` + `ColumnDef` — parse a table's column layout
-5. `DataPage` + `RowDecoder` — read rows from a known table
-6. `UsageMap` — enumerate all of a table's data pages
-7. `JetCatalog` — bootstrap from `MSysObjects`
-8. `Table` + `TableCursor` — full table scan end-to-end
-9. ANTLR grammar + a `SELECT * FROM t` executor through the full pipeline
-10. ADO.NET wrapper, then the EF Core provider
+- **Read** — every page type; catalog bootstrap from `MSysObjects`; full table scan; index B-tree
+  traversal (leaf + node, prefix compression); row decode (fixed/variable split, null bitmap,
+  in-bitmap booleans); data types incl. Text (compressed-Unicode common case), Memo/OLE long
+  values, Currency, DateTime, GUID, Numeric/Decimal, and ACE-16 `BIGINT`/`DATETIME2`; inline and
+  reference usage maps.
+- **Write** — row insert with order-preserving index-key encoding and B-tree maintenance;
+  `CREATE TABLE` (heap + primary key) that **Access opens and round-trips**; AutoNumber generation
+  and high-water tracking; unique-index statistics; allocation through the global free-pages map;
+  `MSysObjects` / `MSysACEs` catalog rows; version-0 "General legacy" text index keys.
+- **SQL** — ANTLR front end (parser → binder via `ISchemaProvider` → planner → executor). Statements:
+  `CREATE TABLE`, `INSERT` (with AutoNumber), and `SELECT` with `WHERE`, joins, `GROUP BY`/aggregates,
+  `HAVING`, `ORDER BY`, `TOP`, `UNION`/`INTERSECT`/`EXCEPT`, subqueries, and parameters. Plan nodes:
+  Scan / IndexScan / Filter / Project / Join / Aggregate / Sort / Limit / SetOperation / DerivedTable.
+- **ADO.NET** — connection / command / reader / parameter / transaction / factory over the engine.
+- **EF Core** — `LibRed.EFCore` provider (`AddEntityFrameworkLibRed` / `UseLibRed`) over `LibRed.Ado`,
+  reusing most of `EFCore.Jet` and overriding the connection + scaffolding. Query round-trips and
+  database-first scaffolding pass (`LibRed.EFCore.Tests`).
+
+**Not yet (see `docs/` TODOs and code `TODO(...)` markers):**
+
+- DML `UPDATE` / `DELETE` (only `INSERT` so far); returning the generated AutoNumber id
+  (`@@IDENTITY`) up through Engine → Ado → EFCore.
+- **Writing** Memo/OLE (long-value) columns (read-only today); non-unique index statistics.
+- **Version-1** "General" text collation (Access 2010+); **Jet 3** format; password/encryption write;
+  reference-type usage maps for very large *new* tables.
 
 ## SQL pipeline
 
@@ -76,31 +91,38 @@ text → ISqlParser → AST → Binder(ISchemaProvider) → BoundStatement
      → QueryPlanner → PlanNode tree → QueryExecutor → ResultSet
 ```
 
-### Enabling ANTLR
+### ANTLR grammar
 
-The grammar lives at `LibRed.Sql/Grammar/AccessSql.g4` but is **not** wired into the
-build yet (so the solution compiles without the ANTLR tool). To turn it on, uncomment
-the `Antlr4BuildTasks` block in `LibRed.Sql.csproj`.
+The grammar lives at `LibRed.Sql/Grammar/AccessSql.g4` and **is** the active parser
+(`AntlrSqlParser` → `AccessSqlLexer`/`AccessSqlParser`). The lexer/parser/visitor are **pre-generated
+and committed** under `Grammar/Generated/`, and only the managed `Antlr4.Runtime.Standard` package is
+referenced — so the solution builds without the ANTLR code-generation tool. After editing
+`AccessSql.g4`, regenerate the sources with `Grammar/generate.ps1` (which needs the ANTLR tool) and
+commit them.
 
 ## EF Core provider (LibRed.EFCore)
 
-The plan for the (currently placeholder) `LibRed.EFCore` provider: mirror EFCore.Jet's
-DI registration. That provider wires all its services through
-`JetServiceCollectionExtensions.AddEntityFrameworkJet()`
-(`src/EFCore.Jet/Extensions/JetServiceCollectionExtensions.cs`) via an
-`EntityFrameworkRelationalServicesBuilder`. LibRed.EFCore exposes its own
-`AddEntityFrameworkLibRed()` that **keeps as much of EFCore.Jet as possible** and
-overrides only the LibRed-specific pieces on top:
+`LibRed.EFCore` mirrors EFCore.Jet's DI registration and is wired up: `AddEntityFrameworkLibRed()` /
+`UseLibRed()` register the provider, reusing EFCore.Jet's services (added via
+`JetServiceCollectionExtensions.AddEntityFrameworkJet()`,
+`src/EFCore.Jet/Extensions/JetServiceCollectionExtensions.cs`, through an
+`EntityFrameworkRelationalServicesBuilder`) and **overriding only the LibRed-specific pieces on top**.
+Query round-trips and database-first scaffolding pass today (`LibRed.EFCore.Tests`).
 
-- **`IQuerySqlGeneratorFactory`** (today `JetQuerySqlGeneratorFactory` → creates
-  `JetQuerySqlGenerator`) — the biggest difference. Owning both SQL generation and the
-  engine/parser means the generator can drop the ACE-pleasing contortions (parenthesised
-  multi-way joins, comma-vs-JOIN quirks, CBOOL/CLNG/TOP-SKIP gymnastics) that exist only
-  to satisfy the OLE DB/ODBC → ACE path. Subclass/customise rather than rewrite.
-- **The connection** (`IRelationalConnection` / `IJetRelationalConnection`) → a LibRed
+**Overridden today:**
+
+- **The connection** (`IJetRelationalConnection` → `LibRedRelationalConnection`) — a LibRed
   connection over `LibRed.Ado` instead of the OLE DB/ODBC `JetConnection`.
+- **`IRelationalDatabaseCreator`** (→ `LibRedDatabaseCreator`) and the **database-first scaffolding**
+  (`LibRedDatabaseModelFactory`, catalog-backed, plus `LibRedDesignTimeServices`).
 
-Because EF SQL generation is controlled top-to-bottom, the engine only needs to accept
-the SQL EF actually emits — so grow the SQL layer against real EF-generated queries, not
-arbitrary Jet syntax. (Note: the Jet builder uses `TryAdd` / add-if-absent, so confirm the
-override ordering when implementing.)
+So EF queries currently flow through EFCore.Jet's `JetQuerySqlGenerator` (which emits Jet SQL), and
+LibRed.Ado parses that SQL with its ANTLR front end.
+
+**Planned next — `IQuerySqlGeneratorFactory`** (today `JetQuerySqlGeneratorFactory` → creates
+`JetQuerySqlGenerator`), the biggest remaining override. Owning both SQL generation and the
+engine/parser means the generator can drop the ACE-pleasing contortions (parenthesised multi-way
+joins, comma-vs-JOIN quirks, `CBOOL`/`CLNG`/`TOP`-`SKIP` gymnastics) that exist only to satisfy the
+OLE DB/ODBC → ACE path — subclass/customise rather than rewrite. Until then, grow the SQL layer
+against the real EF-generated (Jet) queries it must accept. (Note: the Jet builder uses `TryAdd` /
+add-if-absent, so confirm the override ordering.)

@@ -6,24 +6,21 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetTimeSpanTypeMapping : TimeSpanTypeMapping
     {
-        private readonly IJetOptions _options;
+        public static new JetTimeSpanTypeMapping Default { get; } = new JetTimeSpanTypeMapping("datetime");
 
         public JetTimeSpanTypeMapping(
-                string storeType,
-                IJetOptions options)
+                string storeType)
             : base(storeType)
         {
-            _options = options;
         }
 
-        protected JetTimeSpanTypeMapping(RelationalTypeMappingParameters parameters, IJetOptions options)
+        protected JetTimeSpanTypeMapping(RelationalTypeMappingParameters parameters)
             : base(parameters)
         {
-            _options = options;
         }
 
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-            => new JetTimeSpanTypeMapping(parameters, _options);
+            => new JetTimeSpanTypeMapping(parameters);
 
         /*protected override DateTime ConvertToDateTimeCompatibleValue(object value)
             => JetConfiguration.TimeSpanOffset + (TimeSpan)value;*/

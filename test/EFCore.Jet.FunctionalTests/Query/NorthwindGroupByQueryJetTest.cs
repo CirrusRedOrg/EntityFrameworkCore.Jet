@@ -1487,7 +1487,7 @@ GROUP BY `o0`.`CustomerID`
                 """
 SELECT `s`.`Key`, COUNT(*) AS `Count`
 FROM (
-    SELECT MID(`c`.`CustomerID`, 0 + 1, 1) AS `Key`
+    SELECT MID(`c`.`CustomerID`, IIF(0 = -1, 0, 0) + 1, 1) AS `Key`
     FROM `Orders` AS `o`
     LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 ) AS `s`

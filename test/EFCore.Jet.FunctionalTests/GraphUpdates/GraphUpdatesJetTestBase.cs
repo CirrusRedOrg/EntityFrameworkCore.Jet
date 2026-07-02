@@ -157,79 +157,77 @@ public abstract class GraphUpdatesJetTestBase<TFixture>(TFixture fixture) : Grap
         {
             base.OnModelCreating(modelBuilder, context);
 
-            modelBuilder.Entity<AccessState>(
-                b =>
-                {
-                    b.Property(e => e.AccessStateId).ValueGeneratedNever();
-                    b.HasData(new AccessState { AccessStateId = 1 });
-                });
+            modelBuilder.Entity<AccessState>(b =>
+            {
+                b.Property(e => e.AccessStateId).ValueGeneratedNever();
+                b.HasData(new AccessState { AccessStateId = 1 });
+            });
 
-            modelBuilder.Entity<Cruiser>(
-                b =>
-                {
-                    b.Property(e => e.IdUserState).HasDefaultValue(1);
-                    b.HasOne(e => e.UserState).WithMany(e => e.Users).HasForeignKey(e => e.IdUserState);
-                });
+            modelBuilder.Entity<Cruiser>(b =>
+            {
+                b.Property(e => e.IdUserState).HasDefaultValue(1);
+                b.HasOne(e => e.UserState).WithMany(e => e.Users).HasForeignKey(e => e.IdUserState);
+            });
 
-            modelBuilder.Entity<AccessStateWithSentinel>(
-                b =>
-                {
-                    b.Property(e => e.AccessStateWithSentinelId).ValueGeneratedNever();
-                    b.HasData(new AccessStateWithSentinel { AccessStateWithSentinelId = 1 });
-                });
+            modelBuilder.Entity<AccessStateWithSentinel>(b =>
+            {
+                b.Property(e => e.AccessStateWithSentinelId).ValueGeneratedNever();
+                b.HasData(new AccessStateWithSentinel { AccessStateWithSentinelId = 1 });
+            });
 
-            modelBuilder.Entity<CruiserWithSentinel>(
-                b =>
-                {
-                    b.Property(e => e.IdUserState).HasDefaultValue(1).HasSentinel(667);
-                    b.HasOne(e => e.UserState).WithMany(e => e.Users).HasForeignKey(e => e.IdUserState);
-                });
+            modelBuilder.Entity<CruiserWithSentinel>(b =>
+            {
+                b.Property(e => e.IdUserState).HasDefaultValue(1).HasSentinel(667);
+                b.HasOne(e => e.UserState).WithMany(e => e.Users).HasForeignKey(e => e.IdUserState);
+            });
 
             modelBuilder.Entity<SomethingOfCategoryA>().Property<int>("CategoryId").HasDefaultValue(1);
             modelBuilder.Entity<SomethingOfCategoryB>().Property(e => e.CategoryId).HasDefaultValue(2);
 
-            modelBuilder.Entity<StringKeyAndIndexParent>(
-                b =>
-                {
-                    b.HasOne(e => e.Child)
-                        .WithOne(e => e.Parent)
-                        .HasForeignKey<StringKeyAndIndexChild>(e => e.ParentId)
-                        .HasPrincipalKey<StringKeyAndIndexParent>(e => e.AlternateId);
-                });
+            modelBuilder.Entity<StringKeyAndIndexParent>(b =>
+            {
+                b.HasOne(e => e.Child)
+                    .WithOne(e => e.Parent)
+                    .HasForeignKey<StringKeyAndIndexChild>(e => e.ParentId)
+                    .HasPrincipalKey<StringKeyAndIndexParent>(e => e.AlternateId);
+            });
 
-            modelBuilder.Entity<CompositeKeyWith<int>>(
-                b =>
-                {
+            modelBuilder.Entity<CompositeKeyWith<int>>(b =>
+            {
                     b.Property(e => e.PrimaryGroup).HasDefaultValue(1).HasSentinel(1);
-                });
+            });
 
-            modelBuilder.Entity<CompositeKeyWith<bool>>(
-                b =>
-                {
+            modelBuilder.Entity<CompositeKeyWith<bool>>(b =>
+            {
                     b.Property(e => e.PrimaryGroup).HasDefaultValue(true);
-                });
+            });
 
-            modelBuilder.Entity<CompositeKeyWith<bool?>>(
-                b =>
-                {
-                    b.Property(e => e.PrimaryGroup).HasDefaultValue(true);
-                });
+            modelBuilder.Entity<CompositeKeyWith<bool?>>(b =>
+            {
+                b.Property(e => e.PrimaryGroup).HasDefaultValue(true);
+            });
 
             modelBuilder.Entity<SharedFkRoot>().Property(x => x.Id).HasColumnType("int");
             modelBuilder.Entity<SharedFkDependant>().Property(x => x.Id).HasColumnType("int");
             modelBuilder.Entity<SharedFkParent>().Property(x => x.Id).HasColumnType("int");
+
+            modelBuilder.Entity<EntityZ>().Property(x => x.Id).HasConversion<int>();
         }
 
         protected override async Task SeedAsync(PoolableDbContext context)
         {
             await base.SeedAsync(context);
 
+            // Jet enforces MATCH FULL semantics for composite foreign keys: every column must be null
+            // or every column must be non-null and satisfy the reference. SQL Server (and EF Core's
+            // test suite) uses MATCH SIMPLE, where any null column bypasses the constraint.
+            // Optional relationships can produce a mixed-null FK state (one column null, one not),
+            // which is valid under MATCH SIMPLE but rejected by Jet, so those composite FK constraints
+            // are dropped here. Required and owned relationships are always fully null or fully non-null
+            // (owned FK columns are PK components and therefore non-nullable), so those FKs are kept.
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalComposite2` DROP CONSTRAINT `FK_OptionalComposite2_OptionalAk1_ParentId_ParentAlternateId`");
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalOverlapping2` DROP CONSTRAINT `FK_OptionalOverlapping2_RequiredComposite1_ParentId_ParentAlter~`");
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalSingleComposite2` DROP CONSTRAINT `FK_OptionalSingleComposite2_OptionalSingleAk1_BackId_ParentAlte~`");
-            await context.Database.ExecuteSqlAsync($"ALTER TABLE `OwnedOptional2` DROP CONSTRAINT `FK_OwnedOptional2_OwnedOptional1_OwnedOptional1OwnerRootId_Owne~`");
-            await context.Database.ExecuteSqlAsync($"ALTER TABLE `OwnedRequired2` DROP CONSTRAINT `FK_OwnedRequired2_OwnedRequired1_OwnedRequired1OwnerRootId_Owne~`");
-            await context.Database.ExecuteSqlAsync($"ALTER TABLE `RequiredComposite2` DROP CONSTRAINT `FK_RequiredComposite2_RequiredAk1_ParentId_ParentAlternateId`");
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `SharedFkParent` DROP CONSTRAINT `FK_SharedFkParent_SharedFkDependant_RootId_DependantId`");
         }
     }

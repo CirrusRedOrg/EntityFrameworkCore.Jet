@@ -2,6 +2,8 @@
 
 public class JetIntTypeMapping : IntTypeMapping
 {
+    public static new JetIntTypeMapping Default { get; } = new JetIntTypeMapping("integer");
+
     public JetIntTypeMapping(string storeType)
         : base(storeType, System.Data.DbType.Int32)
     {

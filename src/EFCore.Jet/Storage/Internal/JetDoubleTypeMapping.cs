@@ -6,6 +6,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetDoubleTypeMapping : DoubleTypeMapping
     {
+        public static new JetDoubleTypeMapping Default { get; } = new("double");
+
         public JetDoubleTypeMapping(
             string storeType)
             : base(storeType, System.Data.DbType.Double)

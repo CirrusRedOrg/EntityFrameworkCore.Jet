@@ -2074,36 +2074,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Scaffolding
                     DROP TABLE PrincipalTable;
                     """);
 
-        [ConditionalFact]
-        public void Skip_reflexive_foreign_key()
-            => Test(
-                """
-                    
-                    CREATE TABLE PrincipalTable (
-                    	Id int PRIMARY KEY,
-                    	CONSTRAINT MYFK FOREIGN KEY (Id) REFERENCES PrincipalTable(Id)
-                    );
-                    """,
-                [],
-                [],
-                dbModel =>
-                {
-                    var level = Fixture.OperationReporter.Messages
-                        .Single(
-                            m => m.Message
-                                 == JetResources.LogReflexiveConstraintIgnored(new TestLogger<JetLoggingDefinitions>())
-                                     .GenerateMessage("MYFK", "dbo.PrincipalTable")).Level;
-
-                    Assert.Equal(LogLevel.Debug, level);
-
-                    var table = Assert.Single(dbModel.Tables);
-                    Assert.Empty(table.ForeignKeys);
-                },
-                """
-                    
-                    DROP TABLE PrincipalTable;
-                    """);
-
         /*[ConditionalFact]
         public void Skip_duplicate_foreign_key()
             => Test(

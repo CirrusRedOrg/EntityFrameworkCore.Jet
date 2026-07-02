@@ -82,6 +82,9 @@ public class JetSqlTranslatingExpressionVisitor(
     private static readonly MethodInfo EscapeLikePatternParameterMethod =
         typeof(JetSqlTranslatingExpressionVisitor).GetTypeInfo().GetDeclaredMethod(nameof(ConstructLikePatternParameter))!;
 
+    private static readonly MethodInfo StringJoinMethodInfo
+        = typeof(string).GetRuntimeMethod(nameof(string.Join), [typeof(string), typeof(string[])])!;
+
     private const char LikeEscapeChar = '\\';
     private const string LikeEscapeString = "\\";
 
@@ -244,6 +247,35 @@ public class JetSqlTranslatingExpressionVisitor(
                 methodCallExpression.Object!, methodCallExpression.Arguments[0], StartsEndsWithContains.Contains, out var translation3))
         {
             return translation3;
+        }
+
+        if (method == StringJoinMethodInfo
+            && methodCallExpression.Arguments[1] is NewArrayExpression newArrayExpression
+            && Visit(methodCallExpression.Arguments[0]) is SqlExpression separator)
+        {
+            var stringTypeMapping = separator.TypeMapping;
+
+            SqlExpression? result = null;
+
+            foreach (var expression in newArrayExpression.Expressions)
+            {
+                if (Visit(expression) is not SqlExpression translated)
+                {
+                    return QueryCompilationContext.NotTranslatedExpression;
+                }
+
+                translated = _sqlExpressionFactory.Coalesce(
+                    _sqlExpressionFactory.ApplyTypeMapping(translated, stringTypeMapping),
+                    _sqlExpressionFactory.Constant(string.Empty, stringTypeMapping));
+
+                result = result is null
+                    ? translated
+                    : _sqlExpressionFactory.Add(
+                        _sqlExpressionFactory.Add(result, separator),
+                        translated);
+            }
+
+            return result ?? _sqlExpressionFactory.Constant(string.Empty, stringTypeMapping);
         }
 
         return base.VisitMethodCall(methodCallExpression);

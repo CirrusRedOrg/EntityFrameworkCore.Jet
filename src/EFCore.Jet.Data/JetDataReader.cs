@@ -3,7 +3,6 @@ using System.Data;
 using System.Data.Common;
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices.JavaScript;
 using System.Text;
 using System.Threading;
 
@@ -34,9 +33,12 @@ namespace EntityFrameworkCore.Jet.Data
         }
 
         private readonly DbDataReader _wrappedDataReader;
+        private bool _isClosed;
 
         public override void Close()
         {
+            if (_isClosed) return;
+            _isClosed = true;
             _wrappedDataReader.Close();
 #if DEBUG
             Interlocked.Decrement(ref _activeObjectsCount);
@@ -311,12 +313,27 @@ namespace EntityFrameworkCore.Jet.Data
         {
             // Fix for discussion https://jetentityframeworkprovider.codeplex.com/discussions/647028
             var value = _wrappedDataReader.GetValue(ordinal);
-            return JetConfiguration.UseDefaultValueOnDBNullConversionError &&
-                   Convert.IsDBNull(value)
-                ? Guid.Empty
-                : value is byte[] bytes
-                    ? new Guid(bytes)
-                    : (Guid)value;
+            if (JetConfiguration.UseDefaultValueOnDBNullConversionError &&
+                Convert.IsDBNull(value))
+            {
+                return default;
+            }
+            if (value is byte[] bytes)
+            {
+                return new Guid(bytes);
+            }
+            try
+            {
+                return (Guid)value;
+            }
+            catch
+            {
+                if (value is string s)
+                {
+                    return new Guid(s);
+                }
+            }
+            return (Guid)value;
         }
 
         public override short GetInt16(int ordinal)
@@ -541,6 +558,10 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 return (T)(object)GetDateTimeOffset(ordinal);
             }
+            if (typeof(T) == typeof(Guid))
+            {
+                return (T)(object)GetGuid(ordinal);
+            }
 
             return (T)GetValue(ordinal);
         }
@@ -551,9 +572,6 @@ namespace EntityFrameworkCore.Jet.Data
             {
                 _wrappedDataReader.Dispose();
             }
-#if DEBUG
-            Interlocked.Decrement(ref _activeObjectsCount);
-#endif
             base.Dispose(disposing);
         }
     }

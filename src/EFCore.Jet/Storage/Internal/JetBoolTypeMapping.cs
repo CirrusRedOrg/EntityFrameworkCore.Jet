@@ -4,6 +4,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetBoolTypeMapping : BoolTypeMapping
     {
+        public static new JetBoolTypeMapping Default { get; }  = new("smallint");
+
         public JetBoolTypeMapping(
             string storeType,
             DbType? dbType = System.Data.DbType.Boolean)

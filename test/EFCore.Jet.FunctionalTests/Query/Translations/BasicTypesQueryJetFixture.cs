@@ -94,7 +94,7 @@ public class BasicTypesQueryJetFixture : BasicTypesQueryFixtureBase, ITestSqlLog
         result.BasicTypesEntities.ForEach(b =>
         {
             b.DateTime = new DateTime(b.DateTime.Year, b.DateTime.Month, b.DateTime.Day, b.DateTime.Hour, b.DateTime.Minute, b.DateTime.Second);
-            b.DateTimeOffset = new DateTimeOffset(b.DateTimeOffset.Year, b.DateTimeOffset.Month, b.DateTimeOffset.Day, b.DateTimeOffset.Hour, b.DateTimeOffset.Minute, b.DateTimeOffset.Second, b.DateTimeOffset.Offset);
+            b.DateTimeOffset = new DateTimeOffset(b.DateTimeOffset.Year, b.DateTimeOffset.Month, b.DateTimeOffset.Day, b.DateTimeOffset.Hour, b.DateTimeOffset.Minute, b.DateTimeOffset.Second, b.DateTimeOffset.Offset).ToUniversalTime();
             b.TimeOnly = new TimeOnly(b.TimeOnly.Hour, b.TimeOnly.Minute, b.TimeOnly.Second);
             b.TimeSpan = new TimeSpan(b.TimeSpan.Days, b.TimeSpan.Hours, b.TimeSpan.Minutes, b.TimeSpan.Seconds);
             if (b.DateOnly.Year < 100)
@@ -119,7 +119,7 @@ public class BasicTypesQueryJetFixture : BasicTypesQueryFixtureBase, ITestSqlLog
             }
             if (b.DateTimeOffset.HasValue)
             {
-                b.DateTimeOffset = new DateTimeOffset(b.DateTimeOffset.Value.Year, b.DateTimeOffset.Value.Month, b.DateTimeOffset.Value.Day, b.DateTimeOffset.Value.Hour, b.DateTimeOffset.Value.Minute, b.DateTimeOffset.Value.Second, b.DateTimeOffset.Value.Offset);
+                b.DateTimeOffset = new DateTimeOffset(b.DateTimeOffset.Value.Year, b.DateTimeOffset.Value.Month, b.DateTimeOffset.Value.Day, b.DateTimeOffset.Value.Hour, b.DateTimeOffset.Value.Minute, b.DateTimeOffset.Value.Second, b.DateTimeOffset.Value.Offset).ToUniversalTime();
             }
             if (b.TimeOnly.HasValue)
             {

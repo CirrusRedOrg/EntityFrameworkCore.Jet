@@ -179,9 +179,9 @@ WHERE DATEVALUE(`b`.`DateTime`) IN (@dateOnly, #1998-05-04#)
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE DATETIME2FROMPARTS(DATEPART(year, [b].[DateOnly]), DATEPART(month, [b].[DateOnly]), DATEPART(day, [b].[DateOnly]), 21, 5, 19, 9405000, 7) = '2020-01-01T21:05:19.9405000'
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE (DateSerial(DATEPART('yyyy', `b`.`DateOnly`), DATEPART('m', `b`.`DateOnly`), DATEPART('d', `b`.`DateOnly`)) + TimeSerial(21, 5, 19)) = #2020-01-01 21:05:19#
 """);
     }
 
@@ -191,9 +191,9 @@ WHERE DATETIME2FROMPARTS(DATEPART(year, [b].[DateOnly]), DATEPART(month, [b].[Da
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE DATETIME2FROMPARTS(DATEPART(year, [b].[DateOnly]), DATEPART(month, [b].[DateOnly]), DATEPART(day, [b].[DateOnly]), DATEPART(hour, [b].[TimeOnly]), DATEPART(minute, [b].[TimeOnly]), DATEPART(second, [b].[TimeOnly]), DATEPART(nanosecond, [b].[TimeOnly]) / 100, 7) = '2020-01-01T15:30:10.0000000'
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE (DateSerial(DATEPART('yyyy', `b`.`DateOnly`), DATEPART('m', `b`.`DateOnly`), DATEPART('d', `b`.`DateOnly`)) + TimeSerial(DATEPART('h', `b`.`TimeOnly`), DATEPART('n', `b`.`TimeOnly`), DATEPART('s', `b`.`TimeOnly`))) = #2020-01-01 15:30:10#
 """);
     }
 
@@ -203,9 +203,9 @@ WHERE DATETIME2FROMPARTS(DATEPART(year, [b].[DateOnly]), DATEPART(month, [b].[Da
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE DATETIME2FROMPARTS(1990, 11, 10, DATEPART(hour, [b].[TimeOnly]), DATEPART(minute, [b].[TimeOnly]), DATEPART(second, [b].[TimeOnly]), DATEPART(nanosecond, [b].[TimeOnly]) / 100, 7) = '1990-11-10T15:30:10.0000000'
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE (DateSerial(1990, 11, 10) + TimeSerial(DATEPART('h', `b`.`TimeOnly`), DATEPART('n', `b`.`TimeOnly`), DATEPART('s', `b`.`TimeOnly`))) = #1990-11-10 15:30:10#
 """);
     }
 

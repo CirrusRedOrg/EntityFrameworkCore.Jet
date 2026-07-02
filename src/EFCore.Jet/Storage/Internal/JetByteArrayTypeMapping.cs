@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// </summary>
     public class JetByteArrayTypeMapping : ByteArrayTypeMapping
     {
-
+        public static new JetByteArrayTypeMapping Default { get; } = new();
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.

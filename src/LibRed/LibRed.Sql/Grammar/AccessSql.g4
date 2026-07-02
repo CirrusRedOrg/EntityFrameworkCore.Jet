@@ -27,10 +27,12 @@ dataType : typeName=identifier extra=identifier? (LPAREN size=INTEGER_LITERAL (C
 
 columnConstraint
     : NOT NULL          # NotNullConstraint
+    | NULL              # NullableConstraint
     | PRIMARY KEY       # PrimaryKeyConstraint
     ;
 
-tableConstraint : PRIMARY KEY LPAREN identifier (COMMA identifier)* RPAREN ;
+// EF Core emits a named table constraint: CONSTRAINT `PK_x` PRIMARY KEY (`col`, ...).
+tableConstraint : (CONSTRAINT identifier)? PRIMARY KEY LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN ;
 
 insertStatement
     : INSERT INTO table=identifier
@@ -155,6 +157,7 @@ INTO      : [Ii][Nn][Tt][Oo] ;
 VALUES    : [Vv][Aa][Ll][Uu][Ee][Ss] ;
 PRIMARY   : [Pp][Rr][Ii][Mm][Aa][Rr][Yy] ;
 KEY       : [Kk][Ee][Yy] ;
+CONSTRAINT : [Cc][Oo][Nn][Ss][Tt][Rr][Aa][Ii][Nn][Tt] ;
 ASC    : [Aa][Ss][Cc] ;
 DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;

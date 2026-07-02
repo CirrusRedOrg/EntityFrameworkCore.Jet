@@ -24,7 +24,7 @@ internal sealed class AstBuilder
         // Primary key from inline column constraints and any table-level PRIMARY KEY (cols).
         var primaryKey = columns.Where(c => c.PrimaryKey).Select(c => c.Name).ToList();
         foreach (TableConstraintContext tc in ctx.tableConstraint())
-            primaryKey.AddRange(tc.identifier().Select(Identifier));
+            primaryKey.AddRange(tc._columns.Select(Identifier));
 
         return new CreateTableStatement(Identifier(ctx.table), columns, primaryKey);
     }

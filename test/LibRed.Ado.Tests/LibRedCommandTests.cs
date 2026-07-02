@@ -50,6 +50,34 @@ public class LibRedCommandTests
     }
 
     [Fact]
+    public void Table_created_on_one_connection_is_visible_to_a_new_connection()
+    {
+        // EF creates the schema and then (after closing) inserts on a fresh connection. A table
+        // created + committed via one connection must be visible when another opens the same file.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-xconn-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using (var c1 = new LibRedConnection($"Data Source={path}"))
+            {
+                c1.Open();
+                using var create = c1.CreateCommand();
+                create.CommandText = "CREATE TABLE `Foo` (`Id` INTEGER PRIMARY KEY, `N` TEXT(10))";
+                create.ExecuteNonQuery();
+            } // c1 disposed → must flush
+
+            using (var c2 = new LibRedConnection($"Data Source={path}"))
+            {
+                c2.Open();
+                using var insert = c2.CreateCommand();
+                insert.CommandText = "INSERT INTO `Foo` (`Id`, `N`) VALUES (1, 'x')";
+                Assert.Equal(1, insert.ExecuteNonQuery()); // throws "table not found" if not visible
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void ExecuteReader_runs_an_insert_and_reports_records_affected()
     {
         // EF Core executes inserts through ExecuteReader and inspects RecordsAffected — so the reader

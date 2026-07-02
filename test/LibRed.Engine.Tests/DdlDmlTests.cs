@@ -14,6 +14,36 @@ public class DdlDmlTests
     }
 
     [Fact]
+    public void Ef_generated_create_table_shape_parses_and_round_trips()
+    {
+        // The exact shape EF Core's Jet migrations generator emits: backtick identifiers, an explicit
+        // NULL / NOT NULL nullability marker per column, and a named table-level PRIMARY KEY.
+        string path = CopyToTemp();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var engine = new QueryEngine(db);
+
+            engine.ExecuteNonQuery(
+                "CREATE TABLE `Widgets` (\n" +
+                "    `Id` integer NOT NULL,\n" +
+                "    `Name` varchar(255) NULL,\n" +
+                "    CONSTRAINT `PK_Widgets` PRIMARY KEY (`Id`)\n" +
+                ")");
+            Assert.Equal(1, engine.ExecuteNonQuery("INSERT INTO `Widgets` (`Id`, `Name`) VALUES (1, 'a')"));
+
+            var rows = engine.ExecuteQuery("SELECT `Id`, `Name` FROM `Widgets`").Rows.ToList();
+            Assert.Single(rows);
+            Assert.Equal(1, Convert.ToInt32(rows[0][0]));
+            Assert.Equal("a", rows[0][1]);
+
+            var pk = Assert.Single(db.Catalog.FindTable("Widgets")!.Indexes, i => i.IsPrimaryKey);
+            Assert.Equal(["Id"], pk.Columns.Select(c => c.Column.Name));
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void Statements_with_a_trailing_semicolon_parse()
     {
         // EF Core terminates each statement with ';'. The grammar accepts an optional trailing one.

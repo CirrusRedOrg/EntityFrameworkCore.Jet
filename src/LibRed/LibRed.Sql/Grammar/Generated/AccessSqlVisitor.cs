@@ -64,6 +64,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitNotNullConstraint([NotNull] AccessSqlParser.NotNullConstraintContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>NullableConstraint</c>
+	/// labeled alternative in <see cref="AccessSqlParser.columnConstraint"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitNullableConstraint([NotNull] AccessSqlParser.NullableConstraintContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>PrimaryKeyConstraint</c>
 	/// labeled alternative in <see cref="AccessSqlParser.columnConstraint"/>.
 	/// </summary>

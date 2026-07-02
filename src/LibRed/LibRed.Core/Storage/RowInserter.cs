@@ -109,6 +109,13 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// </summary>
     private (int PageNumber, byte[] Page) AllocateDataPage(JetFormatBase format)
     {
+        // We only allocate when no owned page had room, so the current tail (highest owned data page)
+        // is full. Access clears such a page from the free-pages map when it moves past it to a new
+        // page — leaving only the page currently being appended to marked free. Match that: clear the
+        // old tail's free bit, then set the new page's. (Verified against an ACE sequential fill: only
+        // the last of six equally-full pages stays in the free map.)
+        int previousTail = new UsageMap(_channel, _table).DataPages().DefaultIfEmpty(-1).Max();
+
         int pageNumber = new PageAllocator(_channel).Allocate();
 
         var page = new byte[format.PageSize];
@@ -120,17 +127,17 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             (ushort)(format.PageSize - format.DataRowDirectoryOffset));
         _channel.WritePage(pageNumber, page);
 
-        // Mark the page in the table's owned- and free-pages maps (it owns the page and the page
-        // has free space).
-        SetUsageBit(format.TdefOwnedPagesOffset, pageNumber);
-        SetUsageBit(TdefFreePagesOffset, pageNumber);
+        if (previousTail >= 0)
+            UpdateUsageBit(TdefFreePagesOffset, previousTail, set: false); // old tail is now full
+        UpdateUsageBit(format.TdefOwnedPagesOffset, pageNumber, set: true);
+        UpdateUsageBit(TdefFreePagesOffset, pageNumber, set: true);        // new tail has room
 
         return (pageNumber, page);
     }
 
-    /// <summary>Sets the bit for <paramref name="targetPage"/> in the inline usage map referenced by
-    /// the TDEF pointer at <paramref name="tdefPointerOffset"/> (row byte + 3-byte page).</summary>
-    private void SetUsageBit(int tdefPointerOffset, int targetPage)
+    /// <summary>Sets or clears the bit for <paramref name="targetPage"/> in the inline usage map
+    /// referenced by the TDEF pointer at <paramref name="tdefPointerOffset"/> (row byte + 3-byte page).</summary>
+    private void UpdateUsageBit(int tdefPointerOffset, int targetPage, bool set)
     {
         JetFormatBase format = _channel.Format;
         PageBuffer tdef = _channel.ReadPage(_table.DefinitionPage);
@@ -157,7 +164,9 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
                 $"[{startPage}, {startPage + bitmapBits}); a wider/reference-type usage map is not implemented yet.");
 
         int byteIndex = mapOffset + 5 + bitIndex / 8;
-        page[byteIndex] |= (byte)(1 << (bitIndex % 8));
+        byte mask = (byte)(1 << (bitIndex % 8));
+        if (set) page[byteIndex] |= mask;
+        else page[byteIndex] &= (byte)~mask;
         _channel.WritePage(mapPage, page);
     }
 

@@ -485,13 +485,15 @@ begins at **offset 4**.
 
 > **LibRed write behaviour (multi-page growth on insert).** When an insert finds no owned data page
 > with room, LibRed allocates a new page (via the global map, §9.1), initialises it as an empty data
-> page owned by the table, and **sets its bit in both the table's owned- and free-pages inline maps**.
-> Verified: 200 rows spill across ~20 data pages and Access reads the whole table and can still
-> insert. Two known simplifications vs Access:
-> - **The free bit is not cleared when a page fills.** LibRed leaves every allocated page's free bit
->   set; Access clears it once a page is full. Access tolerates the stale bits (it re-checks actual
->   free space) — verified by Access inserting after a LibRed multi-page fill — so this is a fidelity
->   gap, not a correctness one.
+> page owned by the table, sets its **owned** bit, and moves the **free** marker to it. Verified:
+> 200 rows spill across ~20 data pages and Access reads the whole table and can still insert.
+> - **Free-pages map = the current append tail only.** Access clears a page from the free-pages map
+>   when an insert finds it too full and moves on, so after a sequential fill only the *last* page
+>   stays marked free — verified: six equally-full ACE pages (all 252 bytes free) had only the last in
+>   the free map, because the earlier five each had a next-row attempt that didn't fit. LibRed matches
+>   this: on allocating a new page it **clears the previous tail's free bit and sets the new page's**,
+>   leaving exactly the tail marked free. (Non-sequential fills and deletes aren't specially handled —
+>   neither is supported yet.)
 > - **Inline map only, fixed window.** LibRed writes/updates the inline map with `startPage = 0` and a
 >   64-byte bitmap (pages 0–511). A data page numbered outside that window needs a wider start or a
 >   **reference-type** map (neither implemented); LibRed throws rather than writing past the record.

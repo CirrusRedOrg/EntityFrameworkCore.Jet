@@ -145,8 +145,17 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         if (page[mapOffset] != 0x00)
             throw new NotSupportedException("Reference-type usage map growth is not implemented yet.");
 
+        // The inline map covers pages [startPage, startPage + bitmapBits). A page outside that window
+        // needs a wider start or a reference-type map — neither is implemented; fail loudly rather
+        // than writing past the record and corrupting the neighbouring map/slot data.
         int startPage = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(mapOffset + 1, 4));
+        int bitmapBits = (holder.Rows[mapRow].Length - 5) * 8;
         int bitIndex = targetPage - startPage;
+        if (bitIndex < 0 || bitIndex >= bitmapBits)
+            throw new NotSupportedException(
+                $"Data page {targetPage} falls outside the inline usage map's window " +
+                $"[{startPage}, {startPage + bitmapBits}); a wider/reference-type usage map is not implemented yet.");
+
         int byteIndex = mapOffset + 5 + bitIndex / 8;
         page[byteIndex] |= (byte)(1 << (bitIndex % 8));
         _channel.WritePage(mapPage, page);

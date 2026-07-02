@@ -483,6 +483,19 @@ begins at **offset 4**.
 > The usage map is authoritative: a brute-force owner-scan can over-count, because deleted/
 > orphaned pages can retain a stale owner stamp that the map correctly omits.
 
+> **LibRed write behaviour (multi-page growth on insert).** When an insert finds no owned data page
+> with room, LibRed allocates a new page (via the global map, §9.1), initialises it as an empty data
+> page owned by the table, and **sets its bit in both the table's owned- and free-pages inline maps**.
+> Verified: 200 rows spill across ~20 data pages and Access reads the whole table and can still
+> insert. Two known simplifications vs Access:
+> - **The free bit is not cleared when a page fills.** LibRed leaves every allocated page's free bit
+>   set; Access clears it once a page is full. Access tolerates the stale bits (it re-checks actual
+>   free space) — verified by Access inserting after a LibRed multi-page fill — so this is a fidelity
+>   gap, not a correctness one.
+> - **Inline map only, fixed window.** LibRed writes/updates the inline map with `startPage = 0` and a
+>   64-byte bitmap (pages 0–511). A data page numbered outside that window needs a wider start or a
+>   **reference-type** map (neither implemented); LibRed throws rather than writing past the record.
+
 ### 9.1 Global free-pages map — page 1 (page allocation)
 
 Besides the per-table maps, the database has a **global free-pages map** at **page 1, row 0** (a

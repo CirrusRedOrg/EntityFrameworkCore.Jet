@@ -43,6 +43,42 @@ public class TableCreatorTests
     }
 
     [Fact]
+    public void Insert_spanning_multiple_data_pages_round_trips()
+    {
+        string path = CopyToTemp();
+        ColumnSpec[] schema =
+        [
+            new("Id", JetDataType.Int32, 4, IsFixedLength: true),
+            new("T", JetDataType.Text, 400, IsFixedLength: false),
+        ];
+        const int n = 200;                 // ~180-byte rows → tens of rows per 4 KB page
+        string pad = new string('x', 180);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Big", schema, primaryKey: ["Id"]);
+                var table = db.OpenTable("Big");
+                for (int i = 1; i <= n; i++) table.Insert([i, $"{i:D4}-{pad}"]);
+            }
+
+            using (var db = JetDatabase.Open(path))
+            {
+                var table = db.OpenTable("Big");
+                var rows = table.Rows().OrderBy(r => (int)r[0]!).ToList();
+                Assert.Equal(n, rows.Count);
+                Assert.Equal(Enumerable.Range(1, n), rows.Select(r => (int)r[0]!));
+                Assert.Equal($"0001-{pad}", rows[0][1]);
+
+                // The rows must have spilled onto more than one owned data page (allocate-on-overflow).
+                int ownedPages = new Storage.UsageMap(table.Channel, table.Definition).DataPages().Count();
+                Assert.True(ownedPages > 1, $"expected multiple data pages, got {ownedPages}");
+            }
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void Autonumber_is_generated_when_the_column_is_omitted()
     {
         string path = CopyToTemp();

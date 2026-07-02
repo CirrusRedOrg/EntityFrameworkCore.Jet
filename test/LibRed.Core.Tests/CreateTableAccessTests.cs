@@ -109,6 +109,44 @@ public class CreateTableAccessTests
     }
 
     [Fact]
+    public void Access_reads_a_multi_page_libred_table_and_can_insert_after()
+    {
+        // LibRed inserts enough rows to spill across many data pages (allocate-on-overflow). Access
+        // must read the whole table (all pages, via the owned-pages map) and still be able to insert.
+        string path = CopyToTemp();
+        const int n = 200;
+        string pad = new string('x', 180);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Big", [
+                    new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                    new ColumnSpec("T", JetDataType.Text, 400, IsFixedLength: false),
+                ], primaryKey: ["Id"]);
+                var table = db.OpenTable("Big");
+                for (int i = 1; i <= n; i++) table.Insert([i, $"{i:D4}-{pad}"]);
+            }
+
+            using var conn = OpenOleDb(path);
+            using (var read = conn.CreateCommand())
+            {
+                read.CommandText = "SELECT COUNT(*), SUM(Id) FROM Big";
+                using var r = read.ExecuteReader();
+                Assert.True(r.Read());
+                Assert.Equal(n, Convert.ToInt32(r.GetValue(0)));
+                Assert.Equal((long)n * (n + 1) / 2, Convert.ToInt64(r.GetValue(1)));
+            }
+            using (var ins = conn.CreateCommand())
+            {
+                ins.CommandText = "INSERT INTO Big (Id, T) VALUES (99999, 'ace')";
+                Assert.Equal(1, ins.ExecuteNonQuery());
+            }
+        }
+        finally { TryDelete(path); }
+    }
+
+    [Fact]
     public void Access_continues_autonumber_after_libred_populates_the_table()
     {
         // When LibRed writes rows into an AutoNumber table it must advance the TDEF high-water mark

@@ -72,18 +72,26 @@ public sealed class PageChannel : IDisposable
         // keyed off Format + the database definition page. See LibRed.Crypto.JetCrypto.
     }
 
-    /// <summary>Writes a full page back to the file at <paramref name="pageNumber"/>.</summary>
+    /// <summary>
+    /// Writes a full page back to the file at <paramref name="pageNumber"/>. If the page lies beyond
+    /// the current end of the file, the file is grown to accommodate it (any intervening pages are
+    /// zero-filled). This is legitimate: a page taken from the global free-pages map can lie past the
+    /// physical end (the map pre-accounts for growth, and allocation defers the physical write), and
+    /// writing the page is what materialises it — the same growth Access performs on such a write.
+    /// </summary>
     public void WritePage(int pageNumber, ReadOnlySpan<byte> source)
     {
         if (_readOnly)
             throw new InvalidOperationException("This channel was opened read-only.");
         if (source.Length != PageSize)
             throw new ArgumentException($"A page write must be exactly {PageSize} bytes.", nameof(source));
-        if (pageNumber < 0 || pageNumber > PageCount)
+        if (pageNumber < 0)
             throw new ArgumentOutOfRangeException(nameof(pageNumber));
 
         // TODO: page-level encryption mirrors the decryption in ReadPage once that lands.
         long offset = (long)pageNumber * PageSize;
+        if (offset > _stream.Length)
+            _stream.SetLength(offset); // zero-fills the gap up to this page
         _stream.Seek(offset, SeekOrigin.Begin);
         _stream.Write(source[..PageSize]);
     }

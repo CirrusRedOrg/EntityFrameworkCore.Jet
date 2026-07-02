@@ -109,6 +109,40 @@ public class CreateTableAccessTests
     }
 
     [Fact]
+    public void Access_reads_a_libred_created_memo_column()
+    {
+        // A memo (long-text) column with a short value stored inline: LibRed creates the column and
+        // writes the inline long-value descriptor, and Access reads the text back.
+        string path = CopyToTemp();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Memos", [
+                    new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                    new ColumnSpec("Note", JetDataType.Memo, 0, IsFixedLength: false),
+                ], primaryKey: ["Id"]);
+                var table = db.OpenTable("Memos");
+                table.Insert([1, "hello memo"]);
+                table.Insert([2, null]);
+            }
+
+            using var conn = OpenOleDb(path);
+            using (var read = conn.CreateCommand())
+            {
+                read.CommandText = "SELECT Note FROM Memos WHERE Id = 1";
+                Assert.Equal("hello memo", read.ExecuteScalar());
+            }
+            using (var readNull = conn.CreateCommand())
+            {
+                readNull.CommandText = "SELECT COUNT(*) FROM Memos WHERE Note IS NULL";
+                Assert.Equal(1, Convert.ToInt32(readNull.ExecuteScalar()));
+            }
+        }
+        finally { TryDelete(path); }
+    }
+
+    [Fact]
     public void Access_reads_a_multi_page_libred_table_and_can_insert_after()
     {
         // LibRed inserts enough rows to spill across many data pages (allocate-on-overflow). Access

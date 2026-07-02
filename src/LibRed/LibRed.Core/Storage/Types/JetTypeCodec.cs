@@ -114,7 +114,8 @@ public static class JetTypeCodec
     /// <summary>
     /// Encodes a non-null CLR value to its on-disk bytes — the inverse of <see cref="Decode"/>.
     /// Boolean is not handled here (its value lives in the null bitmap). Text is written as
-    /// uncompressed UTF-16LE. Long values (memo/OLE) are not written yet.
+    /// uncompressed UTF-16LE. Memo/OLE values are written as an <b>inline</b> long value
+    /// (see <see cref="EncodeInlineLongValue"/>); chained LVAL pages for larger values are not yet written.
     /// </summary>
     public static byte[] Encode(ColumnDef column, object value)
     {
@@ -146,6 +147,14 @@ public static class JetTypeCodec
             case JetDataType.FixedPoint:
                 return EncodeNumeric(Convert.ToDecimal(value, c), column.Scale);
 
+            // Long values (memo/OLE): store the payload inline after the 12-byte descriptor (memo
+            // text as UTF-16LE, OLE as raw bytes). LongValueReader reads this back via the inline
+            // flag. Chained LVAL pages for values too large to inline are not written yet.
+            case JetDataType.Memo:
+                return EncodeInlineLongValue(Encoding.Unicode.GetBytes((string)value));
+            case JetDataType.Ole:
+                return EncodeInlineLongValue((byte[])value);
+
             default:
                 throw new NotSupportedException($"Encoding {column.Type} is not supported yet.");
         }
@@ -156,6 +165,23 @@ public static class JetTypeCodec
         var b = new byte[length];
         write(b);
         return b;
+    }
+
+    /// <summary>
+    /// Builds an <b>inline</b> long-value (memo/OLE) in-row value: a 12-byte descriptor
+    /// (24-bit length, the <c>0x80</c> inline flag, then 8 unused bytes) followed by the payload.
+    /// This is the exact shape <see cref="LibRed.Storage.LongValueReader"/> reads back for an inline
+    /// value.
+    /// </summary>
+    private static byte[] EncodeInlineLongValue(ReadOnlySpan<byte> payload)
+    {
+        var result = new byte[12 + payload.Length];
+        result[0] = (byte)payload.Length;
+        result[1] = (byte)(payload.Length >> 8);
+        result[2] = (byte)(payload.Length >> 16);
+        result[3] = 0x80; // inline
+        payload.CopyTo(result.AsSpan(12));
+        return result;
     }
 
     /// <summary>Inverse of <see cref="DecodeNumeric"/>: 17 bytes, sign + 128-bit magnitude (top word 0).</summary>

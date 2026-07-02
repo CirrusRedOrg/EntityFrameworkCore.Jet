@@ -460,6 +460,14 @@ Flags:
 
 LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII marker `LVAL`.
 
+> **Writing (inline only).** LibRed writes a memo/OLE value as an **inline** long value: the 12-byte
+> descriptor with length + the `0x80` flag (bytes `0x04`–`0x0B` zero), immediately followed by the
+> payload (memo = UTF-16LE text, OLE = raw bytes) — the exact shape the reader resolves. Values too
+> large to fit inline (chained LVAL pages) are not written yet. Notably, a created table with a memo
+> column and inline values **does not need the §3.3.2 column usage-map entry** — Access reads it back
+> fine with the bare `0xFFFF` terminator (verified via OLE DB). That entry (and its usage-map records)
+> is only needed once the column actually owns LVAL pages.
+
 ---
 
 ## 9. Usage maps

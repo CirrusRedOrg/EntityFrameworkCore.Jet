@@ -14,6 +14,29 @@ public class DdlDmlTests
     }
 
     [Fact]
+    public void Memo_column_round_trips_including_null_and_a_long_value()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var engine = new QueryEngine(db);
+
+            engine.ExecuteNonQuery("CREATE TABLE `M` (`Id` INTEGER PRIMARY KEY, `Note` LONGCHAR NULL)");
+            engine.ExecuteNonQuery("INSERT INTO `M` (`Id`, `Note`) VALUES (1, 'hello memo world')");
+            engine.ExecuteNonQuery("INSERT INTO `M` (`Id`, `Note`) VALUES (2, NULL)");
+            string longText = new string('x', 500); // still inline (fits the page), exercises >255
+            engine.ExecuteNonQuery($"INSERT INTO `M` (`Id`, `Note`) VALUES (3, '{longText}')");
+
+            var rows = engine.ExecuteQuery("SELECT `Id`, `Note` FROM `M` ORDER BY `Id`").Rows.ToList();
+            Assert.Equal("hello memo world", rows[0][1]);
+            Assert.Null(rows[1][1]);
+            Assert.Equal(longText, rows[2][1]);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void Ef_generated_create_table_shape_parses_and_round_trips()
     {
         // The exact shape EF Core's Jet migrations generator emits: backtick identifiers, an explicit
@@ -208,21 +231,6 @@ public class DdlDmlTests
             using var db = JetDatabase.Open(path, readOnly: false);
             new QueryEngine(db).ExecuteNonQuery("CREATE TABLE `B` (`Id` INTEGER, `Flag` LOGICAL1)");
             Assert.Equal(LibRed.Catalog.JetDataType.Boolean, db.Catalog.FindTable("B")!.FindColumn("Flag")!.Type);
-        }
-        finally { File.Delete(path); }
-    }
-
-    [Fact]
-    public void Memo_column_fails_with_a_clear_message()
-    {
-        string path = CopyToTemp();
-        try
-        {
-            using var db = JetDatabase.Open(path, readOnly: false);
-            var engine = new QueryEngine(db);
-            var ex = Assert.Throws<NotSupportedException>(() =>
-                engine.ExecuteNonQuery("CREATE TABLE `M` (`Id` INTEGER, `Body` MEMO)"));
-            Assert.Contains("long values", ex.Message);
         }
         finally { File.Delete(path); }
     }

@@ -50,11 +50,12 @@ internal static class AccessTypeMapper
             "BINARY" or "VARBINARY" or "BIT VARYING"
                 => new ColumnSpec(column.Name, JetDataType.Binary, column.Size ?? 255, IsFixedLength: false),
 
-            // Long-value (LVAL-page) columns: recognised but not writable yet — fail clearly.
+            // Long-value columns: variable-length with no fixed byte length. The in-row value is a
+            // 12-byte long-value descriptor; short values are stored inline after it.
             "MEMO" or "LONGTEXT" or "LONGCHAR" or "NOTE"
-                => throw new NotSupportedException($"Memo/long-text columns ('{column.TypeName}') cannot be created yet (long values are not writable)."),
+                => new ColumnSpec(column.Name, JetDataType.Memo, 0, IsFixedLength: false),
             "OLEOBJECT" or "IMAGE" or "LONGBINARY"
-                => throw new NotSupportedException($"OLE/long-binary columns ('{column.TypeName}') cannot be created yet (long values are not writable)."),
+                => new ColumnSpec(column.Name, JetDataType.Ole, 0, IsFixedLength: false),
 
             _ => throw new NotSupportedException($"CREATE TABLE column type '{column.TypeName}' is not supported yet."),
         };

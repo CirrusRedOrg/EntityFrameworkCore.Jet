@@ -51,6 +51,24 @@ public sealed class LibRedDataReader : DbDataReader
 
     public override object GetValue(int ordinal) => _current[ordinal] ?? DBNull.Value;
 
+    /// <summary>The OLE epoch (1899-12-30) — Jet stores TimeSpan/TimeOnly as an offset from it.</summary>
+    private static readonly DateTime OleEpoch = new(1899, 12, 30);
+
+    /// <summary>
+    /// Typed accessor EF Core uses. Jet has no TimeSpan/DateOnly/TimeOnly type — they are stored in a
+    /// DateTime column — so convert a stored <see cref="DateTime"/> back when one of those is requested.
+    /// </summary>
+    public override T GetFieldValue<T>(int ordinal)
+    {
+        if (_current[ordinal] is DateTime dt)
+        {
+            if (typeof(T) == typeof(TimeSpan)) return (T)(object)(dt - OleEpoch);
+            if (typeof(T) == typeof(DateOnly)) return (T)(object)DateOnly.FromDateTime(dt);
+            if (typeof(T) == typeof(TimeOnly)) return (T)(object)TimeOnly.FromDateTime(dt);
+        }
+        return base.GetFieldValue<T>(ordinal);
+    }
+
     public override int GetValues(object[] values)
     {
         int count = Math.Min(values.Length, FieldCount);

@@ -135,7 +135,7 @@ public static class JetTypeCodec
             case JetDataType.Double:
                 return Bytes(8, b => BinaryPrimitives.WriteDoubleLittleEndian(b, Convert.ToDouble(value, c)));
             case JetDataType.DateTime:
-                return Bytes(8, b => BinaryPrimitives.WriteDoubleLittleEndian(b, Convert.ToDateTime(value, c).ToOADate()));
+                return Bytes(8, b => BinaryPrimitives.WriteDoubleLittleEndian(b, ToOaDate(value, c)));
             case JetDataType.Currency:
                 return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, (long)decimal.Round(Convert.ToDecimal(value, c) * 10000m)));
             case JetDataType.Guid:
@@ -166,6 +166,25 @@ public static class JetTypeCodec
         write(b);
         return b;
     }
+
+    /// <summary>The OLE-automation epoch (1899-12-30), which is also Jet's zero date and the base for
+    /// storing a <see cref="TimeSpan"/> / <see cref="TimeOnly"/> as a date offset.</summary>
+    private static readonly DateTime OleEpoch = new(1899, 12, 30);
+
+    /// <summary>
+    /// Converts a date/time-ish CLR value to the OLE-automation double stored in a Jet DateTime
+    /// column. Jet has no dedicated TimeSpan/DateOnly/TimeOnly type, so — like EFCore.Jet — a
+    /// <see cref="TimeSpan"/> and <see cref="TimeOnly"/> are stored as an offset from the epoch, and a
+    /// <see cref="DateOnly"/> as that date at midnight.
+    /// </summary>
+    private static double ToOaDate(object value, IFormatProvider c) => value switch
+    {
+        DateTime dt => dt.ToOADate(),
+        TimeSpan ts => (OleEpoch + ts).ToOADate(),
+        DateOnly d => d.ToDateTime(TimeOnly.MinValue).ToOADate(),
+        TimeOnly t => (OleEpoch + t.ToTimeSpan()).ToOADate(),
+        _ => Convert.ToDateTime(value, c).ToOADate(),
+    };
 
     /// <summary>
     /// Builds an <b>inline</b> long-value (memo/OLE) in-row value: a 12-byte descriptor

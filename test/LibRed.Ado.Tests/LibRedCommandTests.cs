@@ -50,6 +50,43 @@ public class LibRedCommandTests
     }
 
     [Fact]
+    public void TimeSpan_parameter_round_trips_through_a_datetime_column()
+    {
+        // Jet has no TimeSpan type; EF stores it in a datetime column as an offset from 1899-12-30.
+        // The command must accept a TimeSpan value and the reader must give it back as a TimeSpan.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-ts-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+
+            using (var create = conn.CreateCommand())
+            {
+                create.CommandText = "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `Dur` DATETIME)";
+                create.ExecuteNonQuery();
+            }
+            using (var insert = conn.CreateCommand())
+            {
+                insert.CommandText = "INSERT INTO `T` (`Id`, `Dur`) VALUES (1, @d)";
+                var p = insert.CreateParameter();
+                p.ParameterName = "@d";
+                p.Value = TimeSpan.FromHours(5).Add(TimeSpan.FromMinutes(30));
+                insert.Parameters.Add(p);
+                Assert.Equal(1, insert.ExecuteNonQuery());
+            }
+            using (var read = conn.CreateCommand())
+            {
+                read.CommandText = "SELECT `Dur` FROM `T` WHERE `Id` = 1";
+                using var reader = read.ExecuteReader();
+                Assert.True(reader.Read());
+                Assert.Equal(new TimeSpan(5, 30, 0), reader.GetFieldValue<TimeSpan>(0));
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Table_created_on_one_connection_is_visible_to_a_new_connection()
     {
         // EF creates the schema and then (after closing) inserts on a fresh connection. A table

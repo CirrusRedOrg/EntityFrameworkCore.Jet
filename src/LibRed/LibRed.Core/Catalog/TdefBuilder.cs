@@ -26,6 +26,12 @@ public sealed record IndexSpec(
     int UsageMapPage = 0);
 
 /// <summary>
+/// The trailing §3.3.2 column-usage-map entry for a long-value (memo/OLE) column: its column id and
+/// pointers to the owned- and free-pages usage maps that will track the column's LVAL pages.
+/// </summary>
+public sealed record LongValueColumnSpec(int ColumnId, int UsedRow, int FreeRow, int MapPage);
+
+/// <summary>
 /// Serializes a table schema into a Jet 4 / ACE table-definition (TDEF) page — the inverse of
 /// <see cref="TableDefinitionPage"/>. This first cut builds a single-page definition with no
 /// indexes; index-data blocks and continuation pages come later. Fixed columns are packed in
@@ -89,9 +95,11 @@ public static class TdefBuilder
         JetFormatBase format,
         TableType tableType,
         IReadOnlyList<ColumnSpec> specs,
-        IReadOnlyList<IndexSpec>? indexes = null)
+        IReadOnlyList<IndexSpec>? indexes = null,
+        IReadOnlyList<LongValueColumnSpec>? longValueColumns = null)
     {
         indexes ??= [];
+        longValueColumns ??= [];
         var columns = ResolveColumns(format, specs);
         var page = new byte[format.PageSize];
 
@@ -115,7 +123,7 @@ public static class TdefBuilder
         WriteColumnDescriptors(page, format, columns, columnBlock);
         int afterNames = WriteColumnNames(page, format, columns, columnBlock + columns.Count * format.ColumnDescriptorSize);
 
-        int definitionEnd = WriteIndexes(page, format, columns, indexes, afterNames);
+        int definitionEnd = WriteIndexes(page, format, columns, indexes, longValueColumns, afterNames);
 
         // Definition length and remaining free space (Access reserves an 8-byte continuation header).
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(TdefLengthOffset, 4), definitionEnd);
@@ -126,7 +134,7 @@ public static class TdefBuilder
     }
 
     /// <summary>Writes the index structures and returns the offset just past them (the definition end).</summary>
-    private static int WriteIndexes(byte[] page, JetFormatBase format, List<ColumnDef> columns, IReadOnlyList<IndexSpec> indexes, int dataBlockStart)
+    private static int WriteIndexes(byte[] page, JetFormatBase format, List<ColumnDef> columns, IReadOnlyList<IndexSpec> indexes, IReadOnlyList<LongValueColumnSpec> longValueColumns, int dataBlockStart)
     {
         var columnIdByName = columns.ToDictionary(c => c.Name, c => c.ColumnId, StringComparer.OrdinalIgnoreCase);
 
@@ -186,14 +194,30 @@ public static class TdefBuilder
             namePos += name.Length;
         }
 
-        // After the index names comes a per-long-value-column usage-map list, each entry
-        // {col_num:2, used_pages:4, free_pages:4}, terminated by col_num 0xFFFF (spec §3.3.2). We
-        // don't create memo/OLE columns yet, so the list is empty — but the terminator is still
-        // mandatory, and the definition length includes it. Omitting it makes Access reject the
-        // table ("Unrecognized database format"), verified byte-for-byte against ACE.
+        // After the index names comes a per-long-value-column (memo/OLE) usage-map list (spec §3.3.2):
+        // one 10-byte entry {col_num:2, used_pages:4, free_pages:4} per column, in ascending column
+        // order, terminated by col_num 0xFFFF. Each pointer is a 1-byte usage-map row + 3-byte page.
+        // The terminator is mandatory even when the list is empty; the definition length includes it.
+        foreach (LongValueColumnSpec lv in longValueColumns.OrderBy(l => l.ColumnId))
+        {
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(namePos, 2), (ushort)lv.ColumnId);
+            WriteUsageMapPointer(page, namePos + 2, lv.UsedRow, lv.MapPage);
+            WriteUsageMapPointer(page, namePos + 6, lv.FreeRow, lv.MapPage);
+            namePos += 10;
+        }
+
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(namePos, 2), 0xFFFF);
         namePos += 2;
         return namePos;
+    }
+
+    /// <summary>Writes a 4-byte usage-map pointer: a 1-byte record row followed by a 3-byte page.</summary>
+    private static void WriteUsageMapPointer(byte[] page, int offset, int row, int mapPage)
+    {
+        page[offset] = (byte)row;
+        page[offset + 1] = (byte)mapPage;
+        page[offset + 2] = (byte)(mapPage >> 8);
+        page[offset + 3] = (byte)(mapPage >> 16);
     }
 
     private static List<ColumnDef> ResolveColumns(JetFormatBase format, IReadOnlyList<ColumnSpec> specs)

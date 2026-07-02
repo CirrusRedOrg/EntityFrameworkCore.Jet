@@ -31,10 +31,20 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         bool hasPk = primaryKey is { Count: > 0 };
         int indexRootPage = hasPk ? _allocator.Allocate() : 0;
 
-        // Usage-map records on one page: row 0 = table owned, row 1 = table free, and (with an
-        // index) row 2 = the index's pages. All start empty (the index root is referenced by the
-        // index-data block, not the usage map).
-        WriteUsageMaps(format, usageMapPage, mapCount: hasPk ? 3 : 2);
+        // Usage-map records live on one page, in the order Access writes them: row 0 = table owned,
+        // row 1 = table free, then two rows (owned + free) per long-value (memo/OLE) column, then one
+        // row per index. All start empty — a fresh table owns no data, LVAL, or index pages yet.
+        var longValueCols = columns.Select((c, i) => (Column: c, Id: i))
+            .Where(x => x.Column.Type is JetDataType.Memo or JetDataType.Ole)
+            .ToList();
+        int columnMapRows = longValueCols.Count * 2;
+        int indexMapRow = 2 + columnMapRows; // first index's usage-map row
+        WriteUsageMaps(format, usageMapPage, mapCount: 2 + columnMapRows + (hasPk ? 1 : 0));
+
+        // §3.3.2 entries: each long-value column gets used/free maps at rows 2+2j / 3+2j.
+        var longValueSpecs = longValueCols
+            .Select((x, j) => new LongValueColumnSpec(x.Id, UsedRow: 2 + 2 * j, FreeRow: 3 + 2 * j, MapPage: usageMapPage))
+            .ToList();
 
         // A primary key is one unique index over an empty leaf root, populated as rows are inserted.
         IndexSpec[] indexes = [];
@@ -42,12 +52,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         {
             WriteEmptyLeafIndexPage(format, indexRootPage, owner: tdefPage);
             indexes = [new IndexSpec("PrimaryKey", primaryKey!, IsPrimaryKey: true, IsUnique: true,
-                indexRootPage, UsageMapRow: 2, UsageMapPage: usageMapPage)];
+                indexRootPage, UsageMapRow: indexMapRow, UsageMapPage: usageMapPage)];
         }
 
         // Build the definition and point it at the usage maps: owned-pages = row 0, free-pages =
         // row 1, both on the usage-map page.
-        byte[] tdef = TdefBuilder.Build(format, TableType.User, columns, indexes).Page;
+        byte[] tdef = TdefBuilder.Build(format, TableType.User, columns, indexes, longValueSpecs).Page;
         const int FreePagesOffset = 0x3B;
         tdef[format.TdefOwnedPagesOffset] = 0; // owned map record row
         WriteInt24(tdef, format.TdefOwnedPagesOffset + 1, usageMapPage);

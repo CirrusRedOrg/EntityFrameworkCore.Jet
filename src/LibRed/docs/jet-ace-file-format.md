@@ -465,13 +465,16 @@ LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII 
 > payload (memo = UTF-16LE text, OLE = raw bytes) — the exact shape the reader resolves. Values too
 > large to fit inline (chained LVAL pages) are not written yet.
 >
-> **The §3.3.2 column usage-map entry is needed *only* for LVAL pages — verified both directions.** A
-> LibRed-created table whose memo column has no §3.3.2 entry (bare `0xFFFF`) is fully usable for
-> **inline** values: Access reads them back *and* will itself insert a short value into it. But when a
-> value is large enough to spill to LVAL pages, the entry becomes mandatory — Access, inserting a
-> 6000-char value into such an entry-less table, fails with *"Not a valid bookmark"* (it has nowhere to
-> record the LVAL page it must allocate). So LVAL-memo support must add the `{col_num, used, free}`
-> entry (§3.3.2) and its usage-map records; until then, inline-only is correct and self-consistent.
+> **LibRed writes the §3.3.2 entry + empty usage maps for every memo/OLE column** — byte-faithful with
+> ACE, whose usage-map page lays the records out as: row 0 table-owned, row 1 table-free, then two
+> rows (owned/free) **per long-value column**, then one row per index (verified against Northwind
+> Categories). For a fresh table all these maps are empty; inline values allocate no LVAL pages so they
+> stay empty, and LVAL support will simply set bits in the per-column maps.
+>
+> The entry is only strictly *required* once a value spills to LVAL pages — an entry-less table still
+> round-trips inline values through both LibRed and Access, but Access fails *"Not a valid bookmark"*
+> writing a 6000-char value into one (nowhere to record the LVAL page). LibRed writes it regardless, so
+> its memo tables match ACE's structure and are already LVAL-ready.
 
 ---
 

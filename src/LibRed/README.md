@@ -102,7 +102,10 @@ engine), cross-checked with [mdbtools](https://github.com/mdbtools/mdbtools) and
   (out of scope).
 - **`CHECK` constraints — LibRed enforcement + column-level**: a *table-level* `CHECK` is persisted (so
   Access enforces it) and read back, but LibRed's own engine does **not** evaluate it on insert/update yet.
-  *Column-level* `CHECK` is parsed but not persisted (its ACE storage differs; not yet reverse-engineered).
+  Doing so needs the CHECK expression evaluated per row (`TableDef.CheckConstraints` holds the text) —
+  gated on the `UPDATE`/`DELETE` executors and on the Access expression functions a rule may use (`NOW`,
+  `DATE`, string funcs, …), many of which aren't implemented yet. *Column-level* `CHECK` is parsed but not
+  persisted (its ACE storage differs; not yet reverse-engineered).
 - **`CREATE INDEX` — non-empty table**: works for ascending/descending, `WITH PRIMARY`,
   `WITH DISALLOW NULL`, and `WITH IGNORE NULL` indexes on an **empty** table (EF's case: indexes are
   created right after `CREATE TABLE`, before seeding). Not yet: adding an index to a **non-empty** table

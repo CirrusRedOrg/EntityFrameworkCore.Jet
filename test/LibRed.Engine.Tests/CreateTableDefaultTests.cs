@@ -80,6 +80,27 @@ public class CreateTableDefaultTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // Creating a table whose name already exists (case-insensitively) is rejected, rather than writing a
+    // second MSysObjects row that shadows the existing table.
+    [Fact]
+    public void Duplicate_table_name_throws()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE `Widget` (`Id` INTEGER PRIMARY KEY)");
+            var ex = Assert.Throws<InvalidOperationException>(() =>
+                e.ExecuteNonQuery("CREATE TABLE `widget` (`Id` INTEGER PRIMARY KEY)")); // different case
+            Assert.Contains("already exists", ex.Message);
+            // An existing Northwind table is also protected.
+            Assert.Throws<InvalidOperationException>(() =>
+                e.ExecuteNonQuery("CREATE TABLE `Shippers` (`Id` INTEGER PRIMARY KEY)"));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     [Fact]
     public void Temporary_table_throws_not_supported()
     {

@@ -31,6 +31,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         uniqueConstraints ??= [];
         columnDefaults ??= [];
         checkConstraints ??= [];
+
+        // A table name is unique (case-insensitively) across the database; reject a duplicate rather
+        // than writing a second MSysObjects row that shadows the existing table.
+        if (_catalog.FindTable(name) is not null)
+            throw new InvalidOperationException($"Table '{name}' already exists.");
+
         JetFormatBase format = _channel.Format;
 
         // Allocate the pages the table needs through the global free-pages map (so Access accounts

@@ -582,12 +582,12 @@ one cleared bit per page taken.
 | `0x01` | 1 | Flags (observed constant `0x01` — verified) |
 | `0x02` | 2 | Free space |
 | `0x04` | 4 | Owning table TDEF page |
-| `0x08` | 4 | Previous leaf page (`0` if none) — observed `0` on single-leaf samples, semantics unverified |
-| `0x0C` | 4 | Next leaf page (`0` if none) — observed `0` on single-leaf samples, semantics unverified |
+| `0x08` | 4 | Previous leaf page (`0` if none) — observed `0` on single-leaf samples; LibRed maintains this back-link when splitting (§10.5), little-endian, but Access's dependence on it is unverified |
+| `0x0C` | 4 | Next leaf page (`0` if none) — observed `0` on single-leaf samples; LibRed maintains this forward-link when splitting (§10.5), little-endian, but Access's dependence on it is unverified |
 | `0x10` | 4 | Unknown / reserved (zero observed). mdbtools' header puts `tail_page` at `0x10`, but in ACE the child-tail is 4 bytes later at `0x14` (verified: a node page's tail pointer reads correctly at `0x14`, zero at `0x10`). This is a **Jet4-inserted field** — corroborated by mdbtools' version-labelled bitmask offset (see `0x1B` below): the Jet3→Jet4 bitmask shift of +5 is accounted for *exactly* by this 4-byte field plus the 1-byte field at `0x1A` |
 | `0x14` | 4 | **Child-tail** page (node pages: the rightmost child, referenced by no entry). For Jet4/ACE this offset is **definitive — byte-for-byte verified** (the tail pointer reads correctly here and drives correct multi-level traversal; the hypothesis on `0x10` above concerns only *why* mdbtools lists `0x10`, not whether `0x14` is correct) |
 | `0x18` | 2 | Compressed-byte count (shared key prefix length, §10.3) |
-| `0x1A` | 1 | Unknown (observed `0x01`) — a Jet4-inserted byte (the +1 of the +5 bitmask shift; see `0x1B`) |
+| `0x1A` | 1 | Unknown — a Jet4-inserted byte (the +1 of the +5 bitmask shift; see `0x1B`). **Verified `0x00` on Northwind's populated MSysObjects index leaves**, and a fresh empty leaf also leaves it `0`. **Write requirement:** keep this `0` — setting it to `0x01` when rewriting a leaf makes ACE fail to open the whole database (`"could not find the object 'Databases'"`, catalog load aborts), even though LibRed still reads the page. (An earlier note here said "observed `0x01`"; that was wrong for these leaves and caused exactly that corruption until fixed.) |
 | `0x1B` | … | Entry-position bitmask. mdbtools **version-labels** this: bitmask at `0x16` (Jet3) / **`0x1B` (Jet4)** — confirming our offset. The +5 Jet3→Jet4 shift equals the inserted 4-byte (`0x10`) + 1-byte (`0x1A`) fields |
 | `0x1E0` | — | Start of entry data |
 
@@ -672,6 +672,42 @@ Then the value, transformed:
 
   *Not yet handled:* non-ASCII characters.
 - **Binary / GUID:** collation encoding not implemented (read-only as before).
+
+### 10.5 Insertion and splitting
+
+To insert a key, descend from the index root (§3.5 offset `0x26`) following node separators — a
+separator is the **maximum key of its child subtree**, stored as a full leaf key (column key ++
+4-byte row pointer), so descend into the first child whose separator `≥` the new full key, else the
+child-tail (`0x14`). Slot the new entry into the target leaf in key order and rewrite the page.
+
+When a page would overflow, **split** it (LibRed's `IndexWriter`). Verified by inserting 1500 keys —
+past one leaf — and reading every one back in order through a now multi-level tree, **and against ACE**:
+Access opens the file and both an indexed point seek (`WHERE Id = 1234`) and an indexed range scan
+(`WHERE Id BETWEEN 700 AND 709`) return the correct rows. (A separate, pre-existing gap surfaces only at
+this scale: a full `COUNT(*)`/table scan in ACE stops early — LibRed's data-page owned-pages usage map is
+not yet byte-faithful past a couple of data pages. That is a data-page, not an index, concern.)
+
+The split mechanics:
+
+- **Leaf split:** partition the sorted entries in half; the lower half stays on the original page,
+  the upper half goes to a newly allocated page. The doubly-linked leaf chain is maintained — the
+  new right page's *prev* (`0x08`) points at the left, its *next* (`0x0C`) inherits the left's old
+  next, the left's *next* becomes the right, and the old next leaf's *prev* is repointed to the
+  right. The promoted separator is the **left half's maximum full key**, which stays in the leaf
+  (a copy is promoted, B+tree-style).
+- **Node split:** partition on a **middle entry** whose key is *promoted* (removed from the node);
+  its child becomes the left node's child-tail, and the old tail stays the right node's tail.
+- **Propagation:** the promoted separator `[key → left page]` is inserted into the parent, whose
+  pointer to the just-split page is repointed to the new right page; if the parent overflows it
+  splits in turn, up to the root.
+- **Root growth:** when the root itself splits, a new root node is allocated holding one entry
+  `[promoted → old root]` with the new page as its child-tail, and the index-data block's root
+  pointer (§3.5 `0x26`) is repointed to it. (The single-leaf → two-leaves case hits this on the
+  first overflow, changing the root page's type from leaf `0x04` to node `0x03`.)
+
+> Newly allocated split pages are taken from the global free-page map (§ page 1). Registering them
+> in the *index's own* owned-pages usage map (§3.5) is **not yet done** — tolerated so far, but a
+> point to revisit when validating large indexes against Access.
 
 ---
 

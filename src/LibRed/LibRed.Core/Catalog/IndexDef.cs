@@ -23,8 +23,8 @@ public sealed record IndexDef
     /// </summary>
     public int UniqueEntryCount { get; init; }
 
-    /// <summary>Page number of the index B-tree root.</summary>
-    public int RootPage { get; init; }
+    /// <summary>Page number of the index B-tree root. Updated in place when the root splits (grows a level).</summary>
+    public int RootPage { get; internal set; }
 
     /// <summary>
     /// This index's position among the table's real indexes — the ordinal of its 12-byte statistics

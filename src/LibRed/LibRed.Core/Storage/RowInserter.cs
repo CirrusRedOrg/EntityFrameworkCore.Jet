@@ -74,7 +74,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// indexes share a real index's data) so indexed lookups — and Access — find it.</summary>
     private void UpdateIndexes(object?[] values, RowId rowId)
     {
-        var writer = new IndexWriter(_channel);
+        var writer = new IndexWriter(_channel, _table);
         foreach (IndexDef index in _table.Indexes
             .Where(i => i.RootPage > 0)
             .GroupBy(i => i.RootPage)

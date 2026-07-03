@@ -30,5 +30,14 @@ public sealed class LibRedParameter : DbParameter
     public override object? Value { get; set; }
     public override int Size { get; set; }
 
+    // The base DbParameter.Precision/Scale are no-ops (get => 0; set { }) unless a concrete
+    // parameter type overrides them - SqlParameter/OdbcParameter/OleDbParameter do, so this must
+    // too. Without this override, JetDecimalTypeMapping.ConfigureParameter's
+    // `parameter.Value = decimal.Round(dec, parameter.Scale)` silently reads back Scale=0 (the
+    // no-op default) instead of the scale it just set, rounding e.g. 8.6 to 9 before the value
+    // ever reaches storage.
+    public override byte Precision { get; set; }
+    public override byte Scale { get; set; }
+
     public override void ResetDbType() => DbType = DbType.Object;
 }

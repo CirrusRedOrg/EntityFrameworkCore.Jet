@@ -67,8 +67,10 @@ public sealed class LibRedDataReader : DbDataReader
     private static readonly DateTime OleEpoch = new(1899, 12, 30);
 
     /// <summary>
-    /// Typed accessor EF Core uses. Jet has no TimeSpan/DateOnly/TimeOnly type — they are stored in a
-    /// DateTime column — so convert a stored <see cref="DateTime"/> back when one of those is requested.
+    /// Typed accessor EF Core uses. Jet has no TimeSpan/DateOnly/TimeOnly/DateTimeOffset type — they are
+    /// all stored in a DateTime column — so convert a stored <see cref="DateTime"/> back when one of those
+    /// is requested. For <see cref="DateTimeOffset"/> there is no offset on disk (the mapping strips it and
+    /// stores UTC on the way in), so it is read back at offset zero.
     /// </summary>
     public override T GetFieldValue<T>(int ordinal)
     {
@@ -77,6 +79,7 @@ public sealed class LibRedDataReader : DbDataReader
             if (typeof(T) == typeof(TimeSpan)) return (T)(object)(dt - OleEpoch);
             if (typeof(T) == typeof(DateOnly)) return (T)(object)DateOnly.FromDateTime(dt);
             if (typeof(T) == typeof(TimeOnly)) return (T)(object)TimeOnly.FromDateTime(dt);
+            if (typeof(T) == typeof(DateTimeOffset)) return (T)(object)new DateTimeOffset(dt, TimeSpan.Zero);
         }
         return base.GetFieldValue<T>(ordinal);
     }
@@ -110,7 +113,27 @@ public sealed class LibRedDataReader : DbDataReader
     public override Guid GetGuid(int ordinal) => (Guid)GetValue(ordinal);
     public override short GetInt16(int ordinal) => (short)GetValue(ordinal);
     public override int GetInt32(int ordinal) => (int)GetValue(ordinal);
-    public override long GetInt64(int ordinal) => (long)GetValue(ordinal);
+
+    public override long GetInt64(int ordinal)
+    {
+        var result = GetValue(ordinal);
+        if (result is long l)
+        {
+            return l;
+        }
+
+        try
+        {
+            return Convert.ToInt64(result);
+        }
+        catch (Exception)
+        {
+            // ignored
+        }
+
+        return (long)result;
+
+    }
     public override string GetString(int ordinal) => (string)GetValue(ordinal);
 
     public override long GetBytes(int ordinal, long dataOffset, byte[]? buffer, int bufferOffset, int length)

@@ -211,8 +211,8 @@ internal sealed class ExpressionEvaluator(
     };
 
     // Booleans count as numeric for comparison: EF maps CLR bool to a numeric (smallint) column, and
-    // a boolean predicate (e.g. IS NOT NULL) must compare equal to that stored value. Convert.ToDecimal
-    // gives false=0 / true=1 — matching how a bool is encoded into a numeric column.
+    // a boolean predicate (e.g. IS NOT NULL) must compare equal to that stored value. ToNumber uses
+    // Jet's convention (false = 0, true = -1) so a bool matches the numeric value it is stored as.
     private static bool IsNumeric(object v) =>
         v is bool or byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;
 }

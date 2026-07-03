@@ -121,6 +121,11 @@ public static class JetTypeCodec
     {
         var c = System.Globalization.CultureInfo.InvariantCulture;
 
+        // A long value already written to an LVAL page arrives as its pre-built 12-byte reference
+        // descriptor, which is written verbatim (memo/OLE columns only).
+        if (value is LibRed.Storage.LongValueDescriptor descriptor)
+            return descriptor.Bytes;
+
         // Jet represents a boolean as -1 (true) / 0 (false). EF maps a CLR bool onto a numeric
         // (smallint) column, so a bool value here targets a numeric column — normalise it to the Jet
         // form so what we write matches Access (which also stores -1). (A real Boolean/YESNO column is

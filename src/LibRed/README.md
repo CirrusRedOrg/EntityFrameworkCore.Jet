@@ -69,8 +69,8 @@ engine), cross-checked with [mdbtools](https://github.com/mdbtools/mdbtools) and
   `MSysRelationships` with a child-side FK index and **byte-faithful** logical-index linkage on both
   tables' TDEFs (Access opens the file and enumerates it), with referential-integrity enforcement on
   `INSERT`. `UNIQUE` creates a unique non-primary index. Self-referencing foreign keys are handled
-  inline. Column `DEFAULT` values are persisted to the table's `LvProp` property blob, read back onto the
-  column, and applied when an insert omits the column (see the Access caveat below).
+  inline. Column `DEFAULT` values are persisted to the table's `LvProp` property blob (on an LVAL page),
+  read back onto the column, and applied when an insert omits the column — **and Access honors them too**.
 - **SQL** — ANTLR front end (parser → binder via `ISchemaProvider` → planner → executor). Statements:
   `CREATE TABLE`, `CREATE [UNIQUE] INDEX … ON … (col [ASC|DESC], …) [WITH {PRIMARY|DISALLOW NULL}]`,
   `INSERT` (with AutoNumber), and `SELECT` with `WHERE`, joins, `GROUP BY`/aggregates,
@@ -92,13 +92,10 @@ engine), cross-checked with [mdbtools](https://github.com/mdbtools/mdbtools) and
 - **Foreign keys — cascade actions** (TODO #3): the `ON UPDATE`/`ON DELETE CASCADE` flags are persisted
   correctly (in `MSysRelationships.grbit` and the index-info action bytes), but nothing cascades at
   runtime because there is no `UPDATE`/`DELETE` executor yet — do this when DML `UPDATE`/`DELETE` lands.
-- **Column `DEFAULT` — Access does not re-apply it**: LibRed persists `DEFAULT` to the `LvProp` property
-  blob (byte-identical content to ACE), reads it back, and applies it when an insert omits the column, so
-  the **EF/LibRed path works**. But Access itself does not re-apply the default from our blob. **Root cause
-  confirmed** (raw descriptor dump): ACE stores `LvProp` on a **single LVAL page** (flag `0x40`); LibRed
-  writes it **inline** (flag `0x80`), and Access's property loader only reads the LVAL-page form. Everything
-  else is identical — TDEF, `MSysObjects` row, and all other `MSys*` tables. Follow-up: add single-page
-  LVAL long-value writing and store `LvProp` that way (same infra needed for large memo/OLE values).
+- **Chained LVAL pages**: `LongValueWriter` writes a **single** LVAL page (used for `LvProp` and available
+  for memo/OLE), so a long value must fit in one page. Payloads larger than a page need a chained (`0x00`)
+  descriptor across multiple LVAL pages, which isn't written yet. (Memo/OLE column *values* still write
+  inline; switching them to LVAL pages for large values is the follow-up.)
 - **`CREATE TEMPORARY TABLE` / `WITH COMPRESSION`**: parsed only to throw a clear `NotSupportedException`
   (out of scope).
 - **`CREATE INDEX` — non-empty table**: works for ascending/descending, `WITH PRIMARY`,

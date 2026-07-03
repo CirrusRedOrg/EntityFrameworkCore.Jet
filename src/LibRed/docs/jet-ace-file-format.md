@@ -698,14 +698,18 @@ Then the value, transformed:
   > value]`. A `DefaultValue` is stored as the expression's **source text** (e.g. `42`, `'hi'`).
   >
   > LibRed **writes** `DefaultValue` properties (`PropertyBlob.Write`) and **reads** them back
-  > (`ColumnDef.DefaultValue`), applying the default when an insert omits the column. It writes `LvProp`
-  > as an **inline** long value (descriptor flag `0x80`); Access opens the file fine but does **not**
-  > re-apply the default from it. **Root cause (confirmed by dumping the raw descriptors):** ACE stores
-  > `LvProp` on a **single LVAL page** (flag `0x40`, a 12-byte reference), and Access's property loader
-  > reads the blob only from that form — not from an inline value (LibRed's own reader accepts both,
-  > which is why its round-trip works). Nothing else differs: the TDEF, the `MSysObjects` row, and every
-  > other `MSys*` table are identical to an ACE-created table (only `MSysObjects`+`MSysACEs` are touched,
-  > both matching). **Fix:** write single-page LVAL long values and store `LvProp` that way.
+  > (`ColumnDef.DefaultValue`), applying the default when an insert omits the column. `LvProp` is stored
+  > on a **single LVAL page** (`LongValueWriter`, descriptor flag `0x40`) — the form Access's property
+  > loader requires. **Verified:** Access opens the file and **applies the default** on its own insert
+  > that omits the column. (An *inline* value, flag `0x80`, is written and read fine by LibRed but is
+  > **not** recognised by Access's property loader — established by dumping the raw descriptors; nothing
+  > else differs, only `MSysObjects`+`MSysACEs` are touched.)
+
+- **LVAL (long-value) page** — a data page (type `0x01`) whose owner field (`0x04`) is the ASCII marker
+  `"LVAL"` instead of a TDEF page number. A single-page long value stores the whole payload as row 0; the
+  in-row reference descriptor is `[length:3][flags:1][row:1][page:3][4 reserved]` with flag `0x40` = single
+  page (`0x80` = inline, payload follows the descriptor; `0x00` = chained across pages). LibRed writes the
+  single-page form (`LongValueWriter`); chained pages for payloads larger than one page are not written yet.
 
   > With those fields set, Access **enumerates** a LibRed-created table (it appears in the
   > schema/Tables rowset) — verified via OLE DB. Maintaining MSysObjects' indexes (the composite

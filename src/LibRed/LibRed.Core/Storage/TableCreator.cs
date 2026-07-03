@@ -584,7 +584,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             var props = columnDefaults
                 .Select(d => new PropertyBlob.Property(d.Column, PropertyBlob.DefaultValueProperty, d.DefaultSql))
                 .ToList();
-            SetByName(msysObjects, values, "LvProp", PropertyBlob.Write(props));
+            // Access reads object properties only from an LVAL-page long value, not an inline one, so
+            // write the blob to its own page and store the reference descriptor.
+            byte[] reference = new LongValueWriter(_channel).WriteSinglePage(PropertyBlob.Write(props));
+            SetByName(msysObjects, values, "LvProp", new LongValueDescriptor(reference));
         }
 
         new RowInserter(_channel, msysObjects).Insert(values, updateIndexes: true);

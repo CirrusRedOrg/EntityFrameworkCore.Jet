@@ -446,11 +446,11 @@ public class CreateTableAccessTests
     }
 
     [Fact]
-    public void Access_opens_a_table_with_libred_written_column_defaults()
+    public void Access_honors_a_libred_written_column_default()
     {
-        // LibRed writes column DEFAULT values into the table's LvProp property blob (byte-identical to
-        // what ACE writes). Access must still open the file without repair and read/insert normally.
-        // (Access does not yet re-apply the default from our *inline* LvProp — see the DEFAULT TODO.)
+        // LibRed writes column DEFAULT values into the table's LvProp property blob, stored on an LVAL
+        // page (the form Access's property loader reads). Access must open the file without repair and
+        // APPLY the default on its own insert that omits the column.
         string path = CopyToTemp();
         try
         {
@@ -470,13 +470,16 @@ public class CreateTableAccessTests
             }
             using (var insert = conn.CreateCommand())
             {
-                insert.CommandText = "INSERT INTO T (Id, Age, Nm) VALUES (1, 7, 'x')";
+                insert.CommandText = "INSERT INTO T (Id) VALUES (1)"; // omit Age/Nm — Access applies defaults
                 Assert.Equal(1, insert.ExecuteNonQuery());
             }
             using (var read = conn.CreateCommand())
             {
-                read.CommandText = "SELECT Age FROM T WHERE Id = 1";
-                Assert.Equal(7, Convert.ToInt32(read.ExecuteScalar()));
+                read.CommandText = "SELECT Age, Nm FROM T WHERE Id = 1";
+                using var r = read.ExecuteReader();
+                Assert.True(r.Read());
+                Assert.Equal(42, Convert.ToInt32(r.GetValue(0)));
+                Assert.Equal("hi", r.GetValue(1));
             }
         }
         finally { TryDelete(path); }

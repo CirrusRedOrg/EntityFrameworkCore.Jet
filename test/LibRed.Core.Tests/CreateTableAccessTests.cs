@@ -516,6 +516,38 @@ public class CreateTableAccessTests
     }
 
     [Fact]
+    public void Access_opens_a_libred_table_whose_definition_spans_a_continuation_page()
+    {
+        // Enough indexes to overflow the single TDEF page: LibRed writes a continuation page. Access must
+        // open the file without repair and enumerate every index.
+        const int n = 30;
+        string path = CopyToTemp();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("Wide",
+                    Enumerable.Range(0, n)
+                        .Select(i => new ColumnSpec($"C{i:D2}", JetDataType.Int32, 4, IsFixedLength: true))
+                        .ToList());
+                for (int i = 0; i < n; i++)
+                    db.CreateIndex("Wide", $"IX{i:D2}", [($"C{i:D2}", false)]);
+            }
+
+            using var conn = OpenOleDb(path);
+            using (var count = conn.CreateCommand())
+            {
+                count.CommandText = "SELECT COUNT(*) FROM Shippers";
+                Assert.Equal(3, Convert.ToInt32(count.ExecuteScalar())); // opened without corruption
+            }
+            var indexes = conn.GetOleDbSchemaTable(System.Data.OleDb.OleDbSchemaGuid.Indexes,
+                [null!, null!, null!, null!, "Wide"]);
+            Assert.Equal(n, indexes!.Rows.Count);
+        }
+        finally { TryDelete(path); }
+    }
+
+    [Fact]
     public void Access_opens_and_round_trips_a_created_table_with_primary_key()
     {
         // The created table's TDEF and per-table pages are now fully ACE-valid: Access resolves it

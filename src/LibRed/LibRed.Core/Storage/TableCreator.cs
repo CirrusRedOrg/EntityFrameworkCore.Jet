@@ -273,9 +273,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         TableDef table = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
 
-        var buf = _channel.ReadPage(table.DefinitionPage);
-        if (buf.ReadInt32(format.TdefNextPageOffset) != 0)
-            throw new NotSupportedException("Adding an index to a multi-page table definition is not supported yet.");
+        // Read the whole definition (stitching any existing continuation pages) so the surgical insert
+        // works in absolute coordinates; the old continuation pages are reused when we write it back.
+        (LibRed.IO.PageBuffer buf, IReadOnlyList<int> existingContinuations) = ReadDefinition(table.DefinitionPage);
         if (buf.ReadInt32(format.TdefRowCountOffset) != 0)
             throw new NotSupportedException($"Adding an index to the non-empty table '{tableName}' is not supported yet.");
 
@@ -341,13 +341,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         int newDefEnd = infoStart + IndexDataBlockSize          // one new data block shifts info start
                         + blocks.Count * IndexInfoBlockSize + nameBytes.Sum(n => n.Length) + lvalRegion.Length
                         + format.RealIndexEntrySize;             // one new stats block at the front
-        if (newDefEnd > format.PageSize - TdefContinuationReserve)
-            throw new NotSupportedException("No room in the table definition for another index (needs a continuation page).");
 
-        var page = new byte[format.PageSize];
+        // Build the full definition buffer (may exceed one page — split across continuation pages below).
+        var def = new byte[newDefEnd];
         var src = buf.Span;
         int w = 0;
-        void Append(ReadOnlySpan<byte> s) { s.CopyTo(page.AsSpan(w)); w += s.Length; }
+        void Append(ReadOnlySpan<byte> s) { s.CopyTo(def.AsSpan(w)); w += s.Length; }
 
         Append(src[..afterStats]);                              // header + existing stats blocks
         Append(new byte[format.RealIndexEntrySize]);            // new (zero) stats block
@@ -357,15 +356,94 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         foreach (byte[] n in nameBytes) Append(n);              // their names, same order
         Append(lvalRegion);                                     // §3.3.2 list + terminator (unchanged)
 
-        // Copy the fixed header fields, then bump the two index counts and the length/free-space fields.
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefIndexCountOffset, 4), dataCount + 1);
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRealIndexCountOffset, 4), logicalCount + 1);
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(TdefLengthOffset, 4), newDefEnd);
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(TdefFreeSpaceOffset, 2),
-            (ushort)(format.PageSize - newDefEnd - TdefContinuationReserve));
+        // Bump the two index counts and the definition length in the header.
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefIndexCountOffset, 4), dataCount + 1);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefRealIndexCountOffset, 4), logicalCount + 1);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(TdefLengthOffset, 4), newDefEnd);
 
-        _channel.WritePage(table.DefinitionPage, page);
+        WriteDefinition(table.DefinitionPage, def, existingContinuations);
         _catalog.Invalidate();
+    }
+
+    private const int ContinuationHeaderSize = 8;
+
+    /// <summary>Reads a table definition, stitching continuation pages into one contiguous buffer (in
+    /// the absolute coordinate space the descriptors use), and returns the continuation page numbers.</summary>
+    private (LibRed.IO.PageBuffer Buffer, IReadOnlyList<int> ContinuationPages) ReadDefinition(int firstPage)
+    {
+        JetFormatBase format = _channel.Format;
+        LibRed.IO.PageBuffer first = _channel.ReadPage(firstPage);
+        int next = first.ReadInt32(format.TdefNextPageOffset);
+        if (next == 0) return (first, []);
+
+        var continuations = new List<int>();
+        var assembled = new List<byte>(first.Span.ToArray());
+        while (next != 0)
+        {
+            continuations.Add(next);
+            LibRed.IO.PageBuffer cont = _channel.ReadPage(next);
+            next = cont.ReadInt32(format.TdefNextPageOffset);
+            assembled.AddRange(cont.Span[ContinuationHeaderSize..].ToArray());
+        }
+        return (new LibRed.IO.PageBuffer(assembled.ToArray(), firstPage), continuations);
+    }
+
+    /// <summary>
+    /// Writes a definition buffer across the first page and, if it overflows, continuation pages (each
+    /// <c>[0x02][0x01][free:2][next:4]</c> then data). The first page carries the whole definition in its
+    /// coordinate space; each continuation contributes <see cref="ContinuationHeaderSize"/>-offset data.
+    /// Existing continuation pages are reused before allocating new ones.
+    /// </summary>
+    private void WriteDefinition(int firstPage, byte[] def, IReadOnlyList<int> reusePages)
+    {
+        JetFormatBase format = _channel.Format;
+        int ps = format.PageSize;
+        int nextOffset = format.TdefNextPageOffset;
+
+        if (def.Length + TdefContinuationReserve <= ps)
+        {
+            var only = new byte[ps];
+            def.CopyTo(only, 0);
+            BinaryPrimitives.WriteInt32LittleEndian(only.AsSpan(nextOffset, 4), 0);
+            BinaryPrimitives.WriteUInt16LittleEndian(only.AsSpan(TdefFreeSpaceOffset, 2), (ushort)(ps - def.Length - TdefContinuationReserve));
+            _channel.WritePage(firstPage, only);
+            return;
+        }
+
+        // Plan the continuation chunks: each holds up to (ps - header) data; the last also leaves the reserve.
+        var chunks = new List<(int Offset, int Length)>();
+        for (int offset = ps; offset < def.Length;)
+        {
+            int remaining = def.Length - offset;
+            int length = remaining <= ps - ContinuationHeaderSize - TdefContinuationReserve
+                ? remaining
+                : ps - ContinuationHeaderSize;
+            chunks.Add((offset, length));
+            offset += length;
+        }
+
+        int reuse = 0;
+        int[] pageNumbers = chunks.Select(_ => reuse < reusePages.Count ? reusePages[reuse++] : _allocator.Allocate()).ToArray();
+
+        var page1 = new byte[ps];
+        Array.Copy(def, 0, page1, 0, ps); // page 1 is completely full in a multi-page definition
+        BinaryPrimitives.WriteInt32LittleEndian(page1.AsSpan(nextOffset, 4), pageNumbers[0]);
+        BinaryPrimitives.WriteUInt16LittleEndian(page1.AsSpan(TdefFreeSpaceOffset, 2), 0);
+        _channel.WritePage(firstPage, page1);
+
+        for (int i = 0; i < chunks.Count; i++)
+        {
+            var (offset, length) = chunks[i];
+            var page = new byte[ps];
+            page[0] = (byte)PageType.TableDefinition;
+            page[1] = 0x01;
+            Array.Copy(def, offset, page, ContinuationHeaderSize, length);
+            int next = i + 1 < pageNumbers.Length ? pageNumbers[i + 1] : 0;
+            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(nextOffset, 4), next);
+            int free = next != 0 ? 0 : ps - ContinuationHeaderSize - length - TdefContinuationReserve;
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(TdefFreeSpaceOffset, 2), (ushort)free);
+            _channel.WritePage(pageNumbers[i], page);
+        }
     }
 
     private static byte[] BuildIndexDataBlock(IReadOnlyList<(int Id, bool Ascending)> columns, int rootPage, int usageRow, int usagePage, bool unique, bool required, bool ignoreNulls)

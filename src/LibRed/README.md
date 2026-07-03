@@ -108,8 +108,9 @@ engine), cross-checked with [mdbtools](https://github.com/mdbtools/mdbtools) and
   persisted (its ACE storage differs; not yet reverse-engineered).
 - **`CREATE INDEX` — non-empty table**: works for ascending/descending, `WITH PRIMARY`,
   `WITH DISALLOW NULL`, and `WITH IGNORE NULL` indexes on an **empty** table (EF's case: indexes are
-  created right after `CREATE TABLE`, before seeding). Not yet: adding an index to a **non-empty** table
-  (needs B-tree population over existing rows) — throws a clear `NotSupportedException`.
+  created right after `CREATE TABLE`, before seeding), and the definition spills onto **continuation
+  pages** when it overflows one page. Not yet: adding an index to a **non-empty** table (needs B-tree
+  population over existing rows) — throws a clear `NotSupportedException`.
 - **Foreign keys — self-pointing row on a self-reference**: insert-time referential-integrity checks the
   parent *before* inserting the row, so a row that references itself on a self-referencing FK (e.g.
   `Mgr = its own Id`) is wrongly rejected (Access allows it). Needs the row's own key counted as part of

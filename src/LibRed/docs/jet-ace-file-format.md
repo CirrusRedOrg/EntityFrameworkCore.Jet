@@ -120,10 +120,20 @@ version. (Page-level encryption for password-protected files is not implemented.
 
 ### 3.2 Multi-page TDEFs
 
-If a table has enough columns, the definition spans pages chained by the `0x04` pointer.
+If a table has enough columns (or indexes), the definition spans pages chained by the `0x04` pointer.
 Reassemble before parsing: take the **first page whole**, then append each continuation
 page's bytes **from offset 8** (continuation pages have an 8-byte header). Column offsets are
 absolute from the first page, so parsing is otherwise unchanged.
+
+> **Writing a multi-page TDEF (verified vs ACE).** The 8-byte continuation header is
+> `[0x02][0x01][free space: 2][next page: 4]` (page type, flags, then the same `0x02` free-space and
+> `0x04` next-page fields as page 1). The **first page is filled completely** (free space `0`) and its
+> `0x04` points to the first continuation; each continuation carries `PageSize − 8` bytes of definition
+> data (from offset 8), the **last** one leaving the usual 8-byte trailing reserve — so its free space is
+> `PageSize − 8 − dataLen − 8`. The definition-length field (`0x08`, on the first page) is the **total**
+> length across all pages. LibRed writes this in `TableCreator.WriteDefinition`, used when `CREATE INDEX`
+> grows a definition past one page (confirmed: a 30-column, 30-index table spills to one continuation
+> page, `defLen 4115`, exactly as ACE writes it, and Access reads all 30 indexes).
 
 ### 3.3 Body layout (in order, after the header)
 

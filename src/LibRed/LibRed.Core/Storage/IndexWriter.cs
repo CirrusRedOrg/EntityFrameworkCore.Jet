@@ -23,10 +23,11 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 {
     private const int FreeSpaceOffset = 0x02;
     private const int OwnerOffset = 0x04;
-    private const int PrevPageOffset = 0x08;
-    private const int NextPageOffset = 0x0C;
+    private const int PrevPageOffset = 0x0C;     // leaf page: previous (lower-key) leaf
+    private const int NextPageOffset = 0x10;     // leaf page: next (higher-key) leaf — Access walks this for COUNT/scan
     private const int ChildTailOffset = 0x14;
     private const int CompressedByteCountOffset = 0x18;
+    private const int LevelOffset = 0x1A;       // 0 on a leaf, its height above the leaves on a node
     private const int EntryMaskOffset = 0x1B;
     private const int EntryDataOffset = 0x1E0;
     private const int RootPageInBlockOffset = 0x26; // within the 52-byte index-data block
@@ -79,7 +80,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         entries.Insert(pos, new Entry(key, pointer));
 
         int prev = ReadInt32Le(page, PrevPageOffset), next = ReadInt32Le(page, NextPageOffset);
-        if (Build(PageType.LeafIndexPage, prev, next, tail: 0, entries) is { } built)
+        if (Build(PageType.LeafIndexPage, prev, next, tail: 0, level: 0, entries) is { } built)
         {
             _channel.WritePage(leafPage, built);
             return;
@@ -97,6 +98,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     {
         int leftPage = path[level];
         int rightPage = _allocator.Allocate();
+        int nodeLevel = path.Count - 1 - level; // height above the leaves of the page being split
 
         byte[] promoted;
         if (type == PageType.LeafIndexPage)
@@ -106,8 +108,8 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
             var right = entries.GetRange(mid, entries.Count - mid);
             promoted = WithTrailer(left[^1].Key, left[^1].Trailer); // left's max full key
 
-            WriteOrThrow(leftPage, Build(type, prev, rightPage, tail: 0, left));
-            WriteOrThrow(rightPage, Build(type, leftPage, next, tail: 0, right));
+            WriteOrThrow(leftPage, Build(type, prev, rightPage, tail: 0, nodeLevel, left));
+            WriteOrThrow(rightPage, Build(type, leftPage, next, tail: 0, nodeLevel, right));
             if (next != 0) SetPrev(next, rightPage); // fix the old next leaf's back-link
         }
         else
@@ -120,15 +122,15 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
             promoted = middle.Key;
             int oldTail = _splitTail;
 
-            WriteOrThrow(leftPage, Build(type, 0, 0, tail: middle.Trailer, left));
-            WriteOrThrow(rightPage, Build(type, 0, 0, tail: oldTail, right));
+            WriteOrThrow(leftPage, Build(type, 0, 0, tail: middle.Trailer, nodeLevel, left));
+            WriteOrThrow(rightPage, Build(type, 0, 0, tail: oldTail, nodeLevel, right));
         }
 
         if (level == 0)
         {
             // The root split: build a new root node [promoted -> old root] with the new page as its tail.
             int newRoot = _allocator.Allocate();
-            WriteOrThrow(newRoot, Build(PageType.IntermediateIndexPage, 0, 0, tail: rightPage,
+            WriteOrThrow(newRoot, Build(PageType.IntermediateIndexPage, 0, 0, tail: rightPage, nodeLevel + 1,
                 [new Entry(promoted, leftPage)]));
             UpdateIndexRoot(index, newRoot);
             index.RootPage = newRoot; // keep the in-memory def in step for the next insert
@@ -158,7 +160,8 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
             entries.Add(new Entry(promoted, oldChild));
         }
 
-        if (Build(PageType.IntermediateIndexPage, 0, 0, tail, entries) is { } built)
+        int parentLevel = path.Count - 1 - level;
+        if (Build(PageType.IntermediateIndexPage, 0, 0, tail, parentLevel, entries) is { } built)
         {
             _channel.WritePage(parentPage, built);
             return;
@@ -190,19 +193,23 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         return (entries, tail);
     }
 
-    /// <summary>Builds a page from entries (prefix-compressed); null if they overflow the page.</summary>
-    private byte[]? Build(PageType type, int prev, int next, int tail, List<Entry> entries)
+    /// <summary>Builds a page from entries; null if they overflow the page. Leaf pages are prefix-compressed;
+    /// node pages are stored uncompressed and carry their height above the leaves at <see cref="LevelOffset"/>,
+    /// both matching what Access writes (and what Access needs to walk the node's tail child).</summary>
+    private byte[]? Build(PageType type, int prev, int next, int tail, int level, List<Entry> entries)
     {
+        bool isLeaf = type == PageType.LeafIndexPage;
         int pageSize = _channel.PageSize;
         var page = new byte[pageSize];
         page[0] = (byte)type;
-        page[1] = 0x01; // page flags (observed constant); the byte at 0x1A stays 0 (Access leaves it 0)
+        page[1] = 0x01; // page flags (observed constant)
+        page[LevelOffset] = (byte)level; // 0 on a leaf; the node's height above the leaves otherwise
         WriteInt32Le(page, OwnerOffset, _table.DefinitionPage);
         WriteInt32Le(page, PrevPageOffset, prev);
         WriteInt32Le(page, NextPageOffset, next);
         WriteInt32Le(page, ChildTailOffset, tail);
 
-        int compress = entries.Count == 0 ? 0 : CommonPrefixLength(entries[0].Key, entries[^1].Key);
+        int compress = !isLeaf || entries.Count == 0 ? 0 : CommonPrefixLength(entries[0].Key, entries[^1].Key);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(CompressedByteCountOffset, 2), (ushort)compress);
 
         int pos = EntryDataOffset;

@@ -8,9 +8,8 @@ namespace LibRed.Core.Tests;
 /// <summary>
 /// Byte-faithful check that a LibRed index which has undergone B-tree leaf/node splitting is readable
 /// by the real Access engine: after inserting enough rows to force splits (root grows from a leaf to a
-/// node), Access opens the file and resolves both an indexed point seek and an indexed range scan.
-/// (A full <c>COUNT(*)</c> is deliberately not asserted — LibRed's data-page usage map is not yet
-/// byte-faithful at this scale, a separate concern from the index.)
+/// node), Access opens the file and resolves indexed point seeks, an indexed range, a full table scan,
+/// and a leaf-chain <c>COUNT(*)</c>/<c>SUM</c> — all reaching every row.
 /// </summary>
 public class IndexSplitAccessTests
 {
@@ -50,15 +49,29 @@ public class IndexSplitAccessTests
 
             using var conn = OpenOleDb(path);
 
-            // Indexed point seeks at spread-out keys exercise different leaves/subtrees of the split
-            // B-tree — Access resolves each through the PK index and follows the row pointer directly.
-            // (A range/COUNT would go through a full scan, which is truncated by the separate data-page
-            // usage-map gap, so it is not asserted here.)
+            // Indexed point seeks at spread-out keys exercise different leaves/subtrees of the split B-tree.
             foreach (int id in new[] { 1, 400, 512, 1000, N })
             {
                 using var seek = conn.CreateCommand();
                 seek.CommandText = $"SELECT T FROM Big WHERE Id = {id}";
                 Assert.Equal($"r{id}", seek.ExecuteScalar());
+            }
+
+            // A full table scan and index leaf-chain walk must both reach every row: COUNT(*) (leaf-chain),
+            // a non-indexed scan, an indexed range, and SUM all account for all N rows. This catches a wrong
+            // leaf next/prev pointer, where Access stops after the first leaf and silently loses the rest.
+            long triangular = (long)N * (N + 1) / 2;
+            foreach ((string sql, object expected) in new (string, object)[]
+            {
+                ("SELECT COUNT(*) FROM Big", N),
+                ("SELECT COUNT(*) FROM Big WHERE T LIKE 'r%'", N),
+                ("SELECT COUNT(*) FROM Big WHERE Id BETWEEN 300 AND 309", 10),
+                ("SELECT SUM(Id) FROM Big", triangular),
+            })
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = sql;
+                Assert.Equal(Convert.ToInt64(expected), Convert.ToInt64(cmd.ExecuteScalar()));
             }
         }
         finally { try { File.Delete(path); } catch (IOException) { } }

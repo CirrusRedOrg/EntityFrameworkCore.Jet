@@ -582,12 +582,12 @@ one cleared bit per page taken.
 | `0x01` | 1 | Flags (observed constant `0x01` — verified) |
 | `0x02` | 2 | Free space |
 | `0x04` | 4 | Owning table TDEF page |
-| `0x08` | 4 | Previous leaf page (`0` if none) — observed `0` on single-leaf samples; LibRed maintains this back-link when splitting (§10.5), little-endian, but Access's dependence on it is unverified |
-| `0x0C` | 4 | Next leaf page (`0` if none) — observed `0` on single-leaf samples; LibRed maintains this forward-link when splitting (§10.5), little-endian, but Access's dependence on it is unverified |
-| `0x10` | 4 | Unknown / reserved (zero observed). mdbtools' header puts `tail_page` at `0x10`, but in ACE the child-tail is 4 bytes later at `0x14` (verified: a node page's tail pointer reads correctly at `0x14`, zero at `0x10`). This is a **Jet4-inserted field** — corroborated by mdbtools' version-labelled bitmask offset (see `0x1B` below): the Jet3→Jet4 bitmask shift of +5 is accounted for *exactly* by this 4-byte field plus the 1-byte field at `0x1A` |
+| `0x08` | 4 | Unknown / reserved (zero observed on both ACE- and LibRed-written leaves) |
+| `0x0C` | 4 | **Previous leaf page** (`0` on the first/leftmost leaf), little-endian. **Verified against ACE:** on an ACE-built split index the higher-key leaf's `0x0C` points back at the lower-key leaf. (An earlier draft mis-placed prev/next at `0x08`/`0x0C` — that was wrong; see `0x10`.) |
+| `0x10` | 4 | **Next leaf page** (`0` on the last/rightmost leaf), little-endian. **Verified against ACE — and load-bearing:** Access's full-table `COUNT(*)`/scan descends to the leftmost leaf and walks this forward chain. If it is wrong (e.g. `next` written at `0x0C`), Access stops after the first leaf and **silently sees only those rows** — a data-loss/corruption hazard, since it then treats the rest of the table's space as free. LibRed maintains `0x0C`/`0x10` across splits (§10.5). (mdbtools lists a `tail_page` at `0x10`; that is its own labelling — for ACE `0x10` is the leaf next-pointer and the node child-tail is at `0x14`.) |
 | `0x14` | 4 | **Child-tail** page (node pages: the rightmost child, referenced by no entry). For Jet4/ACE this offset is **definitive — byte-for-byte verified** (the tail pointer reads correctly here and drives correct multi-level traversal; the hypothesis on `0x10` above concerns only *why* mdbtools lists `0x10`, not whether `0x14` is correct) |
 | `0x18` | 2 | Compressed-byte count (shared key prefix length, §10.3) |
-| `0x1A` | 1 | Unknown — a Jet4-inserted byte (the +1 of the +5 bitmask shift; see `0x1B`). **Verified `0x00` on Northwind's populated MSysObjects index leaves**, and a fresh empty leaf also leaves it `0`. **Write requirement:** keep this `0` — setting it to `0x01` when rewriting a leaf makes ACE fail to open the whole database (`"could not find the object 'Databases'"`, catalog load aborts), even though LibRed still reads the page. (An earlier note here said "observed `0x01`"; that was wrong for these leaves and caused exactly that corruption until fixed.) |
+| `0x1A` | 1 | **B-tree level** = the page's height above the leaves: `0` on a leaf, `1` on a node whose children are leaves, `2` on the next level up, etc. (a Jet4-inserted byte, the +1 of the +5 bitmask shift; see `0x1B`). **Verified against ACE:** `0` on populated MSysObjects/`AceBig` leaves, `1` on a two-level split index's root node. **Write requirement:** get it right — writing `0x01` on a *leaf* makes ACE fail to open the whole database (`"could not find the object 'Databases'"`), while leaving a *node* at `0` (plus prefix-compressing it) stops Access reading that node's tail child. |
 | `0x1B` | … | Entry-position bitmask. mdbtools **version-labels** this: bitmask at `0x16` (Jet3) / **`0x1B` (Jet4)** — confirming our offset. The +5 Jet3→Jet4 shift equals the inserted 4-byte (`0x10`) + 1-byte (`0x1A`) fields |
 | `0x1E0` | — | Start of entry data |
 
@@ -609,10 +609,12 @@ Entries on a page share a leading key prefix of `compressedByteCount` (`0x18`) b
 which every subsequent entry omits. Reconstruct: `fullKey = prefix ++ storedKey`. (The trailing
 pointer is never compressed, so reading row pointers needs none of this.)
 
-> **Compression is optional.** A `compressedByteCount` of 0 (every entry stored in full) is a
-> valid page that Access reads without complaint — verified by inserting into a leaf: LibRed
-> rewrites the whole leaf uncompressed, sets `0x18` to 0, and Access still seeks it. A
-> minimal/correct writer need not reproduce Access's prefix compression.
+> **Compression is optional on leaves, but avoid it on nodes.** A `compressedByteCount` of 0
+> (every entry stored in full) is a valid *leaf* that Access reads without complaint — verified by
+> rewriting a leaf uncompressed and re-seeking it. **Node (`0x03`) pages are a different story:**
+> ACE writes them **uncompressed** (`0x18 = 0`), and prefix-compressing a node made Access fail to
+> descend that node's tail child (it under-counted a scan). LibRed therefore compresses leaves but
+> writes nodes uncompressed, matching ACE.
 
 ### 10.4 Key encoding (order-preserving)
 
@@ -682,19 +684,21 @@ child-tail (`0x14`). Slot the new entry into the target leaf in key order and re
 
 When a page would overflow, **split** it (LibRed's `IndexWriter`). Verified by inserting 1500 keys —
 past one leaf — and reading every one back in order through a now multi-level tree, **and against ACE**:
-Access opens the file and both an indexed point seek (`WHERE Id = 1234`) and an indexed range scan
-(`WHERE Id BETWEEN 700 AND 709`) return the correct rows. (A separate, pre-existing gap surfaces only at
-this scale: a full `COUNT(*)`/table scan in ACE stops early — LibRed's data-page owned-pages usage map is
-not yet byte-faithful past a couple of data pages. That is a data-page, not an index, concern.)
+Access opens the file and an indexed point seek (`WHERE Id = 1234`), an indexed range (`Id BETWEEN 300
+AND 309`), a full `COUNT(*)`, a non-indexed scan (`T LIKE 'r%'`) and `SUM(Id)` all return the correct
+result — i.e. every row is reachable both by the tree and by the leaf-chain scan Access uses.
 
 The split mechanics:
 
 - **Leaf split:** partition the sorted entries in half; the lower half stays on the original page,
   the upper half goes to a newly allocated page. The doubly-linked leaf chain is maintained — the
-  new right page's *prev* (`0x08`) points at the left, its *next* (`0x0C`) inherits the left's old
+  new right page's *prev* (`0x0C`) points at the left, its *next* (`0x10`) inherits the left's old
   next, the left's *next* becomes the right, and the old next leaf's *prev* is repointed to the
-  right. The promoted separator is the **left half's maximum full key**, which stays in the leaf
-  (a copy is promoted, B+tree-style).
+  right. **Getting these offsets right is essential** — Access's scan walks the `0x10` next-chain
+  from the leftmost leaf, so a mis-placed pointer makes it lose every row past the first leaf. The
+  promoted separator is the **left half's maximum full key**, which stays in the leaf (a copy is
+  promoted, B+tree-style). Leaves are prefix-compressed; **node pages are written uncompressed with
+  `0x1A` = their height above the leaves** (else Access won't read the node's tail child — §10.1/§10.3).
 - **Node split:** partition on a **middle entry** whose key is *promoted* (removed from the node);
   its child becomes the left node's child-tail, and the old tail stays the right node's tail.
 - **Propagation:** the promoted separator `[key → left page]` is inserted into the parent, whose

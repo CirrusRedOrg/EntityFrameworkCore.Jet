@@ -205,18 +205,13 @@ internal sealed class AstBuilder
         var joins = new List<ViewJoin>();
         foreach (TableSourceContext ts in select.fromClause().tableSource())
         {
-            if (ts.tablePrimary() is not NamedTablePrimaryContext first)
-                throw new NotSupportedException("A derived-table source is not supported in a view yet.");
-
-            string leftAlias = SourceAlias(first);
-            tables.Add(new ViewSource(Identifier(first.table), first.alias is null ? null : Identifier(first.alias)));
+            (ViewSource left, string leftAlias) = BuildViewSource(ts.tablePrimary());
+            tables.Add(left);
 
             foreach (JoinClauseContext jc in ts.joinClause())
             {
-                if (jc.tablePrimary() is not NamedTablePrimaryContext jt)
-                    throw new NotSupportedException("A derived-table join source is not supported in a view yet.");
-                string rightAlias = SourceAlias(jt);
-                tables.Add(new ViewSource(Identifier(jt.table), jt.alias is null ? null : Identifier(jt.alias)));
+                (ViewSource right, string rightAlias) = BuildViewSource(jc.tablePrimary());
+                tables.Add(right);
                 joins.Add(new ViewJoin(ViewJoinKindOf(jc.joinType()), OriginalText(jc.expression()), leftAlias, rightAlias));
                 leftAlias = rightAlias;
             }
@@ -226,8 +221,25 @@ internal sealed class AstBuilder
         return new ViewDefinition(Distinct: false, columns, tables, joins, where);
     }
 
-    private static string SourceAlias(NamedTablePrimaryContext ctx) =>
-        ctx.alias is null ? Identifier(ctx.table) : Identifier(ctx.alias);
+    /// <summary>A view FROM source and the alias other clauses reference it by. A named table uses its
+    /// name as the alias when unaliased; a derived table (subquery) stores its verbatim inner SQL and
+    /// requires an explicit alias (as Access does).</summary>
+    private static (ViewSource Source, string Alias) BuildViewSource(TablePrimaryContext ctx)
+    {
+        switch (ctx)
+        {
+            case NamedTablePrimaryContext n:
+                string alias = n.alias is null ? Identifier(n.table) : Identifier(n.alias);
+                return (new ViewSource(Identifier(n.table), n.alias is null ? null : Identifier(n.alias)), alias);
+            case SubqueryPrimaryContext s when s.alias is not null:
+                string subAlias = Identifier(s.alias);
+                return (new ViewSource(Table: null, subAlias, OriginalText(s.queryExpression())), subAlias);
+            case SubqueryPrimaryContext:
+                throw new NotSupportedException("A derived-table source in a view requires an alias.");
+            default:
+                throw new NotSupportedException($"Unsupported view FROM source: {ctx.GetText()}");
+        }
+    }
 
     private static ViewJoinKind ViewJoinKindOf(JoinTypeContext ctx) => ctx switch
     {

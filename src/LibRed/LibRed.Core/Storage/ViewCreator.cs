@@ -20,7 +20,8 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
     // MSysQueries attribute codes (Jackcess "query rows"), verified against ACE.
     private const byte AttrType = 0x00;    // Flag = 1 for a SELECT query
     private const byte AttrFlag = 0x03;    // Flag = 2 for DISTINCT
-    private const byte AttrTable = 0x05;   // Name1 = table, Name2 = alias
+    private const byte AttrTable = 0x05;   // named table: Name1 = table, Name2 = alias;
+                                           // derived table: Expression = subquery SQL, Name2 = alias
     private const byte AttrColumn = 0x06;  // Expression = column text
     private const byte AttrJoin = 0x07;    // Expression = condition, Flag = kind, Name1/Name2 = aliases
     private const byte AttrWhere = 0x08;   // Expression = predicate text
@@ -72,9 +73,24 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         TableDef mq = _catalog.FindTable("MSysQueries")
             ?? throw new InvalidOperationException("MSysQueries catalog table was not found.");
 
-        // In ACE's insertion order: type, end, columns, joins, tables, where, distinct.
+        // ACE's row order (verified against every Northwind view): type, end, distinct, TABLES, COLUMNS,
+        // joins, where. Tables must precede columns — a derived-table source defines an alias that the
+        // column expressions reference, and Access processes the rows in order, so columns-before-tables
+        // makes it fail to run the view (it opens, but SELECT-from-view errors). Order fields are
+        // per-attribute counters, independent of this insertion order.
         Row(mq, objectId, AttrType, order: 1, flag: QueryTypeSelect);
         Row(mq, objectId, AttrEnd, order: 1);
+        if (spec.Distinct)
+            Row(mq, objectId, AttrFlag, order: 1, flag: FlagDistinct);
+        for (int i = 0; i < spec.Tables.Count; i++)
+        {
+            ViewTableSpec t = spec.Tables[i];
+            // A derived table stores its subquery SQL in Expression (Name1 empty); a named table uses Name1.
+            if (t.SubquerySql is { } sub)
+                Row(mq, objectId, AttrTable, order: i + 1, expression: sub, name2: t.Alias);
+            else
+                Row(mq, objectId, AttrTable, order: i + 1, name1: t.Table, name2: t.Alias);
+        }
         for (int i = 0; i < spec.Columns.Count; i++)
             Row(mq, objectId, AttrColumn, order: i + 1, flag: 0, expression: spec.Columns[i]);
         for (int i = 0; i < spec.Joins.Count; i++)
@@ -82,12 +98,8 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
             ViewJoinSpec j = spec.Joins[i];
             Row(mq, objectId, AttrJoin, order: i + 1, flag: (short)j.Kind, expression: j.Condition, name1: j.LeftAlias, name2: j.RightAlias);
         }
-        for (int i = 0; i < spec.Tables.Count; i++)
-            Row(mq, objectId, AttrTable, order: i + 1, name1: spec.Tables[i].Table, name2: spec.Tables[i].Alias);
         if (spec.Where is { } where)
             Row(mq, objectId, AttrWhere, order: 1, expression: where);
-        if (spec.Distinct)
-            Row(mq, objectId, AttrFlag, order: 1, flag: FlagDistinct);
     }
 
     private void Row(TableDef mq, int objectId, byte attribute, int order,

@@ -204,7 +204,9 @@ public sealed class JetCatalog(PageChannel channel)
         if (rows.Any(r => r[attr] is byte b && !known.Contains(b))) return null;
 
         var columns = OfAttr(QueryAttrColumn).Select(r => r[expr] as string ?? "").ToList();
-        var tables = OfAttr(QueryAttrTable).Select(r => (Table: r[n1] as string ?? "", Alias: r[n2] as string)).ToList();
+        // A derived-table source has its subquery SQL in Expression and no Name1; a named table uses Name1.
+        var tables = OfAttr(QueryAttrTable)
+            .Select(r => (Table: r[n1] as string ?? "", Alias: r[n2] as string, Sub: r[n1] is null ? r[expr] as string : null)).ToList();
         if (columns.Count == 0 || tables.Count == 0) return null;
 
         bool distinct = OfAttr(QueryAttrFlag).Any(r => r[flag] is short f && (f & QueryFlagDistinct) != 0);
@@ -213,8 +215,9 @@ public sealed class JetCatalog(PageChannel channel)
         string? where = OfAttr(QueryAttrWhere).Select(r => r[expr] as string).FirstOrDefault();
 
         static string Ident(string s) => $"[{s}]";
-        static string Render((string Table, string? Alias) t) =>
-            t.Alias is not null && !string.Equals(t.Alias, t.Table, StringComparison.OrdinalIgnoreCase)
+        static string Render((string Table, string? Alias, string? Sub) t) =>
+            t.Sub is { } sub ? $"({sub}) AS {Ident(t.Alias!)}"
+            : t.Alias is not null && !string.Equals(t.Alias, t.Table, StringComparison.OrdinalIgnoreCase)
                 ? $"{Ident(t.Table)} AS {Ident(t.Alias)}" : Ident(t.Table);
 
         var from = new System.Text.StringBuilder(Render(tables[0]));
@@ -222,7 +225,7 @@ public sealed class JetCatalog(PageChannel channel)
         foreach (var j in joins)
         {
             var right = tables.FirstOrDefault(t => string.Equals(t.Alias ?? t.Table, j.Right, StringComparison.OrdinalIgnoreCase));
-            if (right.Table.Length == 0) return null;
+            if (right.Table.Length == 0 && right.Sub is null) return null; // not found (a derived table has Sub set)
             string kw = j.Kind switch { 2 => "LEFT", 3 => "RIGHT", _ => "INNER" };
             from.Append($" {kw} JOIN {Render(right)} ON {j.Cond}");
             used.Add(right.Alias ?? right.Table);

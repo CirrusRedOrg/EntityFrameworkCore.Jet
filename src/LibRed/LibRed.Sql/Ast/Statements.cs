@@ -89,8 +89,9 @@ public sealed record CreateIndexStatement(
 
 public enum ViewJoinKind { Inner, Left, Right }
 
-/// <summary>A source table in a view's FROM (with an optional alias).</summary>
-public sealed record ViewSource(string Table, string? Alias);
+/// <summary>A source in a view's FROM: either a named table (<paramref name="Table"/> set) or a derived
+/// table (<paramref name="SubquerySql"/> = the verbatim inner subquery text, with a required alias).</summary>
+public sealed record ViewSource(string? Table, string? Alias, string? SubquerySql = null);
 
 /// <summary>A join in a view: its kind, the verbatim ON condition, and the left/right side aliases.</summary>
 public sealed record ViewJoin(ViewJoinKind Kind, string Condition, string LeftAlias, string RightAlias);

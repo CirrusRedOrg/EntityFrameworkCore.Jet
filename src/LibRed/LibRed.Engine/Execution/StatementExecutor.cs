@@ -141,7 +141,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         var spec = new ViewSpec(
             d.Distinct,
             d.Columns,
-            d.Tables.Select(t => new ViewTableSpec(t.Table, t.Alias)).ToList(),
+            d.Tables.Select(t => new ViewTableSpec(t.Table, t.Alias, t.SubquerySql)).ToList(),
             d.Joins.Select(j => new ViewJoinSpec(
                 j.Kind switch { ViewJoinKind.Left => ViewJoinType.Left, ViewJoinKind.Right => ViewJoinType.Right, _ => ViewJoinType.Inner },
                 j.Condition, j.LeftAlias, j.RightAlias)).ToList(),

@@ -65,9 +65,11 @@ public sealed class JetDatabase : IDisposable
         IReadOnlyList<string>? primaryKey = null,
         IReadOnlyList<RelationshipSpec>? relationships = null,
         IReadOnlyList<UniqueIndexSpec>? uniqueConstraints = null,
-        IReadOnlyList<(string Column, string DefaultSql)>? columnDefaults = null)
+        IReadOnlyList<(string Column, string DefaultSql)>? columnDefaults = null,
+        IReadOnlyList<(string Name, string Expression)>? checkConstraints = null)
     {
-        new Storage.TableCreator(_channel, Catalog).Create(name, columns, primaryKey, relationships, uniqueConstraints, columnDefaults);
+        new Storage.TableCreator(_channel, Catalog)
+            .Create(name, columns, primaryKey, relationships, uniqueConstraints, columnDefaults, checkConstraints);
         Catalog.Invalidate();
     }
 

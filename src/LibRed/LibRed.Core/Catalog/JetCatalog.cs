@@ -89,7 +89,7 @@ public sealed class JetCatalog(PageChannel channel)
                             || name.StartsWith('#');
 
             TableDef definition = ReadTableDefinition(definitionPage, name, isSystem);
-            // Attach column DefaultValue properties from the object's extended-properties (LvProp) blob.
+            // Attach column DefaultValue and table CHECK properties from the extended-properties (LvProp) blob.
             if (row[lvpropIndex] is byte[] { Length: > 0 } blob)
             {
                 var defaults = PropertyBlob.ReadColumnDefaults(blob);
@@ -97,6 +97,9 @@ public sealed class JetCatalog(PageChannel channel)
                     foreach (ColumnDef column in definition.Columns)
                         if (defaults.TryGetValue(column.Name, out string? value))
                             column.DefaultValue = value;
+
+                var checks = PropertyBlob.ReadCheckConstraints(blob);
+                if (checks.Count > 0) definition.CheckConstraints = checks;
             }
             tables.Add(definition);
         }

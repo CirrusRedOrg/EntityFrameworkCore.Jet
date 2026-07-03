@@ -24,11 +24,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         IReadOnlyList<string>? primaryKey = null,
         IReadOnlyList<RelationshipSpec>? relationships = null,
         IReadOnlyList<UniqueIndexSpec>? uniqueConstraints = null,
-        IReadOnlyList<(string Column, string DefaultSql)>? columnDefaults = null)
+        IReadOnlyList<(string Column, string DefaultSql)>? columnDefaults = null,
+        IReadOnlyList<(string Name, string Expression)>? checkConstraints = null)
     {
         relationships ??= [];
         uniqueConstraints ??= [];
         columnDefaults ??= [];
+        checkConstraints ??= [];
         JetFormatBase format = _channel.Format;
 
         // Allocate the pages the table needs through the global free-pages map (so Access accounts
@@ -146,7 +148,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         WriteInt24(tdef, FreePagesOffset + 1, usageMapPage);
         _channel.WritePage(tdefPage, tdef);
 
-        AddCatalogRow(name, tdefPage, columnDefaults);
+        AddCatalogRow(name, tdefPage, columnDefaults, checkConstraints);
         AddPermissionRows(tdefPage);
         foreach (RelationshipSpec fk in relationships)
             AddRelationshipRows(name, fk);
@@ -563,7 +565,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     /// long value) as DefaultValue properties. MSysObjects' own indexes (Id, and the composite
     /// ParentId+Name used for name resolution) are maintained so Access can open the table by name.
     /// </summary>
-    private void AddCatalogRow(string name, int tdefPage, IReadOnlyList<(string Column, string DefaultSql)> columnDefaults)
+    private void AddCatalogRow(string name, int tdefPage,
+        IReadOnlyList<(string Column, string DefaultSql)> columnDefaults,
+        IReadOnlyList<(string Name, string Expression)> checkConstraints)
     {
         TableDef msysObjects = _catalog.FindTable("MSysObjects")
             ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
@@ -579,11 +583,17 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         SetByName(msysObjects, values, "DateCreate", now);
         SetByName(msysObjects, values, "DateUpdate", now);
 
-        if (columnDefaults.Count > 0)
+        // Column DEFAULTs (per-column properties) and CHECK constraints (a table property) both live in
+        // the object's extended-properties (LvProp) blob.
+        var props = columnDefaults
+            .Select(d => new PropertyBlob.Property(d.Column, PropertyBlob.DefaultValueProperty, d.DefaultSql))
+            .ToList();
+        if (checkConstraints.Count > 0)
+            props.Add(new PropertyBlob.Property("", PropertyBlob.CheckConstraintsProperty,
+                PropertyBlob.WriteCheckList(checkConstraints)));
+
+        if (props.Count > 0)
         {
-            var props = columnDefaults
-                .Select(d => new PropertyBlob.Property(d.Column, PropertyBlob.DefaultValueProperty, d.DefaultSql))
-                .ToList();
             // Access reads object properties only from an LVAL-page long value, not an inline one, so
             // write the blob to its own page and store the reference descriptor.
             byte[] reference = new LongValueWriter(_channel).WriteSinglePage(PropertyBlob.Write(props));

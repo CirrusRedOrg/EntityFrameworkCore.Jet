@@ -486,6 +486,36 @@ public class CreateTableAccessTests
     }
 
     [Fact]
+    public void Access_enforces_a_libred_written_check_constraint()
+    {
+        // LibRed writes a CHECK into the table's LvProp (CheckConstraints property) on an LVAL page.
+        // Access must open the file and ENFORCE it — accept a valid row, reject a violating one.
+        string path = CopyToTemp();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                db.CreateTable("T",
+                    [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                     new ColumnSpec("Age", JetDataType.Int32, 4, IsFixedLength: true)],
+                    primaryKey: ["Id"],
+                    checkConstraints: [("CK_Age", "[Age] > 0")]);
+
+            using var conn = OpenOleDb(path);
+            using (var ok = conn.CreateCommand())
+            {
+                ok.CommandText = "INSERT INTO T (Id, Age) VALUES (1, 5)"; // satisfies the CHECK
+                Assert.Equal(1, ok.ExecuteNonQuery());
+            }
+            using (var bad = conn.CreateCommand())
+            {
+                bad.CommandText = "INSERT INTO T (Id, Age) VALUES (2, -1)"; // violates [Age] > 0
+                Assert.ThrowsAny<Exception>(() => bad.ExecuteNonQuery());
+            }
+        }
+        finally { TryDelete(path); }
+    }
+
+    [Fact]
     public void Access_opens_and_round_trips_a_created_table_with_primary_key()
     {
         // The created table's TDEF and per-table pages are now fully ACE-valid: Access resolves it

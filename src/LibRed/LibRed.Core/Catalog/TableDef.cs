@@ -15,6 +15,10 @@ public sealed class TableDef
     public IReadOnlyList<ColumnDef> Columns { get; init; } = [];
     public IReadOnlyList<IndexDef> Indexes { get; init; } = [];
 
+    /// <summary>CHECK constraints (name, expression), read from the table's extended-properties
+    /// (<c>LvProp</c>) blob. Set by the catalog after the definition is decoded.</summary>
+    public IReadOnlyList<(string Name, string Expression)> CheckConstraints { get; internal set; } = [];
+
     /// <summary>True for the MSys* system tables.</summary>
     public bool IsSystem { get; init; }
 

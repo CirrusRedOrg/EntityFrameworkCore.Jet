@@ -30,6 +30,7 @@ internal sealed class AstBuilder
         var primaryKey = columns.Where(c => c.PrimaryKey).Select(c => c.Name).ToList();
         var foreignKeys = new List<ForeignKeyConstraint>();
         var uniques = new List<UniqueConstraint>();
+        var checks = new List<CheckConstraint>();
 
         // Column-level UNIQUE and REFERENCES (the single-field forms) apply to the column they follow.
         foreach (ColumnDefinitionContext cd in ctx.columnDefinition())
@@ -62,11 +63,23 @@ internal sealed class AstBuilder
                 case ForeignKeyTableConstraintContext fk:
                     foreignKeys.Add(BuildForeignKey(fk));
                     break;
+                case CheckTableConstraintContext ck:
+                    checks.Add(new CheckConstraint(
+                        ck.name is null ? null : Identifier(ck.name), OriginalText(ck.checkBody())));
+                    break;
             }
         }
 
-        return new CreateTableStatement(Identifier(ctx.table), columns, primaryKey, foreignKeys, uniques);
+        return new CreateTableStatement(Identifier(ctx.table), columns, primaryKey, foreignKeys, uniques, checks);
     }
+
+    /// <summary>The verbatim source text of a parse context (preserving spacing), via the input stream —
+    /// unlike <c>GetText()</c>, which concatenates token text with no whitespace. Used to store a CHECK
+    /// expression exactly as written (matching Access).</summary>
+    private static string OriginalText(Antlr4.Runtime.ParserRuleContext ctx) =>
+        ctx.Start is null || ctx.Stop is null
+            ? ctx.GetText()
+            : ctx.Start.InputStream.GetText(Antlr4.Runtime.Misc.Interval.Of(ctx.Start.StartIndex, ctx.Stop.StopIndex));
 
     private static ForeignKeyConstraint BuildForeignKey(ForeignKeyTableConstraintContext ctx)
     {

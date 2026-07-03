@@ -48,7 +48,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             .Select(c => (c.Name, DefaultSql: c.Default!))
             .ToList();
 
-        _database.CreateTable(statement.Table, columns, primaryKey, relationships, uniques, defaults);
+        var checks = statement.CheckConstraints
+            .Select((ck, i) => (Name: ck.Name ?? $"CK_{statement.Table}_{i}", ck.Expression))
+            .ToList();
+
+        _database.CreateTable(statement.Table, columns, primaryKey, relationships, uniques, defaults, checks);
         return 0;
     }
 

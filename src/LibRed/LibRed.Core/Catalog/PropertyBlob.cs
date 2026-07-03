@@ -19,10 +19,12 @@ public static class PropertyBlob
 {
     private static readonly byte[] SignatureAce = "MR2\0"u8.ToArray();
     private const ushort NameListBlock = 0x0080;
-    private const ushort ValueBlock = 0x0001;
+    private const ushort TableBlock = 0x0000;   // value block owned by the table (empty owner name)
+    private const ushort ColumnBlock = 0x0001;  // value block owned by a column
     private const byte PropFlag = 0x01;
-    private const byte PropTypeMemo = 0x0C; // DefaultValue is stored as a memo/long-text property
+    private const byte PropTypeMemo = 0x0C; // properties are stored as a memo/long-text value
     public const string DefaultValueProperty = "DefaultValue";
+    public const string CheckConstraintsProperty = "CheckConstraints";
 
     /// <summary>A single property: the owning column (or "" for the table), the property name, and its
     /// value text (an expression for <c>DefaultValue</c>).</summary>
@@ -61,17 +63,17 @@ public static class PropertyBlob
                 entry.AddRange(value);
                 body.AddRange(entry);
             }
-            AppendBlock(blob, ValueBlock, body);
+            // A table-level map (empty owner) uses block type 0x00; a column map uses 0x01.
+            AppendBlock(blob, group.Owner.Length == 0 ? TableBlock : ColumnBlock, body);
         }
 
         return [.. blob];
     }
 
-    /// <summary>Extracts each column's <c>DefaultValue</c> (owner → value text) from a blob, ignoring
-    /// property names it does not recognise. Returns empty for a null/blank blob.</summary>
-    public static IReadOnlyDictionary<string, string> ReadColumnDefaults(ReadOnlySpan<byte> blob)
+    /// <summary>Parses every property (owner, name, value) from a blob. Empty owner = a table property.</summary>
+    public static IReadOnlyList<Property> Read(ReadOnlySpan<byte> blob)
     {
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var result = new List<Property>();
         if (blob.Length < 4) return result;
 
         int pos = 4; // skip signature
@@ -108,12 +110,55 @@ public static class PropertyBlob
                     int nameIdx = BinaryPrimitives.ReadUInt16LittleEndian(blob.Slice(q + 4, 2));
                     int vl = BinaryPrimitives.ReadUInt16LittleEndian(blob.Slice(q + 6, 2));
                     if (el < 8 || q + el > bodyEnd) break;
-                    if (nameIdx < names.Count && names[nameIdx] == DefaultValueProperty && owner.Length > 0)
-                        result[owner] = Encoding.Unicode.GetString(blob.Slice(q + 8, vl));
+                    if (nameIdx < names.Count)
+                        result.Add(new Property(owner, names[nameIdx], Encoding.Unicode.GetString(blob.Slice(q + 8, vl))));
                     q += el;
                 }
             }
             pos += len;
+        }
+        return result;
+    }
+
+    /// <summary>Extracts each column's <c>DefaultValue</c> (column name → value text) from a blob.</summary>
+    public static IReadOnlyDictionary<string, string> ReadColumnDefaults(ReadOnlySpan<byte> blob)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Property p in Read(blob))
+            if (p.Owner.Length > 0 && p.Name == DefaultValueProperty)
+                result[p.Owner] = p.Value;
+        return result;
+    }
+
+    /// <summary>Extracts the table's CHECK constraints (name, expression) from a blob. The
+    /// <c>CheckConstraints</c> table property stores them as a <c>name\0expression\0</c> list, terminated
+    /// by an empty entry.</summary>
+    public static IReadOnlyList<(string Name, string Expression)> ReadCheckConstraints(ReadOnlySpan<byte> blob)
+    {
+        foreach (Property p in Read(blob))
+            if (p.Owner.Length == 0 && p.Name == CheckConstraintsProperty)
+                return ParseCheckList(p.Value);
+        return [];
+    }
+
+    /// <summary>Serialises CHECK constraints into the <c>CheckConstraints</c> property value: each is
+    /// <c>name\0expression\0</c>, then a trailing <c>\0</c> terminator.</summary>
+    public static string WriteCheckList(IReadOnlyList<(string Name, string Expression)> checks)
+    {
+        var sb = new StringBuilder();
+        foreach (var (name, expr) in checks) sb.Append(name).Append('\0').Append(expr).Append('\0');
+        sb.Append('\0');
+        return sb.ToString();
+    }
+
+    private static List<(string Name, string Expression)> ParseCheckList(string value)
+    {
+        var result = new List<(string, string)>();
+        string[] parts = value.Split('\0');
+        for (int i = 0; i + 1 < parts.Length; i += 2)
+        {
+            if (parts[i].Length == 0) break; // empty name = list terminator
+            result.Add((parts[i], parts[i + 1]));
         }
         return result;
     }

@@ -62,12 +62,17 @@ public sealed record ForeignKeyConstraint(
 /// <summary>A UNIQUE constraint (table-level, or a column-level UNIQUE) over one or more columns.</summary>
 public sealed record UniqueConstraint(string? Name, IReadOnlyList<string> Columns);
 
+/// <summary>A CHECK constraint: an optional name and the raw expression text (validated by Access, not
+/// yet enforced by LibRed).</summary>
+public sealed record CheckConstraint(string? Name, string Expression);
+
 public sealed record CreateTableStatement(
     string Table,
     IReadOnlyList<ColumnDefinition> Columns,
     IReadOnlyList<string> PrimaryKey,
     IReadOnlyList<ForeignKeyConstraint> ForeignKeys,
-    IReadOnlyList<UniqueConstraint> UniqueConstraints) : SqlStatement;
+    IReadOnlyList<UniqueConstraint> UniqueConstraints,
+    IReadOnlyList<CheckConstraint> CheckConstraints) : SqlStatement;
 
 /// <summary>The optional WITH clause of CREATE INDEX: PRIMARY (make it the primary key), DISALLOW NULL
 /// (no nulls allowed), IGNORE NULL (rows with nulls excluded from the index).</summary>

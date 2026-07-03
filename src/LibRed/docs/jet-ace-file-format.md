@@ -695,10 +695,15 @@ Then the value, transformed:
   > name]` repeated, indexed 0,1,…). Other blocks are a **per-owner value map** (owner = a column name,
   > or `""` for the table): `[short ownerRecLen][short 0][short nameLen][owner name]` then property
   > entries `[short entryLen][byte flag=1][byte dataType=0x0C][short nameIndex][short valueLen][UTF-16
-  > value]`. A `DefaultValue` is stored as the expression's **source text** (e.g. `42`, `'hi'`).
+  > value]`. The value-block **type** is `0x01` for a column-owned map and `0x00` for the table-owned map
+  > (empty owner name). A `DefaultValue` (column property) is the expression's **source text** (e.g. `42`,
+  > `'hi'`); table-level `CHECK` constraints are a single **table** property named `CheckConstraints`
+  > whose value is a `name\0expression\0` list, terminated by an extra `\0` (verified byte-for-byte vs
+  > ACE for `CONSTRAINT CK_BD CHECK ([BirthDate] < NOW())`).
   >
-  > LibRed **writes** `DefaultValue` properties (`PropertyBlob.Write`) and **reads** them back
-  > (`ColumnDef.DefaultValue`), applying the default when an insert omits the column. `LvProp` is stored
+  > LibRed **writes** `DefaultValue` and `CheckConstraints` properties (`PropertyBlob.Write`) and **reads**
+  > them back (`ColumnDef.DefaultValue`, `TableDef.CheckConstraints`), applying the default when an insert
+  > omits the column. Access **applies the default** and **enforces the CHECK** on its own inserts. `LvProp` is stored
   > on a **single LVAL page** (`LongValueWriter`, descriptor flag `0x40`) — the form Access's property
   > loader requires. **Verified:** Access opens the file and **applies the default** on its own insert
   > that omits the column. (An *inline* value, flag `0x80`, is written and read fine by LibRed but is

@@ -71,6 +71,7 @@ engine), cross-checked with [mdbtools](https://github.com/mdbtools/mdbtools) and
   `INSERT`. `UNIQUE` creates a unique non-primary index. Self-referencing foreign keys are handled
   inline. Column `DEFAULT` values are persisted to the table's `LvProp` property blob (on an LVAL page),
   read back onto the column, and applied when an insert omits the column — **and Access honors them too**.
+  `CHECK` constraints (table- and column-level) are parsed and accepted (currently ignored, not enforced).
 - **SQL** — ANTLR front end (parser → binder via `ISchemaProvider` → planner → executor). Statements:
   `CREATE TABLE`, `CREATE [UNIQUE] INDEX … ON … (col [ASC|DESC], …) [WITH {PRIMARY|DISALLOW NULL}]`,
   `INSERT` (with AutoNumber), and `SELECT` with `WHERE`, joins, `GROUP BY`/aggregates,
@@ -98,6 +99,9 @@ engine), cross-checked with [mdbtools](https://github.com/mdbtools/mdbtools) and
   inline; switching them to LVAL pages for large values is the follow-up.)
 - **`CREATE TEMPORARY TABLE` / `WITH COMPRESSION`**: parsed only to throw a clear `NotSupportedException`
   (out of scope).
+- **`CHECK` constraints**: parsed (as balanced-paren token soup) and **ignored** — not enforced on
+  insert/update, and not persisted so Access sees them. Follow-up: evaluate the expression per row and/or
+  persist it as a validation-rule property.
 - **`CREATE INDEX` — non-empty table**: works for ascending/descending, `WITH PRIMARY`,
   `WITH DISALLOW NULL`, and `WITH IGNORE NULL` indexes on an **empty** table (EF's case: indexes are
   created right after `CREATE TABLE`, before seeding). Not yet: adding an index to a **non-empty** table

@@ -46,6 +46,7 @@ columnConstraint
     | NULL                                           # NullableConstraint
     | DEFAULT expression                             # DefaultConstraint
     | WITH (COMPRESSION | COMP)                       # CompressionConstraint
+    | (CONSTRAINT cname=identifier)? CHECK LPAREN checkBody RPAREN  # CheckColumnConstraint
     | (CONSTRAINT cname=identifier)? PRIMARY KEY     # PrimaryKeyConstraint
     | (CONSTRAINT cname=identifier)? UNIQUE          # UniqueColumnConstraint
     | (CONSTRAINT cname=identifier)? REFERENCES refTable=identifier
@@ -65,7 +66,12 @@ tableConstraint
         REFERENCES refTable=identifier
         (LPAREN refColumns+=identifier (COMMA refColumns+=identifier)* RPAREN)?
         foreignKeyAction*                                                                      # ForeignKeyTableConstraint
+    | (CONSTRAINT name=identifier)? CHECK LPAREN checkBody RPAREN                               # CheckTableConstraint
     ;
+
+// A CHECK expression is parsed as balanced-paren token soup and ignored (not enforced yet), so any
+// expression ACE accepts parses without needing full expression support.
+checkBody : ( ~(LPAREN | RPAREN) | LPAREN checkBody RPAREN )* ;
 
 // ON UPDATE / ON DELETE may appear in either order (Access documents UPDATE-then-DELETE; EF Core
 // emits only ON DELETE), so they are parsed as an unordered list.
@@ -227,6 +233,7 @@ COMPRESSION: [Cc][Oo][Mm][Pp][Rr][Ee][Ss][Ss][Ii][Oo][Nn] ;
 COMP       : [Cc][Oo][Mm][Pp] ;
 DISALLOW   : [Dd][Ii][Ss][Aa][Ll][Ll][Oo][Ww] ;
 IGNORE     : [Ii][Gg][Nn][Oo][Rr][Ee] ;
+CHECK      : [Cc][Hh][Ee][Cc][Kk] ;
 ASC    : [Aa][Ss][Cc] ;
 DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;

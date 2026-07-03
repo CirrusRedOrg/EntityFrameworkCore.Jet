@@ -118,6 +118,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitCompressionConstraint([NotNull] AccessSqlParser.CompressionConstraintContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>CheckColumnConstraint</c>
+	/// labeled alternative in <see cref="AccessSqlParser.columnConstraint"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCheckColumnConstraint([NotNull] AccessSqlParser.CheckColumnConstraintContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>PrimaryKeyConstraint</c>
 	/// labeled alternative in <see cref="AccessSqlParser.columnConstraint"/>.
 	/// </summary>
@@ -159,6 +166,19 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitForeignKeyTableConstraint([NotNull] AccessSqlParser.ForeignKeyTableConstraintContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>CheckTableConstraint</c>
+	/// labeled alternative in <see cref="AccessSqlParser.tableConstraint"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCheckTableConstraint([NotNull] AccessSqlParser.CheckTableConstraintContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.checkBody"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCheckBody([NotNull] AccessSqlParser.CheckBodyContext context);
 	/// <summary>
 	/// Visit a parse tree produced by the <c>OnUpdateAction</c>
 	/// labeled alternative in <see cref="AccessSqlParser.foreignKeyAction"/>.

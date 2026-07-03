@@ -120,6 +120,14 @@ public static class JetTypeCodec
     public static byte[] Encode(ColumnDef column, object value)
     {
         var c = System.Globalization.CultureInfo.InvariantCulture;
+
+        // Jet represents a boolean as -1 (true) / 0 (false). EF maps a CLR bool onto a numeric
+        // (smallint) column, so a bool value here targets a numeric column — normalise it to the Jet
+        // form so what we write matches Access (which also stores -1). (A real Boolean/YESNO column is
+        // carried in the null bitmap and never reaches this method.)
+        if (value is bool boolean)
+            value = (short)(boolean ? -1 : 0);
+
         switch (column.Type)
         {
             case JetDataType.Byte:

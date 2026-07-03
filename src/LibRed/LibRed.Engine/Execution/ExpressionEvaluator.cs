@@ -180,13 +180,17 @@ internal sealed class ExpressionEvaluator(
     private static bool? AsBool(object? v) => v switch { bool b => b, null => null, _ => Convert.ToBoolean(v) };
 
     private static object Arithmetic(object left, object right, Func<decimal, decimal, decimal> op) =>
-        op(Convert.ToDecimal(left, CultureInfo.InvariantCulture), Convert.ToDecimal(right, CultureInfo.InvariantCulture));
+        op(ToNumber(left), ToNumber(right));
+
+    /// <summary>Coerces a value to a decimal for numeric ops, using Jet's boolean convention
+    /// (true = -1, false = 0) so a bool matches the numeric column it is stored in (see the encoder).</summary>
+    private static decimal ToNumber(object v) =>
+        v is bool b ? (b ? -1 : 0) : Convert.ToDecimal(v, CultureInfo.InvariantCulture);
 
     private static int Compare(object left, object right)
     {
         if (IsNumeric(left) && IsNumeric(right))
-            return Convert.ToDecimal(left, CultureInfo.InvariantCulture)
-                .CompareTo(Convert.ToDecimal(right, CultureInfo.InvariantCulture));
+            return ToNumber(left).CompareTo(ToNumber(right));
 
         if (left is string || right is string)
             return string.CompareOrdinal(left.ToString(), right.ToString());

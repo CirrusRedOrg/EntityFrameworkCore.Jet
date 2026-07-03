@@ -66,6 +66,19 @@ public static class IndexKeyEncoder
                 continue;
             }
 
+            // Binary key: the start flag, the raw bytes, then a fixed 4-zero pad and the byte length —
+            // verified against ACE for the fixed 4-byte binary values used in MSysQueries' Order column.
+            // (Only ascending is used by such an index; general binary/GUID collation is still TODO.)
+            if (column.Type == JetDataType.Binary && ascending)
+            {
+                byte[] data = (byte[])value;
+                buffer.Add(AscStartFlag);
+                buffer.AddRange(data);
+                buffer.AddRange(new byte[4]);
+                buffer.Add((byte)data.Length);
+                continue;
+            }
+
             int size = FixedKeySize(column.Type);
             if (size <= 0)
                 throw new NotSupportedException(

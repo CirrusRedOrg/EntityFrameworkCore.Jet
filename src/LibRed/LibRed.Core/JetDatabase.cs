@@ -84,6 +84,14 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
+    /// <summary>Creates a view (a stored SELECT query) — the CREATE VIEW statement. Written the way Access
+    /// does: an MSysObjects type-5 row plus the query decomposed into MSysQueries rows.</summary>
+    public void CreateView(string name, ViewSpec spec)
+    {
+        new Storage.ViewCreator(_channel, Catalog).Create(name, spec);
+        Catalog.Invalidate();
+    }
+
     /// <summary>Opens a table by name for row access.</summary>
     public Table OpenTable(string name)
     {

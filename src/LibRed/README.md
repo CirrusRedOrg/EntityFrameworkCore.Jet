@@ -59,7 +59,13 @@ engine), cross-checked with [mdbtools](https://github.com/mdbtools/mdbtools) and
   in-bitmap booleans); data types incl. Text (compressed-Unicode common case), Memo/OLE long
   values, Currency, DateTime, GUID, Numeric/Decimal, and ACE-16 `BIGINT`/`DATETIME2`; inline and
   reference usage maps.
-- **Write** — row insert with order-preserving index-key encoding and B-tree maintenance;
+- **Views** — `CREATE VIEW name AS <simple SELECT>` writes the object the way Access does: an
+  `MSysObjects` type-5 row (negative synthetic id) plus the query decomposed into `MSysQueries` rows
+  (columns/tables/joins/where, bracketed by type/end rows). Access opens the file and executes the view.
+  Only the "simple SELECT" a view may contain is supported (no GROUP BY/aggregates/ORDER BY — Access
+  rejects those in a view too). Reading views back into LibRed's own query engine is still TODO.
+- **Write** — row insert with order-preserving index-key encoding and **multi-level B-tree maintenance**
+  (descend to the target leaf, insert with prefix compression; leaf splitting still TODO);
   `CREATE TABLE` (heap + primary key) that **Access opens and round-trips**; AutoNumber generation
   and high-water tracking; unique-index statistics; allocation through the global free-pages map;
   `MSysObjects` / `MSysACEs` catalog rows; version-0 "General legacy" text index keys.
@@ -75,7 +81,9 @@ engine), cross-checked with [mdbtools](https://github.com/mdbtools/mdbtools) and
   expression text) and read back onto `TableDef.CheckConstraints` — **and Access enforces them**.
 - **SQL** — ANTLR front end (parser → binder via `ISchemaProvider` → planner → executor). Statements:
   `CREATE TABLE`, `CREATE [UNIQUE] INDEX … ON … (col [ASC|DESC], …) [WITH {PRIMARY|DISALLOW NULL}]`,
-  `INSERT` (with AutoNumber), and `SELECT` with `WHERE`, joins, `GROUP BY`/aggregates,
+  `CREATE VIEW … AS <simple SELECT>` (stored byte-faithfully as an `MSysObjects` query + `MSysQueries`
+  rows — Access opens the file and runs the view), `INSERT` (with AutoNumber), and `SELECT` with `WHERE`,
+  joins, `GROUP BY`/aggregates,
   `HAVING`, `ORDER BY`, `TOP`, `UNION`/`INTERSECT`/`EXCEPT`, subqueries, and parameters. Plan nodes:
   Scan / IndexScan / Filter / Project / Join / Aggregate / Sort / Limit / SetOperation / DerivedTable.
 - **ADO.NET** — connection / command / reader / parameter / transaction / factory over the engine.

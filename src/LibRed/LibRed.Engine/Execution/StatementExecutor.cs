@@ -21,6 +21,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         CreateTableStatement create => ExecuteCreateTable(create),
         CreateIndexStatement createIndex => ExecuteCreateIndex(createIndex),
+        CreateViewStatement createView => ExecuteCreateView(createView),
         InsertStatement insert => ExecuteInsert(insert),
         _ => throw new NotSupportedException($"{statement.GetType().Name} cannot be executed as a non-query."),
     };
@@ -131,6 +132,22 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             isPrimary: statement.WithOption == IndexWithOption.Primary,
             disallowNull: statement.WithOption == IndexWithOption.DisallowNull,
             ignoreNulls: statement.WithOption == IndexWithOption.IgnoreNull);
+        return 0;
+    }
+
+    private int ExecuteCreateView(CreateViewStatement statement)
+    {
+        ViewDefinition d = statement.Definition;
+        var spec = new ViewSpec(
+            d.Distinct,
+            d.Columns,
+            d.Tables.Select(t => new ViewTableSpec(t.Table, t.Alias)).ToList(),
+            d.Joins.Select(j => new ViewJoinSpec(
+                j.Kind switch { ViewJoinKind.Left => ViewJoinType.Left, ViewJoinKind.Right => ViewJoinType.Right, _ => ViewJoinType.Inner },
+                j.Condition, j.LeftAlias, j.RightAlias)).ToList(),
+            d.Where);
+
+        _database.CreateView(statement.Name, spec);
         return 0;
     }
 

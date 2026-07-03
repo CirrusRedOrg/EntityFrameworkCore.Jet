@@ -6,14 +6,17 @@ using LibRed.Pages;
 namespace LibRed.Storage;
 
 /// <summary>
-/// Adds an entry to an index B-tree to keep it consistent after a row insert. This first cut
-/// handles a single-leaf index (root page is a leaf): it slots the new key into the leaf in
-/// order and rewrites the page uncompressed. Multi-level descent and leaf splitting are not yet
-/// implemented and throw, as do indexes whose key columns need (unsupported) text collation.
+/// Adds an entry to an index B-tree to keep it consistent after a row insert. Descends a multi-level
+/// tree from the root to the target leaf (following node separators) and slots the new key into that
+/// leaf in order, rewriting the page uncompressed. Because it descends into the first child whose
+/// separator ≥ the new key, the leaf's maximum key never changes, so no parent separator needs
+/// updating. Leaf <b>splitting</b> (a full leaf) is not implemented and throws, as do indexes whose
+/// key columns need (unsupported) text collation.
 /// </summary>
 public sealed class IndexWriter(PageChannel channel)
 {
     private const int FreeSpaceOffset = 0x02;
+    private const int ChildTailOffset = 0x14;   // node page: the rightmost child (not referenced by an entry)
     private const int CompressedByteCountOffset = 0x18;
     private const int EntryMaskOffset = 0x1B;
     private const int EntryDataOffset = 0x1E0;
@@ -22,12 +25,17 @@ public sealed class IndexWriter(PageChannel channel)
 
     public void AddEntry(IndexDef index, object?[] values, RowId rowId)
     {
-        byte[] page = _channel.ReadPage(index.RootPage).Span.ToArray();
-        if ((PageType)page[0] != PageType.LeafIndexPage)
-            throw new NotSupportedException("Multi-level index insertion is not implemented yet (root is a node page).");
-
         byte[] key = IndexKeyEncoder.Encode(index.Columns, values);
         int pointer = (rowId.Page << 8) | rowId.Row;
+
+        // The full leaf-entry bytes (key + 4-byte pointer) are what node separators store, so compare
+        // against them to descend to the correct leaf.
+        byte[] fullKey = new byte[key.Length + 4];
+        key.CopyTo(fullKey, 0);
+        WriteInt32BigEndian(fullKey, key.Length, pointer);
+
+        int leafPage = DescendToLeaf(index.RootPage, fullKey);
+        byte[] page = _channel.ReadPage(leafPage).Span.ToArray();
 
         var entries = ParseLeafEntries(page);
 
@@ -39,7 +47,40 @@ public sealed class IndexWriter(PageChannel channel)
         if (!TryRewriteLeaf(page, entries))
             throw new NotSupportedException("Leaf page is full — index node splitting is not implemented yet.");
 
-        _channel.WritePage(index.RootPage, page);
+        _channel.WritePage(leafPage, page);
+    }
+
+    /// <summary>Descends from a (possibly node) root to the leaf that should hold <paramref name="fullKey"/>.</summary>
+    private int DescendToLeaf(int pageNumber, byte[] fullKey)
+    {
+        while (true)
+        {
+            byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
+            if ((PageType)page[0] == PageType.LeafIndexPage) return pageNumber;
+
+            // Node page: the first entry whose separator ≥ the key owns the child; else the tail child.
+            // (Entry child pointers are big-endian; the tail child at 0x14 is little-endian.)
+            int child = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(ChildTailOffset, 4));
+            byte[] prefix = [];
+            bool first = true;
+            foreach ((int start, int end) in EntryRanges(page))
+            {
+                int childPage = ReadInt32BigEndian(page, EntryDataOffset + end - 4);
+                ReadOnlySpan<byte> stored = page.AsSpan(EntryDataOffset + start, end - start - 4);
+                byte[] separator = first ? stored.ToArray() : Concat(prefix, stored);
+                if (first) { prefix = separator[..BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(CompressedByteCountOffset, 2))]; first = false; }
+                if (CompareBytes(separator, fullKey) >= 0) { child = childPage; break; }
+            }
+            pageNumber = child;
+        }
+    }
+
+    private static int CompareBytes(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
+    {
+        int n = Math.Min(a.Length, b.Length);
+        for (int i = 0; i < n; i++)
+            if (a[i] != b[i]) return a[i] - b[i];
+        return a.Length - b.Length;
     }
 
     private static List<(byte[] Key, int Pointer)> ParseLeafEntries(byte[] page)
@@ -64,35 +105,50 @@ public sealed class IndexWriter(PageChannel channel)
         return entries;
     }
 
-    /// <summary>Rewrites the leaf in place (uncompressed). Returns false if the entries overflow the page.</summary>
+    /// <summary>
+    /// Rewrites the leaf in place with prefix compression (the first entry stored whole, the shared
+    /// leading bytes omitted from the rest) — matching Access, so a near-full compressed leaf still fits.
+    /// Returns false if the entries overflow the page (a split, not implemented, would be needed).
+    /// </summary>
     private bool TryRewriteLeaf(byte[] page, List<(byte[] Key, int Pointer)> entries)
     {
         int pageSize = _channel.PageSize;
 
-        // Preserve the header (owner, prev/next leaf links) but drop prefix compression and
-        // clear the entry mask + data region before re-emitting.
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(CompressedByteCountOffset, 2), 0);
+        // Bytes shared by every entry (entries are sorted, so the first and last bound the common prefix).
+        int compress = entries.Count == 0 ? 0 : CommonPrefixLength(entries[0].Key, entries[^1].Key);
+
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(CompressedByteCountOffset, 2), (ushort)compress);
         Array.Clear(page, EntryMaskOffset, EntryDataOffset - EntryMaskOffset);
         Array.Clear(page, EntryDataOffset, pageSize - EntryDataOffset);
 
         int pos = EntryDataOffset;
+        bool first = true;
         foreach ((byte[] key, int pointer) in entries)
         {
-            int entryLength = key.Length + 4;
+            ReadOnlySpan<byte> stored = first ? key : key.AsSpan(compress); // omit the shared prefix
+            first = false;
+
+            int entryLength = stored.Length + 4;
             if (pos + entryLength > pageSize) return false;
 
-            key.CopyTo(page.AsSpan(pos));
-            WriteInt32BigEndian(page, pos + key.Length, pointer);
+            stored.CopyTo(page.AsSpan(pos));
+            WriteInt32BigEndian(page, pos + stored.Length, pointer);
             pos += entryLength;
 
-            // The entry mask marks each entry's end offset (relative to the data region).
-            int end = pos - EntryDataOffset;
+            int end = pos - EntryDataOffset; // the entry mask marks each entry's end offset
             page[EntryMaskOffset + (end >> 3)] |= (byte)(1 << (end & 7));
         }
 
         int used = pos - EntryDataOffset;
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(FreeSpaceOffset, 2), (ushort)(pageSize - EntryDataOffset - used));
         return true;
+    }
+
+    private static int CommonPrefixLength(byte[] a, byte[] b)
+    {
+        int n = Math.Min(a.Length, b.Length), i = 0;
+        while (i < n && a[i] == b[i]) i++;
+        return i;
     }
 
     private static int CompareEntry((byte[] Key, int Pointer) a, (byte[] Key, int Pointer) b)

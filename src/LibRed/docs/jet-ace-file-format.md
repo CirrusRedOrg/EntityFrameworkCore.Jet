@@ -732,6 +732,17 @@ Then the value, transformed:
   > to open it. Opening it then requires the table's own structures to be byte-valid to Access
   > (see §3.7).
 
+- **Views / queries** are `MSysObjects` rows of **Type 5** with a **negative synthetic `Id`** (queries
+  increment from `0x80000000`), `ParentId 0x0F000001`, `Flags 0x10000000`, `LvProp` null. The query
+  itself is stored in **MSysQueries**, decomposed into rows keyed by `ObjectId`, each with an `Attribute`
+  byte (Jackcess "query rows", verified vs ACE for the "simple SELECT" a view may contain): `0x00` =
+  query type (`Flag 1` = SELECT), `0x03` = flags (`Flag 2` = DISTINCT), `0x05` = FROM table
+  (`Name1`=table, `Name2`=alias), `0x06` = output column (`Expression`), `0x07` = join (`Expression`=
+  condition, `Flag`=kind, `Name1`/`Name2`=aliases), `0x08` = WHERE (`Expression`), `0xFF` = end. `Order`
+  is a 4-byte **big-endian** per-attribute counter (stored in the Binary `Order` column). MSysQueries'
+  only index is the composite PK `(ObjectId Int32, Attribute Byte, Order Binary)`; its Binary key encodes
+  as `0x7F` + the raw bytes + `00 00 00 00` + a length byte. Access opens the file and runs the view.
+
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`
   (parent table), `szReferencedColumn`, `icolumn` (0-based column order within the key),

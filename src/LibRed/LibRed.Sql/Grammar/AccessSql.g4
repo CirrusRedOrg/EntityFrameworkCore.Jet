@@ -11,13 +11,20 @@
 grammar AccessSql;
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
-statement : (createTableStatement | createIndexStatement | insertStatement | queryExpression) SEMI? EOF ;
+statement : (createTableStatement | createIndexStatement | createViewStatement | insertStatement | queryExpression) SEMI? EOF ;
 
 // ---- DDL / DML ----
 
 createTableStatement
     : CREATE temp=TEMPORARY? TABLE table=identifier
       LPAREN columnDefinition (COMMA columnDefinition)* (COMMA tableConstraint)* RPAREN
+    ;
+
+// CREATE VIEW view [(field1, …)] AS selectstatement. The body is a SELECT (UNION accepted too).
+createViewStatement
+    : CREATE VIEW name=identifier
+      (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)?
+      AS query=queryExpression
     ;
 
 // CREATE [UNIQUE] INDEX name ON table (field [ASC|DESC], …) [WITH {PRIMARY|DISALLOW NULL|IGNORE NULL}]
@@ -234,6 +241,7 @@ COMP       : [Cc][Oo][Mm][Pp] ;
 DISALLOW   : [Dd][Ii][Ss][Aa][Ll][Ll][Oo][Ww] ;
 IGNORE     : [Ii][Gg][Nn][Oo][Rr][Ee] ;
 CHECK      : [Cc][Hh][Ee][Cc][Kk] ;
+VIEW       : [Vv][Ii][Ee][Ww] ;
 ASC    : [Aa][Ss][Cc] ;
 DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;

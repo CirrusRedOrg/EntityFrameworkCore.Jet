@@ -87,6 +87,30 @@ public sealed record CreateIndexStatement(
     IReadOnlyList<(string Column, bool Descending)> Columns,
     IndexWithOption WithOption) : SqlStatement;
 
+public enum ViewJoinKind { Inner, Left, Right }
+
+/// <summary>A source table in a view's FROM (with an optional alias).</summary>
+public sealed record ViewSource(string Table, string? Alias);
+
+/// <summary>A join in a view: its kind, the verbatim ON condition, and the left/right side aliases.</summary>
+public sealed record ViewJoin(ViewJoinKind Kind, string Condition, string LeftAlias, string RightAlias);
+
+/// <summary>A view's decomposed "simple SELECT" (columns/tables/joins/where, all as verbatim text), which
+/// Access stores as MSysQueries rows. Aggregates, GROUP BY, HAVING and ORDER BY are not allowed in a view.</summary>
+public sealed record ViewDefinition(
+    bool Distinct,
+    IReadOnlyList<string> Columns,
+    IReadOnlyList<ViewSource> Tables,
+    IReadOnlyList<ViewJoin> Joins,
+    string? Where);
+
+/// <summary>CREATE VIEW view [(fields)] AS select — a stored query, decomposed for byte-faithful storage.</summary>
+public sealed record CreateViewStatement(
+    string Name,
+    IReadOnlyList<string> Columns,
+    ViewDefinition Definition,
+    string QuerySql) : SqlStatement;
+
 public sealed record Assignment(string Column, Expression Value) : SqlNode;
 
 public sealed record UpdateStatement(

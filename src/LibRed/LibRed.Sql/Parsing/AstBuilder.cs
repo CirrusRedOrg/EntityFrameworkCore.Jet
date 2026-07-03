@@ -14,6 +14,7 @@ internal sealed class AstBuilder
     {
         if (ctx.createTableStatement() is { } create) return BuildCreateTable(create);
         if (ctx.createIndexStatement() is { } createIndex) return BuildCreateIndex(createIndex);
+        if (ctx.createViewStatement() is { } createView) return BuildCreateView(createView);
         if (ctx.insertStatement() is { } insert) return BuildInsert(insert);
         return BuildQueryExpression(ctx.queryExpression());
     }
@@ -175,6 +176,65 @@ internal sealed class AstBuilder
         return new CreateIndexStatement(
             Identifier(ctx.name), Identifier(ctx.table), ctx.unique is not null, columns, withOption);
     }
+
+    private static SqlStatement BuildCreateView(CreateViewStatementContext ctx)
+    {
+        var columns = ctx._columns.Select(Identifier).ToList();
+        ViewDefinition definition = BuildViewDefinition(ctx.query);
+        return new CreateViewStatement(Identifier(ctx.name), columns, definition, OriginalText(ctx.query));
+    }
+
+    /// <summary>Decomposes a view's "simple SELECT" into the columns/tables/joins/where Access stores as
+    /// MSysQueries rows. Rejects anything Access itself rejects in a view (UNION, GROUP BY/aggregates,
+    /// HAVING, ORDER BY) or that we can't decompose (a derived-table/subquery source).</summary>
+    private static ViewDefinition BuildViewDefinition(QueryExpressionContext ctx)
+    {
+        if (ctx.setOperator().Length > 0)
+            throw new NotSupportedException("A UNION query is not a valid (simple) view.");
+
+        SelectStatementContext select = ctx.selectStatement(0);
+        if (select.groupByClause() is not null || select.havingClause() is not null || select.orderByClause() is not null)
+            throw new NotSupportedException("A view SELECT cannot use GROUP BY, HAVING or ORDER BY (only a simple SELECT).");
+
+        // Output columns (verbatim expression text); SELECT * becomes a single "*".
+        var columns = select.selectList().STAR() is not null && select.selectList().selectItem().Length == 0
+            ? (IReadOnlyList<string>)["*"]
+            : select.selectList().selectItem().Select(i => OriginalText(i.expression())).ToList();
+
+        var tables = new List<ViewSource>();
+        var joins = new List<ViewJoin>();
+        foreach (TableSourceContext ts in select.fromClause().tableSource())
+        {
+            if (ts.tablePrimary() is not NamedTablePrimaryContext first)
+                throw new NotSupportedException("A derived-table source is not supported in a view yet.");
+
+            string leftAlias = SourceAlias(first);
+            tables.Add(new ViewSource(Identifier(first.table), first.alias is null ? null : Identifier(first.alias)));
+
+            foreach (JoinClauseContext jc in ts.joinClause())
+            {
+                if (jc.tablePrimary() is not NamedTablePrimaryContext jt)
+                    throw new NotSupportedException("A derived-table join source is not supported in a view yet.");
+                string rightAlias = SourceAlias(jt);
+                tables.Add(new ViewSource(Identifier(jt.table), jt.alias is null ? null : Identifier(jt.alias)));
+                joins.Add(new ViewJoin(ViewJoinKindOf(jc.joinType()), OriginalText(jc.expression()), leftAlias, rightAlias));
+                leftAlias = rightAlias;
+            }
+        }
+
+        string? where = select.whereClause() is { } w ? OriginalText(w.expression()) : null;
+        return new ViewDefinition(Distinct: false, columns, tables, joins, where);
+    }
+
+    private static string SourceAlias(NamedTablePrimaryContext ctx) =>
+        ctx.alias is null ? Identifier(ctx.table) : Identifier(ctx.alias);
+
+    private static ViewJoinKind ViewJoinKindOf(JoinTypeContext ctx) => ctx switch
+    {
+        LeftJoinContext => ViewJoinKind.Left,
+        RightJoinContext => ViewJoinKind.Right,
+        _ => ViewJoinKind.Inner,
+    };
 
     private static SqlStatement BuildInsert(InsertStatementContext ctx)
     {

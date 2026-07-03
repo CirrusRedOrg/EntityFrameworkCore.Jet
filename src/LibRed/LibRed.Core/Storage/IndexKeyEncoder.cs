@@ -66,12 +66,16 @@ public static class IndexKeyEncoder
                 continue;
             }
 
-            // Binary key: the start flag, the raw bytes, then a fixed 4-zero pad and the byte length —
-            // verified against ACE for the fixed 4-byte binary values used in MSysQueries' Order column.
-            // (Only ascending is used by such an index; general binary/GUID collation is still TODO.)
-            if (column.Type == JetDataType.Binary && ascending)
+            // Binary key: the start flag, the raw bytes, a 4-zero pad and the byte length. Only the fixed
+            // 4-byte ascending case is verified against ACE (MSysQueries' Order column); for other lengths
+            // the pad/escaping is unconfirmed and descending is unhandled, so reject rather than write a
+            // key Access would mis-order. General binary/GUID index collation is still TODO.
+            if (column.Type == JetDataType.Binary)
             {
                 byte[] data = (byte[])value;
+                if (!ascending || data.Length != 4)
+                    throw new NotSupportedException(
+                        "Binary index key encoding is only implemented for the fixed 4-byte ascending case (e.g. MSysQueries.Order).");
                 buffer.Add(AscStartFlag);
                 buffer.AddRange(data);
                 buffer.AddRange(new byte[4]);

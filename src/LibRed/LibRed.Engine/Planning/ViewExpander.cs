@@ -32,14 +32,14 @@ internal static class ViewExpander
     {
         NamedTable n when views.TryGetValue(n.Name, out string? sql) =>
             new SubqueryTable(
-                (SelectStatement)Rewrite(parser.ParseStatement(sql), views, parser), // expand views nested in the view
+                Rewrite(parser.ParseStatement(sql), views, parser), // expand views nested in the view
                 n.Alias ?? n.Name),
         JoinTable j => j with
         {
             Left = RewriteSource(j.Left, views, parser),
             Right = RewriteSource(j.Right, views, parser),
         },
-        SubqueryTable sq => sq with { Query = RewriteSelect(sq.Query, views, parser) },
+        SubqueryTable sq => sq with { Query = Rewrite(sq.Query, views, parser) },
         _ => source,
     };
 }

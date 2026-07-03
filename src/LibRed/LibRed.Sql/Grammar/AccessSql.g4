@@ -131,7 +131,7 @@ tableSource : tablePrimary joinClause* ;
 
 tablePrimary
     : table=identifier (AS? alias=identifier)?                  # NamedTablePrimary
-    | LPAREN selectStatement RPAREN (AS? alias=identifier)?     # SubqueryPrimary
+    | LPAREN queryExpression RPAREN (AS? alias=identifier)?     # SubqueryPrimary
     ;
 
 joinClause : joinType JOIN tablePrimary ON expression ;

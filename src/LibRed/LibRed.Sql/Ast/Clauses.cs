@@ -6,8 +6,9 @@ public abstract record TableReference : SqlNode;
 /// <summary>A named base table, optionally aliased.</summary>
 public sealed record NamedTable(string Name, string? Alias) : TableReference;
 
-/// <summary>A derived table (subquery) in the FROM clause.</summary>
-public sealed record SubqueryTable(SelectStatement Query, string? Alias) : TableReference;
+/// <summary>A derived table (subquery) in the FROM clause. The query is any <see cref="SqlStatement"/>
+/// query — a <see cref="SelectStatement"/> or a <see cref="SetOperationStatement"/> (e.g. a UNION).</summary>
+public sealed record SubqueryTable(SqlStatement Query, string? Alias) : TableReference;
 
 public enum JoinKind { Inner, Left, Right, Cross }
 

@@ -49,7 +49,7 @@ public sealed class Binder(ISchemaProvider schema)
                 ValidateSources(j.Right);
                 break;
             case SubqueryTable s:
-                BindSelect(s.Query);
+                BindStatement(s.Query); // Select or a set operation (UNION) derived table
                 break;
         }
     }

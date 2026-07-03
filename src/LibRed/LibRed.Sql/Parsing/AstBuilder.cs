@@ -308,7 +308,7 @@ internal sealed class AstBuilder
     private static TableReference BuildTablePrimary(TablePrimaryContext ctx) => ctx switch
     {
         NamedTablePrimaryContext n => new NamedTable(Identifier(n.table), OptionalIdentifier(n.alias)),
-        SubqueryPrimaryContext s => new SubqueryTable(BuildSelect(s.selectStatement()), OptionalIdentifier(s.alias)),
+        SubqueryPrimaryContext s => new SubqueryTable(BuildQueryExpression(s.queryExpression()), OptionalIdentifier(s.alias)),
         _ => throw new SqlParseException($"Unsupported table source: {ctx.GetText()}"),
     };
 

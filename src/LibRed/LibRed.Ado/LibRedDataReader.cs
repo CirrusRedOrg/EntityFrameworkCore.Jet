@@ -95,7 +95,12 @@ public sealed class LibRedDataReader : DbDataReader
 
     public override string GetDataTypeName(int ordinal) => GetFieldType(ordinal).Name;
 
-    public override bool GetBoolean(int ordinal) => (bool)GetValue(ordinal);
+    public override bool GetBoolean(int ordinal)
+    {
+        var value = GetValue(ordinal);
+        if (value is short) return Convert.ToBoolean(value);
+        return (bool)value;
+    }
     public override byte GetByte(int ordinal) => (byte)GetValue(ordinal);
     public override char GetChar(int ordinal) => (char)GetValue(ordinal);
     public override DateTime GetDateTime(int ordinal) => (DateTime)GetValue(ordinal);

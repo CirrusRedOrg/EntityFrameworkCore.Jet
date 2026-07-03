@@ -44,7 +44,7 @@ public sealed class QueryEngine
     /// </summary>
     public CommandResult Execute(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
-        SqlStatement ast = _parser.ParseStatement(sql);
+        SqlStatement ast = ViewExpander.Expand(_parser.ParseStatement(sql), _database.Catalog.Views, _parser);
         BoundStatement bound = _binder.Bind(ast);
 
         if (bound.Statement is SelectStatement or SetOperationStatement)
@@ -59,7 +59,7 @@ public sealed class QueryEngine
 
     private Plan.PlanNode Compile(string sql)
     {
-        SqlStatement ast = _parser.ParseStatement(sql);
+        SqlStatement ast = ViewExpander.Expand(_parser.ParseStatement(sql), _database.Catalog.Views, _parser);
         BoundStatement bound = _binder.Bind(ast);
         return _planner.Plan(bound);
     }

@@ -63,7 +63,9 @@ engine), cross-checked with [mdbtools](https://github.com/mdbtools/mdbtools) and
   `MSysObjects` type-5 row (negative synthetic id) plus the query decomposed into `MSysQueries` rows
   (columns/tables/joins/where, bracketed by type/end rows). Access opens the file and executes the view.
   Only the "simple SELECT" a view may contain is supported (no GROUP BY/aggregates/ORDER BY — Access
-  rejects those in a view too). Reading views back into LibRed's own query engine is still TODO.
+  rejects those in a view too). **LibRed's own engine also reads views back**: the catalog reconstructs
+  each view's SELECT from its `MSysQueries` rows, and a view referenced in a `FROM` is expanded to a
+  derived table, so `SELECT … FROM AView` works through LibRed too.
 - **Write** — row insert with order-preserving index-key encoding and **multi-level B-tree maintenance**
   (descend to the target leaf, insert with prefix compression; leaf splitting still TODO);
   `CREATE TABLE` (heap + primary key) that **Access opens and round-trips**; AutoNumber generation

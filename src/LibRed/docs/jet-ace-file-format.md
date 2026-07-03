@@ -778,12 +778,28 @@ The split mechanics:
   increment from `0x80000000`), `ParentId 0x0F000001`, `Flags 0x10000000`, `LvProp` null. The query
   itself is stored in **MSysQueries**, decomposed into rows keyed by `ObjectId`, each with an `Attribute`
   byte (Jackcess "query rows", verified vs ACE for the "simple SELECT" a view may contain): `0x00` =
-  query type (`Flag 1` = SELECT), `0x03` = flags (`Flag 2` = DISTINCT), `0x05` = FROM table
-  (`Name1`=table, `Name2`=alias), `0x06` = output column (`Expression`), `0x07` = join (`Expression`=
-  condition, `Flag`=kind, `Name1`/`Name2`=aliases), `0x08` = WHERE (`Expression`), `0xFF` = end. `Order`
-  is a 4-byte **big-endian** per-attribute counter (stored in the Binary `Order` column). MSysQueries'
-  only index is the composite PK `(ObjectId Int32, Attribute Byte, Order Binary)`; its Binary key encodes
-  as `0x7F` + the raw bytes + `00 00 00 00` + a length byte. Access opens the file and runs the view.
+  query type (`Flag 1` = SELECT), `0x03` = flags (`Flag 2` = DISTINCT), `0x05` = FROM source, `0x06` =
+  output column (`Expression`), `0x07` = join (`Expression`=condition, `Flag`=kind, `Name1`/`Name2`=aliases),
+  `0x08` = WHERE (`Expression`), `0xFF` = end. A **FROM source** (`0x05`) is either a **named table**
+  (`Name1`=table, `Name2`=alias) or a **derived table / subquery** (`Expression`=the verbatim inner
+  subquery SQL — outer parens and `AS alias` stripped, whitespace preserved — `Name2`=alias, **no `Name1`**;
+  verified against Northwind's "Customer and Suppliers by City"). `Order` is a 4-byte **big-endian**
+  per-attribute counter (stored in the Binary `Order` column). MSysQueries' only index is the composite PK
+  `(ObjectId Int32, Attribute Byte, Order Binary)`; its Binary key encodes as `0x7F` + the raw bytes +
+  `00 00 00 00` + a length byte.
+
+  > **Row order matters.** Access writes the rows in the order **type, end, distinct, tables (`0x05`),
+  > columns (`0x06`), joins (`0x07`), where (`0x08`)** — *tables before columns* (verified across five
+  > Northwind views). Access tolerates the wrong order for a **named** table, but a **derived** table
+  > defines an alias the column expressions reference, so its `0x05` row must precede the `0x06` rows or
+  > Access opens the database yet **fails to run the view**.
+  >
+  > **Long `Expression` needs an LVAL page (open TODO).** `Expression` is a Memo. A short one written
+  > **inline** works, but Access cannot *run* a view whose derived-table subquery `Expression` is long
+  > unless it is stored on an **LVAL page** (a `0x40` long-value descriptor), exactly like the column
+  > DEFAULT / LvProp case (§ column properties). Inline-vs-LVAL is the current limit: LibRed writes it
+  > inline, so short-subquery views run in Access but long ones do not yet. Verified in one warm ACE
+  > connection: Access runs its own view and a LibRed short-subquery view, but not a LibRed long one.
 
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`

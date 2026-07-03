@@ -53,7 +53,7 @@ public sealed class QueryEngine
             return new CommandResult(rows, RecordsAffected: -1);
         }
 
-        int affected = new StatementExecutor(_database, parameters).Execute(bound.Statement);
+        int affected = new StatementExecutor(_database, parameters, _parser).Execute(bound.Statement);
         return new CommandResult(ResultSet.Empty, affected);
     }
 

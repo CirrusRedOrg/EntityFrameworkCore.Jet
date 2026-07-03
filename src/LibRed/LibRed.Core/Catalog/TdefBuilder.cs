@@ -64,6 +64,7 @@ public static class TdefBuilder
     // Index-data block (52 bytes): a 0x783 marker, 10 column slots, root page, unique flag.
     private const int IndexBlockSize = 52;
     private const int IndexMaxColumns = 10;
+    private const int MaxIndexesPerTable = 32; // Jet/ACE limit, counting keys- and relationship-backing indexes
     private const int IndexColumnSlotSize = 3;
     private const int IndexColumnsOffset = 0x04;
     private const int IndexUsageMapRowOffset = 0x22;  // 1-byte row + 3-byte page for the index's pages
@@ -81,13 +82,35 @@ public static class TdefBuilder
     private const int IndexInfoMarkerOffset = 0x00;       // 0x0659
     private const int IndexInfoNumberOffset = 0x04;
     private const int IndexInfoDataNumberOffset = 0x08;
+    private const int IndexInfoFkTypeOffset = 0x0C;       // 0=none, 1=incoming, 2=outgoing relationship
     private const int IndexInfoFkNumberOffset = 0x0D;     // 0xFFFFFFFF = no foreign key
+    private const int IndexInfoFkTablePageOffset = 0x11;  // the other table's TDEF page (0 = none)
     private const int IndexInfoUpdateActionOffset = 0x15;
     private const int IndexInfoDeleteActionOffset = 0x16;
-    private const byte IndexActionDefault = 0x04;         // observed on a plain PK (no relationship)
+    private const byte IndexActionDefault = 0x04;         // observed on a plain index (no relationship)
     private const int IndexInfoTypeOffset = 0x17;
+    private const byte IndexTypeSecondary = 0x00;
     private const byte IndexTypePrimary = 0x01;
-    private const byte IndexTypeRegular = 0x02;
+    private const uint NoForeignKey = 0xFFFFFFFF;
+
+    /// <summary>
+    /// One logical index-info block (§3.6). Several logical indexes may share a data block: a plain
+    /// index has one, and a relationship adds one that reuses this table's side of the foreign key.
+    /// <paramref name="DataOrdinal"/> is the data-block index (<c>index_num2</c>); <paramref name="Number"/>
+    /// is the logical id (<c>index_num</c>). For a relationship, <paramref name="FkType"/> is 1 (incoming)
+    /// or 2 (outgoing), <paramref name="FkNumber"/> is the other end's <c>index_num</c>, and
+    /// <paramref name="FkTablePage"/> is the other table's TDEF page.
+    /// </summary>
+    public sealed record LogicalIndexSpec(
+        int Number,
+        int DataOrdinal,
+        byte FkType,
+        uint FkNumber,
+        int FkTablePage,
+        byte UpdateAction,
+        byte DeleteAction,
+        byte Type,
+        string Name);
 
     public sealed record Result(byte[] Page, IReadOnlyList<ColumnDef> Columns);
 
@@ -96,10 +119,16 @@ public static class TdefBuilder
         TableType tableType,
         IReadOnlyList<ColumnSpec> specs,
         IReadOnlyList<IndexSpec>? indexes = null,
-        IReadOnlyList<LongValueColumnSpec>? longValueColumns = null)
+        IReadOnlyList<LongValueColumnSpec>? longValueColumns = null,
+        IReadOnlyList<LogicalIndexSpec>? logicalIndexes = null)
     {
         indexes ??= [];
         longValueColumns ??= [];
+        // Jet/ACE caps a table at 32 indexes, counting those backing primary keys, unique constraints
+        // and relationships (§3.5 index-data blocks, the 0x33 count). Reject rather than write a bad TDEF.
+        if (indexes.Count > MaxIndexesPerTable)
+            throw new NotSupportedException(
+                $"Table has {indexes.Count} indexes; Jet/ACE allows at most {MaxIndexesPerTable} per table (including those backing keys and relationships).");
         var columns = ResolveColumns(format, specs);
         var page = new byte[format.PageSize];
 
@@ -114,16 +143,18 @@ public static class TdefBuilder
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefVariableColumnsOffset, 2),
             (ushort)columns.Count(c => !c.IsFixedLength));
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefColumnCountOffset, 2), (ushort)columns.Count);
-        // Logical (0x2F) and real (0x33) index counts — equal here (no shared relationship indexes).
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRealIndexCountOffset, 4), indexes.Count);
+        // Logical index count (0x2F) may exceed the real data-block count (0x33): a relationship adds
+        // a logical block that shares a data block. Without explicit logical specs the two are equal.
+        int logicalCount = logicalIndexes?.Count ?? indexes.Count;
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRealIndexCountOffset, 4), logicalCount);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefIndexCountOffset, 4), indexes.Count);
 
-        // The per-index statistics blocks (12 bytes each) precede the columns; entry counts start 0.
+        // The per-index statistics blocks (12 bytes each, one per data block) precede the columns.
         int columnBlock = format.TdefRealIndexBlockOffset + indexes.Count * format.RealIndexEntrySize;
         WriteColumnDescriptors(page, format, columns, columnBlock);
         int afterNames = WriteColumnNames(page, format, columns, columnBlock + columns.Count * format.ColumnDescriptorSize);
 
-        int definitionEnd = WriteIndexes(page, format, columns, indexes, longValueColumns, afterNames);
+        int definitionEnd = WriteIndexes(page, format, columns, indexes, logicalIndexes, longValueColumns, afterNames);
 
         // Definition length and remaining free space (Access reserves an 8-byte continuation header).
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(TdefLengthOffset, 4), definitionEnd);
@@ -134,9 +165,17 @@ public static class TdefBuilder
     }
 
     /// <summary>Writes the index structures and returns the offset just past them (the definition end).</summary>
-    private static int WriteIndexes(byte[] page, JetFormatBase format, List<ColumnDef> columns, IReadOnlyList<IndexSpec> indexes, IReadOnlyList<LongValueColumnSpec> longValueColumns, int dataBlockStart)
+    private static int WriteIndexes(byte[] page, JetFormatBase format, List<ColumnDef> columns, IReadOnlyList<IndexSpec> indexes, IReadOnlyList<LogicalIndexSpec>? logicalIndexes, IReadOnlyList<LongValueColumnSpec> longValueColumns, int dataBlockStart)
     {
         var columnIdByName = columns.ToDictionary(c => c.Name, c => c.ColumnId, StringComparer.OrdinalIgnoreCase);
+
+        // The index-data block (§3.5) has a fixed array of exactly IndexMaxColumns column slots and no
+        // count field, so an index — hence any PRIMARY KEY / UNIQUE / FOREIGN KEY — spans at most that
+        // many columns. Reject an over-wide index rather than silently truncating it.
+        foreach (IndexSpec ix in indexes)
+            if (ix.Columns.Count > IndexMaxColumns)
+                throw new NotSupportedException(
+                    $"Index '{ix.Name}' spans {ix.Columns.Count} columns; Jet/ACE indexes (and the keys built on them) are limited to {IndexMaxColumns}.");
 
         // 1. Index-data blocks: columns, root page, unique flag.
         for (int i = 0; i < indexes.Count; i++)
@@ -169,25 +208,34 @@ public static class TdefBuilder
             BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(block + IndexFlagsOffset, 2), flags);
         }
 
-        // 2. Index-info blocks: link each name to its data block.
+        // 2. Index-info blocks (one per logical index) and 3. their names. Without explicit logical
+        // specs each data block maps 1:1 to a plain info block (back-compat); with them, relationship
+        // blocks are included and stored name-sorted (matching Access).
+        var logical = logicalIndexes ?? indexes.Select((ix, i) => new LogicalIndexSpec(
+            Number: i, DataOrdinal: i, FkType: 0, FkNumber: NoForeignKey, FkTablePage: 0,
+            UpdateAction: IndexActionDefault, DeleteAction: IndexActionDefault,
+            Type: ix.IsPrimaryKey ? IndexTypePrimary : IndexTypeSecondary, Name: ix.Name)).ToList();
+
         int infoStart = dataBlockStart + indexes.Count * IndexBlockSize;
-        for (int i = 0; i < indexes.Count; i++)
+        for (int i = 0; i < logical.Count; i++)
         {
+            LogicalIndexSpec li = logical[i];
             int block = infoStart + i * IndexInfoBlockSize;
             BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(block + IndexInfoMarkerOffset, 4), TdefRecordMarker);
-            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexInfoNumberOffset, 4), i);
-            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexInfoDataNumberOffset, 4), i);
-            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexInfoFkNumberOffset, 4), -1); // no foreign key
-            page[block + IndexInfoUpdateActionOffset] = IndexActionDefault;
-            page[block + IndexInfoDeleteActionOffset] = IndexActionDefault;
-            page[block + IndexInfoTypeOffset] = indexes[i].IsPrimaryKey ? IndexTypePrimary : IndexTypeRegular;
+            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexInfoNumberOffset, 4), li.Number);
+            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexInfoDataNumberOffset, 4), li.DataOrdinal);
+            page[block + IndexInfoFkTypeOffset] = li.FkType;
+            BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(block + IndexInfoFkNumberOffset, 4), li.FkNumber);
+            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexInfoFkTablePageOffset, 4), li.FkTablePage);
+            page[block + IndexInfoUpdateActionOffset] = li.UpdateAction;
+            page[block + IndexInfoDeleteActionOffset] = li.DeleteAction;
+            page[block + IndexInfoTypeOffset] = li.Type;
         }
 
-        // 3. Index names.
-        int namePos = infoStart + indexes.Count * IndexInfoBlockSize;
-        foreach (IndexSpec index in indexes)
+        int namePos = infoStart + logical.Count * IndexInfoBlockSize;
+        foreach (LogicalIndexSpec li in logical)
         {
-            byte[] name = System.Text.Encoding.Unicode.GetBytes(index.Name);
+            byte[] name = System.Text.Encoding.Unicode.GetBytes(li.Name);
             BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(namePos, 2), (ushort)name.Length);
             namePos += 2;
             name.CopyTo(page.AsSpan(namePos));

@@ -11,4 +11,8 @@ public interface ISqlParser
 {
     /// <summary>Parses a single statement. Throws <see cref="SqlParseException"/> on syntax errors.</summary>
     SqlStatement ParseStatement(string sql);
+
+    /// <summary>Parses a bare scalar expression (e.g. a column DEFAULT value). Throws
+    /// <see cref="SqlParseException"/> on syntax errors.</summary>
+    Expression ParseExpression(string sql);
 }

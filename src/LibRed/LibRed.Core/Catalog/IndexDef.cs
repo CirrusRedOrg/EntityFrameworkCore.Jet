@@ -11,6 +11,10 @@ public sealed record IndexDef
     public bool IsUnique { get; init; }
     public bool IsPrimaryKey { get; init; }
 
+    /// <summary>WITH IGNORE NULL: rows with a null in any indexed column are excluded from the index
+    /// (index flag <c>0x02</c>). Such rows are not added to the B-tree on insert.</summary>
+    public bool IgnoreNulls { get; init; }
+
     /// <summary>
     /// The index's unique-entry count from the TDEF statistics block. This is a cumulative
     /// count of distinct entries ever added that Access increments but <b>never decrements</b>,

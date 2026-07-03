@@ -263,13 +263,18 @@ ordered by ascending column id (used by the row's variable-offset table, §5).
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 4 | Marker (`0x00000783` = 1923, or 0) |
-| `0x04` | 30 | 10 column slots × (2-byte column id + 1-byte flags); column id `0xFFFF` = unused; flag `0x01` = ascending |
+| `0x04` | 30 | **Exactly 10** column slots × (2-byte column id + 1-byte flags); column id `0xFFFF` = unused; flag `0x01` = ascending. This fixed array (no count field, no continuation) is why a Jet/ACE index — and therefore any `PRIMARY KEY`, `UNIQUE`, or `FOREIGN KEY` built on one — is **limited to 10 columns**. |
 | `0x22` | 1 | Usage-map row |
 | `0x23` | 3 | Usage-map page |
 | `0x26` | 4 | **B-tree root page** |
 | `0x2A` | 4 | Unknown / reserved (zero observed). mdbtools places a 1-byte index-flags field at `+0x2A`, but ACE's effective flags are at `0x2E` and this is zero in every file checked |
-| `0x2E` | 2 | Flags: `0x01` unique, `0x08` required, `0x80` always-set (Access 2000+) |
+| `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+). Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. |
 | `0x30` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 52-byte block |
+
+A table has **at most 32 index-data blocks** (the `0x33` count, §3.1) — the Jet/ACE "32 indexes per
+table" limit, counting the indexes that back primary keys, unique constraints and the child side of
+relationships. (Incoming relationships add *logical* index-info blocks, §3.6, which reuse an existing
+data block and so do not count toward this.)
 
 ### 3.6 Index-info block (28 bytes) — one per *logical* index
 
@@ -278,17 +283,35 @@ ordered by ascending column id (used by the row's variable-offset table, §5).
 | `0x00` | 4 | Marker (`0x00000659` = 1625, or 0) |
 | `0x04` | 4 | **Logical index number** (`index_num`) — a unique id per logical index, `0 … logicalCount-1` |
 | `0x08` | 4 | **Real index-data block ordinal** (`index_num2`) this logical index uses, `0 … realIndexCount-1` |
-| `0x0C` | 1 | Foreign-key index type |
-| `0x0D` | 4 | Foreign-key index number |
-| `0x11` | 4 | Foreign-key table page (non-zero ⇒ a relationship index) |
-| `0x15` | 1 | Update action |
-| `0x16` | 1 | Delete action |
-| `0x17` | 1 | Index type (`1` = primary, `2` = foreign) |
+| `0x0C` | 1 | Foreign-key index type: `0x00` = none, `0x01` = **incoming** (this table is the parent/referenced end), `0x02` = **outgoing** (this table is the child/referencing end), `0x03` = **outgoing, `FOREIGN KEY NO INDEX`** (verified vs ACE: identical to `0x02` — same data block and same parent incoming `0x01` block — only this type byte differs) |
+| `0x0D` | 4 | Foreign-key index number: the `index_num` (`0x04`) of the **matching logical block on the other table**; `0xFFFFFFFF` when not a relationship |
+| `0x11` | 4 | Foreign-key table page (the *other* table's TDEF page; non-zero ⇒ a relationship index) |
+| `0x15` | 1 | Update action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade update |
+| `0x16` | 1 | Delete action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade delete |
+| `0x17` | 1 | Index type: `0x00` = plain secondary, `0x01` = primary, `0x02` = foreign/relationship |
 | `0x18` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 28-byte block |
 
 The index **name** read at the same ordinal applies to this logical index. To name the
 physical (data-block) index, prefer a real index's name over a foreign-key relationship's
 (distinguished by `0x11` ≠ 0), and take `IsPrimaryKey` from the type byte `0x17`.
+
+> **Writing a relationship's logical blocks — verified by having ACE create a minimal `P1(Id PK)` /
+> `C1(Id PK, Pid FK→P1.Id)` pair and diffing.** The **child** (referencing) table gives its FK-column
+> index a *single* logical block that **is** the relationship: `index_num2` → the FK-column data
+> block, `0x0C = 0x02` (outgoing), `0x11` = parent page, `0x17 = 0x02`, name = the constraint name.
+> The **parent** (referenced) table gains an **extra** logical block beyond its data blocks:
+> `index_num2` → its referenced-key (PK) data block, `0x0C = 0x01` (incoming), `0x11` = child page,
+> `0x17 = 0x02`, name = an auto-generated hidden `.r?` name. The two ends cross-reference: each block's
+> `0x0D` holds the other block's `index_num` (`0x04`). Logical blocks are stored **sorted by name**;
+> `index_num` is assigned in creation order (a table's own indexes first, then relationships as added —
+> so a parent's Nth incoming relationship gets `index_num` = its logical count before the insert).
+> Cascade `ON UPDATE`/`ON DELETE` set `0x15`/`0x16` to `0x01` on **both** ends' blocks.
+>
+> **Self-reference** (a table whose FK targets itself): both ends live in the **one** TDEF, each with
+> `0x11` = the table's own page — an outgoing `0x02` block (`index_num2` → the FK-column index) and an
+> incoming `0x01` block (`index_num2` → the referenced-key index), cross-referenced by `index_num`. The
+> incoming block is numbered after the data-block logical indexes (`index_num` = data-block count).
+> Verified byte-for-byte against an ACE-created self-reference.
 
 > **`index_num` (`0x04`) vs `index_num2` (`0x08`) — verified against Northwind.** `0x04` is the
 > logical index's own unique number; `0x08` is the ordinal of the **real index-data block** (§3.5)
@@ -663,9 +686,26 @@ Then the value, transformed:
   `Type` = `1`; `Name`; `Flags` = `0`; `Owner` = a 2-byte binary SID (`0x69 0x0C` for a
   workgroup-less database, constant across tables); and `DateCreate` / `DateUpdate`. The other
   columns (`Connect`, `Database`, `ForeignName`, `Lv*`, `RmtInfo*`) are null **except `LvProp`**,
-  an OLE long-value blob (~110 bytes, "MR2"-prefixed) holding the object's **extended
-  properties** — including column-level properties such as *Required* (see §3.4). LibRed leaves
-  `LvProp` null (long values are not writable yet).
+  an OLE long-value blob ("MR2"-prefixed) holding the object's **extended properties** — including
+  column-level properties such as *Required* (see §3.4) and *DefaultValue*.
+
+  > **Property blob (`LvProp`) format — verified byte-for-byte against ACE.** A 4-byte signature
+  > (`MR2\0` on ACE, `KKD\0` on older MDB) then blocks, each `[int length][short type][body]` with the
+  > length covering the whole block. Type `0x80` is the **property-name pool** (`[short len][UTF-16
+  > name]` repeated, indexed 0,1,…). Other blocks are a **per-owner value map** (owner = a column name,
+  > or `""` for the table): `[short ownerRecLen][short 0][short nameLen][owner name]` then property
+  > entries `[short entryLen][byte flag=1][byte dataType=0x0C][short nameIndex][short valueLen][UTF-16
+  > value]`. A `DefaultValue` is stored as the expression's **source text** (e.g. `42`, `'hi'`).
+  >
+  > LibRed **writes** `DefaultValue` properties (`PropertyBlob.Write`) and **reads** them back
+  > (`ColumnDef.DefaultValue`), applying the default when an insert omits the column. It writes `LvProp`
+  > as an **inline** long value (descriptor flag `0x80`); Access opens the file fine but does **not**
+  > re-apply the default from it. **Root cause (confirmed by dumping the raw descriptors):** ACE stores
+  > `LvProp` on a **single LVAL page** (flag `0x40`, a 12-byte reference), and Access's property loader
+  > reads the blob only from that form — not from an inline value (LibRed's own reader accepts both,
+  > which is why its round-trip works). Nothing else differs: the TDEF, the `MSysObjects` row, and every
+  > other `MSys*` table are identical to an ACE-created table (only `MSysObjects`+`MSysACEs` are touched,
+  > both matching). **Fix:** write single-page LVAL long values and store `LvProp` that way.
 
   > With those fields set, Access **enumerates** a LibRed-created table (it appears in the
   > schema/Tables rowset) — verified via OLE DB. Maintaining MSysObjects' indexes (the composite
@@ -675,8 +715,20 @@ Then the value, transformed:
 
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`
-  (parent table), `szReferencedColumn`, `icolumn` (order), `grbit` (flags: `0x02` don't-enforce,
-  `0x100` cascade-update, `0x1000` cascade-delete).
+  (parent table), `szReferencedColumn`, `icolumn` (0-based column order within the key),
+  `ccolumn` (total column count of the key, repeated on every row), `grbit` (flags: `0x02`
+  don't-enforce, `0x100` cascade-update, `0x1000` cascade-delete). Verified against Northwind: an
+  enforced, no-cascade single-column FK stores `ccolumn = 1`, `icolumn = 0`, `grbit = 0`; the
+  cascade nav-pane relationships store `grbit = 0x1100` (update+delete cascade).
+
+  > **Writing a relationship.** Access records a relationship purely in `MSysRelationships` (there is
+  > **no** `MSysObjects` row for it) **plus** a non-unique index on the child table's FK column(s) —
+  > enforcement requires the child FK to be indexed and the parent key to be uniquely indexed (the
+  > parent PK). LibRed writes the `MSysRelationships` rows, creates that child-side index, **and** the
+  > byte-faithful relationship logical-index linkage in *both* tables' TDEFs (§3.6: outgoing block on
+  > the child, incoming block on the parent, cross-referenced by `index_num`) at `CREATE TABLE` time.
+  > Verified: a LibRed-created relationship is byte-identical to an ACE-created one (bar index *names*),
+  > Access opens the file without repair, and `GetOleDbSchemaTable(Foreign_Keys)` enumerates it.
 
 ---
 

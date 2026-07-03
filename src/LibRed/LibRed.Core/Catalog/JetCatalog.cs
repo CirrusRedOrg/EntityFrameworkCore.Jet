@@ -68,6 +68,7 @@ public sealed class JetCatalog(PageChannel channel)
         int typeIndex = ColumnIndex(columns, "Type");
         int nameIndex = ColumnIndex(columns, "Name");
         int flagsIndex = ColumnIndex(columns, "Flags");
+        int lvpropIndex = ColumnIndex(columns, "LvProp");
 
         var catalog = new Table(_channel, catalogDef);
         var tables = new List<TableDef>();
@@ -87,7 +88,17 @@ public sealed class JetCatalog(PageChannel channel)
                             || name.StartsWith('~')
                             || name.StartsWith('#');
 
-            tables.Add(ReadTableDefinition(definitionPage, name, isSystem));
+            TableDef definition = ReadTableDefinition(definitionPage, name, isSystem);
+            // Attach column DefaultValue properties from the object's extended-properties (LvProp) blob.
+            if (row[lvpropIndex] is byte[] { Length: > 0 } blob)
+            {
+                var defaults = PropertyBlob.ReadColumnDefaults(blob);
+                if (defaults.Count > 0)
+                    foreach (ColumnDef column in definition.Columns)
+                        if (defaults.TryGetValue(column.Name, out string? value))
+                            column.DefaultValue = value;
+            }
+            tables.Add(definition);
         }
 
         return tables;

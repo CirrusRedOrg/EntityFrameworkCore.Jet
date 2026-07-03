@@ -32,19 +32,55 @@ public sealed record InsertStatement(
     IReadOnlyList<string> Columns,
     IReadOnlyList<IReadOnlyList<Expression>> Rows) : SqlStatement;
 
-/// <summary>A column in a CREATE TABLE: its declared SQL type, optional size/scale and constraints.</summary>
+/// <summary>A column in a CREATE TABLE: its declared SQL type, optional size/scale, constraints, and the
+/// raw text of an optional DEFAULT value expression (stored as the column's DefaultValue property).</summary>
 public sealed record ColumnDefinition(
     string Name,
     string TypeName,
     int? Size,
     int? Scale,
     bool NotNull,
-    bool PrimaryKey);
+    bool PrimaryKey,
+    string? Default = null);
+
+/// <summary>Referential action for a foreign key's ON DELETE / ON UPDATE clause. Jet records only
+/// enforce + cascade-update + cascade-delete, so NoAction/SetNull/SetDefault collapse to "no cascade".</summary>
+public enum ReferentialAction { NoAction, Cascade, SetNull, SetDefault }
+
+/// <summary>A FOREIGN KEY constraint (table-level, or a column-level REFERENCES): the child columns,
+/// the referenced (parent) table and its columns, the ON DELETE / ON UPDATE actions, and whether the
+/// FOREIGN KEY NO INDEX modifier was given (suppresses the backing index).</summary>
+public sealed record ForeignKeyConstraint(
+    string? Name,
+    IReadOnlyList<string> Columns,
+    string ReferencedTable,
+    IReadOnlyList<string> ReferencedColumns,
+    ReferentialAction OnDelete,
+    ReferentialAction OnUpdate,
+    bool NoIndex = false);
+
+/// <summary>A UNIQUE constraint (table-level, or a column-level UNIQUE) over one or more columns.</summary>
+public sealed record UniqueConstraint(string? Name, IReadOnlyList<string> Columns);
 
 public sealed record CreateTableStatement(
     string Table,
     IReadOnlyList<ColumnDefinition> Columns,
-    IReadOnlyList<string> PrimaryKey) : SqlStatement;
+    IReadOnlyList<string> PrimaryKey,
+    IReadOnlyList<ForeignKeyConstraint> ForeignKeys,
+    IReadOnlyList<UniqueConstraint> UniqueConstraints) : SqlStatement;
+
+/// <summary>The optional WITH clause of CREATE INDEX: PRIMARY (make it the primary key), DISALLOW NULL
+/// (no nulls allowed), IGNORE NULL (rows with nulls excluded from the index).</summary>
+public enum IndexWithOption { None, Primary, DisallowNull, IgnoreNull }
+
+/// <summary>CREATE [UNIQUE] INDEX name ON table (col [ASC|DESC], …) [WITH …] — a new index on an
+/// existing table.</summary>
+public sealed record CreateIndexStatement(
+    string Name,
+    string Table,
+    bool IsUnique,
+    IReadOnlyList<(string Column, bool Descending)> Columns,
+    IndexWithOption WithOption) : SqlStatement;
 
 public sealed record Assignment(string Column, Expression Value) : SqlNode;
 

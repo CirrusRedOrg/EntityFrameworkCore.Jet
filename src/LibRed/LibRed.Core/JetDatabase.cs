@@ -59,9 +59,26 @@ public sealed class JetDatabase : IDisposable
     /// unique index over the named columns. The database must have been opened writable; the
     /// table is usable immediately for inserts and scans.
     /// </summary>
-    public void CreateTable(string name, IReadOnlyList<ColumnSpec> columns, IReadOnlyList<string>? primaryKey = null)
+    public void CreateTable(
+        string name,
+        IReadOnlyList<ColumnSpec> columns,
+        IReadOnlyList<string>? primaryKey = null,
+        IReadOnlyList<RelationshipSpec>? relationships = null,
+        IReadOnlyList<UniqueIndexSpec>? uniqueConstraints = null,
+        IReadOnlyList<(string Column, string DefaultSql)>? columnDefaults = null)
     {
-        new Storage.TableCreator(_channel, Catalog).Create(name, columns, primaryKey);
+        new Storage.TableCreator(_channel, Catalog).Create(name, columns, primaryKey, relationships, uniqueConstraints, columnDefaults);
+        Catalog.Invalidate();
+    }
+
+    /// <summary>
+    /// Adds an index to an existing (currently empty) table — the CREATE INDEX statement. WITH PRIMARY
+    /// makes it the primary key; WITH DISALLOW NULL marks it required.
+    /// </summary>
+    public void CreateIndex(string table, string index, IReadOnlyList<(string Column, bool Descending)> columns,
+        bool isUnique = false, bool isPrimary = false, bool disallowNull = false, bool ignoreNulls = false)
+    {
+        new Storage.TableCreator(_channel, Catalog).AddIndex(table, index, columns, isUnique, isPrimary, disallowNull, ignoreNulls);
         Catalog.Invalidate();
     }
 

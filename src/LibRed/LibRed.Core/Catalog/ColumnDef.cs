@@ -28,6 +28,11 @@ public sealed class ColumnDef
     public bool IsNullable { get; init; } = true;
     public bool IsAutoNumber { get; init; }
 
+    /// <summary>The column's <c>DefaultValue</c> property (an expression's source text, e.g. <c>"0"</c>
+    /// or <c>"'hi'"</c>), read from the table's extended-properties (<c>LvProp</c>) blob; null if none.
+    /// Set by the catalog after the descriptors are decoded (the property lives outside the TDEF).</summary>
+    public string? DefaultValue { get; internal set; }
+
     /// <summary>Precision/scale for <see cref="JetDataType.FixedPoint"/> columns.</summary>
     public byte Precision { get; init; }
     public byte Scale { get; init; }

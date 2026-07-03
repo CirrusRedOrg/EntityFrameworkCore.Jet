@@ -80,9 +80,14 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             .GroupBy(i => i.RootPage)
             .Select(g => g.First()))
         {
+            // WITH IGNORE NULL: a row with a null in any indexed column is not added to this index.
+            if (index.IgnoreNulls && HasNullKey(index, values)) continue;
             writer.AddEntry(index, values, rowId);
         }
     }
+
+    private static bool HasNullKey(IndexDef index, object?[] values) =>
+        index.Columns.Any(c => values[c.Column.Index] is null or DBNull);
 
     // The TDEF free-pages-map pointer (row + page); the owned-pages pointer lives at
     // format.TdefOwnedPagesOffset. Both maps mark the table's own data pages.
@@ -287,6 +292,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         foreach (IndexDef index in _table.Indexes)
         {
             if (!index.IsUnique) continue;
+            if (index.IgnoreNulls && HasNullKey(index, values)) continue; // row was excluded from the index
             int statsUnique = format.TdefRealIndexBlockOffset + index.RealIndexOrdinal * format.RealIndexEntrySize + 4;
             int unique = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(statsUnique, 4));
             BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(statsUnique, 4), unique + 1);

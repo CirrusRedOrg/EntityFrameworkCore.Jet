@@ -27,6 +27,23 @@ public sealed class AntlrSqlParser : ISqlParser
         return new AstBuilder().Build(parser.statement());
     }
 
+    public Expression ParseExpression(string sql)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sql);
+
+        var errors = new ThrowingErrorListener();
+
+        var lexer = new AccessSqlLexer(new AntlrInputStream(sql));
+        lexer.RemoveErrorListeners();
+        lexer.AddErrorListener(errors);
+
+        var parser = new AccessSqlParser(new CommonTokenStream(lexer));
+        parser.RemoveErrorListeners();
+        parser.AddErrorListener(errors);
+
+        return AstBuilder.BuildExpression(parser.expression());
+    }
+
     private sealed class ThrowingErrorListener : IAntlrErrorListener<int>, IAntlrErrorListener<IToken>
     {
         public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol,

@@ -63,8 +63,17 @@ engine), cross-checked with [mdbtools](https://github.com/mdbtools/mdbtools) and
   `CREATE TABLE` (heap + primary key) that **Access opens and round-trips**; AutoNumber generation
   and high-water tracking; unique-index statistics; allocation through the global free-pages map;
   `MSysObjects` / `MSysACEs` catalog rows; version-0 "General legacy" text index keys.
+- **Constraints** — `CREATE TABLE` `PRIMARY KEY`, `UNIQUE` (column- and table-level), and foreign keys
+  in every documented Access form: table-level `FOREIGN KEY [NO INDEX] (…) REFERENCES …`, column-level
+  `… REFERENCES …`, and `ON UPDATE`/`ON DELETE` in either order. A relationship is persisted to
+  `MSysRelationships` with a child-side FK index and **byte-faithful** logical-index linkage on both
+  tables' TDEFs (Access opens the file and enumerates it), with referential-integrity enforcement on
+  `INSERT`. `UNIQUE` creates a unique non-primary index. Self-referencing foreign keys are handled
+  inline. Column `DEFAULT` values are persisted to the table's `LvProp` property blob, read back onto the
+  column, and applied when an insert omits the column (see the Access caveat below).
 - **SQL** — ANTLR front end (parser → binder via `ISchemaProvider` → planner → executor). Statements:
-  `CREATE TABLE`, `INSERT` (with AutoNumber), and `SELECT` with `WHERE`, joins, `GROUP BY`/aggregates,
+  `CREATE TABLE`, `CREATE [UNIQUE] INDEX … ON … (col [ASC|DESC], …) [WITH {PRIMARY|DISALLOW NULL}]`,
+  `INSERT` (with AutoNumber), and `SELECT` with `WHERE`, joins, `GROUP BY`/aggregates,
   `HAVING`, `ORDER BY`, `TOP`, `UNION`/`INTERSECT`/`EXCEPT`, subqueries, and parameters. Plan nodes:
   Scan / IndexScan / Filter / Project / Join / Aggregate / Sort / Limit / SetOperation / DerivedTable.
 - **ADO.NET** — connection / command / reader / parameter / transaction / factory over the engine.
@@ -76,6 +85,31 @@ engine), cross-checked with [mdbtools](https://github.com/mdbtools/mdbtools) and
 
 - DML `UPDATE` / `DELETE` (only `INSERT` so far); returning the generated AutoNumber id
   (`@@IDENTITY`) up through Engine → Ado → EFCore.
+- **Foreign keys — `ALTER TABLE ADD CONSTRAINT`** (TODO #2): cyclic and self-referencing FKs that EF
+  emits as a *separate* `AddForeignKeyOperation` instead of inline in `CREATE TABLE`. The grammar has
+  no `ALTER TABLE`; `TableCreator` throws `NotSupportedException` on an inline self-reference. Blocked
+  on adding `ALTER TABLE` to the SQL front end. (Inline, acyclic FKs work today.)
+- **Foreign keys — cascade actions** (TODO #3): the `ON UPDATE`/`ON DELETE CASCADE` flags are persisted
+  correctly (in `MSysRelationships.grbit` and the index-info action bytes), but nothing cascades at
+  runtime because there is no `UPDATE`/`DELETE` executor yet — do this when DML `UPDATE`/`DELETE` lands.
+- **Column `DEFAULT` — Access does not re-apply it**: LibRed persists `DEFAULT` to the `LvProp` property
+  blob (byte-identical content to ACE), reads it back, and applies it when an insert omits the column, so
+  the **EF/LibRed path works**. But Access itself does not re-apply the default from our blob. **Root cause
+  confirmed** (raw descriptor dump): ACE stores `LvProp` on a **single LVAL page** (flag `0x40`); LibRed
+  writes it **inline** (flag `0x80`), and Access's property loader only reads the LVAL-page form. Everything
+  else is identical — TDEF, `MSysObjects` row, and all other `MSys*` tables. Follow-up: add single-page
+  LVAL long-value writing and store `LvProp` that way (same infra needed for large memo/OLE values).
+- **`CREATE TEMPORARY TABLE` / `WITH COMPRESSION`**: parsed only to throw a clear `NotSupportedException`
+  (out of scope).
+- **`CREATE INDEX` — non-empty table**: works for ascending/descending, `WITH PRIMARY`,
+  `WITH DISALLOW NULL`, and `WITH IGNORE NULL` indexes on an **empty** table (EF's case: indexes are
+  created right after `CREATE TABLE`, before seeding). Not yet: adding an index to a **non-empty** table
+  (needs B-tree population over existing rows) — throws a clear `NotSupportedException`.
+- **Foreign keys — self-pointing row on a self-reference**: insert-time referential-integrity checks the
+  parent *before* inserting the row, so a row that references itself on a self-referencing FK (e.g.
+  `Mgr = its own Id`) is wrongly rejected (Access allows it). Needs the row's own key counted as part of
+  the parent set for a self-reference, or deferred/post-insert checking. See
+  `StatementExecutor.EnforceReferentialIntegrity`. (Chains that reference *other* rows work fine.)
 - **Writing** Memo/OLE (long-value) columns (read-only today); non-unique index statistics.
 - **Version-1** "General" text collation (Access 2010+); **Jet 3** format; password/encryption write;
   reference-type usage maps for very large *new* tables.

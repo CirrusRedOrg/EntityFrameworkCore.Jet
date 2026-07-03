@@ -13,21 +13,115 @@ internal sealed class AstBuilder
     public SqlStatement Build(StatementContext ctx)
     {
         if (ctx.createTableStatement() is { } create) return BuildCreateTable(create);
+        if (ctx.createIndexStatement() is { } createIndex) return BuildCreateIndex(createIndex);
         if (ctx.insertStatement() is { } insert) return BuildInsert(insert);
         return BuildQueryExpression(ctx.queryExpression());
     }
 
     private static SqlStatement BuildCreateTable(CreateTableStatementContext ctx)
     {
+        if (ctx.temp is not null)
+            throw new NotSupportedException("CREATE TEMPORARY TABLE is not supported.");
+
         var columns = ctx.columnDefinition().Select(BuildColumnDefinition).ToList();
 
-        // Primary key from inline column constraints and any table-level PRIMARY KEY (cols).
+        // Primary key, foreign keys and unique constraints come from both column-level (single-field)
+        // and table-level (multi-field) constraints.
         var primaryKey = columns.Where(c => c.PrimaryKey).Select(c => c.Name).ToList();
-        foreach (TableConstraintContext tc in ctx.tableConstraint())
-            primaryKey.AddRange(tc._columns.Select(Identifier));
+        var foreignKeys = new List<ForeignKeyConstraint>();
+        var uniques = new List<UniqueConstraint>();
 
-        return new CreateTableStatement(Identifier(ctx.table), columns, primaryKey);
+        // Column-level UNIQUE and REFERENCES (the single-field forms) apply to the column they follow.
+        foreach (ColumnDefinitionContext cd in ctx.columnDefinition())
+        {
+            string columnName = Identifier(cd.name);
+            foreach (ColumnConstraintContext cc in cd.columnConstraint())
+            {
+                switch (cc)
+                {
+                    case UniqueColumnConstraintContext u:
+                        uniques.Add(new UniqueConstraint(u.cname is null ? null : Identifier(u.cname), [columnName]));
+                        break;
+                    case ColumnReferencesConstraintContext r:
+                        foreignKeys.Add(BuildColumnReferences(r, columnName));
+                        break;
+                }
+            }
+        }
+
+        foreach (TableConstraintContext tc in ctx.tableConstraint())
+        {
+            switch (tc)
+            {
+                case PrimaryKeyTableConstraintContext pk:
+                    primaryKey.AddRange(pk._columns.Select(Identifier));
+                    break;
+                case UniqueTableConstraintContext uq:
+                    uniques.Add(new UniqueConstraint(uq.name is null ? null : Identifier(uq.name), uq._columns.Select(Identifier).ToList()));
+                    break;
+                case ForeignKeyTableConstraintContext fk:
+                    foreignKeys.Add(BuildForeignKey(fk));
+                    break;
+            }
+        }
+
+        return new CreateTableStatement(Identifier(ctx.table), columns, primaryKey, foreignKeys, uniques);
     }
+
+    private static ForeignKeyConstraint BuildForeignKey(ForeignKeyTableConstraintContext ctx)
+    {
+        var columns = ctx._columns.Select(Identifier).ToList();
+        var refColumns = ctx._refColumns.Select(Identifier).ToList();
+        var (onUpdate, onDelete) = ReadForeignKeyActions(ctx.foreignKeyAction());
+        return new ForeignKeyConstraint(
+            ctx.name is null ? null : Identifier(ctx.name),
+            columns,
+            Identifier(ctx.refTable),
+            refColumns,
+            onDelete,
+            onUpdate,
+            NoIndex: ctx.noIndex is not null);
+    }
+
+    /// <summary>Builds a foreign key from a column-level REFERENCES constraint (child column = the
+    /// column it follows). A column-level FK never carries the NO INDEX modifier.</summary>
+    private static ForeignKeyConstraint BuildColumnReferences(ColumnReferencesConstraintContext ctx, string childColumn)
+    {
+        var refColumns = ctx._refColumns.Select(Identifier).ToList();
+        var (onUpdate, onDelete) = ReadForeignKeyActions(ctx.foreignKeyAction());
+        return new ForeignKeyConstraint(
+            ctx.cname is null ? null : Identifier(ctx.cname),
+            [childColumn],
+            Identifier(ctx.refTable),
+            refColumns,
+            onDelete,
+            onUpdate);
+    }
+
+    /// <summary>Reads the ON UPDATE / ON DELETE clauses in either order (each optional).</summary>
+    private static (ReferentialAction OnUpdate, ReferentialAction OnDelete) ReadForeignKeyActions(
+        IEnumerable<ForeignKeyActionContext> actions)
+    {
+        var onUpdate = ReferentialAction.NoAction;
+        var onDelete = ReferentialAction.NoAction;
+        foreach (ForeignKeyActionContext action in actions)
+        {
+            switch (action)
+            {
+                case OnUpdateActionContext u: onUpdate = ReferentialActionOf(u.referentialAction()); break;
+                case OnDeleteActionContext d: onDelete = ReferentialActionOf(d.referentialAction()); break;
+            }
+        }
+        return (onUpdate, onDelete);
+    }
+
+    private static ReferentialAction ReferentialActionOf(ReferentialActionContext? ctx) => ctx switch
+    {
+        CascadeActionContext => ReferentialAction.Cascade,
+        SetNullActionContext => ReferentialAction.SetNull,
+        SetDefaultActionContext => ReferentialAction.SetDefault,
+        _ => ReferentialAction.NoAction, // null, NO ACTION, RESTRICT
+    };
 
     private static ColumnDefinition BuildColumnDefinition(ColumnDefinitionContext ctx)
     {
@@ -40,10 +134,33 @@ internal sealed class AstBuilder
             ? Identifier(type.typeName)
             : $"{Identifier(type.typeName)} {Identifier(type.extra)}";
 
+        if (ctx.columnConstraint().OfType<CompressionConstraintContext>().Any())
+            throw new NotSupportedException($"WITH COMPRESSION on column '{Identifier(ctx.name)}' is not supported.");
+
         bool notNull = ctx.columnConstraint().OfType<NotNullConstraintContext>().Any();
         bool primaryKey = ctx.columnConstraint().OfType<PrimaryKeyConstraintContext>().Any();
+        // Capture the DEFAULT expression's source text (stored verbatim as the DefaultValue property,
+        // matching Access — e.g. "42", "'hi'"). Re-parsed and evaluated when a column is omitted on insert.
+        string? defaultSql = ctx.columnConstraint().OfType<DefaultConstraintContext>()
+            .FirstOrDefault()?.expression().GetText();
 
-        return new ColumnDefinition(Identifier(ctx.name), typeName, size, scale, notNull, primaryKey);
+        return new ColumnDefinition(Identifier(ctx.name), typeName, size, scale, notNull, primaryKey, defaultSql);
+    }
+
+    private static SqlStatement BuildCreateIndex(CreateIndexStatementContext ctx)
+    {
+        var columns = ctx.indexColumn()
+            .Select(ic => (Identifier(ic.col), Descending: ic.dir is { } d && d.Type == DESC))
+            .ToList();
+        IndexWithOption withOption = ctx.withOption() switch
+        {
+            WithPrimaryContext => IndexWithOption.Primary,
+            WithDisallowNullContext => IndexWithOption.DisallowNull,
+            WithIgnoreNullContext => IndexWithOption.IgnoreNull,
+            _ => IndexWithOption.None,
+        };
+        return new CreateIndexStatement(
+            Identifier(ctx.name), Identifier(ctx.table), ctx.unique is not null, columns, withOption);
     }
 
     private static SqlStatement BuildInsert(InsertStatementContext ctx)
@@ -133,7 +250,7 @@ internal sealed class AstBuilder
         new(BuildExpression(ctx.expression()),
             ctx.dir?.Type == DESC ? SortDirection.Descending : SortDirection.Ascending);
 
-    private static Expression BuildExpression(ExpressionContext ctx) => ctx switch
+    internal static Expression BuildExpression(ExpressionContext ctx) => ctx switch
     {
         NotExprContext n => new UnaryExpression(UnaryOperator.Not, BuildExpression(n.expression())),
         NegateExprContext n => new UnaryExpression(UnaryOperator.Negate, BuildExpression(n.expression())),

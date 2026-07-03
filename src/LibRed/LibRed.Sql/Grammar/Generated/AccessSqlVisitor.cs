@@ -45,6 +45,39 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitCreateTableStatement([NotNull] AccessSqlParser.CreateTableStatementContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.createIndexStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCreateIndexStatement([NotNull] AccessSqlParser.CreateIndexStatementContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.indexColumn"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitIndexColumn([NotNull] AccessSqlParser.IndexColumnContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>WithPrimary</c>
+	/// labeled alternative in <see cref="AccessSqlParser.withOption"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitWithPrimary([NotNull] AccessSqlParser.WithPrimaryContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>WithDisallowNull</c>
+	/// labeled alternative in <see cref="AccessSqlParser.withOption"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitWithDisallowNull([NotNull] AccessSqlParser.WithDisallowNullContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>WithIgnoreNull</c>
+	/// labeled alternative in <see cref="AccessSqlParser.withOption"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitWithIgnoreNull([NotNull] AccessSqlParser.WithIgnoreNullContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.columnDefinition"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
@@ -71,6 +104,20 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitNullableConstraint([NotNull] AccessSqlParser.NullableConstraintContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>DefaultConstraint</c>
+	/// labeled alternative in <see cref="AccessSqlParser.columnConstraint"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDefaultConstraint([NotNull] AccessSqlParser.DefaultConstraintContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>CompressionConstraint</c>
+	/// labeled alternative in <see cref="AccessSqlParser.columnConstraint"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCompressionConstraint([NotNull] AccessSqlParser.CompressionConstraintContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>PrimaryKeyConstraint</c>
 	/// labeled alternative in <see cref="AccessSqlParser.columnConstraint"/>.
 	/// </summary>
@@ -78,11 +125,89 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitPrimaryKeyConstraint([NotNull] AccessSqlParser.PrimaryKeyConstraintContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AccessSqlParser.tableConstraint"/>.
+	/// Visit a parse tree produced by the <c>UniqueColumnConstraint</c>
+	/// labeled alternative in <see cref="AccessSqlParser.columnConstraint"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitTableConstraint([NotNull] AccessSqlParser.TableConstraintContext context);
+	Result VisitUniqueColumnConstraint([NotNull] AccessSqlParser.UniqueColumnConstraintContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>ColumnReferencesConstraint</c>
+	/// labeled alternative in <see cref="AccessSqlParser.columnConstraint"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitColumnReferencesConstraint([NotNull] AccessSqlParser.ColumnReferencesConstraintContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>PrimaryKeyTableConstraint</c>
+	/// labeled alternative in <see cref="AccessSqlParser.tableConstraint"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitPrimaryKeyTableConstraint([NotNull] AccessSqlParser.PrimaryKeyTableConstraintContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>UniqueTableConstraint</c>
+	/// labeled alternative in <see cref="AccessSqlParser.tableConstraint"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitUniqueTableConstraint([NotNull] AccessSqlParser.UniqueTableConstraintContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>ForeignKeyTableConstraint</c>
+	/// labeled alternative in <see cref="AccessSqlParser.tableConstraint"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitForeignKeyTableConstraint([NotNull] AccessSqlParser.ForeignKeyTableConstraintContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>OnUpdateAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.foreignKeyAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitOnUpdateAction([NotNull] AccessSqlParser.OnUpdateActionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>OnDeleteAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.foreignKeyAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitOnDeleteAction([NotNull] AccessSqlParser.OnDeleteActionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>CascadeAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.referentialAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCascadeAction([NotNull] AccessSqlParser.CascadeActionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>NoActionAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.referentialAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitNoActionAction([NotNull] AccessSqlParser.NoActionActionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>RestrictAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.referentialAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitRestrictAction([NotNull] AccessSqlParser.RestrictActionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>SetNullAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.referentialAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitSetNullAction([NotNull] AccessSqlParser.SetNullActionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>SetDefaultAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.referentialAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitSetDefaultAction([NotNull] AccessSqlParser.SetDefaultActionContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.insertStatement"/>.
 	/// </summary>

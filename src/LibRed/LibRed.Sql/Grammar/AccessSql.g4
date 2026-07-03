@@ -11,13 +11,28 @@
 grammar AccessSql;
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
-statement : (createTableStatement | insertStatement | queryExpression) SEMI? EOF ;
+statement : (createTableStatement | createIndexStatement | insertStatement | queryExpression) SEMI? EOF ;
 
 // ---- DDL / DML ----
 
 createTableStatement
-    : CREATE TABLE table=identifier
+    : CREATE temp=TEMPORARY? TABLE table=identifier
       LPAREN columnDefinition (COMMA columnDefinition)* (COMMA tableConstraint)* RPAREN
+    ;
+
+// CREATE [UNIQUE] INDEX name ON table (field [ASC|DESC], …) [WITH {PRIMARY|DISALLOW NULL|IGNORE NULL}]
+createIndexStatement
+    : CREATE unique=UNIQUE? INDEX name=identifier ON table=identifier
+      LPAREN indexColumn (COMMA indexColumn)* RPAREN
+      (WITH withOption)?
+    ;
+
+indexColumn : col=identifier dir=(ASC | DESC)? ;
+
+withOption
+    : PRIMARY        # WithPrimary
+    | DISALLOW NULL  # WithDisallowNull
+    | IGNORE NULL    # WithIgnoreNull
     ;
 
 columnDefinition : name=identifier dataType columnConstraint* ;
@@ -25,14 +40,49 @@ columnDefinition : name=identifier dataType columnConstraint* ;
 // A second word handles two-word ANSI aliases like CHARACTER VARYING / BIT VARYING.
 dataType : typeName=identifier extra=identifier? (LPAREN size=INTEGER_LITERAL (COMMA scale=INTEGER_LITERAL)? RPAREN)? ;
 
+// Single-field constraints (after the column's data type). A CONSTRAINT name may prefix any of them.
 columnConstraint
-    : NOT NULL          # NotNullConstraint
-    | NULL              # NullableConstraint
-    | PRIMARY KEY       # PrimaryKeyConstraint
+    : NOT NULL                                       # NotNullConstraint
+    | NULL                                           # NullableConstraint
+    | DEFAULT expression                             # DefaultConstraint
+    | WITH (COMPRESSION | COMP)                       # CompressionConstraint
+    | (CONSTRAINT cname=identifier)? PRIMARY KEY     # PrimaryKeyConstraint
+    | (CONSTRAINT cname=identifier)? UNIQUE          # UniqueColumnConstraint
+    | (CONSTRAINT cname=identifier)? REFERENCES refTable=identifier
+        (LPAREN refColumns+=identifier (COMMA refColumns+=identifier)* RPAREN)?
+        foreignKeyAction*                            # ColumnReferencesConstraint
     ;
 
-// EF Core emits a named table constraint: CONSTRAINT `PK_x` PRIMARY KEY (`col`, ...).
-tableConstraint : (CONSTRAINT identifier)? PRIMARY KEY LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN ;
+// EF Core emits named table constraints: CONSTRAINT `PK_x` PRIMARY KEY (`col`, ...) and
+// CONSTRAINT `FK_x` FOREIGN KEY (`col`, ...) REFERENCES `Parent` (`col`, ...) ON DELETE CASCADE.
+tableConstraint
+    : (CONSTRAINT name=identifier)? PRIMARY KEY
+        LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN                        # PrimaryKeyTableConstraint
+    | (CONSTRAINT name=identifier)? UNIQUE
+        LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN                        # UniqueTableConstraint
+    | (CONSTRAINT name=identifier)? FOREIGN KEY (noIndex=NO INDEX)?
+        LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN
+        REFERENCES refTable=identifier
+        (LPAREN refColumns+=identifier (COMMA refColumns+=identifier)* RPAREN)?
+        foreignKeyAction*                                                                      # ForeignKeyTableConstraint
+    ;
+
+// ON UPDATE / ON DELETE may appear in either order (Access documents UPDATE-then-DELETE; EF Core
+// emits only ON DELETE), so they are parsed as an unordered list.
+foreignKeyAction
+    : ON UPDATE referentialAction   # OnUpdateAction
+    | ON DELETE referentialAction   # OnDeleteAction
+    ;
+
+// Referential actions (ON DELETE / ON UPDATE). Jet's DAO model records only enforce / cascade
+// update / cascade delete; NO ACTION / RESTRICT map to "enforced, no cascade".
+referentialAction
+    : CASCADE       # CascadeAction
+    | NO ACTION     # NoActionAction
+    | RESTRICT      # RestrictAction
+    | SET NULL      # SetNullAction
+    | SET DEFAULT   # SetDefaultAction
+    ;
 
 insertStatement
     : INSERT INTO table=identifier
@@ -159,6 +209,24 @@ VALUES    : [Vv][Aa][Ll][Uu][Ee][Ss] ;
 PRIMARY   : [Pp][Rr][Ii][Mm][Aa][Rr][Yy] ;
 KEY       : [Kk][Ee][Yy] ;
 CONSTRAINT : [Cc][Oo][Nn][Ss][Tt][Rr][Aa][Ii][Nn][Tt] ;
+FOREIGN    : [Ff][Oo][Rr][Ee][Ii][Gg][Nn] ;
+REFERENCES : [Rr][Ee][Ff][Ee][Rr][Ee][Nn][Cc][Ee][Ss] ;
+DELETE     : [Dd][Ee][Ll][Ee][Tt][Ee] ;
+UPDATE     : [Uu][Pp][Dd][Aa][Tt][Ee] ;
+CASCADE    : [Cc][Aa][Ss][Cc][Aa][Dd][Ee] ;
+RESTRICT   : [Rr][Ee][Ss][Tt][Rr][Ii][Cc][Tt] ;
+ACTION     : [Aa][Cc][Tt][Ii][Oo][Nn] ;
+SET        : [Ss][Ee][Tt] ;
+DEFAULT    : [Dd][Ee][Ff][Aa][Uu][Ll][Tt] ;
+NO         : [Nn][Oo] ;
+UNIQUE     : [Uu][Nn][Ii][Qq][Uu][Ee] ;
+INDEX      : [Ii][Nn][Dd][Ee][Xx] ;
+TEMPORARY  : [Tt][Ee][Mm][Pp][Oo][Rr][Aa][Rr][Yy] ;
+WITH       : [Ww][Ii][Tt][Hh] ;
+COMPRESSION: [Cc][Oo][Mm][Pp][Rr][Ee][Ss][Ss][Ii][Oo][Nn] ;
+COMP       : [Cc][Oo][Mm][Pp] ;
+DISALLOW   : [Dd][Ii][Ss][Aa][Ll][Ll][Oo][Ww] ;
+IGNORE     : [Ii][Gg][Nn][Oo][Rr][Ee] ;
 ASC    : [Aa][Ss][Cc] ;
 DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;

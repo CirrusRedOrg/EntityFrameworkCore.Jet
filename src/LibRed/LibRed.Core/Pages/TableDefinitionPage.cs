@@ -46,6 +46,7 @@ public sealed class TableDefinitionPage : Page
     private const short IndexColumnUnused = -1;   // 0xFFFF
     private const byte IndexColumnAscending = 0x01;
     private const ushort IndexFlagUnique = 0x0001;
+    private const ushort IndexFlagIgnoreNulls = 0x0002;
 
     private const int IndexInfoBlockSize = 28;
     private const int IndexInfoDataNumberOffset = 0x08;
@@ -140,6 +141,7 @@ public sealed class TableDefinitionPage : Page
                 Name = string.Empty,
                 Columns = columns,
                 IsUnique = (buffer.ReadUInt16(block + IndexFlagsOffset) & IndexFlagUnique) != 0,
+                IgnoreNulls = (buffer.ReadUInt16(block + IndexFlagsOffset) & IndexFlagIgnoreNulls) != 0,
                 IsPrimaryKey = false,
                 UniqueEntryCount = uniqueEntryCount,
                 RootPage = buffer.ReadInt32(block + IndexRootPageOffset),

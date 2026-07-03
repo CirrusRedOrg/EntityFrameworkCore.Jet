@@ -195,7 +195,9 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
     /// <summary>Builds a page from entries; null if they overflow the page. Leaf pages are prefix-compressed;
     /// node pages are stored uncompressed and carry their height above the leaves at <see cref="LevelOffset"/>,
-    /// both matching what Access writes (and what Access needs to walk the node's tail child).</summary>
+    /// both matching what Access writes. (An isolation test showed neither is strictly required — Access reads
+    /// a node with <c>0x1A=0</c> and compressed just fine; they are kept purely for byte-faithfulness. The one
+    /// hard requirement is a <b>leaf's</b> <c>0x1A=0</c> and the leaf-chain offsets at <c>0x0C</c>/<c>0x10</c>.)</summary>
     private byte[]? Build(PageType type, int prev, int next, int tail, int level, List<Entry> entries)
     {
         bool isLeaf = type == PageType.LeafIndexPage;

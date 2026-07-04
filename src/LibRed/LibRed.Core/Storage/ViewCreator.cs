@@ -19,6 +19,7 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
 
     // MSysQueries attribute codes (Jackcess "query rows"), verified against ACE.
     private const byte AttrType = 0x00;    // Flag = 1 for a SELECT query
+    private const byte AttrParameter = 0x02; // Name1 = param name, Flag = Jet type code
     private const byte AttrFlag = 0x03;    // Flag = 2 for DISTINCT
     private const byte AttrTable = 0x05;   // named table: Name1 = table, Name2 = alias;
                                            // derived table: Expression = subquery SQL, Name2 = alias
@@ -81,6 +82,10 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         // per-attribute counters, independent of this insertion order.
         Row(mq, objectId, AttrType, order: 1, flag: QueryTypeSelect);
         Row(mq, objectId, AttrEnd, order: 1);
+        // Declared parameters (CREATE PROCEDURE) come right after the End row, before the tables.
+        for (int i = 0; i < (spec.Parameters?.Count ?? 0); i++)
+            Row(mq, objectId, AttrParameter, order: i + 1,
+                flag: spec.Parameters![i].TypeCode, name1: spec.Parameters[i].Name);
         if (spec.Distinct)
             Row(mq, objectId, AttrFlag, order: 1, flag: FlagDistinct);
         for (int i = 0; i < spec.Tables.Count; i++)

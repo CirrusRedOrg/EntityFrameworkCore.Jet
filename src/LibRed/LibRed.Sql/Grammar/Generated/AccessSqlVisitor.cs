@@ -51,6 +51,18 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitCreateViewStatement([NotNull] AccessSqlParser.CreateViewStatementContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.createProcedureStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCreateProcedureStatement([NotNull] AccessSqlParser.CreateProcedureStatementContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.procParam"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitProcParam([NotNull] AccessSqlParser.ProcParamContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.createIndexStatement"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

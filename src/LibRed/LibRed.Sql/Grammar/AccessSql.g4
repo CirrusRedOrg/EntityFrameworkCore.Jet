@@ -11,7 +11,7 @@
 grammar AccessSql;
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
-statement : (createTableStatement | createIndexStatement | createViewStatement | insertStatement | queryExpression) SEMI? EOF ;
+statement : (createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | insertStatement | queryExpression) SEMI? EOF ;
 
 // ---- DDL / DML ----
 
@@ -26,6 +26,15 @@ createViewStatement
       (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)?
       AS query=queryExpression
     ;
+
+// CREATE PROCEDURE name [param datatype, …] AS <select> — a parameterized stored query (no parens
+// around the params, per the Access DDL). Stored like a view plus MSysQueries parameter rows.
+createProcedureStatement
+    : CREATE PROCEDURE name=identifier
+      (procParam (COMMA procParam)*)?
+      AS body=queryExpression
+    ;
+procParam : pname=identifier dataType ;
 
 // CREATE [UNIQUE] INDEX name ON table (field [ASC|DESC], …) [WITH {PRIMARY|DISALLOW NULL|IGNORE NULL}]
 createIndexStatement
@@ -250,6 +259,7 @@ DISALLOW   : [Dd][Ii][Ss][Aa][Ll][Ll][Oo][Ww] ;
 IGNORE     : [Ii][Gg][Nn][Oo][Rr][Ee] ;
 CHECK      : [Cc][Hh][Ee][Cc][Kk] ;
 VIEW       : [Vv][Ii][Ee][Ww] ;
+PROCEDURE  : [Pp][Rr][Oo][Cc][Ee][Dd][Uu][Rr][Ee] ;
 ASC    : [Aa][Ss][Cc] ;
 DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;

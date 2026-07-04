@@ -22,6 +22,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         CreateTableStatement create => ExecuteCreateTable(create),
         CreateIndexStatement createIndex => ExecuteCreateIndex(createIndex),
         CreateViewStatement createView => ExecuteCreateView(createView),
+        CreateProcedureStatement createProc => ExecuteCreateProcedure(createProc),
         InsertStatement insert => ExecuteInsert(insert),
         _ => throw new NotSupportedException($"{statement.GetType().Name} cannot be executed as a non-query."),
     };
@@ -137,20 +138,33 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int ExecuteCreateView(CreateViewStatement statement)
     {
-        ViewDefinition d = statement.Definition;
-        var spec = new ViewSpec(
-            d.Distinct,
-            d.Columns.Select(c => new ViewColumnSpec(c.Expression, c.Alias)).ToList(),
-            d.Tables.Select(t => new ViewTableSpec(t.Table, t.Alias, t.SubquerySql)).ToList(),
-            d.Joins.Select(j => new ViewJoinSpec(
-                j.Kind switch { ViewJoinKind.Left => ViewJoinType.Left, ViewJoinKind.Right => ViewJoinType.Right, _ => ViewJoinType.Inner },
-                j.Condition, j.LeftAlias, j.RightAlias)).ToList(),
-            d.Where,
-            d.GroupBy);
-
-        _database.CreateView(statement.Name, spec);
+        _database.CreateView(statement.Name, BuildViewSpec(statement.Definition));
         return 0;
     }
+
+    private int ExecuteCreateProcedure(CreateProcedureStatement statement)
+    {
+        // A procedure is a parameterized stored query: a view spec plus a parameter row per declared
+        // parameter (name + Jet type code, resolved from the declared Access type name).
+        var parameters = statement.Parameters
+            .Select(p => new ViewParameterSpec(
+                p.Name,
+                (byte)AccessTypeMapper.ToColumnSpec(
+                    new ColumnDefinition(p.Name, p.TypeName, null, null, false, false)).Type))
+            .ToList();
+        _database.CreateView(statement.Name, BuildViewSpec(statement.Definition) with { Parameters = parameters });
+        return 0;
+    }
+
+    private static ViewSpec BuildViewSpec(ViewDefinition d) => new(
+        d.Distinct,
+        d.Columns.Select(c => new ViewColumnSpec(c.Expression, c.Alias)).ToList(),
+        d.Tables.Select(t => new ViewTableSpec(t.Table, t.Alias, t.SubquerySql)).ToList(),
+        d.Joins.Select(j => new ViewJoinSpec(
+            j.Kind switch { ViewJoinKind.Left => ViewJoinType.Left, ViewJoinKind.Right => ViewJoinType.Right, _ => ViewJoinType.Inner },
+            j.Condition, j.LeftAlias, j.RightAlias)).ToList(),
+        d.Where,
+        d.GroupBy);
 
     private int ExecuteInsert(InsertStatement statement)
     {

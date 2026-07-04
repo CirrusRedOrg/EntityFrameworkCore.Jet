@@ -120,6 +120,17 @@ public sealed record CreateViewStatement(
     ViewDefinition Definition,
     string QuerySql) : SqlStatement;
 
+/// <summary>A CREATE PROCEDURE parameter: a name and its declared Access SQL type name.</summary>
+public sealed record ProcedureParameter(string Name, string TypeName);
+
+/// <summary>CREATE PROCEDURE name [param datatype, …] AS select — a parameterized stored query. Stored like
+/// a view (the decomposed <see cref="Definition"/>) plus a parameter row per declared parameter.</summary>
+public sealed record CreateProcedureStatement(
+    string Name,
+    IReadOnlyList<ProcedureParameter> Parameters,
+    ViewDefinition Definition,
+    string QuerySql) : SqlStatement;
+
 public sealed record Assignment(string Column, Expression Value) : SqlNode;
 
 public sealed record UpdateStatement(

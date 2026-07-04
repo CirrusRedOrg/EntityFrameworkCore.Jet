@@ -16,6 +16,10 @@ public sealed record ViewJoinSpec(ViewJoinType Kind, string Condition, string Le
 /// row Expression + Name1).</summary>
 public sealed record ViewColumnSpec(string Expression, string? Alias);
 
+/// <summary>A declared parameter of a stored (procedure) query: its name and Jet type code, stored as an
+/// MSysQueries <c>Attribute=2</c> row (Name1 = name, Flag = <paramref name="TypeCode"/>).</summary>
+public sealed record ViewParameterSpec(string Name, byte TypeCode);
+
 /// <summary>
 /// A view's decomposed "simple SELECT" — the columns, source tables, joins and WHERE (all verbatim text) —
 /// that Access stores as MSysQueries rows. Aggregates / GROUP BY / HAVING / ORDER BY are not permitted.
@@ -26,4 +30,5 @@ public sealed record ViewSpec(
     IReadOnlyList<ViewTableSpec> Tables,
     IReadOnlyList<ViewJoinSpec> Joins,
     string? Where,
-    IReadOnlyList<string>? GroupBy = null);
+    IReadOnlyList<string>? GroupBy = null,
+    IReadOnlyList<ViewParameterSpec>? Parameters = null);

@@ -799,7 +799,9 @@ The split mechanics:
   increment from `0x80000000`), `ParentId 0x0F000001`, `Flags 0x10000000`, `LvProp` null. The query
   itself is stored in **MSysQueries**, decomposed into rows keyed by `ObjectId`, each with an `Attribute`
   byte (Jackcess "query rows", verified vs ACE for the "simple SELECT" a view may contain): `0x00` =
-  query type (`Flag 1` = SELECT), `0x03` = flags (`Flag 2` = DISTINCT), `0x05` = FROM source, `0x06` =
+  query type (`Flag 1` = SELECT), `0x02` = a **declared parameter** (`Name1`=parameter name, `Flag`=Jet
+  type code — same codes as on-disk column types, e.g. `8`=DateTime; one row per parameter, `Order`
+  1-based), `0x03` = flags (`Flag 2` = DISTINCT), `0x05` = FROM source, `0x06` =
   output column (`Expression`=verbatim text; **`Name1`=the column's output alias** when it has one, e.g.
   `Expression=Customers.CompanyName`, `Name1=CustomerName`; a computed column stores its whole verbatim
   expression, `Expression=(FirstName + ' ' + LastName)`, `Name1=Salesperson`), `0x07` = join
@@ -817,8 +819,8 @@ The split mechanics:
   `(ObjectId Int32, Attribute Byte, Order Binary)`; its Binary key encodes as `0x7F` + the raw bytes +
   `00 00 00 00` + a length byte.
 
-  > **Row order matters.** Access writes the rows in the order **type, end, distinct, tables (`0x05`),
-  > columns (`0x06`), joins (`0x07`), where (`0x08`), group-by (`0x09`)** — *tables before columns* (verified across five
+  > **Row order matters.** Access writes the rows in the order **type, end, parameters (`0x02`), distinct,
+  > tables (`0x05`), columns (`0x06`), joins (`0x07`), where (`0x08`), group-by (`0x09`)** — *tables before columns* (verified across five
   > Northwind views). Access tolerates the wrong order for a **named** table, but a **derived** table
   > defines an alias the column expressions reference, so its `0x05` row must precede the `0x06` rows or
   > Access opens the database yet **fails to run the view**.
@@ -827,6 +829,12 @@ The split mechanics:
   > 64-byte inline limit is written to an LVAL page (§8) — required for Access to *run* the view (an
   > inlined long value opens but won't execute). Verified: a LibRed derived-table UNION view returns the
   > same rows in Access as the equivalent Northwind view.
+  >
+  > **CREATE PROCEDURE** is stored identically to a view (Type-5 `MSysObjects` row + `MSysQueries` rows) —
+  > a stored query is a stored query — with one `0x02` parameter row per declared parameter. The Access
+  > syntax has **no parentheses** around the parameter list: `CREATE PROCEDURE name p1 datatype, p2
+  > datatype AS select`. Verified: a LibRed-written parameterized query runs in Access and honours supplied
+  > parameter values.
 
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`

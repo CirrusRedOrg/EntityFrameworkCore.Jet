@@ -15,6 +15,7 @@ internal sealed class AstBuilder
         if (ctx.createTableStatement() is { } create) return BuildCreateTable(create);
         if (ctx.createIndexStatement() is { } createIndex) return BuildCreateIndex(createIndex);
         if (ctx.createViewStatement() is { } createView) return BuildCreateView(createView);
+        if (ctx.createProcedureStatement() is { } createProc) return BuildCreateProcedure(createProc);
         if (ctx.insertStatement() is { } insert) return BuildInsert(insert);
         return BuildQueryExpression(ctx.queryExpression());
     }
@@ -183,6 +184,20 @@ internal sealed class AstBuilder
         ViewDefinition definition = BuildViewDefinition(ctx.query);
         return new CreateViewStatement(Identifier(ctx.name), columns, definition, OriginalText(ctx.query));
     }
+
+    private static SqlStatement BuildCreateProcedure(CreateProcedureStatementContext ctx)
+    {
+        var parameters = ctx.procParam()
+            .Select(p => new ProcedureParameter(Identifier(p.pname), TypeName(p.dataType())))
+            .ToList();
+        ViewDefinition definition = BuildViewDefinition(ctx.body); // a procedure body is a (parameterized) SELECT
+        return new CreateProcedureStatement(Identifier(ctx.name), parameters, definition, OriginalText(ctx.body));
+    }
+
+    /// <summary>The declared type name of a data type (two-word names joined by a space).</summary>
+    private static string TypeName(DataTypeContext type) => type.extra is null
+        ? Identifier(type.typeName)
+        : $"{Identifier(type.typeName)} {Identifier(type.extra)}";
 
     /// <summary>Decomposes a view's "simple SELECT" into the columns/tables/joins/where Access stores as
     /// MSysQueries rows. Rejects anything Access itself rejects in a view (UNION, GROUP BY/aggregates,

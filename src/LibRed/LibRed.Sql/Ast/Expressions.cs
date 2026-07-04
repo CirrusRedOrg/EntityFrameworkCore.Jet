@@ -24,11 +24,12 @@ public enum BinaryOperator
     Add, Subtract, Multiply, Divide, Modulo, IntDivide, Power, Concat,
     Equal, NotEqual, LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual,
     And, Or, Like, In,
+    BitAnd, BitOr, BitXor, // Access bitwise operators BAND / BOR / BXOR (integers only)
 }
 
 public sealed record BinaryExpression(BinaryOperator Operator, Expression Left, Expression Right) : Expression;
 
-public enum UnaryOperator { Negate, Not, IsNull, IsNotNull }
+public enum UnaryOperator { Negate, Not, IsNull, IsNotNull, BitNot }
 
 public sealed record UnaryExpression(UnaryOperator Operator, Expression Operand) : Expression;
 

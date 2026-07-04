@@ -584,6 +584,7 @@ internal sealed class AstBuilder
     internal static Expression BuildExpression(ExpressionContext ctx) => ctx switch
     {
         NotExprContext n => new UnaryExpression(UnaryOperator.Not, BuildExpression(n.expression())),
+        BitNotExprContext n => new UnaryExpression(UnaryOperator.BitNot, BuildExpression(n.expression())),
         NegateExprContext n => new UnaryExpression(UnaryOperator.Negate, BuildExpression(n.expression())),
         PowExprContext p => new BinaryExpression(BinaryOperator.Power, BuildExpression(p.left), BuildExpression(p.right)),
         MulDivExprContext m => Binary(m.op, m.left, m.right),
@@ -597,6 +598,7 @@ internal sealed class AstBuilder
             ? new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))
             : new UnaryExpression(UnaryOperator.Not, new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))),
         IsNullExprContext n => new UnaryExpression(n.not is null ? UnaryOperator.IsNull : UnaryOperator.IsNotNull, BuildExpression(n.operand)),
+        BitwiseExprContext b => Binary(b.op, b.left, b.right),
         AndExprContext a => new BinaryExpression(BinaryOperator.And, BuildExpression(a.left), BuildExpression(a.right)),
         OrExprContext o => new BinaryExpression(BinaryOperator.Or, BuildExpression(o.left), BuildExpression(o.right)),
         PrimaryExprContext p => BuildPrimary(p.primary()),
@@ -689,6 +691,9 @@ internal sealed class AstBuilder
         MOD => BinaryOperator.Modulo,
         BACKSLASH => BinaryOperator.IntDivide,
         AMP => BinaryOperator.Concat,
+        BAND => BinaryOperator.BitAnd,
+        BOR => BinaryOperator.BitOr,
+        BXOR => BinaryOperator.BitXor,
         _ => throw new SqlParseException($"Unsupported operator token {tokenType}"),
     };
 

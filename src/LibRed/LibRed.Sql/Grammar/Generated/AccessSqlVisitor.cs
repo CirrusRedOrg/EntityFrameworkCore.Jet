@@ -507,6 +507,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitBetweenExpr([NotNull] AccessSqlParser.BetweenExprContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>BitNotExpr</c>
+	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitBitNotExpr([NotNull] AccessSqlParser.BitNotExprContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>PowExpr</c>
 	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
 	/// </summary>
@@ -541,6 +548,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitMulDivExpr([NotNull] AccessSqlParser.MulDivExprContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>BitwiseExpr</c>
+	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitBitwiseExpr([NotNull] AccessSqlParser.BitwiseExprContext context);
 	/// <summary>
 	/// Visit a parse tree produced by the <c>PrimaryExpr</c>
 	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.

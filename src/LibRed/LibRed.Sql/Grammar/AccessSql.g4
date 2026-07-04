@@ -202,6 +202,7 @@ orderByItem : expression (dir=(ASC | DESC))? ;
 
 expression
     : NOT expression                                                        # NotExpr
+    | BNOT expression                                                       # BitNotExpr
     | MINUS expression                                                      # NegateExpr
     | left=expression CARET right=expression                                 # PowExpr
     | left=expression op=(STAR | SLASH | MOD | BACKSLASH) right=expression   # MulDivExpr
@@ -212,6 +213,7 @@ expression
     | val=expression not=NOT? IN LPAREN sub=selectStatement RPAREN                            # InSubqueryExpr
     | val=expression not=NOT? IN LPAREN items+=expression (COMMA items+=expression)* RPAREN  # InExpr
     | operand=expression IS not=NOT? NULL                                   # IsNullExpr
+    | left=expression op=(BAND | BOR | BXOR) right=expression               # BitwiseExpr
     | left=expression AND right=expression                                  # AndExpr
     | left=expression OR right=expression                                   # OrExpr
     | primary                                                               # PrimaryExpr
@@ -258,6 +260,10 @@ AS     : [Aa][Ss] ;
 AND    : [Aa][Nn][Dd] ;
 OR     : [Oo][Rr] ;
 NOT    : [Nn][Oo][Tt] ;
+BAND   : [Bb][Aa][Nn][Dd] ;
+BOR    : [Bb][Oo][Rr] ;
+BXOR   : [Bb][Xx][Oo][Rr] ;
+BNOT   : [Bb][Nn][Oo][Tt] ;
 LIKE   : [Ll][Ii][Kk][Ee] ;
 MOD    : [Mm][Oo][Dd] ;
 INNER  : [Ii][Nn][Nn][Ee][Rr] ;

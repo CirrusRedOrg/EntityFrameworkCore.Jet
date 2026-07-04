@@ -94,14 +94,6 @@ internal sealed class ExpressionEvaluator(
             "INSTR" => Instr(f),
             "REPLACE" => Replace(f),
 
-            // Bitwise operators (EFCore.Jet emits these as functions since Access's And/Or/Xor/Not are
-            // logical). Integer operands, NULL-propagating, result keeps the operand's int type.
-            "BAND" => Bitwise(f, (a, b) => a & b),
-            "BOR" => Bitwise(f, (a, b) => a | b),
-            "BXOR" => Bitwise(f, (a, b) => a ^ b),
-            "BNOT" => Evaluate(f.Arguments[0]) is { } bv
-                ? (bv is long or ulong ? (object)~Lng(bv) : ~Int(bv)) : null,
-
             // Date/time functions (VBA/Access). All propagate NULL on a date argument.
             "DATEADD" => DateAdd(f),
             "DATEDIFF" => DateDiff(f),
@@ -268,14 +260,10 @@ internal sealed class ExpressionEvaluator(
         };
     }
 
-    /// <summary>A bitwise binary op over integer operands, NULL-propagating; the result keeps the operand's
-    /// int type (Int32, or Int64 if either operand is long).</summary>
-    private object? Bitwise(FunctionCall f, Func<long, long, long> op)
-    {
-        object? a = Evaluate(f.Arguments[0]), b = Evaluate(f.Arguments[1]);
-        if (a is null || b is null) return null;
-        return a is long or ulong || b is long or ulong ? (object)op(Lng(a), Lng(b)) : (int)op(Int(a), Int(b));
-    }
+    /// <summary>A bitwise op (Access <c>BAND</c>/<c>BOR</c>/<c>BXOR</c>) over integer operands; the result
+    /// keeps the operand's int type (Int32, or Int64 if either operand is long).</summary>
+    private static object BitwiseOp(object a, object b, Func<long, long, long> op) =>
+        a is long or ulong || b is long or ulong ? (object)op(Lng(a), Lng(b)) : (int)op(Int(a), Int(b));
 
     /// <summary>A function of a single date argument (Year/Month/Day/…), NULL-propagating.</summary>
     private object? DatePartOf(FunctionCall f, Func<DateTime, int> part)
@@ -355,6 +343,7 @@ internal sealed class ExpressionEvaluator(
                 long or ulong => -Lng(v),
                 _ => -Int(v), // int/short/byte → int
             },
+            UnaryOperator.BitNot => v is null ? null : v is long or ulong ? (object)~Lng(v) : ~Int(v),
             UnaryOperator.IsNull => v is null,
             UnaryOperator.IsNotNull => v is not null,
             _ => throw new NotSupportedException($"Unary operator {u.Operator}."),
@@ -403,6 +392,9 @@ internal sealed class ExpressionEvaluator(
             BinaryOperator.Modulo => IntegerOp(left, right, '%'),
             BinaryOperator.IntDivide => IntegerOp(left, right, '\\'),
             BinaryOperator.Power => Math.Pow(Convert.ToDouble(left, CultureInfo.InvariantCulture), Convert.ToDouble(right, CultureInfo.InvariantCulture)),
+            BinaryOperator.BitAnd => BitwiseOp(left, right, (x, y) => x & y),
+            BinaryOperator.BitOr => BitwiseOp(left, right, (x, y) => x | y),
+            BinaryOperator.BitXor => BitwiseOp(left, right, (x, y) => x ^ y),
             _ => throw new NotSupportedException($"Binary operator {b.Operator}."),
         };
     }

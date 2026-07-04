@@ -27,16 +27,17 @@ public class BitwiseAndDateFunctionTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // Access bitwise operators (infix BAND/BOR/BXOR, prefix BNOT) — verified vs ACE.
     [Fact]
     public void Bitwise_operators()
     {
-        Assert.Equal(2, Scalar("BAND(6, 3)"));
-        Assert.Equal(7, Scalar("BOR(6, 3)"));
-        Assert.Equal(5, Scalar("BXOR(6, 3)"));
-        Assert.Equal(-1, Scalar("BNOT(0)"));
-        Assert.Equal(-6, Scalar("BNOT(5)"));
-        Assert.IsType<int>(Scalar("BAND(6, 3)"));      // result keeps int type
-        Assert.Null(Scalar("BAND(NULL, 3)"));          // NULL-propagating
+        Assert.Equal(2, Scalar("6 BAND 3"));
+        Assert.Equal(7, Scalar("6 BOR 3"));
+        Assert.Equal(5, Scalar("6 BXOR 3"));
+        Assert.Equal(-6, Scalar("BNOT 5"));
+        Assert.Equal(10, Scalar("6 BAND 3 BOR 8")); // BAND binds tighter, left-assoc
+        Assert.IsType<int>(Scalar("6 BAND 3"));       // result keeps int type
+        Assert.Null(Scalar("NULL BAND 3"));           // NULL-propagating
     }
 
     [Fact]

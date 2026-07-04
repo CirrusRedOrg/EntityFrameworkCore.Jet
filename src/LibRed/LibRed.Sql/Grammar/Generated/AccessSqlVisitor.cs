@@ -283,11 +283,19 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitSelectList([NotNull] AccessSqlParser.SelectListContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AccessSqlParser.selectItem"/>.
+	/// Visit a parse tree produced by the <c>QualifiedStarSelectItem</c>
+	/// labeled alternative in <see cref="AccessSqlParser.selectItem"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitSelectItem([NotNull] AccessSqlParser.SelectItemContext context);
+	Result VisitQualifiedStarSelectItem([NotNull] AccessSqlParser.QualifiedStarSelectItemContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>ExpressionSelectItem</c>
+	/// labeled alternative in <see cref="AccessSqlParser.selectItem"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitExpressionSelectItem([NotNull] AccessSqlParser.ExpressionSelectItemContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.fromClause"/>.
 	/// </summary>
@@ -394,6 +402,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitComparisonExpr([NotNull] AccessSqlParser.ComparisonExprContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>BetweenExpr</c>
+	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitBetweenExpr([NotNull] AccessSqlParser.BetweenExprContext context);
 	/// <summary>
 	/// Visit a parse tree produced by the <c>PowExpr</c>
 	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
@@ -524,6 +539,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitStringLiteral([NotNull] AccessSqlParser.StringLiteralContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>DateLiteral</c>
+	/// labeled alternative in <see cref="AccessSqlParser.literal"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDateLiteral([NotNull] AccessSqlParser.DateLiteralContext context);
 	/// <summary>
 	/// Visit a parse tree produced by the <c>TrueLiteral</c>
 	/// labeled alternative in <see cref="AccessSqlParser.literal"/>.

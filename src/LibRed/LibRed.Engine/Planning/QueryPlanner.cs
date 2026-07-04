@@ -37,9 +37,10 @@ public sealed class QueryPlanner
         bool aggregate = select.GroupBy.Count > 0 || select.Having is not null
             || select.Projection.Any(i => HasAggregate(i.Value));
         if (aggregate)
-            node = new AggregateNode(node, select.GroupBy, select.Projection, select.Having);
-
-        if (select.OrderBy.Count > 0)
+            // The aggregate node owns ORDER BY: its keys are evaluated in the group scope (so they can
+            // reference grouping expressions / aggregates), not over the already-projected output.
+            node = new AggregateNode(node, select.GroupBy, select.Projection, select.Having, select.OrderBy);
+        else if (select.OrderBy.Count > 0)
             node = new SortNode(node, select.OrderBy);
 
         if (!aggregate && !select.IsSelectStar)

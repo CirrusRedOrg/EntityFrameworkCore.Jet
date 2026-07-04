@@ -45,7 +45,8 @@ public sealed record AggregateNode(
     PlanNode Input,
     IReadOnlyList<Expression> GroupBy,
     IReadOnlyList<SelectItem> Projection,
-    Expression? Having) : PlanNode
+    Expression? Having,
+    IReadOnlyList<OrderByItem> OrderBy) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }

@@ -237,15 +237,20 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         var (inColumns, inRowsEnum) = Execute(node.Input, outer);
         var inRows = inRowsEnum.ToList();
-        // Aggregates can appear in both the projection and HAVING (e.g. HAVING COUNT(*) > 30).
+        // Aggregates can appear in the projection, HAVING (e.g. HAVING COUNT(*) > 30) and ORDER BY
+        // (e.g. ORDER BY COUNT(*)); precompute all of them per group so each instance resolves.
         var aggregateCalls = node.Projection.SelectMany(i => Aggregates(i.Value))
-            .Concat(node.Having is { } h ? Aggregates(h) : []).ToList();
+            .Concat(node.Having is { } h ? Aggregates(h) : [])
+            .Concat(node.OrderBy.SelectMany(k => Aggregates(k.Value)))
+            .ToList();
 
         var outColumns = node.Projection
             .Select((item, i) => new OutputColumn(null, item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}")))
             .ToList();
 
-        var outRows = new List<object?[]>();
+        // Each output row carries its ORDER BY key values, evaluated in the same group scope as the
+        // projection (so a key like a grouping expression resolves), to sort the groups afterward.
+        var outRows = new List<(object?[] Row, object?[] SortKeys)>();
         foreach (List<object?[]> group in GroupRows(inRows, node.GroupBy, inColumns, outer))
         {
             var values = new Dictionary<FunctionCall, object?>(ReferenceComparer.Instance);
@@ -263,10 +268,24 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             if (node.Having is not null && !eval.IsTrue(node.Having))
                 continue;
 
-            outRows.Add(node.Projection.Select(item => eval.Evaluate(item.Value)).ToArray());
+            object?[] row = node.Projection.Select(item => eval.Evaluate(item.Value)).ToArray();
+            object?[] sortKeys = node.OrderBy.Select(k => eval.Evaluate(k.Value)).ToArray();
+            outRows.Add((row, sortKeys));
         }
 
-        return (outColumns, outRows);
+        if (node.OrderBy.Count > 0)
+            outRows.Sort((a, b) =>
+            {
+                for (int i = 0; i < node.OrderBy.Count; i++)
+                {
+                    int c = ExpressionEvaluator.CompareForSort(a.SortKeys[i], b.SortKeys[i]);
+                    if (node.OrderBy[i].Direction == SortDirection.Descending) c = -c;
+                    if (c != 0) return c;
+                }
+                return 0;
+            });
+
+        return (outColumns, outRows.Select(x => x.Row));
     }
 
     private List<List<object?[]>> GroupRows(List<object?[]> rows, IReadOnlyList<Expression> keys, IReadOnlyList<OutputColumn> columns, EvalScope? outer)

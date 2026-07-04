@@ -160,15 +160,16 @@ WHERE `o`.`OrderID` = 10248
 
             AssertSql(
                 """
-SELECT AVG(CAST(COALESCE([o0].[OrderID], 0) AS float))
+SELECT AVG(CDBL(IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`)))
 FROM (
-    SELECT 1 AS empty
-) AS [e]
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e`
 LEFT JOIN (
-    SELECT [o].[OrderID]
-    FROM [Orders] AS [o]
-    WHERE [o].[OrderID] = 10243
-) AS [o0] ON 1 = 1
+    SELECT `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `o`.`OrderID` = 10243
+) AS `o0` ON TRUE
 """);
         }
 
@@ -178,15 +179,16 @@ LEFT JOIN (
 
             AssertSql(
                 """
-SELECT MAX(COALESCE([o0].[OrderID], 0))
+SELECT MAX(IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`))
 FROM (
-    SELECT 1 AS empty
-) AS [e]
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e`
 LEFT JOIN (
-    SELECT [o].[OrderID]
-    FROM [Orders] AS [o]
-    WHERE [o].[OrderID] = 10243
-) AS [o0] ON 1 = 1
+    SELECT `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `o`.`OrderID` = 10243
+) AS `o0` ON TRUE
 """);
         }
 
@@ -196,15 +198,16 @@ LEFT JOIN (
 
             AssertSql(
                 """
-SELECT MIN(COALESCE([o0].[OrderID], 0))
+SELECT MIN(IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`))
 FROM (
-    SELECT 1 AS empty
-) AS [e]
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e`
 LEFT JOIN (
-    SELECT [o].[OrderID]
-    FROM [Orders] AS [o]
-    WHERE [o].[OrderID] = 10243
-) AS [o0] ON 1 = 1
+    SELECT `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `o`.`OrderID` = 10243
+) AS `o0` ON TRUE
 """);
         }
 
@@ -2793,13 +2796,14 @@ WHERE `c`.`City` = 'México D.F.' AND `c`.`CustomerID` NOT IN (@ids1, @ids2, @id
             await base.DefaultIfEmpty_selects_only_required_columns(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `p`.`ProductName`
-                    FROM (
-                        SELECT NULL AS `empty`
-                    ) AS `empty`
-                    LEFT JOIN `Products` AS `p` ON 1 = 1
-                    """);
+                """
+SELECT `p`.`ProductName`
+FROM (
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e`
+LEFT JOIN `Products` AS `p` ON TRUE
+""");
         }
 
         public override async Task Collection_Last_member_access_in_projection_translated(bool isAsync)

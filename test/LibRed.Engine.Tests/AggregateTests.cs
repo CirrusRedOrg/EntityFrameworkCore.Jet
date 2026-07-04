@@ -167,4 +167,30 @@ public class AggregateTests
         Assert.Equal(1, only[0]); // constant `1 AS Key0` stays int
         Assert.Equal(830, only[1]); // SUM preserves the integer (COUNT) input type
     }
+
+    // ORDER BY a grouping expression that was projected away (the failing GroupBy_anonymous_key... shape).
+    // The ORDER BY key must resolve in the group scope, not over the projected output columns.
+    [Fact]
+    public void Group_by_derived_key_order_by_that_key()
+    {
+        const string sql = """
+            SELECT COUNT(*) AS I0, `o0`.`I0` AS I1
+            FROM (SELECT DATEPART('yyyy', `o`.`OrderDate`) AS I0 FROM `Orders` AS `o`) AS `o0`
+            GROUP BY `o0`.`I0`
+            ORDER BY `o0`.`I0`
+            """;
+        var rows = Query(sql, out _);
+        var years = rows.Select(r => Convert.ToInt32(r[1])).ToList();
+        Assert.Equal(years.OrderBy(y => y).ToList(), years); // ascending by year
+        Assert.Equal(new[] { 1996, 1997, 1998 }, years);     // Northwind orders span three years
+    }
+
+    // ORDER BY an aggregate (not a grouping key).
+    [Fact]
+    public void Group_by_order_by_the_aggregate()
+    {
+        var rows = Query("SELECT EmployeeID, COUNT(*) AS n FROM Orders GROUP BY EmployeeID ORDER BY COUNT(*) DESC", out _);
+        var counts = rows.Select(r => Convert.ToInt32(r[1])).ToList();
+        Assert.Equal(counts.OrderByDescending(c => c).ToList(), counts); // most orders first
+    }
 }

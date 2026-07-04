@@ -426,15 +426,16 @@ ORDER BY `o2`.`c` DESC, `o2`.`c0` DESC
 
             AssertSql(
                 """
-SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
+SELECT `e1`.`EmployeeID`, `e1`.`City`, `e1`.`Country`, `e1`.`FirstName`, `e1`.`ReportsTo`, `e1`.`Title`
 FROM (
-    SELECT 1 AS empty
-) AS [e0]
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e0`
 LEFT JOIN (
-    SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
-    FROM [Employees] AS [e]
-    WHERE [e].[EmployeeID] = -1
-) AS [e1] ON 1 = 1
+    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+    FROM `Employees` AS `e`
+    WHERE `e`.`EmployeeID` = -1
+) AS `e1` ON TRUE
 """);
         }
 
@@ -444,26 +445,29 @@ LEFT JOIN (
 
             AssertSql(
                 """
-SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
-FROM (
-    SELECT 1 AS empty
-) AS [e0]
+SELECT `e1`.`EmployeeID`, `e1`.`City`, `e1`.`Country`, `e1`.`FirstName`, `e1`.`ReportsTo`, `e1`.`Title`
+FROM ((
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e0`
 LEFT JOIN (
-    SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
-    FROM [Employees] AS [e]
-    WHERE [e].[EmployeeID] = -1
-) AS [e1] ON 1 = 1
-INNER JOIN (
-    SELECT [e4].[EmployeeID]
+    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+    FROM `Employees` AS `e`
+    WHERE `e`.`EmployeeID` = -1
+) AS `e1` ON TRUE)
+LEFT JOIN (
+    SELECT `e4`.`EmployeeID`
     FROM (
-        SELECT 1 AS empty
-    ) AS [e3]
+        SELECT 1
+        FROM (SELECT COUNT(*) FROM `#Dual`)
+    ) AS `e3`
     LEFT JOIN (
-        SELECT [e2].[EmployeeID]
-        FROM [Employees] AS [e2]
-        WHERE [e2].[EmployeeID] = -1
-    ) AS [e4] ON 1 = 1
-) AS [s] ON [e1].[EmployeeID] = [s].[EmployeeID]
+        SELECT `e2`.`EmployeeID`
+        FROM `Employees` AS `e2`
+        WHERE `e2`.`EmployeeID` = -1
+    ) AS `e4` ON TRUE
+) AS `s` ON `e1`.`EmployeeID` = `s`.`EmployeeID`
+WHERE `e1`.`EmployeeID` IS NOT NULL AND `s`.`EmployeeID` IS NOT NULL
 """);
         }
 
@@ -473,15 +477,16 @@ INNER JOIN (
 
             AssertSql(
                 """
-SELECT N'Foo'
+SELECT 'Foo'
 FROM (
-    SELECT 1 AS empty
-) AS [e0]
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e0`
 LEFT JOIN (
-    SELECT 1 AS empty
-    FROM [Employees] AS [e]
-    WHERE [e].[EmployeeID] = -1
-) AS [e1] ON 1 = 1
+    SELECT 1
+    FROM `Employees` AS `e`
+    WHERE `e`.`EmployeeID` = -1
+) AS `e1` ON TRUE
 """);
         }
 
@@ -491,15 +496,16 @@ LEFT JOIN (
 
             AssertSql(
                 """
-SELECT [e1].[c]
+SELECT `e1`.`c`
 FROM (
-    SELECT 1 AS empty
-) AS [e0]
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e0`
 LEFT JOIN (
-    SELECT N'Foo' AS [c]
-    FROM [Employees] AS [e]
-    WHERE [e].[EmployeeID] = -1
-) AS [e1] ON 1 = 1
+    SELECT 'Foo' AS `c`
+    FROM `Employees` AS `e`
+    WHERE `e`.`EmployeeID` = -1
+) AS `e1` ON TRUE
 """);
         }
 
@@ -509,15 +515,16 @@ LEFT JOIN (
 
             AssertSql(
                 """
-SELECT [e1].[EmployeeID], [e1].[City], [e1].[Country], [e1].[FirstName], [e1].[ReportsTo], [e1].[Title]
+SELECT `e1`.`EmployeeID`, `e1`.`City`, `e1`.`Country`, `e1`.`FirstName`, `e1`.`ReportsTo`, `e1`.`Title`
 FROM (
-    SELECT 1 AS empty
-) AS [e0]
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e0`
 LEFT JOIN (
-    SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
-    FROM [Employees] AS [e]
-    WHERE [e].[EmployeeID] > 0
-) AS [e1] ON 1 = 1
+    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+    FROM `Employees` AS `e`
+    WHERE `e`.`EmployeeID` > 0
+) AS `e1` ON TRUE
 """);
         }
 
@@ -527,15 +534,16 @@ LEFT JOIN (
 
             AssertSql(
                 """
-SELECT COALESCE([e1].[EmployeeID], 0)
+SELECT IIF(`e1`.`EmployeeID` IS NULL, 0, `e1`.`EmployeeID`)
 FROM (
-    SELECT 1 AS empty
-) AS [e0]
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e0`
 LEFT JOIN (
-    SELECT [e].[EmployeeID]
-    FROM [Employees] AS [e]
-    WHERE [e].[EmployeeID] = -1
-) AS [e1] ON 1 = 1
+    SELECT `e`.`EmployeeID`
+    FROM `Employees` AS `e`
+    WHERE `e`.`EmployeeID` = -1
+) AS `e1` ON TRUE
 """);
         }
 
@@ -2362,6 +2370,9 @@ FROM (
 
             AssertSql(
                 """
+@p1='10'
+@p='5'
+
 SELECT EXISTS (
     SELECT 1
     FROM (
@@ -2428,6 +2439,9 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
+@p1='7'
+@p='5'
+
 SELECT EXISTS (
     SELECT 1
     FROM (
@@ -2454,6 +2468,8 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
+@p='5'
+
 SELECT EXISTS (
     SELECT 1
     FROM (
@@ -3572,18 +3588,19 @@ WHERE `o`.`OrderDate` IS NOT NULL AND DATEPART('yyyy', `o`.`OrderDate`) < @nextY
             await base.DefaultIfEmpty_without_group_join(async);
 
             AssertSql(
-                $"""
-                    SELECT `t`.`CustomerID`
-                    FROM (
-                        SELECT NULL AS `empty`
-                    ) AS `empty`
-                    LEFT JOIN (
-                        SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                        FROM `Customers` AS `c`
-                        WHERE `c`.`City` = 'London'
-                    ) AS `t` ON 1 = 1
-                    WHERE `t`.`CustomerID` IS NOT NULL
-                    """);
+                """
+SELECT `c0`.`CustomerID`
+FROM (
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e`
+LEFT JOIN (
+    SELECT `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    WHERE `c`.`City` = 'London'
+) AS `c0` ON TRUE
+WHERE `c0`.`CustomerID` IS NOT NULL
+""");
         }
 
         public override async Task DefaultIfEmpty_in_subquery(bool isAsync)
@@ -3604,21 +3621,22 @@ WHERE `o`.`OrderDate` IS NOT NULL AND DATEPART('yyyy', `o`.`OrderDate`) < @nextY
             await base.DefaultIfEmpty_in_subquery_not_correlated(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `t0`.`OrderID`
-                    FROM `Customers` AS `c`,
-                    (
-                        SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
-                        FROM (
-                            SELECT NULL AS `empty`
-                        ) AS `empty`
-                        LEFT JOIN (
-                            SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                            FROM `Orders` AS `o`
-                            WHERE `o`.`OrderID` > 15000
-                        ) AS `t` ON 1 = 1
-                    ) AS `t0`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `s`.`OrderID`
+FROM `Customers` AS `c`,
+(
+    SELECT `o0`.`OrderID`
+    FROM (
+        SELECT 1
+        FROM (SELECT COUNT(*) FROM `#Dual`)
+    ) AS `e`
+    LEFT JOIN (
+        SELECT `o`.`OrderID`
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` > 15000
+    ) AS `o0` ON TRUE
+) AS `s`
+""");
         }
 
         public override async Task DefaultIfEmpty_in_subquery_nested(bool isAsync)
@@ -5278,19 +5296,18 @@ ORDER BY `s0`.`OrderID`, `s0`.`OrderDate`, `s0`.`CustomerID0`, `s0`.`City`
 
             AssertSql(
                 """
-SELECT CASE
-    WHEN EXISTS (
+SELECT EXISTS (
+    SELECT 1
+    FROM (
         SELECT 1
-        FROM (
-            SELECT NULL AS [empty]
-        ) AS [e0]
-        LEFT JOIN (
-            SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
-            FROM [Employees] AS [e]
-            WHERE [e].[EmployeeID] = -1
-        ) AS [t] ON 1 = 1) THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+        FROM (SELECT COUNT(*) FROM `#Dual`)
+    ) AS `e0`
+    LEFT JOIN (
+        SELECT 1
+        FROM `Employees` AS `e`
+        WHERE `e`.`EmployeeID` = -1
+    ) AS `e1` ON TRUE)
+FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
 
@@ -5823,17 +5840,18 @@ ORDER BY INSTR(1, `c0`.`City`, @searchTerm, 1) - IIF(@searchTerm = '', 0, 1), `c
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], (
-    SELECT COALESCE(SUM(COALESCE([t].[OrderID], 0)), 0)
+SELECT `c`.`CustomerID`, (
+    SELECT IIF(SUM(IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`)) IS NULL, 0, SUM(IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`)))
     FROM (
-        SELECT NULL AS [empty]
-    ) AS [e]
+        SELECT 1
+        FROM (SELECT COUNT(*) FROM `#Dual`)
+    ) AS `e`
     LEFT JOIN (
-        SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-        FROM [Orders] AS [o]
-        WHERE [c].[CustomerID] = [o].[CustomerID]
-    ) AS [t] ON 1 = 1) AS [Sum]
-FROM [Customers] AS [c]
+        SELECT `o`.`OrderID`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ) AS `o0` ON TRUE) AS `Sum`
+FROM `Customers` AS `c`
 """);
         }
 
@@ -5864,15 +5882,16 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-SELECT TOP(1) N'520'
+SELECT TOP 1 '520'
 FROM (
-    SELECT NULL AS [empty]
-) AS [e]
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e`
 LEFT JOIN (
-    SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-    FROM [Customers] AS [c]
-    WHERE 0 = 1
-) AS [t] ON 1 = 1
+    SELECT 1
+    FROM `Customers` AS `c`
+    WHERE FALSE
+) AS `c0` ON TRUE
 """);
         }
 
@@ -6781,17 +6800,18 @@ ORDER BY `c`.`CustomerID`, `c`.`Country`
 
             AssertSql(
                 """
-SELECT [t].[CustomerID], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-FROM (
-    SELECT NULL AS [empty]
-) AS [e]
+SELECT `c0`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM ((
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e`
 LEFT JOIN (
-    SELECT [c].[CustomerID]
-    FROM [Customers] AS [c]
-    WHERE [c].[City] = N'Seattle'
-) AS [t] ON 1 = 1
-LEFT JOIN [Orders] AS [o] ON [t].[CustomerID] = [o].[CustomerID]
-ORDER BY [t].[CustomerID]
+    SELECT `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    WHERE `c`.`City` = 'Seattle'
+) AS `c0` ON TRUE)
+LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `c0`.`CustomerID`
 """);
         }
 

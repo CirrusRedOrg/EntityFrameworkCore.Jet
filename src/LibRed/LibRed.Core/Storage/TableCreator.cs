@@ -37,6 +37,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         if (_catalog.FindTable(name) is not null)
             throw new InvalidOperationException($"Table '{name}' already exists.");
 
+        // Jet/ACE caps a table at 255 columns. The count/id fields are 2 bytes wide so we could physically
+        // write more, but Access would refuse to open the table — fail early with a clear message instead.
+        if (columns.Count > MaxColumnsPerTable)
+            throw new InvalidOperationException(
+                $"Table '{name}' has {columns.Count} columns; Jet/ACE tables are limited to {MaxColumnsPerTable}.");
+
         JetFormatBase format = _channel.Format;
 
         // Allocate the pages the table needs through the global free-pages map (so Access accounts
@@ -792,6 +798,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             (ushort)(offset - format.DataRowDirectoryOffset - mapCount * 2));
         _channel.WritePage(pageNumber, page);
     }
+
+    // Jet/ACE hard limit on columns in a table.
+    private const int MaxColumnsPerTable = 255;
 
     // An inline usage-map record: type byte + 4-byte start page + a 64-byte all-zero bitmap = 69 bytes.
     private const int UsageMapRecordLength = 1 + 4 + 64;

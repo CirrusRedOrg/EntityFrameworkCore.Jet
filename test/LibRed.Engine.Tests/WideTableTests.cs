@@ -47,4 +47,23 @@ public class WideTableTests
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
+
+    // Jet/ACE caps a table at 255 columns. LibRed rejects a 256-column table up front rather than writing
+    // a definition Access would refuse to open.
+    [Fact]
+    public void Create_table_beyond_255_columns_is_rejected()
+    {
+        string path = Fresh();
+        try
+        {
+            var ddl = new StringBuilder("CREATE TABLE TooWide (Id counter NOT NULL");
+            for (int i = 0; i < 255; i++) ddl.Append($", Col{i} integer NULL"); // Id + 255 = 256 columns
+            ddl.Append(")");
+
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var ex = Assert.Throws<InvalidOperationException>(() => new QueryEngine(db).ExecuteNonQuery(ddl.ToString()));
+            Assert.Contains("255", ex.Message);
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
 }

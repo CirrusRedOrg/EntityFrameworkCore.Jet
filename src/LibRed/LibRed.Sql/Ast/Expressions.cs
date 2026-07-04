@@ -40,3 +40,7 @@ public sealed record ScalarSubquery(SelectStatement Query) : Expression;
 
 /// <summary><c>EXISTS (SELECT … )</c>: true when the (possibly correlated) subquery returns any row.</summary>
 public sealed record ExistsExpression(SelectStatement Query) : Expression;
+
+/// <summary><c>x [NOT] IN (SELECT … )</c>: membership of <paramref name="Value"/> in the first column of a
+/// (possibly correlated) subquery, with SQL three-valued semantics.</summary>
+public sealed record InSubqueryExpression(Expression Value, SelectStatement Query, bool Negated) : Expression;

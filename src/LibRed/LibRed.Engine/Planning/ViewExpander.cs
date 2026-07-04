@@ -46,6 +46,11 @@ internal static class ViewExpander
     {
         ScalarSubquery s => new ScalarSubquery(RewriteSelect(s.Query, views, parser)),
         ExistsExpression x => new ExistsExpression(RewriteSelect(x.Query, views, parser)),
+        InSubqueryExpression i => i with
+        {
+            Value = RewriteExpression(i.Value, views, parser),
+            Query = RewriteSelect(i.Query, views, parser),
+        },
         BinaryExpression b => b with
         {
             Left = RewriteExpression(b.Left, views, parser),

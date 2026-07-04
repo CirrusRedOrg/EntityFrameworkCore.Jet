@@ -343,6 +343,7 @@ internal sealed class AstBuilder
         FunctionCall f => f with { Arguments = f.Arguments.Select(a => LowerExpr(a, names)).ToList() },
         ScalarSubquery s => new ScalarSubquery(LowerSelect(s.Query, names)),
         ExistsExpression x => new ExistsExpression(LowerSelect(x.Query, names)),
+        InSubqueryExpression i => i with { Value = LowerExpr(i.Value, names), Query = LowerSelect(i.Query, names) },
         _ => e,
     };
 
@@ -580,6 +581,8 @@ internal sealed class AstBuilder
         ComparisonExprContext c => Binary(c.op, c.left, c.right),
         BetweenExprContext b => BuildBetween(b),
         InExprContext i => BuildIn(i),
+        InSubqueryExprContext i => new InSubqueryExpression(
+            BuildExpression(i.val), BuildSelect(i.sub), i.not is not null),
         LikeExprContext l => new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right)),
         IsNullExprContext n => new UnaryExpression(n.not is null ? UnaryOperator.IsNull : UnaryOperator.IsNotNull, BuildExpression(n.operand)),
         AndExprContext a => new BinaryExpression(BinaryOperator.And, BuildExpression(a.left), BuildExpression(a.right)),

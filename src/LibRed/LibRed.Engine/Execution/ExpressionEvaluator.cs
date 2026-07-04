@@ -24,6 +24,7 @@ internal sealed class ExpressionEvaluator(
             : throw new InvalidOperationException($"Column '{EvalScope.Describe(c)}' was not found."),
         ScalarSubquery s => subqueries.ExecuteScalar(s.Query, scope),
         ExistsExpression e => subqueries.ExecuteExists(e.Query, scope),
+        InSubqueryExpression i => EvaluateInSubquery(i),
         FunctionCall f => EvaluateFunction(f),
         UnaryExpression u => EvaluateUnary(u),
         BinaryExpression b => EvaluateBinary(b),
@@ -32,6 +33,23 @@ internal sealed class ExpressionEvaluator(
             : throw new InvalidOperationException($"No parameters were supplied for '{p.Name}'."),
         _ => throw new NotSupportedException($"Cannot evaluate {expression.GetType().Name}."),
     };
+
+    /// <summary><c>x [NOT] IN (subquery)</c> with SQL three-valued semantics: NULL if x is null or (no match
+    /// and the subquery yields a null), otherwise the membership result (negated for NOT IN).</summary>
+    private object? EvaluateInSubquery(InSubqueryExpression inq)
+    {
+        object? val = Evaluate(inq.Value);
+        if (val is null) return null;
+
+        bool hasNull = false, found = false;
+        foreach (object? item in subqueries.ExecuteColumn(inq.Query, scope))
+        {
+            if (item is null) hasNull = true;
+            else if (Compare(val, item) == 0) { found = true; break; }
+        }
+        bool? result = found ? true : hasNull ? null : false;
+        return inq.Negated ? (result is null ? null : !result) : result;
+    }
 
     private object? EvaluateFunction(FunctionCall f)
     {
@@ -245,11 +263,18 @@ internal sealed class ExpressionEvaluator(
 
     private object? EvaluateBinary(BinaryExpression b)
     {
-        if (b.Operator is BinaryOperator.And or BinaryOperator.Or)
+        // AND/OR use Kleene three-valued logic, and short-circuit: `false AND x` is false and `true OR x`
+        // is true regardless of x — so the right operand (which may be an expensive correlated subquery) is
+        // only evaluated when it can affect the result.
+        if (b.Operator is BinaryOperator.And)
         {
             bool? l = AsBool(Evaluate(b.Left));
-            bool? r = AsBool(Evaluate(b.Right));
-            return b.Operator == BinaryOperator.And ? (l & r) : (l | r);
+            return l == false ? false : l & AsBool(Evaluate(b.Right));
+        }
+        if (b.Operator is BinaryOperator.Or)
+        {
+            bool? l = AsBool(Evaluate(b.Left));
+            return l == true ? true : l | AsBool(Evaluate(b.Right));
         }
 
         object? left = Evaluate(b.Left);

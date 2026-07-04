@@ -44,6 +44,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         return rows.Any();
     }
 
+    IEnumerable<object?> IScalarSubqueryRunner.ExecuteColumn(SelectStatement query, EvalScope outerScope)
+    {
+        var (_, rows) = Execute(QueryPlanner.PlanSelect(query), outerScope);
+        // Materialize: the outer scope is reused across the enclosing row loop, so don't defer.
+        return rows.Select(r => r.Length > 0 ? r[0] : null).ToList();
+    }
+
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) Execute(PlanNode node, EvalScope? outer)
     {
         switch (node)

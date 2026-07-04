@@ -514,6 +514,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitNegateExpr([NotNull] AccessSqlParser.NegateExprContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>InSubqueryExpr</c>
+	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitInSubqueryExpr([NotNull] AccessSqlParser.InSubqueryExprContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>MulDivExpr</c>
 	/// labeled alternative in <see cref="AccessSqlParser.expression"/>.
 	/// </summary>

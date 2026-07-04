@@ -47,4 +47,7 @@ internal interface IScalarSubqueryRunner
 
     /// <summary>True when the (possibly correlated) subquery returns at least one row.</summary>
     bool ExecuteExists(SelectStatement query, EvalScope outerScope);
+
+    /// <summary>The values of the first column of the (possibly correlated) subquery — for <c>IN (subquery)</c>.</summary>
+    IEnumerable<object?> ExecuteColumn(SelectStatement query, EvalScope outerScope);
 }

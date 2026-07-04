@@ -52,6 +52,22 @@ public class ArithmeticTypeTests
     }
 
     [Fact]
+    public void Unary_negate_preserves_type()
+    {
+        Assert.IsType<int>(Scalar("-Id"));                    // int → int
+        Assert.Equal(-1, Scalar("-Id"));
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path);
+            var e = new QueryEngine(db);
+            Assert.IsType<int>(e.ExecuteQuery("SELECT -OrderID AS c FROM Orders").Rows.First()[0]);   // int
+            Assert.IsType<decimal>(e.ExecuteQuery("SELECT -UnitPrice AS c FROM Products").Rows.First()[0]); // currency
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Promotion_to_wider_types()
     {
         Assert.IsType<double>(Scalar("1 + 2.5"));     // int + double → double

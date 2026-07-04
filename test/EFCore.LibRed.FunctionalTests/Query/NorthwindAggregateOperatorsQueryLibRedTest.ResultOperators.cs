@@ -978,13 +978,28 @@ FROM `Order Details` AS `o`
         {
             await base.Average_over_nested_subquery(isAsync);
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='3'")}
-                    
-                    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`
-                    FROM `Customers` AS `c`
-                    ORDER BY `c`.`CustomerID`
-                    """);
+                """
+@p='3'
+
+SELECT AVG(IIF((
+        SELECT AVG(5.0 + (
+            SELECT AVG(CDBL(`o0`.`ProductID`))
+            FROM `Order Details` AS `o0`
+            WHERE `o`.`OrderID` = `o0`.`OrderID`))
+        FROM `Orders` AS `o`
+        WHERE `c0`.`CustomerID` = `o`.`CustomerID`) IS NULL, NULL, CDEC((
+        SELECT AVG(5.0 + (
+            SELECT AVG(CDBL(`o0`.`ProductID`))
+            FROM `Order Details` AS `o0`
+            WHERE `o`.`OrderID` = `o0`.`OrderID`))
+        FROM `Orders` AS `o`
+        WHERE `c0`.`CustomerID` = `o`.`CustomerID`))))
+FROM (
+    SELECT TOP @p `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+""");
         }
 
         public override async Task Average_over_max_subquery(bool isAsync)
@@ -1111,6 +1126,8 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
+@p='3'
+
 SELECT MIN((
     SELECT MIN(5 + (
         SELECT MIN(`o0`.`ProductID`)
@@ -1132,6 +1149,8 @@ FROM (
 
             AssertSql(
                 """
+@p='3'
+
 SELECT MIN((
     SELECT MIN(5 + (
         SELECT MAX(`o0`.`ProductID`)
@@ -1201,6 +1220,8 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
+@p='3'
+
 SELECT MAX((
     SELECT MAX(5 + (
         SELECT MAX(`o0`.`ProductID`)
@@ -1222,6 +1243,8 @@ FROM (
 
             AssertSql(
                 """
+@p='3'
+
 SELECT MAX((
     SELECT MAX(5 + (
         SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))

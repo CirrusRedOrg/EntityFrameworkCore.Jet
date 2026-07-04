@@ -3407,14 +3407,19 @@ OUTER APPLY (
 
             AssertSql(
                 """
-SELECT [o].[CustomerID] AS [Key], COALESCE((
-    SELECT TOP(1) COUNT(*) + MIN([o].[OrderID])
-    FROM [Employees] AS [e]
-    WHERE [e].[City] = N'Seattle'
-    GROUP BY [e].[City]
-    ORDER BY (SELECT 1)), 0) AS [A]
-FROM [Orders] AS [o]
-GROUP BY [o].[CustomerID]
+SELECT `o`.`CustomerID` AS `Key`, IIF((
+        SELECT TOP 1 COUNT(*) + MIN(`o`.`OrderID`)
+        FROM `Employees` AS `e`
+        WHERE `e`.`City` = 'Seattle'
+        GROUP BY `e`.`City`
+        ORDER BY 1) IS NULL, 0, (
+        SELECT TOP 1 COUNT(*) + MIN(`o`.`OrderID`)
+        FROM `Employees` AS `e`
+        WHERE `e`.`City` = 'Seattle'
+        GROUP BY `e`.`City`
+        ORDER BY 1)) AS `A`
+FROM `Orders` AS `o`
+GROUP BY `o`.`CustomerID`
 """);
         }
 

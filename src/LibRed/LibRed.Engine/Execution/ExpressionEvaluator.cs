@@ -254,7 +254,15 @@ internal sealed class ExpressionEvaluator(
         return u.Operator switch
         {
             UnaryOperator.Not => AsBool(v) is bool b ? !b : null, // coerce a -1/0 integer boolean too
-            UnaryOperator.Negate => v is null ? null : -Convert.ToDecimal(v, CultureInfo.InvariantCulture),
+            UnaryOperator.Negate => v switch // preserve the operand's numeric type (EF contract), like C# unary minus
+            {
+                null => null,
+                decimal d => -d,
+                double db => -db,
+                float f => -f,
+                long or ulong => -Lng(v),
+                _ => -Int(v), // int/short/byte → int
+            },
             UnaryOperator.IsNull => v is null,
             UnaryOperator.IsNotNull => v is not null,
             _ => throw new NotSupportedException($"Unary operator {u.Operator}."),

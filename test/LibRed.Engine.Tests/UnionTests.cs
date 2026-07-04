@@ -104,4 +104,21 @@ public class UnionTests
             "SELECT City FROM Customers WHERE City = 'London'", out _);
         Assert.Equal("London", Assert.Single(rows)[0]);
     }
+
+    // A parenthesised query expression as the right operand of a set op (EF's Concat-of-Union shape):
+    // A UNION ALL (B UNION C). The right side is grouped and evaluated as one term.
+    [Fact]
+    public void Union_all_with_a_parenthesised_union_operand()
+    {
+        var rows = Query(
+            "SELECT City FROM Customers WHERE City = 'Berlin' " +
+            "UNION ALL (" +
+            "  SELECT City FROM Customers WHERE City = 'London' " +
+            "  UNION " +
+            "  SELECT City FROM Customers WHERE City = 'Berlin')", out _);
+
+        int berlinLeft = Query("SELECT City FROM Customers WHERE City = 'Berlin'", out _).Count;
+        Assert.Equal(berlinLeft + 2, rows.Count);          // left Berlins (kept) + right {London, Berlin}
+        Assert.Contains(rows, r => (string?)r[0] == "London");
+    }
 }

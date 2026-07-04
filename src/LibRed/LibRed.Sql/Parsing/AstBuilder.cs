@@ -354,8 +354,10 @@ internal sealed class AstBuilder
     {
         if (ctx.setOperator().Length > 0)
             throw new NotSupportedException("A UNION query is not a valid (simple) view.");
+        if (ctx.queryTerm(0) is not SelectTermContext term)
+            throw new NotSupportedException("A parenthesised query is not a valid (simple) view.");
 
-        SelectStatementContext select = ctx.selectStatement(0);
+        SelectStatementContext select = term.selectStatement();
         if (select.havingClause() is not null)
             throw new NotSupportedException("A view with HAVING is not stored yet.");
         var groupBy = select.groupByClause() is { } g
@@ -468,13 +470,21 @@ internal sealed class AstBuilder
 
     private static SqlStatement BuildQueryExpression(QueryExpressionContext ctx)
     {
-        SelectStatementContext[] selects = ctx.selectStatement();
+        QueryTermContext[] terms = ctx.queryTerm();
         SetOperatorContext[] operators = ctx.setOperator();
-        SqlStatement result = BuildSelect(selects[0]);
+        SqlStatement result = BuildQueryTerm(terms[0]);
         for (int i = 0; i < operators.Length; i++)
-            result = new SetOperationStatement(result, SetOperatorOf(operators[i]), BuildSelect(selects[i + 1]));
+            result = new SetOperationStatement(result, SetOperatorOf(operators[i]), BuildQueryTerm(terms[i + 1]));
         return result;
     }
+
+    /// <summary>A set-operation operand: a SELECT, or a parenthesised (possibly nested) query expression.</summary>
+    private static SqlStatement BuildQueryTerm(QueryTermContext ctx) => ctx switch
+    {
+        SelectTermContext s => BuildSelect(s.selectStatement()),
+        ParenTermContext p => BuildQueryExpression(p.queryExpression()),
+        _ => throw new SqlParseException($"Unsupported query term: {ctx.GetText()}"),
+    };
 
     private static SetOperator SetOperatorOf(SetOperatorContext ctx)
     {

@@ -2395,6 +2395,9 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
+@p1='7'
+@p='4'
+
 SELECT NOT EXISTS (
     SELECT 1
     FROM (
@@ -2421,6 +2424,8 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
+@p='4'
+
 SELECT NOT EXISTS (
     SELECT 1
     FROM (

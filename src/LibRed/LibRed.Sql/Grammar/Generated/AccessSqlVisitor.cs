@@ -324,6 +324,20 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitQueryExpression([NotNull] AccessSqlParser.QueryExpressionContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>SelectTerm</c>
+	/// labeled alternative in <see cref="AccessSqlParser.queryTerm"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitSelectTerm([NotNull] AccessSqlParser.SelectTermContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>ParenTerm</c>
+	/// labeled alternative in <see cref="AccessSqlParser.queryTerm"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitParenTerm([NotNull] AccessSqlParser.ParenTermContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.setOperator"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

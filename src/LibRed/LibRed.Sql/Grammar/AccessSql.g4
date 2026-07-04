@@ -144,7 +144,13 @@ insertStatement
 
 // Set operations over SELECTs (left-associative). UNION dedupes; UNION ALL keeps
 // duplicates; INTERSECT/EXCEPT dedupe. (Access has no INTERSECT/EXCEPT — LibRed owns the dialect.)
-queryExpression : selectStatement (setOperator selectStatement)* ;
+queryExpression : queryTerm (setOperator queryTerm)* ;
+// A set-operation operand is a SELECT or a parenthesised query expression (so `A UNION ALL (B UNION C)`
+// groups the right side as one term — EF emits this from Concat/Union nesting).
+queryTerm
+    : selectStatement                 # SelectTerm
+    | LPAREN queryExpression RPAREN    # ParenTerm
+    ;
 setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 
 selectStatement

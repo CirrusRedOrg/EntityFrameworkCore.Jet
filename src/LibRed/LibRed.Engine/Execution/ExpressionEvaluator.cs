@@ -47,7 +47,20 @@ internal sealed class ExpressionEvaluator(
             "FIX" => UnaryNumeric(f, d => Math.Truncate(d)),     // toward zero
             "INT" => UnaryNumeric(f, d => Math.Floor(d)),        // toward -infinity
             "ABS" => UnaryNumeric(f, Math.Abs),
+            // VBA/Access type-conversion functions. All propagate NULL. CInt/CLng/CByte round half-to-even
+            // ("banker's rounding"), which is exactly what Convert.ToInt16/Int32/Byte do. CVar is a no-op
+            // passthrough (LibRed has no distinct Variant type).
             "CCUR" => UnaryNumeric(f, d => Math.Round(d, 4)),   // coerce to Currency (decimal, 4 dp)
+            "CBOOL" => Convert1(f, v => v is bool b ? b : Convert.ToBoolean(v, CultureInfo.InvariantCulture)),
+            "CBYTE" => Convert1(f, v => Convert.ToByte(v, CultureInfo.InvariantCulture)),
+            "CINT" => Convert1(f, v => Convert.ToInt16(v, CultureInfo.InvariantCulture)),
+            "CLNG" => Convert1(f, v => Convert.ToInt32(v, CultureInfo.InvariantCulture)),
+            "CSNG" => Convert1(f, v => Convert.ToSingle(v, CultureInfo.InvariantCulture)),
+            "CDBL" => Convert1(f, v => Convert.ToDouble(v, CultureInfo.InvariantCulture)),
+            "CDEC" => Convert1(f, v => Convert.ToDecimal(v, CultureInfo.InvariantCulture)),
+            "CSTR" => Convert1(f, v => Convert.ToString(v, CultureInfo.InvariantCulture)),
+            "CDATE" => Convert1(f, ToDate),
+            "CVAR" => Evaluate(f.Arguments[0]), // passthrough (no Variant type)
             // Jet VBA math functions (double precision). SQR = sqrt, ATN = atan, SGN = sign, LOG =
             // natural log. Acos/Asin/Atan2/Floor/Ceiling/Log10/Log-base are emitted by EF as
             // expressions built from these plus arithmetic, so they need no dedicated cases.
@@ -73,6 +86,22 @@ internal sealed class ExpressionEvaluator(
             : 0;
         return Math.Round(Convert.ToDecimal(value, CultureInfo.InvariantCulture), digits, MidpointRounding.ToEven);
     }
+
+    /// <summary>Applies a conversion to a single argument, propagating NULL.</summary>
+    private object? Convert1(FunctionCall f, Func<object, object?> convert)
+    {
+        object? value = Evaluate(f.Arguments[0]);
+        return value is null ? null : convert(value);
+    }
+
+    /// <summary>Access CDate: a date passes through, a string is parsed, a number is an OLE Automation date
+    /// (days since 1899-12-30).</summary>
+    private static object ToDate(object v) => v switch
+    {
+        DateTime d => d,
+        string s => DateTime.Parse(s, CultureInfo.InvariantCulture),
+        _ => DateTime.FromOADate(Convert.ToDouble(v, CultureInfo.InvariantCulture)),
+    };
 
     /// <summary>Applies a numeric transform to a single argument, propagating NULL.</summary>
     private object? UnaryNumeric(FunctionCall f, Func<decimal, decimal> op)

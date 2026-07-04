@@ -110,14 +110,16 @@ internal sealed class ExpressionEvaluator(
         };
     }
 
-    public bool IsTrue(Expression expression) => Evaluate(expression) is true;
+    // Access truthiness: a filter/logical context treats any non-zero number as true (so a boolean stored
+    // as a -1/0 integer — the nullable-bool convention — works as a bare predicate), a null as not-true.
+    public bool IsTrue(Expression expression) => AsBool(Evaluate(expression)) is true;
 
     private object? EvaluateUnary(UnaryExpression u)
     {
         object? v = Evaluate(u.Operand);
         return u.Operator switch
         {
-            UnaryOperator.Not => v is bool b ? !b : null,
+            UnaryOperator.Not => AsBool(v) is bool b ? !b : null, // coerce a -1/0 integer boolean too
             UnaryOperator.Negate => v is null ? null : -Convert.ToDecimal(v, CultureInfo.InvariantCulture),
             UnaryOperator.IsNull => v is null,
             UnaryOperator.IsNotNull => v is not null,

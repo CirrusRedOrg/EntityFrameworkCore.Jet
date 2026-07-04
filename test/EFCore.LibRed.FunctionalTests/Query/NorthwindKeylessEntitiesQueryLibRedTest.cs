@@ -174,6 +174,8 @@ LEFT JOIN `Alphabetical list of products` AS `a` ON `o`.`CustomerID` = `a`.`Cate
 
             AssertSql(
                 """
+@p='2'
+
 SELECT TOP @p `m`.`City`, `m`.`ContactName`
 FROM (
     SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]

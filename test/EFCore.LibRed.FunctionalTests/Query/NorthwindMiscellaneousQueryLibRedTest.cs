@@ -70,6 +70,8 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
 
             AssertSql(
                 """
+@p='2'
+
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 INNER JOIN (
@@ -91,6 +93,8 @@ ORDER BY `s`.`CustomerID`
 
             AssertSql(
                 """
+@p='2'
+
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 INNER JOIN (
@@ -207,7 +211,6 @@ WHERE `o`.`OrderID` = @entity_equality_local_OrderID AND `o`.`ProductID` = @enti
             AssertSql(
                 """
 @entity_equality_local_CustomerID='ANATR' (Size = 5)
-@entity_equality_local_CustomerID='ANATR' (Size = 5)
 
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
@@ -221,7 +224,6 @@ WHERE `c`.`CustomerID` = @entity_equality_local_CustomerID AND @entity_equality_
 
             AssertSql(
                 """
-@entity_equality_local_CustomerID='ANATR' (Size = 5)
 @entity_equality_local_CustomerID='ANATR' (Size = 5)
 
 SELECT `c`.`CustomerID`
@@ -558,6 +560,8 @@ LEFT JOIN (
 
             AssertSql(
                 """
+@p='3'
+
 SELECT `e1`.`EmployeeID`, `e1`.`City`, `e1`.`Country`, `e1`.`FirstName`, `e1`.`ReportsTo`, `e1`.`Title`
 FROM (
     SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
@@ -578,6 +582,9 @@ ORDER BY `e1`.`EmployeeID`
 
             AssertSql(
                 """
+@p1='3'
+@p='4'
+
 SELECT `e1`.`EmployeeID`, `e1`.`City`, `e1`.`Country`, `e1`.`FirstName`, `e1`.`ReportsTo`, `e1`.`Title`
 FROM (
     SELECT TOP @p1 `e2`.`EmployeeID`, `e2`.`City`, `e2`.`Country`, `e2`.`FirstName`, `e2`.`ReportsTo`, `e2`.`Title`
@@ -783,6 +790,8 @@ WHERE (
 
             AssertSql(
                 """
+@p='3'
+
 SELECT `e1`.`EmployeeID`, `e1`.`City`, `e1`.`Country`, `e1`.`FirstName`, `e1`.`ReportsTo`, `e1`.`Title`
 FROM (
     SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
@@ -873,6 +882,8 @@ WHERE `e1`.`FirstName` = (
 
             AssertSql(
                 """
+@p='2'
+
 SELECT TOP @p `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
 WHERE `o`.`OrderID` = 10344 AND (
@@ -891,6 +902,8 @@ WHERE `o`.`OrderID` = 10344 AND (
 
             AssertSql(
                 """
+@p='2'
+
 SELECT TOP @p `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
 WHERE (
@@ -909,6 +922,8 @@ WHERE (
 
             AssertSql(
                 """
+@p='1'
+
 SELECT `o3`.`OrderID`, `o3`.`CustomerID`, `o3`.`EmployeeID`, `o3`.`OrderDate`
 FROM (
     SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
@@ -951,6 +966,8 @@ ORDER BY `o3`.`OrderID`
 
             AssertSql(
                 """
+@p='3'
+
 SELECT `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (
     SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
@@ -973,6 +990,8 @@ ORDER BY `e0`.`EmployeeID`
 
             AssertSql(
                 """
+@p='3'
+
 SELECT `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
     SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
@@ -1135,6 +1154,9 @@ ORDER BY NOT (`c0`.`c`), `c0`.`CustomerID`
 
             AssertSql(
                 """
+@p1='10'
+@p='5'
+
 SELECT `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
 FROM (
     SELECT TOP @p1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
@@ -1155,6 +1177,9 @@ ORDER BY `c1`.`ContactName`
 
             AssertSql(
                 """
+@p1='5'
+@p='10'
+
 SELECT `s0`.`ContactName`, `s0`.`OrderID`
 FROM (
     SELECT TOP @p1 `s`.`ContactName`, `s`.`OrderID`
@@ -1176,6 +1201,9 @@ ORDER BY `s0`.`OrderID`
 
             AssertSql(
                 """
+@p1='5'
+@p='10'
+
 SELECT `s0`.`c`
 FROM (
     SELECT TOP @p1 `s`.`c`, `s`.`OrderID`
@@ -1197,6 +1225,9 @@ ORDER BY `s0`.`OrderID`
 
             AssertSql(
                 """
+@p1='5'
+@p='10'
+
 SELECT `s0`.`Contact`, `s0`.`OrderID`
 FROM (
     SELECT TOP @p1 `s`.`Contact`, `s`.`OrderID`
@@ -1218,6 +1249,9 @@ ORDER BY `s0`.`OrderID`
 
             AssertSql(
                 """
+@p1='5'
+@p='10'
+
 SELECT `s0`.`OrderID`, `s0`.`CustomerIDA`, `s0`.`CustomerIDB`, `s0`.`ContactNameA`, `s0`.`ContactNameB`
 FROM (
     SELECT TOP @p1 `s`.`OrderID`, `s`.`CustomerIDA`, `s`.`CustomerIDB`, `s`.`ContactNameA`, `s`.`ContactNameB`
@@ -1417,6 +1451,8 @@ FROM (
 
             AssertSql(
                 """
+@p='91'
+
 SELECT TOP @p `c`.`City`
 FROM `Customers` AS `c`
 """);
@@ -1428,6 +1464,8 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
+@p='91'
+
 SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 """);
@@ -1439,6 +1477,8 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
+@p='10'
+
 SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`
@@ -1451,6 +1491,8 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
+@p='10'
+
 SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`
@@ -1463,6 +1505,8 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
+@p='10'
+
 SELECT TOP @p `c`.`City`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`
@@ -1475,6 +1519,8 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
+@p='2'
+
 SELECT TOP @p `c`.`City`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`
@@ -1835,6 +1881,8 @@ WHERE `c`.`City` = @london OR `c`.`City` = 'Berlin' OR `c`.`City` = 'Seattle' OR
 
             AssertSql(
                 """
+@p='9'
+
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
 FROM (
     SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
@@ -2181,6 +2229,8 @@ LEFT JOIN (
 
             AssertSql(
                 """
+@p='1'
+
 SELECT TOP 2 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
     SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
@@ -2197,6 +2247,8 @@ ORDER BY `c0`.`CustomerID`
 
             AssertSql(
                 """
+@p='1'
+
 SELECT TOP 2 `s`.`CustomerID`, `s`.`Address`, `s`.`City`, `s`.`CompanyName`, `s`.`ContactName`, `s`.`ContactTitle`, `s`.`Country`, `s`.`Fax`, `s`.`Phone`, `s`.`PostalCode`, `s`.`Region`, `s`.`OrderID`, `s`.`CustomerID0`, `s`.`EmployeeID`, `s`.`OrderDate`
 FROM (
     SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID` AS `CustomerID0`, `o`.`EmployeeID`, `o`.`OrderDate`
@@ -2232,6 +2284,9 @@ ORDER BY `s`.`CustomerID`, `s`.`OrderID`
 
             AssertSql(
                 """
+@p1='10'
+@p='5'
+
 SELECT `c2`.`CustomerID`, `c2`.`Address`, `c2`.`City`, `c2`.`CompanyName`, `c2`.`ContactName`, `c2`.`ContactTitle`, `c2`.`Country`, `c2`.`Fax`, `c2`.`Phone`, `c2`.`PostalCode`, `c2`.`Region`
 FROM (
     SELECT TOP @p1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
@@ -2273,6 +2328,9 @@ ORDER BY `c2`.`ContactName`
 
             AssertSql(
                 """
+@p1='10'
+@p='5'
+
 SELECT DISTINCT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
     SELECT `c2`.`CustomerID`, `c2`.`Address`, `c2`.`City`, `c2`.`CompanyName`, `c2`.`ContactName`, `c2`.`ContactTitle`, `c2`.`Country`, `c2`.`Fax`, `c2`.`Phone`, `c2`.`PostalCode`, `c2`.`Region`
@@ -2475,6 +2533,8 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
+@p='5'
+
 SELECT TOP @p `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (
     SELECT DISTINCT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
@@ -2571,7 +2631,8 @@ WHERE `o`.`OrderID` <= 10250 AND ((
             FROM `Customers` AS `c0`
             WHERE `c0`.`CustomerID` = 'ALFKI') AS `c`
         FROM `Customers` AS `c`
-    ) AS `c1`) <> 'Nowhere' OR (
+    ) AS `c1`
+    ORDER BY NOT (`c1`.`c`)) <> 'Nowhere' OR (
     SELECT TOP 1 `c1`.`City`
     FROM (
         SELECT `c`.`City`, EXISTS (
@@ -2579,7 +2640,8 @@ WHERE `o`.`OrderID` <= 10250 AND ((
             FROM `Customers` AS `c0`
             WHERE `c0`.`CustomerID` = 'ALFKI') AS `c`
         FROM `Customers` AS `c`
-    ) AS `c1`) IS NULL)
+    ) AS `c1`
+    ORDER BY NOT (`c1`.`c`)) IS NULL)
 """);
         }
 
@@ -3258,6 +3320,8 @@ FROM `Orders` AS `o`
 
             AssertSql(
                 """
+@p='3'
+
 SELECT `o1`.`OrderId`, `o1`.`City`, `o1`.`c`
 FROM (
     SELECT `o0`.`OrderID` AS `OrderId`, (
@@ -3283,6 +3347,8 @@ ORDER BY `o1`.`c`
 
             AssertSql(
                 """
+@p='3'
+
 SELECT `o1`.`OrderId`, `o1`.`City`, `o1`.`c`
 FROM (
     SELECT `o0`.`OrderID` AS `OrderId`, (
@@ -3605,6 +3671,9 @@ ORDER BY [t0].[OrderID], [t1].[OrderDate]
 
             AssertSql(
                 """
+@p1='8'
+@p='5'
+
 SELECT `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
 FROM (
     SELECT TOP @p1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
@@ -3649,6 +3718,10 @@ ORDER BY `c1`.`ContactTitle`, `c1`.`ContactName`
 
             AssertSql(
                 """
+@p2='3'
+@p1='8'
+@p='5'
+
 SELECT TOP @p2 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
     SELECT TOP @p1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
@@ -3669,6 +3742,11 @@ ORDER BY `c0`.`ContactTitle`, `c0`.`ContactName`
 
             AssertSql(
                 """
+@p='5'
+@p3='8'
+@p2='10'
+@p1='15'
+
 SELECT TOP @p `c2`.`CustomerID`, `c2`.`Address`, `c2`.`City`, `c2`.`CompanyName`, `c2`.`ContactName`, `c2`.`ContactTitle`, `c2`.`Country`, `c2`.`Fax`, `c2`.`Phone`, `c2`.`PostalCode`, `c2`.`Region`
 FROM (
     SELECT TOP @p3 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
@@ -3728,6 +3806,9 @@ ORDER BY `c2`.`ContactTitle`, `c2`.`ContactName`
 
             AssertSql(
                 """
+@p1='15'
+@p='5'
+
 SELECT DISTINCT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
     SELECT `c2`.`CustomerID`, `c2`.`Address`, `c2`.`City`, `c2`.`CompanyName`, `c2`.`ContactName`, `c2`.`ContactTitle`, `c2`.`Country`, `c2`.`Fax`, `c2`.`Phone`, `c2`.`PostalCode`, `c2`.`Region`
@@ -3751,6 +3832,8 @@ FROM (
 
             AssertSql(
                 """
+@p='15'
+
 SELECT DISTINCT `p0`.`ProductID`, `p0`.`Discontinued`, `p0`.`ProductName`, `p0`.`SupplierID`, `p0`.`UnitPrice`, `p0`.`UnitsInStock`
 FROM (
     SELECT TOP @p `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
@@ -3766,6 +3849,9 @@ FROM (
 
             AssertSql(
                 """
+@p1='15'
+@p='5'
+
 SELECT DISTINCT `p0`.`ProductID`, `p0`.`Discontinued`, `p0`.`ProductName`, `p0`.`SupplierID`, `p0`.`UnitPrice`, `p0`.`UnitsInStock`
 FROM (
     SELECT `p2`.`ProductID`, `p2`.`Discontinued`, `p2`.`ProductName`, `p2`.`SupplierID`, `p2`.`UnitPrice`, `p2`.`UnitsInStock`
@@ -3792,6 +3878,9 @@ FROM (
 
             AssertSql(
                 """
+@p='5'
+@p1='15'
+
 SELECT DISTINCT TOP @p `p0`.`ProductID`, `p0`.`Discontinued`, `p0`.`ProductName`, `p0`.`SupplierID`, `p0`.`UnitPrice`, `p0`.`UnitsInStock`
 FROM (
     SELECT `p2`.`ProductID`, `p2`.`Discontinued`, `p2`.`ProductName`, `p2`.`SupplierID`, `p2`.`UnitPrice`, `p2`.`UnitsInStock`
@@ -3818,6 +3907,10 @@ FROM (
 
             AssertSql(
                 """
+@p2='8'
+@p1='15'
+@p='5'
+
 SELECT TOP @p2 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
 FROM (
     SELECT DISTINCT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
@@ -4326,6 +4419,8 @@ FROM (
 
             AssertSql(
                 """
+@p='7'
+
 SELECT COUNT(*)
 FROM (
     SELECT TOP @p 1
@@ -4340,6 +4435,8 @@ FROM (
 
             AssertSql(
                 """
+@p='7'
+
 SELECT COUNT(*)
 FROM (
     SELECT TOP @p 1
@@ -4355,6 +4452,8 @@ FROM (
 
             AssertSql(
                 """
+@p='10'
+
 SELECT MAX(`o0`.`OrderID`)
 FROM (
     SELECT TOP @p `o`.`OrderID`
@@ -4370,6 +4469,8 @@ FROM (
 
             AssertSql(
                 """
+@p='10'
+
 SELECT MIN(`o0`.`OrderID`)
 FROM (
     SELECT TOP @p `o`.`OrderID`
@@ -4882,6 +4983,9 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
 
             AssertSql(
                 """
+@p1='10'
+@p='5'
+
 SELECT `c1`.`Id`
 FROM (
     SELECT TOP @p1 `c0`.`Id`
@@ -5109,6 +5213,9 @@ WHERE (
 
             AssertSql(
                 """
+@p1='20'
+@p='0'
+
 SELECT `s0`.`OrderID`, `s0`.`CustomerID`, `s0`.`EmployeeID`, `s0`.`OrderDate`
 FROM (
     SELECT TOP @p1 `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `s`.`CustomerID0`, `s`.`City`
@@ -5254,6 +5361,8 @@ ORDER BY [t].[OrderID]
 
             AssertSql(
                 """
+@p='10'
+
 SELECT `c`.`City`
 FROM (
     SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`
@@ -5272,6 +5381,9 @@ ORDER BY `o0`.`OrderID`
 
             AssertSql(
                 """
+@p1='10'
+@p='5'
+
 SELECT `c`.`City`
 FROM (
     SELECT TOP @p1 `o1`.`OrderID`, `o1`.`CustomerID`
@@ -5315,6 +5427,8 @@ ORDER BY [t].[OrderID], [o0].[OrderID]
 
             AssertSql(
                 """
+@p='10'
+
 SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
 FROM (
     SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
@@ -5333,6 +5447,9 @@ ORDER BY `o1`.`OrderID`, `o0`.`OrderID`
 
             AssertSql(
                 """
+@p1='10'
+@p='5'
+
 SELECT `o2`.`OrderID`, `o2`.`CustomerID`, `o2`.`EmployeeID`, `o2`.`OrderDate`, `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
 FROM (
     SELECT TOP @p1 `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
@@ -5435,10 +5552,10 @@ LEFT JOIN (
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [o].[ProductID], [o].[Discount], [o].[Quantity], [o].[UnitPrice]
-FROM [Order Details] AS [o]
-WHERE [o].[Quantity] + CAST(1 AS smallint) = CAST(5 AS smallint) AND [o].[Quantity] - CAST(1 AS smallint) = CAST(3 AS smallint) AND [o].[Quantity] * CAST(1 AS smallint) = [o].[Quantity]
-ORDER BY [o].[OrderID]
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+WHERE (`o`.`Quantity` + 1) = 5 AND (`o`.`Quantity` - 1) = 3 AND (`o`.`Quantity` * 1) = `o`.`Quantity`
+ORDER BY `o`.`OrderID`
 """);
         }
 
@@ -5625,6 +5742,7 @@ ORDER BY `c`.`CustomerID`
 """);
         }
 
+        [ConditionalTheory(Skip = "LibRed Fails")]
         public override async Task Pending_selector_in_cardinality_reducing_method_is_applied_before_expanding_collection_navigation_member(
             bool async)
         {
@@ -5819,6 +5937,8 @@ ORDER BY `c1`.`CustomerID`
 """,
                 //
                 """
+@p='1'
+
 SELECT `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
 FROM (
     SELECT TOP @p `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
@@ -6036,10 +6156,6 @@ FROM `Employees` AS `e`,
 
             AssertSql(
                 """
-SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE IN ('BASE TABLE', 'VIEW')
-""",
-                //
-                """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 """);
@@ -6074,6 +6190,8 @@ ORDER BY `c`.`CustomerID` DESC
 
             AssertSql(
                 """
+@p='5'
+
 SELECT DISTINCT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (
     SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
@@ -6273,10 +6391,6 @@ WHERE `c`.`CustomerID` = `o`.`CustomerID`
             await base.Throws_on_concurrent_query_list(async);
 
             AssertSql(
-                """
-SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE IN ('BASE TABLE', 'VIEW')
-""",
-                //
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`

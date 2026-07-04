@@ -55,6 +55,8 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
 
             AssertSql(
                 """
+@p='1'
+
 SELECT TOP @p `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM (`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
@@ -96,6 +98,8 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
 
             AssertSql(
                 """
+@p='2'
+
 SELECT TOP @p (
     SELECT TOP 1 `o`.`CustomerID`
     FROM `Orders` AS `o`
@@ -112,6 +116,8 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
+@p='2'
+
 SELECT TOP @p (
     SELECT TOP 1 `o`.`CustomerID`
     FROM `Orders` AS `o`
@@ -832,16 +838,16 @@ WHERE `c`.`CustomerID` LIKE 'A%'
             await base.Collection_select_nav_prop_first_or_default_then_nav_prop_nested_with_orderby(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT TOP 1 `c`.`City`
-                        FROM `Orders` AS `o`
-                        LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-                        WHERE `o`.`CustomerID` = 'ALFKI'
-                        ORDER BY `o`.`CustomerID`)
-                    FROM `Customers` AS `c0`
-                    WHERE `c0`.`CustomerID` LIKE 'A' & '%'
-                    """);
+                """
+SELECT (
+    SELECT TOP 1 `c0`.`City`
+    FROM `Orders` AS `o`
+    LEFT JOIN `Customers` AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
+    WHERE `o`.`CustomerID` = 'ALFKI'
+    ORDER BY `o`.`CustomerID`)
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` LIKE 'A%'
+""");
         }
 
         public override async Task Navigation_fk_based_inside_contains(bool isAsync)
@@ -972,6 +978,8 @@ WHERE (
 
             AssertSql(
                 """
+@p='3'
+
 SELECT `o0`.`OrderID`, IIF((
         SELECT TOP 1 `o1`.`OrderID`
         FROM `Order Details` AS `o1`

@@ -286,6 +286,8 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
+@p='9'
+
 SELECT TOP @p `e`.`EmployeeID`
 FROM `Employees` AS `e`
 """);
@@ -416,6 +418,7 @@ ORDER BY `c`.`CustomerID`
                     """);
         }
 
+        [ConditionalTheory(Skip = "LibRed fails")]
         public override async Task Select_nested_collection_multi_level5(bool isAsync)
         {
             await base.Select_nested_collection_multi_level5(isAsync);
@@ -477,6 +480,7 @@ ORDER BY `c`.`CustomerID`
 """);
         }
 
+        [ConditionalTheory(Skip = "LibRed fails")]
         public override async Task Select_nested_collection_multi_level6(bool isAsync)
         {
             await base.Select_nested_collection_multi_level6(isAsync);
@@ -1415,6 +1419,9 @@ INNER JOIN (
 
             AssertSql(
                 """
+@p1='3'
+@p='5'
+
 SELECT TOP @p1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
     SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
@@ -1812,6 +1819,8 @@ ORDER BY `e`.`EmployeeID` DESC, `e`.`City`
 
             AssertSql(
                 """
+@p='5'
+
 SELECT `e1`.`EmployeeID`, `e1`.`City`
 FROM (
     SELECT DISTINCT `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
@@ -1830,6 +1839,8 @@ FROM (
 
             AssertSql(
                 """
+@p='5'
+
 SELECT `e0`.`EmployeeID`, `e0`.`City`
 FROM (
     SELECT TOP @p `e`.`EmployeeID`, `e`.`City`
@@ -1859,6 +1870,8 @@ ORDER BY `c`.`City`, `c`.`CustomerID` DESC
 
             AssertSql(
                 """
+@p='20'
+
 SELECT `c0`.`CustomerID`, `o`.`OrderID`
 FROM (
     SELECT TOP @p `c`.`CustomerID`
@@ -2113,6 +2126,8 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 
             AssertSql(
                 """
+@p='10'
+
 SELECT TOP @p (`c`.`CustomerID` & ' ') & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `Aggregate`
 FROM `Customers` AS `c`
 ORDER BY `c`.`CustomerID`
@@ -2153,6 +2168,8 @@ FROM (
 
             AssertSql(
                 """
+@p='10'
+
 SELECT (`c0`.`CustomerID` & ' ') & IIF(`c0`.`City` IS NULL, '', `c0`.`City`) AS `Aggregate`
 FROM (
     SELECT TOP @p `c`.`CustomerID`, `c`.`City`

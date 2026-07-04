@@ -101,6 +101,8 @@ WHERE `o`.`CustomerID` = 'ALFKI'
 
             AssertSql(
                 """
+@p='5'
+
 SELECT `c`.`ContactName`, `o0`.`OrderID`
 FROM `Customers` AS `c`
 INNER JOIN (
@@ -131,6 +133,8 @@ WHERE `o`.`CustomerID` = 'ALFKI'
 
             AssertSql(
                 """
+@p='5'
+
 SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM `Customers` AS `c`
 INNER JOIN (
@@ -165,6 +169,8 @@ WHERE `o0`.`CustomerID` = 'ALFKI'
 
             AssertSql(
                 """
+@p='5'
+
 SELECT `c`.`ContactName`, `o0`.`OrderID`
 FROM `Customers` AS `c`
 INNER JOIN (
@@ -314,6 +320,8 @@ RIGHT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 
             AssertSql(
                 """
+@p='4'
+
 SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM `Customers` AS `c`
 INNER JOIN (
@@ -420,6 +428,8 @@ LEFT JOIN (
 
             AssertSql(
                 """
+@p='1'
+
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
     SELECT TOP @p `c`.`CustomerID`
@@ -569,6 +579,8 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 
             AssertSql(
                 """
+@p='100'
+
 SELECT `c`.`CustomerID`, `o1`.`OrderID`
 FROM `Customers` AS `c`
 INNER JOIN (
@@ -638,6 +650,8 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
+@p='10'
+
 SELECT `c0`.`CustomerID`, `o0`.`OrderID`
 FROM (
     SELECT TOP @p `c`.`CustomerID`
@@ -659,20 +673,20 @@ ORDER BY `c0`.`CustomerID`
 
             AssertSql(
                 """
-@__p_0='10'
+@p='10'
 
-SELECT [t].[CustomerID], [t0].[OrderID]
+SELECT `c0`.`CustomerID`, `o0`.`OrderID`
 FROM (
-    SELECT TOP(@__p_0) [c].[CustomerID]
-    FROM [Customers] AS [c]
-    ORDER BY [c].[CustomerID]
-) AS [t]
+    SELECT TOP @p `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
 LEFT JOIN (
-    SELECT TOP(@__p_0) [o].[OrderID]
-    FROM [Orders] AS [o]
-    ORDER BY [o].[OrderID]
-) AS [t0] ON 1 = 1
-ORDER BY [t].[CustomerID]
+    SELECT TOP @p `o`.`OrderID`
+    FROM `Orders` AS `o`
+    ORDER BY `o`.`OrderID`
+) AS `o0` ON TRUE
+ORDER BY `c0`.`CustomerID`
 """);
         }
 
@@ -950,19 +964,25 @@ INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 
             AssertSql(
                 """
-@__p_0='[1,2]' (Size = 4000)
+@p1='1'
+@p2='2'
 
-SELECT [e].[EmployeeID]
-FROM [Employees] AS [e]
-INNER JOIN OPENJSON(@__p_0) WITH ([value] int '$') AS [p] ON [e].[EmployeeID] = [p].[value]
+SELECT `e`.`EmployeeID`
+FROM `Employees` AS `e`
+INNER JOIN (SELECT @p1 AS `Value`
+FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_0`
+UNION
+SELECT @p2 AS `Value`
+FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_1`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
 """,
                 //
                 """
-@__p_0='[3]' (Size = 4000)
+@p1='3'
 
-SELECT [e].[EmployeeID]
-FROM [Employees] AS [e]
-INNER JOIN OPENJSON(@__p_0) WITH ([value] int '$') AS [p] ON [e].[EmployeeID] = [p].[value]
+SELECT `e`.`EmployeeID`
+FROM `Employees` AS `e`
+INNER JOIN (SELECT @p1 AS `Value`
+FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_0`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
 """);
         }
 
@@ -1010,6 +1030,8 @@ INNER JOIN `Employees` AS `e` ON `c`.`City` = `e`.`City`
 
             AssertSql(
                 """
+@p='5'
+
 SELECT `e0`.`Title`, `e0`.`EmployeeID` AS `Id`
 FROM `Customers` AS `c`
 INNER JOIN (

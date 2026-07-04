@@ -440,28 +440,28 @@ WHERE [c].[CustomerID] = JSON_VALUE(@__args, '$[0]')
             base.Multiple_queries();
 
             AssertSql(
-    """
-SELECT TOP(1) [c].[CustomerID]
-FROM [Customers] AS [c]
-ORDER BY [c].[CustomerID]
+                """
+SELECT TOP 1 `c`.`CustomerID`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
 """,
-    //
-    """
-SELECT TOP(1) [o].[CustomerID]
-FROM [Orders] AS [o]
-ORDER BY [o].[CustomerID]
+                //
+                """
+SELECT TOP 1 `o`.`CustomerID`
+FROM `Orders` AS `o`
+ORDER BY `o`.`CustomerID`
 """,
-    //
-    """
-SELECT TOP(1) [c].[CustomerID]
-FROM [Customers] AS [c]
-ORDER BY [c].[CustomerID]
+                //
+                """
+SELECT TOP 1 `c`.`CustomerID`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
 """,
-    //
-    """
-SELECT TOP(1) [o].[CustomerID]
-FROM [Orders] AS [o]
-ORDER BY [o].[CustomerID]
+                //
+                """
+SELECT TOP 1 `o`.`CustomerID`
+FROM `Orders` AS `o`
+ORDER BY `o`.`CustomerID`
 """);
         }
 

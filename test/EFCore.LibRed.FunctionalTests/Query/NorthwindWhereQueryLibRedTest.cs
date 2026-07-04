@@ -907,6 +907,8 @@ WHERE `c`.`City` NOT IN ('London', 'Berlin', 'Seattle', 'Lisboa') OR `c`.`City` 
 
             AssertSql(
                 """
+@p='9'
+
 SELECT `e0`.`EmployeeID`
 FROM (
     SELECT TOP @p `e`.`EmployeeID`
@@ -1675,7 +1677,6 @@ WHERE `c`.`City` = @cities1
 
             AssertSql(
                 """
-@i='10'
 @i='10'
 
 SELECT `c`.`CustomerID`
@@ -2617,6 +2618,8 @@ WHERE `c`.`Region` IS NULL
 
             AssertSql(
                 """
+@p='5'
+
 SELECT `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
 FROM (
     SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
@@ -2634,6 +2637,8 @@ ORDER BY `e0`.`EmployeeID`
 
             AssertSql(
                 """
+@p='9'
+
 SELECT `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
 FROM (
     SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
@@ -2690,6 +2695,8 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
+@p='9'
+
 SELECT `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
 FROM (
     SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
@@ -2981,6 +2988,8 @@ WHERE `o`.`OrderID` = @p
 
             AssertSql(
                 """
+@p='3'
+
 SELECT `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
 FROM (
     SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
@@ -3018,6 +3027,8 @@ ORDER BY [e0].[EmployeeID]
 
             AssertSql(
                 """
+@p='3'
+
 SELECT DISTINCT `c0`.`ContactTitle`
 FROM (
     SELECT TOP @p `c`.`ContactTitle`

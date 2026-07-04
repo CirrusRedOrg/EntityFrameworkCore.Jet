@@ -99,6 +99,8 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
 
             AssertSql(
                 """
+@p='1'
+
 SELECT `u1`.`CustomerID`, `u1`.`Address`, `u1`.`City`, `u1`.`CompanyName`, `u1`.`ContactName`, `u1`.`ContactTitle`, `u1`.`Country`, `u1`.`Fax`, `u1`.`Phone`, `u1`.`PostalCode`, `u1`.`Region`
 FROM (
     SELECT TOP @p `u0`.`CustomerID`, `u0`.`Address`, `u0`.`City`, `u0`.`CompanyName`, `u0`.`ContactName`, `u0`.`ContactTitle`, `u0`.`Country`, `u0`.`Fax`, `u0`.`Phone`, `u0`.`PostalCode`, `u0`.`Region`
@@ -239,6 +241,8 @@ UNION ALL
 
             AssertSql(
                 """
+@p='1'
+
 SELECT TOP @p `u1`.`CustomerID`, `u1`.`Address`, `u1`.`City`, `u1`.`CompanyName`, `u1`.`ContactName`, `u1`.`ContactTitle`, `u1`.`Country`, `u1`.`Fax`, `u1`.`Phone`, `u1`.`PostalCode`, `u1`.`Region`
 FROM (
     SELECT `u0`.`CustomerID`, `u0`.`Address`, `u0`.`City`, `u0`.`CompanyName`, `u0`.`ContactName`, `u0`.`ContactTitle`, `u0`.`Country`, `u0`.`Fax`, `u0`.`Phone`, `u0`.`PostalCode`, `u0`.`Region`
@@ -361,6 +365,9 @@ ORDER BY `u`.`CompanyName`
 
             AssertSql(
                 """
+@p1='10'
+@p='1'
+
 SELECT `u0`.`Foo`, `u0`.`CustomerID`, `u0`.`Address`, `u0`.`City`, `u0`.`CompanyName`, `u0`.`ContactName`, `u0`.`ContactTitle`, `u0`.`Country`, `u0`.`Fax`, `u0`.`Phone`, `u0`.`PostalCode`, `u0`.`Region`
 FROM (
     SELECT TOP @p1 `u1`.`Foo`, `u1`.`CustomerID`, `u1`.`Address`, `u1`.`City`, `u1`.`CompanyName`, `u1`.`ContactName`, `u1`.`ContactTitle`, `u1`.`Country`, `u1`.`Fax`, `u1`.`Phone`, `u1`.`PostalCode`, `u1`.`Region`
@@ -1053,6 +1060,8 @@ FROM `Orders` AS `o1`
 
             AssertSql(
                 """
+@p='5'
+
 SELECT `o1`.`OrderID`
 FROM (
     SELECT TOP @p `o`.`OrderID`
@@ -1085,6 +1094,8 @@ FROM `Orders` AS `o0`
 
             AssertSql(
                 """
+@p='5'
+
 SELECT `o`.`OrderID`
 FROM `Orders` AS `o`
 UNION
@@ -1117,6 +1128,8 @@ FROM `Orders` AS `o0`
 
             AssertSql(
                 """
+@p='1'
+
 SELECT `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
 FROM (
     SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`

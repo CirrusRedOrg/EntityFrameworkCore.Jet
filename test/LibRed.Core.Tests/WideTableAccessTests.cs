@@ -54,4 +54,42 @@ public class WideTableAccessTests
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
+
+    // A table with more memo columns than one usage-map page holds (each memo needs a used + a free map,
+    // ~57 records per page). LibRed fills the primary usage-map page, then gives each overflowing column its
+    // own page (matching ACE). Access opens it, and a long value in an overflow column round-trips — proving
+    // the per-column usage map on its dedicated page is wired up. LibRed reads it back too.
+    [Fact]
+    public void Access_opens_a_wide_memo_table_and_round_trips_a_long_value()
+    {
+        const int n = 80; // 160 long-value maps: far more than fit on one usage-map page
+        string path = Path.Combine(Path.GetTempPath(), $"widemem-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string big = new('x', 8000); // forces an LVAL page — exercises the column's used-pages usage map
+        try
+        {
+            var cols = new List<ColumnSpec> { new("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true) };
+            for (int i = 0; i < n; i++)
+                cols.Add(new ColumnSpec($"M{i}", JetDataType.Memo, 0, IsFixedLength: false));
+
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                db.CreateTable("WideMemo", cols, primaryKey: ["Id"]);
+
+            using (var conn = OpenOleDb(path))
+            {
+                var schema = conn.GetSchema("Columns", [null, null, "WideMemo", null]);
+                Assert.Equal(n + 1, schema.Rows.Count);
+
+                // Write a long value into the last (overflow) memo column, then read it back through Access.
+                using (var c = conn.CreateCommand())
+                { c.CommandText = $"INSERT INTO WideMemo (M0, M{n - 1}) VALUES ('a', @v)"; c.Parameters.AddWithValue("@v", big); c.ExecuteNonQuery(); }
+                using (var c = conn.CreateCommand())
+                {
+                    c.CommandText = $"SELECT M{n - 1} FROM WideMemo";
+                    Assert.Equal(big, c.ExecuteScalar());
+                }
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
 }

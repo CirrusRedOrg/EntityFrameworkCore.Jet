@@ -45,14 +45,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         int tdefPage = _allocator.Allocate();
         int usageMapPage = _allocator.Allocate();
 
-        // Usage-map records live on one page, in the order Access writes them: row 0 = table owned,
-        // row 1 = table free, then two rows (owned + free) per long-value (memo/OLE) column, then one
-        // row per index. All start empty — a fresh table owns no data, LVAL, or index pages yet.
         var longValueCols = columns.Select((c, i) => (Column: c, Id: i))
             .Where(x => x.Column.Type is JetDataType.Memo or JetDataType.Ole)
             .ToList();
-        int columnMapRows = longValueCols.Count * 2;
-        int firstIndexMapRow = 2 + columnMapRows; // usage-map row of the first index
 
         // The table's data-block indexes: the primary key (unique), then a unique index per UNIQUE
         // constraint, then one non-unique index per foreign key over its child columns — Access enforces
@@ -65,14 +60,35 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         foreach (RelationshipSpec fk in relationships)
             indexPlans.Add((fk.Name, fk.Columns.Select(c => c.Column).ToList(), false, false, fk));
 
-        WriteUsageMaps(format, usageMapPage, mapCount: 2 + columnMapRows + indexPlans.Count);
+        // Usage-map layout (verified vs ACE): the primary page holds row 0 = table owned, row 1 = table
+        // free, then one row per index, then two rows (owned + free) per long-value (memo/OLE) column — as
+        // many *whole* columns as fit (a page holds ~57 inline records). Once the primary page is full, each
+        // remaining long-value column gets its OWN usage-map page (owned = row 0, free = row 1). All maps
+        // start empty. This keeps a wide table's per-column maps from overflowing a single page.
+        // How many 69-byte inline map records (plus their 2-byte directory slot) fit on one page.
+        int mapsPerPage = (format.PageSize - format.DataRowDirectoryOffset) / (UsageMapRecordLength + 2);
+        int primaryRecords = 2 + indexPlans.Count; // data owned/free + one per index
+        int colsOnPrimary = Math.Clamp((mapsPerPage - primaryRecords) / 2, 0, longValueCols.Count);
+        WriteUsageMaps(format, usageMapPage, mapCount: primaryRecords + colsOnPrimary * 2);
 
-        // §3.3.2 entries: each long-value column gets used/free maps at rows 2+2j / 3+2j.
-        var longValueSpecs = longValueCols
-            .Select((x, j) => new LongValueColumnSpec(x.Id, UsedRow: 2 + 2 * j, FreeRow: 3 + 2 * j, MapPage: usageMapPage))
-            .ToList();
+        // §3.3.2 entries: a long-value column's maps are on the primary page (if it fit) or a dedicated page.
+        var longValueSpecs = new List<LongValueColumnSpec>(longValueCols.Count);
+        for (int j = 0; j < longValueCols.Count; j++)
+        {
+            int colId = longValueCols[j].Id;
+            if (j < colsOnPrimary)
+                longValueSpecs.Add(new LongValueColumnSpec(
+                    colId, UsedRow: primaryRecords + 2 * j, FreeRow: primaryRecords + 2 * j + 1, MapPage: usageMapPage));
+            else
+            {
+                int columnMapPage = _allocator.Allocate();
+                WriteUsageMaps(format, columnMapPage, mapCount: 2); // owned = row 0, free = row 1
+                longValueSpecs.Add(new LongValueColumnSpec(colId, UsedRow: 0, FreeRow: 1, MapPage: columnMapPage));
+            }
+        }
 
-        // Each index is an empty leaf root, populated as rows are inserted.
+        // Each index is an empty leaf root, populated as rows are inserted. Its usage map is on the primary
+        // page right after the two data-page maps (row 2 + i).
         var indexes = new List<IndexSpec>(indexPlans.Count);
         for (int i = 0; i < indexPlans.Count; i++)
         {
@@ -80,7 +96,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             int rootPage = _allocator.Allocate();
             WriteEmptyLeafIndexPage(format, rootPage, owner: tdefPage);
             indexes.Add(new IndexSpec(plan.Name, plan.Columns, plan.IsPk, plan.IsUnique,
-                rootPage, UsageMapRow: firstIndexMapRow + i, UsageMapPage: usageMapPage));
+                rootPage, UsageMapRow: 2 + i, UsageMapPage: usageMapPage));
         }
 
         // Build the child's logical index-info blocks. A plain index (PK) maps 1:1 to its data block;
@@ -756,8 +772,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     {
         // An empty inline usage map: type byte + start page (0) + a bitmap of all-zero bytes. Access
         // writes a full-width bitmap; match its record length so the page layout matches byte-for-byte.
-        const int BitmapBytes = 64;
-        const int MapLength = 1 + 4 + BitmapBytes;
+        const int MapLength = UsageMapRecordLength;
 
         var page = new byte[format.PageSize];
         page[0] = (byte)PageType.DataPage;
@@ -777,6 +792,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             (ushort)(offset - format.DataRowDirectoryOffset - mapCount * 2));
         _channel.WritePage(pageNumber, page);
     }
+
+    // An inline usage-map record: type byte + 4-byte start page + a 64-byte all-zero bitmap = 69 bytes.
+    private const int UsageMapRecordLength = 1 + 4 + 64;
 
     // A user table's parent object is the database's "Tables" container; observed constant.
     private const int TablesContainerParentId = 0x0F000001;

@@ -521,9 +521,17 @@ LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII 
 > Access both read back memo values from 65 bytes to 100 KB — single-page and multi-page).
 >
 > **LibRed writes the §3.3.2 entry + empty usage maps for every memo/OLE column** — byte-faithful with
-> ACE, whose usage-map page lays the records out as: row 0 table-owned, row 1 table-free, then two
-> rows (owned/free) **per long-value column**, then one row per index (verified against Northwind
-> Categories). For a fresh table all these maps are empty. When LibRed writes a value to an LVAL page
+> ACE, whose usage-map page lays the records out as: row 0 table-owned, row 1 table-free, then one row
+> **per index**, then two rows (owned/free) **per long-value column** (verified against Northwind
+> Categories and against an ACE-created 80-memo-column table). **Multi-page distribution (wide tables):**
+> a usage-map page holds ~57 of the 69-byte inline records, so a table with many memo/OLE columns can't
+> fit all its used/free maps on one page. Access fills the primary page (data + indexes + as many *whole*
+> columns as fit — 27 columns alongside a single index), then gives **each remaining long-value column its
+> own dedicated usage-map page** with owned = row 0, free = row 1. LibRed reproduces this exactly (verified:
+> an 80-memo table lands 27 columns on the primary page at rows 3–56, then one page each for the rest;
+> ACE opens it and round-trips an 8000-char value written to an overflow column). Each column's §3.3.2
+> `used_pages`/`free_pages` pointers, and the index blocks' `+0x22` pointers, carry the resolved (row, page).
+> For a fresh table all these maps are empty. When LibRed writes a value to an LVAL page
 > (§8), it now **sets that page's bit in the column's owned-pages *and* free-pages maps** — both §3.3.2
 > pointers are parsed from the TDEF (`TableDefinitionPage.LongValueOwnedMaps` / `LongValueFreeMaps`, keyed
 > by column id) and the inline bitmap bit is set. **Pages are packed like Access:** a value up to one row

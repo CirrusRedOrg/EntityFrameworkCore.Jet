@@ -36,7 +36,7 @@ public class DistinctViewAccessTests
             using (var db = JetDatabase.Open(path, readOnly: false))
                 db.CreateView("QO2", new ViewSpec(
                     Distinct: true,
-                    Columns: ["Customers.CustomerID", "Customers.CompanyName", "Customers.City", "Customers.Country"],
+                    Columns: [new ViewColumnSpec("Customers.CustomerID", null), new ViewColumnSpec("Customers.CompanyName", null), new ViewColumnSpec("Customers.City", null), new ViewColumnSpec("Customers.Country", null)],
                     Tables: [new ViewTableSpec("Customers", null), new ViewTableSpec("Orders", null)],
                     Joins: [new ViewJoinSpec(ViewJoinType.Right, "Customers.CustomerID = Orders.CustomerID", "Customers", "Orders")],
                     Where: "Orders.OrderDate BETWEEN #1/1/1997# And #12/31/1997#"));

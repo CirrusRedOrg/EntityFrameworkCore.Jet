@@ -196,30 +196,67 @@ internal sealed class AstBuilder
         if (select.groupByClause() is not null || select.havingClause() is not null || select.orderByClause() is not null)
             throw new NotSupportedException("A view SELECT cannot use GROUP BY, HAVING or ORDER BY (only a simple SELECT).");
 
-        // Output columns (verbatim text); SELECT * becomes a single "*", a qualified star stays "Table.*".
+        // Output columns; SELECT * becomes a single "*", a qualified star stays "Table.*".
         var columns = select.selectList().STAR() is not null && select.selectList().selectItem().Length == 0
-            ? (IReadOnlyList<string>)["*"]
-            : select.selectList().selectItem().Select(ColumnText).ToList();
+            ? (IReadOnlyList<ViewColumn>)[new ViewColumn("*", null)]
+            : select.selectList().selectItem().Select(BuildViewColumn).ToList();
 
+        // Flatten the FROM into a flat list of source tables and joins, descending through any parenthesised
+        // join groups (Access stores them flat — one Attribute=5 per table, one Attribute=7 per join).
         var tables = new List<ViewSource>();
         var joins = new List<ViewJoin>();
         foreach (TableSourceContext ts in select.fromClause().tableSource())
-        {
-            (ViewSource left, string leftAlias) = BuildViewSource(ts.tablePrimary());
-            tables.Add(left);
-
-            foreach (JoinClauseContext jc in ts.joinClause())
-            {
-                (ViewSource right, string rightAlias) = BuildViewSource(jc.tablePrimary());
-                tables.Add(right);
-                joins.Add(new ViewJoin(ViewJoinKindOf(jc.joinType()), OriginalText(jc.expression()), leftAlias, rightAlias));
-                leftAlias = rightAlias;
-            }
-        }
+            CollectSources(ts, tables, joins);
 
         string? where = select.whereClause() is { } w ? OriginalText(w.expression()) : null;
         return new ViewDefinition(select.distinct != null, columns, tables, joins, where);
     }
+
+    private static void CollectSources(TableSourceContext ts, List<ViewSource> tables, List<ViewJoin> joins)
+    {
+        CollectPrimary(ts.tablePrimary(), tables, joins);
+        foreach (JoinClauseContext jc in ts.joinClause())
+        {
+            CollectPrimary(jc.tablePrimary(), tables, joins);
+            // Access records the join by the two tables named in its condition (Name1/Name2), not the
+            // structural left/right (which for a nested group is a whole subtree).
+            (string left, string right) = JoinSides(jc.expression());
+            joins.Add(new ViewJoin(ViewJoinKindOf(jc.joinType()), OriginalText(jc.expression()), left, right));
+        }
+    }
+
+    private static void CollectPrimary(TablePrimaryContext tp, List<ViewSource> tables, List<ViewJoin> joins)
+    {
+        if (tp is ParenJoinPrimaryContext p)
+            CollectSources(p.tableSource(), tables, joins); // a parenthesised join group flattens in place
+        else
+            tables.Add(BuildViewSource(tp).Source);
+    }
+
+    /// <summary>The two table qualifiers of a join condition (<c>T1.c = T2.c</c>) — the first two distinct
+    /// column qualifiers, in order — which Access stores as the join's Name1/Name2.</summary>
+    private static (string Left, string Right) JoinSides(ExpressionContext condition)
+    {
+        var qualifiers = new List<string>();
+        void Walk(Expression e)
+        {
+            switch (e)
+            {
+                case ColumnReference { Table: { } q } when !qualifiers.Contains(q): qualifiers.Add(q); break;
+                case BinaryExpression b: Walk(b.Left); Walk(b.Right); break;
+                case UnaryExpression u: Walk(u.Operand); break;
+                case FunctionCall f: foreach (Expression a in f.Arguments) Walk(a); break;
+            }
+        }
+        Walk(BuildExpression(condition));
+        return (qualifiers.ElementAtOrDefault(0) ?? "", qualifiers.ElementAtOrDefault(1) ?? "");
+    }
+
+    private static ViewColumn BuildViewColumn(SelectItemContext ctx) => ctx switch
+    {
+        ExpressionSelectItemContext e => new ViewColumn(OriginalText(e.expression()), OptionalIdentifier(e.alias)),
+        _ => new ViewColumn(OriginalText(ctx), null), // qualified star: "Table.*"
+    };
 
     /// <summary>A view FROM source and the alias other clauses reference it by. A named table uses its
     /// name as the alias when unaliased; a derived table (subquery) stores its verbatim inner SQL and
@@ -293,14 +330,6 @@ internal sealed class AstBuilder
 
         return new SelectStatement(projection, star, from, where, groupBy, having, orderBy, top, ctx.distinct != null);
     }
-
-    /// <summary>The verbatim text a view stores for a projection item — the expression (alias dropped),
-    /// or <c>Table.*</c> for a qualified star.</summary>
-    private static string ColumnText(SelectItemContext ctx) => ctx switch
-    {
-        ExpressionSelectItemContext e => OriginalText(e.expression()),
-        _ => OriginalText(ctx), // qualified star: "Table.*"
-    };
 
     private static SelectItem BuildSelectItem(SelectItemContext ctx) => ctx switch
     {

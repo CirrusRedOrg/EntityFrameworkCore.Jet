@@ -92,7 +92,8 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
                 Row(mq, objectId, AttrTable, order: i + 1, name1: t.Table, name2: t.Alias);
         }
         for (int i = 0; i < spec.Columns.Count; i++)
-            Row(mq, objectId, AttrColumn, order: i + 1, flag: 0, expression: spec.Columns[i]);
+            Row(mq, objectId, AttrColumn, order: i + 1, flag: 0,
+                expression: spec.Columns[i].Expression, name1: spec.Columns[i].Alias);
         for (int i = 0; i < spec.Joins.Count; i++)
         {
             ViewJoinSpec j = spec.Joins[i];

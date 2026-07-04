@@ -800,11 +800,17 @@ The split mechanics:
   itself is stored in **MSysQueries**, decomposed into rows keyed by `ObjectId`, each with an `Attribute`
   byte (Jackcess "query rows", verified vs ACE for the "simple SELECT" a view may contain): `0x00` =
   query type (`Flag 1` = SELECT), `0x03` = flags (`Flag 2` = DISTINCT), `0x05` = FROM source, `0x06` =
-  output column (`Expression`), `0x07` = join (`Expression`=condition, `Flag`=kind, `Name1`/`Name2`=aliases),
-  `0x08` = WHERE (`Expression`), `0xFF` = end. A **FROM source** (`0x05`) is either a **named table**
+  output column (`Expression`=verbatim text; **`Name1`=the column's output alias** when it has one, e.g.
+  `Expression=Customers.CompanyName`, `Name1=CustomerName`; a computed column stores its whole verbatim
+  expression, `Expression=(FirstName + ' ' + LastName)`, `Name1=Salesperson`), `0x07` = join
+  (`Expression`=condition, `Flag`=kind, and **`Name1`/`Name2`=the two tables named in the condition** —
+  `Customers.CustomerID = Orders.CustomerID` → `Name1=Customers`, `Name2=Orders`), `0x08` = WHERE
+  (`Expression`), `0xFF` = end. A **FROM source** (`0x05`) is either a **named table**
   (`Name1`=table, `Name2`=alias) or a **derived table / subquery** (`Expression`=the verbatim inner
   subquery SQL — outer parens and `AS alias` stripped, whitespace preserved — `Name2`=alias, **no `Name1`**;
-  verified against Northwind's "Customer and Suppliers by City"). `Order` is a 4-byte **big-endian**
+  verified against Northwind's "Customer and Suppliers by City"). **Nested / parenthesised joins are stored
+  flat** — one `0x05` per base table and one `0x07` per join condition, no grouping — so Access re-derives
+  the join tree from the conditions (verified against "Invoices": 6 tables, 5 flat joins). `Order` is a 4-byte **big-endian**
   per-attribute counter (stored in the Binary `Order` column). MSysQueries' only index is the composite PK
   `(ObjectId Int32, Attribute Byte, Order Binary)`; its Binary key encodes as `0x7F` + the raw bytes +
   `00 00 00 00` + a length byte.

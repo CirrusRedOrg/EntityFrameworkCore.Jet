@@ -36,7 +36,7 @@ public class QualifiedStarViewAccessTests
             using (var db = JetDatabase.Open(path, readOnly: false))
                 db.CreateView("MyAlph", new ViewSpec(
                     Distinct: false,
-                    Columns: ["Products.*", "Categories.CategoryName"],
+                    Columns: [new ViewColumnSpec("Products.*", null), new ViewColumnSpec("Categories.CategoryName", null)],
                     Tables: [new ViewTableSpec("Categories", null), new ViewTableSpec("Products", null)],
                     Joins: [new ViewJoinSpec(ViewJoinType.Inner, "Categories.CategoryID = Products.CategoryID", "Categories", "Products")],
                     Where: "(((Products.Discontinued)=0))"));

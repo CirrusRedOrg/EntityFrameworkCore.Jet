@@ -203,7 +203,9 @@ public sealed class JetCatalog(PageChannel channel)
         var known = new byte[] { QueryAttrType, QueryAttrFlag, QueryAttrTable, QueryAttrColumn, QueryAttrJoin, QueryAttrWhere, 0xFF };
         if (rows.Any(r => r[attr] is byte b && !known.Contains(b))) return null;
 
-        var columns = OfAttr(QueryAttrColumn).Select(r => r[expr] as string ?? "").ToList();
+        // A column row's Name1 (when present) is its output alias.
+        var columns = OfAttr(QueryAttrColumn)
+            .Select(r => (r[n1] as string) is { } a ? $"{r[expr] as string} AS [{a}]" : r[expr] as string ?? "").ToList();
         // A derived-table source has its subquery SQL in Expression and no Name1; a named table uses Name1.
         var tables = OfAttr(QueryAttrTable)
             .Select(r => (Table: r[n1] as string ?? "", Alias: r[n2] as string, Sub: r[n1] is null ? r[expr] as string : null)).ToList();

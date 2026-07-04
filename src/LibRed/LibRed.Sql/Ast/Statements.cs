@@ -94,14 +94,19 @@ public enum ViewJoinKind { Inner, Left, Right }
 /// table (<paramref name="SubquerySql"/> = the verbatim inner subquery text, with a required alias).</summary>
 public sealed record ViewSource(string? Table, string? Alias, string? SubquerySql = null);
 
-/// <summary>A join in a view: its kind, the verbatim ON condition, and the left/right side aliases.</summary>
+/// <summary>A join in a view: its kind, the verbatim ON condition, and the two tables it joins (from the
+/// condition), which Access stores as the join row's Name1/Name2.</summary>
 public sealed record ViewJoin(ViewJoinKind Kind, string Condition, string LeftAlias, string RightAlias);
+
+/// <summary>An output column of a view: the verbatim expression text and its optional alias (stored in the
+/// MSysQueries column row's Expression and Name1).</summary>
+public sealed record ViewColumn(string Expression, string? Alias);
 
 /// <summary>A view's decomposed "simple SELECT" (columns/tables/joins/where, all as verbatim text), which
 /// Access stores as MSysQueries rows. Aggregates, GROUP BY, HAVING and ORDER BY are not allowed in a view.</summary>
 public sealed record ViewDefinition(
     bool Distinct,
-    IReadOnlyList<string> Columns,
+    IReadOnlyList<ViewColumn> Columns,
     IReadOnlyList<ViewSource> Tables,
     IReadOnlyList<ViewJoin> Joins,
     string? Where);

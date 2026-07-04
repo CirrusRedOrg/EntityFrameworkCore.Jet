@@ -33,10 +33,10 @@ public class CreateViewAccessTests
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
                 db.CreateView("LondonCustomers", new ViewSpec(
-                    Distinct: false, ["CustomerID", "CompanyName"],
+                    Distinct: false, [new ViewColumnSpec("CustomerID", null), new ViewColumnSpec("CompanyName", null)],
                     [new ViewTableSpec("Customers", null)], [], "City = 'London'"));
                 db.CreateView("CustOrders", new ViewSpec(
-                    Distinct: false, ["c.CustomerID", "o.OrderID"],
+                    Distinct: false, [new ViewColumnSpec("c.CustomerID", null), new ViewColumnSpec("o.OrderID", null)],
                     [new ViewTableSpec("Customers", "c"), new ViewTableSpec("Orders", "o")],
                     [new ViewJoinSpec(ViewJoinType.Inner, "c.CustomerID = o.CustomerID", "c", "o")], null));
             }

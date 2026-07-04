@@ -46,7 +46,7 @@ public class DerivedTableViewAccessTests
         using var db = JetDatabase.Open(path, readOnly: false);
         db.CreateView(name, new ViewSpec(
             Distinct: false,
-            Columns: ["u.City", "u.CompanyName", "u.ContactName", "u.Relationship"],
+            Columns: [new ViewColumnSpec("u.City", null), new ViewColumnSpec("u.CompanyName", null), new ViewColumnSpec("u.ContactName", null), new ViewColumnSpec("u.Relationship", null)],
             Tables: [new ViewTableSpec(Table: null, Alias: "u", SubquerySql: Subquery)],
             Joins: [],
             Where: null));

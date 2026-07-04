@@ -32,6 +32,23 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         return new ResultSet(columns.Select(c => c.Name).ToList(), rows);
     }
 
+    /// <summary>Runs a FROM-less <c>SELECT @@IDENTITY</c> / <c>SELECT @@ROWCOUNT</c>: evaluates each system
+    /// variable against the session state and yields a single row. Each output column is named by its alias,
+    /// or the variable name if unaliased.</summary>
+    public ResultSet ExecuteSystemVariableSelect(SystemVariableSelectStatement statement)
+    {
+        var evaluator = new ExpressionEvaluator(new EvalScope([], [], null), this, _parameters, _session);
+        var names = new List<string>(statement.Projection.Count);
+        var row = new object?[statement.Projection.Count];
+        for (int i = 0; i < statement.Projection.Count; i++)
+        {
+            SelectItem item = statement.Projection[i];
+            row[i] = evaluator.Evaluate(item.Value);
+            names.Add(item.Alias ?? ((SystemVariableExpression)item.Value).Name);
+        }
+        return new ResultSet(names, [row]);
+    }
+
     object? IScalarSubqueryRunner.ExecuteScalar(SelectStatement query, EvalScope outerScope)
     {
         var (_, rows) = Execute(QueryPlanner.PlanSelect(query), outerScope);

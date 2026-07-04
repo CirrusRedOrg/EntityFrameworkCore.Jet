@@ -35,7 +35,16 @@ internal sealed class AstBuilder
         if (ctx.createProcedureStatement() is { } createProc) return BuildCreateProcedure(createProc);
         if (ctx.alterTableStatement() is { } alter) return BuildAlterTable(alter);
         if (ctx.insertStatement() is { } insert) return BuildInsert(insert);
+        if (ctx.systemVariableSelect() is { } sysSelect) return BuildSystemVariableSelect(sysSelect);
         return BuildQueryExpression(ctx.queryExpression());
+    }
+
+    private static SystemVariableSelectStatement BuildSystemVariableSelect(SystemVariableSelectContext ctx)
+    {
+        var items = ctx.sysVarItem().Select(i => new SelectItem(
+            new SystemVariableExpression(i.SYSVAR().GetText().TrimStart('@')),
+            i.alias is null ? null : Identifier(i.alias))).ToList();
+        return new SystemVariableSelectStatement(items);
     }
 
     private static SqlStatement BuildCreateTable(CreateTableStatementContext ctx)

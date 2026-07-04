@@ -320,11 +320,49 @@ public class LibRedCommandTests
             Exec(conn, "INSERT INTO `Log` (`K`, `Msg`) VALUES (5, 'note')"); // no AutoNumber -> unchanged
 
             using var q = conn.CreateCommand();
-            q.CommandText = "SELECT `Id` FROM `P` WHERE `Id` = @@identity"; // still the P insert's id (1)
+            q.CommandText = "SELECT @@identity"; // bare, FROM-less — still the P insert's id (1)
             Assert.Equal(1, Convert.ToInt32(q.ExecuteScalar()));
 
             static void Exec(LibRedConnection c, string sql)
             { using var cmd = c.CreateCommand(); cmd.CommandText = sql; cmd.ExecuteNonQuery(); }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void Bare_system_variable_select_needs_no_from_clause()
+    {
+        // ACE allows `SELECT @@IDENTITY` / `SELECT @@ROWCOUNT` with no FROM; LibRed supports the same
+        // narrow form (system variables only) without loosening the FROM requirement for ordinary SELECTs.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-sv-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+
+            using (var ddl = conn.CreateCommand())
+            { ddl.CommandText = "CREATE TABLE `Q` (`Id` counter PRIMARY KEY, `V` INTEGER)"; ddl.ExecuteNonQuery(); }
+            using (var ins = conn.CreateCommand())
+            { ins.CommandText = "INSERT INTO `Q` (`V`) VALUES (7)"; Assert.Equal(1, ins.ExecuteNonQuery()); }
+
+            using (var q = conn.CreateCommand())
+            { q.CommandText = "SELECT @@IDENTITY"; Assert.Equal(1, Convert.ToInt32(q.ExecuteScalar())); }
+            using (var q = conn.CreateCommand())
+            { q.CommandText = "SELECT @@ROWCOUNT"; Assert.Equal(1, Convert.ToInt32(q.ExecuteScalar())); }
+
+            // A comma list of both, with aliases, yields one row of two columns.
+            using (var q = conn.CreateCommand())
+            {
+                q.CommandText = "SELECT @@IDENTITY AS `Id`, @@ROWCOUNT AS `Rows`";
+                using var reader = q.ExecuteReader();
+                Assert.True(reader.Read());
+                Assert.Equal("Id", reader.GetName(0));
+                Assert.Equal("Rows", reader.GetName(1));
+                Assert.Equal(1, Convert.ToInt32(reader.GetValue(0)));
+                Assert.Equal(1, Convert.ToInt32(reader.GetValue(1)));
+                Assert.False(reader.Read());
+            }
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }

@@ -17,6 +17,11 @@ public sealed record SelectStatement(
     Expression? Top,
     bool Distinct = false) : SqlStatement;
 
+/// <summary>A FROM-less <c>SELECT @@IDENTITY</c> / <c>SELECT @@ROWCOUNT</c> (a comma list of system
+/// variables only). ACE allows these without a FROM clause; they yield a single row. The projection
+/// items' <see cref="SelectItem.Value"/> are all <see cref="SystemVariableExpression"/>.</summary>
+public sealed record SystemVariableSelectStatement(IReadOnlyList<SelectItem> Projection) : SqlStatement;
+
 public enum SetOperator { Union, UnionAll, Intersect, Except }
 
 /// <summary>

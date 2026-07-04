@@ -11,7 +11,14 @@
 grammar AccessSql;
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
-statement : parametersClause? (createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | insertStatement | queryExpression) SEMI? EOF ;
+statement : parametersClause? (createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | insertStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
+
+// A FROM-less SELECT of system variables only — ACE allows `SELECT @@IDENTITY` / `SELECT @@ROWCOUNT`
+// (and a comma list of them) with no FROM clause. Listed before queryExpression so it is preferred; a
+// regular SELECT still requires a FROM (its selectList can also contain @@vars, e.g. `SELECT @@IDENTITY
+// FROM t`). Since the projection must be all SYSVAR tokens, this can't shadow an ordinary SELECT.
+systemVariableSelect : SELECT sysVarItem (COMMA sysVarItem)* ;
+sysVarItem : SYSVAR (AS? alias=identifier)? ;
 
 // A leading PARAMETERS clause (Access) declares the query's parameters up front. Used when reading a
 // stored parameterized query back: references to a declared name in the body bind as parameters, not

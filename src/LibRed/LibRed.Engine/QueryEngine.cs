@@ -34,8 +34,12 @@ public sealed class QueryEngine
 
     public ResultSet ExecuteQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
-        var plan = Compile(sql);
-        return new QueryExecutor(_database, parameters, _session).ExecuteQuery(plan);
+        SqlStatement ast = ViewExpander.Expand(_parser.ParseStatement(sql), _database.Catalog.Views, _parser);
+        BoundStatement bound = _binder.Bind(ast);
+        var executor = new QueryExecutor(_database, parameters, _session);
+        return bound.Statement is SystemVariableSelectStatement sysSelect
+            ? executor.ExecuteSystemVariableSelect(sysSelect)
+            : executor.ExecuteQuery(_planner.Plan(bound));
     }
 
     public int ExecuteNonQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
@@ -66,6 +70,12 @@ public sealed class QueryEngine
         SqlStatement ast = ViewExpander.Expand(_parser.ParseStatement(sql), _database.Catalog.Views, _parser);
         BoundStatement bound = _binder.Bind(ast);
 
+        if (bound.Statement is SystemVariableSelectStatement sysSelect)
+        {
+            ResultSet rows = new QueryExecutor(_database, parameters, _session).ExecuteSystemVariableSelect(sysSelect);
+            return new CommandResult(rows, RecordsAffected: -1);
+        }
+
         if (bound.Statement is SelectStatement or SetOperationStatement)
         {
             ResultSet rows = new QueryExecutor(_database, parameters, _session).ExecuteQuery(_planner.Plan(bound));
@@ -74,13 +84,6 @@ public sealed class QueryEngine
 
         int affected = new StatementExecutor(_database, parameters, _parser, _session).Execute(bound.Statement);
         return new CommandResult(ResultSet.Empty, affected);
-    }
-
-    private Plan.PlanNode Compile(string sql)
-    {
-        SqlStatement ast = ViewExpander.Expand(_parser.ParseStatement(sql), _database.Catalog.Views, _parser);
-        BoundStatement bound = _binder.Bind(ast);
-        return _planner.Plan(bound);
     }
 }
 

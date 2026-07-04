@@ -48,6 +48,11 @@ public sealed record ActionQuerySpec(
     string? TargetTable = null,
     IReadOnlyList<AppendColumnSpec>? Values = null);
 
+/// <summary>A stored action query read back from the catalog. <paramref name="Sql"/> is the reconstructed,
+/// executable statement when LibRed supports the kind; otherwise it is null and <paramref name="UnsupportedReason"/>
+/// explains why executing it throws.</summary>
+public sealed record StoredActionQuery(string? Sql, string? UnsupportedReason);
+
 /// <summary>
 /// A view's decomposed "simple SELECT" — the columns, source tables, joins and WHERE (all verbatim text) —
 /// that Access stores as MSysQueries rows. Aggregates / GROUP BY / HAVING / ORDER BY are not permitted.

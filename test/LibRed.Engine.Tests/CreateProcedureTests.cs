@@ -163,6 +163,42 @@ public class CreateProcedureTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // Stored action queries are read back from the file and executed through LibRed's own engine by name:
+    // the make-table creates the table, the append inserts the row.
+    [Fact]
+    public void Action_queries_read_back_and_execute_through_libred()
+    {
+        string path = Fresh();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var e = new QueryEngine(db);
+                e.ExecuteNonQuery("CREATE PROCEDURE MakeZ AS CREATE TABLE ZZLib (Id LONG, Nm TEXT(50))");
+                e.ExecuteNonQuery(
+                    "CREATE PROCEDURE AddShip AS " +
+                    "INSERT INTO Shippers (CompanyName, Phone) VALUES ('LibRed Co', '555-0100')");
+            }
+
+            using (var db = JetDatabase.Open(path, readOnly: false)) // fresh open: read from the file
+            {
+                var e = new QueryEngine(db);
+
+                e.ExecuteStoredActionQuery("MakeZ"); // reconstructed CREATE TABLE
+                Assert.Equal(0, e.ExecuteQuery("SELECT * FROM ZZLib").Rows.Count()); // table now exists, empty
+
+                int before = e.ExecuteQuery("SELECT * FROM Shippers").Rows.Count();
+                e.ExecuteStoredActionQuery("AddShip"); // reconstructed INSERT ... VALUES
+                Assert.Equal(before + 1, e.ExecuteQuery("SELECT * FROM Shippers").Rows.Count());
+                Assert.Equal("555-0100", e.ExecuteQuery(
+                    "SELECT Phone FROM Shippers WHERE CompanyName = 'LibRed Co'").Rows.First()[0]);
+
+                Assert.Throws<InvalidOperationException>(() => e.ExecuteStoredActionQuery("NoSuchQuery"));
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     // Bodies we don't support: UPDATE/DELETE/DROP have no grammar; an INSERT without a column list can't be
     // stored as an append query. Each is rejected.
     [Theory]

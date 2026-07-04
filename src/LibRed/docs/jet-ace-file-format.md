@@ -853,7 +853,10 @@ The split mechanics:
   >   `Flag 0` on the `0x06` rows plus the usual `0x05` table / `0x08` where rows).
   >
   > (A plain view/SELECT query uses `Flags=0x10000000` and no `0x01` row.) LibRed writes CREATE TABLE and
-  > INSERT … VALUES bodies; INSERT … SELECT and UPDATE/DELETE are not written yet.
+  > INSERT … VALUES bodies; INSERT … SELECT and UPDATE/DELETE are not written yet. **Read-back:** LibRed
+  > reconstructs a stored action query from these rows (DDL → the verbatim SQL; INSERT … VALUES → a rebuilt
+  > `INSERT INTO t (cols) VALUES (…)`) and executes it by name; kinds it can't run (INSERT … SELECT, etc.)
+  > read back with an "unsupported" reason and throw when executed.
 
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`

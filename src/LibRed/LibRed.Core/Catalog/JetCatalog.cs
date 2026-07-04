@@ -38,13 +38,19 @@ public sealed class JetCatalog(PageChannel channel)
     private List<TableDef>? _tables;
     private List<ForeignKey>? _relationships;
     private Dictionary<string, string>? _views;
+    private Dictionary<string, StoredActionQuery>? _actionQueries;
 
     /// <summary>All tables in the database (user and system).</summary>
     public IReadOnlyList<TableDef> Tables => _tables ??= LoadTables();
 
     /// <summary>Views (stored simple-SELECT queries) as name → reconstructed SELECT SQL, rebuilt from
     /// each view's MSysQueries rows. Complex/system queries that don't reconstruct are omitted.</summary>
-    public IReadOnlyDictionary<string, string> Views => _views ??= LoadViews();
+    public IReadOnlyDictionary<string, string> Views { get { EnsureStoredQueries(); return _views!; } }
+
+    /// <summary>Stored action queries (a CREATE PROCEDURE body that is not a SELECT) as name → readback.
+    /// A supported query (CREATE/DROP TABLE, INSERT … VALUES) carries executable SQL; an unsupported one
+    /// (INSERT … SELECT, etc.) carries only a reason and throws when LibRed is asked to execute it.</summary>
+    public IReadOnlyDictionary<string, StoredActionQuery> ActionQueries { get { EnsureStoredQueries(); return _actionQueries!; } }
 
     /// <summary>Drops the cached catalog so a freshly created table is picked up on next read.</summary>
     public void Invalidate()
@@ -52,6 +58,7 @@ public sealed class JetCatalog(PageChannel channel)
         _tables = null;
         _relationships = null;
         _views = null;
+        _actionQueries = null;
     }
 
     /// <summary>All relationships (foreign keys) defined in the database.</summary>
@@ -159,17 +166,22 @@ public sealed class JetCatalog(PageChannel channel)
     }
 
     // MSysQueries attribute codes (see spec §11).
-    private const byte QueryAttrType = 0x00, QueryAttrParameter = 0x02, QueryAttrFlag = 0x03,
+    private const byte QueryAttrType = 0x00, QueryAttrAction = 0x01, QueryAttrParameter = 0x02, QueryAttrFlag = 0x03,
         QueryAttrTable = 0x05, QueryAttrColumn = 0x06, QueryAttrJoin = 0x07, QueryAttrWhere = 0x08,
         QueryAttrGroupBy = 0x09, QueryAttrOrderBy = 0x0B;
     private const short QueryFlagDistinct = 2, QueryFlagTop = 0x10;
+    private const short ActionFlagDdl = 7, ActionFlagAppend = 3;
+    private const short AppendValueFlag = unchecked((short)0x8000);
 
-    private Dictionary<string, string> LoadViews()
+    private void EnsureStoredQueries()
     {
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (_views is not null) return;
+        _views = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        _actionQueries = new Dictionary<string, StoredActionQuery>(StringComparer.OrdinalIgnoreCase);
+
         TableDef? mqDef = FindTable("MSysQueries");
         TableDef? objDef = FindTable("MSysObjects");
-        if (mqDef is null || objDef is null) return result;
+        if (mqDef is null || objDef is null) return;
 
         // Group MSysQueries rows by ObjectId.
         var mq = mqDef.Columns;
@@ -180,17 +192,53 @@ public sealed class JetCatalog(PageChannel channel)
             if (row[oid] is int id)
                 (byObject.TryGetValue(id, out var list) ? list : byObject[id] = []).Add(row);
 
-        // For each view object, reconstruct its SELECT SQL.
+        // For each query object, reconstruct it: an action query (has an Attribute=1 row) → ActionQueries,
+        // otherwise a SELECT view → Views.
         var oc = objDef.Columns;
         int objId = ColumnIndex(oc, "Id"), objType = ColumnIndex(oc, "Type"), objName = ColumnIndex(oc, "Name");
         foreach (object?[] row in new Table(_channel, objDef).Rows())
         {
             if (row[objType] is not short type || type != ObjectTypeQuery) continue;
             if (row[objId] is not int id || row[objName] is not string name) continue;
-            if (byObject.TryGetValue(id, out var rows) && Reconstruct(rows, attr, expr, flag, n1, n2, order) is { } sql)
-                result[name] = sql;
+            if (!byObject.TryGetValue(id, out var rows)) continue;
+
+            if (rows.Any(r => r[attr] is byte b && b == QueryAttrAction))
+                _actionQueries[name] = ReconstructAction(rows, attr, expr, flag, n1, n2, order);
+            else if (Reconstruct(rows, attr, expr, flag, n1, n2, order) is { } sql)
+                _views[name] = sql;
         }
-        return result;
+    }
+
+    /// <summary>Rebuilds a stored action query's executable SQL from its MSysQueries rows. Handles the kinds
+    /// LibRed can execute (CREATE/DROP TABLE, INSERT … VALUES); other kinds return an unsupported reason.</summary>
+    private static StoredActionQuery ReconstructAction(List<object?[]> rows, int attr, int expr, int flag, int n1, int n2, int order)
+    {
+        static int Ord(object? v) => v is byte[] b && b.Length >= 4 ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(b) : 0;
+        object?[]? action = rows.FirstOrDefault(r => r[attr] is byte b && b == QueryAttrAction);
+        if (action is null) return new StoredActionQuery(null, "The stored action query has no action row.");
+
+        short kind = action[flag] is short f ? f : (short)0;
+        if (kind == ActionFlagDdl)
+            // The whole DDL statement is in Expression (Access stored it with a leading space).
+            return new StoredActionQuery((action[expr] as string)?.TrimStart(), null);
+
+        if (kind == ActionFlagAppend)
+        {
+            // INSERT … VALUES: only literal-value columns (Flag 0x8000) and no FROM source. An INSERT …
+            // SELECT (table rows present / Flag-0 columns) is stored but LibRed does not execute it yet.
+            if (rows.Any(r => r[attr] is byte b && b == QueryAttrTable))
+                return new StoredActionQuery(null, "INSERT … SELECT stored queries are not executed by LibRed yet.");
+            var cols = rows.Where(r => r[attr] is byte b && b == QueryAttrColumn).OrderBy(r => Ord(r[order])).ToList();
+            if (cols.Count == 0 || cols.Any(r => r[flag] is short cf && cf != AppendValueFlag))
+                return new StoredActionQuery(null, "This append query shape is not executed by LibRed yet.");
+
+            string target = action[n1] as string ?? "";
+            string columns = string.Join(", ", cols.Select(r => $"[{r[n2] as string}]"));
+            string values = string.Join(", ", cols.Select(r => r[expr] as string ?? "NULL"));
+            return new StoredActionQuery($"INSERT INTO [{target}] ({columns}) VALUES ({values})", null);
+        }
+
+        return new StoredActionQuery(null, "This stored action query kind is not supported by LibRed yet.");
     }
 
     /// <summary>Rebuilds a simple-SELECT view's SQL from its MSysQueries rows; null if it uses an

@@ -88,4 +88,30 @@ public class ActionQueryProcedureAccessTests
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
+
+    // An INSERT ... SELECT stored query (written by ACE) is read back but classified unsupported: LibRed
+    // reconstructs no executable SQL for it, only a reason ("throw on the rest").
+    [Fact]
+    public void Insert_select_stored_query_is_read_back_as_unsupported()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"action-sel-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var conn = OpenOleDb(path))
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText =
+                    "CREATE PROCEDURE CopyUkShippers AS " +
+                    "INSERT INTO Shippers (CompanyName) SELECT ContactName FROM Customers WHERE Country = 'UK'";
+                cmd.ExecuteNonQuery();
+            }
+
+            using var db = JetDatabase.Open(path);
+            StoredActionQuery q = db.Catalog.ActionQueries["CopyUkShippers"];
+            Assert.Null(q.Sql);
+            Assert.NotNull(q.UnsupportedReason);
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
 }

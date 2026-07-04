@@ -1,3 +1,4 @@
+using LibRed.Catalog;
 using LibRed.Engine.Execution;
 using LibRed.Engine.Planning;
 using LibRed.Sql.Ast;
@@ -34,6 +35,19 @@ public sealed class QueryEngine
 
     public int ExecuteNonQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
         => Execute(sql, parameters).RecordsAffected;
+
+    /// <summary>Executes a stored action query (a CREATE PROCEDURE body that is not a SELECT) by name — the
+    /// read-back counterpart of <see cref="JetDatabase.CreateActionQuery"/>. The query is reconstructed from
+    /// its catalog rows and run; a kind LibRed cannot execute (e.g. INSERT … SELECT) throws
+    /// <see cref="NotSupportedException"/>, and an unknown name throws <see cref="InvalidOperationException"/>.</summary>
+    public int ExecuteStoredActionQuery(string name)
+    {
+        if (!_database.Catalog.ActionQueries.TryGetValue(name, out StoredActionQuery? query))
+            throw new InvalidOperationException($"No stored action query named '{name}'.");
+        if (query.Sql is null)
+            throw new NotSupportedException(query.UnsupportedReason ?? $"Stored query '{name}' cannot be executed by LibRed yet.");
+        return ExecuteNonQuery(query.Sql);
+    }
 
     /// <summary>
     /// Parses and binds once, then routes by statement kind: a query (<c>SELECT</c> / set operation)

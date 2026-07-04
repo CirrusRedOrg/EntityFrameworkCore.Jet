@@ -269,19 +269,36 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     public void AddIndex(string tableName, string indexName, IReadOnlyList<(string Column, bool Descending)> columns,
         bool isUnique, bool isPrimary, bool disallowNull, bool ignoreNulls)
     {
-        JetFormatBase format = _channel.Format;
         TableDef table = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
+        var slots = ResolveSlots(table, columns.Select(c => (c.Column, Ascending: !c.Descending)));
+        InsertIndex(table, indexName, slots,
+            unique: isUnique || isPrimary, required: isPrimary || disallowNull, ignoreNulls,
+            (num, ord) => BuildPlainInfoBlock(num, ord, isPrimary));
+    }
+
+    /// <summary>Resolves index column names to (columnId, ascending) slots against a table.</summary>
+    private static IReadOnlyList<(int Id, bool Ascending)> ResolveSlots(
+        TableDef table, IEnumerable<(string Column, bool Ascending)> columns)
+    {
+        var byName = table.Columns.ToDictionary(c => c.Name, c => c.ColumnId, StringComparer.OrdinalIgnoreCase);
+        return columns.Select(c => byName.TryGetValue(c.Column, out int id) ? (Id: id, c.Ascending)
+            : throw new InvalidOperationException($"Column '{c.Column}' does not exist in '{table.Name}'.")).ToList();
+    }
+
+    /// <summary>Surgically inserts one data index and its logical info block into an existing (empty)
+    /// table's TDEF, name-sorted. <paramref name="buildInfo"/> gets (block number, data-block ordinal) and
+    /// returns the 28-byte info block — a plain index or an outgoing-FK block. Returns the new block number.</summary>
+    private int InsertIndex(TableDef table, string indexName, IReadOnlyList<(int Id, bool Ascending)> slots,
+        bool unique, bool required, bool ignoreNulls, Func<int, int, byte[]> buildInfo)
+    {
+        JetFormatBase format = _channel.Format;
 
         // Read the whole definition (stitching any existing continuation pages) so the surgical insert
         // works in absolute coordinates; the old continuation pages are reused when we write it back.
         (LibRed.IO.PageBuffer buf, IReadOnlyList<int> existingContinuations) = ReadDefinition(table.DefinitionPage);
         if (buf.ReadInt32(format.TdefRowCountOffset) != 0)
-            throw new NotSupportedException($"Adding an index to the non-empty table '{tableName}' is not supported yet.");
-
-        var columnIdByName = table.Columns.ToDictionary(c => c.Name, c => c.ColumnId, StringComparer.OrdinalIgnoreCase);
-        var slots = columns.Select(c => columnIdByName.TryGetValue(c.Column, out int id) ? (Id: id, Ascending: !c.Descending)
-            : throw new InvalidOperationException($"Column '{c.Column}' does not exist in '{tableName}'.")).ToList();
+            throw new NotSupportedException($"Adding an index to the non-empty table '{table.Name}' is not supported yet.");
 
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
         int logicalCount = buf.ReadInt32(format.TdefRealIndexCountOffset);
@@ -329,10 +346,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         // Assemble the new definition: header + existing stats, a new stats block, columns + names +
         // existing data blocks, the new data block, then the logical blocks (new one inserted, name-sorted)
         // and their names, and finally the unchanged long-value region.
-        bool required = isPrimary || disallowNull;
-        bool unique = isUnique || isPrimary;
         byte[] newData = BuildIndexDataBlock(slots, rootPage, newIndexUsageRow, usageMapPage, unique, required, ignoreNulls);
-        byte[] newInfo = BuildPlainInfoBlock(maxNum + 1, dataOrdinal: dataCount, isPrimary);
+        byte[] newInfo = buildInfo(maxNum + 1, dataCount);
 
         int k = names.Count(n => string.CompareOrdinal(n, indexName) < 0); // name-sorted insert position
         blocks.Insert(k, newInfo);
@@ -363,6 +378,56 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
 
         WriteDefinition(table.DefinitionPage, def, existingContinuations);
         _catalog.Invalidate();
+        return maxNum + 1;
+    }
+
+    /// <summary>
+    /// Adds a foreign key to an existing (empty) child table: a backing non-unique index over the child
+    /// columns carrying an outgoing-relationship block, an incoming block on the parent's TDEF, and the
+    /// MSysRelationships rows. The child index and parent block are written the same way inline-FK creation
+    /// does (verified byte-faithful vs ACE). Self-references and FOREIGN KEY NO INDEX are not yet handled.
+    /// </summary>
+    public void AddForeignKey(string childTable, RelationshipSpec fk)
+    {
+        TableDef child = _catalog.FindTable(childTable)
+            ?? throw new InvalidOperationException($"Table '{childTable}' was not found.");
+        if (string.Equals(fk.ReferencedTable, childTable, StringComparison.OrdinalIgnoreCase))
+            throw new NotSupportedException("Adding a self-referencing foreign key via ALTER TABLE is not supported yet.");
+        if (fk.NoIndex)
+            throw new NotSupportedException("ALTER TABLE ADD FOREIGN KEY … NO INDEX is not supported yet.");
+
+        (int parentPage, int refOrdinal, int parentLogicalCount) = ResolveParent(fk, child.DefinitionPage);
+        int parentNum = parentLogicalCount; // the incoming block gets the next free logical number on the parent
+        byte upd = fk.CascadeUpdate ? CascadeAction : NoCascadeAction;
+        byte del = fk.CascadeDelete ? CascadeAction : NoCascadeAction;
+
+        var slots = ResolveSlots(child, fk.Columns.Select(c => (c.Column, Ascending: true)));
+        int childBlockNum = InsertIndex(child, fk.Name, slots,
+            unique: false, required: false, ignoreNulls: false,
+            (num, ord) => BuildOutgoingInfoBlock(num, ord, FkTypeOutgoing, parentNum, parentPage, upd, del));
+
+        AddIncomingRelationshipBlock(new IncomingRelationship(
+            parentPage, parentNum, refOrdinal, (uint)childBlockNum, child.DefinitionPage, upd, del));
+        AddRelationshipRows(childTable, fk);
+        _catalog.Invalidate();
+    }
+
+    /// <summary>The child (outgoing) end of a relationship: index_num2 = the child's own FK data block,
+    /// Fk_type = outgoing, Fk_number/Fk_table = the parent's incoming block. Mirrors the inline-FK block
+    /// TdefBuilder writes at creation time.</summary>
+    private static byte[] BuildOutgoingInfoBlock(int number, int dataOrdinal, byte fkType, int fkNumber, int fkTablePage, byte upd, byte del)
+    {
+        var b = new byte[IndexInfoBlockSize];
+        BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(0x00, 4), TdefRecordMarker);
+        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(0x04, 4), number);
+        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(0x08, 4), dataOrdinal);
+        b[0x0C] = fkType;
+        BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(0x0D, 4), (uint)fkNumber);
+        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(0x11, 4), fkTablePage);
+        b[0x15] = upd;
+        b[0x16] = del;
+        b[0x17] = IndexTypeForeign;
+        return b;
     }
 
     private const int ContinuationHeaderSize = 8;

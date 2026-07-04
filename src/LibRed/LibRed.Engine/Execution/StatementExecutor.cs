@@ -163,6 +163,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // ADD CONSTRAINT … PRIMARY KEY (cols): a primary key is a unique, primary index named after the
         // constraint (verified vs ACE) — the same write path as CREATE INDEX … WITH PRIMARY.
         AddPrimaryKeyAction pk => AddPrimaryKey(statement.Table, pk),
+        // ADD CONSTRAINT … FOREIGN KEY: add a relationship to the existing table (child index + parent
+        // incoming block + MSysRelationships), the same write path as an inline CREATE TABLE foreign key.
+        AddForeignKeyAction fk => AddForeignKey(statement.Table, fk.ForeignKey),
         // The remaining actions land in their own follow-up steps.
         _ => throw new NotSupportedException(
             $"ALTER TABLE {statement.Action.GetType().Name} is parsed but not executed yet."),
@@ -175,6 +178,19 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             pk.Name ?? "PrimaryKey",
             pk.Columns.Select(c => (c, false)).ToList(), // PK columns are ascending
             isUnique: true, isPrimary: true);
+        return 0;
+    }
+
+    private int AddForeignKey(string table, ForeignKeyConstraint fk)
+    {
+        _database.AddForeignKey(table, new RelationshipSpec(
+            Name: fk.Name ?? DefaultRelationshipName(table, fk),
+            ReferencedTable: fk.ReferencedTable,
+            Columns: PairColumns(fk),
+            IsEnforced: true,
+            CascadeUpdate: fk.OnUpdate == ReferentialAction.Cascade,
+            CascadeDelete: fk.OnDelete == ReferentialAction.Cascade,
+            NoIndex: fk.NoIndex));
         return 0;
     }
 

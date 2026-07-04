@@ -895,6 +895,13 @@ The split mechanics:
   > the child, incoming block on the parent, cross-referenced by `index_num`) at `CREATE TABLE` time.
   > Verified: a LibRed-created relationship is byte-identical to an ACE-created one (bar index *names*),
   > Access opens the file without repair, and `GetOleDbSchemaTable(Foreign_Keys)` enumerates it.
+  >
+  > **`ALTER TABLE … ADD CONSTRAINT … FOREIGN KEY`** writes the *same* linkage, but **surgically** onto the
+  > two existing (empty) TDEFs: it inserts the child's backing index + outgoing block into the child TDEF
+  > (the shared index-insert path, name-sorted) and appends the incoming block to the parent TDEF, then the
+  > `MSysRelationships` rows — no format difference from the inline case. Verified: Access reads and
+  > **enforces** a LibRed-`ALTER`-added FK (RI rejects an orphan child row). Self-references and
+  > `FOREIGN KEY NO INDEX` via `ALTER` are not written yet.
 
 ---
 

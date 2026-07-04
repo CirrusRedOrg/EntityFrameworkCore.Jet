@@ -84,6 +84,14 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
+    /// <summary>Adds a foreign key (relationship) to an existing table — ALTER TABLE ADD CONSTRAINT …
+    /// FOREIGN KEY. Writes the child backing index, the parent's incoming block and MSysRelationships.</summary>
+    public void AddForeignKey(string childTable, RelationshipSpec relationship)
+    {
+        new Storage.TableCreator(_channel, Catalog).AddForeignKey(childTable, relationship);
+        Catalog.Invalidate();
+    }
+
     /// <summary>Creates a view (a stored SELECT query) — the CREATE VIEW statement. Written the way Access
     /// does: an MSysObjects type-5 row plus the query decomposed into MSysQueries rows.</summary>
     public void CreateView(string name, ViewSpec spec)

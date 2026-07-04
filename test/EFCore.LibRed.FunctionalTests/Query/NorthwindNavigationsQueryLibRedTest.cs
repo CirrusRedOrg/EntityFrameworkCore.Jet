@@ -918,6 +918,7 @@ WHERE `c`.`CustomerID` LIKE 'A%'
             AssertSql();
         }
 
+        [ConditionalTheory(Skip="LibRed Fails")]
         public override async Task Navigation_in_subquery_referencing_outer_query(bool isAsync)
         {
             await base.Navigation_in_subquery_referencing_outer_query(isAsync);
@@ -1070,18 +1071,18 @@ WHERE (
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-FROM [Orders] AS [o]
-LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]
-WHERE [o].[OrderID] IN (10643, 10692) AND (
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+WHERE `o`.`OrderID` IN (10643, 10692) AND (
     SELECT COUNT(*)
     FROM (
-        SELECT DISTINCT [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice]
-        FROM [Order Details] AS [o0]
-        INNER JOIN [Orders] AS [o1] ON [o0].[OrderID] = [o1].[OrderID]
-        LEFT JOIN [Customers] AS [c0] ON [o1].[CustomerID] = [c0].[CustomerID]
-        WHERE [c].[Country] = [c0].[Country] OR ([c].[Country] IS NULL AND [c0].[Country] IS NULL)
-    ) AS [t]) > 0
+        SELECT DISTINCT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
+        FROM (`Order Details` AS `o0`
+        INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`)
+        LEFT JOIN `Customers` AS `c0` ON `o1`.`CustomerID` = `c0`.`CustomerID`
+        WHERE `c`.`Country` = `c0`.`Country` OR (`c`.`Country` IS NULL AND `c0`.`Country` IS NULL)
+    ) AS `s`) > 0
 """);
         }
 

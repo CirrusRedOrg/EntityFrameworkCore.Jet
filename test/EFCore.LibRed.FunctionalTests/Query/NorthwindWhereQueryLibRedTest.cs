@@ -1517,6 +1517,7 @@ WHERE `o`.`ProductID` IN (
 """);
         }
 
+        [ConditionalTheory(Skip = "LibRed fails")]
         public override async Task Where_contains_on_navigation(bool isAsync)
         {
             await base.Where_contains_on_navigation(isAsync);

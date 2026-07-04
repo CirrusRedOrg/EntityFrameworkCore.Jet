@@ -4309,6 +4309,9 @@ ORDER BY `c0`.`c`
 
             AssertSql(
                 """
+@p1='5'
+@p='40'
+
 SELECT `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM (
     SELECT TOP @p1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
@@ -5781,7 +5784,7 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-@searchTerm='c' (Size = 15)
+@p='5'
 @searchTerm='c' (Size = 15)
 
 SELECT TOP @p `c0`.`City`
@@ -7192,8 +7195,6 @@ WHERE (
 
             AssertSql(
                 """
-@ids1='10248'
-@ids2='10249'
 @ids1='10248'
 @ids2='10249'
 

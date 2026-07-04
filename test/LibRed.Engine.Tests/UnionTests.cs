@@ -92,8 +92,8 @@ public class UnionTests
         var rows = Query($"{side} UNION {side.Replace("`c`", "`c0`").Replace("`o`", "`o0`")}", out var columns);
         Assert.Equal(["CustomerID", "Orders"], columns);
         Assert.Equal(91, rows.Count); // all customers; UNION dedupes the identical sides
-        Assert.Equal(830L, rows.Sum(r => (long)r[1]!)); // total Northwind orders
-        Assert.Equal(2, rows.Count(r => (long)r[1]! == 0)); // FISSA and PARIS have no orders
+        Assert.Equal(830, rows.Sum(r => (int)r[1]!)); // total Northwind orders
+        Assert.Equal(2, rows.Count(r => (int)r[1]! == 0)); // FISSA and PARIS have no orders
     }
 
     [Fact]

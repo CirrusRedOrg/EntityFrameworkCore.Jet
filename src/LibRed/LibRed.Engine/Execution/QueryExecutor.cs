@@ -295,19 +295,24 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         string name = call.Name.ToUpperInvariant();
         Expression? arg = call.Arguments.Count > 0 ? call.Arguments[0] : null;
 
+        // COUNT is an Access Long Integer (32-bit) — EF reads it with GetInt32, so return int, not long.
         if (name == "COUNT")
             return arg is StarExpression or null
-                ? (long)group.Count
-                : (long)group.Count(r => Eval(columns, r, outer).Evaluate(arg) is not null);
+                ? group.Count
+                : group.Count(r => Eval(columns, r, outer).Evaluate(arg) is not null);
 
         var values = group.Select(r => Eval(columns, r, outer).Evaluate(arg!)).Where(v => v is not null).ToList();
         if (values.Count == 0)
-            return name == "COUNT" ? 0L : null; // SUM/AVG/MIN/MAX of nothing is NULL
+            return null; // SUM/AVG/MIN/MAX of nothing is NULL (COUNT already returned above)
 
+        // Access result types (verified vs ACE): SUM/AVG of a Currency/Decimal column stay Decimal, but of
+        // any other numeric column are Double; MIN/MAX preserve the column's own value (and type).
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        bool asDecimal = values[0] is decimal;
         return name switch
         {
-            "SUM" => values.Sum(v => Convert.ToDecimal(v, System.Globalization.CultureInfo.InvariantCulture)),
-            "AVG" => values.Average(v => Convert.ToDecimal(v, System.Globalization.CultureInfo.InvariantCulture)),
+            "SUM" => asDecimal ? values.Sum(v => Convert.ToDecimal(v, inv)) : values.Sum(v => Convert.ToDouble(v, inv)),
+            "AVG" => asDecimal ? values.Average(v => Convert.ToDecimal(v, inv)) : values.Average(v => Convert.ToDouble(v, inv)),
             "MIN" => values.Aggregate((a, b) => ExpressionEvaluator.CompareForSort(a, b) <= 0 ? a : b),
             "MAX" => values.Aggregate((a, b) => ExpressionEvaluator.CompareForSort(a, b) >= 0 ? a : b),
             _ => throw new NotSupportedException($"Aggregate {call.Name} is not supported."),

@@ -22,7 +22,7 @@ public class AggregateTests
         var rows = Query("SELECT COUNT(*) AS n FROM Orders", out var columns);
         Assert.Equal(["n"], columns);
         var only = Assert.Single(rows);
-        Assert.Equal(830L, only[0]);
+        Assert.Equal(830, only[0]);
     }
 
     [Fact]
@@ -30,7 +30,7 @@ public class AggregateTests
     {
         var rows = Query("SELECT EmployeeID, COUNT(*) AS n FROM Orders GROUP BY EmployeeID", out _);
         Assert.Equal(9, rows.Count); // 9 employees
-        Assert.Equal(830L, rows.Sum(r => (long)r[1]!)); // counts sum to all orders
+        Assert.Equal(830, rows.Sum(r => (int)r[1]!)); // counts sum to all orders
     }
 
     [Fact]
@@ -129,7 +129,7 @@ public class AggregateTests
         var rows = Query(sql, out var columns);
         Assert.Equal(["Key", "Count"], columns);
 
-        var got = rows.ToDictionary(r => r[0]!.ToString()!, r => (long)r[1]!);
+        var got = rows.ToDictionary(r => r[0]!.ToString()!, r => (int)r[1]!);
         Assert.Equal(89, got.Count); // 89 of 91 customers have orders
 
         using var db = JetDatabase.Open(Northwind);
@@ -139,7 +139,7 @@ public class AggregateTests
         var expected = orders.Rows()
             .Where(r => r[cust] is not null)
             .GroupBy(r => r[cust]!.ToString()!)
-            .ToDictionary(g => g.Key, g => (long)g.Select(r => ((DateTime)r[odate]!).Year).Distinct().Count());
+            .ToDictionary(g => g.Key, g => g.Select(r => ((DateTime)r[odate]!).Year).Distinct().Count());
 
         Assert.Equal(expected.Count, got.Count);
         foreach (var (k, v) in expected) Assert.Equal(v, got[k]);
@@ -165,6 +165,6 @@ public class AggregateTests
         Assert.Equal(["Key", "Count"], columns);
         var only = Assert.Single(rows);
         Assert.Equal(1, only[0]); // constant `1 AS Key0` stays int
-        Assert.Equal(830m, only[1]); // SUM of per-customer counts = total orders
+        Assert.Equal(830d, only[1]); // SUM of an integer (COUNT) column is a Double, like Access
     }
 }

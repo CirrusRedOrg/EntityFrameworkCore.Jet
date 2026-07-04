@@ -741,9 +741,13 @@ Then the value, transformed:
   8-byte halves by a constant `0x09` marker, and terminated by `0x08` — a fixed **19-byte** key. Data
   bytes equal to `0x08`/`0x09` need no escaping (every field is at a fixed offset). Verified byte-for-byte
   against ACE (zeros, all-`FF`, sequential, and random GUIDs); ACE also opens a LibRed-written GUID-PK
-  table and seeks a row by its key. Encoded/decoded by `IndexKeyEncoder`/`IndexKeyDecoder`. **Ascending
-  only** so far — descending GUID keys throw. Example: `01020304-0506-0708-090a-0b0c0d0e0f10` →
-  `7F 0102030405060708 09 090A0B0C0D0E0F10 08`.
+  table and seeks a row by its key. Encoded/decoded by `IndexKeyEncoder`/`IndexKeyDecoder`. Example:
+  `01020304-0506-0708-090a-0b0c0d0e0f10` → `7F 0102030405060708 09 090A0B0C0D0E0F10 08`.
+  **Descending** inverts every byte of the ascending key **except the `0x09` field marker** (kept constant
+  so the structure stays parseable — and it doesn't affect ordering since it's equal in every key): the
+  start flag becomes `0x80` and the `0x08` terminator becomes `0xF7`, but the middle `0x09` is unchanged.
+  Verified against ACE (`CREATE INDEX … (K DESC)`), e.g. `00000000-…-0` → `80 FFFFFFFFFFFFFFFF 09
+  FFFFFFFFFFFFFFFF F7`. No trailing `0x00` (unlike descending text keys).
 - **Binary (general):** collation encoding still limited to the fixed 4-byte ascending case
   (MSysQueries.Order); other lengths/descending unimplemented.
 

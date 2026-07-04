@@ -70,12 +70,11 @@ public static class IndexKeyEncoder
             // GUID key (verified against ACE): the start flag, then the 16 GUID bytes in canonical *string*
             // order (NOT the mixed-endian .ToByteArray layout), split into two 8-byte halves by a constant
             // 0x09 marker, and terminated by 0x08. Fixed 19-byte key; data bytes equal to 0x08/0x09 need no
-            // escaping because every field is at a fixed offset. Descending GUID keys are not yet handled.
+            // escaping because every field is at a fixed offset. Descending inverts every byte EXCEPT the
+            // 0x09 field marker (which stays constant so the structure is parseable, and doesn't affect
+            // ordering since it's equal in every key) — verified against ACE.
             if (column.Type == JetDataType.Guid)
             {
-                if (!ascending)
-                    throw new NotSupportedException("Descending GUID index key encoding is not supported yet.");
-
                 Guid guid = value switch
                 {
                     Guid g => g,
@@ -84,11 +83,22 @@ public static class IndexKeyEncoder
                 };
                 byte[] s = Convert.FromHexString(guid.ToString("N")); // 16 bytes, canonical string order
 
-                buffer.Add(AscStartFlag);
-                buffer.AddRange(s.AsSpan(0, 8));
-                buffer.Add(0x09);
-                buffer.AddRange(s.AsSpan(8, 8));
-                buffer.Add(0x08);
+                if (ascending)
+                {
+                    buffer.Add(AscStartFlag);           // 0x7F
+                    buffer.AddRange(s.AsSpan(0, 8));
+                    buffer.Add(0x09);
+                    buffer.AddRange(s.AsSpan(8, 8));
+                    buffer.Add(0x08);
+                }
+                else
+                {
+                    buffer.Add(DescStartFlag);          // 0x80 = ~0x7F
+                    for (int j = 0; j < 8; j++) buffer.Add((byte)~s[j]);
+                    buffer.Add(0x09);                   // field marker kept as-is
+                    for (int j = 8; j < 16; j++) buffer.Add((byte)~s[j]);
+                    buffer.Add(unchecked((byte)~0x08)); // 0xF7
+                }
                 continue;
             }
 

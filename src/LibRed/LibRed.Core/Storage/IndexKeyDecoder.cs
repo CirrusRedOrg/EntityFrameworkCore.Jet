@@ -47,14 +47,15 @@ public static class IndexKeyDecoder
             }
             // Otherwise flag is the start flag (0x7F / 0x80).
 
-            // GUID key (ascending only): 8 bytes, a 0x09 marker, 8 bytes, a 0x08 terminator — the 16 bytes
-            // are the GUID's canonical string order (see IndexKeyEncoder). Descending is lossy → stop.
+            // GUID key: 8 bytes, a 0x09 marker, 8 bytes, a terminator — the 16 bytes are the GUID's
+            // canonical string order (see IndexKeyEncoder). Descending inverts every data byte (the 0x09
+            // marker stays constant), so undo that here.
             if (column.Type == JetDataType.Guid)
             {
-                if (!ascending || pos + 18 > key.Length) break;
+                if (pos + 18 > key.Length) break;
                 var s = new byte[16];
-                key.Slice(pos, 8).CopyTo(s.AsSpan(0, 8));
-                key.Slice(pos + 9, 8).CopyTo(s.AsSpan(8, 8));
+                for (int j = 0; j < 8; j++) s[j] = ascending ? key[pos + j] : (byte)~key[pos + j];
+                for (int j = 0; j < 8; j++) s[8 + j] = ascending ? key[pos + 9 + j] : (byte)~key[pos + 9 + j];
                 pos += 18;
                 values[i] = new Guid(Convert.ToHexString(s));
                 continue;

@@ -305,19 +305,33 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (values.Count == 0)
             return null; // SUM/AVG/MIN/MAX of nothing is NULL (COUNT already returned above)
 
-        // Access result types (verified vs ACE): SUM/AVG of a Currency/Decimal column stay Decimal, but of
-        // any other numeric column are Double; MIN/MAX preserve the column's own value (and type).
+        // Result types: SUM **preserves the input type** (int→int, long→long, decimal→decimal, …) so the EF
+        // provider (which emits a bare SUM and reads by the LINQ operand type) round-trips without a cast.
+        // AVG is Double unless the input is Currency/Decimal (matches Access and LINQ). MIN/MAX keep the
+        // column's own value and type.
         var inv = System.Globalization.CultureInfo.InvariantCulture;
-        bool asDecimal = values[0] is decimal;
         return name switch
         {
-            "SUM" => asDecimal ? values.Sum(v => Convert.ToDecimal(v, inv)) : values.Sum(v => Convert.ToDouble(v, inv)),
-            "AVG" => asDecimal ? values.Average(v => Convert.ToDecimal(v, inv)) : values.Average(v => Convert.ToDouble(v, inv)),
+            "SUM" => SumPreservingType(values, inv),
+            "AVG" => values[0] is decimal ? values.Average(v => Convert.ToDecimal(v, inv)) : values.Average(v => Convert.ToDouble(v, inv)),
             "MIN" => values.Aggregate((a, b) => ExpressionEvaluator.CompareForSort(a, b) <= 0 ? a : b),
             "MAX" => values.Aggregate((a, b) => ExpressionEvaluator.CompareForSort(a, b) >= 0 ? a : b),
             _ => throw new NotSupportedException($"Aggregate {call.Name} is not supported."),
         };
     }
+
+    /// <summary>SUM keeping the operand's numeric type (as LINQ's <c>Sum</c> overloads do): integer types
+    /// (byte/short/int) sum to Int32, Int64 to Int64, Single to Single, Double to Double, Decimal/Currency
+    /// to Decimal.</summary>
+    private static object SumPreservingType(List<object?> values, System.Globalization.CultureInfo inv) =>
+        values[0] switch
+        {
+            decimal => values.Sum(v => Convert.ToDecimal(v, inv)),
+            double => values.Sum(v => Convert.ToDouble(v, inv)),
+            float => (float)values.Sum(v => Convert.ToDouble(v, inv)),
+            long or ulong => values.Sum(v => Convert.ToInt64(v, inv)),
+            _ => values.Sum(v => Convert.ToInt32(v, inv)),
+        };
 
     private static IEnumerable<FunctionCall> Aggregates(Expression e)
     {

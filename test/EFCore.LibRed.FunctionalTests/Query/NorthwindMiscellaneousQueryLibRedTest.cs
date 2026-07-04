@@ -1383,6 +1383,8 @@ FROM `Orders` AS `o`
 
             AssertSql(
                 """
+@p='5'
+
 SELECT COUNT(*)
 FROM (
     SELECT DISTINCT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
@@ -1400,6 +1402,8 @@ FROM (
 
             AssertSql(
                 """
+@p='5'
+
 SELECT COUNT(*)
 FROM (
     SELECT DISTINCT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
@@ -1533,6 +1537,8 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
+@p='5'
+
 SELECT COUNT(*)
 FROM (
     SELECT TOP @p 1
@@ -1548,6 +1554,8 @@ FROM (
 
             AssertSql(
                 """
+@p='5'
+
 SELECT COUNT(*)
 FROM (
     SELECT TOP @p 1
@@ -2550,6 +2558,8 @@ ORDER BY `o0`.`OrderID`
 
             AssertSql(
                 """
+@p='5'
+
 SELECT COUNT(*)
 FROM (
     SELECT DISTINCT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
@@ -4378,6 +4388,8 @@ ORDER BY `c1`.`City`, `c1`.`CustomerID`
 
             AssertSql(
                 """
+@p='10'
+
 SELECT AVG(CDBL(`o0`.`OrderID`))
 FROM (
     SELECT TOP @p `o`.`OrderID`
@@ -4393,6 +4405,8 @@ FROM (
 
             AssertSql(
                 """
+@p='7'
+
 SELECT COUNT(*)
 FROM (
     SELECT TOP @p 1
@@ -4407,6 +4421,8 @@ FROM (
 
             AssertSql(
                 """
+@p='7'
+
 SELECT COUNT(*)
 FROM (
     SELECT TOP @p 1
@@ -5009,6 +5025,8 @@ ORDER BY `c1`.`Id`
 
             AssertSql(
                 """
+@p='5'
+
 SELECT COUNT(*)
 FROM (
     SELECT TOP @p 1

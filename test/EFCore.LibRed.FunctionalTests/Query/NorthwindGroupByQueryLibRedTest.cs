@@ -1259,6 +1259,10 @@ GROUP BY `o0`.`EmployeeID`
 
             AssertSql(
                 """
+@p='100'
+@p2='50'
+@p1='10'
+
 SELECT `c0`.`CustomerID` AS `Key`, AVG(CDBL(`o0`.`OrderID`)) AS `Count`
 FROM (
     SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`
@@ -1369,6 +1373,10 @@ GROUP BY `c0`.`CustomerID`
 
             AssertSql(
                 """
+@p1='50'
+@p='10'
+@p2='100'
+
 SELECT `o0`.`CustomerID` AS `Key`, AVG(CDBL(`o0`.`OrderID`)) AS `Count`
 FROM (
     SELECT `c2`.`CustomerID`

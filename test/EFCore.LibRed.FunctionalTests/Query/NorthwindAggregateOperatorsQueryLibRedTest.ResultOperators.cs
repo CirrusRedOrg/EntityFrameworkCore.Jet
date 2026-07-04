@@ -991,13 +991,28 @@ FROM `Order Details` AS `o`
         {
             await base.Average_over_max_subquery(isAsync);
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='3'")}
-                    
-                    SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`
-                    FROM `Customers` AS `c`
-                    ORDER BY `c`.`CustomerID`
-                    """);
+                """
+@p='3'
+
+SELECT AVG(IIF((
+        SELECT AVG(CDBL(5 + (
+            SELECT MAX(`o0`.`ProductID`)
+            FROM `Order Details` AS `o0`
+            WHERE `o`.`OrderID` = `o0`.`OrderID`)))
+        FROM `Orders` AS `o`
+        WHERE `c0`.`CustomerID` = `o`.`CustomerID`) IS NULL, NULL, CDEC((
+        SELECT AVG(CDBL(5 + (
+            SELECT MAX(`o0`.`ProductID`)
+            FROM `Order Details` AS `o0`
+            WHERE `o`.`OrderID` = `o0`.`OrderID`)))
+        FROM `Orders` AS `o`
+        WHERE `c0`.`CustomerID` = `o`.`CustomerID`))))
+FROM (
+    SELECT TOP @p `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+""");
         }
 
         public override async Task Average_on_float_column(bool isAsync)
@@ -2849,6 +2864,8 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
+@p='1'
+
 SELECT COUNT(*)
 FROM (
     SELECT TOP @p 1

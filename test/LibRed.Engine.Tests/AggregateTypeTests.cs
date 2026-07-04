@@ -34,16 +34,18 @@ public class AggregateTypeTests
     }
 
     [Fact]
-    public void Sum_and_avg_are_double_for_integer_columns()
+    public void Sum_preserves_the_input_type()
     {
-        Assert.IsType<double>(Scalar("SELECT SUM(UnitsInStock) FROM Products"));
-        Assert.IsType<double>(Scalar("SELECT AVG(UnitsInStock) FROM Products"));
+        // Integer columns sum to Int32 (the EF provider emits a bare SUM and reads by the operand type).
+        Assert.IsType<int>(Scalar("SELECT SUM(UnitsInStock) FROM Products")); // smallint
+        Assert.IsType<int>(Scalar("SELECT SUM(OrderID) FROM Orders"));        // long/int
+        Assert.IsType<decimal>(Scalar("SELECT SUM(UnitPrice) FROM Products")); // currency
     }
 
     [Fact]
-    public void Sum_and_avg_are_decimal_for_currency_columns()
+    public void Avg_is_double_for_integers_and_decimal_for_currency()
     {
-        Assert.IsType<decimal>(Scalar("SELECT SUM(UnitPrice) FROM Products"));
+        Assert.IsType<double>(Scalar("SELECT AVG(UnitsInStock) FROM Products"));
         Assert.IsType<decimal>(Scalar("SELECT AVG(UnitPrice) FROM Products"));
     }
 

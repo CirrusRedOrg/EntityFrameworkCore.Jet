@@ -250,6 +250,8 @@ FROM (
 
             AssertSql(
                 """
+@p='10'
+
 SELECT COUNT(*)
 FROM (
     SELECT TOP @p 1
@@ -267,6 +269,8 @@ FROM (
 
             AssertSql(
                 """
+@p='10'
+
 SELECT COUNT(*)
 FROM (
     SELECT TOP @p 1

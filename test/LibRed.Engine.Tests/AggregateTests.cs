@@ -165,6 +165,6 @@ public class AggregateTests
         Assert.Equal(["Key", "Count"], columns);
         var only = Assert.Single(rows);
         Assert.Equal(1, only[0]); // constant `1 AS Key0` stays int
-        Assert.Equal(830d, only[1]); // SUM of an integer (COUNT) column is a Double, like Access
+        Assert.Equal(830, only[1]); // SUM preserves the integer (COUNT) input type
     }
 }

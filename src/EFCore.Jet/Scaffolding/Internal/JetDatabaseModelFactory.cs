@@ -5,6 +5,7 @@ using EntityFrameworkCore.Jet.Data;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using EntityFrameworkCore.Jet.Internal;
+using EntityFrameworkCore.Jet.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using EntityFrameworkCore.Jet.Utilities;
 
@@ -268,6 +269,10 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                                 ? ValueGenerated.OnAddOrUpdate
                                 : default(ValueGenerated?)
                     };
+
+                    column[JetAnnotationNames.IdentitySeed] = identitySeed;
+                    column[JetAnnotationNames.IdentityIncrement] = identityIncrement;
+                    column[JetAnnotationNames.Identity] = $"(${identitySeed}, ${identityIncrement})";
 
                     if (storeType == "timestamp")
                     {

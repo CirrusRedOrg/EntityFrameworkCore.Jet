@@ -640,24 +640,20 @@ ALTER TABLE `People` ADD `FullName` varchar(255) NULL;
 """);
     }
 
+    [ConditionalFact(Skip = "Jet does not support collation")]
     public override async Task Add_column_with_collation()
     {
         await base.Add_column_with_collation();
 
-        AssertSql(
-            """
-ALTER TABLE [People] ADD [Name] nvarchar(max) COLLATE German_PhoneBook_CI_AS NULL;
-""");
+        AssertSql("");
     }
 
+    [ConditionalFact(Skip = "Jet does not support collation")]
     public override async Task Add_column_computed_with_collation(bool stored)
     {
         await base.Add_column_computed_with_collation(stored);
 
-        AssertSql(
-            stored
-                ? """ALTER TABLE [People] ADD [Name] AS 'hello' COLLATE German_PhoneBook_CI_AS PERSISTED;"""
-                : """ALTER TABLE [People] ADD [Name] AS 'hello' COLLATE German_PhoneBook_CI_AS;""");
+        AssertSql("");
     }
 
     public override async Task Add_column_shared()
@@ -713,9 +709,8 @@ ALTER TABLE `People` ADD `IdentityColumn` counter NOT NULL;
                 var table = Assert.Single(model.Tables);
                 var column = Assert.Single(table.Columns, c => c.Name == "IdentityColumn");
                 Assert.Equal(ValueGenerated.OnAdd, column.ValueGenerated);
-                // TODO: Do we not reverse-engineer identity facets?
-                // Assert.Equal(100, column[SqlServerAnnotationNames.IdentitySeed]);
-                // Assert.Equal(5, column[SqlServerAnnotationNames.IdentityIncrement]);
+                Assert.Equal(100, column[JetAnnotationNames.IdentitySeed]);
+                Assert.Equal(5, column[JetAnnotationNames.IdentityIncrement]);
             });
 
         AssertSql(
@@ -757,18 +752,16 @@ ALTER TABLE `People` ADD `IdentityColumn` counter(100, 5) NOT NULL;
                         Assert.Equal("Cats", t.Name);
                         var column = Assert.Single(t.Columns, c => c.Name == "IdentityColumn");
                         Assert.Equal(ValueGenerated.OnAdd, column.ValueGenerated);
-                        // TODO: Do we not reverse-engineer identity facets?
-                        // Assert.Equal(100, column[SqlServerAnnotationNames.IdentitySeed]);
-                        // Assert.Equal(5, column[SqlServerAnnotationNames.IdentityIncrement]);
+                        Assert.Equal(1, column[JetAnnotationNames.IdentitySeed]);
+                        Assert.Equal(2, column[JetAnnotationNames.IdentityIncrement]);
                     },
                     t =>
                     {
                         Assert.Equal("Dogs", t.Name);
                         var column = Assert.Single(t.Columns, c => c.Name == "IdentityColumn");
                         Assert.Equal(ValueGenerated.OnAdd, column.ValueGenerated);
-                        // TODO: Do we not reverse-engineer identity facets?
-                        // Assert.Equal(100, column[SqlServerAnnotationNames.IdentitySeed]);
-                        // Assert.Equal(5, column[SqlServerAnnotationNames.IdentityIncrement]);
+                        Assert.Equal(2, column[JetAnnotationNames.IdentitySeed]);
+                        Assert.Equal(2, column[JetAnnotationNames.IdentityIncrement]);
                     });
             });
 

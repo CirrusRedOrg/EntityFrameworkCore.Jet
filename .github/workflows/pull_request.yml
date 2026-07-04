@@ -28,7 +28,7 @@ jobs:
         run: |
           echo 'EventName: ${{ github.event_name }}'
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: ${{ env.checkoutFetchDepth }}
       - name: 'Get Head Commit Info'
@@ -76,7 +76,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set additional variables
         shell: pwsh
         run: |
@@ -229,30 +229,31 @@ jobs:
         run: |
           $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
           & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
-      - name: 'Run Tests: EFCore.Jet.FunctionalTests'
+      - name: 'Run Tests: EFCore.Jet.FunctionalTests (Shard 1 - Query Core)'
         if: always() && env.skipTests != 'true'
         shell: pwsh
         run: |
+          $shardDir = '.\test\EFCore.Jet.FunctionalTests\TestResults\shard1'
+
           for ($i = 0; $i -lt 3; $i++) {
-            if (Test-Path '.\test\EFCore.Jet.FunctionalTests\TestResults' -PathType Container) {
-              Get-ChildItem '.\test\EFCore.Jet.FunctionalTests\TestResults' | Remove-Item -Recurse -Force
+            if (Test-Path $shardDir -PathType Container) {
+              Get-ChildItem $shardDir | Remove-Item -Recurse -Force
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.&FullyQualifiedName!~.FunctionalTests.Query.Associations.&FullyQualifiedName!~.FunctionalTests.Query.Translations."
 
             #
             # Check for test runner crashes:
             #
 
-            $testResultsDir = '.\test\EFCore.Jet.FunctionalTests\TestResults'
-            $currentTestRunTrx = Get-ChildItem $testResultsDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
+            $currentTestRunTrx = Get-ChildItem $shardDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
             if ($null -eq $currentTestRunTrx) {
                 echo 'Test runner log file is missing.'
                 exit 3
             }
 
-            $currentTestRunDir = Join-Path $testResultsDir $currentTestRunTrx.BaseName
+            $currentTestRunDir = Join-Path $shardDir $currentTestRunTrx.BaseName
             if (Test-Path $currentTestRunDir) {
               if ($null -ne (Get-ChildItem $currentTestRunDir -Filter 'Sequence_*' -Recurse)) {
                 # Split string because searching the log for that phrase should only show actual crashes and not this line.
@@ -267,7 +268,97 @@ jobs:
 
           $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
           $failIfKeepsCrashing = Test-Path $establishedGreenTestsFilePath
-          
+
+          if ($i -ge 3 -and $failIfKeepsCrashing) {
+            echo 'Test runner keeps crashing.'
+            exit 2
+          }
+          exit 0
+      - name: 'Run Tests: EFCore.Jet.FunctionalTests (Shard 2 - Query Associations and Translations)'
+        if: always() && env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          $shardDir = '.\test\EFCore.Jet.FunctionalTests\TestResults\shard2'
+
+          for ($i = 0; $i -lt 3; $i++) {
+            if (Test-Path $shardDir -PathType Container) {
+              Get-ChildItem $shardDir | Remove-Item -Recurse -Force
+            }
+
+            $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.Associations.|FullyQualifiedName~.FunctionalTests.Query.Translations."
+
+            #
+            # Check for test runner crashes:
+            #
+
+            $currentTestRunTrx = Get-ChildItem $shardDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
+            if ($null -eq $currentTestRunTrx) {
+                echo 'Test runner log file is missing.'
+                exit 3
+            }
+
+            $currentTestRunDir = Join-Path $shardDir $currentTestRunTrx.BaseName
+            if (Test-Path $currentTestRunDir) {
+              if ($null -ne (Get-ChildItem $currentTestRunDir -Filter 'Sequence_*' -Recurse)) {
+                # Split string because searching the log for that phrase should only show actual crashes and not this line.
+                echo ('Test runner cras' + 'hed.')
+                continue
+              }
+            }
+
+            echo 'Test runner ran until the end.'
+            break
+          }
+
+          $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
+          $failIfKeepsCrashing = Test-Path $establishedGreenTestsFilePath
+
+          if ($i -ge 3 -and $failIfKeepsCrashing) {
+            echo 'Test runner keeps crashing.'
+            exit 2
+          }
+          exit 0
+      - name: 'Run Tests: EFCore.Jet.FunctionalTests (Shard 3 - Non-Query)'
+        if: always() && env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          $shardDir = '.\test\EFCore.Jet.FunctionalTests\TestResults\shard3'
+
+          for ($i = 0; $i -lt 3; $i++) {
+            if (Test-Path $shardDir -PathType Container) {
+              Get-ChildItem $shardDir | Remove-Item -Recurse -Force
+            }
+
+            $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --verbosity detailed --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName!~.FunctionalTests.Query."
+
+            #
+            # Check for test runner crashes:
+            #
+
+            $currentTestRunTrx = Get-ChildItem $shardDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
+            if ($null -eq $currentTestRunTrx) {
+                echo 'Test runner log file is missing.'
+                exit 3
+            }
+
+            $currentTestRunDir = Join-Path $shardDir $currentTestRunTrx.BaseName
+            if (Test-Path $currentTestRunDir) {
+              if ($null -ne (Get-ChildItem $currentTestRunDir -Filter 'Sequence_*' -Recurse)) {
+                # Split string because searching the log for that phrase should only show actual crashes and not this line.
+                echo ('Test runner cras' + 'hed.')
+                continue
+              }
+            }
+
+            echo 'Test runner ran until the end.'
+            break
+          }
+
+          $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
+          $failIfKeepsCrashing = Test-Path $establishedGreenTestsFilePath
+
           if ($i -ge 3 -and $failIfKeepsCrashing) {
             echo 'Test runner keeps crashing.'
             exit 2
@@ -280,51 +371,56 @@ jobs:
           Get-ChildItem -Filter '*.trx' -Recurse | Sort-Object LastWriteTime | ForEach { Rename-Item $_.FullName "ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}_$($_.Name)" -Verbose }
       - name: 'Upload Test Results'
         if: always() && env.skipTests != 'true' && env.uploadTestResults == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: test-results_${{ env.matrixId }}
           path: |
             test\EFCore.Jet.Data.Tests\TestResults\*.trx
-            test\EFCore.Jet.FunctionalTests\TestResults\*.trx
+            test\EFCore.Jet.FunctionalTests\TestResults\**\*.trx
             test\EFCore.Jet.Tests\TestResults\*.trx
       - name: 'Check Tests: EFCore.Jet.FunctionalTests'
         if: env.skipTests != 'true'
         shell: pwsh
         run: |
-          # Create text file with all tests that passed.
+          # Collect and merge test results from all shards.
           $testResultsDir = '.\test\EFCore.Jet.FunctionalTests\TestResults'
-          $currentTestRunTrx = Get-ChildItem $testResultsDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
+          $allTrxFiles = @(Get-ChildItem $testResultsDir -Filter '*.trx' -Recurse)
 
-          if ($null -eq $currentTestRunTrx) {
-              echo 'Test runner log file is missing.'
+          if ($allTrxFiles.Count -eq 0) {
+              echo 'No test result files found.'
               exit 3
           }
 
-          $allTestsFilePath = Join-Path $currentTestRunTrx.DirectoryName ($currentTestRunTrx.BaseName + '_All.txt')
-          (Select-Xml -Path  $currentTestRunTrx.FullName -XPath "//ns:UnitTestResult" -Namespace @{"ns"="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}).Node | Sort-Object -Property testName -CaseSensitive | ForEach-Object { "$($_.outcome -eq 'Passed' ? 'P' : $_.outcome -eq 'NotExecuted' ? 'N' : $_.outcome -eq 'Failed' ? 'F' : 'U') $($_.testName)" } | Add-Content $allTestsFilePath
+          $allNodes = @()
+          foreach ($trxFile in $allTrxFiles) {
+              $allNodes += (Select-Xml -Path $trxFile.FullName -XPath "//ns:UnitTestResult" -Namespace @{"ns"="http://microsoft.com/schemas/VisualStudio/TeamTest/2010"}).Node
+          }
 
-          $greenTestsFilePath = Join-Path $currentTestRunTrx.DirectoryName ($currentTestRunTrx.BaseName + '_Passed.txt')
-          Get-Content $allTestsFilePath | Where-Object { $_.StartsWith('P ') } | ForEach-Object { $_.Substring(2) } | Add-Content $greenTestsFilePath
+          $allTestsFilePath = Join-Path $testResultsDir 'combined_All.txt'
+          $allNodes | Sort-Object -Property testName -CaseSensitive | ForEach-Object { "$($_.outcome -eq 'Passed' ? 'P' : $_.outcome -eq 'NotExecuted' ? 'N' : $_.outcome -eq 'Failed' ? 'F' : 'U') $($_.testName)" } | Set-Content $allTestsFilePath
+
+          $greenTestsFilePath = Join-Path $testResultsDir 'combined_Passed.txt'
+          Get-Content $allTestsFilePath | Where-Object { $_.StartsWith('P ') } | ForEach-Object { $_.Substring(2) } | Set-Content $greenTestsFilePath
 
           # Compare test file against previously committed file.
           $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
 
           if (Test-Path $establishedGreenTestsFilePath) {
               $diffResult = Compare-Object (Get-Content $establishedGreenTestsFilePath) (Get-Content $greenTestsFilePath)
-          
+
               $notGreenAnymore = $diffResult | Where-Object { $_.SideIndicator -eq '<=' } | Select-Object -ExpandProperty InputObject
               if ($null -ne $notGreenAnymore) {
                   echo "`nThe following $(@($notGreenAnymore).Length) tests passed in previous runs, but didn't pass in this run:`n"
                   $notGreenAnymore
                   exit 1
               }
-          
+
               echo 'All tests that passed in previous runs still passed in this run.'
 
               $newlyGreenTests = $diffResult | Where-Object { $_.SideIndicator -eq '=>' } | Select-Object -ExpandProperty InputObject
               if ($newlyGreenTests.Length -gt 0) {
                 Copy-Item $greenTestsFilePath $establishedGreenTestsFilePath -Force -Verbose
-                
+
                 echo "`nThe following new tests passed that did not pass before:`n"
                 $newlyGreenTests
 
@@ -335,7 +431,7 @@ jobs:
           echo 'Check succeeded.'
       - name: 'Upload Green Tests'
         if: env.commitGreenTestsFile != '' && env.autoCommitGreenTests == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: green-tests_${{ env.matrixId }}
           path: ${{ env.commitGreenTestsFile }}
@@ -349,7 +445,7 @@ jobs:
     steps:
       - name: 'Check Test Results Artifacts'
         id: CheckTestResultsArtifacts
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             var allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
@@ -369,14 +465,14 @@ jobs:
       - name: 'Merge Test Results'
         id: MergeTestResults
         if: steps.CheckTestResultsArtifacts.outputs.artifactsAvailable == 'true'
-        uses: actions/upload-artifact/merge@v4
+        uses: actions/upload-artifact/merge@v6
         with:
           name: test-results
           pattern: test-results_*
           delete-merged: true
       - name: 'Check Green Tests Artifacts'
         id: CheckGreenTestsArtifacts
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             var allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
@@ -396,7 +492,7 @@ jobs:
       - name: 'Merge Green Tests'
         id: MergeGreenTests
         if: steps.CheckGreenTestsArtifacts.outputs.artifactsAvailable == 'true'
-        uses: actions/upload-artifact/merge@v4
+        uses: actions/upload-artifact/merge@v6
         with:
           name: green-tests
           pattern: green-tests_*
@@ -418,7 +514,7 @@ jobs:
 #          echo $env:NEEDS_CONTEXT
       - name: 'Download Green Tests'
         if: needs.MergeArtifacts.outputs.greenTestsAvailable == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: green-tests
           path: green-tests

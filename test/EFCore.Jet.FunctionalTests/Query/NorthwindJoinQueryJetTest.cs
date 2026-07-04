@@ -54,13 +54,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Join_select_many(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-                    FROM `Customers` AS `c`
-                    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`,
-                    `Employees` AS `e`
-                    WHERE `c`.`CustomerID` LIKE 'F%'
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM (`Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`),
+`Employees` AS `e`
+WHERE `c`.`CustomerID` LIKE 'F%'
+""");
         }
 
         public override async Task Client_Join_select_many(bool isAsync)
@@ -1039,14 +1039,14 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 
             AssertSql(
                 """
-SELECT [c].[CustomerID] AS [A], [t].[CustomerID] AS [B], [o0].[CustomerID] AS [C]
-FROM [Customers] AS [c]
-CROSS JOIN (
-    SELECT TOP(1) [o].[CustomerID]
-    FROM [Orders] AS [o]
-    ORDER BY [o].[OrderID]
-) AS [t]
-INNER JOIN [Orders] AS [o0] ON [c].[CustomerID] = [o0].[CustomerID]
+SELECT `c`.`CustomerID` AS `A`, `o0`.`CustomerID` AS `B`, `o1`.`CustomerID` AS `C`
+FROM (`Customers` AS `c`
+INNER JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`),
+(
+    SELECT TOP 1 `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    ORDER BY `o`.`OrderID`
+) AS `o0`
 """);
         }
 

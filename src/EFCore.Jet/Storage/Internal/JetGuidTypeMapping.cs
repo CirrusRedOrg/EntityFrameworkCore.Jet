@@ -4,6 +4,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetGuidTypeMapping : GuidTypeMapping
     {
+        public static new JetGuidTypeMapping Default { get; } = new JetGuidTypeMapping("uniqueidentifier");
+
         public JetGuidTypeMapping(string storeType, DbType? dbType = System.Data.DbType.Guid) : base(storeType, dbType)
         {
         }

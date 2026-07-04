@@ -110,9 +110,9 @@ WHERE DATEPART('d', `b`.`DateTimeOffset`) = 4
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE DATEPART(hour, [b].[DateTimeOffset]) = 15
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEPART('h', `b`.`DateTimeOffset`) = 15
 """);
     }
 
@@ -122,9 +122,9 @@ WHERE DATEPART(hour, [b].[DateTimeOffset]) = 15
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE DATEPART(minute, [b].[DateTimeOffset]) = 30
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEPART('n', `b`.`DateTimeOffset`) = 30
 """);
     }
 
@@ -182,8 +182,8 @@ WHERE DATEPART(nanosecond, [b].[DateTimeOffset]) % 1000 = 400
 
         AssertSql(
             """
-SELECT CONVERT(time, [b].[DateTimeOffset])
-FROM [BasicTypesEntities] AS [b]
+SELECT TIMEVALUE(`b`.`DateTimeOffset`)
+FROM `BasicTypesEntities` AS `b`
 """);
     }
 
@@ -253,14 +253,15 @@ FROM `BasicTypesEntities` AS `b`
 """);
     }
 
+    //Note: AddMilliseconds is unsupported but the shape of this has the column top-level and ef core falls back to client-side
     public override async Task AddMilliseconds()
     {
         await base.AddMilliseconds();
 
         AssertSql(
             """
-SELECT DATEADD(millisecond, CAST(300.0E0 AS int), [b].[DateTimeOffset])
-FROM [BasicTypesEntities] AS [b]
+SELECT `b`.`DateTimeOffset`
+FROM `BasicTypesEntities` AS `b`
 """);
     }
 

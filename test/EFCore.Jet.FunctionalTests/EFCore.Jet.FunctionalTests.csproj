@@ -9,13 +9,21 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<Compile Remove="Scaffolding\Baselines\**\*" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="Scaffolding\Baselines\**\*" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Compile Include="..\Shared\**\*.cs">
 			<Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
 		</Compile>
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Build.Tasks.Core" Version="18.4.0" />
+		<PackageReference Include="Microsoft.Build.Tasks.Core" Version="18.7.1" />
 		<PackageReference Include="MSTest.TestFramework" />
 		<PackageReference Include="xunit.core" />
 		<PackageReference Include="xunit.assert" />
@@ -104,6 +112,10 @@
 		<Compile Remove="PropertyEntryJetTest.cs" />
 		<Compile Remove="Query\AdHocJsonQueryJetTest.cs" />
 		<Compile Remove="Query\AdHocJsonQueryJetTestBase.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Scaffolding\Baselines\" />
 	</ItemGroup>
 
 </Project>

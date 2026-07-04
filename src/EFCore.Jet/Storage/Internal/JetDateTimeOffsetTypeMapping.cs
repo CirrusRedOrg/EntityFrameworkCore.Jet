@@ -1,32 +1,31 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using System.Globalization;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
+using Microsoft.Extensions.Options;
+using System.Globalization;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetDateTimeOffsetTypeMapping : DateTimeOffsetTypeMapping
     {
-        private readonly IJetOptions _options;
         private const string DateTimeOffsetFormatConst = @"'{0:yyyy-MM-ddTHH:mm:ss.fffffffzzz}'";
         private const string DateTimeFormatConst = @"'{0:yyyy-MM-dd HH:mm:ss}'";
+
+        public static new JetDateTimeOffsetTypeMapping Default { get; } = new JetDateTimeOffsetTypeMapping("datetime");
         public JetDateTimeOffsetTypeMapping(
-                string storeType,
-                IJetOptions options)
+                string storeType)
             : base(
                 storeType, System.Data.DbType.DateTime)
         {
-            _options = options;
         }
 
-        protected JetDateTimeOffsetTypeMapping(RelationalTypeMappingParameters parameters, IJetOptions options)
+        protected JetDateTimeOffsetTypeMapping(RelationalTypeMappingParameters parameters)
             : base(parameters)
         {
-            _options = options;
         }
 
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-            => new JetDateTimeOffsetTypeMapping(parameters, _options);
+            => new JetDateTimeOffsetTypeMapping(parameters);
 
         protected override void ConfigureParameter(DbParameter parameter)
         {

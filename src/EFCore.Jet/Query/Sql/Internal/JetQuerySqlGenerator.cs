@@ -159,11 +159,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                             }
 
                             Sql.Append($"`{exp.Name}` IS NOT NULL");
+                            // Fix: check then append, don't mix increment into the block
                             if (ct < colexp.Count - 1)
-                            {
-                                ct++;
                                 Sql.Append(" AND ");
-                            }
+                            ct++;
                         }
                     }
 
@@ -207,108 +206,199 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             return selectExpression;
         }
 
-        private void VisitJetTables(IReadOnlyList<TableExpressionBase> Tables, bool addfromsql, out List<ColumnExpression> colexp)
+        private void VisitJetTables(IReadOnlyList<TableExpressionBase> tables, bool addFromSql, out List<ColumnExpression> colexp)
         {
             colexp = [];
-            // Implement Jet's non-standard JOIN syntax and DUAL table workaround.
-            // TODO: This does not properly handle all cases (especially when cross joins are involved).
-            if (Tables.Any())
+            if (!tables.Any())
             {
-                if (addfromsql)
+                GeneratePseudoFromClause();
+                return;
+            }
+
+            if (addFromSql)
+                Sql.AppendLine().Append("FROM ");
+
+            if (tables.Any(t => t is CrossJoinExpression or CrossApplyExpression))
+                VisitJetTablesGrouped(tables, colexp);
+            else
+                VisitJetTablesLinear(tables, colexp);
+        }
+
+        // No cross joins: existing linear parenthesization algorithm.
+        private void VisitJetTablesLinear(IReadOnlyList<TableExpressionBase> tables, List<ColumnExpression> colexp)
+        {
+            const int maxTablesWithoutBrackets = 2;
+            var nonCrossTableCount = tables.Count(t => t is not CrossJoinExpression and not CrossApplyExpression);
+            Sql.Append(new string('(', Math.Max(0, nonCrossTableCount - maxTablesWithoutBrackets)));
+
+            var nonCrossTablesSeen = 0;
+            for (var index = 0; index < tables.Count; index++)
+            {
+                var tableExpression = tables[index];
+                var isCrossExpression = tableExpression is CrossJoinExpression or CrossApplyExpression;
+
+                if (tableExpression is CrossApplyExpression or OuterApplyExpression)
+                    throw new UnreachableException();
+
+                if (!isCrossExpression)
+                    nonCrossTablesSeen++;
+
+                if (index > 0)
                 {
-                    Sql.AppendLine().Append("FROM ");
+                    if (isCrossExpression)
+                        Sql.Append(",");
+                    else if (nonCrossTablesSeen > maxTablesWithoutBrackets)
+                        Sql.Append(")");
+
+                    Sql.AppendLine();
                 }
 
-                const int maxTablesWithoutBrackets = 2;
-
-                var nonCrossTableCount = Tables.Count(t => t is not CrossJoinExpression and not CrossApplyExpression);
-
-                Sql.Append(
-                    new string(
-                        '(',
-                        Math.Max(0, nonCrossTableCount - maxTablesWithoutBrackets)));
-
-                var nonCrossTablesSeen = 0;
-
-                for (var index = 0; index < Tables.Count; index++)
+                if (tableExpression is InnerJoinExpression innerJoin)
                 {
-                    var tableExpression = Tables[index];
-
-                    var isApplyExpression = tableExpression is CrossApplyExpression or OuterApplyExpression;
-                    var isCrossExpression = tableExpression is CrossJoinExpression or CrossApplyExpression;
-                    var isNonCrossExpression = !isCrossExpression;
-
-                    if (isApplyExpression)
+                    var tempcolexp = innerJoin.JoinPredicate switch
                     {
-                        throw new UnreachableException();
-                    }
+                        SqlBinaryExpression bin => ExtractColumnExpressions(bin),
+                        SqlUnaryExpression unary => ExtractColumnExpressions(unary),
+                        _ => (List<ColumnExpression>)[]
+                    };
 
-                    if (isNonCrossExpression)
-                    {
-                        nonCrossTablesSeen++;
-                    }
-
-                    if (index > 0)
-                    {
-                        if (isCrossExpression)
-                        {
-                            Sql.Append(",");
-                        }
-                        else if (nonCrossTablesSeen > maxTablesWithoutBrackets)
-                        {
-                            Sql.Append(")");
-                        }
-
-                        Sql.AppendLine();
-                    }
-
-                    List<ColumnExpression> tempcolexp;
-                    if (tableExpression is InnerJoinExpression expression)
-                    {
-                        if (expression.JoinPredicate is SqlBinaryExpression binaryJoin)
-                        {
-                            tempcolexp = ExtractColumnExpressions(binaryJoin);
-                        }
-                        else if (expression.JoinPredicate is SqlUnaryExpression unaryJoin)
-                        {
-                            tempcolexp = ExtractColumnExpressions(unaryJoin);
-                        }
-                        else
-                        {
-                            tempcolexp = [];
-                        }
-
-                        var referencesFirstTable = false;
-                        foreach (var col in tempcolexp)
-                        {
-                            if (col.TableAlias == Tables[0].Alias)
-                            {
-                                referencesFirstTable = true;
-                                break;
-                            }
-                        }
-
-                        if (referencesFirstTable)
-                        {
-                            Visit(tableExpression);
-                            continue;
-                        }
-
-                        colexp.AddRange(tempcolexp);
-                        Sql.Append("LEFT JOIN ");
-                        Visit(expression.Table);
-                        Sql.Append(" ON ");
-                        Visit(expression.JoinPredicate);
-                    }
-                    else
+                    if (tempcolexp.Any(col => col.TableAlias == tables[0].Alias))
                     {
                         Visit(tableExpression);
                     }
+                    else
+                    {
+                        colexp.AddRange(tempcolexp);
+                        Sql.Append("LEFT JOIN ");
+                        Visit(innerJoin.Table);
+                        Sql.Append(" ON ");
+                        Visit(innerJoin.JoinPredicate);
+                    }
+                }
+                else
+                {
+                    Visit(tableExpression);
+                }
+            }
+        }
+
+        // Cross joins present: group each primary table with its associated joins so that
+        // each group is parenthesized independently before being comma-cross-joined.
+        // Jet rejects mixing comma (cross-join) and explicit JOIN at the same paren level.
+        private void VisitJetTablesGrouped(IReadOnlyList<TableExpressionBase> tables, List<ColumnExpression> colexp)
+        {
+            var groups = new List<(TableExpressionBase Primary, List<PredicateJoinExpressionBase> Joins, HashSet<string> OwnedAliases)>();
+
+            foreach (var table in tables)
+            {
+                switch (table)
+                {
+                    case CrossApplyExpression or OuterApplyExpression:
+                        throw new UnreachableException();
+                    case CrossJoinExpression cj:
+                        groups.Add((cj.Table, [], new HashSet<string> { cj.Table.Alias! }));
+                        break;
+                    case PredicateJoinExpressionBase join:
+                        var predicateAliases = ExtractTableAliases(join.JoinPredicate);
+                        var owner = groups.FirstOrDefault(g => g.OwnedAliases.Overlaps(predicateAliases));
+                        if (owner.Primary != null)
+                        {
+                            owner.Joins.Add(join);
+                            owner.OwnedAliases.Add(join.Table.Alias!);
+                        }
+                        else
+                        {
+                            var last = groups[^1];
+                            last.Joins.Add(join);
+                            last.OwnedAliases.Add(join.Table.Alias!);
+                        }
+                        break;
+                    default:
+                        groups.Add((table, [], new HashSet<string> { table.Alias! }));
+                        break;
+                }
+            }
+
+            for (var i = 0; i < groups.Count; i++)
+            {
+                if (i > 0)
+                    Sql.Append(",").AppendLine();
+
+                var (primary, joins, _) = groups[i];
+                var groupTableCount = 1 + joins.Count;
+
+                if (joins.Count > 0)
+                    Sql.Append("(");
+
+                Sql.Append(new string('(', Math.Max(0, groupTableCount - 2)));
+
+                Visit(primary);
+
+                var nonSeen = 1;
+                foreach (var join in joins)
+                {
+                    nonSeen++;
+                    if (nonSeen > 2)
+                        Sql.Append(")");
+
+                    Sql.AppendLine();
+                    EmitJoinInGroup(join, primary, colexp);
+                }
+
+                if (joins.Count > 0)
+                    Sql.Append(")");
+            }
+        }
+
+        private void EmitJoinInGroup(PredicateJoinExpressionBase join, TableExpressionBase groupPrimary, List<ColumnExpression> colexp)
+        {
+            if (join is InnerJoinExpression innerJoin)
+            {
+                var tempcolexp = innerJoin.JoinPredicate switch
+                {
+                    SqlBinaryExpression bin => ExtractColumnExpressions(bin),
+                    SqlUnaryExpression unary => ExtractColumnExpressions(unary),
+                    _ => (List<ColumnExpression>)[]
+                };
+
+                if (tempcolexp.Any(col => col.TableAlias == groupPrimary.Alias))
+                    Visit(join);
+                else
+                {
+                    colexp.AddRange(tempcolexp);
+                    Sql.Append("LEFT JOIN ");
+                    Visit(innerJoin.Table);
+                    Sql.Append(" ON ");
+                    Visit(innerJoin.JoinPredicate);
                 }
             }
             else
             {
-                GeneratePseudoFromClause();
+                Visit(join);
+            }
+        }
+
+        private HashSet<string> ExtractTableAliases(SqlExpression expression)
+        {
+            var result = new HashSet<string>();
+            CollectTableAliases(expression, result);
+            return result;
+        }
+
+        private static void CollectTableAliases(SqlExpression expression, HashSet<string> result)
+        {
+            switch (expression)
+            {
+                case ColumnExpression col:
+                    result.Add(col.TableAlias);
+                    break;
+                case SqlBinaryExpression bin:
+                    CollectTableAliases(bin.Left, result);
+                    CollectTableAliases(bin.Right, result);
+                    break;
+                case SqlUnaryExpression unary:
+                    CollectTableAliases(unary.Operand, result);
+                    break;
             }
         }
 
@@ -352,7 +442,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             return result;
         }
-        
+
         protected override Expression VisitProjection(ProjectionExpression projectionExpression)
         {
             if (projectionExpression.Expression is SqlConstantExpression { Value: null } constantExpression && (constantExpression.Type == typeof(int) || constantExpression.Type == typeof(double) || constantExpression.Type == typeof(float) || constantExpression.Type == typeof(decimal) || constantExpression.Type == typeof(short)))
@@ -370,15 +460,25 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             if (columnExpression.IsNullable && _nullNumerics.Contains(columnExpression.Name) && _convertMappings.TryGetValue(columnExpression.Type.Name, out var function))
             {
 
+                bool useValCStrCol = false;//columnExpression.Type.Name is nameof(Decimal) or nameof(Int64);
                 if (parent.TryPeek(out var exp) && exp is SqlBinaryExpression)
                 {
                     Sql.Append("IIF(");
                     base.VisitColumn(columnExpression);
                     Sql.Append(" IS NULL, NULL, ");
-                    Sql.Append(function);
-                    Sql.Append("(");
-                    base.VisitColumn(columnExpression);
-                    Sql.Append(")");
+                    if (useValCStrCol)
+                    {
+                        Sql.Append("Val(CStr(");
+                        base.VisitColumn(columnExpression);
+                        Sql.Append("))");
+                    }
+                    else
+                    {
+                        Sql.Append(function);
+                        Sql.Append("(");
+                        base.VisitColumn(columnExpression);
+                        Sql.Append(")");
+                    }
                     Sql.Append(")");
                     return columnExpression;
                 }
@@ -502,9 +602,18 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 {
                     if (_convertMappings.TryGetValue(sqlParameterExpression.Type.Name, out var conv))
                     {
-                        Sql.Append($"{conv}(");
-                        base.VisitSqlParameter(sqlParameterExpression);
-                        Sql.Append(")");
+                        /*if (sqlParameterExpression.Type.Name is nameof(Decimal) or nameof(Int64))
+                        {
+                            Sql.Append("Val(CStr(");
+                            base.VisitSqlParameter(sqlParameterExpression);
+                            Sql.Append("))");
+                        }
+                        else*/
+                        {
+                            Sql.Append($"{conv}(");
+                            base.VisitSqlParameter(sqlParameterExpression);
+                            Sql.Append(")");
+                        }
                         return sqlParameterExpression;
                     }
                 }
@@ -518,7 +627,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             if (sqlBinaryExpression.OperatorType == ExpressionType.Coalesce)
             {
-                SqlConstantExpression nullcons = new(null,typeof(string), RelationalTypeMapping.NullMapping);
+                SqlConstantExpression nullcons = new(null, typeof(string), RelationalTypeMapping.NullMapping);
                 SqlUnaryExpression isnullexp = new(ExpressionType.Equal, sqlBinaryExpression.Left, typeof(bool), null);
                 List<CaseWhenClause> whenclause = [new CaseWhenClause(isnullexp, sqlBinaryExpression.Right)];
                 CaseExpression caseexp = new(whenclause, sqlBinaryExpression.Left);
@@ -561,7 +670,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         {
             if (sqlConstantExpression.TypeMapping == RelationalTypeMapping.NullMapping && sqlConstantExpression.Value is DateTime)
             {
-                sqlConstantExpression = (SqlConstantExpression)sqlConstantExpression.ApplyTypeMapping(new JetDateTimeTypeMapping("datetime", _options));
+                sqlConstantExpression = (SqlConstantExpression)sqlConstantExpression.ApplyTypeMapping(new JetDateTimeTypeMapping("datetime"));
             }
 
             parent.TryPeek(out var exp);
@@ -588,25 +697,25 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 case ExpressionType.Convert:
                     return VisitJetConvertExpression(sqlUnaryExpression);
                 case ExpressionType.Not when sqlUnaryExpression.Type != typeof(bool):
-                {
-                    Sql.Append(" (BNOT");
-
-                    var requiresBrackets = RequiresParentheses(sqlUnaryExpression, sqlUnaryExpression.Operand);
-                    if (requiresBrackets)
                     {
-                        Sql.Append("(");
-                    }
+                        Sql.Append(" (BNOT");
 
-                    Visit(sqlUnaryExpression.Operand);
-                    if (requiresBrackets)
-                    {
+                        var requiresBrackets = RequiresParentheses(sqlUnaryExpression, sqlUnaryExpression.Operand);
+                        if (requiresBrackets)
+                        {
+                            Sql.Append("(");
+                        }
+
+                        Visit(sqlUnaryExpression.Operand);
+                        if (requiresBrackets)
+                        {
+                            Sql.Append(")");
+                        }
+
                         Sql.Append(")");
+
+                        return sqlUnaryExpression;
                     }
-
-                    Sql.Append(")");
-
-                    return sqlUnaryExpression;
-                }
                 default:
                     return base.VisitSqlUnary(sqlUnaryExpression);
             }
@@ -616,77 +725,101 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         private Expression VisitJetConvertExpression(SqlUnaryExpression convertExpression)
         {
             var typeMapping = convertExpression.TypeMapping ?? throw new InvalidOperationException(
-                    RelationalStrings.UnsupportedType(convertExpression.Type.ShortDisplayName()));
+                RelationalStrings.UnsupportedType(convertExpression.Type.ShortDisplayName()));
 
             // We are explicitly converting to the target type (convertExpression.Type) and not the CLR type of the
-            // accociated type mapping. This allows for conversions on the database side (e.g. CDBL()) but handling
+            // associated type mapping. This allows for conversions on the database side (e.g. CDBL()) but handling
             // of the returned value using a different (unaligned) type mapping (e.g. date/time related ones).
             if (_convertMappings.TryGetValue(convertExpression.Type.Name, out var function))
             {
                 SqlExpression checksqlexp = convertExpression.Operand;
-
                 SqlExpression? notnullsqlexp = null;
+
+                bool useValCStr = false;//convertExpression.Type.Name is nameof(Decimal) or nameof(Int64);
+
+                /*SqlFunctionExpression WrapConvert(SqlExpression inner) =>
+                    useValCStr
+                        ? new SqlFunctionExpression("Val",
+                            [new SqlFunctionExpression("CStr", [inner], false, [false], typeof(string), null)],
+                            false, [false], typeMapping.ClrType, null)
+                        : new SqlFunctionExpression(function, [inner], false, [false], typeMapping.ClrType, null);*/
+
+                SqlFunctionExpression WrapConvert(SqlExpression inner) =>
+                    useValCStr
+                        ? new SqlFunctionExpression("CVar", [inner],
+                            false, [false], typeMapping.ClrType, null)
+                        : new SqlFunctionExpression(function, [inner], false, [false], typeMapping.ClrType, null);
+
                 if (convertExpression.TypeMapping is ByteArrayTypeMapping)
                 {
                     notnullsqlexp = checksqlexp;
                 }
                 else
                 {
-                    notnullsqlexp = new SqlFunctionExpression(function, [convertExpression.Operand],
-                        false, [false], typeMapping.ClrType, null);
                     if (convertExpression.Operand.Type == typeof(bool))
                     {
-                        //create a new expression to multiply the result by -1 to flip the boolean value
-                        notnullsqlexp = new SqlBinaryExpression(ExpressionType.Multiply, notnullsqlexp,
-                            new SqlConstantExpression(-1, IntTypeMapping.Default), notnullsqlexp.Type, notnullsqlexp.TypeMapping);
-                    }
+                        if (convertExpression.Type == typeof(bool))
+                        {
+                            // bool?bool: no flip needed, CBOOL(x) correctly returns true for any non-zero
+                            notnullsqlexp = WrapConvert(convertExpression.Operand);
+                        }
+                        else
+                        {
+                            // bool?numeric: flip inside conversion function
+                            // CBYTE/CINT/CLNG etc. need 0/1 not 0/-1
+                            var flippedOperand = new SqlBinaryExpression(
+                                ExpressionType.Multiply,
+                                convertExpression.Operand,
+                                new SqlConstantExpression(-1, IntTypeMapping.Default),
+                                convertExpression.Operand.Type,
+                                convertExpression.Operand.TypeMapping);
 
+                            notnullsqlexp = WrapConvert(flippedOperand);
+                        }
+                    }
+                    else
+                    {
+                        notnullsqlexp = WrapConvert(convertExpression.Operand);
+                    }
                 }
 
-                SqlConstantExpression nullcons = new(null,typeof(string), RelationalTypeMapping.NullMapping);
+                SqlConstantExpression nullcons = new(null, typeof(string), RelationalTypeMapping.NullMapping);
                 SqlUnaryExpression isnullexp = new(ExpressionType.Equal, checksqlexp, typeof(bool), null);
                 List<CaseWhenClause> whenclause =
                 [
                     new CaseWhenClause(isnullexp, nullcons)
                 ];
                 CaseExpression caseexp = new(whenclause, notnullsqlexp);
+
                 switch (checksqlexp)
                 {
                     case ColumnExpression { IsNullable: true }:
                         Visit(caseexp);
                         break;
-                    case ColumnExpression columnExpression:
+                    case ColumnExpression:
                         Visit(notnullsqlexp);
                         break;
-                    case SqlFunctionExpression { IsNullable: true, ArgumentsPropagateNullability: not null } functionExpression when functionExpression.ArgumentsPropagateNullability.Any(d => d):
+                    case SqlFunctionExpression { IsNullable: true, ArgumentsPropagateNullability: not null } functionExpression
+                        when functionExpression.ArgumentsPropagateNullability.Any(d => d):
                         Visit(caseexp);
                         break;
-                    case SqlFunctionExpression functionExpression:
+                    case SqlFunctionExpression:
                         Visit(notnullsqlexp);
                         break;
                     case SqlBinaryExpression binaryExpression:
-                    {
-                        ColumnExpression? columnExpressionLeft = binaryExpression.Left as ColumnExpression;
-                        SqlFunctionExpression? functionExpressionLeft = binaryExpression.Left as SqlFunctionExpression;
-                        ColumnExpression? columnExpressionRight = binaryExpression.Right as ColumnExpression;
-                        SqlFunctionExpression? functionExpressionRight = binaryExpression.Right as SqlFunctionExpression;
-                        var leftnull = columnExpressionLeft is { IsNullable: true } ||
-                            functionExpressionLeft is { IsNullable: true };
-                        var rightnull = columnExpressionRight is { IsNullable: true } ||
-                            functionExpressionRight is { IsNullable: true };
-
-                        if (leftnull || rightnull)
                         {
-                            Visit(caseexp);
-                        }
-                        else
-                        {
-                            Visit(notnullsqlexp);
-                        }
+                            static bool IsNullable(SqlExpression? e) =>
+                                e is ColumnExpression { IsNullable: true }
+                                or SqlFunctionExpression { IsNullable: true };
 
-                        break;
-                    }
-                    case SqlUnaryExpression unaryExpression:
+                            if (IsNullable(binaryExpression.Left) || IsNullable(binaryExpression.Right))
+                                Visit(caseexp);
+                            else
+                                Visit(notnullsqlexp);
+
+                            break;
+                        }
+                    case SqlUnaryExpression:
                     case SqlConstantExpression { Value: not null }:
                         Visit(notnullsqlexp);
                         break;
@@ -695,7 +828,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                         break;
                 }
 
-                return notnullsqlexp;
+                return convertExpression;
             }
 
             if (typeMapping.ClrType.Name == nameof(String))
@@ -875,6 +1008,72 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
                 Visit(lastcaseexp);
                 return sqlFunctionExpression;
+            }
+
+            if (sqlFunctionExpression.Name.Equals("REPLACE", StringComparison.OrdinalIgnoreCase) &&
+                sqlFunctionExpression.Arguments is { Count: 3 })
+            {
+                // Access VBA's Replace() throws "Type mismatch" when ANY argument is NULL rather than
+                // propagating NULL as relational semantics require. Access IIF is also non-short-circuit
+                // (evaluates both branches), so a simple IIF wrapper doesn't prevent the crash.
+                // Solution: outer IIF returns NULL when any nullable arg IS NULL, while inner IIFs
+                // substitute safe non-NULL placeholders so REPLACE never actually receives NULL.
+                static SqlExpression? GetNullableTarget(SqlExpression arg) => arg switch
+                {
+                    ColumnExpression { IsNullable: true } col => col,
+                    SqlUnaryExpression { OperatorType: ExpressionType.Convert, Operand: ColumnExpression { IsNullable: true } inner } => inner,
+                    SqlUnaryExpression { OperatorType: ExpressionType.Convert, Operand: SqlFunctionExpression { IsNullable: true } inner } => inner,
+                    _ => null
+                };
+
+                var arg0Check = GetNullableTarget(sqlFunctionExpression.Arguments[0]);
+                var arg1Check = GetNullableTarget(sqlFunctionExpression.Arguments[1]);
+                var arg2Check = GetNullableTarget(sqlFunctionExpression.Arguments[2]);
+
+                if (arg0Check != null || arg1Check != null || arg2Check != null)
+                {
+                    Sql.Append("IIF(");
+                    var nullChecks = new SqlExpression?[] { arg0Check, arg1Check, arg2Check }
+                        .Where(c => c != null).ToList();
+                    for (int i = 0; i < nullChecks.Count; i++)
+                    {
+                        if (i > 0) Sql.Append(" OR ");
+                        Visit(nullChecks[i]!);
+                        Sql.Append(" IS NULL");
+                    }
+                    Sql.Append(", NULL, REPLACE(");
+
+                    // Arg 0 (expression): '' prevents Type mismatch if NULL slips past outer IIF
+                    if (arg0Check != null)
+                    {
+                        Sql.Append("IIF("); Visit(arg0Check); Sql.Append(" IS NULL, '', ");
+                        Visit(sqlFunctionExpression.Arguments[0]); Sql.Append(")");
+                    }
+                    else Visit(sqlFunctionExpression.Arguments[0]);
+
+                    Sql.Append(", ");
+
+                    // Arg 1 (find): CHR(1) is a safe non-empty placeholder unlikely to appear in data
+                    if (arg1Check != null)
+                    {
+                        Sql.Append("IIF("); Visit(arg1Check); Sql.Append(" IS NULL, CHR(1), ");
+                        Visit(sqlFunctionExpression.Arguments[1]); Sql.Append(")");
+                    }
+                    else Visit(sqlFunctionExpression.Arguments[1]);
+
+                    Sql.Append(", ");
+
+                    // Arg 2 (replacewith): CHR(1) placeholder; result is discarded by outer IIF anyway
+                    if (arg2Check != null)
+                    {
+                        Sql.Append("IIF("); Visit(arg2Check); Sql.Append(" IS NULL, CHR(1), ");
+                        Visit(sqlFunctionExpression.Arguments[2]); Sql.Append(")");
+                    }
+                    else Visit(sqlFunctionExpression.Arguments[2]);
+
+                    Sql.Append("))");
+                    return sqlFunctionExpression;
+                }
             }
 
             if (sqlFunctionExpression.Name.Equals("MID", StringComparison.OrdinalIgnoreCase) &&

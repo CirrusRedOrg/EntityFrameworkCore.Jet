@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using EntityFrameworkCore.Jet.Scaffolding.Internal;
+using Microsoft.EntityFrameworkCore.Design.Internal;
 
 namespace EntityFrameworkCore.Jet.Design.Internal
 {
@@ -24,6 +25,7 @@ namespace EntityFrameworkCore.Jet.Design.Internal
 #pragma warning disable EF1001 // Internal EF Core API usage.
             new EntityFrameworkRelationalDesignServicesBuilder(serviceCollection)
                 .TryAdd<IAnnotationCodeGenerator, JetAnnotationCodeGenerator>()
+                .TryAdd<ICSharpRuntimeAnnotationCodeGenerator, JetCSharpRuntimeAnnotationCodeGenerator>()
 #pragma warning restore EF1001 // Internal EF Core API usage.
                 .TryAdd<IDatabaseModelFactory, JetDatabaseModelFactory>()
                 .TryAdd<IProviderConfigurationCodeGenerator, JetCodeGenerator>()

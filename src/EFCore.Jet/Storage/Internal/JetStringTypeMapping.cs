@@ -14,6 +14,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly bool _keepLineBreakCharacters;
         private readonly int _maxSpecificSize;
 
+        public static new JetStringTypeMapping Default { get; } = new();
+
         private static readonly CaseInsensitiveValueComparer CaseInsensitiveValueComparer = new();
 
         /// <summary>
@@ -22,7 +24,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// </summary>
         public JetStringTypeMapping(
             string? storeType = null,
-            bool unicode = false,
+            bool unicode = true ,
             int? size = null,
             bool fixedLength = false,
             StoreTypePostfix? storeTypePostfix = null,

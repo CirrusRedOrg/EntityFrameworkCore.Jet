@@ -213,6 +213,7 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
             JetConnection.ClearAllPools();
 
             fileName = ExpandFileName(fileName);
+            ValidateDatabaseFileExtension(fileName);
             
             var directoryPath = Path.GetDirectoryName(fileName) ?? string.Empty;
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
@@ -237,6 +238,17 @@ namespace EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition
                 !string.Equals(extension, ".accdb", StringComparison.OrdinalIgnoreCase))
             {
                 File.Delete(Path.Combine(directoryPath, fileNameWithoutExtension + ".ldb"));
+            }
+        }
+
+        private static void ValidateDatabaseFileExtension(string fileName)
+        {
+            var extension = Path.GetExtension(fileName);
+            if (!string.Equals(extension, ".accdb", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(extension, ".mdb", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Only .accdb and .mdb database files can be dropped. The supplied path has extension '{extension}'.");
             }
         }
 

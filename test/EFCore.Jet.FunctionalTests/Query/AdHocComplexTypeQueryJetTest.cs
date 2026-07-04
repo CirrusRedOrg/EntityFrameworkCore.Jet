@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
-public class AdHocComplexTypeQueryJetTest(NonSharedFixture fixture) : AdHocComplexTypeQueryTestBase(fixture)
+public class AdHocComplexTypeQueryJetTest(NonSharedFixture fixture) : AdHocComplexTypeQueryRelationalTestBase(fixture)
 {
     public override async Task Complex_type_equals_parameter_with_nested_types_with_property_of_same_name()
     {
@@ -24,6 +24,29 @@ public class AdHocComplexTypeQueryJetTest(NonSharedFixture fixture) : AdHocCompl
 SELECT TOP 2 `e`.`Id`, `e`.`ComplexContainer_Id`, `e`.`ComplexContainer_Containee1_Id`, `e`.`ComplexContainer_Containee2_Id`
 FROM `EntityType` AS `e`
 WHERE `e`.`ComplexContainer_Id` = @entity_equality_container_Id AND `e`.`ComplexContainer_Containee1_Id` = @entity_equality_container_Containee1_Id AND `e`.`ComplexContainer_Containee2_Id` = @entity_equality_container_Containee2_Id
+""");
+    }
+
+    public override async Task Projecting_complex_property_does_not_auto_include_owned_types()
+    {
+        await base.Projecting_complex_property_does_not_auto_include_owned_types();
+
+        AssertSql(
+            """
+SELECT `e`.`Complex_Name`, `e`.`Complex_Number`
+FROM `EntityType` AS `e`
+""");
+    }
+
+    public override async Task Complex_type_equality_with_non_default_type_mapping()
+    {
+        await base.Complex_type_equality_with_non_default_type_mapping();
+
+        AssertSql(
+            """
+SELECT COUNT(*)
+FROM `EntityType` AS `e`
+WHERE `e`.`ComplexThing_DateTime` = #2020-01-01 01:01:01#
 """);
     }
 

@@ -3,32 +3,27 @@
 using System.Data;
 using System.Globalization;
 using System.Text;
-using EntityFrameworkCore.Jet.Data;
-using EntityFrameworkCore.Jet.Infrastructure.Internal;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetDateOnlyTypeMapping : DateOnlyTypeMapping
     {
-        private readonly IJetOptions _options;
 
+        public static new JetDateOnlyTypeMapping Default { get; } = new JetDateOnlyTypeMapping("date", dbType: System.Data.DbType.Date);
         public JetDateOnlyTypeMapping(
             string storeType,
-            IJetOptions options,
             DbType? dbType = null)
             : base(storeType)
         {
-            _options = options;
         }
 
-        protected JetDateOnlyTypeMapping(RelationalTypeMappingParameters parameters, IJetOptions options)
+        protected JetDateOnlyTypeMapping(RelationalTypeMappingParameters parameters)
             : base(parameters)
         {
-            _options = options;
         }
 
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-            => new JetDateOnlyTypeMapping(parameters, _options);
+            => new JetDateOnlyTypeMapping(parameters);
 
         protected override void ConfigureParameter(DbParameter parameter)
         {

@@ -38,11 +38,10 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
         switch (expression)
         {
             case ShapedQueryExpression shapedQueryExpression:
-                shapedQueryExpression = shapedQueryExpression
-                    .UpdateQueryExpression(Visit(shapedQueryExpression.QueryExpression))
-                    .UpdateShaperExpression(Visit(shapedQueryExpression.ShaperExpression));
+                return shapedQueryExpression.Update(
+                    (SelectExpression)Visit(shapedQueryExpression.QueryExpression),
+                    Visit(shapedQueryExpression.ShaperExpression));
 
-                return shapedQueryExpression.UpdateShaperExpression(Visit(shapedQueryExpression.ShaperExpression));
             case RelationalSplitCollectionShaperExpression relationalSplitCollectionShaperExpression:
                 var newSelect = Visit(relationalSplitCollectionShaperExpression.SelectExpression);
                 var newInner = Visit(relationalSplitCollectionShaperExpression.InnerShaper);

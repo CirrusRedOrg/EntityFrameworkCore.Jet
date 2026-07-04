@@ -87,6 +87,20 @@ namespace EntityFrameworkCore.Jet.Data.Tests
         }
 
         [TestMethod]
+        public void Odbc_connection_string_preserves_native_driver_braces_when_normalized()
+        {
+            const string connectionString = """driver="{Microsoft Access Driver (*.mdb, *.accdb)}";dbq=D:\toolkits\myefcorejet9\test\EFCore.Jet.Data.Tests\bin\x86\Debug\net10.0-windows7.0\ConnectionPoolingTest.accdb;extendedansisql=1""";
+
+            var normalizedConnectionString = JetConnection.GetConnectionString(connectionString, OdbcFactory.Instance);
+
+            StringAssert.Contains(normalizedConnectionString, "Driver={Microsoft Access Driver (*.mdb, *.accdb)}");
+            Assert.IsFalse(
+                normalizedConnectionString.Contains("driver=\"{Microsoft Access Driver (*.mdb, *.accdb)}\"", System.StringComparison.OrdinalIgnoreCase),
+                normalizedConnectionString);
+            StringAssert.Contains(normalizedConnectionString, "extendedansisql=1");
+        }
+
+        [TestMethod]
         public void OleDb_read_connection_string_with_all_properties()
         {
             const string connectionString = @"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=ConnectionStringTest.accdb;User ID=Admin;Password=hunter2;Jet OLEDB:System Database=SysDb;Jet OLEDB:Database Password=DbPwd";
@@ -98,6 +112,26 @@ namespace EntityFrameworkCore.Jet.Data.Tests
             Assert.AreEqual("hunter2", csb.Password);
             Assert.AreEqual("SysDb", csb.SystemDatabase);
             Assert.AreEqual("DbPwd", csb.DatabasePassword);
+        }
+
+        [TestMethod]
+        public void OleDb_connection_string_preserves_extra_keywords_when_normalized()
+        {
+            const string connectionString = @"Provider=Microsoft.ACE.OLEDB.12.0;Jet OLEDB:Engine Type=4;Jet OLEDB:MaxLocksPerFile=100000;Mode=Share Deny None;Persist Security Info=False;Extended Properties='MaxLocksPerFile=100000';Data Source=c:\Temp\Access97EF\test.mdb;";
+
+            var normalizedConnectionString = JetConnection.GetConnectionString(connectionString, OleDbFactory.Instance);
+            var csb = new JetConnectionStringBuilder(DataAccessProviderType.OleDb) { ConnectionString = normalizedConnectionString };
+
+            Assert.IsTrue(csb.TryGetValue("Jet OLEDB:Engine Type", out var engineType), normalizedConnectionString);
+            Assert.AreEqual("4", engineType);
+            Assert.IsTrue(csb.TryGetValue("Jet OLEDB:MaxLocksPerFile", out var maxLocksPerFile), normalizedConnectionString);
+            Assert.AreEqual("100000", maxLocksPerFile);
+            Assert.IsTrue(csb.TryGetValue("Mode", out var mode), normalizedConnectionString);
+            Assert.AreEqual("Share Deny None", mode);
+            Assert.IsTrue(csb.TryGetValue("Persist Security Info", out var persistSecurityInfo), normalizedConnectionString);
+            Assert.AreEqual("False", persistSecurityInfo);
+            Assert.IsTrue(csb.TryGetValue("Extended Properties", out var extendedProperties), normalizedConnectionString);
+            Assert.AreEqual("MaxLocksPerFile=100000", extendedProperties);
         }
 
         [TestMethod]

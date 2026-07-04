@@ -67,6 +67,8 @@ namespace EntityFrameworkCore.Jet.Data
             }
             finally
             {
+                if (disposing)
+                    WrappedTransaction.Dispose();
                 _disposed = true;
                 _connection = null;
 

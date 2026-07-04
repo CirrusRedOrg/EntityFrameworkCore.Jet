@@ -64,12 +64,6 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
         /// </summary>
         public override IEnumerable<IAnnotation> For(IColumn column, bool designTime)
         {
-            //Need to do this in both design and runtime
-            if (!designTime)
-            {
-                yield break;
-            }
-
             var table = StoreObjectIdentifier.Table(column.Table.Name, column.Table.Schema);
             var property = column.PropertyMappings
                 .Select(m => m.Property)
@@ -78,8 +72,22 @@ namespace EntityFrameworkCore.Jet.Metadata.Internal
                          == JetValueGenerationStrategy.IdentityColumn);
             if (property != null)
             {
-                var seed = property.GetJetIdentitySeed(table);
-                var increment = property.GetJetIdentityIncrement(table);
+                // RuntimeProperty (compiled model) throws on the table-specific overloads since
+                // per-table overrides aren't stored in the compiled model; fall back to model-level
+                // using direct annotation access to avoid the RuntimeModel guards on the extensions.
+                int? seed, increment;
+                if (property is RuntimeProperty)
+                {
+                    seed = (int?)property[JetAnnotationNames.IdentitySeed]
+                        ?? property.DeclaringType.Model.GetJetIdentitySeed();
+                    increment = (int?)property[JetAnnotationNames.IdentityIncrement]
+                        ?? property.DeclaringType.Model.GetJetIdentityIncrement();
+                }
+                else
+                {
+                    seed = property.GetJetIdentitySeed(table);
+                    increment = property.GetJetIdentityIncrement(table);
+                }
 
                 yield return new Annotation(
                     JetAnnotationNames.Identity,

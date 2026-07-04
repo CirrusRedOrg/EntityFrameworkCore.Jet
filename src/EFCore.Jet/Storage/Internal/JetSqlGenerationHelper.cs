@@ -26,7 +26,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             Check.NotEmpty(identifier, nameof(identifier));
 
             identifier = identifier
-                .Replace(".", "#");
+                .Replace(".", "#")
+                .Replace("`", "``");
 
             return identifier;
         }
@@ -40,7 +41,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             Check.NotEmpty(identifier, nameof(identifier));
 
             identifier = identifier
-                .Replace(".", "#");
+                .Replace(".", "#")
+                .Replace("`", "``");
             
             builder.Append(identifier);
         }

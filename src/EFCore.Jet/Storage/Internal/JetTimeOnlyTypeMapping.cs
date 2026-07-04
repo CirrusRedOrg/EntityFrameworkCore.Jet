@@ -6,20 +6,16 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetTimeOnlyTypeMapping : TimeOnlyTypeMapping
     {
-        private readonly IJetOptions _options;
-
+        public static new JetTimeOnlyTypeMapping Default { get; } = new JetTimeOnlyTypeMapping("time");
         public JetTimeOnlyTypeMapping(
-                string storeType,
-                IJetOptions options)
+                string storeType)
             : base(storeType)
         {
-            _options = options;
         }
 
-        protected JetTimeOnlyTypeMapping(RelationalTypeMappingParameters parameters, IJetOptions options)
+        protected JetTimeOnlyTypeMapping(RelationalTypeMappingParameters parameters)
             : base(parameters)
         {
-            _options = options;
         }
 
         protected override void ConfigureParameter(DbParameter parameter)
@@ -34,20 +30,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         }
 
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-            => new JetTimeOnlyTypeMapping(parameters, _options);
+            => new JetTimeOnlyTypeMapping(parameters);
 
         protected override string GenerateNonNullSqlLiteral(object value)
         {
-            //Format time without any milliseconds
-            if (!_options.EnableMillisecondsSupport)
-            {
-                return FormattableString.Invariant($@"TIMEVALUE('{value:HH\:mm\:ss}')");
-            }
-            else
-            {
-                //TODO: Treat as double
-                return "";
-            }
+            return FormattableString.Invariant($@"TIMEVALUE('{value:HH\:mm\:ss}')");
         }
 
         protected override string ProcessStoreType(RelationalTypeMappingParameters parameters, string storeType, string storeTypeNameBase)

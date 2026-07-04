@@ -6,6 +6,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetFloatTypeMapping : FloatTypeMapping
     {
+        public static new JetFloatTypeMapping Default { get; } = new("single");
         public JetFloatTypeMapping(
             string storeType)
             : base(storeType, System.Data.DbType.Single)

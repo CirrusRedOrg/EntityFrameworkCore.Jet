@@ -58,21 +58,31 @@ public class JetDateOnlyMethodTranslator(ISqlExpressionFactory sqlExpressionFact
                     return null;
                 }
 
-                return _sqlExpressionFactory.Function(
-                    "DATETIME2FROMPARTS",
-                    [
-                        MapDatePartExpression("yyyy", instance),
-                        MapDatePartExpression("m", instance),
-                        MapDatePartExpression("d", instance),
-                        MapDatePartExpression("h", timeOnly),
-                        MapDatePartExpression("n", timeOnly),
-                        MapDatePartExpression("s", timeOnly),
-                        MapDatePartExpression("fraction", timeOnly),
-                        _sqlExpressionFactory.Constant(7, typeof(int)),
-                    ],
-                    nullable: true,
-                    argumentsPropagateNullability: [true, true, true, true, true, true, true, false],
-                    typeof(DateTime));
+                var datePart1 =
+                    _sqlExpressionFactory.Function(
+                        "DateSerial",
+                        [
+                            MapDatePartExpression("yyyy", instance),
+                            MapDatePartExpression("m", instance),
+                            MapDatePartExpression("d", instance)
+                        ],
+                        nullable: true,
+                        argumentsPropagateNullability: [true, true, true],
+                        typeof(DateTime));
+
+                var timePart =
+                    _sqlExpressionFactory.Function(
+                        "TimeSerial",
+                        [
+                            MapDatePartExpression("h", timeOnly),
+                            MapDatePartExpression("n", timeOnly),
+                            MapDatePartExpression("s", timeOnly)
+                        ],
+                        nullable: true,
+                        argumentsPropagateNullability: [true, true, true],
+                        typeof(DateTime));
+
+                return _sqlExpressionFactory.Add(datePart1, timePart);
             }
 
             if (_methodInfoDatePartMapping.TryGetValue(method, out var datePart))

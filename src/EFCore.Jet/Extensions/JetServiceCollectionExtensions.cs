@@ -53,6 +53,7 @@ namespace Microsoft.Extensions.DependencyInjection
                 .TryAdd<IQuerySqlGeneratorFactory, JetQuerySqlGeneratorFactory>()
                 .TryAdd<IRelationalSqlTranslatingExpressionVisitorFactory, JetSqlTranslatingExpressionVisitorFactory>()
                 .TryAdd<ISqlExpressionFactory, JetSqlExpressionFactory>()
+                .TryAdd<IQueryTranslationPreprocessorFactory, JetQueryTranslationPreprocessorFactory>()
                 .TryAdd<IQueryTranslationPostprocessorFactory, JetQueryTranslationPostprocessorFactory>()
                 .TryAdd<IRelationalTransactionFactory, JetTransactionFactory>()
                 .TryAdd<IRelationalParameterBasedSqlProcessorFactory, JetParameterBasedSqlProcessorFactory>()

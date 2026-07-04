@@ -126,13 +126,13 @@ ORDER BY `e2`.`c`, `e2`.`Id`
 
         AssertSql(
 """
-SELECT [e].[Id], [e].[CollectionInverseId], [e].[ExtraId], [e].[Name], [e].[ReferenceInverseId]
-FROM [EntityTwos] AS [e]
-WHERE (
-    SELECT COUNT_BIG(*)
-    FROM [JoinTwoToThree] AS [j]
-    INNER JOIN [EntityThrees] AS [e0] ON [j].[ThreeId] = [e0].[Id]
-    WHERE [e].[Id] = [j].[TwoId]) > CAST(0 AS bigint)
+SELECT `e`.`Id`, `e`.`CollectionInverseId`, `e`.`ExtraId`, `e`.`Name`, `e`.`ReferenceInverseId`
+FROM `EntityTwos` AS `e`
+WHERE EXISTS (
+    SELECT 1
+    FROM `JoinTwoToThree` AS `j`
+    INNER JOIN `EntityThrees` AS `e0` ON `j`.`ThreeId` = `e0`.`Id`
+    WHERE `e`.`Id` = `j`.`TwoId`)
 """);
     }
 

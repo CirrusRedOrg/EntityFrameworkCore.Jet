@@ -4,6 +4,9 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetLongTypeMapping : LongTypeMapping
     {
+        public static new JetLongTypeMapping Default { get; } = new("decimal(20, 0)", precision: 20, scale: 0,
+            StoreTypePostfix.PrecisionAndScale);
+
         public JetLongTypeMapping(string storeType,
             int? precision = null,
             int? scale = null,

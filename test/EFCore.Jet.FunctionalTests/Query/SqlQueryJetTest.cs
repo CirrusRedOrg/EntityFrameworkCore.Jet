@@ -470,7 +470,7 @@ SELECT `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`Con
 FROM (
     SELECT * FROM `Customers`
 ) AS `m`
-WHERE MID(`m`.`ContactName`, 0 + 1, 1) = MID(`m`.`CompanyName`, 0 + 1, 1)
+WHERE MID(`m`.`ContactName`, IIF(0 = -1, 0, 0) + 1, 1) = MID(`m`.`CompanyName`, IIF(0 = -1, 0, 0) + 1, 1)
 """);
     }
 

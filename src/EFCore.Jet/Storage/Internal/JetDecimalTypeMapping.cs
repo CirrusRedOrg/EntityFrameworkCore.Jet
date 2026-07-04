@@ -11,6 +11,8 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     /// </summary>
     public class JetDecimalTypeMapping : DecimalTypeMapping
     {
+
+        public static new JetDecimalTypeMapping Default { get; } = new("decimal(18,2)", System.Data.DbType.Decimal, precision: 18, scale: 2, StoreTypePostfix.PrecisionAndScale);
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
         ///     the same compatibility standards as public APIs. It may be changed or removed without notice in

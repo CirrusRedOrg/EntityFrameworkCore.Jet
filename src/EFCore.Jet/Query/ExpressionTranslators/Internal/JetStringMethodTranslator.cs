@@ -190,6 +190,15 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     {
                         argument = _sqlExpressionFactory.Coalesce(argument, _sqlExpressionFactory.Constant(0));
                     }
+
+                    argument = _sqlExpressionFactory.Case(
+                        [
+                            new CaseWhenClause(
+                                _sqlExpressionFactory.Equal(argument, _sqlExpressionFactory.Constant(-1)),
+                                _sqlExpressionFactory.Constant(0))
+                        ],
+                        argument);
+
                     return _sqlExpressionFactory.Function(
                         "MID",
                         [

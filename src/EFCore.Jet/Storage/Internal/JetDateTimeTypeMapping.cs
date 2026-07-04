@@ -11,27 +11,24 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
     public class JetDateTimeTypeMapping : DateTimeTypeMapping
     {
         private const int MaxDateTimeDoublePrecision = 10;
-        private static readonly JetDecimalTypeMapping _decimalTypeMapping = new("decimal", System.Data.DbType.Decimal, 18, 10);
-        private readonly IJetOptions _options;
+
+        public static new JetDateTimeTypeMapping Default { get; } = new JetDateTimeTypeMapping("datetime", dbType: System.Data.DbType.DateTime);
 
         public JetDateTimeTypeMapping(
             string storeType,
-            IJetOptions options,
             DbType? dbType = null,
             Type? clrType = null)
             : base(storeType)
         {
-            _options = options;
         }
 
-        protected JetDateTimeTypeMapping(RelationalTypeMappingParameters parameters, IJetOptions options)
+        protected JetDateTimeTypeMapping(RelationalTypeMappingParameters parameters)
             : base(parameters)
         {
-            _options = options;
         }
 
         protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-            => new JetDateTimeTypeMapping(parameters, _options);
+            => new JetDateTimeTypeMapping(parameters);
 
         protected override void ConfigureParameter(DbParameter parameter)
         {
@@ -40,16 +37,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                 parameter.Value = DateTime.FromOADate(0);
             }
             base.ConfigureParameter(parameter);
-
-            if (_options.EnableMillisecondsSupport &&
-                parameter.Value is DateTime dateTime)
-            {
-                parameter.Value = GetDateTimeDoubleValueAsDecimal(dateTime, _options.EnableMillisecondsSupport);
-                parameter.ResetDbType();
-
-                // Necessary to explicitly set for OLE DB, to apply the System.Decimal value as DOUBLE to Jet.
-                parameter.DbType = System.Data.DbType.Double;
-            }
 
             if ((parameter.DbType == System.Data.DbType.Date || StoreTypeNameBase == "date") && parameter.Value is DateTime date)
             {
@@ -71,12 +58,6 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
             var literal = new StringBuilder();
 
-            if (defaultClauseCompatible &&
-                _options.EnableMillisecondsSupport)
-            {
-                return _decimalTypeMapping.GenerateSqlLiteral(GetDateTimeDoubleValueAsDecimal(dateTime, _options.EnableMillisecondsSupport));
-            }
-
             literal.Append(
                 defaultClauseCompatible
                     ? "'"
@@ -95,52 +76,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     ? "'"
                     : "#");
 
-            if (_options.EnableMillisecondsSupport &&
-                time != TimeSpan.Zero)
-            {
-                // Round to milliseconds.
-                var millisecondsTicks = time.Ticks % TimeSpan.TicksPerSecond / TimeSpan.TicksPerMillisecond * TimeSpan.TicksPerMillisecond;
-                if (millisecondsTicks > 0)
-                {
-                    var jetTimeDoubleFractions = Math.Round((decimal)millisecondsTicks / TimeSpan.TicksPerDay, MaxDateTimeDoublePrecision);
-
-                    literal
-                        .Insert(0, "(")
-                        .Append(" + ")
-                        .Append(_decimalTypeMapping.GenerateSqlLiteral(jetTimeDoubleFractions))
-                        .Append(")");
-                }
-            }
-
             return literal.ToString();
         }
 
         protected virtual DateTime ConvertToDateTimeCompatibleValue(object value)
             => (DateTime)value;
-
-        private static decimal GetDateTimeDoubleValueAsDecimal(DateTime dateTime, bool millisecondsSupportEnabled)
-        {
-            //
-            // We are explicitly using System.Decimal here, so we get better scale results:
-            //
-
-            var checkDateTimeValue = CheckDateTimeValue(dateTime) - JetConfiguration.TimeSpanOffset;
-
-            if (millisecondsSupportEnabled)
-            {
-                // Round to milliseconds.
-                var millisecondsTicks = checkDateTimeValue.Ticks / TimeSpan.TicksPerMillisecond * TimeSpan.TicksPerMillisecond;
-                var result = /*Math.Round(*/(decimal)millisecondsTicks / TimeSpan.TicksPerDay/*, MaxDateTimeDoublePrecision, MidpointRounding.AwayFromZero)*/;
-                return result;
-            }
-            else
-            {
-                // Round to seconds.
-                var secondsTicks = checkDateTimeValue.Ticks / TimeSpan.TicksPerSecond * TimeSpan.TicksPerSecond;
-                var result = /*Math.Round(*/(decimal)secondsTicks / TimeSpan.TicksPerDay/*, MaxDateTimeDoublePrecision, MidpointRounding.AwayFromZero)*/;
-                return result;
-            }
-        }
 
         private static DateTime CheckDateTimeValue(DateTime dateTime)
         {

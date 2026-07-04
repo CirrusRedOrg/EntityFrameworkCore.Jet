@@ -467,15 +467,6 @@ public abstract class StoreGeneratedJetTestBase<TFixture>(TFixture fixture) : St
         public virtual long LongToDecimalPrincipalSentinel
             => default;
 
-        public virtual WrappedIntHiLoKeyClass? WrappedIntHiLoKeyClassSentinel
-            => default;
-
-        public virtual WrappedIntHiLoKeyStruct WrappedIntHiLoKeyStructSentinel
-            => default;
-
-        public virtual WrappedIntHiLoKeyRecord? WrappedIntHiLoKeyRecordSentinel
-            => default;
-
         protected override ITestStoreFactory TestStoreFactory
             => JetTestStoreFactory.Instance;
 

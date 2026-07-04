@@ -152,7 +152,7 @@ FROM `Businesses` AS `b`
 
         AssertSql(
             """
-@parameter='2021-11-12T13:14:15.0000000' (DbType = DateTime)
+@parameter='2021-11-12T13:14:15.1234567' (DbType = DateTime)
 
 SELECT TOP 1 `e`.`DateTime`
 FROM `Entities` AS `e`
@@ -166,7 +166,7 @@ WHERE `e`.`DateTime` = CDATE(@parameter)
 
         AssertSql(
             """
-@parameter='2021-11-12T03:14:15.0000000Z' (DbType = DateTime)
+@parameter='2021-11-12T03:14:15.1234567Z' (DbType = DateTime)
 
 SELECT TOP 1 `e`.`DateTimeOffset`
 FROM `Entities` AS `e`
@@ -291,6 +291,8 @@ ORDER BY `o0`.`Id`
 
         AssertSql(
             """
+@p='10'
+
 SELECT `a`.`Id`, `s`.`Info_Created0` AS `Created`
 FROM (
     SELECT TOP @p `c`.`Id`, `b`.`AId`, `b`.`Info_Created` AS `Info_Created0`

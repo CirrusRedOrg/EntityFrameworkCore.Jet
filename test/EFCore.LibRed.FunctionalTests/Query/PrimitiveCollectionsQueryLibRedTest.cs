@@ -267,11 +267,15 @@ WHERE `p`.`Id` NOT IN (2, 999)
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT MIN([v].[Value])
-    FROM (VALUES (CAST(30 AS int)), ([p].[Int])) AS [v]([Value])) = 30
+    SELECT MIN(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`Int` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) = 30
 """);
     }
 
@@ -281,11 +285,15 @@ WHERE (
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT MIN([v].[Value])
-    FROM (VALUES (CAST(30 AS int)), ([p].[Int])) AS [v]([Value])) = 30
+    SELECT MIN(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`Int` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) = 30
 """);
     }
 
@@ -295,11 +303,15 @@ WHERE (
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT MAX([v].[Value])
-    FROM (VALUES (CAST(30 AS int)), ([p].[Int])) AS [v]([Value])) = 30
+    SELECT MAX(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`Int` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) = 30
 """);
     }
 
@@ -309,11 +321,15 @@ WHERE (
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT MAX([v].[Value])
-    FROM (VALUES (CAST(30 AS int)), ([p].[Int])) AS [v]([Value])) = 30
+    SELECT MAX(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`Int` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) = 30
 """);
     }
 
@@ -323,13 +339,20 @@ WHERE (
 
         AssertSql(
             """
-@__i_0='25'
+@i='25'
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT MIN([v].[Value])
-    FROM (VALUES (CAST(30 AS int)), ([p].[Int]), (@__i_0)) AS [v]([Value])) = 25
+    SELECT MIN(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`Int` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
+    UNION
+    SELECT @i AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 25
 """);
     }
 
@@ -339,13 +362,20 @@ WHERE (
 
         AssertSql(
             """
-@__i_0='25'
+@i='25'
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT MIN([v].[Value])
-    FROM (VALUES (CAST(30 AS int)), ([p].[Int]), (@__i_0)) AS [v]([Value])) = 25
+    SELECT MIN(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`Int` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
+    UNION
+    SELECT @i AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 25
 """);
     }
 
@@ -355,13 +385,20 @@ WHERE (
 
         AssertSql(
             """
-@__i_0='35'
+@i='35'
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT MAX([v].[Value])
-    FROM (VALUES (CAST(30 AS int)), ([p].[Int]), (@__i_0)) AS [v]([Value])) = 35
+    SELECT MAX(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`Int` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
+    UNION
+    SELECT @i AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 35
 """);
     }
 
@@ -371,13 +408,20 @@ WHERE (
 
         AssertSql(
             """
-@__i_0='35'
+@i='35'
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT MAX([v].[Value])
-    FROM (VALUES (CAST(30 AS int)), ([p].[Int]), (@__i_0)) AS [v]([Value])) = 35
+    SELECT MAX(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`Int` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
+    UNION
+    SELECT @i AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 35
 """);
     }
 
@@ -387,13 +431,20 @@ WHERE (
 
         AssertSql(
             """
-@__i_0='25' (Nullable = true)
+@i='25' (Nullable = true)
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT MIN([v].[Value])
-    FROM (VALUES (CAST(30 AS int)), ([p].[Int]), (@__i_0)) AS [v]([Value])) = 25
+    SELECT MIN(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`Int` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
+    UNION
+    SELECT @i AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 25
 """);
     }
 
@@ -403,13 +454,20 @@ WHERE (
 
         AssertSql(
             """
-@__i_0='35' (Nullable = true)
+@i='35' (Nullable = true)
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT MAX([v].[Value])
-    FROM (VALUES (CAST(30 AS int)), ([p].[Int]), (@__i_0)) AS [v]([Value])) = 35
+    SELECT MAX(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`Int` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
+    UNION
+    SELECT @i AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 35
 """);
     }
 
@@ -419,11 +477,18 @@ WHERE (
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT MIN([v].[Value])
-    FROM (VALUES (CAST(30 AS int)), ([p].[NullableInt]), (NULL)) AS [v]([Value])) = 30
+    SELECT MIN(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`NullableInt` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
+    UNION
+    SELECT NULL AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 30
 """);
     }
 
@@ -433,11 +498,18 @@ WHERE (
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT MAX([v].[Value])
-    FROM (VALUES (CAST(30 AS int)), ([p].[NullableInt]), (NULL)) AS [v]([Value])) = 30
+    SELECT MAX(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`NullableInt` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
+    UNION
+    SELECT NULL AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 30
 """);
     }
 
@@ -461,7 +533,6 @@ WHERE `p`.`Id` = @i
 
         AssertSql(
             """
-@i='2'
 @i='2'
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
@@ -534,12 +605,16 @@ WHERE (
 @ids1='2'
 @ids2='999'
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT COUNT(*)
-    FROM (VALUES (@ids1), (@ids2)) AS [i]([Value])
-    WHERE [i].[Value] > [p].[Id]) = 1
+    FROM (SELECT @ids1 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
+    UNION
+    SELECT @ids2 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`) AS `i`
+    WHERE `i`.`Value` > `p`.`Id`) = 1
 """);
     }
 

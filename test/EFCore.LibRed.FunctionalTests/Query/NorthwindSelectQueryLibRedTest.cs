@@ -2585,6 +2585,8 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
+@p='3'
+
 SELECT CLNG(`e0`.`EmployeeID`) + CLNG(`o0`.`OrderID`) AS `Add`, `e0`.`Square`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`, 42 AS `Literal`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `o0`.`OrderID` MOD 2 AS `Mod`
 FROM (
     SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`

@@ -1574,7 +1574,6 @@ FROM `Users` AS `u`
         AssertSql(
             """
 @orderId='123456'
-@orderId='123456'
 
 SELECT `o`.`Id`, `o`.`CancellationDate`, `o`.`OrderId`, `o`.`ShippingDate`
 FROM `OrderItems` AS `o`
@@ -1668,12 +1667,12 @@ GROUP BY `o`.`CustomerId`, `o`.`Number`
 
         AssertSql(
             """
-SELECT [t].[Value] AS [A], (
-    SELECT MAX([t0].[Id])
-    FROM [Tables] AS [t0]
-    WHERE [t0].[Value] = MAX([t].[Id]) * 6 OR ([t0].[Value] IS NULL AND MAX([t].[Id]) IS NULL)) AS [B]
-FROM [Tables] AS [t]
-GROUP BY [t].[Value]
+SELECT `t`.`Value` AS `A`, (
+    SELECT MAX(`t0`.`Id`)
+    FROM `Tables` AS `t0`
+    WHERE `t0`.`Value` = (MAX(`t`.`Id`) * 6) OR (`t0`.`Value` IS NULL AND MAX(`t`.`Id`) IS NULL)) AS `B`
+FROM `Tables` AS `t`
+GROUP BY `t`.`Value`
 """);
     }
 
@@ -1683,13 +1682,17 @@ GROUP BY [t].[Value]
 
         AssertSql(
             """
-SELECT [t].[Value] AS [A], COALESCE(SUM([t].[Id]), 0) AS [B], COALESCE((
-    SELECT TOP(1) COALESCE(SUM([t].[Id]), 0) + COALESCE(SUM([t0].[Id]), 0)
-    FROM [Tables] AS [t0]
-    GROUP BY [t0].[Value]
-    ORDER BY (SELECT 1)), 0) AS [C]
-FROM [Tables] AS [t]
-GROUP BY [t].[Value]
+SELECT `t`.`Value` AS `A`, IIF(SUM(`t`.`Id`) IS NULL, 0, SUM(`t`.`Id`)) AS `B`, IIF((
+        SELECT TOP 1 IIF(SUM(`t`.`Id`) IS NULL, 0, SUM(`t`.`Id`)) + IIF(SUM(`t0`.`Id`) IS NULL, 0, SUM(`t0`.`Id`))
+        FROM `Tables` AS `t0`
+        GROUP BY `t0`.`Value`
+        ORDER BY 1) IS NULL, 0, (
+        SELECT TOP 1 IIF(SUM(`t`.`Id`) IS NULL, 0, SUM(`t`.`Id`)) + IIF(SUM(`t0`.`Id`) IS NULL, 0, SUM(`t0`.`Id`))
+        FROM `Tables` AS `t0`
+        GROUP BY `t0`.`Value`
+        ORDER BY 1)) AS `C`
+FROM `Tables` AS `t`
+GROUP BY `t`.`Value`
 """);
     }
 

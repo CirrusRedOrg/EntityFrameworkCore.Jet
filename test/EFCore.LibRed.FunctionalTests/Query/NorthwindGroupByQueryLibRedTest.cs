@@ -2289,12 +2289,12 @@ GROUP BY `o`.`EmployeeID`
 
             AssertSql(
                 """
-SELECT [o].[EmployeeID] AS [Key], (
-    SELECT MAX([o0].[OrderID])
-    FROM [Orders] AS [o0]
-    WHERE CAST([o0].[EmployeeID] AS bigint) = CAST(MAX([o].[OrderID]) * 6 AS bigint) OR ([o0].[EmployeeID] IS NULL AND MAX([o].[OrderID]) IS NULL)) AS [Max]
-FROM [Orders] AS [o]
-GROUP BY [o].[EmployeeID]
+SELECT `o`.`EmployeeID` AS `Key`, (
+    SELECT MAX(`o0`.`OrderID`)
+    FROM `Orders` AS `o0`
+    WHERE IIF(`o0`.`EmployeeID` IS NULL, NULL, CLNG(`o0`.`EmployeeID`)) = IIF((MAX(`o`.`OrderID`) * 6) IS NULL, NULL, CLNG(MAX(`o`.`OrderID`) * 6)) OR (`o0`.`EmployeeID` IS NULL AND MAX(`o`.`OrderID`) IS NULL)) AS `Max`
+FROM `Orders` AS `o`
+GROUP BY `o`.`EmployeeID`
 """);
         }
 

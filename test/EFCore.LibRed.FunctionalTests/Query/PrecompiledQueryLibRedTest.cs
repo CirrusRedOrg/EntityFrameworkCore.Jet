@@ -1610,12 +1610,16 @@ ORDER BY [e].[Id]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
-FROM [Blogs] AS [b]
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
 WHERE (
     SELECT COUNT(*)
-    FROM (VALUES (CAST(7 AS int)), ([b].[Id])) AS [v]([Value])
-    WHERE [v].[Value] > 8) = 2
+    FROM (SELECT CLNG(7) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `b`.`Id` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`
+    WHERE `v`.`Value` > 8) = 2
 """);
     }
 
@@ -1919,6 +1923,8 @@ OFFSET @p ROWS
 
         AssertSql(
             """
+@p='1'
+
 SELECT TOP @p `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 ORDER BY `b`.`Name`
@@ -1931,6 +1937,8 @@ ORDER BY `b`.`Name`
 
         AssertSql(
             """
+@p='1'
+
 SELECT TOP @p `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 ORDER BY `b`.`Name`

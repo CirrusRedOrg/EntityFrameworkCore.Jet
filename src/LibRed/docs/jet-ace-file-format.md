@@ -805,7 +805,9 @@ The split mechanics:
   expression, `Expression=(FirstName + ' ' + LastName)`, `Name1=Salesperson`), `0x07` = join
   (`Expression`=condition, `Flag`=kind, and **`Name1`/`Name2`=the two tables named in the condition** —
   `Customers.CustomerID = Orders.CustomerID` → `Name1=Customers`, `Name2=Orders`), `0x08` = WHERE
-  (`Expression`), `0xFF` = end. A **FROM source** (`0x05`) is either a **named table**
+  (`Expression`), `0x09` = a **GROUP BY** column (`Expression`; one row per group column, in order —
+  their presence makes it a "totals" query, and the aggregate output columns are ordinary `0x06` rows,
+  e.g. `Expression=Sum(...)`), `0xFF` = end. A **FROM source** (`0x05`) is either a **named table**
   (`Name1`=table, `Name2`=alias) or a **derived table / subquery** (`Expression`=the verbatim inner
   subquery SQL — outer parens and `AS alias` stripped, whitespace preserved — `Name2`=alias, **no `Name1`**;
   verified against Northwind's "Customer and Suppliers by City"). **Nested / parenthesised joins are stored
@@ -816,7 +818,7 @@ The split mechanics:
   `00 00 00 00` + a length byte.
 
   > **Row order matters.** Access writes the rows in the order **type, end, distinct, tables (`0x05`),
-  > columns (`0x06`), joins (`0x07`), where (`0x08`)** — *tables before columns* (verified across five
+  > columns (`0x06`), joins (`0x07`), where (`0x08`), group-by (`0x09`)** — *tables before columns* (verified across five
   > Northwind views). Access tolerates the wrong order for a **named** table, but a **derived** table
   > defines an alias the column expressions reference, so its `0x05` row must precede the `0x06` rows or
   > Access opens the database yet **fails to run the view**.

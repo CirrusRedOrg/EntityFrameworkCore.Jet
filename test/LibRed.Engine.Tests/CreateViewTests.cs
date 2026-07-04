@@ -65,7 +65,7 @@ public class CreateViewTests
 
     [Theory]
     [InlineData("CREATE VIEW `V` AS SELECT `CustomerID` FROM `Customers` ORDER BY `CustomerID`", "ORDER BY")]
-    [InlineData("CREATE VIEW `V` AS SELECT `Country`, COUNT(*) FROM `Customers` GROUP BY `Country`", "GROUP BY")]
+    [InlineData("CREATE VIEW `V` AS SELECT `Country`, COUNT(*) FROM `Customers` GROUP BY `Country` HAVING COUNT(*) > 1", "HAVING")]
     public void Non_simple_view_throws(string sql, string expected)
     {
         string path = Fresh();
@@ -74,6 +74,29 @@ public class CreateViewTests
             using var db = JetDatabase.Open(path, readOnly: false);
             var ex = Assert.Throws<NotSupportedException>(() => new QueryEngine(db).ExecuteNonQuery(sql));
             Assert.Contains(expected, ex.Message);
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void A_group_by_totals_view_round_trips()
+    {
+        string path = Fresh();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery(
+                    "CREATE VIEW `Subtotals` AS SELECT `Order Details`.OrderID, " +
+                    "Sum(CCur(`Order Details`.UnitPrice*Quantity*(1-Discount)/100)*100) AS Subtotal " +
+                    "FROM `Order Details` GROUP BY `Order Details`.OrderID");
+
+            using (var db = JetDatabase.Open(path))
+            {
+                var e = new QueryEngine(db);
+                Assert.Equal(830, e.ExecuteQuery("SELECT * FROM `Subtotals`").Rows.Count()); // one row per order
+                Assert.Equal(440.00m, Convert.ToDecimal(
+                    e.ExecuteQuery("SELECT Subtotal FROM `Subtotals` WHERE OrderID = 10248").Rows.First()[0]));
+            }
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }

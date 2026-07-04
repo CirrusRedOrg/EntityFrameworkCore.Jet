@@ -102,14 +102,16 @@ public sealed record ViewJoin(ViewJoinKind Kind, string Condition, string LeftAl
 /// MSysQueries column row's Expression and Name1).</summary>
 public sealed record ViewColumn(string Expression, string? Alias);
 
-/// <summary>A view's decomposed "simple SELECT" (columns/tables/joins/where, all as verbatim text), which
-/// Access stores as MSysQueries rows. Aggregates, GROUP BY, HAVING and ORDER BY are not allowed in a view.</summary>
+/// <summary>A view's decomposed SELECT (columns/tables/joins/where/group-by, all as verbatim text), which
+/// Access stores as MSysQueries rows. A GROUP BY makes it a "totals" query (aggregate columns are ordinary
+/// column rows; the group-by columns are separate rows). HAVING and ORDER BY are not stored yet.</summary>
 public sealed record ViewDefinition(
     bool Distinct,
     IReadOnlyList<ViewColumn> Columns,
     IReadOnlyList<ViewSource> Tables,
     IReadOnlyList<ViewJoin> Joins,
-    string? Where);
+    string? Where,
+    IReadOnlyList<string> GroupBy);
 
 /// <summary>CREATE VIEW view [(fields)] AS select — a stored query, decomposed for byte-faithful storage.</summary>
 public sealed record CreateViewStatement(

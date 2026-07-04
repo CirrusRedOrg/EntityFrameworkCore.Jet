@@ -193,8 +193,10 @@ internal sealed class AstBuilder
             throw new NotSupportedException("A UNION query is not a valid (simple) view.");
 
         SelectStatementContext select = ctx.selectStatement(0);
-        if (select.groupByClause() is not null || select.havingClause() is not null || select.orderByClause() is not null)
-            throw new NotSupportedException("A view SELECT cannot use GROUP BY, HAVING or ORDER BY (only a simple SELECT).");
+        if (select.havingClause() is not null || select.orderByClause() is not null)
+            throw new NotSupportedException("A view with HAVING or ORDER BY is not stored yet.");
+        var groupBy = select.groupByClause() is { } g
+            ? g.expression().Select(OriginalText).ToList() : (IReadOnlyList<string>)[];
 
         // Output columns; SELECT * becomes a single "*", a qualified star stays "Table.*".
         var columns = select.selectList().STAR() is not null && select.selectList().selectItem().Length == 0
@@ -209,7 +211,7 @@ internal sealed class AstBuilder
             CollectSources(ts, tables, joins);
 
         string? where = select.whereClause() is { } w ? OriginalText(w.expression()) : null;
-        return new ViewDefinition(select.distinct != null, columns, tables, joins, where);
+        return new ViewDefinition(select.distinct != null, columns, tables, joins, where, groupBy);
     }
 
     private static void CollectSources(TableSourceContext ts, List<ViewSource> tables, List<ViewJoin> joins)

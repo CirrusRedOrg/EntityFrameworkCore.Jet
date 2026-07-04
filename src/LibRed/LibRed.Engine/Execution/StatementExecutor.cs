@@ -145,7 +145,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             d.Joins.Select(j => new ViewJoinSpec(
                 j.Kind switch { ViewJoinKind.Left => ViewJoinType.Left, ViewJoinKind.Right => ViewJoinType.Right, _ => ViewJoinType.Inner },
                 j.Condition, j.LeftAlias, j.RightAlias)).ToList(),
-            d.Where);
+            d.Where,
+            d.GroupBy);
 
         _database.CreateView(statement.Name, spec);
         return 0;

@@ -25,4 +25,5 @@ public sealed record ViewSpec(
     IReadOnlyList<ViewColumnSpec> Columns,
     IReadOnlyList<ViewTableSpec> Tables,
     IReadOnlyList<ViewJoinSpec> Joins,
-    string? Where);
+    string? Where,
+    IReadOnlyList<string>? GroupBy = null);

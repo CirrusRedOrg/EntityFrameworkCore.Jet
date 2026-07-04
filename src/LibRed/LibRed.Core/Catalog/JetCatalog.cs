@@ -160,7 +160,7 @@ public sealed class JetCatalog(PageChannel channel)
 
     // MSysQueries attribute codes (see spec §11).
     private const byte QueryAttrType = 0x00, QueryAttrFlag = 0x03, QueryAttrTable = 0x05,
-        QueryAttrColumn = 0x06, QueryAttrJoin = 0x07, QueryAttrWhere = 0x08;
+        QueryAttrColumn = 0x06, QueryAttrJoin = 0x07, QueryAttrWhere = 0x08, QueryAttrGroupBy = 0x09;
     private const short QueryFlagDistinct = 2;
 
     private Dictionary<string, string> LoadViews()
@@ -200,7 +200,7 @@ public sealed class JetCatalog(PageChannel channel)
         IEnumerable<object?[]> OfAttr(byte a) => rows.Where(r => r[attr] is byte b && b == a).OrderBy(r => Ord(r[order]));
 
         // Bail out if the query uses attributes beyond a simple SELECT (e.g. GROUP BY/HAVING/ORDER BY).
-        var known = new byte[] { QueryAttrType, QueryAttrFlag, QueryAttrTable, QueryAttrColumn, QueryAttrJoin, QueryAttrWhere, 0xFF };
+        var known = new byte[] { QueryAttrType, QueryAttrFlag, QueryAttrTable, QueryAttrColumn, QueryAttrJoin, QueryAttrWhere, QueryAttrGroupBy, 0xFF };
         if (rows.Any(r => r[attr] is byte b && !known.Contains(b))) return null;
 
         // A column row's Name1 (when present) is its output alias.
@@ -216,6 +216,7 @@ public sealed class JetCatalog(PageChannel channel)
             .Select(r => (Cond: r[expr] as string ?? "", Kind: r[flag] is short f ? f : (short)1,
                           Left: r[n1] as string ?? "", Right: r[n2] as string ?? "")).ToList();
         string? where = OfAttr(QueryAttrWhere).Select(r => r[expr] as string).FirstOrDefault();
+        var groupBy = OfAttr(QueryAttrGroupBy).Select(r => r[expr] as string ?? "").ToList();
 
         static string Ident(string s) => $"[{s}]";
         static string Render((string Table, string? Alias, string? Sub) t) =>
@@ -264,6 +265,7 @@ public sealed class JetCatalog(PageChannel channel)
         if (distinct) sql.Append("DISTINCT ");
         sql.Append(string.Join(", ", columns)).Append(" FROM ").Append(from);
         if (whereClause is not null) sql.Append(" WHERE ").Append(whereClause);
+        if (groupBy.Count > 0) sql.Append(" GROUP BY ").Append(string.Join(", ", groupBy));
         return sql.ToString();
     }
 

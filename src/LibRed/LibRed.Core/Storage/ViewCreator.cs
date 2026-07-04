@@ -25,6 +25,7 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
     private const byte AttrColumn = 0x06;  // Expression = column text
     private const byte AttrJoin = 0x07;    // Expression = condition, Flag = kind, Name1/Name2 = aliases
     private const byte AttrWhere = 0x08;   // Expression = predicate text
+    private const byte AttrGroupBy = 0x09; // Expression = a GROUP BY column (a totals query)
     private const byte AttrEnd = 0xFF;
     private const short QueryTypeSelect = 1;
     private const short FlagDistinct = 2;
@@ -101,6 +102,8 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         }
         if (spec.Where is { } where)
             Row(mq, objectId, AttrWhere, order: 1, expression: where);
+        for (int i = 0; i < (spec.GroupBy?.Count ?? 0); i++)
+            Row(mq, objectId, AttrGroupBy, order: i + 1, flag: 0, expression: spec.GroupBy![i]);
     }
 
     private void Row(TableDef mq, int objectId, byte attribute, int order,

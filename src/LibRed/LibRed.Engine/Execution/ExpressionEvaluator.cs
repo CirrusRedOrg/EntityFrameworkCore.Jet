@@ -47,6 +47,7 @@ internal sealed class ExpressionEvaluator(
             "FIX" => UnaryNumeric(f, d => Math.Truncate(d)),     // toward zero
             "INT" => UnaryNumeric(f, d => Math.Floor(d)),        // toward -infinity
             "ABS" => UnaryNumeric(f, Math.Abs),
+            "CCUR" => UnaryNumeric(f, d => Math.Round(d, 4)),   // coerce to Currency (decimal, 4 dp)
             // Jet VBA math functions (double precision). SQR = sqrt, ATN = atan, SGN = sign, LOG =
             // natural log. Acos/Asin/Atan2/Floor/Ceiling/Log10/Log-base are emitted by EF as
             // expressions built from these plus arithmetic, so they need no dedicated cases.
@@ -151,7 +152,8 @@ internal sealed class ExpressionEvaluator(
             BinaryOperator.GreaterThan => Compare(left, right) > 0,
             BinaryOperator.GreaterThanOrEqual => Compare(left, right) >= 0,
             BinaryOperator.Like => Like(left.ToString()!, right.ToString()!),
-            BinaryOperator.Add => Arithmetic(left, right, (a, c) => a + c),
+            // Access '+' concatenates when either operand is text (but, unlike '&', null already propagated above).
+            BinaryOperator.Add => left is string || right is string ? left.ToString() + right.ToString() : Arithmetic(left, right, (a, c) => a + c),
             BinaryOperator.Subtract => Arithmetic(left, right, (a, c) => a - c),
             BinaryOperator.Multiply => Arithmetic(left, right, (a, c) => a * c),
             BinaryOperator.Divide => Arithmetic(left, right, (a, c) => a / c),

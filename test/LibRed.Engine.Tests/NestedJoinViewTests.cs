@@ -44,4 +44,26 @@ FROM Shippers INNER JOIN
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
+
+    [Fact]
+    public void Access_multi_join_views_read_back_through_libred()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path);
+            var e = new QueryEngine(db);
+
+            // The reconstruction re-orders the flat joins into a valid chain (topological over the
+            // conditions), so LibRed executes Access's own complex multi-join views.
+            Assert.Equal(2155, Convert.ToInt32(e.ExecuteQuery("SELECT COUNT(*) FROM Invoices").Rows.First()[0]));
+            Assert.Equal(2155, Convert.ToInt32(e.ExecuteQuery("SELECT COUNT(*) FROM `Order Details Extended`").Rows.First()[0]));
+
+            // Its computed columns evaluate: '+'-concat of text, and CCur().
+            var row = e.ExecuteQuery("SELECT Salesperson, ExtendedPrice FROM Invoices WHERE OrderID = 10248").Rows.First();
+            Assert.Equal("Steven Buchanan", row[0]);                      // FirstName + ' ' + LastName
+            Assert.Equal(168.00m, Convert.ToDecimal(row[1]));            // CCur(14*12*(1-0)/100)*100
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
 }

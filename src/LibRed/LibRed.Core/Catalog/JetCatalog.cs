@@ -213,7 +213,8 @@ public sealed class JetCatalog(PageChannel channel)
 
         bool distinct = OfAttr(QueryAttrFlag).Any(r => r[flag] is short f && (f & QueryFlagDistinct) != 0);
         var joins = OfAttr(QueryAttrJoin)
-            .Select(r => (Cond: r[expr] as string ?? "", Kind: r[flag] is short f ? f : (short)1, Right: r[n2] as string ?? "")).ToList();
+            .Select(r => (Cond: r[expr] as string ?? "", Kind: r[flag] is short f ? f : (short)1,
+                          Left: r[n1] as string ?? "", Right: r[n2] as string ?? "")).ToList();
         string? where = OfAttr(QueryAttrWhere).Select(r => r[expr] as string).FirstOrDefault();
 
         static string Ident(string s) => $"[{s}]";
@@ -221,25 +222,48 @@ public sealed class JetCatalog(PageChannel channel)
             t.Sub is { } sub ? $"({sub}) AS {Ident(t.Alias!)}"
             : t.Alias is not null && !string.Equals(t.Alias, t.Table, StringComparison.OrdinalIgnoreCase)
                 ? $"{Ident(t.Table)} AS {Ident(t.Alias)}" : Ident(t.Table);
+        string Key((string Table, string? Alias, string? Sub) t) => t.Alias ?? t.Table;
 
+        // Build a JOIN chain by a spanning walk: only add a join once one of its two tables is already in
+        // scope, bringing the other into scope (so a flat set of joins from a nested source rebuilds a valid
+        // left-deep tree). If the new table is the condition's *left* side, a LEFT/RIGHT join flips.
         var from = new System.Text.StringBuilder(Render(tables[0]));
-        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { tables[0].Alias ?? tables[0].Table };
-        foreach (var j in joins)
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { Key(tables[0]) };
+        var pending = joins.ToList();
+        for (bool progress = true; progress;)
         {
-            var right = tables.FirstOrDefault(t => string.Equals(t.Alias ?? t.Table, j.Right, StringComparison.OrdinalIgnoreCase));
-            if (right.Table.Length == 0 && right.Sub is null) return null; // not found (a derived table has Sub set)
-            string kw = j.Kind switch { 2 => "LEFT", 3 => "RIGHT", _ => "INNER" };
-            from.Append($" {kw} JOIN {Render(right)} ON {j.Cond}");
-            used.Add(right.Alias ?? right.Table);
+            progress = false;
+            for (int i = 0; i < pending.Count; i++)
+            {
+                var j = pending[i];
+                bool leftIn = used.Contains(j.Left), rightIn = used.Contains(j.Right);
+                if (leftIn == rightIn) continue; // both already joined (extra condition) or neither reachable yet
+                string newKey = leftIn ? j.Right : j.Left;
+                int ti = tables.FindIndex(t => string.Equals(Key(t), newKey, StringComparison.OrdinalIgnoreCase));
+                if (ti < 0) continue;
+
+                short kind = !leftIn && j.Kind is 2 or 3 ? (short)(j.Kind == 2 ? 3 : 2) : j.Kind; // flip on reversed order
+                string kw = kind switch { 2 => "LEFT", 3 => "RIGHT", _ => "INNER" };
+                from.Append($" {kw} JOIN {Render(tables[ti])} ON {j.Cond}");
+                used.Add(newKey);
+                pending.RemoveAt(i);
+                progress = true;
+                break;
+            }
         }
-        // Any remaining tables are comma (cross) joins.
-        foreach (var t in tables.Where(t => !used.Contains(t.Alias ?? t.Table)))
+        // Any tables the joins didn't reach are comma (cross) joins.
+        foreach (var t in tables.Where(t => !used.Contains(Key(t))))
             from.Append($", {Render(t)}");
+
+        // Joins whose two tables were both already in scope become extra WHERE conditions (a cyclic graph).
+        IEnumerable<string> extra = pending.Select(j => j.Cond);
+        string? whereClause = where is null ? (extra.Any() ? string.Join(" AND ", extra) : null)
+            : string.Join(" AND ", extra.Prepend($"({where})"));
 
         var sql = new System.Text.StringBuilder("SELECT ");
         if (distinct) sql.Append("DISTINCT ");
         sql.Append(string.Join(", ", columns)).Append(" FROM ").Append(from);
-        if (where is not null) sql.Append(" WHERE ").Append(where);
+        if (whereClause is not null) sql.Append(" WHERE ").Append(whereClause);
         return sql.ToString();
     }
 

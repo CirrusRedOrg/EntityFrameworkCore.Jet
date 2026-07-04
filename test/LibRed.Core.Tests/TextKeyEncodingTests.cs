@@ -30,6 +30,9 @@ public class TextKeyEncodingTests
             "(paren)", "a.b", "x/y", "p+q", "k=v",
             // Ignorable apostrophe/hyphen in various positions.
             "'", "-", "A'", "'A", "A-B", "O'Brien", "IT'S", "ANNE-MARIE", "A''B", "x-y-z",
+            // Accented Latin-1: the accent sorts with its base letter and adds a secondary weight.
+            "México D.F.", "Montréal", "München", "São Paulo", "Résumé", "Café",
+            "Niño", "Zürich", "Åre", "Ça", "É", "Ø", "Ñ", "Ç", "Ü", "Ã", "Æ",
         ];
 
         string path = Path.Combine(Path.GetTempPath(), $"libred-textkey-{Guid.NewGuid():N}.accdb");

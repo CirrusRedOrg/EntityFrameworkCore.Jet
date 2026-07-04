@@ -689,12 +689,26 @@ Then the value, transformed:
   of non-ignorable characters before it)` and `<code>` is `0x80` for apostrophe / `0x82` for
   hyphen — verified against ACE (e.g. `ANNE-MARIE` → `… 80 17 06 82 …`, the hyphen at position 4).
 
+  **Accented Latin-1 letters** sort with their **base letter's primary weight** and record the
+  accent in a **secondary section**. Each character has a secondary weight (default `0x02`); an
+  accented letter carries the weight of its diacritic instead (verified against ACE, and the weight
+  depends only on the accent, not the base letter): **acute `0x0E`, grave `0x0F`, circumflex `0x12`,
+  diaeresis/umlaut `0x13`, tilde `0x19`, ring `0x1A`, cedilla `0x1C`**; plus atomic `Ø`→base `O`+`0x21`,
+  `Ð`→base `D`+`0x68`, and the ligature `Æ`→primaries `A E` (no accent). The section is emitted only
+  when some character is accented: after the primary's `0x01` end marker it lists the secondary weight
+  of **every byte from the first up to and including the last accented one**, e.g. `México D.F.` →
+  `7F 60 51 75 59 4D 64 07 4F 1C 53 1C 01 02 0E 00` (é = primary `0x51` = E, secondary `0x0E`), and
+  `Montréal` (é at position 5) → `… 01 02 02 02 02 02 0E 00`. LibRed decomposes via Unicode NFD (base
+  letter + combining mark) plus the small atomic table above; `JetTextCollation` reproduces these keys
+  **byte-for-byte vs ACE** (México/Montréal/München/São Paulo/Résumé and single accents).
+
   **Descending** text keys are the **bitwise inverse of the ascending key, with a `0x00`
   appended** — verified against ACE (e.g. ascending `A` = `7F 4A 01 00` → descending
   `80 B5 FE FF 00`). The inverted start flag is `~0x7F = 0x80`, matching the descending flag of
   the fixed-type keys.
 
-  *Not yet handled:* non-ASCII characters.
+  *Not yet handled:* characters outside ASCII + the accented Latin-1 set above (and a key mixing an
+  accent with an ignorable apostrophe/hyphen is untested).
 - **Binary / GUID:** collation encoding not implemented (read-only as before).
 
 ### 10.5 Insertion and splitting

@@ -10,8 +10,9 @@ namespace LibRed.Storage;
 /// </summary>
 /// <remarks>
 /// Apostrophe and hyphen are "ignorable": they add no primary weight but append a trailing inline
-/// group recording their position (verified against ACE). Non-ASCII characters are still reported
-/// unencodable.
+/// group recording their position (verified against ACE). Accented Latin-1 letters sort with their
+/// base letter's primary weight and record the accent in a secondary section (see below); a handful of
+/// other characters are still reported unencodable.
 /// <para>
 /// The sort-order version is the column descriptor's <c>0x0D</c> field (spec §3.4). Access 2010+
 /// introduced a different default "General" order (1033, version 1) with other key bytes; this class
@@ -27,6 +28,28 @@ internal static class JetTextCollation
     private const byte InlineMid = 0x06;
     private const byte ApostropheCode = 0x80;
     private const byte HyphenCode = 0x82;
+    private const byte DefaultSecondary = 0x02; // a character with no accent
+
+    // Secondary (diacritic) weight per Unicode combining mark — depends only on the accent, not the base
+    // letter (verified against ACE: acute weighs 0x0E on a/e/i/o/u/y alike, etc.).
+    private static readonly Dictionary<char, byte> DiacriticWeights = new()
+    {
+        ['́'] = 0x0E, // acute
+        ['̀'] = 0x0F, // grave
+        ['̂'] = 0x12, // circumflex
+        ['̈'] = 0x13, // diaeresis / umlaut
+        ['̃'] = 0x19, // tilde
+        ['̊'] = 0x1A, // ring above
+        ['̧'] = 0x1C, // cedilla
+    };
+
+    // Atomic accented letters that have no Unicode canonical decomposition: base letter + secondary weight,
+    // or (for the ligature Æ) a two-letter expansion. Verified against ACE.
+    private static readonly Dictionary<char, (char Base, byte Secondary)> AtomicAccents = new()
+    {
+        ['Ø'] = ('O', 0x21),
+        ['Ð'] = ('D', 0x68),
+    };
 
     // Primary weight for 'A'..'Z' (general collation; mostly +2 with a few +1 steps).
     private static readonly byte[] Letters =
@@ -57,6 +80,9 @@ internal static class JetTextCollation
     {
         ReadOnlySpan<char> s = value.AsSpan().TrimEnd(' ');
 
+        // Build the primary weight bytes and a parallel secondary weight per byte (0x02 = no accent).
+        var primaries = new List<byte>();
+        var secondaries = new List<byte>();
         // Apostrophe/hyphen carry no primary weight; they record (position, code) for the inline
         // section, where position is the count of non-ignorable characters before them.
         var inline = new List<(int Position, byte Code)>();
@@ -69,18 +95,27 @@ internal static class JetTextCollation
             if (u == '-') { inline.Add((primaryChars, HyphenCode)); continue; }
 
             if (u is >= 'A' and <= 'Z')
-                output.Add(Letters[u - 'A']);
+                Add(Letters[u - 'A']);
             else if (u is >= '0' and <= '9')
-                output.Add((byte)(0x36 + 2 * (u - '0')));
+                Add((byte)(0x36 + 2 * (u - '0')));
             else if (Symbols.TryGetValue(u, out byte[]? weights))
-                output.AddRange(weights);
-            else
-                return false; // non-ASCII — not handled yet
+                foreach (byte w in weights) Add(w);
+            else if (!TryAddAccented(u, Add))
+                return false; // not handled yet
 
             primaryChars++;
         }
 
+        output.AddRange(primaries);
         output.Add(EndPrimary);
+
+        // Secondary (diacritic) section: only emitted when a character carries a non-default weight; it lists
+        // the secondary weight of every byte from the first up to and including the last accented one.
+        int lastAccent = secondaries.FindLastIndex(w => w != DefaultSecondary);
+        for (int i = 0; i <= lastAccent; i++)
+            output.Add(secondaries[i]);
+
+        // Apostrophe/hyphen inline (tertiary) section.
         if (inline.Count > 0)
         {
             output.Add(0x01);
@@ -96,5 +131,33 @@ internal static class JetTextCollation
         }
         output.Add(EndKey);
         return true;
+
+        void Add(byte primary, byte secondary = DefaultSecondary)
+        {
+            primaries.Add(primary);
+            secondaries.Add(secondary);
+        }
+    }
+
+    /// <summary>Emits the primary+secondary weight(s) for an accented Latin-1 letter (uppercased). Uses the
+    /// character's Unicode canonical decomposition (base letter + combining mark) where it has one, plus a
+    /// short table of atomic accents (Ø, Ð) and the Æ ligature. Returns false if the character is unknown.</summary>
+    private static bool TryAddAccented(char u, Action<byte, byte> add)
+    {
+        if (u == 'Æ') { add(Letters['A' - 'A'], DefaultSecondary); add(Letters['E' - 'A'], DefaultSecondary); return true; }
+        if (AtomicAccents.TryGetValue(u, out (char Base, byte Secondary) atomic))
+        {
+            add(Letters[atomic.Base - 'A'], atomic.Secondary);
+            return true;
+        }
+
+        // Canonical decomposition: a base A–Z letter followed by one combining diacritic we know.
+        string nfd = u.ToString().Normalize(System.Text.NormalizationForm.FormD);
+        if (nfd.Length == 2 && nfd[0] is >= 'A' and <= 'Z' && DiacriticWeights.TryGetValue(nfd[1], out byte weight))
+        {
+            add(Letters[nfd[0] - 'A'], weight);
+            return true;
+        }
+        return false;
     }
 }

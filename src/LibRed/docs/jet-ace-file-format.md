@@ -506,10 +506,13 @@ LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII 
 > **LibRed writes the §3.3.2 entry + empty usage maps for every memo/OLE column** — byte-faithful with
 > ACE, whose usage-map page lays the records out as: row 0 table-owned, row 1 table-free, then two
 > rows (owned/free) **per long-value column**, then one row per index (verified against Northwind
-> Categories). For a fresh table all these maps are empty. **Gap:** when LibRed now writes a value to an
-> LVAL page (§8), it allocates the page through the global free map but does **not** yet set the bit in
-> the column's owned-pages map — tolerated so far (Access reads the page via the in-row descriptor and
-> runs the view), but not byte-faithful; set the per-column bit when maintaining LVAL usage properly.
+> Categories). For a fresh table all these maps are empty. When LibRed writes a value to an LVAL page
+> (§8), it now **sets that page's bit in the column's owned-pages map** — the §3.3.2 used-pages pointer
+> is parsed from the TDEF (`TableDefinitionPage.LongValueOwnedMaps`, keyed by column id) and the inline
+> bitmap bit is set, matching how Access records its own LVAL pages (verified: LibRed's new LVAL page
+> joins the existing ACE-written pages in MSysQueries.Expression's owned map). The **free**-pages map is
+> not maintained yet (an LVAL page still has spare room), and a page outside the inline map's window
+> would need a reference-type map — neither is exercised by the single-page values written so far.
 >
 > The entry is only strictly *required* once a value spills to LVAL pages — an entry-less table still
 > round-trips inline values through both LibRed and Access, but Access fails *"Not a valid bookmark"*

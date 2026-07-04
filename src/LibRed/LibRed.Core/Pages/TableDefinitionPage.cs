@@ -29,6 +29,11 @@ public sealed class TableDefinitionPage : Page
     private readonly List<IndexDef> _indexes = [];
     public IReadOnlyList<IndexDef> Indexes => _indexes;
 
+    private readonly Dictionary<int, (int Row, int Page)> _longValueOwnedMaps = [];
+    /// <summary>Per long-value (memo/OLE) column id → its owned-pages usage-map pointer (record row +
+    /// page), from the §3.3.2 list after the index names. Used to record a newly allocated LVAL page.</summary>
+    public IReadOnlyDictionary<int, (int Row, int Page)> LongValueOwnedMaps => _longValueOwnedMaps;
+
     /// <summary>Bytes of a continuation TDEF page that precede the resumed definition data.</summary>
     private const int ContinuationHeaderSize = 8;
 
@@ -149,7 +154,21 @@ public sealed class TableDefinitionPage : Page
             });
         }
 
-        ResolveIndexNames(buffer, blockStart + IndexCount * IndexBlockSize);
+        int afterIndexNames = ResolveIndexNames(buffer, blockStart + IndexCount * IndexBlockSize);
+        ReadLongValueMaps(buffer, afterIndexNames);
+    }
+
+    /// <summary>Parses the §3.3.2 long-value column usage-map list (after the index names): one 10-byte
+    /// entry {col_num:2, used_ptr:4, free_ptr:4} per memo/OLE column, terminated by col_num 0xFFFF. Each
+    /// pointer is a 1-byte record row + 3-byte page. Captures the owned- (used-pages) map pointer.</summary>
+    private void ReadLongValueMaps(PageBuffer buffer, int pos)
+    {
+        _longValueOwnedMaps.Clear();
+        while (buffer.ReadUInt16(pos) is var colNum && colNum != 0xFFFF)
+        {
+            _longValueOwnedMaps[colNum] = (buffer.ReadByte(pos + 2), buffer.ReadInt24(pos + 3));
+            pos += 10;
+        }
     }
 
     /// <summary>
@@ -158,7 +177,7 @@ public sealed class TableDefinitionPage : Page
     /// by several logical indexes (e.g. a relationship plus the real index); the real index's
     /// name wins over a foreign-key relationship's.
     /// </summary>
-    private void ResolveIndexNames(PageBuffer buffer, int infoStart)
+    private int ResolveIndexNames(PageBuffer buffer, int infoStart)
     {
         int logicalCount = RealIndexCount; // 0x2F — the logical-index (slot) count
         var info = new (int DataNumber, bool IsRelationship, byte Type)[logicalCount];
@@ -195,6 +214,8 @@ public sealed class TableDefinitionPage : Page
                 };
             }
         }
+
+        return namePos;
     }
 
     private int ReadColumns(PageBuffer buffer, JetFormatBase format, int columnBlock)

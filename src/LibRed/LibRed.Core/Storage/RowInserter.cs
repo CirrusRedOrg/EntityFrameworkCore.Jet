@@ -146,11 +146,15 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// referenced by the TDEF pointer at <paramref name="tdefPointerOffset"/> (row byte + 3-byte page).</summary>
     private void UpdateUsageBit(int tdefPointerOffset, int targetPage, bool set)
     {
-        JetFormatBase format = _channel.Format;
         PageBuffer tdef = _channel.ReadPage(_table.DefinitionPage);
-        int mapRow = tdef.ReadByte(tdefPointerOffset);
-        int mapPage = tdef.ReadInt24(tdefPointerOffset + 1);
+        SetUsageBit(tdef.ReadByte(tdefPointerOffset), tdef.ReadInt24(tdefPointerOffset + 1), targetPage, set);
+    }
 
+    /// <summary>Sets or clears the bit for <paramref name="targetPage"/> in the inline usage map at
+    /// record <paramref name="mapRow"/> on <paramref name="mapPage"/>.</summary>
+    private void SetUsageBit(int mapRow, int mapPage, int targetPage, bool set)
+    {
+        JetFormatBase format = _channel.Format;
         byte[] page = _channel.ReadPage(mapPage).Span.ToArray();
         var holder = new DataPage();
         holder.Read(_channel.ReadPage(mapPage), format);
@@ -252,6 +256,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     {
         const int maxInline = 64; // Jackcess MAX_INLINE_LONG_VALUE_SIZE (Jet3 and Jet4)
         LongValueWriter? writer = null;
+        TableDefinitionPage? definition = null;
 
         foreach (ColumnDef column in _table.Columns)
         {
@@ -265,8 +270,22 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (payload is null || payload.Length <= maxInline) continue;
 
             writer ??= new LongValueWriter(_channel);
-            values[column.Index] = new LongValueDescriptor(writer.WriteSinglePage(payload));
+            byte[] descriptor = writer.WriteSinglePage(payload);
+            values[column.Index] = new LongValueDescriptor(descriptor);
+
+            // Record the LVAL page in this column's owned-pages usage map (§3.3.2), as Access does.
+            int lvalPage = descriptor[5] | (descriptor[6] << 8) | (descriptor[7] << 16);
+            definition ??= ReadDefinition();
+            if (definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) map))
+                SetUsageBit(map.Row, map.Page, lvalPage, set: true);
         }
+    }
+
+    private TableDefinitionPage ReadDefinition()
+    {
+        var definition = new TableDefinitionPage();
+        definition.Read(_channel, _table.DefinitionPage);
+        return definition;
     }
 
     private void AssignAutoNumbers(JetFormatBase format, object?[] values)

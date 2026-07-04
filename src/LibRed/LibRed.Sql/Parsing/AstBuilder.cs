@@ -631,5 +631,10 @@ internal sealed class AstBuilder
 
     private static string? OptionalIdentifier(IdentifierContext? ctx) => ctx is null ? null : Identifier(ctx);
 
-    private static string Unquote(string text) => text[1..^1]; // strip the surrounding ' or "
+    private static string Unquote(string text)
+    {
+        char quote = text[0]; // ' or "
+        // Strip the surrounding quotes, then collapse each doubled quote to a single one (SQL escape).
+        return text[1..^1].Replace(new string(quote, 2), quote.ToString());
+    }
 }

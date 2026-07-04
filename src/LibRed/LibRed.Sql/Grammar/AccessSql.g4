@@ -309,7 +309,8 @@ PARAM  : '?' | '@' [A-Za-z_][A-Za-z_0-9]* ;
 HEX_LITERAL     : '0' [Xx] [0-9A-Fa-f]+ ;
 INTEGER_LITERAL : [0-9]+ ;
 NUMBER_LITERAL  : [0-9]+ '.' [0-9]* | '.' [0-9]+ ;
-STRING_LITERAL  : '"' (~["])* '"' | '\'' (~['])* '\'' ;
+// A doubled quote inside a string is an escaped quote ('Bon app''' → Bon app'); the AST un-doubles it.
+STRING_LITERAL  : '"' ( ~["] | '""' )* '"' | '\'' ( ~['] | '\'\'' )* '\'' ;
 DATE_LITERAL    : '#' ~[#]* '#' ;
 BRACKET_ID      : '[' ~[\]]+ ']' ;
 BACKTICK_ID     : '`' ~[`]+ '`' ;

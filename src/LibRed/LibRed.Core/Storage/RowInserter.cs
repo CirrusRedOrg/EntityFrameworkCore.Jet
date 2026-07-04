@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Text;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
@@ -38,6 +39,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // as-is (Jet, unlike SQL Server, permits explicit AutoNumber values); either way the row's
         // final id drives both the row encoding and the high-water update below.
         AssignAutoNumbers(format, values);
+        MaterializeLongValues(values);
 
         // Encode first: the fixed-region length is pinned by any existing row (to match Access),
         // or derived from the columns for a just-created empty table.
@@ -238,6 +240,35 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// the high-water to it). Access permits only one AutoNumber column per table, but any number are
     /// handled here for safety.
     /// </summary>
+    /// <summary>
+    /// Access stores a memo/OLE value <b>inline</b> only up to 64 bytes (Jackcess
+    /// <c>MAX_INLINE_LONG_VALUE_SIZE</c>, the same for Jet3/Jet4); a larger value goes on its own LVAL
+    /// page. Inlining a long value works for LibRed's own reader but Access rejects it (e.g. it opens the
+    /// database yet fails to run a view whose subquery Expression is inlined). So for each memo/OLE column
+    /// whose value exceeds the inline limit, write it to an LVAL page and substitute the 12-byte reference
+    /// descriptor (short values, and pre-built descriptors from other callers, are left as-is to inline).
+    /// </summary>
+    private void MaterializeLongValues(object?[] values)
+    {
+        const int maxInline = 64; // Jackcess MAX_INLINE_LONG_VALUE_SIZE (Jet3 and Jet4)
+        LongValueWriter? writer = null;
+
+        foreach (ColumnDef column in _table.Columns)
+        {
+            if (column.Type is not (JetDataType.Memo or JetDataType.Ole)) continue;
+            byte[]? payload = values[column.Index] switch
+            {
+                string s => Encoding.Unicode.GetBytes(s), // memo: UTF-16LE
+                byte[] b => b,                             // OLE: raw bytes
+                _ => null,                                 // null, or an already-built LongValueDescriptor
+            };
+            if (payload is null || payload.Length <= maxInline) continue;
+
+            writer ??= new LongValueWriter(_channel);
+            values[column.Index] = new LongValueDescriptor(writer.WriteSinglePage(payload));
+        }
+    }
+
     private void AssignAutoNumbers(JetFormatBase format, object?[] values)
     {
         bool needed = false;

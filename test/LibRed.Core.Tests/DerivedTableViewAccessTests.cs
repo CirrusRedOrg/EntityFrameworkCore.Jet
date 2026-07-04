@@ -75,11 +75,8 @@ public class DerivedTableViewAccessTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
-    // A short subquery executes in Access, but this long UNION does not: Access can't run the view because
-    // LibRed stores the long Expression memo inline, whereas Access needs it on an LVAL page (the same
-    // inline-vs-LVAL-page issue as column defaults — see the libred-derived-table-view memory). Unskip once
-    // long memo values are written to an LVAL page.
-    [Fact(Skip = "Long subquery Expression must be stored on an LVAL page for Access to run the view.")]
+    // The long subquery Expression (> 64 bytes) is written to an LVAL page, so Access can run the view.
+    [Fact]
     public void Access_runs_a_derived_table_union_view()
     {
         string path = Path.Combine(Path.GetTempPath(), $"derived-view-run-{Guid.NewGuid():N}.accdb");

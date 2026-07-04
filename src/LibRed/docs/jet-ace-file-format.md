@@ -493,16 +493,23 @@ Flags:
 
 LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII marker `LVAL`.
 
-> **Writing (inline only).** LibRed writes a memo/OLE value as an **inline** long value: the 12-byte
-> descriptor with length + the `0x80` flag (bytes `0x04`–`0x0B` zero), immediately followed by the
-> payload (memo = UTF-16LE text, OLE = raw bytes) — the exact shape the reader resolves. Values too
-> large to fit inline (chained LVAL pages) are not written yet.
+> **Writing.** LibRed inlines a memo/OLE value only up to **64 bytes** (Jackcess
+> `MAX_INLINE_LONG_VALUE_SIZE`, same for Jet3/Jet4): the 12-byte descriptor with length + the `0x80`
+> flag (bytes `0x04`–`0x0B` zero) then the payload (memo = UTF-16LE, OLE = raw bytes). A value **larger
+> than 64 bytes** is written to its own **single LVAL page** (`0x40` descriptor, `LongValueWriter`) —
+> `RowInserter` materialises it before encoding. This matters for Access, not just LibRed: Access
+> tolerates an inline value its reader resolves, but **rejects an over-64-byte value inlined** (e.g. it
+> opens the database yet fails to *run* a view whose subquery `Expression` was inlined; on an LVAL page
+> it runs — verified against the derived-table view, §11). Values larger than one LVAL page
+> (`MAX_LONG_VALUE_ROW_SIZE ≈ 4076`) still need **chained** pages, not written yet.
 >
 > **LibRed writes the §3.3.2 entry + empty usage maps for every memo/OLE column** — byte-faithful with
 > ACE, whose usage-map page lays the records out as: row 0 table-owned, row 1 table-free, then two
 > rows (owned/free) **per long-value column**, then one row per index (verified against Northwind
-> Categories). For a fresh table all these maps are empty; inline values allocate no LVAL pages so they
-> stay empty, and LVAL support will simply set bits in the per-column maps.
+> Categories). For a fresh table all these maps are empty. **Gap:** when LibRed now writes a value to an
+> LVAL page (§8), it allocates the page through the global free map but does **not** yet set the bit in
+> the column's owned-pages map — tolerated so far (Access reads the page via the in-row descriptor and
+> runs the view), but not byte-faithful; set the per-column bit when maintaining LVAL usage properly.
 >
 > The entry is only strictly *required* once a value spills to LVAL pages — an entry-less table still
 > round-trips inline values through both LibRed and Access, but Access fails *"Not a valid bookmark"*
@@ -794,12 +801,10 @@ The split mechanics:
   > defines an alias the column expressions reference, so its `0x05` row must precede the `0x06` rows or
   > Access opens the database yet **fails to run the view**.
   >
-  > **Long `Expression` needs an LVAL page (open TODO).** `Expression` is a Memo. A short one written
-  > **inline** works, but Access cannot *run* a view whose derived-table subquery `Expression` is long
-  > unless it is stored on an **LVAL page** (a `0x40` long-value descriptor), exactly like the column
-  > DEFAULT / LvProp case (§ column properties). Inline-vs-LVAL is the current limit: LibRed writes it
-  > inline, so short-subquery views run in Access but long ones do not yet. Verified in one warm ACE
-  > connection: Access runs its own view and a LibRed short-subquery view, but not a LibRed long one.
+  > **Long `Expression` lives on an LVAL page.** `Expression` is a Memo, so a subquery longer than the
+  > 64-byte inline limit is written to an LVAL page (§8) — required for Access to *run* the view (an
+  > inlined long value opens but won't execute). Verified: a LibRed derived-table UNION view returns the
+  > same rows in Access as the equivalent Northwind view.
 
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`

@@ -20,7 +20,7 @@ internal sealed class AstBuilder
         if (ctx.parametersClause() is { } pc)
         {
             var names = pc.procParam()
-                .Select(p => Identifier(p.pname))
+                .Select(ParamName)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             statement = LowerParameters(statement, names);
         }
@@ -204,8 +204,8 @@ internal sealed class AstBuilder
 
     private static SqlStatement BuildCreateProcedure(CreateProcedureStatementContext ctx)
     {
-        var parameters = ctx.procParam()
-            .Select(p => new ProcedureParameter(Identifier(p.pname), TypeName(p.dataType())))
+        var parameters = (ctx.procParamList()?.procParam() ?? [])
+            .Select(p => new ProcedureParameter(ParamName(p), TypeName(p.dataType())))
             .ToList();
 
         // A procedure body is a SELECT (stored as a parameterized query, like a view), or an action query.
@@ -219,6 +219,12 @@ internal sealed class AstBuilder
         ViewDefinition definition = BuildViewDefinition(query);
         return new CreateProcedureStatement(Identifier(ctx.name), parameters, definition, OriginalText(query));
     }
+
+    /// <summary>A declared parameter's name, with any leading <c>@</c> stripped — Access stores the bare
+    /// name (e.g. <c>@Beginning_Date</c> is stored as <c>Beginning_Date</c>).</summary>
+    private static string ParamName(ProcParamContext p) => p.pname.PARAM() is { } at
+        ? at.GetText().TrimStart('@')
+        : Identifier(p.pname.identifier());
 
     /// <summary>The declared type name of a data type (two-word names joined by a space).</summary>
     private static string TypeName(DataTypeContext type) => type.extra is null

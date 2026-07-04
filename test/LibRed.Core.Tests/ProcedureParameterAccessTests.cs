@@ -65,4 +65,61 @@ public class ProcedureParameterAccessTests
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
+
+    // "Employee Sales by Country" shape: @-parameters + a nested join onto the "Order Subtotals" view.
+    // The params are stored bare (no @); the WHERE keeps @refs. Access runs it honouring supplied values.
+    [Fact]
+    public void Access_runs_a_nested_join_at_parameter_procedure()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"empsales-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                db.CreateView("Emp Sales By Country Test", new ViewSpec(
+                    Distinct: false,
+                    Columns:
+                    [
+                        new ViewColumnSpec("Employees.Country", null),
+                        new ViewColumnSpec("Orders.OrderID", null),
+                        new ViewColumnSpec("[Order Subtotals].Subtotal", "SaleAmount"),
+                    ],
+                    Tables:
+                    [
+                        new ViewTableSpec("Employees", null),
+                        new ViewTableSpec("Orders", null),
+                        new ViewTableSpec("Order Subtotals", null),
+                    ],
+                    Joins:
+                    [
+                        new ViewJoinSpec(ViewJoinType.Inner, "Orders.OrderID = [Order Subtotals].OrderID", "Orders", "Order Subtotals"),
+                        new ViewJoinSpec(ViewJoinType.Inner, "Employees.EmployeeID = Orders.EmployeeID", "Employees", "Orders"),
+                    ],
+                    Where: "Orders.ShippedDate Between @Beginning_Date And @Ending_Date",
+                    GroupBy: null,
+                    Parameters:
+                    [
+                        new ViewParameterSpec("Beginning_Date", (byte)JetDataType.DateTime),
+                        new ViewParameterSpec("Ending_Date", (byte)JetDataType.DateTime),
+                    ]));
+
+            using var conn = OpenOleDb(path);
+
+            using var direct = conn.CreateCommand();
+            direct.CommandText =
+                "SELECT COUNT(*) FROM Employees INNER JOIN " +
+                "(Orders INNER JOIN [Order Subtotals] ON Orders.OrderID = [Order Subtotals].OrderID) " +
+                "ON Employees.EmployeeID = Orders.EmployeeID " +
+                "WHERE Orders.ShippedDate Between #1/1/1997# And #12/31/1997#";
+            int expected = Convert.ToInt32(direct.ExecuteScalar());
+            Assert.True(expected > 0);
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM [Emp Sales By Country Test]";
+            cmd.Parameters.Add(new OleDbParameter("Beginning_Date", new DateTime(1997, 1, 1)));
+            cmd.Parameters.Add(new OleDbParameter("Ending_Date", new DateTime(1997, 12, 31)));
+            Assert.Equal(expected, Convert.ToInt32(cmd.ExecuteScalar()));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
 }

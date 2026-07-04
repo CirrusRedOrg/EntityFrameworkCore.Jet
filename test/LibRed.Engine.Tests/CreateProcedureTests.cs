@@ -109,6 +109,45 @@ public class CreateProcedureTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // Parenthesised @-parameter list + a nested paren-join onto a view ("Employee Sales by Country" shape).
+    // The @-params are stored bare (no @), the body keeps @refs, and it reads back and executes with values.
+    [Fact]
+    public void Parenthesised_at_parameter_procedure_reads_back_and_executes()
+    {
+        string path = Fresh();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery(
+                    "CREATE PROCEDURE `Emp Sales Test` " +
+                    "(@Beginning_Date DateTime, @Ending_Date DateTime) AS " +
+                    "SELECT Employees.Country, Orders.OrderID, `Order Subtotals`.Subtotal AS SaleAmount " +
+                    "FROM Employees INNER JOIN " +
+                    "(Orders INNER JOIN `Order Subtotals` ON Orders.OrderID = `Order Subtotals`.OrderID) " +
+                    "ON Employees.EmployeeID = Orders.EmployeeID " +
+                    "WHERE Orders.ShippedDate BETWEEN @Beginning_Date AND @Ending_Date");
+
+            using (var db = JetDatabase.Open(path)) // fresh open: read from the file
+            {
+                var e = new QueryEngine(db);
+                var args = new Dictionary<string, object?>
+                {
+                    ["Beginning_Date"] = new DateTime(1997, 1, 1),
+                    ["Ending_Date"] = new DateTime(1997, 12, 31),
+                };
+                int viaProc = e.ExecuteQuery("SELECT * FROM `Emp Sales Test`", args).Rows.Count();
+                int direct = e.ExecuteQuery(
+                    "SELECT Orders.OrderID FROM Employees INNER JOIN " +
+                    "(Orders INNER JOIN `Order Subtotals` ON Orders.OrderID = `Order Subtotals`.OrderID) " +
+                    "ON Employees.EmployeeID = Orders.EmployeeID " +
+                    "WHERE Orders.ShippedDate BETWEEN #1/1/1997# AND #12/31/1997#").Rows.Count();
+                Assert.True(direct > 0);
+                Assert.Equal(direct, viaProc);
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     // An action-query procedure body (INSERT/CREATE TABLE) parses but is not stored yet; other statement
     // types (UPDATE/DELETE/…) have no grammar and fail to parse. Either way, CREATE PROCEDURE rejects it.
     [Theory]

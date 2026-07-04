@@ -36,10 +36,17 @@ createViewStatement
 // around the params, per the Access DDL). Stored like a view plus MSysQueries parameter rows.
 createProcedureStatement
     : CREATE PROCEDURE name=identifier
-      (procParam (COMMA procParam)*)?
+      procParamList?
       AS body=procedureBody
     ;
-procParam : pname=identifier dataType ;
+// The parameter list is optional, and Access accepts it either bare or wrapped in parentheses.
+procParamList
+    : LPAREN procParam (COMMA procParam)* RPAREN
+    | procParam (COMMA procParam)*
+    ;
+// A parameter name is an identifier or an @-prefixed parameter token (e.g. @Beginning_Date).
+procParam : pname=procParamName dataType ;
+procParamName : identifier | PARAM ;
 
 // A procedure body is any statement Access allows. We store/execute the ones we know (SELECT, INSERT,
 // CREATE TABLE); other action queries (UPDATE/DELETE/DROP/…) are rejected by the builder.

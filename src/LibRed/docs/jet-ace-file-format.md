@@ -835,9 +835,11 @@ The split mechanics:
   >
   > **CREATE PROCEDURE** is stored identically to a view (Type-5 `MSysObjects` row + `MSysQueries` rows) —
   > a stored query is a stored query — with one `0x02` parameter row per declared parameter. The Access
-  > syntax has **no parentheses** around the parameter list: `CREATE PROCEDURE name p1 datatype, p2
-  > datatype AS select`. Verified: a LibRed-written parameterized query runs in Access and honours supplied
-  > parameter values. **Read-back:** LibRed reconstructs a parameterized query with a leading `PARAMETERS
+  > syntax accepts the parameter list either bare or **parenthesised**, and a parameter may be written
+  > `@name`; Access stores the **bare** name (the `@` is stripped — `@Beginning_Date` → `Name1=Beginning_Date`)
+  > while the body keeps the `@` reference verbatim: `CREATE PROCEDURE name (p1 datatype, p2 datatype) AS
+  > select` or `CREATE PROCEDURE name p1 datatype AS select`. Verified: a LibRed-written parameterized query
+  > runs in Access and honours supplied parameter values. **Read-back:** LibRed reconstructs a parameterized query with a leading `PARAMETERS
   > name Type, …;` clause (the `0x02` rows) and lowers body references to a declared name into engine
   > parameters, so LibRed's own engine executes the stored procedure when values are supplied. Only
   > **SELECT** procedure bodies are stored; action-query bodies (INSERT/CREATE TABLE) parse but their

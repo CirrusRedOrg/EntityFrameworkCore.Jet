@@ -159,8 +159,9 @@ public sealed class JetCatalog(PageChannel channel)
     }
 
     // MSysQueries attribute codes (see spec §11).
-    private const byte QueryAttrType = 0x00, QueryAttrFlag = 0x03, QueryAttrTable = 0x05,
-        QueryAttrColumn = 0x06, QueryAttrJoin = 0x07, QueryAttrWhere = 0x08, QueryAttrGroupBy = 0x09;
+    private const byte QueryAttrType = 0x00, QueryAttrParameter = 0x02, QueryAttrFlag = 0x03,
+        QueryAttrTable = 0x05, QueryAttrColumn = 0x06, QueryAttrJoin = 0x07, QueryAttrWhere = 0x08,
+        QueryAttrGroupBy = 0x09;
     private const short QueryFlagDistinct = 2;
 
     private Dictionary<string, string> LoadViews()
@@ -200,8 +201,16 @@ public sealed class JetCatalog(PageChannel channel)
         IEnumerable<object?[]> OfAttr(byte a) => rows.Where(r => r[attr] is byte b && b == a).OrderBy(r => Ord(r[order]));
 
         // Bail out if the query uses attributes beyond a simple SELECT (e.g. GROUP BY/HAVING/ORDER BY).
-        var known = new byte[] { QueryAttrType, QueryAttrFlag, QueryAttrTable, QueryAttrColumn, QueryAttrJoin, QueryAttrWhere, QueryAttrGroupBy, 0xFF };
+        var known = new byte[] { QueryAttrType, QueryAttrParameter, QueryAttrFlag, QueryAttrTable, QueryAttrColumn, QueryAttrJoin, QueryAttrWhere, QueryAttrGroupBy, 0xFF };
         if (rows.Any(r => r[attr] is byte b && !known.Contains(b))) return null;
+
+        // Declared parameters (a stored procedure): each Attribute=2 row is Name1=name, Flag=Jet type code.
+        // Emitted as a leading PARAMETERS clause so the parser lowers body references to them as parameters.
+        var parameters = OfAttr(QueryAttrParameter)
+            .Select(r => (Name: r[n1] as string, Code: r[flag] is short f ? (byte)f : (byte)0))
+            .Where(p => p.Name is not null)
+            .Select(p => $"[{p.Name}] {AccessTypeName(p.Code)}")
+            .ToList();
 
         // A column row's Name1 (when present) is its output alias.
         var columns = OfAttr(QueryAttrColumn)
@@ -261,13 +270,37 @@ public sealed class JetCatalog(PageChannel channel)
         string? whereClause = where is null ? (extra.Any() ? string.Join(" AND ", extra) : null)
             : string.Join(" AND ", extra.Prepend($"({where})"));
 
-        var sql = new System.Text.StringBuilder("SELECT ");
+        var sql = new System.Text.StringBuilder();
+        if (parameters.Count > 0) sql.Append("PARAMETERS ").Append(string.Join(", ", parameters)).Append("; ");
+        sql.Append("SELECT ");
         if (distinct) sql.Append("DISTINCT ");
         sql.Append(string.Join(", ", columns)).Append(" FROM ").Append(from);
         if (whereClause is not null) sql.Append(" WHERE ").Append(whereClause);
         if (groupBy.Count > 0) sql.Append(" GROUP BY ").Append(string.Join(", ", groupBy));
         return sql.ToString();
     }
+
+    /// <summary>The Access SQL type name for a stored parameter's Jet type code (inverse of the CREATE TABLE
+    /// type mapper), used to render a read-back PARAMETERS clause.</summary>
+    private static string AccessTypeName(byte code) => (JetDataType)code switch
+    {
+        JetDataType.Boolean => "YESNO",
+        JetDataType.Byte => "BYTE",
+        JetDataType.Int16 => "SHORT",
+        JetDataType.Int32 => "LONG",
+        JetDataType.Int64 => "BIGINT",
+        JetDataType.Single => "SINGLE",
+        JetDataType.Double => "DOUBLE",
+        JetDataType.Currency => "CURRENCY",
+        JetDataType.DateTime => "DATETIME",
+        JetDataType.Text => "TEXT",
+        JetDataType.Memo => "MEMO",
+        JetDataType.Guid => "GUID",
+        JetDataType.Binary => "BINARY",
+        JetDataType.FixedPoint => "DECIMAL",
+        JetDataType.Ole => "OLEOBJECT",
+        _ => "TEXT",
+    };
 
     private TableDef ReadTableDefinition(int definitionPage, string name, bool isSystem)
     {

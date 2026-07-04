@@ -11,7 +11,12 @@
 grammar AccessSql;
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
-statement : (createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | insertStatement | queryExpression) SEMI? EOF ;
+statement : parametersClause? (createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | insertStatement | queryExpression) SEMI? EOF ;
+
+// A leading PARAMETERS clause (Access) declares the query's parameters up front. Used when reading a
+// stored parameterized query back: references to a declared name in the body bind as parameters, not
+// columns.  PARAMETERS p1 datatype, p2 datatype ;
+parametersClause : PARAMETERS procParam (COMMA procParam)* SEMI ;
 
 // ---- DDL / DML ----
 
@@ -32,9 +37,13 @@ createViewStatement
 createProcedureStatement
     : CREATE PROCEDURE name=identifier
       (procParam (COMMA procParam)*)?
-      AS body=queryExpression
+      AS body=procedureBody
     ;
 procParam : pname=identifier dataType ;
+
+// A procedure body is any statement Access allows. We store/execute the ones we know (SELECT, INSERT,
+// CREATE TABLE); other action queries (UPDATE/DELETE/DROP/…) are rejected by the builder.
+procedureBody : queryExpression | insertStatement | createTableStatement ;
 
 // CREATE [UNIQUE] INDEX name ON table (field [ASC|DESC], …) [WITH {PRIMARY|DISALLOW NULL|IGNORE NULL}]
 createIndexStatement
@@ -260,6 +269,7 @@ IGNORE     : [Ii][Gg][Nn][Oo][Rr][Ee] ;
 CHECK      : [Cc][Hh][Ee][Cc][Kk] ;
 VIEW       : [Vv][Ii][Ee][Ww] ;
 PROCEDURE  : [Pp][Rr][Oo][Cc][Ee][Dd][Uu][Rr][Ee] ;
+PARAMETERS : [Pp][Aa][Rr][Aa][Mm][Ee][Tt][Ee][Rr][Ss] ;
 ASC    : [Aa][Ss][Cc] ;
 DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;

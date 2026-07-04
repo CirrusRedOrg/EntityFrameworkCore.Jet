@@ -31,6 +31,56 @@ public class CreateProcedureTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // A stored parameterized query is read back (PARAMETERS clause + body) and executed through LibRed's
+    // own engine when parameter values are supplied — matching the same date filter run directly on Orders.
+    [Fact]
+    public void Parameterized_procedure_reads_back_and_executes()
+    {
+        string path = Fresh();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery(
+                    "CREATE PROCEDURE `Orders in range` " +
+                    "`Beginning Date` DateTime, `Ending Date` DateTime AS " +
+                    "SELECT Orders.OrderID FROM Orders " +
+                    "WHERE Orders.OrderDate BETWEEN `Beginning Date` AND `Ending Date`");
+
+            using (var db = JetDatabase.Open(path)) // fresh open: the procedure is read from the file
+            {
+                var e = new QueryEngine(db);
+                var args = new Dictionary<string, object?>
+                {
+                    ["Beginning Date"] = new DateTime(1997, 1, 1),
+                    ["Ending Date"] = new DateTime(1997, 12, 31),
+                };
+                int viaProc = e.ExecuteQuery("SELECT OrderID FROM `Orders in range`", args).Rows.Count();
+                int direct = e.ExecuteQuery(
+                    "SELECT OrderID FROM Orders WHERE OrderDate BETWEEN #1/1/1997# AND #12/31/1997#").Rows.Count();
+                Assert.True(direct > 0);
+                Assert.Equal(direct, viaProc);
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    // An action-query procedure body (INSERT/CREATE TABLE) parses but is not stored yet; other statement
+    // types (UPDATE/DELETE/…) have no grammar and fail to parse. Either way, CREATE PROCEDURE rejects it.
+    [Theory]
+    [InlineData("CREATE PROCEDURE `AddCust` AS INSERT INTO Customers (CustomerID) VALUES ('ZZZZZ')")]
+    [InlineData("CREATE PROCEDURE `MakeT` AS CREATE TABLE T (Id LONG)")]
+    [InlineData("CREATE PROCEDURE `DelCust` AS DELETE FROM Customers")]
+    public void Action_query_procedure_body_is_rejected(string sql)
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            Assert.ThrowsAny<Exception>(() => new QueryEngine(db).ExecuteNonQuery(sql));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     // A procedure name, like a view, cannot collide with an existing table.
     [Fact]
     public void Procedure_name_colliding_with_an_object_throws()

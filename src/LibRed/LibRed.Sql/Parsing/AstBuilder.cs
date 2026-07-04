@@ -12,6 +12,23 @@ internal sealed class AstBuilder
 {
     public SqlStatement Build(StatementContext ctx)
     {
+        SqlStatement statement = BuildBody(ctx);
+
+        // A leading PARAMETERS clause (Access) declares the query's parameters. References to a declared
+        // name in the body are lowered from column references to parameters, so the engine binds them from
+        // the supplied values. Emitted when a stored parameterized query is read back.
+        if (ctx.parametersClause() is { } pc)
+        {
+            var names = pc.procParam()
+                .Select(p => Identifier(p.pname))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            statement = LowerParameters(statement, names);
+        }
+        return statement;
+    }
+
+    private SqlStatement BuildBody(StatementContext ctx)
+    {
         if (ctx.createTableStatement() is { } create) return BuildCreateTable(create);
         if (ctx.createIndexStatement() is { } createIndex) return BuildCreateIndex(createIndex);
         if (ctx.createViewStatement() is { } createView) return BuildCreateView(createView);
@@ -190,14 +207,75 @@ internal sealed class AstBuilder
         var parameters = ctx.procParam()
             .Select(p => new ProcedureParameter(Identifier(p.pname), TypeName(p.dataType())))
             .ToList();
-        ViewDefinition definition = BuildViewDefinition(ctx.body); // a procedure body is a (parameterized) SELECT
-        return new CreateProcedureStatement(Identifier(ctx.name), parameters, definition, OriginalText(ctx.body));
+
+        // A procedure body is a SELECT (stored as a parameterized query, like a view), or an action query.
+        // We only persist SELECT bodies; INSERT/CREATE TABLE parse but their stored-query byte format is not
+        // implemented yet, and other statements are rejected outright.
+        ProcedureBodyContext body = ctx.body;
+        if (body.queryExpression() is not { } query)
+            throw new NotSupportedException(
+                "Only a SELECT procedure body is stored yet; action-query bodies (INSERT/CREATE TABLE/…) are not supported.");
+
+        ViewDefinition definition = BuildViewDefinition(query);
+        return new CreateProcedureStatement(Identifier(ctx.name), parameters, definition, OriginalText(query));
     }
 
     /// <summary>The declared type name of a data type (two-word names joined by a space).</summary>
     private static string TypeName(DataTypeContext type) => type.extra is null
         ? Identifier(type.typeName)
         : $"{Identifier(type.typeName)} {Identifier(type.extra)}";
+
+    // ---- PARAMETERS-clause lowering: unqualified references to a declared parameter become parameters ----
+
+    private static SqlStatement LowerParameters(SqlStatement s, HashSet<string> names) => s switch
+    {
+        SelectStatement sel => LowerSelect(sel, names),
+        SetOperationStatement set => set with
+        {
+            Left = LowerParameters(set.Left, names),
+            Right = LowerParameters(set.Right, names),
+        },
+        InsertStatement ins => ins with
+        {
+            Rows = ins.Rows
+                .Select(r => (IReadOnlyList<Expression>)r.Select(e => LowerExpr(e, names)).ToList())
+                .ToList(),
+        },
+        _ => s,
+    };
+
+    private static SelectStatement LowerSelect(SelectStatement sel, HashSet<string> names) => sel with
+    {
+        Projection = sel.Projection.Select(i => i with { Value = LowerExpr(i.Value, names) }).ToList(),
+        From = LowerFrom(sel.From, names),
+        Where = sel.Where is null ? null : LowerExpr(sel.Where, names),
+        GroupBy = sel.GroupBy.Select(e => LowerExpr(e, names)).ToList(),
+        Having = sel.Having is null ? null : LowerExpr(sel.Having, names),
+        OrderBy = sel.OrderBy.Select(o => o with { Value = LowerExpr(o.Value, names) }).ToList(),
+    };
+
+    private static TableReference LowerFrom(TableReference t, HashSet<string> names) => t switch
+    {
+        JoinTable j => j with
+        {
+            Left = LowerFrom(j.Left, names),
+            Right = LowerFrom(j.Right, names),
+            On = j.On is null ? null : LowerExpr(j.On, names),
+        },
+        SubqueryTable sub => sub with { Query = LowerParameters(sub.Query, names) },
+        _ => t,
+    };
+
+    private static Expression LowerExpr(Expression e, HashSet<string> names) => e switch
+    {
+        ColumnReference { Table: null, Column: var c } when names.Contains(c) => new ParameterExpression(c),
+        BinaryExpression b => b with { Left = LowerExpr(b.Left, names), Right = LowerExpr(b.Right, names) },
+        UnaryExpression u => u with { Operand = LowerExpr(u.Operand, names) },
+        FunctionCall f => f with { Arguments = f.Arguments.Select(a => LowerExpr(a, names)).ToList() },
+        ScalarSubquery s => new ScalarSubquery(LowerSelect(s.Query, names)),
+        ExistsExpression x => new ExistsExpression(LowerSelect(x.Query, names)),
+        _ => e,
+    };
 
     /// <summary>Decomposes a view's "simple SELECT" into the columns/tables/joins/where Access stores as
     /// MSysQueries rows. Rejects anything Access itself rejects in a view (UNION, GROUP BY/aggregates,

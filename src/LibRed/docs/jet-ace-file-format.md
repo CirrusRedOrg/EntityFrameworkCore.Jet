@@ -834,7 +834,11 @@ The split mechanics:
   > a stored query is a stored query — with one `0x02` parameter row per declared parameter. The Access
   > syntax has **no parentheses** around the parameter list: `CREATE PROCEDURE name p1 datatype, p2
   > datatype AS select`. Verified: a LibRed-written parameterized query runs in Access and honours supplied
-  > parameter values.
+  > parameter values. **Read-back:** LibRed reconstructs a parameterized query with a leading `PARAMETERS
+  > name Type, …;` clause (the `0x02` rows) and lowers body references to a declared name into engine
+  > parameters, so LibRed's own engine executes the stored procedure when values are supplied. Only
+  > **SELECT** procedure bodies are stored; action-query bodies (INSERT/CREATE TABLE) parse but their
+  > MSysQueries encoding is not implemented yet, and other statements (UPDATE/DELETE/DROP/…) are rejected.
 
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`

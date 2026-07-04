@@ -79,18 +79,6 @@ public sealed class LongValueWriter(PageChannel channel)
         return new LongValueResult(Descriptor(payload.Length, FlagChained, pages[0]), pages, pages[^1]);
     }
 
-    /// <summary>Writes <paramref name="payload"/> to a fresh single LVAL page and returns its descriptor
-    /// (single-page only — throws if it does not fit). Used for small property blobs.</summary>
-    public byte[] WriteSinglePage(byte[] payload)
-    {
-        if (payload.Length > MaxLvalRowSize)
-            throw new NotSupportedException(
-                $"Long value of {payload.Length} bytes exceeds a single LVAL page; use Write for chaining.");
-        int page = _allocator.Allocate();
-        WriteChunkPage(page, payload);
-        return Descriptor(payload.Length, FlagSinglePage, page);
-    }
-
     /// <summary>Allocates a fresh LVAL page, writes <paramref name="row"/> as its row 0, and returns the
     /// page number — the caller records it in the column's usage maps.</summary>
     public int WriteNewPage(byte[] row)

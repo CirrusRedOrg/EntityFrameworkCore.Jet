@@ -676,15 +676,18 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             props.Add(new PropertyBlob.Property("", PropertyBlob.CheckConstraintsProperty,
                 PropertyBlob.WriteCheckList(checkConstraints)));
 
+        var inserter = new RowInserter(_channel, msysObjects);
         if (props.Count > 0)
         {
             // Access reads object properties only from an LVAL-page long value, not an inline one, so
-            // write the blob to its own page and store the reference descriptor.
-            byte[] reference = new LongValueWriter(_channel).WriteSinglePage(PropertyBlob.Write(props));
+            // store the blob on a page (packed onto a shared LvProp page like Access) and keep the descriptor.
+            int lvPropColumn = (msysObjects.FindColumn("LvProp")
+                ?? throw new InvalidOperationException("MSysObjects is missing the 'LvProp' column.")).ColumnId;
+            byte[] reference = inserter.StorePackedLongValue(lvPropColumn, PropertyBlob.Write(props));
             SetByName(msysObjects, values, "LvProp", new LongValueDescriptor(reference));
         }
 
-        new RowInserter(_channel, msysObjects).Insert(values, updateIndexes: true);
+        inserter.Insert(values, updateIndexes: true);
     }
 
     // Permissions for a newly created table object: the owner (SID 0x690C) and the Admin/Users

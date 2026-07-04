@@ -519,9 +519,11 @@ LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII 
 > only when none has room is a fresh page allocated (owned + free). A page is dropped from the free map
 > once it can't hold the smallest long value (65-byte payload + its 2-byte slot). This reproduces Access's
 > layout — MSysQueries.Expression **owns** {42, 282} but **frees** only {282}, the current append target;
-> and 20 medium memos land on ~2 pages (full one owned-only, current one owned+free), not 20. A chained
-> value uses dedicated pages. A page outside the inline map's window would need a reference-type map — not
-> exercised here.
+> and 20 medium memos land on ~2 pages (full one owned-only, current one owned+free), not 20. The same
+> packing is used for the MSysObjects **LvProp** property blob (via `RowInserter.StorePackedLongValue`) —
+> but always to a page, never inline (Access reads object properties only from a page), so two tables'
+> DEFAULT/CHECK blobs share one LvProp page. A chained value uses dedicated pages. A page outside the inline
+> map's window would need a reference-type map — not exercised here.
 >
 > The entry is only strictly *required* once a value spills to LVAL pages — an entry-less table still
 > round-trips inline values through both LibRed and Access, but Access fails *"Not a valid bookmark"*

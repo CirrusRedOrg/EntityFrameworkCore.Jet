@@ -282,6 +282,19 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private const int MaxLvalRowSize = 4076; // one LVAL page row (Jackcess MAX_LONG_VALUE_ROW_SIZE, Jet4)
     private const int MinLvalRow = 65 + 2;
 
+    /// <summary>Stores <paramref name="payload"/> on an LVAL page for long-value column
+    /// <paramref name="columnId"/> — packing onto a free page as usual — and returns the in-row descriptor.
+    /// For a caller that must use a page regardless of size (the MSysObjects <c>LvProp</c> property blob,
+    /// which Access reads only from a page, never inline). Call before <see cref="Insert(object?[], bool)"/>
+    /// so the row carries the returned descriptor as a <see cref="LongValueDescriptor"/>.</summary>
+    public byte[] StorePackedLongValue(int columnId, byte[] payload)
+    {
+        TableDefinitionPage definition = ReadDefinition();
+        definition.LongValueOwnedMaps.TryGetValue(columnId, out (int Row, int Page) owned);
+        definition.LongValueFreeMaps.TryGetValue(columnId, out (int Row, int Page) free);
+        return StoreLongValue(new LongValueWriter(_channel), payload, owned, free);
+    }
+
     /// <summary>
     /// Writes one long value to LVAL page(s) and returns its in-row descriptor, maintaining the column's
     /// §3.3.2 usage maps. A value up to one page is <b>packed</b> onto an existing free page (a page in the

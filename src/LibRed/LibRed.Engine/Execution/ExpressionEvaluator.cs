@@ -62,9 +62,9 @@ internal sealed class ExpressionEvaluator(
             "IIF" => IsTrue(f.Arguments[0]) ? Evaluate(f.Arguments[1]) : Evaluate(f.Arguments[2]),
             "DATEPART" => DatePart(Evaluate(f.Arguments[0]), Evaluate(f.Arguments[1])),
             "ROUND" => Round(f),
-            "FIX" => UnaryNumeric(f, d => Math.Truncate(d)),     // toward zero
-            "INT" => UnaryNumeric(f, d => Math.Floor(d)),        // toward -infinity
-            "ABS" => UnaryNumeric(f, Math.Abs),
+            "FIX" => Numeric1(f, Math.Truncate, Math.Truncate),  // toward zero
+            "INT" => Numeric1(f, Math.Floor, Math.Floor),        // toward -infinity
+            "ABS" => Numeric1(f, Math.Abs, Math.Abs),
             // VBA/Access type-conversion functions. All propagate NULL. CInt/CLng/CByte round half-to-even
             // ("banker's rounding"), which is exactly what Convert.ToInt16/Int32/Byte do. CVar is a no-op
             // passthrough (LibRed has no distinct Variant type).
@@ -124,7 +124,8 @@ internal sealed class ExpressionEvaluator(
         };
     }
 
-    /// <summary>Access ROUND(number[, digits]): banker's rounding, like VBA/Access.</summary>
+    /// <summary>Access ROUND(number[, digits]): banker's rounding, preserving the operand's type (a double
+    /// rounds to a double, a decimal to a decimal — the EF contract). NULL-propagating.</summary>
     private object? Round(FunctionCall f)
     {
         object? value = Evaluate(f.Arguments[0]);
@@ -132,7 +133,14 @@ internal sealed class ExpressionEvaluator(
         int digits = f.Arguments.Count > 1
             ? Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture)
             : 0;
-        return Math.Round(Convert.ToDecimal(value, CultureInfo.InvariantCulture), digits, MidpointRounding.ToEven);
+        return value switch
+        {
+            decimal m => Math.Round(m, digits, MidpointRounding.ToEven),
+            double d => Math.Round(d, digits, MidpointRounding.ToEven),
+            float s => (float)Math.Round((double)s, digits, MidpointRounding.ToEven),
+            long l => (long)Math.Round((decimal)l, digits, MidpointRounding.ToEven),
+            _ => (int)Math.Round(Convert.ToDecimal(value, CultureInfo.InvariantCulture), digits, MidpointRounding.ToEven),
+        };
     }
 
     /// <summary>Applies a conversion to a single argument, propagating NULL.</summary>
@@ -230,6 +238,20 @@ internal sealed class ExpressionEvaluator(
         object? value = Evaluate(f.Arguments[0]);
         return value is null ? null : op(Convert.ToDecimal(value, CultureInfo.InvariantCulture));
     }
+
+    /// <summary>A numeric transform (Fix/Int/Abs) that **preserves the operand's type** (double→double,
+    /// single→single, decimal→decimal, int→int, long→long) so it matches EF's Math.* return type. Integer
+    /// types use the exact decimal op (no floating round-trip). NULL-propagating.</summary>
+    private object? Numeric1(FunctionCall f, Func<double, double> dOp, Func<decimal, decimal> mOp) =>
+        Evaluate(f.Arguments[0]) switch
+        {
+            null => null,
+            decimal m => mOp(m),
+            double d => dOp(d),
+            float s => (float)dOp(s),
+            long l => (long)mOp(l),
+            var v => (int)mOp(Convert.ToDecimal(v!, CultureInfo.InvariantCulture)),
+        };
 
     /// <summary>Applies a double-precision transform to a single argument, propagating NULL. Used for
     /// the trig/exp/log/sqrt VBA functions, which are inherently floating-point.</summary>

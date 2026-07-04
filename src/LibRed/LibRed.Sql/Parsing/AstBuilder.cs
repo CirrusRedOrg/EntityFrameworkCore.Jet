@@ -208,16 +208,48 @@ internal sealed class AstBuilder
             .Select(p => new ProcedureParameter(ParamName(p), TypeName(p.dataType())))
             .ToList();
 
-        // A procedure body is a SELECT (stored as a parameterized query, like a view), or an action query.
-        // We only persist SELECT bodies; INSERT/CREATE TABLE parse but their stored-query byte format is not
-        // implemented yet, and other statements are rejected outright.
+        // A procedure body is a SELECT (stored as a parameterized query, like a view) or an action query
+        // (CREATE TABLE / INSERT — stored byte-faithfully in their own MSysQueries shape).
         ProcedureBodyContext body = ctx.body;
-        if (body.queryExpression() is not { } query)
-            throw new NotSupportedException(
-                "Only a SELECT procedure body is stored yet; action-query bodies (INSERT/CREATE TABLE/…) are not supported.");
+        string name = Identifier(ctx.name);
 
-        ViewDefinition definition = BuildViewDefinition(query);
-        return new CreateProcedureStatement(Identifier(ctx.name), parameters, definition, OriginalText(query));
+        if (body.createTableStatement() is { } ddl)
+        {
+            RejectParametersOnAction(parameters);
+            return new CreateActionProcedureStatement(
+                name, ProcedureActionKind.DataDefinition, OriginalText(ddl), null, null);
+        }
+        if (body.insertStatement() is { } insert)
+        {
+            RejectParametersOnAction(parameters);
+            return BuildAppendProcedure(name, insert);
+        }
+
+        ViewDefinition definition = BuildViewDefinition(body.queryExpression());
+        return new CreateProcedureStatement(name, parameters, definition, OriginalText(body.queryExpression()));
+    }
+
+    private static void RejectParametersOnAction(IReadOnlyList<ProcedureParameter> parameters)
+    {
+        if (parameters.Count > 0)
+            throw new NotSupportedException("Parameters on an action-query procedure are not stored yet.");
+    }
+
+    private static SqlStatement BuildAppendProcedure(string name, InsertStatementContext insert)
+    {
+        var columns = insert._columns;
+        var values = insert.expression();
+        if (columns.Count == 0)
+            throw new NotSupportedException("An INSERT procedure body must list its target columns.");
+        if (columns.Count != values.Length)
+            throw new SqlParseException(
+                $"INSERT lists {columns.Count} columns but {values.Length} values.");
+
+        var appendColumns = columns
+            .Select((col, i) => new AppendColumn(Identifier(col), OriginalText(values[i])))
+            .ToList();
+        return new CreateActionProcedureStatement(
+            name, ProcedureActionKind.Append, null, Identifier(insert.table), appendColumns);
     }
 
     /// <summary>A declared parameter's name, with any leading <c>@</c> stripped — Access stores the bare

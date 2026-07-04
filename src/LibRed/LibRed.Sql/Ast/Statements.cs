@@ -137,6 +137,23 @@ public sealed record CreateProcedureStatement(
     ViewDefinition Definition,
     string QuerySql) : SqlStatement;
 
+/// <summary>The kind of non-SELECT (action) CREATE PROCEDURE body.</summary>
+public enum ProcedureActionKind { DataDefinition, Append }
+
+/// <summary>One appended column of an INSERT procedure body: the target column and the verbatim value text.</summary>
+public sealed record AppendColumn(string Column, string ValueExpression);
+
+/// <summary>A CREATE PROCEDURE whose body is an action query (not a SELECT). A
+/// <see cref="ProcedureActionKind.DataDefinition"/> body carries the whole <paramref name="DdlSql"/>
+/// (CREATE/DROP TABLE); an <see cref="ProcedureActionKind.Append"/> body carries the
+/// <paramref name="TargetTable"/> and its appended <paramref name="AppendColumns"/>.</summary>
+public sealed record CreateActionProcedureStatement(
+    string Name,
+    ProcedureActionKind Kind,
+    string? DdlSql,
+    string? TargetTable,
+    IReadOnlyList<AppendColumn>? AppendColumns) : SqlStatement;
+
 public sealed record Assignment(string Column, Expression Value) : SqlNode;
 
 public sealed record UpdateStatement(

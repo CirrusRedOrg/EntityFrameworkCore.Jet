@@ -24,6 +24,30 @@ public sealed record ViewParameterSpec(string Name, byte TypeCode);
 /// <c>Attribute=0x0B</c> row (Expression = the column, Name1 = "d" when <paramref name="Descending"/>).</summary>
 public sealed record ViewOrderBySpec(string Expression, bool Descending);
 
+/// <summary>The kind of stored action query. Access flags the MSysObjects row and the MSysQueries
+/// <c>Attribute=0x01</c> row differently for each.</summary>
+public enum ActionQueryKind
+{
+    /// <summary>CREATE TABLE / DROP TABLE etc. — the whole SQL text is stored verbatim.</summary>
+    DataDefinition,
+    /// <summary>INSERT INTO … — a target table plus the appended columns.</summary>
+    Append,
+}
+
+/// <summary>One appended column of an INSERT query: the target column and the verbatim value/source
+/// expression, stored as an <c>Attribute=0x06</c> row (Name2 = column, Expression = value).</summary>
+public sealed record AppendColumnSpec(string Column, string ValueExpression);
+
+/// <summary>A stored action query (a CREATE PROCEDURE body that is not a SELECT). A
+/// <see cref="ActionQueryKind.DataDefinition"/> query carries its whole <paramref name="DdlSql"/>; an
+/// <see cref="ActionQueryKind.Append"/> query carries a <paramref name="TargetTable"/> and its appended
+/// <paramref name="Values"/> (VALUES mode — literal expressions per column).</summary>
+public sealed record ActionQuerySpec(
+    ActionQueryKind Kind,
+    string? DdlSql = null,
+    string? TargetTable = null,
+    IReadOnlyList<AppendColumnSpec>? Values = null);
+
 /// <summary>
 /// A view's decomposed "simple SELECT" — the columns, source tables, joins and WHERE (all verbatim text) —
 /// that Access stores as MSysQueries rows. Aggregates / GROUP BY / HAVING / ORDER BY are not permitted.

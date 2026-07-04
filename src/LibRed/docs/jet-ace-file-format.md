@@ -841,9 +841,19 @@ The split mechanics:
   > select` or `CREATE PROCEDURE name p1 datatype AS select`. Verified: a LibRed-written parameterized query
   > runs in Access and honours supplied parameter values. **Read-back:** LibRed reconstructs a parameterized query with a leading `PARAMETERS
   > name Type, …;` clause (the `0x02` rows) and lowers body references to a declared name into engine
-  > parameters, so LibRed's own engine executes the stored procedure when values are supplied. Only
-  > **SELECT** procedure bodies are stored; action-query bodies (INSERT/CREATE TABLE) parse but their
-  > MSysQueries encoding is not implemented yet, and other statements (UPDATE/DELETE/DROP/…) are rejected.
+  > parameters, so LibRed's own engine executes the stored procedure when values are supplied.
+  >
+  > **Action-query procedure bodies** (a CREATE PROCEDURE body that is not a SELECT) are stored with a
+  > different MSysObjects `Flags` and an `Attribute=0x01` row (verified vs ACE):
+  > - **Data-definition** (CREATE TABLE / DROP TABLE): MSysObjects `Flags=0x10000060`; one `0x01` row with
+  >   `Flag 7` and `Expression` = the **whole DDL statement** verbatim (ACE prepends a single space).
+  > - **Append** (INSERT): MSysObjects `Flags=0x10000040`; a `0x01` row with `Flag 3` and `Name1` = the
+  >   target table, then one `0x06` column row per appended column — `Name2` = target column, `Expression`
+  >   = the value; `Flag 0x8000` marks an INSERT … **VALUES** append (an INSERT … **SELECT** instead uses
+  >   `Flag 0` on the `0x06` rows plus the usual `0x05` table / `0x08` where rows).
+  >
+  > (A plain view/SELECT query uses `Flags=0x10000000` and no `0x01` row.) LibRed writes CREATE TABLE and
+  > INSERT … VALUES bodies; INSERT … SELECT and UPDATE/DELETE are not written yet.
 
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`

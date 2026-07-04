@@ -23,6 +23,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         CreateIndexStatement createIndex => ExecuteCreateIndex(createIndex),
         CreateViewStatement createView => ExecuteCreateView(createView),
         CreateProcedureStatement createProc => ExecuteCreateProcedure(createProc),
+        CreateActionProcedureStatement actionProc => ExecuteCreateActionProcedure(actionProc),
         InsertStatement insert => ExecuteInsert(insert),
         _ => throw new NotSupportedException($"{statement.GetType().Name} cannot be executed as a non-query."),
     };
@@ -153,6 +154,16 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                     new ColumnDefinition(p.Name, p.TypeName, null, null, false, false)).Type))
             .ToList();
         _database.CreateView(statement.Name, BuildViewSpec(statement.Definition) with { Parameters = parameters });
+        return 0;
+    }
+
+    private int ExecuteCreateActionProcedure(CreateActionProcedureStatement statement)
+    {
+        ActionQuerySpec spec = statement.Kind == ProcedureActionKind.DataDefinition
+            ? new ActionQuerySpec(ActionQueryKind.DataDefinition, DdlSql: statement.DdlSql)
+            : new ActionQuerySpec(ActionQueryKind.Append, TargetTable: statement.TargetTable,
+                Values: statement.AppendColumns!.Select(c => new AppendColumnSpec(c.Column, c.ValueExpression)).ToList());
+        _database.CreateActionQuery(statement.Name, spec);
         return 0;
     }
 

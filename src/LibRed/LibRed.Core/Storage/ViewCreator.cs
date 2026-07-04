@@ -14,11 +14,14 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
 {
     private const short ObjectTypeQuery = 5;
     private const int QueriesContainerParentId = 0x0F000001;
-    private const int ViewFlags = 0x10000000;
+    private const int ViewFlags = 0x10000000;         // a SELECT query / view
+    private const int AppendFlags = 0x10000040;       // an INSERT (append) query
+    private const int DataDefinitionFlags = 0x10000060; // a CREATE/DROP TABLE (data-definition) query
     private static readonly byte[] DefaultOwner = [0x69, 0x0C];
 
     // MSysQueries attribute codes (Jackcess "query rows"), verified against ACE.
     private const byte AttrType = 0x00;    // Flag = 1 for a SELECT query
+    private const byte AttrAction = 0x01;  // action query: Flag 7 = DDL (Expression = SQL), Flag 3 = append (Name1 = table)
     private const byte AttrParameter = 0x02; // Name1 = param name, Flag = Jet type code
     private const byte AttrFlag = 0x03;    // Flag = 2 for DISTINCT
     private const byte AttrTable = 0x05;   // named table: Name1 = table, Name2 = alias;
@@ -32,18 +35,37 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
     private const short QueryTypeSelect = 1;
     private const short FlagDistinct = 2;
     private const short FlagTop = 0x10;    // an AttrFlag row with Name1 = the TOP count (as text)
+    private const short ActionFlagDdl = 7;     // AttrAction: data-definition query (whole SQL in Expression)
+    private const short ActionFlagAppend = 3;  // AttrAction: append (INSERT) query (target table in Name1)
+    private const short AppendValueFlag = unchecked((short)0x8000); // AttrColumn: an appended literal value
 
     private readonly PageChannel _channel = channel;
     private readonly JetCatalog _catalog = catalog;
 
     public void Create(string name, ViewSpec spec)
     {
+        int objectId = AllocateObject(name, ViewFlags);
+        AddQueryRows(objectId, spec);
+    }
+
+    /// <summary>Persists a stored action query (a non-SELECT CREATE PROCEDURE body) byte-faithfully.</summary>
+    public void CreateAction(string name, ActionQuerySpec spec)
+    {
+        int flags = spec.Kind == ActionQueryKind.DataDefinition ? DataDefinitionFlags : AppendFlags;
+        int objectId = AllocateObject(name, flags);
+        AddActionRows(objectId, spec);
+    }
+
+    /// <summary>Reserves the next free query object id, checks the name is unique, and writes the MSysObjects
+    /// row with the given <paramref name="flags"/> (which distinguish view / append / data-definition).</summary>
+    private int AllocateObject(string name, int flags)
+    {
         TableDef msysObjects = _catalog.FindTable("MSysObjects")
             ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
         int idIndex = ColumnIndex(msysObjects, "Id");
         int nameIndex = ColumnIndex(msysObjects, "Name");
 
-        // A view's name must be unique among all objects (it also cannot equal an existing table name);
+        // A query's name must be unique among all objects (it also cannot equal an existing table name);
         // find the next free negative id (queries increment from 0x80000000) in one scan.
         int nextId = unchecked((int)0x80000000);
         foreach (object?[] row in new Table(_channel, msysObjects).Rows())
@@ -53,11 +75,11 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
             if (row[idIndex] is int id && id < 0 && id >= nextId) nextId = id + 1;
         }
 
-        AddObjectRow(msysObjects, name, nextId);
-        AddQueryRows(nextId, spec);
+        AddObjectRow(msysObjects, name, nextId, flags);
+        return nextId;
     }
 
-    private void AddObjectRow(TableDef msysObjects, string name, int objectId)
+    private void AddObjectRow(TableDef msysObjects, string name, int objectId, int flags)
     {
         DateTime now = DateTime.Now;
         var values = new object?[msysObjects.Columns.Count];
@@ -65,11 +87,35 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         SetByName(msysObjects, values, "ParentId", QueriesContainerParentId);
         SetByName(msysObjects, values, "Type", ObjectTypeQuery);
         SetByName(msysObjects, values, "Name", name);
-        SetByName(msysObjects, values, "Flags", ViewFlags);
+        SetByName(msysObjects, values, "Flags", flags);
         SetByName(msysObjects, values, "Owner", DefaultOwner);
         SetByName(msysObjects, values, "DateCreate", now);
         SetByName(msysObjects, values, "DateUpdate", now);
         new RowInserter(_channel, msysObjects).Insert(values, updateIndexes: true);
+    }
+
+    private void AddActionRows(int objectId, ActionQuerySpec spec)
+    {
+        TableDef mq = _catalog.FindTable("MSysQueries")
+            ?? throw new InvalidOperationException("MSysQueries catalog table was not found.");
+
+        Row(mq, objectId, AttrType, order: 1, flag: QueryTypeSelect);
+        Row(mq, objectId, AttrEnd, order: 1);
+        if (spec.Kind == ActionQueryKind.DataDefinition)
+        {
+            // The whole DDL statement is stored verbatim in one row; Access records it with a leading space.
+            Row(mq, objectId, AttrAction, order: 1, flag: ActionFlagDdl, expression: " " + spec.DdlSql);
+        }
+        else
+        {
+            Row(mq, objectId, AttrAction, order: 1, flag: ActionFlagAppend, name1: spec.TargetTable);
+            // Each appended column: Name2 = target column, Expression = the (literal) value; the 0x8000 flag
+            // marks a VALUES append (as opposed to an INSERT … SELECT, whose columns carry Flag 0).
+            var values = spec.Values ?? [];
+            for (int i = 0; i < values.Count; i++)
+                Row(mq, objectId, AttrColumn, order: i + 1, flag: AppendValueFlag,
+                    expression: values[i].ValueExpression, name2: values[i].Column);
+        }
     }
 
     private void AddQueryRows(int objectId, ViewSpec spec)

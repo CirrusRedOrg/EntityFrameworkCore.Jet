@@ -92,6 +92,14 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
+    /// <summary>Creates a stored action query — a data-definition (CREATE/DROP TABLE) or append (INSERT)
+    /// query, as CREATE PROCEDURE persists them. Written byte-faithfully the way Access does.</summary>
+    public void CreateActionQuery(string name, ActionQuerySpec spec)
+    {
+        new Storage.ViewCreator(_channel, Catalog).CreateAction(name, spec);
+        Catalog.Invalidate();
+    }
+
     /// <summary>Opens a table by name for row access.</summary>
     public Table OpenTable(string name)
     {

@@ -148,13 +148,28 @@ public class CreateProcedureTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
-    // An action-query procedure body (INSERT/CREATE TABLE) parses but is not stored yet; other statement
-    // types (UPDATE/DELETE/…) have no grammar and fail to parse. Either way, CREATE PROCEDURE rejects it.
+    // Action-query procedure bodies we support (CREATE TABLE, INSERT ... VALUES) parse and store.
     [Theory]
-    [InlineData("CREATE PROCEDURE `AddCust` AS INSERT INTO Customers (CustomerID) VALUES ('ZZZZZ')")]
-    [InlineData("CREATE PROCEDURE `MakeT` AS CREATE TABLE T (Id LONG)")]
+    [InlineData("CREATE PROCEDURE `MakeT` AS CREATE TABLE ZZT (Id LONG, Nm TEXT(50))")]
+    [InlineData("CREATE PROCEDURE `AddShip` AS INSERT INTO Shippers (CompanyName) VALUES ('ZZ Co')")]
+    public void Action_query_procedure_body_is_stored(string sql)
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            new QueryEngine(db).ExecuteNonQuery(sql); // no throw
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    // Bodies we don't support: UPDATE/DELETE/DROP have no grammar; an INSERT without a column list can't be
+    // stored as an append query. Each is rejected.
+    [Theory]
     [InlineData("CREATE PROCEDURE `DelCust` AS DELETE FROM Customers")]
-    public void Action_query_procedure_body_is_rejected(string sql)
+    [InlineData("CREATE PROCEDURE `UpdCust` AS UPDATE Customers SET City = 'X'")]
+    [InlineData("CREATE PROCEDURE `AddNoCols` AS INSERT INTO Shippers VALUES ('ZZ Co')")]
+    public void Unsupported_procedure_body_is_rejected(string sql)
     {
         string path = Fresh();
         try

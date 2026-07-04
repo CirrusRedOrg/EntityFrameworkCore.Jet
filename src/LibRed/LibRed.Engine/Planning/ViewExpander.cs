@@ -4,10 +4,11 @@ using LibRed.Sql.Parsing;
 namespace LibRed.Engine.Planning;
 
 /// <summary>
-/// Rewrites a query so that any reference to a view in a FROM clause becomes a derived table (a
-/// subquery over the view's stored SELECT) — the same shape the planner already handles for explicit
-/// subqueries. View SQL is reconstructed by the catalog (<c>JetCatalog.Views</c>) and parsed here.
-/// Views nested inside other views are expanded recursively.
+/// Rewrites a query so that any reference to a view becomes a derived table (a subquery over the view's
+/// stored SELECT) — the same shape the planner already handles for explicit subqueries. A view named in
+/// a FROM clause, or inside a scalar/EXISTS subquery in any clause (projection, WHERE, GROUP BY, HAVING,
+/// ORDER BY), is expanded. View SQL is reconstructed by the catalog (<c>JetCatalog.Views</c>) and parsed
+/// here. Views nested inside other views are expanded recursively.
 /// </summary>
 internal static class ViewExpander
 {
@@ -25,8 +26,35 @@ internal static class ViewExpander
         _ => statement,
     };
 
-    private static SelectStatement RewriteSelect(SelectStatement select, IReadOnlyDictionary<string, string> views, ISqlParser parser) =>
-        select with { From = RewriteSource(select.From, views, parser) };
+    private static SelectStatement RewriteSelect(SelectStatement select, IReadOnlyDictionary<string, string> views, ISqlParser parser)
+    {
+        Expression Expr(Expression e) => RewriteExpression(e, views, parser);
+        return select with
+        {
+            From = RewriteSource(select.From, views, parser),
+            Projection = select.Projection.Select(i => i with { Value = Expr(i.Value) }).ToList(),
+            Where = select.Where is { } w ? Expr(w) : null,
+            GroupBy = select.GroupBy.Select(Expr).ToList(),
+            Having = select.Having is { } h ? Expr(h) : null,
+            OrderBy = select.OrderBy.Select(o => o with { Value = Expr(o.Value) }).ToList(),
+        };
+    }
+
+    /// <summary>Rewrites views referenced inside expression subqueries (scalar / EXISTS), recursing through
+    /// the operator/function tree; leaf expressions are returned unchanged.</summary>
+    private static Expression RewriteExpression(Expression expr, IReadOnlyDictionary<string, string> views, ISqlParser parser) => expr switch
+    {
+        ScalarSubquery s => new ScalarSubquery(RewriteSelect(s.Query, views, parser)),
+        ExistsExpression x => new ExistsExpression(RewriteSelect(x.Query, views, parser)),
+        BinaryExpression b => b with
+        {
+            Left = RewriteExpression(b.Left, views, parser),
+            Right = RewriteExpression(b.Right, views, parser),
+        },
+        UnaryExpression u => u with { Operand = RewriteExpression(u.Operand, views, parser) },
+        FunctionCall f => f with { Arguments = f.Arguments.Select(a => RewriteExpression(a, views, parser)).ToList() },
+        _ => expr,
+    };
 
     private static TableReference RewriteSource(TableReference source, IReadOnlyDictionary<string, string> views, ISqlParser parser) => source switch
     {

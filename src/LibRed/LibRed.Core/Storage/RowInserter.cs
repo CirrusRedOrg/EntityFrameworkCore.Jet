@@ -270,19 +270,65 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (payload is null || payload.Length <= maxInline) continue;
 
             writer ??= new LongValueWriter(_channel);
-            LongValueResult lval = writer.Write(payload); // single page, or chained across several
-            values[column.Index] = new LongValueDescriptor(lval.Descriptor);
-
-            // Record the LVAL page(s) in this column's usage maps (§3.3.2), as Access does: every page in
-            // the owned-pages map, and the last (partially-filled) page in the free-pages map — Access keeps
-            // a page with spare room free and clears the bit only when it fills.
             definition ??= ReadDefinition();
-            if (definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned))
-                foreach (int lvalPage in lval.OwnedPages)
-                    SetUsageBit(owned.Row, owned.Page, lvalPage, set: true);
-            if (definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) free))
-                SetUsageBit(free.Row, free.Page, lval.FreePage, set: true);
+            definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned);
+            definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) free);
+            values[column.Index] = new LongValueDescriptor(StoreLongValue(writer, payload, owned, free));
         }
+    }
+
+    // A page is dropped from the free-pages map once it cannot hold the smallest long value (a 65-byte
+    // payload — anything up to 64 inlines — plus its 2-byte row-directory entry).
+    private const int MaxLvalRowSize = 4076; // one LVAL page row (Jackcess MAX_LONG_VALUE_ROW_SIZE, Jet4)
+    private const int MinLvalRow = 65 + 2;
+
+    /// <summary>
+    /// Writes one long value to LVAL page(s) and returns its in-row descriptor, maintaining the column's
+    /// §3.3.2 usage maps. A value up to one page is <b>packed</b> onto an existing free page (a page in the
+    /// free-pages map with room), the way Access shares a page across many small values; only when none has
+    /// room is a fresh page allocated (owned + free). A value larger than one page is chained across
+    /// dedicated pages.
+    /// </summary>
+    private byte[] StoreLongValue(LongValueWriter writer, byte[] payload, (int Row, int Page) owned, (int Row, int Page) free)
+    {
+        if (payload.Length > MaxLvalRowSize)
+        {
+            LongValueResult chained = writer.Write(payload);
+            foreach (int page in chained.OwnedPages) SetUsageBit(owned.Row, owned.Page, page, set: true);
+            SetUsageBit(free.Row, free.Page, chained.FreePage, set: true);
+            return chained.Descriptor;
+        }
+
+        // Pack onto the first free page that has room for the value plus its directory entry.
+        if (free.Page != 0)
+            foreach (int page in MapPages(free.Row, free.Page))
+                if (writer.TryAppend(page, payload) is (int row, int remaining))
+                {
+                    if (remaining < MinLvalRow) SetUsageBit(free.Row, free.Page, page, set: false); // now full
+                    return LongValueWriter.SinglePageDescriptor(payload.Length, page, row);
+                }
+
+        // No free page had room: a fresh page (owned, and free — it still has spare room).
+        int newPage = writer.WriteNewPage(payload);
+        SetUsageBit(owned.Row, owned.Page, newPage, set: true);
+        SetUsageBit(free.Row, free.Page, newPage, set: true);
+        return LongValueWriter.SinglePageDescriptor(payload.Length, newPage, 0);
+    }
+
+    /// <summary>Yields the pages marked in an inline usage map (record row + page); empty for a
+    /// reference-type map (not used by the small per-column maps here).</summary>
+    private IEnumerable<int> MapPages(int mapRow, int mapPage)
+    {
+        var holder = new DataPage();
+        holder.Read(_channel.ReadPage(mapPage), _channel.Format);
+        byte[] map = holder.GetRow(mapRow).ToArray();
+        if (map.Length == 0 || map[0] != 0x00) yield break;
+
+        int startPage = BinaryPrimitives.ReadInt32LittleEndian(map.AsSpan(1, 4));
+        for (int i = 5; i < map.Length; i++)
+            for (int bit = 0; bit < 8; bit++)
+                if ((map[i] & (1 << bit)) != 0)
+                    yield return startPage + (i - 5) * 8 + bit;
     }
 
     private TableDefinitionPage ReadDefinition()

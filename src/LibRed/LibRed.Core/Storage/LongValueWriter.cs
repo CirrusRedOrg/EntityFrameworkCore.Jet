@@ -91,6 +91,46 @@ public sealed class LongValueWriter(PageChannel channel)
         return Descriptor(payload.Length, FlagSinglePage, page);
     }
 
+    /// <summary>Allocates a fresh LVAL page, writes <paramref name="row"/> as its row 0, and returns the
+    /// page number — the caller records it in the column's usage maps.</summary>
+    public int WriteNewPage(byte[] row)
+    {
+        int page = _allocator.Allocate();
+        WriteChunkPage(page, row);
+        return page;
+    }
+
+    /// <summary>Appends <paramref name="row"/> to an existing LVAL page if it has room, returning the new
+    /// row index and the page's remaining free space (null if it does not fit). Lets several small long
+    /// values share one page, the way Access packs them.</summary>
+    public (int Row, int RemainingFree)? TryAppend(int pageNumber, byte[] row)
+    {
+        JetFormatBase format = _channel.Format;
+        byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
+        int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
+        int freeSpace = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2));
+        if (freeSpace < row.Length + 2) return null; // row data + its 2-byte directory entry
+
+        int lowest = format.PageSize;
+        for (int i = 0; i < rowCount; i++)
+            lowest = Math.Min(lowest,
+                BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2)) & 0x1FFF);
+
+        int offset = lowest - row.Length;
+        row.CopyTo(page.AsSpan(offset));
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + rowCount * 2, 2), (ushort)offset);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), (ushort)(rowCount + 1));
+        int remaining = freeSpace - row.Length - 2;
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2), (ushort)remaining);
+        _channel.WritePage(pageNumber, page);
+        return (rowCount, remaining);
+    }
+
+    /// <summary>The single-page (<c>0x40</c>) descriptor for a value stored at (<paramref name="page"/>,
+    /// <paramref name="row"/>) — used when a value is packed onto an existing page at a non-zero row.</summary>
+    public static byte[] SinglePageDescriptor(int length, int page, int row) =>
+        Descriptor(length, FlagSinglePage, page, row);
+
     /// <summary>Writes one row (<paramref name="row"/>) to a fresh LVAL data page, packed from the page end.</summary>
     private void WriteChunkPage(int pageNumber, byte[] row)
     {
@@ -109,15 +149,15 @@ public sealed class LongValueWriter(PageChannel channel)
         _channel.WritePage(pageNumber, page);
     }
 
-    /// <summary>Builds the 12-byte in-row descriptor: <c>[length:3][flag:1][row:1=0][page:3][4 reserved]</c>.</summary>
-    private static byte[] Descriptor(int length, byte flag, int firstPage)
+    /// <summary>Builds the 12-byte in-row descriptor: <c>[length:3][flag:1][row:1][page:3][4 reserved]</c>.</summary>
+    private static byte[] Descriptor(int length, byte flag, int firstPage, int row = 0)
     {
         var d = new byte[12];
         d[0] = (byte)length;
         d[1] = (byte)(length >> 8);
         d[2] = (byte)(length >> 16);
         d[3] = flag;
-        d[4] = 0; // first chunk is row 0
+        d[4] = (byte)row;
         d[5] = (byte)firstPage;
         d[6] = (byte)(firstPage >> 8);
         d[7] = (byte)(firstPage >> 16);

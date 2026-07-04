@@ -514,12 +514,14 @@ LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII 
 > Categories). For a fresh table all these maps are empty. When LibRed writes a value to an LVAL page
 > (§8), it now **sets that page's bit in the column's owned-pages *and* free-pages maps** — both §3.3.2
 > pointers are parsed from the TDEF (`TableDefinitionPage.LongValueOwnedMaps` / `LongValueFreeMaps`, keyed
-> by column id) and the inline bitmap bit is set. A page is in the free map because a fresh single-value
-> LVAL page still has spare room — matching Access, which keeps a partially-full LVAL page free and clears
-> the bit only once it fills (verified in Northwind: MSysQueries.Expression **owns** {42, 282} but **frees**
-> only {282}, the current append target; after a LibRed insert its new page joins both maps). LibRed writes
-> one value per fresh page and never appends, so it never has to clear a free bit. A page outside the inline
-> map's window would need a reference-type map — not exercised by the single-page values written so far.
+> by column id) and the inline bitmap bit is set. **Pages are packed like Access:** a value up to one row
+> is appended to the first **free-map** page with room (many small values share a page as separate rows);
+> only when none has room is a fresh page allocated (owned + free). A page is dropped from the free map
+> once it can't hold the smallest long value (65-byte payload + its 2-byte slot). This reproduces Access's
+> layout — MSysQueries.Expression **owns** {42, 282} but **frees** only {282}, the current append target;
+> and 20 medium memos land on ~2 pages (full one owned-only, current one owned+free), not 20. A chained
+> value uses dedicated pages. A page outside the inline map's window would need a reference-type map — not
+> exercised here.
 >
 > The entry is only strictly *required* once a value spills to LVAL pages — an entry-less table still
 > round-trips inline values through both LibRed and Access, but Access fails *"Not a valid bookmark"*

@@ -87,17 +87,31 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 var (columns, rows) = Execute(project.Input, outer);
 
-                var output = project.Projection
-                    .Select((item, i) => new OutputColumn(null, item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}")))
-                    .ToList();
+                // Flatten the projection, expanding a qualified star (Table.*) into the input columns of
+                // that source (passed through by index); every other item is an evaluated expression.
+                var plan = new List<(OutputColumn Column, int InputIndex, Expression? Expr)>();
+                foreach (SelectItem item in project.Projection)
+                {
+                    if (item.Value is QualifiedStarExpression star)
+                    {
+                        for (int ci = 0; ci < columns.Count; ci++)
+                            if (string.Equals(columns[ci].Qualifier, star.Table, StringComparison.OrdinalIgnoreCase))
+                                plan.Add((columns[ci], ci, null));
+                    }
+                    else
+                    {
+                        string name = item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{plan.Count + 1}");
+                        plan.Add((new OutputColumn(null, name), -1, item.Value));
+                    }
+                }
 
                 var projected = rows.Select(row =>
                 {
                     var eval = Eval(columns, row, outer);
-                    return project.Projection.Select(item => eval.Evaluate(item.Value)).ToArray();
+                    return plan.Select(p => p.InputIndex >= 0 ? row[p.InputIndex] : eval.Evaluate(p.Expr!)).ToArray();
                 });
 
-                return (output, projected);
+                return (plan.Select(p => p.Column).ToList(), projected);
             }
 
             case SetOperationNode setOp:

@@ -15,6 +15,10 @@ public sealed record ParameterExpression(string Name) : Expression;
 /// <summary><c>*</c> in a projection or aggregate.</summary>
 public sealed record StarExpression : Expression;
 
+/// <summary>A table-qualified star, <c>Table.*</c> — all columns of that source. Expanded during
+/// projection into the input columns whose source is <paramref name="Table"/>.</summary>
+public sealed record QualifiedStarExpression(string Table) : Expression;
+
 public enum BinaryOperator
 {
     Add, Subtract, Multiply, Divide, Modulo, IntDivide, Power, Concat,

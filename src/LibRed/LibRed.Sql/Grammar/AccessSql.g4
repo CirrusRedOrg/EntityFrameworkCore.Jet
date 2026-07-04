@@ -122,7 +122,10 @@ selectList
     | selectItem (COMMA selectItem)*
     ;
 
-selectItem : expression (AS? alias=identifier)? ;
+selectItem
+    : qualifier=identifier DOT STAR        # QualifiedStarSelectItem
+    | expression (AS? alias=identifier)?   # ExpressionSelectItem
+    ;
 
 fromClause : FROM tableSource (COMMA tableSource)* ;
 

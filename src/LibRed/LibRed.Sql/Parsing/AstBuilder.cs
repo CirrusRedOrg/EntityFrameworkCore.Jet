@@ -196,10 +196,10 @@ internal sealed class AstBuilder
         if (select.groupByClause() is not null || select.havingClause() is not null || select.orderByClause() is not null)
             throw new NotSupportedException("A view SELECT cannot use GROUP BY, HAVING or ORDER BY (only a simple SELECT).");
 
-        // Output columns (verbatim expression text); SELECT * becomes a single "*".
+        // Output columns (verbatim text); SELECT * becomes a single "*", a qualified star stays "Table.*".
         var columns = select.selectList().STAR() is not null && select.selectList().selectItem().Length == 0
             ? (IReadOnlyList<string>)["*"]
-            : select.selectList().selectItem().Select(i => OriginalText(i.expression())).ToList();
+            : select.selectList().selectItem().Select(ColumnText).ToList();
 
         var tables = new List<ViewSource>();
         var joins = new List<ViewJoin>();
@@ -294,8 +294,20 @@ internal sealed class AstBuilder
         return new SelectStatement(projection, star, from, where, groupBy, having, orderBy, top);
     }
 
-    private static SelectItem BuildSelectItem(SelectItemContext ctx) =>
-        new(BuildExpression(ctx.expression()), OptionalIdentifier(ctx.alias));
+    /// <summary>The verbatim text a view stores for a projection item — the expression (alias dropped),
+    /// or <c>Table.*</c> for a qualified star.</summary>
+    private static string ColumnText(SelectItemContext ctx) => ctx switch
+    {
+        ExpressionSelectItemContext e => OriginalText(e.expression()),
+        _ => OriginalText(ctx), // qualified star: "Table.*"
+    };
+
+    private static SelectItem BuildSelectItem(SelectItemContext ctx) => ctx switch
+    {
+        QualifiedStarSelectItemContext q => new SelectItem(new QualifiedStarExpression(Identifier(q.qualifier)), null),
+        ExpressionSelectItemContext e => new SelectItem(BuildExpression(e.expression()), OptionalIdentifier(e.alias)),
+        _ => throw new SqlParseException($"Unsupported select item: {ctx.GetText()}"),
+    };
 
     private static TableReference BuildFrom(FromClauseContext ctx)
     {

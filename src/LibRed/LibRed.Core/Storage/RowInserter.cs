@@ -273,11 +273,15 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             byte[] descriptor = writer.WriteSinglePage(payload);
             values[column.Index] = new LongValueDescriptor(descriptor);
 
-            // Record the LVAL page in this column's owned-pages usage map (§3.3.2), as Access does.
+            // Record the LVAL page in this column's usage maps (§3.3.2), as Access does: always in the
+            // owned-pages map; and in the free-pages map because a fresh single-value page still has spare
+            // room (Access keeps a partially-full LVAL page free and clears the bit only when it fills).
             int lvalPage = descriptor[5] | (descriptor[6] << 8) | (descriptor[7] << 16);
             definition ??= ReadDefinition();
-            if (definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) map))
-                SetUsageBit(map.Row, map.Page, lvalPage, set: true);
+            if (definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned))
+                SetUsageBit(owned.Row, owned.Page, lvalPage, set: true);
+            if (definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) free))
+                SetUsageBit(free.Row, free.Page, lvalPage, set: true);
         }
     }
 

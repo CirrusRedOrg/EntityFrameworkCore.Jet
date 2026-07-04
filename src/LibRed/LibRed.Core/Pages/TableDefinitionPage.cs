@@ -34,6 +34,10 @@ public sealed class TableDefinitionPage : Page
     /// page), from the §3.3.2 list after the index names. Used to record a newly allocated LVAL page.</summary>
     public IReadOnlyDictionary<int, (int Row, int Page)> LongValueOwnedMaps => _longValueOwnedMaps;
 
+    private readonly Dictionary<int, (int Row, int Page)> _longValueFreeMaps = [];
+    /// <summary>Per long-value column id → its free-pages usage-map pointer (LVAL pages with spare room).</summary>
+    public IReadOnlyDictionary<int, (int Row, int Page)> LongValueFreeMaps => _longValueFreeMaps;
+
     /// <summary>Bytes of a continuation TDEF page that precede the resumed definition data.</summary>
     private const int ContinuationHeaderSize = 8;
 
@@ -164,9 +168,11 @@ public sealed class TableDefinitionPage : Page
     private void ReadLongValueMaps(PageBuffer buffer, int pos)
     {
         _longValueOwnedMaps.Clear();
+        _longValueFreeMaps.Clear();
         while (buffer.ReadUInt16(pos) is var colNum && colNum != 0xFFFF)
         {
             _longValueOwnedMaps[colNum] = (buffer.ReadByte(pos + 2), buffer.ReadInt24(pos + 3));
+            _longValueFreeMaps[colNum] = (buffer.ReadByte(pos + 6), buffer.ReadInt24(pos + 7));
             pos += 10;
         }
     }

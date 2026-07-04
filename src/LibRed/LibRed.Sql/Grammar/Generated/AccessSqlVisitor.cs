@@ -597,6 +597,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitFunctionCall([NotNull] AccessSqlParser.FunctionCallContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.functionName"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitFunctionName([NotNull] AccessSqlParser.FunctionNameContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.columnRef"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

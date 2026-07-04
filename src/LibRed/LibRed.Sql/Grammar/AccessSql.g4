@@ -219,7 +219,11 @@ primary
     | LPAREN expression RPAREN         # ParenPrimary
     ;
 
-functionCall : name=identifier LPAREN (star=STAR | (expression (COMMA expression)*))? RPAREN ;
+functionCall : name=functionName LPAREN (star=STAR | (expression (COMMA expression)*))? RPAREN ;
+// A function name is an identifier, or the LEFT/RIGHT keywords used as the Left()/Right() functions —
+// unambiguous with LEFT/RIGHT JOIN because a function call is always followed by '(' and never appears in
+// the FROM clause.
+functionName : identifier | LEFT | RIGHT ;
 
 columnRef : (qualifier=identifier DOT)? name=identifier ;
 

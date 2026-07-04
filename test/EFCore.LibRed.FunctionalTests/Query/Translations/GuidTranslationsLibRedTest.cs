@@ -50,8 +50,8 @@ WHERE `b`.`Guid` = @p
 
         AssertSql(
             """
-SELECT CONVERT(varchar(36), [b].[Guid])
-FROM [BasicTypesEntities] AS [b]
+SELECT (`b`.`Guid` & '')
+FROM `BasicTypesEntities` AS `b`
 """);
     }
 

@@ -604,8 +604,12 @@ internal sealed class AstBuilder
         IReadOnlyList<Expression> args = ctx.star is not null
             ? [new StarExpression()]
             : ctx.expression().Select(BuildExpression).ToList();
-        return new FunctionCall(Identifier(ctx.name), args);
+        return new FunctionCall(FunctionName(ctx.name), args);
     }
+
+    /// <summary>A function name: an identifier, or the LEFT/RIGHT keyword tokens as Left()/Right().</summary>
+    private static string FunctionName(FunctionNameContext ctx) =>
+        ctx.identifier() is { } id ? Identifier(id) : ctx.GetText();
 
     private static Expression BuildColumn(ColumnRefContext ctx) =>
         new ColumnReference(OptionalIdentifier(ctx.qualifier), Identifier(ctx.name));

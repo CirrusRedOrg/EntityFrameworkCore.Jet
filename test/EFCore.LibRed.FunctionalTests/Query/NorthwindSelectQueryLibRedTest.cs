@@ -53,6 +53,8 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
 
             AssertSql(
                 """
+@p='10'
+
 SELECT CLNG(`e0`.`EmployeeID`) + CLNG(`o0`.`OrderID`) AS `Add`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, 42 AS `Literal`, `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
 FROM (
     SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
@@ -1596,9 +1598,9 @@ WHERE `o`.`CustomerID` = 'ALFKI'
 
             AssertSql(
                 """
-SELECT CAST([o].[OrderID] AS decimal(18,2)) / CAST([o].[OrderID] + 1000 AS decimal(18,2))
-FROM [Orders] AS [o]
-WHERE [o].[OrderID] = 10243
+SELECT CDEC(`o`.`OrderID`) / CDEC(`o`.`OrderID` + 1000)
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` = 10250
 """);
         }
 

@@ -693,10 +693,10 @@ FROM `Orders` AS `o`
             await base.Sum_with_division_on_decimal(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT SUM(CCUR(`o`.`Quantity`) / 2.09)
-                    FROM `Order Details` AS `o`
-                    """);
+                """
+SELECT IIF(SUM(CDEC(`o`.`Quantity`) / 2.09) IS NULL, 0.0, SUM(CDEC(`o`.`Quantity`) / 2.09))
+FROM `Order Details` AS `o`
+""");
         }
 
         public override async Task Sum_with_division_on_decimal_no_significant_digits(bool isAsync)
@@ -704,10 +704,10 @@ FROM `Orders` AS `o`
             await base.Sum_with_division_on_decimal_no_significant_digits(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT SUM(CCUR(`o`.`Quantity`) / 2.0)
-                    FROM `Order Details` AS `o`
-                    """);
+                """
+SELECT IIF(SUM(CDEC(`o`.`Quantity`) / 2.0) IS NULL, 0.0, SUM(CDEC(`o`.`Quantity`) / 2.0))
+FROM `Order Details` AS `o`
+""");
         }
 
         public override async Task Sum_with_coalesce(bool isAsync)
@@ -928,10 +928,10 @@ FROM `Customers` AS `c`
             await base.Average_with_division_on_decimal(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT AVG(CCUR(`o`.`Quantity`) / 2.09)
-                    FROM `Order Details` AS `o`
-                    """);
+                """
+SELECT AVG(CDEC(`o`.`Quantity`) / 2.09)
+FROM `Order Details` AS `o`
+""");
         }
 
         public override async Task Average_with_division_on_decimal_no_significant_digits(bool isAsync)
@@ -939,10 +939,10 @@ FROM `Customers` AS `c`
             await base.Average_with_division_on_decimal_no_significant_digits(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT AVG(IIF(`o`.`Quantity` IS NULL, NULL, CCUR(`o`.`Quantity`)) / 2.0)
-                    FROM `Order Details` AS `o`
-                    """);
+                """
+SELECT AVG(CDEC(`o`.`Quantity`) / 2.0)
+FROM `Order Details` AS `o`
+""");
         }
 
         public override async Task Average_with_coalesce(bool isAsync)
@@ -3032,8 +3032,8 @@ ORDER BY `c`.`CustomerID` DESC
 
             AssertSql(
                 """
-SELECT COALESCE(SUM(CAST([o].[Discount] AS decimal(18,2))), 0.0)
-FROM [Order Details] AS [o]
+SELECT IIF(SUM(CDEC(`o`.`Discount`)) IS NULL, 0.0, SUM(CDEC(`o`.`Discount`)))
+FROM `Order Details` AS `o`
 """);
         }
 

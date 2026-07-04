@@ -61,6 +61,20 @@ internal sealed class ExpressionEvaluator(
             "CSTR" => Convert1(f, v => Convert.ToString(v, CultureInfo.InvariantCulture)),
             "CDATE" => Convert1(f, ToDate),
             "CVAR" => Evaluate(f.Arguments[0]), // passthrough (no Variant type)
+
+            // VBA/Access string functions. All propagate NULL; positions are 1-based. Comparisons default to
+            // case-insensitive (Access "Option Compare Database" = Text), overridable by a compare argument.
+            "LEN" => Convert1(f, v => v.ToString()!.Length),
+            "LCASE" => Convert1(f, v => v.ToString()!.ToLowerInvariant()),
+            "UCASE" => Convert1(f, v => v.ToString()!.ToUpperInvariant()),
+            "TRIM" => Convert1(f, v => v.ToString()!.Trim(' ')),
+            "LTRIM" => Convert1(f, v => v.ToString()!.TrimStart(' ')),
+            "RTRIM" => Convert1(f, v => v.ToString()!.TrimEnd(' ')),
+            "LEFT" => StringInt(f, static (s, n) => n <= 0 ? "" : n >= s.Length ? s : s[..n]),
+            "RIGHT" => StringInt(f, static (s, n) => n <= 0 ? "" : n >= s.Length ? s : s[^n..]),
+            "MID" => Mid(f),
+            "INSTR" => Instr(f),
+            "REPLACE" => Replace(f),
             // Jet VBA math functions (double precision). SQR = sqrt, ATN = atan, SGN = sign, LOG =
             // natural log. Acos/Asin/Atan2/Floor/Ceiling/Log10/Log-base are emitted by EF as
             // expressions built from these plus arithmetic, so they need no dedicated cases.
@@ -102,6 +116,79 @@ internal sealed class ExpressionEvaluator(
         string s => DateTime.Parse(s, CultureInfo.InvariantCulture),
         _ => DateTime.FromOADate(Convert.ToDouble(v, CultureInfo.InvariantCulture)),
     };
+
+    /// <summary>A (string, int) → string function (LEFT/RIGHT), propagating NULL on the string argument.</summary>
+    private object? StringInt(FunctionCall f, Func<string, int, string> op)
+    {
+        object? s = Evaluate(f.Arguments[0]);
+        return s is null ? null : op(s.ToString()!, Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture));
+    }
+
+    /// <summary>Access MID(string, start[, length]) — a 1-based substring; length omitted means to the end.</summary>
+    private object? Mid(FunctionCall f)
+    {
+        object? sv = Evaluate(f.Arguments[0]);
+        if (sv is null) return null;
+        string s = sv.ToString()!;
+        int start = Math.Max(1, Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture));
+        int from = start - 1;
+        if (from >= s.Length) return "";
+        int avail = s.Length - from;
+        int len = avail;
+        if (f.Arguments.Count > 2 && Evaluate(f.Arguments[2]) is { } lenVal)
+            len = Math.Clamp(Convert.ToInt32(lenVal, CultureInfo.InvariantCulture), 0, avail);
+        return s.Substring(from, len);
+    }
+
+    /// <summary>Access INSTR([start,] string1, string2[, compare]) — the 1-based position of string2 in
+    /// string1 (0 if not found). start defaults to 1; compare 0 = binary (case-sensitive), else text.</summary>
+    private object? Instr(FunctionCall f)
+    {
+        int argc = f.Arguments.Count;
+        // 2 args: (s1, s2); 3+: (start, s1, s2[, compare]).
+        int start = argc >= 3 ? Convert.ToInt32(Evaluate(f.Arguments[0]), CultureInfo.InvariantCulture) : 1;
+        object? s1v = Evaluate(f.Arguments[argc >= 3 ? 1 : 0]);
+        object? s2v = Evaluate(f.Arguments[argc >= 3 ? 2 : 1]);
+        if (s1v is null || s2v is null) return null;
+        StringComparison cmp = argc >= 4 && Convert.ToInt32(Evaluate(f.Arguments[3]), CultureInfo.InvariantCulture) == 0
+            ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+        string s1 = s1v.ToString()!, s2 = s2v.ToString()!;
+        if (start < 1) start = 1;
+        if (start > s1.Length) return 0;
+        int idx = s1.IndexOf(s2, start - 1, cmp);
+        return idx < 0 ? 0 : idx + 1;
+    }
+
+    /// <summary>Access REPLACE(string, find, replace[, start[, count[, compare]]]) — replaces occurrences of
+    /// find (from the 1-based start, at most count times, case-insensitive by default).</summary>
+    private object? Replace(FunctionCall f)
+    {
+        object? sv = Evaluate(f.Arguments[0]), findv = Evaluate(f.Arguments[1]), replv = Evaluate(f.Arguments[2]);
+        if (sv is null || findv is null || replv is null) return null;
+        string s = sv.ToString()!, find = findv.ToString()!, repl = replv.ToString()!;
+
+        int start = f.Arguments.Count > 3 ? Math.Max(1, Convert.ToInt32(Evaluate(f.Arguments[3]), CultureInfo.InvariantCulture)) : 1;
+        int count = f.Arguments.Count > 4 ? Convert.ToInt32(Evaluate(f.Arguments[4]), CultureInfo.InvariantCulture) : -1;
+        StringComparison cmp = f.Arguments.Count > 5 && Convert.ToInt32(Evaluate(f.Arguments[5]), CultureInfo.InvariantCulture) == 0
+            ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+        if (start > s.Length) return "";
+        s = s[(start - 1)..];
+        if (find.Length == 0) return s;
+
+        var sb = new StringBuilder();
+        int pos = 0, replaced = 0;
+        while (true)
+        {
+            int j = (count >= 0 && replaced >= count) ? -1 : s.IndexOf(find, pos, cmp);
+            if (j < 0) { sb.Append(s.AsSpan(pos)); break; }
+            sb.Append(s, pos, j - pos).Append(repl);
+            pos = j + find.Length;
+            replaced++;
+        }
+        return sb.ToString();
+    }
 
     /// <summary>Applies a numeric transform to a single argument, propagating NULL.</summary>
     private object? UnaryNumeric(FunctionCall f, Func<decimal, decimal> op)

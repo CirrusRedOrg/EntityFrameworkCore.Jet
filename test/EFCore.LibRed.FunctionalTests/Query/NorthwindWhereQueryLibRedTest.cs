@@ -167,7 +167,7 @@ WHERE `c`.`City` = @city
 
             AssertSql(
                 """
-@p='2' (Nullable = true) (DbType = Decimal)
+@p='2' (Nullable = true)
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -175,7 +175,7 @@ WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @p
 """,
                 //
                 """
-@p='5' (Nullable = true) (DbType = Decimal)
+@p='5' (Nullable = true)
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -189,7 +189,7 @@ WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @p
 
             AssertSql(
                 """
-@p='1' (Nullable = true) (DbType = Decimal)
+@p='1' (Nullable = true)
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -197,7 +197,7 @@ WHERE CLNG(`e`.`EmployeeID`) > @p
 """,
                 //
                 """
-@p='5' (Nullable = true) (DbType = Decimal)
+@p='5' (Nullable = true)
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -409,7 +409,7 @@ WHERE `c`.`City` = @InstanceFieldValue
 
             AssertSql(
                 """
-@p='2' (Nullable = true) (DbType = Decimal)
+@p='2' (Nullable = true)
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -417,7 +417,7 @@ WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @p
 """,
                 //
                 """
-@p='5' (Nullable = true) (DbType = Decimal)
+@p='5' (Nullable = true)
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -443,7 +443,7 @@ WHERE `e`.`ReportsTo` IS NULL
 """,
                 //
                 """
-@p='5' (Nullable = true) (DbType = Decimal)
+@p='5' (Nullable = true)
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
@@ -451,7 +451,7 @@ WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @p
 """,
                 //
                 """
-@p='2' (Nullable = true) (DbType = Decimal)
+@p='2' (Nullable = true)
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`

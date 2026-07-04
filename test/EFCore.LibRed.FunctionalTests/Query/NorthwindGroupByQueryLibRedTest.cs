@@ -2777,12 +2777,12 @@ ORDER BY `o`.`OrderDate`
 
             AssertSql(
                 """
-SELECT N'TotalAmount' AS [Name], COALESCE(SUM(CAST([t].[OrderID] AS decimal(18,2))), 0.0) AS [Value]
+SELECT 'TotalAmount' AS `Name`, IIF(SUM(CDEC(`o0`.`OrderID`)) IS NULL, 0.0, SUM(CDEC(`o0`.`OrderID`))) AS `Value`
 FROM (
-    SELECT [o].[OrderID], 1 AS [Key]
-    FROM [Orders] AS [o]
-) AS [t]
-GROUP BY [t].[Key]
+    SELECT `o`.`OrderID`, 1 AS `Key`
+    FROM `Orders` AS `o`
+) AS `o0`
+GROUP BY `o0`.`Key`
 """);
         }
 

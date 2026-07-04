@@ -7171,14 +7171,18 @@ WHERE NOT EXISTS (
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
 WHERE (
-    SELECT COALESCE(SUM([v].[Value]), 0)
-    FROM (VALUES (CAST(100 AS int)), ((
+    SELECT IIF(SUM(`v`.`Value`) IS NULL, 0, SUM(`v`.`Value`))
+    FROM (SELECT CLNG(100) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT (
         SELECT COUNT(*)
-        FROM [Orders] AS [o]
-        WHERE [c].[CustomerID] = [o].[CustomerID]))) AS [v]([Value])) > 101
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) > 101
 """);
         }
 

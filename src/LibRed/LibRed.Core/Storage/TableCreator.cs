@@ -152,7 +152,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         WriteInt24(tdef, format.TdefOwnedPagesOffset + 1, usageMapPage);
         tdef[FreePagesOffset] = 1; // free map record row
         WriteInt24(tdef, FreePagesOffset + 1, usageMapPage);
-        _channel.WritePage(tdefPage, tdef);
+        // A wide table's definition can exceed one page; write it split across continuation pages if needed.
+        int defEnd = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(TdefLengthOffset, 4));
+        WriteDefinition(tdefPage, tdef[..defEnd], []);
 
         AddCatalogRow(name, tdefPage, columnDefaults, checkConstraints);
         AddPermissionRows(tdefPage);

@@ -130,7 +130,10 @@ public static class TdefBuilder
             throw new NotSupportedException(
                 $"Table has {indexes.Count} indexes; Jet/ACE allows at most {MaxIndexesPerTable} per table (including those backing keys and relationships).");
         var columns = ResolveColumns(format, specs);
-        var page = new byte[format.PageSize];
+        // The definition (descriptors + names + index blocks) can exceed one page for a wide table; build it
+        // into a buffer sized generously for the worst case, then the caller splits it across continuation
+        // pages when writing. 512 bytes/column comfortably covers a 25-byte descriptor + a long name.
+        var page = new byte[format.PageSize + columns.Count * 512 + indexes.Count * 512];
 
         page[0] = PageTypeTableDefinition;
         page[TdefHeaderFlagsOffset] = 0x01;
@@ -156,10 +159,11 @@ public static class TdefBuilder
 
         int definitionEnd = WriteIndexes(page, format, columns, indexes, logicalIndexes, longValueColumns, afterNames);
 
-        // Definition length and remaining free space (Access reserves an 8-byte continuation header).
+        // Definition length and remaining free space (Access reserves an 8-byte continuation header). For a
+        // multi-page definition the caller recomputes the first page's free space, so clamp at 0 here.
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(TdefLengthOffset, 4), definitionEnd);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(TdefFreeSpaceOffset, 2),
-            (ushort)(format.PageSize - definitionEnd - TdefContinuationReserve));
+            (ushort)Math.Max(0, format.PageSize - definitionEnd - TdefContinuationReserve));
 
         return new Result(page, columns);
     }

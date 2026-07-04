@@ -1,5 +1,6 @@
 using LibRed;
 using LibRed.Engine;
+using LibRed.Engine.Execution;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -13,25 +14,28 @@ public class BooleanPredicateTests
         return path;
     }
 
-    // A boolean stored as a -1/0 integer (the nullable-bool convention) works as a bare predicate, negated,
-    // and combined — Access truthiness treats any non-zero number as true.
+    // Access truthiness (confirmed against ACE): ANY non-zero number is true (int or double), 0 is false,
+    // NULL is not-true; NOT flips 0↔non-zero and leaves NULL not-selected. Covers the nullable-bool -1/0
+    // convention plus arbitrary numeric predicates.
     [Fact]
-    public void Integer_backed_boolean_is_truthy_as_a_predicate()
+    public void Any_nonzero_number_is_truthy_as_a_predicate()
     {
         string path = Fresh();
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
             var e = new QueryEngine(db);
-            e.ExecuteNonQuery("CREATE TABLE Flags (Id LONG, Active SMALLINT)");
-            e.ExecuteNonQuery("INSERT INTO Flags (Id, Active) VALUES (1, -1)");
-            e.ExecuteNonQuery("INSERT INTO Flags (Id, Active) VALUES (2, 0)");
-            e.ExecuteNonQuery("INSERT INTO Flags (Id, Active) VALUES (3, -1)");
-            e.ExecuteNonQuery("INSERT INTO Flags (Id, Active) VALUES (4, 0)");
+            e.ExecuteNonQuery("CREATE TABLE Tvals (Id LONG, N LONG, D DOUBLE)");
+            foreach (var (id, n, d) in new (int, string, string)[]
+                { (1, "-1", "-1"), (2, "0", "0"), (3, "1", "1"), (4, "2", "0.5"), (5, "-5", "0"), (6, "NULL", "NULL") })
+                e.ExecuteNonQuery($"INSERT INTO Tvals (Id, N, D) VALUES ({id}, {n}, {d})");
 
-            Assert.Equal(2, e.ExecuteQuery("SELECT Id FROM Flags WHERE Active").Rows.Count());
-            Assert.Equal(2, e.ExecuteQuery("SELECT Id FROM Flags WHERE NOT Active").Rows.Count());
-            Assert.Equal(1, e.ExecuteQuery("SELECT Id FROM Flags WHERE Active AND Id = 3").Rows.Count());
+            static IEnumerable<int> Ids(ResultSet r) => r.Rows.Select(row => Convert.ToInt32(row[0])).OrderBy(x => x);
+
+            Assert.Equal([1, 3, 4, 5], Ids(e.ExecuteQuery("SELECT Id FROM Tvals WHERE N")));       // every non-zero int
+            Assert.Equal([2], Ids(e.ExecuteQuery("SELECT Id FROM Tvals WHERE NOT N")));            // only 0 (NULL not selected)
+            Assert.Equal([1, 3, 4], Ids(e.ExecuteQuery("SELECT Id FROM Tvals WHERE D")));          // non-zero doubles incl. 0.5
+            Assert.Equal(1, e.ExecuteQuery("SELECT Id FROM Tvals WHERE N AND Id = 3").Rows.Count()); // combined
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }

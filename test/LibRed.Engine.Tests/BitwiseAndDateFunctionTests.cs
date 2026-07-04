@@ -40,6 +40,28 @@ public class BitwiseAndDateFunctionTests
         Assert.Null(Scalar("NULL BAND 3"));           // NULL-propagating
     }
 
+    // Bitwise on a byte/short operand promotes to Int32 (as C# does — matching the EF/LINQ contract, not
+    // ACE's inconsistent narrowing); the value is still correct.
+    [Fact]
+    public void Bitwise_on_byte_or_short_promotes_to_int()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE Bits (B BYTE, S SMALLINT)");
+            e.ExecuteNonQuery("INSERT INTO Bits (B, S) VALUES (5, 6)");
+
+            var r = e.ExecuteQuery("SELECT B BAND 3, BNOT B, S BAND 3, BNOT S FROM Bits").Rows.First();
+            Assert.Equal(1, r[0]); Assert.IsType<int>(r[0]);   // 5 & 3
+            Assert.Equal(-6, r[1]); Assert.IsType<int>(r[1]);  // ~5 (promoted, not 250)
+            Assert.Equal(2, r[2]); Assert.IsType<int>(r[2]);   // 6 & 3
+            Assert.Equal(-7, r[3]); Assert.IsType<int>(r[3]);  // ~6
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     [Fact]
     public void DateAdd_and_DateDiff()
     {

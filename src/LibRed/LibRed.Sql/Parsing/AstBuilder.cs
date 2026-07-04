@@ -583,7 +583,9 @@ internal sealed class AstBuilder
         InExprContext i => BuildIn(i),
         InSubqueryExprContext i => new InSubqueryExpression(
             BuildExpression(i.val), BuildSelect(i.sub), i.not is not null),
-        LikeExprContext l => new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right)),
+        LikeExprContext l => l.not is null
+            ? new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))
+            : new UnaryExpression(UnaryOperator.Not, new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))),
         IsNullExprContext n => new UnaryExpression(n.not is null ? UnaryOperator.IsNull : UnaryOperator.IsNotNull, BuildExpression(n.operand)),
         AndExprContext a => new BinaryExpression(BinaryOperator.And, BuildExpression(a.left), BuildExpression(a.right)),
         OrExprContext o => new BinaryExpression(BinaryOperator.Or, BuildExpression(o.left), BuildExpression(o.right)),

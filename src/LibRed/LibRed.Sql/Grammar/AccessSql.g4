@@ -202,7 +202,7 @@ expression
     | left=expression op=(PLUS | MINUS | AMP) right=expression               # AddConcatExpr
     | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression   # ComparisonExpr
     | val=expression not=NOT? BETWEEN lo=expression AND hi=expression        # BetweenExpr
-    | left=expression LIKE right=expression                                 # LikeExpr
+    | left=expression not=NOT? LIKE right=expression                        # LikeExpr
     | val=expression not=NOT? IN LPAREN sub=selectStatement RPAREN                            # InSubqueryExpr
     | val=expression not=NOT? IN LPAREN items+=expression (COMMA items+=expression)* RPAREN  # InExpr
     | operand=expression IS not=NOT? NULL                                   # IsNullExpr

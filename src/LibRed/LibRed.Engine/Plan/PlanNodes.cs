@@ -61,8 +61,9 @@ public sealed record SetOperationNode(PlanNode Left, PlanNode Right, SetOperator
     public override IReadOnlyList<PlanNode> Children => [Left, Right];
 }
 
-/// <summary>Limits the number of rows (Access <c>TOP n</c>).</summary>
-public sealed record LimitNode(PlanNode Input, int Count) : PlanNode
+/// <summary>Limits the number of rows (Access <c>TOP n</c>). The count is an expression (usually a literal,
+/// but LibRed also accepts a parameter or a +/- expression) evaluated once at execution.</summary>
+public sealed record LimitNode(PlanNode Input, Expression Count) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }

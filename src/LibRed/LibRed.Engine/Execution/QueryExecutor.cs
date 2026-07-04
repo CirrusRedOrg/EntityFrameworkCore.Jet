@@ -125,7 +125,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case LimitNode limit:
             {
                 var (columns, rows) = Execute(limit.Input, outer);
-                return (columns, rows.Take(limit.Count));
+                // The count is literal/parameter/arithmetic (no column refs), so an empty row scope suffices.
+                object? countValue = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters)
+                    .Evaluate(limit.Count);
+                int count = Convert.ToInt32(countValue, System.Globalization.CultureInfo.InvariantCulture);
+                return (columns, rows.Take(count));
             }
 
             case DistinctNode distinct:

@@ -354,6 +354,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitTopClause([NotNull] AccessSqlParser.TopClauseContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.topOperand"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitTopOperand([NotNull] AccessSqlParser.TopOperandContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.selectList"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

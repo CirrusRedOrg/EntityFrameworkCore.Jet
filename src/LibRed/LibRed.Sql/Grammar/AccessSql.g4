@@ -154,7 +154,11 @@ selectStatement
 groupByClause : GROUP BY expression (COMMA expression)* ;
 havingClause : HAVING expression ;
 
-topClause : TOP INTEGER_LITERAL ;
+// Access allows only a literal after TOP, but LibRed also accepts a parameter (or a +/- expression of
+// literals/parameters) — EFCore.Jet normally inlines the value, and we can evaluate it directly instead.
+// Restricted to additive operands (no bare '*') so it can't swallow a following SELECT star ('TOP n *').
+topClause : TOP topOperand ((PLUS | MINUS) topOperand)* ;
+topOperand : INTEGER_LITERAL | PARAM | LPAREN expression RPAREN ;
 
 selectList
     : STAR

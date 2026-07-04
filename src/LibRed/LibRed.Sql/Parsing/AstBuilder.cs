@@ -362,7 +362,12 @@ internal sealed class AstBuilder
         var orderBy = select.orderByClause() is { } ob
             ? ob.orderByItem().Select(i => new ViewOrderBy(OriginalText(i.expression()), i.dir?.Type == DESC)).ToList()
             : (IReadOnlyList<ViewOrderBy>)[];
-        int? top = select.topClause() is { } t ? int.Parse(t.INTEGER_LITERAL().GetText(), CultureInfo.InvariantCulture) : null;
+        // A stored view can only carry a literal TOP (Access stores it as text); reject a parameterized one.
+        int? top = select.topClause() is { } t
+            ? BuildTop(t) is LiteralExpression { Value: int n }
+                ? n
+                : throw new NotSupportedException("A view's TOP must be a literal integer.")
+            : null;
 
         // Output columns; SELECT * becomes a single "*", a qualified star stays "Table.*".
         var columns = select.selectList().STAR() is not null && select.selectList().selectItem().Length == 0
@@ -494,9 +499,29 @@ internal sealed class AstBuilder
         var orderBy = ctx.orderByClause() is { } o
             ? o.orderByItem().Select(BuildOrderByItem).ToList()
             : (IReadOnlyList<OrderByItem>)[];
-        int? top = ctx.topClause() is { } t ? int.Parse(t.INTEGER_LITERAL().GetText(), CultureInfo.InvariantCulture) : null;
+        Expression? top = ctx.topClause() is { } t ? BuildTop(t) : null;
 
         return new SelectStatement(projection, star, from, where, groupBy, having, orderBy, top, ctx.distinct != null);
+    }
+
+    /// <summary>The TOP count expression: a single operand, or a left-associative +/- chain of them (each
+    /// operand a literal, a parameter, or a parenthesised expression). Evaluated at execution.</summary>
+    private static Expression BuildTop(TopClauseContext ctx)
+    {
+        Expression Operand(TopOperandContext o) =>
+            o.INTEGER_LITERAL() is { } lit ? new LiteralExpression(ParseInteger(lit.GetText()))
+            : o.PARAM() is { } p ? new ParameterExpression(p.GetText())
+            : BuildExpression(o.expression());
+
+        var operands = ctx.topOperand();
+        Expression result = Operand(operands[0]);
+        var ops = ctx.children.OfType<Antlr4.Runtime.Tree.ITerminalNode>()
+            .Where(t => t.Symbol.Type is PLUS or MINUS).ToList();
+        for (int i = 1; i < operands.Length; i++)
+            result = new BinaryExpression(
+                ops[i - 1].Symbol.Type == PLUS ? BinaryOperator.Add : BinaryOperator.Subtract,
+                result, Operand(operands[i]));
+        return result;
     }
 
     private static SelectItem BuildSelectItem(SelectItemContext ctx) => ctx switch

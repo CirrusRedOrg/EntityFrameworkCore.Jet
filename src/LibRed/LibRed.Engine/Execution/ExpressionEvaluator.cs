@@ -308,8 +308,8 @@ internal sealed class ExpressionEvaluator(
             BinaryOperator.Subtract => Arithmetic(left, right, '-'),
             BinaryOperator.Multiply => Arithmetic(left, right, '*'),
             BinaryOperator.Divide => Divide(left, right), // Access '/' is floating division
-            BinaryOperator.Modulo => Convert.ToInt64(left, CultureInfo.InvariantCulture) % Convert.ToInt64(right, CultureInfo.InvariantCulture),
-            BinaryOperator.IntDivide => Convert.ToInt64(left, CultureInfo.InvariantCulture) / Convert.ToInt64(right, CultureInfo.InvariantCulture),
+            BinaryOperator.Modulo => IntegerOp(left, right, '%'),
+            BinaryOperator.IntDivide => IntegerOp(left, right, '\\'),
             BinaryOperator.Power => Math.Pow(Convert.ToDouble(left, CultureInfo.InvariantCulture), Convert.ToDouble(right, CultureInfo.InvariantCulture)),
             _ => throw new NotSupportedException($"Binary operator {b.Operator}."),
         };
@@ -348,6 +348,16 @@ internal sealed class ExpressionEvaluator(
     /// otherwise Double (never integer division; that is <c>\</c>).</summary>
     private static object Divide(object left, object right) =>
         left is decimal || right is decimal ? Dec(left) / Dec(right) : Dbl(left) / Dbl(right);
+
+    /// <summary>Access integer operators <c>\</c> (int division) and <c>MOD</c>: operands round to an
+    /// integer, and the result keeps the operand's integer type (int, or long if either is Int64) — so
+    /// <c>int \ int</c> is Int32, matching the EF contract.</summary>
+    private static object IntegerOp(object left, object right, char op)
+    {
+        if (left is long or ulong || right is long or ulong)
+        { long a = Lng(left), b = Lng(right); return op == '%' ? a % b : a / b; }
+        int x = Int(left), y = Int(right); return op == '%' ? x % y : x / y;
+    }
 
     // Jet's boolean convention (true = -1, false = 0) so a bool matches the numeric column it is stored in.
     private static object Numeric(object v) => v is bool b ? (b ? -1 : 0) : v;

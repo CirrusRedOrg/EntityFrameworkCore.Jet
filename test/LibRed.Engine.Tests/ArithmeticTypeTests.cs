@@ -76,6 +76,26 @@ public class ArithmeticTypeTests
     }
 
     [Fact]
+    public void Integer_division_and_mod_stay_int()
+    {
+        Assert.IsType<int>(Scalar("7 \\ 2"));   // integer division
+        Assert.Equal(3, Scalar("7 \\ 2"));
+        Assert.IsType<int>(Scalar("7 MOD 3"));
+        Assert.Equal(1, Scalar("7 MOD 3"));
+
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path);
+            // The failing shape: o.OrderID \ o.OrderID \ 2  (left-assoc integer division).
+            object? v = new QueryEngine(db).ExecuteQuery(
+                "SELECT (OrderID \\ OrderID) \\ 2 AS A FROM Orders").Rows.First()[0];
+            Assert.IsType<int>(v);
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Currency_arithmetic_stays_decimal()
     {
         // UnitPrice is Currency (decimal); a decimal operand promotes the whole expression to decimal.

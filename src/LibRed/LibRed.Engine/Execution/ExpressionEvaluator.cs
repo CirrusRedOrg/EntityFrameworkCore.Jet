@@ -68,7 +68,7 @@ internal sealed class ExpressionEvaluator(
             // VBA/Access type-conversion functions. All propagate NULL. CInt/CLng/CByte round half-to-even
             // ("banker's rounding"), which is exactly what Convert.ToInt16/Int32/Byte do. CVar is a no-op
             // passthrough (LibRed has no distinct Variant type).
-            "CCUR" => UnaryNumeric(f, d => Math.Round(d, 4)),   // coerce to Currency (decimal, 4 dp)
+            "CCUR" => Convert1(f, v => Math.Round(Convert.ToDecimal(v, CultureInfo.InvariantCulture), 4)), // to Currency (decimal, 4 dp)
             "CBOOL" => Convert1(f, v => v is bool b ? b : Convert.ToBoolean(v, CultureInfo.InvariantCulture)),
             "CBYTE" => Convert1(f, v => Convert.ToByte(v, CultureInfo.InvariantCulture)),
             "CINT" => Convert1(f, v => Convert.ToInt16(v, CultureInfo.InvariantCulture)),
@@ -233,12 +233,6 @@ internal sealed class ExpressionEvaluator(
     }
 
     /// <summary>Applies a numeric transform to a single argument, propagating NULL.</summary>
-    private object? UnaryNumeric(FunctionCall f, Func<decimal, decimal> op)
-    {
-        object? value = Evaluate(f.Arguments[0]);
-        return value is null ? null : op(Convert.ToDecimal(value, CultureInfo.InvariantCulture));
-    }
-
     /// <summary>A numeric transform (Fix/Int/Abs) that **preserves the operand's type** (double→double,
     /// single→single, decimal→decimal, int→int, long→long) so it matches EF's Math.* return type. Integer
     /// types use the exact decimal op (no floating round-trip). NULL-propagating.</summary>

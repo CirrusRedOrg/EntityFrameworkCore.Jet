@@ -93,6 +93,30 @@ internal sealed class ExpressionEvaluator(
             "MID" => Mid(f),
             "INSTR" => Instr(f),
             "REPLACE" => Replace(f),
+
+            // Bitwise operators (EFCore.Jet emits these as functions since Access's And/Or/Xor/Not are
+            // logical). Integer operands, NULL-propagating, result keeps the operand's int type.
+            "BAND" => Bitwise(f, (a, b) => a & b),
+            "BOR" => Bitwise(f, (a, b) => a | b),
+            "BXOR" => Bitwise(f, (a, b) => a ^ b),
+            "BNOT" => Evaluate(f.Arguments[0]) is { } bv
+                ? (bv is long or ulong ? (object)~Lng(bv) : ~Int(bv)) : null,
+
+            // Date/time functions (VBA/Access). All propagate NULL on a date argument.
+            "DATEADD" => DateAdd(f),
+            "DATEDIFF" => DateDiff(f),
+            "DATESERIAL" => DateParts(f, (y, m, d) => new DateTime(y, 1, 1).AddMonths(m - 1).AddDays(d - 1)),
+            "TIMESERIAL" => DateParts(f, (h, m, s) => DateTime.FromOADate(0).AddHours(h).AddMinutes(m).AddSeconds(s)),
+            "NOW" => DateTime.Now,
+            "DATE" => DateTime.Today,
+            "TIME" => DateTime.FromOADate(0).Add(DateTime.Now.TimeOfDay),
+            "YEAR" => DatePartOf(f, d => d.Year),
+            "MONTH" => DatePartOf(f, d => d.Month),
+            "DAY" => DatePartOf(f, d => d.Day),
+            "HOUR" => DatePartOf(f, d => d.Hour),
+            "MINUTE" => DatePartOf(f, d => d.Minute),
+            "SECOND" => DatePartOf(f, d => d.Second),
+            "WEEKDAY" => DatePartOf(f, d => (int)d.DayOfWeek + 1), // Access: Sunday = 1
             // Jet VBA math functions (double precision). SQR = sqrt, ATN = atan, SGN = sign, LOG =
             // natural log. Acos/Asin/Atan2/Floor/Ceiling/Log10/Log-base are emitted by EF as
             // expressions built from these plus arithmetic, so they need no dedicated cases.
@@ -241,6 +265,74 @@ internal sealed class ExpressionEvaluator(
             "n" => d.Minute,
             "s" => d.Second,
             _ => throw new NotSupportedException($"DATEPART interval '{interval}' is not supported."),
+        };
+    }
+
+    /// <summary>A bitwise binary op over integer operands, NULL-propagating; the result keeps the operand's
+    /// int type (Int32, or Int64 if either operand is long).</summary>
+    private object? Bitwise(FunctionCall f, Func<long, long, long> op)
+    {
+        object? a = Evaluate(f.Arguments[0]), b = Evaluate(f.Arguments[1]);
+        if (a is null || b is null) return null;
+        return a is long or ulong || b is long or ulong ? (object)op(Lng(a), Lng(b)) : (int)op(Int(a), Int(b));
+    }
+
+    /// <summary>A function of a single date argument (Year/Month/Day/…), NULL-propagating.</summary>
+    private object? DatePartOf(FunctionCall f, Func<DateTime, int> part)
+    {
+        object? v = Evaluate(f.Arguments[0]);
+        return v is null ? null : part(Convert.ToDateTime(v, CultureInfo.InvariantCulture));
+    }
+
+    /// <summary>DateSerial(y,m,d) / TimeSerial(h,m,s): build a date/time from three integer parts (parts may
+    /// be out of range and roll over, matching Access). NULL-propagating.</summary>
+    private object? DateParts(FunctionCall f, Func<int, int, int, DateTime> build)
+    {
+        object? a = Evaluate(f.Arguments[0]), b = Evaluate(f.Arguments[1]), c = Evaluate(f.Arguments[2]);
+        if (a is null || b is null || c is null) return null;
+        return build(Int(a), Int(b), Int(c));
+    }
+
+    /// <summary>Access DateAdd(interval, number, date): add <c>number</c> intervals to a date.</summary>
+    private object? DateAdd(FunctionCall f)
+    {
+        object? intervalV = Evaluate(f.Arguments[0]), numberV = Evaluate(f.Arguments[1]), dateV = Evaluate(f.Arguments[2]);
+        if (dateV is null || numberV is null) return null;
+        int n = (int)Math.Truncate(Convert.ToDouble(numberV, CultureInfo.InvariantCulture)); // Access truncates
+        var d = Convert.ToDateTime(dateV, CultureInfo.InvariantCulture);
+        return (intervalV?.ToString() ?? "").ToLowerInvariant() switch
+        {
+            "yyyy" => d.AddYears(n),
+            "q" => d.AddMonths(n * 3),
+            "m" => d.AddMonths(n),
+            "y" or "d" or "w" => d.AddDays(n),
+            "ww" => d.AddDays(n * 7),
+            "h" => d.AddHours(n),
+            "n" => d.AddMinutes(n),
+            "s" => d.AddSeconds(n),
+            _ => throw new NotSupportedException($"DATEADD interval '{intervalV}' is not supported."),
+        };
+    }
+
+    /// <summary>Access DateDiff(interval, date1, date2): the number of interval boundaries from date1 to
+    /// date2 (a Long Integer). NULL-propagating.</summary>
+    private object? DateDiff(FunctionCall f)
+    {
+        object? intervalV = Evaluate(f.Arguments[0]), d1V = Evaluate(f.Arguments[1]), d2V = Evaluate(f.Arguments[2]);
+        if (d1V is null || d2V is null) return null;
+        var d1 = Convert.ToDateTime(d1V, CultureInfo.InvariantCulture);
+        var d2 = Convert.ToDateTime(d2V, CultureInfo.InvariantCulture);
+        return (intervalV?.ToString() ?? "").ToLowerInvariant() switch
+        {
+            "yyyy" => d2.Year - d1.Year,
+            "q" => (d2.Year - d1.Year) * 4 + (d2.Month - 1) / 3 - (d1.Month - 1) / 3,
+            "m" => (d2.Year - d1.Year) * 12 + d2.Month - d1.Month,
+            "y" or "d" or "w" => (int)(d2.Date - d1.Date).TotalDays,
+            "ww" => (int)((d2.Date - d1.Date).TotalDays / 7),
+            "h" => (int)(d2 - d1).TotalHours,
+            "n" => (int)(d2 - d1).TotalMinutes,
+            "s" => (int)(d2 - d1).TotalSeconds,
+            _ => throw new NotSupportedException($"DATEDIFF interval '{intervalV}' is not supported."),
         };
     }
 

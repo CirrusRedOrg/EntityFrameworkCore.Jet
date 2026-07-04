@@ -203,6 +203,7 @@ expression
     | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression   # ComparisonExpr
     | val=expression not=NOT? BETWEEN lo=expression AND hi=expression        # BetweenExpr
     | left=expression LIKE right=expression                                 # LikeExpr
+    | val=expression not=NOT? IN LPAREN items+=expression (COMMA items+=expression)* RPAREN  # InExpr
     | operand=expression IS not=NOT? NULL                                   # IsNullExpr
     | left=expression AND right=expression                                  # AndExpr
     | left=expression OR right=expression                                   # OrExpr
@@ -257,6 +258,7 @@ LEFT   : [Ll][Ee][Ff][Tt] ;
 RIGHT  : [Rr][Ii][Gg][Hh][Tt] ;
 OUTER  : [Oo][Uu][Tt][Ee][Rr] ;
 JOIN   : [Jj][Oo][Ii][Nn] ;
+IN     : [Ii][Nn] ;
 ON     : [Oo][Nn] ;
 ORDER  : [Oo][Rr][Dd][Ee][Rr] ;
 GROUP  : [Gg][Rr][Oo][Uu][Pp] ;

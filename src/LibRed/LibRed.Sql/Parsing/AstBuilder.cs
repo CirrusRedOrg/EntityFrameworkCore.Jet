@@ -579,6 +579,7 @@ internal sealed class AstBuilder
         AddConcatExprContext a => Binary(a.op, a.left, a.right),
         ComparisonExprContext c => Binary(c.op, c.left, c.right),
         BetweenExprContext b => BuildBetween(b),
+        InExprContext i => BuildIn(i),
         LikeExprContext l => new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right)),
         IsNullExprContext n => new UnaryExpression(n.not is null ? UnaryOperator.IsNull : UnaryOperator.IsNotNull, BuildExpression(n.operand)),
         AndExprContext a => new BinaryExpression(BinaryOperator.And, BuildExpression(a.left), BuildExpression(a.right)),
@@ -616,6 +617,18 @@ internal sealed class AstBuilder
 
     /// <summary>Lowers <c>x [NOT] BETWEEN lo AND hi</c> to <c>(x &gt;= lo AND x &lt;= hi)</c> (negated for NOT),
     /// so no dedicated node is needed and the evaluator handles it via the comparison operators.</summary>
+    /// <summary><c>x IN (a, b, …)</c> lowers to <c>(x = a) OR (x = b) OR …</c> (and NOT IN wraps it in NOT),
+    /// so null/three-valued semantics fall out of the existing OR/=/NOT evaluation. The items are ordinary
+    /// expressions — literals or parameters in practice.</summary>
+    private static Expression BuildIn(InExprContext ctx)
+    {
+        Expression value = BuildExpression(ctx.val);
+        Expression membership = ctx._items
+            .Select(item => (Expression)new BinaryExpression(BinaryOperator.Equal, value, BuildExpression(item)))
+            .Aggregate((left, right) => new BinaryExpression(BinaryOperator.Or, left, right));
+        return ctx.not is null ? membership : new UnaryExpression(UnaryOperator.Not, membership);
+    }
+
     private static Expression BuildBetween(BetweenExprContext ctx)
     {
         Expression value = BuildExpression(ctx.val), lo = BuildExpression(ctx.lo), hi = BuildExpression(ctx.hi);

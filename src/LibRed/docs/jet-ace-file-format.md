@@ -432,7 +432,11 @@ of the page backward, so a slot runs from its offset up to where the previous sl
   columns are never null, and they occupy **no fixed-region bytes**: their descriptor's fixed
   offset is 0 and the fixed offsets of other columns skip over them. (Verified: Northwind's
   `Products.Discontinued` is `fixed@0` even though it follows several fixed columns. A writer
-  must therefore *not* advance the fixed offset for a Boolean column.)
+  must therefore *not* advance the fixed offset for a Boolean column.) On **write**, the value
+  reaches the encoder as a bool *or* a number (a `bit` column is commonly inserted as `1`/`-1`/`0`
+  or defaulted from `"0"`), so LibRed coerces it with Access truthiness — **any non-zero number (or
+  bool true) sets the bit**, `0`/false clears it. Verified: Access reads LibRed-written bits back
+  correctly and a bare-boolean predicate returns the right rows.
 - Variable offsets are **always 2 bytes** in Jet 4 / ACE, at any row size. There is **no
   jump table** (that is a Jet 3 construct for its 1-byte offsets).
 

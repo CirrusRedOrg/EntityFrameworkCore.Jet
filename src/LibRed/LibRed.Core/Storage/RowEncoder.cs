@@ -97,9 +97,11 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         int bitmapPos = numVarPos + 2;
         foreach (ColumnDef column in _columns)
         {
-            // 1 = present; for Boolean the bit IS the value (and booleans are never null).
+            // 1 = present; for Boolean the bit IS the value (and booleans are never null). The value may
+            // arrive as a bool or as a number (a bit column is often inserted as 1/-1/0, or defaulted from
+            // "0"), so coerce with Access truthiness: any non-zero number (or bool true) sets the bit.
             bool bit = column.Type == JetDataType.Boolean
-                ? values[column.Index] is true
+                ? IsTruthy(values[column.Index])
                 : values[column.Index] is not null;
             if (bit)
                 row[bitmapPos + (column.ColumnId >> 3)] |= (byte)(1 << (column.ColumnId & 7));
@@ -107,6 +109,15 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
 
         return row;
     }
+
+    /// <summary>Access truthiness for a Boolean (bit) value being stored: a bool is itself, any non-zero
+    /// number is true, 0 / null is false.</summary>
+    private static bool IsTruthy(object? value) => value switch
+    {
+        null => false,
+        bool b => b,
+        _ => Convert.ToBoolean(value, System.Globalization.CultureInfo.InvariantCulture),
+    };
 
     private static int ComputeFixedDataLength(IReadOnlyList<ColumnDef> columns)
     {

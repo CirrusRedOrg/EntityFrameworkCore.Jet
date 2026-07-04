@@ -40,6 +40,34 @@ public class BooleanPredicateTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // A native BIT column written by LibRed: the value may be inserted as 1/-1/0 or TRUE/FALSE (Northwind's
+    // seed uses integer literals). The bit must be set for any truthy value, and read back / filtered right.
+    [Fact]
+    public void Bit_column_written_by_libred_round_trips_all_value_forms()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE B (Id LONG, Flag BIT NOT NULL DEFAULT 0)");
+            e.ExecuteNonQuery("INSERT INTO B (Id, Flag) VALUES (1, 1)");
+            e.ExecuteNonQuery("INSERT INTO B (Id, Flag) VALUES (2, 0)");
+            e.ExecuteNonQuery("INSERT INTO B (Id, Flag) VALUES (3, -1)");
+            e.ExecuteNonQuery("INSERT INTO B (Id, Flag) VALUES (4, TRUE)");
+            e.ExecuteNonQuery("INSERT INTO B (Id, Flag) VALUES (5, FALSE)");
+
+            var trueIds = e.ExecuteQuery("SELECT Id FROM B WHERE Flag").Rows.Select(r => Convert.ToInt32(r[0])).OrderBy(x => x);
+            Assert.Equal([1, 3, 4], trueIds);                 // 1, -1, TRUE are true
+            Assert.Equal(2, e.ExecuteQuery("SELECT Id FROM B WHERE NOT Flag").Rows.Count()); // 0, FALSE
+
+            // The decoded value is a real bool.
+            Assert.Equal(true, e.ExecuteQuery("SELECT Flag FROM B WHERE Id = 1").Rows.First()[0]);
+            Assert.Equal(false, e.ExecuteQuery("SELECT Flag FROM B WHERE Id = 2").Rows.First()[0]);
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     // A native Jet YesNo (bool) column still works as a bare predicate (Northwind Products.Discontinued = 8).
     [Fact]
     public void Native_yesno_boolean_is_truthy_as_a_predicate()

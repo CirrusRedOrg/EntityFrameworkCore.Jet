@@ -46,6 +46,18 @@ public class StringComparisonTests
         Assert.Equal(1, Scalar("'a' < 'B'"));
     }
 
+    // Accented letters sort next to their base letter (invariant-culture collation), matching ACE — an
+    // accented letter is not shoved past 'z' the way an ordinal (code-point) compare would.
+    [Fact]
+    public void Ordering_is_accent_aware()
+    {
+        Assert.Equal(1, Scalar("'é' < 'f'"));       // é sorts near e, before f
+        Assert.Equal(1, Scalar("'é' < 'z'"));
+        Assert.Equal(1, Scalar("'café' < 'cafz'"));
+        Assert.Equal(1, Scalar("'e' < 'é'"));       // but the accent still orders after the bare letter
+        Assert.Equal(0, Scalar("'café' = 'cafe'")); // and stays significant for equality
+    }
+
     // DISTINCT and GROUP BY treat strings case-insensitively (and ignore trailing spaces), like Access.
     [Fact]
     public void Distinct_and_group_by_are_case_insensitive()

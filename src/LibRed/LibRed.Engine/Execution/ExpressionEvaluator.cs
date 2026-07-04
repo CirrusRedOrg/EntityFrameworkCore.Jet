@@ -321,10 +321,13 @@ internal sealed class ExpressionEvaluator(
         return CompareText(left.ToString()!, right.ToString()!);
     }
 
-    /// <summary>Access text comparison: **case-insensitive** and **trailing spaces ignored** (Access
-    /// "General" collation — verified vs ACE: <c>'London'='LONDON'</c> and <c>'abc'='abc  '</c> are true).</summary>
+    /// <summary>Access text comparison: **case-insensitive**, **trailing spaces ignored**, and
+    /// **accent-aware ordering** (Access "General" collation). Uses invariant-culture ignore-case, which
+    /// matches ACE where ordinal doesn't — an accented letter sorts next to its base letter (verified vs
+    /// ACE: <c>'é' &lt; 'f'</c>, <c>'café' &lt; 'cafz'</c>) while accents stay significant for equality
+    /// (<c>'café' ≠ 'cafe'</c>). (Ignorable apostrophe/hyphen ordering is not reproduced.)</summary>
     private static int CompareText(string a, string b) =>
-        string.Compare(a.TrimEnd(' '), b.TrimEnd(' '), StringComparison.OrdinalIgnoreCase);
+        string.Compare(a.TrimEnd(' '), b.TrimEnd(' '), StringComparison.InvariantCultureIgnoreCase);
 
     /// <summary>Orders two values for SORT (nulls first), using the same coercion as comparisons.</summary>
     public static int CompareForSort(object? a, object? b) => (a, b) switch

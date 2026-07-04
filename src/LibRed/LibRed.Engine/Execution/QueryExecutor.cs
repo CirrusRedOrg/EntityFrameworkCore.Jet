@@ -342,13 +342,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         {
             var hash = new HashCode();
             foreach (object? v in _values)
-                hash.Add(v is string s ? StringComparer.OrdinalIgnoreCase.GetHashCode(s.TrimEnd(' ')) : v?.GetHashCode() ?? 0);
+                hash.Add(v is string s ? StringComparer.InvariantCultureIgnoreCase.GetHashCode(s.TrimEnd(' ')) : v?.GetHashCode() ?? 0);
             return hash.ToHashCode();
         }
 
         private static bool KeyEquals(object? a, object? b) =>
             a is string sa && b is string sb
-                ? string.Equals(sa.TrimEnd(' '), sb.TrimEnd(' '), StringComparison.OrdinalIgnoreCase)
+                ? string.Equals(sa.TrimEnd(' '), sb.TrimEnd(' '), StringComparison.InvariantCultureIgnoreCase)
                 : Equals(a, b);
     }
 

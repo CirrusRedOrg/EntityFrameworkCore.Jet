@@ -4505,6 +4505,8 @@ FROM (
 
             AssertSql(
                 """
+@p='10'
+
 SELECT IIF(SUM(`o0`.`OrderID`) IS NULL, 0, SUM(`o0`.`OrderID`))
 FROM (
     SELECT TOP @p `o`.`OrderID`

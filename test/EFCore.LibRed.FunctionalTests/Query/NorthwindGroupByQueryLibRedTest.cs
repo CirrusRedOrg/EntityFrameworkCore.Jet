@@ -1514,15 +1514,15 @@ GROUP BY `s`.`Key`
 
             AssertSql(
                 """
-SELECT [t].[Key] AS [Month], COALESCE(SUM([t].[OrderID]), 0) AS [Total], (
-    SELECT COALESCE(SUM([o0].[OrderID]), 0)
-    FROM [Orders] AS [o0]
-    WHERE DATEPART(month, [o0].[OrderDate]) = [t].[Key] OR ([o0].[OrderDate] IS NULL AND [t].[Key] IS NULL)) AS [Payment]
+SELECT `o0`.`Key` AS `Month`, IIF(SUM(`o0`.`OrderID`) IS NULL, 0, SUM(`o0`.`OrderID`)) AS `Total`, (
+    SELECT IIF(SUM(`o1`.`OrderID`) IS NULL, 0, SUM(`o1`.`OrderID`))
+    FROM `Orders` AS `o1`
+    WHERE DATEPART('m', `o1`.`OrderDate`) = `o0`.`Key`) AS `Payment`
 FROM (
-    SELECT [o].[OrderID], DATEPART(month, [o].[OrderDate]) AS [Key]
-    FROM [Orders] AS [o]
-) AS [t]
-GROUP BY [t].[Key]
+    SELECT `o`.`OrderID`, DATEPART('m', `o`.`OrderDate`) AS `Key`
+    FROM `Orders` AS `o`
+) AS `o0`
+GROUP BY `o0`.`Key`
 """);
         }
 

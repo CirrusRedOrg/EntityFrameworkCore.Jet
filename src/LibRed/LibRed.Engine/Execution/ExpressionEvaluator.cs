@@ -296,10 +296,10 @@ internal sealed class ExpressionEvaluator(
             BinaryOperator.GreaterThanOrEqual => Compare(left, right) >= 0,
             BinaryOperator.Like => Like(left.ToString()!, right.ToString()!),
             // Access '+' concatenates when either operand is text (but, unlike '&', null already propagated above).
-            BinaryOperator.Add => left is string || right is string ? left.ToString() + right.ToString() : Arithmetic(left, right, (a, c) => a + c),
-            BinaryOperator.Subtract => Arithmetic(left, right, (a, c) => a - c),
-            BinaryOperator.Multiply => Arithmetic(left, right, (a, c) => a * c),
-            BinaryOperator.Divide => Arithmetic(left, right, (a, c) => a / c),
+            BinaryOperator.Add => left is string || right is string ? left.ToString() + right.ToString() : Arithmetic(left, right, '+'),
+            BinaryOperator.Subtract => Arithmetic(left, right, '-'),
+            BinaryOperator.Multiply => Arithmetic(left, right, '*'),
+            BinaryOperator.Divide => Divide(left, right), // Access '/' is floating division
             BinaryOperator.Modulo => Convert.ToInt64(left, CultureInfo.InvariantCulture) % Convert.ToInt64(right, CultureInfo.InvariantCulture),
             BinaryOperator.IntDivide => Convert.ToInt64(left, CultureInfo.InvariantCulture) / Convert.ToInt64(right, CultureInfo.InvariantCulture),
             BinaryOperator.Power => Math.Pow(Convert.ToDouble(left, CultureInfo.InvariantCulture), Convert.ToDouble(right, CultureInfo.InvariantCulture)),
@@ -324,13 +324,32 @@ internal sealed class ExpressionEvaluator(
 
     private static bool? AsBool(object? v) => v switch { bool b => b, null => null, _ => Convert.ToBoolean(v) };
 
-    private static object Arithmetic(object left, object right, Func<decimal, decimal, decimal> op) =>
-        op(ToNumber(left), ToNumber(right));
+    /// <summary><c>+ - *</c> with C# widest-operand type promotion, so the result CLR type matches what EF
+    /// expects (int+int→int, …): decimal &gt; double &gt; single &gt; long &gt; int. (Contract: like
+    /// <c>Enumerable</c> arithmetic — LibRed emits the operand type, not an ACE-widened one.)</summary>
+    private static object Arithmetic(object left, object right, char op)
+    {
+        if (left is decimal || right is decimal) { decimal a = Dec(left), b = Dec(right); return op == '+' ? a + b : op == '-' ? a - b : a * b; }
+        if (left is double || right is double) { double a = Dbl(left), b = Dbl(right); return op == '+' ? a + b : op == '-' ? a - b : a * b; }
+        if (left is float || right is float) { float a = (float)Dbl(left), b = (float)Dbl(right); return op == '+' ? a + b : op == '-' ? a - b : a * b; }
+        if (left is long or ulong || right is long or ulong) { long a = Lng(left), b = Lng(right); return op == '+' ? a + b : op == '-' ? a - b : a * b; }
+        int x = Int(left), y = Int(right); return op == '+' ? x + y : op == '-' ? x - y : x * y;
+    }
 
-    /// <summary>Coerces a value to a decimal for numeric ops, using Jet's boolean convention
-    /// (true = -1, false = 0) so a bool matches the numeric column it is stored in (see the encoder).</summary>
-    private static decimal ToNumber(object v) =>
-        v is bool b ? (b ? -1 : 0) : Convert.ToDecimal(v, CultureInfo.InvariantCulture);
+    /// <summary>Access <c>/</c> is floating division — Decimal when either operand is Decimal/Currency,
+    /// otherwise Double (never integer division; that is <c>\</c>).</summary>
+    private static object Divide(object left, object right) =>
+        left is decimal || right is decimal ? Dec(left) / Dec(right) : Dbl(left) / Dbl(right);
+
+    // Jet's boolean convention (true = -1, false = 0) so a bool matches the numeric column it is stored in.
+    private static object Numeric(object v) => v is bool b ? (b ? -1 : 0) : v;
+    private static decimal Dec(object v) => Convert.ToDecimal(Numeric(v), CultureInfo.InvariantCulture);
+    private static double Dbl(object v) => Convert.ToDouble(Numeric(v), CultureInfo.InvariantCulture);
+    private static long Lng(object v) => Convert.ToInt64(Numeric(v), CultureInfo.InvariantCulture);
+    private static int Int(object v) => Convert.ToInt32(Numeric(v), CultureInfo.InvariantCulture);
+
+    /// <summary>Coerces a value to a decimal for comparisons, using Jet's boolean convention.</summary>
+    private static decimal ToNumber(object v) => Dec(v);
 
     private static int Compare(object left, object right)
     {

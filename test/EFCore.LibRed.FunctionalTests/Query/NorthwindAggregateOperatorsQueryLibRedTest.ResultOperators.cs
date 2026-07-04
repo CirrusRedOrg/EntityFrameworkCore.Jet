@@ -2933,8 +2933,6 @@ FROM `Customers` AS `c`
                 """
 @cities1='London' (Size = 15)
 @cities2='Berlin' (Size = 15)
-@cities1='London' (Size = 15)
-@cities2='Berlin' (Size = 15)
 
 SELECT IIF(SUM(IIF(`c`.`City` IN (@cities1, @cities2), 1, 0)) IS NULL, 0, SUM(IIF(`c`.`City` IN (@cities1, @cities2), 1, 0)))
 FROM `Customers` AS `c`

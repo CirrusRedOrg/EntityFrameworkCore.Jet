@@ -50,14 +50,17 @@ public class BitwiseAndDateFunctionTests
         {
             using var db = JetDatabase.Open(path, readOnly: false);
             var e = new QueryEngine(db);
-            e.ExecuteNonQuery("CREATE TABLE Bits (B BYTE, S SMALLINT)");
-            e.ExecuteNonQuery("INSERT INTO Bits (B, S) VALUES (5, 6)");
+            e.ExecuteNonQuery("CREATE TABLE Bits (B BYTE, B2 BYTE, S SMALLINT, S2 SMALLINT)");
+            e.ExecuteNonQuery("INSERT INTO Bits (B, B2, S, S2) VALUES (5, 3, 6, 3)");
 
-            var r = e.ExecuteQuery("SELECT B BAND 3, BNOT B, S BAND 3, BNOT S FROM Bits").Rows.First();
+            // Mixed narrow+int, and both-operands-narrow (byte&byte, short&short) — all promote to Int32.
+            var r = e.ExecuteQuery("SELECT B BAND 3, BNOT B, S BAND 3, BNOT S, B BAND B2, S BAND S2 FROM Bits").Rows.First();
             Assert.Equal(1, r[0]); Assert.IsType<int>(r[0]);   // 5 & 3
             Assert.Equal(-6, r[1]); Assert.IsType<int>(r[1]);  // ~5 (promoted, not 250)
             Assert.Equal(2, r[2]); Assert.IsType<int>(r[2]);   // 6 & 3
             Assert.Equal(-7, r[3]); Assert.IsType<int>(r[3]);  // ~6
+            Assert.Equal(1, r[4]); Assert.IsType<int>(r[4]);   // byte 5 & byte 3
+            Assert.Equal(2, r[5]); Assert.IsType<int>(r[5]);   // short 6 & short 3
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }

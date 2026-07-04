@@ -5,8 +5,9 @@ namespace LibRed.Engine.Plan;
 /// <summary>Full-table scan of a base table, exposing its columns under <paramref name="Alias"/>.</summary>
 public sealed record ScanNode(string Table, string? Alias) : PlanNode;
 
-/// <summary>A derived table: the output of <paramref name="Input"/> re-exposed under an alias.</summary>
-public sealed record DerivedTableNode(PlanNode Input, string Alias) : PlanNode
+/// <summary>A derived table: the output of <paramref name="Input"/> re-exposed under an alias. The alias
+/// is optional (Access permits an aliasless derived table); its columns are then unqualified.</summary>
+public sealed record DerivedTableNode(PlanNode Input, string? Alias) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }

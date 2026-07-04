@@ -71,8 +71,7 @@ public sealed class QueryPlanner
     {
         NamedTable t => new ScanNode(t.Name, t.Alias),
         JoinTable j => new JoinNode(PlanFrom(j.Left), PlanFrom(j.Right), j.Kind, j.On),
-        SubqueryTable s => new DerivedTableNode(PlanStatement(s.Query), s.Alias
-            ?? throw new NotSupportedException("A derived table requires an alias.")),
+        SubqueryTable s => new DerivedTableNode(PlanStatement(s.Query), s.Alias), // alias optional (Access allows aliasless)
         _ => throw new NotSupportedException($"Unsupported FROM source {from.GetType().Name}."),
     };
 }

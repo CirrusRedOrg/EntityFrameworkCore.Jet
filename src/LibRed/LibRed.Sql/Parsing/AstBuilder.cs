@@ -333,6 +333,7 @@ internal sealed class AstBuilder
     {
         NamedTablePrimaryContext n => new NamedTable(Identifier(n.table), OptionalIdentifier(n.alias)),
         SubqueryPrimaryContext s => new SubqueryTable(BuildQueryExpression(s.queryExpression()), OptionalIdentifier(s.alias)),
+        ParenJoinPrimaryContext p => BuildTableSource(p.tableSource()), // a parenthesized join group is just nested
         _ => throw new SqlParseException($"Unsupported table source: {ctx.GetText()}"),
     };
 

@@ -323,6 +323,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitSubqueryPrimary([NotNull] AccessSqlParser.SubqueryPrimaryContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>ParenJoinPrimary</c>
+	/// labeled alternative in <see cref="AccessSqlParser.tablePrimary"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitParenJoinPrimary([NotNull] AccessSqlParser.ParenJoinPrimaryContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.joinClause"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

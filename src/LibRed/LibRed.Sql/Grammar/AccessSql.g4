@@ -135,6 +135,7 @@ tableSource : tablePrimary joinClause* ;
 tablePrimary
     : table=identifier (AS? alias=identifier)?                  # NamedTablePrimary
     | LPAREN queryExpression RPAREN (AS? alias=identifier)?     # SubqueryPrimary
+    | LPAREN tableSource RPAREN                                 # ParenJoinPrimary
     ;
 
 joinClause : joinType JOIN tablePrimary ON expression ;

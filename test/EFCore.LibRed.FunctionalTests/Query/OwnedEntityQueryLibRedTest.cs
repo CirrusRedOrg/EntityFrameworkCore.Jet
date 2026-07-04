@@ -95,11 +95,11 @@ ORDER BY `b`.`Id`, `p0`.`BlogId`
         await base.Projecting_correlated_collection_property_for_owned_entity(async);
 
         AssertSql(
-"""
-SELECT [w].[WarehouseCode], [w].[Id], [w0].[CountryCode], [w0].[WarehouseCode], [w0].[Id]
-FROM [Warehouses] AS [w]
-LEFT JOIN [WarehouseDestinationCountry] AS [w0] ON [w].[WarehouseCode] = [w0].[WarehouseCode]
-ORDER BY [w].[Id], [w0].[WarehouseCode]
+            """
+SELECT `w`.`WarehouseCode`, `w`.`Id`, `w0`.`CountryCode`, `w0`.`WarehouseCode`, `w0`.`Id`
+FROM `Warehouses` AS `w`
+LEFT JOIN `WarehouseDestinationCountry` AS `w0` ON `w`.`WarehouseCode` = `w0`.`WarehouseCode`
+ORDER BY `w`.`Id`, `w0`.`WarehouseCode`
 """);
     }
 
@@ -124,6 +124,8 @@ ORDER BY `l`.`Id`
 
         AssertSql(
             """
+@p='10'
+
 SELECT TOP @p `c`.`Id`, `c`.`Name`, `c0`.`CompanyId`, `c0`.`AdditionalCustomerData`, `c0`.`Id`, `s`.`CompanyId`, `s`.`AdditionalSupplierData`, `s`.`Id`
 FROM (`Companies` AS `c`
 LEFT JOIN `CustomerData` AS `c0` ON `c`.`Id` = `c0`.`CompanyId`)
@@ -139,6 +141,8 @@ ORDER BY `c`.`Id`
 
         AssertSql(
             """
+@p='10'
+
 SELECT TOP @p `o`.`Id`, `o`.`Name`, `i`.`OwnerId`, `i`.`Id`, `i`.`Name`, `i0`.`IntermediateOwnedEntityOwnerId`, `i0`.`AdditionalCustomerData`, `i0`.`Id`, `i1`.`IntermediateOwnedEntityOwnerId`, `i1`.`AdditionalSupplierData`, `i1`.`Id`
 FROM ((`Owners` AS `o`
 LEFT JOIN `IntermediateOwnedEntity` AS `i` ON `o`.`Id` = `i`.`OwnerId`)

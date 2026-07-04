@@ -500,18 +500,24 @@ ORDER BY `c`.`Id`, `s`.`Id`
         await base.Whats_new_2021_sample_3(async);
 
         AssertSql(
-"""
-SELECT (
-    SELECT TOP(1) [p1].[LastName]
-    FROM [Person] AS [p1]
-    WHERE [p1].[MiddleInitial] = N'Q' AND [p1].[Age] = 20 AND ([p].[LastName] = [p1].[LastName] OR (([p].[LastName] IS NULL) AND ([p1].[LastName] IS NULL))))
-FROM [Person] AS [p]
-WHERE [p].[MiddleInitial] = N'Q' AND [p].[Age] = 20
-GROUP BY [p].[LastName]
-ORDER BY CAST(LEN((
-    SELECT TOP(1) [p1].[LastName]
-    FROM [Person] AS [p1]
-    WHERE [p1].[MiddleInitial] = N'Q' AND [p1].[Age] = 20 AND ([p].[LastName] = [p1].[LastName] OR (([p].[LastName] IS NULL) AND ([p1].[LastName] IS NULL))))) AS int)
+            """
+SELECT `p2`.`c`, `p2`.`c0`
+FROM (
+    SELECT (
+        SELECT TOP 1 `p0`.`LastName`
+        FROM `Person` AS `p0`
+        WHERE `p0`.`MiddleInitial` = 'Q' AND `p0`.`Age` = 20 AND (`p`.`LastName` = `p0`.`LastName` OR (`p`.`LastName` IS NULL AND `p0`.`LastName` IS NULL))) AS `c`, IIF(LEN((
+            SELECT TOP 1 `p0`.`LastName`
+            FROM `Person` AS `p0`
+            WHERE `p0`.`MiddleInitial` = 'Q' AND `p0`.`Age` = 20 AND (`p`.`LastName` = `p0`.`LastName` OR (`p`.`LastName` IS NULL AND `p0`.`LastName` IS NULL)))) IS NULL, NULL, CLNG(LEN((
+            SELECT TOP 1 `p0`.`LastName`
+            FROM `Person` AS `p0`
+            WHERE `p0`.`MiddleInitial` = 'Q' AND `p0`.`Age` = 20 AND (`p`.`LastName` = `p0`.`LastName` OR (`p`.`LastName` IS NULL AND `p0`.`LastName` IS NULL)))))) AS `c0`, `p`.`LastName`
+    FROM `Person` AS `p`
+    WHERE `p`.`MiddleInitial` = 'Q' AND `p`.`Age` = 20
+    GROUP BY `p`.`LastName`
+) AS `p2`
+ORDER BY `p2`.`c0`
 """);
     }
 
@@ -765,7 +771,6 @@ ORDER BY [t].[FirstName], [t0].[Id]
 
         AssertSql(
             """
-@size='11'
 @size='11'
 
 SELECT `p0`.`LastName`, `f`.`Size`, (

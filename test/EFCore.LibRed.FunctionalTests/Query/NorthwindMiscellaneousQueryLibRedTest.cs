@@ -3649,24 +3649,25 @@ FROM `Customers` AS `c`,
             await base.DefaultIfEmpty_in_subquery_nested(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `t0`.`OrderID`, `o0`.`OrderDate`
-                    FROM `Customers` AS `c`,
-                    (
-                        SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
-                        FROM (
-                            SELECT NULL AS `empty`
-                        ) AS `empty`
-                        LEFT JOIN (
-                            SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                            FROM `Orders` AS `o`
-                            WHERE `o`.`OrderID` > 15000
-                        ) AS `t` ON 1 = 1
-                    ) AS `t0`
-                    LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-                    WHERE (`c`.`City` = 'Seattle') AND (`t0`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL)
-                    ORDER BY `t0`.`OrderID`, `o0`.`OrderDate`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `s`.`OrderID`, `o1`.`OrderDate`
+FROM (`Customers` AS `c`
+LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`),
+(
+    SELECT `o0`.`OrderID`
+    FROM (
+        SELECT 1
+        FROM (SELECT COUNT(*) FROM `#Dual`)
+    ) AS `e`
+    LEFT JOIN (
+        SELECT `o`.`OrderID`
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` > 11050
+    ) AS `o0` ON TRUE
+) AS `s`
+WHERE `c`.`City` = 'Seattle' AND `s`.`OrderID` IS NOT NULL AND `o1`.`OrderID` IS NOT NULL
+ORDER BY `s`.`OrderID`, `o1`.`OrderDate`
+""");
         }
 
         public override async Task DefaultIfEmpty_in_subquery_nested_filter_order_comparison(bool async)

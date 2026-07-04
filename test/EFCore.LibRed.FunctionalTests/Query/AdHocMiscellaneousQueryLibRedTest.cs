@@ -966,15 +966,15 @@ FROM `Posts` AS `p`
 
         AssertSql(
             """
-SELECT [e].[Id], [e].[Permission], [e].[PermissionByte], [e].[PermissionShort]
-FROM [Entities] AS [e]
-WHERE [e].[Permission] & CAST(17179869184 AS bigint) = CAST(17179869184 AS bigint)
+SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
+FROM `Entities` AS `e`
+WHERE (`e`.`Permission` BAND 17179869184) = 17179869184
 """,
             //
             """
-SELECT [e].[Id], [e].[Permission], [e].[PermissionByte], [e].[PermissionShort]
-FROM [Entities] AS [e]
-WHERE [e].[PermissionShort] & CAST(4 AS smallint) = CAST(4 AS smallint)
+SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
+FROM `Entities` AS `e`
+WHERE (`e`.`PermissionShort` BAND 4) = 4
 """);
     }
 
@@ -1272,8 +1272,6 @@ WHERE `a`.`Id` = @p
             """
 @entity_equality_a_Id='1' (Nullable = true)
 @entity_equality_b_Id='2' (Nullable = true)
-@entity_equality_b_Id='2' (Nullable = true)
-@entity_equality_a_Id='1' (Nullable = true)
 
 SELECT `e`.`Id`, `e`.`AnotherAutoId`, `e`.`AutoId`
 FROM (`EqualAutos` AS `e`
@@ -1595,7 +1593,7 @@ ORDER BY `o`.`OrderId`
         AssertSql(
             """
 @orderItemType='MyType1' (Nullable = false) (Size = 255)
-@orderItemType='MyType1' (Nullable = false) (Size = 255)
+@p='1'
 
 SELECT `o1`.`Id`, IIF((
         SELECT TOP 1 `o3`.`Price`
@@ -1780,6 +1778,8 @@ WHERE `dbo`.`ModifyDate`(`m`.`SomeDate`) = CDATE(@date)
 
         AssertSql(
             """
+@p='123456'
+
 SELECT TOP @p `t`.`JSON`
 FROM `TableDatas` AS `t`
 INNER JOIN (

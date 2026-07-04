@@ -13,7 +13,8 @@ namespace LibRed.Storage;
 /// Each non-boolean column is prefixed by a flag byte (0x7F start / 0x00 null ascending;
 /// 0x80 / 0xFF descending). Fixed/numeric types use the reversible transform (sign-bit flip +
 /// big-endian for integers; an IEEE transform for floating point); descending inverts the bytes.
-/// Text/Binary/GUID keys use Jet's lossy collation, which is not reproduced yet — those throw.
+/// GUID keys are encoded byte-faithfully (string-order halves split by 0x09, terminated by 0x08).
+/// Text uses Jet's collation; general Binary keys are still limited — see the per-branch notes.
 /// </remarks>
 public static class IndexKeyEncoder
 {
@@ -63,6 +64,31 @@ public static class IndexKeyEncoder
                     foreach (byte b in ascendingKey) buffer.Add((byte)~b);
                     buffer.Add(0x00);
                 }
+                continue;
+            }
+
+            // GUID key (verified against ACE): the start flag, then the 16 GUID bytes in canonical *string*
+            // order (NOT the mixed-endian .ToByteArray layout), split into two 8-byte halves by a constant
+            // 0x09 marker, and terminated by 0x08. Fixed 19-byte key; data bytes equal to 0x08/0x09 need no
+            // escaping because every field is at a fixed offset. Descending GUID keys are not yet handled.
+            if (column.Type == JetDataType.Guid)
+            {
+                if (!ascending)
+                    throw new NotSupportedException("Descending GUID index key encoding is not supported yet.");
+
+                Guid guid = value switch
+                {
+                    Guid g => g,
+                    byte[] b when b.Length == 16 => new Guid(b),
+                    _ => throw new NotSupportedException($"Cannot encode GUID index key from {value.GetType().Name}."),
+                };
+                byte[] s = Convert.FromHexString(guid.ToString("N")); // 16 bytes, canonical string order
+
+                buffer.Add(AscStartFlag);
+                buffer.AddRange(s.AsSpan(0, 8));
+                buffer.Add(0x09);
+                buffer.AddRange(s.AsSpan(8, 8));
+                buffer.Add(0x08);
                 continue;
             }
 

@@ -736,7 +736,16 @@ Then the value, transformed:
 
   *Not yet handled:* characters outside ASCII + the accented Latin-1 set above (and a key mixing an
   accent with an ignorable apostrophe/hyphen is untested).
-- **Binary / GUID:** collation encoding not implemented (read-only as before).
+- **GUID:** the start flag `0x7F`, then the 16 GUID bytes in **canonical string order** (i.e.
+  `guid.ToString("N")` bytes — **not** the mixed-endian `.ToByteArray()` storage layout), split into two
+  8-byte halves by a constant `0x09` marker, and terminated by `0x08` — a fixed **19-byte** key. Data
+  bytes equal to `0x08`/`0x09` need no escaping (every field is at a fixed offset). Verified byte-for-byte
+  against ACE (zeros, all-`FF`, sequential, and random GUIDs); ACE also opens a LibRed-written GUID-PK
+  table and seeks a row by its key. Encoded/decoded by `IndexKeyEncoder`/`IndexKeyDecoder`. **Ascending
+  only** so far — descending GUID keys throw. Example: `01020304-0506-0708-090a-0b0c0d0e0f10` →
+  `7F 0102030405060708 09 090A0B0C0D0E0F10 08`.
+- **Binary (general):** collation encoding still limited to the fixed 4-byte ascending case
+  (MSysQueries.Order); other lengths/descending unimplemented.
 
 ### 10.5 Insertion and splitting
 

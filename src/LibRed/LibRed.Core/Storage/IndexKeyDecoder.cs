@@ -47,6 +47,19 @@ public static class IndexKeyDecoder
             }
             // Otherwise flag is the start flag (0x7F / 0x80).
 
+            // GUID key (ascending only): 8 bytes, a 0x09 marker, 8 bytes, a 0x08 terminator — the 16 bytes
+            // are the GUID's canonical string order (see IndexKeyEncoder). Descending is lossy → stop.
+            if (column.Type == JetDataType.Guid)
+            {
+                if (!ascending || pos + 18 > key.Length) break;
+                var s = new byte[16];
+                key.Slice(pos, 8).CopyTo(s.AsSpan(0, 8));
+                key.Slice(pos + 9, 8).CopyTo(s.AsSpan(8, 8));
+                pos += 18;
+                values[i] = new Guid(Convert.ToHexString(s));
+                continue;
+            }
+
             int size = FixedKeySize(column.Type);
             if (size <= 0 || pos + size > key.Length)
                 break; // text/binary/unsupported (lossy) — cannot reliably continue

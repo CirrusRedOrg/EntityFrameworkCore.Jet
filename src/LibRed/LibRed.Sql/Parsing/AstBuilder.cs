@@ -574,6 +574,7 @@ internal sealed class AstBuilder
     {
         IntLiteralContext i => new LiteralExpression(ParseInteger(i.GetText())),
         NumberLiteralContext n => new LiteralExpression(double.Parse(n.GetText(), CultureInfo.InvariantCulture)),
+        HexLiteralContext h => new LiteralExpression(ParseHexBytes(h.GetText())),
         StringLiteralContext s => new LiteralExpression(Unquote(s.GetText())),
         DateLiteralContext d => new LiteralExpression(ParseDate(d.GetText())),
         TrueLiteralContext => new LiteralExpression(true),
@@ -608,6 +609,16 @@ internal sealed class AstBuilder
         // conditional's type as `long` and silently widen the int branch, so every literal
         // (even `1`) would arrive as a boxed long.
         int.TryParse(text, out int i) ? i : (object)long.Parse(text, CultureInfo.InvariantCulture);
+
+    /// <summary>A raw binary literal (<c>0x…</c>) → the decoded bytes. Access writes OLE / Long Binary values
+    /// this way (e.g. a Categories.Picture bitmap). An odd digit count is a malformed literal and throws.</summary>
+    private static byte[] ParseHexBytes(string text)
+    {
+        ReadOnlySpan<char> digits = text.AsSpan(2); // drop the "0x" prefix
+        if (digits.Length % 2 != 0)
+            throw new SqlParseException($"Binary literal '0x…' has an odd number of hex digits.");
+        return Convert.FromHexString(digits);
+    }
 
     private static string Identifier(IdentifierContext ctx)
     {

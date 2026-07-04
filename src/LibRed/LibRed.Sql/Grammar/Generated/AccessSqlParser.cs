@@ -47,9 +47,9 @@ public partial class AccessSqlParser : Parser {
 		DISALLOW=53, IGNORE=54, CHECK=55, VIEW=56, PROCEDURE=57, PARAMETERS=58, 
 		ASC=59, DESC=60, TRUE=61, FALSE=62, NULL=63, STAR=64, SLASH=65, BACKSLASH=66, 
 		CARET=67, PLUS=68, MINUS=69, AMP=70, EQ=71, NEQ=72, LTE=73, GTE=74, LT=75, 
-		GT=76, LPAREN=77, RPAREN=78, COMMA=79, DOT=80, SEMI=81, PARAM=82, INTEGER_LITERAL=83, 
-		NUMBER_LITERAL=84, STRING_LITERAL=85, DATE_LITERAL=86, BRACKET_ID=87, 
-		BACKTICK_ID=88, IDENTIFIER=89, WS=90;
+		GT=76, LPAREN=77, RPAREN=78, COMMA=79, DOT=80, SEMI=81, PARAM=82, HEX_LITERAL=83, 
+		INTEGER_LITERAL=84, NUMBER_LITERAL=85, STRING_LITERAL=86, DATE_LITERAL=87, 
+		BRACKET_ID=88, BACKTICK_ID=89, IDENTIFIER=90, WS=91;
 	public const int
 		RULE_statement = 0, RULE_parametersClause = 1, RULE_createTableStatement = 2, 
 		RULE_createViewStatement = 3, RULE_createProcedureStatement = 4, RULE_procParamList = 5, 
@@ -98,8 +98,8 @@ public partial class AccessSqlParser : Parser {
 		"VIEW", "PROCEDURE", "PARAMETERS", "ASC", "DESC", "TRUE", "FALSE", "NULL", 
 		"STAR", "SLASH", "BACKSLASH", "CARET", "PLUS", "MINUS", "AMP", "EQ", "NEQ", 
 		"LTE", "GTE", "LT", "GT", "LPAREN", "RPAREN", "COMMA", "DOT", "SEMI", 
-		"PARAM", "INTEGER_LITERAL", "NUMBER_LITERAL", "STRING_LITERAL", "DATE_LITERAL", 
-		"BRACKET_ID", "BACKTICK_ID", "IDENTIFIER", "WS"
+		"PARAM", "HEX_LITERAL", "INTEGER_LITERAL", "NUMBER_LITERAL", "STRING_LITERAL", 
+		"DATE_LITERAL", "BRACKET_ID", "BACKTICK_ID", "IDENTIFIER", "WS"
 	};
 	public static readonly IVocabulary DefaultVocabulary = new Vocabulary(_LiteralNames, _SymbolicNames);
 
@@ -584,7 +584,7 @@ public partial class AccessSqlParser : Parser {
 			State = 158;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
-			if (((((_la - 77)) & ~0x3f) == 0 && ((1L << (_la - 77)) & 7201L) != 0)) {
+			if (((((_la - 77)) & ~0x3f) == 0 && ((1L << (_la - 77)) & 14369L) != 0)) {
 				{
 				State = 157;
 				procParamList();
@@ -1266,7 +1266,7 @@ public partial class AccessSqlParser : Parser {
 			State = 239;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
-			if (((((_la - 87)) & ~0x3f) == 0 && ((1L << (_la - 87)) & 7L) != 0)) {
+			if (((((_la - 88)) & ~0x3f) == 0 && ((1L << (_la - 88)) & 7L) != 0)) {
 				{
 				State = 238;
 				_localctx.extra = identifier();
@@ -2074,7 +2074,7 @@ public partial class AccessSqlParser : Parser {
 			State = 396;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
-			while ((((_la) & ~0x3f) == 0 && ((1L << _la) & -2L) != 0) || ((((_la - 64)) & ~0x3f) == 0 && ((1L << (_la - 64)) & 134201343L) != 0)) {
+			while ((((_la) & ~0x3f) == 0 && ((1L << _la) & -2L) != 0) || ((((_la - 64)) & ~0x3f) == 0 && ((1L << (_la - 64)) & 268419071L) != 0)) {
 				{
 				State = 394;
 				ErrorHandler.Sync(this);
@@ -2159,6 +2159,7 @@ public partial class AccessSqlParser : Parser {
 				case DOT:
 				case SEMI:
 				case PARAM:
+				case HEX_LITERAL:
 				case INTEGER_LITERAL:
 				case NUMBER_LITERAL:
 				case STRING_LITERAL:
@@ -3019,6 +3020,7 @@ public partial class AccessSqlParser : Parser {
 			case MINUS:
 			case LPAREN:
 			case PARAM:
+			case HEX_LITERAL:
 			case INTEGER_LITERAL:
 			case NUMBER_LITERAL:
 			case STRING_LITERAL:
@@ -3138,7 +3140,7 @@ public partial class AccessSqlParser : Parser {
 				State = 519;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
-				if (_la==AS || ((((_la - 87)) & ~0x3f) == 0 && ((1L << (_la - 87)) & 7L) != 0)) {
+				if (_la==AS || ((((_la - 88)) & ~0x3f) == 0 && ((1L << (_la - 88)) & 7L) != 0)) {
 					{
 					State = 516;
 					ErrorHandler.Sync(this);
@@ -3378,7 +3380,7 @@ public partial class AccessSqlParser : Parser {
 				State = 544;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
-				if (_la==AS || ((((_la - 87)) & ~0x3f) == 0 && ((1L << (_la - 87)) & 7L) != 0)) {
+				if (_la==AS || ((((_la - 88)) & ~0x3f) == 0 && ((1L << (_la - 88)) & 7L) != 0)) {
 					{
 					State = 541;
 					ErrorHandler.Sync(this);
@@ -3410,7 +3412,7 @@ public partial class AccessSqlParser : Parser {
 				State = 553;
 				ErrorHandler.Sync(this);
 				_la = TokenStream.LA(1);
-				if (_la==AS || ((((_la - 87)) & ~0x3f) == 0 && ((1L << (_la - 87)) & 7L) != 0)) {
+				if (_la==AS || ((((_la - 88)) & ~0x3f) == 0 && ((1L << (_la - 88)) & 7L) != 0)) {
 					{
 					State = 550;
 					ErrorHandler.Sync(this);
@@ -4081,6 +4083,7 @@ public partial class AccessSqlParser : Parser {
 			case NULL:
 			case LPAREN:
 			case PARAM:
+			case HEX_LITERAL:
 			case INTEGER_LITERAL:
 			case NUMBER_LITERAL:
 			case STRING_LITERAL:
@@ -4551,6 +4554,7 @@ public partial class AccessSqlParser : Parser {
 			case MINUS:
 			case LPAREN:
 			case PARAM:
+			case HEX_LITERAL:
 			case INTEGER_LITERAL:
 			case NUMBER_LITERAL:
 			case STRING_LITERAL:
@@ -4685,7 +4689,7 @@ public partial class AccessSqlParser : Parser {
 			{
 			State = 687;
 			_la = TokenStream.LA(1);
-			if ( !(((((_la - 87)) & ~0x3f) == 0 && ((1L << (_la - 87)) & 7L) != 0)) ) {
+			if ( !(((((_la - 88)) & ~0x3f) == 0 && ((1L << (_la - 88)) & 7L) != 0)) ) {
 			ErrorHandler.RecoverInline(this);
 			}
 			else {
@@ -4747,6 +4751,16 @@ public partial class AccessSqlParser : Parser {
 			else return visitor.VisitChildren(this);
 		}
 	}
+	public partial class HexLiteralContext : LiteralContext {
+		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode HEX_LITERAL() { return GetToken(AccessSqlParser.HEX_LITERAL, 0); }
+		public HexLiteralContext(LiteralContext context) { CopyFrom(context); }
+		[System.Diagnostics.DebuggerNonUserCode]
+		public override TResult Accept<TResult>(IParseTreeVisitor<TResult> visitor) {
+			IAccessSqlVisitor<TResult> typedVisitor = visitor as IAccessSqlVisitor<TResult>;
+			if (typedVisitor != null) return typedVisitor.VisitHexLiteral(this);
+			else return visitor.VisitChildren(this);
+		}
+	}
 	public partial class IntLiteralContext : LiteralContext {
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode INTEGER_LITERAL() { return GetToken(AccessSqlParser.INTEGER_LITERAL, 0); }
 		public IntLiteralContext(LiteralContext context) { CopyFrom(context); }
@@ -4793,7 +4807,7 @@ public partial class AccessSqlParser : Parser {
 		LiteralContext _localctx = new LiteralContext(Context, State);
 		EnterRule(_localctx, 82, RULE_literal);
 		try {
-			State = 696;
+			State = 697;
 			ErrorHandler.Sync(this);
 			switch (TokenStream.LA(1)) {
 			case INTEGER_LITERAL:
@@ -4812,43 +4826,51 @@ public partial class AccessSqlParser : Parser {
 				Match(NUMBER_LITERAL);
 				}
 				break;
-			case STRING_LITERAL:
-				_localctx = new StringLiteralContext(_localctx);
+			case HEX_LITERAL:
+				_localctx = new HexLiteralContext(_localctx);
 				EnterOuterAlt(_localctx, 3);
 				{
 				State = 691;
+				Match(HEX_LITERAL);
+				}
+				break;
+			case STRING_LITERAL:
+				_localctx = new StringLiteralContext(_localctx);
+				EnterOuterAlt(_localctx, 4);
+				{
+				State = 692;
 				Match(STRING_LITERAL);
 				}
 				break;
 			case DATE_LITERAL:
 				_localctx = new DateLiteralContext(_localctx);
-				EnterOuterAlt(_localctx, 4);
+				EnterOuterAlt(_localctx, 5);
 				{
-				State = 692;
+				State = 693;
 				Match(DATE_LITERAL);
 				}
 				break;
 			case TRUE:
 				_localctx = new TrueLiteralContext(_localctx);
-				EnterOuterAlt(_localctx, 5);
+				EnterOuterAlt(_localctx, 6);
 				{
-				State = 693;
+				State = 694;
 				Match(TRUE);
 				}
 				break;
 			case FALSE:
 				_localctx = new FalseLiteralContext(_localctx);
-				EnterOuterAlt(_localctx, 6);
+				EnterOuterAlt(_localctx, 7);
 				{
-				State = 694;
+				State = 695;
 				Match(FALSE);
 				}
 				break;
 			case NULL:
 				_localctx = new NullLiteralContext(_localctx);
-				EnterOuterAlt(_localctx, 7);
+				EnterOuterAlt(_localctx, 8);
 				{
-				State = 695;
+				State = 696;
 				Match(NULL);
 				}
 				break;
@@ -4889,7 +4911,7 @@ public partial class AccessSqlParser : Parser {
 	}
 
 	private static int[] _serializedATN = {
-		4,1,90,699,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,7,
+		4,1,91,700,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,7,
 		7,7,2,8,7,8,2,9,7,9,2,10,7,10,2,11,7,11,2,12,7,12,2,13,7,13,2,14,7,14,
 		2,15,7,15,2,16,7,16,2,17,7,17,2,18,7,18,2,19,7,19,2,20,7,20,2,21,7,21,
 		2,22,7,22,2,23,7,23,2,24,7,24,2,25,7,25,2,26,7,26,2,27,7,27,2,28,7,28,
@@ -4943,19 +4965,19 @@ public partial class AccessSqlParser : Parser {
 		37,1,37,1,37,1,37,1,37,1,37,1,37,1,37,3,37,664,8,37,1,38,1,38,1,38,1,38,
 		1,38,1,38,5,38,672,8,38,10,38,12,38,675,9,38,3,38,677,8,38,1,38,1,38,1,
 		39,1,39,1,39,3,39,684,8,39,1,39,1,39,1,40,1,40,1,41,1,41,1,41,1,41,1,41,
-		1,41,1,41,3,41,697,8,41,1,41,0,1,72,42,0,2,4,6,8,10,12,14,16,18,20,22,
-		24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62,64,66,68,70,
-		72,74,76,78,80,82,0,7,1,0,59,60,1,0,51,52,1,0,77,78,2,0,10,10,64,66,1,
-		0,68,70,1,0,71,76,1,0,87,89,784,0,85,1,0,0,0,2,100,1,0,0,0,4,111,1,0,0,
-		0,6,135,1,0,0,0,8,154,1,0,0,0,10,182,1,0,0,0,12,184,1,0,0,0,14,189,1,0,
-		0,0,16,194,1,0,0,0,18,196,1,0,0,0,20,218,1,0,0,0,22,227,1,0,0,0,24,229,
+		1,41,1,41,1,41,3,41,698,8,41,1,41,0,1,72,42,0,2,4,6,8,10,12,14,16,18,20,
+		22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,54,56,58,60,62,64,66,68,
+		70,72,74,76,78,80,82,0,7,1,0,59,60,1,0,51,52,1,0,77,78,2,0,10,10,64,66,
+		1,0,68,70,1,0,71,76,1,0,88,90,786,0,85,1,0,0,0,2,100,1,0,0,0,4,111,1,0,
+		0,0,6,135,1,0,0,0,8,154,1,0,0,0,10,182,1,0,0,0,12,184,1,0,0,0,14,189,1,
+		0,0,0,16,194,1,0,0,0,18,196,1,0,0,0,20,218,1,0,0,0,22,227,1,0,0,0,24,229,
 		1,0,0,0,26,237,1,0,0,0,28,302,1,0,0,0,30,387,1,0,0,0,32,396,1,0,0,0,34,
 		405,1,0,0,0,36,415,1,0,0,0,38,417,1,0,0,0,40,445,1,0,0,0,42,460,1,0,0,
 		0,44,462,1,0,0,0,46,483,1,0,0,0,48,493,1,0,0,0,50,496,1,0,0,0,52,508,1,
 		0,0,0,54,521,1,0,0,0,56,523,1,0,0,0,58,532,1,0,0,0,60,559,1,0,0,0,62,561,
 		1,0,0,0,64,578,1,0,0,0,66,580,1,0,0,0,68,583,1,0,0,0,70,593,1,0,0,0,72,
 		603,1,0,0,0,74,663,1,0,0,0,76,665,1,0,0,0,78,683,1,0,0,0,80,687,1,0,0,
-		0,82,696,1,0,0,0,84,86,3,2,1,0,85,84,1,0,0,0,85,86,1,0,0,0,86,93,1,0,0,
+		0,82,697,1,0,0,0,84,86,3,2,1,0,85,84,1,0,0,0,85,86,1,0,0,0,86,93,1,0,0,
 		0,87,94,3,4,2,0,88,94,3,18,9,0,89,94,3,6,3,0,90,94,3,8,4,0,91,94,3,38,
 		19,0,92,94,3,40,20,0,93,87,1,0,0,0,93,88,1,0,0,0,93,89,1,0,0,0,93,90,1,
 		0,0,0,93,91,1,0,0,0,93,92,1,0,0,0,94,96,1,0,0,0,95,97,5,81,0,0,96,95,1,
@@ -4997,8 +5019,8 @@ public partial class AccessSqlParser : Parser {
 		0,0,228,23,1,0,0,0,229,230,3,80,40,0,230,234,3,26,13,0,231,233,3,28,14,
 		0,232,231,1,0,0,0,233,236,1,0,0,0,234,232,1,0,0,0,234,235,1,0,0,0,235,
 		25,1,0,0,0,236,234,1,0,0,0,237,239,3,80,40,0,238,240,3,80,40,0,239,238,
-		1,0,0,0,239,240,1,0,0,0,240,248,1,0,0,0,241,242,5,77,0,0,242,245,5,83,
-		0,0,243,244,5,79,0,0,244,246,5,83,0,0,245,243,1,0,0,0,245,246,1,0,0,0,
+		1,0,0,0,239,240,1,0,0,0,240,248,1,0,0,0,241,242,5,77,0,0,242,245,5,84,
+		0,0,243,244,5,79,0,0,244,246,5,84,0,0,245,243,1,0,0,0,245,246,1,0,0,0,
 		246,247,1,0,0,0,247,249,5,78,0,0,248,241,1,0,0,0,248,249,1,0,0,0,249,27,
 		1,0,0,0,250,251,5,8,0,0,251,303,5,63,0,0,252,303,5,63,0,0,253,254,5,45,
 		0,0,254,303,3,72,36,0,255,256,5,50,0,0,256,303,7,1,0,0,257,258,5,36,0,
@@ -5069,7 +5091,7 @@ public partial class AccessSqlParser : Parser {
 		20,0,0,485,490,3,72,36,0,486,487,5,79,0,0,487,489,3,72,36,0,488,486,1,
 		0,0,0,489,492,1,0,0,0,490,488,1,0,0,0,490,491,1,0,0,0,491,47,1,0,0,0,492,
 		490,1,0,0,0,493,494,5,21,0,0,494,495,3,72,36,0,495,49,1,0,0,0,496,497,
-		5,4,0,0,497,498,5,83,0,0,498,51,1,0,0,0,499,509,5,64,0,0,500,505,3,54,
+		5,4,0,0,497,498,5,84,0,0,498,51,1,0,0,0,499,509,5,64,0,0,500,505,3,54,
 		27,0,501,502,5,79,0,0,502,504,3,54,27,0,503,501,1,0,0,0,504,507,1,0,0,
 		0,505,503,1,0,0,0,505,506,1,0,0,0,506,509,1,0,0,0,507,505,1,0,0,0,508,
 		499,1,0,0,0,508,500,1,0,0,0,509,53,1,0,0,0,510,511,3,80,40,0,511,512,5,
@@ -5124,15 +5146,15 @@ public partial class AccessSqlParser : Parser {
 		678,1,0,0,0,678,679,5,78,0,0,679,77,1,0,0,0,680,681,3,80,40,0,681,682,
 		5,80,0,0,682,684,1,0,0,0,683,680,1,0,0,0,683,684,1,0,0,0,684,685,1,0,0,
 		0,685,686,3,80,40,0,686,79,1,0,0,0,687,688,7,6,0,0,688,81,1,0,0,0,689,
-		697,5,83,0,0,690,697,5,84,0,0,691,697,5,85,0,0,692,697,5,86,0,0,693,697,
-		5,61,0,0,694,697,5,62,0,0,695,697,5,63,0,0,696,689,1,0,0,0,696,690,1,0,
-		0,0,696,691,1,0,0,0,696,692,1,0,0,0,696,693,1,0,0,0,696,694,1,0,0,0,696,
-		695,1,0,0,0,697,83,1,0,0,0,89,85,93,96,106,113,123,130,144,149,158,169,
-		179,182,189,194,198,210,216,220,227,234,239,245,248,259,268,274,279,289,
-		294,299,302,306,316,323,332,339,345,353,365,370,375,380,387,394,396,405,
-		415,426,431,440,451,456,460,464,467,472,475,478,481,490,505,508,516,519,
-		521,529,536,541,544,550,553,559,568,572,576,578,590,595,603,619,638,641,
-		643,663,673,676,683,696
+		698,5,84,0,0,690,698,5,85,0,0,691,698,5,83,0,0,692,698,5,86,0,0,693,698,
+		5,87,0,0,694,698,5,61,0,0,695,698,5,62,0,0,696,698,5,63,0,0,697,689,1,
+		0,0,0,697,690,1,0,0,0,697,691,1,0,0,0,697,692,1,0,0,0,697,693,1,0,0,0,
+		697,694,1,0,0,0,697,695,1,0,0,0,697,696,1,0,0,0,698,83,1,0,0,0,89,85,93,
+		96,106,113,123,130,144,149,158,169,179,182,189,194,198,210,216,220,227,
+		234,239,245,248,259,268,274,279,289,294,299,302,306,316,323,332,339,345,
+		353,365,370,375,380,387,394,396,405,415,426,431,440,451,456,460,464,467,
+		472,475,478,481,490,505,508,516,519,521,529,536,541,544,550,553,559,568,
+		572,576,578,590,595,603,619,638,641,643,663,673,676,683,697
 	};
 
 	public static readonly ATN _ATN =

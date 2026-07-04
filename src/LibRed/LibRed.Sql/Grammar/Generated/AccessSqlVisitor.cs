@@ -576,6 +576,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitNumberLiteral([NotNull] AccessSqlParser.NumberLiteralContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>HexLiteral</c>
+	/// labeled alternative in <see cref="AccessSqlParser.literal"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitHexLiteral([NotNull] AccessSqlParser.HexLiteralContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>StringLiteral</c>
 	/// labeled alternative in <see cref="AccessSqlParser.literal"/>.
 	/// </summary>

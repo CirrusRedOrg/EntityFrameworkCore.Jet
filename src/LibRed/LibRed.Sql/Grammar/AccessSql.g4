@@ -210,6 +210,7 @@ identifier : IDENTIFIER | BRACKET_ID | BACKTICK_ID ;
 literal
     : INTEGER_LITERAL   # IntLiteral
     | NUMBER_LITERAL    # NumberLiteral
+    | HEX_LITERAL       # HexLiteral
     | STRING_LITERAL    # StringLiteral
     | DATE_LITERAL      # DateLiteral
     | TRUE              # TrueLiteral
@@ -303,6 +304,9 @@ DOT    : '.' ;
 SEMI   : ';' ;
 PARAM  : '?' | '@' [A-Za-z_][A-Za-z_0-9]* ;
 
+// A raw binary literal, e.g. 0x151C2F… (an OLE / Long Binary value). Must precede INTEGER_LITERAL so the
+// leading 0 isn't lexed as an integer; ANTLR's longest-match picks this, and ordering settles ties.
+HEX_LITERAL     : '0' [Xx] [0-9A-Fa-f]+ ;
 INTEGER_LITERAL : [0-9]+ ;
 NUMBER_LITERAL  : [0-9]+ '.' [0-9]* | '.' [0-9]+ ;
 STRING_LITERAL  : '"' (~["])* '"' | '\'' (~['])* '\'' ;

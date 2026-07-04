@@ -33,6 +33,8 @@ public class TextKeyEncodingTests
             // Accented Latin-1: the accent sorts with its base letter and adds a secondary weight.
             "México D.F.", "Montréal", "München", "São Paulo", "Résumé", "Café",
             "Niño", "Zürich", "Åre", "Ça", "É", "Ø", "Ñ", "Ç", "Ü", "Ã", "Æ",
+            // Multi-letter expansions (ß=SS, Þ=TH), incl. a ligature followed by ignorable hyphens.
+            "ß", "Straße", "Þor", "NuNuCa Nuß-Nougat-Creme", "Aß-B",
         ];
 
         string path = Path.Combine(Path.GetTempPath(), $"libred-textkey-{Guid.NewGuid():N}.accdb");

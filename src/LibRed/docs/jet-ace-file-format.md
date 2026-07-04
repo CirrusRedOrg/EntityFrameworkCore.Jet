@@ -686,8 +686,15 @@ Then the value, transformed:
   primary weight**, but each appends an inline record to a trailing section. After the primary's
   `0x01` end marker, if any ignorable char is present the key adds `01 01 01` once, then per
   ignorable char four bytes `80 <pos> 06 <code>`, then the final `00`. `<pos> = 0x07 + 4 × (count
-  of non-ignorable characters before it)` and `<code>` is `0x80` for apostrophe / `0x82` for
-  hyphen — verified against ACE (e.g. `ANNE-MARIE` → `… 80 17 06 82 …`, the hyphen at position 4).
+  of **primary weight bytes** emitted before it)` and `<code>` is `0x80` for apostrophe / `0x82` for
+  hyphen — verified against ACE (e.g. `ANNE-MARIE` → `… 80 17 06 82 …`, the hyphen at position 4;
+  `Aß-B` → `7F 4A 6B 6B 4C 01 01 01 01 80 13 06 82 00`, hyphen at position **3** because ß expands to
+  two primary bytes `SS`).
+
+  **A few letters expand to multiple base letters** (each expanded letter weighs its normal primary,
+  no accent): `ß`→`SS`, `Þ`/`þ`→`TH`, `Æ`→`AE` — verified against ACE (`ß` = `7F 6B 6B 01 00`, same as
+  `SS`). Because the ignorable-position count is by primary byte, an expansion counts as its expanded
+  length (above).
 
   **Accented Latin-1 letters** sort with their **base letter's primary weight** and record the
   accent in a **secondary section**. Each character has a secondary weight (default `0x02`); an

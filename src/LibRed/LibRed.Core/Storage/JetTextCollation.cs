@@ -43,12 +43,21 @@ internal static class JetTextCollation
         ['̧'] = 0x1C, // cedilla
     };
 
-    // Atomic accented letters that have no Unicode canonical decomposition: base letter + secondary weight,
-    // or (for the ligature Æ) a two-letter expansion. Verified against ACE.
+    // Atomic accented letters that have no Unicode canonical decomposition: base letter + secondary weight.
+    // Verified against ACE.
     private static readonly Dictionary<char, (char Base, byte Secondary)> AtomicAccents = new()
     {
         ['Ø'] = ('O', 0x21),
         ['Ð'] = ('D', 0x68),
+    };
+
+    // Letters that sort as a multi-letter expansion (each expanded letter weighs its normal primary, no
+    // accent). Verified against ACE: ß = SS, Þ/þ = TH, Æ = AE.
+    private static readonly Dictionary<char, string> Expansions = new()
+    {
+        ['Æ'] = "AE",
+        ['ß'] = "SS",
+        ['Þ'] = "TH",
     };
 
     // Primary weight for 'A'..'Z' (general collation; mostly +2 with a few +1 steps).
@@ -84,15 +93,15 @@ internal static class JetTextCollation
         var primaries = new List<byte>();
         var secondaries = new List<byte>();
         // Apostrophe/hyphen carry no primary weight; they record (position, code) for the inline
-        // section, where position is the count of non-ignorable characters before them.
+        // section, where position is the count of **primary weight bytes** emitted before them (so a
+        // multi-byte expansion like ß→SS counts as 2 — verified against ACE).
         var inline = new List<(int Position, byte Code)>();
-        int primaryChars = 0;
 
         foreach (char c in s)
         {
             char u = char.ToUpperInvariant(c);
-            if (u == '\'') { inline.Add((primaryChars, ApostropheCode)); continue; }
-            if (u == '-') { inline.Add((primaryChars, HyphenCode)); continue; }
+            if (u == '\'') { inline.Add((primaries.Count, ApostropheCode)); continue; }
+            if (u == '-') { inline.Add((primaries.Count, HyphenCode)); continue; }
 
             if (u is >= 'A' and <= 'Z')
                 Add(Letters[u - 'A']);
@@ -102,8 +111,6 @@ internal static class JetTextCollation
                 foreach (byte w in weights) Add(w);
             else if (!TryAddAccented(u, Add))
                 return false; // not handled yet
-
-            primaryChars++;
         }
 
         output.AddRange(primaries);
@@ -139,12 +146,16 @@ internal static class JetTextCollation
         }
     }
 
-    /// <summary>Emits the primary+secondary weight(s) for an accented Latin-1 letter (uppercased). Uses the
-    /// character's Unicode canonical decomposition (base letter + combining mark) where it has one, plus a
-    /// short table of atomic accents (Ø, Ð) and the Æ ligature. Returns false if the character is unknown.</summary>
+    /// <summary>Emits the primary+secondary weight(s) for an accented or special Latin-1 letter (uppercased):
+    /// a multi-letter expansion (ß=SS, Þ=TH, Æ=AE), an atomic accent (Ø, Ð), or a Unicode canonical
+    /// decomposition (base letter + combining mark). Returns false if the character is unknown.</summary>
     private static bool TryAddAccented(char u, Action<byte, byte> add)
     {
-        if (u == 'Æ') { add(Letters['A' - 'A'], DefaultSecondary); add(Letters['E' - 'A'], DefaultSecondary); return true; }
+        if (Expansions.TryGetValue(u, out string? expansion))
+        {
+            foreach (char letter in expansion) add(Letters[letter - 'A'], DefaultSecondary);
+            return true;
+        }
         if (AtomicAccents.TryGetValue(u, out (char Base, byte Secondary) atomic))
         {
             add(Letters[atomic.Base - 'A'], atomic.Secondary);

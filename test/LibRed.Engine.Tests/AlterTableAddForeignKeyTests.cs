@@ -39,4 +39,29 @@ public class AlterTableAddForeignKeyTests
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
+
+    // A self-referencing foreign key (Northwind's Employees.ReportsTo → Employees.EmployeeID).
+    [Fact]
+    public void Add_self_referencing_foreign_key()
+    {
+        string path = Fresh();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var e = new QueryEngine(db);
+                e.ExecuteNonQuery("CREATE TABLE Staff (EmployeeID LONG CONSTRAINT PK_Staff PRIMARY KEY, ReportsTo LONG)");
+                e.ExecuteNonQuery(
+                    "ALTER TABLE Staff ADD CONSTRAINT `FK_Staff_Staff` FOREIGN KEY (`ReportsTo`) " +
+                    "REFERENCES `Staff` (`EmployeeID`)");
+            }
+
+            using (var db = JetDatabase.Open(path))
+            {
+                var fk = Assert.Single(db.Catalog.ForeignKeysOf("Staff"));
+                Assert.Equal("Staff", fk.ReferencedTable, ignoreCase: true);
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
 }

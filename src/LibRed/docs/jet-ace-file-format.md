@@ -907,9 +907,13 @@ The split mechanics:
   > **`ALTER TABLE … ADD CONSTRAINT … FOREIGN KEY`** writes the *same* linkage, but **surgically** onto the
   > two existing (empty) TDEFs: it inserts the child's backing index + outgoing block into the child TDEF
   > (the shared index-insert path, name-sorted) and appends the incoming block to the parent TDEF, then the
-  > `MSysRelationships` rows — no format difference from the inline case. Verified: Access reads and
-  > **enforces** a LibRed-`ALTER`-added FK (RI rejects an orphan child row). Self-references and
-  > `FOREIGN KEY NO INDEX` via `ALTER` are not written yet.
+  > `MSysRelationships` rows — no format difference from the inline case (and the child index is
+  > back-filled if the table already has rows). Verified: Access reads and **enforces** a LibRed-`ALTER`-added
+  > FK (RI rejects an orphan child row). A **self-reference** (child = parent, e.g. Employees.ReportsTo →
+  > EmployeeID) hosts both ends in the one TDEF: the outgoing block links to an incoming block numbered one
+  > past it (`Fk_number = outgoing index_num + 1`), and the incoming block's `index_num2` = the table's own
+  > referenced-key (PK) data block — verified read+enforced vs ACE. `FOREIGN KEY NO INDEX` via `ALTER` is
+  > not written yet.
 
 ---
 

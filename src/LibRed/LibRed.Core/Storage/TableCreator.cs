@@ -435,23 +435,37 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     /// Adds a foreign key to an existing (empty) child table: a backing non-unique index over the child
     /// columns carrying an outgoing-relationship block, an incoming block on the parent's TDEF, and the
     /// MSysRelationships rows. The child index and parent block are written the same way inline-FK creation
-    /// does (verified byte-faithful vs ACE). Self-references and FOREIGN KEY NO INDEX are not yet handled.
+    /// does (verified byte-faithful vs ACE). A self-reference hosts both ends in the one table; FOREIGN KEY
+    /// NO INDEX is not yet handled.
     /// </summary>
     public void AddForeignKey(string childTable, RelationshipSpec fk)
     {
         TableDef child = _catalog.FindTable(childTable)
             ?? throw new InvalidOperationException($"Table '{childTable}' was not found.");
-        if (string.Equals(fk.ReferencedTable, childTable, StringComparison.OrdinalIgnoreCase))
-            throw new NotSupportedException("Adding a self-referencing foreign key via ALTER TABLE is not supported yet.");
         if (fk.NoIndex)
             throw new NotSupportedException("ALTER TABLE ADD FOREIGN KEY … NO INDEX is not supported yet.");
 
-        (int parentPage, int refOrdinal, int parentLogicalCount) = ResolveParent(fk, child.DefinitionPage);
-        int parentNum = parentLogicalCount; // the incoming block gets the next free logical number on the parent
         byte upd = fk.CascadeUpdate ? CascadeAction : NoCascadeAction;
         byte del = fk.CascadeDelete ? CascadeAction : NoCascadeAction;
-
         var slots = ResolveSlots(child, fk.Columns.Select(c => (c.Column, Ascending: true)));
+
+        // A self-reference (child == parent) hosts both ends in the same TDEF: the outgoing block links to
+        // an incoming block whose number is one past the outgoing block's (mirrors inline self-ref creation).
+        if (string.Equals(fk.ReferencedTable, childTable, StringComparison.OrdinalIgnoreCase))
+        {
+            int selfRefOrdinal = ReferencedOrdinalIn(child, fk);
+            int outNum = InsertIndex(child, fk.Name, slots,
+                unique: false, required: false, ignoreNulls: false,
+                (num, ord) => BuildOutgoingInfoBlock(num, ord, FkTypeOutgoing, num + 1, child.DefinitionPage, upd, del));
+            AddIncomingRelationshipBlock(new IncomingRelationship(
+                child.DefinitionPage, outNum + 1, selfRefOrdinal, (uint)outNum, child.DefinitionPage, upd, del));
+            AddRelationshipRows(childTable, fk);
+            _catalog.Invalidate();
+            return;
+        }
+
+        (int parentPage, int refOrdinal, int parentLogicalCount) = ResolveParent(fk, child.DefinitionPage);
+        int parentNum = parentLogicalCount; // the incoming block gets the next free logical number on the parent
         int childBlockNum = InsertIndex(child, fk.Name, slots,
             unique: false, required: false, ignoreNulls: false,
             (num, ord) => BuildOutgoingInfoBlock(num, ord, FkTypeOutgoing, parentNum, parentPage, upd, del));
@@ -460,6 +474,18 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             parentPage, parentNum, refOrdinal, (uint)childBlockNum, child.DefinitionPage, upd, del));
         AddRelationshipRows(childTable, fk);
         _catalog.Invalidate();
+    }
+
+    /// <summary>The data-block ordinal of a table's own index over the FK's referenced columns (for a
+    /// self-reference — normally the primary key).</summary>
+    private static int ReferencedOrdinalIn(TableDef table, RelationshipSpec fk)
+    {
+        var refColumns = fk.Columns.Select(c => c.ReferencedColumn).ToList();
+        IndexDef refIndex = table.Indexes.FirstOrDefault(ix =>
+                ix.Columns.Select(c => c.Column.Name).SequenceEqual(refColumns, StringComparer.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException(
+                $"Self-referencing foreign key '{fk.Name}' references ({string.Join(", ", refColumns)}), which is not a key or index of '{table.Name}'.");
+        return refIndex.RealIndexOrdinal;
     }
 
     /// <summary>The child (outgoing) end of a relationship: index_num2 = the child's own FK data block,

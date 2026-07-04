@@ -7,8 +7,20 @@ namespace LibRed.Engine.Execution;
 /// values, plus a link to the enclosing query's scope so correlated subqueries can resolve
 /// outer columns.
 /// </summary>
-internal sealed class EvalScope(IReadOnlyList<OutputColumn> schema, object?[] row, EvalScope? outer)
+internal sealed class EvalScope(
+    IReadOnlyList<OutputColumn> schema, object?[] row, EvalScope? outer,
+    IReadOnlyDictionary<FunctionCall, object?>? aggregates = null)
 {
+    /// <summary>Resolves a precomputed aggregate (by reference), walking out to enclosing scopes so an outer
+    /// aggregate referenced inside a correlated subquery (e.g. <c>… WHERE x = MAX(o.Col) …</c>) is found.</summary>
+    public bool TryResolveAggregate(FunctionCall call, out object? value)
+    {
+        if (aggregates is not null && aggregates.TryGetValue(call, out value)) return true;
+        if (outer is not null) return outer.TryResolveAggregate(call, out value);
+        value = null;
+        return false;
+    }
+
     public bool TryResolve(ColumnReference reference, out object? value)
     {
         int found = -1;

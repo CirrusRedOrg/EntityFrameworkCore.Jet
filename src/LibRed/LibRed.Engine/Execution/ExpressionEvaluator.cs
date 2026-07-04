@@ -14,7 +14,6 @@ namespace LibRed.Engine.Execution;
 internal sealed class ExpressionEvaluator(
     EvalScope scope,
     IScalarSubqueryRunner subqueries,
-    IReadOnlyDictionary<FunctionCall, object?>? aggregates = null,
     ParameterBag? parameters = null)
 {
     public object? Evaluate(Expression expression) => expression switch
@@ -53,8 +52,9 @@ internal sealed class ExpressionEvaluator(
 
     private object? EvaluateFunction(FunctionCall f)
     {
-        // Aggregate calls are precomputed per group and resolved by reference.
-        if (aggregates is not null && aggregates.TryGetValue(f, out object? aggregate))
+        // Aggregate calls are precomputed per group and resolved by reference — including an outer
+        // aggregate found in an enclosing scope (a correlated subquery referencing MAX(o.Col), etc.).
+        if (scope.TryResolveAggregate(f, out object? aggregate))
             return aggregate;
 
         return f.Name.ToUpperInvariant() switch

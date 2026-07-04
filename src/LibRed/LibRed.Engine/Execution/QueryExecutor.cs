@@ -255,14 +255,20 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         {
             var values = new Dictionary<FunctionCall, object?>(ReferenceComparer.Instance);
             foreach (FunctionCall call in aggregateCalls)
-                values[call] = ComputeAggregate(call, group, inColumns, outer);
+            {
+                // An aggregate collected from a nested subquery may belong to that subquery (its argument
+                // references the subquery's own columns, not this group's) — it can't be computed here, so
+                // skip it; the subquery computes it itself. A genuine outer aggregate resolves fine.
+                try { values[call] = ComputeAggregate(call, group, inColumns, outer); }
+                catch (InvalidOperationException) { }
+            }
 
-            // Within a group every key value is constant, so the first row resolves group keys;
-            // aggregate calls resolve from the precomputed map. An empty group only happens for
-            // an aggregate with no GROUP BY over zero rows (e.g. COUNT(*) -> 0); there are no key
-            // columns to resolve, so a null row suffices.
+            // Within a group every key value is constant, so the first row resolves group keys; aggregate
+            // calls resolve from the precomputed map (threaded via the scope so correlated subqueries can
+            // reach an outer aggregate). An empty group only happens for an aggregate with no GROUP BY over
+            // zero rows (e.g. COUNT(*) -> 0); there are no key columns to resolve, so a null row suffices.
             object?[] keyRow = group.Count > 0 ? group[0] : new object?[inColumns.Count];
-            var eval = new ExpressionEvaluator(new EvalScope(inColumns, keyRow, outer), this, values, _parameters);
+            var eval = new ExpressionEvaluator(new EvalScope(inColumns, keyRow, outer, values), this, _parameters);
 
             // HAVING filters whole groups after aggregation.
             if (node.Having is not null && !eval.IsTrue(node.Having))
@@ -368,8 +374,29 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case UnaryExpression u:
                 foreach (FunctionCall a in Aggregates(u.Operand)) yield return a;
                 break;
+            // Descend into subqueries: an aggregate over an *outer* column may appear there (a correlated
+            // subquery). Its own aggregates come along too, but are skipped when they can't be computed in
+            // this group's scope.
+            case ScalarSubquery s:
+                foreach (FunctionCall a in AggregatesInSelect(s.Query)) yield return a;
+                break;
+            case ExistsExpression x:
+                foreach (FunctionCall a in AggregatesInSelect(x.Query)) yield return a;
+                break;
+            case InSubqueryExpression i:
+                foreach (FunctionCall a in Aggregates(i.Value).Concat(AggregatesInSelect(i.Query))) yield return a;
+                break;
         }
     }
+
+    /// <summary>All aggregate calls anywhere in a subquery's clauses (projection, WHERE, HAVING, GROUP BY,
+    /// ORDER BY) — used to surface outer aggregates that a correlated subquery references.</summary>
+    private static IEnumerable<FunctionCall> AggregatesInSelect(SelectStatement s) =>
+        s.Projection.SelectMany(i => Aggregates(i.Value))
+            .Concat(s.Where is { } w ? Aggregates(w) : [])
+            .Concat(s.Having is { } h ? Aggregates(h) : [])
+            .Concat(s.GroupBy.SelectMany(Aggregates))
+            .Concat(s.OrderBy.SelectMany(o => Aggregates(o.Value)));
 
     /// <summary>Groups by structural equality of the key value tuple.</summary>
     // DISTINCT / GROUP BY / INTERSECT / EXCEPT key. String keys use Access text semantics — case-insensitive

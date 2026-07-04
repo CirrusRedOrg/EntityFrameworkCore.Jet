@@ -158,11 +158,24 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         return 0;
     }
 
-    private int ExecuteAlterTable(AlterTableStatement statement)
+    private int ExecuteAlterTable(AlterTableStatement statement) => statement.Action switch
     {
-        // Parsing is in place; each action is implemented in its own follow-up step.
-        throw new NotSupportedException(
-            $"ALTER TABLE {statement.Action.GetType().Name} is parsed but not executed yet.");
+        // ADD CONSTRAINT … PRIMARY KEY (cols): a primary key is a unique, primary index named after the
+        // constraint (verified vs ACE) — the same write path as CREATE INDEX … WITH PRIMARY.
+        AddPrimaryKeyAction pk => AddPrimaryKey(statement.Table, pk),
+        // The remaining actions land in their own follow-up steps.
+        _ => throw new NotSupportedException(
+            $"ALTER TABLE {statement.Action.GetType().Name} is parsed but not executed yet."),
+    };
+
+    private int AddPrimaryKey(string table, AddPrimaryKeyAction pk)
+    {
+        _database.CreateIndex(
+            table,
+            pk.Name ?? "PrimaryKey",
+            pk.Columns.Select(c => (c, false)).ToList(), // PK columns are ascending
+            isUnique: true, isPrimary: true);
+        return 0;
     }
 
     private int ExecuteCreateActionProcedure(CreateActionProcedureStatement statement)

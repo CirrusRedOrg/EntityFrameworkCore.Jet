@@ -17,6 +17,7 @@ public sealed class QueryEngine
     private readonly ISqlParser _parser;
     private readonly Binder _binder;
     private readonly QueryPlanner _planner = new();
+    private readonly SessionState _session = new();
 
     public QueryEngine(JetDatabase database, ISqlParser? parser = null)
     {
@@ -27,10 +28,14 @@ public sealed class QueryEngine
 
     public JetDatabase Database => _database;
 
+    /// <summary>Connection-scoped <c>@@ROWCOUNT</c>/<c>@@IDENTITY</c> state, shared across the statements
+    /// of a batch (which the ADO command layer splits and runs through this one engine).</summary>
+    public SessionState Session => _session;
+
     public ResultSet ExecuteQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
         var plan = Compile(sql);
-        return new QueryExecutor(_database, parameters).ExecuteQuery(plan);
+        return new QueryExecutor(_database, parameters, _session).ExecuteQuery(plan);
     }
 
     public int ExecuteNonQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
@@ -63,11 +68,11 @@ public sealed class QueryEngine
 
         if (bound.Statement is SelectStatement or SetOperationStatement)
         {
-            ResultSet rows = new QueryExecutor(_database, parameters).ExecuteQuery(_planner.Plan(bound));
+            ResultSet rows = new QueryExecutor(_database, parameters, _session).ExecuteQuery(_planner.Plan(bound));
             return new CommandResult(rows, RecordsAffected: -1);
         }
 
-        int affected = new StatementExecutor(_database, parameters, _parser).Execute(bound.Statement);
+        int affected = new StatementExecutor(_database, parameters, _parser, _session).Execute(bound.Statement);
         return new CommandResult(ResultSet.Empty, affected);
     }
 

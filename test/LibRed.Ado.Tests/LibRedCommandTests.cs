@@ -260,6 +260,86 @@ public class LibRedCommandTests
     }
 
     [Fact]
+    public void Insert_then_select_batch_reads_the_generated_key_back()
+    {
+        // The exact shape EF Core emits to fetch a store-generated key: an INSERT followed, in the SAME
+        // command, by a guarded SELECT that reads the AutoNumber back via @@ROWCOUNT / @@IDENTITY. The ADO
+        // layer splits the batch and runs both through one engine so the session variables carry across.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-ident-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+
+            using (var ddl = conn.CreateCommand())
+            {
+                ddl.CommandText = "CREATE TABLE `Person` (`Id` counter PRIMARY KEY, `Name` text(50))";
+                ddl.ExecuteNonQuery();
+            }
+
+            long FirstInsert()
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText =
+                    "INSERT INTO `Person` (`Name`)\nVALUES (@p0);\n" +
+                    "SELECT `Id`\nFROM `Person`\nWHERE @@ROWCOUNT = 1 AND `Id` = @@identity;";
+                var p = cmd.CreateParameter(); p.ParameterName = "@p0"; p.Value = "Ann"; cmd.Parameters.Add(p);
+
+                using var reader = cmd.ExecuteReader();
+                Assert.True(reader.Read());
+                long id = Convert.ToInt64(reader.GetValue(0));
+                Assert.False(reader.Read()); // exactly one row (Id = @@identity)
+                return id;
+            }
+
+            long first = FirstInsert();
+            long second = FirstInsert();
+            Assert.Equal(1, first);        // first AutoNumber
+            Assert.Equal(2, second);       // @@identity advanced with the next insert
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void Identity_is_connection_scoped_and_survives_an_insert_into_a_keyless_table()
+    {
+        // Unlike SQL Server's table-scoped @@IDENTITY, Jet's is connection-scoped and only changes when an
+        // insert actually generates an AutoNumber. An intervening insert into a table WITHOUT one must leave
+        // @@IDENTITY untouched — so the guarded read-back still sees the earlier key.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-ident2-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+
+            Exec(conn, "CREATE TABLE `P` (`Id` counter PRIMARY KEY, `Name` text(50))");
+            Exec(conn, "CREATE TABLE `Log` (`K` INTEGER PRIMARY KEY, `Msg` text(20))");
+            Exec(conn, "INSERT INTO `P` (`Name`) VALUES ('first')"); // @@IDENTITY -> 1
+            Exec(conn, "INSERT INTO `Log` (`K`, `Msg`) VALUES (5, 'note')"); // no AutoNumber -> unchanged
+
+            using var q = conn.CreateCommand();
+            q.CommandText = "SELECT `Id` FROM `P` WHERE `Id` = @@identity"; // still the P insert's id (1)
+            Assert.Equal(1, Convert.ToInt32(q.ExecuteScalar()));
+
+            static void Exec(LibRedConnection c, string sql)
+            { using var cmd = c.CreateCommand(); cmd.CommandText = sql; cmd.ExecuteNonQuery(); }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Theory]
+    [InlineData("SELECT 1", 1)]
+    [InlineData("SELECT 1;", 1)]
+    [InlineData("INSERT INTO T VALUES (1); SELECT Id FROM T", 2)]
+    [InlineData("SELECT ';'", 1)]                                  // semicolon inside a string literal
+    [InlineData("SELECT `a;b` FROM T; SELECT 2", 2)]              // semicolon inside a backtick identifier
+    [InlineData("SELECT [a;b] FROM T", 1)]                        // semicolon inside a bracket identifier
+    public void SplitStatements_splits_only_on_top_level_semicolons(string sql, int expected) =>
+        Assert.Equal(expected, LibRedCommand.SplitStatements(sql).Count());
+
+    [Fact]
     public void Reader_reports_dbnull_for_missing_values()
     {
         using var conn = OpenConnection();

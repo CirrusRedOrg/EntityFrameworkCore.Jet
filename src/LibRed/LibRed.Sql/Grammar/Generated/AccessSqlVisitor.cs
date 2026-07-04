@@ -612,6 +612,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitParamPrimary([NotNull] AccessSqlParser.ParamPrimaryContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>SystemVariablePrimary</c>
+	/// labeled alternative in <see cref="AccessSqlParser.primary"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitSystemVariablePrimary([NotNull] AccessSqlParser.SystemVariablePrimaryContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>ExistsPrimary</c>
 	/// labeled alternative in <see cref="AccessSqlParser.primary"/>.
 	/// </summary>

@@ -14,7 +14,8 @@ namespace LibRed.Engine.Execution;
 internal sealed class ExpressionEvaluator(
     EvalScope scope,
     IScalarSubqueryRunner subqueries,
-    ParameterBag? parameters = null)
+    ParameterBag? parameters = null,
+    SessionState? session = null)
 {
     public object? Evaluate(Expression expression) => expression switch
     {
@@ -30,8 +31,26 @@ internal sealed class ExpressionEvaluator(
         ParameterExpression p => parameters is not null
             ? parameters.Resolve(p.Name)
             : throw new InvalidOperationException($"No parameters were supplied for '{p.Name}'."),
+        SystemVariableExpression v => ResolveSystemVariable(v.Name),
         _ => throw new NotSupportedException($"Cannot evaluate {expression.GetType().Name}."),
     };
+
+    /// <summary>Resolves a connection-scoped system variable from the session state: <c>@@ROWCOUNT</c>
+    /// (rows affected by the previous statement) and <c>@@IDENTITY</c> (the last AutoNumber generated on
+    /// this connection, or NULL if none). EF Core's insert round-trip reads both in the SELECT that
+    /// follows the INSERT within the same batch.</summary>
+    private object? ResolveSystemVariable(string name)
+    {
+        if (session is null)
+            throw new InvalidOperationException($"System variable '@@{name}' is not available in this context.");
+
+        return name.ToUpperInvariant() switch
+        {
+            "ROWCOUNT" => session.RowCount,
+            "IDENTITY" => session.LastIdentity,
+            _ => throw new NotSupportedException($"Unknown system variable '@@{name}'."),
+        };
+    }
 
     /// <summary><c>x [NOT] IN (subquery)</c> with SQL three-valued semantics: NULL if x is null or (no match
     /// and the subquery yields a null), otherwise the membership result (negated for NOT IN).</summary>

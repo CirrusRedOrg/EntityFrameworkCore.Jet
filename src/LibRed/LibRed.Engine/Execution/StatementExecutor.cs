@@ -9,13 +9,14 @@ namespace LibRed.Engine.Execution;
 /// Executes non-query statements (DDL/DML) against the storage layer: CREATE TABLE and INSERT.
 /// Returns the number of affected rows (0 for DDL).
 /// </summary>
-internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionary<string, object?>? parameters, ISqlParser parser)
+internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionary<string, object?>? parameters, ISqlParser parser, SessionState? session = null)
 {
     private readonly JetDatabase _database = database;
     private readonly ParameterBag _parameters = new(parameters);
     private readonly ISqlParser _parser = parser;
+    private readonly SessionState? _session = session;
     // For evaluating VALUES expressions (literals, parameters, and any scalar subqueries).
-    private readonly QueryExecutor _scalarRunner = new(database, parameters);
+    private readonly QueryExecutor _scalarRunner = new(database, parameters, session);
 
     public int Execute(SqlStatement statement) => statement switch
     {
@@ -237,7 +238,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             .Select(c => (c.Index, Expression: _parser.ParseExpression(c.DefaultValue!)))
             .ToList();
 
+        // Jet allows at most one AutoNumber column; its post-insert value is @@IDENTITY.
+        ColumnDef? autoNumber = columns.FirstOrDefault(c => c.IsAutoNumber);
+
         int affected = 0;
+        object? lastIdentity = null;
         foreach (IReadOnlyList<Expression> rowExprs in statement.Rows)
         {
             if (rowExprs.Count != targets.Count)
@@ -260,15 +265,22 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                     values[index] = evaluator.Evaluate(expression);
 
             EnforceReferentialIntegrity(statement.Table, table, values);
-            table.Insert(values);
+            table.Insert(values); // fills values[autoNumber.Index] with the generated id (array mutated in place)
+            if (autoNumber is not null)
+                lastIdentity = values[autoNumber.Index];
             affected++;
         }
 
-        // TODO(last-insert-id): surface the generated AutoNumber id to the caller (Jet's @@IDENTITY /
-        // SCOPE_IDENTITY). RowInserter now assigns it (into `values[autoNumberColumn.Index]`) but we
-        // only return the affected-row count, so it is discarded. EF Core needs the key back after an
-        // insert, so this must be plumbed Engine -> Ado (LibRedCommand) -> EFCore before the provider
-        // can support store-generated keys. See memory: libred-last-insert-id-todo.
+        // Publish @@ROWCOUNT (rows this insert affected) and @@IDENTITY (the last AutoNumber generated) so a
+        // following SELECT in the same batch can read the store-generated key back — the shape EF Core emits.
+        // @@IDENTITY is connection-scoped and only overwritten by an insert that actually generates an id,
+        // so an insert into a keyless table leaves the previous value intact (matching Access).
+        if (_session is not null)
+        {
+            _session.RowCount = affected;
+            if (autoNumber is not null)
+                _session.LastIdentity = lastIdentity;
+        }
         return affected;
     }
 }

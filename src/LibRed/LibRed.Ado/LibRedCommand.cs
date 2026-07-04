@@ -36,7 +36,7 @@ public sealed class LibRedCommand : DbCommand
 
     public override void Prepare() { }
 
-    public override int ExecuteNonQuery() => RequireEngine().Execute(CommandText, BuildParameters()).RecordsAffected;
+    public override int ExecuteNonQuery() => ExecuteBatch().RecordsAffected;
 
     public override object? ExecuteScalar()
     {
@@ -51,8 +51,58 @@ public sealed class LibRedCommand : DbCommand
         // Route through Execute so the reader path also handles DML/DDL: EF Core runs inserts through
         // ExecuteReader and inspects RecordsAffected. A query yields rows (RecordsAffected -1); an
         // INSERT/CREATE runs and yields an empty result carrying its rows-affected count.
-        Engine.CommandResult result = RequireEngine().Execute(CommandText, BuildParameters());
+        Engine.CommandResult result = ExecuteBatch();
         return new LibRedDataReader(result.Rows, result.RecordsAffected);
+    }
+
+    /// <summary>
+    /// Runs the command's text as a batch: Jet/ACE (and the LibRed engine) execute one statement at a
+    /// time, but EF Core sends multiple statements in a single command — most notably an INSERT followed
+    /// by a guarded SELECT that reads the store-generated key back via <c>@@ROWCOUNT</c>/<c>@@IDENTITY</c>.
+    /// Each statement runs through the same engine, so its connection-scoped session state (the two system
+    /// variables) carries from the INSERT to the SELECT. The batch's result is its <em>last</em> statement's
+    /// — the SELECT the caller reads — matching how a real database returns the final result set.
+    /// </summary>
+    private Engine.CommandResult ExecuteBatch()
+    {
+        Engine.QueryEngine engine = RequireEngine();
+        IReadOnlyDictionary<string, object?> parameters = BuildParameters();
+
+        Engine.CommandResult? last = null;
+        foreach (string statement in SplitStatements(CommandText))
+            last = engine.Execute(statement, parameters);
+
+        return last ?? new Engine.CommandResult(Engine.Execution.ResultSet.Empty, RecordsAffected: 0);
+    }
+
+    /// <summary>
+    /// Splits a batch on top-level <c>;</c> separators, ignoring semicolons inside string literals
+    /// (<c>'…'</c> / <c>"…"</c>) and quoted identifiers (<c>[…]</c> / <c>`…`</c>). Blank statements
+    /// (e.g. a trailing <c>;</c>) are dropped. The single-statement common case returns one item.
+    /// </summary>
+    public static IEnumerable<string> SplitStatements(string sql)
+    {
+        int start = 0;
+        char quote = '\0'; // the closing delimiter we're inside, or '\0' at top level
+        for (int i = 0; i < sql.Length; i++)
+        {
+            char c = sql[i];
+            if (quote != '\0')
+            {
+                if (c == quote) quote = '\0';
+            }
+            else if (c is '\'' or '"' or '`') quote = c;
+            else if (c == '[') quote = ']';
+            else if (c == ';')
+            {
+                string part = sql[start..i].Trim();
+                if (part.Length > 0) yield return part;
+                start = i + 1;
+            }
+        }
+
+        string tail = sql[start..].Trim();
+        if (tail.Length > 0) yield return tail;
     }
 
     private Engine.QueryEngine RequireEngine() =>

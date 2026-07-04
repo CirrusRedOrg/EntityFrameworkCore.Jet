@@ -610,6 +610,7 @@ internal sealed class AstBuilder
         LiteralPrimaryContext l => BuildLiteral(l.literal()),
         ColumnPrimaryContext c => BuildColumn(c.columnRef()),
         ParamPrimaryContext p => new ParameterExpression(p.PARAM().GetText()),
+        SystemVariablePrimaryContext s => new SystemVariableExpression(s.SYSVAR().GetText().TrimStart('@')),
         FunctionCallPrimaryContext f => BuildFunctionCall(f.functionCall()),
         ScalarSubqueryPrimaryContext s => new ScalarSubquery(BuildSelect(s.selectStatement())),
         ExistsPrimaryContext e => new ExistsExpression(BuildSelect(e.selectStatement())),

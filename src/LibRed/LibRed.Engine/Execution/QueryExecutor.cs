@@ -17,11 +17,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 {
     private readonly JetDatabase _database;
     private readonly ParameterBag _parameters;
+    private readonly SessionState? _session;
 
-    public QueryExecutor(JetDatabase database, IReadOnlyDictionary<string, object?>? parameters = null)
+    public QueryExecutor(JetDatabase database, IReadOnlyDictionary<string, object?>? parameters = null, SessionState? session = null)
     {
         _database = database;
         _parameters = new ParameterBag(parameters);
+        _session = session;
     }
 
     public ResultSet ExecuteQuery(PlanNode plan)
@@ -133,7 +135,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 var (columns, rows) = Execute(limit.Input, outer);
                 // The count is literal/parameter/arithmetic (no column refs), so an empty row scope suffices.
-                object? countValue = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters)
+                object? countValue = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session)
                     .Evaluate(limit.Count);
                 int count = Convert.ToInt32(countValue, System.Globalization.CultureInfo.InvariantCulture);
                 return (columns, rows.Take(count));
@@ -231,7 +233,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     }
 
     private ExpressionEvaluator Eval(IReadOnlyList<OutputColumn> columns, object?[] row, EvalScope? outer) =>
-        new(new EvalScope(columns, row, outer), this, parameters: _parameters);
+        new(new EvalScope(columns, row, outer), this, parameters: _parameters, session: _session);
 
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteAggregate(AggregateNode node, EvalScope? outer)
     {
@@ -268,7 +270,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             // reach an outer aggregate). An empty group only happens for an aggregate with no GROUP BY over
             // zero rows (e.g. COUNT(*) -> 0); there are no key columns to resolve, so a null row suffices.
             object?[] keyRow = group.Count > 0 ? group[0] : new object?[inColumns.Count];
-            var eval = new ExpressionEvaluator(new EvalScope(inColumns, keyRow, outer, values), this, _parameters);
+            var eval = new ExpressionEvaluator(new EvalScope(inColumns, keyRow, outer, values), this, _parameters, _session);
 
             // HAVING filters whole groups after aggregation.
             if (node.Having is not null && !eval.IsTrue(node.Having))

@@ -12,6 +12,12 @@ public sealed record ColumnReference(string? Table, string Column) : Expression;
 /// <summary>A positional or named query parameter (e.g. <c>?</c> or <c>@p</c>).</summary>
 public sealed record ParameterExpression(string Name) : Expression;
 
+/// <summary>A connection-scoped system variable: <c>@@ROWCOUNT</c> (rows affected by the previous
+/// statement) or <c>@@IDENTITY</c> (the last AutoNumber generated on this connection). EF Core emits
+/// these to read a store-generated key back after an INSERT. <paramref name="Name"/> is the bare name
+/// without the leading <c>@@</c>.</summary>
+public sealed record SystemVariableExpression(string Name) : Expression;
+
 /// <summary><c>*</c> in a projection or aggregate.</summary>
 public sealed record StarExpression : Expression;
 

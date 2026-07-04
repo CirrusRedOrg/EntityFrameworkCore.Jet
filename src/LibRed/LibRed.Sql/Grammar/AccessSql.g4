@@ -224,6 +224,7 @@ primary
     | functionCall                     # FunctionCallPrimary
     | columnRef                        # ColumnPrimary
     | PARAM                            # ParamPrimary
+    | SYSVAR                           # SystemVariablePrimary
     | EXISTS LPAREN selectStatement RPAREN # ExistsPrimary
     | LPAREN selectStatement RPAREN    # ScalarSubqueryPrimary
     | LPAREN expression RPAREN         # ParenPrimary
@@ -343,6 +344,10 @@ RPAREN : ')' ;
 COMMA  : ',' ;
 DOT    : '.' ;
 SEMI   : ';' ;
+// A connection-scoped system variable: @@ROWCOUNT (rows affected by the last statement) and
+// @@IDENTITY (the last AutoNumber generated on this connection). Must precede PARAM so the '@@'
+// prefix is matched as one token rather than PARAM failing on the second '@'.
+SYSVAR : '@@' [A-Za-z_][A-Za-z_0-9]* ;
 PARAM  : '?' | '@' [A-Za-z_][A-Za-z_0-9]* ;
 
 // A raw binary literal, e.g. 0x151C2F… (an OLE / Long Binary value). Must precede INTEGER_LITERAL so the

@@ -123,18 +123,28 @@ public class CreateIndexTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // CREATE INDEX on a populated table back-fills the new index over the existing rows.
     [Fact]
-    public void Create_index_on_non_empty_table_throws()
+    public void Create_index_on_non_empty_table_backfills()
     {
         string path = Fresh();
         try
         {
-            using var db = JetDatabase.Open(path, readOnly: false);
-            var e = new QueryEngine(db);
-            Table(e);
-            e.ExecuteNonQuery("INSERT INTO `T` (`Id`, `Name`, `Age`) VALUES (1, 'a', 30)");
-            var ex = Assert.Throws<NotSupportedException>(() => e.ExecuteNonQuery("CREATE INDEX `IX_Name` ON `T` (`Name`)"));
-            Assert.Contains("non-empty", ex.Message);
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var e = new QueryEngine(db);
+                Table(e);
+                e.ExecuteNonQuery("INSERT INTO `T` (`Id`, `Name`, `Age`) VALUES (1, 'a', 30)");
+                e.ExecuteNonQuery("INSERT INTO `T` (`Id`, `Name`, `Age`) VALUES (2, 'b', 40)");
+                e.ExecuteNonQuery("CREATE INDEX `IX_Name` ON `T` (`Name`)"); // no throw
+            }
+
+            using (var db = JetDatabase.Open(path))
+            {
+                var e = new QueryEngine(db);
+                Assert.Equal(2, e.ExecuteQuery("SELECT * FROM `T`").Rows.Count()); // rows intact
+                Assert.Equal(1, e.ExecuteQuery("SELECT `Id` FROM `T` WHERE `Name` = 'b'").Rows.Count());
+            }
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }

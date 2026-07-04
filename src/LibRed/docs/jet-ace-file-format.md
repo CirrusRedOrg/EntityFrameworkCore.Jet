@@ -355,7 +355,15 @@ Only a few fields are *not* fixed constants and so warrant a write note:
   an indexed table adds a third usage-map record (the index's own pages, §3.5 `+0x22`) covering the
   index root. A **fresh table has no data page** (Access allocates the first lazily on the first
   insert), so all of these maps start **empty** — `[0x00][startPage = 0][all-zero bitmap]` inline
-  records — and the usage-map page's own owner field is `0`.
+  records — and the usage-map page's own owner field is `0`. LibRed's `IndexWriter` navigates the
+  B-tree structurally (root child-pointers + leaf next-pointers) and **never updates the per-index
+  usage map**, so index pages allocated by a split are not reflected in it — Access reads the index
+  regardless (verified). Consequently a new index only needs its usage-map **record to exist** (an
+  empty inline map); when an index is **added to a populated table**, LibRed *appends* that one record
+  to the existing usage-map page (preserving the data/other-index records) rather than rewriting it,
+  then **back-fills** the index B-tree by scanning every existing row (`AddEntry` per row). Verified
+  vs ACE: a primary key added after data enforces uniqueness and seeks correctly, incl. a 2000-row
+  back-fill that splits the tree into multiple levels.
 
 > **Access now opens and round-trips a LibRed-created table** (empty `COUNT`, `INSERT`, read-back —
 > verified through the ACE OLE DB provider). Getting there required *all* of the following together;

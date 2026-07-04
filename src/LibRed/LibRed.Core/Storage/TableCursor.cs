@@ -13,6 +13,14 @@ public sealed class TableCursor(Table table) : IEnumerable<object?[]>
 
     public IEnumerator<object?[]> GetEnumerator()
     {
+        foreach ((RowId _, object?[] values) in WithIds())
+            yield return values;
+    }
+
+    /// <summary>Yields each live row together with its <see cref="RowId"/> — used when the caller needs to
+    /// reference the row (e.g. back-filling an index over existing data).</summary>
+    public IEnumerable<(RowId Id, object?[] Values)> WithIds()
+    {
         var decoder = new RowDecoder(
             _table.Definition.Columns,
             _table.Channel.Format,
@@ -29,7 +37,7 @@ public sealed class TableCursor(Table table) : IEnumerable<object?[]>
                 RowSlot slot = page.Rows[i];
                 if (slot.IsDeleted || slot.HasOverflow) continue;
 
-                yield return decoder.Decode(page.GetRow(i));
+                yield return (new RowId(pageNumber, i), decoder.Decode(page.GetRow(i)));
             }
         }
     }

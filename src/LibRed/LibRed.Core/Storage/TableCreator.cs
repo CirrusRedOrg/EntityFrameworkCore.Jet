@@ -297,8 +297,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         // Read the whole definition (stitching any existing continuation pages) so the surgical insert
         // works in absolute coordinates; the old continuation pages are reused when we write it back.
         (LibRed.IO.PageBuffer buf, IReadOnlyList<int> existingContinuations) = ReadDefinition(table.DefinitionPage);
-        if (buf.ReadInt32(format.TdefRowCountOffset) != 0)
-            throw new NotSupportedException($"Adding an index to the non-empty table '{table.Name}' is not supported yet.");
+        int existingRowCount = buf.ReadInt32(format.TdefRowCountOffset);
 
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
         int logicalCount = buf.ReadInt32(format.TdefRealIndexCountOffset);
@@ -341,7 +340,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         WriteEmptyLeafIndexPage(format, rootPage, owner: table.DefinitionPage);
         int usageMapPage = ReadInt24(buf, format.TdefOwnedPagesOffset + 1);
         int newIndexUsageRow = 2 + lvalCount * 2 + dataCount;
-        WriteUsageMaps(format, usageMapPage, mapCount: newIndexUsageRow + 1); // empty table: all maps empty
+        if (existingRowCount == 0)
+            WriteUsageMaps(format, usageMapPage, mapCount: newIndexUsageRow + 1); // empty table: all maps empty
+        else
+            // A populated table's data/index usage maps must be preserved; append just the new index's row.
+            AppendEmptyUsageMapRow(format, usageMapPage, newIndexUsageRow);
 
         // Assemble the new definition: header + existing stats, a new stats block, columns + names +
         // existing data blocks, the new data block, then the logical blocks (new one inserted, name-sorted)
@@ -378,7 +381,54 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
 
         WriteDefinition(table.DefinitionPage, def, existingContinuations);
         _catalog.Invalidate();
+
+        // Back-fill the new (empty) index B-tree with an entry per existing row, so the index is complete.
+        if (existingRowCount != 0)
+            BackfillIndex(table.Name, indexName, ignoreNulls);
         return maxNum + 1;
+    }
+
+    /// <summary>Populates a freshly added index over a table's existing rows: scans every live row and
+    /// inserts its key (IndexWriter handles B-tree growth). Rows with a null in an IGNORE NULL index's key
+    /// are skipped, matching the per-insert path.</summary>
+    private void BackfillIndex(string tableName, string indexName, bool ignoreNulls)
+    {
+        TableDef table = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' was not found after adding the index.");
+        IndexDef index = table.Indexes.First(ix => string.Equals(ix.Name, indexName, StringComparison.OrdinalIgnoreCase));
+        var keyColumnIds = index.Columns.Select(c => c.Column.Index).ToArray();
+        var writer = new IndexWriter(_channel, table);
+
+        foreach ((RowId id, object?[] values) in new Table(_channel, table).Rows().WithIds())
+        {
+            if (ignoreNulls && keyColumnIds.Any(i => values[i] is null)) continue;
+            writer.AddEntry(index, values, id);
+        }
+    }
+
+    /// <summary>Appends one empty inline usage-map record (row <paramref name="newRow"/>) to an existing
+    /// usage-map page, preserving every existing record. The new index tracks no pages here (IndexWriter
+    /// navigates the B-tree structurally), so an empty bitmap is correct.</summary>
+    private void AppendEmptyUsageMapRow(JetFormatBase format, int pageNumber, int newRow)
+    {
+        const int MapLength = 1 + 4 + 64; // inline type + start page + 64-byte bitmap (matches WriteUsageMaps)
+        byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
+        int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
+        if (rowCount != newRow)
+            throw new InvalidOperationException(
+                $"Usage-map page has {rowCount} rows; expected {newRow} before appending the new index's map.");
+
+        int minOffset = format.PageSize;
+        for (int r = 0; r < rowCount; r++)
+            minOffset = Math.Min(minOffset, BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + r * 2, 2)));
+
+        int newOffset = minOffset - MapLength;
+        Array.Clear(page, newOffset, MapLength); // inline type 0x00, start page 0, zero bitmap
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + newRow * 2, 2), (ushort)newOffset);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), (ushort)(rowCount + 1));
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
+            (ushort)(newOffset - format.DataRowDirectoryOffset - (rowCount + 1) * 2));
+        _channel.WritePage(pageNumber, page);
     }
 
     /// <summary>

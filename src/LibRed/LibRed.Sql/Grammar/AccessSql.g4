@@ -109,7 +109,7 @@ queryExpression : selectStatement (setOperator selectStatement)* ;
 setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 
 selectStatement
-    : SELECT topClause? selectList fromClause whereClause? groupByClause? havingClause? orderByClause?
+    : SELECT distinct=DISTINCT? topClause? selectList fromClause whereClause? groupByClause? havingClause? orderByClause?
     ;
 
 groupByClause : GROUP BY expression (COMMA expression)* ;
@@ -157,6 +157,7 @@ expression
     | left=expression op=(STAR | SLASH | MOD | BACKSLASH) right=expression   # MulDivExpr
     | left=expression op=(PLUS | MINUS | AMP) right=expression               # AddConcatExpr
     | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression   # ComparisonExpr
+    | val=expression not=NOT? BETWEEN lo=expression AND hi=expression        # BetweenExpr
     | left=expression LIKE right=expression                                 # LikeExpr
     | operand=expression IS not=NOT? NULL                                   # IsNullExpr
     | left=expression AND right=expression                                  # AndExpr
@@ -184,6 +185,7 @@ literal
     : INTEGER_LITERAL   # IntLiteral
     | NUMBER_LITERAL    # NumberLiteral
     | STRING_LITERAL    # StringLiteral
+    | DATE_LITERAL      # DateLiteral
     | TRUE              # TrueLiteral
     | FALSE             # FalseLiteral
     | NULL              # NullLiteral
@@ -213,6 +215,8 @@ IS     : [Ii][Ss] ;
 BY     : [Bb][Yy] ;
 HAVING : [Hh][Aa][Vv][Ii][Nn][Gg] ;
 EXISTS : [Ee][Xx][Ii][Ss][Tt][Ss] ;
+DISTINCT : [Dd][Ii][Ss][Tt][Ii][Nn][Cc][Tt] ;
+BETWEEN  : [Bb][Ee][Tt][Ww][Ee][Ee][Nn] ;
 UNION     : [Uu][Nn][Ii][Oo][Nn] ;
 ALL       : [Aa][Ll][Ll] ;
 INTERSECT : [Ii][Nn][Tt][Ee][Rr][Ss][Ee][Cc][Tt] ;
@@ -274,6 +278,7 @@ PARAM  : '?' | '@' [A-Za-z_][A-Za-z_0-9]* ;
 INTEGER_LITERAL : [0-9]+ ;
 NUMBER_LITERAL  : [0-9]+ '.' [0-9]* | '.' [0-9]+ ;
 STRING_LITERAL  : '"' (~["])* '"' | '\'' (~['])* '\'' ;
+DATE_LITERAL    : '#' ~[#]* '#' ;
 BRACKET_ID      : '[' ~[\]]+ ']' ;
 BACKTICK_ID     : '`' ~[`]+ '`' ;
 IDENTIFIER      : [A-Za-z_][A-Za-z_0-9]* ;

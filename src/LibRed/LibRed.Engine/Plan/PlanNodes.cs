@@ -66,3 +66,9 @@ public sealed record LimitNode(PlanNode Input, int Count) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }
+
+/// <summary>Removes duplicate rows (SELECT <c>DISTINCT</c>).</summary>
+public sealed record DistinctNode(PlanNode Input) : PlanNode
+{
+    public override IReadOnlyList<PlanNode> Children => [Input];
+}

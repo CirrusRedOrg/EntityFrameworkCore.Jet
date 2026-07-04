@@ -128,6 +128,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return (columns, rows.Take(limit.Count));
             }
 
+            case DistinctNode distinct:
+            {
+                var (columns, rows) = Execute(distinct.Input, outer);
+                return (columns, Distinct(rows));
+            }
+
             default:
                 throw new NotSupportedException($"Plan node {node.GetType().Name} is not supported yet.");
         }

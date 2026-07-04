@@ -45,6 +45,9 @@ public sealed class QueryPlanner
         if (!aggregate && !select.IsSelectStar)
             node = new ProjectNode(node, select.Projection);
 
+        if (select.Distinct)
+            node = new DistinctNode(node);
+
         if (select.Top is { } top)
             node = new LimitNode(node, top);
 

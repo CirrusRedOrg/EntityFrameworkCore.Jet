@@ -218,7 +218,7 @@ internal sealed class AstBuilder
         }
 
         string? where = select.whereClause() is { } w ? OriginalText(w.expression()) : null;
-        return new ViewDefinition(Distinct: false, columns, tables, joins, where);
+        return new ViewDefinition(select.distinct != null, columns, tables, joins, where);
     }
 
     /// <summary>A view FROM source and the alias other clauses reference it by. A named table uses its
@@ -291,7 +291,7 @@ internal sealed class AstBuilder
             : (IReadOnlyList<OrderByItem>)[];
         int? top = ctx.topClause() is { } t ? int.Parse(t.INTEGER_LITERAL().GetText(), CultureInfo.InvariantCulture) : null;
 
-        return new SelectStatement(projection, star, from, where, groupBy, having, orderBy, top);
+        return new SelectStatement(projection, star, from, where, groupBy, having, orderBy, top, ctx.distinct != null);
     }
 
     /// <summary>The verbatim text a view stores for a projection item — the expression (alias dropped),
@@ -355,6 +355,7 @@ internal sealed class AstBuilder
         MulDivExprContext m => Binary(m.op, m.left, m.right),
         AddConcatExprContext a => Binary(a.op, a.left, a.right),
         ComparisonExprContext c => Binary(c.op, c.left, c.right),
+        BetweenExprContext b => BuildBetween(b),
         LikeExprContext l => new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right)),
         IsNullExprContext n => new UnaryExpression(n.not is null ? UnaryOperator.IsNull : UnaryOperator.IsNotNull, BuildExpression(n.operand)),
         AndExprContext a => new BinaryExpression(BinaryOperator.And, BuildExpression(a.left), BuildExpression(a.right)),
@@ -386,11 +387,28 @@ internal sealed class AstBuilder
     private static Expression BuildColumn(ColumnRefContext ctx) =>
         new ColumnReference(OptionalIdentifier(ctx.qualifier), Identifier(ctx.name));
 
+    /// <summary>Lowers <c>x [NOT] BETWEEN lo AND hi</c> to <c>(x &gt;= lo AND x &lt;= hi)</c> (negated for NOT),
+    /// so no dedicated node is needed and the evaluator handles it via the comparison operators.</summary>
+    private static Expression BuildBetween(BetweenExprContext ctx)
+    {
+        Expression value = BuildExpression(ctx.val), lo = BuildExpression(ctx.lo), hi = BuildExpression(ctx.hi);
+        Expression range = new BinaryExpression(BinaryOperator.And,
+            new BinaryExpression(BinaryOperator.GreaterThanOrEqual, value, lo),
+            new BinaryExpression(BinaryOperator.LessThanOrEqual, value, hi));
+        return ctx.not is null ? range : new UnaryExpression(UnaryOperator.Not, range);
+    }
+
+    /// <summary>Parses an Access <c>#…#</c> date literal (e.g. <c>#1/1/1997#</c>, month/day/year) to a
+    /// <see cref="DateTime"/>.</summary>
+    private static DateTime ParseDate(string text) =>
+        DateTime.Parse(text.Trim('#'), CultureInfo.InvariantCulture);
+
     private static Expression BuildLiteral(LiteralContext ctx) => ctx switch
     {
         IntLiteralContext i => new LiteralExpression(ParseInteger(i.GetText())),
         NumberLiteralContext n => new LiteralExpression(double.Parse(n.GetText(), CultureInfo.InvariantCulture)),
         StringLiteralContext s => new LiteralExpression(Unquote(s.GetText())),
+        DateLiteralContext d => new LiteralExpression(ParseDate(d.GetText())),
         TrueLiteralContext => new LiteralExpression(true),
         FalseLiteralContext => new LiteralExpression(false),
         NullLiteralContext => new LiteralExpression(null),

@@ -14,7 +14,8 @@ public sealed record SelectStatement(
     IReadOnlyList<Expression> GroupBy,
     Expression? Having,
     IReadOnlyList<OrderByItem> OrderBy,
-    int? Top) : SqlStatement;
+    int? Top,
+    bool Distinct = false) : SqlStatement;
 
 public enum SetOperator { Union, UnionAll, Intersect, Except }
 

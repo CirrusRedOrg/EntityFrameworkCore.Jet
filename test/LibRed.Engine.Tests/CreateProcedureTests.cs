@@ -64,6 +64,51 @@ public class CreateProcedureTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // Read back ACE's OWN stored "Ten Most Expensive Products" (TOP 10 + ORDER BY DESC, shipped in Northwind)
+    // and execute it through LibRed's engine — 10 rows, price-descending. Exercises TOP (an AttrFlag row) and
+    // ORDER BY (AttrOrderBy rows) reconstruction against a real Access-written query.
+    [Fact]
+    public void Read_back_northwinds_top_order_by_procedure()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path);
+            var rows = new QueryEngine(db)
+                .ExecuteQuery("SELECT * FROM `Ten Most Expensive Products`").Rows.ToList();
+            Assert.Equal(10, rows.Count);
+            var prices = rows.Select(r => Convert.ToDecimal(r[1])).ToList();
+            Assert.Equal(prices.OrderByDescending(p => p).ToList(), prices); // descending
+            Assert.Equal(263.50m, prices[0]); // Côte de Blaye, Northwind's priciest
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    // Round-trip a LibRed-created TOP + ORDER BY procedure (under a non-colliding name).
+    [Fact]
+    public void Top_and_order_by_procedure_round_trips()
+    {
+        string path = Fresh();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery(
+                    "CREATE PROCEDURE `Priciest Ten` AS " +
+                    "SELECT TOP 10 Products.ProductName, Products.UnitPrice " +
+                    "FROM Products ORDER BY Products.UnitPrice DESC");
+
+            using (var db = JetDatabase.Open(path))
+            {
+                var prices = new QueryEngine(db)
+                    .ExecuteQuery("SELECT * FROM `Priciest Ten`").Rows.Select(r => Convert.ToDecimal(r[1])).ToList();
+                Assert.Equal(10, prices.Count);
+                Assert.Equal(prices.OrderByDescending(p => p).ToList(), prices);
+                Assert.Equal(263.50m, prices[0]);
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     // An action-query procedure body (INSERT/CREATE TABLE) parses but is not stored yet; other statement
     // types (UPDATE/DELETE/…) have no grammar and fail to parse. Either way, CREATE PROCEDURE rejects it.
     [Theory]

@@ -801,7 +801,8 @@ The split mechanics:
   byte (Jackcess "query rows", verified vs ACE for the "simple SELECT" a view may contain): `0x00` =
   query type (`Flag 1` = SELECT), `0x02` = a **declared parameter** (`Name1`=parameter name, `Flag`=Jet
   type code — same codes as on-disk column types, e.g. `8`=DateTime; one row per parameter, `Order`
-  1-based), `0x03` = flags (`Flag 2` = DISTINCT), `0x05` = FROM source, `0x06` =
+  1-based), `0x03` = flags (`Flag 2` = DISTINCT; **`Flag 0x10` = TOP**, with `Name1` = the count as text,
+  e.g. `Name1=10`), `0x05` = FROM source, `0x06` =
   output column (`Expression`=verbatim text; **`Name1`=the column's output alias** when it has one, e.g.
   `Expression=Customers.CompanyName`, `Name1=CustomerName`; a computed column stores its whole verbatim
   expression, `Expression=(FirstName + ' ' + LastName)`, `Name1=Salesperson`), `0x07` = join
@@ -809,7 +810,9 @@ The split mechanics:
   `Customers.CustomerID = Orders.CustomerID` → `Name1=Customers`, `Name2=Orders`), `0x08` = WHERE
   (`Expression`), `0x09` = a **GROUP BY** column (`Expression`; one row per group column, in order —
   their presence makes it a "totals" query, and the aggregate output columns are ordinary `0x06` rows,
-  e.g. `Expression=Sum(...)`), `0xFF` = end. A **FROM source** (`0x05`) is either a **named table**
+  e.g. `Expression=Sum(...)`), `0x0B` = an **ORDER BY** key (`Expression`=the sort column, `Name1`=`"d"`
+  for **descending**, absent for ascending; one row per key, `Order` 1-based — verified against Northwind's
+  "Ten Most Expensive Products", `SELECT TOP 10 … ORDER BY Products.UnitPrice DESC`), `0xFF` = end. A **FROM source** (`0x05`) is either a **named table**
   (`Name1`=table, `Name2`=alias) or a **derived table / subquery** (`Expression`=the verbatim inner
   subquery SQL — outer parens and `AS alias` stripped, whitespace preserved — `Name2`=alias, **no `Name1`**;
   verified against Northwind's "Customer and Suppliers by City"). **Nested / parenthesised joins are stored
@@ -819,8 +822,8 @@ The split mechanics:
   `(ObjectId Int32, Attribute Byte, Order Binary)`; its Binary key encodes as `0x7F` + the raw bytes +
   `00 00 00 00` + a length byte.
 
-  > **Row order matters.** Access writes the rows in the order **type, end, parameters (`0x02`), distinct,
-  > tables (`0x05`), columns (`0x06`), joins (`0x07`), where (`0x08`), group-by (`0x09`)** — *tables before columns* (verified across five
+  > **Row order matters.** Access writes the rows in the order **type, end, parameters (`0x02`), distinct/top,
+  > tables (`0x05`), columns (`0x06`), joins (`0x07`), where (`0x08`), group-by (`0x09`), order-by (`0x0B`)** — *tables before columns* (verified across five
   > Northwind views). Access tolerates the wrong order for a **named** table, but a **derived** table
   > defines an alias the column expressions reference, so its `0x05` row must precede the `0x06` rows or
   > Access opens the database yet **fails to run the view**.

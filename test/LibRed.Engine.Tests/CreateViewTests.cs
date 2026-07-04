@@ -64,7 +64,6 @@ public class CreateViewTests
     }
 
     [Theory]
-    [InlineData("CREATE VIEW `V` AS SELECT `CustomerID` FROM `Customers` ORDER BY `CustomerID`", "ORDER BY")]
     [InlineData("CREATE VIEW `V` AS SELECT `Country`, COUNT(*) FROM `Customers` GROUP BY `Country` HAVING COUNT(*) > 1", "HAVING")]
     public void Non_simple_view_throws(string sql, string expected)
     {

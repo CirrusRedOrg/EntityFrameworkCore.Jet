@@ -27,9 +27,11 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
     private const byte AttrJoin = 0x07;    // Expression = condition, Flag = kind, Name1/Name2 = aliases
     private const byte AttrWhere = 0x08;   // Expression = predicate text
     private const byte AttrGroupBy = 0x09; // Expression = a GROUP BY column (a totals query)
+    private const byte AttrOrderBy = 0x0B; // Expression = a sort column, Name1 = "d" for descending
     private const byte AttrEnd = 0xFF;
     private const short QueryTypeSelect = 1;
     private const short FlagDistinct = 2;
+    private const short FlagTop = 0x10;    // an AttrFlag row with Name1 = the TOP count (as text)
 
     private readonly PageChannel _channel = channel;
     private readonly JetCatalog _catalog = catalog;
@@ -86,8 +88,13 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         for (int i = 0; i < (spec.Parameters?.Count ?? 0); i++)
             Row(mq, objectId, AttrParameter, order: i + 1,
                 flag: spec.Parameters![i].TypeCode, name1: spec.Parameters[i].Name);
+        // DISTINCT and TOP are both AttrFlag (0x03) rows, distinguished by their Flag bits; a TOP row also
+        // carries the count in Name1. Give them distinct Order values so the composite PK stays unique.
+        int flagOrder = 1;
         if (spec.Distinct)
-            Row(mq, objectId, AttrFlag, order: 1, flag: FlagDistinct);
+            Row(mq, objectId, AttrFlag, order: flagOrder++, flag: FlagDistinct);
+        if (spec.Top is { } top)
+            Row(mq, objectId, AttrFlag, order: flagOrder++, flag: FlagTop, name1: top.ToString(System.Globalization.CultureInfo.InvariantCulture));
         for (int i = 0; i < spec.Tables.Count; i++)
         {
             ViewTableSpec t = spec.Tables[i];
@@ -109,6 +116,9 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
             Row(mq, objectId, AttrWhere, order: 1, expression: where);
         for (int i = 0; i < (spec.GroupBy?.Count ?? 0); i++)
             Row(mq, objectId, AttrGroupBy, order: i + 1, flag: 0, expression: spec.GroupBy![i]);
+        for (int i = 0; i < (spec.OrderBy?.Count ?? 0); i++)
+            Row(mq, objectId, AttrOrderBy, order: i + 1, expression: spec.OrderBy![i].Expression,
+                name1: spec.OrderBy[i].Descending ? "d" : null);
     }
 
     private void Row(TableDef mq, int objectId, byte attribute, int order,

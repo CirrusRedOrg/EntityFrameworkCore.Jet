@@ -286,10 +286,14 @@ internal sealed class AstBuilder
             throw new NotSupportedException("A UNION query is not a valid (simple) view.");
 
         SelectStatementContext select = ctx.selectStatement(0);
-        if (select.havingClause() is not null || select.orderByClause() is not null)
-            throw new NotSupportedException("A view with HAVING or ORDER BY is not stored yet.");
+        if (select.havingClause() is not null)
+            throw new NotSupportedException("A view with HAVING is not stored yet.");
         var groupBy = select.groupByClause() is { } g
             ? g.expression().Select(OriginalText).ToList() : (IReadOnlyList<string>)[];
+        var orderBy = select.orderByClause() is { } ob
+            ? ob.orderByItem().Select(i => new ViewOrderBy(OriginalText(i.expression()), i.dir?.Type == DESC)).ToList()
+            : (IReadOnlyList<ViewOrderBy>)[];
+        int? top = select.topClause() is { } t ? int.Parse(t.INTEGER_LITERAL().GetText(), CultureInfo.InvariantCulture) : null;
 
         // Output columns; SELECT * becomes a single "*", a qualified star stays "Table.*".
         var columns = select.selectList().STAR() is not null && select.selectList().selectItem().Length == 0
@@ -304,7 +308,7 @@ internal sealed class AstBuilder
             CollectSources(ts, tables, joins);
 
         string? where = select.whereClause() is { } w ? OriginalText(w.expression()) : null;
-        return new ViewDefinition(select.distinct != null, columns, tables, joins, where, groupBy);
+        return new ViewDefinition(select.distinct != null, columns, tables, joins, where, groupBy, orderBy, top);
     }
 
     private static void CollectSources(TableSourceContext ts, List<ViewSource> tables, List<ViewJoin> joins)

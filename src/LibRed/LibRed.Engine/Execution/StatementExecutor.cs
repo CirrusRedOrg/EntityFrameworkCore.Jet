@@ -164,7 +164,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             j.Kind switch { ViewJoinKind.Left => ViewJoinType.Left, ViewJoinKind.Right => ViewJoinType.Right, _ => ViewJoinType.Inner },
             j.Condition, j.LeftAlias, j.RightAlias)).ToList(),
         d.Where,
-        d.GroupBy);
+        d.GroupBy,
+        Parameters: null,
+        OrderBy: d.OrderBy.Select(o => new ViewOrderBySpec(o.Expression, o.Descending)).ToList(),
+        Top: d.Top);
 
     private int ExecuteInsert(InsertStatement statement)
     {

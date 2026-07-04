@@ -161,8 +161,8 @@ public sealed class JetCatalog(PageChannel channel)
     // MSysQueries attribute codes (see spec §11).
     private const byte QueryAttrType = 0x00, QueryAttrParameter = 0x02, QueryAttrFlag = 0x03,
         QueryAttrTable = 0x05, QueryAttrColumn = 0x06, QueryAttrJoin = 0x07, QueryAttrWhere = 0x08,
-        QueryAttrGroupBy = 0x09;
-    private const short QueryFlagDistinct = 2;
+        QueryAttrGroupBy = 0x09, QueryAttrOrderBy = 0x0B;
+    private const short QueryFlagDistinct = 2, QueryFlagTop = 0x10;
 
     private Dictionary<string, string> LoadViews()
     {
@@ -201,7 +201,7 @@ public sealed class JetCatalog(PageChannel channel)
         IEnumerable<object?[]> OfAttr(byte a) => rows.Where(r => r[attr] is byte b && b == a).OrderBy(r => Ord(r[order]));
 
         // Bail out if the query uses attributes beyond a simple SELECT (e.g. GROUP BY/HAVING/ORDER BY).
-        var known = new byte[] { QueryAttrType, QueryAttrParameter, QueryAttrFlag, QueryAttrTable, QueryAttrColumn, QueryAttrJoin, QueryAttrWhere, QueryAttrGroupBy, 0xFF };
+        var known = new byte[] { QueryAttrType, QueryAttrParameter, QueryAttrFlag, QueryAttrTable, QueryAttrColumn, QueryAttrJoin, QueryAttrWhere, QueryAttrGroupBy, QueryAttrOrderBy, 0xFF };
         if (rows.Any(r => r[attr] is byte b && !known.Contains(b))) return null;
 
         // Declared parameters (a stored procedure): each Attribute=2 row is Name1=name, Flag=Jet type code.
@@ -221,6 +221,14 @@ public sealed class JetCatalog(PageChannel channel)
         if (columns.Count == 0 || tables.Count == 0) return null;
 
         bool distinct = OfAttr(QueryAttrFlag).Any(r => r[flag] is short f && (f & QueryFlagDistinct) != 0);
+        // TOP n: an AttrFlag row with the TOP bit; the count is in Name1.
+        string? top = OfAttr(QueryAttrFlag)
+            .Where(r => r[flag] is short f && (f & QueryFlagTop) != 0)
+            .Select(r => r[n1] as string).FirstOrDefault();
+        // ORDER BY: one AttrOrderBy row per key (Expression = column, Name1 = "d" for descending).
+        var orderBy = OfAttr(QueryAttrOrderBy)
+            .Select(r => (r[expr] as string ?? "") + (string.Equals(r[n1] as string, "d", StringComparison.OrdinalIgnoreCase) ? " DESC" : ""))
+            .Where(s => s.Length > 0).ToList();
         var joins = OfAttr(QueryAttrJoin)
             .Select(r => (Cond: r[expr] as string ?? "", Kind: r[flag] is short f ? f : (short)1,
                           Left: r[n1] as string ?? "", Right: r[n2] as string ?? "")).ToList();
@@ -274,9 +282,11 @@ public sealed class JetCatalog(PageChannel channel)
         if (parameters.Count > 0) sql.Append("PARAMETERS ").Append(string.Join(", ", parameters)).Append("; ");
         sql.Append("SELECT ");
         if (distinct) sql.Append("DISTINCT ");
+        if (top is not null) sql.Append("TOP ").Append(top).Append(' ');
         sql.Append(string.Join(", ", columns)).Append(" FROM ").Append(from);
         if (whereClause is not null) sql.Append(" WHERE ").Append(whereClause);
         if (groupBy.Count > 0) sql.Append(" GROUP BY ").Append(string.Join(", ", groupBy));
+        if (orderBy.Count > 0) sql.Append(" ORDER BY ").Append(string.Join(", ", orderBy));
         return sql.ToString();
     }
 

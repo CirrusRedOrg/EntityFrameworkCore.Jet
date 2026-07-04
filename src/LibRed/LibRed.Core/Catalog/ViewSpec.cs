@@ -20,6 +20,10 @@ public sealed record ViewColumnSpec(string Expression, string? Alias);
 /// MSysQueries <c>Attribute=2</c> row (Name1 = name, Flag = <paramref name="TypeCode"/>).</summary>
 public sealed record ViewParameterSpec(string Name, byte TypeCode);
 
+/// <summary>An ORDER BY key: verbatim sort expression + direction, stored as an MSysQueries
+/// <c>Attribute=0x0B</c> row (Expression = the column, Name1 = "d" when <paramref name="Descending"/>).</summary>
+public sealed record ViewOrderBySpec(string Expression, bool Descending);
+
 /// <summary>
 /// A view's decomposed "simple SELECT" — the columns, source tables, joins and WHERE (all verbatim text) —
 /// that Access stores as MSysQueries rows. Aggregates / GROUP BY / HAVING / ORDER BY are not permitted.
@@ -31,4 +35,6 @@ public sealed record ViewSpec(
     IReadOnlyList<ViewJoinSpec> Joins,
     string? Where,
     IReadOnlyList<string>? GroupBy = null,
-    IReadOnlyList<ViewParameterSpec>? Parameters = null);
+    IReadOnlyList<ViewParameterSpec>? Parameters = null,
+    IReadOnlyList<ViewOrderBySpec>? OrderBy = null,
+    int? Top = null);

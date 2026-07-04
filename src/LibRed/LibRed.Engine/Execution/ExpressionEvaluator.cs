@@ -313,13 +313,18 @@ internal sealed class ExpressionEvaluator(
             return ToNumber(left).CompareTo(ToNumber(right));
 
         if (left is string || right is string)
-            return string.CompareOrdinal(left.ToString(), right.ToString());
+            return CompareText(left.ToString()!, right.ToString()!);
 
         if (left is IComparable c && left.GetType() == right.GetType())
             return c.CompareTo(right);
 
-        return string.CompareOrdinal(left.ToString(), right.ToString());
+        return CompareText(left.ToString()!, right.ToString()!);
     }
+
+    /// <summary>Access text comparison: **case-insensitive** and **trailing spaces ignored** (Access
+    /// "General" collation — verified vs ACE: <c>'London'='LONDON'</c> and <c>'abc'='abc  '</c> are true).</summary>
+    private static int CompareText(string a, string b) =>
+        string.Compare(a.TrimEnd(' '), b.TrimEnd(' '), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Orders two values for SORT (nulls first), using the same coercion as comparisons.</summary>
     public static int CompareForSort(object? a, object? b) => (a, b) switch

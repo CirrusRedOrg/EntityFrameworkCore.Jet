@@ -327,21 +327,29 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     }
 
     /// <summary>Groups by structural equality of the key value tuple.</summary>
+    // DISTINCT / GROUP BY / INTERSECT / EXCEPT key. String keys use Access text semantics — case-insensitive
+    // and trailing-space-insensitive — so 'London' and 'LONDON ' group together as Access does.
     private sealed class GroupKey(object?[] values) : IEquatable<GroupKey>
     {
         private readonly object?[] _values = values;
 
         public bool Equals(GroupKey? other) =>
             other is not null && _values.Length == other._values.Length
-            && _values.Zip(other._values).All(p => Equals(p.First, p.Second));
+            && _values.Zip(other._values).All(p => KeyEquals(p.First, p.Second));
 
         public override bool Equals(object? obj) => Equals(obj as GroupKey);
         public override int GetHashCode()
         {
             var hash = new HashCode();
-            foreach (object? v in _values) hash.Add(v);
+            foreach (object? v in _values)
+                hash.Add(v is string s ? StringComparer.OrdinalIgnoreCase.GetHashCode(s.TrimEnd(' ')) : v?.GetHashCode() ?? 0);
             return hash.ToHashCode();
         }
+
+        private static bool KeyEquals(object? a, object? b) =>
+            a is string sa && b is string sb
+                ? string.Equals(sa.TrimEnd(' '), sb.TrimEnd(' '), StringComparison.OrdinalIgnoreCase)
+                : Equals(a, b);
     }
 
     private sealed class ReferenceComparer : IEqualityComparer<FunctionCall>

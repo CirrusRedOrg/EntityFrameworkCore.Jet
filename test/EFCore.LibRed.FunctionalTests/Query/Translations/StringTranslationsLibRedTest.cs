@@ -171,7 +171,6 @@ FROM `BasicTypesEntities` AS `b`
         AssertSql(
             """
 @pattern='Eattl' (Size = 255)
-@pattern='Eattl' (Size = 255)
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
@@ -186,8 +185,7 @@ WHERE (INSTR(1, `b`.`String`, @pattern, 1) - IIF(@pattern = '', 0, 1)) = 1
 
         AssertSql(
             """
-@pattern='e' (Size = 1) (DbType = String)
-@pattern='e' (Size = 1) (DbType = String)
+@pattern='e' (DbType = String)
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
@@ -422,9 +420,9 @@ WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 5 AND MID
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE [b].[String] LIKE N'%a%' AND SUBSTRING([b].[String], (CAST(CHARINDEX(N'a', [b].[String]) AS int) - 1) + 1, 3) = N'att'
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE (`b`.`String` LIKE '%a%') AND MID(`b`.`String`, (INSTR(1, `b`.`String`, 'a', 1) - 1) + 1, 3) = 'att'
 """);
     }
 

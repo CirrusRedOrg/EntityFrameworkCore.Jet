@@ -270,18 +270,18 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (payload is null || payload.Length <= maxInline) continue;
 
             writer ??= new LongValueWriter(_channel);
-            byte[] descriptor = writer.WriteSinglePage(payload);
-            values[column.Index] = new LongValueDescriptor(descriptor);
+            LongValueResult lval = writer.Write(payload); // single page, or chained across several
+            values[column.Index] = new LongValueDescriptor(lval.Descriptor);
 
-            // Record the LVAL page in this column's usage maps (§3.3.2), as Access does: always in the
-            // owned-pages map; and in the free-pages map because a fresh single-value page still has spare
-            // room (Access keeps a partially-full LVAL page free and clears the bit only when it fills).
-            int lvalPage = descriptor[5] | (descriptor[6] << 8) | (descriptor[7] << 16);
+            // Record the LVAL page(s) in this column's usage maps (§3.3.2), as Access does: every page in
+            // the owned-pages map, and the last (partially-filled) page in the free-pages map — Access keeps
+            // a page with spare room free and clears the bit only when it fills.
             definition ??= ReadDefinition();
             if (definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned))
-                SetUsageBit(owned.Row, owned.Page, lvalPage, set: true);
+                foreach (int lvalPage in lval.OwnedPages)
+                    SetUsageBit(owned.Row, owned.Page, lvalPage, set: true);
             if (definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) free))
-                SetUsageBit(free.Row, free.Page, lvalPage, set: true);
+                SetUsageBit(free.Row, free.Page, lval.FreePage, set: true);
         }
     }
 

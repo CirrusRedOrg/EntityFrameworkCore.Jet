@@ -488,8 +488,11 @@ The in-row value for a Memo/OLE column is a **12-byte descriptor**, not the data
 Flags:
 - `0x80` **inline** — the payload follows the descriptor in the row.
 - `0x40` **single LVAL page** — the row at (page, row) *is* the whole payload.
-- otherwise **multi-page** — the payload is chained across LVAL pages; each chunk's row begins
-  with a 4-byte pointer (row + 3-byte page) to the next chunk, followed by chunk data.
+- `0x00` **multi-page** — the payload is chained across LVAL pages; each chunk's row begins
+  with a 4-byte pointer (`[row:1][page:3]`) to the next chunk (zero on the last), followed by chunk
+  data. Each chunk row is **`MAX_LONG_VALUE_ROW_SIZE` = 4076 bytes** (Jet4; Jet3 = 2032) — a 4-byte
+  pointer + up to 4072 data bytes — except the last, which is shorter. Verified against ACE's own
+  chained OLE (Northwind Employee photos: 4076, 4076, 2606-byte chunk rows).
 
 LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII marker `LVAL`.
 
@@ -500,8 +503,10 @@ LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII 
 > `RowInserter` materialises it before encoding. This matters for Access, not just LibRed: Access
 > tolerates an inline value its reader resolves, but **rejects an over-64-byte value inlined** (e.g. it
 > opens the database yet fails to *run* a view whose subquery `Expression` was inlined; on an LVAL page
-> it runs — verified against the derived-table view, §11). Values larger than one LVAL page
-> (`MAX_LONG_VALUE_ROW_SIZE ≈ 4076`) still need **chained** pages, not written yet.
+> it runs — verified against the derived-table view, §11). A value **larger than one LVAL row** (4076
+> bytes) is written as a **chain** (`0x00` descriptor): the payload is split into 4072-byte data chunks,
+> each on its own page with a 4-byte next-pointer, matching ACE byte-for-byte (verified: LibRed and
+> Access both read back memo values from 65 bytes to 100 KB — single-page and multi-page).
 >
 > **LibRed writes the §3.3.2 entry + empty usage maps for every memo/OLE column** — byte-faithful with
 > ACE, whose usage-map page lays the records out as: row 0 table-owned, row 1 table-free, then two

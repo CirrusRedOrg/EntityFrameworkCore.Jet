@@ -11,7 +11,7 @@
 grammar AccessSql;
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
-statement : parametersClause? (createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | insertStatement | queryExpression) SEMI? EOF ;
+statement : parametersClause? (createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | insertStatement | queryExpression) SEMI? EOF ;
 
 // A leading PARAMETERS clause (Access) declares the query's parameters up front. Used when reading a
 // stored parameterized query back: references to a declared name in the body bind as parameters, not
@@ -47,6 +47,20 @@ procParamList
 // A parameter name is an identifier or an @-prefixed parameter token (e.g. @Beginning_Date).
 procParam : pname=procParamName dataType ;
 procParamName : identifier | PARAM ;
+
+// ALTER TABLE table { ADD [COLUMN] field type … | ADD CONSTRAINT … | ALTER COLUMN field type | DROP … }
+// (Access allows exactly one action per statement.) The CONSTRAINT clause reuses CREATE TABLE's
+// tableConstraint (PK / FK / UNIQUE / CHECK — the "multifieldindex"). COLUMN is optional on ADD (EF omits it).
+alterTableStatement
+    : ALTER TABLE table=identifier alterTableAction
+    ;
+alterTableAction
+    : ADD COLUMN? columnDefinition               # AddColumnAction
+    | ADD tableConstraint                        # AddConstraintAction
+    | ALTER COLUMN? field=identifier dataType    # AlterColumnAction
+    | DROP COLUMN field=identifier               # DropColumnAction
+    | DROP CONSTRAINT cname=identifier           # DropConstraintAction
+    ;
 
 // A procedure body is any statement Access allows. We store/execute the ones we know (SELECT, INSERT,
 // CREATE TABLE); other action queries (UPDATE/DELETE/DROP/…) are rejected by the builder.
@@ -250,6 +264,10 @@ INTERSECT : [Ii][Nn][Tt][Ee][Rr][Ss][Ee][Cc][Tt] ;
 EXCEPT    : [Ee][Xx][Cc][Ee][Pp][Tt] ;
 CREATE    : [Cc][Rr][Ee][Aa][Tt][Ee] ;
 TABLE     : [Tt][Aa][Bb][Ll][Ee] ;
+ALTER     : [Aa][Ll][Tt][Ee][Rr] ;
+ADD       : [Aa][Dd][Dd] ;
+DROP      : [Dd][Rr][Oo][Pp] ;
+COLUMN    : [Cc][Oo][Ll][Uu][Mm][Nn] ;
 INSERT    : [Ii][Nn][Ss][Ee][Rr][Tt] ;
 INTO      : [Ii][Nn][Tt][Oo] ;
 VALUES    : [Vv][Aa][Ll][Uu][Ee][Ss] ;

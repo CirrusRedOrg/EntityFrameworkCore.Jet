@@ -154,6 +154,36 @@ public sealed record CreateActionProcedureStatement(
     string? TargetTable,
     IReadOnlyList<AppendColumn>? AppendColumns) : SqlStatement;
 
+/// <summary>One action of an ALTER TABLE statement (Access allows exactly one per statement).</summary>
+public abstract record AlterTableAction;
+
+/// <summary>ADD [COLUMN] field type … — add a new column (with its inline constraints).</summary>
+public sealed record AddColumnAction(ColumnDefinition Column) : AlterTableAction;
+
+/// <summary>ADD CONSTRAINT … FOREIGN KEY … — add a foreign key.</summary>
+public sealed record AddForeignKeyAction(ForeignKeyConstraint ForeignKey) : AlterTableAction;
+
+/// <summary>ADD CONSTRAINT … PRIMARY KEY (cols) — add the primary key.</summary>
+public sealed record AddPrimaryKeyAction(string? Name, IReadOnlyList<string> Columns) : AlterTableAction;
+
+/// <summary>ADD CONSTRAINT … UNIQUE (cols) — add a unique constraint.</summary>
+public sealed record AddUniqueAction(UniqueConstraint Unique) : AlterTableAction;
+
+/// <summary>ADD CONSTRAINT … CHECK (…) — add a check constraint.</summary>
+public sealed record AddCheckAction(CheckConstraint Check) : AlterTableAction;
+
+/// <summary>ALTER COLUMN field type[(size[,scale])] — change a column's data type.</summary>
+public sealed record AlterColumnAction(string Field, string TypeName, int? Size, int? Scale) : AlterTableAction;
+
+/// <summary>DROP COLUMN field — delete a column.</summary>
+public sealed record DropColumnAction(string Field) : AlterTableAction;
+
+/// <summary>DROP CONSTRAINT name — delete a (multi-field) index/constraint by name.</summary>
+public sealed record DropConstraintAction(string Name) : AlterTableAction;
+
+/// <summary>ALTER TABLE table &lt;action&gt; — modifies an existing table's design.</summary>
+public sealed record AlterTableStatement(string Table, AlterTableAction Action) : SqlStatement;
+
 public sealed record Assignment(string Column, Expression Value) : SqlNode;
 
 public sealed record UpdateStatement(

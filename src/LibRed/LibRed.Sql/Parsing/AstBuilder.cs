@@ -33,6 +33,7 @@ internal sealed class AstBuilder
         if (ctx.createIndexStatement() is { } createIndex) return BuildCreateIndex(createIndex);
         if (ctx.createViewStatement() is { } createView) return BuildCreateView(createView);
         if (ctx.createProcedureStatement() is { } createProc) return BuildCreateProcedure(createProc);
+        if (ctx.alterTableStatement() is { } alter) return BuildAlterTable(alter);
         if (ctx.insertStatement() is { } insert) return BuildInsert(insert);
         return BuildQueryExpression(ctx.queryExpression());
     }
@@ -99,6 +100,36 @@ internal sealed class AstBuilder
         ctx.Start is null || ctx.Stop is null
             ? ctx.GetText()
             : ctx.Start.InputStream.GetText(Antlr4.Runtime.Misc.Interval.Of(ctx.Start.StartIndex, ctx.Stop.StopIndex));
+
+    private static SqlStatement BuildAlterTable(AlterTableStatementContext ctx)
+    {
+        AlterTableAction action = ctx.alterTableAction() switch
+        {
+            AddColumnActionContext a => new AddColumnAction(BuildColumnDefinition(a.columnDefinition())),
+            AddConstraintActionContext a => BuildAddConstraint(a.tableConstraint()),
+            AlterColumnActionContext a => new AlterColumnAction(
+                Identifier(a.field), TypeName(a.dataType()), Size(a.dataType()), Scale(a.dataType())),
+            DropColumnActionContext a => new DropColumnAction(Identifier(a.field)),
+            DropConstraintActionContext a => new DropConstraintAction(Identifier(a.cname)),
+            _ => throw new SqlParseException("Unsupported ALTER TABLE action."),
+        };
+        return new AlterTableStatement(Identifier(ctx.table), action);
+    }
+
+    private static AlterTableAction BuildAddConstraint(TableConstraintContext tc) => tc switch
+    {
+        PrimaryKeyTableConstraintContext pk =>
+            new AddPrimaryKeyAction(pk.name is null ? null : Identifier(pk.name), pk._columns.Select(Identifier).ToList()),
+        UniqueTableConstraintContext uq =>
+            new AddUniqueAction(new UniqueConstraint(uq.name is null ? null : Identifier(uq.name), uq._columns.Select(Identifier).ToList())),
+        ForeignKeyTableConstraintContext fk => new AddForeignKeyAction(BuildForeignKey(fk)),
+        CheckTableConstraintContext ck =>
+            new AddCheckAction(new CheckConstraint(ck.name is null ? null : Identifier(ck.name), OriginalText(ck.checkBody()))),
+        _ => throw new SqlParseException("Unsupported ALTER TABLE ADD CONSTRAINT."),
+    };
+
+    private static int? Size(DataTypeContext type) => type.size is { } s ? int.Parse(s.Text, CultureInfo.InvariantCulture) : null;
+    private static int? Scale(DataTypeContext type) => type.scale is { } s ? int.Parse(s.Text, CultureInfo.InvariantCulture) : null;
 
     private static ForeignKeyConstraint BuildForeignKey(ForeignKeyTableConstraintContext ctx)
     {

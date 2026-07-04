@@ -81,6 +81,47 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitProcParamName([NotNull] AccessSqlParser.ProcParamNameContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.alterTableStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitAlterTableStatement([NotNull] AccessSqlParser.AlterTableStatementContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>AddColumnAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.alterTableAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitAddColumnAction([NotNull] AccessSqlParser.AddColumnActionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>AddConstraintAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.alterTableAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitAddConstraintAction([NotNull] AccessSqlParser.AddConstraintActionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>AlterColumnAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.alterTableAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitAlterColumnAction([NotNull] AccessSqlParser.AlterColumnActionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>DropColumnAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.alterTableAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDropColumnAction([NotNull] AccessSqlParser.DropColumnActionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>DropConstraintAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.alterTableAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDropConstraintAction([NotNull] AccessSqlParser.DropConstraintActionContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.procedureBody"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

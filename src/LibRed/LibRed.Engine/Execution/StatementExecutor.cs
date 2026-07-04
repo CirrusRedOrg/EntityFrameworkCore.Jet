@@ -24,6 +24,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         CreateViewStatement createView => ExecuteCreateView(createView),
         CreateProcedureStatement createProc => ExecuteCreateProcedure(createProc),
         CreateActionProcedureStatement actionProc => ExecuteCreateActionProcedure(actionProc),
+        AlterTableStatement alter => ExecuteAlterTable(alter),
         InsertStatement insert => ExecuteInsert(insert),
         _ => throw new NotSupportedException($"{statement.GetType().Name} cannot be executed as a non-query."),
     };
@@ -155,6 +156,13 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             .ToList();
         _database.CreateView(statement.Name, BuildViewSpec(statement.Definition) with { Parameters = parameters });
         return 0;
+    }
+
+    private int ExecuteAlterTable(AlterTableStatement statement)
+    {
+        // Parsing is in place; each action is implemented in its own follow-up step.
+        throw new NotSupportedException(
+            $"ALTER TABLE {statement.Action.GetType().Name} is parsed but not executed yet.");
     }
 
     private int ExecuteCreateActionProcedure(CreateActionProcedureStatement statement)

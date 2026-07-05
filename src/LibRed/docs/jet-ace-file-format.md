@@ -822,8 +822,10 @@ The split mechanics:
   > name]` repeated, indexed 0,1,…). Other blocks are a **per-owner value map** (owner = a column name,
   > or `""` for the table): `[short ownerRecLen][short 0][short nameLen][owner name]` then property
   > entries `[short entryLen][byte flag=1][byte dataType][short nameIndex][short valueLen][value]`. The
-  > `dataType` is **`0x0C`** (memo) for a text value stored as **UTF-16**, or **`0x01`** (boolean) for a
-  > single **0/1 byte**. The value-block **type** is `0x01` for a column-owned map and `0x00` for the
+  > `dataType` is an ordinary **`JetDataType` code** (the same byte used by column descriptors and
+  > MSysQueries): **`0x0C`** (Memo) for a text value stored as **UTF-16**, **`0x01`** (Boolean) for a single
+  > **0/1 byte**, and — on the `MSysDb` object's UI/nav settings only — `0x0A` (Text), `0x02`/`0x03`/`0x04`
+  > (Byte/Int16/Int32). The value-block **type** is `0x01` for a column-owned map and `0x00` for the
   > table-owned map (empty owner name). A `DefaultValue` (column property) is the expression's **source
   > text** (e.g. `42`, `'hi'`); table-level `CHECK` constraints are a single **table** property named
   > `CheckConstraints` whose value is a `name\0expression\0` list, terminated by an extra `\0` (verified

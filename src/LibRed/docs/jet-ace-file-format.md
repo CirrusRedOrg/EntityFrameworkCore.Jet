@@ -584,9 +584,15 @@ begins at **offset 4**.
 >   this: on allocating a new page it **clears the previous tail's free bit and sets the new page's**,
 >   leaving exactly the tail marked free. (Non-sequential fills and deletes aren't specially handled —
 >   neither is supported yet.)
-> - **Inline map only, fixed window.** LibRed writes/updates the inline map with `startPage = 0` and a
->   64-byte bitmap (pages 0–511). A data page numbered outside that window needs a wider start or a
->   **reference-type** map (neither implemented); LibRed throws rather than writing past the record.
+> - **Inline map, grown in place.** LibRed writes the inline map with `startPage = 0` and an initially
+>   64-byte bitmap (pages 0–511). When an insert needs to mark a page **past** that window, LibRed grows
+>   the bitmap **record in place** — still type `0x00`, same `startPage` — extending it in **256-bit
+>   (32-byte) chunks** and repacking the usage-map page's records (the `owned`/`free` maps and any index/
+>   column maps) from the end backward. This matches Access, which does **not** switch to a reference-type
+>   map at this scale: verified that a table spanning to page 753 carries a **96-byte** bitmap (768 bits,
+>   record length **101**, grown from 64), and that Access opens a LibRed-grown table, counts every row,
+>   and reads one living past page 512. A **reference-type** map (for a table so large the grown record no
+>   longer fits on its usage-map page, ~128 MB+) is still not implemented — LibRed throws then.
 
 ### 9.1 Global free-pages map — page 1 (page allocation)
 

@@ -150,8 +150,13 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         SetUsageBit(tdef.ReadByte(tdefPointerOffset), tdef.ReadInt24(tdefPointerOffset + 1), targetPage, set);
     }
 
+    // Access grows an inline usage-map bitmap in 256-bit (32-byte) chunks — verified: a table spanning to
+    // page 753 carried a 96-byte bitmap (768 bits, record length 101), grown from the initial 64.
+    private const int UsageMapChunkBytes = 32;
+
     /// <summary>Sets or clears the bit for <paramref name="targetPage"/> in the inline usage map at
-    /// record <paramref name="mapRow"/> on <paramref name="mapPage"/>.</summary>
+    /// record <paramref name="mapRow"/> on <paramref name="mapPage"/>. When the page falls past the
+    /// bitmap's current window the record is grown in place (matching Access) so larger tables work.</summary>
     private void SetUsageBit(int mapRow, int mapPage, int targetPage, bool set)
     {
         JetFormatBase format = _channel.Format;
@@ -163,22 +168,67 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         if (page[mapOffset] != 0x00)
             throw new NotSupportedException("Reference-type usage map growth is not implemented yet.");
 
-        // The inline map covers pages [startPage, startPage + bitmapBits). A page outside that window
-        // needs a wider start or a reference-type map — neither is implemented; fail loudly rather
-        // than writing past the record and corrupting the neighbouring map/slot data.
         int startPage = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(mapOffset + 1, 4));
         int bitmapBits = (holder.Rows[mapRow].Length - 5) * 8;
         int bitIndex = targetPage - startPage;
-        if (bitIndex < 0 || bitIndex >= bitmapBits)
+        if (bitIndex < 0)
             throw new NotSupportedException(
-                $"Data page {targetPage} falls outside the inline usage map's window " +
-                $"[{startPage}, {startPage + bitmapBits}); a wider/reference-type usage map is not implemented yet.");
+                $"Data page {targetPage} is below the usage map's start page {startPage}; a movable window is not implemented yet.");
+
+        // The inline bitmap covers pages [startPage, startPage + bitmapBits). When Access needs to mark a
+        // page beyond that window it grows the bitmap record in place (still type 0x00, same startPage),
+        // extending it in 256-bit chunks. Clearing a bit outside the window is a no-op — it is already 0.
+        if (bitIndex >= bitmapBits)
+        {
+            if (!set) return;
+            int neededBitmapBytes = RoundUpTo(bitIndex / 8 + 1, UsageMapChunkBytes);
+            page = GrowInlineMap(page, holder, format, mapRow, 5 + neededBitmapBytes, out mapOffset);
+        }
 
         int byteIndex = mapOffset + 5 + bitIndex / 8;
         byte mask = (byte)(1 << (bitIndex % 8));
         if (set) page[byteIndex] |= mask;
         else page[byteIndex] &= (byte)~mask;
         _channel.WritePage(mapPage, page);
+    }
+
+    private static int RoundUpTo(int value, int unit) => (value + unit - 1) / unit * unit;
+
+    /// <summary>Grows the usage-map record at <paramref name="mapRow"/> to <paramref name="newLength"/>
+    /// bytes (its extra bitmap bytes zero), repacking every record on the page from the end backward — the
+    /// way Access enlarges a table's owned/free bitmap once it spans past the current window. Records keep
+    /// their directory order (row 0 nearest the page end). Returns the rewritten page and the record's new
+    /// offset.</summary>
+    private static byte[] GrowInlineMap(byte[] page, DataPage holder, JetFormatBase format, int mapRow, int newLength, out int newOffset)
+    {
+        int rowCount = holder.Rows.Count;
+        var records = new byte[rowCount][];
+        for (int i = 0; i < rowCount; i++)
+            records[i] = page.AsSpan(holder.Rows[i].Offset, holder.Rows[i].Length).ToArray();
+
+        var grown = new byte[newLength]; // extra bitmap bytes stay zero
+        Array.Copy(records[mapRow], grown, records[mapRow].Length);
+        records[mapRow] = grown;
+
+        var result = new byte[format.PageSize];
+        Array.Copy(page, result, format.DataRowDirectoryOffset); // preserve type/flags/owner/header
+        int offset = format.PageSize;
+        newOffset = -1;
+        for (int i = 0; i < rowCount; i++)
+        {
+            offset -= records[i].Length;
+            Array.Copy(records[i], 0, result, offset, records[i].Length);
+            BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(format.DataRowDirectoryOffset + i * 2, 2), (ushort)offset);
+            if (i == mapRow) newOffset = offset;
+        }
+
+        int directoryEnd = format.DataRowDirectoryOffset + rowCount * 2;
+        if (offset < directoryEnd)
+            throw new NotSupportedException("The usage-map page is full; a reference-type usage map is not implemented yet.");
+
+        BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(format.DataRowCountOffset, 2), (ushort)rowCount);
+        BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(format.DataFreeSpaceOffset, 2), (ushort)(offset - directoryEnd));
+        return result;
     }
 
     /// <summary>Pins the fixed-region length to an existing row anywhere in the table (so the layout

@@ -49,6 +49,31 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     }
 
     /// <summary>
+    /// Whether the index already contains an entry with this key (ignoring the row pointer) — used to enforce
+    /// a UNIQUE/PRIMARY index on insert. Descends to the leaf the key belongs in (with the smallest pointer,
+    /// so we land at/just-before any equal-key entry) and scans forward while keys could still match. The
+    /// caller skips null keys (Jet allows multiple nulls in a unique index — verified vs ACE).
+    /// </summary>
+    public bool KeyExists(IndexDef index, object?[] values)
+    {
+        byte[] key = IndexKeyEncoder.Encode(index.Columns, values);
+        int leaf = Descend(index.RootPage, WithTrailer(key, 0))[^1];
+        while (leaf != 0)
+        {
+            byte[] page = _channel.ReadPage(leaf).Span.ToArray();
+            (List<Entry> entries, _) = Parse(page);
+            foreach (Entry e in entries)
+            {
+                int cmp = CompareBytes(e.Key, key);
+                if (cmp == 0) return true;   // an entry with this exact key already exists
+                if (cmp > 0) return false;   // sorted past where the key would be — it's absent
+            }
+            leaf = ReadInt32Le(page, NextPageOffset); // all keys here sort below it — may continue on the next leaf
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Moves a row's entry when its key changes: removes the old-key entry and inserts the new-key one (the
     /// row id is unchanged — Access rewrites rows in place). Honours WITH IGNORE NULL on each side (a row with
     /// a null key is simply absent from the index). Used by UPDATE of an indexed column.

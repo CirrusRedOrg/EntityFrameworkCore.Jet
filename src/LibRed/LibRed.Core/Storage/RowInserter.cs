@@ -39,6 +39,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // as-is (Jet, unlike SQL Server, permits explicit AutoNumber values); either way the row's
         // final id drives both the row encoding and the high-water update below.
         AssignAutoNumbers(format, values);
+        if (updateIndexes) EnforceUniqueIndexes(values); // reject a duplicate before writing anything
         MaterializeLongValues(values);
 
         // Encode first: the fixed-region length is pinned by any existing row (to match Access),
@@ -281,6 +282,25 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
     /// <summary>Adds the new row to every index B-tree (deduped by root page, since relationship
     /// indexes share a real index's data) so indexed lookups — and Access — find it.</summary>
+    /// <summary>Rejects the insert if a UNIQUE or PRIMARY index would gain a duplicate key. A row with a
+    /// null in any of a unique index's columns is skipped — Jet treats nulls as distinct, so a unique index
+    /// allows multiple nulls (verified vs ACE). Runs before the row is written so nothing is half-inserted.</summary>
+    private void EnforceUniqueIndexes(object?[] values)
+    {
+        IndexWriter? writer = null;
+        foreach (IndexDef index in _table.Indexes
+            .Where(i => i.IsUnique && i.RootPage > 0)
+            .GroupBy(i => i.RootPage).Select(g => g.First()))
+        {
+            if (HasNullKey(index, values)) continue; // nulls are distinct — multiple allowed
+            writer ??= new IndexWriter(_channel, _table);
+            if (writer.KeyExists(index, values))
+                throw new InvalidOperationException(
+                    $"Cannot insert into '{_table.Name}': a row with the same {(index.IsPrimaryKey ? "primary key" : "unique key")} " +
+                    $"already exists (index '{index.Name}').");
+        }
+    }
+
     private void UpdateIndexes(object?[] values, RowId rowId)
     {
         var writer = new IndexWriter(_channel, _table);

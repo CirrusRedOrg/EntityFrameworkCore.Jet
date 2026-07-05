@@ -299,17 +299,16 @@ public partial class AccessSqlParser : Parser {
 	}
 
 	public partial class UpdateStatementContext : ParserRuleContext {
-		public IdentifierContext table;
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode UPDATE() { return GetToken(AccessSqlParser.UPDATE, 0); }
+		[System.Diagnostics.DebuggerNonUserCode] public TableSourceContext tableSource() {
+			return GetRuleContext<TableSourceContext>(0);
+		}
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode SET() { return GetToken(AccessSqlParser.SET, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public AssignmentContext[] assignment() {
 			return GetRuleContexts<AssignmentContext>();
 		}
 		[System.Diagnostics.DebuggerNonUserCode] public AssignmentContext assignment(int i) {
 			return GetRuleContext<AssignmentContext>(i);
-		}
-		[System.Diagnostics.DebuggerNonUserCode] public IdentifierContext identifier() {
-			return GetRuleContext<IdentifierContext>(0);
 		}
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode[] COMMA() { return GetTokens(AccessSqlParser.COMMA); }
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode COMMA(int i) {
@@ -342,7 +341,7 @@ public partial class AccessSqlParser : Parser {
 			State = 124;
 			Match(UPDATE);
 			State = 125;
-			_localctx.table = identifier();
+			tableSource();
 			State = 126;
 			Match(SET);
 			State = 127;
@@ -387,13 +386,13 @@ public partial class AccessSqlParser : Parser {
 	}
 
 	public partial class AssignmentContext : ParserRuleContext {
-		public IdentifierContext col;
+		public ColumnRefContext target;
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode EQ() { return GetToken(AccessSqlParser.EQ, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public ExpressionContext expression() {
 			return GetRuleContext<ExpressionContext>(0);
 		}
-		[System.Diagnostics.DebuggerNonUserCode] public IdentifierContext identifier() {
-			return GetRuleContext<IdentifierContext>(0);
+		[System.Diagnostics.DebuggerNonUserCode] public ColumnRefContext columnRef() {
+			return GetRuleContext<ColumnRefContext>(0);
 		}
 		public AssignmentContext(ParserRuleContext parent, int invokingState)
 			: base(parent, invokingState)
@@ -416,7 +415,7 @@ public partial class AccessSqlParser : Parser {
 			EnterOuterAlt(_localctx, 1);
 			{
 			State = 138;
-			_localctx.col = identifier();
+			_localctx.target = columnRef();
 			State = 139;
 			Match(EQ);
 			State = 140;
@@ -436,19 +435,18 @@ public partial class AccessSqlParser : Parser {
 
 	public partial class DeleteStatementContext : ParserRuleContext {
 		public IdentifierContext target;
-		public IdentifierContext table;
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode DELETE() { return GetToken(AccessSqlParser.DELETE, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode FROM() { return GetToken(AccessSqlParser.FROM, 0); }
-		[System.Diagnostics.DebuggerNonUserCode] public IdentifierContext[] identifier() {
-			return GetRuleContexts<IdentifierContext>();
-		}
-		[System.Diagnostics.DebuggerNonUserCode] public IdentifierContext identifier(int i) {
-			return GetRuleContext<IdentifierContext>(i);
+		[System.Diagnostics.DebuggerNonUserCode] public TableSourceContext tableSource() {
+			return GetRuleContext<TableSourceContext>(0);
 		}
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode DOT() { return GetToken(AccessSqlParser.DOT, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode STAR() { return GetToken(AccessSqlParser.STAR, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public WhereClauseContext whereClause() {
 			return GetRuleContext<WhereClauseContext>(0);
+		}
+		[System.Diagnostics.DebuggerNonUserCode] public IdentifierContext identifier() {
+			return GetRuleContext<IdentifierContext>(0);
 		}
 		public DeleteStatementContext(ParserRuleContext parent, int invokingState)
 			: base(parent, invokingState)
@@ -490,7 +488,7 @@ public partial class AccessSqlParser : Parser {
 			State = 149;
 			Match(FROM);
 			State = 150;
-			_localctx.table = identifier();
+			tableSource();
 			State = 152;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
@@ -6167,14 +6165,14 @@ public partial class AccessSqlParser : Parser {
 		109,1,0,0,0,117,110,1,0,0,0,117,111,1,0,0,0,117,112,1,0,0,0,117,113,1,
 		0,0,0,117,114,1,0,0,0,117,115,1,0,0,0,117,116,1,0,0,0,118,120,1,0,0,0,
 		119,121,5,90,0,0,120,119,1,0,0,0,120,121,1,0,0,0,121,122,1,0,0,0,122,123,
-		5,0,0,1,123,1,1,0,0,0,124,125,5,49,0,0,125,126,3,100,50,0,126,127,5,53,
+		5,0,0,1,123,1,1,0,0,0,124,125,5,49,0,0,125,126,3,76,38,0,126,127,5,53,
 		0,0,127,132,3,4,2,0,128,129,5,88,0,0,129,131,3,4,2,0,130,128,1,0,0,0,131,
 		134,1,0,0,0,132,130,1,0,0,0,132,133,1,0,0,0,133,136,1,0,0,0,134,132,1,
 		0,0,0,135,137,3,84,42,0,136,135,1,0,0,0,136,137,1,0,0,0,137,3,1,0,0,0,
-		138,139,3,100,50,0,139,140,5,80,0,0,140,141,3,90,45,0,141,5,1,0,0,0,142,
+		138,139,3,98,49,0,139,140,5,80,0,0,140,141,3,90,45,0,141,5,1,0,0,0,142,
 		147,5,48,0,0,143,144,3,100,50,0,144,145,5,89,0,0,145,146,5,73,0,0,146,
 		148,1,0,0,0,147,143,1,0,0,0,147,148,1,0,0,0,148,149,1,0,0,0,149,150,5,
-		2,0,0,150,152,3,100,50,0,151,153,3,84,42,0,152,151,1,0,0,0,152,153,1,0,
+		2,0,0,150,152,3,76,38,0,151,153,3,84,42,0,152,151,1,0,0,0,152,153,1,0,
 		0,0,153,7,1,0,0,0,154,155,5,1,0,0,155,160,3,10,5,0,156,157,5,88,0,0,157,
 		159,3,10,5,0,158,156,1,0,0,0,159,162,1,0,0,0,160,158,1,0,0,0,160,161,1,
 		0,0,0,161,9,1,0,0,0,162,160,1,0,0,0,163,168,5,91,0,0,164,166,5,5,0,0,165,

@@ -42,15 +42,18 @@ internal sealed class AstBuilder
     }
 
     private static DeleteStatement BuildDelete(DeleteStatementContext ctx) =>
-        new(Identifier(ctx.table), ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null);
+        new(OptionalIdentifier(ctx.target),
+            BuildTableSource(ctx.tableSource()),
+            ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null);
 
     private static UpdateStatement BuildUpdate(UpdateStatementContext ctx)
     {
         var assignments = ctx.assignment()
-            .Select(a => new Assignment(Identifier(a.col), BuildExpression(a.expression())))
+            .Select(a => new Assignment(
+                OptionalIdentifier(a.target.qualifier), Identifier(a.target.name), BuildExpression(a.expression())))
             .ToList();
         Expression? where = ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null;
-        return new UpdateStatement(Identifier(ctx.table), assignments, where);
+        return new UpdateStatement(BuildTableSource(ctx.tableSource()), assignments, where);
     }
 
     private static SystemVariableSelectStatement BuildSystemVariableSelect(SystemVariableSelectContext ctx)

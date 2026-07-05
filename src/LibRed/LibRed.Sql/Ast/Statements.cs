@@ -193,13 +193,20 @@ public sealed record DropConstraintAction(string Name) : AlterTableAction;
 /// <summary>ALTER TABLE table &lt;action&gt; — modifies an existing table's design.</summary>
 public sealed record AlterTableStatement(string Table, AlterTableAction Action) : SqlStatement;
 
-public sealed record Assignment(string Column, Expression Value) : SqlNode;
+/// <summary>A SET assignment: the target column (optionally table/alias-qualified for a multi-table UPDATE)
+/// and the value expression.</summary>
+public sealed record Assignment(string? Table, string Column, Expression Value) : SqlNode;
 
+/// <summary>UPDATE over a table source (a single table, or a join — Access allows SET to touch columns in
+/// several joined tables). <paramref name="From"/> is the join tree; the WHERE is an ordinary expression.</summary>
 public sealed record UpdateStatement(
-    string Table,
+    TableReference From,
     IReadOnlyList<Assignment> Assignments,
     Expression? Where) : SqlStatement;
 
+/// <summary>DELETE over a table source. <paramref name="TargetTable"/> is the <c>table.*</c> target (which
+/// table's rows to delete in a join); null means the single table named by <paramref name="From"/>.</summary>
 public sealed record DeleteStatement(
-    string Table,
+    string? TargetTable,
+    TableReference From,
     Expression? Where) : SqlStatement;

@@ -312,99 +312,168 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         return affected;
     }
 
+    /// <summary>A table participating in an UPDATE/DELETE source: its alias, the opened table, and its
+    /// columns as alias-qualified output columns (for the combined evaluation scope).</summary>
+    private sealed record SourceTable(string Alias, Table Table, IReadOnlyList<OutputColumn> Columns);
+
+    /// <summary>Flattens the UPDATE/DELETE table source into its tables (in order) plus the join ON
+    /// conditions. Only INNER/CROSS joins over named tables are supported (Access's multi-table form).</summary>
+    private (List<SourceTable> Tables, List<Expression> Ons) ResolveSource(TableReference from)
+    {
+        var tables = new List<SourceTable>();
+        var ons = new List<Expression>();
+
+        void Walk(TableReference r)
+        {
+            switch (r)
+            {
+                case NamedTable n:
+                    Table t = _database.OpenTable(n.Name);
+                    string alias = n.Alias ?? n.Name;
+                    tables.Add(new SourceTable(alias, t, t.Definition.Columns.Select(c => new OutputColumn(alias, c.Name)).ToList()));
+                    break;
+                case JoinTable { Kind: JoinKind.Inner or JoinKind.Cross } j:
+                    Walk(j.Left);
+                    Walk(j.Right);
+                    if (j.On is not null) ons.Add(j.On);
+                    break;
+                default:
+                    throw new NotSupportedException($"UPDATE/DELETE over a {r.GetType().Name} source is not supported yet.");
+            }
+        }
+
+        Walk(from);
+        return (tables, ons);
+    }
+
     /// <summary>
-    /// Executes UPDATE table SET col = expr, … [WHERE criteria]. The WHERE is an ordinary expression (the
-    /// same as a SELECT's), evaluated per row; each SET expression may reference the row's current values.
-    /// Matching rows are rewritten in place (row id preserved). Publishes @@ROWCOUNT = rows matched. Not yet
-    /// supported (throws): changing an indexed column (needs index-entry maintenance) and a row that grows
-    /// past its page (needs relocation).
+    /// Materialises the join rows of the source: each is the per-table (row id + <b>shared</b> value array),
+    /// in table order, that satisfies all ON conditions and the WHERE. A physical row's value array is shared
+    /// across every join row it appears in (cached by alias+row id), so a SET that references the row's own
+    /// value accumulates across matches — matching Access (e.g. a "one"-side counter incremented per match).
+    /// </summary>
+    private List<(RowId Id, object?[] Values)[]> JoinRows(
+        List<SourceTable> tables, List<Expression> ons, Expression? where, IReadOnlyList<OutputColumn> columns)
+    {
+        var cache = new Dictionary<(string, RowId), object?[]>();
+
+        IEnumerable<(RowId, object?[])[]> Combine(int i, (RowId, object?[])[] acc)
+        {
+            if (i == tables.Count) { yield return (((RowId, object?[])[])acc.Clone()); yield break; }
+            foreach ((RowId id, object?[] values) in tables[i].Table.Rows().WithIds())
+            {
+                var key = (tables[i].Alias, id);
+                if (!cache.TryGetValue(key, out object?[]? shared)) cache[key] = shared = values;
+                acc[i] = (id, shared);
+                foreach (var r in Combine(i + 1, acc)) yield return r;
+            }
+        }
+
+        var result = new List<(RowId, object?[])[]>();
+        foreach (var combo in Combine(0, new (RowId, object?[])[tables.Count]))
+        {
+            object?[] flat = combo.SelectMany(c => c.Item2).ToArray();
+            var eval = new ExpressionEvaluator(new EvalScope(columns, flat, null), _scalarRunner, _parameters, _session);
+            if (ons.All(o => eval.Evaluate(o) is true) && (where is null || eval.Evaluate(where) is true))
+                result.Add(combo);
+        }
+        return result;
+    }
+
+    /// <summary>The source-table index a SET assignment (or a delete target) applies to: the alias/table-name
+    /// qualifier if given, else the single table (ambiguous when there are several).</summary>
+    private static int TargetIndex(List<SourceTable> tables, string? qualifier, string what)
+    {
+        if (qualifier is null)
+            return tables.Count == 1 ? 0
+                : throw new InvalidOperationException($"{what} must be table-qualified when the statement joins several tables.");
+        int i = tables.FindIndex(t =>
+            string.Equals(t.Alias, qualifier, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(t.Table.Name, qualifier, StringComparison.OrdinalIgnoreCase));
+        return i >= 0 ? i : throw new InvalidOperationException($"{what} '{qualifier}' is not one of the statement's tables.");
+    }
+
+    /// <summary>
+    /// Executes UPDATE tableexpression SET col = expr, … [WHERE criteria]. The table expression may be a join,
+    /// and each SET target may name a specific joined table (Access's multi-table update). Each SET expression
+    /// may reference the current values; the WHERE is an ordinary expression (correlated EXISTS included).
+    /// Rows are rewritten in place (row id preserved). @@ROWCOUNT = matched join rows.
     /// </summary>
     private int ExecuteUpdate(UpdateStatement statement)
     {
-        Table table = _database.OpenTable(statement.Table);
-        var columns = table.Definition.Columns;
+        var (tables, ons) = ResolveSource(statement.From);
+        var columns = tables.SelectMany(t => t.Columns).ToList();
+        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, ons, statement.Where, columns);
 
-        var targets = statement.Assignments
-            .Select(a => (Column: table.Definition.FindColumn(a.Column)
-                ?? throw new InvalidOperationException($"Column '{a.Column}' does not exist in '{statement.Table}'."),
-                a.Value))
-            .ToList();
-
-        var outputColumns = columns.Select(c => new OutputColumn(statement.Table, c.Name)).ToList();
-
-        ExpressionEvaluator RowEvaluator(object?[] row) =>
-            new(new EvalScope(outputColumns, row, null), _scalarRunner, _parameters, _session);
-
-        // Snapshot the matching rows first — don't mutate the table while its cursor is open.
-        var matches = new List<(RowId Id, object?[] Values)>();
-        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
-            if (statement.Where is null || RowEvaluator(values).Evaluate(statement.Where) is true)
-                matches.Add((id, values));
-
-        int affected = 0;
-        foreach ((RowId id, object?[] oldValues) in matches)
+        // Resolve each assignment to its (table index, column) once.
+        var targets = statement.Assignments.Select(a =>
         {
-            var newValues = (object?[])oldValues.Clone();
-            var changed = new HashSet<int>();
-            ExpressionEvaluator eval = RowEvaluator(oldValues);
-            foreach ((ColumnDef column, Expression expr) in targets)
-            {
-                object? value = eval.Evaluate(expr);
-                if (!Equals(value, oldValues[column.Index]))
-                {
-                    newValues[column.Index] = value;
-                    changed.Add(column.Index);
-                }
-            }
+            int ti = TargetIndex(tables, a.Table, "UPDATE SET column");
+            ColumnDef col = tables[ti].Table.Definition.FindColumn(a.Column)
+                ?? throw new InvalidOperationException($"Column '{a.Column}' does not exist in '{tables[ti].Table.Name}'.");
+            return (TableIndex: ti, Column: col, a.Value);
+        }).ToList();
 
-            if (changed.Count > 0)
+        // Apply SETs to the shared value arrays; snapshot each touched row's original bytes on first touch.
+        var dirty = new Dictionary<(string, RowId), (SourceTable Table, RowId Id, object?[] Original, object?[] Values)>();
+        foreach (var combo in joinRows)
+        {
+            foreach ((int ti, ColumnDef col, Expression valueExpr) in targets)
             {
-                table.Update(id, newValues); // in place — row id preserved (may throw if the row must relocate)
+                object?[] shared = combo[ti].Values;
+                var key = (tables[ti].Alias, combo[ti].Id);
+                if (!dirty.ContainsKey(key)) dirty[key] = (tables[ti], combo[ti].Id, (object?[])shared.Clone(), shared);
 
-                // Maintain every index whose key columns changed: move the entry (old key → new key), keeping
-                // the same row id. Dedup by root page (a relationship index shares a real index's B-tree).
-                foreach (IndexDef index in table.Definition.Indexes
-                    .Where(i => i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
-                    .GroupBy(i => i.RootPage).Select(g => g.First()))
-                    table.MoveIndexEntry(index, oldValues, newValues, id);
+                object?[] flat = combo.SelectMany(c => c.Item2).ToArray();
+                var eval = new ExpressionEvaluator(new EvalScope(columns, flat, null), _scalarRunner, _parameters, _session);
+                shared[col.Index] = eval.Evaluate(valueExpr);
             }
-            affected++; // @@ROWCOUNT counts matched rows, changed or not
         }
 
+        foreach (var (table, id, original, values) in dirty.Values)
+        {
+            if (original.AsSpan().SequenceEqual(values)) continue; // unchanged after all
+            table.Table.Update(id, values);
+            foreach (IndexDef index in table.Table.Definition.Indexes
+                .Where(i => i.RootPage > 0 && i.Columns.Any(c => !Equals(original[c.Column.Index], values[c.Column.Index])))
+                .GroupBy(i => i.RootPage).Select(g => g.First()))
+                table.Table.MoveIndexEntry(index, original, values, id);
+        }
+
+        int affected = joinRows.Count;
         if (_session is not null) _session.RowCount = affected;
         return affected;
     }
 
     /// <summary>
-    /// Executes DELETE [table.*] FROM table [WHERE criteria]. The WHERE is an ordinary expression (the same
-    /// as a SELECT's), evaluated per row. Each matching row's index entries are removed and the row is
-    /// soft-deleted (row id kept, TDEF row count decremented — matching Access). Publishes @@ROWCOUNT = rows
-    /// deleted. (The rows' LVAL pages are not reclaimed yet.)
+    /// Executes DELETE [target.*] FROM tableexpression [WHERE criteria]. The table expression may be a join;
+    /// <c>target.*</c> selects which joined table's rows to delete (defaults to the single table). Each
+    /// matched target row's index entries are removed and the row is soft-deleted (row id kept, TDEF row
+    /// count decremented). @@ROWCOUNT = distinct rows deleted.
     /// </summary>
     private int ExecuteDelete(DeleteStatement statement)
     {
-        Table table = _database.OpenTable(statement.Table);
-        var outputColumns = table.Definition.Columns.Select(c => new OutputColumn(statement.Table, c.Name)).ToList();
+        var (tables, ons) = ResolveSource(statement.From);
+        var columns = tables.SelectMany(t => t.Columns).ToList();
+        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, ons, statement.Where, columns);
 
-        // Snapshot the matching rows first — don't mutate the table while its cursor is open.
-        var matches = new List<(RowId Id, object?[] Values)>();
-        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
-        {
-            var eval = new ExpressionEvaluator(new EvalScope(outputColumns, values, null), _scalarRunner, _parameters, _session);
-            if (statement.Where is null || eval.Evaluate(statement.Where) is true)
-                matches.Add((id, values));
-        }
-
-        var indexes = table.Definition.Indexes
+        int ti = TargetIndex(tables, statement.TargetTable, "DELETE target");
+        SourceTable target = tables[ti];
+        var indexes = target.Table.Definition.Indexes
             .Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()).ToList();
-        foreach ((RowId id, object?[] values) in matches)
+
+        var deleted = new Dictionary<RowId, object?[]>();
+        foreach (var combo in joinRows)
+            deleted.TryAdd(combo[ti].Id, combo[ti].Values); // one delete per distinct target row
+
+        foreach ((RowId id, object?[] values) in deleted)
         {
             foreach (IndexDef index in indexes)
-                table.RemoveIndexEntry(index, values, id);
-            table.Delete(id);
+                target.Table.RemoveIndexEntry(index, values, id);
+            target.Table.Delete(id);
         }
 
-        int affected = matches.Count;
+        int affected = deleted.Count;
         if (_session is not null) _session.RowCount = affected;
         return affected;
     }

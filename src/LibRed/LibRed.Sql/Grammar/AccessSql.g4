@@ -15,12 +15,14 @@ statement : parametersClause? (createTableStatement | createIndexStatement | cre
 
 // UPDATE table SET col = expr, … [WHERE criteria]. The WHERE criteria is an ordinary expression, the same
 // as a SELECT's; each SET value expression may reference the row's current column values.
-updateStatement : UPDATE table=identifier SET assignment (COMMA assignment)* whereClause? ;
-assignment : col=identifier EQ expression ;
+// UPDATE tableexpression SET col=expr, … [WHERE …]. The tableexpression is a table SOURCE (Access allows a
+// join here), and a SET target may be table-qualified (col or alias.col) to touch a specific joined table.
+updateStatement : UPDATE tableSource SET assignment (COMMA assignment)* whereClause? ;
+assignment : target=columnRef EQ expression ;
 
-// DELETE [table.*] FROM table [WHERE criteria] — the Access form allows a redundant `table.*` target before
-// FROM (EF and the docs both use it); it names the same table, so we ignore it and delete from FROM's table.
-deleteStatement : DELETE (target=identifier DOT STAR)? FROM table=identifier whereClause? ;
+// DELETE [table.*] FROM tableexpression [WHERE …]. For a join, the `table.*` target selects which table's
+// rows to delete; for a single table it is redundant (and optional).
+deleteStatement : DELETE (target=identifier DOT STAR)? FROM tableSource whereClause? ;
 
 // A FROM-less SELECT of system variables only — ACE allows `SELECT @@IDENTITY` / `SELECT @@ROWCOUNT`
 // (and a comma list of them) with no FROM clause. Listed before queryExpression so it is preferred; a

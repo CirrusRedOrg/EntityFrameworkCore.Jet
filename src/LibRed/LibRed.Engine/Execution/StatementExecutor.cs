@@ -599,6 +599,16 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                     f.Columns.Any(c => changed.Contains(table.Table.Definition.FindColumn(c.Column)!.Index))))
                 EnforceReferentialIntegrity(table.Table.Name, table.Table, values);
 
+            // A changed UNIQUE/PRIMARY key must not collide with another row (null keys are distinct — a
+            // unique index permits multiple nulls, so they're skipped, matching the insert rule).
+            foreach (IndexDef index in table.Table.Definition.Indexes
+                .Where(i => i.IsUnique && i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
+                .GroupBy(i => i.RootPage).Select(g => g.First()))
+                if (!index.Columns.Any(c => values[c.Column.Index] is null) && table.Table.HasDuplicateKey(index, values, id))
+                    throw new InvalidOperationException(
+                        $"Cannot update '{table.Table.Name}': a row with the same " +
+                        $"{(index.IsPrimaryKey ? "primary key" : "unique key")} already exists (index '{index.Name}').");
+
             // Parent side: a changed referenced-key column triggers each relationship's ON UPDATE action
             // (CASCADE rewrites children, NO ACTION rejects if children exist).
             CascadeParentKeyUpdate(table.Table.Name, original, values);

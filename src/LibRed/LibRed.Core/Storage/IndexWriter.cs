@@ -54,7 +54,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     /// so we land at/just-before any equal-key entry) and scans forward while keys could still match. The
     /// caller skips null keys (Jet allows multiple nulls in a unique index — verified vs ACE).
     /// </summary>
-    public bool KeyExists(IndexDef index, object?[] values)
+    public bool KeyExists(IndexDef index, object?[] values, int? excludePointer = null)
     {
         byte[] key = IndexKeyEncoder.Encode(index.Columns, values);
         int leaf = Descend(index.RootPage, WithTrailer(key, 0))[^1];
@@ -65,8 +65,9 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
             foreach (Entry e in entries)
             {
                 int cmp = CompareBytes(e.Key, key);
-                if (cmp == 0) return true;   // an entry with this exact key already exists
                 if (cmp > 0) return false;   // sorted past where the key would be — it's absent
+                // Same key held by a *different* row (for an UPDATE, the row's own entry is excluded).
+                if (cmp == 0 && e.Trailer != excludePointer) return true;
             }
             leaf = ReadInt32Le(page, NextPageOffset); // all keys here sort below it — may continue on the next leaf
         }

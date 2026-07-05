@@ -41,6 +41,23 @@ public class UniqueIndexEnforcementTests
     }
 
     [Fact]
+    public void Update_to_a_duplicate_unique_value_is_rejected()
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery("INSERT INTO T (Id, Code) VALUES (1, 10)");
+        e.ExecuteNonQuery("INSERT INTO T (Id, Code) VALUES (2, 20)");
+
+        // Updating row 2's Code to 10 collides with row 1 → rejected, row unchanged.
+        Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("UPDATE T SET Code = 10 WHERE Id = 2"));
+        Assert.Equal(20, Convert.ToInt32(e.ExecuteQuery("SELECT Code FROM T WHERE Id = 2").Rows.Single()[0]));
+
+        // Updating a row's unique column to its OWN current value is fine (no self-collision), as is a free value.
+        Assert.Equal(1, e.ExecuteNonQuery("UPDATE T SET Code = 20 WHERE Id = 2"));
+        Assert.Equal(1, e.ExecuteNonQuery("UPDATE T SET Code = 30 WHERE Id = 2"));
+        Assert.Equal(30, Convert.ToInt32(e.ExecuteQuery("SELECT Code FROM T WHERE Id = 2").Rows.Single()[0]));
+    }
+
+    [Fact]
     public void Dropping_the_unique_index_lifts_enforcement()
     {
         var e = Fresh();

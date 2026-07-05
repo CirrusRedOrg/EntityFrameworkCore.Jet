@@ -43,6 +43,11 @@ public sealed class Table
     public void MoveIndexEntry(IndexDef index, object?[] oldValues, object?[] newValues, RowId id) =>
         new IndexWriter(Channel, Definition).MoveEntry(index, oldValues, newValues, id);
 
+    /// <summary>Whether <paramref name="values"/>' key already exists in <paramref name="index"/> for a row
+    /// other than <paramref name="excludeRow"/> — used to enforce a UNIQUE/PRIMARY index on UPDATE.</summary>
+    public bool HasDuplicateKey(IndexDef index, object?[] values, RowId excludeRow) =>
+        new IndexWriter(Channel, Definition).KeyExists(index, values, (excludeRow.Page << 8) | excludeRow.Row);
+
     /// <summary>Soft-deletes the row at <paramref name="id"/> (row bytes kept, slot flagged; TDEF row count
     /// decremented). The caller removes its index entries first via <see cref="RemoveIndexEntry"/>.</summary>
     public void Delete(RowId id) => new RowInserter(Channel, Definition).Delete(id);

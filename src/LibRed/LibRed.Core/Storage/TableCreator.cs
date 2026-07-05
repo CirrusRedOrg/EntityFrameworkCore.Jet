@@ -513,6 +513,48 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         _catalog.Invalidate();
     }
 
+    /// <summary>
+    /// Drops a named FOREIGN KEY constraint by soft-deleting its <c>MSysRelationships</c> rows — LibRed
+    /// reads relationships by scanning that table (the cursor skips deleted rows), so the FK immediately
+    /// stops being enforced. The backing child index and the TDEF relationship blocks are left in place;
+    /// LibRed ignores them (it never derives relationships from the TDEF), so this is functionally complete.
+    /// Byte-faithful removal of the index/TDEF blocks is a follow-up. Returns false if no such relationship
+    /// exists on <paramref name="childTable"/>.
+    /// </summary>
+    public bool DropConstraint(string childTable, string name)
+    {
+        bool isRelationship = _catalog.Relationships.Any(r =>
+            string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(r.Table, childTable, StringComparison.OrdinalIgnoreCase));
+        if (!isRelationship) return false;
+
+        TableDef msys = _catalog.FindTable("MSysRelationships")
+            ?? throw new InvalidOperationException("MSysRelationships catalog table was not found.");
+        int nameIdx = (msys.FindColumn("szRelationship")
+            ?? throw new InvalidOperationException("MSysRelationships is missing the 'szRelationship' column.")).Index;
+
+        var rows = new List<RowId>();
+        foreach ((RowId id, object?[] values) in new Table(_channel, msys).Rows().WithIds())
+            if (string.Equals(values[nameIdx] as string, name, StringComparison.OrdinalIgnoreCase))
+                rows.Add(id);
+
+        foreach (RowId id in rows) SoftDeleteRow(id);
+        _catalog.Invalidate();
+        return true;
+    }
+
+    /// <summary>Marks a row deleted by setting the deleted flag (0x8000) on its slot-directory entry — a
+    /// Jet soft delete: the row bytes stay but scans (and Access) skip it.</summary>
+    private void SoftDeleteRow(RowId id)
+    {
+        JetFormatBase format = _channel.Format;
+        byte[] page = _channel.ReadPage(id.Page).Span.ToArray();
+        int dirOffset = format.DataRowDirectoryOffset + id.Row * 2;
+        ushort entry = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dirOffset, 2));
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dirOffset, 2), (ushort)(entry | 0x8000));
+        _channel.WritePage(id.Page, page);
+    }
+
     /// <summary>The data-block ordinal of a table's own index over the FK's referenced columns (for a
     /// self-reference — normally the primary key).</summary>
     private static int ReferencedOrdinalIn(TableDef table, RelationshipSpec fk)

@@ -451,9 +451,9 @@ WHERE DATEDIFF(week, NULL, [o].[OrderDate]) = 5
 
             AssertSql(
                 """
-SELECT CBOOL(ISDATE(`o`.`CustomerID`)) * -1
+SELECT CBOOL(ISDATE(`o`.`CustomerID`))
 FROM `Orders` AS `o`
-WHERE NOT (CBOOL(ISDATE(`o`.`CustomerID`)) * -1)
+WHERE NOT (CBOOL(ISDATE(`o`.`CustomerID`)))
 """);
         }
 
@@ -470,9 +470,9 @@ WHERE NOT (CBOOL(ISDATE(`o`.`CustomerID`)) * -1)
 
             AssertSql(
                 """
-SELECT CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & '')))) * -1
+SELECT CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & ''))))
 FROM `Orders` AS `o`
-WHERE CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & '')))) * -1
+WHERE CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & ''))))
 """);
         }
 
@@ -491,7 +491,7 @@ WHERE CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & ''
                 """
 SELECT COUNT(*)
 FROM `Orders` AS `o`
-WHERE CBOOL(ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`OrderID` & ''))) * -1
+WHERE CBOOL(ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`OrderID` & '')))
 """);
         }
 

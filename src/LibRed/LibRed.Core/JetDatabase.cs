@@ -92,6 +92,11 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
+    /// <summary>Drops a named FOREIGN KEY constraint from a table — ALTER TABLE … DROP CONSTRAINT. Returns
+    /// false if no such relationship exists (e.g. the name is a primary-key/unique index, not yet handled).</summary>
+    public bool DropConstraint(string childTable, string name) =>
+        new Storage.TableCreator(_channel, Catalog).DropConstraint(childTable, name);
+
     /// <summary>Creates a view (a stored SELECT query) — the CREATE VIEW statement. Written the way Access
     /// does: an MSysObjects type-5 row plus the query decomposed into MSysQueries rows.</summary>
     public void CreateView(string name, ViewSpec spec)

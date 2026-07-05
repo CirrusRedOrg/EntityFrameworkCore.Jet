@@ -177,10 +177,22 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // ADD CONSTRAINT … FOREIGN KEY: add a relationship to the existing table (child index + parent
         // incoming block + MSysRelationships), the same write path as an inline CREATE TABLE foreign key.
         AddForeignKeyAction fk => AddForeignKey(statement.Table, fk.ForeignKey),
+        // DROP CONSTRAINT name: drop a foreign key (relationship) by name. LibRed enforces FKs from
+        // MSysRelationships, so removing those rows disables it.
+        DropConstraintAction drop => DropConstraint(statement.Table, drop.Name),
         // The remaining actions land in their own follow-up steps.
         _ => throw new NotSupportedException(
             $"ALTER TABLE {statement.Action.GetType().Name} is parsed but not executed yet."),
     };
+
+    private int DropConstraint(string table, string name)
+    {
+        if (!_database.DropConstraint(table, name))
+            throw new NotSupportedException(
+                $"ALTER TABLE '{table}' DROP CONSTRAINT '{name}': only foreign-key constraints can be dropped yet " +
+                "(no matching relationship found — dropping a primary-key/unique index is not implemented).");
+        return 0;
+    }
 
     private int AddPrimaryKey(string table, AddPrimaryKeyAction pk)
     {

@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using LibRed.IO;
 using LibRed.Pages;
 
@@ -35,7 +36,19 @@ public sealed class TableCursor(Table table) : IEnumerable<object?[]>
             for (int i = 0; i < page.RowCount; i++)
             {
                 RowSlot slot = page.Rows[i];
-                if (slot.IsDeleted || slot.HasOverflow) continue;
+                if (slot.IsDeleted) continue; // deleted, or a relocated row's hidden target (reached via its pointer)
+
+                // A relocated row: the slot holds a 4-byte pointer (page<<8 | row) to the real row, which lives
+                // on another page flagged "deleted" so scans skip it there. The row id stays this slot's, so
+                // index entries keep pointing here. Follow the pointer and decode the target's bytes.
+                if (slot.HasOverflow)
+                {
+                    int pointer = BinaryPrimitives.ReadInt32LittleEndian(page.GetRow(i));
+                    var target = new DataPage();
+                    target.Read(_table.Channel.ReadPage(pointer >> 8), _table.Channel.Format);
+                    yield return (new RowId(pageNumber, i), decoder.Decode(target.GetRow(pointer & 0xFF)));
+                    continue;
+                }
 
                 yield return (new RowId(pageNumber, i), decoder.Decode(page.GetRow(i)));
             }

@@ -73,6 +73,73 @@ public class UpdateAccessTests
     }
 
     [Fact]
+    public void Access_reads_a_libred_relocated_row()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"reloc-lr-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string mid = new('m', 80), big = new('X', 255);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("T",
+                [
+                    new("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true),
+                    new("A", JetDataType.Text, 255 * 2, IsFixedLength: false),
+                    new("B", JetDataType.Text, 255 * 2, IsFixedLength: false),
+                    new("C", JetDataType.Text, 255 * 2, IsFixedLength: false),
+                ], primaryKey: ["Id"]);
+                var table = db.OpenTable("T");
+                for (int i = 0; i < 7; i++) table.Insert([null, mid, mid, mid]); // ~fill a page
+
+                int idIdx = table.Definition.FindColumn("Id")!.Index;
+                (RowId id, object?[] old) = table.Rows().WithIds().First(x => Convert.ToInt32(x.Values[idIdx]) == 3);
+                var updated = (object?[])old.Clone();
+                foreach (var col in new[] { "A", "B", "C" }) updated[table.Definition.FindColumn(col)!.Index] = big;
+                table.Update(id, updated); // grows past the page → relocates
+            }
+
+            using var conn = OpenOleDb(path);
+            using (var c = conn.CreateCommand())
+            { c.CommandText = "SELECT COUNT(*) FROM T"; Assert.Equal(7, Convert.ToInt32(c.ExecuteScalar())); }
+            using (var c = conn.CreateCommand())
+            { c.CommandText = "SELECT A FROM T WHERE Id = 3"; Assert.Equal(big, c.ExecuteScalar()); }        // the relocated row
+            using (var c = conn.CreateCommand())
+            { c.CommandText = "SELECT A FROM T WHERE Id = 4"; Assert.Equal(mid, c.ExecuteScalar()); }        // a neighbour
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void Libred_reads_an_access_relocated_row()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"reloc-ace-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string mid = new('m', 80), big = new('X', 255);
+        try
+        {
+            using (var conn = OpenOleDb(path))
+            {
+                Exec(conn, "CREATE TABLE T (Id counter PRIMARY KEY, A text(255), B text(255), C text(255))");
+                for (int i = 0; i < 7; i++) Exec(conn, $"INSERT INTO T (A,B,C) VALUES ('{mid}','{mid}','{mid}')");
+                Exec(conn, $"UPDATE T SET A='{big}', B='{big}', C='{big}' WHERE Id = 3"); // ACE relocates it
+            }
+
+            // LibRed follows ACE's forward pointer and reads every row, including the relocated one.
+            using var db = JetDatabase.Open(path);
+            var table = db.OpenTable("T");
+            int idIdx = table.Definition.FindColumn("Id")!.Index, aIdx = table.Definition.FindColumn("A")!.Index;
+            var rows = table.Rows().WithIds().ToList();
+            Assert.Equal(7, rows.Count);
+            Assert.Equal(big, rows.Single(r => Convert.ToInt32(r.Values[idIdx]) == 3).Values[aIdx]);
+            Assert.Equal(mid, rows.Single(r => Convert.ToInt32(r.Values[idIdx]) == 4).Values[aIdx]);
+
+            static void Exec(OleDbConnection c, string sql) { using var cmd = c.CreateCommand(); cmd.CommandText = sql; cmd.ExecuteNonQuery(); }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Access_seeks_a_libred_updated_primary_key()
     {
         string path = Path.Combine(Path.GetTempPath(), $"upd-key-{Guid.NewGuid():N}.accdb");

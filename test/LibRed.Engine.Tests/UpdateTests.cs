@@ -48,6 +48,32 @@ public class UpdateTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // Growing a row so it no longer fits its page relocates it (Access's overflow-forwarding: the slot
+    // becomes a pointer to the row on another page; the row id is preserved). All rows stay readable.
+    [Fact]
+    public void Update_that_grows_a_row_past_its_page_relocates_it()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE T (Id counter PRIMARY KEY, A text(255), B text(255), C text(255))");
+            string mid = new('m', 80), big = new('X', 255);
+            for (int i = 0; i < 7; i++) e.ExecuteNonQuery($"INSERT INTO T (A,B,C) VALUES ('{mid}','{mid}','{mid}')"); // ~fill a page
+
+            Assert.Equal(1, e.ExecuteNonQuery($"UPDATE T SET A='{big}', B='{big}', C='{big}' WHERE Id = 3"));
+
+            // Every row is still readable (the relocated one is followed through its forward pointer).
+            var rows = e.ExecuteQuery("SELECT Id, A FROM T").Rows.ToList();
+            Assert.Equal(7, rows.Count);
+            Assert.Equal(Enumerable.Range(1, 7), rows.Select(r => Convert.ToInt32(r[0])).OrderBy(x => x));
+            Assert.Equal(big, e.ExecuteQuery("SELECT A FROM T WHERE Id = 3").Rows.Single()[0]);           // the grown row
+            Assert.Equal(mid, e.ExecuteQuery("SELECT A FROM T WHERE Id = 4").Rows.Single()[0]);           // a neighbour, untouched
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     // Updating an indexed column moves its index entry (old key removed, new key added), so a seek by the
     // new key finds the row and a seek by the old key doesn't.
     [Fact]

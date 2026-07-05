@@ -85,11 +85,42 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         JetFormatBase format = _channel.Format;
         MaterializeLongValues(values);
 
-        byte[] page = _channel.ReadPage(id.Page).Span.ToArray();
-        var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(page, format));
+        byte[] srcPage = _channel.ReadPage(id.Page).Span.ToArray();
+        var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(srcPage, format));
         byte[] record = encoder.Encode(values);
 
+        int raw = BinaryPrimitives.ReadUInt16LittleEndian(srcPage.AsSpan(format.DataRowDirectoryOffset + id.Row * 2, 2));
+        if ((raw & OverflowFlag) != 0)
+        {
+            // This slot is a 4-byte forward pointer to the real (relocated) row; rewrite it on its target page
+            // (which keeps its hidden "deleted" flag). If it grows past that page too, we'd need to re-relocate.
+            int pointer = BinaryPrimitives.ReadInt32LittleEndian(SlotBytes(srcPage, format, id.Row));
+            if (!TryRewriteRowInPlace(pointer >> 8, pointer & 0xFF, record))
+                throw new NotSupportedException("Re-relocating an already-relocated row that grew again is not supported yet.");
+            return;
+        }
+
+        // Normal row: rewrite in place if it still fits its page (row id preserved).
+        if (TryRewriteRowInPlace(id.Page, id.Row, record)) return;
+
+        // It no longer fits: relocate the row to another page as a hidden ("deleted") record, and turn this
+        // slot into a 4-byte forward pointer (row id preserved, so index entries stay valid) — Access's own
+        // overflow mechanism, verified against ACE.
+        (int targetPage, int targetRow) = WriteHiddenRow(format, record);
+        var pointerBytes = new byte[4];
+        BinaryPrimitives.WriteInt32LittleEndian(pointerBytes, (targetPage << 8) | targetRow);
+        TryRewriteRowInPlace(id.Page, id.Row, pointerBytes, addFlags: OverflowFlag); // 4 bytes always fits
+    }
+
+    /// <summary>Rewrites the row at (page, slot) in place, repacking the page from the end in slot order so
+    /// every row id is preserved and each slot keeps its flags (plus <paramref name="addFlags"/> on the
+    /// target). Returns false without writing if the row no longer fits the page.</summary>
+    private bool TryRewriteRowInPlace(int pageNumber, int slot, byte[] record, int addFlags = 0)
+    {
+        JetFormatBase format = _channel.Format;
+        byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
         int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
+
         var rows = new byte[rowCount][];
         var rawDir = new int[rowCount];
         int prevEnd = format.PageSize;
@@ -98,21 +129,15 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             int raw = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2));
             rawDir[i] = raw;
             int offset = raw & RowOffsetMask;
-            int length = prevEnd - offset;
+            rows[i] = page.AsSpan(offset, prevEnd - offset).ToArray(); // preserve every row's bytes (deleted/overflow included)
             prevEnd = offset;
-            if ((raw & (DeletedFlag | OverflowFlag)) != 0)
-                throw new NotSupportedException("UPDATE on a page holding deleted/overflow rows is not supported yet.");
-            rows[i] = page.AsSpan(offset, length).ToArray();
         }
-        rows[id.Row] = record;
+        rows[slot] = record;
+        rawDir[slot] |= addFlags;
 
         int total = rows.Sum(r => r.Length);
-        int available = format.PageSize - format.DataRowDirectoryOffset - rowCount * 2;
-        if (total > available)
-            throw new NotSupportedException("UPDATE requiring row relocation (the row no longer fits its page) is not supported yet.");
+        if (total > format.PageSize - format.DataRowDirectoryOffset - rowCount * 2) return false;
 
-        // Repack densely from the page end in slot order (preserving each slot's flags), so slot indices —
-        // and thus row ids — stay put while the changed row's new size is absorbed.
         int off = format.PageSize;
         for (int i = 0; i < rowCount; i++)
         {
@@ -123,7 +148,39 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         }
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
             (ushort)(off - format.DataRowDirectoryOffset - rowCount * 2));
-        _channel.WritePage(id.Page, page);
+        _channel.WritePage(pageNumber, page);
+        return true;
+    }
+
+    /// <summary>Writes a relocated row's bytes onto a page with room, as a hidden slot (Access marks it
+    /// "deleted" so scans skip it there — it's only reached via the forward pointer). Returns its location.</summary>
+    private (int Page, int Row) WriteHiddenRow(JetFormatBase format, byte[] record)
+    {
+        (int pageNumber, byte[] page) = FindPageWithRoom(format, record.Length + 2);
+        int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
+        int freeSpace = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2));
+        int newOffset = LowestRowOffset(page, format, rowCount) - record.Length;
+        record.CopyTo(page.AsSpan(newOffset));
+
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + rowCount * 2, 2),
+            (ushort)((newOffset & RowOffsetMask) | DeletedFlag)); // hidden target
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), (ushort)(rowCount + 1));
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2), (ushort)(freeSpace - record.Length - 2));
+        _channel.WritePage(pageNumber, page);
+        return (pageNumber, rowCount);
+    }
+
+    /// <summary>The raw bytes of slot <paramref name="slot"/> on a data page (walks the packed rows).</summary>
+    private static byte[] SlotBytes(byte[] page, JetFormatBase format, int slot)
+    {
+        int prevEnd = format.PageSize;
+        for (int i = 0; i <= slot; i++)
+        {
+            int offset = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2)) & RowOffsetMask;
+            if (i == slot) return page.AsSpan(offset, prevEnd - offset).ToArray();
+            prevEnd = offset;
+        }
+        throw new ArgumentOutOfRangeException(nameof(slot));
     }
 
     /// <summary>Adds the new row to every index B-tree (deduped by root page, since relationship

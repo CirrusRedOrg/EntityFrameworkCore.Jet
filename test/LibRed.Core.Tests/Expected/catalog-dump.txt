@@ -190,6 +190,18 @@ Database: Standard ACE DB  (Version12_2007, page size 4096)
         --- foreign keys ---
           "FK_Employees_Employees"                     [ReportsTo] -> Employees [EmployeeID]
 
+      EmployeeTerritories
+        tdefPage=154  type=User  rows=49  columns=2  indexes=3
+           0. EmployeeID                 Int32     len=  4 fixed@0
+           1. TerritoryID                Text      len= 40 var#0
+        --- indexes ---
+          PK "PK_EmployeeTerritories"   [EmployeeID, TerritoryID] root=157 uniqueEntries=49
+             "FK_EmployeeTerritories_Employees" [EmployeeID] root=306 uniqueEntries=9
+             "FK_EmployeeTerritories_Territories" [TerritoryID] root=307 uniqueEntries=49
+        --- foreign keys ---
+          "FK_EmployeeTerritories_Employees"           [EmployeeID] -> Employees [EmployeeID]
+          "FK_EmployeeTerritories_Territories"         [TerritoryID] -> Territories [TerritoryID]
+
 [SYS] MSysAccessStorage
         tdefPage=159  type=User  rows=23  columns=7  indexes=3
            0. DateCreate                 DateTime  len=  8 fixed@0

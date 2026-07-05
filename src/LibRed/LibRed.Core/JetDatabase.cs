@@ -118,6 +118,11 @@ public sealed class JetDatabase : IDisposable
     public bool DropConstraint(string childTable, string name) =>
         new Storage.TableCreator(_channel, Catalog).DropConstraint(childTable, name);
 
+    /// <summary>Drops a column — ALTER TABLE … DROP COLUMN. A metadata-only TDEF edit (survivors and rows are
+    /// untouched). Returns false if the column doesn't exist; throws for an indexed/keyed or memo/OLE column.</summary>
+    public bool DropColumn(string table, string column) =>
+        new Storage.TableCreator(_channel, Catalog).DropColumn(table, column);
+
     /// <summary>Creates a view (a stored SELECT query) — the CREATE VIEW statement. Written the way Access
     /// does: an MSysObjects type-5 row plus the query decomposed into MSysQueries rows.</summary>
     public void CreateView(string name, ViewSpec spec)

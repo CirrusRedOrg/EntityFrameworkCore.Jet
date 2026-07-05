@@ -316,6 +316,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // DROP CONSTRAINT name: drop a foreign key (relationship) by name. LibRed enforces FKs from
         // MSysRelationships, so removing those rows disables it.
         DropConstraintAction drop => DropConstraint(statement.Table, drop.Name),
+        // DROP COLUMN: a metadata-only TDEF edit (remove the descriptor + name, decrement ColumnCount).
+        DropColumnAction dropCol => DropColumn(statement.Table, dropCol.Field),
         // The remaining actions land in their own follow-up steps.
         _ => throw new NotSupportedException(
             $"ALTER TABLE {statement.Action.GetType().Name} is parsed but not executed yet."),
@@ -327,6 +329,13 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             throw new NotSupportedException(
                 $"ALTER TABLE '{table}' DROP CONSTRAINT '{name}': only foreign-key constraints can be dropped yet " +
                 "(no matching relationship found — dropping a primary-key/unique index is not implemented).");
+        return 0;
+    }
+
+    private int DropColumn(string table, string column)
+    {
+        if (!_database.DropColumn(table, column))
+            throw new InvalidOperationException($"ALTER TABLE '{table}' DROP COLUMN '{column}': no such column.");
         return 0;
     }
 

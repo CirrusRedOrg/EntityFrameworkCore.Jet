@@ -576,6 +576,69 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         return true;
     }
 
+    /// <summary>
+    /// Drops a column byte-faithfully with ACE (probed): a **metadata-only TDEF edit** — removes the
+    /// column's 25-byte descriptor and its name, and decrements the live <c>ColumnCount</c> (0x2D). It does
+    /// **not** renumber the surviving columns, recompute their fixed offsets/variable indexes, decrement the
+    /// <c>VariableColumnCount</c> (0x2B stays a high-water mark), or rewrite existing rows — survivors keep
+    /// their stored variable index (§3.4) so old rows still decode (the dropped column's data becomes dead
+    /// bytes). Returns false if the column doesn't exist. Throws for a column that backs an index/key (drop
+    /// that first) or a memo/OLE column (its long-value usage-map entry/pages aren't handled yet), and for a
+    /// multi-page TDEF.
+    /// </summary>
+    public bool DropColumn(string tableName, string columnName)
+    {
+        TableDef table = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
+        ColumnDef? col = table.Columns.FirstOrDefault(c => string.Equals(c.Name, columnName, StringComparison.OrdinalIgnoreCase));
+        if (col is null) return false;
+
+        if (table.Indexes.Any(ix => ix.Columns.Any(c => c.Column.ColumnId == col.ColumnId)))
+            throw new NotSupportedException(
+                $"DROP COLUMN '{columnName}': the column backs an index or key — drop the index/constraint first (not supported yet).");
+        if (col.Type is JetDataType.Memo or JetDataType.Ole)
+            throw new NotSupportedException(
+                $"DROP COLUMN '{columnName}': dropping a memo/OLE (long-value) column is not supported yet.");
+
+        TdefParts parts = ParseTdef(table.DefinitionPage); // throws on a multi-page TDEF
+        RemoveColumnFromParts(parts, table.Columns.Count, col.Index, _channel.Format);
+        WriteTdef(table.DefinitionPage, parts);
+        _catalog.Invalidate();
+        return true;
+    }
+
+    /// <summary>Removes the descriptor + name of the column at <paramref name="removeIndex"/> from the
+    /// column region and decrements the header's live ColumnCount (0x2D). VariableColumnCount (0x2B) is
+    /// deliberately left unchanged — ACE keeps it as a high-water mark (verified).</summary>
+    private static void RemoveColumnFromParts(TdefParts parts, int colCount, int removeIndex, JetFormatBase format)
+    {
+        int descSize = format.ColumnDescriptorSize;
+        ReadOnlySpan<byte> cols = parts.Columns;
+
+        var descriptors = new List<byte[]>(colCount);
+        for (int i = 0; i < colCount; i++)
+            descriptors.Add(cols.Slice(i * descSize, descSize).ToArray());
+
+        int np = colCount * descSize;
+        var names = new List<byte[]>(colCount);
+        for (int i = 0; i < colCount; i++)
+        {
+            int len = BinaryPrimitives.ReadUInt16LittleEndian(cols.Slice(np, 2));
+            names.Add(cols.Slice(np, 2 + len).ToArray());
+            np += 2 + len;
+        }
+
+        descriptors.RemoveAt(removeIndex);
+        names.RemoveAt(removeIndex);
+
+        var blob = new List<byte>(parts.Columns.Length);
+        foreach (byte[] d in descriptors) blob.AddRange(d);
+        foreach (byte[] n in names) blob.AddRange(n);
+        parts.Columns = [.. blob];
+
+        BinaryPrimitives.WriteUInt16LittleEndian(parts.Header.AsSpan(format.TdefColumnCountOffset, 2), (ushort)(colCount - 1));
+    }
+
     /// <summary>True if <paramref name="info"/> is the incoming relationship block that cross-links to the
     /// child's outgoing block number on the child's TDEF page (info block layout: +0x0C fk_type,
     /// +0x0D child block number, +0x11 child page).</summary>

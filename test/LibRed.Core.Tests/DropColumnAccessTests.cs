@@ -1,5 +1,6 @@
 using System.Data.OleDb;
 using LibRed;
+using LibRed.Catalog;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -58,6 +59,41 @@ public class DropColumnAccessTests
             Ace(path, "ALTER TABLE T DROP COLUMN C"); // fixed column
             Assert.Equal(["A", "D"], ColsOfT(path));
             Assert.Equal([["1", "dee"], ["2", "doo"]], ReadT(path));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void Access_reads_a_libred_dropped_column_table()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"dropcol-lr-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("T2",
+                [
+                    new("A", JetDataType.Int32, 4, IsFixedLength: true),
+                    new("B", JetDataType.Text, 40, IsFixedLength: false),
+                    new("C", JetDataType.Int32, 4, IsFixedLength: true),
+                    new("D", JetDataType.Text, 40, IsFixedLength: false),
+                ]);
+                db.OpenTable("T2").Insert([1, "bee", 10, "dee"]);
+                db.OpenTable("T2").Insert([2, "buzz", 20, "doo"]);
+
+                Assert.True(db.DropColumn("T2", "B")); // variable column in the middle
+                Assert.True(db.DropColumn("T2", "C")); // fixed column
+            }
+
+            // ACE opens the LibRed-edited file without repair and reads the surviving columns correctly.
+            using var conn = OpenOleDb(path);
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT A, D FROM T2 ORDER BY A";
+            using var reader = cmd.ExecuteReader();
+            Assert.True(reader.Read()); Assert.Equal(1, reader.GetInt32(0)); Assert.Equal("dee", reader.GetString(1));
+            Assert.True(reader.Read()); Assert.Equal(2, reader.GetInt32(0)); Assert.Equal("doo", reader.GetString(1));
+            Assert.False(reader.Read());
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }

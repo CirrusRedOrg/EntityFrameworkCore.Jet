@@ -18,6 +18,13 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
     private const int AppendFlags = 0x10000040;       // an INSERT (append) query
     private const int DataDefinitionFlags = 0x10000060; // a CREATE/DROP TABLE (data-definition) query
     private static readonly byte[] DefaultOwner = [0x69, 0x0C];
+    private static readonly byte[] AdminSid = [0x68, 0x0C];
+
+    // MSysACEs permission rows a QUERY/VIEW object gets — distinct from a table's (owner and admin both get
+    // full 0xFFEFF on a table). Verified against every Northwind view: owner (0x690C) = 0xF00FE, admin/users
+    // (0x680C) = 0xFFEFF. Without these, Access opens the file but warns about permissions on the query.
+    private const int QueryOwnerAcm = 0xF00FE;  // 983294
+    private const int QueryAdminAcm = 0xFFEFF;  // 1048319
 
     // MSysQueries attribute codes (Jackcess "query rows"), verified against ACE.
     private const byte AttrType = 0x00;    // Flag = 1 for a SELECT query
@@ -76,7 +83,29 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         }
 
         AddObjectRow(msysObjects, name, nextId, flags);
+        AddPermissionRows(nextId);
         return nextId;
+    }
+
+    /// <summary>
+    /// Adds the two MSysACEs permission rows Access writes for a new query/view object — owner (0x690C) at
+    /// ACM 0xF00FE and admin/users (0x680C) at ACM 0xFFEFF — maintaining the ObjectId index so Access's
+    /// security check finds them. Without these Access warns about permissions when opening the query.
+    /// </summary>
+    private void AddPermissionRows(int objectId)
+    {
+        TableDef msysAces = _catalog.FindTable("MSysACEs")
+            ?? throw new InvalidOperationException("MSysACEs catalog table was not found.");
+
+        foreach ((byte[] sid, int acm) in new[] { (DefaultOwner, QueryOwnerAcm), (AdminSid, QueryAdminAcm) })
+        {
+            var values = new object?[msysAces.Columns.Count];
+            SetByName(msysAces, values, "ACM", acm);
+            SetByName(msysAces, values, "FInheritable", false);
+            SetByName(msysAces, values, "ObjectId", objectId);
+            SetByName(msysAces, values, "SID", sid);
+            new RowInserter(_channel, msysAces).Insert(values, updateIndexes: true);
+        }
     }
 
     private void AddObjectRow(TableDef msysObjects, string name, int objectId, int flags)

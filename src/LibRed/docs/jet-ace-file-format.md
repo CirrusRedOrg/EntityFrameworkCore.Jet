@@ -833,6 +833,21 @@ The split mechanics:
   an OLE long-value blob ("MR2"-prefixed) holding the object's **extended properties** — including
   column-level properties such as *Required* (see §3.4) and *DefaultValue*.
 
+  > **Permission rows (`MSysACEs`) — one per object, verified against Northwind.** Every new object needs
+  > `MSysACEs` rows or Access warns about permissions when opening it (a **table** still opens; a **query**
+  > opens but pops a permissions warning). Each row sets `ObjectId` = the object id, `SID` = a 2-byte binary
+  > security id, `ACM` = an access mask, `FInheritable` = false, and the object's `ObjectId` index must be
+  > maintained so Access's security check finds them. Access writes **two** rows per object, and the mask
+  > **differs by object type**:
+  > - **Table:** owner (`0x690C`) and admin/users (`0x680C`) both get full access `ACM = 0xFFEFF` (1048319).
+  > - **Query/view:** owner (`0x690C`) gets `ACM = 0xF00FE` (983294, a query-specific mask), admin/users
+  >   (`0x680C`) gets full `0xFFEFF`.
+  >
+  > LibRed writes both rows for tables (`TableCreator.AddPermissionRows`) and for queries/views
+  > (`ViewCreator.AddPermissionRows`). (System-table `MSysACEs` rows in an existing file carry restricted
+  > masks like `0x60000`/`0x14` and a long per-database owner SID; those are the pre-existing catalog's, not
+  > what a writer emits for a new user object.)
+
   > **Property blob (`LvProp`) format — verified byte-for-byte against ACE.** A 4-byte signature
   > (`MR2\0` on ACE, `KKD\0` on older MDB) then blocks, each `[int length][short type][body]` with the
   > length covering the whole block. Type `0x80` is the **property-name pool** (`[short len][UTF-16

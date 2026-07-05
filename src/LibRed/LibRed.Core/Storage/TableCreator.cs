@@ -577,6 +577,50 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     }
 
     /// <summary>
+    /// Drops a secondary/unique/primary index — <c>DROP INDEX index ON table</c>. Byte-faithful with ACE
+    /// (probed): remove the index's 12-byte stats block, 52-byte index-data block, and its 28-byte logical
+    /// info block + name from the TDEF (decrementing counts and the data-ordinal ref of any block past it),
+    /// and free its B-tree root page back to the global free map — the same index-removal path as DROP
+    /// CONSTRAINT, minus the relationship linkage. A secondary index lives only in the TDEF (no MSys row).
+    /// Returns false if no such index exists. Throws if the index backs a relationship (ACE rejects that —
+    /// drop the relationship first) or the TDEF is multi-page. (PK and unique indexes ARE droppable.)
+    /// </summary>
+    public bool DropIndex(string tableName, string indexName)
+    {
+        TableDef table = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
+        IndexDef? index = table.Indexes.FirstOrDefault(i => string.Equals(i.Name, indexName, StringComparison.OrdinalIgnoreCase));
+        if (index is null) return false;
+
+        if (IndexParticipatesInRelationship(table, index))
+            throw new InvalidOperationException(
+                $"Cannot drop index '{indexName}': it is used in a relationship — drop the relationship first.");
+
+        TdefParts parts = ParseTdef(table.DefinitionPage); // throws on a multi-page TDEF
+        RemoveTdefBlocks(parts, removeDataOrdinal: index.RealIndexOrdinal,
+            removeLogical: b => NameOf(b.Name).Equals(indexName, StringComparison.OrdinalIgnoreCase));
+        WriteTdef(table.DefinitionPage, parts);
+        new PageAllocator(_channel).Free(index.RootPage);
+        _catalog.Invalidate();
+        return true;
+    }
+
+    /// <summary>True if the index backs a relationship — as the child FK backing index (its columns are a
+    /// relationship's child columns on this table) or the referenced parent key (its columns are a
+    /// relationship's referenced columns on this table). ACE rejects dropping such an index.</summary>
+    private bool IndexParticipatesInRelationship(TableDef table, IndexDef index)
+    {
+        var cols = index.Columns.Select(c => c.Column.Name).ToList();
+        bool SameCols(IEnumerable<string> other) =>
+            other.Select(x => x).OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+                 .SequenceEqual(cols.OrderBy(x => x, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
+
+        return _catalog.Relationships.Any(r =>
+            (string.Equals(r.Table, table.Name, StringComparison.OrdinalIgnoreCase) && SameCols(r.Columns.Select(c => c.Column))) ||
+            (string.Equals(r.ReferencedTable, table.Name, StringComparison.OrdinalIgnoreCase) && SameCols(r.Columns.Select(c => c.ReferencedColumn))));
+    }
+
+    /// <summary>
     /// Drops a column byte-faithfully with ACE (probed): a **metadata-only TDEF edit** — removes the
     /// column's 25-byte descriptor and its name, and decrements the live <c>ColumnCount</c> (0x2D). It does
     /// **not** renumber the surviving columns, recompute their fixed offsets/variable indexes, decrement the

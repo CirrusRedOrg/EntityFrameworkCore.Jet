@@ -26,9 +26,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         CreateProcedureStatement createProc => ExecuteCreateProcedure(createProc),
         CreateActionProcedureStatement actionProc => ExecuteCreateActionProcedure(actionProc),
         AlterTableStatement alter => ExecuteAlterTable(alter),
-        // DROP {TABLE|INDEX|VIEW|PROCEDURE}: grammar + AST wired; executors land in follow-up steps.
+        DropIndexStatement dropIndex => DropIndex(dropIndex.Table, dropIndex.Index),
+        // DROP {TABLE|VIEW|PROCEDURE}: grammar + AST wired; executors land in follow-up steps.
         DropTableStatement => throw new NotSupportedException("DROP TABLE is parsed but not executed yet."),
-        DropIndexStatement => throw new NotSupportedException("DROP INDEX is parsed but not executed yet."),
         DropViewStatement => throw new NotSupportedException("DROP VIEW is parsed but not executed yet."),
         DropProcedureStatement => throw new NotSupportedException("DROP PROCEDURE is parsed but not executed yet."),
         InsertStatement insert => ExecuteInsert(insert),
@@ -341,6 +341,13 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         if (!_database.DropColumn(table, column))
             throw new InvalidOperationException($"ALTER TABLE '{table}' DROP COLUMN '{column}': no such column.");
+        return 0;
+    }
+
+    private int DropIndex(string table, string index)
+    {
+        if (!_database.DropIndex(table, index))
+            throw new InvalidOperationException($"DROP INDEX '{index}' ON '{table}': no such index.");
         return 0;
     }
 

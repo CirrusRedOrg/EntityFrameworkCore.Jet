@@ -27,6 +27,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         CreateActionProcedureStatement actionProc => ExecuteCreateActionProcedure(actionProc),
         AlterTableStatement alter => ExecuteAlterTable(alter),
         InsertStatement insert => ExecuteInsert(insert),
+        UpdateStatement update => ExecuteUpdate(update),
         _ => throw new NotSupportedException($"{statement.GetType().Name} cannot be executed as a non-query."),
     };
 
@@ -307,6 +308,67 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             if (autoNumber is not null)
                 _session.LastIdentity = lastIdentity;
         }
+        return affected;
+    }
+
+    /// <summary>
+    /// Executes UPDATE table SET col = expr, … [WHERE criteria]. The WHERE is an ordinary expression (the
+    /// same as a SELECT's), evaluated per row; each SET expression may reference the row's current values.
+    /// Matching rows are rewritten in place (row id preserved). Publishes @@ROWCOUNT = rows matched. Not yet
+    /// supported (throws): changing an indexed column (needs index-entry maintenance) and a row that grows
+    /// past its page (needs relocation).
+    /// </summary>
+    private int ExecuteUpdate(UpdateStatement statement)
+    {
+        Table table = _database.OpenTable(statement.Table);
+        var columns = table.Definition.Columns;
+
+        var targets = statement.Assignments
+            .Select(a => (Column: table.Definition.FindColumn(a.Column)
+                ?? throw new InvalidOperationException($"Column '{a.Column}' does not exist in '{statement.Table}'."),
+                a.Value))
+            .ToList();
+
+        var indexedColumnIds = table.Definition.Indexes
+            .SelectMany(i => i.Columns.Select(c => c.Column.Index)).ToHashSet();
+        var outputColumns = columns.Select(c => new OutputColumn(statement.Table, c.Name)).ToList();
+
+        ExpressionEvaluator RowEvaluator(object?[] row) =>
+            new(new EvalScope(outputColumns, row, null), _scalarRunner, _parameters, _session);
+
+        // Snapshot the matching rows first — don't mutate the table while its cursor is open.
+        var matches = new List<(RowId Id, object?[] Values)>();
+        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
+            if (statement.Where is null || RowEvaluator(values).Evaluate(statement.Where) is true)
+                matches.Add((id, values));
+
+        int affected = 0;
+        foreach ((RowId id, object?[] oldValues) in matches)
+        {
+            var newValues = (object?[])oldValues.Clone();
+            var changed = new HashSet<int>();
+            ExpressionEvaluator eval = RowEvaluator(oldValues);
+            foreach ((ColumnDef column, Expression expr) in targets)
+            {
+                object? value = eval.Evaluate(expr);
+                if (!Equals(value, oldValues[column.Index]))
+                {
+                    newValues[column.Index] = value;
+                    changed.Add(column.Index);
+                }
+            }
+
+            if (changed.Count > 0)
+            {
+                if (changed.Overlaps(indexedColumnIds))
+                    throw new NotSupportedException(
+                        $"UPDATE that changes an indexed column on '{statement.Table}' is not supported yet.");
+                table.Update(id, newValues);
+            }
+            affected++; // @@ROWCOUNT counts matched rows, changed or not
+        }
+
+        if (_session is not null) _session.RowCount = affected;
         return affected;
     }
 }

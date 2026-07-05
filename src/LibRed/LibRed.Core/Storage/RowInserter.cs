@@ -72,6 +72,60 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             UpdateIndexes(values, new RowId(pageNumber, rowCount));
     }
 
+    /// <summary>
+    /// Rewrites an existing row in place at its slot (page + row index preserved, matching Access, so
+    /// index rowid pointers stay valid). Any changed memo/OLE value is re-materialized onto LVAL pages;
+    /// the page is repacked to absorb a size change (slot order = physical order, as Access keeps it).
+    /// Throws if the row no longer fits its page (relocation not implemented yet); index-key maintenance for
+    /// a changed indexed column is the caller's responsibility. Does not touch the old LVAL pages (freeing
+    /// them is a follow-up).
+    /// </summary>
+    public void Update(RowId id, object?[] values)
+    {
+        JetFormatBase format = _channel.Format;
+        MaterializeLongValues(values);
+
+        byte[] page = _channel.ReadPage(id.Page).Span.ToArray();
+        var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(page, format));
+        byte[] record = encoder.Encode(values);
+
+        int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
+        var rows = new byte[rowCount][];
+        var rawDir = new int[rowCount];
+        int prevEnd = format.PageSize;
+        for (int i = 0; i < rowCount; i++)
+        {
+            int raw = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2));
+            rawDir[i] = raw;
+            int offset = raw & RowOffsetMask;
+            int length = prevEnd - offset;
+            prevEnd = offset;
+            if ((raw & (DeletedFlag | OverflowFlag)) != 0)
+                throw new NotSupportedException("UPDATE on a page holding deleted/overflow rows is not supported yet.");
+            rows[i] = page.AsSpan(offset, length).ToArray();
+        }
+        rows[id.Row] = record;
+
+        int total = rows.Sum(r => r.Length);
+        int available = format.PageSize - format.DataRowDirectoryOffset - rowCount * 2;
+        if (total > available)
+            throw new NotSupportedException("UPDATE requiring row relocation (the row no longer fits its page) is not supported yet.");
+
+        // Repack densely from the page end in slot order (preserving each slot's flags), so slot indices —
+        // and thus row ids — stay put while the changed row's new size is absorbed.
+        int off = format.PageSize;
+        for (int i = 0; i < rowCount; i++)
+        {
+            off -= rows[i].Length;
+            rows[i].CopyTo(page.AsSpan(off));
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2),
+                (ushort)((rawDir[i] & ~RowOffsetMask) | (off & RowOffsetMask)));
+        }
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
+            (ushort)(off - format.DataRowDirectoryOffset - rowCount * 2));
+        _channel.WritePage(id.Page, page);
+    }
+
     /// <summary>Adds the new row to every index B-tree (deduped by root page, since relationship
     /// indexes share a real index's data) so indexed lookups — and Access — find it.</summary>
     private void UpdateIndexes(object?[] values, RowId rowId)

@@ -27,4 +27,7 @@ public sealed class Table
 
     /// <summary>Inserts a row (values aligned to column <see cref="ColumnDef.Index"/>) into the table.</summary>
     public void Insert(object?[] values) => new RowInserter(Channel, Definition).Insert(values);
+
+    /// <summary>Rewrites the row at <paramref name="id"/> in place with new values (row id preserved).</summary>
+    public void Update(RowId id, object?[] values) => new RowInserter(Channel, Definition).Update(id, values);
 }

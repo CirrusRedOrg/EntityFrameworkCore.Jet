@@ -11,7 +11,12 @@
 grammar AccessSql;
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
-statement : parametersClause? (createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | insertStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
+statement : parametersClause? (createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | insertStatement | updateStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
+
+// UPDATE table SET col = expr, … [WHERE criteria]. The WHERE criteria is an ordinary expression, the same
+// as a SELECT's; each SET value expression may reference the row's current column values.
+updateStatement : UPDATE table=identifier SET assignment (COMMA assignment)* whereClause? ;
+assignment : col=identifier EQ expression ;
 
 // A FROM-less SELECT of system variables only — ACE allows `SELECT @@IDENTITY` / `SELECT @@ROWCOUNT`
 // (and a comma list of them) with no FROM clause. Listed before queryExpression so it is preferred; a

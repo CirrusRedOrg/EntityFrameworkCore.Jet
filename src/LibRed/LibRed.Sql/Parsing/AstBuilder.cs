@@ -35,8 +35,18 @@ internal sealed class AstBuilder
         if (ctx.createProcedureStatement() is { } createProc) return BuildCreateProcedure(createProc);
         if (ctx.alterTableStatement() is { } alter) return BuildAlterTable(alter);
         if (ctx.insertStatement() is { } insert) return BuildInsert(insert);
+        if (ctx.updateStatement() is { } update) return BuildUpdate(update);
         if (ctx.systemVariableSelect() is { } sysSelect) return BuildSystemVariableSelect(sysSelect);
         return BuildQueryExpression(ctx.queryExpression());
+    }
+
+    private static UpdateStatement BuildUpdate(UpdateStatementContext ctx)
+    {
+        var assignments = ctx.assignment()
+            .Select(a => new Assignment(Identifier(a.col), BuildExpression(a.expression())))
+            .ToList();
+        Expression? where = ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null;
+        return new UpdateStatement(Identifier(ctx.table), assignments, where);
     }
 
     private static SystemVariableSelectStatement BuildSystemVariableSelect(SystemVariableSelectContext ctx)

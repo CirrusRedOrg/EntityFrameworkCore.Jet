@@ -21,4 +21,7 @@ public sealed record ForeignKey(
     bool IsEnforced,
     bool CascadeUpdate,
     bool CascadeDelete,
-    bool DeleteSetNull = false);
+    bool DeleteSetNull = false,
+    /// <summary>ON UPDATE SET NULL — pathway only; not read back yet (its storage is unverified — the ACE
+    /// OLE DB provider rejects the DDL, so the grbit/info-block bytes couldn't be probed).</summary>
+    bool UpdateSetNull = false);

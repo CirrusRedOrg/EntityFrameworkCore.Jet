@@ -128,6 +128,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             }
 
             RelationshipSpec fk = plan.Fk;
+            if (fk.UpdateSetNull) throw UpdateSetNullNotImplemented();
             byte upd = fk.CascadeUpdate ? CascadeAction : NoCascadeAction;
             byte del = fk.CascadeDelete ? CascadeAction : fk.DeleteSetNull ? SetNullAction : NoCascadeAction;
             byte outgoingType = fk.NoIndex ? FkTypeOutgoingNoIndex : FkTypeOutgoing;
@@ -204,6 +205,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     private const byte NoCascadeAction = 0x00;    // relationship without ON UPDATE/DELETE CASCADE
     private const byte CascadeAction = 0x01;       // relationship with cascade
     private const byte SetNullAction = 0x02;       // ON DELETE SET NULL (verified vs ACE, index-info block +0x16)
+
+    /// <summary>ON UPDATE SET NULL pathway: the docs list it, but the ACE OLE DB provider rejects it via SQL,
+    /// so its on-disk storage (the grbit flag + the index-info +0x15 action byte) is unverified. Rather than
+    /// guess the bytes, fail loudly until a UI/DAO-created sample can be probed.</summary>
+    private static NotImplementedException UpdateSetNullNotImplemented() => new(
+        "ON UPDATE SET NULL is not implemented: its Jet storage bytes are unverified (the ACE OLE DB provider " +
+        "rejects the DDL, so they could not be probed). Only ON UPDATE {NO ACTION | CASCADE} are supported.");
     private const byte IndexTypeSecondary = 0x00;
     private const byte IndexTypePrimary = 0x01;
     private const byte IndexTypeForeign = 0x02;
@@ -484,6 +492,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             ?? throw new InvalidOperationException($"Table '{childTable}' was not found.");
         if (fk.NoIndex)
             throw new NotSupportedException("ALTER TABLE ADD FOREIGN KEY … NO INDEX is not supported yet.");
+        if (fk.UpdateSetNull) throw UpdateSetNullNotImplemented();
 
         byte upd = fk.CascadeUpdate ? CascadeAction : NoCascadeAction;
         byte del = fk.CascadeDelete ? CascadeAction : fk.DeleteSetNull ? SetNullAction : NoCascadeAction;

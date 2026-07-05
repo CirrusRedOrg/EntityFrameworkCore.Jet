@@ -45,7 +45,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             CascadeUpdate: fk.OnUpdate == ReferentialAction.Cascade,
             CascadeDelete: fk.OnDelete == ReferentialAction.Cascade,
             NoIndex: fk.NoIndex,
-            DeleteSetNull: fk.OnDelete == ReferentialAction.SetNull)).ToList();
+            DeleteSetNull: fk.OnDelete == ReferentialAction.SetNull,
+            UpdateSetNull: fk.OnUpdate == ReferentialAction.SetNull)).ToList();
 
         var uniques = statement.UniqueConstraints.Select((u, i) => new UniqueIndexSpec(
             Name: u.Name ?? $"UQ_{statement.Table}_{i}",
@@ -332,7 +333,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             CascadeUpdate: fk.OnUpdate == ReferentialAction.Cascade,
             CascadeDelete: fk.OnDelete == ReferentialAction.Cascade,
             NoIndex: fk.NoIndex,
-            DeleteSetNull: fk.OnDelete == ReferentialAction.SetNull));
+            DeleteSetNull: fk.OnDelete == ReferentialAction.SetNull,
+            UpdateSetNull: fk.OnUpdate == ReferentialAction.SetNull));
         return 0;
     }
 

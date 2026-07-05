@@ -96,6 +96,24 @@ public class ReferentialActionTests
         });
     }
 
+    // ON UPDATE SET NULL is a pathway only — its Jet storage bytes are unverified (ACE's OLE DB provider
+    // rejects the DDL), so creating one throws NotImplemented rather than guessing the bytes.
+    [Fact]
+    public void On_update_set_null_throws_not_implemented()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE P (Id long PRIMARY KEY)");
+            var ex = Assert.Throws<NotImplementedException>(() => e.ExecuteNonQuery(
+                "CREATE TABLE C (Id long PRIMARY KEY, ParentId long, CONSTRAINT FK_C FOREIGN KEY (ParentId) REFERENCES P (Id) ON UPDATE SET NULL ON DELETE SET NULL)"));
+            Assert.Contains("ON UPDATE SET NULL", ex.Message);
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     [Fact]
     public void Set_null_action_persists_and_reads_back()
     {

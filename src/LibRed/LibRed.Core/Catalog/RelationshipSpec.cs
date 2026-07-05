@@ -14,7 +14,12 @@ public sealed record RelationshipSpec(
     bool CascadeUpdate,
     bool CascadeDelete,
     bool NoIndex = false,
-    bool DeleteSetNull = false);
+    bool DeleteSetNull = false,
+    // ON UPDATE SET NULL: the docs list it, but the ACE OLE DB provider rejects it via SQL DDL ("Invalid
+    // argument"), so its on-disk storage (grbit flag + info-block +0x15 byte) couldn't be probed. The
+    // pathway is threaded through; TableCreator throws NotImplemented rather than guess the bytes. See the
+    // libred-foreign-key-status memory / spec §11.
+    bool UpdateSetNull = false);
 
 /// <summary>A UNIQUE constraint to create as a unique (non-primary) index over the named columns.</summary>
 public sealed record UniqueIndexSpec(string Name, IReadOnlyList<string> Columns);

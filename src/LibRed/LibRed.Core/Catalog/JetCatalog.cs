@@ -30,6 +30,7 @@ public sealed class JetCatalog(PageChannel channel)
     private const int RelationshipDontEnforce = 0x00000002;
     private const int RelationshipUpdateCascade = 0x00000100;
     private const int RelationshipDeleteCascade = 0x00001000;
+    private const int RelationshipDeleteSetNull = 0x00002000; // Jet ON DELETE SET NULL (verified vs ACE)
 
     /// <summary>MSysObjects.Type value for a view/query object.</summary>
     private const short ObjectTypeQuery = 5;
@@ -165,7 +166,8 @@ public sealed class JetCatalog(PageChannel channel)
                 kvp.Value.Columns.OrderBy(x => x.Order).Select(x => (x.Column, x.ReferencedColumn)).ToList(),
                 (kvp.Value.Flags & RelationshipDontEnforce) == 0,
                 (kvp.Value.Flags & RelationshipUpdateCascade) != 0,
-                (kvp.Value.Flags & RelationshipDeleteCascade) != 0))
+                (kvp.Value.Flags & RelationshipDeleteCascade) != 0,
+                (kvp.Value.Flags & RelationshipDeleteSetNull) != 0))
             .ToList();
     }
 

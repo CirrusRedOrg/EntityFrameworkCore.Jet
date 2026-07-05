@@ -44,7 +44,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             IsEnforced: true,
             CascadeUpdate: fk.OnUpdate == ReferentialAction.Cascade,
             CascadeDelete: fk.OnDelete == ReferentialAction.Cascade,
-            NoIndex: fk.NoIndex)).ToList();
+            NoIndex: fk.NoIndex,
+            DeleteSetNull: fk.OnDelete == ReferentialAction.SetNull)).ToList();
 
         var uniques = statement.UniqueConstraints.Select((u, i) => new UniqueIndexSpec(
             Name: u.Name ?? $"UQ_{statement.Table}_{i}",
@@ -138,6 +139,121 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         return false;
     }
 
+    /// <summary>The enforced relationships for which <paramref name="parentTable"/> is the referenced
+    /// (parent) side — i.e. those whose child rows a delete/key-update of a parent row must handle.</summary>
+    private IEnumerable<ForeignKey> ChildRelationshipsOf(string parentTable) =>
+        _database.Catalog.Relationships.Where(r =>
+            r.IsEnforced && string.Equals(r.ReferencedTable, parentTable, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>The referenced-column values from a parent row (the key children point at).</summary>
+    private object?[] ReferencedKey(ForeignKey fk, object?[] parentValues)
+    {
+        Table parent = _database.OpenTable(fk.ReferencedTable);
+        return fk.Columns.Select(c => parentValues[parent.Definition.FindColumn(c.ReferencedColumn)!.Index]).ToArray();
+    }
+
+    /// <summary>Child rows whose FK columns equal <paramref name="key"/> (a null FK column never matches).</summary>
+    private List<(RowId Id, object?[] Values)> FindChildRows(ForeignKey fk, object?[] key)
+    {
+        Table child = _database.OpenTable(fk.Table);
+        int[] childCols = fk.Columns.Select(c => child.Definition.FindColumn(c.Column)!.Index).ToArray();
+        var result = new List<(RowId, object?[])>();
+        foreach ((RowId id, object?[] values) in child.Rows().WithIds())
+        {
+            bool match = true;
+            for (int i = 0; i < childCols.Length; i++)
+                if (values[childCols[i]] is null || ExpressionEvaluator.CompareForSort(values[childCols[i]], key[i]) != 0)
+                { match = false; break; }
+            if (match) result.Add((id, values));
+        }
+        return result;
+    }
+
+    /// <summary>Applies each enforced relationship's ON DELETE action to a parent row being deleted: CASCADE
+    /// deletes the children (recursively), SET NULL nulls their FK columns, and NO ACTION rejects the delete
+    /// if any child exists (matching Access's "record cannot be deleted… includes related records").</summary>
+    private void CascadeParentDelete(string parentTable, object?[] parentValues)
+    {
+        foreach (ForeignKey fk in ChildRelationshipsOf(parentTable))
+        {
+            object?[] key = ReferencedKey(fk, parentValues);
+            if (key.Any(k => k is null)) continue; // a null parent key is referenced by nobody
+            var children = FindChildRows(fk, key);
+            if (children.Count == 0) continue;
+
+            if (fk.CascadeDelete)
+            {
+                Table child = _database.OpenTable(fk.Table);
+                foreach (var (cid, cvals) in children) DeleteRowCascading(child, cid, cvals);
+            }
+            else if (fk.DeleteSetNull)
+                foreach (var (cid, cvals) in children) SetChildKey(fk, cid, cvals, newKey: null);
+            else
+                throw new InvalidOperationException(
+                    $"The record cannot be deleted or changed because table '{fk.Table}' includes related records.");
+        }
+    }
+
+    /// <summary>Deletes a row after handling its children (cascade/set-null/reject), removing its index
+    /// entries and soft-deleting it. Recurses for a cascade chain.</summary>
+    private void DeleteRowCascading(Table table, RowId id, object?[] values)
+    {
+        CascadeParentDelete(table.Name, values);
+        foreach (IndexDef index in table.Definition.Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()))
+            table.RemoveIndexEntry(index, values, id);
+        table.Delete(id);
+    }
+
+    /// <summary>Applies each enforced relationship's ON UPDATE action when a parent row's referenced key
+    /// changes: CASCADE rewrites the children's FK to the new key; NO ACTION rejects if any child exists.
+    /// (Jet has no ON UPDATE SET NULL.)</summary>
+    private void CascadeParentKeyUpdate(string parentTable, object?[] oldValues, object?[] newValues)
+    {
+        foreach (ForeignKey fk in ChildRelationshipsOf(parentTable))
+        {
+            object?[] oldKey = ReferencedKey(fk, oldValues);
+            object?[] newKey = ReferencedKey(fk, newValues);
+            if (oldKey.Any(k => k is null) || KeyEquals(oldKey, newKey)) continue;
+            var children = FindChildRows(fk, oldKey);
+            if (children.Count == 0) continue;
+
+            if (fk.CascadeUpdate)
+                foreach (var (cid, cvals) in children) SetChildKey(fk, cid, cvals, newKey);
+            else
+                throw new InvalidOperationException(
+                    $"The record cannot be deleted or changed because table '{fk.Table}' includes related records.");
+        }
+    }
+
+    private static bool KeyEquals(object?[] a, object?[] b)
+    {
+        for (int i = 0; i < a.Length; i++)
+            if (ExpressionEvaluator.CompareForSort(a[i], b[i]) != 0) return false;
+        return true;
+    }
+
+    /// <summary>Rewrites a child row's FK columns to <paramref name="newKey"/> (or NULL for SET NULL),
+    /// maintaining any index over them.</summary>
+    private void SetChildKey(ForeignKey fk, RowId childId, object?[] childValues, object?[]? newKey)
+    {
+        Table child = _database.OpenTable(fk.Table);
+        var newValues = (object?[])childValues.Clone();
+        var changed = new HashSet<int>();
+        for (int i = 0; i < fk.Columns.Count; i++)
+        {
+            int idx = child.Definition.FindColumn(fk.Columns[i].Column)!.Index;
+            object? nv = newKey?[i];
+            if (!Equals(nv, childValues[idx])) { newValues[idx] = nv; changed.Add(idx); }
+        }
+        if (changed.Count == 0) return;
+
+        child.Update(childId, newValues, changed);
+        foreach (IndexDef index in child.Definition.Indexes
+            .Where(i => i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
+            .GroupBy(i => i.RootPage).Select(g => g.First()))
+            child.MoveIndexEntry(index, childValues, newValues, childId);
+    }
+
     private int ExecuteCreateIndex(CreateIndexStatement statement)
     {
         _database.CreateIndex(
@@ -215,7 +331,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             IsEnforced: true,
             CascadeUpdate: fk.OnUpdate == ReferentialAction.Cascade,
             CascadeDelete: fk.OnDelete == ReferentialAction.Cascade,
-            NoIndex: fk.NoIndex));
+            NoIndex: fk.NoIndex,
+            DeleteSetNull: fk.OnDelete == ReferentialAction.SetNull));
         return 0;
     }
 
@@ -437,6 +554,15 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 if (!Equals(original[i], values[i])) changed.Add(i);
             if (changed.Count == 0) continue; // unchanged after all
 
+            // Child side: a changed FK column must still reference an existing parent (like an insert).
+            if (_database.Catalog.ForeignKeysOf(table.Table.Name).Any(f => f.IsEnforced &&
+                    f.Columns.Any(c => changed.Contains(table.Table.Definition.FindColumn(c.Column)!.Index))))
+                EnforceReferentialIntegrity(table.Table.Name, table.Table, values);
+
+            // Parent side: a changed referenced-key column triggers each relationship's ON UPDATE action
+            // (CASCADE rewrites children, NO ACTION rejects if children exist).
+            CascadeParentKeyUpdate(table.Table.Name, original, values);
+
             table.Table.Update(id, values, changed);
             foreach (IndexDef index in table.Table.Definition.Indexes
                 .Where(i => i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
@@ -463,19 +589,15 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         int ti = TargetIndex(tables, statement.TargetTable, "DELETE target");
         SourceTable target = tables[ti];
-        var indexes = target.Table.Definition.Indexes
-            .Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()).ToList();
 
         var deleted = new Dictionary<RowId, object?[]>();
         foreach (var combo in joinRows)
             deleted.TryAdd(combo[ti].Id, combo[ti].Values); // one delete per distinct target row
 
+        // DeleteRowCascading applies each row's ON DELETE actions (cascade/set-null/reject) to its children,
+        // then removes its index entries and soft-deletes it.
         foreach ((RowId id, object?[] values) in deleted)
-        {
-            foreach (IndexDef index in indexes)
-                target.Table.RemoveIndexEntry(index, values, id);
-            target.Table.Delete(id);
-        }
+            DeleteRowCascading(target.Table, id, values);
 
         int affected = deleted.Count;
         if (_session is not null) _session.RowCount = affected;

@@ -129,7 +129,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
 
             RelationshipSpec fk = plan.Fk;
             byte upd = fk.CascadeUpdate ? CascadeAction : NoCascadeAction;
-            byte del = fk.CascadeDelete ? CascadeAction : NoCascadeAction;
+            byte del = fk.CascadeDelete ? CascadeAction : fk.DeleteSetNull ? SetNullAction : NoCascadeAction;
             byte outgoingType = fk.NoIndex ? FkTypeOutgoingNoIndex : FkTypeOutgoing;
 
             // A self-referencing FK: the table is not in the catalog yet (we are creating it), so resolve
@@ -203,6 +203,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     private const byte PlainIndexAction = 0x04;   // update/delete action on a non-relationship index
     private const byte NoCascadeAction = 0x00;    // relationship without ON UPDATE/DELETE CASCADE
     private const byte CascadeAction = 0x01;       // relationship with cascade
+    private const byte SetNullAction = 0x02;       // ON DELETE SET NULL (verified vs ACE, index-info block +0x16)
     private const byte IndexTypeSecondary = 0x00;
     private const byte IndexTypePrimary = 0x01;
     private const byte IndexTypeForeign = 0x02;
@@ -254,6 +255,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
 
     // MSysRelationships.grbit flags (DAO RelationAttributeEnum), mirroring JetCatalog's read side.
     private const int RelationshipDontEnforce = 0x00000002;
+    private const int RelationshipDeleteSetNull = 0x00002000;
     private const int RelationshipUpdateCascade = 0x00000100;
     private const int RelationshipDeleteCascade = 0x00001000;
 
@@ -271,6 +273,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         if (!fk.IsEnforced) grbit |= RelationshipDontEnforce;
         if (fk.CascadeUpdate) grbit |= RelationshipUpdateCascade;
         if (fk.CascadeDelete) grbit |= RelationshipDeleteCascade;
+        if (fk.DeleteSetNull) grbit |= RelationshipDeleteSetNull;
 
         for (int i = 0; i < fk.Columns.Count; i++)
         {
@@ -483,7 +486,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             throw new NotSupportedException("ALTER TABLE ADD FOREIGN KEY … NO INDEX is not supported yet.");
 
         byte upd = fk.CascadeUpdate ? CascadeAction : NoCascadeAction;
-        byte del = fk.CascadeDelete ? CascadeAction : NoCascadeAction;
+        byte del = fk.CascadeDelete ? CascadeAction : fk.DeleteSetNull ? SetNullAction : NoCascadeAction;
         var slots = ResolveSlots(child, fk.Columns.Select(c => (c.Column, Ascending: true)));
 
         // A self-reference (child == parent) hosts both ends in the same TDEF: the outgoing block links to

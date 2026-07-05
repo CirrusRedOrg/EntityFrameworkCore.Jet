@@ -10,6 +10,9 @@ namespace LibRed.Catalog;
 /// <param name="IsEnforced">Whether referential integrity is enforced.</param>
 /// <param name="CascadeUpdate">Whether updates to the parent key cascade.</param>
 /// <param name="CascadeDelete">Whether deletes of the parent row cascade.</param>
+/// <param name="DeleteSetNull">Whether deleting the parent sets the child's FK columns to NULL (Jet's
+/// <c>ON DELETE SET NULL</c>, grbit <c>0x2000</c>; mutually exclusive with cascade delete, and Jet has no
+/// <c>ON UPDATE SET NULL</c>).</param>
 public sealed record ForeignKey(
     string Name,
     string Table,
@@ -17,4 +20,5 @@ public sealed record ForeignKey(
     IReadOnlyList<(string Column, string ReferencedColumn)> Columns,
     bool IsEnforced,
     bool CascadeUpdate,
-    bool CascadeDelete);
+    bool CascadeDelete,
+    bool DeleteSetNull = false);

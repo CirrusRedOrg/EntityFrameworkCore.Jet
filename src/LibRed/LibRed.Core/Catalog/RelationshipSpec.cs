@@ -13,7 +13,8 @@ public sealed record RelationshipSpec(
     bool IsEnforced,
     bool CascadeUpdate,
     bool CascadeDelete,
-    bool NoIndex = false);
+    bool NoIndex = false,
+    bool DeleteSetNull = false);
 
 /// <summary>A UNIQUE constraint to create as a unique (non-primary) index over the named columns.</summary>
 public sealed record UniqueIndexSpec(string Name, IReadOnlyList<string> Columns);

@@ -114,6 +114,9 @@ WHERE `a`.`Id` IN (
 
         AssertSql(
             """
+@p1='3'
+@p='0'
+
 DELETE FROM `Animals` AS `a`
 WHERE `a`.`Id` IN (
     SELECT `a2`.`Id`
@@ -187,7 +190,7 @@ WHERE `a`.`Discriminator` = 'Kiwi'
 
         AssertExecuteUpdateSql(
             """
-@p='0' (Size = 1)
+@p='0'
 
 UPDATE `Animals` AS `a`
 SET `a`.`FoundOn` = @p
@@ -219,7 +222,7 @@ WHERE (
         AssertExecuteUpdateSql(
             """
 @p='Kiwi' (Size = 255)
-@p1='0' (Size = 1)
+@p1='0'
 
 UPDATE `Animals` AS `a`
 SET `a`.`Name` = @p,

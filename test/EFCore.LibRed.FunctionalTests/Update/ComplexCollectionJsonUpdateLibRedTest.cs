@@ -33,7 +33,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='[{"Name":"Second Contact","PhoneNumbers":["555-9876","555-5432"]}]' (Nullable = false) (Size = 66)
+@p0='[{"Name":"Second Contact","PhoneNumbers":["555-9876","555-5432"]}]'
 @p1='1'
 
 UPDATE `Companies` SET `Contacts` = @p0
@@ -48,7 +48,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='[{"Name":"First Contact - Modified","PhoneNumbers":["555-1234","555-5678"]},{"Name":"Second Contact","PhoneNumbers":["555-9876","555-5432"]}]' (Nullable = false) (Size = 141)
+@p0='[{"Name":"First Contact - Modified","PhoneNumbers":["555-1234","555-5678"]},{"Name":"Second Contact","PhoneNumbers":["555-9876","555-5432"]}]'
 @p1='1'
 
 UPDATE `Companies` SET `Contacts` = @p0
@@ -63,7 +63,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='[{"Name":"Second Contact","PhoneNumbers":["555-9876","555-5432"]},{"Name":"First Contact","PhoneNumbers":["555-1234","555-5678"]}]' (Nullable = false) (Size = 130)
+@p0='[{"Name":"Second Contact","PhoneNumbers":["555-9876","555-5432"]},{"Name":"First Contact","PhoneNumbers":["555-1234","555-5678"]}]'
 @p1='1'
 
 UPDATE `Companies` SET `Contacts` = @p0
@@ -117,8 +117,8 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='[{"Name":"Contact 1","PhoneNumbers":["555-1111"]}]' (Nullable = false) (Size = 50)
-@p1='{"Budget":50000.00,"Name":"Department A"}' (Nullable = false) (Size = 41)
+@p0='[{"Name":"Contact 1","PhoneNumbers":["555-1111"]}]'
+@p1='{"Budget":50000.00,"Name":"Department A"}'
 @p2='1'
 
 UPDATE `Companies` SET `Contacts` = @p0, `Department` = @p1
@@ -133,7 +133,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='[]' (Nullable = false) (Size = 2)
+@p0='[]'
 @p1='1'
 
 UPDATE `Companies` SET `Contacts` = @p0
@@ -148,7 +148,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='[{"Name":"Replacement Contact 1","PhoneNumbers":["999-1111"]},{"Name":"Replacement Contact 2","PhoneNumbers":["999-2222","999-3333"]}]' (Nullable = false) (Size = 134)
+@p0='[{"Name":"Replacement Contact 1","PhoneNumbers":["999-1111"]},{"Name":"Replacement Contact 2","PhoneNumbers":["999-2222","999-3333"]}]'
 @p1='1'
 
 UPDATE `Companies` SET `Contacts` = @p0
@@ -178,7 +178,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='[{"Name":"Initial Employee","PhoneNumbers":["555-0001"],"Address":{"City":"Modified City","Country":"USA","PostalCode":"99999","Street":"100 First St"}}]' (Nullable = false) (Size = 153)
+@p0='[{"Name":"Initial Employee","PhoneNumbers":["555-0001"],"Address":{"City":"Modified City","Country":"USA","PostalCode":"99999","Street":"100 First St"}}]'
 @p1='1'
 
 UPDATE `Companies` SET `Employees` = @p0
@@ -193,7 +193,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0=NULL (Nullable = false)
+@p0=NULL
 @p1='1'
 
 UPDATE `Companies` SET `Employees` = @p0
@@ -208,7 +208,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='[{"Name":"New Employee","PhoneNumbers":["555-1111"],"Address":{"City":"New City","Country":"USA","PostalCode":"12345","Street":"123 New St"}}]' (Nullable = false) (Size = 142)
+@p0='[{"Name":"New Employee","PhoneNumbers":["555-1111"],"Address":{"City":"New City","Country":"USA","PostalCode":"12345","Street":"123 New St"}}]'
 @p1='1'
 
 UPDATE `Companies` SET `Employees` = @p0
@@ -223,7 +223,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='[{"Name":"Replacement Employee","PhoneNumbers":["555-7777","555-8888"],"Address":{"City":"Replace City","Country":"Canada","PostalCode":"54321","Street":"789 Replace St"}}]' (Nullable = false) (Size = 172)
+@p0='[{"Name":"Replacement Employee","PhoneNumbers":["555-7777","555-8888"],"Address":{"City":"Replace City","Country":"Canada","PostalCode":"54321","Street":"789 Replace St"}}]'
 @p1='1'
 
 UPDATE `Companies` SET `Employees` = @p0
@@ -253,7 +253,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0=NULL (Nullable = false)
+@p0=NULL
 @p1='1'
 
 UPDATE `Companies` SET `Department` = @p0
@@ -268,7 +268,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='{"Budget":25000.00,"Name":"New Department"}' (Nullable = false) (Size = 43)
+@p0='{"Budget":25000.00,"Name":"New Department"}'
 @p1='1'
 
 UPDATE `Companies` SET `Department` = @p0
@@ -283,7 +283,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='{"Budget":99999.99,"Name":"Replacement Department"}' (Nullable = false) (Size = 51)
+@p0='{"Budget":99999.99,"Name":"Replacement Department"}'
 @p1='1'
 
 UPDATE `Companies` SET `Department` = @p0

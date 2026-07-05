@@ -123,7 +123,7 @@ FROM [RootEntity] AS [r]
 
         AssertExecuteUpdateSql(
             """
-@complex_type_p='{"Id":1000,"Int":80,"Ints":[1,2,3],"Name":"Updated associate name","String":"Updated nested string","NestedCollection":[],"OptionalNestedAssociate":null,"RequiredNestedAssociate":{"Id":1000,"Int":80,"Ints":[1,2,3],"Name":"Updated nested name","String":"Updated nested string"}}' (Size = 277)
+@complex_type_p='{"Id":1000,"Int":80,"Ints":[1,2,3],"Name":"Updated associate name","String":"Updated nested string","NestedCollection":[],"OptionalNestedAssociate":null,"RequiredNestedAssociate":{"Id":1000,"Int":80,"Ints":[1,2,3],"Name":"Updated nested name","String":"Updated nested string"}}'
 
 UPDATE `RootEntity` AS `r`
 SET `r`.`RequiredAssociate` = @complex_type_p
@@ -254,7 +254,7 @@ SET `r`.`OptionalAssociate` = NULL
 
         AssertExecuteUpdateSql(
             """
-@complex_type_p='[{"Id":1000,"Int":80,"Ints":[1,2,4],"Name":"Updated associate name1","String":"Updated associate string1","NestedCollection":[],"OptionalNestedAssociate":null,"RequiredNestedAssociate":{"Id":1000,"Int":80,"Ints":[1,2,4],"Name":"Updated nested name1","String":"Updated nested string1"}},{"Id":1001,"Int":81,"Ints":[1,2,4],"Name":"Updated associate name2","String":"Updated associate string2","NestedCollection":[],"OptionalNestedAssociate":null,"RequiredNestedAssociate":{"Id":1001,"Int":81,"Ints":[1,2,4],"Name":"Updated nested name2","String":"Updated nested string2"}}]' (Size = 571)
+@complex_type_p='[{"Id":1000,"Int":80,"Ints":[1,2,4],"Name":"Updated associate name1","String":"Updated associate string1","NestedCollection":[],"OptionalNestedAssociate":null,"RequiredNestedAssociate":{"Id":1000,"Int":80,"Ints":[1,2,4],"Name":"Updated nested name1","String":"Updated nested string1"}},{"Id":1001,"Int":81,"Ints":[1,2,4],"Name":"Updated associate name2","String":"Updated associate string2","NestedCollection":[],"OptionalNestedAssociate":null,"RequiredNestedAssociate":{"Id":1001,"Int":81,"Ints":[1,2,4],"Name":"Updated nested name2","String":"Updated nested string2"}}]'
 
 UPDATE `RootEntity` AS `r`
 SET `r`.`AssociateCollection` = @complex_type_p

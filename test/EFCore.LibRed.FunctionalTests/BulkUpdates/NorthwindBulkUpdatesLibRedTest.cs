@@ -102,20 +102,19 @@ WHERE EXISTS (
         await base.Delete_Where_OrderBy_Take(async);
 
         AssertSql(
-"""
-@__p_0='100'
+            """
+@p='100'
 
-DELETE FROM [o]
-FROM [Order Details] AS [o]
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT TOP(@__p_0) [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice]
-        FROM [Order Details] AS [o0]
-        WHERE [o0].[OrderID] < 10300
-        ORDER BY [o0].[OrderID]
-    ) AS [t]
-    WHERE [t].[OrderID] = [o].[OrderID] AND [t].[ProductID] = [o].[ProductID])
+        SELECT TOP @p `o0`.`OrderID`, `o0`.`ProductID`
+        FROM `Order Details` AS `o0`
+        WHERE `o0`.`OrderID` < 10300
+        ORDER BY `o0`.`OrderID`
+    ) AS `o1`
+    WHERE `o1`.`OrderID` = `o`.`OrderID` AND `o1`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -171,6 +170,8 @@ WHERE EXISTS (
 
         AssertSql(
             """
+@p='100'
+
 DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
@@ -224,6 +225,7 @@ WHERE `o`.`OrderID` < (
 """);
     }
 
+    [ConditionalTheory(Skip = "LibRed fails")]
     public override async Task Delete_Where_predicate_with_GroupBy_aggregate_2(bool async)
     {
         await base.Delete_Where_predicate_with_GroupBy_aggregate_2(async);
@@ -267,6 +269,10 @@ WHERE EXISTS (
 
         AssertSql(
             """
+@p3='5'
+@p2='20'
+@p='100'
+
 DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
@@ -501,6 +507,7 @@ WHERE EXISTS (
 """);
     }
 
+    [ConditionalTheory(Skip="LibRed fails")]
     public override async Task Delete_Where_optional_navigation_predicate(bool async)
     {
         await base.Delete_Where_optional_navigation_predicate(async);

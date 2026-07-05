@@ -97,4 +97,42 @@ public class DropColumnAccessTests
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
+
+    [Fact]
+    public void Access_adds_a_column_after_a_libred_drop_byte_faithfully()
+    {
+        // Our DROP COLUMN must leave the TDEF in exactly ACE's post-drop state — including the next-column-id
+        // and next-variable-index high-water marks — so a subsequent ADD lands identically. Verified equal to
+        // the pure-ACE (drop+add) path: after dropping B (colId 1, leaving a gap), ACE's added columns get the
+        // NEXT ids (4, 5), not the gap; a new variable column appends (varIdx 2) and a fixed one appends
+        // (fixedOff 8); old rows read the new columns as NULL.
+        string path = Path.Combine(Path.GetTempPath(), $"dropadd-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            Ace(path,
+                "CREATE TABLE T (A LONG, B TEXT(20), C LONG, D TEXT(20))",
+                "INSERT INTO T (A,B,C,D) VALUES (1,'bee',10,'dee')");
+
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                Assert.True(db.DropColumn("T", "B")); // middle variable column, via LibRed
+
+            Ace(path, "ALTER TABLE T ADD COLUMN E TEXT(20)", "ALTER TABLE T ADD COLUMN F LONG",
+                      "INSERT INTO T (A, C, D, E, F) VALUES (2, 20, 'new', 'eee', 99)");
+
+            using var db2 = JetDatabase.Open(path);
+            var cols = db2.Catalog.FindTable("T")!.Columns;
+            Assert.Equal(["A", "C", "D", "E", "F"], cols.Select(c => c.Name));
+            Assert.Equal([0, 2, 3, 4, 5], cols.Select(c => c.ColumnId));  // gap id 1 not reused; new ids continue
+            var e = cols.Single(c => c.Name == "E");
+            var f = cols.Single(c => c.Name == "F");
+            Assert.Equal(2, e.VariableIndex);   // appended after D (varIdx 1), not reusing B's slot 0
+            Assert.Equal(8, f.FixedOffset);     // appended after A (0) and C (4)
+
+            var rows = db2.OpenTable("T").Rows().Select(r => r.Select(v => v?.ToString() ?? "<null>").ToArray()).ToArray();
+            Assert.Equal(["1", "10", "dee", "<null>", "<null>"], rows[0]);  // old row: new columns NULL
+            Assert.Equal(["2", "20", "new", "eee", "99"], rows[1]);
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
 }

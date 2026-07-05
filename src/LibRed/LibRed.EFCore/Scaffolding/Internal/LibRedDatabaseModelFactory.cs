@@ -96,9 +96,15 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                 ColumnDef column = definition.Columns[ordinal];
                 string storeType = GetStoreType(column);
                 int maxLength = column.Type == JetDataType.Text ? Math.Max(1, column.Length / 2) : 0;
-                // Nullability is not yet readable from the format (see jet-ace-file-format.md §3.4);
-                // auto-number columns are never nullable, everything else is reported nullable.
-                bool nullable = storeType != "counter";
+
+                // Nullability comes from the column's `Required` property (read from the LvProp blob into
+                // ColumnDef.IsNullable). An **auto-number (counter) column is always required** even without
+                // a Required property — its non-null behaviour comes from the AutoNumber flag, not LvProp
+                // (verified; matches Access/DAO), so it must never be reported nullable.
+                bool nullable = !column.IsAutoNumber && column.IsNullable;
+
+                // DefaultValue is the expression's source text (e.g. "0", "'hi'"), read from the same blob.
+                string? defaultValueSql = column.DefaultValue;
 
                 _logger.ColumnFound(
                     table.Name,
@@ -110,7 +116,7 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                     column.Scale,
                     nullable,
                     column.IsAutoNumber,
-                    null,  // defaultValue
+                    defaultValueSql,
                     null,  // computedValue
                     null); // computed-is-stored
 
@@ -120,6 +126,7 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                     Name = column.Name,
                     StoreType = storeType,
                     IsNullable = nullable,
+                    DefaultValueSql = defaultValueSql,
                     ValueGenerated = column.IsAutoNumber ? ValueGenerated.OnAdd : null,
                 });
             }
@@ -173,7 +180,17 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
             DatabaseTable? referencingTable = Find(relation.Table);
             if (referencingTable is null) continue;
 
-            string onDelete = relation.CascadeDelete ? "CASCADE" : "NO ACTION";
+            // Jet supports ON DELETE NO ACTION / CASCADE / SET NULL (read from MSysRelationships.grbit +
+            // the index-info action byte). EF's scaffolding models OnDelete only (no OnUpdate).
+            ReferentialAction onDeleteAction = relation.CascadeDelete ? ReferentialAction.Cascade
+                : relation.DeleteSetNull ? ReferentialAction.SetNull
+                : ReferentialAction.NoAction;
+            string onDelete = onDeleteAction switch
+            {
+                ReferentialAction.Cascade => "CASCADE",
+                ReferentialAction.SetNull => "SET NULL",
+                _ => "NO ACTION",
+            };
             _logger.ForeignKeyFound(relation.Name, relation.Table, relation.ReferencedTable, onDelete);
 
             DatabaseTable? principalTable = Find(relation.ReferencedTable);
@@ -188,7 +205,7 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                 Name = relation.Name,
                 Table = referencingTable,
                 PrincipalTable = principalTable,
-                OnDelete = relation.CascadeDelete ? ReferentialAction.Cascade : ReferentialAction.NoAction,
+                OnDelete = onDeleteAction,
             };
 
             bool invalid = false;

@@ -47,4 +47,23 @@ public sealed class PageAllocator(PageChannel channel)
         // No free page recorded; fall back to growing the file (the new page is used, not free).
         return _channel.AllocatePage();
     }
+
+    /// <summary>Returns a page to the global free-pages map (sets its bit) so it can be reused — the inverse
+    /// of <see cref="Allocate"/>. Used when dropping an index frees its B-tree pages, matching Access.</summary>
+    public void Free(int page)
+    {
+        var format = _channel.Format;
+        byte[] p = _channel.ReadPage(GlobalMapPage).Span.ToArray();
+
+        int mapOffset = BinaryPrimitives.ReadUInt16LittleEndian(p.AsSpan(format.DataRowDirectoryOffset, 2)) & RowOffsetMask;
+        if (p[mapOffset] != InlineMapType) return; // reference-type global map (huge DBs) not handled yet
+
+        int startPage = BinaryPrimitives.ReadInt32LittleEndian(p.AsSpan(mapOffset + 1, 4));
+        int bit = page - startPage;
+        int byteIndex = mapOffset + 5 + bit / 8;
+        if (bit < 0 || byteIndex >= format.PageSize) return; // outside the inline window
+
+        p[byteIndex] |= (byte)(1 << (bit % 8));
+        _channel.WritePage(GlobalMapPage, p);
+    }
 }

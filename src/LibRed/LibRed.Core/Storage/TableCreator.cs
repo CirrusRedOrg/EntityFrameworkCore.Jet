@@ -514,20 +514,67 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     }
 
     /// <summary>
-    /// Drops a named FOREIGN KEY constraint by soft-deleting its <c>MSysRelationships</c> rows — LibRed
-    /// reads relationships by scanning that table (the cursor skips deleted rows), so the FK immediately
-    /// stops being enforced. The backing child index and the TDEF relationship blocks are left in place;
-    /// LibRed ignores them (it never derives relationships from the TDEF), so this is functionally complete.
-    /// Byte-faithful removal of the index/TDEF blocks is a follow-up. Returns false if no such relationship
+    /// Drops a named FOREIGN KEY constraint, byte-faithfully with ACE: removes the child's backing index
+    /// (its stats + index-data + outgoing info blocks + name) and the parent's incoming info block from the
+    /// two TDEFs, frees the index's B-tree root page back to the global free map, and soft-deletes the
+    /// relationship's <c>MSysRelationships</c> rows (the usage-map page is left untouched — ACE leaves the
+    /// orphan map row). A self-reference hosts both ends in one TDEF. Returns false if no such relationship
     /// exists on <paramref name="childTable"/>.
     /// </summary>
     public bool DropConstraint(string childTable, string name)
     {
-        bool isRelationship = _catalog.Relationships.Any(r =>
+        ForeignKey? rel = _catalog.Relationships.FirstOrDefault(r =>
             string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(r.Table, childTable, StringComparison.OrdinalIgnoreCase));
-        if (!isRelationship) return false;
+        if (rel is null) return false;
 
+        TableDef child = _catalog.FindTable(childTable)
+            ?? throw new InvalidOperationException($"Table '{childTable}' was not found.");
+        IndexDef? fkIndex = child.Indexes.FirstOrDefault(i => string.Equals(i.Name, name, StringComparison.OrdinalIgnoreCase));
+        bool selfRef = string.Equals(rel.ReferencedTable, childTable, StringComparison.OrdinalIgnoreCase);
+
+        if (fkIndex is not null)
+        {
+            TdefParts childParts = ParseTdef(child.DefinitionPage);
+            int outgoing = childParts.Logical.FindIndex(b => NameOf(b.Name).Equals(name, StringComparison.OrdinalIgnoreCase));
+            int childBlockNum = BinaryPrimitives.ReadInt32LittleEndian(childParts.Logical[outgoing].Info.AsSpan(0x04, 4));
+
+            // Remove the FK index (data ordinal) + its outgoing info block from the child, plus — for a
+            // self-reference — the incoming block, which also lives here.
+            RemoveTdefBlocks(childParts, removeDataOrdinal: fkIndex.RealIndexOrdinal, removeLogical: b =>
+                NameOf(b.Name).Equals(name, StringComparison.OrdinalIgnoreCase) ||
+                (selfRef && IsIncomingBlockFor(b.Info, childBlockNum, child.DefinitionPage)));
+            WriteTdef(child.DefinitionPage, childParts);
+
+            if (!selfRef)
+            {
+                TableDef parent = _catalog.FindTable(rel.ReferencedTable)
+                    ?? throw new InvalidOperationException($"Table '{rel.ReferencedTable}' was not found.");
+                TdefParts parentParts = ParseTdef(parent.DefinitionPage);
+                RemoveTdefBlocks(parentParts, removeDataOrdinal: null, removeLogical: b =>
+                    IsIncomingBlockFor(b.Info, childBlockNum, child.DefinitionPage));
+                WriteTdef(parent.DefinitionPage, parentParts);
+            }
+
+            new PageAllocator(_channel).Free(fkIndex.RootPage);
+        }
+
+        SoftDeleteRelationshipRows(name);
+        _catalog.Invalidate();
+        return true;
+    }
+
+    /// <summary>True if <paramref name="info"/> is the incoming relationship block that cross-links to the
+    /// child's outgoing block number on the child's TDEF page (info block layout: +0x0C fk_type,
+    /// +0x0D child block number, +0x11 child page).</summary>
+    private static bool IsIncomingBlockFor(byte[] info, int childBlockNum, int childPage) =>
+        info[0x0C] == FkTypeIncoming &&
+        (int)BinaryPrimitives.ReadUInt32LittleEndian(info.AsSpan(0x0D, 4)) == childBlockNum &&
+        BinaryPrimitives.ReadInt32LittleEndian(info.AsSpan(0x11, 4)) == childPage;
+
+    /// <summary>Soft-deletes every MSysRelationships row for the named relationship.</summary>
+    private void SoftDeleteRelationshipRows(string name)
+    {
         TableDef msys = _catalog.FindTable("MSysRelationships")
             ?? throw new InvalidOperationException("MSysRelationships catalog table was not found.");
         int nameIdx = (msys.FindColumn("szRelationship")
@@ -537,10 +584,112 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         foreach ((RowId id, object?[] values) in new Table(_channel, msys).Rows().WithIds())
             if (string.Equals(values[nameIdx] as string, name, StringComparison.OrdinalIgnoreCase))
                 rows.Add(id);
-
         foreach (RowId id in rows) SoftDeleteRow(id);
-        _catalog.Invalidate();
-        return true;
+    }
+
+    /// <summary>The name text of a TDEF name entry (2-byte UTF-16 length, then the chars).</summary>
+    private static string NameOf(byte[] nameEntry) =>
+        System.Text.Encoding.Unicode.GetString(nameEntry, 2, BinaryPrimitives.ReadUInt16LittleEndian(nameEntry.AsSpan(0, 2)));
+
+    /// <summary>The parsed regions of a single-page table definition, for surgical block removal.</summary>
+    private sealed class TdefParts
+    {
+        public required byte[] Header;                          // [0, TdefRealIndexBlockOffset)
+        public required List<byte[]> Stats;                     // one 12-byte stats block per data index
+        public required byte[] Columns;                         // column descriptors + names region
+        public required List<byte[]> DataBlocks;                // one 52-byte index-data block per data index
+        public required List<(byte[] Info, byte[] Name)> Logical; // 28-byte info block + its name, name-sorted
+        public required byte[] Lval;                            // §3.3.2 list + terminator
+    }
+
+    private TdefParts ParseTdef(int tdefPage)
+    {
+        JetFormatBase format = _channel.Format;
+        LibRed.IO.PageBuffer buf = _channel.ReadPage(tdefPage);
+        if (buf.ReadInt32(format.TdefNextPageOffset) != 0)
+            throw new NotSupportedException("Dropping a constraint from a multi-page table definition is not supported yet.");
+
+        int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
+        int logicalCount = buf.ReadInt32(format.TdefRealIndexCountOffset);
+        int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
+
+        int statsStart = format.TdefRealIndexBlockOffset;
+        int afterStats = statsStart + dataCount * format.RealIndexEntrySize;
+        int pos = afterStats + colCount * format.ColumnDescriptorSize;
+        for (int i = 0; i < colCount; i++) pos += 2 + buf.ReadUInt16(pos);
+        int afterColumns = pos;
+        int infoStart = afterColumns + dataCount * IndexDataBlockSize;
+        int namePos = infoStart + logicalCount * IndexInfoBlockSize;
+        int defEnd = buf.ReadInt32(TdefLengthOffset);
+
+        var stats = new List<byte[]>(dataCount);
+        for (int i = 0; i < dataCount; i++) stats.Add(buf.Slice(statsStart + i * format.RealIndexEntrySize, format.RealIndexEntrySize).ToArray());
+        var dataBlocks = new List<byte[]>(dataCount);
+        for (int i = 0; i < dataCount; i++) dataBlocks.Add(buf.Slice(afterColumns + i * IndexDataBlockSize, IndexDataBlockSize).ToArray());
+
+        var logical = new List<(byte[], byte[])>(logicalCount);
+        int np = namePos;
+        for (int i = 0; i < logicalCount; i++)
+        {
+            byte[] info = buf.Slice(infoStart + i * IndexInfoBlockSize, IndexInfoBlockSize).ToArray();
+            int len = buf.ReadUInt16(np);
+            byte[] nm = buf.Slice(np, 2 + len).ToArray();
+            np += 2 + len;
+            logical.Add((info, nm));
+        }
+
+        return new TdefParts
+        {
+            Header = buf.Slice(0, statsStart).ToArray(),
+            Stats = stats,
+            Columns = buf.Slice(afterStats, afterColumns - afterStats).ToArray(),
+            DataBlocks = dataBlocks,
+            Logical = logical,
+            Lval = buf.Slice(np, defEnd - np).ToArray(),
+        };
+    }
+
+    /// <summary>Removes a data index (its stats + data block at <paramref name="removeDataOrdinal"/>,
+    /// decrementing the data-ordinal reference (+0x08) of every remaining info block that pointed past it)
+    /// and every logical block matching <paramref name="removeLogical"/> (with its name).</summary>
+    private static void RemoveTdefBlocks(TdefParts parts, int? removeDataOrdinal, Func<(byte[] Info, byte[] Name), bool> removeLogical)
+    {
+        if (removeDataOrdinal is int ord)
+        {
+            parts.Stats.RemoveAt(ord);
+            parts.DataBlocks.RemoveAt(ord);
+            foreach ((byte[] info, _) in parts.Logical)
+            {
+                int num2 = BinaryPrimitives.ReadInt32LittleEndian(info.AsSpan(0x08, 4));
+                if (num2 > ord) BinaryPrimitives.WriteInt32LittleEndian(info.AsSpan(0x08, 4), num2 - 1);
+            }
+        }
+        parts.Logical.RemoveAll(b => removeLogical(b));
+    }
+
+    private void WriteTdef(int tdefPage, TdefParts parts)
+    {
+        JetFormatBase format = _channel.Format;
+        var body = new List<byte>(format.PageSize);
+        body.AddRange(parts.Header);
+        foreach (byte[] s in parts.Stats) body.AddRange(s);
+        body.AddRange(parts.Columns);
+        foreach (byte[] d in parts.DataBlocks) body.AddRange(d);
+        foreach ((byte[] info, _) in parts.Logical) body.AddRange(info);
+        foreach ((_, byte[] nm) in parts.Logical) body.AddRange(nm);
+        body.AddRange(parts.Lval);
+        byte[] def = [.. body];
+        int defEnd = def.Length;
+
+        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefIndexCountOffset, 4), parts.DataBlocks.Count);
+        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefRealIndexCountOffset, 4), parts.Logical.Count);
+        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(TdefLengthOffset, 4), defEnd);
+
+        byte[] page = _channel.ReadPage(tdefPage).Span.ToArray();
+        def.CopyTo(page, 0); // shrinking, so def fits; stale bytes past defEnd are ignored (length governs)
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(TdefFreeSpaceOffset, 2),
+            (ushort)(format.PageSize - defEnd - TdefContinuationReserve));
+        _channel.WritePage(tdefPage, page);
     }
 
     /// <summary>Marks a row deleted by setting the deleted flag (0x8000) on its slot-directory entry — a

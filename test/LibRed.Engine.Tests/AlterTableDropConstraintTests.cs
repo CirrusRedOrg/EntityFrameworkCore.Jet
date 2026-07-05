@@ -37,14 +37,70 @@ public class AlterTableDropConstraintTests
 
                 e.ExecuteNonQuery("ALTER TABLE Child DROP CONSTRAINT FK_Child_Parent");
 
-                // Now the same insert is accepted, and the relationship is gone from the catalog.
+                // Now the same insert is accepted; the relationship AND its backing index are gone.
                 Assert.Equal(1, e.ExecuteNonQuery("INSERT INTO Child (Id, ParentId) VALUES (1, 99)"));
                 Assert.Empty(db.Catalog.ForeignKeysOf("Child"));
+                Assert.DoesNotContain(db.Catalog.FindTable("Child")!.Indexes, i => i.Name == "FK_Child_Parent");
             }
 
-            // Reopen: the drop persisted (the soft-deleted MSysRelationships row stays skipped).
+            // Reopen: the drop persisted (soft-deleted MSysRelationships row + removed TDEF blocks).
             using (var db = JetDatabase.Open(path))
+            {
                 Assert.Empty(db.Catalog.ForeignKeysOf("Child"));
+                var child = db.Catalog.FindTable("Child")!;
+                Assert.Single(child.Indexes);            // only the primary key remains
+                Assert.True(child.Indexes[0].IsPrimaryKey);
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    // Drop then re-add the same FK: because the drop fully removes the old backing index + TDEF blocks,
+    // the re-add doesn't collide with an orphan — enforcement is back afterward.
+    [Fact]
+    public void Drop_then_re_add_same_foreign_key_works()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE Parent (Id LONG CONSTRAINT PK_Parent PRIMARY KEY)");
+            e.ExecuteNonQuery("CREATE TABLE Child (Id LONG CONSTRAINT PK_Child PRIMARY KEY, ParentId LONG, " +
+                "CONSTRAINT FK_Child_Parent FOREIGN KEY (ParentId) REFERENCES Parent (Id))");
+            e.ExecuteNonQuery("INSERT INTO Parent (Id) VALUES (1)");
+
+            e.ExecuteNonQuery("ALTER TABLE Child DROP CONSTRAINT FK_Child_Parent");
+            e.ExecuteNonQuery("ALTER TABLE Child ADD CONSTRAINT FK_Child_Parent FOREIGN KEY (ParentId) REFERENCES Parent (Id)");
+
+            // The re-added FK is a single, enforced relationship again.
+            Assert.Single(db.Catalog.ForeignKeysOf("Child"));
+            Assert.Single(db.Catalog.FindTable("Child")!.Indexes.Where(i => i.Name == "FK_Child_Parent"));
+            Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("INSERT INTO Child (Id, ParentId) VALUES (1, 99)"));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    // A self-referencing FK hosts both ends (outgoing + incoming block) in one TDEF; dropping it removes
+    // both and the backing index.
+    [Fact]
+    public void Drop_self_referencing_foreign_key()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE Emp (Id LONG CONSTRAINT PK_Emp PRIMARY KEY, MgrId LONG, " +
+                "CONSTRAINT FK_Emp_Emp FOREIGN KEY (MgrId) REFERENCES Emp (Id))");
+            e.ExecuteNonQuery("INSERT INTO Emp (Id, MgrId) VALUES (1, NULL)");
+            Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("INSERT INTO Emp (Id, MgrId) VALUES (2, 99)"));
+
+            e.ExecuteNonQuery("ALTER TABLE Emp DROP CONSTRAINT FK_Emp_Emp");
+
+            Assert.Empty(db.Catalog.ForeignKeysOf("Emp"));
+            Assert.Single(db.Catalog.FindTable("Emp")!.Indexes); // only PK_Emp
+            Assert.Equal(1, e.ExecuteNonQuery("INSERT INTO Emp (Id, MgrId) VALUES (2, 99)")); // now allowed
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }

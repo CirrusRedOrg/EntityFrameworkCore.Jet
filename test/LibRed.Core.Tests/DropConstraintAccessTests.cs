@@ -50,6 +50,11 @@ public class DropConstraintAccessTests
             { c.CommandText = "SELECT COUNT(*) FROM Parent"; Assert.Equal(1, Convert.ToInt32(c.ExecuteScalar())); }
             using (var c = conn.CreateCommand())
             { c.CommandText = "SELECT COUNT(*) FROM Child"; Assert.Equal(1, Convert.ToInt32(c.ExecuteScalar())); }
+
+            // Because LibRed removed the TDEF relationship blocks byte-faithfully, ACE no longer enforces
+            // the FK either: a child row pointing at a non-existent parent is accepted.
+            using (var c = conn.CreateCommand())
+            { c.CommandText = "INSERT INTO Child (Id, ParentId) VALUES (2, 99)"; Assert.Equal(1, c.ExecuteNonQuery()); }
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }

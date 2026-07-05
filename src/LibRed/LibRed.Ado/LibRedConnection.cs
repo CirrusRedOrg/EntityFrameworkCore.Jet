@@ -30,6 +30,25 @@ public sealed class LibRedConnection : DbConnection
     /// <summary>The open database, or <c>null</c> when closed. Used by commands.</summary>
     internal QueryEngine? Engine { get; private set; }
 
+    /// <summary>The transaction currently open on this connection, or <c>null</c>.</summary>
+    internal LibRedTransaction? CurrentTransaction { get; private set; }
+
+    /// <summary>Commits the page-level transaction and clears it as the active one.</summary>
+    internal void CommitTransaction(LibRedTransaction transaction)
+    {
+        if (!ReferenceEquals(CurrentTransaction, transaction)) return;
+        _database?.Commit();
+        CurrentTransaction = null;
+    }
+
+    /// <summary>Rolls the page-level transaction back and clears it as the active one.</summary>
+    internal void RollbackTransaction(LibRedTransaction transaction)
+    {
+        if (!ReferenceEquals(CurrentTransaction, transaction)) return;
+        _database?.Rollback();
+        CurrentTransaction = null;
+    }
+
     public override string Database => DataSource;
 
     public override string DataSource => ParseDataSource(_connectionString);
@@ -123,6 +142,14 @@ public sealed class LibRedConnection : DbConnection
 
     public override void Close()
     {
+        // An open transaction that was never committed is abandoned: roll it back so its writes
+        // don't leak onto disk (matches ADO.NET's implicit rollback on connection close).
+        if (CurrentTransaction is not null)
+        {
+            _database?.Rollback();
+            CurrentTransaction = null;
+        }
+
         _database?.Dispose();
         _database = null;
         Engine = null;
@@ -134,8 +161,16 @@ public sealed class LibRedConnection : DbConnection
 
     protected override DbCommand CreateDbCommand() => new LibRedCommand { Connection = this };
 
-    protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) =>
-        new LibRedTransaction(this, isolationLevel);
+    protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
+    {
+        if (_database is null || _state != ConnectionState.Open)
+            throw new InvalidOperationException("The connection is not open.");
+        if (CurrentTransaction is not null)
+            throw new InvalidOperationException("A transaction is already in progress; nested transactions are not supported.");
+
+        _database.BeginTransaction();
+        return CurrentTransaction = new LibRedTransaction(this, isolationLevel);
+    }
 
     protected override void Dispose(bool disposing)
     {

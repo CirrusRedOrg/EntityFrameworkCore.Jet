@@ -4,24 +4,53 @@ using System.Data.Common;
 namespace LibRed.Data;
 
 /// <summary>
-/// A database transaction. Jet/ACE supports transactions; the engine wiring for
-/// commit/rollback is still to come, so this currently tracks state only.
+/// A database transaction over LibRed's page-level undo log. <see cref="Commit"/> makes the writes
+/// permanent (they are already on disk; commit just discards the undo log); <see cref="Rollback"/>
+/// restores every page the transaction touched and drops any it allocated. An uncommitted
+/// transaction that is disposed rolls back — this is what gives EF Core's shared-database tests
+/// their per-test isolation.
 /// </summary>
-public sealed class LibRedTransaction(LibRedConnection connection, IsolationLevel isolationLevel) : DbTransaction
+public sealed class LibRedTransaction : DbTransaction
 {
-    private readonly LibRedConnection _connection = connection;
+    private LibRedConnection? _connection;
+    private bool _completed;
 
-    public override IsolationLevel IsolationLevel { get; } = isolationLevel;
+    internal LibRedTransaction(LibRedConnection connection, IsolationLevel isolationLevel)
+    {
+        _connection = connection;
+        IsolationLevel = isolationLevel;
+    }
 
-    protected override DbConnection DbConnection => _connection;
+    public override IsolationLevel IsolationLevel { get; }
+
+    protected override DbConnection? DbConnection => _connection;
 
     public override void Commit()
     {
-        // TODO: flush buffered page writes atomically.
+        if (_completed)
+            throw new InvalidOperationException("This transaction has already been committed or rolled back.");
+        _connection?.CommitTransaction(this);
+        _completed = true;
     }
 
     public override void Rollback()
     {
-        // TODO: discard buffered page writes.
+        if (_completed)
+            throw new InvalidOperationException("This transaction has already been committed or rolled back.");
+        _connection?.RollbackTransaction(this);
+        _completed = true;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && !_completed)
+        {
+            // Disposed without an explicit Commit → roll back.
+            _connection?.RollbackTransaction(this);
+            _completed = true;
+        }
+
+        _connection = null;
+        base.Dispose(disposing);
     }
 }

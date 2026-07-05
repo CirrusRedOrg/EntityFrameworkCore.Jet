@@ -51,6 +51,27 @@ public sealed class JetDatabase : IDisposable
     /// <summary>The resolved on-disk format/version of the database.</summary>
     public JetFormatBase Format => _channel.Format;
 
+    /// <summary>Whether a transaction is currently open.</summary>
+    public bool InTransaction => _channel.InTransaction;
+
+    /// <summary>Begins a page-level transaction; writes are undoable until <see cref="Commit"/>.</summary>
+    public void BeginTransaction() => _channel.BeginTransaction();
+
+    /// <summary>Commits the current transaction (writes are already on disk).</summary>
+    public void Commit() => _channel.CommitTransaction();
+
+    /// <summary>
+    /// Rolls the current transaction back, restoring every touched page and dropping any pages the
+    /// transaction allocated. The catalog cache is invalidated so subsequent reads pick up the
+    /// restored TDEFs/row counts rather than stale in-memory copies.
+    /// </summary>
+    public void Rollback()
+    {
+        if (!_channel.InTransaction) return;
+        _channel.RollbackTransaction();
+        Catalog.Invalidate();
+    }
+
     /// <summary>The system catalog, used to enumerate and resolve tables.</summary>
     public JetCatalog Catalog { get; }
 

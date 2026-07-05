@@ -378,6 +378,104 @@ public class LibRedCommandTests
         Assert.Equal(expected, LibRedCommand.SplitStatements(sql).Count());
 
     [Fact]
+    public void Rolled_back_transaction_undoes_its_writes()
+    {
+        // This is what gives EF Core's shared-database tests their isolation: each test runs inside a
+        // transaction that is rolled back, so its inserts/updates/deletes must vanish. A no-op rollback
+        // (the old behaviour) leaked rows between tests → "Sequence contains more than one element".
+        string path = Path.Combine(Path.GetTempPath(), $"libred-txn-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+
+            using (var ddl = conn.CreateCommand())
+            { ddl.CommandText = "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `N` TEXT(10))"; ddl.ExecuteNonQuery(); }
+
+            using (var seed = conn.CreateCommand())
+            { seed.CommandText = "INSERT INTO `T` (`Id`, `N`) VALUES (1, 'keep')"; seed.ExecuteNonQuery(); }
+
+            using (var txn = conn.BeginTransaction())
+            {
+                using (var ins = conn.CreateCommand())
+                {
+                    ins.Transaction = txn;
+                    ins.CommandText = "INSERT INTO `T` (`Id`, `N`) VALUES (2, 'gone')";
+                    Assert.Equal(1, ins.ExecuteNonQuery());
+                }
+                Assert.Equal(2L, Count(conn)); // visible inside the transaction (read-your-writes)
+                txn.Rollback();
+            }
+
+            Assert.Equal(1L, Count(conn)); // the uncommitted insert is gone
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+
+        static long Count(LibRedConnection c)
+        {
+            using var cmd = c.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM `T`";
+            return Convert.ToInt64(cmd.ExecuteScalar());
+        }
+    }
+
+    [Fact]
+    public void Committed_transaction_keeps_its_writes()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"libred-txn-commit-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+
+            using (var ddl = conn.CreateCommand())
+            { ddl.CommandText = "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY)"; ddl.ExecuteNonQuery(); }
+
+            using (var txn = conn.BeginTransaction())
+            {
+                using (var ins = conn.CreateCommand())
+                { ins.Transaction = txn; ins.CommandText = "INSERT INTO `T` (`Id`) VALUES (1)"; ins.ExecuteNonQuery(); }
+                txn.Commit();
+            }
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM `T`";
+            Assert.Equal(1L, Convert.ToInt64(cmd.ExecuteScalar())); // survived the commit
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void Disposing_an_uncommitted_transaction_rolls_it_back()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"libred-txn-dispose-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+
+            using (var ddl = conn.CreateCommand())
+            { ddl.CommandText = "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY)"; ddl.ExecuteNonQuery(); }
+
+            using (var txn = conn.BeginTransaction()) // no Commit — leaving the block disposes it
+            {
+                using var ins = conn.CreateCommand();
+                ins.Transaction = txn;
+                ins.CommandText = "INSERT INTO `T` (`Id`) VALUES (1)";
+                ins.ExecuteNonQuery();
+            }
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM `T`";
+            Assert.Equal(0L, Convert.ToInt64(cmd.ExecuteScalar())); // implicit rollback on dispose
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Reader_reports_dbnull_for_missing_values()
     {
         using var conn = OpenConnection();

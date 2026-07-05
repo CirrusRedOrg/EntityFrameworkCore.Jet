@@ -89,21 +89,31 @@ engine), cross-checked with [mdbtools](https://github.com/mdbtools/mdbtools) and
   `HAVING`, `ORDER BY`, `TOP`, `UNION`/`INTERSECT`/`EXCEPT`, subqueries, and parameters. Plan nodes:
   Scan / IndexScan / Filter / Project / Join / Aggregate / Sort / Limit / SetOperation / DerivedTable.
 - **ADO.NET** — connection / command / reader / parameter / transaction / factory over the engine.
+  Transactions commit/roll back for real via a page-level undo log in `PageChannel` (snapshot pages on
+  first write, restore on rollback, truncate pages the txn allocated) — this is what gives EF Core's
+  shared-database functional tests their per-test isolation.
 - **EF Core** — `LibRed.EFCore` provider (`AddEntityFrameworkLibRed` / `UseLibRed`) over `LibRed.Ado`,
   reusing most of `EFCore.Jet` and overriding the connection + scaffolding. Query round-trips and
   database-first scaffolding pass (`LibRed.EFCore.Tests`).
 
+**Done since (previously listed here as "not yet"):** DML `UPDATE` / `DELETE` (in-place, row relocation,
+index maintenance, multi-table over joins, `WHERE EXISTS`/scalar subquery, LVAL reclamation) and the
+generated-AutoNumber `@@IDENTITY` round-trip up through Engine → Ado → EFCore; `ALTER TABLE`
+(ADD PRIMARY KEY, ADD FOREIGN KEY, DROP CONSTRAINT — unblocks cyclic/self-referencing FKs EF emits as a
+separate operation); foreign-key **enforcement + cascade / set-null** referential actions on
+`UPDATE`/`DELETE`; and **transactions** (real commit/rollback via a page-level undo log — see above).
+
 **Not yet (see `docs/` TODOs and code `TODO(...)` markers):**
 
-- DML `UPDATE` / `DELETE` (only `INSERT` so far); returning the generated AutoNumber id
-  (`@@IDENTITY`) up through Engine → Ado → EFCore.
-- **Foreign keys — `ALTER TABLE ADD CONSTRAINT`** (TODO #2): cyclic and self-referencing FKs that EF
-  emits as a *separate* `AddForeignKeyOperation` instead of inline in `CREATE TABLE`. The grammar has
-  no `ALTER TABLE`; `TableCreator` throws `NotSupportedException` on an inline self-reference. Blocked
-  on adding `ALTER TABLE` to the SQL front end. (Inline, acyclic FKs work today.)
-- **Foreign keys — cascade actions** (TODO #3): the `ON UPDATE`/`ON DELETE CASCADE` flags are persisted
-  correctly (in `MSysRelationships.grbit` and the index-info action bytes), but nothing cascades at
-  runtime because there is no `UPDATE`/`DELETE` executor yet — do this when DML `UPDATE`/`DELETE` lands.
+- **`ALTER TABLE` — remaining forms**: `ADD COLUMN` / `ADD UNIQUE` / `ADD CHECK`, `ALTER COLUMN`,
+  `DROP COLUMN`, and `DROP` of a primary-key/unique constraint. (ADD PK, ADD FK, and DROP CONSTRAINT for
+  an FK are done.)
+- **`ON UPDATE SET NULL`**: pathway only — throws `NotImplementedException`. Its Jet storage bytes are
+  unverified because the ACE OLE DB provider rejects the DDL, so they can't be probed byte-faithfully.
+  (`ON DELETE SET NULL` and both `CASCADE` directions work.)
+- **Deferred-write transactions**: writes are eager (write-through + undo log) today; a future refactor
+  behind `PageChannel` could buffer changed pages and materialize them only on commit (cheaper rollback,
+  file never half-applied). ADO/Engine layers unaffected.
 - **Chained LVAL pages**: `LongValueWriter` writes a **single** LVAL page (used for `LvProp` and available
   for memo/OLE), so a long value must fit in one page. Payloads larger than a page need a chained (`0x00`)
   descriptor across multiple LVAL pages, which isn't written yet. (Memo/OLE column *values* still write

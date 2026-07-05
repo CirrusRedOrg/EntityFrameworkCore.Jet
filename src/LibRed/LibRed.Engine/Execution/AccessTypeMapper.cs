@@ -12,7 +12,10 @@ namespace LibRed.Engine.Execution;
 /// </summary>
 internal static class AccessTypeMapper
 {
-    public static ColumnSpec ToColumnSpec(ColumnDefinition column)
+    public static ColumnSpec ToColumnSpec(ColumnDefinition column) =>
+        MapType(column) with { IsNullable = !column.NotNull };
+
+    private static ColumnSpec MapType(ColumnDefinition column)
     {
         // Collapse any internal whitespace so two-word aliases ("character  varying") match.
         string t = string.Join(' ', column.TypeName.ToUpperInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));

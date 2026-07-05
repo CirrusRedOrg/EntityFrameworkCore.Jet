@@ -13,7 +13,8 @@ public sealed record ColumnSpec(
     bool IsFixedLength,
     bool IsAutoNumber = false,
     byte Precision = 0,
-    byte Scale = 0);
+    byte Scale = 0,
+    bool IsNullable = true);
 
 /// <summary>An index to create over the named columns, anchored at an already-allocated root page.</summary>
 public sealed record IndexSpec(

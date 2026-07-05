@@ -105,6 +105,48 @@ public class CreateTableDefaultTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // A NOT NULL column with no default that an insert leaves unset is rejected — matching Access
+    // ("You must enter a value in the 'T.Req' field."), for both an explicit insert and DEFAULT VALUES.
+    [Fact]
+    public void Insert_leaving_a_required_column_null_throws()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE `T` (`Id` counter PRIMARY KEY, `Req` int NOT NULL, `Opt` int)");
+
+            // Omit the required column.
+            var ex = Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("INSERT INTO `T` (`Opt`) VALUES (5)"));
+            Assert.Contains("T.Req", ex.Message);
+            // Explicit NULL into the required column is likewise rejected.
+            Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("INSERT INTO `T` (`Req`) VALUES (NULL)"));
+            // DEFAULT VALUES can't satisfy a required, default-less column either.
+            Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("INSERT INTO `T` DEFAULT VALUES"));
+
+            // Providing the value succeeds.
+            Assert.Equal(1, e.ExecuteNonQuery("INSERT INTO `T` (`Req`) VALUES (7)"));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    // DEFAULT VALUES succeeds when every required column is covered by a DEFAULT (or is the AutoNumber).
+    [Fact]
+    public void Insert_default_values_succeeds_when_required_columns_have_defaults()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE `T` (`Id` counter PRIMARY KEY, `Kind` int DEFAULT 3 NOT NULL)");
+            Assert.Equal(1, e.ExecuteNonQuery("INSERT INTO `T` DEFAULT VALUES"));
+            Assert.Equal(3, Convert.ToInt32(e.ExecuteQuery("SELECT `Kind` FROM `T`").Rows.Single()[0]));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     // Creating a table whose name already exists (case-insensitively) is rejected, rather than writing a
     // second MSysObjects row that shadows the existing table.
     [Fact]

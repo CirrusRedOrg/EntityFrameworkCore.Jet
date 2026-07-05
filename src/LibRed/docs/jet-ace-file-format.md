@@ -821,16 +821,27 @@ The split mechanics:
   > length covering the whole block. Type `0x80` is the **property-name pool** (`[short len][UTF-16
   > name]` repeated, indexed 0,1,…). Other blocks are a **per-owner value map** (owner = a column name,
   > or `""` for the table): `[short ownerRecLen][short 0][short nameLen][owner name]` then property
-  > entries `[short entryLen][byte flag=1][byte dataType=0x0C][short nameIndex][short valueLen][UTF-16
-  > value]`. The value-block **type** is `0x01` for a column-owned map and `0x00` for the table-owned map
-  > (empty owner name). A `DefaultValue` (column property) is the expression's **source text** (e.g. `42`,
-  > `'hi'`); table-level `CHECK` constraints are a single **table** property named `CheckConstraints`
-  > whose value is a `name\0expression\0` list, terminated by an extra `\0` (verified byte-for-byte vs
-  > ACE for `CONSTRAINT CK_BD CHECK ([BirthDate] < NOW())`).
+  > entries `[short entryLen][byte flag=1][byte dataType][short nameIndex][short valueLen][value]`. The
+  > `dataType` is **`0x0C`** (memo) for a text value stored as **UTF-16**, or **`0x01`** (boolean) for a
+  > single **0/1 byte**. The value-block **type** is `0x01` for a column-owned map and `0x00` for the
+  > table-owned map (empty owner name). A `DefaultValue` (column property) is the expression's **source
+  > text** (e.g. `42`, `'hi'`); table-level `CHECK` constraints are a single **table** property named
+  > `CheckConstraints` whose value is a `name\0expression\0` list, terminated by an extra `\0` (verified
+  > byte-for-byte vs ACE for `CONSTRAINT CK_BD CHECK ([BirthDate] < NOW())`).
   >
-  > LibRed **writes** `DefaultValue` and `CheckConstraints` properties (`PropertyBlob.Write`) and **reads**
-  > them back (`ColumnDef.DefaultValue`, `TableDef.CheckConstraints`), applying the default when an insert
-  > omits the column. Access **applies the default** and **enforces the CHECK** on its own inserts. `LvProp` is stored
+  > **`Required` (NOT NULL)** is a per-column **boolean** property (`dataType 0x01`, one `0x01` byte); a
+  > **nullable** column simply has **no** `Required` property, and an AutoNumber column is left without one
+  > too (verified vs ACE). Within a column's map ACE orders `DefaultValue` **before** `Required`; the
+  > name-pool order follows first appearance across all properties. Example (`Req int NOT NULL, …, Def int
+  > DEFAULT 7 NOT NULL`): name pool `["Required","DefaultValue"]`, then `Req`'s `Required`, then `Def`'s
+  > `DefaultValue`=`7` and `Required` — reproduced byte-for-byte by `PropertyBlob.Write`.
+  >
+  > LibRed **writes** `DefaultValue`, `Required` and `CheckConstraints` properties (`PropertyBlob.Write`) and
+  > **reads** them back (`ColumnDef.DefaultValue`, `ColumnDef.IsNullable`, `TableDef.CheckConstraints`),
+  > applying the default when an insert omits the column and **rejecting** an insert that leaves a required
+  > column null ("You must enter a value in the '<table>.<column>' field.", matching Access). Access
+  > **applies the default**, **enforces Required**, and **enforces the CHECK** on its own inserts —
+  > including on a LibRed-created table (verified: ACE rejects an insert omitting a LibRed `NOT NULL` column). `LvProp` is stored
   > on a **single LVAL page** (`LongValueWriter`, descriptor flag `0x40`) — the form Access's property
   > loader requires. **Verified:** Access opens the file and **applies the default** on its own insert
   > that omits the column. (An *inline* value, flag `0x80`, is written and read fine by LibRed but is

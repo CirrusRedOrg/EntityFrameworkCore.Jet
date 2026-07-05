@@ -22,13 +22,21 @@ public static class PropertyBlob
     private const ushort TableBlock = 0x0000;   // value block owned by the table (empty owner name)
     private const ushort ColumnBlock = 0x0001;  // value block owned by a column
     private const byte PropFlag = 0x01;
-    private const byte PropTypeMemo = 0x0C; // properties are stored as a memo/long-text value
     public const string DefaultValueProperty = "DefaultValue";
     public const string CheckConstraintsProperty = "CheckConstraints";
+    public const string RequiredProperty = "Required";
 
-    /// <summary>A single property: the owning column (or "" for the table), the property name, and its
-    /// value text (an expression for <c>DefaultValue</c>).</summary>
-    public readonly record struct Property(string Owner, string Name, string Value);
+    /// <summary>The Jet property value type: text (memo, UTF-16) or boolean (a single byte). Access stores
+    /// <c>DefaultValue</c>/<c>CheckConstraints</c> as memo and <c>Required</c> (NOT NULL) as boolean.</summary>
+    public enum PropertyType : byte { Text = 0x0C, Boolean = 0x01 }
+
+    /// <summary>A single property: the owning column (or "" for the table), the property name, its value
+    /// (text; for a boolean, <c>"1"</c>/<c>"0"</c>), and its stored type.</summary>
+    public readonly record struct Property(string Owner, string Name, string Value, PropertyType Type = PropertyType.Text);
+
+    /// <summary>A boolean property (e.g. <c>Required</c>), stored as a single 0/1 byte.</summary>
+    public static Property Bool(string owner, string name, bool value) =>
+        new(owner, name, value ? "1" : "0", PropertyType.Boolean);
 
     /// <summary>Builds the blob for a set of properties, grouped by owner in the given order — matching
     /// what ACE writes (verified byte-for-byte for column DefaultValues).</summary>
@@ -53,11 +61,13 @@ public static class PropertyBlob
 
             foreach (Property p in group.Properties)
             {
-                byte[] value = Encoding.Unicode.GetBytes(p.Value);
+                byte[] value = p.Type == PropertyType.Boolean
+                    ? [(byte)(p.Value is "1" or "true" or "True" ? 1 : 0)]
+                    : Encoding.Unicode.GetBytes(p.Value);
                 var entry = new List<byte>();
                 AppendUInt16(entry, (ushort)(2 + 1 + 1 + 2 + 2 + value.Length)); // entry length
                 entry.Add(PropFlag);
-                entry.Add(PropTypeMemo);
+                entry.Add((byte)p.Type);
                 AppendUInt16(entry, (ushort)nameIndex[p.Name]);
                 AppendUInt16(entry, (ushort)value.Length);
                 entry.AddRange(value);
@@ -107,11 +117,19 @@ public static class PropertyBlob
                 while (q + 8 <= bodyEnd)
                 {
                     int el = BinaryPrimitives.ReadUInt16LittleEndian(blob.Slice(q, 2));
+                    var dataType = (PropertyType)blob[q + 3];
                     int nameIdx = BinaryPrimitives.ReadUInt16LittleEndian(blob.Slice(q + 4, 2));
                     int vl = BinaryPrimitives.ReadUInt16LittleEndian(blob.Slice(q + 6, 2));
                     if (el < 8 || q + el > bodyEnd) break;
                     if (nameIdx < names.Count)
-                        result.Add(new Property(owner, names[nameIdx], Encoding.Unicode.GetString(blob.Slice(q + 8, vl))));
+                    {
+                        ReadOnlySpan<byte> raw = blob.Slice(q + 8, vl);
+                        // A boolean is a single 0/1 byte; everything else is UTF-16 text.
+                        string value = dataType == PropertyType.Boolean
+                            ? (raw.Length > 0 && raw[0] != 0 ? "1" : "0")
+                            : Encoding.Unicode.GetString(raw);
+                        result.Add(new Property(owner, names[nameIdx], value, dataType));
+                    }
                     q += el;
                 }
             }
@@ -127,6 +145,17 @@ public static class PropertyBlob
         foreach (Property p in Read(blob))
             if (p.Owner.Length > 0 && p.Name == DefaultValueProperty)
                 result[p.Owner] = p.Value;
+        return result;
+    }
+
+    /// <summary>The set of columns marked <c>Required</c> (NOT NULL) in a blob — a column has the property
+    /// only when it is required (Access omits it for a nullable column).</summary>
+    public static IReadOnlySet<string> ReadRequiredColumns(ReadOnlySpan<byte> blob)
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Property p in Read(blob))
+            if (p.Owner.Length > 0 && p.Name == RequiredProperty && p.Value == "1")
+                result.Add(p.Owner);
         return result;
     }
 

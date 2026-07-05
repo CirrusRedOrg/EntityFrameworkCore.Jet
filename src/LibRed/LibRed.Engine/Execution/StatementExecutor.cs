@@ -61,6 +61,16 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         return 0;
     }
 
+    /// <summary>Rejects an insert that leaves a NOT NULL (Required) column null after defaults are applied —
+    /// matching Access, which raises "You must enter a value in the 'Table.Column' field." AutoNumber columns
+    /// are exempt: they are assigned during the write, not supplied here.</summary>
+    private static void EnforceRequired(string table, IReadOnlyList<ColumnDef> columns, object?[] values)
+    {
+        foreach (ColumnDef column in columns)
+            if (!column.IsNullable && !column.IsAutoNumber && values[column.Index] is null)
+                throw new InvalidOperationException($"You must enter a value in the '{table}.{column.Name}' field.");
+    }
+
     /// <summary>Pairs each child FK column with its referenced parent column, in key order.</summary>
     private static List<(string Column, string ReferencedColumn)> PairColumns(ForeignKeyConstraint fk)
     {
@@ -267,6 +277,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 if (!provided.Contains(index))
                     values[index] = evaluator.Evaluate(expression);
 
+            EnforceRequired(statement.Table, columns, values);
             EnforceReferentialIntegrity(statement.Table, table, values);
             table.Insert(values); // fills values[autoNumber.Index] with the generated id (array mutated in place)
             if (autoNumber is not null)

@@ -78,6 +78,8 @@ public abstract class JetFormatBase
 
     /// <summary>Column flag: the column is an AutoNumber.</summary>
     public const byte ColumnFlagAutoNumber = 0x04;
+    // Note: nullability is NOT in the column flag byte (bit 0x02 is set on every column). A NOT NULL column
+    // is marked by a boolean `Required` property in the LvProp blob instead — see PropertyBlob / §11.
 
     // --- Data page layout (Jet 4 / ACE) ---
 

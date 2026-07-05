@@ -25,7 +25,12 @@ public sealed class ColumnDef
     public int VariableIndex { get; init; } = -1;
 
     public bool IsFixedLength { get; init; }
-    public bool IsNullable { get; init; } = true;
+
+    /// <summary>Whether the column accepts NULL. False for a NOT NULL / Required column — read from the
+    /// <c>Required</c> property in the extended-properties (<c>LvProp</c>) blob, set by the catalog after
+    /// the descriptors are decoded (like <see cref="DefaultValue"/>, the flag lives outside the TDEF).</summary>
+    public bool IsNullable { get; internal set; } = true;
+
     public bool IsAutoNumber { get; init; }
 
     /// <summary>The column's <c>DefaultValue</c> property (an expression's source text, e.g. <c>"0"</c>

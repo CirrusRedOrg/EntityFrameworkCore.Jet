@@ -178,7 +178,20 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         int defEnd = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(TdefLengthOffset, 4));
         WriteDefinition(tdefPage, tdef[..defEnd], []);
 
-        AddCatalogRow(name, tdefPage, columnDefaults, checkConstraints);
+        // Per-column extended properties, in column order with DefaultValue before Required (matching ACE):
+        // a DEFAULT is a memo property; a NOT NULL column carries a boolean Required property (Access omits
+        // it for a nullable column, and — verified — for an AutoNumber, which is implicitly required).
+        var columnProps = new List<PropertyBlob.Property>();
+        foreach (ColumnSpec col in columns)
+        {
+            var def = columnDefaults.FirstOrDefault(d => string.Equals(d.Column, col.Name, StringComparison.OrdinalIgnoreCase));
+            if (def.DefaultSql is not null)
+                columnProps.Add(new PropertyBlob.Property(col.Name, PropertyBlob.DefaultValueProperty, def.DefaultSql));
+            if (!col.IsNullable && !col.IsAutoNumber)
+                columnProps.Add(PropertyBlob.Bool(col.Name, PropertyBlob.RequiredProperty, true));
+        }
+
+        AddCatalogRow(name, tdefPage, columnProps, checkConstraints);
         AddPermissionRows(tdefPage);
         foreach (RelationshipSpec fk in relationships)
             AddRelationshipRows(name, fk);
@@ -820,7 +833,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     /// ParentId+Name used for name resolution) are maintained so Access can open the table by name.
     /// </summary>
     private void AddCatalogRow(string name, int tdefPage,
-        IReadOnlyList<(string Column, string DefaultSql)> columnDefaults,
+        IReadOnlyList<PropertyBlob.Property> columnProps,
         IReadOnlyList<(string Name, string Expression)> checkConstraints)
     {
         TableDef msysObjects = _catalog.FindTable("MSysObjects")
@@ -837,11 +850,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         SetByName(msysObjects, values, "DateCreate", now);
         SetByName(msysObjects, values, "DateUpdate", now);
 
-        // Column DEFAULTs (per-column properties) and CHECK constraints (a table property) both live in
-        // the object's extended-properties (LvProp) blob.
-        var props = columnDefaults
-            .Select(d => new PropertyBlob.Property(d.Column, PropertyBlob.DefaultValueProperty, d.DefaultSql))
-            .ToList();
+        // Per-column properties (DefaultValue / Required) and CHECK constraints (a table property) both
+        // live in the object's extended-properties (LvProp) blob.
+        var props = columnProps.ToList();
         if (checkConstraints.Count > 0)
             props.Add(new PropertyBlob.Property("", PropertyBlob.CheckConstraintsProperty,
                 PropertyBlob.WriteCheckList(checkConstraints)));

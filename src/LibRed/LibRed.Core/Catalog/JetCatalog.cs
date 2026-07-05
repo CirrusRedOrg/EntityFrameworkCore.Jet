@@ -109,10 +109,14 @@ public sealed class JetCatalog(PageChannel channel)
             if (row[lvpropIndex] is byte[] { Length: > 0 } blob)
             {
                 var defaults = PropertyBlob.ReadColumnDefaults(blob);
-                if (defaults.Count > 0)
-                    foreach (ColumnDef column in definition.Columns)
-                        if (defaults.TryGetValue(column.Name, out string? value))
-                            column.DefaultValue = value;
+                var required = PropertyBlob.ReadRequiredColumns(blob);
+                foreach (ColumnDef column in definition.Columns)
+                {
+                    if (defaults.TryGetValue(column.Name, out string? value))
+                        column.DefaultValue = value;
+                    if (required.Contains(column.Name))
+                        column.IsNullable = false;
+                }
 
                 var checks = PropertyBlob.ReadCheckConstraints(blob);
                 if (checks.Count > 0) definition.CheckConstraints = checks;

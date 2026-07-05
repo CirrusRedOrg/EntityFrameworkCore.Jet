@@ -510,6 +510,13 @@ internal sealed class ExpressionEvaluator(
         if (IsNumeric(left) && IsNumeric(right))
             return ToNumber(left).CompareTo(ToNumber(right));
 
+        // Binary (byte[]) columns: structural, length-sensitive byte compare — lexicographic then by
+        // length, so a shorter value sorts before a longer one sharing its prefix (Jet's binary order,
+        // matching IndexKeyEncoder). Without this, byte[] falls through to ToString() ("System.Byte[]"
+        // for every array) and all binaries compare *equal* — so `WHERE binKey = @p` matches every row.
+        if (left is byte[] lb && right is byte[] rb)
+            return CompareBytes(lb, rb);
+
         if (left is string || right is string)
             return CompareText(left.ToString()!, right.ToString()!);
 
@@ -517,6 +524,15 @@ internal sealed class ExpressionEvaluator(
             return c.CompareTo(right);
 
         return CompareText(left.ToString()!, right.ToString()!);
+    }
+
+    /// <summary>Lexicographic byte comparison, then by length (shorter prefix sorts first).</summary>
+    private static int CompareBytes(byte[] a, byte[] b)
+    {
+        int n = Math.Min(a.Length, b.Length);
+        for (int i = 0; i < n; i++)
+            if (a[i] != b[i]) return a[i].CompareTo(b[i]);
+        return a.Length.CompareTo(b.Length);
     }
 
     /// <summary>Access text comparison: **case-insensitive**, **trailing spaces ignored**, and

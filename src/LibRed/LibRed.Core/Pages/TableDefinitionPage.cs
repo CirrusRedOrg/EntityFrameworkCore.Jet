@@ -229,7 +229,7 @@ public sealed class TableDefinitionPage : Page
         _columns.Clear();
 
         // Pass 1: fixed-size column descriptors.
-        var descriptors = new (JetDataType Type, int ColumnId, byte Flags, int FixedOffset, int Length, byte Precision, byte Scale)[ColumnCount];
+        var descriptors = new (JetDataType Type, int ColumnId, byte Flags, int FixedOffset, int Length, byte Precision, byte Scale, int VariableIndex)[ColumnCount];
         for (int i = 0; i < ColumnCount; i++)
         {
             int entry = columnBlock + i * format.ColumnDescriptorSize;
@@ -245,19 +245,12 @@ public sealed class TableDefinitionPage : Page
                 buffer.ReadUInt16(entry + format.ColumnFixedOffsetOffset),
                 buffer.ReadUInt16(entry + format.ColumnLengthOffset),
                 numeric ? buffer.ReadByte(entry + format.ColumnPrecisionOffset) : (byte)0,
-                numeric ? buffer.ReadByte(entry + format.ColumnScaleOffset) : (byte)0);
-        }
-
-        // Variable columns are addressed (in the row's var-offset table) in ascending
-        // column-id order, so assign each variable column its rank in that ordering.
-        var variableIndex = new Dictionary<int, int>();
-        int rank = 0;
-        foreach (int columnId in descriptors
-                     .Where(d => (d.Flags & JetFormatBase.ColumnFlagFixedLength) == 0)
-                     .Select(d => d.ColumnId)
-                     .OrderBy(id => id))
-        {
-            variableIndex[columnId] = rank++;
+                numeric ? buffer.ReadByte(entry + format.ColumnScaleOffset) : (byte)0,
+                // The variable-table index is **stored** in the descriptor (0x07), not derived. Reading it
+                // (rather than ranking column ids) is what lets a table with a **dropped column** decode:
+                // ACE's DROP COLUMN removes a descriptor but does NOT renumber the survivors or rewrite
+                // rows, so a survivor keeps its original variable index even though ranking would shift it.
+                buffer.ReadUInt16(entry + format.ColumnVariableIndexOffset));
         }
 
         // Pass 2: column names, in the same order, immediately after the descriptor block.
@@ -280,7 +273,7 @@ public sealed class TableDefinitionPage : Page
                 ColumnId = d.ColumnId,
                 Length = d.Length,
                 FixedOffset = d.FixedOffset,
-                VariableIndex = isFixed ? -1 : variableIndex[d.ColumnId],
+                VariableIndex = isFixed ? -1 : d.VariableIndex,
                 IsFixedLength = isFixed,
                 IsAutoNumber = (d.Flags & JetFormatBase.ColumnFlagAutoNumber) != 0,
                 Precision = d.Precision,

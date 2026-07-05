@@ -262,11 +262,16 @@ insert/delete/insert sequence and against saved Northwind tables:**
 > General order) would carry `0x0D = 1` and different index-key bytes that LibRed does not yet handle
 > (no version-1 fixture available here to verify against).
 >
-> LibRed currently *derives* the variable-table index (`0x07`) by ranking variable columns by
-> column id rather than reading it; the stored value matches that ranking in every file tested.
+> LibRed **reads** the variable-table index from the descriptor (`0x07`) rather than deriving it by
+> ranking column ids. For an untouched table the two agree, but they **diverge after a `DROP COLUMN`**:
+> ACE's drop is a metadata-only TDEF edit that does **not** renumber the surviving columns or rewrite
+> existing rows, so a survivor keeps its original variable index even though ranking would shift it down
+> into the gap. Deriving would then decode the wrong variable slot (verified: after dropping a middle
+> Text column, the next Text column read the dropped column's value); reading `0x07` decodes correctly.
 
-Variable-length columns are assigned a *variable index* = their rank among variable columns
-ordered by ascending column id (used by the row's variable-offset table, §5).
+Variable-length columns carry a *variable index* — their position in the row's variable-offset table
+(§5), stored in the descriptor at `0x07`. For an untouched table this equals their rank among variable
+columns ordered by ascending column id, but a `DROP COLUMN` can leave a gap (see the note above).
 
 ### 3.5 Index-data block (52 bytes)
 

@@ -67,6 +67,7 @@ public abstract class JetFormatBase
     // --- Column descriptor layout (offsets within a single descriptor) ---
     public virtual int ColumnTypeOffset => 0x00;
     public virtual int ColumnNumberOffset => 0x05;
+    public virtual int ColumnVariableIndexOffset => 0x07; // position among variable columns (0 for fixed)
     public virtual int ColumnPrecisionOffset => 0x0B; // Decimal/Numeric columns only
     public virtual int ColumnScaleOffset => 0x0C;     // Decimal/Numeric columns only
     public virtual int ColumnFlagsOffset => 0x0F;

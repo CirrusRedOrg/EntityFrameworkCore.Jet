@@ -618,8 +618,36 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         TdefParts parts = ParseTdef(table.DefinitionPage); // throws on a multi-page TDEF
         RemoveColumnFromParts(parts, table.Columns.Count, col.Index, _channel.Format);
         WriteTdef(table.DefinitionPage, parts);
+        RemoveColumnProperties(table.DefinitionPage, columnName); // drop its DefaultValue/Required from LvProp (ACE does)
         _catalog.Invalidate();
         return true;
+    }
+
+    /// <summary>Removes a dropped column's extended-property block (DefaultValue, Required, …) from its
+    /// table's <c>MSysObjects.LvProp</c> blob — what ACE does on DROP COLUMN (verified). Surgically removes
+    /// just that column's block (keeps the name pool + other columns' blocks), re-stores the smaller blob on
+    /// an LvProp page and updates the row. No-op when the column had no properties.</summary>
+    private void RemoveColumnProperties(int tdefPage, string columnName)
+    {
+        TableDef msys = _catalog.FindTable("MSysObjects")
+            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
+        int idIdx = (msys.FindColumn("Id") ?? throw new InvalidOperationException("MSysObjects is missing 'Id'.")).Index;
+        ColumnDef lvProp = msys.FindColumn("LvProp") ?? throw new InvalidOperationException("MSysObjects is missing 'LvProp'.");
+        var table = new Table(_channel, msys);
+
+        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
+        {
+            if (values[idIdx] is null || Convert.ToInt32(values[idIdx]) != tdefPage) continue;
+            if (values[lvProp.Index] is not byte[] { Length: > 0 } blob) return;
+
+            byte[] cleaned = PropertyBlob.RemoveOwner(blob, columnName);
+            if (cleaned.Length == blob.Length) return; // the column had no property block — nothing to remove
+
+            byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, cleaned);
+            values[lvProp.Index] = new LongValueDescriptor(descriptor);
+            table.Update(id, values, new HashSet<int> { lvProp.Index });
+            return;
+        }
     }
 
     /// <summary>Removes the descriptor + name of the column at <paramref name="removeIndex"/> from the

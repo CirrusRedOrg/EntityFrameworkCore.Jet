@@ -79,6 +79,40 @@ public static class PropertyBlob
         return [.. blob];
     }
 
+    /// <summary>
+    /// Removes the property-value block owned by <paramref name="owner"/> (a column being dropped), keeping
+    /// every other block — including the name pool — verbatim. The name pool is deliberately left untouched
+    /// so the surviving blocks' name indexes stay valid (an unreferenced pooled name is harmless). Returns
+    /// the blob unchanged if the owner has no block. This is what ACE does on DROP COLUMN (verified: a dropped
+    /// column's DefaultValue/Required entry disappears from the blob).
+    /// </summary>
+    public static byte[] RemoveOwner(ReadOnlySpan<byte> blob, string owner)
+    {
+        if (blob.Length < 4) return blob.ToArray();
+
+        var result = new List<byte>(blob.Length);
+        result.AddRange(blob[..4]); // signature
+
+        int pos = 4;
+        while (pos + 6 <= blob.Length)
+        {
+            int len = BinaryPrimitives.ReadInt32LittleEndian(blob.Slice(pos, 4));
+            ushort type = BinaryPrimitives.ReadUInt16LittleEndian(blob.Slice(pos + 4, 2));
+            if (len < 6 || pos + len > blob.Length) { result.AddRange(blob[pos..]); return [.. result]; } // malformed tail
+
+            bool drop = false;
+            if (type != NameListBlock)
+            {
+                int onl = BinaryPrimitives.ReadUInt16LittleEndian(blob.Slice(pos + 6 + 4, 2));
+                string blockOwner = Encoding.Unicode.GetString(blob.Slice(pos + 6 + 6, onl));
+                drop = string.Equals(blockOwner, owner, StringComparison.OrdinalIgnoreCase);
+            }
+            if (!drop) result.AddRange(blob.Slice(pos, len));
+            pos += len;
+        }
+        return [.. result];
+    }
+
     /// <summary>Parses every property (owner, name, value) from a blob. Empty owner = a table property.</summary>
     public static IReadOnlyList<Property> Read(ReadOnlySpan<byte> blob)
     {

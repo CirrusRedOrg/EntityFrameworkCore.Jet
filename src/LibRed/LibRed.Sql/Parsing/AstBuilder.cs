@@ -36,9 +36,13 @@ internal sealed class AstBuilder
         if (ctx.alterTableStatement() is { } alter) return BuildAlterTable(alter);
         if (ctx.insertStatement() is { } insert) return BuildInsert(insert);
         if (ctx.updateStatement() is { } update) return BuildUpdate(update);
+        if (ctx.deleteStatement() is { } delete) return BuildDelete(delete);
         if (ctx.systemVariableSelect() is { } sysSelect) return BuildSystemVariableSelect(sysSelect);
         return BuildQueryExpression(ctx.queryExpression());
     }
+
+    private static DeleteStatement BuildDelete(DeleteStatementContext ctx) =>
+        new(Identifier(ctx.table), ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null);
 
     private static UpdateStatement BuildUpdate(UpdateStatementContext ctx)
     {

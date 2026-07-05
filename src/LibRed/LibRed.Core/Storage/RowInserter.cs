@@ -170,6 +170,27 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         return (pageNumber, rowCount);
     }
 
+    /// <summary>
+    /// Soft-deletes the row at <paramref name="id"/> — sets the deleted flag (0x8000) on its slot (the bytes
+    /// stay; scans and Access skip it) and decrements the TDEF row count (0x10), matching Access. The caller
+    /// removes the row's index entries first. (The row's LVAL pages, if any, are not reclaimed yet.)
+    /// </summary>
+    public void Delete(RowId id)
+    {
+        JetFormatBase format = _channel.Format;
+
+        byte[] page = _channel.ReadPage(id.Page).Span.ToArray();
+        int dir = format.DataRowDirectoryOffset + id.Row * 2;
+        ushort entry = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir, 2));
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir, 2), (ushort)(entry | DeletedFlag));
+        _channel.WritePage(id.Page, page);
+
+        byte[] tdef = _channel.ReadPage(_table.DefinitionPage).Span.ToArray();
+        int rowCount = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4));
+        BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4), rowCount - 1);
+        _channel.WritePage(_table.DefinitionPage, tdef);
+    }
+
     /// <summary>The raw bytes of slot <paramref name="slot"/> on a data page (walks the packed rows).</summary>
     private static byte[] SlotBytes(byte[] page, JetFormatBase format, int slot)
     {

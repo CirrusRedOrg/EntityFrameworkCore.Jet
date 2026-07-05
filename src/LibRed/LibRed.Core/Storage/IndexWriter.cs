@@ -59,6 +59,14 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         if (!(index.IgnoreNulls && HasNullKey(index, newValues))) AddEntry(index, newValues, rowId);
     }
 
+    /// <summary>Removes a row's entry when the row is deleted — a no-op for a WITH IGNORE NULL index whose
+    /// key the row was absent from (null key), otherwise <see cref="RemoveEntry"/>.</summary>
+    public void DeleteEntry(IndexDef index, object?[] values, RowId rowId)
+    {
+        if (index.IgnoreNulls && HasNullKey(index, values)) return;
+        RemoveEntry(index, values, rowId);
+    }
+
     /// <summary>
     /// Removes a row's entry from the index. Descends to the entry's leaf, drops it, and rewrites the leaf.
     /// No rebalancing: an underfull or empty leaf is fine, and a stale separator (if the removed entry was a

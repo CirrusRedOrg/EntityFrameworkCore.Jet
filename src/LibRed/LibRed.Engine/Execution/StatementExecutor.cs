@@ -28,6 +28,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         AlterTableStatement alter => ExecuteAlterTable(alter),
         InsertStatement insert => ExecuteInsert(insert),
         UpdateStatement update => ExecuteUpdate(update),
+        DeleteStatement delete => ExecuteDelete(delete),
         _ => throw new NotSupportedException($"{statement.GetType().Name} cannot be executed as a non-query."),
     };
 
@@ -370,6 +371,40 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             affected++; // @@ROWCOUNT counts matched rows, changed or not
         }
 
+        if (_session is not null) _session.RowCount = affected;
+        return affected;
+    }
+
+    /// <summary>
+    /// Executes DELETE [table.*] FROM table [WHERE criteria]. The WHERE is an ordinary expression (the same
+    /// as a SELECT's), evaluated per row. Each matching row's index entries are removed and the row is
+    /// soft-deleted (row id kept, TDEF row count decremented — matching Access). Publishes @@ROWCOUNT = rows
+    /// deleted. (The rows' LVAL pages are not reclaimed yet.)
+    /// </summary>
+    private int ExecuteDelete(DeleteStatement statement)
+    {
+        Table table = _database.OpenTable(statement.Table);
+        var outputColumns = table.Definition.Columns.Select(c => new OutputColumn(statement.Table, c.Name)).ToList();
+
+        // Snapshot the matching rows first — don't mutate the table while its cursor is open.
+        var matches = new List<(RowId Id, object?[] Values)>();
+        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
+        {
+            var eval = new ExpressionEvaluator(new EvalScope(outputColumns, values, null), _scalarRunner, _parameters, _session);
+            if (statement.Where is null || eval.Evaluate(statement.Where) is true)
+                matches.Add((id, values));
+        }
+
+        var indexes = table.Definition.Indexes
+            .Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()).ToList();
+        foreach ((RowId id, object?[] values) in matches)
+        {
+            foreach (IndexDef index in indexes)
+                table.RemoveIndexEntry(index, values, id);
+            table.Delete(id);
+        }
+
+        int affected = matches.Count;
         if (_session is not null) _session.RowCount = affected;
         return affected;
     }

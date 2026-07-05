@@ -51,6 +51,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitAssignment([NotNull] AccessSqlParser.AssignmentContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.deleteStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDeleteStatement([NotNull] AccessSqlParser.DeleteStatementContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.systemVariableSelect"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

@@ -35,4 +35,12 @@ public sealed class Table
     /// unchanged). Used by UPDATE of an indexed column.</summary>
     public void MoveIndexEntry(IndexDef index, object?[] oldValues, object?[] newValues, RowId id) =>
         new IndexWriter(Channel, Definition).MoveEntry(index, oldValues, newValues, id);
+
+    /// <summary>Soft-deletes the row at <paramref name="id"/> (row bytes kept, slot flagged; TDEF row count
+    /// decremented). The caller removes its index entries first via <see cref="RemoveIndexEntry"/>.</summary>
+    public void Delete(RowId id) => new RowInserter(Channel, Definition).Delete(id);
+
+    /// <summary>Removes a deleted row's entry from one index.</summary>
+    public void RemoveIndexEntry(IndexDef index, object?[] values, RowId id) =>
+        new IndexWriter(Channel, Definition).DeleteEntry(index, values, id);
 }

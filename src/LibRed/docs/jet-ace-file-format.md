@@ -754,8 +754,19 @@ Then the value, transformed:
   start flag becomes `0x80` and the `0x08` terminator becomes `0xF7`, but the middle `0x09` is unchanged.
   Verified against ACE (`CREATE INDEX … (K DESC)`), e.g. `00000000-…-0` → `80 FFFFFFFFFFFFFFFF 09
   FFFFFFFFFFFFFFFF F7`. No trailing `0x00` (unlike descending text keys).
-- **Binary (general):** collation encoding still limited to the fixed 4-byte ascending case
-  (MSysQueries.Order); other lengths/descending unimplemented.
+- **Binary (general):** the start flag (`0x7F` asc / `0x80` desc), then the raw bytes in **8-byte
+  chunks**. Each chunk is 8 bytes — real bytes left-aligned, **zero-padded on the right** — followed by
+  a **control byte**: `0x09` when a further chunk follows (a full 8-byte chunk with more data to come),
+  otherwise the **real-byte count of this final chunk** (`0x01…0x08`; `0x08` for a full final chunk,
+  `0x00` for empty data). The count `≤ 8 < 0x09`, so control values never collide. This is exactly the
+  GUID chunking generalised to any length: a 16-byte value is two chunks (`… 09 … 08`), and the old
+  fixed 4-byte MSysQueries.Order case is the single-chunk form `7F <4B> 00000000 04`. The trailing
+  length-terminator makes shorter values sort before longer ones that share a prefix (correct binary
+  prefix order). **Descending** inverts every byte **except the `0x09` continuation markers** (mirrors
+  GUID): flag → `0x80`, data bytes and the terminator inverted, markers unchanged. Verified byte-for-byte
+  against ACE's `EverythingIsBytes` fixture (3/4/5/8/16-byte keys, single- and multi-chunk) by
+  re-encoding each stored key's row value; descending has no ACE fixture and is extrapolated from the
+  verified GUID descending (ordering-tested for internal consistency). `IndexKeyEncoder.EncodeBinaryChunked`.
 
 ### 10.5 Insertion and splitting
 

@@ -14,7 +14,7 @@ namespace LibRed.Storage;
 /// 0x80 / 0xFF descending). Fixed/numeric types use the reversible transform (sign-bit flip +
 /// big-endian for integers; an IEEE transform for floating point); descending inverts the bytes.
 /// GUID keys are encoded byte-faithfully (string-order halves split by 0x09, terminated by 0x08).
-/// Text uses Jet's collation; general Binary keys are still limited — see the per-branch notes.
+/// Text uses Jet's collation; general Binary keys use the same 0x09-chunked layout for any length.
 /// </remarks>
 public static class IndexKeyEncoder
 {
@@ -102,20 +102,17 @@ public static class IndexKeyEncoder
                 continue;
             }
 
-            // Binary key: the start flag, the raw bytes, a 4-zero pad and the byte length. Only the fixed
-            // 4-byte ascending case is verified against ACE (MSysQueries' Order column); for other lengths
-            // the pad/escaping is unconfirmed and descending is unhandled, so reject rather than write a
-            // key Access would mis-order. General binary/GUID index collation is still TODO.
+            // Binary key (verified against ACE's EverythingIsBytes fixture): the start flag, then the raw
+            // bytes in **8-byte chunks**. Each chunk is 8 bytes (real bytes left-aligned, zero-padded on the
+            // right) followed by a control byte: 0x09 when another chunk follows (a full 8-byte chunk with
+            // more to come), otherwise the real-byte count of this final chunk (1..8; 0x08 for a full final
+            // chunk, 0x00 for empty data). This is the same chunking as the GUID key (a 16-byte value → two
+            // chunks: 8, 0x09, 8, 0x08); the old fixed 4-byte MSysQueries.Order case is the single-chunk form
+            // (7F <4B> 00 00 00 00 04). Descending inverts every byte EXCEPT the 0x09 continuation markers
+            // (which stay constant so structure is parseable and they're equal across keys) — mirrors GUID.
             if (column.Type == JetDataType.Binary)
             {
-                byte[] data = (byte[])value;
-                if (!ascending || data.Length != 4)
-                    throw new NotSupportedException(
-                        "Binary index key encoding is only implemented for the fixed 4-byte ascending case (e.g. MSysQueries.Order).");
-                buffer.Add(AscStartFlag);
-                buffer.AddRange(data);
-                buffer.AddRange(new byte[4]);
-                buffer.Add((byte)data.Length);
+                EncodeBinaryChunked(buffer, (byte[])value, ascending);
                 continue;
             }
 
@@ -132,6 +129,34 @@ public static class IndexKeyEncoder
         }
 
         return [.. buffer];
+    }
+
+    /// <summary>
+    /// Appends Jet's order-preserving binary index key: start flag, then 8-byte chunks each followed by
+    /// a control byte (0x09 = "full chunk, more follow"; 1..8 = real-byte count of the final chunk).
+    /// Descending inverts every byte except the 0x09 continuation markers (verified against ACE).
+    /// </summary>
+    private static void EncodeBinaryChunked(List<byte> buffer, byte[] data, bool ascending)
+    {
+        buffer.Add(ascending ? AscStartFlag : DescStartFlag);
+
+        int offset = 0;
+        do
+        {
+            int n = Math.Min(8, data.Length - offset);
+            for (int j = 0; j < 8; j++)
+            {
+                byte b = j < n ? data[offset + j] : (byte)0;
+                buffer.Add(ascending ? b : (byte)~b);
+            }
+            offset += n;
+
+            if (offset < data.Length)
+                buffer.Add(0x09);                                  // continuation marker (constant either way)
+            else
+                buffer.Add(ascending ? (byte)n : (byte)~n);        // terminator = final-chunk length
+        }
+        while (offset < data.Length);
     }
 
     private static int FixedKeySize(JetDataType type) => type switch

@@ -71,4 +71,40 @@ public class UpdateAccessTests
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
+
+    [Fact]
+    public void Access_seeks_a_libred_updated_primary_key()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"upd-key-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("T",
+                    [new("Id", JetDataType.Int32, 4, IsFixedLength: true), new("N", JetDataType.Int32, 4, IsFixedLength: true)],
+                    primaryKey: ["Id"]);
+                var table = db.OpenTable("T");
+                for (int i = 1; i <= 5; i++) table.Insert([i, i * 10]);
+
+                var def = table.Definition;
+                int idIdx = def.FindColumn("Id")!.Index;
+                var pk = def.Indexes.First(i => i.IsPrimaryKey);
+                (RowId id, object?[] old) = table.Rows().WithIds().First(x => Convert.ToInt32(x.Values[idIdx]) == 2);
+
+                var updated = (object?[])old.Clone();
+                updated[idIdx] = 20;
+                table.Update(id, updated);
+                table.MoveIndexEntry(pk, old, updated, id);
+            }
+
+            // Access seeks the row by its NEW primary key (using the index we moved) and no longer by the old.
+            using var conn = OpenOleDb(path);
+            using (var c = conn.CreateCommand())
+            { c.CommandText = "SELECT N FROM T WHERE Id = 20"; Assert.Equal(20, Convert.ToInt32(c.ExecuteScalar())); }
+            using (var c = conn.CreateCommand())
+            { c.CommandText = "SELECT COUNT(*) FROM T WHERE Id = 2"; Assert.Equal(0, Convert.ToInt32(c.ExecuteScalar())); }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
 }

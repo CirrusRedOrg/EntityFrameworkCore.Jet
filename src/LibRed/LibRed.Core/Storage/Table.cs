@@ -30,4 +30,9 @@ public sealed class Table
 
     /// <summary>Rewrites the row at <paramref name="id"/> in place with new values (row id preserved).</summary>
     public void Update(RowId id, object?[] values) => new RowInserter(Channel, Definition).Update(id, values);
+
+    /// <summary>Moves a row's entry in one index when its key changes (remove old key, add new; row id
+    /// unchanged). Used by UPDATE of an indexed column.</summary>
+    public void MoveIndexEntry(IndexDef index, object?[] oldValues, object?[] newValues, RowId id) =>
+        new IndexWriter(Channel, Definition).MoveEntry(index, oldValues, newValues, id);
 }

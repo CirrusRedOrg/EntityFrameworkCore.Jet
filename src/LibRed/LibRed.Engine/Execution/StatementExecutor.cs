@@ -329,8 +329,6 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 a.Value))
             .ToList();
 
-        var indexedColumnIds = table.Definition.Indexes
-            .SelectMany(i => i.Columns.Select(c => c.Column.Index)).ToHashSet();
         var outputColumns = columns.Select(c => new OutputColumn(statement.Table, c.Name)).ToList();
 
         ExpressionEvaluator RowEvaluator(object?[] row) =>
@@ -360,10 +358,14 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
             if (changed.Count > 0)
             {
-                if (changed.Overlaps(indexedColumnIds))
-                    throw new NotSupportedException(
-                        $"UPDATE that changes an indexed column on '{statement.Table}' is not supported yet.");
-                table.Update(id, newValues);
+                table.Update(id, newValues); // in place — row id preserved (may throw if the row must relocate)
+
+                // Maintain every index whose key columns changed: move the entry (old key → new key), keeping
+                // the same row id. Dedup by root page (a relationship index shares a real index's B-tree).
+                foreach (IndexDef index in table.Definition.Indexes
+                    .Where(i => i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
+                    .GroupBy(i => i.RootPage).Select(g => g.First()))
+                    table.MoveIndexEntry(index, oldValues, newValues, id);
             }
             affected++; // @@ROWCOUNT counts matched rows, changed or not
         }

@@ -48,6 +48,47 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         InsertIntoLeaf(index, path, key, pointer);
     }
 
+    /// <summary>
+    /// Moves a row's entry when its key changes: removes the old-key entry and inserts the new-key one (the
+    /// row id is unchanged — Access rewrites rows in place). Honours WITH IGNORE NULL on each side (a row with
+    /// a null key is simply absent from the index). Used by UPDATE of an indexed column.
+    /// </summary>
+    public void MoveEntry(IndexDef index, object?[] oldValues, object?[] newValues, RowId rowId)
+    {
+        if (!(index.IgnoreNulls && HasNullKey(index, oldValues))) RemoveEntry(index, oldValues, rowId);
+        if (!(index.IgnoreNulls && HasNullKey(index, newValues))) AddEntry(index, newValues, rowId);
+    }
+
+    /// <summary>
+    /// Removes a row's entry from the index. Descends to the entry's leaf, drops it, and rewrites the leaf.
+    /// No rebalancing: an underfull or empty leaf is fine, and a stale separator (if the removed entry was a
+    /// leaf's maximum) stays a valid upper bound, so later descents still route correctly — matching Access's
+    /// lazy delete.
+    /// </summary>
+    public void RemoveEntry(IndexDef index, object?[] values, RowId rowId)
+    {
+        byte[] key = IndexKeyEncoder.Encode(index.Columns, values);
+        int pointer = (rowId.Page << 8) | rowId.Row;
+
+        List<int> path = Descend(index.RootPage, WithTrailer(key, pointer));
+        int leafPage = path[^1];
+        byte[] page = _channel.ReadPage(leafPage).Span.ToArray();
+        (List<Entry> entries, _) = Parse(page);
+
+        int idx = entries.FindIndex(e => e.Trailer == pointer && CompareBytes(e.Key, key) == 0);
+        if (idx < 0)
+            throw new InvalidOperationException(
+                $"Index '{index.Name}': entry for row {rowId.Page}:{rowId.Row} was not found on leaf {leafPage}.");
+        entries.RemoveAt(idx);
+
+        int prev = ReadInt32Le(page, PrevPageOffset), next = ReadInt32Le(page, NextPageOffset);
+        // Removing only shrinks the page, so Build never overflows.
+        _channel.WritePage(leafPage, Build(PageType.LeafIndexPage, prev, next, tail: 0, level: 0, entries)!);
+    }
+
+    private static bool HasNullKey(IndexDef index, object?[] values) =>
+        index.Columns.Any(c => values[c.Column.Index] is null or DBNull);
+
     /// <summary>Descends to the leaf that should hold the key, recording the path from the root.</summary>
     private List<int> Descend(int rootPage, byte[] fullKey)
     {

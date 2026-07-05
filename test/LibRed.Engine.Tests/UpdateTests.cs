@@ -48,8 +48,10 @@ public class UpdateTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // Updating an indexed column moves its index entry (old key removed, new key added), so a seek by the
+    // new key finds the row and a seek by the old key doesn't.
     [Fact]
-    public void Update_of_an_indexed_column_throws_for_now()
+    public void Update_of_an_indexed_column_moves_the_index_entry()
     {
         string path = Fresh();
         try
@@ -57,13 +59,18 @@ public class UpdateTests
             using var db = JetDatabase.Open(path, readOnly: false);
             var e = new QueryEngine(db);
             e.ExecuteNonQuery("CREATE TABLE T (Id long PRIMARY KEY, N long)");
-            e.ExecuteNonQuery("INSERT INTO T (Id, N) VALUES (1, 10)");
+            for (int i = 1; i <= 5; i++) e.ExecuteNonQuery($"INSERT INTO T (Id, N) VALUES ({i}, {i * 10})");
 
-            var ex = Assert.Throws<NotSupportedException>(() => e.ExecuteNonQuery("UPDATE T SET Id = 2 WHERE Id = 1"));
-            Assert.Contains("indexed column", ex.Message);
+            Assert.Equal(1, e.ExecuteNonQuery("UPDATE T SET Id = 20 WHERE Id = 2"));
 
-            // Updating a non-indexed column on the same table is fine.
-            Assert.Equal(1, e.ExecuteNonQuery("UPDATE T SET N = 20 WHERE Id = 1"));
+            // The row is now found under the new key, not the old one; N came along unchanged.
+            Assert.Empty(e.ExecuteQuery("SELECT N FROM T WHERE Id = 2").Rows);
+            Assert.Equal(20, Convert.ToInt32(e.ExecuteQuery("SELECT N FROM T WHERE Id = 20").Rows.Single()[0]));
+            Assert.Equal(5, e.ExecuteQuery("SELECT Id FROM T").Rows.Count()); // still five rows
+
+            // A composite move: change both the key and a non-key column together.
+            Assert.Equal(1, e.ExecuteNonQuery("UPDATE T SET Id = 99, N = 990 WHERE Id = 20"));
+            Assert.Equal(990, Convert.ToInt32(e.ExecuteQuery("SELECT N FROM T WHERE Id = 99").Rows.Single()[0]));
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }

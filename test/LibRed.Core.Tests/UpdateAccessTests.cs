@@ -140,6 +140,43 @@ public class UpdateAccessTests
     }
 
     [Fact]
+    public void Access_reads_a_memo_after_libred_reclaims_and_reuses_lval_pages()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"upd-reclaim-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string Big(char c) => new(c, 20000); // chained (dedicated pages), so each update frees + reuses pages
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("T",
+                    [new("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true), new("M", JetDataType.Memo, 0, IsFixedLength: false)],
+                    primaryKey: ["Id"]);
+                var table = db.OpenTable("T");
+                int mIdx = table.Definition.FindColumn("M")!.Index;
+                table.Insert([null, Big('a')]);
+
+                for (int i = 0; i < 6; i++)
+                {
+                    (RowId id, object?[] values) = table.Rows().WithIds().First();
+                    var updated = (object?[])values.Clone();
+                    updated[mIdx] = Big((char)('b' + i));
+                    table.Update(id, updated, new HashSet<int> { mIdx }); // frees the old chained pages, reuses them
+                }
+            }
+
+            // The pages were freed and reused across updates; Access must still open the file and read the
+            // final memo intact (a dangling reference or double-used page would corrupt it).
+            using var conn = OpenOleDb(path);
+            using (var c = conn.CreateCommand())
+            { c.CommandText = "SELECT COUNT(*) FROM T"; Assert.Equal(1, Convert.ToInt32(c.ExecuteScalar())); }
+            using (var c = conn.CreateCommand())
+            { c.CommandText = "SELECT M FROM T"; Assert.Equal(Big('g'), c.ExecuteScalar()); } // 'b'+5 = 'g'
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Access_seeks_a_libred_updated_primary_key()
     {
         string path = Path.Combine(Path.GetTempPath(), $"upd-key-{Guid.NewGuid():N}.accdb");

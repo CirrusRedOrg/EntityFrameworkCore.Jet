@@ -432,10 +432,14 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         foreach (var (table, id, original, values) in dirty.Values)
         {
-            if (original.AsSpan().SequenceEqual(values)) continue; // unchanged after all
-            table.Table.Update(id, values);
+            var changed = new HashSet<int>();
+            for (int i = 0; i < values.Length; i++)
+                if (!Equals(original[i], values[i])) changed.Add(i);
+            if (changed.Count == 0) continue; // unchanged after all
+
+            table.Table.Update(id, values, changed);
             foreach (IndexDef index in table.Table.Definition.Indexes
-                .Where(i => i.RootPage > 0 && i.Columns.Any(c => !Equals(original[c.Column.Index], values[c.Column.Index])))
+                .Where(i => i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
                 .GroupBy(i => i.RootPage).Select(g => g.First()))
                 table.Table.MoveIndexEntry(index, original, values, id);
         }

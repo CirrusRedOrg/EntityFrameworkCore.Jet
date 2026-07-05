@@ -28,8 +28,15 @@ public sealed class Table
     /// <summary>Inserts a row (values aligned to column <see cref="ColumnDef.Index"/>) into the table.</summary>
     public void Insert(object?[] values) => new RowInserter(Channel, Definition).Insert(values);
 
-    /// <summary>Rewrites the row at <paramref name="id"/> in place with new values (row id preserved).</summary>
-    public void Update(RowId id, object?[] values) => new RowInserter(Channel, Definition).Update(id, values);
+    /// <summary>Rewrites the row at <paramref name="id"/> in place with new values (row id preserved).
+    /// <paramref name="changedColumns"/> are the columns that actually changed — an unchanged memo/OLE column
+    /// keeps its stored descriptor (no re-materialise), a changed one has its old LVAL pages reclaimed.</summary>
+    public void Update(RowId id, object?[] values, IReadOnlySet<int> changedColumns) =>
+        new RowInserter(Channel, Definition).Update(id, values, changedColumns);
+
+    /// <summary>Rewrites the row treating every column as changed (materialises all long values).</summary>
+    public void Update(RowId id, object?[] values) =>
+        Update(id, values, new HashSet<int>(System.Linq.Enumerable.Range(0, values.Length)));
 
     /// <summary>Moves a row's entry in one index when its key changes (remove old key, add new; row id
     /// unchanged). Used by UPDATE of an indexed column.</summary>

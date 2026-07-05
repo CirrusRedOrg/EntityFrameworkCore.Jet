@@ -80,9 +80,21 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// a changed indexed column is the caller's responsibility. Does not touch the old LVAL pages (freeing
     /// them is a follow-up).
     /// </summary>
-    public void Update(RowId id, object?[] values)
+    public void Update(RowId id, object?[] values, IReadOnlySet<int> changedColumns)
     {
         JetFormatBase format = _channel.Format;
+
+        // Long-value (memo/OLE) columns: keep an unchanged column's on-disk descriptor verbatim (so it is not
+        // needlessly re-materialised onto fresh LVAL pages), and free a changed column's old chained pages.
+        var oldDescriptors = new RowDecoder(_table.Columns, format).LongValueRaw(ReadRowBytes(id));
+        foreach (ColumnDef column in _table.Columns)
+        {
+            if (column.Type is not (JetDataType.Memo or JetDataType.Ole)) continue;
+            if (!oldDescriptors.TryGetValue(column.Index, out byte[]? oldDescriptor)) continue; // old value was null
+            if (changedColumns.Contains(column.Index)) FreeLongValue(column, oldDescriptor);
+            else values[column.Index] = new LongValueDescriptor(oldDescriptor);
+        }
+
         MaterializeLongValues(values);
 
         byte[] srcPage = _channel.ReadPage(id.Page).Span.ToArray();
@@ -179,6 +191,12 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     {
         JetFormatBase format = _channel.Format;
 
+        // Free the deleted row's chained long-value pages.
+        var oldDescriptors = new RowDecoder(_table.Columns, format).LongValueRaw(ReadRowBytes(id));
+        foreach (ColumnDef column in _table.Columns)
+            if (column.Type is JetDataType.Memo or JetDataType.Ole && oldDescriptors.TryGetValue(column.Index, out byte[]? d))
+                FreeLongValue(column, d);
+
         byte[] page = _channel.ReadPage(id.Page).Span.ToArray();
         int dir = format.DataRowDirectoryOffset + id.Row * 2;
         ushort entry = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir, 2));
@@ -189,6 +207,63 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         int rowCount = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4));
         BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4), rowCount - 1);
         _channel.WritePage(_table.DefinitionPage, tdef);
+    }
+
+    /// <summary>The full inline bytes of the row at <paramref name="id"/>, following an overflow-forward
+    /// pointer to the row's real location if the slot has been relocated.</summary>
+    private byte[] ReadRowBytes(RowId id)
+    {
+        JetFormatBase format = _channel.Format;
+        byte[] page = _channel.ReadPage(id.Page).Span.ToArray();
+        int raw = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + id.Row * 2, 2));
+        byte[] slot = SlotBytes(page, format, id.Row);
+        if ((raw & OverflowFlag) == 0) return slot;
+
+        int pointer = BinaryPrimitives.ReadInt32LittleEndian(slot);
+        var target = new DataPage();
+        target.Read(_channel.ReadPage(pointer >> 8), format);
+        return target.GetRow(pointer & 0xFF).ToArray();
+    }
+
+    /// <summary>Reads a single LVAL chunk row (used to walk a chained value's next-pointers when freeing).</summary>
+    private byte[] ReadLvalRow(int page, int row)
+    {
+        var lval = new DataPage();
+        lval.Read(_channel.ReadPage(page), _channel.Format);
+        return lval.GetRow(row).ToArray();
+    }
+
+    /// <summary>
+    /// Reclaims the LVAL pages of a replaced/deleted long value. A <b>chained</b> value owns dedicated pages
+    /// (one chunk per page): each is freed to the global map and cleared from the column's owned/free maps.
+    /// Inline (0x80) values have no pages; single-page (0x40) values share a page with others, so reclaiming
+    /// their row is deferred (they are left in place — a small, shared-page leak).
+    /// </summary>
+    private void FreeLongValue(ColumnDef column, byte[] descriptor)
+    {
+        byte flags = descriptor[3];
+        if ((flags & 0x80) != 0 || (flags & 0x40) != 0) return; // inline or single (shared) page — not reclaimed here
+
+        TableDefinitionPage definition = ReadDefinition();
+        definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned);
+        definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) free);
+        var allocator = new PageAllocator(_channel);
+
+        int row = descriptor[4];
+        int page = descriptor[5] | (descriptor[6] << 8) | (descriptor[7] << 16);
+        while (page != 0)
+        {
+            byte[] chunk = ReadLvalRow(page, row);
+            int nextRow = chunk[0];
+            int nextPage = chunk[1] | (chunk[2] << 8) | (chunk[3] << 16);
+
+            allocator.Free(page);
+            SetUsageBit(owned.Row, owned.Page, page, set: false);
+            SetUsageBit(free.Row, free.Page, page, set: false);
+
+            page = nextPage;
+            row = nextRow;
+        }
     }
 
     /// <summary>The raw bytes of slot <paramref name="slot"/> on a data page (walks the packed rows).</summary>

@@ -78,6 +78,27 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         return values;
     }
 
+    /// <summary>Returns the raw in-row long-value descriptor bytes for each present memo/OLE column (keyed by
+    /// <see cref="ColumnDef.Index"/>), WITHOUT resolving the value. Used by UPDATE/DELETE to preserve an
+    /// unchanged column's descriptor verbatim (avoiding a needless re-materialise) and to free a replaced or
+    /// deleted value's LVAL pages.</summary>
+    public Dictionary<int, byte[]> LongValueRaw(ReadOnlySpan<byte> row)
+    {
+        var result = new Dictionary<int, byte[]>();
+        int nullBitmapSize = (_columns.Count + 7) / 8;
+        if (row.Length < _format.RowColumnCountSize + 2 + 2 + nullBitmapSize) return result; // overflow/lookup slot
+
+        ReadOnlySpan<byte> nullBitmap = row[^nullBitmapSize..];
+        int numVarCols = BinaryPrimitives.ReadUInt16LittleEndian(row.Slice(row.Length - nullBitmapSize - 2, 2));
+        int varTableStart = row.Length - nullBitmapSize - 2 - (numVarCols + 1) * 2;
+
+        foreach (ColumnDef column in _columns)
+            if (column.Type is JetDataType.Memo or JetDataType.Ole && IsPresent(nullBitmap, column.ColumnId))
+                result[column.Index] = VariableSlice(row, varTableStart, numVarCols, column.VariableIndex).ToArray();
+
+        return result;
+    }
+
     private ReadOnlySpan<byte> FixedSlice(ReadOnlySpan<byte> row, ColumnDef column)
     {
         int start = _format.RowColumnCountSize + column.FixedOffset;

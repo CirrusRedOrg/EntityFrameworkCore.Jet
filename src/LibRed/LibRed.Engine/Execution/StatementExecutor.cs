@@ -95,10 +95,6 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// </summary>
     private void EnforceReferentialIntegrity(string childTable, Table table, object?[] values)
     {
-        // TODO(self-pointing row): the parent is scanned BEFORE the new row is inserted, so a row that
-        // references itself on a self-referencing FK (e.g. Mgr = its own Id) is wrongly rejected — the
-        // referenced row does not exist yet. Access allows this. Fixing it needs the row's own key to be
-        // considered part of the parent set for a self-reference (or deferred/post-insert checking).
         foreach (ForeignKey fk in _database.Catalog.ForeignKeysOf(childTable))
         {
             if (!fk.IsEnforced) continue;
@@ -115,10 +111,31 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             }
             if (anyNull) continue;
 
+            // A **self-referencing** FK: the row being inserted is itself a candidate parent, so a row that
+            // points at its own key (the root of a required self-ref, e.g. Inverse1Id = Id) satisfies the FK
+            // even though it isn't on disk yet — the parent scan runs before the insert. Access allows this
+            // (and EF's ComplexNavigations seed relies on it). Check the new row's own referenced-key first.
+            if (string.Equals(fk.ReferencedTable, childTable, StringComparison.OrdinalIgnoreCase)
+                && RowSatisfiesOwnKey(fk, table, values, target))
+                continue;
+
             if (!ParentRowExists(fk, target))
                 throw new InvalidOperationException(
                     $"INSERT into '{childTable}' violates foreign key '{fk.Name}': no matching row in '{fk.ReferencedTable}'.");
         }
+    }
+
+    /// <summary>For a self-referencing FK, whether the row's own referenced-column values equal the FK
+    /// target — i.e. the row points at itself (or at its own composite key), which satisfies the FK.</summary>
+    private static bool RowSatisfiesOwnKey(ForeignKey fk, Table table, object?[] values, object?[] target)
+    {
+        for (int i = 0; i < fk.Columns.Count; i++)
+        {
+            ColumnDef refCol = table.Definition.FindColumn(fk.Columns[i].ReferencedColumn)
+                ?? throw new InvalidOperationException($"Column '{fk.Columns[i].ReferencedColumn}' does not exist in '{table.Name}'.");
+            if (ExpressionEvaluator.CompareForSort(values[refCol.Index], target[i]) != 0) return false;
+        }
+        return true;
     }
 
     /// <summary>Scans the parent table for a row whose referenced columns equal the child key values.</summary>

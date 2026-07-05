@@ -11,7 +11,7 @@
 grammar AccessSql;
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
-statement : parametersClause? (createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | insertStatement | updateStatement | deleteStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
+statement : parametersClause? (createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
 
 // UPDATE table SET col = expr, … [WHERE criteria]. The WHERE criteria is an ordinary expression, the same
 // as a SELECT's; each SET value expression may reference the row's current column values.
@@ -90,6 +90,15 @@ createIndexStatement
     : CREATE unique=UNIQUE? INDEX name=identifier ON table=identifier
       LPAREN indexColumn (COMMA indexColumn)* RPAREN
       (WITH withOption)?
+    ;
+
+// DROP { TABLE table | INDEX index ON table | PROCEDURE procedure | VIEW view } — deletes an object
+// (Access "DROP statement"). One target per statement; DROP INDEX names the table the index is on.
+dropStatement
+    : DROP TABLE table=identifier                       # DropTableStatement
+    | DROP INDEX index=identifier ON table=identifier   # DropIndexStatement
+    | DROP PROCEDURE proc=identifier                    # DropProcedureStatement
+    | DROP VIEW view=identifier                         # DropViewStatement
     ;
 
 indexColumn : col=identifier dir=(ASC | DESC)? ;

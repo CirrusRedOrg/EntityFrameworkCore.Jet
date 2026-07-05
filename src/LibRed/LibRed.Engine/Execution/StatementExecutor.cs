@@ -26,6 +26,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         CreateProcedureStatement createProc => ExecuteCreateProcedure(createProc),
         CreateActionProcedureStatement actionProc => ExecuteCreateActionProcedure(actionProc),
         AlterTableStatement alter => ExecuteAlterTable(alter),
+        // DROP {TABLE|INDEX|VIEW|PROCEDURE}: grammar + AST wired; executors land in follow-up steps.
+        DropTableStatement => throw new NotSupportedException("DROP TABLE is parsed but not executed yet."),
+        DropIndexStatement => throw new NotSupportedException("DROP INDEX is parsed but not executed yet."),
+        DropViewStatement => throw new NotSupportedException("DROP VIEW is parsed but not executed yet."),
+        DropProcedureStatement => throw new NotSupportedException("DROP PROCEDURE is parsed but not executed yet."),
         InsertStatement insert => ExecuteInsert(insert),
         UpdateStatement update => ExecuteUpdate(update),
         DeleteStatement delete => ExecuteDelete(delete),

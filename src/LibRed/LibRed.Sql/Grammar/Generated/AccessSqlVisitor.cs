@@ -164,6 +164,34 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitCreateIndexStatement([NotNull] AccessSqlParser.CreateIndexStatementContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>DropTableStatement</c>
+	/// labeled alternative in <see cref="AccessSqlParser.dropStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDropTableStatement([NotNull] AccessSqlParser.DropTableStatementContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>DropIndexStatement</c>
+	/// labeled alternative in <see cref="AccessSqlParser.dropStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDropIndexStatement([NotNull] AccessSqlParser.DropIndexStatementContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>DropProcedureStatement</c>
+	/// labeled alternative in <see cref="AccessSqlParser.dropStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDropProcedureStatement([NotNull] AccessSqlParser.DropProcedureStatementContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>DropViewStatement</c>
+	/// labeled alternative in <see cref="AccessSqlParser.dropStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitDropViewStatement([NotNull] AccessSqlParser.DropViewStatementContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.indexColumn"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

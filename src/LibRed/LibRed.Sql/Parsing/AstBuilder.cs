@@ -34,12 +34,22 @@ internal sealed class AstBuilder
         if (ctx.createViewStatement() is { } createView) return BuildCreateView(createView);
         if (ctx.createProcedureStatement() is { } createProc) return BuildCreateProcedure(createProc);
         if (ctx.alterTableStatement() is { } alter) return BuildAlterTable(alter);
+        if (ctx.dropStatement() is { } drop) return BuildDrop(drop);
         if (ctx.insertStatement() is { } insert) return BuildInsert(insert);
         if (ctx.updateStatement() is { } update) return BuildUpdate(update);
         if (ctx.deleteStatement() is { } delete) return BuildDelete(delete);
         if (ctx.systemVariableSelect() is { } sysSelect) return BuildSystemVariableSelect(sysSelect);
         return BuildQueryExpression(ctx.queryExpression());
     }
+
+    private static SqlStatement BuildDrop(DropStatementContext ctx) => ctx switch
+    {
+        DropTableStatementContext t => new DropTableStatement(Identifier(t.table)),
+        DropIndexStatementContext i => new DropIndexStatement(Identifier(i.index), Identifier(i.table)),
+        DropProcedureStatementContext p => new DropProcedureStatement(Identifier(p.proc)),
+        DropViewStatementContext v => new DropViewStatement(Identifier(v.view)),
+        _ => throw new NotSupportedException($"Unsupported DROP statement: {ctx.GetText()}"),
+    };
 
     private static DeleteStatement BuildDelete(DeleteStatementContext ctx) =>
         new(OptionalIdentifier(ctx.target),

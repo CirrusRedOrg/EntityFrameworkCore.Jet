@@ -193,6 +193,12 @@ public sealed record DropConstraintAction(string Name) : AlterTableAction;
 /// <summary>ALTER TABLE table &lt;action&gt; — modifies an existing table's design.</summary>
 public sealed record AlterTableStatement(string Table, AlterTableAction Action) : SqlStatement;
 
+// DROP { TABLE table | INDEX index ON table | PROCEDURE procedure | VIEW view } — deletes an object.
+public sealed record DropTableStatement(string Table) : SqlStatement;
+public sealed record DropIndexStatement(string Index, string Table) : SqlStatement;
+public sealed record DropProcedureStatement(string Procedure) : SqlStatement;
+public sealed record DropViewStatement(string View) : SqlStatement;
+
 /// <summary>A SET assignment: the target column (optionally table/alias-qualified for a multi-table UPDATE)
 /// and the value expression.</summary>
 public sealed record Assignment(string? Table, string Column, Expression Value) : SqlNode;

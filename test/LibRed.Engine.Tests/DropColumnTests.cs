@@ -46,7 +46,22 @@ public class DropColumnTests
     public void Dropping_a_keyed_or_missing_column_is_rejected()
     {
         var e = Fresh();
-        Assert.Throws<NotSupportedException>(() => e.ExecuteNonQuery("ALTER TABLE T DROP COLUMN Id")); // PK-backed
-        Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("ALTER TABLE T DROP COLUMN Nope"));
+        // ACE rejects dropping an indexed/keyed column (drop the index first) — we mirror that.
+        var ex = Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("ALTER TABLE T DROP COLUMN Id"));
+        Assert.Contains("index", ex.Message);
+        Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("ALTER TABLE T DROP COLUMN Nope")); // no such column
+    }
+
+    [Fact]
+    public void Dropping_a_column_in_a_relationship_is_rejected()
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery("CREATE TABLE Ch (Id long PRIMARY KEY, Tid long, " +
+                          "CONSTRAINT FK FOREIGN KEY (Tid) REFERENCES T (Id))");
+        // ACE rejects dropping either end of a relationship: "part of one or more relationships".
+        Assert.Contains("relationship", Assert.Throws<InvalidOperationException>(
+            () => e.ExecuteNonQuery("ALTER TABLE Ch DROP COLUMN Tid")).Message);  // child FK column
+        Assert.Contains("relationship", Assert.Throws<InvalidOperationException>(
+            () => e.ExecuteNonQuery("ALTER TABLE T DROP COLUMN Id")).Message);    // referenced parent key
     }
 }

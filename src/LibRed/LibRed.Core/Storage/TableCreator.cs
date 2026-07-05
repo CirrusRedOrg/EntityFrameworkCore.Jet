@@ -593,9 +593,24 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         ColumnDef? col = table.Columns.FirstOrDefault(c => string.Equals(c.Name, columnName, StringComparison.OrdinalIgnoreCase));
         if (col is null) return false;
 
+        // ACE rejects dropping a column that participates in a relationship (as the child FK column or the
+        // referenced parent key) — even a NO INDEX FK with no backing index — with "It is part of one or more
+        // relationships"; you must drop the relationship first. This is correct, permanent behaviour (not a
+        // gap), so mirror it. Verified vs ACE.
+        if (_catalog.Relationships.Any(r =>
+                (string.Equals(r.Table, tableName, StringComparison.OrdinalIgnoreCase)
+                    && r.Columns.Any(c => string.Equals(c.Column, columnName, StringComparison.OrdinalIgnoreCase))) ||
+                (string.Equals(r.ReferencedTable, tableName, StringComparison.OrdinalIgnoreCase)
+                    && r.Columns.Any(c => string.Equals(c.ReferencedColumn, columnName, StringComparison.OrdinalIgnoreCase)))))
+            throw new InvalidOperationException(
+                $"Cannot drop column '{columnName}': it is part of one or more relationships — drop the relationship first.");
+
+        // ACE likewise rejects dropping an indexed/keyed column ("part of an index or is needed by the
+        // system"); the index must be dropped first. Also correct, permanent behaviour. Verified vs ACE.
         if (table.Indexes.Any(ix => ix.Columns.Any(c => c.Column.ColumnId == col.ColumnId)))
-            throw new NotSupportedException(
-                $"DROP COLUMN '{columnName}': the column backs an index or key — drop the index/constraint first (not supported yet).");
+            throw new InvalidOperationException(
+                $"Cannot drop column '{columnName}': it is part of an index or key — drop the index/constraint first.");
+
         if (col.Type is JetDataType.Memo or JetDataType.Ole)
             throw new NotSupportedException(
                 $"DROP COLUMN '{columnName}': dropping a memo/OLE (long-value) column is not supported yet.");

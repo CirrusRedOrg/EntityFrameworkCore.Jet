@@ -612,10 +612,13 @@ one cleared bit per page taken.
 > allocation. Free bits beyond the current file end are the pre-allocated growth region; taking one
 > grows the file. The reference-type global map (very large databases) is not handled yet.
 >
-> **Remaining create-table gaps (Access still rejects):** an ACE `CREATE TABLE` *also* (1) adds two
-> rows to **`MSysACEs`** (the new object's permission entries) and updates its `ObjectId` index, and
-> (2) bumps a counter in page 0's obfuscated region at `~0xE02` (meaning not yet decoded). Those two
-> remain between "Access resolves the table" (§11) and "Access opens it".
+> **Create-table side effects.** An ACE `CREATE TABLE` *also* (1) adds two rows to **`MSysACEs`**
+> (the new object's permission entries) and updates its `ObjectId` index, and (2) bumps a counter in
+> page 0's obfuscated region at `~0xE02` (not yet decoded). **(1) is now done** —
+> `TableCreator.AddPermissionRows` writes both permission rows (§11), and ACE opens LibRed-created
+> tables without repair (`CreateTableAccessTests`). **(2) appears not to be required:** LibRed does not
+> touch the page-0 counter, yet ACE opens/queries the created tables — so it's either unused for
+> table open or benign when stale. (Views likewise get their two `MSysACEs` rows now — §11.)
 
 ---
 
@@ -835,9 +838,11 @@ The split mechanics:
 
   > **Permission rows (`MSysACEs`) — one per object, verified against Northwind.** Every new object needs
   > `MSysACEs` rows or Access warns about permissions when opening it (a **table** still opens; a **query**
-  > opens but pops a permissions warning). Each row sets `ObjectId` = the object id, `SID` = a 2-byte binary
-  > security id, `ACM` = an access mask, `FInheritable` = false, and the object's `ObjectId` index must be
-  > maintained so Access's security check finds them. Access writes **two** rows per object, and the mask
+  > opens but pops a permissions warning). The table has exactly **four columns** (verified vs Northwind):
+  > `ObjectId` (Int32, the object's id), `SID` (Binary, a security id), `ACM` (Int32, an access mask), and
+  > `FInheritable` (Boolean). Each row sets `ObjectId` = the object id, `SID` = a 2-byte binary security id,
+  > `ACM` = an access mask, `FInheritable` = false, and the object's `ObjectId` index must be maintained so
+  > Access's security check finds them. Access writes **two** rows per object, and the mask
   > **differs by object type**:
   > - **Table:** owner (`0x690C`) and admin/users (`0x680C`) both get full access `ACM = 0xFFEFF` (1048319).
   > - **Query/view:** owner (`0x690C`) gets `ACM = 0xF00FE` (983294, a query-specific mask), admin/users
@@ -895,8 +900,17 @@ The split mechanics:
   > (see §3.7).
 
 - **Views / queries** are `MSysObjects` rows of **Type 5** with a **negative synthetic `Id`** (queries
-  increment from `0x80000000`), `ParentId 0x0F000001`, `Flags 0x10000000`, `LvProp` null. The query
-  itself is stored in **MSysQueries**, decomposed into rows keyed by `ObjectId`, each with an `Attribute`
+  increment from `0x80000000`), `ParentId 0x0F000001`, `Flags 0x10000000`, `LvProp` null.
+
+  > **MSysQueries columns (8, verified vs Northwind).** The table has exactly: `ObjectId` (Int32, the
+  > query object's `Id`), `Attribute` (Byte, the row kind — see below), `Flag` (Int16, attribute-specific),
+  > `Name1` and `Name2` (Text, attribute-specific names), `Expression` (Memo, attribute-specific text —
+  > SQL fragments), `Order` (Binary, a 4-byte big-endian per-attribute sequence counter), and `LvExtra`
+  > (Int32) — a long-value/overflow field that is **null in every Northwind query row** and that LibRed
+  > leaves null (not needed for the queries it writes). Only index = composite PK `(ObjectId, Attribute,
+  > Order)`.
+
+  The query itself is stored in **MSysQueries**, decomposed into rows keyed by `ObjectId`, each with an `Attribute`
   byte (Jackcess "query rows", verified vs ACE for the "simple SELECT" a view may contain): `0x00` =
   query type (`Flag 1` = SELECT), `0x02` = a **declared parameter** (`Name1`=parameter name, `Flag`=Jet
   type code — same codes as on-disk column types, e.g. `8`=DateTime; one row per parameter, `Order`

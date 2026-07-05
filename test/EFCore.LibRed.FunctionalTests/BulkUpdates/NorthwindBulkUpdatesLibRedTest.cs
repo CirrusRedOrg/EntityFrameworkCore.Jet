@@ -1568,15 +1568,14 @@ SET `o1`.`OrderDate` = NULL
         await base.Update_Where_Join_set_property_from_joined_single_result_table(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[City] = CONVERT(varchar(11), DATEPART(year, (
-    SELECT TOP(1) [o].[OrderDate]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-    ORDER BY [o].[OrderDate] DESC)))
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+            """
+UPDATE `Customers` AS `c`
+SET `c`.`City` = (DATEPART('yyyy', (
+    SELECT TOP 1 `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`OrderDate` DESC)) & '')
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -1602,15 +1601,14 @@ WHERE `c`.`CustomerID` LIKE 'F%'
         await base.Update_Where_Join_set_property_from_joined_single_result_scalar(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[City] = CONVERT(varchar(11), DATEPART(year, (
-    SELECT TOP(1) [o].[OrderDate]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-    ORDER BY [o].[OrderDate] DESC)))
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] LIKE N'F%'
+            """
+UPDATE `Customers` AS `c`
+SET `c`.`City` = (DATEPART('yyyy', (
+    SELECT TOP 1 `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`OrderDate` DESC)) & '')
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 

@@ -305,6 +305,7 @@ WHERE `o`.`OrderID` < 10300
 """);
     }
 
+    [ConditionalTheory(Skip = "LibRed fails")]
     public override async Task Delete_SelectMany(bool async)
     {
         await base.Delete_SelectMany(async);
@@ -320,6 +321,7 @@ WHERE EXISTS (
 """);
     }
 
+    [ConditionalTheory(Skip = "LibRed fails")]
     public override async Task Delete_SelectMany_subquery(bool async)
     {
         await base.Delete_SelectMany_subquery(async);

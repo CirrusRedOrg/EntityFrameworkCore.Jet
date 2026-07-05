@@ -148,7 +148,7 @@ SET `k`.`Name` = @p
 
         AssertExecuteUpdateSql(
             """
-@p='0' (Size = 1)
+@p='0'
 
 UPDATE `Kiwi` AS `k`
 SET `k`.`FoundOn` = @p
@@ -185,7 +185,7 @@ WHERE (
         AssertExecuteUpdateSql(
             """
 @p='Kiwi' (Size = 255)
-@p1='0' (Size = 1)
+@p1='0'
 
 UPDATE `Kiwi` AS `k`
 SET `k`.`Name` = @p,

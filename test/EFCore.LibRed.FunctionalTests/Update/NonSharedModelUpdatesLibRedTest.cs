@@ -81,8 +81,8 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
             //
             """
-@p3='2'
 @p4='1'
+@p3='2'
 
 UPDATE `Book` SET `AuthorId` = @p3
 WHERE `Id` = @p4;

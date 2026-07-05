@@ -155,39 +155,39 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             await base.ConcurrencyCheckAttribute_throws_if_value_in_database_changed();
 
             AssertSql(
-                $"""
-                    SELECT TOP 1 `s`.`Unique_No`, `s`.`MaxLengthProperty`, `s`.`Name`, `s`.`RowVersion`, `s`.`AdditionalDetails_Name`, `s`.`AdditionalDetails_Value`, `s`.`Details_Name`, `s`.`Details_Value`
-                    FROM `Sample` AS `s`
-                    WHERE `s`.`Unique_No` = 1
-                    """,
+                """
+SELECT TOP 1 `s`.`Unique_No`, `s`.`MaxLengthProperty`, `s`.`Name`, `s`.`RowVersion`, `s`.`AdditionalDetails_Name`, `s`.`AdditionalDetails_Value`, `s`.`Details_Name`, `s`.`Details_Value`
+FROM `Sample` AS `s`
+WHERE `s`.`Unique_No` = 1
+""",
                 //
-                $"""
-                    SELECT TOP 1 `s`.`Unique_No`, `s`.`MaxLengthProperty`, `s`.`Name`, `s`.`RowVersion`, `s`.`AdditionalDetails_Name`, `s`.`AdditionalDetails_Value`, `s`.`Details_Name`, `s`.`Details_Value`
-                    FROM `Sample` AS `s`
-                    WHERE `s`.`Unique_No` = 1
-                    """,
+                """
+SELECT TOP 1 `s`.`Unique_No`, `s`.`MaxLengthProperty`, `s`.`Name`, `s`.`RowVersion`, `s`.`AdditionalDetails_Name`, `s`.`AdditionalDetails_Value`, `s`.`Details_Name`, `s`.`Details_Value`
+FROM `Sample` AS `s`
+WHERE `s`.`Unique_No` = 1
+""",
                 //
-                $"""
-                    {AssertSqlHelper.Declaration("@p0='ModifiedData' (Nullable = false) (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@p1='00000000-0000-0000-0003-000000000001'")}
-                    {AssertSqlHelper.Declaration("@p2='1'")}
-                    {AssertSqlHelper.Declaration("@p3='00000001-0000-0000-0000-000000000001'")}
-                    
-                    UPDATE `Sample` SET `Name` = {AssertSqlHelper.Parameter("@p0")}, `RowVersion` = {AssertSqlHelper.Parameter("@p1")}
-                    WHERE `Unique_No` = {AssertSqlHelper.Parameter("@p2")} AND `RowVersion` = {AssertSqlHelper.Parameter("@p3")};
-                    SELECT @@ROWCOUNT;
-                    """,
+                """
+@p2='1'
+@p0='ModifiedData' (Nullable = false) (Size = 255)
+@p1='00000000-0000-0000-0003-000000000001'
+@p3='00000001-0000-0000-0000-000000000001'
+
+UPDATE `Sample` SET `Name` = @p0, `RowVersion` = @p1
+WHERE `Unique_No` = @p2 AND `RowVersion` = @p3;
+SELECT @@ROWCOUNT;
+""",
                 //
-                $"""
-                    {AssertSqlHelper.Declaration("@p0='ChangedData' (Nullable = false) (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@p1='00000000-0000-0000-0002-000000000001'")}
-                    {AssertSqlHelper.Declaration("@p2='1'")}
-                    {AssertSqlHelper.Declaration("@p3='00000001-0000-0000-0000-000000000001'")}
-                    
-                    UPDATE `Sample` SET `Name` = {AssertSqlHelper.Parameter("@p0")}, `RowVersion` = {AssertSqlHelper.Parameter("@p1")}
-                    WHERE `Unique_No` = {AssertSqlHelper.Parameter("@p2")} AND `RowVersion` = {AssertSqlHelper.Parameter("@p3")};
-                    SELECT @@ROWCOUNT;
-                    """);
+                """
+@p2='1'
+@p0='ChangedData' (Nullable = false) (Size = 255)
+@p1='00000000-0000-0000-0002-000000000001'
+@p3='00000001-0000-0000-0000-000000000001'
+
+UPDATE `Sample` SET `Name` = @p0, `RowVersion` = @p1
+WHERE `Unique_No` = @p2 AND `RowVersion` = @p3;
+SELECT @@ROWCOUNT;
+""");
         }
 
         public override async Task DatabaseGeneratedAttribute_autogenerates_values_when_set_to_identity()

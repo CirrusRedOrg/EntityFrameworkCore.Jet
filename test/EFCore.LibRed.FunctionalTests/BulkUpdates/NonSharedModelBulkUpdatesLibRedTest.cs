@@ -192,13 +192,12 @@ WHERE `p`.`Id` IN (
 
         AssertSql(
             """
-UPDATE [o]
-SET [o].[Total] = (
-    SELECT COALESCE(SUM([o0].[Amount]), 0)
-    FROM [OrderProduct] AS [o0]
-    WHERE [o].[Id] = [o0].[OrderId])
-FROM [Orders] AS [o]
-WHERE [o].[Id] = 1
+UPDATE `Orders` AS `o`
+SET `o`.`Total` = (
+    SELECT IIF(SUM(`o0`.`Amount`) IS NULL, 0, SUM(`o0`.`Amount`))
+    FROM `OrderProduct` AS `o0`
+    WHERE `o`.`Id` = `o0`.`OrderId`)
+WHERE `o`.`Id` = 1
 """);
     }
 

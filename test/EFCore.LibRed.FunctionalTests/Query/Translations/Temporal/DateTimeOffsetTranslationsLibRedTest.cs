@@ -259,8 +259,8 @@ FROM `BasicTypesEntities` AS `b`
 
         AssertSql(
             """
-SELECT DATEADD(millisecond, CAST(300.0E0 AS int), [b].[DateTimeOffset])
-FROM [BasicTypesEntities] AS [b]
+SELECT `b`.`DateTimeOffset`
+FROM `BasicTypesEntities` AS `b`
 """);
     }
 

@@ -18,7 +18,7 @@ public class ComplexCollectionJsonUpdateLibRedTest : ComplexCollectionJsonUpdate
 
         AssertSql(
             """
-@p0='[{"Name":"First Contact","PhoneNumbers":["555-1234","555-5678"]},{"Name":"Second Contact","PhoneNumbers":["555-9876","555-5432"]},{"Name":"New Contact","PhoneNumbers":["555-0000"]}]' (Nullable = false) (Size = 181)
+@p0='[{"Name":"First Contact","PhoneNumbers":["555-1234","555-5678"]},{"Name":"Second Contact","PhoneNumbers":["555-9876","555-5432"]},{"Name":"New Contact","PhoneNumbers":["555-0000"]}]'
 @p1='1'
 
 UPDATE `Companies` SET `Contacts` = @p0
@@ -78,7 +78,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='[]' (Nullable = false) (Size = 2)
+@p0='[]'
 @p1='1'
 
 UPDATE `Companies` SET `Contacts` = @p0
@@ -87,7 +87,7 @@ SELECT @@ROWCOUNT;
 """,
             //
             """
-@p0=NULL (Nullable = false)
+@p0=NULL
 @p1='1'
 
 UPDATE `Companies` SET `Contacts` = @p0
@@ -102,7 +102,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='[{"Name":"John Doe","PhoneNumbers":["555-1234","555-5678"],"Address":{"City":"Seattle","Country":"USA","PostalCode":"98101","Street":"123 Main St"}},{"Name":"Jane Smith","PhoneNumbers":["555-9876"],"Address":{"City":"Portland","Country":"USA","PostalCode":"97201","Street":"456 Oak Ave"}}]' (Nullable = false) (Size = 289)
+@p0='[{"Name":"John Doe","PhoneNumbers":["555-1234","555-5678"],"Address":{"City":"Seattle","Country":"USA","PostalCode":"98101","Street":"123 Main St"}},{"Name":"Jane Smith","PhoneNumbers":["555-9876"],"Address":{"City":"Portland","Country":"USA","PostalCode":"97201","Street":"456 Oak Ave"}}]'
 @p1='1'
 
 UPDATE `Companies` SET `Employees` = @p0
@@ -163,7 +163,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='[{"Name":"Initial Employee","PhoneNumbers":["555-0001","555-9999"],"Address":{"City":"Initial City","Country":"USA","PostalCode":"00001","Street":"100 First St"}}]' (Nullable = false) (Size = 163)
+@p0='[{"Name":"Initial Employee","PhoneNumbers":["555-0001","555-9999"],"Address":{"City":"Initial City","Country":"USA","PostalCode":"00001","Street":"100 First St"}}]'
 @p1='1'
 
 UPDATE `Companies` SET `Employees` = @p0
@@ -238,7 +238,7 @@ SELECT @@ROWCOUNT;
 
         AssertSql(
             """
-@p0='[{"Name":"Initial Employee","PhoneNumbers":["555-0001"],"Address":{"City":"Initial City","Country":"USA","PostalCode":"00001","Street":"100 First St"}},{"Name":"Employee No Phone","PhoneNumbers":[],"Address":{"City":"Quiet City","Country":"USA","PostalCode":"00000","Street":"456 No Phone St"}}]' (Nullable = false) (Size = 295)
+@p0='[{"Name":"Initial Employee","PhoneNumbers":["555-0001","555-9999"],"Address":{"City":"Initial City","Country":"USA","PostalCode":"00001","Street":"100 First St"}},{"Name":"Employee No Phone","PhoneNumbers":[],"Address":{"City":"Quiet City","Country":"USA","PostalCode":"00000","Street":"456 No Phone St"}}]'
 @p1='1'
 
 UPDATE `Companies` SET `Employees` = @p0

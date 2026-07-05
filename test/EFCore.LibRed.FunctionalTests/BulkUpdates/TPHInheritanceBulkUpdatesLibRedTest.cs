@@ -87,16 +87,15 @@ WHERE (
         await base.Delete_GroupBy_Where_Select_First_3(async);
 
         AssertSql(
-"""
-DELETE FROM [a]
-FROM [Animals] AS [a]
-WHERE [a].[Id] IN (
+            """
+DELETE FROM `Animals` AS `a`
+WHERE `a`.`Id` IN (
     SELECT (
-        SELECT TOP(1) [a1].[Id]
-        FROM [Animals] AS [a1]
-        WHERE [a0].[CountryId] = [a1].[CountryId])
-    FROM [Animals] AS [a0]
-    GROUP BY [a0].[CountryId]
+        SELECT TOP 1 `a1`.`Id`
+        FROM `Animals` AS `a1`
+        WHERE `a0`.`CountryId` = `a1`.`CountryId`)
+    FROM `Animals` AS `a0`
+    GROUP BY `a0`.`CountryId`
     HAVING COUNT(*) < 3
 )
 """);

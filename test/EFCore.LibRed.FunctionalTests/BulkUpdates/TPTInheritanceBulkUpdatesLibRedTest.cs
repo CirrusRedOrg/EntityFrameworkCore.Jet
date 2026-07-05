@@ -139,7 +139,7 @@ SET `a`.`Name` = @p
 
         AssertExecuteUpdateSql(
             """
-@p='0' (Size = 1)
+@p='0'
 
 UPDATE (`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)

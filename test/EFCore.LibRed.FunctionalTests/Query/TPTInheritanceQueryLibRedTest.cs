@@ -488,6 +488,8 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 
         AssertSql(
             """
+@p='5'
+
 SELECT DISTINCT `s`.`Id`, `s`.`CountryId`, `s`.`Name`, `s`.`Species`, `s`.`EagleId`, `s`.`IsFlightless`, `s`.`FoundOn`, `s`.`Discriminator`
 FROM (
     SELECT TOP @p `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`

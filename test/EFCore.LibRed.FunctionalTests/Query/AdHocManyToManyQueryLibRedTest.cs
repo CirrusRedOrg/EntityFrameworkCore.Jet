@@ -19,22 +19,23 @@ public class AdHocManyToManyQueryLibRedTest(NonSharedFixture fixture) : AdHocMan
 
         AssertSql(
             """
-SELECT [u].[Id] AS [UserId], [s].[Id] AS [OrgId]
-FROM [Users] AS [u]
-CROSS JOIN (
-    SELECT [o1].[Id]
+SELECT `u`.`Id` AS `UserId`, `s`.`Id` AS `OrgId`
+FROM `Users` AS `u`,
+(
+    SELECT `o1`.`Id`
     FROM (
-        SELECT 1 AS empty
-    ) AS [e]
+        SELECT 1
+        FROM (SELECT COUNT(*) FROM `#Dual`)
+    ) AS `e`
     LEFT JOIN (
-        SELECT [o].[Id]
-        FROM [Organisations] AS [o]
+        SELECT `o`.`Id`
+        FROM `Organisations` AS `o`
         WHERE EXISTS (
             SELECT 1
-            FROM [OrganisationUser] AS [o0]
-            WHERE [o].[Id] = [o0].[OrganisationId])
-    ) AS [o1] ON 1 = 1
-) AS [s]
+            FROM `OrganisationUser` AS `o0`
+            WHERE `o`.`Id` = `o0`.`OrganisationId`)
+    ) AS `o1` ON TRUE
+) AS `s`
 """);
     }
 
@@ -52,7 +53,6 @@ WHERE `m`.`Id` = @p
 """,
             //
             """
-@p='1'
 @p='1'
 
 SELECT `s`.`Id`, `m`.`Id`, `s`.`Id0`, `s0`.`Id`, `s0`.`ManyM_Id`, `s0`.`ManyN_Id`, `s0`.`Id0`
@@ -81,7 +81,6 @@ WHERE `m`.`Id` = @p
 """,
             //
             """
-@p='1'
 @p='1'
 
 SELECT `s`.`Id`, `m`.`Id`, `s`.`Id0`, `s0`.`Id`, `s0`.`ManyM_Id`, `s0`.`ManyN_Id`, `s0`.`Id0`

@@ -27,6 +27,25 @@ public class BitwiseAndDateFunctionTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // DateValue / TimeValue / IsDate (VBA/Access), semantics verified against ACE.
+    [Fact]
+    public void DateValue_TimeValue_IsDate()
+    {
+        // DateValue keeps the date at midnight; TimeValue puts the time on the Jet epoch (1899-12-30).
+        Assert.Equal(new DateTime(2020, 3, 15), Scalar("DateValue('2020-03-15 13:45:30')"));
+        Assert.Equal(new DateTime(1899, 12, 30, 13, 45, 30), Scalar("TimeValue('2020-03-15 13:45:30')"));
+        Assert.Null(Scalar("DateValue(NULL)"));  // NULL-propagating
+        Assert.Null(Scalar("TimeValue(NULL)"));
+
+        // IsDate: true for a date value or a date/time-parseable string; false for a number, NULL, or junk.
+        Assert.Equal(true, Scalar("IsDate('2020-03-15')"));
+        Assert.Equal(true, Scalar("IsDate('13:45:30')"));
+        Assert.Equal(true, Scalar("IsDate(DateValue('2020-03-15'))")); // a real DateTime
+        Assert.Equal(false, Scalar("IsDate('not a date')"));
+        Assert.Equal(false, Scalar("IsDate(38718)"));                  // a bare number is NOT a date
+        Assert.Equal(false, Scalar("IsDate(NULL)"));
+    }
+
     // Access bitwise operators (infix BAND/BOR/BXOR, prefix BNOT) — verified vs ACE.
     [Fact]
     public void Bitwise_operators()

@@ -128,6 +128,12 @@ internal sealed class ExpressionEvaluator(
             "MINUTE" => DatePartOf(f, d => d.Minute),
             "SECOND" => DatePartOf(f, d => d.Second),
             "WEEKDAY" => DatePartOf(f, d => (int)d.DayOfWeek + 1), // Access: Sunday = 1
+            // DateValue = the date at midnight; TimeValue = the time on the Jet epoch (1899-12-30) — both
+            // NULL-propagating and verified against ACE. IsDate is a predicate (true only for a date or a
+            // date/time-parseable string; a number, NULL or unparseable string is false — verified vs ACE).
+            "DATEVALUE" => Convert1(f, v => ((DateTime)ToDate(v)).Date),
+            "TIMEVALUE" => Convert1(f, v => DateTime.FromOADate(0).Add(((DateTime)ToDate(v)).TimeOfDay)),
+            "ISDATE" => IsDateValue(Evaluate(f.Arguments[0])),
             // Jet VBA math functions (double precision). SQR = sqrt, ATN = atan, SGN = sign, LOG =
             // natural log. Acos/Asin/Atan2/Floor/Ceiling/Log10/Log-base are emitted by EF as
             // expressions built from these plus arithmetic, so they need no dedicated cases.
@@ -176,6 +182,17 @@ internal sealed class ExpressionEvaluator(
         DateTime d => d,
         string s => DateTime.Parse(s, CultureInfo.InvariantCulture),
         _ => DateTime.FromOADate(Convert.ToDouble(v, CultureInfo.InvariantCulture)),
+    };
+
+    /// <summary>Access IsDate: true only for a date value or a string that parses as a date/time. A number,
+    /// NULL, or an unrecognisable string is false (verified vs ACE — unlike CDate, a bare number is not a
+    /// date here).</summary>
+    private static bool IsDateValue(object? v) => v switch
+    {
+        null => false,
+        DateTime => true,
+        string s => DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out _),
+        _ => false,
     };
 
     /// <summary>A (string, int) → string function (LEFT/RIGHT), propagating NULL on the string argument.</summary>

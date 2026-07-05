@@ -91,11 +91,11 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
             Assert.Equal(-1, actual);
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
-                    
-                    SELECT COUNT(*) FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@city")}
-                    """);
+                """
+@city='London' (DbType = Object)
+
+SELECT COUNT(*) FROM `Customers` WHERE `City` = @city
+""");
         }
 
         public override async Task Query_with_positional_dbParameter_with_name(bool async)
@@ -111,11 +111,11 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
             Assert.Equal(-1, actual);
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
-                    
-                    SELECT COUNT(*) FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@city")}
-                    """);
+                """
+@city='London' (DbType = Object)
+
+SELECT COUNT(*) FROM `Customers` WHERE `City` = @city
+""");
         }
 
         public override async Task Query_with_positional_dbParameter_without_name(bool async)
@@ -131,11 +131,11 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
             Assert.Equal(-1, actual);
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@p0='London' (Nullable = false) (Size = 6)")}
-                    
-                    SELECT COUNT(*) FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@p0")}
-                    """);
+                """
+@p0='London' (DbType = Object)
+
+SELECT COUNT(*) FROM `Customers` WHERE `City` = @p0
+""");
         }
 
         public override async Task Query_with_dbParameters_mixed(bool async)
@@ -167,19 +167,19 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
             Assert.Equal(-1, actual);
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@p0='London' (Size = 255)")}
-                    {AssertSqlHelper.Declaration("@contactTitle='Sales Representative' (Nullable = false) (Size = 20)")}
-                    
-                    SELECT COUNT(*) FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@p0")} AND `ContactTitle` = {AssertSqlHelper.Parameter("@contactTitle")}
-                    """,
+                """
+@p0='London' (Size = 255)
+@contactTitle='Sales Representative' (DbType = Object)
+
+SELECT COUNT(*) FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @contactTitle
+""",
                 //
-                $"""
-                    {AssertSqlHelper.Declaration("@city='London' (Nullable = false) (Size = 6)")}
-                    {AssertSqlHelper.Declaration("@p0='Sales Representative' (Size = 255)")}
-                    
-                    SELECT COUNT(*) FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@city")} AND `ContactTitle` = {AssertSqlHelper.Parameter("@p0")}
-                    """);
+                """
+@city='London' (DbType = Object)
+@p0='Sales Representative' (Size = 255)
+
+SELECT COUNT(*) FROM `Customers` WHERE `City` = @city AND `ContactTitle` = @p0
+""");
         }
 
         public override async Task Query_with_parameters_interpolated(bool async)

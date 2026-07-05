@@ -454,16 +454,54 @@ internal sealed class ExpressionEvaluator(
     /// <summary>SQL LIKE: '%'/'*' match any run, '_'/'?' match one char; case-insensitive.</summary>
     private static bool Like(string value, string pattern)
     {
+        // Access/Jet LIKE wildcards: * or % = any run, ? or _ = any single char, # = any single DIGIT, and
+        // [charlist] / [!charlist] = a (negated) single-char class. A literal special char is escaped by
+        // bracketing it — e.g. EF's Contains("C#") emits `%C[#]%`, where [#] matches a literal '#'. Without
+        // bracket-class support that pattern would look for the literal text "C[#]" and match nothing.
         var sb = new StringBuilder("^");
-        foreach (char ch in pattern)
+        int i = 0;
+        while (i < pattern.Length)
+        {
+            char ch = pattern[i];
+            if (ch == '[')
+            {
+                int close = pattern.IndexOf(']', i + 1);
+                if (close > i)
+                {
+                    sb.Append(TranslateLikeClass(pattern.Substring(i + 1, close - i - 1)));
+                    i = close + 1;
+                    continue;
+                }
+                // No closing ']' → a literal '['.
+            }
+
             sb.Append(ch switch
             {
                 '%' or '*' => ".*",
                 '_' or '?' => ".",
+                '#' => "[0-9]",
                 _ => Regex.Escape(ch.ToString()),
             });
+            i++;
+        }
         sb.Append('$');
         return Regex.IsMatch(value, sb.ToString(), RegexOptions.IgnoreCase | RegexOptions.Singleline);
+    }
+
+    /// <summary>Translates an Access LIKE bracket list (the text between <c>[</c> and <c>]</c>) to a regex
+    /// character class: a leading <c>!</c> is negation (<c>^</c>), ranges (<c>a-z</c>) carry over, and the
+    /// regex-special <c>\ ] ^</c> are escaped so a bracketed literal like <c>[#]</c>/<c>[[]</c> matches itself.</summary>
+    private static string TranslateLikeClass(string inner)
+    {
+        var sb = new StringBuilder("[");
+        if (inner.StartsWith('!')) { sb.Append('^'); inner = inner[1..]; }
+        foreach (char c in inner)
+        {
+            if (c is '\\' or ']' or '^') sb.Append('\\');
+            sb.Append(c);
+        }
+        sb.Append(']');
+        return sb.ToString();
     }
 
     private static bool? AsBool(object? v) => v switch { bool b => b, null => null, _ => Convert.ToBoolean(v) };

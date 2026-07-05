@@ -256,6 +256,7 @@ literal
     | HEX_LITERAL       # HexLiteral
     | STRING_LITERAL    # StringLiteral
     | DATE_LITERAL      # DateLiteral
+    | GUID_LITERAL      # GuidLiteral
     | TRUE              # TrueLiteral
     | FALSE             # FalseLiteral
     | NULL              # NullLiteral
@@ -368,6 +369,9 @@ NUMBER_LITERAL  : [0-9]+ '.' [0-9]* | '.' [0-9]+ ;
 // A doubled quote inside a string is an escaped quote ('Bon app''' → Bon app'); the AST un-doubles it.
 STRING_LITERAL  : '"' ( ~["] | '""' )* '"' | '\'' ( ~['] | '\'\'' )* '\'' ;
 DATE_LITERAL    : '#' ~[#]* '#' ;
+// Access GUID literal: {8-4-4-4-12 hex}. Braces appear nowhere else in the grammar.
+GUID_LITERAL    : '{' HEXDIGIT+ '-' HEXDIGIT+ '-' HEXDIGIT+ '-' HEXDIGIT+ '-' HEXDIGIT+ '}' ;
+fragment HEXDIGIT : [0-9A-Fa-f] ;
 BRACKET_ID      : '[' ~[\]]+ ']' ;
 BACKTICK_ID     : '`' ~[`]+ '`' ;
 IDENTIFIER      : [A-Za-z_][A-Za-z_0-9]* ;

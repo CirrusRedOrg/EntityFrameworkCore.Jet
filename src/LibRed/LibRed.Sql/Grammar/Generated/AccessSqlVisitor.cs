@@ -711,6 +711,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitDateLiteral([NotNull] AccessSqlParser.DateLiteralContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>GuidLiteral</c>
+	/// labeled alternative in <see cref="AccessSqlParser.literal"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitGuidLiteral([NotNull] AccessSqlParser.GuidLiteralContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>TrueLiteral</c>
 	/// labeled alternative in <see cref="AccessSqlParser.literal"/>.
 	/// </summary>

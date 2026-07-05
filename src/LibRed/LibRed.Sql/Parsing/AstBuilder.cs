@@ -681,6 +681,7 @@ internal sealed class AstBuilder
         HexLiteralContext h => new LiteralExpression(ParseHexBytes(h.GetText())),
         StringLiteralContext s => new LiteralExpression(Unquote(s.GetText())),
         DateLiteralContext d => new LiteralExpression(ParseDate(d.GetText())),
+        GuidLiteralContext g => new LiteralExpression(Guid.Parse(g.GetText())), // Access {…} braces; Guid.Parse accepts them
         TrueLiteralContext => new LiteralExpression(true),
         FalseLiteralContext => new LiteralExpression(false),
         NullLiteralContext => new LiteralExpression(null),

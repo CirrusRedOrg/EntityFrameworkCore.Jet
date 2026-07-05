@@ -223,10 +223,13 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         Table table = _database.OpenTable(statement.Table);
         var columns = table.Definition.Columns;
 
-        // Target columns: the explicit list, or all columns in order.
+        // Target columns: the explicit list; DEFAULT VALUES provides none (every column takes its default);
+        // otherwise a bare VALUES (…) targets all columns in order.
         IReadOnlyList<string> targets = statement.Columns.Count > 0
             ? statement.Columns
-            : columns.Select(c => c.Name).ToList();
+            : statement.DefaultValues
+                ? []
+                : columns.Select(c => c.Name).ToList();
 
         var evaluator = new ExpressionEvaluator(
             new EvalScope([], [], null), _scalarRunner, parameters: _parameters);

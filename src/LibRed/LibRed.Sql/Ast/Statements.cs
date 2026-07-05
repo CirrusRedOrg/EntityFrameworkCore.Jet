@@ -33,10 +33,14 @@ public sealed record SetOperationStatement(
     SetOperator Operator,
     SqlStatement Right) : SqlStatement;
 
+/// <summary>An INSERT. <paramref name="DefaultValues"/> is the <c>DEFAULT VALUES</c> form (no column or
+/// value list): a single row where every column takes its default / AutoNumber; <paramref name="Columns"/>
+/// is empty and <paramref name="Rows"/> holds one empty row.</summary>
 public sealed record InsertStatement(
     string Table,
     IReadOnlyList<string> Columns,
-    IReadOnlyList<IReadOnlyList<Expression>> Rows) : SqlStatement;
+    IReadOnlyList<IReadOnlyList<Expression>> Rows,
+    bool DefaultValues = false) : SqlStatement;
 
 /// <summary>A column in a CREATE TABLE: its declared SQL type, optional size/scale, constraints, and the
 /// raw text of an optional DEFAULT value expression (stored as the column's DefaultValue property).</summary>

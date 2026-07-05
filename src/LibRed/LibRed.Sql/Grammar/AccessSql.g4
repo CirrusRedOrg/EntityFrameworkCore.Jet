@@ -143,10 +143,13 @@ referentialAction
     | SET DEFAULT   # SetDefaultAction
     ;
 
+// INSERT … VALUES (…), or `INSERT INTO t DEFAULT VALUES` — the latter (EF Core emits it for an all-store-
+// -generated/all-default row) inserts one row taking every column's default / AutoNumber.
 insertStatement
     : INSERT INTO table=identifier
-      (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)?
-      VALUES LPAREN expression (COMMA expression)* RPAREN
+      ( (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)?
+        VALUES LPAREN expression (COMMA expression)* RPAREN
+      | DEFAULT VALUES )
     ;
 
 // Set operations over SELECTs (left-associative). UNION dedupes; UNION ALL keeps

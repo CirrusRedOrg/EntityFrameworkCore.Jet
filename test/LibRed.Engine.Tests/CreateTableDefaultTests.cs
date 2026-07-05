@@ -80,6 +80,31 @@ public class CreateTableDefaultTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // `INSERT INTO t DEFAULT VALUES` (EF emits it for an all-store-generated/all-default row): one row is
+    // inserted where the AutoNumber is assigned, DEFAULT columns take their default, and the rest are NULL.
+    [Fact]
+    public void Insert_default_values_inserts_one_all_defaults_row()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery(
+                "CREATE TABLE `Offers` (`Id` counter PRIMARY KEY, `Kind` VARCHAR(20) DEFAULT 'std', `Note` VARCHAR(20))");
+
+            Assert.Equal(1, e.ExecuteNonQuery("INSERT INTO `Offers` DEFAULT VALUES"));
+            Assert.Equal(1, e.ExecuteNonQuery("INSERT INTO `Offers` DEFAULT VALUES")); // second row → next AutoNumber
+
+            var rows = e.ExecuteQuery("SELECT `Id`, `Kind`, `Note` FROM `Offers`").Rows.ToList();
+            Assert.Equal(2, rows.Count);
+            Assert.Equal([1, 2], rows.Select(r => Convert.ToInt32(r[0])).OrderBy(x => x).ToArray());
+            Assert.All(rows, r => Assert.Equal("std", r[1])); // DEFAULT applied
+            Assert.All(rows, r => Assert.Null(r[2]));          // no default → NULL
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     // Creating a table whose name already exists (case-insensitively) is rejected, rather than writing a
     // second MSysObjects row that shadows the existing table.
     [Fact]

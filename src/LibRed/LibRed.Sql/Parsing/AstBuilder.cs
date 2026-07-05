@@ -472,9 +472,13 @@ internal sealed class AstBuilder
 
     private static SqlStatement BuildInsert(InsertStatementContext ctx)
     {
+        string table = Identifier(ctx.table);
+        if (ctx.DEFAULT() is not null)
+            return new InsertStatement(table, [], [(IReadOnlyList<Expression>)[]], DefaultValues: true);
+
         var columns = ctx._columns.Select(Identifier).ToList();
         var values = ctx.expression().Select(BuildExpression).ToList();
-        return new InsertStatement(Identifier(ctx.table), columns, [values]);
+        return new InsertStatement(table, columns, [values]);
     }
 
     private static SqlStatement BuildQueryExpression(QueryExpressionContext ctx)

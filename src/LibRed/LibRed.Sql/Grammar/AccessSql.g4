@@ -20,9 +20,10 @@ statement : parametersClause? (createTableStatement | createIndexStatement | cre
 updateStatement : UPDATE tableSource SET assignment (COMMA assignment)* whereClause? ;
 assignment : target=columnRef EQ expression ;
 
-// DELETE [table.*] FROM tableexpression [WHERE …]. For a join, the `table.*` target selects which table's
-// rows to delete; for a single table it is redundant (and optional).
-deleteStatement : DELETE (target=identifier DOT STAR)? FROM tableSource whereClause? ;
+// DELETE [table.* | *] FROM tableexpression [WHERE …]. For a join, the `table.*` target selects which
+// table's rows to delete; a bare `*` (or no target) is only valid for a single table — a join without a
+// `table.*` target is ambiguous and rejected at execution (matching Access, which asks you to specify it).
+deleteStatement : DELETE (target=identifier DOT STAR | STAR)? FROM tableSource whereClause? ;
 
 // A FROM-less SELECT of system variables only — ACE allows `SELECT @@IDENTITY` / `SELECT @@ROWCOUNT`
 // (and a comma list of them) with no FROM clause. Listed before queryExpression so it is preferred; a

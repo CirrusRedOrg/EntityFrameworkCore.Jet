@@ -71,4 +71,28 @@ public class MultiTableUpdateDeleteTests
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
+
+    // `DELETE *` (bare star) is fine for a single table, but a join DELETE without a `table.*` target is
+    // ambiguous — Access rejects it ("specify the table"), and so does LibRed.
+    [Fact]
+    public void Delete_star_needs_a_table_target_on_a_join()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = Seed(db);
+
+            // Single table: bare `*` deletes matching rows.
+            Assert.Equal(2, e.ExecuteNonQuery("DELETE * FROM C WHERE ParentId = 1"));
+            Assert.Equal(new[] { 12 }, e.ExecuteQuery("SELECT Id FROM C").Rows.Select(r => Convert.ToInt32(r[0])));
+
+            // Join with a bare `*` (or no target) is ambiguous → rejected.
+            Assert.Throws<InvalidOperationException>(() =>
+                e.ExecuteNonQuery("DELETE * FROM C INNER JOIN P ON C.ParentId = P.Id WHERE P.PName = 'p2'"));
+            Assert.Throws<InvalidOperationException>(() =>
+                e.ExecuteNonQuery("DELETE FROM C INNER JOIN P ON C.ParentId = P.Id WHERE P.PName = 'p2'"));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
 }

@@ -530,6 +530,9 @@ WHERE EXISTS (
 
         AssertSql(
             """
+@p1='100'
+@p='0'
+
 DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
@@ -558,6 +561,9 @@ WHERE EXISTS (
 
         AssertSql(
             """
+@p1='100'
+@p='0'
+
 DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
@@ -586,6 +592,9 @@ WHERE EXISTS (
 
         AssertSql(
             """
+@p1='100'
+@p='0'
+
 DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
@@ -680,6 +689,9 @@ WHERE [o].[OrderID] < 10276
 
         AssertSql(
             """
+@p1='100'
+@p='0'
+
 DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
@@ -1620,7 +1632,6 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 
         AssertExecuteUpdateSql(
             """
-@p='1'
 @p='1'
 
 UPDATE (`Order Details` AS `o`

@@ -93,9 +93,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         $"{fk.ReferencedTable}{childTable}";
 
     /// <summary>
-    /// Rejects an insert whose foreign-key columns reference a non-existent parent row. Follows the SQL
-    /// rule that a NULL in any FK column disables the check for that key. Only enforced relationships
-    /// (grbit without "don't enforce") are checked.
+    /// Rejects an insert whose foreign-key columns reference a non-existent parent row. NULL handling follows
+    /// ACE's **MATCH FULL** rule (verified vs ACE, and unlike SQL Server's MATCH SIMPLE): a composite FK is
+    /// skipped only when **every** column is null; a **partial** null (some null, some not) can never match a
+    /// parent key and is rejected. Only enforced relationships (grbit without "don't enforce") are checked.
     /// </summary>
     private void EnforceReferentialIntegrity(string childTable, Table table, object?[] values)
     {
@@ -104,26 +105,30 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             if (!fk.IsEnforced) continue;
 
             var target = new object?[fk.Columns.Count];
-            bool anyNull = false;
+            int nullCount = 0;
             for (int i = 0; i < fk.Columns.Count; i++)
             {
                 ColumnDef col = table.Definition.FindColumn(fk.Columns[i].Column)
                     ?? throw new InvalidOperationException($"Column '{fk.Columns[i].Column}' does not exist in '{childTable}'.");
                 object? v = values[col.Index];
-                if (v is null) { anyNull = true; break; }
-                target[i] = v;
+                if (v is null) nullCount++;
+                else target[i] = v;
             }
-            if (anyNull) continue;
+            if (nullCount == fk.Columns.Count) continue; // all FK columns null → the FK is not applied to this row
 
-            // A **self-referencing** FK: the row being inserted is itself a candidate parent, so a row that
-            // points at its own key (the root of a required self-ref, e.g. Inverse1Id = Id) satisfies the FK
-            // even though it isn't on disk yet — the parent scan runs before the insert. Access allows this
-            // (and EF's ComplexNavigations seed relies on it). Check the new row's own referenced-key first.
-            if (string.Equals(fk.ReferencedTable, childTable, StringComparison.OrdinalIgnoreCase)
+            // MATCH FULL: a partial null can never reference a full parent key, so it's a violation — treated
+            // like a missing parent (ACE gives the same "a related record is required" error).
+            bool partialNull = nullCount > 0;
+
+            // A **self-referencing** FK: a fully-specified row that points at its own key (the root of a
+            // required self-ref, e.g. Inverse1Id = Id) satisfies the FK even though it isn't on disk yet — the
+            // parent scan runs before the insert. Access allows this (EF's ComplexNavigations seed relies on it).
+            if (!partialNull
+                && string.Equals(fk.ReferencedTable, childTable, StringComparison.OrdinalIgnoreCase)
                 && RowSatisfiesOwnKey(fk, table, values, target))
                 continue;
 
-            if (!ParentRowExists(fk, target))
+            if (partialNull || !ParentRowExists(fk, target))
                 throw new InvalidOperationException(
                     $"INSERT into '{childTable}' violates foreign key '{fk.Name}': no matching row in '{fk.ReferencedTable}'.");
         }

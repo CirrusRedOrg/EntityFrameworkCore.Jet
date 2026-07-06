@@ -98,6 +98,45 @@ public class AddColumnAccessTests
     }
 
     [Fact]
+    public void Add_and_drop_column_work_on_a_multi_page_tdef()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"multipage-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                // A wide table whose TDEF spans continuation pages.
+                var cols = new List<ColumnSpec> { new("Id", JetDataType.Int32, 4, IsFixedLength: true) };
+                for (int i = 0; i < 150; i++) cols.Add(new($"C{i}", JetDataType.Int32, 4, IsFixedLength: true));
+                db.CreateTable("Wide", cols, primaryKey: ["Id"]);
+                Assert.NotEqual(0, db.ReadTableDefinition(db.Catalog.FindTable("Wide")!.DefinitionPage).NextDefinitionPage); // multi-page
+
+                var row = new object?[cols.Count];
+                row[0] = 1; row[1] = 42; // Id + C0
+                db.OpenTable("Wide").Insert(row);
+
+                Assert.True(db.AddColumn("Wide", new ColumnSpec("Extra", JetDataType.Int32, 4, IsFixedLength: true)));
+                Assert.Contains("Extra", db.Catalog.FindTable("Wide")!.Columns.Select(c => c.Name));
+
+                Assert.True(db.DropColumn("Wide", "C5"));
+                Assert.DoesNotContain("C5", db.Catalog.FindTable("Wide")!.Columns.Select(c => c.Name));
+
+                // The surviving row still reads (C0 = 42, Extra = NULL).
+                var read = db.OpenTable("Wide").Rows().Single();
+                Assert.Equal(1, Convert.ToInt32(read[db.Catalog.FindTable("Wide")!.Columns.Single(c => c.Name == "Id").Index]));
+            }
+
+            // ACE opens the multi-page-TDEF-edited file and counts the row.
+            using var conn = Open(path);
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM Wide";
+            Assert.Equal(1, Convert.ToInt32(cmd.ExecuteScalar()));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Access_reads_a_libred_memo_column_added_to_a_populated_table()
     {
         string path = Path.Combine(Path.GetTempPath(), $"addcol-memo-{Guid.NewGuid():N}.accdb");

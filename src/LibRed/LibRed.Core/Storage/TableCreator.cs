@@ -687,7 +687,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             throw new InvalidOperationException(
                 $"Cannot drop index '{indexName}': it is used in a relationship — drop the relationship first.");
 
-        TdefParts parts = ParseTdef(table.DefinitionPage); // throws on a multi-page TDEF
+        TdefParts parts = ParseTdef(table.DefinitionPage); // stitches continuation pages for a multi-page TDEF
         RemoveTdefBlocks(parts, removeDataOrdinal: index.RealIndexOrdinal,
             removeLogical: b => NameOf(b.Name).Equals(indexName, StringComparison.OrdinalIgnoreCase));
         WriteTdef(table.DefinitionPage, parts);
@@ -720,8 +720,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     /// Existing rows are not rewritten; they read the new column as NULL via the null bitmap. Fully correct
     /// on an empty table (new inserts include it); on a populated table the column is visible and old rows
     /// read NULL. A memo/OLE column additionally gets its §3.3.2 usage-map entry (two empty maps appended to
-    /// the table's usage-map page, as ACE does). Returns false if the column already exists. Throws for a
-    /// multi-page TDEF, or a memo/OLE column whose usage-map page is full (dedicated-page fallback TODO).
+    /// the table's usage-map page, as ACE does). Returns false if the column already exists. Multi-page TDEFs
+    /// are handled (stitched/split); throws only for a memo/OLE column whose usage-map page is full
+    /// (dedicated-page fallback TODO).
     /// </summary>
     public bool AddColumn(string tableName, ColumnSpec spec, string? defaultValue = null)
     {
@@ -733,7 +734,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             throw new NotSupportedException($"Table '{tableName}' already has {MaxColumnsPerTable} columns (Jet/ACE limit).");
         JetFormatBase format = _channel.Format;
         bool isLongValue = spec.Type is JetDataType.Memo or JetDataType.Ole;
-        TdefParts parts = ParseTdef(table.DefinitionPage); // throws on a multi-page TDEF
+        TdefParts parts = ParseTdef(table.DefinitionPage); // stitches continuation pages for a multi-page TDEF
 
         int maxCols = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(TdefMaxColumnsOffset, 2));
         int varCount = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefVariableColumnsOffset, 2));
@@ -868,9 +869,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     /// **not** renumber the surviving columns, recompute their fixed offsets/variable indexes, decrement the
     /// <c>VariableColumnCount</c> (0x2B stays a high-water mark), or rewrite existing rows — survivors keep
     /// their stored variable index (§3.4) so old rows still decode (the dropped column's data becomes dead
-    /// bytes). Returns false if the column doesn't exist. Throws for a column that backs an index/key (drop
-    /// that first) or a memo/OLE column (its long-value usage-map entry/pages aren't handled yet), and for a
-    /// multi-page TDEF.
+    /// bytes). Returns false if the column doesn't exist. Multi-page TDEFs are handled. Throws for a column
+    /// that backs an index/key (drop that first) or a memo/OLE column (its long-value usage-map entry/pages
+    /// aren't handled yet).
     /// </summary>
     public bool DropColumn(string tableName, string columnName)
     {
@@ -901,7 +902,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             throw new NotSupportedException(
                 $"DROP COLUMN '{columnName}': dropping a memo/OLE (long-value) column is not supported yet.");
 
-        TdefParts parts = ParseTdef(table.DefinitionPage); // throws on a multi-page TDEF
+        TdefParts parts = ParseTdef(table.DefinitionPage); // stitches continuation pages for a multi-page TDEF
         RemoveColumnFromParts(parts, table.Columns.Count, col.Index, _channel.Format);
         WriteTdef(table.DefinitionPage, parts);
         RemoveColumnProperties(table.DefinitionPage, columnName); // drop its DefaultValue/Required from LvProp (ACE does)
@@ -1004,14 +1005,15 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         public required List<byte[]> DataBlocks;                // one 52-byte index-data block per data index
         public required List<(byte[] Info, byte[] Name)> Logical; // 28-byte info block + its name, name-sorted
         public required byte[] Lval;                            // §3.3.2 list + terminator
+        public IReadOnlyList<int> Continuations = [];           // continuation-page numbers (multi-page TDEF)
     }
 
     private TdefParts ParseTdef(int tdefPage)
     {
         JetFormatBase format = _channel.Format;
-        LibRed.IO.PageBuffer buf = _channel.ReadPage(tdefPage);
-        if (buf.ReadInt32(format.TdefNextPageOffset) != 0)
-            throw new NotSupportedException("Dropping a constraint from a multi-page table definition is not supported yet.");
+        // Stitch any continuation pages into one contiguous buffer (offsets are absolute from page 1), so the
+        // surgery below works the same for single- and multi-page definitions.
+        (LibRed.IO.PageBuffer buf, IReadOnlyList<int> continuations) = ReadDefinition(tdefPage);
 
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
         int logicalCount = buf.ReadInt32(format.TdefRealIndexCountOffset);
@@ -1050,6 +1052,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             DataBlocks = dataBlocks,
             Logical = logical,
             Lval = buf.Slice(np, defEnd - np).ToArray(),
+            Continuations = continuations,
         };
     }
 
@@ -1089,11 +1092,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefRealIndexCountOffset, 4), parts.Logical.Count);
         BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(TdefLengthOffset, 4), defEnd);
 
-        byte[] page = _channel.ReadPage(tdefPage).Span.ToArray();
-        def.CopyTo(page, 0); // shrinking, so def fits; stale bytes past defEnd are ignored (length governs)
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(TdefFreeSpaceOffset, 2),
-            (ushort)(format.PageSize - defEnd - TdefContinuationReserve));
-        _channel.WritePage(tdefPage, page);
+        // Write across the first page and continuation pages as needed (reusing the existing ones) — handles a
+        // definition that shrinks to one page, stays multi-page, or grows past a page (e.g. ADD COLUMN).
+        WriteDefinition(tdefPage, def, parts.Continuations);
     }
 
     /// <summary>Marks a row deleted by setting the deleted flag (0x8000) on its slot-directory entry — a

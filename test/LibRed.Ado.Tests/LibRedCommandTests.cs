@@ -66,6 +66,46 @@ public class LibRedCommandTests
     }
 
     [Fact]
+    public void DateTime_parameter_is_truncated_to_whole_seconds()
+    {
+        // Jet/ACE stores a DateTime only to 1-second resolution. A parameter carrying milliseconds must be
+        // stripped as early as the command, so the stored value AND a `WHERE d = @p` comparison agree.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-dt-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+
+            using (var create = conn.CreateCommand())
+            { create.CommandText = "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `D` DATETIME)"; create.ExecuteNonQuery(); }
+
+            var withMs = new DateTime(2020, 1, 2, 3, 4, 5, 678);
+            var seconds = new DateTime(2020, 1, 2, 3, 4, 5);
+
+            using (var ins = conn.CreateCommand())
+            {
+                ins.CommandText = "INSERT INTO `T` (`Id`, `D`) VALUES (1, @d)";
+                var p = ins.CreateParameter(); p.ParameterName = "@d"; p.Value = withMs; ins.Parameters.Add(p);
+                Assert.Equal(1, ins.ExecuteNonQuery());
+            }
+
+            // Stored value has no milliseconds.
+            using (var sel = conn.CreateCommand())
+            { sel.CommandText = "SELECT `D` FROM `T` WHERE `Id` = 1"; Assert.Equal(seconds, (DateTime)sel.ExecuteScalar()!); }
+
+            // A WHERE that reuses the millisecond-bearing parameter still matches the seconds-only row.
+            using (var q = conn.CreateCommand())
+            {
+                q.CommandText = "SELECT `Id` FROM `T` WHERE `D` = @d";
+                var p = q.CreateParameter(); p.ParameterName = "@d"; p.Value = withMs; q.Parameters.Add(p);
+                Assert.Equal(1, Convert.ToInt32(q.ExecuteScalar()));
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void TimeSpan_parameter_round_trips_through_a_datetime_column()
     {
         // Jet has no TimeSpan type; EF stores it in a datetime column as an offset from 1899-12-30.

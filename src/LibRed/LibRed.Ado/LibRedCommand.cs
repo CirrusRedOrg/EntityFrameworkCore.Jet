@@ -114,7 +114,20 @@ public sealed class LibRedCommand : DbCommand
     {
         var map = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         foreach (LibRedParameter parameter in _parameters.Cast<LibRedParameter>())
-            map[parameter.ParameterName] = parameter.Value is DBNull ? null : parameter.Value;
+            map[parameter.ParameterName] = Normalize(parameter.Value);
         return map;
     }
+
+    /// <summary>Coerces a parameter value to what the engine should see: a SQL null for <see cref="DBNull"/>,
+    /// and a DateTime truncated to whole seconds. Jet/ACE has no sub-second precision — it stores a DateTime
+    /// as an OLE double but only to 1-second resolution, so a parameter carrying milliseconds must be stripped
+    /// here, as early as possible. Doing it at the parameter (not just at storage) keeps a `WHERE d = @p`
+    /// comparison consistent with the seconds-only stored value. (The literal path already strips sub-seconds.)
+    /// This mirrors what EFCore.Jet's JetCommand does for the ODBC/OLE DB providers.</summary>
+    private static object? Normalize(object? value) => value switch
+    {
+        DBNull => null,
+        DateTime d => d.AddTicks(-(d.Ticks % TimeSpan.TicksPerSecond)),
+        _ => value,
+    };
 }

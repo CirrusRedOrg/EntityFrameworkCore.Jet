@@ -320,6 +320,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // DROP CONSTRAINT name: drop a foreign key (relationship) by name. LibRed enforces FKs from
         // MSysRelationships, so removing those rows disables it.
         DropConstraintAction drop => DropConstraint(statement.Table, drop.Name),
+        // ADD COLUMN: append the column's descriptor/name to the TDEF (existing rows read it as NULL).
+        AddColumnAction add => AddColumn(statement.Table, add.Column),
         // DROP COLUMN: a metadata-only TDEF edit (remove the descriptor + name, decrement ColumnCount).
         DropColumnAction dropCol => DropColumn(statement.Table, dropCol.Field),
         // The remaining actions land in their own follow-up steps.
@@ -333,6 +335,18 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             throw new NotSupportedException(
                 $"ALTER TABLE '{table}' DROP CONSTRAINT '{name}': only foreign-key constraints can be dropped yet " +
                 "(no matching relationship found — dropping a primary-key/unique index is not implemented).");
+        return 0;
+    }
+
+    private int AddColumn(string table, ColumnDefinition column)
+    {
+        // NOT NULL / DEFAULT on the new column need a LvProp property append (a follow-up); reject for now
+        // rather than silently drop them.
+        if (column.NotNull || column.Default is not null)
+            throw new NotSupportedException(
+                $"ADD COLUMN '{column.Name}': NOT NULL / DEFAULT on an added column is not supported yet (add it nullable).");
+        if (!_database.AddColumn(table, AccessTypeMapper.ToColumnSpec(column)))
+            throw new InvalidOperationException($"ALTER TABLE '{table}' ADD COLUMN '{column.Name}': the column already exists.");
         return 0;
     }
 

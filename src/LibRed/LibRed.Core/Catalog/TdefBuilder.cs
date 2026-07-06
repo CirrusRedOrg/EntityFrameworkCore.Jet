@@ -313,34 +313,38 @@ public static class TdefBuilder
     private static void WriteColumnDescriptors(byte[] page, JetFormatBase format, List<ColumnDef> columns, int columnBlock)
     {
         for (int i = 0; i < columns.Count; i++)
-        {
-            ColumnDef c = columns[i];
-            int entry = columnBlock + i * format.ColumnDescriptorSize;
+            BuildColumnDescriptor(columns[i], format).CopyTo(page.AsSpan(columnBlock + i * format.ColumnDescriptorSize));
+    }
 
-            page[entry + format.ColumnTypeOffset] = (byte)c.Type;
-            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(entry + ColumnRecordMarkerOffset, 2), (ushort)TdefRecordMarker);
-            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(entry + format.ColumnNumberOffset, 2), (ushort)c.ColumnId);
-            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(entry + ColumnNumber2Offset, 2), (ushort)c.ColumnId);
-            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(entry + ColumnVariableIndexOffset, 2),
-                (ushort)(c.IsFixedLength ? 0 : c.VariableIndex));
-            if (c.Type == JetDataType.FixedPoint)
-            {
-                page[entry + format.ColumnPrecisionOffset] = c.Precision;
-                page[entry + format.ColumnScaleOffset] = c.Scale;
-            }
-            else
-            {
-                // Non-numeric columns store the en-US locale (0x0409) in the precision/scale bytes.
-                page[entry + ColumnLocaleLowOffset] = LocaleLow;
-                page[entry + ColumnLocaleHighOffset] = LocaleHigh;
-            }
-            page[entry + format.ColumnFlagsOffset] = (byte)(
-                ColumnFlagUpdatable
-                | (c.IsFixedLength ? JetFormatBase.ColumnFlagFixedLength : 0)
-                | (c.IsAutoNumber ? JetFormatBase.ColumnFlagAutoNumber : 0));
-            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(entry + format.ColumnFixedOffsetOffset, 2), (ushort)c.FixedOffset);
-            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(entry + format.ColumnLengthOffset, 2), (ushort)c.Length);
+    /// <summary>Builds one column's fixed-size (25-byte Jet4) descriptor. Shared by CREATE TABLE and
+    /// ALTER TABLE ADD COLUMN.</summary>
+    public static byte[] BuildColumnDescriptor(ColumnDef c, JetFormatBase format)
+    {
+        var d = new byte[format.ColumnDescriptorSize];
+        d[format.ColumnTypeOffset] = (byte)c.Type;
+        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(ColumnRecordMarkerOffset, 2), (ushort)TdefRecordMarker);
+        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnNumberOffset, 2), (ushort)c.ColumnId);
+        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(ColumnNumber2Offset, 2), (ushort)c.ColumnId);
+        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(ColumnVariableIndexOffset, 2),
+            (ushort)(c.IsFixedLength ? 0 : c.VariableIndex));
+        if (c.Type == JetDataType.FixedPoint)
+        {
+            d[format.ColumnPrecisionOffset] = c.Precision;
+            d[format.ColumnScaleOffset] = c.Scale;
         }
+        else
+        {
+            // Non-numeric columns store the en-US locale (0x0409) in the precision/scale bytes.
+            d[ColumnLocaleLowOffset] = LocaleLow;
+            d[ColumnLocaleHighOffset] = LocaleHigh;
+        }
+        d[format.ColumnFlagsOffset] = (byte)(
+            ColumnFlagUpdatable
+            | (c.IsFixedLength ? JetFormatBase.ColumnFlagFixedLength : 0)
+            | (c.IsAutoNumber ? JetFormatBase.ColumnFlagAutoNumber : 0));
+        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnFixedOffsetOffset, 2), (ushort)c.FixedOffset);
+        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnLengthOffset, 2), (ushort)c.Length);
+        return d;
     }
 
     private static int WriteColumnNames(byte[] page, JetFormatBase format, List<ColumnDef> columns, int namePos)

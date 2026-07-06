@@ -712,6 +712,85 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     }
 
     /// <summary>
+    /// Adds a column — <c>ALTER TABLE t ADD COLUMN c type</c>. A metadata TDEF edit (probed vs ACE, the
+    /// inverse of DROP COLUMN): appends the column's 25-byte descriptor + name, gives it the next column id
+    /// from the <c>0x29</c> max-columns high-water (which keeps counting even past dropped ids), appends its
+    /// fixed offset (end of the fixed region) or variable index (current variable count), and bumps
+    /// ColumnCount (0x2D), the 0x29 high-water, and — for a variable column — VariableColumnCount (0x2B).
+    /// Existing rows are not rewritten; they read the new column as NULL via the null bitmap. Fully correct
+    /// on an empty table (new inserts include it); on a populated table the column is visible and old rows
+    /// read NULL, but new inserts that must widen the fixed region are a follow-up. Returns false if the
+    /// column already exists. Throws for a memo/OLE column (its LVAL usage-map entry is unhandled) or a
+    /// multi-page TDEF.
+    /// </summary>
+    public bool AddColumn(string tableName, ColumnSpec spec)
+    {
+        TableDef table = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
+        if (table.Columns.Any(c => string.Equals(c.Name, spec.Name, StringComparison.OrdinalIgnoreCase)))
+            return false;
+        if (table.Columns.Count >= MaxColumnsPerTable)
+            throw new NotSupportedException($"Table '{tableName}' already has {MaxColumnsPerTable} columns (Jet/ACE limit).");
+        if (spec.Type is JetDataType.Memo or JetDataType.Ole)
+            throw new NotSupportedException($"ADD COLUMN '{spec.Name}': adding a memo/OLE (long-value) column is not supported yet.");
+
+        JetFormatBase format = _channel.Format;
+        TdefParts parts = ParseTdef(table.DefinitionPage); // throws on a multi-page TDEF
+
+        int maxCols = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(TdefMaxColumnsOffset, 2));
+        int varCount = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefVariableColumnsOffset, 2));
+        int colCount = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefColumnCountOffset, 2));
+
+        var newColumn = new ColumnDef
+        {
+            Name = spec.Name,
+            Type = spec.Type,
+            Index = colCount,
+            ColumnId = maxCols, // next id from the high-water (dropped ids are never reused)
+            Length = spec.Length,
+            FixedOffset = spec.IsFixedLength
+                ? table.Columns.Where(c => c.IsFixedLength).Select(c => c.FixedOffset + c.Length).DefaultIfEmpty(0).Max()
+                : 0,
+            VariableIndex = spec.IsFixedLength ? -1 : varCount,
+            IsFixedLength = spec.IsFixedLength,
+            IsAutoNumber = spec.IsAutoNumber,
+            Precision = spec.Precision,
+            Scale = spec.Scale,
+            IsNullable = spec.IsNullable,
+        };
+
+        AppendColumnToParts(parts, colCount, TdefBuilder.BuildColumnDescriptor(newColumn, format), spec.Name, format);
+
+        BinaryPrimitives.WriteUInt16LittleEndian(parts.Header.AsSpan(format.TdefColumnCountOffset, 2), (ushort)(colCount + 1));
+        BinaryPrimitives.WriteUInt16LittleEndian(parts.Header.AsSpan(TdefMaxColumnsOffset, 2), (ushort)(maxCols + 1));
+        if (!spec.IsFixedLength)
+            BinaryPrimitives.WriteUInt16LittleEndian(parts.Header.AsSpan(format.TdefVariableColumnsOffset, 2), (ushort)(varCount + 1));
+
+        WriteTdef(table.DefinitionPage, parts);
+        _catalog.Invalidate();
+        return true;
+    }
+
+    private const int TdefMaxColumnsOffset = 0x29;
+
+    /// <summary>Appends the new column's descriptor (after the existing descriptors) and its name (after the
+    /// existing names) to the column region.</summary>
+    private static void AppendColumnToParts(TdefParts parts, int colCount, byte[] descriptor, string name, JetFormatBase format)
+    {
+        int namesStart = colCount * format.ColumnDescriptorSize;
+        ReadOnlySpan<byte> cols = parts.Columns;
+
+        byte[] nameBytes = System.Text.Encoding.Unicode.GetBytes(name);
+        var blob = new List<byte>(parts.Columns.Length + descriptor.Length + 2 + nameBytes.Length);
+        blob.AddRange(cols[..namesStart].ToArray());   // existing descriptors
+        blob.AddRange(descriptor);                       // new descriptor
+        blob.AddRange(cols[namesStart..].ToArray());    // existing names
+        blob.Add((byte)nameBytes.Length); blob.Add((byte)(nameBytes.Length >> 8));
+        blob.AddRange(nameBytes);                         // new name
+        parts.Columns = [.. blob];
+    }
+
+    /// <summary>
     /// Drops a column byte-faithfully with ACE (probed): a **metadata-only TDEF edit** — removes the
     /// column's 25-byte descriptor and its name, and decrements the live <c>ColumnCount</c> (0x2D). It does
     /// **not** renumber the surviving columns, recompute their fixed offsets/variable indexes, decrement the

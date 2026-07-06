@@ -577,6 +577,65 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     }
 
     /// <summary>
+    /// Drops a table — <c>DROP TABLE table</c>. Removes the object's <c>MSysObjects</c> row and its
+    /// <c>MSysACEs</c> permission rows (soft-delete, as ACE does), and frees the table's pages back to the
+    /// global free map so a later create reuses them (verified vs ACE): its index B-tree roots, its data
+    /// pages (owned-pages usage map), and the TDEF page. Returns false if the table doesn't exist. Throws if
+    /// the table is in a relationship — ACE rejects dropping the parent ("used in a relationship"); EF drops
+    /// the FK before the table, so a table reaching DROP TABLE is relationship-free.
+    /// </summary>
+    /// <remarks>Multi-page TDEFs, multi-level index trees (non-root pages), memo/OLE LVAL pages and dedicated
+    /// usage-map pages are not yet freed (they leak until Compact); the catalog removal is complete regardless,
+    /// so the table disappears and Access opens the file.</remarks>
+    public bool DropTable(string tableName)
+    {
+        TableDef? table = _catalog.FindTable(tableName);
+        if (table is null) return false;
+
+        if (_catalog.Relationships.Any(r =>
+                string.Equals(r.Table, tableName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(r.ReferencedTable, tableName, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException(
+                $"Cannot drop table '{tableName}': it is used in a relationship — drop the relationship first.");
+
+        int tdefPage = table.DefinitionPage;
+        var allocator = new PageAllocator(_channel);
+        foreach (IndexDef index in table.Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()))
+            allocator.Free(index.RootPage);
+        foreach (int dataPage in new UsageMap(_channel, table).DataPages())
+            allocator.Free(dataPage);
+        allocator.Free(tdefPage);
+
+        DeleteCatalogRows("MSysObjects", "Id", tdefPage);
+        DeleteCatalogRows("MSysACEs", "ObjectId", tdefPage);
+        _catalog.Invalidate();
+        return true;
+    }
+
+    /// <summary>Deletes every row of <paramref name="catalogTable"/> whose <paramref name="keyColumn"/> equals
+    /// <paramref name="keyValue"/> (the object id) — used to remove a dropped table's MSysObjects and MSysACEs
+    /// rows. A full delete: its **index entries are removed** (not just the slot soft-deleted) so, e.g., the
+    /// MSysObjects <c>ParentIdName</c> unique index doesn't retain a stale entry that would then reject
+    /// re-creating a same-named table.</summary>
+    private void DeleteCatalogRows(string catalogTable, string keyColumn, int keyValue)
+    {
+        TableDef t = _catalog.FindTable(catalogTable)
+            ?? throw new InvalidOperationException($"{catalogTable} catalog table was not found.");
+        int idx = (t.FindColumn(keyColumn) ?? throw new InvalidOperationException($"{catalogTable} is missing '{keyColumn}'.")).Index;
+        var table = new Table(_channel, t);
+
+        var rows = table.Rows().WithIds()
+            .Where(r => r.Values[idx] is not null && Convert.ToInt32(r.Values[idx]) == keyValue)
+            .ToList();
+        foreach ((RowId id, object?[] values) in rows)
+        {
+            foreach (IndexDef index in t.Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()))
+                table.RemoveIndexEntry(index, values, id);
+            table.Delete(id);
+        }
+    }
+
+    /// <summary>
     /// Drops a secondary/unique/primary index — <c>DROP INDEX index ON table</c>. Byte-faithful with ACE
     /// (probed): remove the index's 12-byte stats block, 52-byte index-data block, and its 28-byte logical
     /// info block + name from the TDEF (decrementing counts and the data-ordinal ref of any block past it),

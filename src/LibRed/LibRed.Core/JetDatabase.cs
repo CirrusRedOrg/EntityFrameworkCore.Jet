@@ -128,6 +128,11 @@ public sealed class JetDatabase : IDisposable
     public bool DropIndex(string table, string index) =>
         new Storage.TableCreator(_channel, Catalog).DropIndex(table, index);
 
+    /// <summary>Drops a table — DROP TABLE. Removes its MSysObjects + MSysACEs rows and frees its pages.
+    /// Returns false if the table doesn't exist; throws if it is in a relationship.</summary>
+    public bool DropTable(string table) =>
+        new Storage.TableCreator(_channel, Catalog).DropTable(table);
+
     /// <summary>Creates a view (a stored SELECT query) — the CREATE VIEW statement. Written the way Access
     /// does: an MSysObjects type-5 row plus the query decomposed into MSysQueries rows.</summary>
     public void CreateView(string name, ViewSpec spec)

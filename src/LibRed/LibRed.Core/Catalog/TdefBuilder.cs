@@ -14,7 +14,11 @@ public sealed record ColumnSpec(
     bool IsAutoNumber = false,
     byte Precision = 0,
     byte Scale = 0,
-    bool IsNullable = true);
+    bool IsNullable = true,
+    // AutoNumber (COUNTER) seed and increment — the first generated id is Seed, then +Increment each row.
+    // Default 1/1 (a plain COUNTER). Stored in the TDEF header: last-value 0x14 = Seed-Increment, 0x18 = Increment.
+    int Seed = 1,
+    int Increment = 1);
 
 /// <summary>An index to create over the named columns, anchored at an already-allocated root page.</summary>
 public sealed record IndexSpec(
@@ -48,7 +52,7 @@ public static class TdefBuilder
     private const int TdefFreeSpaceOffset = 0x02;     // bytes free in this page
     private const int TdefLengthOffset = 0x08;        // total definition length
     private const int TdefMarkerOffset = 0x0C;        // 0x00000659 record marker
-    private const int TdefConstantOffset = 0x18;      // observed constant 0x00000001
+    private const int TdefAutoNumberIncrementOffset = 0x18; // AutoNumber increment (default 1)
     private const int TdefMaxColumnsOffset = 0x29;    // maximum column count
     private const uint TdefRecordMarker = 0x659;
     private const int TdefContinuationReserve = 8;    // free space excludes the 8-byte continuation header
@@ -139,9 +143,17 @@ public static class TdefBuilder
         page[0] = PageTypeTableDefinition;
         page[TdefHeaderFlagsOffset] = 0x01;
         BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(TdefMarkerOffset, 4), TdefRecordMarker);
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(TdefConstantOffset, 4), 1);
+        // AutoNumber (COUNTER) config lives in the TDEF header: 0x18 = increment (default 1), and 0x14 =
+        // the last-assigned value initialized to Seed-Increment so the first insert yields Seed. A table has
+        // at most one AutoNumber column; with none, these stay at the plain-counter defaults (increment 1,
+        // last 0). Verified vs ACE (COUNTER(1000, 7) → 0x18=7, 0x14=993).
+        ColumnSpec? counter = specs.FirstOrDefault(s => s.IsAutoNumber);
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(TdefAutoNumberIncrementOffset, 4), counter?.Increment ?? 1);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefNextPageOffset, 4), 0);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRowCountOffset, 4), 0);
+        if (counter is not null)
+            BinaryPrimitives.WriteInt32LittleEndian(
+                page.AsSpan(format.TdefLastAutoNumberOffset, 4), counter.Seed - counter.Increment);
         page[format.TdefTableTypeOffset] = (byte)tableType;
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(TdefMaxColumnsOffset, 2), (ushort)columns.Count);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefVariableColumnsOffset, 2),

@@ -21,8 +21,12 @@ internal static class AccessTypeMapper
         string t = string.Join(' ', column.TypeName.ToUpperInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         return t switch
         {
+            // AutoNumber. COUNTER(seed, increment) parses seed/increment as the (size, scale) pair; a plain
+            // COUNTER defaults to 1/1. INTEGER IDENTITY(seed, increment) is the ANSI-style spelling.
             "COUNTER" or "AUTOINCREMENT" or "IDENTITY"
-                => Fixed(column, JetDataType.Int32, 4, autoNumber: true),
+            or "INTEGER IDENTITY" or "INT IDENTITY" or "LONG IDENTITY"
+                => new ColumnSpec(column.Name, JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true,
+                    Seed: column.Size ?? 1, Increment: column.Scale ?? 1),
             "INTEGER" or "INT" or "LONG" or "INTEGER4"
                 => Fixed(column, JetDataType.Int32, 4),
             "SMALLINT" or "SHORT" or "INTEGER2"

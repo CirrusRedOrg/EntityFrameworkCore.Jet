@@ -121,11 +121,10 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                     null,  // computedValue
                     null); // computed-is-stored
 
-                // Identity seed/increment (matching EFCore.Jet's scaffolder). LibRed doesn't track custom
-                // AutoNumber seed/increment and only creates the default 1/1 counter, so an AutoNumber column
-                // is always (1, 1); a non-identity column carries a null seed/increment as Jet's does.
-                int? identitySeed = column.IsAutoNumber ? 1 : null;
-                int? identityIncrement = column.IsAutoNumber ? 1 : null;
+                // Identity seed/increment (matching EFCore.Jet's scaffolder), read from the column's COUNTER
+                // config; a non-identity column carries a null seed/increment as Jet's does.
+                int? identitySeed = column.IsAutoNumber ? column.Seed : null;
+                int? identityIncrement = column.IsAutoNumber ? column.Increment : null;
 
                 var databaseColumn = new DatabaseColumn
                 {

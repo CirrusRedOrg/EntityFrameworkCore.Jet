@@ -33,6 +33,12 @@ public sealed class ColumnDef
 
     public bool IsAutoNumber { get; init; }
 
+    /// <summary>AutoNumber (COUNTER) seed and increment. The increment is read from the TDEF header (0x18);
+    /// the seed is the header's last-assigned value (0x14) plus the increment — which equals the original
+    /// seed on a freshly created table (before any inserts advance the last value). Default 1/1.</summary>
+    public int Seed { get; internal set; } = 1;
+    public int Increment { get; internal set; } = 1;
+
     /// <summary>The column's <c>DefaultValue</c> property (an expression's source text, e.g. <c>"0"</c>
     /// or <c>"'hi'"</c>), read from the table's extended-properties (<c>LvProp</c>) blob; null if none.
     /// Set by the catalog after the descriptors are decoded (the property lives outside the TDEF).</summary>

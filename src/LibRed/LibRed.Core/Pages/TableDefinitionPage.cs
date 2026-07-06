@@ -281,6 +281,19 @@ public sealed class TableDefinitionPage : Page
             });
         }
 
+        // AutoNumber seed/increment from the TDEF header: 0x18 = increment, 0x14 = last-assigned value. On a
+        // freshly created table the last value is Seed-Increment, so Seed = last + increment (matching what a
+        // no-insert scaffold reports). A table has at most one AutoNumber column; apply to it.
+        int increment = buffer.ReadInt32(format.TdefAutoNumberIncrementOffset);
+        if (increment == 0) increment = 1;
+        int lastAuto = buffer.ReadInt32(format.TdefLastAutoNumberOffset);
+        foreach (ColumnDef column in _columns)
+            if (column.IsAutoNumber)
+            {
+                column.Increment = increment;
+                column.Seed = lastAuto + increment;
+            }
+
         return namePos;
     }
 }

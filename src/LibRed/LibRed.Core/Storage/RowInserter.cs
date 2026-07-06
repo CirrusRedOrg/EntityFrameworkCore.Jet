@@ -650,7 +650,12 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
         foreach (ColumnDef column in _table.Columns)
             if (column.IsAutoNumber && values[column.Index] is null or DBNull)
-                values[column.Index] = ++highWater;
+            {
+                // Next id = last-assigned + increment. On a fresh table the last value (0x14) is Seed-Increment,
+                // so the first assigned id is the Seed.
+                highWater += column.Increment;
+                values[column.Index] = highWater;
+            }
     }
 
     /// <summary>

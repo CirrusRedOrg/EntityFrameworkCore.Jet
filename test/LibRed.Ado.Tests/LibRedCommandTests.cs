@@ -127,7 +127,7 @@ public class LibRedCommandTests
                 insert.CommandText = "INSERT INTO `T` (`Id`, `Dur`) VALUES (1, @d)";
                 var p = insert.CreateParameter();
                 p.ParameterName = "@d";
-                p.Value = TimeSpan.FromHours(5).Add(TimeSpan.FromMinutes(30));
+                p.Value = new TimeSpan(0, 5, 30, 0, 678); // 5h30m0.678s — the milliseconds must be stripped
                 insert.Parameters.Add(p);
                 Assert.Equal(1, insert.ExecuteNonQuery());
             }
@@ -136,7 +136,7 @@ public class LibRedCommandTests
                 read.CommandText = "SELECT `Dur` FROM `T` WHERE `Id` = 1";
                 using var reader = read.ExecuteReader();
                 Assert.True(reader.Read());
-                Assert.Equal(new TimeSpan(5, 30, 0), reader.GetFieldValue<TimeSpan>(0));
+                Assert.Equal(new TimeSpan(5, 30, 0), reader.GetFieldValue<TimeSpan>(0)); // seconds only
             }
         }
         finally { try { File.Delete(path); } catch (IOException) { } }

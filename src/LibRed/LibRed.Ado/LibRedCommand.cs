@@ -119,15 +119,18 @@ public sealed class LibRedCommand : DbCommand
     }
 
     /// <summary>Coerces a parameter value to what the engine should see: a SQL null for <see cref="DBNull"/>,
-    /// and a DateTime truncated to whole seconds. Jet/ACE has no sub-second precision — it stores a DateTime
-    /// as an OLE double but only to 1-second resolution, so a parameter carrying milliseconds must be stripped
-    /// here, as early as possible. Doing it at the parameter (not just at storage) keeps a `WHERE d = @p`
-    /// comparison consistent with the seconds-only stored value. (The literal path already strips sub-seconds.)
-    /// This mirrors what EFCore.Jet's JetCommand does for the ODBC/OLE DB providers.</summary>
+    /// and any temporal value truncated to whole seconds. Jet/ACE has no sub-second precision — every temporal
+    /// type is stored as a 1-second-resolution OLE double (a DateTime; a TimeSpan/TimeOnly as an offset), so a
+    /// parameter carrying milliseconds must be stripped here, as early as possible. Doing it at the parameter
+    /// (not just at storage) keeps a `WHERE d = @p` comparison consistent with the seconds-only stored value.
+    /// (The literal path already strips sub-seconds.) Mirrors what EFCore.Jet's JetCommand does for ODBC/OLE DB.</summary>
     private static object? Normalize(object? value) => value switch
     {
         DBNull => null,
         DateTime d => d.AddTicks(-(d.Ticks % TimeSpan.TicksPerSecond)),
+        DateTimeOffset dto => dto.AddTicks(-(dto.Ticks % TimeSpan.TicksPerSecond)),
+        TimeSpan t => TimeSpan.FromTicks(t.Ticks - t.Ticks % TimeSpan.TicksPerSecond),
+        TimeOnly to => new TimeOnly(to.Ticks - to.Ticks % TimeSpan.TicksPerSecond),
         _ => value,
     };
 }

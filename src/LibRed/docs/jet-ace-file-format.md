@@ -118,6 +118,24 @@ version. (Page-level encryption for password-protected files is not implemented.
 > of logical-index info blocks and index names. A relationship adds a *logical* index that
 > shares a real index's data, so logical ≥ real.
 
+> **`ADD` / `DROP COLUMN` are metadata-only edits — the three column counts behave differently
+> (all probed vs ACE).** ACE never renumbers surviving columns or rewrites existing rows; a dropped
+> column's bytes become dead space, and an added column reads NULL on old rows (via the null bitmap).
+> - **`0x2D` column count** — the **live** count. `DROP COLUMN` decrements it; `ADD COLUMN` increments it.
+> - **`0x29` maximum column count** — a **high-water** = the *next* column id to assign. `ADD COLUMN`
+>   takes the current value as the new column's id, then increments `0x29`; `DROP COLUMN` **leaves it**
+>   (dropped ids are **never reused**, so ids develop gaps, e.g. dropping id 1 leaves `0,2,3` and the next
+>   add is `4` — verified by dropping the highest column and observing the next id still continues past it).
+> - **`0x2B` variable-length column count** — also a **high-water**. `ADD COLUMN` of a variable column
+>   increments it (the new column's variable index = the old value); `DROP COLUMN` of a variable column
+>   **leaves it unchanged**, so survivors keep their stored variable index (§3.4) and existing rows keep the
+>   same number of variable slots. (A fixed column doesn't touch `0x2B`.)
+>
+> An added **fixed** column's fixed offset is the current end of the fixed region (`max(offset+length)`);
+> an added **variable** column appends. A dropped column's descriptor + name are removed from the column
+> region; a dropped **memo/OLE** column's §3.3.2 entry is removed, an added one's is appended (its two page
+> maps go on the table's usage-map page, or a dedicated page if that's full — the same rule as create).
+
 ### 3.2 Multi-page TDEFs
 
 If a table has enough columns (or indexes), the definition spans pages chained by the `0x04` pointer.

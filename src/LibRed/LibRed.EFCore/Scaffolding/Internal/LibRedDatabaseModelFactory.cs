@@ -1,5 +1,6 @@
 using System.Data.Common;
 using EntityFrameworkCore.Jet.Internal; // FK scaffolding-logger extensions (ForeignKeyFound, …)
+using EntityFrameworkCore.Jet.Metadata.Internal; // JetAnnotationNames (identity seed/increment)
 using LibRed;
 using LibRed.Catalog;
 using LibRed.Data;
@@ -120,15 +121,29 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                     null,  // computedValue
                     null); // computed-is-stored
 
-                table.Columns.Add(new DatabaseColumn
+                // Identity seed/increment (matching EFCore.Jet's scaffolder). LibRed doesn't track custom
+                // AutoNumber seed/increment and only creates the default 1/1 counter, so an AutoNumber column
+                // is always (1, 1); a non-identity column carries a null seed/increment as Jet's does.
+                int? identitySeed = column.IsAutoNumber ? 1 : null;
+                int? identityIncrement = column.IsAutoNumber ? 1 : null;
+
+                var databaseColumn = new DatabaseColumn
                 {
                     Table = table,
                     Name = column.Name,
                     StoreType = storeType,
                     IsNullable = nullable,
-                    DefaultValueSql = defaultValueSql,
+                    // Jet/ACE stores a literal default *value*, not a SQL default expression — so report it as
+                    // DefaultValue (the parsed CLR value), not DefaultValueSql.
+                    DefaultValue = ParseDefaultValue(column.Type, defaultValueSql),
                     ValueGenerated = column.IsAutoNumber ? ValueGenerated.OnAdd : null,
-                });
+                };
+
+                databaseColumn[JetAnnotationNames.IdentitySeed] = identitySeed;
+                databaseColumn[JetAnnotationNames.IdentityIncrement] = identityIncrement;
+                databaseColumn[JetAnnotationNames.Identity] = $"(${identitySeed}, ${identityIncrement})";
+
+                table.Columns.Add(databaseColumn);
             }
         }
     }
@@ -242,6 +257,47 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
         var wanted = tables.Where(t => !string.IsNullOrWhiteSpace(t)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return wanted.Count > 0 ? name => wanted.Contains(name) : null;
     }
+
+    /// <summary>Converts a column's stored default-value text (e.g. <c>"0"</c>, <c>"'hi'"</c>, <c>"-1"</c>) to
+    /// the CLR literal it represents, coerced to the column's type. Jet/ACE defaults are literal values, not
+    /// SQL expressions, so this becomes <c>DatabaseColumn.DefaultValue</c>. Unparseable text (e.g. a function
+    /// like <c>Now()</c>) is returned as-is.</summary>
+    private static object? ParseDefaultValue(JetDataType type, string? text)
+    {
+        text = text?.Trim();
+        if (string.IsNullOrEmpty(text) || text.Equals("NULL", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var ci = System.Globalization.CultureInfo.InvariantCulture;
+        try
+        {
+            return type switch
+            {
+                // Jet booleans are -1/0; also accept True/False.
+                JetDataType.Boolean => int.TryParse(text, out int i) ? i != 0 : bool.Parse(text),
+                JetDataType.Byte => byte.Parse(text, ci),
+                JetDataType.Int16 => short.Parse(text, ci),
+                JetDataType.Int32 => int.Parse(text, ci),
+                JetDataType.Int64 => long.Parse(text, ci),
+                JetDataType.Single => float.Parse(text, ci),
+                JetDataType.Double => double.Parse(text, ci),
+                JetDataType.Currency or JetDataType.FixedPoint => decimal.Parse(text, ci),
+                JetDataType.Guid => Guid.Parse(text.Trim('{', '}')),
+                // A string literal is single-quoted with doubled inner quotes: 'Bon app''' → Bon app'.
+                JetDataType.Text or JetDataType.Memo => Unquote(text),
+                _ => text,
+            };
+        }
+        catch (Exception ex) when (ex is FormatException or OverflowException)
+        {
+            return text; // e.g. a default expression such as Now()/Date() — keep the raw text
+        }
+    }
+
+    private static string Unquote(string s)
+        => s.Length >= 2 && s[0] == '\'' && s[^1] == '\''
+            ? s[1..^1].Replace("''", "'")
+            : s;
 
     /// <summary>Maps a column to a store-type name EFCore.Jet's type mapping source recognises.</summary>
     private static string GetStoreType(ColumnDef column) => column.Type switch

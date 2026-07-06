@@ -112,6 +112,19 @@
 		<Compile Remove="Query\AdHocJsonQueryLibRedTestBase.cs" />
 	</ItemGroup>
 
+	<!-- Compiled-model baselines are comparison text, not compiled code. -->
+	<ItemGroup>
+		<Compile Remove="Scaffolding\Baselines\**\*" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="Scaffolding\Baselines\**\*" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Scaffolding\Baselines\" />
+	</ItemGroup>
+
 	<ItemGroup>
 	  <Using Include="LibRed.Data" />
 	</ItemGroup>

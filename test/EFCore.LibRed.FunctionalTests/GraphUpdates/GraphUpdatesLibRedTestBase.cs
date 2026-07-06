@@ -224,12 +224,16 @@ public abstract class GraphUpdatesLibRedTestBase<TFixture>(TFixture fixture) : G
         {
             await base.SeedAsync(context);
 
+            // Jet enforces MATCH FULL semantics for composite foreign keys: every column must be null
+            // or every column must be non-null and satisfy the reference. SQL Server (and EF Core's
+            // test suite) uses MATCH SIMPLE, where any null column bypasses the constraint.
+            // Optional relationships can produce a mixed-null FK state (one column null, one not),
+            // which is valid under MATCH SIMPLE but rejected by Jet, so those composite FK constraints
+            // are dropped here. Required and owned relationships are always fully null or fully non-null
+            // (owned FK columns are PK components and therefore non-nullable), so those FKs are kept.
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalComposite2` DROP CONSTRAINT `FK_OptionalComposite2_OptionalAk1_ParentId_ParentAlternateId`");
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalOverlapping2` DROP CONSTRAINT `FK_OptionalOverlapping2_RequiredComposite1_ParentId_ParentAlter~`");
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalSingleComposite2` DROP CONSTRAINT `FK_OptionalSingleComposite2_OptionalSingleAk1_BackId_ParentAlte~`");
-            await context.Database.ExecuteSqlAsync($"ALTER TABLE `OwnedOptional2` DROP CONSTRAINT `FK_OwnedOptional2_OwnedOptional1_OwnedOptional1OwnerRootId_Owne~`");
-            await context.Database.ExecuteSqlAsync($"ALTER TABLE `OwnedRequired2` DROP CONSTRAINT `FK_OwnedRequired2_OwnedRequired1_OwnedRequired1OwnerRootId_Owne~`");
-            await context.Database.ExecuteSqlAsync($"ALTER TABLE `RequiredComposite2` DROP CONSTRAINT `FK_RequiredComposite2_RequiredAk1_ParentId_ParentAlternateId`");
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `SharedFkParent` DROP CONSTRAINT `FK_SharedFkParent_SharedFkDependant_RootId_DependantId`");
         }
     }

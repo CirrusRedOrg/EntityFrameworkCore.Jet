@@ -66,4 +66,39 @@ public class AddColumnAccessTests
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
+
+    [Fact]
+    public void Adding_columns_with_default_and_required_preserves_existing_props_and_access_applies_them()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"addcol-lv-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            // ACE creates a table that already has a column DEFAULT (A DEFAULT 5) in its LvProp blob.
+            Ace(path, "CREATE TABLE T (Id LONG PRIMARY KEY, A LONG DEFAULT 5)");
+
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                Assert.True(db.AddColumn("T", new ColumnSpec("Qty", JetDataType.Int32, 4, IsFixedLength: true), defaultValue: "1"));
+                Assert.True(db.AddColumn("T", new ColumnSpec("Nm", JetDataType.Text, 40, IsFixedLength: false, IsNullable: false)));
+            }
+
+            // LibRed reads the pre-existing default AND the appended ones (the append didn't disturb A's block).
+            using (var db2 = JetDatabase.Open(path))
+            {
+                var t = db2.Catalog.FindTable("T")!;
+                Assert.Equal("5", t.Columns.Single(c => c.Name == "A").DefaultValue);
+                Assert.Equal("1", t.Columns.Single(c => c.Name == "Qty").DefaultValue);
+                Assert.False(t.Columns.Single(c => c.Name == "Nm").IsNullable);
+            }
+
+            // ACE opens the file and applies the LibRed-added Qty default on an omit-insert.
+            using var conn = Open(path);
+            using (var c = conn.CreateCommand())
+            { c.CommandText = "INSERT INTO T (Id, A, Nm) VALUES (1, 10, 'x')"; c.ExecuteNonQuery(); }
+            using (var c = conn.CreateCommand())
+            { c.CommandText = "SELECT Qty FROM T WHERE Id = 1"; Assert.Equal(1, Convert.ToInt32(c.ExecuteScalar())); }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
 }

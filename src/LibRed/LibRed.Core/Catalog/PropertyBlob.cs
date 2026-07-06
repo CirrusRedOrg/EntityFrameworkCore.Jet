@@ -51,32 +51,86 @@ public static class PropertyBlob
         AppendBlock(blob, NameListBlock, namesBody);
 
         foreach (var group in GroupByOwnerPreservingOrder(properties))
-        {
-            var body = new List<byte>();
-            var ownerRec = new List<byte> { 0, 0, 0, 0 }; // [recLen placeholder][0x0000]
-            AppendString(ownerRec, group.Owner);
-            BinaryPrimitives.WriteUInt16LittleEndian(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(ownerRec), (ushort)ownerRec.Count);
-            body.AddRange(ownerRec);
-
-            foreach (Property p in group.Properties)
-            {
-                byte[] value = p.Type == JetDataType.Boolean
-                    ? [(byte)(p.Value is "1" or "true" or "True" ? 1 : 0)]
-                    : Encoding.Unicode.GetBytes(p.Value);
-                var entry = new List<byte>();
-                AppendUInt16(entry, (ushort)(2 + 1 + 1 + 2 + 2 + value.Length)); // entry length
-                entry.Add(PropFlag);
-                entry.Add((byte)p.Type);
-                AppendUInt16(entry, (ushort)nameIndex[p.Name]);
-                AppendUInt16(entry, (ushort)value.Length);
-                entry.AddRange(value);
-                body.AddRange(entry);
-            }
-            // A table-level map (empty owner) uses block type 0x00; a column map uses 0x01.
-            AppendBlock(blob, group.Owner.Length == 0 ? TableBlock : ColumnBlock, body);
-        }
+            AppendOwnerBlock(blob, group.Owner, group.Properties, nameIndex);
 
         return [.. blob];
+    }
+
+    /// <summary>
+    /// Adds a column's (or the table's) property block to an existing blob — the reverse of
+    /// <see cref="RemoveOwner"/>, used by ALTER TABLE ADD COLUMN with NOT NULL / DEFAULT. Extends the name
+    /// pool with any new property names (appended, so existing name indexes stay valid), keeps every existing
+    /// block verbatim, and appends the new owner block. If the blob is empty it builds a fresh one.
+    /// </summary>
+    public static byte[] AddColumnProperties(ReadOnlySpan<byte> blob, string owner, IReadOnlyList<Property> newProps)
+    {
+        if (newProps.Count == 0) return blob.ToArray();
+        if (blob.Length < 4) return Write(newProps);
+
+        var names = new List<string>();
+        var otherBlocks = new List<byte[]>();
+        int pos = 4;
+        while (pos + 6 <= blob.Length)
+        {
+            int len = BinaryPrimitives.ReadInt32LittleEndian(blob.Slice(pos, 4));
+            ushort type = BinaryPrimitives.ReadUInt16LittleEndian(blob.Slice(pos + 4, 2));
+            if (len < 6 || pos + len > blob.Length) { otherBlocks.Add(blob[pos..].ToArray()); break; } // malformed tail
+
+            if (type == NameListBlock)
+            {
+                int q = pos + 6, end = pos + len;
+                while (q + 2 <= end)
+                {
+                    int nl = BinaryPrimitives.ReadUInt16LittleEndian(blob.Slice(q, 2));
+                    q += 2;
+                    if (q + nl > end) break;
+                    names.Add(Encoding.Unicode.GetString(blob.Slice(q, nl)));
+                    q += nl;
+                }
+            }
+            else otherBlocks.Add(blob.Slice(pos, len).ToArray());
+            pos += len;
+        }
+
+        var nameIndex = new Dictionary<string, int>();
+        for (int i = 0; i < names.Count; i++) nameIndex[names[i]] = i;
+        foreach (Property p in newProps)
+            if (!nameIndex.ContainsKey(p.Name)) { nameIndex[p.Name] = names.Count; names.Add(p.Name); }
+
+        var result = new List<byte>(SignatureAce);
+        var namesBody = new List<byte>();
+        foreach (string n in names) AppendString(namesBody, n);
+        AppendBlock(result, NameListBlock, namesBody);
+        foreach (byte[] b in otherBlocks) result.AddRange(b);
+        AppendOwnerBlock(result, owner, newProps, nameIndex);
+        return [.. result];
+    }
+
+    /// <summary>Appends one owner's value block: the owner record then a property entry per property.</summary>
+    private static void AppendOwnerBlock(List<byte> blob, string owner, IEnumerable<Property> props, IReadOnlyDictionary<string, int> nameIndex)
+    {
+        var body = new List<byte>();
+        var ownerRec = new List<byte> { 0, 0, 0, 0 }; // [recLen placeholder][0x0000]
+        AppendString(ownerRec, owner);
+        BinaryPrimitives.WriteUInt16LittleEndian(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(ownerRec), (ushort)ownerRec.Count);
+        body.AddRange(ownerRec);
+
+        foreach (Property p in props)
+        {
+            byte[] value = p.Type == JetDataType.Boolean
+                ? [(byte)(p.Value is "1" or "true" or "True" ? 1 : 0)]
+                : Encoding.Unicode.GetBytes(p.Value);
+            var entry = new List<byte>();
+            AppendUInt16(entry, (ushort)(2 + 1 + 1 + 2 + 2 + value.Length)); // entry length
+            entry.Add(PropFlag);
+            entry.Add((byte)p.Type);
+            AppendUInt16(entry, (ushort)nameIndex[p.Name]);
+            AppendUInt16(entry, (ushort)value.Length);
+            entry.AddRange(value);
+            body.AddRange(entry);
+        }
+        // A table-level map (empty owner) uses block type 0x00; a column map uses 0x01.
+        AppendBlock(blob, owner.Length == 0 ? TableBlock : ColumnBlock, body);
     }
 
     /// <summary>

@@ -723,7 +723,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     /// column already exists. Throws for a memo/OLE column (its LVAL usage-map entry is unhandled) or a
     /// multi-page TDEF.
     /// </summary>
-    public bool AddColumn(string tableName, ColumnSpec spec)
+    public bool AddColumn(string tableName, ColumnSpec spec, string? defaultValue = null)
     {
         TableDef table = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
@@ -767,8 +767,39 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             BinaryPrimitives.WriteUInt16LittleEndian(parts.Header.AsSpan(format.TdefVariableColumnsOffset, 2), (ushort)(varCount + 1));
 
         WriteTdef(table.DefinitionPage, parts);
+
+        // NOT NULL / DEFAULT go in the table's LvProp blob (DefaultValue before Required, matching ACE), the
+        // same properties CREATE TABLE writes — appended to the existing blob without disturbing other columns'.
+        var props = new List<PropertyBlob.Property>();
+        if (defaultValue is not null) props.Add(new PropertyBlob.Property(spec.Name, PropertyBlob.DefaultValueProperty, defaultValue));
+        if (!spec.IsNullable) props.Add(PropertyBlob.Bool(spec.Name, PropertyBlob.RequiredProperty, true));
+        if (props.Count > 0) SetColumnProperties(table.DefinitionPage, spec.Name, props);
+
         _catalog.Invalidate();
         return true;
+    }
+
+    /// <summary>Appends a column's extended properties (DefaultValue/Required) to its table's
+    /// <c>MSysObjects.LvProp</c> blob and re-stores it — the add-side counterpart of
+    /// <see cref="RemoveColumnProperties"/>.</summary>
+    private void SetColumnProperties(int tdefPage, string columnName, IReadOnlyList<PropertyBlob.Property> props)
+    {
+        TableDef msys = _catalog.FindTable("MSysObjects")
+            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
+        int idIdx = (msys.FindColumn("Id") ?? throw new InvalidOperationException("MSysObjects is missing 'Id'.")).Index;
+        ColumnDef lvProp = msys.FindColumn("LvProp") ?? throw new InvalidOperationException("MSysObjects is missing 'LvProp'.");
+        var table = new Table(_channel, msys);
+
+        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
+        {
+            if (values[idIdx] is null || Convert.ToInt32(values[idIdx]) != tdefPage) continue;
+            byte[] blob = values[lvProp.Index] as byte[] ?? [];
+            byte[] updated = PropertyBlob.AddColumnProperties(blob, columnName, props);
+            byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, updated);
+            values[lvProp.Index] = new LongValueDescriptor(descriptor);
+            table.Update(id, values, new HashSet<int> { lvProp.Index });
+            return;
+        }
     }
 
     private const int TdefMaxColumnsOffset = 0x29;

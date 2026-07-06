@@ -340,12 +340,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int AddColumn(string table, ColumnDefinition column)
     {
-        // NOT NULL / DEFAULT on the new column need a LvProp property append (a follow-up); reject for now
-        // rather than silently drop them.
-        if (column.NotNull || column.Default is not null)
-            throw new NotSupportedException(
-                $"ADD COLUMN '{column.Name}': NOT NULL / DEFAULT on an added column is not supported yet (add it nullable).");
-        if (!_database.AddColumn(table, AccessTypeMapper.ToColumnSpec(column)))
+        // NOT NULL and DEFAULT are written to the column's LvProp properties (Required / DefaultValue).
+        if (!_database.AddColumn(table, AccessTypeMapper.ToColumnSpec(column), column.Default))
             throw new InvalidOperationException($"ALTER TABLE '{table}' ADD COLUMN '{column.Name}': the column already exists.");
         return 0;
     }

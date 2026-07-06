@@ -125,8 +125,8 @@ public sealed class JetDatabase : IDisposable
 
     /// <summary>Adds a column — ALTER TABLE … ADD COLUMN. Appends the descriptor/name and bumps the counts;
     /// existing rows read it as NULL. Returns false if the column already exists; throws for memo/OLE.</summary>
-    public bool AddColumn(string table, Catalog.ColumnSpec column) =>
-        new Storage.TableCreator(_channel, Catalog).AddColumn(table, column);
+    public bool AddColumn(string table, Catalog.ColumnSpec column, string? defaultValue = null) =>
+        new Storage.TableCreator(_channel, Catalog).AddColumn(table, column, defaultValue);
 
     /// <summary>Drops an index — DROP INDEX … ON table. Removes its TDEF blocks and frees its B-tree root.
     /// Returns false if the index doesn't exist; throws if it backs a relationship.</summary>

@@ -46,10 +46,24 @@ public class AddColumnTests
     }
 
     [Fact]
-    public void Adding_a_duplicate_column_is_rejected_and_not_null_default_deferred()
+    public void Adding_a_duplicate_column_is_rejected()
     {
         var e = Fresh();
         Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("ALTER TABLE T ADD COLUMN A long")); // exists
-        Assert.Throws<NotSupportedException>(() => e.ExecuteNonQuery("ALTER TABLE T ADD COLUMN X long NOT NULL"));
+    }
+
+    [Fact]
+    public void Added_column_default_is_applied_and_required_is_enforced()
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery("ALTER TABLE T ADD COLUMN Qty long DEFAULT 1");
+        e.ExecuteNonQuery("ALTER TABLE T ADD COLUMN Name text(20) NOT NULL");
+
+        // DEFAULT applied when the column is omitted on insert.
+        e.ExecuteNonQuery("INSERT INTO T (Id, A, Name) VALUES (1, 10, 'x')");
+        Assert.Equal(1, Convert.ToInt32(e.ExecuteQuery("SELECT Qty FROM T WHERE Id = 1").Rows.Single()[0]));
+
+        // NOT NULL enforced: omitting the required column (no default) is rejected.
+        Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("INSERT INTO T (Id, A) VALUES (2, 20)"));
     }
 }

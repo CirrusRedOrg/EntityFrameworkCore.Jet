@@ -511,6 +511,22 @@ internal sealed class ExpressionEvaluator(
     /// <c>Enumerable</c> arithmetic — LibRed emits the operand type, not an ACE-widened one.)</summary>
     private static object Arithmetic(object left, object right, char op)
     {
+        // Date/time arithmetic operates on the OLE Automation serial (days since 1899-12-30; the fractional
+        // part is the time), verified vs ACE: date+time and date±N days yield a DateTime, but date−date yields
+        // a plain day count (Double). A number operand is taken as a count of days. The result is rounded to a
+        // whole second (Jet has no sub-second) to shed the tiny floating-point drift the serial round-trip adds.
+        if (left is DateTime || right is DateTime)
+        {
+            double a = Oa(left), b = Oa(right);
+            bool bothDates = left is DateTime && right is DateTime;
+            return op switch
+            {
+                '-' when bothDates => a - b,                       // date − date → number of days
+                '+' => RoundToSecond(DateTime.FromOADate(a + b)),
+                '-' => RoundToSecond(DateTime.FromOADate(a - b)),
+                _ => a * b,                                        // date × n has no date meaning → numeric
+            };
+        }
         if (left is decimal || right is decimal) { decimal a = Dec(left), b = Dec(right); return op == '+' ? a + b : op == '-' ? a - b : a * b; }
         if (left is double || right is double) { double a = Dbl(left), b = Dbl(right); return op == '+' ? a + b : op == '-' ? a - b : a * b; }
         if (left is float || right is float) { float a = (float)Dbl(left), b = (float)Dbl(right); return op == '+' ? a + b : op == '-' ? a - b : a * b; }
@@ -539,6 +555,19 @@ internal sealed class ExpressionEvaluator(
     private static double Dbl(object v) => Convert.ToDouble(Numeric(v), CultureInfo.InvariantCulture);
     private static long Lng(object v) => Convert.ToInt64(Numeric(v), CultureInfo.InvariantCulture);
     private static int Int(object v) => Convert.ToInt32(Numeric(v), CultureInfo.InvariantCulture);
+
+    // For date arithmetic: a DateTime becomes its OLE Automation serial; a number is taken verbatim (as days).
+    private static double Oa(object v) => v is DateTime d ? d.ToOADate() : Dbl(v);
+
+    // Rounds to the nearest whole second — Jet stores no sub-second, and the OA-serial round-trip can leave
+    // a value a few ticks shy of/past an exact second (e.g. 21:05:18.9999999).
+    private static DateTime RoundToSecond(DateTime d)
+    {
+        long rem = d.Ticks % TimeSpan.TicksPerSecond;
+        return rem >= TimeSpan.TicksPerSecond - rem
+            ? d.AddTicks(TimeSpan.TicksPerSecond - rem)
+            : d.AddTicks(-rem);
+    }
 
     /// <summary>Coerces a value to a decimal for comparisons, using Jet's boolean convention.</summary>
     private static decimal ToNumber(object v) => Dec(v);

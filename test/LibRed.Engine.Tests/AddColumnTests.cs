@@ -53,6 +53,24 @@ public class AddColumnTests
     }
 
     [Fact]
+    public void Add_a_fixed_column_to_a_populated_table_then_insert_and_read()
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery("INSERT INTO T (Id, A) VALUES (1, 10)");
+        e.ExecuteNonQuery("INSERT INTO T (Id, A) VALUES (2, 20)");
+        e.ExecuteNonQuery("ALTER TABLE T ADD COLUMN C long");   // fixed column added while rows exist
+
+        // A new insert must include the added fixed column (the fixed region grew).
+        e.ExecuteNonQuery("INSERT INTO T (Id, A, C) VALUES (3, 30, 99)");
+
+        var rows = e.ExecuteQuery("SELECT Id, A, C FROM T ORDER BY Id").Rows.ToList();
+        Assert.Equal(new object?[] { 1, 10, null }, [rows[0][0], rows[0][1], rows[0][2]]);  // old row: C NULL
+        Assert.Equal(new object?[] { 2, 20, null }, [rows[1][0], rows[1][1], rows[1][2]]);
+        Assert.Equal(99, Convert.ToInt32(rows[2][2]));                                        // new row: C = 99
+        Assert.Equal(30, Convert.ToInt32(rows[2][1]));
+    }
+
+    [Fact]
     public void Added_column_default_is_applied_and_required_is_enforced()
     {
         var e = Fresh();

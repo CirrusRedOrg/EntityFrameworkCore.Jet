@@ -462,13 +462,18 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// matches Access), or returns null for an empty table (the encoder then derives it).</summary>
     private int? InferFixedDataLength(JetFormatBase format)
     {
+        // The current fixed-region end from the column descriptors — this includes a just-added fixed column,
+        // whereas an existing row pins only the length as of when it was written.
+        int derived = _table.Columns.Where(c => c.IsFixedLength)
+            .Select(c => c.FixedOffset + c.Length).DefaultIfEmpty(0).Max();
+
         foreach (int pageNumber in new UsageMap(_channel, _table).DataPages())
         {
             byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
-            if (InferFixedDataLength(page, format) is { } length)
-                return length;
+            if (InferFixedDataLength(page, format) is { } pinned)
+                return Math.Max(pinned, derived); // ADD COLUMN of a fixed column grows the region past old rows
         }
-        return null;
+        return null; // empty table → RowEncoder derives the same length from the columns
     }
 
     private static int LowestRowOffset(byte[] page, JetFormatBase format, int rowCount)
@@ -490,8 +495,6 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private int? InferFixedDataLength(byte[] page, JetFormatBase format)
     {
         int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
-        int columnCount = _table.Columns.Count;
-        int nullBitmapSize = (columnCount + 7) / 8;
 
         int prevEnd = format.PageSize;
         for (int i = 0; i < rowCount; i++)
@@ -502,11 +505,18 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             prevEnd = offset;
 
             if ((raw & (DeletedFlag | OverflowFlag)) != 0) continue;
-            if (length < format.RowColumnCountSize + 2 + 2 + nullBitmapSize) continue; // not an inline record
+            if (length < format.RowColumnCountSize + 2) continue;
 
             ReadOnlySpan<byte> row = page.AsSpan(offset, length);
+            // Parse with the ROW's own column count (its leading field), not the table's current count — an
+            // old row written before an ADD COLUMN has fewer columns, hence a smaller null bitmap.
+            int rowColumnCount = BinaryPrimitives.ReadUInt16LittleEndian(row[..2]);
+            int nullBitmapSize = (rowColumnCount + 7) / 8;
+            if (length < format.RowColumnCountSize + 2 + 2 + nullBitmapSize) continue; // not an inline record
+
             int numVar = BinaryPrimitives.ReadUInt16LittleEndian(row.Slice(row.Length - nullBitmapSize - 2, 2));
             int varTableStart = row.Length - nullBitmapSize - 2 - (numVar + 1) * 2;
+            if (varTableStart < format.RowColumnCountSize) continue; // malformed
             int varDataStart = BinaryPrimitives.ReadUInt16LittleEndian(row.Slice(varTableStart + numVar * 2, 2));
             return varDataStart - format.RowColumnCountSize;
         }

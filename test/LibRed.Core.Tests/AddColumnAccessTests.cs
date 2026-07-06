@@ -68,6 +68,36 @@ public class AddColumnAccessTests
     }
 
     [Fact]
+    public void Access_reads_a_libred_row_inserted_after_adding_a_fixed_column_to_a_populated_table()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"addcol-fx-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            Ace(path,
+                "CREATE TABLE T (Id LONG PRIMARY KEY, A LONG)",
+                "INSERT INTO T (Id, A) VALUES (1, 10)",
+                "INSERT INTO T (Id, A) VALUES (2, 20)");
+
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                Assert.True(db.AddColumn("T", new ColumnSpec("C", JetDataType.Int32, 4, IsFixedLength: true)));
+                db.OpenTable("T").Insert([3, 30, 99]); // LibRed writes a row with the newly-added fixed column
+            }
+
+            // ACE reads all three rows: the pre-existing ones with C NULL, the LibRed-written one with C = 99.
+            using var conn = Open(path);
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT Id, A, C FROM T ORDER BY Id";
+            using var r = cmd.ExecuteReader();
+            Assert.True(r.Read()); Assert.Equal(1, r.GetInt32(0)); Assert.Equal(10, r.GetInt32(1)); Assert.True(r.IsDBNull(2));
+            Assert.True(r.Read()); Assert.Equal(2, r.GetInt32(0)); Assert.Equal(20, r.GetInt32(1)); Assert.True(r.IsDBNull(2));
+            Assert.True(r.Read()); Assert.Equal(3, r.GetInt32(0)); Assert.Equal(30, r.GetInt32(1)); Assert.Equal(99, r.GetInt32(2));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Adding_columns_with_default_and_required_preserves_existing_props_and_access_applies_them()
     {
         string path = Path.Combine(Path.GetTempPath(), $"addcol-lv-{Guid.NewGuid():N}.accdb");

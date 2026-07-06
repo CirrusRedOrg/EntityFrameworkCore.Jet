@@ -28,9 +28,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         AlterTableStatement alter => ExecuteAlterTable(alter),
         DropIndexStatement dropIndex => DropIndex(dropIndex.Table, dropIndex.Index),
         DropTableStatement dropTable => DropTable(dropTable.Table),
-        // DROP {VIEW|PROCEDURE}: grammar + AST wired; executors land in follow-up steps.
-        DropViewStatement => throw new NotSupportedException("DROP VIEW is parsed but not executed yet."),
-        DropProcedureStatement => throw new NotSupportedException("DROP PROCEDURE is parsed but not executed yet."),
+        DropViewStatement dropView => DropQueryObject(dropView.View, "view"),
+        DropProcedureStatement dropProc => DropQueryObject(dropProc.Procedure, "procedure"),
         InsertStatement insert => ExecuteInsert(insert),
         UpdateStatement update => ExecuteUpdate(update),
         DeleteStatement delete => ExecuteDelete(delete),
@@ -355,6 +354,13 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         if (!_database.DropTable(table))
             throw new InvalidOperationException($"DROP TABLE '{table}': no such table.");
+        return 0;
+    }
+
+    private int DropQueryObject(string name, string kind)
+    {
+        if (!_database.DropQueryObject(name))
+            throw new InvalidOperationException($"DROP {kind.ToUpperInvariant()} '{name}': no such {kind}.");
         return 0;
     }
 

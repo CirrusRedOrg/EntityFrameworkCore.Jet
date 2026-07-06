@@ -612,6 +612,38 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         return true;
     }
 
+    /// <summary>
+    /// Drops a view or stored procedure — <c>DROP VIEW name</c> / <c>DROP PROCEDURE name</c>. Both are a
+    /// type-5 <c>MSysObjects</c> object; ACE's two statements are interchangeable (verified: DROP VIEW works
+    /// on a procedure and vice versa), so this handles either. The inverse of <c>ViewCreator</c>: deletes the
+    /// object's MSysObjects row, its MSysQueries rows, and its two MSysACEs permission rows (index entries
+    /// removed, not just soft-deleted). No pages to free (a query owns none — its MSysQueries rows live on the
+    /// shared MSysQueries pages). Returns false if no such query object exists.
+    /// </summary>
+    public bool DropQueryObject(string name)
+    {
+        TableDef mo = _catalog.FindTable("MSysObjects")
+            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
+        int idIdx = (mo.FindColumn("Id") ?? throw new InvalidOperationException("MSysObjects is missing 'Id'.")).Index;
+        int nameIdx = (mo.FindColumn("Name") ?? throw new InvalidOperationException("MSysObjects is missing 'Name'.")).Index;
+        int typeIdx = (mo.FindColumn("Type") ?? throw new InvalidOperationException("MSysObjects is missing 'Type'.")).Index;
+
+        int? objId = null;
+        foreach (object?[] values in new Table(_channel, mo).Rows())
+            if (string.Equals(values[nameIdx] as string, name, StringComparison.OrdinalIgnoreCase)
+                && Convert.ToInt16(values[typeIdx] ?? (short)0) == ObjectTypeQuery)
+            { objId = Convert.ToInt32(values[idIdx]); break; }
+        if (objId is null) return false;
+
+        DeleteCatalogRows("MSysObjects", "Id", objId.Value);
+        DeleteCatalogRows("MSysQueries", "ObjectId", objId.Value);
+        DeleteCatalogRows("MSysACEs", "ObjectId", objId.Value);
+        _catalog.Invalidate();
+        return true;
+    }
+
+    private const short ObjectTypeQuery = 5;
+
     /// <summary>Deletes every row of <paramref name="catalogTable"/> whose <paramref name="keyColumn"/> equals
     /// <paramref name="keyValue"/> (the object id) — used to remove a dropped table's MSysObjects and MSysACEs
     /// rows. A full delete: its **index entries are removed** (not just the slot soft-deleted) so, e.g., the

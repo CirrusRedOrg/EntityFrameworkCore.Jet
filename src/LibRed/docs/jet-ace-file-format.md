@@ -304,6 +304,14 @@ columns ordered by ascending column id, but a `DROP COLUMN` can leave a gap (see
 | `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+). Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. |
 | `0x30` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 52-byte block |
 
+> **Unique (`0x01`) enforcement treats NULLs as distinct (verified vs ACE).** A `UNIQUE` index (that is
+> **not** `WITH IGNORE NULL`) rejects a duplicate **non-null** key but permits **multiple NULL** keys — two
+> rows may both be null in the indexed column(s). So uniqueness is enforced only over the non-null keys; a
+> row with a null in any indexed column is exempt (matching SQL's "nulls are distinct"). LibRed enforces
+> this on insert/update (`IndexWriter.KeyExists`, skipping null-keyed rows). A `WITH IGNORE NULL` index
+> (`0x02`) additionally leaves null-keyed rows out of the B-tree entirely; a PK (`0x08` required) forbids
+> nulls, so the question doesn't arise.
+
 A table has **at most 32 index-data blocks** (the `0x33` count, §3.1) — the Jet/ACE "32 indexes per
 table" limit, counting the indexes that back primary keys, unique constraints and the child side of
 relationships. (Incoming relationships add *logical* index-info blocks, §3.6, which reuse an existing

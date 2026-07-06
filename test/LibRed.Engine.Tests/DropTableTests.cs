@@ -42,15 +42,18 @@ public class DropTableTests
     }
 
     [Fact]
-    public void Dropping_a_table_in_a_relationship_is_rejected()
+    public void Dropping_a_referenced_parent_is_rejected_but_the_child_can_be_dropped()
     {
         var e = Fresh();
         e.ExecuteNonQuery("CREATE TABLE P (Id long PRIMARY KEY)");
         e.ExecuteNonQuery("CREATE TABLE C (Id long PRIMARY KEY, Pid long, " +
                           "CONSTRAINT FK FOREIGN KEY (Pid) REFERENCES P (Id))");
+        // The parent is referenced by a surviving child → rejected.
         Assert.Contains("relationship", Assert.Throws<InvalidOperationException>(
-            () => e.ExecuteNonQuery("DROP TABLE P")).Message);  // parent
-        Assert.Contains("relationship", Assert.Throws<InvalidOperationException>(
-            () => e.ExecuteNonQuery("DROP TABLE C")).Message);  // child (we require dropping the FK first)
+            () => e.ExecuteNonQuery("DROP TABLE P")).Message);
+        // The child (referencing) table drops directly — the relationship goes with it (ACE allows this).
+        e.ExecuteNonQuery("DROP TABLE C");
+        // With the child gone, the parent is no longer referenced and drops too.
+        e.ExecuteNonQuery("DROP TABLE P");
     }
 }

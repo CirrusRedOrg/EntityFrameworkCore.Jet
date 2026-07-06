@@ -1,5 +1,4 @@
 using EntityFrameworkCore.Jet.Internal;
-using EntityFrameworkCore.Jet.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -12,9 +11,8 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal;
 ///     doing so can result in application failures when updating to a new Entity Framework Core release.
 /// </summary>
 /// <remarks>
-///     Same shape as <see cref="JetExecutionStrategy" /> (the default, non-retrying strategy); transient
-///     failure detection is still delegated to <see cref="JetTransientExceptionDetector" /> until LibRed
-///     grows its own.
+///     The default, non-retrying strategy; transient-failure detection is LibRed-native
+///     (<see cref="LibRedTransientExceptionDetector" />).
 /// </remarks>
 public class LibRedExecutionStrategy(ExecutionStrategyDependencies dependencies) : IExecutionStrategy
 {
@@ -43,7 +41,7 @@ public class LibRedExecutionStrategy(ExecutionStrategyDependencies dependencies)
         {
             return operation(Dependencies.CurrentContext.Context, state);
         }
-        catch (Exception ex) when (ExecutionStrategy.CallOnWrappedException(ex, JetTransientExceptionDetector.ShouldRetryOn))
+        catch (Exception ex) when (ExecutionStrategy.CallOnWrappedException(ex, LibRedTransientExceptionDetector.ShouldRetryOn))
         {
             throw new InvalidOperationException(JetStrings.TransientExceptionDetected, ex);
         }
@@ -65,7 +63,7 @@ public class LibRedExecutionStrategy(ExecutionStrategyDependencies dependencies)
         {
             return await operation(Dependencies.CurrentContext.Context, state, cancellationToken);
         }
-        catch (Exception ex) when (ExecutionStrategy.CallOnWrappedException(ex, JetTransientExceptionDetector.ShouldRetryOn))
+        catch (Exception ex) when (ExecutionStrategy.CallOnWrappedException(ex, LibRedTransientExceptionDetector.ShouldRetryOn))
         {
             throw new InvalidOperationException(JetStrings.TransientExceptionDetected, ex);
         }

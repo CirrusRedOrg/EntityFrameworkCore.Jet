@@ -479,6 +479,8 @@ ORDER BY `k`.`Name`
 
         AssertSql(
             """
+@p='5'
+
 SELECT DISTINCT `u0`.`Id`, `u0`.`CountryId`, `u0`.`Name`, `u0`.`Species`, `u0`.`EagleId`, `u0`.`IsFlightless`, `u0`.`FoundOn`, `u0`.`Discriminator`
 FROM (
     SELECT TOP @p `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`FoundOn`, `u`.`Discriminator`

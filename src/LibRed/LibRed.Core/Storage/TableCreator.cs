@@ -25,7 +25,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         IReadOnlyList<RelationshipSpec>? relationships = null,
         IReadOnlyList<UniqueIndexSpec>? uniqueConstraints = null,
         IReadOnlyList<(string Column, string DefaultSql)>? columnDefaults = null,
-        IReadOnlyList<(string Name, string Expression)>? checkConstraints = null)
+        IReadOnlyList<(string Name, string Expression)>? checkConstraints = null,
+        string? primaryKeyName = null)
     {
         relationships ??= [];
         uniqueConstraints ??= [];
@@ -60,7 +61,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         // a relationship through an index on the FK columns. Each carries the relationship (if any) it backs.
         var indexPlans = new List<(string Name, IReadOnlyList<string> Columns, bool IsPk, bool IsUnique, RelationshipSpec? Fk)>();
         if (primaryKey is { Count: > 0 })
-            indexPlans.Add(("PrimaryKey", primaryKey, true, true, null));
+            // Name the PK index after the CONSTRAINT if one was given (ACE does the same, and the scaffolder
+            // round-trips it). If unnamed, LibRed picks the stable "PrimaryKey" (the DAO/Access-UI convention)
+            // — an engine choice, since ACE-via-SQL instead generates a random "Index_<hex>" with no fixed
+            // value to reproduce, and nothing downstream depends on the exact name.
+            indexPlans.Add((primaryKeyName ?? "PrimaryKey", primaryKey, true, true, null));
         foreach (UniqueIndexSpec unique in uniqueConstraints)
             indexPlans.Add((unique.Name, unique.Columns, false, true, null));
         foreach (RelationshipSpec fk in relationships)
@@ -580,9 +585,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     /// Drops a table — <c>DROP TABLE table</c>. Removes the object's <c>MSysObjects</c> row and its
     /// <c>MSysACEs</c> permission rows (soft-delete, as ACE does), and frees the table's pages back to the
     /// global free map so a later create reuses them (verified vs ACE): its index B-tree roots, its data
-    /// pages (owned-pages usage map), and the TDEF page. Returns false if the table doesn't exist. Throws if
-    /// the table is in a relationship — ACE rejects dropping the parent ("used in a relationship"); EF drops
-    /// the FK before the table, so a table reaching DROP TABLE is relationship-free.
+    /// pages (owned-pages usage map), and the TDEF page. Returns false if the table doesn't exist.
+    ///
+    /// A table that is the <em>child</em> (referencing) side of relationships can be dropped directly: ACE
+    /// lets you drop the referencing table while the parent stays, so each such relationship is removed first
+    /// (via <see cref="DropConstraint"/>). But a table still <em>referenced as a parent</em> by a surviving
+    /// child cannot be dropped — drop the referencing table (or the relationship) first. EF drops FKs before
+    /// tables, but database-first scaffolding cleanup drops child tables directly, which must work.
     /// </summary>
     /// <remarks>Multi-page TDEFs, multi-level index trees (non-root pages), memo/OLE LVAL pages and dedicated
     /// usage-map pages are not yet freed (they leak until Compact); the catalog removal is complete regardless,
@@ -592,11 +601,22 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         TableDef? table = _catalog.FindTable(tableName);
         if (table is null) return false;
 
+        // Remove the relationships this table owns as the child (referencing) side. Materialize first —
+        // DropConstraint rewrites TDEFs and invalidates the catalog on each call.
+        foreach (ForeignKey rel in _catalog.Relationships
+                     .Where(r => string.Equals(r.Table, tableName, StringComparison.OrdinalIgnoreCase))
+                     .ToList())
+            DropConstraint(tableName, rel.Name);
+
+        // A table still referenced by a surviving child (as the parent) cannot be dropped.
         if (_catalog.Relationships.Any(r =>
-                string.Equals(r.Table, tableName, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(r.ReferencedTable, tableName, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException(
-                $"Cannot drop table '{tableName}': it is used in a relationship — drop the relationship first.");
+                $"Cannot drop table '{tableName}': it is referenced by a relationship — drop the referencing table first.");
+
+        // Re-fetch: DropConstraint above rewrote this table's TDEF (removed FK indexes) and invalidated the catalog.
+        table = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
 
         int tdefPage = table.DefinitionPage;
         var allocator = new PageAllocator(_channel);

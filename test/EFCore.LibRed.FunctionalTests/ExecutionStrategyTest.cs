@@ -108,7 +108,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 execute(new TestLibRedRetryingExecutionStrategy(context), context);
                 context.ChangeTracker.AcceptAllChanges();
 
-                var retryMessage = " (0xFFFFFFFE): Bang!";
+                var retryMessage = "Bang!"; // LibRedException.Message; the OleDb "(0xHRESULT)" prefix does not apply
 
                 if (realFailure)
                 {
@@ -219,7 +219,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 await execute(new TestLibRedRetryingExecutionStrategy(context), context);
                 context.ChangeTracker.AcceptAllChanges();
 
-                var retryMessage = " (0xFFFFFFFE): Bang!";
+                var retryMessage = "Bang!"; // LibRedException.Message; the OleDb "(0xHRESULT)" prefix does not apply
 
                 if (realFailure)
                 {
@@ -666,6 +666,10 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             protected override IServiceCollection AddServices(IServiceCollection serviceCollection)
                 => base.AddServices(serviceCollection)
                     .AddSingleton<IRelationalTransactionFactory, TestRelationalTransactionFactory>()
+                    // ILibRedRelationalConnection is the concrete registration the LibRed provider owns, and
+                    // IJetRelationalConnection/IRelationalConnection forward to it (see
+                    // LibRedServiceCollectionExtensions) — so overriding it here makes every resolution of the
+                    // connection (including the one TestRelationalTransaction casts) the test connection.
                     .AddScoped<ILibRedRelationalConnection, TestLibRedConnection>()
                     .AddSingleton<IRelationalCommandBuilderFactory, TestRelationalCommandBuilderFactory>();
 

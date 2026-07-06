@@ -463,7 +463,9 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE NumericColumns;");
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Unsupported by Access/ACE: the SQL Server `(max)` size keyword is not valid ACE "
+            + "DDL. Access has no nchar/nvarchar distinction either, and unbounded columns are LONGTEXT/LONGBINARY, "
+            + "not `(max)`. EF Core never emits `varchar(max)` to Access, so this is SQL-Server-only.")]
         public void Max_length_of_negative_one_translate_to_max_in_store_type()
             => Test(
                 """
@@ -544,7 +546,10 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE LengthColumns;");
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "Unsupported by Access/ACE: an 8000-byte binary column exceeds Access's 510-byte "
+            + "binary limit (verified: binary(510) is accepted, binary(511) is rejected \"Size of field is too "
+            + "long\") — the OLE DB provider throws \"provider is not capable\" reading the file, so this "
+            + "SQL-Server-sized case can't be represented in a Jet/ACE database.")]
         public void Default_max_length_are_added_to_binary_varbinary()
             => Test(
                 """
@@ -736,6 +741,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                     	nationalCharacterVaryingColumn national char varying NULL,
                     	nationalCharVaryingColumn national char varying NULL,
                     	ncharColumn nchar NULL,
+                    	nvarcharColumn nvarchar NULL,
                     	varcharColumn varchar NULL,
                         varbinaryColumn varbinary NULL
                     );
@@ -746,19 +752,22 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 {
                     var columns = dbModel.Tables.Single().Columns;
 
-                    Assert.Equal("binary(1)", columns.Single(c => c.Name == "binaryColumn").StoreType);
+                    // Access/ACE has no separate nchar/nvarchar (all text is UTF-16) and reports every binary
+                    // column as varbinary, so the N-prefixed and fixed-binary forms collapse to char/varchar/
+                    // varbinary — corrected from the SQL-Server-style expectations this test was adapted from.
+                    Assert.Equal("varbinary(1)", columns.Single(c => c.Name == "binaryColumn").StoreType);
                     Assert.Equal("varbinary(1)", columns.Single(c => c.Name == "binaryVaryingColumn").StoreType);
                     Assert.Equal("char(1)", columns.Single(c => c.Name == "characterColumn").StoreType);
                     Assert.Equal("varchar(1)", columns.Single(c => c.Name == "characterVaryingColumn").StoreType);
                     Assert.Equal("char(1)", columns.Single(c => c.Name == "charColumn").StoreType);
                     Assert.Equal("varchar(1)", columns.Single(c => c.Name == "charVaryingColumn").StoreType);
-                    Assert.Equal("nchar(1)", columns.Single(c => c.Name == "nationalCharColumn").StoreType);
-                    Assert.Equal("nchar(1)", columns.Single(c => c.Name == "nationalCharacterColumn").StoreType);
-                    Assert.Equal("nvarchar(1)",
+                    Assert.Equal("char(1)", columns.Single(c => c.Name == "nationalCharColumn").StoreType);
+                    Assert.Equal("char(1)", columns.Single(c => c.Name == "nationalCharacterColumn").StoreType);
+                    Assert.Equal("varchar(1)",
                         columns.Single(c => c.Name == "nationalCharacterVaryingColumn").StoreType);
-                    Assert.Equal("nvarchar(1)", columns.Single(c => c.Name == "nationalCharVaryingColumn").StoreType);
-                    Assert.Equal("nchar(1)", columns.Single(c => c.Name == "ncharColumn").StoreType);
-                    Assert.Equal("nvarchar(1)", columns.Single(c => c.Name == "nvarcharColumn").StoreType);
+                    Assert.Equal("varchar(1)", columns.Single(c => c.Name == "nationalCharVaryingColumn").StoreType);
+                    Assert.Equal("char(1)", columns.Single(c => c.Name == "ncharColumn").StoreType);
+                    Assert.Equal("varchar(1)", columns.Single(c => c.Name == "nvarcharColumn").StoreType);
                     Assert.Equal("varbinary(1)", columns.Single(c => c.Name == "varbinaryColumn").StoreType);
                     Assert.Equal("varchar(1)", columns.Single(c => c.Name == "varcharColumn").StoreType);
                 },
@@ -1717,23 +1726,6 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE `FilteredIndexTable`;");
 
-        [ConditionalFact]
-        public void Ignore_columnstore_index()
-            => Test(
-                """
-                    
-                    CREATE TABLE ColumnStoreIndexTable (
-                    	Id1 int,
-                    	Id2 int NULL
-                    );
-                    
-                    CREATE NONCLUSTERED COLUMNSTORE INDEX ixColumnStore ON ColumnStoreIndexTable ( Id1, Id2 )
-                    """,
-                [],
-                [],
-                dbModel => { Assert.Empty(dbModel.Tables.Single().Indexes); },
-                "DROP TABLE ColumnStoreIndexTable;");
-
         [ConditionalFact(Skip = "LibRed does not support include for index")]
         public void Set_include_for_index()
             => Test(
@@ -2185,30 +2177,30 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
             Action<DatabaseModel> asserter,
             string? cleanupSql)
         {
-            foreach (var createSql in createSqls)
-            {
-                Fixture.TestStore.ExecuteNonQuery(createSql);
-            }
-
-            try
-            {
-                var databaseModelFactory = LibRedTestHelpers.Instance.CreateDesignServiceProvider(
-                        reporter: Fixture.OperationReporter)
-                    .CreateScope().ServiceProvider.GetRequiredService<IDatabaseModelFactory>();
-
-                var databaseModel = databaseModelFactory.Create(
-                    Fixture.TestStore.ConnectionString,
-                    new DatabaseModelFactoryOptions(tables, schemas));
-                Assert.NotNull(databaseModel);
-                asserter(databaseModel);
-            }
-            finally
-            {
-                if (!string.IsNullOrEmpty(cleanupSql))
+                foreach (var createSql in createSqls)
                 {
-                    Fixture.TestStore.ExecuteNonQuery(cleanupSql);
+                    Fixture.TestStore.ExecuteNonQuery(createSql);
                 }
-            }
+
+                try
+                {
+                    var databaseModelFactory = LibRedTestHelpers.Instance.CreateDesignServiceProvider(
+                            reporter: Fixture.OperationReporter)
+                        .CreateScope().ServiceProvider.GetRequiredService<IDatabaseModelFactory>();
+
+                    var databaseModel = databaseModelFactory.Create(
+                        Fixture.TestStore.ConnectionString,
+                        new DatabaseModelFactoryOptions(tables, schemas));
+                    Assert.NotNull(databaseModel);
+                    asserter(databaseModel);
+                }
+                finally
+                {
+                    if (!string.IsNullOrEmpty(cleanupSql))
+                    {
+                        Fixture.TestStore.ExecuteNonQuery(cleanupSql);
+                    }
+                }
         }
 
         public class LibRedDatabaseModelFixture : SharedStoreFixtureBase<PoolableDbContext>

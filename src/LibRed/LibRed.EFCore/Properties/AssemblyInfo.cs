@@ -1,3 +1,3 @@
 using Microsoft.EntityFrameworkCore.Design;
 
-[assembly: DesignTimeProviderServices("LibRed.EntityFrameworkCore.Design.LibRedDesignTimeServices")]
+[assembly: DesignTimeProviderServices("EntityFrameworkCore.LibRed.Design.Internal.LibRedDesignTimeServices")]

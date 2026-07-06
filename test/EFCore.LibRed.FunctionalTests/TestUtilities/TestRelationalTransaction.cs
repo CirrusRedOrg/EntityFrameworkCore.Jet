@@ -33,7 +33,8 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities
         : RelationalTransaction(connection, transaction, new Guid(), logger, transactionOwned, sqlGenerationHelper)
     {
         private readonly TestLibRedConnection _testConnection = (TestLibRedConnection)connection;
-        private readonly Func<int, Guid?, DbException> _createExceptionFunc = null!;
+        // See TestLibRedConnection: the simulated commit failure is LibRed's native LibRedException.
+        private readonly Func<int, Guid?, DbException> _createExceptionFunc = LibRedExceptionFactory.CreateException;
 
         public override void Commit()
         {

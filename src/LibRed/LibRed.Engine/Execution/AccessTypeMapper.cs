@@ -46,12 +46,22 @@ internal static class AccessTypeMapper
             "DECIMAL" or "NUMERIC"
                 => new ColumnSpec(column.Name, JetDataType.FixedPoint, 17, IsFixedLength: true,
                     Precision: (byte)(column.Size ?? 18), Scale: (byte)(column.Scale ?? 0)),
-            "TEXT" or "VARCHAR" or "NVARCHAR" or "CHAR" or "NCHAR" or "STRING" or "ALPHANUMERIC"
-            or "CHARACTER" or "CHARACTER VARYING" or "CHAR VARYING"
-                // Access TEXT length is in characters; on disk it is UTF-16 (2 bytes each).
-                => new ColumnSpec(column.Name, JetDataType.Text, (column.Size ?? 255) * 2, IsFixedLength: false),
-            "BINARY" or "VARBINARY" or "BIT VARYING"
-                => new ColumnSpec(column.Name, JetDataType.Binary, column.Size ?? 255, IsFixedLength: false),
+            // Fixed-length character types (the CHAR family) → a fixed-length Text column (ACE stores it in
+            // the row's fixed-data region, space-padded). The N-prefixed / "national" forms are the same
+            // storage — Jet/ACE has no separate nchar (all text is UTF-16). Access TEXT length is in
+            // characters; on disk it is 2 bytes each.
+            "CHAR" or "CHARACTER" or "NCHAR" or "NATIONAL CHAR" or "NATIONAL CHARACTER"
+                => Text(column, isFixed: true),
+            // Variable-length character types (the VARCHAR family, incl. Access TEXT) → a variable Text column.
+            "TEXT" or "VARCHAR" or "NVARCHAR" or "STRING" or "ALPHANUMERIC"
+            or "CHARACTER VARYING" or "CHAR VARYING"
+            or "NATIONAL CHAR VARYING" or "NATIONAL CHARACTER VARYING" or "NCHAR VARYING"
+                => Text(column, isFixed: false),
+            // Fixed- vs variable-length binary → fixed / variable Binary (byte length, not char-doubled).
+            "BINARY"
+                => Binary(column, isFixed: true),
+            "VARBINARY" or "BINARY VARYING" or "BIT VARYING"
+                => Binary(column, isFixed: false),
 
             // Long-value columns: variable-length with no fixed byte length. The in-row value is a
             // 12-byte long-value descriptor; short values are stored inline after it.
@@ -66,4 +76,34 @@ internal static class AccessTypeMapper
 
     private static ColumnSpec Fixed(ColumnDefinition column, JetDataType type, int length, bool autoNumber = false)
         => new(column.Name, type, length, IsFixedLength: true, IsAutoNumber: autoNumber);
+
+    // Jet/ACE column-size caps (verified vs ACE): a char/varchar column holds at most 255 characters, a
+    // binary/varbinary column at most 510 bytes. Beyond these, Access requires LONGTEXT/LONGBINARY (Memo/OLE);
+    // it rejects an over-long fixed size rather than widening — so LibRed rejects it too, keeping the file
+    // openable by Access (an over-long fixed column produces an unreadable file).
+    private const int MaxTextCharacters = 255;
+    private const int MaxBinaryBytes = 510;
+
+    // A character column: length is declared in characters, stored as UTF-16 (2 bytes each). A type with no
+    // declared size takes length 1 (SQL's CHAR == CHAR(1); ACE reports length 1 for a size-less char/varchar).
+    private static ColumnSpec Text(ColumnDefinition column, bool isFixed)
+    {
+        int characters = column.Size ?? 1;
+        if (characters > MaxTextCharacters)
+            throw new InvalidOperationException(
+                $"Size of field '{column.Name}' is too long: a char/varchar column holds at most {MaxTextCharacters} " +
+                $"characters in Jet/ACE (got {characters}). Use LONGTEXT/MEMO for longer text.");
+        return new(column.Name, JetDataType.Text, characters * 2, IsFixedLength: isFixed);
+    }
+
+    // A binary column: length is in bytes (not char-doubled). Size-less takes length 1.
+    private static ColumnSpec Binary(ColumnDefinition column, bool isFixed)
+    {
+        int bytes = column.Size ?? 1;
+        if (bytes > MaxBinaryBytes)
+            throw new InvalidOperationException(
+                $"Size of field '{column.Name}' is too long: a binary/varbinary column holds at most {MaxBinaryBytes} " +
+                $"bytes in Jet/ACE (got {bytes}). Use LONGBINARY/OLE for longer data.");
+        return new(column.Name, JetDataType.Binary, bytes, IsFixedLength: isFixed);
+    }
 }

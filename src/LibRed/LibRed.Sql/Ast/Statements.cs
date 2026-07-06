@@ -82,7 +82,11 @@ public sealed record CreateTableStatement(
     IReadOnlyList<string> PrimaryKey,
     IReadOnlyList<ForeignKeyConstraint> ForeignKeys,
     IReadOnlyList<UniqueConstraint> UniqueConstraints,
-    IReadOnlyList<CheckConstraint> CheckConstraints) : SqlStatement;
+    IReadOnlyList<CheckConstraint> CheckConstraints,
+    // The PRIMARY KEY's CONSTRAINT name, if one was given (column- or table-level). ACE names the primary
+    // key index after the constraint (verified: the scaffolder round-trips it), so it must be preserved.
+    // When null (no name given), the engine picks its own stable fallback in TableCreator.
+    string? PrimaryKeyName = null) : SqlStatement;
 
 /// <summary>The optional WITH clause of CREATE INDEX: PRIMARY (make it the primary key), DISALLOW NULL
 /// (no nulls allowed), IGNORE NULL (rows with nulls excluded from the index).</summary>

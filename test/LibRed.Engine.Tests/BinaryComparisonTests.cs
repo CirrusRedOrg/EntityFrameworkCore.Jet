@@ -24,7 +24,9 @@ public class BinaryComparisonTests
         {
             using var db = JetDatabase.Open(path, readOnly: false);
             var e = new QueryEngine(db);
-            e.ExecuteNonQuery("CREATE TABLE B (Id long PRIMARY KEY, K BINARY(50))");
+            // VARBINARY (variable length) — the test stores byte arrays of differing lengths and checks
+            // length-sensitive ordering/equality. (A fixed BINARY(50) would pad every value to 50 bytes.)
+            e.ExecuteNonQuery("CREATE TABLE B (Id long PRIMARY KEY, K VARBINARY(50))");
             Ins(e, 1, [1, 2, 3]);
             Ins(e, 2, [1, 2, 3, 4]);
             Ins(e, 3, [2]);

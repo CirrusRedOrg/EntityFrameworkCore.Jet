@@ -18,9 +18,12 @@ public static class LibRedServiceCollectionExtensions
     public static IServiceCollection AddEntityFrameworkLibRed(this IServiceCollection serviceCollection)
     {
         serviceCollection.AddEntityFrameworkJet();
-        serviceCollection.AddScoped<IJetRelationalConnection, LibRedRelationalConnection>();
-        // Resolve to the same LibRedRelationalConnection instance as IJetRelationalConnection above.
-        serviceCollection.AddScoped<ILibRedRelationalConnection>(p => (ILibRedRelationalConnection)p.GetRequiredService<IJetRelationalConnection>());
+        // ILibRedRelationalConnection is the concrete registration LibRed owns; IJetRelationalConnection
+        // (and therefore IRelationalConnection, which Jet forwards to it) resolve to the same instance.
+        // Registering on the LibRed interface — not IJetRelationalConnection — lets tests and downstream
+        // code override "the LibRed connection" without naming a Jet type.
+        serviceCollection.AddScoped<ILibRedRelationalConnection, LibRedRelationalConnection>();
+        serviceCollection.AddScoped<IJetRelationalConnection>(p => p.GetRequiredService<ILibRedRelationalConnection>());
         // Answer existence / has-tables from LibRed's catalog instead of INFORMATION_SCHEMA + ADOX.
         serviceCollection.AddScoped<IRelationalDatabaseCreator, LibRedDatabaseCreator>();
         serviceCollection.AddScoped<IExecutionStrategyFactory, LibRedExecutionStrategyFactory>();

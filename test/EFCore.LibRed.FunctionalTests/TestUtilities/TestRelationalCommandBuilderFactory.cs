@@ -100,7 +100,8 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities
             IReadOnlyList<IRelationalParameter> parameters) : IRelationalCommand
         {
             private readonly RelationalCommand _realRelationalCommand = new(dependencies, commandText,logCommandText, parameters);
-            private readonly Func<int, DbException> _createExceptionFunc = null!;
+            // See TestLibRedConnection: the simulated execution failure is LibRed's native LibRedException.
+            private readonly Func<int, DbException> _createExceptionFunc = number => LibRedExceptionFactory.CreateException(number);
 
             public string CommandText => _realRelationalCommand.CommandText;
             public string LogCommandText

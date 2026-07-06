@@ -87,6 +87,8 @@ internal sealed class AstBuilder
         var foreignKeys = new List<ForeignKeyConstraint>();
         var uniques = new List<UniqueConstraint>();
         var checks = new List<CheckConstraint>();
+        // The PRIMARY KEY constraint's name, from whichever form declared it (column- or table-level).
+        string? primaryKeyName = null;
 
         // Column-level UNIQUE and REFERENCES (the single-field forms) apply to the column they follow.
         foreach (ColumnDefinitionContext cd in ctx.columnDefinition())
@@ -96,6 +98,9 @@ internal sealed class AstBuilder
             {
                 switch (cc)
                 {
+                    case PrimaryKeyConstraintContext p when p.cname is not null:
+                        primaryKeyName = Identifier(p.cname);
+                        break;
                     case UniqueColumnConstraintContext u:
                         uniques.Add(new UniqueConstraint(u.cname is null ? null : Identifier(u.cname), [columnName]));
                         break;
@@ -112,6 +117,7 @@ internal sealed class AstBuilder
             {
                 case PrimaryKeyTableConstraintContext pk:
                     primaryKey.AddRange(pk._columns.Select(Identifier));
+                    if (pk.name is not null) primaryKeyName = Identifier(pk.name);
                     break;
                 case UniqueTableConstraintContext uq:
                     uniques.Add(new UniqueConstraint(uq.name is null ? null : Identifier(uq.name), uq._columns.Select(Identifier).ToList()));
@@ -126,7 +132,7 @@ internal sealed class AstBuilder
             }
         }
 
-        return new CreateTableStatement(Identifier(ctx.table), columns, primaryKey, foreignKeys, uniques, checks);
+        return new CreateTableStatement(Identifier(ctx.table), columns, primaryKey, foreignKeys, uniques, checks, primaryKeyName);
     }
 
     /// <summary>The verbatim source text of a parse context (preserving spacing), via the input stream —
@@ -228,10 +234,7 @@ internal sealed class AstBuilder
         int? size = type.size is { } s ? int.Parse(s.Text, CultureInfo.InvariantCulture) : null;
         int? scale = type.scale is { } sc ? int.Parse(sc.Text, CultureInfo.InvariantCulture) : null;
 
-        // Two-word type names (e.g. CHARACTER VARYING) join with a single space.
-        string typeName = type.extra is null
-            ? Identifier(type.typeName)
-            : $"{Identifier(type.typeName)} {Identifier(type.extra)}";
+        string typeName = TypeName(type);
 
         if (ctx.columnConstraint().OfType<CompressionConstraintContext>().Any())
             throw new NotSupportedException($"WITH COMPRESSION on column '{Identifier(ctx.name)}' is not supported.");
@@ -325,10 +328,12 @@ internal sealed class AstBuilder
         ? at.GetText().TrimStart('@')
         : Identifier(p.pname.identifier());
 
-    /// <summary>The declared type name of a data type (two-word names joined by a space).</summary>
-    private static string TypeName(DataTypeContext type) => type.extra is null
-        ? Identifier(type.typeName)
-        : $"{Identifier(type.typeName)} {Identifier(type.extra)}";
+    /// <summary>The declared type name of a data type — up to three words (e.g. "national character varying")
+    /// joined by single spaces.</summary>
+    private static string TypeName(DataTypeContext type) => string.Join(' ',
+        new[] { type.typeName, type.extra, type.extra2 }
+            .Where(t => t is not null)
+            .Select(Identifier));
 
     // ---- PARAMETERS-clause lowering: unqualified references to a declared parameter become parameters ----
 

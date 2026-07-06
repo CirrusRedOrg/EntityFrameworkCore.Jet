@@ -1,6 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 
 // ReSharper disable once CheckNamespace
@@ -11,11 +11,11 @@ namespace Microsoft.EntityFrameworkCore;
 ///     on LibRed.
 /// </summary>
 /// <remarks>
-///     Same shape as EFCore.Jet's <see cref="JetRetryingExecutionStrategy" />; transient failure
-///     detection is still delegated to <see cref="JetTransientExceptionDetector" /> until LibRed
-///     grows its own (LibRed doesn't raise <c>OleDbException</c>/<c>OdbcException</c>, so today this
-///     effectively only retries on <see cref="TimeoutException" /> plus whatever the caller adds via
-///     <paramref name="errorNumbersToAdd" />-style overrides).
+///     Same shape as EFCore.Jet's retrying strategy, but transient-failure detection is LibRed-native
+///     (<see cref="LibRedTransientExceptionDetector" />): LibRed doesn't raise
+///     <c>OleDbException</c>/<c>OdbcException</c>, so this retries on <see cref="TimeoutException" /> plus
+///     any <see cref="LibRed.Data.LibRedException" /> whose error number the caller passes to
+///     <c>errorNumbersToAdd</c>.
 /// </remarks>
 public class LibRedRetryingExecutionStrategy : ExecutionStrategy
 {
@@ -114,31 +114,7 @@ public class LibRedRetryingExecutionStrategy : ExecutionStrategy
     ///     <c>true</c> if the specified exception is considered as transient, otherwise <c>false</c>.
     /// </returns>
     protected override bool ShouldRetryOn(Exception exception)
-    {
-        var exceptionFullName = exception.GetType().FullName;
-
-        if (exceptionFullName != "System.Data.OleDb.OleDbException" &&
-            exceptionFullName != "System.Data.Odbc.OdbcException")
-            return false;
-
-        if (_additionalErrorNumbers != null)
-        {
-            dynamic sqlException = exception;
-            if (_additionalErrorNumbers.Contains(exception.HResult))
-            {
-                return true;
-            }
-            foreach (var err in sqlException.Errors)
-            {
-                if (_additionalErrorNumbers.Contains(err.NativeError))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return JetTransientExceptionDetector.ShouldRetryOn(exception);
-    }
+        => LibRedTransientExceptionDetector.ShouldRetryOn(exception, _additionalErrorNumbers);
 
     /// <summary>
     ///     Determines whether the operation should be retried and the delay before the next attempt.

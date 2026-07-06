@@ -65,7 +65,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             .Select((ck, i) => (Name: ck.Name ?? $"CK_{statement.Table}_{i}", ck.Expression))
             .ToList();
 
-        _database.CreateTable(statement.Table, columns, primaryKey, relationships, uniques, defaults, checks);
+        _database.CreateTable(statement.Table, columns, primaryKey, relationships, uniques, defaults, checks,
+            statement.PrimaryKeyName);
         return 0;
     }
 

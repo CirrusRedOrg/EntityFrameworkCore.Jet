@@ -112,7 +112,8 @@ withOption
 columnDefinition : name=identifier dataType columnConstraint* ;
 
 // A second word handles two-word ANSI aliases like CHARACTER VARYING / BIT VARYING.
-dataType : typeName=identifier extra=identifier? (LPAREN size=INTEGER_LITERAL (COMMA scale=INTEGER_LITERAL)? RPAREN)? ;
+// Up to three words to cover multi-word SQL type names: "char varying", "national character varying", etc.
+dataType : typeName=identifier extra=identifier? extra2=identifier? (LPAREN size=INTEGER_LITERAL (COMMA scale=INTEGER_LITERAL)? RPAREN)? ;
 
 // Single-field constraints (after the column's data type). A CONSTRAINT name may prefix any of them.
 columnConstraint
@@ -386,7 +387,10 @@ PARAM  : '?' | '@' [A-Za-z_][A-Za-z_0-9]* ;
 // leading 0 isn't lexed as an integer; ANTLR's longest-match picks this, and ordering settles ties.
 HEX_LITERAL     : '0' [Xx] [0-9A-Fa-f]+ ;
 INTEGER_LITERAL : [0-9]+ ;
-NUMBER_LITERAL  : [0-9]+ '.' [0-9]* | '.' [0-9]+ ;
+// A floating-point literal, with optional scientific-notation exponent (e.g. 6.023E23, 1.5e-3, 2E10).
+// The bare-integer-with-exponent form (2E10) is a NUMBER_LITERAL, not an INTEGER_LITERAL — longest match.
+NUMBER_LITERAL  : [0-9]+ '.' [0-9]* EXPONENT? | '.' [0-9]+ EXPONENT? | [0-9]+ EXPONENT ;
+fragment EXPONENT : [Ee] [+-]? [0-9]+ ;
 // A doubled quote inside a string is an escaped quote ('Bon app''' → Bon app'); the AST un-doubles it.
 STRING_LITERAL  : '"' ( ~["] | '""' )* '"' | '\'' ( ~['] | '\'\'' )* '\'' ;
 DATE_LITERAL    : '#' ~[#]* '#' ;

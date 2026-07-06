@@ -257,8 +257,15 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
         JetDataType.DateTime or JetDataType.DateTimeExtended => "datetime",
         JetDataType.Guid => "guid",
         JetDataType.FixedPoint => $"decimal({column.Precision}, {column.Scale})",
-        JetDataType.Text => $"varchar({Math.Max(1, column.Length / 2)})",
-        JetDataType.Binary => $"varbinary({Math.Max(1, column.Length)})",
+        // Text/Binary map to char/varchar (binary/varbinary) by the column's fixed-length flag — the same
+        // distinction Access reports (adChar→char, adVarChar→varchar; adBinary→binary, adVarBinary→varbinary).
+        // Text length is in characters (2 bytes each on disk); binary length is already in bytes.
+        JetDataType.Text => column.IsFixedLength
+            ? $"char({Math.Max(1, column.Length / 2)})"
+            : $"varchar({Math.Max(1, column.Length / 2)})",
+        JetDataType.Binary => column.IsFixedLength
+            ? $"binary({Math.Max(1, column.Length)})"
+            : $"varbinary({Math.Max(1, column.Length)})",
         JetDataType.Memo => "longchar",
         JetDataType.Ole => "longbinary",
         _ => "varchar(255)",

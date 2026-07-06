@@ -1,7 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Data.OleDb;
+using LibRed.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities
     {
         private const bool ErrorNumberDebugMode = false;
 
-        // CHECK: ACE/LibRed error codes using ODBC and OLE DB.
+        // LibRed error numbers treated as transient by the tests (carried on LibRedException.Number).
         private static readonly int[] _additionalErrorNumbers =
         [
             -1, // Physical connection is not usable
@@ -55,16 +55,10 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities
 
 #pragma warning disable 162
             if (ErrorNumberDebugMode
-                && exception is OleDbException oleDbException)
+                && exception is LibRedException libRedException)
             {
-                var message = "Didn't retry on";
-                foreach (OleDbError err in oleDbException.Errors)
-                {
-                    message += " " + err.NativeError;
-                }
-
-                message += Environment.NewLine;
-                throw new InvalidOperationException(message + exception, exception);
+                throw new InvalidOperationException(
+                    $"Didn't retry on {libRedException.Number}{Environment.NewLine}{exception}", exception);
             }
 #pragma warning restore 162
 

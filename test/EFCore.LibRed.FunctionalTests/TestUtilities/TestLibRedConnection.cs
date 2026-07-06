@@ -14,7 +14,9 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities
 {
     public class TestLibRedConnection(RelationalConnectionDependencies dependencies) : LibRedRelationalConnection(dependencies)
     {
-        private readonly Func<int, DbException> _createExceptionFunc = null!;
+        // The simulated failure is LibRed's native LibRedException carrying the transient error number,
+        // which LibRedRetryingExecutionStrategy recognises via its error-number set (no OleDb/Odbc dependency).
+        private readonly Func<int, DbException> _createExceptionFunc = number => LibRedExceptionFactory.CreateException(number);
 
         public int ErrorNumber { get; set; } = -2;
         public Queue<bool?> OpenFailures { get; } = new();

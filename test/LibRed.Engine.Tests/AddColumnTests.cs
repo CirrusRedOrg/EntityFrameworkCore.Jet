@@ -71,6 +71,22 @@ public class AddColumnTests
     }
 
     [Fact]
+    public void Add_a_memo_column_then_store_and_read_a_long_value()
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery("INSERT INTO T (Id, A) VALUES (1, 10)"); // populated before the add
+        e.ExecuteNonQuery("ALTER TABLE T ADD COLUMN M LONGCHAR");
+
+        // A value > 64 bytes goes to an LVAL page, exercising the column's newly-added usage maps.
+        string memo = new string('x', 200);
+        e.ExecuteNonQuery("INSERT INTO T (Id, A, M) VALUES (2, 20, @m)",
+            new Dictionary<string, object?> { ["m"] = memo });
+
+        Assert.Null(e.ExecuteQuery("SELECT M FROM T WHERE Id = 1").Rows.Single()[0]);  // old row: memo NULL
+        Assert.Equal(memo, e.ExecuteQuery("SELECT M FROM T WHERE Id = 2").Rows.Single()[0]);
+    }
+
+    [Fact]
     public void Added_column_default_is_applied_and_required_is_enforced()
     {
         var e = Fresh();

@@ -719,9 +719,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     /// ColumnCount (0x2D), the 0x29 high-water, and — for a variable column — VariableColumnCount (0x2B).
     /// Existing rows are not rewritten; they read the new column as NULL via the null bitmap. Fully correct
     /// on an empty table (new inserts include it); on a populated table the column is visible and old rows
-    /// read NULL, but new inserts that must widen the fixed region are a follow-up. Returns false if the
-    /// column already exists. Throws for a memo/OLE column (its LVAL usage-map entry is unhandled) or a
-    /// multi-page TDEF.
+    /// read NULL. A memo/OLE column additionally gets its §3.3.2 usage-map entry (two empty maps appended to
+    /// the table's usage-map page, as ACE does). Returns false if the column already exists. Throws for a
+    /// multi-page TDEF, or a memo/OLE column whose usage-map page is full (dedicated-page fallback TODO).
     /// </summary>
     public bool AddColumn(string tableName, ColumnSpec spec, string? defaultValue = null)
     {
@@ -731,10 +731,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             return false;
         if (table.Columns.Count >= MaxColumnsPerTable)
             throw new NotSupportedException($"Table '{tableName}' already has {MaxColumnsPerTable} columns (Jet/ACE limit).");
-        if (spec.Type is JetDataType.Memo or JetDataType.Ole)
-            throw new NotSupportedException($"ADD COLUMN '{spec.Name}': adding a memo/OLE (long-value) column is not supported yet.");
-
         JetFormatBase format = _channel.Format;
+        bool isLongValue = spec.Type is JetDataType.Memo or JetDataType.Ole;
         TdefParts parts = ParseTdef(table.DefinitionPage); // throws on a multi-page TDEF
 
         int maxCols = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(TdefMaxColumnsOffset, 2));
@@ -766,7 +764,30 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         if (!spec.IsFixedLength)
             BinaryPrimitives.WriteUInt16LittleEndian(parts.Header.AsSpan(format.TdefVariableColumnsOffset, 2), (ushort)(varCount + 1));
 
+        // A memo/OLE column needs a §3.3.2 usage-map entry (its owned + free page maps). ACE appends the two
+        // maps to the table's existing usage-map page right after the data/index maps (verified), and adds the
+        // 10-byte entry before the list's 0xFFFF terminator.
+        int usageMapPage = 0, mapRow = 0;
+        if (isLongValue)
+        {
+            int o = format.TdefOwnedPagesOffset + 1;
+            usageMapPage = parts.Header[o] | (parts.Header[o + 1] << 8) | (parts.Header[o + 2] << 16);
+            byte[] mapPageBytes = _channel.ReadPage(usageMapPage).Span.ToArray();
+            mapRow = BinaryPrimitives.ReadUInt16LittleEndian(mapPageBytes.AsSpan(format.DataRowCountOffset, 2));
+            int freeSpace = BinaryPrimitives.ReadUInt16LittleEndian(mapPageBytes.AsSpan(format.DataFreeSpaceOffset, 2));
+            if (freeSpace < 2 * (UsageMapRecordLength + 2))
+                throw new NotSupportedException(
+                    $"ADD COLUMN '{spec.Name}': the usage-map page is full — a dedicated map page for a memo/OLE column on a wide table is not supported yet.");
+            AddLongValueMapEntry(parts, maxCols, usedRow: mapRow, freeRow: mapRow + 1, usageMapPage);
+        }
+
         WriteTdef(table.DefinitionPage, parts);
+
+        if (isLongValue)
+        {
+            AppendEmptyUsageMapRow(format, usageMapPage, mapRow);      // owned map
+            AppendEmptyUsageMapRow(format, usageMapPage, mapRow + 1);  // free map
+        }
 
         // NOT NULL / DEFAULT go in the table's LvProp blob (DefaultValue before Required, matching ACE), the
         // same properties CREATE TABLE writes — appended to the existing blob without disturbing other columns'.
@@ -777,6 +798,26 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
 
         _catalog.Invalidate();
         return true;
+    }
+
+    /// <summary>Inserts a long-value (memo/OLE) column's 10-byte §3.3.2 usage-map entry
+    /// (<c>{col_num:2}{used row+page:4}{free row+page:4}</c>) just before the list's <c>0xFFFF</c> terminator.
+    /// The new column has the highest id, so appending keeps the list in ascending column order.</summary>
+    private static void AddLongValueMapEntry(TdefParts parts, int columnId, int usedRow, int freeRow, int mapPage)
+    {
+        byte[] lval = parts.Lval;
+        int at = lval.Length - 2; // before the terminator
+
+        var entry = new byte[10];
+        BinaryPrimitives.WriteUInt16LittleEndian(entry, (ushort)columnId);
+        entry[2] = (byte)usedRow; WriteInt24(entry, 3, mapPage);
+        entry[6] = (byte)freeRow; WriteInt24(entry, 7, mapPage);
+
+        var result = new byte[lval.Length + 10];
+        Array.Copy(lval, 0, result, 0, at);
+        entry.CopyTo(result, at);
+        Array.Copy(lval, at, result, at + 10, 2); // the 0xFFFF terminator
+        parts.Lval = result;
     }
 
     /// <summary>Appends a column's extended properties (DefaultValue/Required) to its table's

@@ -98,6 +98,34 @@ public class AddColumnAccessTests
     }
 
     [Fact]
+    public void Access_reads_a_libred_memo_column_added_to_a_populated_table()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"addcol-memo-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            Ace(path,
+                "CREATE TABLE T (Id LONG PRIMARY KEY, A LONG)",
+                "INSERT INTO T (Id, A) VALUES (1, 10)");
+
+            string memo = new string('y', 300); // > 64 bytes → an LVAL page, exercising the added usage maps
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                Assert.True(db.AddColumn("T", new ColumnSpec("M", JetDataType.Memo, 0, IsFixedLength: false)));
+                db.OpenTable("T").Insert([2, 20, memo]);
+            }
+
+            // ACE opens the LibRed-edited file and reads the memo (old row NULL, new row the long value).
+            using var conn = Open(path);
+            using (var c = conn.CreateCommand())
+            { c.CommandText = "SELECT M FROM T WHERE Id = 1"; Assert.Equal(DBNull.Value, c.ExecuteScalar()); }
+            using (var c = conn.CreateCommand())
+            { c.CommandText = "SELECT M FROM T WHERE Id = 2"; Assert.Equal(memo, c.ExecuteScalar()); }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Adding_columns_with_default_and_required_preserves_existing_props_and_access_applies_them()
     {
         string path = Path.Combine(Path.GetTempPath(), $"addcol-lv-{Guid.NewGuid():N}.accdb");

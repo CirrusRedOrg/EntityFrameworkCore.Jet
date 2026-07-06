@@ -98,6 +98,44 @@ public class AddColumnAccessTests
     }
 
     [Fact]
+    public void Add_a_memo_column_falls_back_to_a_dedicated_usage_map_page_when_the_primary_is_full()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"addmemo-ded-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            string memo = new string('z', 200);
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                // 30 memo columns fill the table's primary usage-map page (~27 fit).
+                var cols = new List<ColumnSpec> { new("Id", JetDataType.Int32, 4, IsFixedLength: true) };
+                for (int i = 0; i < 30; i++) cols.Add(new($"M{i}", JetDataType.Memo, 0, IsFixedLength: false));
+                db.CreateTable("W", cols, primaryKey: ["Id"]);
+
+                // Adding another memo column must fall back to its own usage-map page (the primary is full).
+                Assert.True(db.AddColumn("W", new ColumnSpec("Extra", JetDataType.Memo, 0, IsFixedLength: false)));
+
+                var t = db.Catalog.FindTable("W")!;
+                var tdef = db.ReadTableDefinition(t.DefinitionPage);
+                int m0Page = tdef.LongValueOwnedMaps[t.Columns.Single(c => c.Name == "M0").ColumnId].Page;
+                int extraPage = tdef.LongValueOwnedMaps[t.Columns.Single(c => c.Name == "Extra").ColumnId].Page;
+                Assert.NotEqual(m0Page, extraPage); // Extra's maps are on a dedicated page, not the (full) primary
+
+                var row = new object?[t.Columns.Count];
+                row[0] = 1; row[t.Columns.Single(c => c.Name == "Extra").Index] = memo;
+                db.OpenTable("W").Insert(row);
+                Assert.Equal(memo, db.OpenTable("W").Rows().Single()[t.Columns.Single(c => c.Name == "Extra").Index]);
+            }
+
+            using var conn = Open(path);
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT Extra FROM W WHERE Id = 1";
+            Assert.Equal(memo, cmd.ExecuteScalar());
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Add_and_drop_column_work_on_a_multi_page_tdef()
     {
         string path = Path.Combine(Path.GetTempPath(), $"multipage-{Guid.NewGuid():N}.accdb");

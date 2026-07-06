@@ -720,9 +720,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     /// Existing rows are not rewritten; they read the new column as NULL via the null bitmap. Fully correct
     /// on an empty table (new inserts include it); on a populated table the column is visible and old rows
     /// read NULL. A memo/OLE column additionally gets its §3.3.2 usage-map entry (two empty maps appended to
-    /// the table's usage-map page, as ACE does). Returns false if the column already exists. Multi-page TDEFs
-    /// are handled (stitched/split); throws only for a memo/OLE column whose usage-map page is full
-    /// (dedicated-page fallback TODO).
+    /// the table's usage-map page — or, if that page is full, a dedicated map page, the fallback CREATE TABLE
+    /// uses on a wide table). Returns false if the column already exists. Multi-page TDEFs are handled.
     /// </summary>
     public bool AddColumn(string tableName, ColumnSpec spec, string? defaultValue = null)
     {
@@ -768,26 +767,43 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         // A memo/OLE column needs a §3.3.2 usage-map entry (its owned + free page maps). ACE appends the two
         // maps to the table's existing usage-map page right after the data/index maps (verified), and adds the
         // 10-byte entry before the list's 0xFFFF terminator.
-        int usageMapPage = 0, mapRow = 0;
+        int lvMapPage = 0, lvUsedRow = 0, lvFreeRow = 0;
+        bool lvDedicated = false;
         if (isLongValue)
         {
             int o = format.TdefOwnedPagesOffset + 1;
-            usageMapPage = parts.Header[o] | (parts.Header[o + 1] << 8) | (parts.Header[o + 2] << 16);
-            byte[] mapPageBytes = _channel.ReadPage(usageMapPage).Span.ToArray();
-            mapRow = BinaryPrimitives.ReadUInt16LittleEndian(mapPageBytes.AsSpan(format.DataRowCountOffset, 2));
-            int freeSpace = BinaryPrimitives.ReadUInt16LittleEndian(mapPageBytes.AsSpan(format.DataFreeSpaceOffset, 2));
-            if (freeSpace < 2 * (UsageMapRecordLength + 2))
-                throw new NotSupportedException(
-                    $"ADD COLUMN '{spec.Name}': the usage-map page is full — a dedicated map page for a memo/OLE column on a wide table is not supported yet.");
-            AddLongValueMapEntry(parts, maxCols, usedRow: mapRow, freeRow: mapRow + 1, usageMapPage);
+            int primaryPage = parts.Header[o] | (parts.Header[o + 1] << 8) | (parts.Header[o + 2] << 16);
+            byte[] primaryBytes = _channel.ReadPage(primaryPage).Span.ToArray();
+            int primaryFree = BinaryPrimitives.ReadUInt16LittleEndian(primaryBytes.AsSpan(format.DataFreeSpaceOffset, 2));
+
+            if (primaryFree >= 2 * (UsageMapRecordLength + 2))
+            {
+                // Room on the table's usage-map page — append the two maps there (as ACE does).
+                lvMapPage = primaryPage;
+                lvUsedRow = BinaryPrimitives.ReadUInt16LittleEndian(primaryBytes.AsSpan(format.DataRowCountOffset, 2));
+                lvFreeRow = lvUsedRow + 1;
+            }
+            else
+            {
+                // Full — give the column its own usage-map page (owned = row 0, free = row 1), the same
+                // fallback CREATE TABLE uses once its primary map page fills on a wide table.
+                lvMapPage = _allocator.Allocate();
+                lvUsedRow = 0; lvFreeRow = 1; lvDedicated = true;
+            }
+            AddLongValueMapEntry(parts, maxCols, lvUsedRow, lvFreeRow, lvMapPage);
         }
 
         WriteTdef(table.DefinitionPage, parts);
 
         if (isLongValue)
         {
-            AppendEmptyUsageMapRow(format, usageMapPage, mapRow);      // owned map
-            AppendEmptyUsageMapRow(format, usageMapPage, mapRow + 1);  // free map
+            if (lvDedicated)
+                WriteUsageMaps(format, lvMapPage, mapCount: 2); // owned = row 0, free = row 1, both empty
+            else
+            {
+                AppendEmptyUsageMapRow(format, lvMapPage, lvUsedRow);
+                AppendEmptyUsageMapRow(format, lvMapPage, lvFreeRow);
+            }
         }
 
         // NOT NULL / DEFAULT go in the table's LvProp blob (DefaultValue before Required, matching ACE), the

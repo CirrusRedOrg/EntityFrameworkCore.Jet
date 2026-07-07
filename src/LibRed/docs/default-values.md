@@ -151,11 +151,17 @@ Nothing remains deferred.
 | `GenUniqueID()` in a `SELECT` | rejected ("Undefined function") | evaluates (random Long) | ACE restricts it to a default; LibRed allows it as a general function. Harmless. |
 | `CDec(x)` | rejected in a query expression | evaluates | ACE's query engine doesn't expose `CDec`; low concern. |
 
-**Access-application-only — absent from the JES and from LibRed (correct):** `Nz`, `Split`, and similar. The OLE
-DB provider reports "Undefined function" for these; they only exist inside `MSACCESS.EXE` (see the two-services
-note above). LibRed matches the standalone provider by rejecting them. `Split` additionally returns a **Variant
-array**, which has no scalar-SQL representation regardless — even in Access the `SELECT Split(...)` "result" is
-the array's debug rendering, not a storable column value.
+**Access-application-only — absent from the JES and from LibRed (correct):** `Nz`, `Split`, `CurDir`,
+`CurrentUser`, `Environ`, `Randomize`. The OLE DB provider reports "Undefined function" for all of these; they
+only exist inside `MSACCESS.EXE` (see the two-services note above). LibRed matches the standalone provider by
+rejecting them. `Split` additionally returns a **Variant array**, which has no scalar-SQL representation
+regardless — even in Access the `SELECT Split(...)` "result" is the array's debug rendering, not a storable
+column value. `Randomize` is a VBA *statement* (RNG seeding), not a scalar function.
+
+**Full w3schools MS Access function list cross-checked (2026-07-07):** every string, numeric (incl. the
+`Avg`/`Count`/`Max`/`Min`/`Sum` aggregates), and date function is implemented; `IsDate`/`IsNull`/`IsNumeric` too.
+The only names LibRed lacks are the six Access-application-only ones above — all confirmed undefined in the JES.
+**No gaps against the standalone provider surface.**
 
 > The whitelist is now closely aligned but **not proven exhaustive** — `Choose`/`Switch` and the string/type
 > batch were gaps this sweep surfaced; nothing remains deferred. Re-run the sweep (`FunctionWhitelist*Probe`

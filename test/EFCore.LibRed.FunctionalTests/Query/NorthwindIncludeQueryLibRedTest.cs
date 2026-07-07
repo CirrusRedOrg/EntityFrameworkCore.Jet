@@ -1164,25 +1164,22 @@ ORDER BY `c0`.`ContactName` DESC, `c0`.`CustomerID`
             await base.Include_collection_with_multiple_conditional_order_by(async);
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='5'")}
-                    
-                    SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
-                    FROM (
-                        SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, IIF(`o`.`OrderID` > 0, 1, 0) AS `c`, CASE
-                            WHEN `c`.`CustomerID` IS NOT NULL THEN `c`.`City`
-                            ELSE ''
-                        END AS `c0`
-                        FROM `Orders` AS `o`
-                        LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-                        ORDER BY IIF(`o`.`OrderID` > 0, 1, 0), CASE
-                            WHEN `c`.`CustomerID` IS NOT NULL THEN `c`.`City`
-                            ELSE ''
-                        END
-                    ) AS `t`
-                    LEFT JOIN `Order Details` AS `o0` ON `t`.`OrderID` = `o0`.`OrderID`
-                    ORDER BY `t`.`c`, `t`.`c0`, `t`.`OrderID`, `o0`.`OrderID`, `o0`.`ProductID`
-                    """);
+                """
+@p='5'
+
+SELECT `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `s`.`CustomerID0`, `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
+FROM (
+    SELECT TOP @p `s0`.`OrderID`, `s0`.`CustomerID`, `s0`.`EmployeeID`, `s0`.`OrderDate`, `s0`.`CustomerID0`, `s0`.`c`, `s0`.`c0`
+    FROM (
+        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID` AS `CustomerID0`, `o`.`OrderID` > 0 AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, '') AS `c0`
+        FROM `Orders` AS `o`
+        LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+    ) AS `s0`
+    ORDER BY NOT (`s0`.`c`), `s0`.`c0`
+) AS `s`
+LEFT JOIN `Order Details` AS `o0` ON `s`.`OrderID` = `o0`.`OrderID`
+ORDER BY NOT (`s`.`c`), `s`.`c0`, `s`.`OrderID`, `s`.`CustomerID0`, `o0`.`OrderID`
+""");
         }
 
         public override async Task Then_include_collection_order_by_collection_column(bool async)

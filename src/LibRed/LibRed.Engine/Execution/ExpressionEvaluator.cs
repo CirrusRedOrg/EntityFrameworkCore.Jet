@@ -218,13 +218,13 @@ internal sealed class ExpressionEvaluator(
 
             // Wide (Unicode code-point) variants. AscW = the first char's code point; ChrW = the char for a code
             // point (unlike Chr, not restricted to a byte). Verified vs ACE: ChrW(233) → 'é'.
-            "ASCW" => Convert1(f, v => (int)v.ToString()![0]),
+            "ASCW" => Convert1(f, v => (int)ToText(v)[0]),
             "CHRW" => Convert1(f, v => ((char)Convert.ToInt32(v, CultureInfo.InvariantCulture)).ToString()),
             // Byte variants operate on the UTF-16 byte layout (2 bytes/char): LenB = 2×length, AscB = the low
             // byte of the first char, and Left/Right/Mid/InStr count bytes. Verified vs ACE (LenB('abc')=6,
             // InStrB(1,'abc','b')=3). ChrB is intentionally absent — ACE's expression service has no ChrB.
-            "ASCB" => Convert1(f, v => v.ToString()![0] & 0xFF),
-            "LENB" => Convert1(f, v => v.ToString()!.Length * 2),
+            "ASCB" => Convert1(f, v => (int)ToBytes(v)[0]),
+            "LENB" => Convert1(f, v => ToBytes(v).Length),
             "LEFTB" => ByteLeft(f),
             "RIGHTB" => ByteRight(f),
             "MIDB" => ByteMid(f),
@@ -587,53 +587,84 @@ internal sealed class ExpressionEvaluator(
     {
         object? sv = Evaluate(f.Arguments[0]);
         if (sv is null) return null;
-        string s = sv.ToString()!;
-        int n = Math.Clamp(Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture) / 2, 0, s.Length);
-        return s[..n];
+        byte[] b = ToBytes(sv);
+        int n = Math.Clamp(Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture), 0, b.Length);
+        return FromBytes(b[..n]);
     }
 
-    /// <summary>VBA <c>RightB(string, bytes)</c>: the trailing <c>bytes/2</c> characters. NULL-propagating.</summary>
+    /// <summary>VBA <c>RightB(string, bytes)</c>: the trailing <c>bytes</c> bytes, decoded. NULL-propagating.</summary>
     private object? ByteRight(FunctionCall f)
     {
         object? sv = Evaluate(f.Arguments[0]);
         if (sv is null) return null;
-        string s = sv.ToString()!;
-        int n = Math.Clamp(Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture) / 2, 0, s.Length);
-        return s[^n..];
+        byte[] b = ToBytes(sv);
+        int n = Math.Clamp(Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture), 0, b.Length);
+        return FromBytes(b[^n..]);
     }
 
-    /// <summary>VBA <c>MidB(string, startByte[, lenBytes])</c>: 1-based byte start, byte length — mapped to
-    /// characters (2 bytes each). NULL-propagating.</summary>
+    /// <summary>VBA <c>MidB(string, startByte[, lenBytes])</c>: a 1-based **byte** slice (may start/end
+    /// mid-character), decoded back to a string. NULL-propagating.</summary>
     private object? ByteMid(FunctionCall f)
     {
         object? sv = Evaluate(f.Arguments[0]);
         if (sv is null) return null;
-        string s = sv.ToString()!;
-        int startChar = Math.Max(0, (Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture) - 1) / 2);
-        if (startChar >= s.Length) return "";
-        int lenChar = f.Arguments.Count > 2
-            ? Convert.ToInt32(Evaluate(f.Arguments[2]), CultureInfo.InvariantCulture) / 2
-            : s.Length - startChar;
-        lenChar = Math.Clamp(lenChar, 0, s.Length - startChar);
-        return s.Substring(startChar, lenChar);
+        byte[] b = ToBytes(sv);
+        int start = Math.Max(0, Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture) - 1);
+        if (start >= b.Length) return "";
+        int len = f.Arguments.Count > 2
+            ? Convert.ToInt32(Evaluate(f.Arguments[2]), CultureInfo.InvariantCulture)
+            : b.Length - start;
+        len = Math.Clamp(len, 0, b.Length - start);
+        return FromBytes(b[start..(start + len)]);
     }
 
-    /// <summary>VBA <c>InStrB([start,] string1, string2)</c>: the 1-based BYTE position of string2 in string1
-    /// (0 if not found) — i.e. the character position mapped back to bytes. NULL-propagating.</summary>
+    /// <summary>VBA <c>InStrB([start,] string1, string2)</c>: the 1-based **byte** position of string2's bytes in
+    /// string1's bytes (0 if not found). NULL-propagating.</summary>
     private object? InstrB(FunctionCall f)
     {
         int argc = f.Arguments.Count;
         object? s1v = Evaluate(f.Arguments[argc >= 3 ? 1 : 0]);
         object? s2v = Evaluate(f.Arguments[argc >= 3 ? 2 : 1]);
         if (s1v is null || s2v is null) return null;
-        int startChar = argc >= 3
-            ? Math.Max(0, (Convert.ToInt32(Evaluate(f.Arguments[0]), CultureInfo.InvariantCulture) - 1) / 2)
-            : 0;
-        string s1 = s1v.ToString()!, s2 = s2v.ToString()!;
-        if (startChar >= s1.Length) return 0;
-        int idx = s1.IndexOf(s2, startChar, StringComparison.OrdinalIgnoreCase);
-        return idx < 0 ? 0 : idx * 2 + 1;
+        int start = argc >= 3 ? Math.Max(0, Convert.ToInt32(Evaluate(f.Arguments[0]), CultureInfo.InvariantCulture) - 1) : 0;
+        int idx = IndexOfBytes(ToBytes(s1v), ToBytes(s2v), start);
+        return idx < 0 ? 0 : idx + 1;
     }
+
+    private static int IndexOfBytes(byte[] hay, byte[] needle, int start)
+    {
+        if (needle.Length == 0) return start <= hay.Length ? start : -1;
+        for (int i = Math.Max(0, start); i + needle.Length <= hay.Length; i++)
+        {
+            bool match = true;
+            for (int j = 0; j < needle.Length; j++)
+                if (hay[i + j] != needle[j]) { match = false; break; }
+            if (match) return i;
+        }
+        return -1;
+    }
+
+    /// <summary>The UTF-16LE **byte** representation a byte function operates on: a string's encoded bytes, or a
+    /// binary value's raw bytes with an odd trailing byte zero-padded (matching ACE, which reinterprets a binary
+    /// column as a UTF-16 string — LenB of a 3-byte value is 4).</summary>
+    private static byte[] ToBytes(object v)
+    {
+        if (v is not byte[] bytes) return System.Text.Encoding.Unicode.GetBytes(v.ToString()!);
+        if (bytes.Length % 2 == 0) return bytes;
+        var padded = new byte[bytes.Length + 1];
+        Array.Copy(bytes, padded, bytes.Length);
+        return padded;
+    }
+
+    /// <summary>Decodes a byte slice back to a string, dropping a trailing incomplete (odd) byte — matching ACE
+    /// (MidB(x, 1, 3) yields one character from three bytes).</summary>
+    private static string FromBytes(byte[] b) =>
+        System.Text.Encoding.Unicode.GetString(b, 0, b.Length - (b.Length % 2));
+
+    /// <summary>The text a string function operates on: a binary value reinterpreted as a UTF-16LE string (odd
+    /// byte zero-padded), or a normal string.</summary>
+    private static string ToText(object v) =>
+        v is byte[] ? System.Text.Encoding.Unicode.GetString(ToBytes(v)) : v.ToString()!;
 
     // --- Financial / formatting / colour functions (JES surface) ---
 

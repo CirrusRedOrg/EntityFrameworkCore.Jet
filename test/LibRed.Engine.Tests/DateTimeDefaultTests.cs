@@ -53,7 +53,9 @@ public class DateTimeDefaultTests
     {
         DateTime v = InsertAndRead("Time()");
         Assert.Equal(new DateTime(1899, 12, 30), v.Date);   // time-only → the Jet epoch date
-        Assert.InRange(v.TimeOfDay, DateTime.Now.AddMinutes(-2).TimeOfDay, DateTime.Now.AddMinutes(2).TimeOfDay);
+        // Within 2 minutes of now, tolerant of the midnight wrap (23:59 + 2min → 00:01).
+        double minutesApart = Math.Abs((v.TimeOfDay - DateTime.Now.TimeOfDay).TotalMinutes);
+        Assert.True(minutesApart < 2 || minutesApart > 24 * 60 - 2, $"Time() was {v.TimeOfDay}, now {DateTime.Now.TimeOfDay}");
     }
 
     // A Jet default is a per-row expression, so a compound one works too — LibRed's SQL front-end + evaluator

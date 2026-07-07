@@ -108,13 +108,13 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
         await base.Modify_with_generated_values(async);
 
         AssertSql(
-$"""
+            """
+@p2='1'
 @p0='1001'
 @p1='1000'
-@p2='1'
 
-UPDATE `WithSomeDatabaseGenerated` SET `Data1` = {AssertSqlHelper.Parameter("@p0")}, `Data2` = {AssertSqlHelper.Parameter("@p1")}
-WHERE `Id` = {AssertSqlHelper.Parameter("@p2")};
+UPDATE `WithSomeDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
 SELECT @@ROWCOUNT;
 """);
     }
@@ -124,13 +124,13 @@ SELECT @@ROWCOUNT;
         await base.Modify_with_no_generated_values(async);
 
         AssertSql(
-$"""
+            """
+@p2='1'
 @p0='1000'
 @p1='1000'
-@p2='1'
 
-UPDATE `WithNoDatabaseGenerated` SET `Data1` = {AssertSqlHelper.Parameter("@p0")}, `Data2` = {AssertSqlHelper.Parameter("@p1")}
-WHERE `Id` = {AssertSqlHelper.Parameter("@p2")};
+UPDATE `WithNoDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
 SELECT @@ROWCOUNT;
 """);
     }
@@ -232,23 +232,23 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
         await base.Modify_Modify_with_same_entity_type_and_generated_values(async);
 
         AssertSql(
-$"""
+            """
+@p2='1'
 @p0='1001'
 @p1='1000'
-@p2='1'
 
-UPDATE `WithSomeDatabaseGenerated` SET `Data1` = {AssertSqlHelper.Parameter("@p0")}, `Data2` = {AssertSqlHelper.Parameter("@p1")}
-WHERE `Id` = {AssertSqlHelper.Parameter("@p2")};
+UPDATE `WithSomeDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
 SELECT @@ROWCOUNT;
 """,
             //
-$"""
+            """
+@p2='2'
 @p0='1002'
 @p1='1001'
-@p2='2'
 
-UPDATE `WithSomeDatabaseGenerated` SET `Data1` = {AssertSqlHelper.Parameter("@p0")}, `Data2` = {AssertSqlHelper.Parameter("@p1")}
-WHERE `Id` = {AssertSqlHelper.Parameter("@p2")};
+UPDATE `WithSomeDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
 SELECT @@ROWCOUNT;
 """);
     }
@@ -258,23 +258,23 @@ SELECT @@ROWCOUNT;
         await base.Modify_Modify_with_same_entity_type_and_no_generated_values(async);
 
         AssertSql(
-$"""
+            """
+@p2='1'
 @p0='1000'
 @p1='1000'
-@p2='1'
 
-UPDATE `WithNoDatabaseGenerated` SET `Data1` = {AssertSqlHelper.Parameter("@p0")}, `Data2` = {AssertSqlHelper.Parameter("@p1")}
-WHERE `Id` = {AssertSqlHelper.Parameter("@p2")};
+UPDATE `WithNoDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
 SELECT @@ROWCOUNT;
 """,
             //
-$"""
+            """
+@p2='2'
 @p0='1001'
 @p1='1001'
-@p2='2'
 
-UPDATE `WithNoDatabaseGenerated` SET `Data1` = {AssertSqlHelper.Parameter("@p0")}, `Data2` = {AssertSqlHelper.Parameter("@p1")}
-WHERE `Id` = {AssertSqlHelper.Parameter("@p2")};
+UPDATE `WithNoDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
 SELECT @@ROWCOUNT;
 """);
     }
@@ -384,23 +384,23 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
         await base.Modify_Modify_with_different_entity_types_and_generated_values(async);
 
         AssertSql(
-$"""
+            """
+@p2='1'
 @p0='1001'
 @p1='1000'
-@p2='1'
 
-UPDATE `WithSomeDatabaseGenerated` SET `Data1` = {AssertSqlHelper.Parameter("@p0")}, `Data2` = {AssertSqlHelper.Parameter("@p1")}
-WHERE `Id` = {AssertSqlHelper.Parameter("@p2")};
+UPDATE `WithSomeDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
 SELECT @@ROWCOUNT;
 """,
             //
-$"""
+            """
+@p2='2'
 @p0='1002'
 @p1='1001'
-@p2='2'
 
-UPDATE `WithSomeDatabaseGenerated2` SET `Data1` = {AssertSqlHelper.Parameter("@p0")}, `Data2` = {AssertSqlHelper.Parameter("@p1")}
-WHERE `Id` = {AssertSqlHelper.Parameter("@p2")};
+UPDATE `WithSomeDatabaseGenerated2` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
 SELECT @@ROWCOUNT;
 """);
     }
@@ -410,23 +410,23 @@ SELECT @@ROWCOUNT;
         await base.Modify_Modify_with_different_entity_types_and_no_generated_values(async);
 
         AssertSql(
-$"""
+            """
+@p2='1'
 @p0='1000'
 @p1='1000'
-@p2='1'
 
-UPDATE `WithNoDatabaseGenerated` SET `Data1` = {AssertSqlHelper.Parameter("@p0")}, `Data2` = {AssertSqlHelper.Parameter("@p1")}
-WHERE `Id` = {AssertSqlHelper.Parameter("@p2")};
+UPDATE `WithNoDatabaseGenerated` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
 SELECT @@ROWCOUNT;
 """,
             //
-$"""
+            """
+@p2='2'
 @p0='1001'
 @p1='1001'
-@p2='2'
 
-UPDATE `WithNoDatabaseGenerated2` SET `Data1` = {AssertSqlHelper.Parameter("@p0")}, `Data2` = {AssertSqlHelper.Parameter("@p1")}
-WHERE `Id` = {AssertSqlHelper.Parameter("@p2")};
+UPDATE `WithNoDatabaseGenerated2` SET `Data1` = @p0, `Data2` = @p1
+WHERE `Id` = @p2;
 SELECT @@ROWCOUNT;
 """);
     }

@@ -97,6 +97,20 @@ public class DateTimeDefaultTests
         Assert.Contains("'A' was not found", ex.Message);
     }
 
+    // Aggregate functions (SQL Sum/Count or domain DCount) are not allowed in a default — ACE rejects them as
+    // "Unknown function ... in ... default value" (the default evaluator has a restricted function whitelist).
+    // LibRed matches by rejecting them: it has no aggregate/DCount case for a scalar (non-grouped) evaluation.
+    [Theory]
+    [InlineData("Sum(1)")]
+    [InlineData("Count(1)")]
+    [InlineData("DCount('*', 'MSysObjects')")]
+    public void An_aggregate_function_in_a_default_is_rejected(string def)
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery($"CREATE TABLE T ( K LONG PRIMARY KEY, V LONG DEFAULT {def} )");
+        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)"));
+    }
+
     [Fact]
     public void A_real_column_named_Now_still_wins_over_the_function()
     {

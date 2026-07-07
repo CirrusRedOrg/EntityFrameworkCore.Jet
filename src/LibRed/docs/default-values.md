@@ -163,6 +163,14 @@ column value. `Randomize` is a VBA *statement* (RNG seeding), not a scalar funct
 The only names LibRed lacks are the six Access-application-only ones above — all confirmed undefined in the JES.
 **No gaps against the standalone provider surface.**
 
+**VBA-functions-index cross-check (2026-07-07)** — surfaced a whole category the JES exposes that LibRed lacked,
+now implemented (`FinancialFunctionsTests`): the **financial** functions `Pmt FV PV IPmt PPmt NPer Rate DDB SLN
+SYD` (closed-form annuity/depreciation formulas; `Rate` by Newton–Raphson; verified vs ACE to ~1e-6), the
+**FormatX** helpers `FormatCurrency FormatNumber FormatPercent FormatDateTime` (culture-driven), and the
+**colour** functions `RGB` (r + g·256 + b·65536) and `QBColor` (fixed 16-entry BGR table). `IRR`/`NPV` need an
+array argument (no scalar-SQL form); `CVErr`/`Array`/`Join` are VBA-only (JES-undefined). The rest of the VBA
+index is file-I/O / UI / object / array runtime functions with no SQL surface.
+
 > The whitelist is now closely aligned but **not proven exhaustive** — `Choose`/`Switch` and the string/type
 > batch were gaps this sweep surfaced; nothing remains deferred. Re-run the sweep (`FunctionWhitelist*Probe`
 > pattern) when in doubt.

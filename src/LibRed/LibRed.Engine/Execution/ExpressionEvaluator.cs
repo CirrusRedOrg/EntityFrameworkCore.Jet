@@ -198,6 +198,23 @@ internal sealed class ExpressionEvaluator(
             "WEEKDAYNAME" => WeekdayNameOf(f),
             "PARTITION" => PartitionOf(f),
             "FORMAT" => FormatValue(f),
+            "FORMATCURRENCY" => Convert.ToDecimal(FinArg(f, 0), CultureInfo.InvariantCulture).ToString("C" + FmtDigits(f, 1), CultureInfo.CurrentCulture),
+            "FORMATNUMBER" => Convert.ToDouble(FinArg(f, 0), CultureInfo.InvariantCulture).ToString("N" + FmtDigits(f, 1), CultureInfo.CurrentCulture),
+            "FORMATPERCENT" => FinArg(f, 0).ToString(FmtDigits(f, 1) > 0 ? "0." + new string('0', FmtDigits(f, 1)) + "%" : "0%", CultureInfo.CurrentCulture),
+            "FORMATDATETIME" => FormatDateTimeFn(f),
+            "RGB" => (int)(FinArg(f, 0) % 256) + ((int)(FinArg(f, 1) % 256) << 8) + ((int)(FinArg(f, 2) % 256) << 16),
+            "QBCOLOR" => QbColor((int)FinArg(f, 0)),
+            // Financial functions (verified vs ACE). rate is per period; pv/fv/pmt sign conventions follow VBA.
+            "PMT" => Pmt(f),
+            "FV" => Fv(f),
+            "PV" => Pv(f),
+            "NPER" => NPer(f),
+            "IPMT" => IPmt(f),
+            "PPMT" => PPmt(f),
+            "RATE" => Rate(f),
+            "SLN" => (FinArg(f, 0) - FinArg(f, 1)) / FinArg(f, 2),
+            "SYD" => (FinArg(f, 0) - FinArg(f, 1)) * (FinArg(f, 2) - FinArg(f, 3) + 1) / (FinArg(f, 2) * (FinArg(f, 2) + 1) / 2),
+            "DDB" => Ddb(f),
 
             // Wide (Unicode code-point) variants. AscW = the first char's code point; ChrW = the char for a code
             // point (unlike Chr, not restricted to a byte). Verified vs ACE: ChrW(233) → 'é'.
@@ -616,6 +633,124 @@ internal sealed class ExpressionEvaluator(
         if (startChar >= s1.Length) return 0;
         int idx = s1.IndexOf(s2, startChar, StringComparison.OrdinalIgnoreCase);
         return idx < 0 ? 0 : idx * 2 + 1;
+    }
+
+    // --- Financial / formatting / colour functions (JES surface) ---
+
+    private double FinArg(FunctionCall f, int i) => Convert.ToDouble(Evaluate(f.Arguments[i]), CultureInfo.InvariantCulture);
+    private double FinArgOr(FunctionCall f, int i, double def)
+        => f.Arguments.Count > i && Evaluate(f.Arguments[i]) is { } v ? Convert.ToDouble(v, CultureInfo.InvariantCulture) : def;
+    /// <summary>Optional decimal-count arg for the FormatX functions — default 2 (also for the VBA "-1" default).</summary>
+    private int FmtDigits(FunctionCall f, int i)
+        => f.Arguments.Count > i && Evaluate(f.Arguments[i]) is { } v && Convert.ToInt32(v, CultureInfo.InvariantCulture) >= 0
+            ? Convert.ToInt32(v, CultureInfo.InvariantCulture) : 2;
+
+    private object FormatDateTimeFn(FunctionCall f)
+    {
+        var dt = (DateTime)ToDate(Evaluate(f.Arguments[0])!);
+        int mode = f.Arguments.Count > 1 ? Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture) : 0;
+        CultureInfo c = CultureInfo.CurrentCulture;
+        return mode switch
+        {
+            1 => dt.ToString("D", c),                                       // Long Date
+            2 => dt.ToString("d", c),                                       // Short Date
+            3 => dt.ToString("T", c),                                       // Long Time
+            4 => dt.ToString("t", c),                                       // Short Time
+            _ => dt.TimeOfDay == TimeSpan.Zero ? dt.ToString("d", c) : dt.ToString("g", c), // General Date
+        };
+    }
+
+    // QBColor maps 0..15 to fixed BGR Long values (verified vs ACE: QBColor(4) = 128).
+    private static readonly int[] QbColors =
+    [
+        0x000000, 0x800000, 0x008000, 0x808000, 0x000080, 0x800080, 0x008080, 0xC0C0C0,
+        0x808080, 0xFF0000, 0x00FF00, 0xFFFF00, 0x0000FF, 0xFF00FF, 0x00FFFF, 0xFFFFFF,
+    ];
+    private static int QbColor(int n) => QbColors[((n % 16) + 16) % 16];
+
+    private static double Pow1(double rate, double nper) => Math.Pow(1 + rate, nper);
+    private static double AnnuityFactor(double rate, double nper, double type) => (1 + rate * type) * (Pow1(rate, nper) - 1) / rate;
+
+    /// <summary>VBA <c>Pmt(rate, nper, pv, [fv=0], [type=0])</c>: the constant payment for an annuity.</summary>
+    private object Pmt(FunctionCall f)
+    {
+        double rate = FinArg(f, 0), nper = FinArg(f, 1), pv = FinArg(f, 2), fv = FinArgOr(f, 3, 0), type = FinArgOr(f, 4, 0);
+        return rate == 0 ? -(pv + fv) / nper : -(pv * Pow1(rate, nper) + fv) / AnnuityFactor(rate, nper, type);
+    }
+
+    /// <summary>VBA <c>FV(rate, nper, pmt, [pv=0], [type=0])</c>: the future value of an annuity.</summary>
+    private object Fv(FunctionCall f)
+    {
+        double rate = FinArg(f, 0), nper = FinArg(f, 1), pmt = FinArg(f, 2), pv = FinArgOr(f, 3, 0), type = FinArgOr(f, 4, 0);
+        return rate == 0 ? -(pv + pmt * nper) : -(pv * Pow1(rate, nper) + pmt * AnnuityFactor(rate, nper, type));
+    }
+
+    /// <summary>VBA <c>PV(rate, nper, pmt, [fv=0], [type=0])</c>: the present value of an annuity.</summary>
+    private object Pv(FunctionCall f)
+    {
+        double rate = FinArg(f, 0), nper = FinArg(f, 1), pmt = FinArg(f, 2), fv = FinArgOr(f, 3, 0), type = FinArgOr(f, 4, 0);
+        return rate == 0 ? -(fv + pmt * nper) : -(fv + pmt * AnnuityFactor(rate, nper, type)) / Pow1(rate, nper);
+    }
+
+    /// <summary>VBA <c>NPer(rate, pmt, pv, [fv=0], [type=0])</c>: the number of periods for an annuity.</summary>
+    private object NPer(FunctionCall f)
+    {
+        double rate = FinArg(f, 0), pmt = FinArg(f, 1), pv = FinArg(f, 2), fv = FinArgOr(f, 3, 0), type = FinArgOr(f, 4, 0);
+        if (rate == 0) return -(pv + fv) / pmt;
+        double a = pmt * (1 + rate * type);
+        return Math.Log((a - fv * rate) / (a + pv * rate)) / Math.Log(1 + rate);
+    }
+
+    /// <summary>VBA <c>IPmt(rate, per, nper, pv, [fv=0], [type=0])</c>: the interest portion of payment <c>per</c>.</summary>
+    private object IPmt(FunctionCall f)
+    {
+        double rate = FinArg(f, 0), per = FinArg(f, 1), nper = FinArg(f, 2), pv = FinArg(f, 3), fv = FinArgOr(f, 4, 0), type = FinArgOr(f, 5, 0);
+        double pmt = rate == 0 ? -(pv + fv) / nper : -(pv * Pow1(rate, nper) + fv) / AnnuityFactor(rate, nper, type);
+        if (type == 1 && per == 1) return 0.0;
+        double balance = pv * Pow1(rate, per - 1) + pmt * (rate == 0 ? per - 1 : AnnuityFactor(rate, per - 1, type));
+        double interest = -balance * rate;                 // interest paid is a cash outflow (negative), like Pmt
+        return type == 1 ? interest / (1 + rate) : interest;
+    }
+
+    /// <summary>VBA <c>PPmt(...)</c>: the principal portion of a payment (= Pmt − IPmt).</summary>
+    private object PPmt(FunctionCall f)
+    {
+        double rate = FinArg(f, 0), nper = FinArg(f, 2), pv = FinArg(f, 3), fv = FinArgOr(f, 4, 0), type = FinArgOr(f, 5, 0);
+        double pmt = rate == 0 ? -(pv + fv) / nper : -(pv * Pow1(rate, nper) + fv) / AnnuityFactor(rate, nper, type);
+        return pmt - Convert.ToDouble(IPmt(f), CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>VBA <c>DDB(cost, salvage, life, period, [factor=2])</c>: double-declining-balance depreciation.</summary>
+    private object Ddb(FunctionCall f)
+    {
+        double cost = FinArg(f, 0), salvage = FinArg(f, 1), life = FinArg(f, 2), period = FinArg(f, 3), factor = FinArgOr(f, 4, 2);
+        double rate = factor / life;
+        double bookStart = cost * Math.Pow(1 - rate, period - 1);
+        double dep = bookStart * rate;
+        if (bookStart - dep < salvage) dep = Math.Max(0, bookStart - salvage);
+        return dep;
+    }
+
+    /// <summary>VBA <c>Rate(nper, pmt, pv, [fv=0], [type=0], [guess=0.1])</c>: the per-period rate, solved by
+    /// Newton–Raphson on the annuity equation.</summary>
+    private object Rate(FunctionCall f)
+    {
+        double nper = FinArg(f, 0), pmt = FinArg(f, 1), pv = FinArg(f, 2), fv = FinArgOr(f, 3, 0), type = FinArgOr(f, 4, 0);
+        double r = FinArgOr(f, 5, 0.1);
+        for (int iter = 0; iter < 100; iter++)
+        {
+            double v = r == 0 ? pv + pmt * nper + fv
+                : pv * Pow1(r, nper) + pmt * (1 + r * type) * (Pow1(r, nper) - 1) / r + fv;
+            const double h = 1e-6;
+            double vh = (r + h) == 0 ? pv + pmt * nper + fv
+                : pv * Pow1(r + h, nper) + pmt * (1 + (r + h) * type) * (Pow1(r + h, nper) - 1) / (r + h) + fv;
+            double deriv = (vh - v) / h;
+            if (Math.Abs(deriv) < 1e-12) break;
+            double next = r - v / deriv;
+            if (Math.Abs(next - r) < 1e-10) return next;
+            r = next;
+        }
+        return r;
     }
 
     private uint _localRandSeed = 0x50000;   // used when no connection-scoped SessionState is available

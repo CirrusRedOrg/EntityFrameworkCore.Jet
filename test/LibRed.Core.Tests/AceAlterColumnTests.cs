@@ -52,6 +52,30 @@ public class AceAlterColumnTests
     }
 
     [Fact]
+    public void Access_applies_a_libred_alter_column_default()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"acd-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("T",
+                    [new ColumnSpec("K", JetDataType.Int32, 4, IsFixedLength: true),
+                     new ColumnSpec("V", JetDataType.Text, 40, IsFixedLength: false)],
+                    primaryKey: ["K"]);
+                db.SetColumnDefault("T", "V", "'unknown'");   // the ALTER COLUMN ... DEFAULT write path
+            }
+
+            using var conn = OpenOleDb(path);
+            using (var c = conn.CreateCommand()) { c.CommandText = "INSERT INTO T (K) VALUES (1)"; c.ExecuteNonQuery(); }
+            string? v; using (var c = conn.CreateCommand()) { c.CommandText = "SELECT V FROM T WHERE K = 1"; v = (string?)c.ExecuteScalar(); }
+            Assert.Equal("unknown", v);   // ACE applied the LibRed-written default
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Access_reads_a_libred_full_rewrite_with_converted_values()
     {
         string path = Path.Combine(Path.GetTempPath(), $"rw-{Guid.NewGuid():N}.accdb");

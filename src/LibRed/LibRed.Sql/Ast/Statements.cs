@@ -186,7 +186,7 @@ public sealed record AddUniqueAction(UniqueConstraint Unique) : AlterTableAction
 public sealed record AddCheckAction(CheckConstraint Check) : AlterTableAction;
 
 /// <summary>ALTER COLUMN field type[(size[,scale])] — change a column's data type.</summary>
-public sealed record AlterColumnAction(string Field, string TypeName, int? Size, int? Scale) : AlterTableAction;
+public sealed record AlterColumnAction(string Field, string TypeName, int? Size, int? Scale, string? Default = null) : AlterTableAction;
 
 /// <summary>DROP COLUMN field — delete a column.</summary>
 public sealed record DropColumnAction(string Field) : AlterTableAction;

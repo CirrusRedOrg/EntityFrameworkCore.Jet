@@ -860,6 +860,38 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     /// <summary>Appends a column's extended properties (DefaultValue/Required) to its table's
     /// <c>MSysObjects.LvProp</c> blob and re-stores it — the add-side counterpart of
     /// <see cref="RemoveColumnProperties"/>.</summary>
+    /// <summary>Sets (replaces) a column's <c>DefaultValue</c> in the table's <c>MSysObjects.LvProp</c> blob —
+    /// ALTER TABLE … ALTER COLUMN … DEFAULT. Reads all properties, drops any existing DefaultValue for the
+    /// column, adds the new one, and rewrites the blob (preserving every other property).</summary>
+    public void SetColumnDefault(string tableName, string columnName, string defaultSql)
+    {
+        TableDef target = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
+        int tdefPage = target.DefinitionPage;
+
+        TableDef msys = _catalog.FindTable("MSysObjects")
+            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
+        int idIdx = (msys.FindColumn("Id") ?? throw new InvalidOperationException("MSysObjects is missing 'Id'.")).Index;
+        ColumnDef lvProp = msys.FindColumn("LvProp") ?? throw new InvalidOperationException("MSysObjects is missing 'LvProp'.");
+        var table = new Table(_channel, msys);
+
+        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
+        {
+            if (values[idIdx] is null || Convert.ToInt32(values[idIdx]) != tdefPage) continue;
+            byte[] blob = values[lvProp.Index] as byte[] ?? [];
+            var props = PropertyBlob.Read(blob).ToList();
+            props.RemoveAll(p => string.Equals(p.Owner, columnName, StringComparison.OrdinalIgnoreCase)
+                && p.Name == PropertyBlob.DefaultValueProperty);
+            props.Add(new PropertyBlob.Property(columnName, PropertyBlob.DefaultValueProperty, defaultSql));
+            byte[] updated = PropertyBlob.Write(props);
+            byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, updated);
+            values[lvProp.Index] = new LongValueDescriptor(descriptor);
+            table.Update(id, values, new HashSet<int> { lvProp.Index });
+            return;
+        }
+        throw new InvalidOperationException($"MSysObjects row for table '{tableName}' (page {tdefPage}) was not found.");
+    }
+
     private void SetColumnProperties(int tdefPage, string columnName, IReadOnlyList<PropertyBlob.Property> props)
     {
         TableDef msys = _catalog.FindTable("MSysObjects")
@@ -971,12 +1003,26 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         ColumnDef target = def.FindColumn(columnName)
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
 
+        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
+
+        // ACE rejects altering a column that is itself part of a relationship (an FK column or the referenced
+        // key column) — "Cannot change field 'X'. It is part of one or more relationships." (verified).
         if (_catalog.Relationships.Any(r =>
-                string.Equals(r.Table, tableName, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(r.ReferencedTable, tableName, StringComparison.OrdinalIgnoreCase)))
+                (string.Equals(r.Table, tableName, oic) && r.Columns.Any(c => string.Equals(c.Column, columnName, oic))) ||
+                (string.Equals(r.ReferencedTable, tableName, oic) && r.Columns.Any(c => string.Equals(c.ReferencedColumn, columnName, oic)))))
+            throw new InvalidOperationException($"Cannot change field '{columnName}'. It is part of one or more relationships.");
+
+        // The rebuild drops+recreates the table. LibRed's DropTable can't drop a table referenced as a
+        // relationship parent, so a parent-side rewrite isn't supported (ACE allows it; drop the FK first).
+        if (_catalog.Relationships.Any(r => string.Equals(r.ReferencedTable, tableName, oic)))
             throw new NotSupportedException(
-                $"ALTER COLUMN '{tableName}.{columnName}': the table participates in a relationship; drop the " +
-                "foreign key(s) first (a full column rewrite recreates the table and can't preserve the linkage).");
+                $"ALTER COLUMN '{tableName}.{columnName}': the table is referenced by a relationship (a rebuild " +
+                "can't drop a parent table); drop the foreign key(s) first.");
+
+        // The table's outgoing foreign keys are captured and re-added after the rebuild (DropTable cascades them
+        // away). Their backing indexes are recreated by re-adding the FK, so they're excluded from `secondary`.
+        var foreignKeys = _catalog.ForeignKeysOf(tableName).ToList();
+        var fkColumnSets = foreignKeys.Select(fk => fk.Columns.Select(c => c.Column).ToArray()).ToList();
 
         // 1. Materialise all rows (values indexed by column position) before dropping the table.
         var rows = new Table(_channel, def).Rows().Select(r => (object?[])r.Clone()).ToList();
@@ -990,7 +1036,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
 
         IndexDef? pk = def.Indexes.FirstOrDefault(i => i.IsPrimaryKey);
         IReadOnlyList<string>? primaryKey = pk?.Columns.Select(c => c.Column.Name).ToList();
-        var secondary = def.Indexes.Where(i => !i.IsPrimaryKey).ToList();
+        // Secondary indexes to recreate — excluding the primary key and any FK-backing index (re-added with its FK).
+        var secondary = def.Indexes
+            .Where(i => !i.IsPrimaryKey)
+            .Where(i => !fkColumnSets.Any(cols =>
+                cols.SequenceEqual(i.Columns.Select(c => c.Column.Name), StringComparer.OrdinalIgnoreCase)))
+            .ToList();
         var checks = def.CheckConstraints.ToList();
         var defaults = def.Columns.Where(c => c.DefaultValue is not null)
             .Select(c => (Column: c.Name, DefaultSql: c.DefaultValue!)).ToList();
@@ -1013,6 +1064,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         {
             AddIndex(tableName, ix.Name, ix.Columns.Select(c => (c.Column.Name, !c.Ascending)).ToList(),
                 ix.IsUnique, isPrimary: false, disallowNull: false, ignoreNulls: false);
+            _catalog.Invalidate();
+        }
+
+        // Re-add the outgoing foreign keys (recreates their backing index + linkage + MSysRelationships rows).
+        foreach (ForeignKey fk in foreignKeys)
+        {
+            AddForeignKey(tableName, new RelationshipSpec(fk.Name, fk.ReferencedTable, fk.Columns.ToList(),
+                fk.IsEnforced, fk.CascadeUpdate, fk.CascadeDelete, NoIndex: false, fk.DeleteSetNull, fk.UpdateSetNull));
             _catalog.Invalidate();
         }
     }

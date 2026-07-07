@@ -123,11 +123,19 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
-    /// <summary>Changes a column's declared type — ALTER TABLE … ALTER COLUMN. Supports a variable text/binary
-    /// column's length change; a storage-type change throws NotSupported (needs a full column rewrite).</summary>
+    /// <summary>Changes a column's declared type — ALTER TABLE … ALTER COLUMN. A variable text/binary length
+    /// change is an in-place descriptor edit; a storage-type change rebuilds the table (converting values).</summary>
     public void AlterColumn(string table, string column, ColumnSpec newSpec)
     {
         new Storage.TableCreator(_channel, Catalog).AlterColumn(table, column, newSpec);
+        Catalog.Invalidate();
+    }
+
+    /// <summary>Sets a column's DEFAULT — ALTER TABLE … ALTER COLUMN … DEFAULT. Replaces the column's
+    /// DefaultValue in the LvProp blob; the engine applies it on an omit-insert.</summary>
+    public void SetColumnDefault(string table, string column, string defaultSql)
+    {
+        new Storage.TableCreator(_channel, Catalog).SetColumnDefault(table, column, defaultSql);
         Catalog.Invalidate();
     }
 

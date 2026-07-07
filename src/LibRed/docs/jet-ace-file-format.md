@@ -931,9 +931,11 @@ The split mechanics:
   > genuinely random signed-Long IDs on insert (verified: `-1637443712, 1680187777, 83315118`), reading back
   > byte-identical to the UI-authored column. `GenUniqueID()` **is a real ACE default-expression**, not a marker:
   > `SELECT GenUniqueID()`
-  > errors ("Undefined function"), yet an **unquoted** `col long DEFAULT GenUniqueID()` **is** accepted (on
-  > numeric columns — rejected on text: "Cannot place this validation expression on this field") and generates a
-  > **random signed Long per row** (verified: `117617513`, `904519542`, `-1470084161`). Quoting it —
+  > errors ("Undefined function"), yet an **unquoted** `col LONG DEFAULT GenUniqueID()` **is** accepted and
+  > generates a **random signed Long per row** (verified: `117617513`, `904519542`, `-1470084161`). It is
+  > accepted **only on a `LONG` (Int32) column** — the same width a `COUNTER` stores; **every other type is
+  > rejected** ("Cannot place this validation expression on this field"), verified across BYTE/SHORT/SINGLE/
+  > DOUBLE/CURRENCY/DECIMAL/GUID/DATETIME/BIT/TEXT. Quoting it —
   > `DEFAULT 'GenUniqueID()'` — makes it a plain literal string stored verbatim. So a Random AutoNumber is
   > effectively an AutoNumber column carrying the unquoted `GenUniqueID()` default. **LibRed now creates and
   > inserts these**: `CREATE TABLE ( Id COUNTER DEFAULT GenUniqueID(), … )` persists the `GenUniqueID()` default

@@ -97,6 +97,7 @@ internal sealed class ExpressionEvaluator(
         return f.Name.ToUpperInvariant() switch
         {
             "IIF" => IsTrue(f.Arguments[0]) ? Evaluate(f.Arguments[1]) : Evaluate(f.Arguments[2]),
+            "CHOOSE" => Choose(f),
             "DATEPART" => DatePart(Evaluate(f.Arguments[0]), Evaluate(f.Arguments[1])),
             "ROUND" => Round(f),
             "FIX" => Numeric1(f, Math.Truncate, Math.Truncate),  // toward zero
@@ -170,6 +171,20 @@ internal sealed class ExpressionEvaluator(
             "GENUNIQUEID" => RandomLong(),
             _ => throw new NotSupportedException($"Function {f.Name} is not supported."),
         };
+    }
+
+    /// <summary>Access <c>Choose(index, choice-1, choice-2, …)</c>: returns the 1-based choice at
+    /// <paramref name="f"/>'s index, or NULL when the index is out of range (verified vs ACE: <c>Choose(0,…)</c>
+    /// and <c>Choose(5,…)</c> on three choices both return Null). A NULL index is an error in ACE ("Data type
+    /// mismatch"). Only the selected choice is evaluated.</summary>
+    private object? Choose(FunctionCall f)
+    {
+        object? indexValue = Evaluate(f.Arguments[0]);
+        if (indexValue is null)
+            throw new InvalidOperationException("Data type mismatch in criteria expression: Choose() index is null.");
+        int index = Convert.ToInt32(indexValue, CultureInfo.InvariantCulture);
+        int choiceCount = f.Arguments.Count - 1;
+        return index < 1 || index > choiceCount ? null : Evaluate(f.Arguments[index]);
     }
 
     /// <summary>A random non-zero signed Int32 — Access's <c>GenUniqueID()</c>.</summary>

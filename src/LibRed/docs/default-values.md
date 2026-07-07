@@ -106,25 +106,24 @@ cross-check.)
 
 | Function | Why deferred |
 |---|---|
-| `Format` | Full VBA format-string engine — large, and **locale-sensitive** (see below). |
-| `Partition` | Range-bucket label — bounded and deterministic; ready to implement. |
-| `StrConv` | Case-mode conversions — bounded; modes 1/2/3 only. |
-| `WeekdayName` | Bounded, but the **omitted first-day-of-week is OS-locale-dependent** (see below). |
+| `Format` | Full VBA format-string engine — large, and **locale-sensitive** (see below). Still deferred. |
 
-Semantics pinned down against ACE (probed 2026-07-07):
+`Partition`, `StrConv`, and `WeekdayName` are now **implemented** (`DeferredFunctionsTests`):
 
 - **`Partition(number, start, stop, interval)`** — a `"lower:upper"` range label, both sides right-justified to a
   fixed width = `max(len(str(start-1)), len(str(stop+1)))`. Below range → `"   :  0"` (lower blank, upper=start-1);
   above range → `"101:   "` (lower=stop+1, upper blank); in range → the interval bucket (`Partition(5,1,100,10)`
-  → `"  1: 10"`, `Partition(100,1,100,10)` → `" 91:100"`). Fully deterministic.
+  → `"  1: 10"`, `Partition(100,1,100,10)` → `" 91:100"`). Fully deterministic — matches ACE.
 - **`StrConv(string, conversion)`** — `1`=UpperCase, `2`=LowerCase, `3`=ProperCase (title case: `"mixed CASE
-  text"` → `"Mixed Case Text"`). Modes ≥4 (Wide/Unicode) → "Invalid procedure call". Only 1/2/3 needed.
+  text"` → `"Mixed Case Text"`). Modes ≥4 (Wide/Unicode) → "Invalid procedure call". Matches ACE.
 - **`WeekdayName(weekday, [abbreviate=False], [firstdayofweek])`** — day name for `weekday` (1–7) counting from
-  `firstdayofweek` (1=Sun … 7=Sat). `abbreviate` → 3-letter. **Deterministic with an explicit `firstdayofweek`**
-  (`WeekdayName(1,,1)`→"Sunday", `WeekdayName(1,,2)`→"Monday"), but **omitted → OS regional first-day** (ACE
-  returned "Monday" here on an en-AU box; VBA's documented default is `vbSunday`). This locale dependence is why
-  it was deferred — an implementation should take an explicit first-day and pick a fixed default (recommend
-  `vbSunday`), accepting it may differ from a given ACE host when omitted.
+  `firstdayofweek` (1=Sun … 7=Sat). `abbreviate` → 3-letter. Matches ACE with an explicit `firstdayofweek`
+  (`WeekdayName(1,,1)`→"Sunday", `WeekdayName(1,,2)`→"Monday"). **Caveat:** ACE's *omitted* `firstdayofweek`
+  follows the OS regional first-day (ACE gave "Monday" on an en-AU host); LibRed fixes the omitted default to
+  `vbSunday` for determinism, so the no-third-arg case can differ from a given ACE host.
+
+Still deferred:
+
 - **`Format(value, format)`** — a large VBA format-string engine. Two classes:
   - **Custom format strings are deterministic** and mostly map to .NET numeric formats directly (`'0.00'`,
     `'#,##0.00'`, `'0%'`, `'000'`, `'\#0'`→`"#255"`). Date custom formats need **VBA→.NET token translation**
@@ -147,7 +146,7 @@ Semantics pinned down against ACE (probed 2026-07-07):
 function), and neither does LibRed. Correctly **not** added.
 
 > The whitelist is now closely aligned but **not proven exhaustive** — `Choose`/`Switch` and the string/type
-> batch were gaps this sweep surfaced; the deferred four remain. Re-run the sweep (`FunctionWhitelist*Probe`
+> batch were gaps this sweep surfaced; only `Format` remains deferred. Re-run the sweep (`FunctionWhitelist*Probe`
 > pattern) when in doubt.
 
 ### VBA function-name variants (`$` / `B` / `W`)

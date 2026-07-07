@@ -194,6 +194,9 @@ internal sealed class ExpressionEvaluator(
             "ISERROR" => false,
             "TYPENAME" => TypeNameOf(Evaluate(f.Arguments[0])),
             "VARTYPE" => VarTypeOf(Evaluate(f.Arguments[0])),
+            "STRCONV" => StrConv(f),
+            "WEEKDAYNAME" => WeekdayNameOf(f),
+            "PARTITION" => PartitionOf(f),
 
             // Wide (Unicode code-point) variants. AscW = the first char's code point; ChrW = the char for a code
             // point (unlike Chr, not restricted to a byte). Verified vs ACE: ChrW(233) → 'é'.
@@ -339,6 +342,73 @@ internal sealed class ExpressionEvaluator(
         DateTime => 7,      // vbDate
         _ => 8,             // vbString
     };
+
+    /// <summary>Access <c>StrConv(string, conversion)</c> — case modes only (verified vs ACE): 1 = UpperCase,
+    /// 2 = LowerCase, 3 = ProperCase (title case). Other modes (Wide/Unicode/…) raise "Invalid procedure call",
+    /// matching ACE. NULL-propagating.</summary>
+    private object? StrConv(FunctionCall f)
+    {
+        object? sv = Evaluate(f.Arguments[0]);
+        object? modeV = Evaluate(f.Arguments[1]);
+        if (sv is null || modeV is null) return null;
+        string s = sv.ToString()!;
+        return Convert.ToInt32(modeV, CultureInfo.InvariantCulture) switch
+        {
+            1 => s.ToUpperInvariant(),
+            2 => s.ToLowerInvariant(),
+            3 => EnUs.TextInfo.ToTitleCase(s.ToLowerInvariant()),
+            _ => throw new InvalidOperationException("Invalid procedure call: unsupported StrConv conversion mode."),
+        };
+    }
+
+    /// <summary>VBA <c>WeekdayName(weekday, [abbreviate=False], [firstDayOfWeek=vbSunday])</c>: the name of the
+    /// day at 1-based position <c>weekday</c> in a week starting from <c>firstDayOfWeek</c> (1=Sunday … 7=Saturday).
+    /// Verified vs ACE for an explicit first day (<c>WeekdayName(1,,1)</c>→"Sunday", <c>(1,,2)</c>→"Monday"). NOTE:
+    /// ACE's *omitted* default follows the OS regional first day; LibRed uses the VBA-documented default of
+    /// vbSunday for determinism, so the no-third-arg case may differ from a given ACE host. NULL-propagating.</summary>
+    private object? WeekdayNameOf(FunctionCall f)
+    {
+        object? wdV = Evaluate(f.Arguments[0]);
+        if (wdV is null) return null;
+        int weekday = Convert.ToInt32(wdV, CultureInfo.InvariantCulture);
+        bool abbreviate = f.Arguments.Count > 1 && IsTrue(f.Arguments[1]);
+        int firstDay = f.Arguments.Count > 2 ? Convert.ToInt32(Evaluate(f.Arguments[2]), CultureInfo.InvariantCulture) : 1;
+        if (firstDay == 0) firstDay = 1;                 // vbUseSystem → treat as vbSunday for determinism
+        // Map to a 0..6 index into Sunday..Saturday.
+        int index = ((firstDay - 1) + (weekday - 1)) % 7;
+        if (index < 0) index += 7;
+        var names = abbreviate ? EnUs.DateTimeFormat.AbbreviatedDayNames : EnUs.DateTimeFormat.DayNames;
+        return names[index];
+    }
+
+    /// <summary>Access <c>Partition(number, start, stop, interval)</c>: a <c>"lower:upper"</c> range label, both
+    /// sides right-justified to a fixed width. Below the range → lower blank, upper = <c>start-1</c>; above →
+    /// lower = <c>stop+1</c>, upper blank; otherwise the interval bucket (verified vs ACE). NULL-propagating.</summary>
+    private object? PartitionOf(FunctionCall f)
+    {
+        object? nV = Evaluate(f.Arguments[0]);
+        if (nV is null) return null;
+        long number = Convert.ToInt64(nV, CultureInfo.InvariantCulture);
+        long start = Convert.ToInt64(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture);
+        long stop = Convert.ToInt64(Evaluate(f.Arguments[2]), CultureInfo.InvariantCulture);
+        long interval = Convert.ToInt64(Evaluate(f.Arguments[3]), CultureInfo.InvariantCulture);
+
+        // Fixed field width = the widest boundary that can appear (the below/above sentinels).
+        int width = Math.Max((start - 1).ToString(CultureInfo.InvariantCulture).Length,
+                             (stop + 1).ToString(CultureInfo.InvariantCulture).Length);
+
+        string lower, upper;
+        if (number < start) { lower = ""; upper = (start - 1).ToString(CultureInfo.InvariantCulture); }
+        else if (number > stop) { lower = (stop + 1).ToString(CultureInfo.InvariantCulture); upper = ""; }
+        else
+        {
+            long lo = start + (number - start) / interval * interval;
+            long hi = Math.Min(lo + interval - 1, stop);
+            lower = lo.ToString(CultureInfo.InvariantCulture);
+            upper = hi.ToString(CultureInfo.InvariantCulture);
+        }
+        return $"{lower.PadLeft(width)}:{upper.PadLeft(width)}";
+    }
 
     /// <summary>VBA <c>LeftB(string, bytes)</c>: the leading <c>bytes</c> bytes of the UTF-16 layout, i.e. the
     /// first <c>bytes/2</c> characters. NULL-propagating.</summary>

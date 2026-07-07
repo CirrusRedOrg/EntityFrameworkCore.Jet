@@ -76,6 +76,39 @@ public class AceAlterColumnTests
     }
 
     [Fact]
+    public void Access_enforces_the_relationship_after_a_libred_parent_side_rewrite()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"prw-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var conn = OpenOleDb(path))
+            {
+                void Exec(string s) { using var c = conn.CreateCommand(); c.CommandText = s; c.ExecuteNonQuery(); }
+                Exec("CREATE TABLE P ( PID LONG PRIMARY KEY, PData LONG )");
+                Exec("CREATE TABLE C ( CID LONG PRIMARY KEY, PID LONG, CONSTRAINT FK FOREIGN KEY (PID) REFERENCES P (PID) )");
+                Exec("INSERT INTO P (PID, PData) VALUES (1, 100)");
+                Exec("INSERT INTO C (CID, PID) VALUES (10, 1)");
+            }
+
+            // LibRed rewrites the PARENT's non-relationship column (drops+recreates P, re-adds the child's FK).
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                db.AlterColumn("P", "PData", new ColumnSpec("PData", JetDataType.Double, 8, IsFixedLength: true));
+
+            using (var conn = OpenOleDb(path))
+            {
+                // parent data converted
+                double pdata; using (var c = conn.CreateCommand()) { c.CommandText = "SELECT PData FROM P WHERE PID = 1"; pdata = Convert.ToDouble(c.ExecuteScalar()); }
+                Assert.Equal(100.0, pdata);
+                // ACE still enforces the relationship: orphan rejected, valid parent accepted
+                using (var bad = conn.CreateCommand()) { bad.CommandText = "INSERT INTO C (CID, PID) VALUES (20, 77)"; Assert.ThrowsAny<OleDbException>(() => bad.ExecuteNonQuery()); }
+                using (var ok = conn.CreateCommand()) { ok.CommandText = "INSERT INTO C (CID, PID) VALUES (21, 1)"; ok.ExecuteNonQuery(); }
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Access_reads_a_libred_full_rewrite_with_converted_values()
     {
         string path = Path.Combine(Path.GetTempPath(), $"rw-{Guid.NewGuid():N}.accdb");

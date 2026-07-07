@@ -167,10 +167,26 @@ public class AlterColumnTests
     }
 
     [Fact]
-    public void Alter_a_parent_side_column_is_not_supported()
+    public void Alter_a_parent_side_non_relationship_column_preserves_the_relationship()
     {
         var e = Related();
-        // ACE allows this; LibRed's rebuild can't drop a referenced parent table.
-        Assert.Throws<NotSupportedException>(() => e.ExecuteNonQuery("ALTER TABLE P ALTER COLUMN PData DOUBLE"));
+        e.ExecuteNonQuery("ALTER TABLE P ALTER COLUMN PData DOUBLE");   // parent's non-rel column
+
+        // parent data converted, and the relationship still enforced (child orphan rejected, valid parent ok)
+        Assert.Equal(100.0, Convert.ToDouble(e.ExecuteQuery("SELECT PData FROM P WHERE PID = 1").Rows.Single()[0]));
+        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO C (CID, PID, CData) VALUES (20, 77, 1)")); // orphan
+        e.ExecuteNonQuery("INSERT INTO C (CID, PID, CData) VALUES (21, 1, 1)");                                     // valid parent
+        // the existing child row still resolves to its parent
+        Assert.Equal(5, Convert.ToInt32(e.ExecuteQuery("SELECT CData FROM C WHERE CID = 10").Rows.Single()[0]));
+    }
+
+    [Fact]
+    public void Alter_parent_and_child_both_work_across_the_relationship()
+    {
+        var e = Related();
+        e.ExecuteNonQuery("ALTER TABLE C ALTER COLUMN CData DOUBLE");   // child rebuild
+        e.ExecuteNonQuery("ALTER TABLE P ALTER COLUMN PData DOUBLE");   // then parent rebuild
+        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO C (CID, PID, CData) VALUES (30, 88, 1)"));
+        e.ExecuteNonQuery("INSERT INTO C (CID, PID, CData) VALUES (31, 1, 1)");
     }
 }

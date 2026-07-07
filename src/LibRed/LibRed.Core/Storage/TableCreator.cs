@@ -467,6 +467,18 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         const int MapLength = 1 + 4 + 64; // inline type + start page + 64-byte bitmap (matches WriteUsageMaps)
         byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
         int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
+
+        // Reuse a row slot left orphaned by a prior index drop — DropConstraint/DropIndex leave the dropped
+        // index's usage-map row in place (matching ACE), and a re-added index takes the same slot number. Clear
+        // its bitmap in place rather than appending a duplicate. (Needed when a parent-side ALTER COLUMN rewrite
+        // drops and re-adds a child's foreign key.)
+        if (newRow < rowCount)
+        {
+            int existing = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + newRow * 2, 2));
+            Array.Clear(page, existing, MapLength);
+            _channel.WritePage(pageNumber, page);
+            return;
+        }
         if (rowCount != newRow)
             throw new InvalidOperationException(
                 $"Usage-map page has {rowCount} rows; expected {newRow} before appending the new index's map.");
@@ -1012,16 +1024,15 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
                 (string.Equals(r.ReferencedTable, tableName, oic) && r.Columns.Any(c => string.Equals(c.ReferencedColumn, columnName, oic)))))
             throw new InvalidOperationException($"Cannot change field '{columnName}'. It is part of one or more relationships.");
 
-        // The rebuild drops+recreates the table. LibRed's DropTable can't drop a table referenced as a
-        // relationship parent, so a parent-side rewrite isn't supported (ACE allows it; drop the FK first).
-        if (_catalog.Relationships.Any(r => string.Equals(r.ReferencedTable, tableName, oic)))
-            throw new NotSupportedException(
-                $"ALTER COLUMN '{tableName}.{columnName}': the table is referenced by a relationship (a rebuild " +
-                "can't drop a parent table); drop the foreign key(s) first.");
-
-        // The table's outgoing foreign keys are captured and re-added after the rebuild (DropTable cascades them
-        // away). Their backing indexes are recreated by re-adding the FK, so they're excluded from `secondary`.
+        // The rebuild drops + recreates the table, so every relationship it touches is captured and restored
+        // afterwards. OUTGOING FKs (this table is the child) are cascaded away by DropTable and re-added; their
+        // backing indexes are recreated with them, so they're excluded from `secondary`. INCOMING FKs (this table
+        // is the referenced parent) are dropped up front so the parent can be dropped, then re-added — this is
+        // what makes a parent-side rewrite work. Self-references count as outgoing only.
         var foreignKeys = _catalog.ForeignKeysOf(tableName).ToList();
+        var incoming = _catalog.Relationships
+            .Where(r => string.Equals(r.ReferencedTable, tableName, oic) && !string.Equals(r.Table, tableName, oic))
+            .ToList();
         var fkColumnSets = foreignKeys.Select(fk => fk.Columns.Select(c => c.Column).ToArray()).ToList();
 
         // 1. Materialise all rows (values indexed by column position) before dropping the table.
@@ -1050,7 +1061,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         foreach (object?[] row in rows)
             row[targetIndex] = ConvertValue(row[targetIndex], newColumnSpec.Type);
 
-        // 4. Drop → recreate (PK only) → re-insert → recreate secondary indexes.
+        // 4. Drop incoming relationships (so the parent becomes unreferenced) → drop → recreate (PK only) →
+        //    re-insert → recreate secondary indexes → re-add outgoing then incoming relationships.
+        foreach (ForeignKey r in incoming) { DropConstraint(r.Table, r.Name); _catalog.Invalidate(); }
         DropTable(tableName);
         _catalog.Invalidate();
         Create(tableName, specs, primaryKey, relationships: null, uniqueConstraints: null,
@@ -1072,6 +1085,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         {
             AddForeignKey(tableName, new RelationshipSpec(fk.Name, fk.ReferencedTable, fk.Columns.ToList(),
                 fk.IsEnforced, fk.CascadeUpdate, fk.CascadeDelete, NoIndex: false, fk.DeleteSetNull, fk.UpdateSetNull));
+            _catalog.Invalidate();
+        }
+
+        // Re-add the incoming relationships — each child's FK back to the rebuilt parent.
+        foreach (ForeignKey r in incoming)
+        {
+            AddForeignKey(r.Table, new RelationshipSpec(r.Name, r.ReferencedTable, r.Columns.ToList(),
+                r.IsEnforced, r.CascadeUpdate, r.CascadeDelete, NoIndex: false, r.DeleteSetNull, r.UpdateSetNull));
             _catalog.Invalidate();
         }
     }

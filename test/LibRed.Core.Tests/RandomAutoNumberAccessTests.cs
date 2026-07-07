@@ -1,0 +1,89 @@
+using System.Data.OleDb;
+using LibRed;
+using LibRed.Catalog;
+using Xunit;
+
+namespace LibRed.Core.Tests;
+
+// Byte-faithful check: a LibRed-written "Random" AutoNumber (COUNTER DEFAULT GenUniqueID()) is read by Access.
+// ACE opens the file without repair, sees it as a proper AutoNumber (rejects a supplied Id, auto-assigns on
+// insert), and continues issuing random-looking (non-sequential) ids of its own.
+public class RandomAutoNumberAccessTests
+{
+    private static OleDbConnection OpenOleDb(string path)
+    {
+        Exception? last = null;
+        for (int attempt = 0; attempt < 12; attempt++)
+            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
+            {
+                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
+                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
+            }
+        throw new InvalidOperationException("no provider", last);
+    }
+
+    // A "Random" AutoNumber: an AutoNumber column carrying DefaultValue = GenUniqueID() (byte-identical to the
+    // UI-authored fixture database4.accdb). Created here via the Core CreateTable API with a column default.
+    private static void CreateRandomAutoNumberTable(string path)
+    {
+        using var db = JetDatabase.Open(path, readOnly: false);
+        db.CreateTable("R",
+        [
+            new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true),
+            new ColumnSpec("Name", JetDataType.Text, 40, IsFixedLength: false),
+        ],
+        columnDefaults: [("Id", "GenUniqueID()")]);
+    }
+
+    [Fact]
+    public void Access_reads_a_libred_written_random_autonumber_and_continues_it()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"rand-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            CreateRandomAutoNumberTable(path);
+
+            using var conn = OpenOleDb(path);
+
+            // ACE treats it as an AutoNumber: on a bare INSERT it assigns the Id itself.
+            void Insert(string n) { using var c = conn.CreateCommand(); c.CommandText = $"INSERT INTO R (Name) VALUES ('{n}')"; c.ExecuteNonQuery(); }
+            Insert("a"); Insert("b"); Insert("c");
+
+            var ids = new List<int>();
+            using (var q = conn.CreateCommand())
+            {
+                q.CommandText = "SELECT Id FROM R";
+                using var r = q.ExecuteReader();
+                while (r.Read()) ids.Add(Convert.ToInt32(r[0]));
+            }
+
+            // ACE issues its own random (non-sequential, non-zero, distinct) ids into LibRed's table.
+            Assert.Equal(3, ids.Count);
+            Assert.Equal(3, ids.Distinct().Count());
+            Assert.DoesNotContain(0, ids);
+            Assert.False(ids.Zip(ids.Skip(1)).All(p => p.Second - p.First == 1), "ids should not be sequential");
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void Random_autonumber_descriptor_round_trips_through_libred()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"rand-desc-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            CreateRandomAutoNumberTable(path);
+
+            // Read back through LibRed — same shape as the UI-authored fixture (database4.accdb):
+            // an AutoNumber column carrying DefaultValue = GenUniqueID().
+            using var reopened = JetDatabase.Open(path);
+            var col = reopened.Catalog.UserTables.Single(t => t.Name == "R").Columns.Single(c => c.Name == "Id");
+            Assert.True(col.IsAutoNumber);
+            Assert.True(col.IsRandomAutoNumber);
+            Assert.Equal("GenUniqueID()", col.DefaultValue);
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+}

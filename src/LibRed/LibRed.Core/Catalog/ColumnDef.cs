@@ -44,6 +44,13 @@ public sealed class ColumnDef
     /// Set by the catalog after the descriptors are decoded (the property lives outside the TDEF).</summary>
     public string? DefaultValue { get; internal set; }
 
+    /// <summary>A "Random" AutoNumber — an AutoNumber column whose <see cref="DefaultValue"/> is the built-in
+    /// <c>GenUniqueID()</c> expression (Access's "New Values = Random"). Such a column is assigned a random
+    /// Int32 on insert instead of the sequential seed/increment counter, and its TDEF high-water is left
+    /// unadvanced. Verified byte-identical to a UI-authored Random AutoNumber (see the format spec).</summary>
+    public bool IsRandomAutoNumber => IsAutoNumber && DefaultValue is not null
+        && DefaultValue.Trim().Equals("GenUniqueID()", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Precision/scale for <see cref="JetDataType.FixedPoint"/> columns.</summary>
     public byte Precision { get; init; }
     public byte Scale { get; init; }

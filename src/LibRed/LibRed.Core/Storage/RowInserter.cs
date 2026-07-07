@@ -651,11 +651,23 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         foreach (ColumnDef column in _table.Columns)
             if (column.IsAutoNumber && values[column.Index] is null or DBNull)
             {
-                // Next id = last-assigned + increment. On a fresh table the last value (0x14) is Seed-Increment,
-                // so the first assigned id is the Seed.
-                highWater += column.Increment;
-                values[column.Index] = highWater;
+                if (column.IsRandomAutoNumber)
+                    // "Random" AutoNumber (DefaultValue = GenUniqueID()): a random Int32, independent of the
+                    // sequential counter. Access relies on the PK's uniqueness to reject the rare collision.
+                    values[column.Index] = RandomAutoNumber();
+                else
+                    // Next id = last-assigned + increment. On a fresh table the last value (0x14) is
+                    // Seed-Increment, so the first assigned id is the Seed.
+                    values[column.Index] = highWater += column.Increment;
             }
+    }
+
+    /// <summary>A random non-zero signed Int32 for a "Random" AutoNumber, mirroring Access's <c>GenUniqueID()</c>.</summary>
+    private static int RandomAutoNumber()
+    {
+        int value;
+        do { value = Random.Shared.Next(int.MinValue, int.MaxValue); } while (value == 0);
+        return value;
     }
 
     /// <summary>
@@ -684,6 +696,10 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         foreach (ColumnDef column in _table.Columns)
         {
             if (!column.IsAutoNumber || values[column.Index] is not { } value) continue;
+            // A "Random" AutoNumber leaves the high-water at its default (Access ignores 0x14 for it — verified:
+            // a UI-authored Random AutoNumber reads last-value 0). Advancing it would be meaningless (random ids
+            // don't form a monotone sequence) and diverge from Access's on-disk state.
+            if (column.IsRandomAutoNumber) continue;
             int assigned = Convert.ToInt32(value);
             int highWater = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4));
             // Advance 0x14 to the id just written when it moves further in the counter's direction — for a

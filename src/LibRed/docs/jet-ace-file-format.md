@@ -935,9 +935,11 @@ The split mechanics:
   > numeric columns — rejected on text: "Cannot place this validation expression on this field") and generates a
   > **random signed Long per row** (verified: `117617513`, `904519542`, `-1470084161`). Quoting it —
   > `DEFAULT 'GenUniqueID()'` — makes it a plain literal string stored verbatim. So a Random AutoNumber is
-  > effectively an AutoNumber column carrying the unquoted `GenUniqueID()` default; LibRed reads the default text
-  > but does not evaluate the generator, so it would assign via the sequential counter, not random (a divergence
-  > only relevant if such a table is written back and inserted through LibRed).
+  > effectively an AutoNumber column carrying the unquoted `GenUniqueID()` default. **LibRed now creates and
+  > inserts these**: `CREATE TABLE ( Id COUNTER DEFAULT GenUniqueID(), … )` persists the `GenUniqueID()` default
+  > to the column's LvProp (byte-identical to a UI/ACE-authored one, so ACE reads it as a Random AutoNumber), and
+  > on insert LibRed assigns a random non-zero Int32 per row instead of the sequential counter, leaving the TDEF
+  > high-water (`0x14`) unadvanced (as ACE does). `ColumnDef.IsRandomAutoNumber` gates this off the default text.
 
 - **LVAL (long-value) page** — a data page (type `0x01`) whose owner field (`0x04`) is the ASCII marker
   `"LVAL"` instead of a TDEF page number. A single-page long value stores the whole payload as row 0; the

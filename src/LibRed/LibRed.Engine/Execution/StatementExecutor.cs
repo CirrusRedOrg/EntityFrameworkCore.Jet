@@ -446,8 +446,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         // Columns with a DEFAULT value (parsed once): applied to any row that omits the column, matching
         // Access — EF Core relies on the store default rather than supplying the value itself.
+        // AutoNumber columns are excluded: their value is assigned by the row inserter (sequential counter, or
+        // a random Int32 for a GenUniqueID() "Random" AutoNumber), not by evaluating the DefaultValue — and
+        // GenUniqueID() is not a callable expression, so parsing it as a default would fail.
         var defaultColumns = columns
-            .Where(c => c.DefaultValue is not null)
+            .Where(c => c.DefaultValue is not null && !c.IsAutoNumber)
             .Select(c => (c.Index, Expression: _parser.ParseExpression(c.DefaultValue!)))
             .ToList();
 

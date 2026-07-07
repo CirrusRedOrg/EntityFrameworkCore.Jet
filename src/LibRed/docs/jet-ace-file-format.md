@@ -925,9 +925,12 @@ The split mechanics:
   > Increment-vs-Random distinction lives entirely in this default expression. Verified against a modern
   > Office-365-authored file (`Table1(ID AutoNumber, New Values=Random)`): the ID descriptor and TDEF header are
   > **byte-identical** to an increment counter, and LibRed already surfaces it (`ColumnDef.DefaultValue` =
-  > `"GenUniqueID()"`) via the ordinary DefaultValue read path — no special handling needed to detect it. Access
-  > can only set the AutoNumber *New Values=Random* combo via the UI/DAO, not SQL (`COUNTER` is always
-  > incrementing). But `GenUniqueID()` **is a real ACE default-expression**, not a marker: `SELECT GenUniqueID()`
+  > `"GenUniqueID()"`) via the ordinary DefaultValue read path — no special handling needed to detect it. A
+  > Random AutoNumber **can** be created in pure SQL (not UI/DAO-only): `CREATE TABLE T (Id COUNTER DEFAULT
+  > GenUniqueID(), ...)` — also `AUTOINCREMENT`/`COUNTER PRIMARY KEY` forms — is accepted by ACE and yields
+  > genuinely random signed-Long IDs on insert (verified: `-1637443712, 1680187777, 83315118`), reading back
+  > byte-identical to the UI-authored column. `GenUniqueID()` **is a real ACE default-expression**, not a marker:
+  > `SELECT GenUniqueID()`
   > errors ("Undefined function"), yet an **unquoted** `col long DEFAULT GenUniqueID()` **is** accepted (on
   > numeric columns — rejected on text: "Cannot place this validation expression on this field") and generates a
   > **random signed Long per row** (verified: `117617513`, `904519542`, `-1470084161`). Quoting it —

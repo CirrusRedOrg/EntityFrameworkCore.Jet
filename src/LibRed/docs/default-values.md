@@ -92,6 +92,18 @@ cannot be smuggled past it: a column-ref default written to `LvProp` opens clean
 
 A full cross-check of Access scalar functions through ACE's expression service and LibRed's evaluator.
 
+> **Two expression services.** Access has *two* function evaluators, and this matters for what "ACE has it"
+> means:
+> 1. **The Jet/ACE OLE DB Expression Service (JES)** — the built-in set the ACE OLE DB provider carries when
+>    running **standalone** (no Access application). This is what the probes here hit, and it is the correct
+>    reference for LibRed, which is likewise a standalone engine with no Access application.
+> 2. **The Access Application Expression Service** — when a query runs **inside `MSACCESS.EXE`**, the full VBA
+>    runtime plus Access-app functions are available. So functions like `Split`, `Nz`, `Environ`, and the domain
+>    aggregates work there but **not** through the OLE DB provider ("Undefined function").
+>
+> LibRed targets the JES (standalone) surface. Functions that exist only in the Access-application service are
+> therefore correctly **absent** from LibRed — matching the standalone provider, not a gap.
+
 **Aligned — both implement (~54):** `CBool CByte CCur CDate CDbl CInt CLng CSng CStr CVar` · `Len LCase UCase
 Trim LTrim RTrim Left Right Mid InStr Replace` · `Chr Space String StrReverse StrComp Str Val Hex Oct InStrRev` ·
 `Abs Int Fix Sgn Round Sqr Sin Cos Tan Atn Exp Log Rnd Timer` · `Now Date Time Year Month Day Hour Minute Second
@@ -137,8 +149,11 @@ Nothing remains deferred.
 | `GenUniqueID()` in a `SELECT` | rejected ("Undefined function") | evaluates (random Long) | ACE restricts it to a default; LibRed allows it as a general function. Harmless. |
 | `CDec(x)` | rejected in a query expression | evaluates | ACE's query engine doesn't expose `CDec`; low concern. |
 
-**Aligned rejection:** `Nz` — ACE's *engine* has no `Nz` ("Undefined function"; it's an Access-application
-function), and neither does LibRed. Correctly **not** added.
+**Access-application-only — absent from the JES and from LibRed (correct):** `Nz`, `Split`, and similar. The OLE
+DB provider reports "Undefined function" for these; they only exist inside `MSACCESS.EXE` (see the two-services
+note above). LibRed matches the standalone provider by rejecting them. `Split` additionally returns a **Variant
+array**, which has no scalar-SQL representation regardless — even in Access the `SELECT Split(...)` "result" is
+the array's debug rendering, not a storable column value.
 
 > The whitelist is now closely aligned but **not proven exhaustive** — `Choose`/`Switch` and the string/type
 > batch were gaps this sweep surfaced; nothing remains deferred. Re-run the sweep (`FunctionWhitelist*Probe`

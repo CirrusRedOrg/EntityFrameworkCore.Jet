@@ -82,19 +82,39 @@ public class DateTimeDefaultTests
         Assert.Equal(want, Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture));
     }
 
-    // A default cannot reference another column — Access forbids it ("The database engine does not recognize
-    // either the field 'A' in a validation expression, or the default value in the table 'T'"). A default is a
-    // function of the environment (Now(), GenUniqueID()) and constants, never of row data or other tables. LibRed
-    // matches by rejecting it (the default is evaluated against an empty scope, so the column doesn't resolve).
-    [Theory]
-    [InlineData("A")]
-    [InlineData("[A]")]
-    public void A_default_cannot_reference_another_column(string reference)
+    // A default cannot reference another column — but only a BRACKETED [A] is a column reference (rejected). A
+    // bare word is a literal string (see the bare-word tests), so it never resolves to a column. Verified vs ACE:
+    // DEFAULT [A] → "does not recognize the field 'A' ... or the default value".
+    [Fact]
+    public void A_bracketed_default_cannot_reference_another_column()
     {
         var e = Fresh();
-        e.ExecuteNonQuery($"CREATE TABLE T ( K LONG PRIMARY KEY, A LONG, B LONG DEFAULT {reference} )");
+        e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY, A LONG, B LONG DEFAULT [A] )");
         var ex = Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("INSERT INTO T (K, A) VALUES (1, 5)"));
         Assert.Contains("'A' was not found", ex.Message);
+    }
+
+    // An unquoted single word in a DEFAULT is a LITERAL STRING (verified vs ACE), never a column reference —
+    // DEFAULT Unknown → "Unknown", and DEFAULT K → "K" even when K is a column. The niladic Now is the exception.
+    [Theory]
+    [InlineData("Unknown", "Unknown")]
+    [InlineData("K", "K")]               // a bare word matching a column is still the literal word
+    [InlineData("hello", "hello")]
+    public void A_bare_word_default_is_a_literal_string(string bareDefault, string expected)
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery($"CREATE TABLE T ( K LONG PRIMARY KEY, V TEXT(50) DEFAULT {bareDefault} )");
+        e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
+        Assert.Equal(expected, e.ExecuteQuery("SELECT V FROM T WHERE K = 1").Rows.Single()[0]);
+    }
+
+    // A multi-word bare default is a syntax error (matching ACE), rejected at CREATE.
+    [Fact]
+    public void A_multi_word_bare_default_is_a_syntax_error()
+    {
+        var e = Fresh();
+        Assert.ThrowsAny<Exception>(() =>
+            e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY, V TEXT(50) DEFAULT this is the default string )"));
     }
 
     // Aggregate functions (SQL Sum/Count or domain DCount) are not allowed in a default — ACE rejects them as

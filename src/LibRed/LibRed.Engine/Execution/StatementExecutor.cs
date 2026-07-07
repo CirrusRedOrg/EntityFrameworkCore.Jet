@@ -72,6 +72,22 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         return 0;
     }
 
+    private static readonly System.Text.RegularExpressions.Regex BareWord =
+        new(@"^[A-Za-z_][A-Za-z_0-9]*$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>Parses a column DEFAULT into an expression. In Access an **unquoted single word** is a LITERAL
+    /// STRING (verified vs ACE: <c>DEFAULT Unknown</c> → "Unknown", <c>DEFAULT K</c> → "K" even when K is a
+    /// column) — it is never a column reference. The one exception is the niladic <c>Now</c> function. A
+    /// bracketed <c>[X]</c> stays a column reference (rejected in a default); a quoted literal, function call, or
+    /// compound expression parses normally. (A multi-word bare default is a syntax error at CREATE, matching ACE.)</summary>
+    private Expression ParseDefaultExpression(string text)
+    {
+        string t = text.Trim();
+        return BareWord.IsMatch(t) && !t.Equals("Now", StringComparison.OrdinalIgnoreCase)
+            ? new LiteralExpression(t)
+            : _parser.ParseExpression(text);
+    }
+
     /// <summary>Rejects an insert that leaves a NOT NULL (Required) column null after defaults are applied —
     /// matching Access, which raises "You must enter a value in the 'Table.Column' field." AutoNumber columns
     /// are exempt: they are assigned during the write, not supplied here.</summary>
@@ -522,7 +538,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // GenUniqueID() is not a callable expression, so parsing it as a default would fail.
         var defaultColumns = columns
             .Where(c => c.DefaultValue is not null && !c.IsAutoNumber)
-            .Select(c => (c.Index, Expression: _parser.ParseExpression(c.DefaultValue!)))
+            .Select(c => (c.Index, Expression: ParseDefaultExpression(c.DefaultValue!)))
             .ToList();
 
         // Jet allows at most one AutoNumber column; its post-insert value is @@IDENTITY.

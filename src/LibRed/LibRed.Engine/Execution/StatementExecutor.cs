@@ -353,6 +353,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         AddColumnAction add => AddColumn(statement.Table, add.Column),
         // DROP COLUMN: a metadata-only TDEF edit (remove the descriptor + name, decrement ColumnCount).
         DropColumnAction dropCol => DropColumn(statement.Table, dropCol.Field),
+        // ALTER COLUMN field type: change the column's declared type (a variable text/binary length change is a
+        // descriptor edit; other storage-type changes need a full column rewrite and throw NotSupported).
+        AlterColumnAction alterCol => AlterColumn(statement.Table, alterCol),
         // The remaining actions land in their own follow-up steps.
         _ => throw new NotSupportedException(
             $"ALTER TABLE {statement.Action.GetType().Name} is parsed but not executed yet."),
@@ -446,6 +449,13 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private int AddCheck(string table, AddCheckAction chk)
     {
         _database.AddCheckConstraint(table, chk.Check.Name ?? $"CK_{table}", chk.Check.Expression);
+        return 0;
+    }
+
+    private int AlterColumn(string table, AlterColumnAction alter)
+    {
+        var colDef = new ColumnDefinition(alter.Field, alter.TypeName, alter.Size, alter.Scale, NotNull: false, PrimaryKey: false);
+        _database.AlterColumn(table, alter.Field, AccessTypeMapper.ToColumnSpec(colDef));
         return 0;
     }
 

@@ -918,6 +918,42 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         throw new InvalidOperationException($"MSysObjects row for table '{tableName}' (page {tdefPage}) was not found.");
     }
 
+    /// <summary>Changes a column's declared type — ALTER TABLE … ALTER COLUMN. Supports changing a **variable
+    /// text/binary column's max length** (a descriptor-length edit at <c>ColumnLengthOffset</c>; variable columns
+    /// store each row's actual length, so no rows need rewriting — works on empty and populated tables). Changing
+    /// the storage type (numeric type, a fixed column's size, or fixed↔variable) would require an Access-style
+    /// full column rewrite (read all rows, convert values, re-lay-out the row) and throws NotSupported.</summary>
+    public void AlterColumn(string tableName, string columnName, ColumnSpec newSpec)
+    {
+        TableDef table = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
+        ColumnDef col = table.FindColumn(columnName)
+            ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
+
+        bool variableLengthChange =
+            !col.IsFixedLength && !newSpec.IsFixedLength && col.Type == newSpec.Type &&
+            newSpec.Type is JetDataType.Text or JetDataType.Binary;
+        if (!variableLengthChange)
+            throw new NotSupportedException(
+                $"ALTER COLUMN '{tableName}.{columnName}': only changing a variable text/binary column's length " +
+                "is supported yet; changing the storage type requires a full column rewrite (not implemented).");
+
+        JetFormatBase format = _channel.Format;
+        TdefParts parts = ParseTdef(table.DefinitionPage);
+        byte[] cols = parts.Columns;
+        int descSize = format.ColumnDescriptorSize;
+        for (int i = 0; i < table.Columns.Count; i++)
+        {
+            int entry = i * descSize;
+            int colId = BinaryPrimitives.ReadUInt16LittleEndian(cols.AsSpan(entry + format.ColumnNumberOffset, 2));
+            if (colId != col.ColumnId) continue;
+            BinaryPrimitives.WriteUInt16LittleEndian(cols.AsSpan(entry + format.ColumnLengthOffset, 2), (ushort)newSpec.Length);
+            WriteTdef(table.DefinitionPage, parts);
+            return;
+        }
+        throw new InvalidOperationException($"Descriptor for column '{columnName}' (id {col.ColumnId}) was not found.");
+    }
+
     private const int TdefMaxColumnsOffset = 0x29;
 
     /// <summary>Appends the new column's descriptor (after the existing descriptors) and its name (after the

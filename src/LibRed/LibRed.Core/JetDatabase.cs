@@ -123,6 +123,14 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
+    /// <summary>Changes a column's declared type — ALTER TABLE … ALTER COLUMN. Supports a variable text/binary
+    /// column's length change; a storage-type change throws NotSupported (needs a full column rewrite).</summary>
+    public void AlterColumn(string table, string column, ColumnSpec newSpec)
+    {
+        new Storage.TableCreator(_channel, Catalog).AlterColumn(table, column, newSpec);
+        Catalog.Invalidate();
+    }
+
     /// <summary>Drops a named FOREIGN KEY constraint from a table — ALTER TABLE … DROP CONSTRAINT. Returns
     /// false if no such relationship exists (e.g. the name is a primary-key/unique index, not yet handled).</summary>
     public bool DropConstraint(string childTable, string name) =>

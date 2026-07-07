@@ -56,6 +56,27 @@ public class DateTimeDefaultTests
         Assert.InRange(v.TimeOfDay, DateTime.Now.AddMinutes(-2).TimeOfDay, DateTime.Now.AddMinutes(2).TimeOfDay);
     }
 
+    // A Jet default is a per-row expression, so a compound one works too — LibRed's SQL front-end + evaluator
+    // handle string concat (&), literal arithmetic and nested calls, which ACE's OLE DB DDL parser (but not its
+    // read-time expression service) rejects. These are the same expressions AceCompoundDefaultTests round-trips
+    // through ACE.
+    [Theory]
+    [InlineData("TEXT(20)", "\"INV-\" & Year(Now())", "INV-2026")]
+    [InlineData("TEXT(20)", "'INV-' & Year(Now())", "INV-2026")]
+    [InlineData("TEXT(20)", "UCase('hi')", "HI")]
+    [InlineData("LONG", "1 + 2", "3")]
+    [InlineData("LONG", "Year(Now())", "2026")]
+    public void Compound_expression_defaults_are_evaluated(string type, string def, string expected)
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery($"CREATE TABLE T ( K LONG PRIMARY KEY, V {type} DEFAULT {def} )");
+        e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
+        object? v = e.ExecuteQuery("SELECT V FROM T").Rows.Single()[0];
+
+        string want = expected.Replace("2026", DateTime.Now.Year.ToString());
+        Assert.Equal(want, Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture));
+    }
+
     [Fact]
     public void A_real_column_named_Now_still_wins_over_the_function()
     {

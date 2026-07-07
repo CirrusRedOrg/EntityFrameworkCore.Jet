@@ -121,7 +121,9 @@ cross-check.)
   above range → `"101:   "` (lower=stop+1, upper blank); in range → the interval bucket (`Partition(5,1,100,10)`
   → `"  1: 10"`, `Partition(100,1,100,10)` → `" 91:100"`). Fully deterministic — matches ACE.
 - **`StrConv(string, conversion)`** — `1`=UpperCase, `2`=LowerCase, `3`=ProperCase (title case: `"mixed CASE
-  text"` → `"Mixed Case Text"`). Modes ≥4 (Wide/Unicode) → "Invalid procedure call". Matches ACE.
+  text"` → `"Mixed Case Text"`); `64`=vbUnicode (reinterpret the UTF-16 bytes as one char each — `'hello'` →
+  `h\0e\0l\0l\0o\0`) and `128`=vbFromUnicode (combine char pairs into single code units — `'hello'` → `敨汬`,
+  trailing char dropped). The narrow/wide and Kana modes (`4`/`16`/`32`) → "Invalid procedure call". Matches ACE.
 - **`WeekdayName(weekday, [abbreviate=False], [firstdayofweek])`** — day name for `weekday` (1–7) counting from
   `firstdayofweek` (1=Sun … 7=Sat). `abbreviate` → 3-letter. Matches ACE with an explicit `firstdayofweek`
   (`WeekdayName(1,,1)`→"Sunday", `WeekdayName(1,,2)`→"Monday"). **Caveat:** ACE's *omitted* `firstdayofweek`

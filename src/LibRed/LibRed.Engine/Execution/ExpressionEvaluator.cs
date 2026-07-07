@@ -267,14 +267,18 @@ internal sealed class ExpressionEvaluator(
         return new string(ch, count);
     }
 
-    /// <summary>Access <c>StrComp(a, b)</c>: -1/0/1. Case-insensitive (Access "Option Compare Database" = Text).
-    /// NULL-propagating.</summary>
+    /// <summary>Access <c>StrComp(a, b, [compare])</c>: -1/0/1 (NULL-propagating). compare=0 is a binary
+    /// (case-sensitive) comparison; the default and every other mode are textual (case-insensitive, Access
+    /// "Option Compare Database" = Text). Verified vs ACE (<c>StrComp('a','A',0)</c>=1, default=0).</summary>
     private object? StrComp(FunctionCall f)
     {
         object? a = Evaluate(f.Arguments[0]);
         object? b = Evaluate(f.Arguments[1]);
         if (a is null || b is null) return null;
-        return Math.Sign(string.Compare(a.ToString(), b.ToString(), StringComparison.OrdinalIgnoreCase));
+        StringComparison cmp = f.Arguments.Count > 2
+            && Convert.ToInt32(Evaluate(f.Arguments[2]), CultureInfo.InvariantCulture) == 0
+            ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+        return Math.Sign(string.Compare(a.ToString(), b.ToString(), cmp));
     }
 
     /// <summary>Access <c>InStrRev(string1, string2, [start=-1], [compare])</c>: the 1-based position of the last
@@ -463,9 +467,10 @@ internal sealed class ExpressionEvaluator(
         return sb.ToString();
     }
 
-    /// <summary>Access <c>StrConv(string, conversion)</c> — case modes only (verified vs ACE): 1 = UpperCase,
-    /// 2 = LowerCase, 3 = ProperCase (title case). Other modes (Wide/Unicode/…) raise "Invalid procedure call",
-    /// matching ACE. NULL-propagating.</summary>
+    /// <summary>Access <c>StrConv(string, conversion)</c> (verified vs ACE): 1 = UpperCase, 2 = LowerCase,
+    /// 3 = ProperCase (title case); 64 = vbUnicode (reinterpret the UTF-16 bytes as one char each — doubles the
+    /// length with null chars); 128 = vbFromUnicode (combine char pairs into single code units). The narrow/wide
+    /// and Japanese Kana modes (4/16/32) raise "Invalid procedure call", matching ACE. NULL-propagating.</summary>
     private object? StrConv(FunctionCall f)
     {
         object? sv = Evaluate(f.Arguments[0]);
@@ -477,8 +482,20 @@ internal sealed class ExpressionEvaluator(
             1 => s.ToUpperInvariant(),
             2 => s.ToLowerInvariant(),
             3 => EnUs.TextInfo.ToTitleCase(s.ToLowerInvariant()),
+            64 => new string(Encoding.Unicode.GetBytes(s).Select(x => (char)x).ToArray()),
+            128 => FromUnicodeBytes(s),
             _ => throw new InvalidOperationException("Invalid procedure call: unsupported StrConv conversion mode."),
         };
+    }
+
+    /// <summary>StrConv vbFromUnicode (128): combine successive character pairs into single UTF-16 code units
+    /// (low char = low byte, next char = high byte); a trailing unpaired char is dropped (verified vs ACE).</summary>
+    private static string FromUnicodeBytes(string s)
+    {
+        var sb = new StringBuilder();
+        for (int i = 0; i + 1 < s.Length; i += 2)
+            sb.Append((char)(s[i] | (s[i + 1] << 8)));
+        return sb.ToString();
     }
 
     /// <summary>VBA <c>WeekdayName(weekday, [abbreviate=False], [firstDayOfWeek=vbSunday])</c>: the name of the

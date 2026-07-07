@@ -165,6 +165,30 @@ internal sealed class ExpressionEvaluator(
             "LOG" => UnaryDouble(f, Math.Log),
             "SQR" => UnaryDouble(f, Math.Sqrt),
             "SGN" => UnaryDouble(f, d => Math.Sign(d)),
+
+            // More VBA/Access built-ins (verified vs ACE via the function-whitelist sweep). All NULL-propagating
+            // via Convert1 unless noted; positions are 1-based.
+            "CHR" => Convert1(f, v => ((char)Convert.ToInt32(v, CultureInfo.InvariantCulture)).ToString()),
+            "SPACE" => Convert1(f, v => new string(' ', Convert.ToInt32(v, CultureInfo.InvariantCulture))),
+            "STRING" => StringOf(f),                         // String(count, char) → char repeated count times
+            "STRREVERSE" => Convert1(f, v => new string(v.ToString()!.Reverse().ToArray())),
+            "STRCOMP" => StrComp(f),                         // -1/0/1 (case-insensitive, Access "Compare Database")
+            "STR" => Convert1(f, VbaStr),                    // number → text with a leading space when non-negative
+            "VAL" => Convert1(f, v => VbaVal(v.ToString()!)),// parse the leading numeric portion (Double), else 0
+            "HEX" => Convert1(f, v => Convert.ToString(Convert.ToInt64(v, CultureInfo.InvariantCulture), 16).ToUpperInvariant()),
+            "OCT" => Convert1(f, v => Convert.ToString(Convert.ToInt64(v, CultureInfo.InvariantCulture), 8)),
+            "INSTRREV" => InstrRev(f),                       // last occurrence, 1-based (0 if none)
+            "MONTHNAME" => Convert1(f, v => EnUs.DateTimeFormat.GetMonthName(Convert.ToInt32(v, CultureInfo.InvariantCulture))),
+            "TIMER" => (DateTime.Now - DateTime.Today).TotalSeconds,
+            "RND" => Random.Shared.NextDouble(),
+            // Predicates / type inspection. IsError is always false — LibRed has no error-value type. ISNULL
+            // returns a Boolean (ACE reports it as -1/0); both print as a boolean here.
+            "ISNULL" => Evaluate(f.Arguments[0]) is null,
+            "ISNUMERIC" => IsNumericValue(Evaluate(f.Arguments[0])),
+            "ISERROR" => false,
+            "TYPENAME" => TypeNameOf(Evaluate(f.Arguments[0])),
+            "VARTYPE" => VarTypeOf(Evaluate(f.Arguments[0])),
+
             // GenUniqueID(): Access's random-Long generator. Not callable in a SELECT (ACE errors "Undefined
             // function") but valid as a LONG column's DEFAULT, where it yields a random signed Int32 per row —
             // the mechanism behind a "Random" AutoNumber. Accepted on a plain LONG default too (ACE allows it
@@ -202,6 +226,99 @@ internal sealed class ExpressionEvaluator(
                 return Evaluate(f.Arguments[i + 1]);
         return null;
     }
+
+    private static readonly CultureInfo EnUs = CultureInfo.GetCultureInfo("en-US");
+
+    /// <summary>Access <c>String(count, character)</c>: <paramref name="f"/>'s first arg repeated. The character
+    /// arg may be a string (first char used) or a character code. NULL-propagating.</summary>
+    private object? StringOf(FunctionCall f)
+    {
+        object? countValue = Evaluate(f.Arguments[0]);
+        object? charValue = Evaluate(f.Arguments[1]);
+        if (countValue is null || charValue is null) return null;
+        int count = Convert.ToInt32(countValue, CultureInfo.InvariantCulture);
+        char ch = charValue is string s
+            ? (s.Length > 0 ? s[0] : ' ')
+            : (char)Convert.ToInt32(charValue, CultureInfo.InvariantCulture);
+        return new string(ch, count);
+    }
+
+    /// <summary>Access <c>StrComp(a, b)</c>: -1/0/1. Case-insensitive (Access "Option Compare Database" = Text).
+    /// NULL-propagating.</summary>
+    private object? StrComp(FunctionCall f)
+    {
+        object? a = Evaluate(f.Arguments[0]);
+        object? b = Evaluate(f.Arguments[1]);
+        if (a is null || b is null) return null;
+        return Math.Sign(string.Compare(a.ToString(), b.ToString(), StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Access <c>InStrRev(string, find)</c>: the 1-based position of the last occurrence, or 0.
+    /// Case-insensitive. NULL-propagating.</summary>
+    private object? InstrRev(FunctionCall f)
+    {
+        object? text = Evaluate(f.Arguments[0]);
+        object? find = Evaluate(f.Arguments[1]);
+        if (text is null || find is null) return null;
+        return text.ToString()!.LastIndexOf(find.ToString()!, StringComparison.OrdinalIgnoreCase) + 1;
+    }
+
+    /// <summary>VBA <c>Str(number)</c>: the number as text, with a leading space for non-negative values (VBA
+    /// reserves that column for the sign).</summary>
+    private static string VbaStr(object v)
+    {
+        double d = Convert.ToDouble(v, CultureInfo.InvariantCulture);
+        string s = d.ToString(CultureInfo.InvariantCulture);
+        return d >= 0 ? " " + s : s;
+    }
+
+    /// <summary>VBA <c>Val(string)</c>: the leading numeric portion as a Double (0 if none). Ignores everything
+    /// from the first non-numeric character.</summary>
+    private static object VbaVal(string s)
+    {
+        Match m = Regex.Match(s, @"^\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?");
+        return m.Success && double.TryParse(m.Value.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double d)
+            ? d : 0.0;
+    }
+
+    /// <summary>VBA <c>IsNumeric(value)</c>: true for a number or a numeric string.</summary>
+    private static bool IsNumericValue(object? v) => v switch
+    {
+        null or bool => false,
+        byte or short or int or long or float or double or decimal => true,
+        _ => double.TryParse(v.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out _),
+    };
+
+    /// <summary>VBA <c>TypeName(value)</c> — the Access type name (verified vs ACE, e.g. an Int32 literal → "Long").</summary>
+    private static string TypeNameOf(object? v) => v switch
+    {
+        null => "Null",
+        bool => "Boolean",
+        byte => "Byte",
+        short => "Integer",
+        int or long => "Long",
+        float => "Single",
+        double => "Double",
+        decimal => "Currency",
+        DateTime => "Date",
+        string => "String",
+        _ => v.GetType().Name,
+    };
+
+    /// <summary>VBA <c>VarType(value)</c> — the Access variant type code (vbLong=3, vbString=8, …).</summary>
+    private static int VarTypeOf(object? v) => v switch
+    {
+        null => 1,          // vbNull
+        bool => 11,         // vbBoolean
+        byte => 17,         // vbByte
+        short => 2,         // vbInteger
+        int or long => 3,   // vbLong
+        float => 4,         // vbSingle
+        double => 5,        // vbDouble
+        decimal => 6,       // vbCurrency
+        DateTime => 7,      // vbDate
+        _ => 8,             // vbString
+    };
 
     /// <summary>A random non-zero signed Int32 — Access's <c>GenUniqueID()</c>.</summary>
     private static int RandomLong()

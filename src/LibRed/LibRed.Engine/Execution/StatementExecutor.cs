@@ -82,6 +82,22 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 throw new InvalidOperationException($"You must enter a value in the '{table}.{column.Name}' field.");
     }
 
+    /// <summary>Rejects a row that violates any of the table's CHECK constraints — evaluated against the full
+    /// row. A CHECK is violated only when its expression is explicitly FALSE; NULL/unknown passes (SQL
+    /// three-valued CHECK semantics). The expression may reference the row's own columns and use (uncorrelated)
+    /// subqueries. Matches Access's validation-rule enforcement.</summary>
+    private void EnforceCheckConstraints(TableDef definition, object?[] values)
+    {
+        if (definition.CheckConstraints.Count == 0) return;
+        var schema = definition.Columns.Select(c => new OutputColumn(definition.Name, c.Name)).ToList();
+        var evaluator = new ExpressionEvaluator(new EvalScope(schema, values, null), _scalarRunner, _parameters, _session);
+        foreach (var (name, expression) in definition.CheckConstraints)
+            if (evaluator.Evaluate(_parser.ParseExpression(expression)) is false)
+                throw new InvalidOperationException(
+                    $"One or more values are prohibited by the validation rule '{name}' set for '{definition.Name}'. " +
+                    "Enter a value that the expression for this field can accept.");
+    }
+
     /// <summary>Pairs each child FK column with its referenced parent column, in key order.</summary>
     private static List<(string Column, string ReferencedColumn)> PairColumns(ForeignKeyConstraint fk)
     {
@@ -513,6 +529,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
             EnforceRequired(statement.Table, columns, values);
             EnforceReferentialIntegrity(statement.Table, table, values);
+            EnforceCheckConstraints(table.Definition, values);
             table.Insert(values); // fills values[autoNumber.Index] with the generated id (array mutated in place)
             if (autoNumber is not null)
                 lastIdentity = values[autoNumber.Index];
@@ -671,6 +688,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                     throw new InvalidOperationException(
                         $"Cannot update '{table.Table.Name}': a row with the same " +
                         $"{(index.IsPrimaryKey ? "primary key" : "unique key")} already exists (index '{index.Name}').");
+
+            // The updated row must still satisfy every CHECK constraint (evaluated against the full new row).
+            EnforceCheckConstraints(table.Table.Definition, values);
 
             // Parent side: a changed referenced-key column triggers each relationship's ON UPDATE action
             // (CASCADE rewrites children, NO ACTION rejects if children exist).

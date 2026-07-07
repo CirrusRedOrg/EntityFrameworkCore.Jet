@@ -102,13 +102,7 @@ IsNull IsNumeric IsError TypeName VarType`.
 IsNull IsNumeric IsError TypeName VarType`, plus `Choose`/`Switch` — were **added to LibRed** as a result of this
 cross-check.)
 
-**Deferred — ACE has, LibRed does not (yet):**
-
-| Function | Why deferred |
-|---|---|
-| `Format` | Full VBA format-string engine — large, and **locale-sensitive** (see below). Still deferred. |
-
-`Partition`, `StrConv`, and `WeekdayName` are now **implemented** (`DeferredFunctionsTests`):
+**Formerly deferred — now all implemented** (`DeferredFunctionsTests`, `FormatFunctionTests`):
 
 - **`Partition(number, start, stop, interval)`** — a `"lower:upper"` range label, both sides right-justified to a
   fixed width = `max(len(str(start-1)), len(str(stop+1)))`. Below range → `"   :  0"` (lower blank, upper=start-1);
@@ -122,18 +116,19 @@ cross-check.)
   follows the OS regional first-day (ACE gave "Monday" on an en-AU host); LibRed fixes the omitted default to
   `vbSunday` for determinism, so the no-third-arg case can differ from a given ACE host.
 
-Still deferred:
+- **`Format(value, format)`** — driven off `CurrentCulture` (as ACE drives it off the OS regional settings), so
+  it matches ACE's output on a host with the matching locale. Two classes:
+  - **Custom format strings.** Numeric maps to .NET directly (`'0.00'`, `'#,##0.00'`, `'0%'`, `'000'`,
+    `'\#0'`→`#255`). Date custom formats go through a **VBA→.NET token translation** (VBA `mm`=month/`nn`=minutes/
+    `hh`=hour vs .NET `MM`/`mm`/`HH`; `q`=quarter, which .NET lacks, is emitted as a literal): `'yyyy-mm-dd'`→
+    `2020-06-15`, `'hh:nn:ss'`→`13:05:09`, `'mmmm d, yyyy'`→`June 15, 2020`, `'ddd'`→`Mon`. String: `'>'`→upper,
+    `'<'`→lower.
+  - **Named formats** — numeric/boolean (`General Number Currency Fixed Standard Percent Scientific Yes/No
+    True/False On/Off`) and date/time (`General/Long/Medium/Short Date`, `Long/Medium/Short Time`). The date and
+    currency-symbol forms are **locale-dependent** (en-US `Short Date` → `6/15/2020`, en-AU → `15/06/2020`) — LibRed
+    reproduces the host locale exactly as ACE does. Tests pin `CurrentCulture` to en-US for determinism.
 
-- **`Format(value, format)`** — a large VBA format-string engine. Two classes:
-  - **Custom format strings are deterministic** and mostly map to .NET numeric formats directly (`'0.00'`,
-    `'#,##0.00'`, `'0%'`, `'000'`, `'\#0'`→`"#255"`). Date custom formats need **VBA→.NET token translation**
-    (VBA `mm`=month/`nn`=minutes/`hh`=hour vs .NET `MM`/`mm`/`HH`; plus `q`=quarter which .NET lacks):
-    `'yyyy-mm-dd'`→`2020-06-15`, `'hh:nn:ss'`→`13:05:09`, `'mmmm d, yyyy'`→`June 15, 2020`, `'ddd'`→`Mon`.
-    String: `'>'`→upper, `'<'`→lower.
-  - **Named formats are OS-locale-sensitive**: `'Currency'`→`$1,234.50`, `'Short Date'`→`15/06/2020`,
-    `'Long Date'`→`Monday, 15 June 2020` (all en-AU on the probe host). Also `'Fixed'`/`'Standard'`/`'Percent'`
-    (`25.00%`)/`'Scientific'` (`1.23E+03`)/`'General Number'`/`'Yes/No'`→`Yes`/`No`. Implementable but the
-    named date/currency forms won't be byte-identical across locales.
+Nothing remains deferred.
 
 **Divergences — LibRed more permissive than ACE:**
 
@@ -146,7 +141,7 @@ Still deferred:
 function), and neither does LibRed. Correctly **not** added.
 
 > The whitelist is now closely aligned but **not proven exhaustive** — `Choose`/`Switch` and the string/type
-> batch were gaps this sweep surfaced; only `Format` remains deferred. Re-run the sweep (`FunctionWhitelist*Probe`
+> batch were gaps this sweep surfaced; nothing remains deferred. Re-run the sweep (`FunctionWhitelist*Probe`
 > pattern) when in doubt.
 
 ### VBA function-name variants (`$` / `B` / `W`)

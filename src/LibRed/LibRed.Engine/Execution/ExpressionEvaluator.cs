@@ -197,6 +197,7 @@ internal sealed class ExpressionEvaluator(
             "STRCONV" => StrConv(f),
             "WEEKDAYNAME" => WeekdayNameOf(f),
             "PARTITION" => PartitionOf(f),
+            "FORMAT" => FormatValue(f),
 
             // Wide (Unicode code-point) variants. AscW = the first char's code point; ChrW = the char for a code
             // point (unlike Chr, not restricted to a byte). Verified vs ACE: ChrW(233) → 'é'.
@@ -342,6 +343,105 @@ internal sealed class ExpressionEvaluator(
         DateTime => 7,      // vbDate
         _ => 8,             // vbString
     };
+
+    /// <summary>Access <c>Format(value[, format])</c>. Named formats (Currency, Percent, Short Date, …) and the
+    /// custom numeric/date/string format strings, driven off <see cref="CultureInfo.CurrentCulture"/> — as ACE
+    /// drives them off the OS regional settings (so date/currency output is locale-dependent, matching ACE on a
+    /// given host). Custom date formats translate VBA tokens to .NET (VBA <c>mm</c>=month/<c>nn</c>=minutes/
+    /// <c>hh</c>=hour, plus <c>q</c>=quarter). NULL-propagating; no/empty format → the default string.</summary>
+    private object? FormatValue(FunctionCall f)
+    {
+        object? value = Evaluate(f.Arguments[0]);
+        if (value is null) return null;
+        string? fmt = f.Arguments.Count > 1 ? Evaluate(f.Arguments[1])?.ToString() : null;
+        if (string.IsNullOrEmpty(fmt)) return value.ToString();
+
+        CultureInfo c = CultureInfo.CurrentCulture;
+        // Named formats (case-insensitive). Numeric/boolean names first, then date/time names.
+        switch (fmt.Trim().ToLowerInvariant())
+        {
+            case "general number": return Convert.ToDecimal(value, CultureInfo.InvariantCulture).ToString(c);
+            case "currency": return Convert.ToDecimal(value, CultureInfo.InvariantCulture).ToString("C", c);
+            case "fixed": return Convert.ToDouble(value, CultureInfo.InvariantCulture).ToString("0.00", c);
+            case "standard": return Convert.ToDouble(value, CultureInfo.InvariantCulture).ToString("#,##0.00", c);
+            case "percent": return Convert.ToDouble(value, CultureInfo.InvariantCulture).ToString("0.00%", c);
+            case "scientific": return Convert.ToDouble(value, CultureInfo.InvariantCulture).ToString("0.00E+00", c);
+            case "yes/no": return IsZeroValue(value) ? "No" : "Yes";
+            case "true/false": return IsZeroValue(value) ? "False" : "True";
+            case "on/off": return IsZeroValue(value) ? "Off" : "On";
+            case "general date": return ((DateTime)ToDate(value)).ToString(c);
+            case "long date": return ((DateTime)ToDate(value)).ToString("D", c);
+            case "medium date": return ((DateTime)ToDate(value)).ToString("dd-MMM-yy", c);
+            case "short date": return ((DateTime)ToDate(value)).ToString("d", c);
+            case "long time": return ((DateTime)ToDate(value)).ToString("T", c);
+            case "medium time": return ((DateTime)ToDate(value)).ToString("hh:mm tt", c);
+            case "short time": return ((DateTime)ToDate(value)).ToString("HH:mm", c);
+        }
+
+        // Custom format strings. '0'/'#' → numeric (VBA numeric tokens map ~directly to .NET). Otherwise a date
+        // token letter → date format (VBA→.NET translation). Otherwise a string format ('>' upper, '<' lower).
+        if (fmt.IndexOfAny(['0', '#']) >= 0)
+            return Convert.ToDouble(value, CultureInfo.InvariantCulture).ToString(fmt, c);
+        if (fmt.IndexOfAny(['y', 'Y', 'm', 'M', 'd', 'D', 'h', 'H', 'n', 'N', 's', 'S', 'q', 'Q']) >= 0)
+        {
+            DateTime dt = (DateTime)ToDate(value);
+            return dt.ToString(TranslateVbaDateFormat(fmt, dt), c);
+        }
+        return fmt switch
+        {
+            ">" => value.ToString()!.ToUpperInvariant(),
+            "<" => value.ToString()!.ToLowerInvariant(),
+            _ => value.ToString(),
+        };
+    }
+
+    /// <summary>True when a value is zero/false — for the Yes/No, True/False, On/Off named formats.</summary>
+    private static bool IsZeroValue(object v) =>
+        v is bool b ? !b : Convert.ToDouble(v, CultureInfo.InvariantCulture) == 0;
+
+    /// <summary>Translates a VBA date/time format string into the equivalent .NET custom format. VBA differs from
+    /// .NET on <c>m</c>=month (vs minutes), <c>n</c>=minutes, and <c>h</c>=24-hour unless AM/PM is present; and it
+    /// has <c>q</c>=quarter, which .NET lacks (emitted as an escaped literal digit).</summary>
+    private static string TranslateVbaDateFormat(string vba, DateTime dt)
+    {
+        bool twelveHour = vba.Contains("am/pm", StringComparison.OrdinalIgnoreCase)
+            || vba.Contains("a/p", StringComparison.OrdinalIgnoreCase);
+        var sb = new StringBuilder();
+        for (int i = 0; i < vba.Length;)
+        {
+            char ch = vba[i];
+            // AM/PM tokens.
+            if (i + 4 < vba.Length + 1 && vba.AsSpan(i).StartsWith("am/pm", StringComparison.OrdinalIgnoreCase))
+            { sb.Append("tt"); i += 5; continue; }
+            if (ch is '\\' && i + 1 < vba.Length) { sb.Append('\\').Append(vba[i + 1]); i += 2; continue; }
+            if (ch is '"')
+            {
+                int j = i + 1;
+                while (j < vba.Length && vba[j] != '"') { sb.Append('\\').Append(vba[j]); j++; }
+                i = j + 1; continue;
+            }
+            char lower = char.ToLowerInvariant(ch);
+            if ("ymdhnsq".IndexOf(lower) >= 0)
+            {
+                int j = i; while (j < vba.Length && char.ToLowerInvariant(vba[j]) == lower) j++;
+                int len = j - i;
+                sb.Append(lower switch
+                {
+                    'y' => new string('y', len is 2 ? 2 : 4),
+                    'm' => new string('M', len),                          // VBA m/mm/mmm/mmmm = month
+                    'n' => new string('m', Math.Min(len, 2)),             // VBA n/nn = minutes
+                    's' => new string('s', Math.Min(len, 2)),
+                    'd' => new string('d', len),
+                    'h' => new string(twelveHour ? 'h' : 'H', Math.Min(len, 2)),
+                    'q' => "\\" + ((dt.Month - 1) / 3 + 1),               // quarter as an escaped literal digit
+                    _ => new string(lower, len),
+                });
+                i = j; continue;
+            }
+            sb.Append(ch); i++;
+        }
+        return sb.ToString();
+    }
 
     /// <summary>Access <c>StrConv(string, conversion)</c> — case modes only (verified vs ACE): 1 = UpperCase,
     /// 2 = LowerCase, 3 = ProperCase (title case). Other modes (Wide/Unicode/…) raise "Invalid procedure call",

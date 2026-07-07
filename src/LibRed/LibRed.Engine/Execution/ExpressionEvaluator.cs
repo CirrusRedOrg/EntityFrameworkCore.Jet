@@ -186,7 +186,7 @@ internal sealed class ExpressionEvaluator(
             "INSTRREV" => InstrRev(f),                       // last occurrence, 1-based (0 if none)
             "MONTHNAME" => Convert1(f, v => EnUs.DateTimeFormat.GetMonthName(Convert.ToInt32(v, CultureInfo.InvariantCulture))),
             "TIMER" => (DateTime.Now - DateTime.Today).TotalSeconds,
-            "RND" => Random.Shared.NextDouble(),
+            "RND" => Rnd(f),
             // Predicates / type inspection. IsError is always false — LibRed has no error-value type. ISNULL
             // returns a Boolean (ACE reports it as -1/0); both print as a boolean here.
             "ISNULL" => Evaluate(f.Arguments[0]) is null,
@@ -320,12 +320,29 @@ internal sealed class ExpressionEvaluator(
         return d >= 0 ? " " + s : s;
     }
 
-    /// <summary>VBA <c>Val(string)</c>: the leading numeric portion as a Double (0 if none). Ignores everything
-    /// from the first non-numeric character.</summary>
+    /// <summary>VBA <c>Val(string)</c>: the leading number as a Double (0 if none). VBA first strips ALL
+    /// whitespace (so <c>"3 .1 4"</c> → 3.14, <c>"  -  5"</c> → -5), then reads the leading number — recognising
+    /// <c>&amp;H</c> hex and <c>&amp;O</c> octal prefixes — and stops at the first character it can't use
+    /// (verified vs ACE).</summary>
     private static object VbaVal(string s)
     {
-        Match m = Regex.Match(s, @"^\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?");
-        return m.Success && double.TryParse(m.Value.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double d)
+        string t = new string(s.Where(c => !char.IsWhiteSpace(c)).ToArray());
+        if (t.Length == 0) return 0.0;
+
+        Match hex = Regex.Match(t, @"^([+-]?)&[Hh]([0-9A-Fa-f]+)");
+        if (hex.Success)
+        {
+            long h = Convert.ToInt64(hex.Groups[2].Value, 16);
+            return (double)(hex.Groups[1].Value == "-" ? -h : h);
+        }
+        Match oct = Regex.Match(t, @"^([+-]?)&[Oo]([0-7]+)");
+        if (oct.Success)
+        {
+            long o = Convert.ToInt64(oct.Groups[2].Value, 8);
+            return (double)(oct.Groups[1].Value == "-" ? -o : o);
+        }
+        Match dec = Regex.Match(t, @"^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?");
+        return dec.Success && double.TryParse(dec.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double d)
             ? d : 0.0;
     }
 
@@ -599,6 +616,31 @@ internal sealed class ExpressionEvaluator(
         if (startChar >= s1.Length) return 0;
         int idx = s1.IndexOf(s2, startChar, StringComparison.OrdinalIgnoreCase);
         return idx < 0 ? 0 : idx * 2 + 1;
+    }
+
+    private uint _localRandSeed = 0x50000;   // used when no connection-scoped SessionState is available
+
+    /// <summary>VBA <c>Rnd([number])</c> using VBA's own 24-bit LCG, so the sequence matches ACE (verified:
+    /// <c>Rnd(-1)</c> = 0.2240070104598999). <c>number &gt; 0</c> (or omitted) advances the generator;
+    /// <c>number = 0</c> repeats the last value; <c>number &lt; 0</c> reseeds deterministically from the
+    /// argument's Single bit pattern. The seed is connection-scoped (via <see cref="SessionState"/>) since the
+    /// JES has no <c>Randomize</c>. Result is a Single widened to Double, matching ACE.</summary>
+    private object Rnd(FunctionCall f)
+    {
+        uint seed = session?.RandSeed ?? _localRandSeed;
+        double arg = f.Arguments.Count > 0 && Evaluate(f.Arguments[0]) is { } a
+            ? Convert.ToDouble(a, CultureInfo.InvariantCulture) : 1.0;
+        if (arg != 0)
+        {
+            if (arg < 0)
+            {
+                uint ni = BitConverter.SingleToUInt32Bits((float)arg);
+                seed = (ni + (ni >> 24)) & 0xFFFFFF;
+            }
+            seed = (uint)((seed * 0xFD43FDUL + 0xC39EC3UL) & 0xFFFFFF);
+        }
+        if (session is not null) session.RandSeed = seed; else _localRandSeed = seed;
+        return (double)((float)seed / (float)0x1000000);
     }
 
     /// <summary>A random non-zero signed Int32 — Access's <c>GenUniqueID()</c>.</summary>

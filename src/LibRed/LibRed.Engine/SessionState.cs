@@ -20,4 +20,9 @@ public sealed class SessionState
     /// <summary>The last AutoNumber generated on this connection (<c>@@IDENTITY</c>), or <c>null</c> if
     /// none has been generated yet.</summary>
     public object? LastIdentity { get; set; }
+
+    /// <summary>The 24-bit VBA <c>Rnd()</c> generator seed (connection-scoped, VBA default <c>0x50000</c>). Kept
+    /// here so a <c>Rnd()</c> sequence is deterministic across the connection — matching ACE, whose JES has no
+    /// <c>Randomize</c> to reseed it.</summary>
+    public uint RandSeed { get; set; } = 0x50000;
 }

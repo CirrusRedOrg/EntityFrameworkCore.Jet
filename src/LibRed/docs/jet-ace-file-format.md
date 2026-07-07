@@ -945,6 +945,8 @@ The split mechanics:
   > A **plain (non-AutoNumber) `LONG DEFAULT GenUniqueID()`** column works too: `GenUniqueID()` is a real
   > evaluable function in LibRed's expression evaluator (a random non-zero Int32), so an omitted value defaults to
   > a random Long while a supplied value is kept — matching ACE, which reads and applies a LibRed-written one.
+  > LibRed also **enforces the LONG-only restriction at CREATE/ADD-COLUMN time** (`GenUniqueID()` on any other
+  > type raises "Cannot place this validation expression on this field"), matching ACE.
 
 - **LVAL (long-value) page** — a data page (type `0x01`) whose owner field (`0x04`) is the ASCII marker
   `"LVAL"` instead of a TDEF page number. A single-page long value stores the whole payload as row 0; the

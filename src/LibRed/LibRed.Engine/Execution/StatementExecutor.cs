@@ -39,6 +39,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private int ExecuteCreateTable(CreateTableStatement statement)
     {
         var columns = statement.Columns.Select(AccessTypeMapper.ToColumnSpec).ToList();
+        foreach (var (spec, def) in columns.Zip(statement.Columns))
+            ValidateColumnDefault(spec, def.Default);
         IReadOnlyList<string>? primaryKey = statement.PrimaryKey.Count > 0 ? statement.PrimaryKey : null;
 
         var relationships = statement.ForeignKeys.Select(fk => new RelationshipSpec(
@@ -347,9 +349,25 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private int AddColumn(string table, ColumnDefinition column)
     {
         // NOT NULL and DEFAULT are written to the column's LvProp properties (Required / DefaultValue).
-        if (!_database.AddColumn(table, AccessTypeMapper.ToColumnSpec(column), column.Default))
+        ColumnSpec spec = AccessTypeMapper.ToColumnSpec(column);
+        ValidateColumnDefault(spec, column.Default);
+        if (!_database.AddColumn(table, spec, column.Default))
             throw new InvalidOperationException($"ALTER TABLE '{table}' ADD COLUMN '{column.Name}': the column already exists.");
         return 0;
+    }
+
+    /// <summary>Rejects a DEFAULT expression the storage engine can't accept — matching ACE's CREATE-time
+    /// validation. Currently: <c>GenUniqueID()</c> is only valid on a <c>LONG</c> (Int32) column; every other
+    /// type raises "Cannot place this validation expression on this field" (verified across BYTE/SHORT/SINGLE/
+    /// DOUBLE/CURRENCY/DECIMAL/GUID/DATETIME/BIT/TEXT).</summary>
+    private static void ValidateColumnDefault(ColumnSpec spec, string? defaultSql)
+    {
+        if (defaultSql is not null
+            && defaultSql.Trim().Equals("GenUniqueID()", StringComparison.OrdinalIgnoreCase)
+            && spec.Type != JetDataType.Int32)
+            throw new InvalidOperationException(
+                $"Cannot place this validation expression on this field. GenUniqueID() is only valid as the " +
+                $"DEFAULT of a LONG (Int32) column (column '{spec.Name}').");
     }
 
     private int DropColumn(string table, string column)

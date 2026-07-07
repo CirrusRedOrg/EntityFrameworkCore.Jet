@@ -69,6 +69,25 @@ public class RandomAutoNumberTests
         Assert.Equal(2, defaulted.Distinct().Count());               // random, not a constant
     }
 
+    // ACE accepts GenUniqueID() as a DEFAULT only on a LONG (Int32) column; every other type is rejected at
+    // CREATE time ("Cannot place this validation expression on this field"). LibRed matches that validation.
+    [Theory]
+    [InlineData("BYTE")]
+    [InlineData("SHORT")]
+    [InlineData("DOUBLE")]
+    [InlineData("CURRENCY")]
+    [InlineData("GUID")]
+    [InlineData("DATETIME")]
+    [InlineData("BIT")]
+    [InlineData("TEXT(20)")]
+    public void GenUniqueID_default_is_rejected_on_a_non_long_column(string type)
+    {
+        var (e, _) = Fresh();
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            e.ExecuteNonQuery($"CREATE TABLE R ( K LONG PRIMARY KEY, V {type} DEFAULT GenUniqueID() )"));
+        Assert.Contains("Cannot place this validation expression on this field", ex.Message);
+    }
+
     [Fact]
     public void Retrieves_the_generated_random_id_as_identity()
     {

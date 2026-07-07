@@ -21,6 +21,7 @@ internal sealed class ExpressionEvaluator(
     {
         LiteralExpression l => l.Value,
         ColumnReference c => scope.TryResolve(c, out object? v) ? v
+            : TryNiladicFunction(c, out object? nv) ? nv
             : throw new InvalidOperationException($"Column '{EvalScope.Describe(c)}' was not found."),
         ScalarSubquery s => subqueries.ExecuteScalar(s.Query, scope),
         ExistsExpression e => subqueries.ExecuteExists(e.Query, scope),
@@ -34,6 +35,23 @@ internal sealed class ExpressionEvaluator(
         SystemVariableExpression v => ResolveSystemVariable(v.Name),
         _ => throw new NotSupportedException($"Cannot evaluate {expression.GetType().Name}."),
     };
+
+    /// <summary>Access's <c>Now</c> is a niladic function callable without parentheses — so a bare unqualified
+    /// identifier that isn't a column but names it evaluates as the current timestamp. Matches ACE, which accepts
+    /// e.g. <c>DATETIME DEFAULT Now</c> and <c>SELECT Now</c>. Only tried after column resolution fails, so a real
+    /// column named "Now" still wins. Note <c>Date</c>/<c>Time</c> are NOT included: they are reserved type
+    /// keywords in Jet SQL and ACE rejects them bare ("Type mismatch") — they require parentheses (<c>Date()</c>,
+    /// <c>Time()</c>), which parse as function calls and are handled in <see cref="EvaluateFunction"/>.</summary>
+    private static bool TryNiladicFunction(ColumnReference c, out object? value)
+    {
+        if (c.Table is null && c.Column.Equals("Now", StringComparison.OrdinalIgnoreCase))
+        {
+            value = DateTime.Now;
+            return true;
+        }
+        value = null;
+        return false;
+    }
 
     /// <summary>Resolves a connection-scoped system variable from the session state: <c>@@ROWCOUNT</c>
     /// (rows affected by the previous statement) and <c>@@IDENTITY</c> (the last AutoNumber generated on

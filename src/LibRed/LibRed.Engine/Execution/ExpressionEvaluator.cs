@@ -639,10 +639,19 @@ internal sealed class ExpressionEvaluator(
     };
 
     /// <summary>A (string, int) → string function (LEFT/RIGHT), propagating NULL on the string argument.</summary>
+    // Left/Right: NULL string propagates; a NULL length raises "Data type mismatch" and a negative length
+    // "Invalid procedure call" — matching ACE (which errors rather than clamping). A zero length yields "".
     private object? StringInt(FunctionCall f, Func<string, int, string> op)
     {
         object? s = Evaluate(f.Arguments[0]);
-        return s is null ? null : op(s.ToString()!, Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture));
+        if (s is null) return null;
+        object? nv = Evaluate(f.Arguments[1]);
+        if (nv is null)
+            throw new InvalidOperationException("Data type mismatch in criteria expression: length argument is null.");
+        int n = Convert.ToInt32(nv, CultureInfo.InvariantCulture);
+        if (n < 0)
+            throw new InvalidOperationException("Invalid procedure call: length cannot be negative.");
+        return op(s.ToString()!, n);
     }
 
     /// <summary>Access MID(string, start[, length]) — a 1-based substring; length omitted means to the end.</summary>

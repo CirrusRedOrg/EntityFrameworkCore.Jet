@@ -106,10 +106,35 @@ cross-check.)
 
 | Function | Why deferred |
 |---|---|
-| `Format` | Full VBA format-string engine — large, its own effort. |
-| `Partition` | Range-bucket string builder — niche. |
-| `StrConv` | Multiple conversion modes (case, width, encoding). |
-| `WeekdayName` | ACE's default first-day-of-week semantics need pinning down (ACE `WeekdayName(1)` → "Monday"). |
+| `Format` | Full VBA format-string engine — large, and **locale-sensitive** (see below). |
+| `Partition` | Range-bucket label — bounded and deterministic; ready to implement. |
+| `StrConv` | Case-mode conversions — bounded; modes 1/2/3 only. |
+| `WeekdayName` | Bounded, but the **omitted first-day-of-week is OS-locale-dependent** (see below). |
+
+Semantics pinned down against ACE (probed 2026-07-07):
+
+- **`Partition(number, start, stop, interval)`** — a `"lower:upper"` range label, both sides right-justified to a
+  fixed width = `max(len(str(start-1)), len(str(stop+1)))`. Below range → `"   :  0"` (lower blank, upper=start-1);
+  above range → `"101:   "` (lower=stop+1, upper blank); in range → the interval bucket (`Partition(5,1,100,10)`
+  → `"  1: 10"`, `Partition(100,1,100,10)` → `" 91:100"`). Fully deterministic.
+- **`StrConv(string, conversion)`** — `1`=UpperCase, `2`=LowerCase, `3`=ProperCase (title case: `"mixed CASE
+  text"` → `"Mixed Case Text"`). Modes ≥4 (Wide/Unicode) → "Invalid procedure call". Only 1/2/3 needed.
+- **`WeekdayName(weekday, [abbreviate=False], [firstdayofweek])`** — day name for `weekday` (1–7) counting from
+  `firstdayofweek` (1=Sun … 7=Sat). `abbreviate` → 3-letter. **Deterministic with an explicit `firstdayofweek`**
+  (`WeekdayName(1,,1)`→"Sunday", `WeekdayName(1,,2)`→"Monday"), but **omitted → OS regional first-day** (ACE
+  returned "Monday" here on an en-AU box; VBA's documented default is `vbSunday`). This locale dependence is why
+  it was deferred — an implementation should take an explicit first-day and pick a fixed default (recommend
+  `vbSunday`), accepting it may differ from a given ACE host when omitted.
+- **`Format(value, format)`** — a large VBA format-string engine. Two classes:
+  - **Custom format strings are deterministic** and mostly map to .NET numeric formats directly (`'0.00'`,
+    `'#,##0.00'`, `'0%'`, `'000'`, `'\#0'`→`"#255"`). Date custom formats need **VBA→.NET token translation**
+    (VBA `mm`=month/`nn`=minutes/`hh`=hour vs .NET `MM`/`mm`/`HH`; plus `q`=quarter which .NET lacks):
+    `'yyyy-mm-dd'`→`2020-06-15`, `'hh:nn:ss'`→`13:05:09`, `'mmmm d, yyyy'`→`June 15, 2020`, `'ddd'`→`Mon`.
+    String: `'>'`→upper, `'<'`→lower.
+  - **Named formats are OS-locale-sensitive**: `'Currency'`→`$1,234.50`, `'Short Date'`→`15/06/2020`,
+    `'Long Date'`→`Monday, 15 June 2020` (all en-AU on the probe host). Also `'Fixed'`/`'Standard'`/`'Percent'`
+    (`25.00%`)/`'Scientific'` (`1.23E+03`)/`'General Number'`/`'Yes/No'`→`Yes`/`No`. Implementable but the
+    named date/currency forms won't be byte-identical across locales.
 
 **Divergences — LibRed more permissive than ACE:**
 

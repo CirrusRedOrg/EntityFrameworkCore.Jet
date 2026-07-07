@@ -50,4 +50,39 @@ public class AceAlterColumnTests
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
+
+    [Fact]
+    public void Access_reads_a_libred_full_rewrite_with_converted_values()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"rw-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            // ACE creates + populates a LONG column.
+            using (var conn = OpenOleDb(path))
+            {
+                void Exec(string s) { using var c = conn.CreateCommand(); c.CommandText = s; c.ExecuteNonQuery(); }
+                Exec("CREATE TABLE T ( K LONG PRIMARY KEY, N LONG )");
+                Exec("INSERT INTO T (K, N) VALUES (1, 42)");
+                Exec("INSERT INTO T (K, N) VALUES (2, 7)");
+            }
+
+            // LibRed rewrites N: LONG -> DOUBLE (full column rewrite, converting values).
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                db.AlterColumn("T", "N", new ColumnSpec("N", JetDataType.Double, 8, IsFixedLength: true));
+
+            // ACE reads the converted data and treats N as a real Double (a fractional insert round-trips).
+            using (var conn = OpenOleDb(path))
+            {
+                using (var c = conn.CreateCommand()) { c.CommandText = "INSERT INTO T (K, N) VALUES (3, 3.5)"; c.ExecuteNonQuery(); }
+                var vals = new List<double>();
+                using var q = conn.CreateCommand();
+                q.CommandText = "SELECT N FROM T ORDER BY K";
+                using var r = q.ExecuteReader();
+                while (r.Read()) vals.Add(Convert.ToDouble(r[0]));
+                Assert.Equal(new[] { 42.0, 7.0, 3.5 }, vals);
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
 }

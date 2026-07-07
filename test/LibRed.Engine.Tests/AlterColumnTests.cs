@@ -45,13 +45,71 @@ public class AlterColumnTests
         Assert.Equal(20, Len(db, "T", "V"));
     }
 
-    [Theory]
-    [InlineData("ALTER TABLE T ALTER COLUMN V LONG")]       // text -> number (storage change)
-    [InlineData("ALTER TABLE T ALTER COLUMN K DOUBLE")]     // numeric type change on a fixed column
-    public void Storage_type_change_is_not_supported(string sql)
+    [Fact]
+    public void Change_numeric_type_converts_values()
+    {
+        var (e, db) = Fresh();
+        e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY, N LONG )");
+        e.ExecuteNonQuery("INSERT INTO T (K, N) VALUES (1, 42)");
+        e.ExecuteNonQuery("INSERT INTO T (K, N) VALUES (2, 7)");
+
+        e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN N DOUBLE");   // LONG -> DOUBLE, full rewrite
+
+        var col = db.Catalog.UserTables.Single(t => t.Name == "T").Columns.Single(c => c.Name == "N");
+        Assert.Equal(LibRed.Catalog.JetDataType.Double, col.Type);
+        var rows = e.ExecuteQuery("SELECT K, N FROM T ORDER BY K").Rows
+            .Select(r => (Convert.ToInt32(r[0]), Convert.ToDouble(r[1]))).ToArray();
+        Assert.Equal([(1, 42.0), (2, 7.0)], rows);
+    }
+
+    [Fact]
+    public void Change_text_to_number_converts_and_keeps_other_columns()
+    {
+        var (e, db) = Fresh();
+        e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY, Label TEXT(20), V TEXT(20) )");
+        e.ExecuteNonQuery("INSERT INTO T (K, Label, V) VALUES (1, 'one', '42')");
+        e.ExecuteNonQuery("INSERT INTO T (K, Label, V) VALUES (2, 'two', '100')");
+
+        e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN V LONG");   // TEXT -> LONG
+
+        Assert.Equal(LibRed.Catalog.JetDataType.Int32,
+            db.Catalog.UserTables.Single(t => t.Name == "T").Columns.Single(c => c.Name == "V").Type);
+        var rows = e.ExecuteQuery("SELECT K, Label, V FROM T ORDER BY K").Rows
+            .Select(r => ($"{r[0]}", $"{r[1]}", Convert.ToInt32(r[2]))).ToArray();
+        Assert.Equal([("1", "one", 42), ("2", "two", 100)], rows);
+    }
+
+    [Fact]
+    public void Rewrite_preserves_primary_key_uniqueness()
     {
         var (e, _) = Fresh();
-        e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY, V TEXT(20) )");
-        Assert.Throws<NotSupportedException>(() => e.ExecuteNonQuery(sql));
+        e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY, N SHORT )");
+        e.ExecuteNonQuery("INSERT INTO T (K, N) VALUES (1, 5)");
+        e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN N LONG");    // SHORT -> LONG
+        // PK still enforced after the rebuild
+        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (K, N) VALUES (1, 9)"));
+        e.ExecuteNonQuery("INSERT INTO T (K, N) VALUES (2, 9)");
+    }
+
+    [Fact]
+    public void Rewrite_preserves_a_secondary_unique_index()
+    {
+        var (e, _) = Fresh();
+        e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY, N SHORT, C TEXT(20) )");
+        e.ExecuteNonQuery("CREATE UNIQUE INDEX UQ_C ON T (C)");
+        e.ExecuteNonQuery("INSERT INTO T (K, N, C) VALUES (1, 5, 'a')");
+        e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN N LONG");
+        // the unique index on C survives the rebuild
+        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (K, N, C) VALUES (2, 9, 'a')"));
+        e.ExecuteNonQuery("INSERT INTO T (K, N, C) VALUES (3, 9, 'b')");
+    }
+
+    [Fact]
+    public void Rewrite_rejects_a_table_in_a_relationship()
+    {
+        var (e, _) = Fresh();
+        e.ExecuteNonQuery("CREATE TABLE P ( PID LONG PRIMARY KEY, V LONG )");
+        e.ExecuteNonQuery("CREATE TABLE C ( CID LONG PRIMARY KEY, PID LONG, CONSTRAINT FK FOREIGN KEY (PID) REFERENCES P (PID) )");
+        Assert.Throws<NotSupportedException>(() => e.ExecuteNonQuery("ALTER TABLE P ALTER COLUMN V DOUBLE"));
     }
 }

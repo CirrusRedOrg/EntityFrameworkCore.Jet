@@ -933,10 +933,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         bool variableLengthChange =
             !col.IsFixedLength && !newSpec.IsFixedLength && col.Type == newSpec.Type &&
             newSpec.Type is JetDataType.Text or JetDataType.Binary;
+        // A variable text/binary length change is a cheap in-place descriptor edit (below). A storage-type change
+        // (numeric type, fixed size, fixed↔variable) needs the full column rewrite — read/convert/re-lay-out.
         if (!variableLengthChange)
-            throw new NotSupportedException(
-                $"ALTER COLUMN '{tableName}.{columnName}': only changing a variable text/binary column's length " +
-                "is supported yet; changing the storage type requires a full column rewrite (not implemented).");
+        {
+            RewriteColumn(tableName, columnName, newSpec);
+            return;
+        }
 
         JetFormatBase format = _channel.Format;
         TdefParts parts = ParseTdef(table.DefinitionPage);
@@ -952,6 +955,90 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             return;
         }
         throw new InvalidOperationException($"Descriptor for column '{columnName}' (id {col.ColumnId}) was not found.");
+    }
+
+    /// <summary>Changes a column's storage type by rebuilding the table: read all rows, convert the target
+    /// column's value, drop and recreate the table with the new column type, re-insert the data (rebuilding the
+    /// primary key on the insert path), then recreate the secondary indexes (back-filled). Column order, the
+    /// primary key, unique/secondary indexes, CHECK constraints, column defaults, and AutoNumber values are all
+    /// preserved. Rejects a table in a relationship (drop the FK first) — a rebuild can't preserve the linkage.
+    /// This is a logical rebuild (a fresh TDEF page, not ACE's byte-exact in-place rewrite), but yields an
+    /// equivalent, ACE-readable table with the column converted.</summary>
+    private void RewriteColumn(string tableName, string columnName, ColumnSpec newColumnSpec)
+    {
+        TableDef def = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
+        ColumnDef target = def.FindColumn(columnName)
+            ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
+
+        if (_catalog.Relationships.Any(r =>
+                string.Equals(r.Table, tableName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(r.ReferencedTable, tableName, StringComparison.OrdinalIgnoreCase)))
+            throw new NotSupportedException(
+                $"ALTER COLUMN '{tableName}.{columnName}': the table participates in a relationship; drop the " +
+                "foreign key(s) first (a full column rewrite recreates the table and can't preserve the linkage).");
+
+        // 1. Materialise all rows (values indexed by column position) before dropping the table.
+        var rows = new Table(_channel, def).Rows().Select(r => (object?[])r.Clone()).ToList();
+
+        // 2. Reconstruct the schema — column order preserved; the target column re-typed, keeping its nullability.
+        int targetIndex = target.Index;
+        var specs = def.Columns.Select(c => c.Index == targetIndex
+            ? newColumnSpec with { IsNullable = target.IsNullable }
+            : new ColumnSpec(c.Name, c.Type, c.Length, c.IsFixedLength, c.IsAutoNumber, c.Precision, c.Scale,
+                c.IsNullable, c.Seed, c.Increment)).ToList();
+
+        IndexDef? pk = def.Indexes.FirstOrDefault(i => i.IsPrimaryKey);
+        IReadOnlyList<string>? primaryKey = pk?.Columns.Select(c => c.Column.Name).ToList();
+        var secondary = def.Indexes.Where(i => !i.IsPrimaryKey).ToList();
+        var checks = def.CheckConstraints.ToList();
+        var defaults = def.Columns.Where(c => c.DefaultValue is not null)
+            .Select(c => (Column: c.Name, DefaultSql: c.DefaultValue!)).ToList();
+
+        // 3. Convert the target column's value in each row.
+        foreach (object?[] row in rows)
+            row[targetIndex] = ConvertValue(row[targetIndex], newColumnSpec.Type);
+
+        // 4. Drop → recreate (PK only) → re-insert → recreate secondary indexes.
+        DropTable(tableName);
+        _catalog.Invalidate();
+        Create(tableName, specs, primaryKey, relationships: null, uniqueConstraints: null,
+            columnDefaults: defaults, checkConstraints: checks, primaryKeyName: pk?.Name);
+        _catalog.Invalidate();
+
+        var dest = new Table(_channel, _catalog.FindTable(tableName)!);
+        foreach (object?[] row in rows) dest.Insert(row);
+
+        foreach (IndexDef ix in secondary)
+        {
+            AddIndex(tableName, ix.Name, ix.Columns.Select(c => (c.Column.Name, !c.Ascending)).ToList(),
+                ix.IsUnique, isPrimary: false, disallowNull: false, ignoreNulls: false);
+            _catalog.Invalidate();
+        }
+    }
+
+    /// <summary>Converts a stored value to the CLR type for a new column type (ALTER COLUMN). NULL stays NULL;
+    /// an unconvertible value throws (as ACE's rewrite would).</summary>
+    private static object? ConvertValue(object? value, JetDataType type)
+    {
+        if (value is null) return null;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        return type switch
+        {
+            JetDataType.Boolean => value is bool b ? b : Convert.ToBoolean(value, inv),
+            JetDataType.Byte => Convert.ToByte(value, inv),
+            JetDataType.Int16 => Convert.ToInt16(value, inv),
+            JetDataType.Int32 => Convert.ToInt32(value, inv),
+            JetDataType.Int64 => Convert.ToInt64(value, inv),
+            JetDataType.Single => Convert.ToSingle(value, inv),
+            JetDataType.Double => Convert.ToDouble(value, inv),
+            JetDataType.Currency or JetDataType.FixedPoint => Convert.ToDecimal(value, inv),
+            JetDataType.DateTime => value is DateTime d ? d : Convert.ToDateTime(value, inv),
+            JetDataType.Text or JetDataType.Memo => Convert.ToString(value, inv),
+            JetDataType.Guid => value is Guid g ? g : Guid.Parse(value.ToString()!),
+            JetDataType.Binary or JetDataType.Ole => value as byte[] ?? System.Text.Encoding.Unicode.GetBytes(value.ToString()!),
+            _ => value,
+        };
     }
 
     private const int TdefMaxColumnsOffset = 0x29;

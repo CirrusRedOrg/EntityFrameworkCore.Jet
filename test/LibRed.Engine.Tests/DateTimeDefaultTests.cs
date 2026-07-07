@@ -66,6 +66,11 @@ public class DateTimeDefaultTests
     [InlineData("TEXT(20)", "UCase('hi')", "HI")]
     [InlineData("LONG", "1 + 2", "3")]
     [InlineData("LONG", "Year(Now())", "2026")]
+    // Parenthesised forms too — ACE's DDL parser does NOT treat parentheses as an "expression escape" the way
+    // SQL Server does (it still rejects (1+2), (Year(Now())), etc.), but LibRed's general expression grammar
+    // accepts them uniformly.
+    [InlineData("LONG", "(1 + 2)", "3")]
+    [InlineData("TEXT(20)", "(\"INV-\" & Year(Now()))", "INV-2026")]
     public void Compound_expression_defaults_are_evaluated(string type, string def, string expected)
     {
         var e = Fresh();
@@ -75,6 +80,21 @@ public class DateTimeDefaultTests
 
         string want = expected.Replace("2026", DateTime.Now.Year.ToString());
         Assert.Equal(want, Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    // A default cannot reference another column — Access forbids it ("The database engine does not recognize
+    // either the field 'A' in a validation expression, or the default value in the table 'T'"). A default is a
+    // function of the environment (Now(), GenUniqueID()) and constants, never of row data or other tables. LibRed
+    // matches by rejecting it (the default is evaluated against an empty scope, so the column doesn't resolve).
+    [Theory]
+    [InlineData("A")]
+    [InlineData("[A]")]
+    public void A_default_cannot_reference_another_column(string reference)
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery($"CREATE TABLE T ( K LONG PRIMARY KEY, A LONG, B LONG DEFAULT {reference} )");
+        var ex = Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("INSERT INTO T (K, A) VALUES (1, 5)"));
+        Assert.Contains("'A' was not found", ex.Message);
     }
 
     [Fact]

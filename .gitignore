@@ -168,3 +168,6 @@ $RECYCLE.BIN/
 /.run-local
 .idea
 Development.props
+# Access lock files (transient)
+*.laccdb
+*.ldb

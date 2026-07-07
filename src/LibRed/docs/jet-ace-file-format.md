@@ -916,6 +916,17 @@ The split mechanics:
   > that omits the column. (An *inline* value, flag `0x80`, is written and read fine by LibRed but is
   > **not** recognised by Access's property loader — established by dumping the raw descriptors; nothing
   > else differs, only `MSysObjects`+`MSysACEs` are touched.)
+  >
+  > **"Random" AutoNumber (New Values = Random) is a `DefaultValue` = `GenUniqueID()`.** An AutoNumber column
+  > whose *New Values* property is **Random** (rather than Increment) is stored as an ordinary AutoNumber column
+  > (descriptor flag `0x04`, TDEF `0x14`/`0x18` at their plain-counter defaults `0`/`1` and **ignored**) plus a
+  > **column `DefaultValue` extended-property** holding the built-in expression **`GenUniqueID()`** — the
+  > function that returns a random Long. There is **no** dedicated flag or "New Values" property; the
+  > Increment-vs-Random distinction lives entirely in this default expression. Verified against a modern
+  > Office-365-authored file (`Table1(ID AutoNumber, New Values=Random)`): the ID descriptor and TDEF header are
+  > **byte-identical** to an increment counter, and LibRed already surfaces it (`ColumnDef.DefaultValue` =
+  > `"GenUniqueID()"`) via the ordinary DefaultValue read path — no special handling needed to detect it. Access
+  > can only set this via the UI/DAO, not SQL (`COUNTER` is always incrementing).
 
 - **LVAL (long-value) page** — a data page (type `0x01`) whose owner field (`0x04`) is the ASCII marker
   `"LVAL"` instead of a TDEF page number. A single-page long value stores the whole payload as row 0; the

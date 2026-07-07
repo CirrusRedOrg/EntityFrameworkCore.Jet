@@ -322,6 +322,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // ADD CONSTRAINT … PRIMARY KEY (cols): a primary key is a unique, primary index named after the
         // constraint (verified vs ACE) — the same write path as CREATE INDEX … WITH PRIMARY.
         AddPrimaryKeyAction pk => AddPrimaryKey(statement.Table, pk),
+        // ADD CONSTRAINT … UNIQUE (cols): a unique (non-primary) index named after the constraint — the same
+        // write path as CREATE INDEX / ADD PRIMARY KEY, minus the primary flag.
+        AddUniqueAction uq => AddUnique(statement.Table, uq),
         // ADD CONSTRAINT … FOREIGN KEY: add a relationship to the existing table (child index + parent
         // incoming block + MSysRelationships), the same write path as an inline CREATE TABLE foreign key.
         AddForeignKeyAction fk => AddForeignKey(statement.Table, fk.ForeignKey),
@@ -405,6 +408,16 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             pk.Name ?? "PrimaryKey",
             pk.Columns.Select(c => (c, false)).ToList(), // PK columns are ascending
             isUnique: true, isPrimary: true);
+        return 0;
+    }
+
+    private int AddUnique(string table, AddUniqueAction uq)
+    {
+        _database.CreateIndex(
+            table,
+            uq.Unique.Name ?? $"UQ_{table}",
+            uq.Unique.Columns.Select(c => (c, false)).ToList(),
+            isUnique: true, isPrimary: false);
         return 0;
     }
 

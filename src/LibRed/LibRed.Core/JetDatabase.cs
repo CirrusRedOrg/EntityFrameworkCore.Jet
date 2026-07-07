@@ -115,6 +115,14 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
+    /// <summary>Adds a table-level CHECK constraint to an existing table — ALTER TABLE ADD CONSTRAINT … CHECK.
+    /// Merges into the table's LvProp CheckConstraints property; the engine enforces it on insert/update.</summary>
+    public void AddCheckConstraint(string table, string name, string expression)
+    {
+        new Storage.TableCreator(_channel, Catalog).AddCheckConstraint(table, name, expression);
+        Catalog.Invalidate();
+    }
+
     /// <summary>Drops a named FOREIGN KEY constraint from a table — ALTER TABLE … DROP CONSTRAINT. Returns
     /// false if no such relationship exists (e.g. the name is a primary-key/unique index, not yet handled).</summary>
     public bool DropConstraint(string childTable, string name) =>

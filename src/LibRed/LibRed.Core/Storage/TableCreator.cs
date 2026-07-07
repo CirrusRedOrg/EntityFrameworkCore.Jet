@@ -880,6 +880,44 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         }
     }
 
+    /// <summary>Adds a table-level CHECK to the table's <c>MSysObjects.LvProp</c> blob — ALTER TABLE ADD
+    /// CONSTRAINT … CHECK. Merges with any existing checks: reads the current <c>CheckConstraints</c> property,
+    /// appends the new (name, expression), and rewrites the single empty-owner table block (RemoveOwner + re-add),
+    /// keeping the name pool and every column block intact. The check is enforced by the engine from the
+    /// re-loaded <c>TableDef.CheckConstraints</c>.</summary>
+    public void AddCheckConstraint(string tableName, string checkName, string expression)
+    {
+        TableDef target = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
+        int tdefPage = target.DefinitionPage;
+
+        TableDef msys = _catalog.FindTable("MSysObjects")
+            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
+        int idIdx = (msys.FindColumn("Id") ?? throw new InvalidOperationException("MSysObjects is missing 'Id'.")).Index;
+        ColumnDef lvProp = msys.FindColumn("LvProp") ?? throw new InvalidOperationException("MSysObjects is missing 'LvProp'.");
+        var table = new Table(_channel, msys);
+
+        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
+        {
+            if (values[idIdx] is null || Convert.ToInt32(values[idIdx]) != tdefPage) continue;
+            byte[] blob = values[lvProp.Index] as byte[] ?? [];
+
+            var checks = PropertyBlob.ReadCheckConstraints(blob).ToList();
+            checks.Add((checkName, expression));
+
+            byte[] withoutTableBlock = PropertyBlob.RemoveOwner(blob, "");
+            var checkProp = new PropertyBlob.Property("", PropertyBlob.CheckConstraintsProperty,
+                PropertyBlob.WriteCheckList(checks));
+            byte[] updated = PropertyBlob.AddColumnProperties(withoutTableBlock, "", [checkProp]);
+
+            byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, updated);
+            values[lvProp.Index] = new LongValueDescriptor(descriptor);
+            table.Update(id, values, new HashSet<int> { lvProp.Index });
+            return;
+        }
+        throw new InvalidOperationException($"MSysObjects row for table '{tableName}' (page {tdefPage}) was not found.");
+    }
+
     private const int TdefMaxColumnsOffset = 0x29;
 
     /// <summary>Appends the new column's descriptor (after the existing descriptors) and its name (after the

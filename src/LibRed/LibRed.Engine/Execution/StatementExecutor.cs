@@ -341,6 +341,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // ADD CONSTRAINT … UNIQUE (cols): a unique (non-primary) index named after the constraint — the same
         // write path as CREATE INDEX / ADD PRIMARY KEY, minus the primary flag.
         AddUniqueAction uq => AddUnique(statement.Table, uq),
+        // ADD CONSTRAINT … CHECK (expr): persist the check to the table's LvProp; the engine then enforces it.
+        AddCheckAction chk => AddCheck(statement.Table, chk),
         // ADD CONSTRAINT … FOREIGN KEY: add a relationship to the existing table (child index + parent
         // incoming block + MSysRelationships), the same write path as an inline CREATE TABLE foreign key.
         AddForeignKeyAction fk => AddForeignKey(statement.Table, fk.ForeignKey),
@@ -434,6 +436,12 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             uq.Unique.Name ?? $"UQ_{table}",
             uq.Unique.Columns.Select(c => (c, false)).ToList(),
             isUnique: true, isPrimary: false);
+        return 0;
+    }
+
+    private int AddCheck(string table, AddCheckAction chk)
+    {
+        _database.AddCheckConstraint(table, chk.Check.Name ?? $"CK_{table}", chk.Check.Expression);
         return 0;
     }
 

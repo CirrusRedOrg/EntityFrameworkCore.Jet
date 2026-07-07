@@ -42,11 +42,17 @@ public sealed class PageChannel : IDisposable
     /// </summary>
     public static PageChannel Open(string path, bool readOnly = true)
     {
+        // A Jet/ACE file is a shared-file database — Access, ODBC and OLE DB all open it with multiple
+        // concurrent handles (a store's long-lived connection plus per-context connections to the same
+        // file, as EF's test infrastructure does). So we share read+write rather than taking the file
+        // exclusively; an exclusive open (FileShare.None) would throw IOException the moment a second
+        // connection touched the same .accdb. Reads go straight to the stream (no long-lived page cache),
+        // so coexisting handles observe each other's committed writes.
         var stream = new FileStream(
             path,
             FileMode.Open,
             readOnly ? FileAccess.Read : FileAccess.ReadWrite,
-            readOnly ? FileShare.Read : FileShare.None);
+            FileShare.ReadWrite);
 
         try
         {

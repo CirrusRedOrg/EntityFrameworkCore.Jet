@@ -12,6 +12,27 @@ public class PageChannelWriteTests
         return path;
     }
 
+    // A Jet/ACE file is a shared-file database, so more than one channel must be able to hold it open at
+    // once (EF's test infrastructure keeps a long-lived store connection AND opens per-context connections
+    // to the same .accdb). An exclusive open used to throw IOException the moment the second one appeared.
+    [Fact]
+    public void Multiple_channels_can_open_the_same_file_at_once()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using var writer = PageChannel.Open(path, readOnly: false);
+            using var reader = PageChannel.Open(path, readOnly: true);   // used to throw here (FileShare.None)
+
+            // A committed write from one handle is visible to the other (no stale page cache).
+            byte[] page = writer.ReadPage(5).Span.ToArray();
+            page[10] ^= 0xFF;
+            writer.WritePage(5, page);
+            Assert.Equal(page, reader.ReadPage(5).Span.ToArray());
+        }
+        finally { File.Delete(path); }
+    }
+
     [Fact]
     public void Rewriting_a_page_unchanged_is_a_no_op_byte_for_byte()
     {

@@ -1007,37 +1007,31 @@ WHERE (
         Assert.Contains("VALUES", Fixture.TestSqlLoggerFactory.SqlStatements[0], StringComparison.Ordinal);
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_Count_with_huge_number_of_values_over_2_operations_same_parameter_different_type_mapping()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values_over_2_operations_same_parameter_different_type_mapping();
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_Count_with_huge_number_of_values_over_5_operations()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values_over_5_operations();
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_Count_with_huge_number_of_values_over_5_operations_forced_constants()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values_over_5_operations_forced_constants();
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_Count_with_huge_number_of_values_over_5_operations_mixed_parameters_constants()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values_over_5_operations_mixed_parameters_constants();
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_Count_with_huge_number_of_values_over_5_operations_same_parameter()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values_over_5_operations_same_parameter();
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_5_operations()
     {
         await base.Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_5_operations();
@@ -1061,7 +1055,6 @@ WHERE (
         Assert.Contains("OPENJSON(@ints) WITH ([Value] int '$')", Fixture.TestSqlLoggerFactory.SqlStatements[1], StringComparison.Ordinal);
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_5_operations_forced_constants()
     {
         await base.Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_5_operations_forced_constants();

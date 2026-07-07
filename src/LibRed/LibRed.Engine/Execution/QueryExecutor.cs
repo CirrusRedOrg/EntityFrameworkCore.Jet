@@ -430,6 +430,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case InSubqueryExpression i:
                 foreach (FunctionCall a in Aggregates(i.Value).Concat(AggregatesInSelect(i.Query))) yield return a;
                 break;
+            case InListExpression i:
+                foreach (FunctionCall a in Aggregates(i.Value).Concat(i.Items.SelectMany(Aggregates))) yield return a;
+                break;
         }
     }
 

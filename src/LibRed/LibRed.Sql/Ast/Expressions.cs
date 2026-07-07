@@ -51,3 +51,9 @@ public sealed record ExistsExpression(SelectStatement Query) : Expression;
 /// <summary><c>x [NOT] IN (SELECT … )</c>: membership of <paramref name="Value"/> in the first column of a
 /// (possibly correlated) subquery, with SQL three-valued semantics.</summary>
 public sealed record InSubqueryExpression(Expression Value, SelectStatement Query, bool Negated) : Expression;
+
+/// <summary><c>x [NOT] IN (a, b, …)</c> over a literal value list, kept as a flat node (rather than lowered to a
+/// deep <c>OR</c>-chain) so a very large list — EF Core inlines a "huge number of values" Contains as thousands
+/// of constants — evaluates iteratively instead of recursing once per item and overflowing the stack. Same SQL
+/// three-valued semantics as <see cref="InSubqueryExpression"/>.</summary>
+public sealed record InListExpression(Expression Value, IReadOnlyList<Expression> Items, bool Negated) : Expression;

@@ -681,16 +681,15 @@ internal sealed class AstBuilder
 
     /// <summary>Lowers <c>x [NOT] BETWEEN lo AND hi</c> to <c>(x &gt;= lo AND x &lt;= hi)</c> (negated for NOT),
     /// so no dedicated node is needed and the evaluator handles it via the comparison operators.</summary>
-    /// <summary><c>x IN (a, b, …)</c> lowers to <c>(x = a) OR (x = b) OR …</c> (and NOT IN wraps it in NOT),
-    /// so null/three-valued semantics fall out of the existing OR/=/NOT evaluation. The items are ordinary
-    /// expressions — literals or parameters in practice.</summary>
+    /// <summary><c>x IN (a, b, …)</c> becomes a flat <see cref="InListExpression"/> evaluated iteratively — NOT a
+    /// deep <c>(x = a) OR (x = b) OR …</c> tree, which recurses once per item and overflows the stack when EF Core
+    /// inlines a "huge number of values" Contains (thousands of constants). The evaluator reproduces the same
+    /// OR/=/NOT three-valued semantics in a loop.</summary>
     private static Expression BuildIn(InExprContext ctx)
     {
         Expression value = BuildExpression(ctx.val);
-        Expression membership = ctx._items
-            .Select(item => (Expression)new BinaryExpression(BinaryOperator.Equal, value, BuildExpression(item)))
-            .Aggregate((left, right) => new BinaryExpression(BinaryOperator.Or, left, right));
-        return ctx.not is null ? membership : new UnaryExpression(UnaryOperator.Not, membership);
+        var items = ctx._items.Select(BuildExpression).ToList();
+        return new InListExpression(value, items, ctx.not is not null);
     }
 
     private static Expression BuildBetween(BetweenExprContext ctx)

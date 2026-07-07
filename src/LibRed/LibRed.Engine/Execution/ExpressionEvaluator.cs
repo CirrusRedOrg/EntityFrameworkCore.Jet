@@ -26,6 +26,7 @@ internal sealed class ExpressionEvaluator(
         ScalarSubquery s => subqueries.ExecuteScalar(s.Query, scope),
         ExistsExpression e => subqueries.ExecuteExists(e.Query, scope),
         InSubqueryExpression i => EvaluateInSubquery(i),
+        InListExpression i => EvaluateInList(i),
         FunctionCall f => EvaluateFunction(f),
         UnaryExpression u => EvaluateUnary(u),
         BinaryExpression b => EvaluateBinary(b),
@@ -85,6 +86,25 @@ internal sealed class ExpressionEvaluator(
         }
         bool? result = found ? true : hasNull ? null : false;
         return inq.Negated ? (result is null ? null : !result) : result;
+    }
+
+    /// <summary><c>x [NOT] IN (a, b, …)</c> over a literal list, evaluated iteratively (not as a recursive OR-tree)
+    /// so a huge list can't overflow the stack. Same three-valued semantics as the subquery form: NULL if x is null
+    /// or (no match and some item is null), otherwise the membership result (negated for NOT IN).</summary>
+    private object? EvaluateInList(InListExpression inl)
+    {
+        object? val = Evaluate(inl.Value);
+        if (val is null) return null;
+
+        bool hasNull = false, found = false;
+        foreach (Expression itemExpr in inl.Items)
+        {
+            object? item = Evaluate(itemExpr);
+            if (item is null) hasNull = true;
+            else if (Compare(val, item) == 0) { found = true; break; }
+        }
+        bool? result = found ? true : hasNull ? null : false;
+        return inl.Negated ? (result is null ? null : !result) : result;
     }
 
     private object? EvaluateFunction(FunctionCall f)

@@ -114,6 +114,19 @@ separate operation); foreign-key **enforcement + cascade / set-null** referentia
 - **Deferred-write transactions**: writes are eager (write-through + undo log) today; a future refactor
   behind `PageChannel` could buffer changed pages and materialize them only on commit (cheaper rollback,
   file never half-applied). ADO/Engine layers unaffected.
+- **Single-writer concurrency** — LibRed is a **single-writer engine that merely tolerates extra open
+  handles**, not a concurrent multi-user one. `PageChannel.Open` opens the file `FileShare.ReadWrite`
+  (a Jet/ACE file is a shared-file database — Access/ODBC/OLE DB all open it with multiple handles, and
+  EF's own test infra keeps a store connection open alongside per-context connections), but there is **no
+  concurrency control**: no lock file (Access coordinates multi-user access via a side-car `.laccdb`/`.ldb`
+  with page/record locks — LibRed writes and honours none of it), no read isolation, and the transaction
+  undo log is **per-`PageChannel`**. Safe: any number of readers with no writer; one writer plus readers
+  when access is **serialized** (the single-threaded app / EF case). Unsafe: truly concurrent readers and a
+  writer (torn/dirty reads — a reader can see a half-applied multi-page operation or another handle's
+  uncommitted transaction); **two or more concurrent writers → file corruption** (unarbitrated page writes,
+  racing usage-map allocation, and — worst — one channel's rollback *truncates the file* back to its own
+  transaction start, discarding pages another channel committed past that point). True multi-user support
+  is its own project: a lock file, page/record locking, and a shared or WAL-based write path.
 - **Chained LVAL pages**: `LongValueWriter` writes a **single** LVAL page (used for `LvProp` and available
   for memo/OLE), so a long value must fit in one page. Payloads larger than a page need a chained (`0x00`)
   descriptor across multiple LVAL pages, which isn't written yet. (Memo/OLE column *values* still write

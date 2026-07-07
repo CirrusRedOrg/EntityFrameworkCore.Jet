@@ -111,6 +111,21 @@ public class DateTimeDefaultTests
         Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)"));
     }
 
+    // A default cannot reference a table/query (subquery) — ACE forbids "references to queries". LibRed rejects
+    // it too: the default-expression sub-parser doesn't accept a full SELECT.
+    [Theory]
+    [InlineData("(SELECT MAX(X) FROM Other)")]
+    [InlineData("(SELECT COUNT(*) FROM Other)")]
+    public void A_default_cannot_reference_a_table_or_query(string def)
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery("CREATE TABLE Other ( X LONG PRIMARY KEY )");
+        e.ExecuteNonQuery($"CREATE TABLE T ( K LONG PRIMARY KEY, V LONG DEFAULT {def} )");
+        // Rejected when the default is applied (its text is parsed lazily at insert) — a subquery is never a
+        // valid default expression.
+        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)"));
+    }
+
     [Fact]
     public void A_real_column_named_Now_still_wins_over_the_function()
     {

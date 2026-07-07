@@ -98,6 +98,7 @@ internal sealed class ExpressionEvaluator(
         {
             "IIF" => IsTrue(f.Arguments[0]) ? Evaluate(f.Arguments[1]) : Evaluate(f.Arguments[2]),
             "CHOOSE" => Choose(f),
+            "SWITCH" => Switch(f),
             "DATEPART" => DatePart(Evaluate(f.Arguments[0]), Evaluate(f.Arguments[1])),
             "ROUND" => Round(f),
             "FIX" => Numeric1(f, Math.Truncate, Math.Truncate),  // toward zero
@@ -185,6 +186,21 @@ internal sealed class ExpressionEvaluator(
         int index = Convert.ToInt32(indexValue, CultureInfo.InvariantCulture);
         int choiceCount = f.Arguments.Count - 1;
         return index < 1 || index > choiceCount ? null : Evaluate(f.Arguments[index]);
+    }
+
+    /// <summary>Access <c>Switch(cond-1, value-1, cond-2, value-2, …)</c>: evaluates the conditions left to
+    /// right and returns the value paired with the first true one, or NULL if none is true (verified vs ACE).
+    /// The argument count must be even (condition/value pairs) — an odd count is an error in ACE ("Wrong number
+    /// of arguments"). Only the matched value is evaluated.</summary>
+    private object? Switch(FunctionCall f)
+    {
+        if (f.Arguments.Count % 2 != 0)
+            throw new InvalidOperationException(
+                "Wrong number of arguments used with function Switch (expects condition/value pairs).");
+        for (int i = 0; i < f.Arguments.Count; i += 2)
+            if (IsTrue(f.Arguments[i]))
+                return Evaluate(f.Arguments[i + 1]);
+        return null;
     }
 
     /// <summary>A random non-zero signed Int32 — Access's <c>GenUniqueID()</c>.</summary>

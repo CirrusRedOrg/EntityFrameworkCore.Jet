@@ -22,4 +22,9 @@ internal static class TestDatabases
     /// <summary>EF Core's BuiltInDataTypes database — broad coverage of every mapped column type.</summary>
     public static string BuiltInDataTypesAccdb { get; } =
         Path.Combine(AppContext.BaseDirectory, "Data", "BuiltInDataTypes.accdb");
+
+    /// <summary>EF Core's EverythingIsBytes database — every entity has a byte[] primary key (3/4/5/8/16-byte
+    /// values), for byte-faithful binary index-key checks.</summary>
+    public static string EverythingIsBytesAccdb { get; } =
+        Path.Combine(AppContext.BaseDirectory, "Data", "EverythingIsBytes.accdb");
 }

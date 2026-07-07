@@ -11,13 +11,10 @@ namespace LibRed.Core.Tests;
 // the row's actual key-column value and re-encode it — it must reproduce ACE's bytes exactly.
 public class BinaryIndexKeyAccessTests
 {
-    private static readonly string Fixture =
-        Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "FunctionalTestsData", "EverythingIsBytes.accdb");
-
     [Fact]
     public void Reencoding_binary_keys_reproduces_ace_bytes()
     {
-        using var db = JetDatabase.Open(Fixture);
+        using var db = JetDatabase.Open(TestDatabases.EverythingIsBytesAccdb);
 
         int checkedEntries = 0;
         foreach (TableDef tdef in db.Catalog.Tables)

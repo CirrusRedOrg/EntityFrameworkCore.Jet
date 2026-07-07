@@ -94,7 +94,12 @@ internal sealed class ExpressionEvaluator(
         if (scope.TryResolveAggregate(f, out object? aggregate))
             return aggregate;
 
-        return f.Name.ToUpperInvariant() switch
+        // VBA "$" variants (Left$, UCase$, Chr$, …) return a String instead of a Variant but compute the same
+        // value in the Jet expression service — so a trailing "$" is stripped and dispatched to the base name.
+        string name = f.Name.ToUpperInvariant();
+        if (name.Length > 1 && name[^1] == '$') name = name[..^1];
+
+        return name switch
         {
             "IIF" => IsTrue(f.Arguments[0]) ? Evaluate(f.Arguments[1]) : Evaluate(f.Arguments[2]),
             "CHOOSE" => Choose(f),
@@ -168,6 +173,7 @@ internal sealed class ExpressionEvaluator(
 
             // More VBA/Access built-ins (verified vs ACE via the function-whitelist sweep). All NULL-propagating
             // via Convert1 unless noted; positions are 1-based.
+            "ASC" => Convert1(f, v => (int)v.ToString()![0]),
             "CHR" => Convert1(f, v => ((char)Convert.ToInt32(v, CultureInfo.InvariantCulture)).ToString()),
             "SPACE" => Convert1(f, v => new string(' ', Convert.ToInt32(v, CultureInfo.InvariantCulture))),
             "STRING" => StringOf(f),                         // String(count, char) → char repeated count times
@@ -188,6 +194,20 @@ internal sealed class ExpressionEvaluator(
             "ISERROR" => false,
             "TYPENAME" => TypeNameOf(Evaluate(f.Arguments[0])),
             "VARTYPE" => VarTypeOf(Evaluate(f.Arguments[0])),
+
+            // Wide (Unicode code-point) variants. AscW = the first char's code point; ChrW = the char for a code
+            // point (unlike Chr, not restricted to a byte). Verified vs ACE: ChrW(233) → 'é'.
+            "ASCW" => Convert1(f, v => (int)v.ToString()![0]),
+            "CHRW" => Convert1(f, v => ((char)Convert.ToInt32(v, CultureInfo.InvariantCulture)).ToString()),
+            // Byte variants operate on the UTF-16 byte layout (2 bytes/char): LenB = 2×length, AscB = the low
+            // byte of the first char, and Left/Right/Mid/InStr count bytes. Verified vs ACE (LenB('abc')=6,
+            // InStrB(1,'abc','b')=3). ChrB is intentionally absent — ACE's expression service has no ChrB.
+            "ASCB" => Convert1(f, v => v.ToString()![0] & 0xFF),
+            "LENB" => Convert1(f, v => v.ToString()!.Length * 2),
+            "LEFTB" => ByteLeft(f),
+            "RIGHTB" => ByteRight(f),
+            "MIDB" => ByteMid(f),
+            "INSTRB" => InstrB(f),
 
             // GenUniqueID(): Access's random-Long generator. Not callable in a SELECT (ACE errors "Undefined
             // function") but valid as a LONG column's DEFAULT, where it yields a random signed Int32 per row —
@@ -319,6 +339,60 @@ internal sealed class ExpressionEvaluator(
         DateTime => 7,      // vbDate
         _ => 8,             // vbString
     };
+
+    /// <summary>VBA <c>LeftB(string, bytes)</c>: the leading <c>bytes</c> bytes of the UTF-16 layout, i.e. the
+    /// first <c>bytes/2</c> characters. NULL-propagating.</summary>
+    private object? ByteLeft(FunctionCall f)
+    {
+        object? sv = Evaluate(f.Arguments[0]);
+        if (sv is null) return null;
+        string s = sv.ToString()!;
+        int n = Math.Clamp(Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture) / 2, 0, s.Length);
+        return s[..n];
+    }
+
+    /// <summary>VBA <c>RightB(string, bytes)</c>: the trailing <c>bytes/2</c> characters. NULL-propagating.</summary>
+    private object? ByteRight(FunctionCall f)
+    {
+        object? sv = Evaluate(f.Arguments[0]);
+        if (sv is null) return null;
+        string s = sv.ToString()!;
+        int n = Math.Clamp(Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture) / 2, 0, s.Length);
+        return s[^n..];
+    }
+
+    /// <summary>VBA <c>MidB(string, startByte[, lenBytes])</c>: 1-based byte start, byte length — mapped to
+    /// characters (2 bytes each). NULL-propagating.</summary>
+    private object? ByteMid(FunctionCall f)
+    {
+        object? sv = Evaluate(f.Arguments[0]);
+        if (sv is null) return null;
+        string s = sv.ToString()!;
+        int startChar = Math.Max(0, (Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture) - 1) / 2);
+        if (startChar >= s.Length) return "";
+        int lenChar = f.Arguments.Count > 2
+            ? Convert.ToInt32(Evaluate(f.Arguments[2]), CultureInfo.InvariantCulture) / 2
+            : s.Length - startChar;
+        lenChar = Math.Clamp(lenChar, 0, s.Length - startChar);
+        return s.Substring(startChar, lenChar);
+    }
+
+    /// <summary>VBA <c>InStrB([start,] string1, string2)</c>: the 1-based BYTE position of string2 in string1
+    /// (0 if not found) — i.e. the character position mapped back to bytes. NULL-propagating.</summary>
+    private object? InstrB(FunctionCall f)
+    {
+        int argc = f.Arguments.Count;
+        object? s1v = Evaluate(f.Arguments[argc >= 3 ? 1 : 0]);
+        object? s2v = Evaluate(f.Arguments[argc >= 3 ? 2 : 1]);
+        if (s1v is null || s2v is null) return null;
+        int startChar = argc >= 3
+            ? Math.Max(0, (Convert.ToInt32(Evaluate(f.Arguments[0]), CultureInfo.InvariantCulture) - 1) / 2)
+            : 0;
+        string s1 = s1v.ToString()!, s2 = s2v.ToString()!;
+        if (startChar >= s1.Length) return 0;
+        int idx = s1.IndexOf(s2, startChar, StringComparison.OrdinalIgnoreCase);
+        return idx < 0 ? 0 : idx * 2 + 1;
+    }
 
     /// <summary>A random non-zero signed Int32 — Access's <c>GenUniqueID()</c>.</summary>
     private static int RandomLong()

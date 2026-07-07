@@ -110,7 +110,6 @@ cross-check.)
 | `Partition` | Range-bucket string builder — niche. |
 | `StrConv` | Multiple conversion modes (case, width, encoding). |
 | `WeekdayName` | ACE's default first-day-of-week semantics need pinning down (ACE `WeekdayName(1)` → "Monday"). |
-| `Asc` | **Grammar-blocked**: `ASC` is a reserved keyword (index direction), so `Asc(...)` mis-lexes. Needs a grammar rule allowing `ASC` as a function name. |
 
 **Divergences — LibRed more permissive than ACE:**
 
@@ -123,8 +122,27 @@ cross-check.)
 function), and neither does LibRed. Correctly **not** added.
 
 > The whitelist is now closely aligned but **not proven exhaustive** — `Choose`/`Switch` and the string/type
-> batch were gaps this sweep surfaced; the deferred five remain. Re-run the sweep (`FunctionWhitelist*Probe`
+> batch were gaps this sweep surfaced; the deferred four remain. Re-run the sweep (`FunctionWhitelist*Probe`
 > pattern) when in doubt.
+
+### VBA function-name variants (`$` / `B` / `W`)
+
+Many string functions have VBA variant spellings. Which ones ACE's expression service exposes, and how LibRed
+handles them (`FunctionVariantTests`):
+
+- **`$` — string-returning** (`Left$`, `UCase$`, `Chr$`, `Space$`, `String$`, `Str$`, `Hex$`, `Oct$`,
+  `Format$`, …). ACE exposes them for the classic functions (**not** newer ones — `StrReverse$` is undefined).
+  They compute the same value as the base function. LibRed: the lexer allows a trailing `$` on an identifier
+  (longest-match makes `Left$` an identifier, not the `LEFT` keyword) and the evaluator strips it before
+  dispatch — so every base function gains its `$` form automatically.
+- **`B` — byte-based** on the UTF-16 layout, 2 bytes/char. ACE exposes `AscB LenB LeftB RightB MidB InStrB`
+  (`LenB('abc')`=6, `InStrB(1,'abc','b')`=3, `LeftB('abc',2)`='a') — **not** `ChrB`. LibRed implements the
+  supported six with byte↔char mapping; `ChrB` is intentionally omitted to match ACE.
+- **`W` — wide/Unicode code point**: `AscW` (first char's code point) and `ChrW` (char for a code point, not
+  limited to a byte — `ChrW(233)`='é'). Both implemented.
+
+Base **`Asc`** required a grammar fix (`ASC` is the index-direction keyword; `functionName` now also accepts
+`ASC`, unambiguous because a call is always followed by `(`).
 
 ## LibRed specifics
 

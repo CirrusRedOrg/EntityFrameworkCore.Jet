@@ -266,10 +266,10 @@ primary
     ;
 
 functionCall : name=functionName LPAREN (star=STAR | (expression (COMMA expression)*))? RPAREN ;
-// A function name is an identifier, or the LEFT/RIGHT keywords used as the Left()/Right() functions —
-// unambiguous with LEFT/RIGHT JOIN because a function call is always followed by '(' and never appears in
-// the FROM clause.
-functionName : identifier | LEFT | RIGHT ;
+// A function name is an identifier, or the LEFT/RIGHT/ASC keywords used as the Left()/Right()/Asc() functions —
+// unambiguous with LEFT/RIGHT JOIN and ORDER BY ... ASC because a function call is always followed by '(' and
+// never appears in the FROM/ORDER BY clause.
+functionName : identifier | LEFT | RIGHT | ASC ;
 
 columnRef : (qualifier=identifier DOT)? name=identifier ;
 
@@ -402,6 +402,9 @@ GUID_LITERAL    : '{' HEXDIGIT+ '-' HEXDIGIT+ '-' HEXDIGIT+ '-' HEXDIGIT+ '-' HE
 fragment HEXDIGIT : [0-9A-Fa-f] ;
 BRACKET_ID      : '[' ~[\]]+ ']' ;
 BACKTICK_ID     : '`' ~[`]+ '`' ;
-IDENTIFIER      : [A-Za-z_][A-Za-z_0-9]* ;
+// A trailing '$' is allowed so VBA "$" string-function variants (Left$, UCase$, Chr$, …) lex as a single
+// identifier. Longest-match makes "Left$" an IDENTIFIER (5 chars) rather than the LEFT keyword (4); the
+// evaluator strips the '$' and dispatches to the base function.
+IDENTIFIER      : [A-Za-z_][A-Za-z_0-9]* '$'? ;
 
 WS      : [ \t\r\n]+ -> skip ;

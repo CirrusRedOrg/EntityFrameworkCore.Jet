@@ -277,14 +277,34 @@ internal sealed class ExpressionEvaluator(
         return Math.Sign(string.Compare(a.ToString(), b.ToString(), StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>Access <c>InStrRev(string, find)</c>: the 1-based position of the last occurrence, or 0.
-    /// Case-insensitive. NULL-propagating.</summary>
+    /// <summary>Access <c>InStrRev(string1, string2, [start=-1], [compare])</c>: the 1-based position of the last
+    /// occurrence of string2 in string1 (0 if not found), searching within the first <c>start</c> characters
+    /// (the match must end at or before <c>start</c>; <c>start</c>=-1 means the whole string). Case-insensitive
+    /// unless compare=0 (binary). Semantics verified vs ACE, including its quirks: an empty needle returns the
+    /// effective start position; <c>start</c>=0 (or &lt;-1) → "Invalid procedure call"; and — unlike
+    /// <c>InStr</c> — a NULL argument raises "Data type mismatch" rather than propagating NULL.</summary>
     private object? InstrRev(FunctionCall f)
     {
-        object? text = Evaluate(f.Arguments[0]);
-        object? find = Evaluate(f.Arguments[1]);
-        if (text is null || find is null) return null;
-        return text.ToString()!.LastIndexOf(find.ToString()!, StringComparison.OrdinalIgnoreCase) + 1;
+        object? s1v = Evaluate(f.Arguments[0]);
+        object? s2v = Evaluate(f.Arguments[1]);
+        if (s1v is null || s2v is null)
+            throw new InvalidOperationException("Data type mismatch in criteria expression: InStrRev() argument is null.");
+        string s1 = s1v.ToString()!, s2 = s2v.ToString()!;
+
+        int start = f.Arguments.Count > 2 ? Convert.ToInt32(Evaluate(f.Arguments[2]), CultureInfo.InvariantCulture) : -1;
+        if (start == -1) start = s1.Length;
+        else if (start < 1)
+            throw new InvalidOperationException("Invalid procedure call: InStrRev() start must be -1 or a positive position.");
+
+        StringComparison cmp = f.Arguments.Count > 3
+            && Convert.ToInt32(Evaluate(f.Arguments[3]), CultureInfo.InvariantCulture) == 0
+            ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+        if (s1.Length == 0) return 0;
+        int window = Math.Min(start, s1.Length);            // search within Left(string1, start)
+        if (s2.Length == 0) return window;                  // empty needle → the effective start position
+        int idx = s1[..window].LastIndexOf(s2, cmp);
+        return idx < 0 ? 0 : idx + 1;
     }
 
     /// <summary>VBA <c>Str(number)</c>: the number as text, with a leading space for non-negative values (VBA

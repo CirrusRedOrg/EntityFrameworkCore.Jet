@@ -105,7 +105,8 @@ public class AlterTableDropConstraintTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
-    // Dropping a name that isn't a foreign key throws a clear error (index/PK drop not implemented yet).
+    // Dropping a name that is neither a relationship nor an index throws a clear error. (A real FK/PK/unique
+    // name would be dropped — DROP CONSTRAINT falls through to the index-drop path; see DropConstraintIndexTests.)
     [Fact]
     public void Drop_unknown_constraint_throws()
     {
@@ -115,7 +116,7 @@ public class AlterTableDropConstraintTests
             using var db = JetDatabase.Open(path, readOnly: false);
             var e = new QueryEngine(db);
             e.ExecuteNonQuery("CREATE TABLE T (Id LONG CONSTRAINT PK_T PRIMARY KEY)");
-            var ex = Assert.Throws<NotSupportedException>(
+            var ex = Assert.Throws<InvalidOperationException>(
                 () => e.ExecuteNonQuery("ALTER TABLE T DROP CONSTRAINT NoSuchThing"));
             Assert.Contains("NoSuchThing", ex.Message);
         }

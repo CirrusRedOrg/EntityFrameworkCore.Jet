@@ -170,8 +170,8 @@ internal sealed class AstBuilder
         _ => throw new SqlParseException("Unsupported ALTER TABLE ADD CONSTRAINT."),
     };
 
-    private static int? Size(DataTypeContext type) => type.size is { } s ? int.Parse(s.Text, CultureInfo.InvariantCulture) : null;
-    private static int? Scale(DataTypeContext type) => type.scale is { } s ? int.Parse(s.Text, CultureInfo.InvariantCulture) : null;
+    private static int? Size(DataTypeContext type) => type.size is { } s ? int.Parse(s.GetText(), CultureInfo.InvariantCulture) : null;
+    private static int? Scale(DataTypeContext type) => type.scale is { } s ? int.Parse(s.GetText(), CultureInfo.InvariantCulture) : null;
 
     private static ForeignKeyConstraint BuildForeignKey(ForeignKeyTableConstraintContext ctx)
     {
@@ -231,8 +231,8 @@ internal sealed class AstBuilder
     private static ColumnDefinition BuildColumnDefinition(ColumnDefinitionContext ctx)
     {
         DataTypeContext type = ctx.dataType();
-        int? size = type.size is { } s ? int.Parse(s.Text, CultureInfo.InvariantCulture) : null;
-        int? scale = type.scale is { } sc ? int.Parse(sc.Text, CultureInfo.InvariantCulture) : null;
+        int? size = type.size is { } s ? int.Parse(s.GetText(), CultureInfo.InvariantCulture) : null;
+        int? scale = type.scale is { } sc ? int.Parse(sc.GetText(), CultureInfo.InvariantCulture) : null;
 
         string typeName = TypeName(type);
 

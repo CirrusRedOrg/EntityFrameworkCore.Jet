@@ -113,7 +113,10 @@ columnDefinition : name=identifier dataType columnConstraint* ;
 
 // A second word handles two-word ANSI aliases like CHARACTER VARYING / BIT VARYING.
 // Up to three words to cover multi-word SQL type names: "char varying", "national character varying", etc.
-dataType : typeName=identifier extra=identifier? extra2=identifier? (LPAREN size=INTEGER_LITERAL (COMMA scale=INTEGER_LITERAL)? RPAREN)? ;
+dataType : typeName=identifier extra=identifier? extra2=identifier? (LPAREN size=signedInteger (COMMA scale=signedInteger)? RPAREN)? ;
+
+// A possibly-negative integer — needed for a descending COUNTER(seed, increment) whose increment is negative.
+signedInteger : MINUS? INTEGER_LITERAL ;
 
 // Single-field constraints (after the column's data type). A CONSTRAINT name may prefix any of them.
 columnConstraint

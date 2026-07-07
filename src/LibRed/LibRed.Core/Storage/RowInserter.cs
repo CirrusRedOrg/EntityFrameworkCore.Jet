@@ -686,7 +686,11 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (!column.IsAutoNumber || values[column.Index] is not { } value) continue;
             int assigned = Convert.ToInt32(value);
             int highWater = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4));
-            if (assigned > highWater)
+            // Advance 0x14 to the id just written when it moves further in the counter's direction — for a
+            // positive increment that's the max seen, for a negative (descending) counter the min. Using max
+            // unconditionally would let a descending counter reissue the previous id (duplicate key).
+            bool advances = column.Increment >= 0 ? assigned > highWater : assigned < highWater;
+            if (advances)
                 BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4), assigned);
         }
 

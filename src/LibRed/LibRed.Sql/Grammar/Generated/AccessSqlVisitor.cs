@@ -231,6 +231,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitDataType([NotNull] AccessSqlParser.DataTypeContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.signedInteger"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitSignedInteger([NotNull] AccessSqlParser.SignedIntegerContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>NotNullConstraint</c>
 	/// labeled alternative in <see cref="AccessSqlParser.columnConstraint"/>.
 	/// </summary>

@@ -35,6 +35,22 @@ public class CounterSeedIncrementTests
     }
 
     [Fact]
+    public void Negative_increment_counts_down_from_the_seed()
+    {
+        var (e, db) = Fresh();
+        // A signed 32-bit increment (0x18) — a negative one is a descending counter (verified vs ACE).
+        e.ExecuteNonQuery("CREATE TABLE C ( Id COUNTER(100, -5), Name text(10) )");
+        e.ExecuteNonQuery("INSERT INTO C (Name) VALUES ('a')");
+        e.ExecuteNonQuery("INSERT INTO C (Name) VALUES ('b')");
+        e.ExecuteNonQuery("INSERT INTO C (Name) VALUES ('c')");
+
+        int[] ids = e.ExecuteQuery("SELECT Id FROM C ORDER BY Name").Rows
+            .Select(r => Convert.ToInt32(r[0])).ToArray();
+        Assert.Equal(new[] { 100, 95, 90 }, ids);
+        Assert.Equal(-5, db.Catalog.UserTables.Single(t => t.Name == "C").Columns.Single(c => c.Name == "Id").Increment);
+    }
+
+    [Fact]
     public void Seed_and_increment_round_trip_through_the_catalog()
     {
         var (e, db) = Fresh();

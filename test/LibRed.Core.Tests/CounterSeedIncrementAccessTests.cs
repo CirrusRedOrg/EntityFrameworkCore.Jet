@@ -22,8 +22,10 @@ public class CounterSeedIncrementAccessTests
         throw new InvalidOperationException("no provider", last);
     }
 
-    [Fact]
-    public void Access_continues_a_libred_written_custom_counter()
+    [Theory]
+    [InlineData(1000, 7, new[] { 1000, 1007 })]     // ascending custom counter
+    [InlineData(100, -5, new[] { 95, 100 })]        // descending counter (negative int32 increment), sorted asc
+    public void Access_continues_a_libred_written_custom_counter(int seed, int increment, int[] expectedSortedIds)
     {
         string path = Path.Combine(Path.GetTempPath(), $"cnt-{Guid.NewGuid():N}.accdb");
         File.Copy(TestDatabases.NorthwindAccdb, path);
@@ -32,7 +34,7 @@ public class CounterSeedIncrementAccessTests
             using (var db = JetDatabase.Open(path, readOnly: false))
                 db.CreateTable("C1",
                 [
-                    new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true, Seed: 1000, Increment: 7),
+                    new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true, Seed: seed, Increment: increment),
                     new ColumnSpec("Name", JetDataType.Text, 20, IsFixedLength: false),
                 ]);
 
@@ -47,8 +49,8 @@ public class CounterSeedIncrementAccessTests
             var ids = new List<int>();
             while (r.Read()) ids.Add(Convert.ToInt32(r[0]));
 
-            // ACE picks up the LibRed-written seed/increment: first row = seed (1000), then +7.
-            Assert.Equal(new[] { 1000, 1007 }, ids);
+            // ACE picks up the LibRed-written seed/increment and continues the sequence in its direction.
+            Assert.Equal(expectedSortedIds, ids);
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }

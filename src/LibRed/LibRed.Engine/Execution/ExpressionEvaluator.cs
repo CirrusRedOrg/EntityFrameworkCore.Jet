@@ -145,8 +145,21 @@ internal sealed class ExpressionEvaluator(
             "LOG" => UnaryDouble(f, Math.Log),
             "SQR" => UnaryDouble(f, Math.Sqrt),
             "SGN" => UnaryDouble(f, d => Math.Sign(d)),
+            // GenUniqueID(): Access's random-Long generator. Not callable in a SELECT (ACE errors "Undefined
+            // function") but valid as a LONG column's DEFAULT, where it yields a random signed Int32 per row —
+            // the mechanism behind a "Random" AutoNumber. Accepted on a plain LONG default too (ACE allows it
+            // only on a LONG column). AutoNumber columns take their random value in the row inserter instead.
+            "GENUNIQUEID" => RandomLong(),
             _ => throw new NotSupportedException($"Function {f.Name} is not supported."),
         };
+    }
+
+    /// <summary>A random non-zero signed Int32 — Access's <c>GenUniqueID()</c>.</summary>
+    private static int RandomLong()
+    {
+        int value;
+        do { value = Random.Shared.Next(int.MinValue, int.MaxValue); } while (value == 0);
+        return value;
     }
 
     /// <summary>Access ROUND(number[, digits]): banker's rounding, preserving the operand's type (a double

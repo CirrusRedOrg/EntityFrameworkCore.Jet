@@ -942,6 +942,9 @@ The split mechanics:
   > to the column's LvProp (byte-identical to a UI/ACE-authored one, so ACE reads it as a Random AutoNumber), and
   > on insert LibRed assigns a random non-zero Int32 per row instead of the sequential counter, leaving the TDEF
   > high-water (`0x14`) unadvanced (as ACE does). `ColumnDef.IsRandomAutoNumber` gates this off the default text.
+  > A **plain (non-AutoNumber) `LONG DEFAULT GenUniqueID()`** column works too: `GenUniqueID()` is a real
+  > evaluable function in LibRed's expression evaluator (a random non-zero Int32), so an omitted value defaults to
+  > a random Long while a supplied value is kept — matching ACE, which reads and applies a LibRed-written one.
 
 - **LVAL (long-value) page** — a data page (type `0x01`) whose owner field (`0x04`) is the ASCII marker
   `"LVAL"` instead of a TDEF page number. A single-page long value stores the whole payload as row 0; the

@@ -48,6 +48,27 @@ public class RandomAutoNumberTests
         Assert.Equal("GenUniqueID()", col.DefaultValue);
     }
 
+    // GenUniqueID() is also valid as a plain (non-AutoNumber) LONG column default (ACE accepts it only on LONG).
+    // Unlike an AutoNumber, the column is user-writable: an omitted value gets a random Long, a supplied one is
+    // kept verbatim.
+    [Fact]
+    public void Plain_long_default_generates_random_values_but_stays_user_writable()
+    {
+        var (e, _) = Fresh();
+        e.ExecuteNonQuery("CREATE TABLE R ( K LONG PRIMARY KEY, V LONG DEFAULT GenUniqueID() )");
+        e.ExecuteNonQuery("INSERT INTO R (K) VALUES (1)");            // V defaulted → random
+        e.ExecuteNonQuery("INSERT INTO R (K) VALUES (2)");            // V defaulted → random
+        e.ExecuteNonQuery("INSERT INTO R (K, V) VALUES (3, 777)");    // V supplied → kept
+
+        var rows = e.ExecuteQuery("SELECT K, V FROM R ORDER BY K").Rows
+            .Select(r => (K: Convert.ToInt32(r[0]), V: Convert.ToInt32(r[1]))).ToArray();
+
+        Assert.Equal(777, rows.Single(r => r.K == 3).V);             // supplied value preserved
+        var defaulted = rows.Where(r => r.K != 3).Select(r => r.V).ToArray();
+        Assert.All(defaulted, v => Assert.NotEqual(0, v));
+        Assert.Equal(2, defaulted.Distinct().Count());               // random, not a constant
+    }
+
     [Fact]
     public void Retrieves_the_generated_random_id_as_identity()
     {

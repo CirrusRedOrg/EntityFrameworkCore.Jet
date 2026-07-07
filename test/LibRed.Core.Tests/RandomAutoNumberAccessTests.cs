@@ -68,6 +68,42 @@ public class RandomAutoNumberAccessTests
     }
 
     [Fact]
+    public void Access_reads_a_libred_written_plain_long_genuniqueid_default_and_applies_it()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"plain-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                db.CreateTable("R",
+                [
+                    new ColumnSpec("K", JetDataType.Int32, 4, IsFixedLength: true),
+                    new ColumnSpec("V", JetDataType.Int32, 4, IsFixedLength: true),
+                ],
+                primaryKey: ["K"],
+                columnDefaults: [("V", "GenUniqueID()")]);
+
+            using var conn = OpenOleDb(path);
+            void Insert(int k) { using var c = conn.CreateCommand(); c.CommandText = $"INSERT INTO R (K) VALUES ({k})"; c.ExecuteNonQuery(); }
+            Insert(1); Insert(2); Insert(3);
+
+            var vs = new List<int>();
+            using (var q = conn.CreateCommand())
+            {
+                q.CommandText = "SELECT V FROM R";
+                using var r = q.ExecuteReader();
+                while (r.Read()) vs.Add(Convert.ToInt32(r[0]));
+            }
+
+            // ACE opened the LibRed-written file and applied the GenUniqueID() default itself: random, distinct.
+            Assert.Equal(3, vs.Count);
+            Assert.Equal(3, vs.Distinct().Count());
+            Assert.DoesNotContain(0, vs);
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Random_autonumber_descriptor_round_trips_through_libred()
     {
         string path = Path.Combine(Path.GetTempPath(), $"rand-desc-{Guid.NewGuid():N}.accdb");

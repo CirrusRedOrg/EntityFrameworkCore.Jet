@@ -454,6 +454,10 @@ of the page backward, so a slot runs from its offset up to where the previous sl
 
 - **Null bitmap** is indexed by **column id**; a **set bit = the value is present** (non-null).
 - **Fixed** column value is at `rowStart + 2 + fixedOffset`, `length` bytes.
+  - A **fixed-length text** column (`CHAR`/`NCHAR`, not `TEXT`/`VARCHAR`) fills its whole `length`: the value is
+    **space-padded** (UTF-16LE `0x20 0x00`) to the fixed byte width, and reads back padded — verified vs ACE
+    (`CHAR(50)` of "Eastern" stores + returns 50 chars, trailing spaces; `TEXT(50)` is variable and stores/
+    returns the 7 chars). A fixed-length **binary** column is **zero-padded** to its width.
 - **Variable** column value: with `varTableStart = rowEnd − nullBitmapSize − 2 − (numVarCols+1)×2`,
   variable column `j` spans `[offset(numVarCols − j), offset(numVarCols − j − 1))`, where
   `offset(k)` is the little-endian 16-bit value at `varTableStart + k×2`. (The table is stored

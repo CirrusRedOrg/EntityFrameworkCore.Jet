@@ -154,9 +154,9 @@ public static class JetTypeCodec
             case JetDataType.Guid:
                 return ((Guid)value).ToByteArray();
             case JetDataType.Text:
-                return Encoding.Unicode.GetBytes((string)value);
+                return EncodeText(column, (string)value);
             case JetDataType.Binary:
-                return (byte[])value;
+                return EncodeBinary(column, (byte[])value);
             case JetDataType.FixedPoint:
                 return EncodeNumeric(Convert.ToDecimal(value, c), column.Scale);
 
@@ -171,6 +171,29 @@ public static class JetTypeCodec
             default:
                 throw new NotSupportedException($"Encoding {column.Type} is not supported yet.");
         }
+    }
+
+    /// <summary>Encodes text. A fixed-length (CHAR/NCHAR) column is **space-padded** (or truncated) to its byte
+    /// length — matching ACE, which stores and returns fixed text space-padded to the full width; a variable
+    /// column (TEXT/VARCHAR) is its exact UTF-16 bytes.</summary>
+    private static byte[] EncodeText(ColumnDef column, string value)
+    {
+        byte[] text = Encoding.Unicode.GetBytes(value);
+        if (!column.IsFixedLength) return text;
+        var padded = new byte[column.Length];
+        for (int i = 0; i < column.Length; i += 2) padded[i] = 0x20; // UTF-16LE space (0x20 0x00)
+        Array.Copy(text, padded, Math.Min(text.Length, column.Length));
+        return padded;
+    }
+
+    /// <summary>Encodes binary. A fixed-length (BINARY) column is **zero-padded** (or truncated) to its byte
+    /// length; a variable column (VARBINARY) is its exact bytes.</summary>
+    private static byte[] EncodeBinary(ColumnDef column, byte[] value)
+    {
+        if (!column.IsFixedLength || value.Length == column.Length) return value;
+        var padded = new byte[column.Length];
+        Array.Copy(value, padded, Math.Min(value.Length, column.Length));
+        return padded;
     }
 
     private static byte[] Bytes(int length, Action<Span<byte>> write)

@@ -649,15 +649,22 @@ internal sealed class ExpressionEvaluator(
     private object? Mid(FunctionCall f)
     {
         object? sv = Evaluate(f.Arguments[0]);
-        if (sv is null) return null;
+        if (sv is null) return null;                        // Mid propagates NULL on the string argument
         string s = sv.ToString()!;
-        int start = Math.Max(1, Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture));
+        int start = Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture);
+        if (start < 1)                                      // ACE errors rather than clamping
+            throw new InvalidOperationException("Invalid procedure call: Mid() start must be >= 1.");
         int from = start - 1;
         if (from >= s.Length) return "";
         int avail = s.Length - from;
         int len = avail;
         if (f.Arguments.Count > 2 && Evaluate(f.Arguments[2]) is { } lenVal)
-            len = Math.Clamp(Convert.ToInt32(lenVal, CultureInfo.InvariantCulture), 0, avail);
+        {
+            int requested = Convert.ToInt32(lenVal, CultureInfo.InvariantCulture);
+            if (requested < 0)                              // ACE errors on a negative length
+                throw new InvalidOperationException("Invalid procedure call: Mid() length cannot be negative.");
+            len = Math.Min(requested, avail);
+        }
         return s.Substring(from, len);
     }
 
@@ -686,10 +693,14 @@ internal sealed class ExpressionEvaluator(
     private object? Replace(FunctionCall f)
     {
         object? sv = Evaluate(f.Arguments[0]), findv = Evaluate(f.Arguments[1]), replv = Evaluate(f.Arguments[2]);
-        if (sv is null || findv is null || replv is null) return null;
+        // ACE raises "Data type mismatch" for a null argument (unlike InStr, which propagates NULL).
+        if (sv is null || findv is null || replv is null)
+            throw new InvalidOperationException("Data type mismatch in criteria expression: Replace() argument is null.");
         string s = sv.ToString()!, find = findv.ToString()!, repl = replv.ToString()!;
 
-        int start = f.Arguments.Count > 3 ? Math.Max(1, Convert.ToInt32(Evaluate(f.Arguments[3]), CultureInfo.InvariantCulture)) : 1;
+        int start = f.Arguments.Count > 3 ? Convert.ToInt32(Evaluate(f.Arguments[3]), CultureInfo.InvariantCulture) : 1;
+        if (start < 1)                                      // ACE errors rather than clamping
+            throw new InvalidOperationException("Invalid procedure call: Replace() start must be >= 1.");
         int count = f.Arguments.Count > 4 ? Convert.ToInt32(Evaluate(f.Arguments[4]), CultureInfo.InvariantCulture) : -1;
         StringComparison cmp = f.Arguments.Count > 5 && Convert.ToInt32(Evaluate(f.Arguments[5]), CultureInfo.InvariantCulture) == 0
             ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;

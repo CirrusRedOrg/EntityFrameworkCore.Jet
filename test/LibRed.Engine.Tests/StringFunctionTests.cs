@@ -75,7 +75,8 @@ public class StringFunctionTests
         Assert.Null(Scalar("LEFT(NULL, 2)"));
         Assert.Null(Scalar("MID(NULL, 1)"));
         Assert.Null(Scalar("INSTR('a', NULL)"));
-        Assert.Null(Scalar("REPLACE(NULL, 'a', 'b')"));
+        // Note: REPLACE does NOT propagate null — ACE raises "Data type mismatch" (see InstrRevEdgeCasesTests /
+        // MidReplaceEdgeCasesTests for the functions that error on null instead of propagating).
     }
 
     // The Left()/Right() functions coexist with LEFT/RIGHT JOIN in the same query.

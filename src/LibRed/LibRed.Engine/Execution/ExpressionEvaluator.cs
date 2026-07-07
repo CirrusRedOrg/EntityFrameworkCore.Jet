@@ -589,34 +589,39 @@ internal sealed class ExpressionEvaluator(
         if (sv is null) return null;
         byte[] b = ToBytes(sv);
         int n = Math.Clamp(Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture), 0, b.Length);
-        return FromBytes(b[..n]);
+        return ByteResult(sv, b[..n]);
     }
 
-    /// <summary>VBA <c>RightB(string, bytes)</c>: the trailing <c>bytes</c> bytes, decoded. NULL-propagating.</summary>
+    /// <summary>VBA <c>RightB(string, bytes)</c>: the trailing <c>bytes</c> bytes. NULL-propagating.</summary>
     private object? ByteRight(FunctionCall f)
     {
         object? sv = Evaluate(f.Arguments[0]);
         if (sv is null) return null;
         byte[] b = ToBytes(sv);
         int n = Math.Clamp(Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture), 0, b.Length);
-        return FromBytes(b[^n..]);
+        return ByteResult(sv, b[^n..]);
     }
 
     /// <summary>VBA <c>MidB(string, startByte[, lenBytes])</c>: a 1-based **byte** slice (may start/end
-    /// mid-character), decoded back to a string. NULL-propagating.</summary>
+    /// mid-character). NULL-propagating.</summary>
     private object? ByteMid(FunctionCall f)
     {
         object? sv = Evaluate(f.Arguments[0]);
         if (sv is null) return null;
         byte[] b = ToBytes(sv);
         int start = Math.Max(0, Convert.ToInt32(Evaluate(f.Arguments[1]), CultureInfo.InvariantCulture) - 1);
-        if (start >= b.Length) return "";
+        if (start >= b.Length) return ByteResult(sv, []);
         int len = f.Arguments.Count > 2
             ? Convert.ToInt32(Evaluate(f.Arguments[2]), CultureInfo.InvariantCulture)
             : b.Length - start;
         len = Math.Clamp(len, 0, b.Length - start);
-        return FromBytes(b[start..(start + len)]);
+        return ByteResult(sv, b[start..(start + len)]);
     }
+
+    /// <summary>The result of a byte-slice function: a **byte[]** when the input was binary (so a further byte
+    /// function like <c>ASCB(RIGHTB(x,1))</c> can read the raw byte — the mechanism EFCore.Jet's ByteArrayLength
+    /// relies on), or the decoded string (dropping a trailing odd byte) when the input was text.</summary>
+    private static object ByteResult(object input, byte[] slice) => input is byte[] ? slice : FromBytes(slice);
 
     /// <summary>VBA <c>InStrB([start,] string1, string2)</c>: the 1-based **byte** position of string2's bytes in
     /// string1's bytes (0 if not found). NULL-propagating.</summary>

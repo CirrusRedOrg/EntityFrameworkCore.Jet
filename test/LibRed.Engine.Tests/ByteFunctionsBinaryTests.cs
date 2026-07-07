@@ -34,14 +34,30 @@ public class ByteFunctionsBinaryTests
     public void Numeric_byte_functions_on_binary(string expr, int k, int expected)
         => Assert.Equal(expected, Convert.ToInt32(Eval(Seeded(), expr, k)));
 
+    // On binary input the slice functions return the raw byte[] (so a further byte function can read the bytes —
+    // e.g. ASCB(RightB(x,1))). Values are the actual byte slices ACE operates on (odd input zero-padded to even).
     [Theory]
-    [InlineData("LeftB(B, 2)", 1, "䉁")]   // bytes 41,42 as UTF-16LE = U+4241
-    [InlineData("RightB(B, 2)", 1, "C")]  // trailing byte 43 zero-padded = U+0043 = 'C'
-    [InlineData("MidB(B, 2, 2)", 1, "䍂")] // bytes 42,43 = U+4342
-    [InlineData("MidB(B, 1, 3)", 1, "䉁")] // 3 bytes -> 1 char
-    [InlineData("LeftB(B, 2)", 2, "䉁")]
-    [InlineData("RightB(B, 2)", 2, "䑃")]  // bytes 43,44 = U+4443
-    [InlineData("MidB(B, 2, 2)", 2, "䍂")]
-    public void Substring_byte_functions_on_binary(string expr, int k, string expected)
-        => Assert.Equal(expected, Convert.ToString(Eval(Seeded(), expr, k)));
+    [InlineData("LeftB(B, 2)", 1, "4142")]
+    [InlineData("RightB(B, 2)", 1, "4300")]   // padded [41,42,43,00] → last 2 bytes
+    [InlineData("MidB(B, 2, 2)", 1, "4243")]
+    [InlineData("MidB(B, 1, 3)", 1, "414243")]
+    [InlineData("LeftB(B, 2)", 2, "4142")]
+    [InlineData("RightB(B, 2)", 2, "4344")]
+    [InlineData("MidB(B, 2, 2)", 2, "4243")]
+    public void Substring_byte_functions_on_binary(string expr, int k, string expectedHex)
+        => Assert.Equal(expectedHex, Convert.ToHexString((byte[])Eval(Seeded(), expr, k)!));
+
+    // The EFCore.Jet ByteArrayLength translation runs against LibRed's byte functions (LibRed.EFCore inherits it):
+    //   CASE WHEN ASCB(RightB(x,1)) = 0 THEN LenB(x)-1 ELSE LenB(x) END
+    // Verified to reproduce ACE's results — including the documented failure (even data ending in 0x00 → -1).
+    [Theory]
+    [InlineData(1, 3)]   // [41,42,43]      odd  → 3
+    [InlineData(2, 4)]   // [41,42,43,44]   even → 4
+    public void ByteArrayLength_translation_matches_ace(int k, int expected)
+    {
+        var e = Seeded();
+        int asc = Convert.ToInt32(Eval(e, "ASCB(RightB(B, 1))", k));   // must not crash — reads the last byte
+        int lenB = Convert.ToInt32(Eval(e, "LenB(B)", k));
+        Assert.Equal(expected, asc == 0 ? lenB - 1 : lenB);
+    }
 }

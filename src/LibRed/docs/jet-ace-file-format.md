@@ -926,7 +926,15 @@ The split mechanics:
   > Office-365-authored file (`Table1(ID AutoNumber, New Values=Random)`): the ID descriptor and TDEF header are
   > **byte-identical** to an increment counter, and LibRed already surfaces it (`ColumnDef.DefaultValue` =
   > `"GenUniqueID()"`) via the ordinary DefaultValue read path — no special handling needed to detect it. Access
-  > can only set this via the UI/DAO, not SQL (`COUNTER` is always incrementing).
+  > can only set the AutoNumber *New Values=Random* combo via the UI/DAO, not SQL (`COUNTER` is always
+  > incrementing). But `GenUniqueID()` **is a real ACE default-expression**, not a marker: `SELECT GenUniqueID()`
+  > errors ("Undefined function"), yet an **unquoted** `col long DEFAULT GenUniqueID()` **is** accepted (on
+  > numeric columns — rejected on text: "Cannot place this validation expression on this field") and generates a
+  > **random signed Long per row** (verified: `117617513`, `904519542`, `-1470084161`). Quoting it —
+  > `DEFAULT 'GenUniqueID()'` — makes it a plain literal string stored verbatim. So a Random AutoNumber is
+  > effectively an AutoNumber column carrying the unquoted `GenUniqueID()` default; LibRed reads the default text
+  > but does not evaluate the generator, so it would assign via the sequential counter, not random (a divergence
+  > only relevant if such a table is written back and inserted through LibRed).
 
 - **LVAL (long-value) page** — a data page (type `0x01`) whose owner field (`0x04`) is the ASCII marker
   `"LVAL"` instead of a TDEF page number. A single-page long value stores the whole payload as row 0; the

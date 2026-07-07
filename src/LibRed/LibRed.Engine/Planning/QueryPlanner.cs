@@ -55,9 +55,12 @@ public sealed class QueryPlanner
         return node;
     }
 
-    /// <summary>The aggregate function names recognised by the planner/executor.</summary>
+    /// <summary>The aggregate function names recognised by the planner/executor. Includes the Access statistical
+    /// aggregates StDev/StDevP (sample/population standard deviation) and Var/VarP (sample/population variance);
+    /// the "StdDev"/"StdDevP" spellings are accepted as aliases.</summary>
     internal static bool IsAggregate(string name) =>
-        name.ToUpperInvariant() is "COUNT" or "SUM" or "AVG" or "MIN" or "MAX";
+        name.ToUpperInvariant() is "COUNT" or "SUM" or "AVG" or "MIN" or "MAX"
+            or "STDEV" or "STDEVP" or "STDDEV" or "STDDEVP" or "VAR" or "VARP";
 
     private static bool HasAggregate(Expression e) => e switch
     {

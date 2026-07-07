@@ -360,8 +360,26 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             "AVG" => values[0] is decimal ? values.Average(v => Convert.ToDecimal(v, inv)) : values.Average(v => Convert.ToDouble(v, inv)),
             "MIN" => values.Aggregate((a, b) => ExpressionEvaluator.CompareForSort(a, b) <= 0 ? a : b),
             "MAX" => values.Aggregate((a, b) => ExpressionEvaluator.CompareForSort(a, b) >= 0 ? a : b),
+            // Statistical aggregates. Sample forms (StDev/Var) divide by n-1 and are NULL for a single value;
+            // population forms (StDevP/VarP) divide by n. Verified vs ACE.
+            "VAR" or "STDEV" or "STDDEV" or "VARP" or "STDEVP" or "STDDEVP" => Statistic(name, values, inv),
             _ => throw new NotSupportedException($"Aggregate {call.Name} is not supported."),
         };
+    }
+
+    /// <summary>Access statistical aggregates over the non-null values (verified vs ACE). VAR/STDEV are the
+    /// **sample** forms (divide by n−1, NULL for a single value); VARP/STDEVP the **population** forms (divide by
+    /// n). STDEV/STDEVP are the square roots of VAR/VARP.</summary>
+    private static object? Statistic(string name, List<object?> values, System.Globalization.CultureInfo inv)
+    {
+        int n = values.Count;
+        double mean = values.Average(v => Convert.ToDouble(v, inv));
+        double sumSq = values.Sum(v => { double d = Convert.ToDouble(v, inv) - mean; return d * d; });
+        bool sample = !name.EndsWith("P", StringComparison.Ordinal);   // VAR/STDEV sample; VARP/STDEVP population
+        if (sample && n < 2) return null;                              // sample variance of one value is undefined
+        double variance = sumSq / (sample ? n - 1 : n);
+        bool stdev = name.Contains("DEV", StringComparison.Ordinal);
+        return stdev ? Math.Sqrt(variance) : variance;
     }
 
     /// <summary>SUM keeping the operand's numeric type (as LINQ's <c>Sum</c> overloads do): integer types

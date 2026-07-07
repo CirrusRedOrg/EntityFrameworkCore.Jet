@@ -59,7 +59,7 @@ public sealed class QueryPlanner
     /// aggregates StDev/StDevP (sample/population standard deviation) and Var/VarP (sample/population variance);
     /// the "StdDev"/"StdDevP" spellings are accepted as aliases.</summary>
     internal static bool IsAggregate(string name) =>
-        name.ToUpperInvariant() is "COUNT" or "SUM" or "AVG" or "MIN" or "MAX"
+        name.ToUpperInvariant() is "COUNT" or "SUM" or "AVG" or "MIN" or "MAX" or "FIRST" or "LAST"
             or "STDEV" or "STDEVP" or "STDDEV" or "STDDEVP" or "VAR" or "VARP";
 
     private static bool HasAggregate(Expression e) => e switch

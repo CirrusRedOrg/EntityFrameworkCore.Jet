@@ -171,10 +171,11 @@ SYD` (closed-form annuity/depreciation formulas; `Rate` by Newton–Raphson; ver
 array argument (no scalar-SQL form); `CVErr`/`Array`/`Join` are VBA-only (JES-undefined). The rest of the VBA
 index is file-I/O / UI / object / array runtime functions with no SQL surface.
 
-**Statistical aggregates** (`StatisticalAggregatesTests`): `StDev`/`Var` (sample, ÷ n−1, NULL at n<2) and
-`StDevP`/`VarP` (population, ÷ n) join `Count`/`Sum`/`Avg`/`Min`/`Max` as recognised aggregates
-(`QueryPlanner.IsAggregate` + `QueryExecutor.Statistic`); the `StdDev`/`StdDevP` spellings are accepted aliases.
-Verified vs ACE.
+**Aggregates — the complete Access SQL set** (`QueryPlanner.IsAggregate` + `QueryExecutor`): `Count Sum Avg Min
+Max` plus `First`/`Last` (first/last row's value in scan order, NOT null-filtered —
+`FirstLastAggregatesTests`), `StDev`/`Var` (sample, ÷ n−1, NULL at n<2) and `StDevP`/`VarP` (population, ÷ n)
+(`StatisticalAggregatesTests`; `StdDev`/`StdDevP` spellings are accepted aliases). Matches the Access SQL
+Aggregate-functions list exactly. Verified vs ACE.
 
 > The whitelist is now closely aligned but **not proven exhaustive** — `Choose`/`Switch` and the string/type
 > batch were gaps this sweep surfaced; nothing remains deferred. Re-run the sweep (`FunctionWhitelist*Probe`

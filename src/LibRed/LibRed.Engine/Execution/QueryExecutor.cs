@@ -345,6 +345,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 ? group.Count
                 : group.Count(r => Eval(columns, r, outer).Evaluate(arg) is not null);
 
+        // FIRST/LAST return the argument's value from the first/last row of the group in scan order — NOT
+        // null-filtered (verified vs ACE: First over a leading NULL row returns NULL).
+        if (name == "FIRST")
+            return group.Count == 0 ? null : Eval(columns, group[0], outer).Evaluate(arg!);
+        if (name == "LAST")
+            return group.Count == 0 ? null : Eval(columns, group[^1], outer).Evaluate(arg!);
+
         var values = group.Select(r => Eval(columns, r, outer).Evaluate(arg!)).Where(v => v is not null).ToList();
         if (values.Count == 0)
             return null; // SUM/AVG/MIN/MAX of nothing is NULL (COUNT already returned above)

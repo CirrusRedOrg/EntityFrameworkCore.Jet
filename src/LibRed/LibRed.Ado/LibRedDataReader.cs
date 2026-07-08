@@ -71,6 +71,10 @@ public sealed class LibRedDataReader : DbDataReader
     /// all stored in a DateTime column — so convert a stored <see cref="DateTime"/> back when one of those
     /// is requested. For <see cref="DateTimeOffset"/> there is no offset on disk (the mapping strips it and
     /// stores UTC on the way in), so it is read back at offset zero.
+    /// <para>default(DateTime) (Ticks 0 / 0001-01-01) is below Jet's OLE date floor, so the write path (the
+    /// inherited EFCore.Jet DateTime mapping) collapses it onto the epoch OA 0. This reverses it on the way out
+    /// — the epoch reads back as default — matching EFCore.Jet's JetDataReader. Scoped to DateTime/DateTimeOffset:
+    /// a TimeSpan/TimeOnly at the epoch is a legitimate midnight, handled above.</para>
     /// </summary>
     public override T GetFieldValue<T>(int ordinal)
     {
@@ -79,10 +83,14 @@ public sealed class LibRedDataReader : DbDataReader
             if (typeof(T) == typeof(TimeSpan)) return (T)(object)(dt - OleEpoch);
             if (typeof(T) == typeof(DateOnly)) return (T)(object)DateOnly.FromDateTime(dt);
             if (typeof(T) == typeof(TimeOnly)) return (T)(object)TimeOnly.FromDateTime(dt);
-            if (typeof(T) == typeof(DateTimeOffset)) return (T)(object)new DateTimeOffset(dt, TimeSpan.Zero);
+            if (typeof(T) == typeof(DateTime)) return (T)(object)(dt == OleEpoch ? default : dt);
+            if (typeof(T) == typeof(DateTimeOffset)) return (T)(object)new DateTimeOffset(dt == OleEpoch ? default : dt, TimeSpan.Zero);
         }
         return base.GetFieldValue<T>(ordinal);
     }
+
+    /// <summary>The stored epoch is the on-disk home of default(DateTime) — see <see cref="GetFieldValue{T}"/>.</summary>
+    private static DateTime FromStored(DateTime dt) => dt == OleEpoch ? default : dt;
 
     public override int GetValues(object[] values)
     {
@@ -106,7 +114,7 @@ public sealed class LibRedDataReader : DbDataReader
     }
     public override byte GetByte(int ordinal) => (byte)GetValue(ordinal);
     public override char GetChar(int ordinal) => (char)GetValue(ordinal);
-    public override DateTime GetDateTime(int ordinal) => (DateTime)GetValue(ordinal);
+    public override DateTime GetDateTime(int ordinal) => FromStored((DateTime)GetValue(ordinal));
     public override decimal GetDecimal(int ordinal) => (decimal)GetValue(ordinal);
     public override double GetDouble(int ordinal) => (double)GetValue(ordinal);
     public override float GetFloat(int ordinal) => (float)GetValue(ordinal);

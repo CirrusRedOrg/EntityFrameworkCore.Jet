@@ -118,19 +118,28 @@ public sealed class LibRedCommand : DbCommand
         return map;
     }
 
-    /// <summary>Coerces a parameter value to what the engine should see: a SQL null for <see cref="DBNull"/>,
-    /// and any temporal value truncated to whole seconds. Jet/ACE has no sub-second precision — every temporal
-    /// type is stored as a 1-second-resolution OLE double (a DateTime; a TimeSpan/TimeOnly as an offset), so a
-    /// parameter carrying milliseconds must be stripped here, as early as possible. Doing it at the parameter
-    /// (not just at storage) keeps a `WHERE d = @p` comparison consistent with the seconds-only stored value.
-    /// (The literal path already strips sub-seconds.) Mirrors what EFCore.Jet's JetCommand does for ODBC/OLE DB.</summary>
+    /// <summary>The OLE epoch (1899-12-30): Jet stores every temporal as a DateTime relative to it — a time as
+    /// the epoch date + time-of-day, a date at midnight.</summary>
+    private static readonly DateTime OleEpoch = new(1899, 12, 30);
+
+    /// <summary>Coerces a parameter value to what the engine should see. Jet/ACE has no native TimeSpan, TimeOnly,
+    /// DateOnly or DateTimeOffset — they are all stored as a <see cref="DateTime"/> on the 1899-12-30 epoch — so
+    /// this boundary (the single point EF parameters enter the engine) converts each to that DateTime, exactly as
+    /// the literal path does (a TimeSpan literal renders as a <c>#…#</c>/TIMEVALUE DateTime). The engine then only
+    /// ever handles DateTime for temporals, and the reader converts back on the way out. Sub-seconds are stripped
+    /// (Jet has 1-second resolution) so a <c>WHERE d = @p</c> comparison matches the seconds-only stored value.</summary>
     private static object? Normalize(object? value) => value switch
     {
         DBNull => null,
-        DateTime d => d.AddTicks(-(d.Ticks % TimeSpan.TicksPerSecond)),
-        DateTimeOffset dto => dto.AddTicks(-(dto.Ticks % TimeSpan.TicksPerSecond)),
-        TimeSpan t => TimeSpan.FromTicks(t.Ticks - t.Ticks % TimeSpan.TicksPerSecond),
-        TimeOnly to => new TimeOnly(to.Ticks - to.Ticks % TimeSpan.TicksPerSecond),
+        DateTime d => Seconds(d),
+        // DateTimeOffset is read back at offset zero, so store its UTC instant.
+        DateTimeOffset dto => Seconds(dto.UtcDateTime),
+        TimeSpan t => OleEpoch + Seconds(t),
+        TimeOnly to => OleEpoch + Seconds(to.ToTimeSpan()),
+        DateOnly d => d.ToDateTime(TimeOnly.MinValue),
         _ => value,
     };
+
+    private static DateTime Seconds(DateTime d) => d.AddTicks(-(d.Ticks % TimeSpan.TicksPerSecond));
+    private static TimeSpan Seconds(TimeSpan t) => TimeSpan.FromTicks(t.Ticks - t.Ticks % TimeSpan.TicksPerSecond);
 }

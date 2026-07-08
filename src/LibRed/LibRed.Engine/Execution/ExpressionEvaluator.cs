@@ -873,17 +873,9 @@ internal sealed class ExpressionEvaluator(
     private static object ToDate(object v) => v switch
     {
         DateTime d => d,
-        // Jet has no TimeSpan/DateOnly/TimeOnly — EF maps them all onto a DateTime (a time value sits on the
-        // 1899-12-30 epoch, a date at midnight). Map an EF-surfaced value back to that DateTime; without this a
-        // TimeSpan (not IConvertible) falls through to Convert.ToDouble and throws — e.g. DateDiff over a TimeSpan.
-        TimeSpan ts => DateTime.FromOADate(0).Add(ts),
-        DateOnly d => d.ToDateTime(TimeOnly.MinValue),
-        TimeOnly t => DateTime.FromOADate(0).Add(t.ToTimeSpan()),
         string s => DateTime.Parse(s, CultureInfo.InvariantCulture),
         _ => DateTime.FromOADate(Convert.ToDouble(v, CultureInfo.InvariantCulture)),
     };
-
-    private static bool IsTemporal(object o) => o is DateTime or TimeSpan or DateOnly or TimeOnly;
 
     /// <summary>Access IsDate: true only for a date value or a string that parses as a date/time. A number,
     /// NULL, or an unrecognisable string is false (verified vs ACE — unlike CDate, a bare number is not a
@@ -1016,7 +1008,7 @@ internal sealed class ExpressionEvaluator(
     private static object? DatePart(object? interval, object? date)
     {
         if (date is null) return null;
-        var d = (DateTime)ToDate(date);
+        var d = Convert.ToDateTime(date, CultureInfo.InvariantCulture);
         return (interval?.ToString() ?? "").ToLowerInvariant() switch
         {
             "yyyy" => d.Year,
@@ -1042,7 +1034,7 @@ internal sealed class ExpressionEvaluator(
     private object? DatePartOf(FunctionCall f, Func<DateTime, int> part)
     {
         object? v = Evaluate(f.Arguments[0]);
-        return v is null ? null : part((DateTime)ToDate(v));
+        return v is null ? null : part(Convert.ToDateTime(v, CultureInfo.InvariantCulture));
     }
 
     /// <summary>DateSerial(y,m,d) / TimeSerial(h,m,s): build a date/time from three integer parts (parts may
@@ -1060,7 +1052,7 @@ internal sealed class ExpressionEvaluator(
         object? intervalV = Evaluate(f.Arguments[0]), numberV = Evaluate(f.Arguments[1]), dateV = Evaluate(f.Arguments[2]);
         if (dateV is null || numberV is null) return null;
         int n = (int)Math.Truncate(Convert.ToDouble(numberV, CultureInfo.InvariantCulture)); // Access truncates
-        var d = (DateTime)ToDate(dateV);
+        var d = Convert.ToDateTime(dateV, CultureInfo.InvariantCulture);
         return (intervalV?.ToString() ?? "").ToLowerInvariant() switch
         {
             "yyyy" => d.AddYears(n),
@@ -1081,8 +1073,8 @@ internal sealed class ExpressionEvaluator(
     {
         object? intervalV = Evaluate(f.Arguments[0]), d1V = Evaluate(f.Arguments[1]), d2V = Evaluate(f.Arguments[2]);
         if (d1V is null || d2V is null) return null;
-        var d1 = (DateTime)ToDate(d1V);
-        var d2 = (DateTime)ToDate(d2V);
+        var d1 = Convert.ToDateTime(d1V, CultureInfo.InvariantCulture);
+        var d2 = Convert.ToDateTime(d2V, CultureInfo.InvariantCulture);
         return (intervalV?.ToString() ?? "").ToLowerInvariant() switch
         {
             "yyyy" => d2.Year - d1.Year,
@@ -1307,13 +1299,6 @@ internal sealed class ExpressionEvaluator(
 
         if (left is string || right is string)
             return CompareText(left.ToString()!, right.ToString()!);
-
-        // Temporal values in any mix — a stored column is always a DateTime, but an EF parameter can be a
-        // TimeSpan/DateOnly/TimeOnly (Jet has none of those; they live on a DateTime). Coerce both onto the
-        // same DateTime so `WHERE timeCol = @timeSpanParam` matches instead of falling through to a ToString
-        // compare ("12/30/1899 10:09:08" vs "10:09:08") that never equals.
-        if (IsTemporal(left) && IsTemporal(right))
-            return ((DateTime)ToDate(left)).CompareTo((DateTime)ToDate(right));
 
         if (left is IComparable c && left.GetType() == right.GetType())
             return c.CompareTo(right);

@@ -132,8 +132,10 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                     Name = column.Name,
                     StoreType = storeType,
                     IsNullable = nullable,
-                    // Jet/ACE stores a literal default *value*, not a SQL default expression — so report it as
-                    // DefaultValue (the parsed CLR value), not DefaultValueSql.
+                    // Report the default both ways, as EFCore.Jet's scaffolder does: DefaultValueSql is the raw
+                    // stored expression text (what the migrations tests assert against), DefaultValue is that text
+                    // parsed to a CLR value when it's a simple literal (so the scaffolded model uses HasDefaultValue).
+                    DefaultValueSql = defaultValueSql,
                     DefaultValue = ParseDefaultValue(column.Type, defaultValueSql),
                     ValueGenerated = column.IsAutoNumber ? ValueGenerated.OnAdd : null,
                 };

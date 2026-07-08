@@ -1,6 +1,8 @@
 using EntityFrameworkCore.Jet.Storage.Internal;
 using EntityFrameworkCore.LibRed.Storage.Internal;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.Extensions.DependencyInjection;
@@ -28,7 +30,17 @@ public static class LibRedServiceCollectionExtensions
         serviceCollection.AddScoped<IRelationalDatabaseCreator, LibRedDatabaseCreator>();
         // Substitute the driver-free `long` mapping (DbType reflects the decimal(20,0) it's stored as) for
         // EFCore.Jet's, which only reports Decimal via an OLE DB/ODBC reflection poke a native engine can't use.
-        serviceCollection.AddSingleton<IRelationalTypeMappingSource, LibRedTypeMappingSource>();
+        //
+        // This MUST go through the EF services builder (not serviceCollection.AddSingleton) so it lands in
+        // EF Core's internal service provider as a *per-options* singleton — one instance per unique
+        // DbContextOptions, each built with that context's own IJetOptions. A plain application singleton is
+        // constructed once with whichever context resolves it first and then shared across every context,
+        // baking in the wrong UseShortTextForSystemString (the model-building context, False, wins over the
+        // store context, True) — which made unbounded strings scaffold/migrate as `longchar` instead of
+        // `varchar(255)`. TryAdd won't replace Jet's existing registration, so drop it first.
+        serviceCollection.RemoveAll<IRelationalTypeMappingSource>();
+        new EntityFrameworkRelationalServicesBuilder(serviceCollection)
+            .TryAdd<IRelationalTypeMappingSource, LibRedTypeMappingSource>();
         serviceCollection.AddScoped<IExecutionStrategyFactory, LibRedExecutionStrategyFactory>();
         return serviceCollection;
     }

@@ -1,5 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Linq;
 using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 
@@ -17,7 +18,12 @@ namespace EntityFrameworkCore.Jet.Internal
         /// </summary>
         public virtual void Initialize(IDbContextOptions options)
         {
-            var jetOptions = options.FindExtension<JetOptionsExtension>() ?? new JetOptionsExtension();
+            // OfType (not FindExtension<JetOptionsExtension>) so a *derived* extension is still found:
+            // FindExtension keys the extension dictionary by exact concrete type, so LibRed's
+            // LibRedOptionsExtension (which subclasses JetOptionsExtension to swap in its own services)
+            // would be missed and this would silently fall back to a default JetOptionsExtension —
+            // dropping UseShortTextForSystemString and every other option set through the LibRed builder.
+            var jetOptions = options.Extensions.OfType<JetOptionsExtension>().FirstOrDefault() ?? new JetOptionsExtension();
 
             // RowNumberPagingEnabled = jetOptions.RowNumberPaging ?? false;
 
@@ -34,7 +40,12 @@ namespace EntityFrameworkCore.Jet.Internal
         /// </summary>
         public virtual void Validate(IDbContextOptions options)
         {
-            var jetOptions = options.FindExtension<JetOptionsExtension>() ?? new JetOptionsExtension();
+            // OfType (not FindExtension<JetOptionsExtension>) so a *derived* extension is still found:
+            // FindExtension keys the extension dictionary by exact concrete type, so LibRed's
+            // LibRedOptionsExtension (which subclasses JetOptionsExtension to swap in its own services)
+            // would be missed and this would silently fall back to a default JetOptionsExtension —
+            // dropping UseShortTextForSystemString and every other option set through the LibRed builder.
+            var jetOptions = options.Extensions.OfType<JetOptionsExtension>().FirstOrDefault() ?? new JetOptionsExtension();
 
             /*
             if (RowNumberPagingEnabled != (jetOptions.RowNumberPaging ?? false))
@@ -110,7 +121,12 @@ namespace EntityFrameworkCore.Jet.Internal
                 return DataAccessProviderType.Odbc;
             }
 
-            throw new InvalidOperationException("The JetConnection.DataAccessProviderFactory property needs to be set to an object of type OdbcFactory or OleDbFactory.");
+            // Neither OLE DB nor ODBC. For the ODBC/OLE DB providers a factory of some other type is a
+            // misconfiguration, but DataAccessProviderType only gates OLE-DB-vs-ODBC quirk handling, and a
+            // driver-free provider (LibRed, whose LibRedFactory is neither) legitimately has no such quirks.
+            // Treat it as Unconfigured — the same value a null factory yields, and what LibRed already ran as
+            // before its options extension was made discoverable — rather than failing a valid connection.
+            return DataAccessProviderType.Unconfigured;
         }
 
         /// <summary>

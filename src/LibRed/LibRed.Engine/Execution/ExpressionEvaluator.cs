@@ -873,6 +873,10 @@ internal sealed class ExpressionEvaluator(
     private static object ToDate(object v) => v switch
     {
         DateTime d => d,
+        // A Jet time value is a DateTime on the 1899-12-30 epoch; EF surfaces a `time` column / TimeSpan
+        // parameter as a TimeSpan, so map it back to that epoch DateTime (TimeSpan is not IConvertible, so it
+        // would otherwise fall through to Convert.ToDouble and throw — e.g. DateDiff over a TimeSpan).
+        TimeSpan ts => DateTime.FromOADate(0).Add(ts),
         string s => DateTime.Parse(s, CultureInfo.InvariantCulture),
         _ => DateTime.FromOADate(Convert.ToDouble(v, CultureInfo.InvariantCulture)),
     };
@@ -1008,7 +1012,7 @@ internal sealed class ExpressionEvaluator(
     private static object? DatePart(object? interval, object? date)
     {
         if (date is null) return null;
-        var d = Convert.ToDateTime(date, CultureInfo.InvariantCulture);
+        var d = (DateTime)ToDate(date);
         return (interval?.ToString() ?? "").ToLowerInvariant() switch
         {
             "yyyy" => d.Year,
@@ -1034,7 +1038,7 @@ internal sealed class ExpressionEvaluator(
     private object? DatePartOf(FunctionCall f, Func<DateTime, int> part)
     {
         object? v = Evaluate(f.Arguments[0]);
-        return v is null ? null : part(Convert.ToDateTime(v, CultureInfo.InvariantCulture));
+        return v is null ? null : part((DateTime)ToDate(v));
     }
 
     /// <summary>DateSerial(y,m,d) / TimeSerial(h,m,s): build a date/time from three integer parts (parts may
@@ -1052,7 +1056,7 @@ internal sealed class ExpressionEvaluator(
         object? intervalV = Evaluate(f.Arguments[0]), numberV = Evaluate(f.Arguments[1]), dateV = Evaluate(f.Arguments[2]);
         if (dateV is null || numberV is null) return null;
         int n = (int)Math.Truncate(Convert.ToDouble(numberV, CultureInfo.InvariantCulture)); // Access truncates
-        var d = Convert.ToDateTime(dateV, CultureInfo.InvariantCulture);
+        var d = (DateTime)ToDate(dateV);
         return (intervalV?.ToString() ?? "").ToLowerInvariant() switch
         {
             "yyyy" => d.AddYears(n),
@@ -1073,8 +1077,8 @@ internal sealed class ExpressionEvaluator(
     {
         object? intervalV = Evaluate(f.Arguments[0]), d1V = Evaluate(f.Arguments[1]), d2V = Evaluate(f.Arguments[2]);
         if (d1V is null || d2V is null) return null;
-        var d1 = Convert.ToDateTime(d1V, CultureInfo.InvariantCulture);
-        var d2 = Convert.ToDateTime(d2V, CultureInfo.InvariantCulture);
+        var d1 = (DateTime)ToDate(d1V);
+        var d2 = (DateTime)ToDate(d2V);
         return (intervalV?.ToString() ?? "").ToLowerInvariant() switch
         {
             "yyyy" => d2.Year - d1.Year,

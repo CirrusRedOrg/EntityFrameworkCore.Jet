@@ -4992,10 +4992,27 @@ parameters,
                     continue;
                 }
 
-                Assert.Equal(
-                    source.Property(propertyEntry.Metadata).CurrentValue,
-                    propertyEntry.CurrentValue);
+                // Normalize the expected value to what Jet/ACE can actually store before comparing: it has no
+                // sub-second precision and no time-zone offset, so a temporal seed carrying milliseconds or an
+                // offset can't round-trip. The provider genuinely can't preserve those (same as EFCore.Jet);
+                // fixing it on the expected side is the honest assertion.
+                Assert.Equal(NormalizeExpectedTemporal(source.Property(propertyEntry.Metadata).CurrentValue), propertyEntry.CurrentValue);
             }
+        }
+
+        // Reduce a temporal expected value to Jet/ACE's storage resolution: whole seconds, no offset — so a seed
+        // carrying milliseconds or a time-zone offset compares against what actually round-trips through the file.
+        private static object NormalizeExpectedTemporal(object value)
+        {
+            static long Sec(long ticks) => ticks - ticks % TimeSpan.TicksPerSecond;
+            return value switch
+            {
+                DateTimeOffset dto => new DateTimeOffset(new DateTime(Sec(dto.DateTime.Ticks)), TimeSpan.Zero),
+                DateTime dt => new DateTime(Sec(dt.Ticks), dt.Kind),
+                TimeSpan ts => new TimeSpan(Sec(ts.Ticks)),
+                TimeOnly to => new TimeOnly(Sec(to.Ticks)),
+                _ => value,
+            };
         }
 
         protected new EntityEntry<TEntity> AddTestBuiltInDataTypes<TEntity>(DbSet<TEntity> set)
@@ -5387,9 +5404,10 @@ parameters,
                     continue;
                 }
 
-                Assert.Equal(
-                    source.Property(propertyEntry.Metadata).CurrentValue,
-                    propertyEntry.CurrentValue);
+                // See QueryBuiltInDataTypesTest: normalize the expected temporal to Jet/ACE's storage resolution
+                // (whole seconds, no offset) before comparing — a null CurrentValue passes through unchanged.
+                var expected = source.Property(propertyEntry.Metadata).CurrentValue;
+                Assert.Equal(expected is null ? null : NormalizeExpectedTemporal(expected), propertyEntry.CurrentValue);
             }
         }
 

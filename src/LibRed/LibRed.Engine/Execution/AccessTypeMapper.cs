@@ -37,7 +37,7 @@ internal static class AccessTypeMapper
                 => Fixed(column, JetDataType.Int64, 8),
             "REAL" or "SINGLE" or "IEEESINGLE" or "FLOAT4"
                 => Fixed(column, JetDataType.Single, 4),
-            "FLOAT" or "DOUBLE" or "IEEEDOUBLE" or "FLOAT8" or "NUMBER"
+            "FLOAT" or "DOUBLE" or "DOUBLE PRECISION" or "IEEEDOUBLE" or "FLOAT8" or "NUMBER"
                 => Fixed(column, JetDataType.Double, 8),
             "CURRENCY" or "MONEY"
                 => Fixed(column, JetDataType.Currency, 8),
@@ -47,7 +47,7 @@ internal static class AccessTypeMapper
                 => Fixed(column, JetDataType.Boolean, 1),
             "GUID" or "UNIQUEIDENTIFIER"
                 => Fixed(column, JetDataType.Guid, 16),
-            "DECIMAL" or "NUMERIC"
+            "DECIMAL" or "NUMERIC" or "DEC"
                 => new ColumnSpec(column.Name, JetDataType.FixedPoint, 17, IsFixedLength: true,
                     Precision: (byte)(column.Size ?? 18), Scale: (byte)(column.Scale ?? 0)),
             // Fixed-length character types (the CHAR family) → a fixed-length Text column (ACE stores it in
@@ -69,9 +69,9 @@ internal static class AccessTypeMapper
 
             // Long-value columns: variable-length with no fixed byte length. The in-row value is a
             // 12-byte long-value descriptor; short values are stored inline after it.
-            "MEMO" or "LONGTEXT" or "LONGCHAR" or "NOTE"
+            "MEMO" or "LONGTEXT" or "LONGCHAR" or "NOTE" or "NTEXT"
                 => new ColumnSpec(column.Name, JetDataType.Memo, 0, IsFixedLength: false),
-            "OLEOBJECT" or "IMAGE" or "LONGBINARY"
+            "OLEOBJECT" or "IMAGE" or "LONGBINARY" or "GENERAL"
                 => new ColumnSpec(column.Name, JetDataType.Ole, 0, IsFixedLength: false),
 
             _ => throw new NotSupportedException($"CREATE TABLE column type '{column.TypeName}' is not supported yet."),

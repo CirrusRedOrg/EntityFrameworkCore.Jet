@@ -235,6 +235,26 @@ public class DdlDmlTests
         finally { File.Delete(path); }
     }
 
+    // ANSI/SQL-Server type-name aliases EF Core's relational defaults emit that weren't handled:
+    //   DOUBLE PRECISION → Double (two-word ANSI spelling), NTEXT → Memo (Unicode long text),
+    //   DEC → FixedPoint (ANSI decimal), GENERAL → Ole (Access long-binary alias).
+    [Theory]
+    [InlineData("DOUBLE PRECISION", LibRed.Catalog.JetDataType.Double)]
+    [InlineData("NTEXT", LibRed.Catalog.JetDataType.Memo)]
+    [InlineData("DEC", LibRed.Catalog.JetDataType.FixedPoint)]
+    [InlineData("GENERAL", LibRed.Catalog.JetDataType.Ole)]
+    public void Ansi_type_aliases_map_to_the_right_storage_type(string typeName, LibRed.Catalog.JetDataType expected)
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            new QueryEngine(db).ExecuteNonQuery($"CREATE TABLE `D` (`Id` INTEGER, `V` {typeName})");
+            Assert.Equal(expected, db.Catalog.FindTable("D")!.FindColumn("V")!.Type);
+        }
+        finally { File.Delete(path); }
+    }
+
     [Fact]
     public void Create_without_primary_key_is_allowed()
     {

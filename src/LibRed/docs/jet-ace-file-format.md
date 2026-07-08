@@ -1063,6 +1063,16 @@ The split mechanics:
   > past it (`Fk_number = outgoing index_num + 1`), and the incoming block's `index_num2` = the table's own
   > referenced-key (PK) data block — verified read+enforced vs ACE. `FOREIGN KEY NO INDEX` via `ALTER` is
   > not written yet.
+  >
+  > **`DROP INDEX` vs a relationship (ACE-verified).** ACE refuses to drop an index only if it *is* a
+  > relationship's enforcement index, keyed on the **specific index**, not its columns: on the child, the
+  > FK's own backing index (named after the relationship); on the parent, the referenced unique/primary key.
+  > A *redundant* index over the same column(s) — e.g. an explicit `IX_child_col` alongside the FK's index,
+  > which EF creates then drops once the FK provides its own — **is** droppable while the relationship
+  > stands (`"used in a relationship"` fires only for the enforcement index). LibRed matches this: the
+  > `DropIndex` guard protects the child index whose name equals a relationship name and the parent's
+  > unique/PK referenced key, and scaffolding hides the child FK index (so a database cleaner drops the
+  > relationship via the table, not by dropping that index).
 
 ---
 

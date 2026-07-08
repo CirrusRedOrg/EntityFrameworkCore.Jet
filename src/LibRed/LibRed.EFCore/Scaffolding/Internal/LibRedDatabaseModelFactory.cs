@@ -175,6 +175,14 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                     foreach (DatabaseColumn c in columns) unique.Columns.Add(c);
                     table.UniqueConstraints.Add(unique);
                 }
+                else if (IsForeignKeyBackingIndex(database, table, index))
+                {
+                    // A relationship's own child (FK) index is named after the relationship and isn't a
+                    // standalone user index — it's part of the foreign key, surfaced via GetRelations. Real
+                    // Jet scaffolding doesn't report it either; surfacing it makes the RelationalDatabaseCleaner
+                    // emit a DROP INDEX for it, which ACE (and LibRed) reject while the relationship still
+                    // exists (the cleaner drops the relationship by dropping the table, not the index).
+                }
                 else
                 {
                     _logger.IndexFound(index.Name, table.Name, index.IsUnique);
@@ -185,6 +193,13 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
             }
         }
     }
+
+    /// <summary>True if this non-unique index is a relationship's child (FK) backing index — named after a
+    /// relationship for which this table is the referencing (child) side, as both ACE and LibRed create it.</summary>
+    private static bool IsForeignKeyBackingIndex(JetDatabase database, DatabaseTable table, IndexDef index)
+        => database.Catalog.Relationships.Any(r =>
+               string.Equals(r.Table, table.Name, StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(r.Name, index.Name, StringComparison.OrdinalIgnoreCase));
 
     private void GetRelations(JetDatabase database, IReadOnlyList<DatabaseTable> tables)
     {

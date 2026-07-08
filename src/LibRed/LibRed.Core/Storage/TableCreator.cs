@@ -728,19 +728,29 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         return true;
     }
 
-    /// <summary>True if the index backs a relationship — as the child FK backing index (its columns are a
-    /// relationship's child columns on this table) or the referenced parent key (its columns are a
-    /// relationship's referenced columns on this table). ACE rejects dropping such an index.</summary>
+    /// <summary>True if the index IS a relationship's enforcement index — the one specific index ACE refuses
+    /// to drop while the relationship exists. This is NOT "any index over the relationship's columns": a
+    /// redundant same-columns secondary index is droppable, and EF relies on that (it creates an explicit
+    /// index, adds the FK, then drops the now-redundant explicit index). ACE-verified (ZzProbe): with a
+    /// relationship on POrd.CustomerId → PCust.Id, dropping a coincident IX_POrd_CustomerId / IX_PCust_Id
+    /// succeeds, but dropping the FK's own child index (named after the relationship) or the referenced PK
+    /// fails with "used in a relationship".
+    /// <para>Two indexes are protected: on the child, the FK's backing index — named after the relationship,
+    /// as both ACE and <see cref="AddForeignKey"/> create it; on the parent, the referenced key — the
+    /// unique/primary index over the referenced columns.</para></summary>
     private bool IndexParticipatesInRelationship(TableDef table, IndexDef index)
     {
         var cols = index.Columns.Select(c => c.Column.Name).ToList();
         bool SameCols(IEnumerable<string> other) =>
-            other.Select(x => x).OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            other.OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
                  .SequenceEqual(cols.OrderBy(x => x, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
 
         return _catalog.Relationships.Any(r =>
-            (string.Equals(r.Table, table.Name, StringComparison.OrdinalIgnoreCase) && SameCols(r.Columns.Select(c => c.Column))) ||
-            (string.Equals(r.ReferencedTable, table.Name, StringComparison.OrdinalIgnoreCase) && SameCols(r.Columns.Select(c => c.ReferencedColumn))));
+            (string.Equals(r.Table, table.Name, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(index.Name, r.Name, StringComparison.OrdinalIgnoreCase)) ||
+            (string.Equals(r.ReferencedTable, table.Name, StringComparison.OrdinalIgnoreCase)
+                && (index.IsUnique || index.IsPrimaryKey)
+                && SameCols(r.Columns.Select(c => c.ReferencedColumn))));
     }
 
     /// <summary>

@@ -26,6 +26,9 @@ public static class LibRedServiceCollectionExtensions
         serviceCollection.AddScoped<IJetRelationalConnection>(p => p.GetRequiredService<ILibRedRelationalConnection>());
         // Answer existence / has-tables from LibRed's catalog instead of INFORMATION_SCHEMA + ADOX.
         serviceCollection.AddScoped<IRelationalDatabaseCreator, LibRedDatabaseCreator>();
+        // Substitute the driver-free `long` mapping (DbType reflects the decimal(20,0) it's stored as) for
+        // EFCore.Jet's, which only reports Decimal via an OLE DB/ODBC reflection poke a native engine can't use.
+        serviceCollection.AddSingleton<IRelationalTypeMappingSource, LibRedTypeMappingSource>();
         serviceCollection.AddScoped<IExecutionStrategyFactory, LibRedExecutionStrategyFactory>();
         return serviceCollection;
     }

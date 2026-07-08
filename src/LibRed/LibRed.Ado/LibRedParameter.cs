@@ -28,7 +28,18 @@ public sealed class LibRedParameter : DbParameter
     }
     public override bool SourceColumnNullMapping { get; set; }
     public override object? Value { get; set; }
-    public override int Size { get; set; }
+
+    // Mirror OleDbParameter/OdbcParameter: they derive a non-zero Size from the VALUE for a byte (1), and only
+    // for a byte — Int16/32/64, Single, Double, Decimal, Guid, DateTime, Boolean all report 0, and a NULL byte
+    // reports 0 too (the size comes from the value, not the DbType). EF Core's command logging prints
+    // `(Size = N)` from this, so the LibRed conformance baselines (copied from the Jet OLE DB provider) expect
+    // `(Size = 1)` only on a non-null byte parameter. An explicitly-set size always wins.
+    private int _size;
+    public override int Size
+    {
+        get => _size != 0 ? _size : Value is byte ? 1 : 0;
+        set => _size = value;
+    }
 
     // The base DbParameter.Precision/Scale are no-ops (get => 0; set { }) unless a concrete
     // parameter type overrides them - SqlParameter/OdbcParameter/OleDbParameter do, so this must

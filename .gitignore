@@ -110,7 +110,11 @@ csx
 AppPackages/
 
 # Others
-sql/
+# Anchored to the repo root: an unanchored `sql/` also matches the source directory
+# src/EFCore.Jet/Query/Sql/ on a case-insensitive (Windows) filesystem, which made git
+# warn about (and refuse to `git add`) tracked files there. Root anchor keeps the
+# original intent — ignore a top-level sql/ output folder — without the false match.
+/sql/
 *.Cache
 ClientBin/
 [Ss]tyle[Cc]op.*

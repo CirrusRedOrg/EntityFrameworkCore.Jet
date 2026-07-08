@@ -137,6 +137,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
                     {"ieeesingle", [_single] },
 
                     {"double", [_double] },
+                    {"double precision", [_double] },
                     {"float", [_double] },
                     {"float8", [_double] },
                     {"ieeedouble", [_double] },

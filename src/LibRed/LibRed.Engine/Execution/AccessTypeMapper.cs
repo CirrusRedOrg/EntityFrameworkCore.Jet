@@ -1,4 +1,5 @@
 using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.Sql.Ast;
 
 namespace LibRed.Engine.Execution;
@@ -12,13 +13,21 @@ namespace LibRed.Engine.Execution;
 /// </summary>
 internal static class AccessTypeMapper
 {
-    public static ColumnSpec ToColumnSpec(ColumnDefinition column) =>
-        MapType(column) with { IsNullable = !column.NotNull };
+    public static ColumnSpec ToColumnSpec(ColumnDefinition column, JetVersion version) =>
+        MapType(column, version) with { IsNullable = !column.NotNull };
 
-    private static ColumnSpec MapType(ColumnDefinition column)
+    private static ColumnSpec MapType(ColumnDefinition column, JetVersion version)
     {
         // Collapse any internal whitespace so two-word aliases ("character  varying") match.
         string t = string.Join(' ', column.TypeName.ToUpperInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+        // BIGINT and DATETIME2 are Access 2016 (ACE 16) additions. On any older format the engine cannot
+        // represent them, so refuse to create/alter a column to one rather than silently producing a file the
+        // real Access version couldn't open. Gated here, the single choke point for every DDL type name.
+        if (t is "BIGINT" or "DATETIME2" && version < JetVersion.Version16_2016)
+            throw new NotSupportedException(
+                $"Column type '{column.TypeName}' requires Access 2016 (ACE 16) or later; this database is {version}.");
+
         return t switch
         {
             // AutoNumber. COUNTER(seed, increment) parses seed/increment as the (size, scale) pair; a plain

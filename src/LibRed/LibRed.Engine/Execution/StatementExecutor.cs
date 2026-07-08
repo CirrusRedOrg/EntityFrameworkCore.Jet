@@ -38,7 +38,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int ExecuteCreateTable(CreateTableStatement statement)
     {
-        var columns = statement.Columns.Select(AccessTypeMapper.ToColumnSpec).ToList();
+        var columns = statement.Columns.Select(c => AccessTypeMapper.ToColumnSpec(c, _database.Format.Version)).ToList();
         foreach (var (spec, def) in columns.Zip(statement.Columns))
             ValidateColumnDefault(spec, def.Default);
         IReadOnlyList<string>? primaryKey = statement.PrimaryKey.Count > 0 ? statement.PrimaryKey : null;
@@ -343,7 +343,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             .Select(p => new ViewParameterSpec(
                 p.Name,
                 (byte)AccessTypeMapper.ToColumnSpec(
-                    new ColumnDefinition(p.Name, p.TypeName, null, null, false, false)).Type))
+                    new ColumnDefinition(p.Name, p.TypeName, null, null, false, false), _database.Format.Version).Type))
             .ToList();
         _database.CreateView(statement.Name, BuildViewSpec(statement.Definition) with { Parameters = parameters });
         return 0;
@@ -393,7 +393,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private int AddColumn(string table, ColumnDefinition column)
     {
         // NOT NULL and DEFAULT are written to the column's LvProp properties (Required / DefaultValue).
-        ColumnSpec spec = AccessTypeMapper.ToColumnSpec(column);
+        ColumnSpec spec = AccessTypeMapper.ToColumnSpec(column, _database.Format.Version);
         ValidateColumnDefault(spec, column.Default);
         if (!_database.AddColumn(table, spec, column.Default))
             throw new InvalidOperationException($"ALTER TABLE '{table}' ADD COLUMN '{column.Name}': the column already exists.");
@@ -471,7 +471,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private int AlterColumn(string table, AlterColumnAction alter)
     {
         var colDef = new ColumnDefinition(alter.Field, alter.TypeName, alter.Size, alter.Scale, NotNull: false, PrimaryKey: false);
-        _database.AlterColumn(table, alter.Field, AccessTypeMapper.ToColumnSpec(colDef));
+        _database.AlterColumn(table, alter.Field, AccessTypeMapper.ToColumnSpec(colDef, _database.Format.Version));
         if (alter.Default is not null)   // ALTER COLUMN … DEFAULT: set the column's default after the type change
             _database.SetColumnDefault(table, alter.Field, alter.Default);
         return 0;

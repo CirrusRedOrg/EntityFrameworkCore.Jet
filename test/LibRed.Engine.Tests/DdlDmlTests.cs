@@ -13,6 +13,39 @@ public class DdlDmlTests
         return path;
     }
 
+    // BIGINT and DATETIME2 are Access 2016 (ACE 16) features. On an older format (Northwind is ACE 12 /
+    // Access 2007) LibRed must refuse to create or alter a column to them, rather than write a file the real
+    // Access engine couldn't open.
+    [Theory]
+    [InlineData("CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `V` BIGINT)")]
+    [InlineData("CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `V` DATETIME2)")]
+    public void Bigint_and_datetime2_are_rejected_when_creating_on_a_pre_2016_format(string sql)
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var ex = Assert.Throws<NotSupportedException>(() => new QueryEngine(db).ExecuteNonQuery(sql));
+            Assert.Contains("Access 2016", ex.Message);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Altering_a_column_to_bigint_is_rejected_on_a_pre_2016_format()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `V` INTEGER)");
+            var ex = Assert.Throws<NotSupportedException>(() => e.ExecuteNonQuery("ALTER TABLE `T` ALTER COLUMN `V` BIGINT"));
+            Assert.Contains("Access 2016", ex.Message);
+        }
+        finally { File.Delete(path); }
+    }
+
     [Fact]
     public void Memo_column_round_trips_including_null_and_a_long_value()
     {

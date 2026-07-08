@@ -37,4 +37,19 @@ public class DateDiffTimeSpanTests
             new Dictionary<string, object?> { ["a"] = new TimeSpan(14, 30, 0) }).Rows.Single()[0];
         Assert.Equal(14, Convert.ToInt32(v));
     }
+
+    // `WHERE timeColumn = @timeSpanParam`: the column stores a DateTime on the epoch, the parameter is a
+    // TimeSpan — the comparison must coerce both to the same DateTime and match (was falling through to a
+    // ToString compare that never equalled). Covers Can_query_using_any_data_type's TimeSpan/DateOnly/TimeOnly.
+    [Fact]
+    public void A_timespan_parameter_matches_the_stored_time_value_in_where()
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery("CREATE TABLE `S` (`Id` INTEGER PRIMARY KEY, `V` DATETIME)");
+        e.ExecuteNonQuery("INSERT INTO `S` (`Id`, `V`) VALUES (1, @v)",
+            new Dictionary<string, object?> { ["v"] = new DateTime(1899, 12, 30, 10, 9, 8) });   // epoch + 10:09:08
+        var rows = e.ExecuteQuery("SELECT `Id` FROM `S` WHERE `V` = @p",
+            new Dictionary<string, object?> { ["p"] = new TimeSpan(10, 9, 8) }).Rows;
+        Assert.Single(rows);
+    }
 }

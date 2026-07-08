@@ -873,13 +873,17 @@ internal sealed class ExpressionEvaluator(
     private static object ToDate(object v) => v switch
     {
         DateTime d => d,
-        // A Jet time value is a DateTime on the 1899-12-30 epoch; EF surfaces a `time` column / TimeSpan
-        // parameter as a TimeSpan, so map it back to that epoch DateTime (TimeSpan is not IConvertible, so it
-        // would otherwise fall through to Convert.ToDouble and throw — e.g. DateDiff over a TimeSpan).
+        // Jet has no TimeSpan/DateOnly/TimeOnly — EF maps them all onto a DateTime (a time value sits on the
+        // 1899-12-30 epoch, a date at midnight). Map an EF-surfaced value back to that DateTime; without this a
+        // TimeSpan (not IConvertible) falls through to Convert.ToDouble and throws — e.g. DateDiff over a TimeSpan.
         TimeSpan ts => DateTime.FromOADate(0).Add(ts),
+        DateOnly d => d.ToDateTime(TimeOnly.MinValue),
+        TimeOnly t => DateTime.FromOADate(0).Add(t.ToTimeSpan()),
         string s => DateTime.Parse(s, CultureInfo.InvariantCulture),
         _ => DateTime.FromOADate(Convert.ToDouble(v, CultureInfo.InvariantCulture)),
     };
+
+    private static bool IsTemporal(object o) => o is DateTime or TimeSpan or DateOnly or TimeOnly;
 
     /// <summary>Access IsDate: true only for a date value or a string that parses as a date/time. A number,
     /// NULL, or an unrecognisable string is false (verified vs ACE — unlike CDate, a bare number is not a
@@ -1303,6 +1307,13 @@ internal sealed class ExpressionEvaluator(
 
         if (left is string || right is string)
             return CompareText(left.ToString()!, right.ToString()!);
+
+        // Temporal values in any mix — a stored column is always a DateTime, but an EF parameter can be a
+        // TimeSpan/DateOnly/TimeOnly (Jet has none of those; they live on a DateTime). Coerce both onto the
+        // same DateTime so `WHERE timeCol = @timeSpanParam` matches instead of falling through to a ToString
+        // compare ("12/30/1899 10:09:08" vs "10:09:08") that never equals.
+        if (IsTemporal(left) && IsTemporal(right))
+            return ((DateTime)ToDate(left)).CompareTo((DateTime)ToDate(right));
 
         if (left is IComparable c && left.GetType() == right.GetType())
             return c.CompareTo(right);

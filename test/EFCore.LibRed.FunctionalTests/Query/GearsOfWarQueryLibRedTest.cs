@@ -2243,8 +2243,7 @@ ORDER BY `t`.`Note`, `t`.`Id`, `g`.`Nickname`
                 $"""
                     SELECT `g`.`Nickname`, `g`.`SquadId`, `g`.`AssignedCityName`, `g`.`CityOfBirthName`, `g`.`Discriminator`, `g`.`FullName`, `g`.`HasSoulPatch`, `g`.`LeaderNickname`, `g`.`LeaderSquadId`, `g`.`Rank`
                     FROM `Gears` AS `g`
-                    INNER JOIN `Weapons` AS `w` ON `g`.`HasSoulPatch` = True
-                    WHERE `g`.`Discriminator` IN ('Gear', 'Officer')
+                    INNER JOIN `Weapons` AS `w` ON `g`.`HasSoulPatch`
                     """);
         }
 
@@ -7058,11 +7057,6 @@ WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`B
 
             AssertSql(
                 """
-@byteArrayParam='0x2A80' (Size = 510)
-@byteArrayParam='0x2A80' (Size = 510)
-@byteArrayParam='0x2A80' (Size = 510)
-@byteArrayParam='0x2A80' (Size = 510)
-@byteArrayParam='0x2A80' (Size = 510)
 @byteArrayParam='0x2A80' (Size = 510)
 
 SELECT COUNT(*)

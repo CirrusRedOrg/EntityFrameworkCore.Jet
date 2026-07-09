@@ -955,6 +955,13 @@ The split mechanics:
   > `Required` (the column stays required); LibRed removes the property natively, so the column becomes
   > genuinely nullable and ACE then reads/accepts it as such.
   >
+  > **`ALTER COLUMN c COUNTER(seed, increment)` reseed** (KB 884185 fix) — when `c` is already an AutoNumber
+  > of the same type, this changes only the *next* id, so LibRed does an **in-place TDEF header edit** (`0x14`
+  > = seed − increment, `0x18` = increment), not a table rebuild; ACE reads the reseeded next id (verified).
+  > Both ACE and LibRed **reject** reseeding a counter that participates in a relationship ("Cannot change
+  > field 'X'. It is part of one or more relationships." — verified both sides). Converting a column *to/from*
+  > AutoNumber, or changing the numeric type, still goes through the full column rewrite.
+  >
   > **"Random" AutoNumber (New Values = Random) is a `DefaultValue` = `GenUniqueID()`.** An AutoNumber column
   > whose *New Values* property is **Random** (rather than Increment) is stored as an ordinary AutoNumber column
   > (descriptor flag `0x04`, TDEF `0x14`/`0x18` at their plain-counter defaults `0`/`1` and **ignored**) plus a

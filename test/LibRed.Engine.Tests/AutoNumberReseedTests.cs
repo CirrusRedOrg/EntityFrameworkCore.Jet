@@ -54,6 +54,23 @@ public class AutoNumberReseedTests
         finally { db.Dispose(); }
     }
 
+    // Matches ACE: reseeding a counter that participates in a relationship is rejected ("Cannot change field
+    // 'X'. It is part of one or more relationships.") — ACE-verified it throws the same way.
+    [Fact]
+    public void Reseed_rejects_a_counter_in_a_relationship()
+    {
+        var e = Fresh(out var db);
+        try
+        {
+            e.ExecuteNonQuery("CREATE TABLE P (Id COUNTER CONSTRAINT PK PRIMARY KEY, V TEXT(5))");
+            e.ExecuteNonQuery("CREATE TABLE C (Cid COUNTER PRIMARY KEY, Pid LONG, CONSTRAINT FK FOREIGN KEY (Pid) REFERENCES P(Id))");
+            e.ExecuteNonQuery("INSERT INTO P (V) VALUES ('a')");
+            var ex = Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("ALTER TABLE P ALTER COLUMN Id COUNTER(100, 1)"));
+            Assert.Contains("part of one or more relationships", ex.Message);
+        }
+        finally { db.Dispose(); }
+    }
+
     // Regression: altering a column rebuilds the table; the AutoNumber counter must keep the on-disk
     // high-water, not reset to its create-time seed. Exposed only when the high rows are deleted (a populated
     // rebuild re-advances the counter as it re-inserts).

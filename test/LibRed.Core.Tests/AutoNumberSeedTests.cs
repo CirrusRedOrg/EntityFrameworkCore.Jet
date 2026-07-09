@@ -1,5 +1,6 @@
 using System.Data.OleDb;
 using LibRed;
+using LibRed.Catalog;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -52,6 +53,36 @@ public class AutoNumberSeedTests
             using var bad = conn2.CreateCommand();
             bad.CommandText = "INSERT INTO Table1 (Field2) VALUES ('G')";
             Assert.ThrowsAny<OleDbException>(() => bad.ExecuteNonQuery());
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    // Byte-faithful: LibRed's in-place counter reseed (metadata-only 0x14/0x18 edit, no rebuild) is read
+    // correctly by ACE — ACE's next auto id is the LibRed-written seed.
+    [Fact]
+    public void Ace_reads_a_libred_in_place_counter_reseed()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"lrr-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("T",
+                    [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true),
+                     new ColumnSpec("V", JetDataType.Text, 10, IsFixedLength: false)],
+                    primaryKey: ["Id"]);
+                db.OpenTable("T");
+                // Reseed in place to 100 (routes through the metadata-only path, not RewriteColumn).
+                db.AlterColumn("T", "Id",
+                    new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true, Seed: 100, Increment: 1));
+            }
+
+            using var conn = OpenOleDb(path);
+            using (var c = conn.CreateCommand()) { c.CommandText = "INSERT INTO T (V) VALUES ('a')"; c.ExecuteNonQuery(); }
+            using var q = conn.CreateCommand();
+            q.CommandText = "SELECT Id FROM T WHERE V = 'a'";
+            Assert.Equal(100, Convert.ToInt32(q.ExecuteScalar()));
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }

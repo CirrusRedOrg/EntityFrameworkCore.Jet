@@ -1063,6 +1063,16 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         ColumnDef col = table.FindColumn(columnName)
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
 
+        // A pure reseed of an existing counter — ALTER COLUMN c COUNTER(seed, increment) where c is already an
+        // AutoNumber of the same storage type — changes only the next id, not the data or layout. It's an
+        // in-place TDEF header edit (0x14/0x18), exactly what ACE does; RewriteColumn would needlessly rebuild
+        // the whole table. (Converting to/from AutoNumber, or changing the numeric type, still rebuilds.)
+        if (col.IsAutoNumber && newSpec.IsAutoNumber && col.Type == newSpec.Type)
+        {
+            ReseedCounter(table, col, newSpec.Seed, newSpec.Increment);
+            return;
+        }
+
         bool variableLengthChange =
             !col.IsFixedLength && !newSpec.IsFixedLength && col.Type == newSpec.Type &&
             newSpec.Type is JetDataType.Text or JetDataType.Binary;
@@ -1088,6 +1098,28 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             return;
         }
         throw new InvalidOperationException($"Descriptor for column '{columnName}' (id {col.ColumnId}) was not found.");
+    }
+
+    /// <summary>Reseeds an existing AutoNumber column in place — ALTER COLUMN c COUNTER(seed, increment). Writes
+    /// the TDEF header's last-value (<c>0x14</c> = seed − increment, so the next assigned id is <c>seed</c>) and
+    /// increment (<c>0x18</c>); no data or descriptor changes. ACE rejects reseeding a counter that participates
+    /// in a relationship ("Cannot change field 'X'. It is part of one or more relationships." — verified); match
+    /// that.</summary>
+    private void ReseedCounter(TableDef table, ColumnDef col, int seed, int increment)
+    {
+        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
+        if (_catalog.Relationships.Any(r =>
+                (string.Equals(r.Table, table.Name, oic) && r.Columns.Any(c => string.Equals(c.Column, col.Name, oic))) ||
+                (string.Equals(r.ReferencedTable, table.Name, oic) && r.Columns.Any(c => string.Equals(c.ReferencedColumn, col.Name, oic)))))
+            throw new InvalidOperationException($"Cannot change field '{col.Name}'. It is part of one or more relationships.");
+
+        if (increment == 0) increment = 1;
+        JetFormatBase format = _channel.Format;
+        byte[] tdef = _channel.ReadPage(table.DefinitionPage).Span.ToArray();
+        BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4), seed - increment);
+        BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefAutoNumberIncrementOffset, 4), increment);
+        _channel.WritePage(table.DefinitionPage, tdef);
+        _catalog.Invalidate();
     }
 
     /// <summary>Changes a column's storage type by rebuilding the table: read all rows, convert the target

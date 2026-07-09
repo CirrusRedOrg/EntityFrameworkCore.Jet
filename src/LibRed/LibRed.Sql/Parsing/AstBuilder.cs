@@ -151,7 +151,10 @@ internal sealed class AstBuilder
             AddConstraintActionContext a => BuildAddConstraint(a.tableConstraint()),
             AlterColumnActionContext a => new AlterColumnAction(
                 Identifier(a.field), TypeName(a.dataType()), Size(a.dataType()), Scale(a.dataType()),
-                a.columnConstraint().OfType<DefaultConstraintContext>().FirstOrDefault()?.expression().GetText()),
+                a.columnConstraint().OfType<DefaultConstraintContext>().FirstOrDefault()?.expression().GetText(),
+                // NOT NULL → true, NULL → false, neither → null (leave the column's nullability unchanged).
+                a.columnConstraint().OfType<NotNullConstraintContext>().Any() ? true
+                    : a.columnConstraint().OfType<NullableConstraintContext>().Any() ? false : null),
             AlterColumnSetDefaultActionContext a => new AlterColumnSetDefaultAction(
                 Identifier(a.field), OriginalText(a.expression())),
             AlterColumnDropDefaultActionContext a => new AlterColumnDropDefaultAction(Identifier(a.field)),

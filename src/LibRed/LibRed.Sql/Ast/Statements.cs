@@ -185,8 +185,10 @@ public sealed record AddUniqueAction(UniqueConstraint Unique) : AlterTableAction
 /// <summary>ADD CONSTRAINT … CHECK (…) — add a check constraint.</summary>
 public sealed record AddCheckAction(CheckConstraint Check) : AlterTableAction;
 
-/// <summary>ALTER COLUMN field type[(size[,scale])] — change a column's data type.</summary>
-public sealed record AlterColumnAction(string Field, string TypeName, int? Size, int? Scale, string? Default = null) : AlterTableAction;
+/// <summary>ALTER COLUMN field type[(size[,scale])] [NOT NULL|NULL] [DEFAULT expr] — change a column's data
+/// type, and optionally its nullability (<see cref="NotNull"/>: true = NOT NULL, false = NULL, null = leave
+/// as-is) and default.</summary>
+public sealed record AlterColumnAction(string Field, string TypeName, int? Size, int? Scale, string? Default = null, bool? NotNull = null) : AlterTableAction;
 
 /// <summary>ALTER COLUMN field SET DEFAULT expr — set (replace) a column's default, without retyping it.</summary>
 public sealed record AlterColumnSetDefaultAction(string Field, string Default) : AlterTableAction;

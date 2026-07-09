@@ -931,6 +931,14 @@ The split mechanics:
   > an omit-insert yet still rejects a null in a `NOT NULL` column; `SET DEFAULT` is applied on ACE's own
   > insert. (EF Core emits `ALTER COLUMN c DROP DEFAULT` in migrations.)
   >
+  > **`ALTER COLUMN … NOT NULL` / `NULL`** is likewise an LvProp edit: NOT NULL adds the boolean `Required`
+  > property (the write side of what CREATE does at §3.4), NULL removes it — LibRed keeps ACE's
+  > `DefaultValue`-before-`Required` order by applying a co-specified DEFAULT first. ACE-verified: after a
+  > LibRed `NOT NULL` ACE enforces it (rejects an omitted/NULL value) and reads the column back as
+  > non-nullable. **ACE quirk:** ACE's *own* OLE-DB `ALTER COLUMN … NULL` does **not** clear an existing
+  > `Required` (the column stays required); LibRed removes the property natively, so the column becomes
+  > genuinely nullable and ACE then reads/accepts it as such.
+  >
   > **"Random" AutoNumber (New Values = Random) is a `DefaultValue` = `GenUniqueID()`.** An AutoNumber column
   > whose *New Values* property is **Random** (rather than Increment) is stored as an ordinary AutoNumber column
   > (descriptor flag `0x04`, TDEF `0x14`/`0x18` at their plain-counter defaults `0`/`1` and **ignored**) plus a

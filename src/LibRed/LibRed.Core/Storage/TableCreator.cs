@@ -901,6 +901,20 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             props.RemoveAll(p => string.Equals(p.Owner, columnName, StringComparison.OrdinalIgnoreCase)
                 && p.Name == PropertyBlob.DefaultValueProperty));
 
+    /// <summary>Sets or clears a column's <c>Required</c> (NOT NULL) property in the table's
+    /// <c>MSysObjects.LvProp</c> blob — ALTER TABLE … ALTER COLUMN … NOT NULL / NULL. A required column carries
+    /// a boolean <c>Required</c> property; a nullable one simply has none, so this drops any existing one and
+    /// re-adds it only when <paramref name="required"/> (matching the CREATE-side write, and read back into
+    /// <see cref="ColumnDef.IsNullable"/>). ACE-verified: ACE writes the same property for
+    /// <c>ALTER COLUMN … NOT NULL</c> and enforces it.</summary>
+    public void SetColumnRequired(string tableName, string columnName, bool required)
+        => MutateLvPropForColumn(tableName, columnName, props =>
+        {
+            props.RemoveAll(p => string.Equals(p.Owner, columnName, StringComparison.OrdinalIgnoreCase)
+                && p.Name == PropertyBlob.RequiredProperty);
+            if (required) props.Add(PropertyBlob.Bool(columnName, PropertyBlob.RequiredProperty, true));
+        });
+
     /// <summary>Reads the table's <c>MSysObjects.LvProp</c> property blob, applies <paramref name="mutate"/>,
     /// and rewrites it — the shared read-modify-write behind ALTER COLUMN … SET/DROP DEFAULT.</summary>
     private void MutateLvPropForColumn(string tableName, string columnName, Action<List<PropertyBlob.Property>> mutate)

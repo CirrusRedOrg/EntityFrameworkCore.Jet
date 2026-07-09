@@ -475,8 +475,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         var colDef = new ColumnDefinition(alter.Field, alter.TypeName, alter.Size, alter.Scale, NotNull: false, PrimaryKey: false);
         _database.AlterColumn(table, alter.Field, AccessTypeMapper.ToColumnSpec(colDef, _database.Format.Version));
+        // Apply DEFAULT before Required so the column's property map keeps ACE's order (DefaultValue, then Required).
         if (alter.Default is not null)   // ALTER COLUMN … DEFAULT: set the column's default after the type change
             _database.SetColumnDefault(table, alter.Field, alter.Default);
+        if (alter.NotNull is bool required)   // ALTER COLUMN … NOT NULL / NULL: set or clear the Required property
+            _database.SetColumnRequired(table, alter.Field, required);
         return 0;
     }
 

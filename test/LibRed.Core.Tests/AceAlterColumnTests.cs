@@ -106,6 +106,43 @@ public class AceAlterColumnTests
     }
 
     [Fact]
+    public void Access_enforces_a_libred_alter_column_made_required()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"areq-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("T",
+                    [new ColumnSpec("K", JetDataType.Int32, 4, IsFixedLength: true),
+                     new ColumnSpec("V", JetDataType.Text, 40, IsFixedLength: false)],   // V nullable
+                    primaryKey: ["K"]);
+                db.SetColumnRequired("T", "V", true);   // ALTER COLUMN ... NOT NULL
+            }
+
+            using (var conn = OpenOleDb(path))
+            {
+                using var bad = conn.CreateCommand();
+                bad.CommandText = "INSERT INTO T (K) VALUES (1)";   // omit V → ACE rejects (now required)
+                Assert.ThrowsAny<OleDbException>(() => bad.ExecuteNonQuery());
+                using (var c = conn.CreateCommand()) { c.CommandText = "INSERT INTO T (K, V) VALUES (2, 'x')"; c.ExecuteNonQuery(); }
+            }
+
+            // LibRed clears it again; ACE then accepts an omitted V (structurally nullable — no Required property).
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                db.SetColumnRequired("T", "V", false);
+            using (var conn = OpenOleDb(path))
+            {
+                using var c = conn.CreateCommand();
+                c.CommandText = "INSERT INTO T (K) VALUES (3)";
+                c.ExecuteNonQuery();
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Access_enforces_the_relationship_after_a_libred_parent_side_rewrite()
     {
         string path = Path.Combine(Path.GetTempPath(), $"prw-{Guid.NewGuid():N}.accdb");

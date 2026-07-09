@@ -157,6 +157,15 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
+    /// <summary>Sets or clears a column's Required (NOT NULL) property — ALTER TABLE … ALTER COLUMN … NOT NULL /
+    /// NULL. Adds the <c>Required</c> LvProp property when <paramref name="required"/>, removes it otherwise;
+    /// the engine enforces it on insert and ACE reads it byte-faithfully (verified).</summary>
+    public void SetColumnRequired(string table, string column, bool required)
+    {
+        new Storage.TableCreator(_channel, Catalog).SetColumnRequired(table, column, required);
+        Catalog.Invalidate();
+    }
+
     /// <summary>Drops a named FOREIGN KEY constraint from a table — ALTER TABLE … DROP CONSTRAINT. Returns
     /// false if no such relationship exists (e.g. the name is a primary-key/unique index, not yet handled).</summary>
     public bool DropConstraint(string childTable, string name) =>

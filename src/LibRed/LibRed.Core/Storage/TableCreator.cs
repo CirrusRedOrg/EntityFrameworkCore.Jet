@@ -781,6 +781,16 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         int varCount = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefVariableColumnsOffset, 2));
         int colCount = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefColumnCountOffset, 2));
 
+        // The 0x29 column-id high-water never decrements on DROP COLUMN, so once 255 ids have been handed out
+        // no further column can be added — even if the *live* count is lower (the guard above) — until the
+        // database is compacted (which renumbers and reclaims dropped ids). ACE enforces exactly this: create
+        // 255 columns, drop some, ADD COLUMN → "Too many fields defined." Mirror it rather than write a 256th
+        // id ACE can't represent. Verified vs ACE.
+        if (maxCols >= MaxColumnsPerTable)
+            throw new NotSupportedException(
+                $"Cannot add column '{spec.Name}' to '{tableName}': too many fields defined — {MaxColumnsPerTable} column ids " +
+                "have been used over this table's lifetime (Jet/ACE caps the id high-water; a compact is required to reclaim dropped ids).");
+
         var newColumn = new ColumnDef
         {
             Name = spec.Name,

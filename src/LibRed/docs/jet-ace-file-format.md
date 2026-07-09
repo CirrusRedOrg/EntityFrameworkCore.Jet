@@ -125,6 +125,10 @@ version. (Page-level encryption for password-protected files is not implemented.
 >   takes the current value as the new column's id, then increments `0x29`; `DROP COLUMN` **leaves it**
 >   (dropped ids are **never reused**, so ids develop gaps, e.g. dropping id 1 leaves `0,2,3` and the next
 >   add is `4` — verified by dropping the highest column and observing the next id still continues past it).
+>   Because it never decrements, `0x29` is a hard **lifetime cap of 255**: once 255 ids have been handed out,
+>   `ADD COLUMN` fails even if the *live* count (`0x2D`) is lower — only a **compact** (which renumbers) frees
+>   the id space. ACE-verified: create 255 columns, drop 10, `ADD COLUMN` → *"Too many fields defined."*
+>   LibRed enforces this on `0x29` (not the live count) rather than write a 256th id ACE can't represent.
 > - **`0x2B` variable-length column count** — also a **high-water**. `ADD COLUMN` of a variable column
 >   increments it (the new column's variable index = the old value); `DROP COLUMN` of a variable column
 >   **leaves it unchanged**, so survivors keep their stored variable index (§3.4) and existing rows keep the

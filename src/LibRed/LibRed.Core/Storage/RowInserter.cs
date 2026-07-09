@@ -705,6 +705,10 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             // Advance 0x14 to the id just written when it moves further in the counter's direction — for a
             // positive increment that's the max seen, for a negative (descending) counter the min. Using max
             // unconditionally would let a descending counter reissue the previous id (duplicate key).
+            // NB deliberate divergence from Access: ACE seeds 0x14 from the *last inserted* value regardless
+            // of direction (KB 884185), so an explicit lower INSERT drops the counter and the next auto id
+            // collides with an existing row ("duplicate values in the index/primary key"). LibRed's monotone
+            // rule is immune — verified both sides in AutoNumberSeed[Immunity]Tests.
             bool advances = column.Increment >= 0 ? assigned > highWater : assigned < highWater;
             if (advances)
                 BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4), assigned);

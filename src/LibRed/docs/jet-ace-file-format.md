@@ -908,9 +908,14 @@ The split mechanics:
   > **`Required` (NOT NULL)** is a per-column **boolean** property (`dataType 0x01`, one `0x01` byte); a
   > **nullable** column simply has **no** `Required` property, and an AutoNumber column is left without one
   > too (verified vs ACE). Within a column's map ACE orders `DefaultValue` **before** `Required`; the
-  > name-pool order follows first appearance across all properties. Example (`Req int NOT NULL, …, Def int
-  > DEFAULT 7 NOT NULL`): name pool `["Required","DefaultValue"]`, then `Req`'s `Required`, then `Def`'s
-  > `DefaultValue`=`7` and `Required` — reproduced byte-for-byte by `PropertyBlob.Write`.
+  > name-pool order follows first appearance across all properties — **not** alphabetical. Verified with a
+  > deliberately non-alphabetical discriminator: a table whose names first appear as `Required` (a NOT NULL
+  > column), then `DefaultValue` (a later `DEFAULT` column), then `CheckConstraints` (an added CHECK) stores
+  > the pool in exactly that `["Required","DefaultValue","CheckConstraints"]` order — alphabetical would be
+  > `["CheckConstraints","DefaultValue","Required"]`. Example (`Req int NOT NULL, …, Def int DEFAULT 7 NOT
+  > NULL`): name pool `["Required","DefaultValue"]`, then `Req`'s `Required`, then `Def`'s `DefaultValue`=`7`
+  > and `Required` — reproduced byte-for-byte by `PropertyBlob.Write` (which builds the pool by first
+  > appearance via `Distinct()`).
   >
   > LibRed **writes** `DefaultValue`, `Required` and `CheckConstraints` properties (`PropertyBlob.Write`) and
   > **reads** them back (`ColumnDef.DefaultValue`, `ColumnDef.IsNullable`, `TableDef.CheckConstraints`),

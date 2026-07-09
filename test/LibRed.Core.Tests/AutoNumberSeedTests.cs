@@ -55,4 +55,26 @@ public class AutoNumberSeedTests
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
+
+    // Ground truth for the reseed fix (KB 884185 resolution): ALTER COLUMN c COUNTER(seed, 1) sets the next id
+    // to `seed`. LibRed matches this (see AutoNumberReseedTests in LibRed.Engine.Tests).
+    [Fact]
+    public void Ace_reseeds_the_next_id_via_alter_column_counter()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"anr-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using var conn = OpenOleDb(path);
+            void Exec(string sql) { using var c = conn.CreateCommand(); c.CommandText = sql; c.ExecuteNonQuery(); }
+            Exec("CREATE TABLE Table1 (Field1 COUNTER CONSTRAINT PK_T1 PRIMARY KEY, Field2 TEXT(10))");
+            for (char ch = 'A'; ch <= 'F'; ch++) Exec($"INSERT INTO Table1 (Field2) VALUES ('{ch}')");   // 1..6
+            Exec("ALTER TABLE Table1 ALTER COLUMN Field1 COUNTER(100, 1)");
+            Exec("INSERT INTO Table1 (Field2) VALUES ('G')");
+            using var q = conn.CreateCommand();
+            q.CommandText = "SELECT Field1 FROM Table1 WHERE Field2 = 'G'";
+            Assert.Equal(100, Convert.ToInt32(q.ExecuteScalar()));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
 }

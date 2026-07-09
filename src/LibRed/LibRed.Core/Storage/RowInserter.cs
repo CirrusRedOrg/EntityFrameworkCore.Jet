@@ -710,8 +710,15 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             // collides with an existing row ("duplicate values in the index/primary key"). LibRed's monotone
             // rule is immune — verified both sides in AutoNumberSeed[Immunity]Tests.
             bool advances = column.Increment >= 0 ? assigned > highWater : assigned < highWater;
+            int newHighWater = advances ? assigned : highWater;
             if (advances)
                 BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4), assigned);
+            // Keep the cached catalog seed in sync with the on-disk 0x14. The insert path itself reads the
+            // high-water from disk (AssignAutoNumbers), so this isn't needed for assigning ids — but RewriteColumn
+            // (an ALTER on a table that has an AutoNumber) reconstructs the counter from the cached
+            // ColumnDef.Seed; if left stale, a rebuild after the high rows were deleted resets the counter to its
+            // create-time value (verified: next id dropped to 1 instead of continuing past 6). Seed = next id.
+            column.Seed = newHighWater + column.Increment;
         }
 
         // TODO(non-unique-index-stats): a non-unique index's unique-entry count must advance only

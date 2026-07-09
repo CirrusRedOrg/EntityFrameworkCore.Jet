@@ -977,6 +977,14 @@ The split mechanics:
   > (matching the Access UI's AutoNumber→Number change). Round-trip verified: ACE reads the demoted column as a
   > plain int and accepts explicit ids.
   >
+  > **Default-value interaction** (a "Random" AutoNumber *is* a counter with a `GenUniqueID()` default, so the
+  > flag and default combine). The insert path skips defaults for AutoNumber columns and only reads
+  > `GenUniqueID()` to mean "random", so: **promotion** to a sequential `COUNTER(seed)` **clears a surviving
+  > `GenUniqueID()` default** (otherwise the column would silently become a Random AutoNumber and ignore the
+  > seed); a literal default is inert on a counter and left as-is. **Demotion preserves the default** (matching
+  > ACE — ALTER-type keeps it): demoting a Random AutoNumber yields a plain int that still generates random ids
+  > via its surviving `GenUniqueID()` default (ACE-verified).
+  >
   > **"Random" AutoNumber (New Values = Random) is a `DefaultValue` = `GenUniqueID()`.** An AutoNumber column
   > whose *New Values* property is **Random** (rather than Increment) is stored as an ordinary AutoNumber column
   > (descriptor flag `0x04`, TDEF `0x14`/`0x18` at their plain-counter defaults `0`/`1` and **ignored**) plus a

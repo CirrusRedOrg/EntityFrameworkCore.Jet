@@ -1171,6 +1171,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         BinaryPrimitives.WriteInt32LittleEndian(parts.Header.AsSpan(format.TdefAutoNumberIncrementOffset, 4), increment);
         WriteTdef(table.DefinitionPage, parts);
         _catalog.Invalidate();
+
+        // COUNTER(seed, increment) is a *sequential* counter. A surviving GenUniqueID() default would instead
+        // make it a "Random" AutoNumber (IsRandomAutoNumber) — assigning random ids and ignoring the seed — so
+        // clear it to honour the requested sequence. Other (literal) defaults are inert on a counter (the insert
+        // path skips defaults for AutoNumber columns) and are left as-is.
+        if (col.DefaultValue?.Trim().Equals("GenUniqueID()", StringComparison.OrdinalIgnoreCase) == true)
+            DropColumnDefault(table.Name, col.Name);
     }
 
     /// <summary>Demotes an AutoNumber column back to a plain Int32 in place — ALTER COLUMN c LONG where c is a

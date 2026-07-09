@@ -129,6 +129,13 @@ version. (Page-level encryption for password-protected files is not implemented.
 >   `ADD COLUMN` fails even if the *live* count (`0x2D`) is lower — only a **compact** (which renumbers) frees
 >   the id space. ACE-verified: create 255 columns, drop 10, `ADD COLUMN` → *"Too many fields defined."*
 >   LibRed enforces this on `0x29` (not the live count) rather than write a 256th id ACE can't represent.
+>   **Divergence — Access burns an id per *modify* too:** per MS's "Too Many Fields Defined" article, Access
+>   bumps `0x29` not only on ADD but for **every field whose properties/type you modify** — internally it
+>   creates a new column, copies + converts the data into it, then drops the original. LibRed does **not**:
+>   an in-place descriptor edit consumes no id, a type change (`RewriteColumn`) rebuilds the TDEF and *resets*
+>   `0x29` to the live count, and LvProp edits don't touch it. So LibRed is more permissive (never spuriously
+>   "Too many fields" after many ALTERs) while still never exceeding 255 live ids — a deliberate design call,
+>   not a correctness gap.
 > - **`0x2B` variable-length column count** — also a **high-water**. `ADD COLUMN` of a variable column
 >   increments it (the new column's variable index = the old value); `DROP COLUMN` of a variable column
 >   **leaves it unchanged**, so survivors keep their stored variable index (§3.4) and existing rows keep the

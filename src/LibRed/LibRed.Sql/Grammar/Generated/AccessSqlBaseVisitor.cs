@@ -209,6 +209,28 @@ public partial class AccessSqlBaseVisitor<Result> : AbstractParseTreeVisitor<Res
 	/// <return>The visitor result.</return>
 	public virtual Result VisitAlterColumnAction([NotNull] AccessSqlParser.AlterColumnActionContext context) { return VisitChildren(context); }
 	/// <summary>
+	/// Visit a parse tree produced by the <c>AlterColumnSetDefaultAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.alterTableAction"/>.
+	/// <para>
+	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
+	/// on <paramref name="context"/>.
+	/// </para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	public virtual Result VisitAlterColumnSetDefaultAction([NotNull] AccessSqlParser.AlterColumnSetDefaultActionContext context) { return VisitChildren(context); }
+	/// <summary>
+	/// Visit a parse tree produced by the <c>AlterColumnDropDefaultAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.alterTableAction"/>.
+	/// <para>
+	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
+	/// on <paramref name="context"/>.
+	/// </para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	public virtual Result VisitAlterColumnDropDefaultAction([NotNull] AccessSqlParser.AlterColumnDropDefaultActionContext context) { return VisitChildren(context); }
+	/// <summary>
 	/// Visit a parse tree produced by the <c>DropColumnAction</c>
 	/// labeled alternative in <see cref="AccessSqlParser.alterTableAction"/>.
 	/// <para>

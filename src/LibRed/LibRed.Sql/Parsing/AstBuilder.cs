@@ -152,6 +152,9 @@ internal sealed class AstBuilder
             AlterColumnActionContext a => new AlterColumnAction(
                 Identifier(a.field), TypeName(a.dataType()), Size(a.dataType()), Scale(a.dataType()),
                 a.columnConstraint().OfType<DefaultConstraintContext>().FirstOrDefault()?.expression().GetText()),
+            AlterColumnSetDefaultActionContext a => new AlterColumnSetDefaultAction(
+                Identifier(a.field), OriginalText(a.expression())),
+            AlterColumnDropDefaultActionContext a => new AlterColumnDropDefaultAction(Identifier(a.field)),
             DropColumnActionContext a => new DropColumnAction(Identifier(a.field)),
             DropConstraintActionContext a => new DropConstraintAction(Identifier(a.cname)),
             _ => throw new SqlParseException("Unsupported ALTER TABLE action."),

@@ -139,6 +139,15 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
+    /// <summary>Removes a column's DEFAULT — ALTER TABLE … ALTER COLUMN … DROP DEFAULT. Drops only the
+    /// DefaultValue property from the LvProp blob; the column's type and Required (NOT NULL) are left intact
+    /// (ACE-verified). A no-op if the column had no default.</summary>
+    public void DropColumnDefault(string table, string column)
+    {
+        new Storage.TableCreator(_channel, Catalog).DropColumnDefault(table, column);
+        Catalog.Invalidate();
+    }
+
     /// <summary>Drops a named FOREIGN KEY constraint from a table — ALTER TABLE … DROP CONSTRAINT. Returns
     /// false if no such relationship exists (e.g. the name is a primary-key/unique index, not yet handled).</summary>
     public bool DropConstraint(string childTable, string name) =>

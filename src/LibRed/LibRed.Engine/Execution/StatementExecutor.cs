@@ -372,6 +372,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // ALTER COLUMN field type: change the column's declared type (a variable text/binary length change is a
         // descriptor edit; other storage-type changes need a full column rewrite and throw NotSupported).
         AlterColumnAction alterCol => AlterColumn(statement.Table, alterCol),
+        // ALTER COLUMN … SET/DROP DEFAULT: an LvProp edit only — no type change, and DROP DEFAULT keeps NOT NULL.
+        AlterColumnSetDefaultAction setDef => SetColumnDefault(statement.Table, setDef),
+        AlterColumnDropDefaultAction dropDef => DropColumnDefault(statement.Table, dropDef),
         // The remaining actions land in their own follow-up steps.
         _ => throw new NotSupportedException(
             $"ALTER TABLE {statement.Action.GetType().Name} is parsed but not executed yet."),
@@ -474,6 +477,18 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         _database.AlterColumn(table, alter.Field, AccessTypeMapper.ToColumnSpec(colDef, _database.Format.Version));
         if (alter.Default is not null)   // ALTER COLUMN … DEFAULT: set the column's default after the type change
             _database.SetColumnDefault(table, alter.Field, alter.Default);
+        return 0;
+    }
+
+    private int SetColumnDefault(string table, AlterColumnSetDefaultAction set)
+    {
+        _database.SetColumnDefault(table, set.Field, set.Default);
+        return 0;
+    }
+
+    private int DropColumnDefault(string table, AlterColumnDropDefaultAction drop)
+    {
+        _database.DropColumnDefault(table, drop.Field);
         return 0;
     }
 

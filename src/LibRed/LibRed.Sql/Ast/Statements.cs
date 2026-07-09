@@ -188,6 +188,12 @@ public sealed record AddCheckAction(CheckConstraint Check) : AlterTableAction;
 /// <summary>ALTER COLUMN field type[(size[,scale])] — change a column's data type.</summary>
 public sealed record AlterColumnAction(string Field, string TypeName, int? Size, int? Scale, string? Default = null) : AlterTableAction;
 
+/// <summary>ALTER COLUMN field SET DEFAULT expr — set (replace) a column's default, without retyping it.</summary>
+public sealed record AlterColumnSetDefaultAction(string Field, string Default) : AlterTableAction;
+
+/// <summary>ALTER COLUMN field DROP DEFAULT — remove a column's default, leaving its type and NOT NULL intact.</summary>
+public sealed record AlterColumnDropDefaultAction(string Field) : AlterTableAction;
+
 /// <summary>DROP COLUMN field — delete a column.</summary>
 public sealed record DropColumnAction(string Field) : AlterTableAction;
 

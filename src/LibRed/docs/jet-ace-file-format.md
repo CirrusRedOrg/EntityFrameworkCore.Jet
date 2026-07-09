@@ -921,6 +921,13 @@ The split mechanics:
   > **not** recognised by Access's property loader — established by dumping the raw descriptors; nothing
   > else differs, only `MSysObjects`+`MSysACEs` are touched.)
   >
+  > **`ALTER COLUMN … SET DEFAULT expr` / `DROP DEFAULT`** are LvProp edits only — no TDEF/type change. Both
+  > read the `LvProp` blob, mutate the target column's map, and rewrite it: SET replaces (or adds) that
+  > column's `DefaultValue`; DROP removes **only** the `DefaultValue` property, leaving `Required` (and the
+  > column's type) intact. ACE-verified: after a LibRed `DROP DEFAULT`, ACE no longer applies the default on
+  > an omit-insert yet still rejects a null in a `NOT NULL` column; `SET DEFAULT` is applied on ACE's own
+  > insert. (EF Core emits `ALTER COLUMN c DROP DEFAULT` in migrations.)
+  >
   > **"Random" AutoNumber (New Values = Random) is a `DefaultValue` = `GenUniqueID()`.** An AutoNumber column
   > whose *New Values* property is **Random** (rather than Increment) is stored as an ordinary AutoNumber column
   > (descriptor flag `0x04`, TDEF `0x14`/`0x18` at their plain-counter defaults `0`/`1` and **ignored**) plus a

@@ -886,6 +886,24 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
     /// ALTER TABLE … ALTER COLUMN … DEFAULT. Reads all properties, drops any existing DefaultValue for the
     /// column, adds the new one, and rewrites the blob (preserving every other property).</summary>
     public void SetColumnDefault(string tableName, string columnName, string defaultSql)
+        => MutateLvPropForColumn(tableName, columnName, props =>
+        {
+            props.RemoveAll(p => string.Equals(p.Owner, columnName, StringComparison.OrdinalIgnoreCase)
+                && p.Name == PropertyBlob.DefaultValueProperty);
+            props.Add(new PropertyBlob.Property(columnName, PropertyBlob.DefaultValueProperty, defaultSql));
+        });
+
+    /// <summary>Removes a column's <c>DefaultValue</c> from the table's <c>MSysObjects.LvProp</c> blob —
+    /// ALTER TABLE … ALTER COLUMN … DROP DEFAULT. Drops only that property, so the column's type and its
+    /// <c>Required</c> (NOT NULL) property survive — ACE-verified. A no-op if the column had no default.</summary>
+    public void DropColumnDefault(string tableName, string columnName)
+        => MutateLvPropForColumn(tableName, columnName, props =>
+            props.RemoveAll(p => string.Equals(p.Owner, columnName, StringComparison.OrdinalIgnoreCase)
+                && p.Name == PropertyBlob.DefaultValueProperty));
+
+    /// <summary>Reads the table's <c>MSysObjects.LvProp</c> property blob, applies <paramref name="mutate"/>,
+    /// and rewrites it — the shared read-modify-write behind ALTER COLUMN … SET/DROP DEFAULT.</summary>
+    private void MutateLvPropForColumn(string tableName, string columnName, Action<List<PropertyBlob.Property>> mutate)
     {
         TableDef target = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
@@ -902,9 +920,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             if (values[idIdx] is null || Convert.ToInt32(values[idIdx]) != tdefPage) continue;
             byte[] blob = values[lvProp.Index] as byte[] ?? [];
             var props = PropertyBlob.Read(blob).ToList();
-            props.RemoveAll(p => string.Equals(p.Owner, columnName, StringComparison.OrdinalIgnoreCase)
-                && p.Name == PropertyBlob.DefaultValueProperty);
-            props.Add(new PropertyBlob.Property(columnName, PropertyBlob.DefaultValueProperty, defaultSql));
+            mutate(props);
             byte[] updated = PropertyBlob.Write(props);
             byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, updated);
             values[lvProp.Index] = new LongValueDescriptor(descriptor);

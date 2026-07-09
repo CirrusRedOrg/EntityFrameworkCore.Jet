@@ -77,6 +77,8 @@ alterTableAction
     : ADD COLUMN? columnDefinition               # AddColumnAction
     | ADD tableConstraint                        # AddConstraintAction
     | ALTER COLUMN? field=identifier dataType columnConstraint*  # AlterColumnAction
+    | ALTER COLUMN? field=identifier SET DEFAULT expression       # AlterColumnSetDefaultAction
+    | ALTER COLUMN? field=identifier DROP DEFAULT                 # AlterColumnDropDefaultAction
     | DROP COLUMN field=identifier               # DropColumnAction
     | DROP CONSTRAINT cname=identifier           # DropConstraintAction
     ;

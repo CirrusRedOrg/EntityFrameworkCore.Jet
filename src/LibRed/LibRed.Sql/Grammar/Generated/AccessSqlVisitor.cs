@@ -138,6 +138,20 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitAlterColumnAction([NotNull] AccessSqlParser.AlterColumnActionContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>AlterColumnSetDefaultAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.alterTableAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitAlterColumnSetDefaultAction([NotNull] AccessSqlParser.AlterColumnSetDefaultActionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>AlterColumnDropDefaultAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.alterTableAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitAlterColumnDropDefaultAction([NotNull] AccessSqlParser.AlterColumnDropDefaultActionContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>DropColumnAction</c>
 	/// labeled alternative in <see cref="AccessSqlParser.alterTableAction"/>.
 	/// </summary>

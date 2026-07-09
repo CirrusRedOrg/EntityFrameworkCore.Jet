@@ -76,6 +76,36 @@ public class AceAlterColumnTests
     }
 
     [Fact]
+    public void Access_sees_a_libred_dropped_default_gone_but_keeps_not_null()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"add-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("T",
+                    [new ColumnSpec("K", JetDataType.Int32, 4, IsFixedLength: true),
+                     new ColumnSpec("N", JetDataType.Int32, 4, IsFixedLength: true, IsNullable: false)],  // NOT NULL
+                    primaryKey: ["K"]);
+                db.SetColumnDefault("T", "N", "5");
+                db.DropColumnDefault("T", "N");   // ALTER COLUMN ... DROP DEFAULT — removes only the default
+            }
+
+            using var conn = OpenOleDb(path);
+            // Default is gone, so an omit-insert no longer supplies 5 — and N is still NOT NULL, so ACE rejects it.
+            using var omit = conn.CreateCommand();
+            omit.CommandText = "INSERT INTO T (K) VALUES (1)";
+            Assert.ThrowsAny<OleDbException>(() => omit.ExecuteNonQuery());
+            // Supplying a value still works (type intact).
+            using (var c = conn.CreateCommand()) { c.CommandText = "INSERT INTO T (K, N) VALUES (2, 8)"; c.ExecuteNonQuery(); }
+            int n; using (var c = conn.CreateCommand()) { c.CommandText = "SELECT N FROM T WHERE K = 2"; n = Convert.ToInt32(c.ExecuteScalar()); }
+            Assert.Equal(8, n);
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Access_enforces_the_relationship_after_a_libred_parent_side_rewrite()
     {
         string path = Path.Combine(Path.GetTempPath(), $"prw-{Guid.NewGuid():N}.accdb");

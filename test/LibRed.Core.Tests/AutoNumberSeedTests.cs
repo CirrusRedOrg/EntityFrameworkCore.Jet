@@ -87,6 +87,35 @@ public class AutoNumberSeedTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // Symmetric to promotion but NOT a divergence: ACE allows demoting a counter to a plain integer. LibRed
+    // does it in place (clears the 0x04 flag); ACE reads the result as a plain int and accepts explicit ids.
+    [Fact]
+    public void Ace_reads_a_libred_counter_demoted_to_int()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"c2i-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("T",
+                    [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true),
+                     new ColumnSpec("V", JetDataType.Text, 5, IsFixedLength: false)],
+                    primaryKey: ["Id"]);
+                var t = db.OpenTable("T"); t.Insert([null, "a"]); t.Insert([null, "b"]);   // auto → 1, 2
+                db.AlterColumn("T", "Id", new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: false));
+            }
+
+            using var conn = OpenOleDb(path);
+            // No longer auto-assigning: ACE requires an explicit Id (a plain int PK), and takes it.
+            using (var c = conn.CreateCommand()) { c.CommandText = "INSERT INTO T (Id, V) VALUES (50, 'c')"; c.ExecuteNonQuery(); }
+            using var q = conn.CreateCommand();
+            q.CommandText = "SELECT COUNT(*) FROM T";
+            Assert.Equal(3, Convert.ToInt32(q.ExecuteScalar()));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     // Divergence (deliberate): ACE refuses to promote an existing plain integer column to AutoNumber via
     // ALTER COLUMN … COUNTER(...) ("Invalid field data type"), like SQL Server. LibRed allows it (like
     // PostgreSQL's ADD GENERATED AS IDENTITY and MySQL's MODIFY … AUTO_INCREMENT), rebuilding the column and

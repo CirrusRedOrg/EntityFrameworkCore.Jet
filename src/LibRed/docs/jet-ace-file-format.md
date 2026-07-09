@@ -971,6 +971,12 @@ The split mechanics:
   > Jet permits only one AutoNumber per table (a second is rejected), and a column in a relationship is
   > rejected (matching ACE).
   >
+  > **Demoting a counter to a plain int** (`ALTER COLUMN <counter> LONG`) is the reverse in-place edit — clear
+  > the `0x04` flag and reset the header to a non-AutoNumber table's state (`0x14` = 0, `0x18` = 1); values are
+  > kept and the column stops auto-assigning. Unlike promotion this is **not** a divergence: ACE allows it too
+  > (matching the Access UI's AutoNumber→Number change). Round-trip verified: ACE reads the demoted column as a
+  > plain int and accepts explicit ids.
+  >
   > **"Random" AutoNumber (New Values = Random) is a `DefaultValue` = `GenUniqueID()`.** An AutoNumber column
   > whose *New Values* property is **Random** (rather than Increment) is stored as an ordinary AutoNumber column
   > (descriptor flag `0x04`, TDEF `0x14`/`0x18` at their plain-counter defaults `0`/`1` and **ignored**) plus a

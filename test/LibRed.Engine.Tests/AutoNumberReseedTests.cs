@@ -75,6 +75,28 @@ public class AutoNumberReseedTests
         finally { db.Dispose(); }
     }
 
+    // Demoting a counter back to a plain integer is an in-place metadata edit (clear the flag): existing values
+    // stay, and the column stops auto-assigning so explicit ids can be inserted. ACE allows this too.
+    [Fact]
+    public void Demote_counter_to_int_keeps_data_and_stops_auto_assigning()
+    {
+        var e = Fresh(out var db);
+        try
+        {
+            e.ExecuteNonQuery("CREATE TABLE T (Id COUNTER CONSTRAINT PK PRIMARY KEY, V TEXT(10))");
+            e.ExecuteNonQuery("INSERT INTO T (V) VALUES ('a')");   // Id 1
+            e.ExecuteNonQuery("INSERT INTO T (V) VALUES ('b')");   // Id 2
+            e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN Id LONG");   // demote
+
+            var col = db.Catalog.FindTable("T")!.Columns.First(c => c.Name == "Id");
+            Assert.False(col.IsAutoNumber);
+            Assert.Equal(2, e.ExecuteQuery("SELECT COUNT(*) FROM T").Rows.Single()[0]);   // data preserved
+            e.ExecuteNonQuery("INSERT INTO T (Id, V) VALUES (50, 'c')");                  // explicit id now allowed
+            Assert.Equal(50, Convert.ToInt32(e.ExecuteQuery("SELECT Id FROM T WHERE V = 'c'").Rows.Single()[0]));
+        }
+        finally { db.Dispose(); }
+    }
+
     // Jet allows only one AutoNumber per table — promoting a second column is rejected.
     [Fact]
     public void Promote_rejects_a_second_counter()

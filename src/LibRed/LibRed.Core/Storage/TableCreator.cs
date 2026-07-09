@@ -1082,6 +1082,15 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             return;
         }
 
+        // Demote a counter back to a plain Int32 — the reverse, and likewise a metadata edit: clear the 0x04
+        // flag and reset the header to a non-AutoNumber table's state (0x14 = 0, 0x18 = 1). ACE *allows* this
+        // (unlike promotion), so LibRed matches; existing values are kept and the column stops auto-assigning.
+        if (col.IsAutoNumber && !newSpec.IsAutoNumber && col.Type == newSpec.Type)
+        {
+            DemoteCounterToInt(table, col);
+            return;
+        }
+
         bool variableLengthChange =
             !col.IsFixedLength && !newSpec.IsFixedLength && col.Type == newSpec.Type &&
             newSpec.Type is JetDataType.Text or JetDataType.Binary;
@@ -1160,6 +1169,28 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         }
         BinaryPrimitives.WriteInt32LittleEndian(parts.Header.AsSpan(format.TdefLastAutoNumberOffset, 4), seed - increment);
         BinaryPrimitives.WriteInt32LittleEndian(parts.Header.AsSpan(format.TdefAutoNumberIncrementOffset, 4), increment);
+        WriteTdef(table.DefinitionPage, parts);
+        _catalog.Invalidate();
+    }
+
+    /// <summary>Demotes an AutoNumber column back to a plain Int32 in place — ALTER COLUMN c LONG where c is a
+    /// counter. Clears the descriptor's <c>0x04</c> flag and resets the header to a non-AutoNumber table's state
+    /// (<c>0x14</c> = 0, <c>0x18</c> = 1); existing values are kept, the column just stops auto-assigning. ACE
+    /// permits this (unlike int→counter promotion), so no divergence.</summary>
+    private void DemoteCounterToInt(TableDef table, ColumnDef col)
+    {
+        JetFormatBase format = _channel.Format;
+        TdefParts parts = ParseTdef(table.DefinitionPage);
+        int descSize = format.ColumnDescriptorSize;
+        for (int i = 0; i < table.Columns.Count; i++)
+        {
+            int entry = i * descSize;
+            if (BinaryPrimitives.ReadUInt16LittleEndian(parts.Columns.AsSpan(entry + format.ColumnNumberOffset, 2)) != col.ColumnId) continue;
+            parts.Columns[entry + format.ColumnFlagsOffset] &= unchecked((byte)~JetFormatBase.ColumnFlagAutoNumber);
+            break;
+        }
+        BinaryPrimitives.WriteInt32LittleEndian(parts.Header.AsSpan(format.TdefLastAutoNumberOffset, 4), 0);
+        BinaryPrimitives.WriteInt32LittleEndian(parts.Header.AsSpan(format.TdefAutoNumberIncrementOffset, 4), 1);
         WriteTdef(table.DefinitionPage, parts);
         _catalog.Invalidate();
     }

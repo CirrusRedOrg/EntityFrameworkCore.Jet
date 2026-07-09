@@ -187,7 +187,14 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                 {
                     _logger.IndexFound(index.Name, table.Name, index.IsUnique);
                     var dbIndex = new DatabaseIndex { Table = table, Name = index.Name, IsUnique = index.IsUnique };
-                    foreach (DatabaseColumn c in columns) dbIndex.Columns.Add(c);
+                    // Carry the per-column sort direction (IsDescending, one bool per column) so scaffolding
+                    // round-trips a DESC / mixed-order index — otherwise the list stays empty and a
+                    // change-sort-order migration can't see the ordering.
+                    foreach ((ColumnDef col, bool ascending) in index.Columns)
+                    {
+                        dbIndex.Columns.Add(table.Columns.First(dc => dc.Name == col.Name));
+                        dbIndex.IsDescending.Add(!ascending);
+                    }
                     table.Indexes.Add(dbIndex);
                 }
             }

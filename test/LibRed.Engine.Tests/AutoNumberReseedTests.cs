@@ -114,6 +114,33 @@ public class AutoNumberReseedTests
         finally { db.Dispose(); }
     }
 
+    // Conversely, an explicit DEFAULT GenUniqueID() on the ALTER promotes the int straight to a *Random*
+    // AutoNumber — the promotion runs first, then the default is applied (replacing any prior one). Same result
+    // whether or not the column already had a default. This mirrors CREATE TABLE (... COUNTER DEFAULT GenUniqueID()).
+    [Theory]
+    [InlineData("")]
+    [InlineData(" DEFAULT 5")]
+    public void Promote_with_explicit_genuniqueid_default_makes_a_random_autonumber(string priorDefault)
+    {
+        var e = Fresh(out var db);
+        try
+        {
+            e.ExecuteNonQuery($"CREATE TABLE T (Id LONG CONSTRAINT PK PRIMARY KEY{priorDefault}, V TEXT(10))");
+            e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN Id COUNTER DEFAULT GenUniqueID()");
+
+            var col = db.Catalog.FindTable("T")!.Columns.First(c => c.Name == "Id");
+            Assert.True(col.IsRandomAutoNumber);   // counter + GenUniqueID() (any prior default replaced)
+
+            e.ExecuteNonQuery("INSERT INTO T (V) VALUES ('a')");
+            e.ExecuteNonQuery("INSERT INTO T (V) VALUES ('b')");
+            var ids = e.ExecuteQuery("SELECT Id FROM T").Rows.Select(r => Convert.ToInt64(r[0])).ToList();
+            Assert.All(ids, id => Assert.NotEqual(0, id));          // random, non-zero
+            Assert.DoesNotContain(5L, ids);                        // not the replaced literal default
+            Assert.NotEqual(new List<long> { 1, 2 }, ids);         // not a sequential counter
+        }
+        finally { db.Dispose(); }
+    }
+
     // A literal default is inert on a counter (the insert path skips defaults for AutoNumber columns), so
     // promotion leaves it and the counter still runs sequentially from the seed.
     [Fact]

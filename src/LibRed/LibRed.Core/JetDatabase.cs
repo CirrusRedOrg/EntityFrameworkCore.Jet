@@ -123,6 +123,15 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
+    /// <summary>Drops a named table-level CHECK constraint — ALTER TABLE … DROP CONSTRAINT. Removes it from the
+    /// LvProp CheckConstraints property. Returns false if no CHECK of that name exists.</summary>
+    public bool DropCheckConstraint(string table, string name)
+    {
+        bool dropped = new Storage.TableCreator(_channel, Catalog).DropCheckConstraint(table, name);
+        if (dropped) Catalog.Invalidate();
+        return dropped;
+    }
+
     /// <summary>Changes a column's declared type — ALTER TABLE … ALTER COLUMN. A variable text/binary length
     /// change is an in-place descriptor edit; a storage-type change rebuilds the table (converting values).</summary>
     public void AlterColumn(string table, string column, ColumnSpec newSpec)

@@ -988,6 +988,45 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         throw new InvalidOperationException($"MSysObjects row for table '{tableName}' (page {tdefPage}) was not found.");
     }
 
+    /// <summary>Drops a named table-level CHECK — ALTER TABLE … DROP CONSTRAINT. Removes the matching entry from
+    /// the <c>CheckConstraints</c> list in the table's <c>MSysObjects.LvProp</c> blob (the inverse of
+    /// <see cref="AddCheckConstraint"/>): if any remain, rewrites the list; if it was the last one, drops the
+    /// whole table-level property block. ACE-verified: after the drop ACE stops enforcing the check. Returns
+    /// false if no CHECK of that name exists (so the caller can try other constraint kinds).</summary>
+    public bool DropCheckConstraint(string tableName, string checkName)
+    {
+        TableDef target = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
+        int tdefPage = target.DefinitionPage;
+
+        TableDef msys = _catalog.FindTable("MSysObjects")
+            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
+        int idIdx = (msys.FindColumn("Id") ?? throw new InvalidOperationException("MSysObjects is missing 'Id'.")).Index;
+        ColumnDef lvProp = msys.FindColumn("LvProp") ?? throw new InvalidOperationException("MSysObjects is missing 'LvProp'.");
+        var table = new Table(_channel, msys);
+
+        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
+        {
+            if (values[idIdx] is null || Convert.ToInt32(values[idIdx]) != tdefPage) continue;
+            byte[] blob = values[lvProp.Index] as byte[] ?? [];
+
+            var checks = PropertyBlob.ReadCheckConstraints(blob).ToList();
+            if (checks.RemoveAll(c => string.Equals(c.Name, checkName, StringComparison.OrdinalIgnoreCase)) == 0)
+                return false; // no CHECK of that name — let the caller try FK/PK/unique
+
+            byte[] updated = PropertyBlob.RemoveOwner(blob, ""); // drop the table-level block…
+            if (checks.Count > 0)                                // …and re-add it only if checks remain
+                updated = PropertyBlob.AddColumnProperties(updated, "",
+                    [new PropertyBlob.Property("", PropertyBlob.CheckConstraintsProperty, PropertyBlob.WriteCheckList(checks))]);
+
+            byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, updated);
+            values[lvProp.Index] = new LongValueDescriptor(descriptor);
+            table.Update(id, values, new HashSet<int> { lvProp.Index });
+            return true;
+        }
+        throw new InvalidOperationException($"MSysObjects row for table '{tableName}' (page {tdefPage}) was not found.");
+    }
+
     /// <summary>Changes a column's declared type — ALTER TABLE … ALTER COLUMN. Supports changing a **variable
     /// text/binary column's max length** (a descriptor-length edit at <c>ColumnLengthOffset</c>; variable columns
     /// store each row's actual length, so no rows need rewriting — works on empty and populated tables). Changing

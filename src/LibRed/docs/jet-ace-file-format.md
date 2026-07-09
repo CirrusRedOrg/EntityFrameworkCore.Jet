@@ -900,7 +900,10 @@ The split mechanics:
   > table-owned map (empty owner name). A `DefaultValue` (column property) is the expression's **source
   > text** (e.g. `42`, `'hi'`); table-level `CHECK` constraints are a single **table** property named
   > `CheckConstraints` whose value is a `name\0expression\0` list, terminated by an extra `\0` (verified
-  > byte-for-byte vs ACE for `CONSTRAINT CK_BD CHECK ([BirthDate] < NOW())`).
+  > byte-for-byte vs ACE for `CONSTRAINT CK_BD CHECK ([BirthDate] < NOW())`). `ALTER TABLE … DROP CONSTRAINT
+  > <ck>` removes the matching entry from that list and rewrites it (dropping the whole table-level property
+  > block when it was the last check) — ACE-verified: after the drop ACE stops enforcing the check. (In
+  > Jet/ACE `DROP CONSTRAINT` is polymorphic over the name — FK / PK / unique index / CHECK.)
   >
   > **`Required` (NOT NULL)** is a per-column **boolean** property (`dataType 0x01`, one `0x01` byte); a
   > **nullable** column simply has **no** `Required` property, and an AutoNumber column is left without one

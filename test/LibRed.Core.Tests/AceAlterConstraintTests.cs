@@ -48,6 +48,36 @@ public class AceAlterConstraintTests
     }
 
     [Fact]
+    public void Access_stops_enforcing_a_check_libred_dropped()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"dchk-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("tblInvoices",
+                    [new ColumnSpec("ID", JetDataType.Int32, 4, IsFixedLength: true),
+                     new ColumnSpec("Amount", JetDataType.Double, 8, IsFixedLength: true)],
+                    primaryKey: ["ID"]);
+                db.AddCheckConstraint("tblInvoices", "CheckAmount", "Amount > 0");
+                Assert.True(db.DropCheckConstraint("tblInvoices", "CheckAmount"));   // ALTER TABLE … DROP CONSTRAINT
+                Assert.False(db.DropCheckConstraint("tblInvoices", "CheckAmount"));  // already gone → false
+            }
+
+            // The check is gone, so ACE now accepts the value it previously rejected.
+            using var conn = OpenOleDb(path);
+            using var c = conn.CreateCommand();
+            c.CommandText = "INSERT INTO tblInvoices (ID, Amount) VALUES (1, -5)";
+            c.ExecuteNonQuery();
+            using var read = conn.CreateCommand();
+            read.CommandText = "SELECT Amount FROM tblInvoices WHERE ID = 1";
+            Assert.Equal(-5.0, Convert.ToDouble(read.ExecuteScalar()));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Access_enforces_a_libred_added_unique_constraint()
     {
         string path = Path.Combine(Path.GetTempPath(), $"uq-{Guid.NewGuid():N}.accdb");

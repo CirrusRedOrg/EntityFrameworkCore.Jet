@@ -382,15 +382,15 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int DropConstraint(string table, string name)
     {
-        // In Jet/ACE a named constraint is either a relationship (FK) or an index (PK/unique) — a UNIQUE
-        // constraint IS a unique index, so DROP CONSTRAINT and DROP INDEX are interchangeable (verified vs ACE).
-        // Try the FK/relationship path first, then fall through to dropping a same-named index (which itself
-        // rejects an FK-backing index, matching ACE).
+        // In Jet/ACE a named constraint is a relationship (FK), an index (PK/unique — a UNIQUE constraint IS a
+        // unique index, so DROP CONSTRAINT and DROP INDEX are interchangeable), or a table-level CHECK. Try each
+        // in turn (all verified vs ACE); the index path itself rejects an FK-backing index, matching ACE.
         if (_database.DropConstraint(table, name)) return 0;
         if (_database.DropIndex(table, name)) return 0;
+        if (_database.DropCheckConstraint(table, name)) return 0;
         throw new InvalidOperationException(
-            $"ALTER TABLE '{table}' DROP CONSTRAINT '{name}': no foreign key, primary key, or unique constraint " +
-            "of that name exists.");
+            $"ALTER TABLE '{table}' DROP CONSTRAINT '{name}': no foreign key, primary key, unique, or check " +
+            "constraint of that name exists.");
     }
 
     private int AddColumn(string table, ColumnDefinition column)

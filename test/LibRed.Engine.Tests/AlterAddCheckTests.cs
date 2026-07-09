@@ -42,6 +42,31 @@ public class AlterAddCheckTests
     }
 
     [Fact]
+    public void Drop_check_constraint_stops_enforcement()
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery("CREATE TABLE T ( ID LONG PRIMARY KEY, Amount LONG )");
+        e.ExecuteNonQuery("ALTER TABLE T ADD CONSTRAINT CK_T_Amount CHECK (Amount > 0)");
+        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (ID, Amount) VALUES (1, -5)"));  // enforced
+
+        e.ExecuteNonQuery("ALTER TABLE T DROP CONSTRAINT CK_T_Amount");
+        e.ExecuteNonQuery("INSERT INTO T (ID, Amount) VALUES (2, -5)");   // no longer enforced
+        Assert.Equal(-5, Convert.ToInt32(e.ExecuteQuery("SELECT Amount FROM T WHERE ID = 2").Rows.Single()[0]));
+    }
+
+    [Fact]
+    public void Drop_check_constraint_leaves_a_sibling_check_intact()
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery("CREATE TABLE T ( ID LONG PRIMARY KEY, A LONG, B LONG, CONSTRAINT CkA CHECK (A > 0) )");
+        e.ExecuteNonQuery("ALTER TABLE T ADD CONSTRAINT CkB CHECK (B < 100)");
+        e.ExecuteNonQuery("ALTER TABLE T DROP CONSTRAINT CkA");
+
+        e.ExecuteNonQuery("INSERT INTO T (ID, A, B) VALUES (1, -1, 50)");   // CkA gone → A=-1 allowed
+        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (ID, A, B) VALUES (2, 5, 200)"));  // CkB still enforced
+    }
+
+    [Fact]
     public void Docs_credit_limit_scenario_via_alter()
     {
         var e = Fresh();

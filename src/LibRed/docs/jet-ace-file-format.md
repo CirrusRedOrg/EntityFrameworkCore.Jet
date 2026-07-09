@@ -962,6 +962,12 @@ The split mechanics:
   > field 'X'. It is part of one or more relationships." — verified both sides). Converting a column *to/from*
   > AutoNumber, or changing the numeric type, still goes through the full column rewrite.
   >
+  > **Promoting a plain int column to a counter** (`ALTER COLUMN <int> COUNTER(seed, inc)`) is a **deliberate
+  > superset**: ACE rejects it (*"Invalid field data type"*, as does SQL Server), but LibRed rebuilds the
+  > column into an AutoNumber preserving the data — like PostgreSQL (`ADD GENERATED AS IDENTITY`) and MySQL
+  > (`MODIFY … AUTO_INCREMENT`). The result is a valid counter ACE reads and uses (round-trip verified: next
+  > id = seed). The in-relationship case is still rejected by both.
+  >
   > **"Random" AutoNumber (New Values = Random) is a `DefaultValue` = `GenUniqueID()`.** An AutoNumber column
   > whose *New Values* property is **Random** (rather than Increment) is stored as an ordinary AutoNumber column
   > (descriptor flag `0x04`, TDEF `0x14`/`0x18` at their plain-counter defaults `0`/`1` and **ignored**) plus a

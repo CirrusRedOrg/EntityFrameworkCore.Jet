@@ -87,6 +87,58 @@ public class AutoNumberSeedTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // Divergence (deliberate): ACE refuses to promote an existing plain integer column to AutoNumber via
+    // ALTER COLUMN … COUNTER(...) ("Invalid field data type"), like SQL Server. LibRed allows it (like
+    // PostgreSQL's ADD GENERATED AS IDENTITY and MySQL's MODIFY … AUTO_INCREMENT), rebuilding the column and
+    // preserving the data — and the result is a valid counter ACE reads and uses (next id = seed). Both facts
+    // pinned here.
+    [Fact]
+    public void Ace_refuses_but_libred_allows_promoting_an_int_column_to_a_counter()
+    {
+        // ACE: reject.
+        string acePath = Path.Combine(Path.GetTempPath(), $"i2c-ace-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, acePath);
+        try
+        {
+            using var conn = OpenOleDb(acePath);
+            void Exec(string s) { using var c = conn.CreateCommand(); c.CommandText = s; c.ExecuteNonQuery(); }
+            Exec("CREATE TABLE T (Id LONG CONSTRAINT PK PRIMARY KEY, V TEXT(5))");
+            Exec("INSERT INTO T (Id, V) VALUES (1, 'a')");
+            using var bad = conn.CreateCommand();
+            bad.CommandText = "ALTER TABLE T ALTER COLUMN Id COUNTER(100, 1)";
+            var ex = Assert.ThrowsAny<OleDbException>(() => bad.ExecuteNonQuery());
+            Assert.Contains("Invalid field data type", ex.Message);
+        }
+        finally { try { File.Delete(acePath); } catch (IOException) { } }
+
+        // LibRed: allow, and the converted counter round-trips through ACE (next auto id = seed).
+        string libPath = Path.Combine(Path.GetTempPath(), $"i2c-lib-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, libPath);
+        try
+        {
+            using (var db = JetDatabase.Open(libPath, readOnly: false))
+            {
+                db.CreateTable("T",
+                    [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),   // plain int, not a counter
+                     new ColumnSpec("V", JetDataType.Text, 5, IsFixedLength: false)],
+                    primaryKey: ["Id"]);
+                var t = db.OpenTable("T"); t.Insert([1, "a"]); t.Insert([2, "b"]); t.Insert([3, "c"]);
+                db.AlterColumn("T", "Id",
+                    new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true, Seed: 100, Increment: 1));
+            }
+
+            using var conn = OpenOleDb(libPath);
+            using (var c = conn.CreateCommand()) { c.CommandText = "INSERT INTO T (V) VALUES ('d')"; c.ExecuteNonQuery(); }
+            using var q = conn.CreateCommand();
+            q.CommandText = "SELECT Id FROM T WHERE V = 'd'";
+            Assert.Equal(100, Convert.ToInt32(q.ExecuteScalar()));   // data preserved (1,2,3), next auto = seed
+            using var q2 = conn.CreateCommand();
+            q2.CommandText = "SELECT COUNT(*) FROM T";
+            Assert.Equal(4, Convert.ToInt32(q2.ExecuteScalar()));
+        }
+        finally { try { File.Delete(libPath); } catch (IOException) { } }
+    }
+
     // Ground truth for the reseed fix (KB 884185 resolution): ALTER COLUMN c COUNTER(seed, 1) sets the next id
     // to `seed`. LibRed matches this (see AutoNumberReseedTests in LibRed.Engine.Tests).
     [Fact]

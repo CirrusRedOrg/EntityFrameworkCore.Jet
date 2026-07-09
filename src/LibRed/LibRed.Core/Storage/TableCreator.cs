@@ -1066,10 +1066,19 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         // A pure reseed of an existing counter — ALTER COLUMN c COUNTER(seed, increment) where c is already an
         // AutoNumber of the same storage type — changes only the next id, not the data or layout. It's an
         // in-place TDEF header edit (0x14/0x18), exactly what ACE does; RewriteColumn would needlessly rebuild
-        // the whole table. (Converting to/from AutoNumber, or changing the numeric type, still rebuilds.)
+        // the whole table. (Changing the numeric type still rebuilds.)
         if (col.IsAutoNumber && newSpec.IsAutoNumber && col.Type == newSpec.Type)
         {
             ReseedCounter(table, col, newSpec.Seed, newSpec.Increment);
+            return;
+        }
+
+        // Promote a plain Int32 column to an AutoNumber — a counter is stored identically (both a 4-byte Int32);
+        // the only differences are the column's 0x04 flag and the header's seed/increment. So it's a metadata
+        // edit, not a rebuild. (ACE/SQL Server reject this; PostgreSQL/MySQL and LibRed allow it — see spec.)
+        if (!col.IsAutoNumber && newSpec.IsAutoNumber && col.Type == newSpec.Type)
+        {
+            PromoteColumnToCounter(table, col, newSpec.Seed, newSpec.Increment);
             return;
         }
 
@@ -1119,6 +1128,39 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4), seed - increment);
         BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefAutoNumberIncrementOffset, 4), increment);
         _channel.WritePage(table.DefinitionPage, tdef);
+        _catalog.Invalidate();
+    }
+
+    /// <summary>Promotes a plain Int32 column to an AutoNumber in place — ALTER COLUMN c COUNTER(seed, increment)
+    /// where c is a plain integer. A counter is stored identically to a Long Integer, so this only sets the
+    /// column descriptor's <c>0x04</c> AutoNumber flag and the header's seed/increment (<c>0x14</c>/<c>0x18</c>);
+    /// existing values are untouched. Jet allows only one AutoNumber per table, so it rejects a second; and (like
+    /// the reseed path) a column in a relationship is rejected, matching ACE.</summary>
+    private void PromoteColumnToCounter(TableDef table, ColumnDef col, int seed, int increment)
+    {
+        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
+        if (table.Columns.Any(c => c.IsAutoNumber && c.ColumnId != col.ColumnId))
+            throw new InvalidOperationException(
+                $"Cannot make '{col.Name}' an AutoNumber: table '{table.Name}' already has one (Jet allows a single AutoNumber column per table).");
+        if (_catalog.Relationships.Any(r =>
+                (string.Equals(r.Table, table.Name, oic) && r.Columns.Any(c => string.Equals(c.Column, col.Name, oic))) ||
+                (string.Equals(r.ReferencedTable, table.Name, oic) && r.Columns.Any(c => string.Equals(c.ReferencedColumn, col.Name, oic)))))
+            throw new InvalidOperationException($"Cannot change field '{col.Name}'. It is part of one or more relationships.");
+
+        if (increment == 0) increment = 1;
+        JetFormatBase format = _channel.Format;
+        TdefParts parts = ParseTdef(table.DefinitionPage);
+        int descSize = format.ColumnDescriptorSize;
+        for (int i = 0; i < table.Columns.Count; i++)
+        {
+            int entry = i * descSize;
+            if (BinaryPrimitives.ReadUInt16LittleEndian(parts.Columns.AsSpan(entry + format.ColumnNumberOffset, 2)) != col.ColumnId) continue;
+            parts.Columns[entry + format.ColumnFlagsOffset] |= JetFormatBase.ColumnFlagAutoNumber;
+            break;
+        }
+        BinaryPrimitives.WriteInt32LittleEndian(parts.Header.AsSpan(format.TdefLastAutoNumberOffset, 4), seed - increment);
+        BinaryPrimitives.WriteInt32LittleEndian(parts.Header.AsSpan(format.TdefAutoNumberIncrementOffset, 4), increment);
+        WriteTdef(table.DefinitionPage, parts);
         _catalog.Invalidate();
     }
 

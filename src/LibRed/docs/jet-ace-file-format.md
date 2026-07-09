@@ -959,14 +959,17 @@ The split mechanics:
   > of the same type, this changes only the *next* id, so LibRed does an **in-place TDEF header edit** (`0x14`
   > = seed − increment, `0x18` = increment), not a table rebuild; ACE reads the reseeded next id (verified).
   > Both ACE and LibRed **reject** reseeding a counter that participates in a relationship ("Cannot change
-  > field 'X'. It is part of one or more relationships." — verified both sides). Converting a column *to/from*
-  > AutoNumber, or changing the numeric type, still goes through the full column rewrite.
+  > field 'X'. It is part of one or more relationships." — verified both sides). Changing the numeric type
+  > still goes through the full column rewrite.
   >
   > **Promoting a plain int column to a counter** (`ALTER COLUMN <int> COUNTER(seed, inc)`) is a **deliberate
-  > superset**: ACE rejects it (*"Invalid field data type"*, as does SQL Server), but LibRed rebuilds the
-  > column into an AutoNumber preserving the data — like PostgreSQL (`ADD GENERATED AS IDENTITY`) and MySQL
-  > (`MODIFY … AUTO_INCREMENT`). The result is a valid counter ACE reads and uses (round-trip verified: next
-  > id = seed). The in-relationship case is still rejected by both.
+  > superset**, and also an **in-place metadata edit** — a counter is stored identically to a Long Integer, so
+  > LibRed only sets the descriptor's `0x04` AutoNumber flag and the header seed/increment (`0x14`/`0x18`); the
+  > existing values are untouched, no rebuild. ACE rejects the conversion outright (*"Invalid field data
+  > type"*, as does SQL Server); PostgreSQL (`ADD GENERATED AS IDENTITY`) / MySQL (`MODIFY … AUTO_INCREMENT`) /
+  > LibRed allow it. Round-trip verified: ACE reads the promoted counter and assigns next id = seed. Guards:
+  > Jet permits only one AutoNumber per table (a second is rejected), and a column in a relationship is
+  > rejected (matching ACE).
   >
   > **"Random" AutoNumber (New Values = Random) is a `DefaultValue` = `GenUniqueID()`.** An AutoNumber column
   > whose *New Values* property is **Random** (rather than Increment) is stored as an ordinary AutoNumber column

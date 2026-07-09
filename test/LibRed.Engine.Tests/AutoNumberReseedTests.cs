@@ -54,6 +54,41 @@ public class AutoNumberReseedTests
         finally { db.Dispose(); }
     }
 
+    // Promoting a plain integer column to a counter is an in-place metadata edit (0x04 flag + seed), not a
+    // rebuild: existing values stay and the next id is the seed.
+    [Fact]
+    public void Promote_plain_int_to_counter_preserves_data_and_seeds()
+    {
+        var e = Fresh(out var db);
+        try
+        {
+            e.ExecuteNonQuery("CREATE TABLE T (Id LONG CONSTRAINT PK PRIMARY KEY, V TEXT(10))");   // plain int PK
+            e.ExecuteNonQuery("INSERT INTO T (Id, V) VALUES (1, 'a')");
+            e.ExecuteNonQuery("INSERT INTO T (Id, V) VALUES (2, 'b')");
+            e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN Id COUNTER(100, 1)");   // promote
+
+            var col = db.Catalog.FindTable("T")!.Columns.First(c => c.Name == "Id");
+            Assert.True(col.IsAutoNumber);
+            Assert.Equal(2, e.ExecuteQuery("SELECT COUNT(*) FROM T").Rows.Single()[0]);   // data preserved
+            Assert.Equal(100, NextId(e, "c"));                                            // next auto = seed
+        }
+        finally { db.Dispose(); }
+    }
+
+    // Jet allows only one AutoNumber per table — promoting a second column is rejected.
+    [Fact]
+    public void Promote_rejects_a_second_counter()
+    {
+        var e = Fresh(out var db);
+        try
+        {
+            e.ExecuteNonQuery("CREATE TABLE T (Id COUNTER CONSTRAINT PK PRIMARY KEY, N LONG)");
+            var ex = Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN N COUNTER(1, 1)"));
+            Assert.Contains("already has one", ex.Message);
+        }
+        finally { db.Dispose(); }
+    }
+
     // Matches ACE: reseeding a counter that participates in a relationship is rejected ("Cannot change field
     // 'X'. It is part of one or more relationships.") — ACE-verified it throws the same way.
     [Fact]

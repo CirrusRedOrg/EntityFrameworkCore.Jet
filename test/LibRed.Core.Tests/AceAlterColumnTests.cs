@@ -105,6 +105,42 @@ public class AceAlterColumnTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // Byte-faithful: ACE recognises a LibRed-written GenGUID() default on a GUID column and applies it on its
+    // own insert, generating a fresh Guid per row. (GenGUID() is default-only — ACE rejects it in a SELECT.)
+    [Fact]
+    public void Access_applies_a_libred_written_genguid_default()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"gg-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("G",
+                    [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                     new ColumnSpec("U", JetDataType.Guid, 16, IsFixedLength: true)],
+                    primaryKey: ["Id"]);
+                db.SetColumnDefault("G", "U", "GenGUID()");
+            }
+
+            using var conn = OpenOleDb(path);
+            using (var c = conn.CreateCommand()) { c.CommandText = "INSERT INTO G (Id) VALUES (1)"; c.ExecuteNonQuery(); }
+            using (var c = conn.CreateCommand()) { c.CommandText = "INSERT INTO G (Id) VALUES (2)"; c.ExecuteNonQuery(); }
+
+            var guids = new List<Guid>();
+            using (var q = conn.CreateCommand())
+            {
+                q.CommandText = "SELECT U FROM G ORDER BY Id";
+                using var r = q.ExecuteReader();
+                while (r.Read()) guids.Add((Guid)r.GetValue(0));
+            }
+            Assert.Equal(2, guids.Count);
+            Assert.All(guids, g => Assert.NotEqual(Guid.Empty, g));
+            Assert.NotEqual(guids[0], guids[1]);   // ACE generated a fresh Guid per row
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     [Fact]
     public void Access_enforces_a_libred_alter_column_made_required()
     {

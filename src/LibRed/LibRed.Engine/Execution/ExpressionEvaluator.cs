@@ -255,6 +255,11 @@ internal sealed class ExpressionEvaluator(
             // the mechanism behind a "Random" AutoNumber. Accepted on a plain LONG default too (ACE allows it
             // only on a LONG column). AutoNumber columns take their random value in the row inserter instead.
             "GENUNIQUEID" => RandomLong(),
+            // GenGUID(): Access's GUID generator, the sibling of GenUniqueID(). Same shape — ACE errors
+            // "Undefined function 'GenGUID' in expression" in a SELECT, but it is valid as a GUID column's
+            // DEFAULT, where it yields a fresh Guid per row (verified vs ACE). EF Core models it as
+            // HasDefaultValueSql("GenGUID()") for store-generated Guid keys.
+            "GENGUID" => Guid.NewGuid(),
             _ => throw new NotSupportedException($"Function {f.Name} is not supported."),
         };
     }

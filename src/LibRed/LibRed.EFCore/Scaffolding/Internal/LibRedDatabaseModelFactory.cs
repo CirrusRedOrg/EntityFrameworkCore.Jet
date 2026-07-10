@@ -168,7 +168,11 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                     foreach (DatabaseColumn c in columns) pk.Columns.Add(c);
                     table.PrimaryKey = pk;
                 }
-                else if (index.IsUnique)
+                // A UNIQUE constraint and a UNIQUE index are byte-identical in Jet (verified vs ACE), so they
+                // can't be told apart structurally. Disambiguate by name like EFCore.Jet does: a unique index
+                // named `IX_…` (EF's index convention) is a unique *index*; any other unique index (EF names an
+                // alternate key `AK_…`) is a unique *constraint*.
+                else if (index.IsUnique && !index.Name.StartsWith("IX_", StringComparison.OrdinalIgnoreCase))
                 {
                     _logger.UniqueConstraintFound(index.Name, table.Name);
                     var unique = new DatabaseUniqueConstraint { Table = table, Name = index.Name };

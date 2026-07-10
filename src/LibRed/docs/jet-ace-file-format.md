@@ -744,6 +744,15 @@ Then the value, transformed:
 - **Single / Double / DateTime** (IEEE): if non-negative, flip the first bit; if negative,
   invert all bytes (ascending). Decode: first byte's top bit set ⇒ was positive (un-flip);
   else ⇒ was negative (invert all). DateTime is the resulting double via the OLE epoch.
+- **FixedPoint (Numeric/Decimal)**: a 17-byte body — a **sign byte** followed by the value's
+  **16-byte big-endian unscaled magnitude** (`|value| × 10^scale`, the same integer the row codec
+  stores; §5). A non-negative value uses sign `0xFF`; a **negative value is the bitwise complement
+  of the whole 17-byte positive form** (sign becomes `0x00`, magnitude one's-complemented). Byte
+  order therefore equals numeric order: negatives (`0x00`) precede non-negatives (`0xFF`), and
+  complementing makes a larger magnitude sort earlier among the negatives. **Zero encodes as
+  positive.** Descending inverts all bytes as usual. Verified byte-for-byte vs ACE, ascending and
+  descending (`DecimalKeyEncodingTests`); e.g. at scale 4, `1.0` → `7F FF 00…002710` (10000) and
+  `-1.0` → `7F 00 FF…FFD8EF` (`~10000`).
 - **Boolean:** no flag byte — a single constant: ascending `0x00` = true, `0xFF` = false
   (true sorts first).
 - **Text:** Jet's "General" collation. The key is the start flag, then one or two

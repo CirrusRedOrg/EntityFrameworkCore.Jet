@@ -122,7 +122,7 @@ public static class IndexKeyEncoder
                     $"Index key encoding for {column.Type} (binary collation) is not supported yet.");
 
             buffer.Add(ascending ? AscStartFlag : DescStartFlag);
-            byte[] raw = EncodeFixed(column.Type, value);
+            byte[] raw = EncodeFixed(column, value);
             if (!ascending)
                 for (int j = 0; j < raw.Length; j++) raw[j] = (byte)~raw[j];
             buffer.AddRange(raw);
@@ -167,13 +167,14 @@ public static class IndexKeyEncoder
         JetDataType.Single => 4,
         JetDataType.Double or JetDataType.DateTime => 8,
         JetDataType.Currency => 8,
+        JetDataType.FixedPoint => 17, // sign byte + 16-byte big-endian magnitude
         _ => -1,
     };
 
-    private static byte[] EncodeFixed(JetDataType type, object value)
+    private static byte[] EncodeFixed(ColumnDef column, object value)
     {
         var c = CultureInfo.InvariantCulture;
-        switch (type)
+        switch (column.Type)
         {
             case JetDataType.Byte:
                 return [Convert.ToByte(value, c)];
@@ -189,9 +190,40 @@ public static class IndexKeyEncoder
                 return EncodeFloatBits(BitConverter.DoubleToInt64Bits(Convert.ToDouble(value, c)), 8);
             case JetDataType.DateTime:
                 return EncodeFloatBits(BitConverter.DoubleToInt64Bits(Convert.ToDateTime(value, c).ToOADate()), 8);
+            case JetDataType.FixedPoint:
+                return EncodeFixedPoint(Convert.ToDecimal(value, c), column.Scale);
             default:
-                throw new NotSupportedException($"Index key type {type} is not encodable.");
+                throw new NotSupportedException($"Index key type {column.Type} is not encodable.");
         }
+    }
+
+    /// <summary>
+    /// Encodes a FixedPoint (Numeric/Decimal) index key — a sign byte followed by the value's 16-byte
+    /// big-endian **unscaled magnitude** (|value| × 10^scale, the same integer the row codec stores).
+    /// A non-negative value uses sign <c>0xFF</c>; a negative value is the **bitwise complement of the
+    /// whole 17-byte positive form** (sign becomes <c>0x00</c>, magnitude is one's-complemented), so byte
+    /// order equals numeric order: negatives (sign 0x00) precede non-negatives (0xFF), and complementing
+    /// makes a larger magnitude sort earlier among negatives. Zero encodes as positive.
+    /// Verified byte-for-byte against ACE (see <c>DecimalKeyEncodingTests</c>).
+    /// </summary>
+    private static byte[] EncodeFixedPoint(decimal value, byte scale)
+    {
+        decimal factor = 1m;
+        for (int i = 0; i < scale; i++) factor *= 10m;
+        decimal magnitude = decimal.Truncate(decimal.Round(Math.Abs(value) * factor, 0));
+        int[] bits = decimal.GetBits(magnitude); // [lo, mid, hi, flags]; magnitude has scale 0
+
+        var key = new byte[17];
+        key[0] = 0xFF;                                                          // non-negative marker
+        // 16-byte big-endian magnitude: the top 32-bit word is always 0 for a System.Decimal, then hi/mid/lo.
+        BinaryPrimitives.WriteUInt32BigEndian(key.AsSpan(1, 4), 0);
+        BinaryPrimitives.WriteUInt32BigEndian(key.AsSpan(5, 4), (uint)bits[2]);
+        BinaryPrimitives.WriteUInt32BigEndian(key.AsSpan(9, 4), (uint)bits[1]);
+        BinaryPrimitives.WriteUInt32BigEndian(key.AsSpan(13, 4), (uint)bits[0]);
+
+        if (value < 0)
+            for (int i = 0; i < key.Length; i++) key[i] = (byte)~key[i];
+        return key;
     }
 
     /// <summary>Big-endian with the sign bit flipped, so signed values sort lexicographically.</summary>

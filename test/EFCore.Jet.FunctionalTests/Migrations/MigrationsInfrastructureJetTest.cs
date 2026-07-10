@@ -1446,13 +1446,6 @@ COMMIT TRANSACTION;
             protected override ITestStoreFactory TestStoreFactory
                 => JetTestStoreFactory.Instance;
 
-            public override async Task InitializeAsync()
-            {
-                await base.InitializeAsync();
-                await ((JetTestStore)TestStore).ExecuteNonQueryAsync(
-                    @"DROP DATABASE TransactionSuppressed");
-            }
-
             public override MigrationsContext CreateContext()
             {
                 var options = AddOptions(TestStore.AddProviderOptions(new DbContextOptionsBuilder()))

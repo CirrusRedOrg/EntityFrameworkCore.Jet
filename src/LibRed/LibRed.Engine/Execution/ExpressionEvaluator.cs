@@ -1282,13 +1282,16 @@ internal sealed class ExpressionEvaluator(
             : d.AddTicks(-rem);
     }
 
-    /// <summary>Coerces a value to a decimal for comparisons, using Jet's boolean convention.</summary>
-    private static decimal ToNumber(object v) => Dec(v);
-
     private static int Compare(object left, object right)
     {
         if (IsNumeric(left) && IsNumeric(right))
-            return ToNumber(left).CompareTo(ToNumber(right));
+            // Compare in double when either side is floating point: a double/float can exceed decimal's range
+            // (e.g. EXP of a large value), and coercing it to decimal overflows. For integer/decimal operands
+            // keep decimal, which holds 64-bit integers and exact decimals without the precision loss double
+            // would introduce.
+            return left is double or float || right is double or float
+                ? Dbl(left).CompareTo(Dbl(right))
+                : Dec(left).CompareTo(Dec(right));
 
         // Binary (byte[]) columns: structural, length-sensitive byte compare — lexicographic then by
         // length, so a shorter value sorts before a longer one sharing its prefix (Jet's binary order,
@@ -1333,8 +1336,9 @@ internal sealed class ExpressionEvaluator(
     };
 
     // Booleans count as numeric for comparison: EF maps CLR bool to a numeric (smallint) column, and
-    // a boolean predicate (e.g. IS NOT NULL) must compare equal to that stored value. ToNumber uses
-    // Jet's convention (false = 0, true = -1) so a bool matches the numeric value it is stored as.
+    // a boolean predicate (e.g. IS NOT NULL) must compare equal to that stored value. The comparison
+    // coercions (Dec/Dbl) use Jet's convention (false = 0, true = -1) so a bool matches the numeric value
+    // it is stored as.
     private static bool IsNumeric(object v) =>
         v is bool or byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;
 }

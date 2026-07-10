@@ -61,10 +61,7 @@ public static class TdefBuilder
     private const int ColumnRecordMarkerOffset = 0x01; // 0x0659
     private const int ColumnNumber2Offset = 0x09;      // duplicate column id
     private const int ColumnVariableIndexOffset = 0x07;
-    private const int ColumnLocaleLowOffset = 0x0B;    // non-numeric: en-US locale 0x0409
-    private const int ColumnLocaleHighOffset = 0x0C;
-    private const byte LocaleLow = 0x09;
-    private const byte LocaleHigh = 0x04;
+    private const int ColumnLocaleLowOffset = 0x0B;    // non-numeric: text-collation LCID (2 bytes)
 
     // Index-data block (52 bytes): a 0x783 marker, 10 column slots, root page, unique flag.
     private const int IndexBlockSize = 52;
@@ -125,7 +122,8 @@ public static class TdefBuilder
         IReadOnlyList<ColumnSpec> specs,
         IReadOnlyList<IndexSpec>? indexes = null,
         IReadOnlyList<LongValueColumnSpec>? longValueColumns = null,
-        IReadOnlyList<LogicalIndexSpec>? logicalIndexes = null)
+        IReadOnlyList<LogicalIndexSpec>? logicalIndexes = null,
+        Collation? collation = null)
     {
         indexes ??= [];
         longValueColumns ??= [];
@@ -134,7 +132,7 @@ public static class TdefBuilder
         if (indexes.Count > MaxIndexesPerTable)
             throw new NotSupportedException(
                 $"Table has {indexes.Count} indexes; Jet/ACE allows at most {MaxIndexesPerTable} per table (including those backing keys and relationships).");
-        var columns = ResolveColumns(format, specs);
+        var columns = ResolveColumns(format, specs, collation ?? Collation.GeneralLegacy);
         // The definition (descriptors + names + index blocks) can exceed one page for a wide table; build it
         // into a buffer sized generously for the worst case, then the caller splits it across continuation
         // pages when writing. 512 bytes/column comfortably covers a 25-byte descriptor + a long name.
@@ -285,7 +283,7 @@ public static class TdefBuilder
         page[offset + 3] = (byte)(mapPage >> 16);
     }
 
-    private static List<ColumnDef> ResolveColumns(JetFormatBase format, IReadOnlyList<ColumnSpec> specs)
+    private static List<ColumnDef> ResolveColumns(JetFormatBase format, IReadOnlyList<ColumnSpec> specs, Collation collation)
     {
         _ = format;
         // Variable columns are addressed in ascending column-id order; column id = declaration order.
@@ -316,6 +314,9 @@ public static class TdefBuilder
                 IsAutoNumber = s.IsAutoNumber,
                 Precision = s.Precision,
                 Scale = s.Scale,
+                // Numeric columns carry no collation (their 0x0B/0x0C bytes are precision/scale); every
+                // other column inherits the database's collating order.
+                Collation = s.Type == JetDataType.FixedPoint ? Collation.GeneralLegacy : collation,
             });
             if (occupiesFixedData) fixedOffset += s.Length;
         }
@@ -346,9 +347,10 @@ public static class TdefBuilder
         }
         else
         {
-            // Non-numeric columns store the en-US locale (0x0409) in the precision/scale bytes.
-            d[ColumnLocaleLowOffset] = LocaleLow;
-            d[ColumnLocaleHighOffset] = LocaleHigh;
+            // Non-numeric columns store the text-collation LCID in the precision/scale bytes (0x0B/0x0C)
+            // and its sort-order version in 0x0D. General legacy is LCID 1033 (0x0409), version 0.
+            BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(ColumnLocaleLowOffset, 2), (ushort)c.Collation.Order);
+            d[format.ColumnCollationVersionOffset] = c.Collation.Version;
         }
         d[format.ColumnFlagsOffset] = (byte)(
             ColumnFlagUpdatable

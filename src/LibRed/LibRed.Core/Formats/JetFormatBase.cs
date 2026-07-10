@@ -73,6 +73,10 @@ public abstract class JetFormatBase
     public virtual int ColumnVariableIndexOffset => 0x07; // position among variable columns (0 for fixed)
     public virtual int ColumnPrecisionOffset => 0x0B; // Decimal/Numeric columns only
     public virtual int ColumnScaleOffset => 0x0C;     // Decimal/Numeric columns only
+    // Non-numeric columns instead use 0x0B/0x0C for the text-collation LCID (a little-endian UInt16 read at
+    // 0x0B), and 0x0D for its sort-order version (0 = General legacy, 1 = the Access 2010 order).
+    public virtual int ColumnLocaleOffset => 0x0B;
+    public virtual int ColumnCollationVersionOffset => 0x0D;
     public virtual int ColumnFlagsOffset => 0x0F;
     public virtual int ColumnFixedOffsetOffset => 0x15;
     public virtual int ColumnLengthOffset => 0x17;

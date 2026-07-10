@@ -54,4 +54,10 @@ public sealed class ColumnDef
     /// <summary>Precision/scale for <see cref="JetDataType.FixedPoint"/> columns.</summary>
     public byte Precision { get; init; }
     public byte Scale { get; init; }
+
+    /// <summary>The text collation (LCID + sort-order version) for a non-numeric column — read from the
+    /// descriptor's locale bytes (<c>0x0B/0x0C</c>) and version byte (<c>0x0D</c>). Numeric columns reuse
+    /// those bytes for precision/scale and carry no collation. Defaults to General legacy, which is what
+    /// every file LibRed currently handles uses, and the only order whose index keys it can encode.</summary>
+    public Collation Collation { get; init; } = Collation.GeneralLegacy;
 }

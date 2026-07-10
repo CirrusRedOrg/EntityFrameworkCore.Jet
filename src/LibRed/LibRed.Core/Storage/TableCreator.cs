@@ -12,11 +12,15 @@ namespace LibRed.Storage;
 /// finds it. This first cut creates a no-index table and writes the catalog row heap-only (the
 /// catalog is read by table scan), enough for LibRed to round-trip create → insert → query.
 /// </summary>
-public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
+public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collation? collation = null)
 {
     private readonly PageChannel _channel = channel;
     private readonly JetCatalog _catalog = catalog;
     private readonly PageAllocator _allocator = new(channel);
+
+    // The database's default collating order, written into new non-numeric columns. Defaults to General
+    // legacy for callers that don't create columns (most alter operations).
+    private readonly Collation _collation = collation ?? Collation.GeneralLegacy;
 
     public void Create(
         string name,
@@ -178,7 +182,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
 
         // Build the definition and point it at the usage maps: owned-pages = row 0, free-pages =
         // row 1, both on the usage-map page.
-        byte[] tdef = TdefBuilder.Build(format, TableType.User, columns, indexes, longValueSpecs, childLogical).Page;
+        byte[] tdef = TdefBuilder.Build(format, TableType.User, columns, indexes, longValueSpecs, childLogical, _collation).Page;
         tdef[format.TdefOwnedPagesOffset] = 0; // owned map record row
         WriteInt24(tdef, format.TdefOwnedPagesOffset + 1, usageMapPage);
         tdef[format.TdefFreePagesOffset] = 1; // free map record row
@@ -813,6 +817,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             Precision = spec.Precision,
             Scale = spec.Scale,
             IsNullable = spec.IsNullable,
+            Collation = spec.Type == JetDataType.FixedPoint ? Collation.GeneralLegacy : _collation,
         };
 
         AppendColumnToParts(parts, colCount, TdefBuilder.BuildColumnDescriptor(newColumn, format), spec.Name, format);

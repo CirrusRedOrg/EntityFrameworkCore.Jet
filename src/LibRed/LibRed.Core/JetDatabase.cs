@@ -28,6 +28,13 @@ public sealed class JetDatabase : IDisposable
     /// <summary>The decoded database definition page (page 0).</summary>
     public DatabaseDefinitionPage DefinitionPage { get; }
 
+    /// <summary>The database's default text collating order — the source of truth for the LCID and
+    /// sort-order version written into new columns, in place of a hardcoded constant. Defaults to General
+    /// legacy (locale 1033, version 0), which is what every file LibRed currently handles uses; decoding
+    /// the actual value from the page-0 sort order (obfuscated region) is a follow-up, after which this
+    /// property would be populated from <see cref="DefinitionPage"/>.</summary>
+    public Collation Collation { get; internal set; } = Collation.GeneralLegacy;
+
     /// <summary>Reads and decodes the table definition (TDEF) page at <paramref name="pageNumber"/>.</summary>
     public TableDefinitionPage ReadTableDefinition(int pageNumber)
     {
@@ -90,7 +97,7 @@ public sealed class JetDatabase : IDisposable
         IReadOnlyList<(string Name, string Expression)>? checkConstraints = null,
         string? primaryKeyName = null)
     {
-        new Storage.TableCreator(_channel, Catalog)
+        new Storage.TableCreator(_channel, Catalog, Collation)
             .Create(name, columns, primaryKey, relationships, uniqueConstraints, columnDefaults, checkConstraints,
                 primaryKeyName);
         Catalog.Invalidate();
@@ -179,7 +186,7 @@ public sealed class JetDatabase : IDisposable
     /// <summary>Adds a column — ALTER TABLE … ADD COLUMN. Appends the descriptor/name and bumps the counts;
     /// existing rows read it as NULL. Returns false if the column already exists; throws for memo/OLE.</summary>
     public bool AddColumn(string table, Catalog.ColumnSpec column, string? defaultValue = null) =>
-        new Storage.TableCreator(_channel, Catalog).AddColumn(table, column, defaultValue);
+        new Storage.TableCreator(_channel, Catalog, Collation).AddColumn(table, column, defaultValue);
 
     /// <summary>Drops an index — DROP INDEX … ON table. Removes its TDEF blocks and frees its B-tree root.
     /// Returns false if the index doesn't exist; throws if it backs a relationship.</summary>

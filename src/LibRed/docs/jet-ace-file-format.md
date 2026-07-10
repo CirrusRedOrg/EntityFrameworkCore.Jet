@@ -290,6 +290,15 @@ insert/delete/insert sequence and against saved Northwind tables:**
 > General order) would carry `0x0D = 1` and different index-key bytes that LibRed does not yet handle
 > (no version-1 fixture available here to verify against).
 >
+> **LibRed model.** The `(locale, version)` pair is a `Collation` value (`CollatingOrder` enum = the DAO
+> LCIDs). It is **read** per column into `ColumnDef.Collation` (numeric columns, whose `0x0B/0x0C` are
+> precision/scale, carry none), and **written** from `JetDatabase.Collation` — the database's default,
+> threaded through `TdefBuilder` instead of the former hardcoded `0x0409`/`0x00` constant. The write is
+> byte-identical to the constant for General legacy (verified). `IndexKeyEncoder` **gates** on the
+> column's collation: it refuses (throws) anything but General legacy rather than emit version-0 key bytes
+> for a version-1 or non-English column. `JetDatabase.Collation` currently defaults to General legacy;
+> populating it from the page-0 sort order needs that region's de-obfuscation (still a TODO, §2).
+>
 > LibRed **reads** the variable-table index from the descriptor (`0x07`) rather than deriving it by
 > ranking column ids. For an untouched table the two agree, but they **diverge after a `DROP COLUMN`**:
 > ACE's drop is a metadata-only TDEF edit that does **not** renumber the surviving columns or rewrite

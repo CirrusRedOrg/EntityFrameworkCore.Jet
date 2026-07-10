@@ -229,14 +229,14 @@ public sealed class TableDefinitionPage : Page
         _columns.Clear();
 
         // Pass 1: fixed-size column descriptors.
-        var descriptors = new (JetDataType Type, int ColumnId, byte Flags, int FixedOffset, int Length, byte Precision, byte Scale, int VariableIndex)[ColumnCount];
+        var descriptors = new (JetDataType Type, int ColumnId, byte Flags, int FixedOffset, int Length, byte Precision, byte Scale, int VariableIndex, Collation Collation)[ColumnCount];
         for (int i = 0; i < ColumnCount; i++)
         {
             int entry = columnBlock + i * format.ColumnDescriptorSize;
             var type = (JetDataType)buffer.ReadByte(entry + format.ColumnTypeOffset);
 
-            // Precision/scale share these bytes with a locale id; they are only meaningful
-            // for Decimal/Numeric columns.
+            // Bytes 0x0B/0x0C are precision/scale for a Decimal/Numeric column and the text-collation LCID
+            // for everything else; 0x0D is the collation's sort-order version. Read whichever applies.
             bool numeric = type == JetDataType.FixedPoint;
             descriptors[i] = (
                 type,
@@ -250,7 +250,10 @@ public sealed class TableDefinitionPage : Page
                 // (rather than ranking column ids) is what lets a table with a **dropped column** decode:
                 // ACE's DROP COLUMN removes a descriptor but does NOT renumber the survivors or rewrite
                 // rows, so a survivor keeps its original variable index even though ranking would shift it.
-                buffer.ReadUInt16(entry + format.ColumnVariableIndexOffset));
+                buffer.ReadUInt16(entry + format.ColumnVariableIndexOffset),
+                numeric ? Collation.GeneralLegacy
+                    : new Collation((CollatingOrder)buffer.ReadUInt16(entry + format.ColumnLocaleOffset),
+                        buffer.ReadByte(entry + format.ColumnCollationVersionOffset)));
         }
 
         // Pass 2: column names, in the same order, immediately after the descriptor block.
@@ -278,6 +281,7 @@ public sealed class TableDefinitionPage : Page
                 IsAutoNumber = (d.Flags & JetFormatBase.ColumnFlagAutoNumber) != 0,
                 Precision = d.Precision,
                 Scale = d.Scale,
+                Collation = d.Collation,
             });
         }
 

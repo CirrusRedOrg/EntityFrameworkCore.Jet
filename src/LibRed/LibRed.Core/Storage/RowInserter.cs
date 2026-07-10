@@ -387,9 +387,12 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             movableWindow: tdefPointerOffset == _channel.Format.TdefFreePagesOffset);
     }
 
-    // Access grows an inline usage-map bitmap in 256-bit (32-byte) chunks — verified: a table spanning to
-    // page 753 carried a 96-byte bitmap (768 bits, record length 101), grown from the initial 64.
-    private const int UsageMapChunkBytes = 32;
+    // Access grows an inline usage-map bitmap in 32-bit (4-byte) steps. Verified against owned-map record
+    // lengths on a 255-column ACE table whose data pages start at 353: 8,000 rows → 1053, 12,000 → 1553,
+    // 30,000 → 3801, i.e. 5 + roundUp(ceil((353 + rows) / 8), 4) exactly. (A 32-byte chunk would give 1056 /
+    // 1568 / 3808.) Getting this right matters beyond tidiness: overshooting the record length spends the
+    // usage-map page's remaining room and converts the map to reference type earlier than Access would.
+    private const int UsageMapChunkBytes = 4;
 
     private const byte InlineMapType = 0x00;
     private const byte ReferenceMapType = 0x01;
@@ -643,10 +646,15 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             records[i] = page.AsSpan(holder.Rows[i].Offset, holder.Rows[i].Length).ToArray();
         records[mapRow] = newRecord;
 
+        // Check the fit *before* laying anything out: the records are packed from the page end backward, so
+        // an oversized record would otherwise run past offset 0 mid-copy rather than reporting "doesn't fit".
+        newOffset = -1;
+        int directoryEnd = format.DataRowDirectoryOffset + rowCount * 2;
+        if (format.PageSize - records.Sum(r => r.Length) < directoryEnd) return null;
+
         var result = new byte[format.PageSize];
         Array.Copy(page, result, format.DataRowDirectoryOffset); // preserve type/flags/owner/header
         int offset = format.PageSize;
-        newOffset = -1;
         for (int i = 0; i < rowCount; i++)
         {
             offset -= records[i].Length;
@@ -654,9 +662,6 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(format.DataRowDirectoryOffset + i * 2, 2), (ushort)offset);
             if (i == mapRow) newOffset = offset;
         }
-
-        int directoryEnd = format.DataRowDirectoryOffset + rowCount * 2;
-        if (offset < directoryEnd) return null;
 
         BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(format.DataRowCountOffset, 2), (ushort)rowCount);
         BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(format.DataFreeSpaceOffset, 2), (ushort)(offset - directoryEnd));

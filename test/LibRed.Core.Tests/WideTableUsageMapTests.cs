@@ -113,6 +113,38 @@ public class WideTableUsageMapTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    /// <summary>
+    /// An owned-pages map keeps <c>startPage = 0</c> and grows its bitmap in 4-byte (32-bit) steps, so its
+    /// record length is exactly <c>5 + roundUp(ceil((maxPage + 1) / 8), 4)</c>. Verified against ACE record
+    /// lengths for the same table shape: 8,000 rows → 1053, 12,000 → 1553, 30,000 → 3801, 31,000 → 3925.
+    /// Overshooting (we once rounded to 32 bytes) wastes the usage-map page's room and converts the map to
+    /// reference type earlier than Access would.
+    /// </summary>
+    [Fact]
+    public void The_owned_pages_bitmap_grows_in_4_byte_steps()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"grow4-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            db.CreateTable("W", FullPageRowColumns(), primaryKey: ["Id"]);
+            var table = db.OpenTable("W");
+
+            Fill(table, 2_000);
+
+            (byte type, int length, int startPage) = ReadMap(table, db.Format, db.Format.TdefOwnedPagesOffset);
+            Assert.Equal(0x00, type);
+            Assert.Equal(0, startPage); // an owned map never moves: it must retain every page ever taken
+
+            int maxPage = new UsageMap(table.Channel, table.Definition).MaxDataPage();
+            int bitmapBytes = (maxPage + 1 + 7) / 8;
+            int expected = 5 + (bitmapBytes + 3) / 4 * 4;
+            Assert.Equal(expected, length);
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     [Fact]
     public void A_255_column_table_spanning_a_reference_usage_map_round_trips_through_access()
     {

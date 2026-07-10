@@ -647,12 +647,17 @@ themselves marked as owned by the table.
 >   neither is supported yet.)
 > - **Inline map, grown in place.** LibRed writes the inline map with `startPage = 0` and an initially
 >   64-byte bitmap (pages 0–511). When an insert needs to mark a page **past** that window, LibRed grows
->   the bitmap **record in place** — still type `0x00`, same `startPage` — extending it in **256-bit
->   (32-byte) chunks** and repacking the usage-map page's records (the `owned`/`free` maps and any index/
->   column maps) from the end backward. This matches Access, which does **not** switch to a reference-type
->   map at this scale: verified that a table spanning to page 753 carries a **96-byte** bitmap (768 bits,
->   record length **101**, grown from 64), and that Access opens a LibRed-grown table, counts every row,
->   and reads one living past page 512.
+>   the bitmap **record in place** — still type `0x00`, same `startPage` — extending it in **32-bit (4-byte)
+>   steps** and repacking the usage-map page's records (the `owned`/`free` maps and any index/column maps)
+>   from the end backward. So the record length is exactly
+>   `5 + roundUp(ceil((maxPage + 1 − startPage) / 8), 4)`.
+>   Verified against ACE owned-map lengths on a 255-column table whose data pages start at 353:
+>   8,000 rows → **1053**, 12,000 → **1553**, 16,000 → **2053**, 30,000 → **3801**, 31,000 → **3925** — the
+>   formula reproduces every one. (An earlier reading of this as *256-bit / 32-byte* chunks fitted the one
+>   small data point it was drawn from — a table spanning to page 753 carries a **96**-byte bitmap, record
+>   length **101** — because 96 is a multiple of both. The large-table lengths discriminate: 32-byte rounding
+>   would give 1056 / 1568 / 3808.) Access opens a LibRed-grown table, counts every row, and reads one living
+>   past page 512.
 > - **Inline → reference conversion.** Access keeps growing the inline record until it no longer fits its
 >   usage-map page, then rewrites the map as type `0x01`. Verified by owned-map record length against
 >   page count: 8,000 pages → 1053, 12,000 → 1553, 16,000 → 2053, 30,000 → **3801, still type `0x00`**;
@@ -670,9 +675,26 @@ themselves marked as owned by the table.
 >   ever taken. LibRed slides the window for free-pages maps (table and long-value column), and only for
 >   them; if a bit already set would fall outside the new window it grows in place instead, so nothing is
 >   silently forgotten.
->   Because the free record therefore stays 69 bytes, the owned map keeps the rest of the usage-map page and
->   converts to a reference map at ~31,000 pages (owned record 3813 bytes at 30,000) — matching Access, which
->   is still inline at 30,000 (3801 bytes) and reference by 34,000.
+> - **The conversion point is a page-budget calculation, not a constant.** The owned map converts as soon as
+>   its next grown record would not fit the usage-map page alongside the page header (14 bytes), the row
+>   directory (2 bytes/record) and the *other* records sharing that page. So the threshold moves with the
+>   table's shape:
+>
+>   | Table | Records on the map page | Owned-record budget | Converts at |
+>   | --- | --- | --- | --- |
+>   | No primary key | owned + free | `4096 − 14 − 4 − 69` = **4009** | page **32,032** |
+>   | Primary key | owned + free + the index's own map | `4096 − 14 − 6 − 69 − 69` = **3938** | page **31,456** |
+>
+>   Both verified end-to-end. LibRed's no-PK table converts at exactly page 32,032 with a last inline record
+>   of 4009 bytes; ACE's no-PK table is still inline at page 31,354 (record 3925) and reference by 32,356,
+>   bracketing the same value. With a primary key ACE likewise carries a third record and has already
+>   converted by page 31,409, against LibRed's 31,456.
+>
+>   > Beware comparing thresholds across table shapes: an earlier note here claimed LibRed converted "at
+>   > ~31,000 pages vs Access at 34,000". Those were a **primary-keyed** LibRed table and a **key-less** ACE
+>   > one. The rule is identical; only the budget differed. (Access's per-index usage map *grows* with the
+>   > index's pages — observed at 3445 bytes — where LibRed's stays 69, since `IndexWriter` never updates it;
+>   > that shrinks Access's owned budget further, so a keyed ACE table converts a little earlier still.)
 
 ### 9.1 Global free-pages map — page 1 (page allocation)
 

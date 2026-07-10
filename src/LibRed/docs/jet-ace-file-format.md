@@ -615,6 +615,22 @@ to dedicated **bitmap pages** (type `0x05`). Pointer `k` (zero ⇒ none) points 
 covering the page range starting at `k × (pageSize − 4) × 8`; on a bitmap page the bitmap data
 begins at **offset 4**.
 
+| Offset | Size | Meaning |
+| --- | --- | --- |
+| `0x00` | 1 | Type `0x01` |
+| `0x01` | 4 × 17 | Bitmap-page pointers, little-endian; `0` ⇒ that page range owns nothing |
+
+The record is exactly **69 bytes** (`1 + 17 × 4`). Seventeen slots is not arbitrary: each bitmap page
+covers `(4096 − 4) × 8 = 32,736` pages ≈ 134 MB, so 17 slots span ≈ 2.28 GB — just past Jet's 2 GB
+file ceiling. A bitmap page's header is `[0]=0x05`, `[1]=0x01`, `[2..3]=0`, bitmap from offset 4.
+Bitmap pages are allocated **lazily**, only when a bit in their range is first set, and are *not*
+themselves marked as owned by the table.
+
+> Verified against an ACE-built 134 MB table (34,000 full-page rows): owned map record
+> `01 017D0000 E17F0000 00…` — type `0x01`, slot 0 → page 32,001, slot 1 → page 32,737, remaining
+> 15 slots zero, record length 69. Bitmap page 32,737's first bitmap byte is `0xFC`: pages 32,736 and
+> 32,737 clear (32,737 *is* the bitmap page), 32,738–32,743 set.
+
 > The usage map is authoritative: a brute-force owner-scan can over-count, because deleted/
 > orphaned pages can retain a stale owner stamp that the map correctly omits.
 
@@ -636,8 +652,22 @@ begins at **offset 4**.
 >   column maps) from the end backward. This matches Access, which does **not** switch to a reference-type
 >   map at this scale: verified that a table spanning to page 753 carries a **96-byte** bitmap (768 bits,
 >   record length **101**, grown from 64), and that Access opens a LibRed-grown table, counts every row,
->   and reads one living past page 512. A **reference-type** map (for a table so large the grown record no
->   longer fits on its usage-map page, ~128 MB+) is still not implemented — LibRed throws then.
+>   and reads one living past page 512.
+> - **Inline → reference conversion.** Access keeps growing the inline record until it no longer fits its
+>   usage-map page, then rewrites the map as type `0x01`. Verified by owned-map record length against
+>   page count: 8,000 pages → 1053, 12,000 → 1553, 16,000 → 2053, 30,000 → **3801, still type `0x00`**;
+>   at 34,000 pages the map is type `0x01`. So the switch is driven purely by *record fits the page*, not
+>   by a fixed page-count threshold. LibRed applies the same rule: grow inline while the repacked record
+>   fits, otherwise convert — re-marking every previously-owned page into freshly allocated bitmap pages
+>   (grouped by slot, one write per bitmap page) and shrinking the record to the fixed 69 bytes.
+>   ACE reads a LibRed-written reference map: a 255-column, 400,000-row, 126.8 MB table counts back
+>   exactly through `Microsoft.ACE.OLEDB.16.0`.
+> - **Divergence — LibRed converts earlier than Access.** LibRed's *free*-pages map pins `startPage = 0`,
+>   so marking a tail page far into the file grows the free record to roughly the same size as the owned
+>   record. Both share the usage-map page, so LibRed's owned map runs out of page room at ~15,000 pages
+>   (~62 MB) where Access, whose free record stays 69 bytes because it moves the window, holds out to
+>   ~30,000. LibRed converts to a reference map at that point. The result is a valid, ACE-readable file —
+>   only the switchover point differs. (A movable inline window is not implemented.)
 
 ### 9.1 Global free-pages map — page 1 (page allocation)
 

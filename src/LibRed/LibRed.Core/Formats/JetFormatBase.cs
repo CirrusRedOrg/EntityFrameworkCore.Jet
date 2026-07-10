@@ -108,6 +108,11 @@ public abstract class JetFormatBase
     /// <summary>Offset in a TDEF of the owned-pages usage-map pointer: 1 byte row, then a 3-byte page.</summary>
     public virtual int TdefOwnedPagesOffset => 0x37;
 
+    /// <summary>Offset in a TDEF of the free-pages usage-map pointer (same 1-byte row + 3-byte page shape):
+    /// the subset of the table's owned data pages that still have room for a row. Once earlier pages fill,
+    /// Access leaves only the page it is currently appending to marked here.</summary>
+    public virtual int TdefFreePagesOffset => 0x3B;
+
     /// <summary>Page size in bytes (2048 for Jet 3, 4096 for Jet 4 and all ACE versions).</summary>
     public int PageSize { get; protected set; } = 4096;
 

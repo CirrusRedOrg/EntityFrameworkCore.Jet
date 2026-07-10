@@ -175,11 +175,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         // Build the definition and point it at the usage maps: owned-pages = row 0, free-pages =
         // row 1, both on the usage-map page.
         byte[] tdef = TdefBuilder.Build(format, TableType.User, columns, indexes, longValueSpecs, childLogical).Page;
-        const int FreePagesOffset = 0x3B;
         tdef[format.TdefOwnedPagesOffset] = 0; // owned map record row
         WriteInt24(tdef, format.TdefOwnedPagesOffset + 1, usageMapPage);
-        tdef[FreePagesOffset] = 1; // free map record row
-        WriteInt24(tdef, FreePagesOffset + 1, usageMapPage);
+        tdef[format.TdefFreePagesOffset] = 1; // free map record row
+        WriteInt24(tdef, format.TdefFreePagesOffset + 1, usageMapPage);
         // A wide table's definition can exceed one page; write it split across continuation pages if needed.
         int defEnd = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(TdefLengthOffset, 4));
         WriteDefinition(tdefPage, tdef[..defEnd], []);

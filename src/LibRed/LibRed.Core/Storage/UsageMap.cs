@@ -28,13 +28,77 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
     private readonly TableDef _table = table;
 
     /// <summary>Yields the page numbers of every data page owned by the table, in ascending order.</summary>
-    public IEnumerable<int> DataPages()
+    public IEnumerable<int> DataPages() => PagesAt(_channel.Format.TdefOwnedPagesOffset);
+
+    /// <summary>Yields the table's data pages that still have room for a row, in ascending order — the
+    /// free-pages map. A strict subset of <see cref="DataPages"/>, and normally just the page currently
+    /// being appended to, so it is the map to consult when looking for somewhere to put a new row.</summary>
+    public IEnumerable<int> FreeDataPages() => PagesAt(_channel.Format.TdefFreePagesOffset);
+
+    /// <summary>The highest-numbered data page the table owns, or -1 when it owns none.</summary>
+    /// <remarks>
+    /// Scans the bitmap backwards rather than enumerating <see cref="DataPages"/> and taking the maximum:
+    /// callers ask this on every page allocation, and materializing every owned page each time would make a
+    /// bulk load quadratic. Cost here is bounded by the bitmap size, not the table's page count.
+    /// </remarks>
+    public int MaxDataPage()
+    {
+        byte[] record = ReadMapRecord(_channel.Format.TdefOwnedPagesOffset);
+
+        if (record[0] == MapTypeInline)
+        {
+            int startPage = BinaryPrimitives.ReadInt32LittleEndian(record.AsSpan(1, 4));
+            int bit = HighestSetBit(record.AsSpan(5));
+            return bit < 0 ? -1 : startPage + bit;
+        }
+
+        int pagesPerBitmap = (_channel.PageSize - BitmapPageHeaderSize) * 8;
+        for (int e = (record.Length - 1) / 4 - 1; e >= 0; e--)
+        {
+            int bitmapPage = BinaryPrimitives.ReadInt32LittleEndian(record.AsSpan(1 + e * 4, 4));
+            if (bitmapPage == 0) continue;
+
+            int bit = HighestSetBit(_channel.ReadPage(bitmapPage).Span[BitmapPageHeaderSize..]);
+            if (bit >= 0) return e * pagesPerBitmap + bit;
+        }
+
+        return -1;
+    }
+
+    /// <summary>Index of the highest set bit in <paramref name="bitmap"/>, or -1 if it is all zeros.</summary>
+    private static int HighestSetBit(ReadOnlySpan<byte> bitmap)
+    {
+        for (int i = bitmap.Length - 1; i >= 0; i--)
+        {
+            if (bitmap[i] == 0) continue;
+            for (int bit = 7; bit >= 0; bit--)
+                if ((bitmap[i] & (1 << bit)) != 0)
+                    return i * 8 + bit;
+        }
+        return -1;
+    }
+
+    /// <summary>The raw usage-map record whose (row, page) pointer sits at <paramref name="pointerOffset"/>
+    /// in the TDEF.</summary>
+    private byte[] ReadMapRecord(int pointerOffset)
+    {
+        JetFormatBase format = _channel.Format;
+        PageBuffer tdef = _channel.ReadPage(_table.DefinitionPage);
+
+        var holder = new DataPage();
+        holder.Read(_channel.ReadPage(tdef.ReadInt24(pointerOffset + 1)), format);
+        return holder.GetRow(tdef.ReadByte(pointerOffset)).ToArray();
+    }
+
+    /// <summary>Reads the usage map whose (row, page) pointer sits at <paramref name="pointerOffset"/> in
+    /// the TDEF. Both maps share the same pointer shape and record format.</summary>
+    private IEnumerable<int> PagesAt(int pointerOffset)
     {
         JetFormatBase format = _channel.Format;
 
         PageBuffer tdef = _channel.ReadPage(_table.DefinitionPage);
-        int mapRow = tdef.ReadByte(format.TdefOwnedPagesOffset);
-        int mapPage = tdef.ReadInt24(format.TdefOwnedPagesOffset + 1);
+        int mapRow = tdef.ReadByte(pointerOffset);
+        int mapPage = tdef.ReadInt24(pointerOffset + 1);
 
         var holder = new DataPage();
         holder.Read(_channel.ReadPage(mapPage), format);

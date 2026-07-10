@@ -323,13 +323,17 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private static bool HasNullKey(IndexDef index, object?[] values) =>
         index.Columns.Any(c => values[c.Column.Index] is null or DBNull);
 
-    // The TDEF free-pages-map pointer (row + page); the owned-pages pointer lives at
-    // format.TdefOwnedPagesOffset. Both maps mark the table's own data pages.
-    private const int TdefFreePagesOffset = 0x3B;
-
+    /// <summary>Finds a data page with room for a row of <paramref name="needed"/> bytes, growing the table
+    /// if none has.</summary>
+    /// <remarks>
+    /// Consults the <i>free</i>-pages map, not the owned-pages map. The two agree only while a table is
+    /// small: once a page fills, Access clears its free bit (see <see cref="AllocateDataPage"/>), so the free
+    /// map is normally just the page currently being appended to. Scanning the owned map instead would read
+    /// every already-full page from disk on every insert — O(pages) per row, i.e. quadratic over a bulk load.
+    /// </remarks>
     private (int PageNumber, byte[] Page) FindPageWithRoom(JetFormatBase format, int needed)
     {
-        foreach (int pageNumber in new UsageMap(_channel, _table).DataPages())
+        foreach (int pageNumber in new UsageMap(_channel, _table).FreeDataPages())
         {
             byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
             int freeSpace = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2));
@@ -353,7 +357,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // page — leaving only the page currently being appended to marked free. Match that: clear the
         // old tail's free bit, then set the new page's. (Verified against an ACE sequential fill: only
         // the last of six equally-full pages stays in the free map.)
-        int previousTail = new UsageMap(_channel, _table).DataPages().DefaultIfEmpty(-1).Max();
+        int previousTail = new UsageMap(_channel, _table).MaxDataPage();
 
         int pageNumber = new PageAllocator(_channel).Allocate();
 
@@ -367,9 +371,9 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         _channel.WritePage(pageNumber, page);
 
         if (previousTail >= 0)
-            UpdateUsageBit(TdefFreePagesOffset, previousTail, set: false); // old tail is now full
+            UpdateUsageBit(format.TdefFreePagesOffset, previousTail, set: false); // old tail is now full
         UpdateUsageBit(format.TdefOwnedPagesOffset, pageNumber, set: true);
-        UpdateUsageBit(TdefFreePagesOffset, pageNumber, set: true);        // new tail has room
+        UpdateUsageBit(format.TdefFreePagesOffset, pageNumber, set: true);        // new tail has room
 
         return (pageNumber, page);
     }
@@ -386,9 +390,24 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     // page 753 carried a 96-byte bitmap (768 bits, record length 101), grown from the initial 64.
     private const int UsageMapChunkBytes = 32;
 
-    /// <summary>Sets or clears the bit for <paramref name="targetPage"/> in the inline usage map at
-    /// record <paramref name="mapRow"/> on <paramref name="mapPage"/>. When the page falls past the
-    /// bitmap's current window the record is grown in place (matching Access) so larger tables work.</summary>
+    private const byte InlineMapType = 0x00;
+    private const byte ReferenceMapType = 0x01;
+    private const int InlineMapHeaderSize = 5;      // type byte + 4-byte start page
+    private const int BitmapPageHeaderSize = 4;     // type + flags + 2 unused, then the bitmap
+
+    // A reference map's record is a type byte followed by 17 four-byte bitmap-page pointers (69 bytes).
+    // Seventeen is not arbitrary: each bitmap page covers (pageSize - 4) * 8 = 32,736 pages, so 17 slots
+    // span ~2.28 GB — just past Jet's 2 GB file ceiling. Verified against an ACE-built 134 MB table.
+    private const int ReferenceMapSlots = 17;
+    private const int ReferenceMapRecordSize = 1 + ReferenceMapSlots * 4;
+
+    /// <summary>Sets or clears the bit for <paramref name="targetPage"/> in the usage map at record
+    /// <paramref name="mapRow"/> on <paramref name="mapPage"/>.</summary>
+    /// <remarks>
+    /// Handles both map types. An inline map (0x00) is grown in place while its record still fits the page;
+    /// once it cannot, the map is converted to a reference map (0x01) — exactly Access's own threshold, which
+    /// keeps an inline record up to ~3,800 bytes (≈30,000 pages, ~119 MB) before switching.
+    /// </remarks>
     private void SetUsageBit(int mapRow, int mapPage, int targetPage, bool set)
     {
         JetFormatBase format = _channel.Format;
@@ -397,11 +416,14 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         holder.Read(_channel.ReadPage(mapPage), format);
         int mapOffset = holder.Rows[mapRow].Offset;
 
-        if (page[mapOffset] != 0x00)
-            throw new NotSupportedException("Reference-type usage map growth is not implemented yet.");
+        if (page[mapOffset] == ReferenceMapType)
+        {
+            SetReferenceBit(page, mapPage, mapOffset, targetPage, set);
+            return;
+        }
 
         int startPage = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(mapOffset + 1, 4));
-        int bitmapBits = (holder.Rows[mapRow].Length - 5) * 8;
+        int bitmapBits = (holder.Rows[mapRow].Length - InlineMapHeaderSize) * 8;
         int bitIndex = targetPage - startPage;
         if (bitIndex < 0)
             throw new NotSupportedException(
@@ -414,33 +436,143 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         {
             if (!set) return;
             int neededBitmapBytes = RoundUpTo(bitIndex / 8 + 1, UsageMapChunkBytes);
-            page = GrowInlineMap(page, holder, format, mapRow, 5 + neededBitmapBytes, out mapOffset);
+            byte[] grownRecord = new byte[InlineMapHeaderSize + neededBitmapBytes]; // extra bitmap bytes stay zero
+            page.AsSpan(mapOffset, holder.Rows[mapRow].Length).CopyTo(grownRecord);
+
+            byte[]? grown = ReplaceMapRecord(page, holder, format, mapRow, grownRecord, out mapOffset);
+            if (grown is null)
+            {
+                // The record can no longer grow within its page: switch to a reference map and retry there.
+                ConvertInlineToReference(mapPage, mapRow);
+                page = _channel.ReadPage(mapPage).Span.ToArray();
+                var converted = new DataPage();
+                converted.Read(_channel.ReadPage(mapPage), format);
+                SetReferenceBit(page, mapPage, converted.Rows[mapRow].Offset, targetPage, set);
+                return;
+            }
+
+            page = grown;
         }
 
-        int byteIndex = mapOffset + 5 + bitIndex / 8;
+        int byteIndex = mapOffset + InlineMapHeaderSize + bitIndex / 8;
         byte mask = (byte)(1 << (bitIndex % 8));
         if (set) page[byteIndex] |= mask;
         else page[byteIndex] &= (byte)~mask;
         _channel.WritePage(mapPage, page);
     }
 
+    /// <summary>Number of pages one dedicated bitmap page (type 0x05) covers.</summary>
+    private int PagesPerBitmapPage => (_channel.Format.PageSize - BitmapPageHeaderSize) * 8;
+
+    /// <summary>Sets or clears <paramref name="targetPage"/>'s bit in a reference map: pointer slot
+    /// <c>targetPage / PagesPerBitmapPage</c> names the bitmap page holding it. A slot's bitmap page is
+    /// allocated lazily, only when a bit in its range is first set.</summary>
+    private void SetReferenceBit(byte[] page, int mapPage, int mapOffset, int targetPage, bool set)
+    {
+        int slot = targetPage / PagesPerBitmapPage;
+        if (slot >= ReferenceMapSlots)
+            throw new NotSupportedException(
+                $"Data page {targetPage} lies past the {ReferenceMapSlots} bitmap slots a usage map can address (Jet's 2 GB file limit).");
+
+        int pointerOffset = mapOffset + 1 + slot * 4;
+        int bitmapPage = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(pointerOffset, 4));
+        if (bitmapPage == 0)
+        {
+            if (!set) return; // the bit is already clear — no need to materialize the bitmap page
+            bitmapPage = AllocateBitmapPage();
+            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(pointerOffset, 4), bitmapPage);
+            _channel.WritePage(mapPage, page);
+        }
+
+        SetBitmapPageBit(bitmapPage, targetPage % PagesPerBitmapPage, set);
+    }
+
+    private void SetBitmapPageBit(int bitmapPage, int bit, bool set)
+    {
+        byte[] bitmap = _channel.ReadPage(bitmapPage).Span.ToArray();
+        int byteIndex = BitmapPageHeaderSize + bit / 8;
+        byte mask = (byte)(1 << (bit % 8));
+        if (set) bitmap[byteIndex] |= mask;
+        else bitmap[byteIndex] &= (byte)~mask;
+        _channel.WritePage(bitmapPage, bitmap);
+    }
+
+    /// <summary>Allocates and initialises an empty dedicated usage-bitmap page (type 0x05).</summary>
+    private int AllocateBitmapPage()
+    {
+        int pageNumber = new PageAllocator(_channel).Allocate();
+        var bitmap = new byte[_channel.Format.PageSize];
+        bitmap[0] = (byte)PageType.PageUsageBitmap;
+        bitmap[1] = 0x01; // page flags (observed constant, as on data pages)
+        _channel.WritePage(pageNumber, bitmap);
+        return pageNumber;
+    }
+
+    /// <summary>
+    /// Rewrites an inline (0x00) usage map as a reference (0x01) map: every page the inline bitmap marked is
+    /// re-marked in a dedicated bitmap page, and the record shrinks to the fixed 69-byte pointer table. Bits
+    /// are grouped by slot so each bitmap page is written once rather than once per page.
+    /// </summary>
+    private void ConvertInlineToReference(int mapPage, int mapRow)
+    {
+        JetFormatBase format = _channel.Format;
+        byte[] page = _channel.ReadPage(mapPage).Span.ToArray();
+        var holder = new DataPage();
+        holder.Read(_channel.ReadPage(mapPage), format);
+        RowSlot slot = holder.Rows[mapRow];
+
+        int startPage = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(slot.Offset + 1, 4));
+        ReadOnlySpan<byte> bitmap = page.AsSpan(slot.Offset + InlineMapHeaderSize, slot.Length - InlineMapHeaderSize);
+
+        var marked = new List<int>();
+        for (int i = 0; i < bitmap.Length; i++)
+            for (int bit = 0; bit < 8; bit++)
+                if ((bitmap[i] & (1 << bit)) != 0)
+                    marked.Add(startPage + i * 8 + bit);
+
+        var record = new byte[ReferenceMapRecordSize];
+        record[0] = ReferenceMapType;
+
+        foreach (IGrouping<int, int> group in marked.GroupBy(p => p / PagesPerBitmapPage))
+        {
+            if (group.Key >= ReferenceMapSlots)
+                throw new NotSupportedException(
+                    $"Data page {group.First()} lies past the {ReferenceMapSlots} bitmap slots a usage map can address (Jet's 2 GB file limit).");
+
+            int bitmapPage = AllocateBitmapPage();
+            byte[] bits = _channel.ReadPage(bitmapPage).Span.ToArray();
+            foreach (int ownedPage in group)
+            {
+                int bit = ownedPage % PagesPerBitmapPage;
+                bits[BitmapPageHeaderSize + bit / 8] |= (byte)(1 << (bit % 8));
+            }
+            _channel.WritePage(bitmapPage, bits);
+            BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(1 + group.Key * 4, 4), bitmapPage);
+        }
+
+        // Re-read: allocating bitmap pages above may have grown the file, though not this page.
+        byte[] fresh = _channel.ReadPage(mapPage).Span.ToArray();
+        var current = new DataPage();
+        current.Read(_channel.ReadPage(mapPage), format);
+        byte[] rewritten = ReplaceMapRecord(fresh, current, format, mapRow, record, out _)
+            ?? throw new InvalidOperationException("The reference-map record does not fit its usage-map page.");
+        _channel.WritePage(mapPage, rewritten);
+    }
+
     private static int RoundUpTo(int value, int unit) => (value + unit - 1) / unit * unit;
 
-    /// <summary>Grows the usage-map record at <paramref name="mapRow"/> to <paramref name="newLength"/>
-    /// bytes (its extra bitmap bytes zero), repacking every record on the page from the end backward — the
-    /// way Access enlarges a table's owned/free bitmap once it spans past the current window. Records keep
-    /// their directory order (row 0 nearest the page end). Returns the rewritten page and the record's new
-    /// offset.</summary>
-    private static byte[] GrowInlineMap(byte[] page, DataPage holder, JetFormatBase format, int mapRow, int newLength, out int newOffset)
+    /// <summary>Replaces the usage-map record at <paramref name="mapRow"/> with <paramref name="newRecord"/>,
+    /// repacking every record on the page from the end backward — the way Access enlarges a table's owned/free
+    /// bitmap once it spans past the current window. Records keep their directory order (row 0 nearest the
+    /// page end). Returns the rewritten page and the record's new offset, or <see langword="null"/> if the
+    /// record no longer fits the page.</summary>
+    private static byte[]? ReplaceMapRecord(byte[] page, DataPage holder, JetFormatBase format, int mapRow, byte[] newRecord, out int newOffset)
     {
         int rowCount = holder.Rows.Count;
         var records = new byte[rowCount][];
         for (int i = 0; i < rowCount; i++)
             records[i] = page.AsSpan(holder.Rows[i].Offset, holder.Rows[i].Length).ToArray();
-
-        var grown = new byte[newLength]; // extra bitmap bytes stay zero
-        Array.Copy(records[mapRow], grown, records[mapRow].Length);
-        records[mapRow] = grown;
+        records[mapRow] = newRecord;
 
         var result = new byte[format.PageSize];
         Array.Copy(page, result, format.DataRowDirectoryOffset); // preserve type/flags/owner/header
@@ -455,8 +587,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         }
 
         int directoryEnd = format.DataRowDirectoryOffset + rowCount * 2;
-        if (offset < directoryEnd)
-            throw new NotSupportedException("The usage-map page is full; a reference-type usage map is not implemented yet.");
+        if (offset < directoryEnd) return null;
 
         BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(format.DataRowCountOffset, 2), (ushort)rowCount);
         BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(format.DataFreeSpaceOffset, 2), (ushort)(offset - directoryEnd));

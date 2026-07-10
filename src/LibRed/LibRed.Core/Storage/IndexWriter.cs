@@ -310,12 +310,18 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         return page;
     }
 
-    /// <summary>Repoints the index-data block's B-tree root (0x26) after the root grows a level. Reads the
-    /// first TDEF page and walks stats → column descriptors → column names → data blocks to the index's block.</summary>
+    /// <summary>Repoints the index-data block's B-tree root (0x26) after the root grows a level. Walks
+    /// stats → column descriptors → column names → data blocks to the index's block.</summary>
+    /// <remarks>
+    /// A wide table's definition spans continuation pages, and the data blocks sit past the column names —
+    /// well beyond the first page for a 255-column table. The walk therefore runs over the <i>stitched</i>
+    /// definition (the absolute coordinate space the descriptors use), and only the 4 root bytes are written
+    /// back, mapped to whichever page actually holds them. Nothing changes length, so no re-split is needed.
+    /// </remarks>
     private void UpdateIndexRoot(IndexDef index, int newRoot)
     {
         JetFormatBase format = _channel.Format;
-        byte[] tdef = _channel.ReadPage(_table.DefinitionPage).Span.ToArray();
+        (byte[] tdef, IReadOnlyList<int> continuations) = ReadDefinition();
         int dataCount = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefIndexCountOffset, 4));
         int colCount = BinaryPrimitives.ReadUInt16LittleEndian(tdef.AsSpan(format.TdefColumnCountOffset, 2));
 
@@ -324,8 +330,70 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         for (int i = 0; i < colCount; i++) pos += 2 + BinaryPrimitives.ReadUInt16LittleEndian(tdef.AsSpan(pos, 2));
 
         int block = pos + index.RealIndexOrdinal * 52;
-        BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(block + RootPageInBlockOffset, 4), newRoot);
-        _channel.WritePage(_table.DefinitionPage, tdef);
+        WriteInt32IntoDefinition(continuations, block + RootPageInBlockOffset, newRoot);
+    }
+
+    private const int ContinuationHeaderSize = 8;
+
+    /// <summary>Reads the table definition, stitching continuation pages into one contiguous buffer, and
+    /// returns the continuation page numbers in chain order.</summary>
+    private (byte[] Definition, IReadOnlyList<int> ContinuationPages) ReadDefinition()
+    {
+        JetFormatBase format = _channel.Format;
+        PageBuffer first = _channel.ReadPage(_table.DefinitionPage);
+        int next = first.ReadInt32(format.TdefNextPageOffset);
+        if (next == 0) return (first.Span.ToArray(), []);
+
+        var continuations = new List<int>();
+        var assembled = new List<byte>(first.Span.ToArray());
+        while (next != 0)
+        {
+            continuations.Add(next);
+            PageBuffer cont = _channel.ReadPage(next);
+            next = cont.ReadInt32(format.TdefNextPageOffset);
+            assembled.AddRange(cont.Span[ContinuationHeaderSize..].ToArray());
+        }
+        return (assembled.ToArray(), continuations);
+    }
+
+    /// <summary>Maps an absolute definition offset to the page holding it and the offset within that page.</summary>
+    private (int Page, int Offset) MapDefinitionOffset(IReadOnlyList<int> continuations, int offset)
+    {
+        int pageSize = _channel.Format.PageSize;
+        if (offset < pageSize) return (_table.DefinitionPage, offset);
+
+        int body = pageSize - ContinuationHeaderSize;
+        int relative = offset - pageSize;
+        int index = relative / body;
+        if (index >= continuations.Count)
+            throw new InvalidOperationException(
+                $"Definition offset {offset} lies past the end of table '{_table.Name}'s definition chain.");
+        return (continuations[index], ContinuationHeaderSize + relative % body);
+    }
+
+    /// <summary>Writes 4 little-endian bytes at an absolute definition offset, splitting the write when the
+    /// field straddles a continuation-page boundary.</summary>
+    private void WriteInt32IntoDefinition(IReadOnlyList<int> continuations, int offset, int value)
+    {
+        Span<byte> bytes = stackalloc byte[4];
+        BinaryPrimitives.WriteInt32LittleEndian(bytes, value);
+
+        for (int i = 0; i < 4;)
+        {
+            int pageNumber = MapDefinitionOffset(continuations, offset + i).Page;
+            byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
+
+            int j = i;
+            for (; j < 4; j++)
+            {
+                (int target, int within) = MapDefinitionOffset(continuations, offset + j);
+                if (target != pageNumber) break;
+                page[within] = bytes[j];
+            }
+
+            _channel.WritePage(pageNumber, page);
+            i = j;
+        }
     }
 
     private void SetPrev(int pageNumber, int prev)

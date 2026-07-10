@@ -425,7 +425,7 @@ WHERE `b`.`Float` > 0 AND (LOG(`b`.`Float`) / LOG(7)) <> 0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`Double` > 0.0 AND (LOG(`b`.`Double`) / 2.30258509299405) <> 0.0
+WHERE `b`.`Double` > 0.0 AND (LOG(`b`.`Double`) / 2.302585092994046) <> 0.0
 """);
     }
 
@@ -572,7 +572,7 @@ WHERE IIF(IIF(IIF(99999 < `b`.`Int`, 99999, `b`.`Int`) < 99998, IIF(99999 < `b`.
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (`b`.`Double` * (180.0 / 3.14159265358979)) > 0.0
+WHERE (`b`.`Double` * (180.0 / 3.141592653589793)) > 0.0
 """);
     }
 
@@ -596,7 +596,7 @@ WHERE (`b`.`Float` * (180 / 3.141593)) > 0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (`b`.`Double` * (3.14159265358979 / 180.0)) > 0.0
+WHERE (`b`.`Double` * (3.141592653589793 / 180.0)) > 0.0
 """);
     }
 
@@ -622,7 +622,7 @@ WHERE (`b`.`Float` * (3.141593 / 180)) > 0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`Double` >= -1.0 AND `b`.`Double` <= 1.0 AND (1.5707963267949 + ATN(-`b`.`Double` / SQR(-(`b`.`Double` * `b`.`Double`) + 1.0))) > 1.0
+WHERE `b`.`Double` >= -1.0 AND `b`.`Double` <= 1.0 AND (1.5707963267948966 + ATN(-`b`.`Double` / SQR(-(`b`.`Double` * `b`.`Double`) + 1.0))) > 1.0
 """);
     }
 
@@ -634,7 +634,7 @@ WHERE `b`.`Double` >= -1.0 AND `b`.`Double` <= 1.0 AND (1.5707963267949 + ATN(-`
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`Float` >= -1 AND `b`.`Float` <= 1 AND (1.5707963267949 + ATN(-`b`.`Float` / SQR(-(`b`.`Float` * `b`.`Float`) + 1))) > 0.0
+WHERE `b`.`Float` >= -1 AND `b`.`Float` <= 1 AND (1.5707963267948966 + ATN(-`b`.`Float` / SQR(-(`b`.`Float` * `b`.`Float`) + 1))) > 0.0
 """);
     }
 
@@ -647,9 +647,9 @@ WHERE `b`.`Float` >= -1 AND `b`.`Float` <= 1 AND (1.5707963267949 + ATN(-`b`.`Fl
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE [b].[Double] >= -1.0E0 AND [b].[Double] <= 1.0E0 AND ASIN([b].[Double]) > -1.7976931348623157E+308
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE `b`.`Double` >= -1.0 AND `b`.`Double` <= 1.0 AND ATN(`b`.`Double` / SQR(-(`b`.`Double` * `b`.`Double`) + 1.0)) > -1.7976931348623157E+308
 """);
     }
 
@@ -659,9 +659,9 @@ WHERE [b].[Double] >= -1.0E0 AND [b].[Double] <= 1.0E0 AND ASIN([b].[Double]) > 
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE [b].[Float] >= CAST(-1 AS real) AND [b].[Float] <= CAST(1 AS real) AND CAST(ASIN([b].[Float]) AS float) > -1.7976931348623157E+308
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE `b`.`Float` >= -1 AND `b`.`Float` <= 1 AND IIF(ATN(`b`.`Float` / SQR(-(`b`.`Float` * `b`.`Float`) + 1)) IS NULL, NULL, CDBL(ATN(`b`.`Float` / SQR(-(`b`.`Float` * `b`.`Float`) + 1)))) > -1.7976931348623157E+308
 """);
     }
 

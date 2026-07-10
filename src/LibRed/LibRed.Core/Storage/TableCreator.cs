@@ -106,6 +106,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
             var plan = indexPlans[i];
             int rootPage = _allocator.Allocate();
             WriteEmptyLeafIndexPage(format, rootPage, owner: tdefPage);
+            // Record the root in the index's own pages usage map — Access does this at CREATE, before any
+            // row exists (verified: a freshly created empty index has exactly its root bit set). As the tree
+            // grows, IndexWriter adds each page it allocates, so the map covers the whole B-tree.
+            new UsageMapWriter(_channel).SetBit(2 + i, usageMapPage, rootPage, set: true);
             indexes.Add(new IndexSpec(plan.Name, plan.Columns, plan.IsPk, plan.IsUnique,
                 rootPage, UsageMapRow: 2 + i, UsageMapPage: usageMapPage));
         }
@@ -392,11 +396,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog)
         WriteEmptyLeafIndexPage(format, rootPage, owner: table.DefinitionPage);
         int usageMapPage = ReadInt24(buf, format.TdefOwnedPagesOffset + 1);
         int newIndexUsageRow = 2 + lvalCount * 2 + dataCount;
-        if (existingRowCount == 0)
-            WriteUsageMaps(format, usageMapPage, mapCount: newIndexUsageRow + 1); // empty table: all maps empty
-        else
-            // A populated table's data/index usage maps must be preserved; append just the new index's row.
-            AppendEmptyUsageMapRow(format, usageMapPage, newIndexUsageRow);
+        // Append the new index's (empty) usage-map row, preserving every existing record. The data maps are
+        // empty on an empty table but the *existing indexes'* maps already carry their root bits (set at
+        // creation), so we must not rewrite the page from scratch even when the table has no rows.
+        AppendEmptyUsageMapRow(format, usageMapPage, newIndexUsageRow);
+
+        // Record this index's own root, as Access does at CREATE INDEX (the empty root is the index's sole
+        // page until it splits, after which IndexWriter adds each page it allocates).
+        new UsageMapWriter(_channel).SetBit(newIndexUsageRow, usageMapPage, rootPage, set: true);
 
         // Assemble the new definition: header + existing stats, a new stats block, columns + names +
         // existing data blocks, the new data block, then the logical blocks (new one inserted, name-sorted)

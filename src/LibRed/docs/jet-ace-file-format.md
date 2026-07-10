@@ -393,18 +393,23 @@ Only a few fields are *not* fixed constants and so warrant a write note:
 - **Index-info update/delete actions** (`+0x15/+0x16`, §3.6) — `0x04` on a plain primary key (no
   relationship); the FK index number (`+0x0D`) is `0xFFFFFFFF` when there is no foreign key.
 - **Usage maps** — Access keeps *both* an owned-pages map (`0x37`) and a free-pages map (`0x3B`);
-  an indexed table adds a third usage-map record (the index's own pages, §3.5 `+0x22`) covering the
-  index root. A **fresh table has no data page** (Access allocates the first lazily on the first
-  insert), so all of these maps start **empty** — `[0x00][startPage = 0][all-zero bitmap]` inline
-  records — and the usage-map page's own owner field is `0`. LibRed's `IndexWriter` navigates the
-  B-tree structurally (root child-pointers + leaf next-pointers) and **never updates the per-index
-  usage map**, so index pages allocated by a split are not reflected in it — Access reads the index
-  regardless (verified). Consequently a new index only needs its usage-map **record to exist** (an
-  empty inline map); when an index is **added to a populated table**, LibRed *appends* that one record
-  to the existing usage-map page (preserving the data/other-index records) rather than rewriting it,
-  then **back-fills** the index B-tree by scanning every existing row (`AddEntry` per row). Verified
-  vs ACE: a primary key added after data enforces uniqueness and seeks correctly, incl. a 2000-row
-  back-fill that splits the tree into multiple levels.
+  an indexed table adds a usage-map record **per index** (the index's own pages, §3.5 `+0x22`). Each
+  index's map covers **every page of that index's B-tree** — root, internal nodes and leaves — not just
+  the root. The root's bit is set at **CREATE**, before any row exists (verified: a freshly created
+  empty index has exactly its root bit set); thereafter every page a split allocates is added, so the
+  union of a table's index maps equals exactly the set of index pages present (verified against ACE:
+  union == owned index pages, byte-for-byte, incl. a 4000-row load that splits both trees several
+  levels). LibRed reproduces this: `IndexWriter.AllocateIndexPage` marks each page it allocates during a
+  split, and `TableCreator` marks the root at creation (both `CreateTable` and `CREATE INDEX`).
+  Note this map is **advisory for LibRed's own reads** — `IndexWriter` navigates the B-tree structurally
+  (root child-pointers + leaf next-pointers), never by the map — but Access's maintenance relies on it,
+  and it feeds the owned-map page-budget calculation (a growing index map shrinks the owned map's room;
+  see §9). A **fresh table still has no data page** (Access allocates the first lazily on the first
+  insert), so the *data* owned/free maps start empty. When an index is **added to a populated table**,
+  LibRed *appends* the new index's record to the existing usage-map page (preserving every other record —
+  including the other indexes' root bits) rather than rewriting it, then **back-fills** the B-tree by
+  scanning every existing row (`AddEntry` per row). Verified vs ACE: a primary key added after data
+  enforces uniqueness and seeks correctly, incl. a 2000-row back-fill that splits the tree.
 
 > **Access now opens and round-trips a LibRed-created table** (empty `COUNT`, `INSERT`, read-back —
 > verified through the ACE OLE DB provider). Getting there required *all* of the following together;
@@ -692,9 +697,9 @@ themselves marked as owned by the table.
 >
 >   > Beware comparing thresholds across table shapes: an earlier note here claimed LibRed converted "at
 >   > ~31,000 pages vs Access at 34,000". Those were a **primary-keyed** LibRed table and a **key-less** ACE
->   > one. The rule is identical; only the budget differed. (Access's per-index usage map *grows* with the
->   > index's pages — observed at 3445 bytes — where LibRed's stays 69, since `IndexWriter` never updates it;
->   > that shrinks Access's owned budget further, so a keyed ACE table converts a little earlier still.)
+>   > one. The rule is identical; only the budget differed. A keyed table's index usage map also *grows* with
+>   > the index's pages (its own B-tree), further shrinking the owned map's budget — LibRed now matches this
+>   > (`IndexWriter` marks each index page it allocates), where it previously left the index map at 69 bytes.
 
 ### 9.1 Global free-pages map — page 1 (page allocation)
 

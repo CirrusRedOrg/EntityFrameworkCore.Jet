@@ -35,6 +35,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     private readonly PageChannel _channel = channel;
     private readonly TableDef _table = table;
     private readonly PageAllocator _allocator = new(channel);
+    private readonly UsageMapWriter _usageMaps = new(channel);
 
     private readonly record struct Entry(byte[] Key, int Trailer);
 
@@ -172,7 +173,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         PageType type, int prev, int next)
     {
         int leftPage = path[level];
-        int rightPage = _allocator.Allocate();
+        int rightPage = AllocateIndexPage(index);
         int nodeLevel = path.Count - 1 - level; // height above the leaves of the page being split
 
         byte[] promoted;
@@ -204,7 +205,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         if (level == 0)
         {
             // The root split: build a new root node [promoted -> old root] with the new page as its tail.
-            int newRoot = _allocator.Allocate();
+            int newRoot = AllocateIndexPage(index);
             WriteOrThrow(newRoot, Build(PageType.IntermediateIndexPage, 0, 0, tail: rightPage, nodeLevel + 1,
                 [new Entry(promoted, leftPage)]));
             UpdateIndexRoot(index, newRoot);
@@ -320,6 +321,28 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     /// </remarks>
     private void UpdateIndexRoot(IndexDef index, int newRoot)
     {
+        (_, IReadOnlyList<int> continuations, int block) = LocateIndexBlock(index);
+        WriteInt32IntoDefinition(continuations, block + RootPageInBlockOffset, newRoot);
+    }
+
+    private const int IndexUsageMapRowOffset = 0x22;  // within the 52-byte block: 1-byte row + 3-byte page
+
+    /// <summary>The (row, page) pointer to the index's own pages usage map, read from its data block.</summary>
+    private (int MapRow, int MapPage) IndexUsageMapPointer(IndexDef index)
+    {
+        (byte[] tdef, _, int block) = LocateIndexBlock(index);
+        int row = tdef[block + IndexUsageMapRowOffset];
+        int mapPage = tdef[block + IndexUsageMapRowOffset + 1]
+                      | tdef[block + IndexUsageMapRowOffset + 2] << 8
+                      | tdef[block + IndexUsageMapRowOffset + 3] << 16;
+        return (row, mapPage);
+    }
+
+    /// <summary>Walks the stitched definition (stats → column descriptors → column names → data blocks) to
+    /// the index's 52-byte data block, returning the buffer, its continuation pages, and the block's absolute
+    /// offset. A wide table's blocks sit past the column names, well beyond the first page.</summary>
+    private (byte[] Definition, IReadOnlyList<int> Continuations, int BlockOffset) LocateIndexBlock(IndexDef index)
+    {
         JetFormatBase format = _channel.Format;
         (byte[] tdef, IReadOnlyList<int> continuations) = ReadDefinition();
         int dataCount = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefIndexCountOffset, 4));
@@ -329,8 +352,19 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
                   + colCount * format.ColumnDescriptorSize;
         for (int i = 0; i < colCount; i++) pos += 2 + BinaryPrimitives.ReadUInt16LittleEndian(tdef.AsSpan(pos, 2));
 
-        int block = pos + index.RealIndexOrdinal * 52;
-        WriteInt32IntoDefinition(continuations, block + RootPageInBlockOffset, newRoot);
+        return (tdef, continuations, pos + index.RealIndexOrdinal * 52);
+    }
+
+    /// <summary>Allocates a fresh B-tree page for <paramref name="index"/> and records it in the index's own
+    /// pages usage map, exactly as Access does — the map then covers every page of the index's B-tree, not
+    /// just the root. (Reads use the B-tree's own links, so this is for byte-faithfulness and to feed Access's
+    /// own maintenance, not for LibRed's own traversal.)</summary>
+    private int AllocateIndexPage(IndexDef index)
+    {
+        int page = _allocator.Allocate();
+        (int mapRow, int mapPage) = IndexUsageMapPointer(index);
+        _usageMaps.SetBit(mapRow, mapPage, page, set: true);
+        return page;
     }
 
     private const int ContinuationHeaderSize = 8;

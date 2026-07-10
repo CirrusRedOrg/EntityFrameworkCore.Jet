@@ -662,12 +662,17 @@ themselves marked as owned by the table.
 >   (grouped by slot, one write per bitmap page) and shrinking the record to the fixed 69 bytes.
 >   ACE reads a LibRed-written reference map: a 255-column, 400,000-row, 126.8 MB table counts back
 >   exactly through `Microsoft.ACE.OLEDB.16.0`.
-> - **Divergence — LibRed converts earlier than Access.** LibRed's *free*-pages map pins `startPage = 0`,
->   so marking a tail page far into the file grows the free record to roughly the same size as the owned
->   record. Both share the usage-map page, so LibRed's owned map runs out of page room at ~15,000 pages
->   (~62 MB) where Access, whose free record stays 69 bytes because it moves the window, holds out to
->   ~30,000. LibRed converts to a reference map at that point. The result is a valid, ACE-readable file —
->   only the switchover point differs. (A movable inline window is not implemented.)
+> - **Movable window (free-pages maps).** A free-pages map's set bits stay clustered at the append tail, so
+>   Access never grows it: it slides a fixed **64-byte bitmap (512 pages)** whose `startPage` is
+>   `floor(page / 512) × 512`. Verified — a table whose tail page was 852 / 1227 / 1852 / 2852 had a free
+>   record of length **69** with `startPage` 512 / 1024 / 1536 / 2560, one bit set, while the *owned* map of
+>   the same table kept `startPage = 0` and grew. An owned map cannot slide: it must retain every page it has
+>   ever taken. LibRed slides the window for free-pages maps (table and long-value column), and only for
+>   them; if a bit already set would fall outside the new window it grows in place instead, so nothing is
+>   silently forgotten.
+>   Because the free record therefore stays 69 bytes, the owned map keeps the rest of the usage-map page and
+>   converts to a reference map at ~31,000 pages (owned record 3813 bytes at 30,000) — matching Access, which
+>   is still inline at 30,000 (3801 bytes) and reference by 34,000.
 
 ### 9.1 Global free-pages map — page 1 (page allocation)
 

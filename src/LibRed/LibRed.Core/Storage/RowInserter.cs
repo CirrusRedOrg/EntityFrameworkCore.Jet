@@ -383,7 +383,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private void UpdateUsageBit(int tdefPointerOffset, int targetPage, bool set)
     {
         PageBuffer tdef = _channel.ReadPage(_table.DefinitionPage);
-        SetUsageBit(tdef.ReadByte(tdefPointerOffset), tdef.ReadInt24(tdefPointerOffset + 1), targetPage, set);
+        SetUsageBit(tdef.ReadByte(tdefPointerOffset), tdef.ReadInt24(tdefPointerOffset + 1), targetPage, set,
+            movableWindow: tdefPointerOffset == _channel.Format.TdefFreePagesOffset);
     }
 
     // Access grows an inline usage-map bitmap in 256-bit (32-byte) chunks — verified: a table spanning to
@@ -401,14 +402,26 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private const int ReferenceMapSlots = 17;
     private const int ReferenceMapRecordSize = 1 + ReferenceMapSlots * 4;
 
+    // A movable inline window is exactly 512 pages (a 64-byte bitmap) aligned to a 512-page boundary.
+    // Verified against ACE free-pages maps: the sole set bit at page 852/1227/1852/2852 sat in a 64-byte
+    // record whose startPage was 512/1024/1536/2560 — i.e. floor(page / 512) * 512.
+    private const int InlineWindowBitmapBytes = 64;
+    private const int InlineWindowPages = InlineWindowBitmapBytes * 8;
+
     /// <summary>Sets or clears the bit for <paramref name="targetPage"/> in the usage map at record
     /// <paramref name="mapRow"/> on <paramref name="mapPage"/>.</summary>
     /// <remarks>
     /// Handles both map types. An inline map (0x00) is grown in place while its record still fits the page;
     /// once it cannot, the map is converted to a reference map (0x01) — exactly Access's own threshold, which
     /// keeps an inline record up to ~3,800 bytes (≈30,000 pages, ~119 MB) before switching.
+    /// <para>
+    /// <paramref name="movableWindow"/> marks a map whose set bits stay clustered near the append tail — a
+    /// free-pages map. Rather than growing a bitmap from <c>startPage = 0</c> all the way out to the tail,
+    /// such a map slides a fixed 512-page window, as Access does, so its record stays 69 bytes forever.
+    /// An owned-pages map cannot do this: it must retain every page it has ever taken.
+    /// </para>
     /// </remarks>
-    private void SetUsageBit(int mapRow, int mapPage, int targetPage, bool set)
+    private void SetUsageBit(int mapRow, int mapPage, int targetPage, bool set, bool movableWindow = false)
     {
         JetFormatBase format = _channel.Format;
         byte[] page = _channel.ReadPage(mapPage).Span.ToArray();
@@ -425,16 +438,27 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         int startPage = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(mapOffset + 1, 4));
         int bitmapBits = (holder.Rows[mapRow].Length - InlineMapHeaderSize) * 8;
         int bitIndex = targetPage - startPage;
-        if (bitIndex < 0)
-            throw new NotSupportedException(
-                $"Data page {targetPage} is below the usage map's start page {startPage}; a movable window is not implemented yet.");
 
-        // The inline bitmap covers pages [startPage, startPage + bitmapBits). When Access needs to mark a
-        // page beyond that window it grows the bitmap record in place (still type 0x00, same startPage),
-        // extending it in 256-bit chunks. Clearing a bit outside the window is a no-op — it is already 0.
-        if (bitIndex >= bitmapBits)
+        // The inline bitmap covers pages [startPage, startPage + bitmapBits). Clearing a bit outside that
+        // window is a no-op — it is already 0.
+        if (bitIndex < 0 || bitIndex >= bitmapBits)
         {
             if (!set) return;
+
+            // A free-pages map slides its window onto the target instead of growing (and can therefore also
+            // move *backwards*, which a grown map could never do).
+            if (movableWindow && TryRepositionWindow(page, holder, format, mapPage, mapRow, targetPage))
+                return;
+
+            if (bitIndex < 0)
+                throw new NotSupportedException(
+                    $"Data page {targetPage} is below the usage map's start page {startPage}; this map's window cannot move.");
+        }
+
+        // When Access needs to mark a page beyond the window it grows the bitmap record in place (still
+        // type 0x00, same startPage), extending it in 256-bit chunks.
+        if (bitIndex >= bitmapBits)
+        {
             int neededBitmapBytes = RoundUpTo(bitIndex / 8 + 1, UsageMapChunkBytes);
             byte[] grownRecord = new byte[InlineMapHeaderSize + neededBitmapBytes]; // extra bitmap bytes stay zero
             page.AsSpan(mapOffset, holder.Rows[mapRow].Length).CopyTo(grownRecord);
@@ -459,6 +483,51 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         if (set) page[byteIndex] |= mask;
         else page[byteIndex] &= (byte)~mask;
         _channel.WritePage(mapPage, page);
+    }
+
+    /// <summary>
+    /// Slides an inline map's window onto <paramref name="targetPage"/>: a 64-byte bitmap starting at
+    /// <c>floor(targetPage / 512) * 512</c>, carrying over every bit already set and adding the target's.
+    /// Returns <see langword="false"/> — leaving the map untouched — when some page already marked would
+    /// fall outside the new window, since moving would silently forget it; the caller then grows instead.
+    /// </summary>
+    private bool TryRepositionWindow(byte[] page, DataPage holder, JetFormatBase format, int mapPage, int mapRow, int targetPage)
+    {
+        RowSlot slot = holder.Rows[mapRow];
+        int startPage = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(slot.Offset + 1, 4));
+        ReadOnlySpan<byte> bitmap = page.AsSpan(slot.Offset + InlineMapHeaderSize, slot.Length - InlineMapHeaderSize);
+
+        int newStart = targetPage / InlineWindowPages * InlineWindowPages;
+        int newEnd = newStart + InlineWindowPages;
+
+        var marked = new List<int>();
+        for (int i = 0; i < bitmap.Length; i++)
+        {
+            if (bitmap[i] == 0) continue;
+            for (int bit = 0; bit < 8; bit++)
+            {
+                if ((bitmap[i] & (1 << bit)) == 0) continue;
+                int markedPage = startPage + i * 8 + bit;
+                if (markedPage < newStart || markedPage >= newEnd) return false;
+                marked.Add(markedPage);
+            }
+        }
+
+        var record = new byte[InlineMapHeaderSize + InlineWindowBitmapBytes];
+        record[0] = InlineMapType;
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(1, 4), newStart);
+        marked.Add(targetPage);
+        foreach (int markedPage in marked)
+        {
+            int bit = markedPage - newStart;
+            record[InlineMapHeaderSize + bit / 8] |= (byte)(1 << (bit % 8));
+        }
+
+        byte[]? rewritten = ReplaceMapRecord(page, holder, format, mapRow, record, out _);
+        if (rewritten is null) return false; // shrinking or same size, so effectively unreachable
+
+        _channel.WritePage(mapPage, rewritten);
+        return true;
     }
 
     /// <summary>Number of pages one dedicated bitmap page (type 0x05) covers.</summary>
@@ -731,7 +800,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         {
             LongValueResult chained = writer.Write(payload);
             foreach (int page in chained.OwnedPages) SetUsageBit(owned.Row, owned.Page, page, set: true);
-            SetUsageBit(free.Row, free.Page, chained.FreePage, set: true);
+            SetUsageBit(free.Row, free.Page, chained.FreePage, set: true, movableWindow: true);
             return chained.Descriptor;
         }
 
@@ -747,7 +816,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // No free page had room: a fresh page (owned, and free — it still has spare room).
         int newPage = writer.WriteNewPage(payload);
         SetUsageBit(owned.Row, owned.Page, newPage, set: true);
-        SetUsageBit(free.Row, free.Page, newPage, set: true);
+        SetUsageBit(free.Row, free.Page, newPage, set: true, movableWindow: true);
         return LongValueWriter.SinglePageDescriptor(payload.Length, newPage, 0);
     }
 

@@ -40,6 +40,11 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // final id drives both the row encoding and the high-water update below.
         AssignAutoNumbers(format, values);
         if (updateIndexes) EnforceUniqueIndexes(values); // reject a duplicate before writing anything
+
+        // Index keys are encoded from the *logical* values. MaterializeLongValues replaces a memo/OLE value
+        // with its on-disk LongValueDescriptor, and a Memo column IS indexable (its key is the collation key
+        // of the first 255 characters), so snapshot the values first and key the index off that snapshot.
+        object?[] keyValues = updateIndexes ? (object?[])values.Clone() : values;
         MaterializeLongValues(values);
 
         // Encode first: the fixed-region length is pinned by any existing row (to match Access),
@@ -70,7 +75,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
         UpdateTdefCounters(format, values);
         if (updateIndexes)
-            UpdateIndexes(values, new RowId(pageNumber, rowCount));
+            UpdateIndexes(keyValues, new RowId(pageNumber, rowCount));
     }
 
     /// <summary>

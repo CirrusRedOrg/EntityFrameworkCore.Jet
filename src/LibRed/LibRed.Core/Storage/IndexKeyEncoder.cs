@@ -23,6 +23,9 @@ public static class IndexKeyEncoder
     private const byte DescStartFlag = 0x80;
     private const byte DescNullFlag = 0xFF;
 
+    /// <summary>Access indexes only the first 255 characters of a Memo (Long Text) value (verified vs ACE).</summary>
+    private const int MemoKeyMaxChars = 255;
+
     public static byte[] Encode(IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, object?[] values)
     {
         var buffer = new List<byte>();
@@ -49,11 +52,19 @@ public static class IndexKeyEncoder
             // Text uses Jet's collation: start flag then the collation key body (weights, inline
             // ignorable codes, terminator). Descending inverts every byte of that ascending key
             // and appends a 0x00 (verified against ACE).
-            if (column.Type == JetDataType.Text)
+            //
+            // A Memo (Long Text) column IS indexable in Access, and its key is the *same* collation key
+            // over only the value's first 255 characters — verified vs ACE: a 256- or 300-character memo
+            // produces byte-for-byte the key of its 255-character prefix.
+            if (column.Type is JetDataType.Text or JetDataType.Memo)
             {
+                string text = (string)value;
+                if (column.Type == JetDataType.Memo && text.Length > MemoKeyMaxChars)
+                    text = text[..MemoKeyMaxChars];
+
                 var ascendingKey = new List<byte> { AscStartFlag };
-                if (!JetTextCollation.TryEncode((string)value, ascendingKey))
-                    throw new NotSupportedException($"Text index key '{value}' contains a character whose collation weight is not implemented yet.");
+                if (!JetTextCollation.TryEncode(text, ascendingKey))
+                    throw new NotSupportedException($"Text index key '{text}' contains a character whose collation weight is not implemented yet.");
 
                 if (ascending)
                 {

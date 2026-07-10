@@ -755,6 +755,13 @@ Then the value, transformed:
   `-1.0` → `7F 00 FF…FFD8EF` (`~10000`).
 - **Boolean:** no flag byte — a single constant: ascending `0x00` = true, `0xFF` = false
   (true sorts first).
+- **Memo (Long Text)** is **indexable** in Access (`CREATE INDEX` on a memo column succeeds — only
+  `OLE Object` is rejected, *"Invalid field definition … in definition of index or relationship"*).
+  Its key is the **ordinary Text collation key over the value's first 255 characters** — verified
+  byte-for-byte vs ACE (`MemoKeyEncodingTests`): a 256- or 300-character memo yields exactly the key of
+  its 255-character prefix, so two memos differing only past character 255 share a key (fine for a
+  non-unique index). Index keys are therefore encoded from the **logical** row values, before memo/OLE
+  values are materialised into their `LongValueDescriptor`s.
 - **Text:** Jet's "General" collation. The key is the start flag, then one or two
   **primary-weight** bytes per character, then a `01 00` terminator. Weights are **case-folded**
   (lowercase weighs the same as uppercase), **trailing spaces are dropped**, and an internal

@@ -433,7 +433,7 @@ internal sealed class AstBuilder
             CollectSources(ts, tables, joins);
 
         string? where = select.whereClause() is { } w ? OriginalText(w.expression()) : null;
-        return new ViewDefinition(select.distinct != null, columns, tables, joins, where, groupBy, orderBy, top);
+        return new ViewDefinition(select.predicate?.DISTINCT() is not null, columns, tables, joins, where, groupBy, orderBy, top);
     }
 
     private static void CollectSources(TableSourceContext ts, List<ViewSource> tables, List<ViewJoin> joins)
@@ -563,8 +563,13 @@ internal sealed class AstBuilder
             ? o.orderByItem().Select(BuildOrderByItem).ToList()
             : (IReadOnlyList<OrderByItem>)[];
         Expression? top = ctx.topClause() is { } t ? BuildTop(t) : null;
+        bool topPercent = ctx.topClause()?.percent is not null;
+        var predicate = ctx.predicate;
 
-        return new SelectStatement(projection, star, from, where, groupBy, having, orderBy, top, ctx.distinct != null);
+        return new SelectStatement(projection, star, from, where, groupBy, having, orderBy, top,
+            Distinct: predicate?.DISTINCT() is not null,
+            DistinctRow: predicate?.DISTINCTROW() is not null,
+            TopPercent: topPercent);
     }
 
     /// <summary>The TOP count expression: a single operand, or a left-associative +/- chain of them (each

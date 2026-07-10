@@ -64,14 +64,28 @@ public sealed record SetOperationNode(PlanNode Left, PlanNode Right, SetOperator
 }
 
 /// <summary>Limits the number of rows (Access <c>TOP n</c>). The count is an expression (usually a literal,
-/// but LibRed also accepts a parameter or a +/- expression) evaluated once at execution.</summary>
-public sealed record LimitNode(PlanNode Input, Expression Count) : PlanNode
+/// but LibRed also accepts a parameter or a +/- expression) evaluated once at execution. When
+/// <paramref name="Percent"/> is set (<c>TOP n PERCENT</c>) the count is a percentage of the input row
+/// count, taken as <c>ceil(rows × n / 100)</c> (verified vs ACE).</summary>
+public sealed record LimitNode(PlanNode Input, Expression Count, bool Percent = false) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }
 
 /// <summary>Removes duplicate rows (SELECT <c>DISTINCT</c>).</summary>
 public sealed record DistinctNode(PlanNode Input) : PlanNode
+{
+    public override IReadOnlyList<PlanNode> Children => [Input];
+}
+
+/// <summary>
+/// Access <c>SELECT DISTINCTROW</c>: dedupes on the underlying rows of the tables that contribute output
+/// columns, applied over the pre-projection row so it can see all their columns. The
+/// <paramref name="Projection"/> identifies the contributing tables at execution (via each output column's
+/// source qualifier). A no-op when the query has a single source table or draws columns from every table —
+/// exactly Access's "ignored unless output is from a strict subset of the tables" rule.
+/// </summary>
+public sealed record DistinctRowNode(PlanNode Input, IReadOnlyList<SelectItem> Projection) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }

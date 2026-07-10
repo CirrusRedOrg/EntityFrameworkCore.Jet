@@ -428,6 +428,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitSelectStatement([NotNull] AccessSqlParser.SelectStatementContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.selectPredicate"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitSelectPredicate([NotNull] AccessSqlParser.SelectPredicateContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.groupByClause"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

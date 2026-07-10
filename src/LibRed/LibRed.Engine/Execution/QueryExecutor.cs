@@ -154,14 +154,43 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 // The count is literal/parameter/arithmetic (no column refs), so an empty row scope suffices.
                 object? countValue = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session)
                     .Evaluate(limit.Count);
-                int count = Convert.ToInt32(countValue, System.Globalization.CultureInfo.InvariantCulture);
-                return (columns, rows.Take(count));
+                int n = Convert.ToInt32(countValue, System.Globalization.CultureInfo.InvariantCulture);
+                if (!limit.Percent)
+                    return (columns, rows.Take(n));
+
+                // TOP n PERCENT: ceil(rowCount × n / 100), verified vs ACE (10% of 9 → 1, 25% of 9 → 3,
+                // 1% of 830 → 9). Materialize to count; integer ceil-division avoids float rounding.
+                var buffered = rows.ToList();
+                int take = (int)(((long)buffered.Count * n + 99) / 100);
+                return (columns, buffered.Take(take));
             }
 
             case DistinctNode distinct:
             {
                 var (columns, rows) = Execute(distinct.Input, outer);
                 return (columns, Distinct(rows));
+            }
+
+            case DistinctRowNode distinctRow:
+            {
+                var (columns, rows) = Execute(distinctRow.Input, outer);
+
+                // Which source tables (qualifiers) contribute output columns, and which exist at all.
+                var contributing = ContributingQualifiers(distinctRow.Projection, columns);
+                var all = columns.Select(c => c.Qualifier)
+                    .Where(q => q is not null).Select(q => q!)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                // Access ignores DISTINCTROW when there is a single source table, when every table
+                // contributes output, or (our guard) when nothing does — leaving the rows untouched.
+                if (all.Count <= 1 || contributing.Count == 0 || all.All(contributing.Contains))
+                    return (columns, rows);
+
+                // Otherwise dedupe on the full set of columns belonging to the contributing tables.
+                int[] keyIndexes = Enumerable.Range(0, columns.Count)
+                    .Where(i => columns[i].Qualifier is { } q && contributing.Contains(q))
+                    .ToArray();
+                return (columns, DistinctByIndexes(rows, keyIndexes));
             }
 
             default:
@@ -200,6 +229,50 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             if (seen.Add(new GroupKey(row)))
                 yield return row;
     }
+
+    /// <summary>Yields the first row for each distinct combination of the values at <paramref name="indexes"/>
+    /// (the columns of the DISTINCTROW contributing tables), preserving order.</summary>
+    private static IEnumerable<object?[]> DistinctByIndexes(IEnumerable<object?[]> rows, int[] indexes)
+    {
+        var seen = new HashSet<GroupKey>();
+        foreach (object?[] row in rows)
+        {
+            var key = new object?[indexes.Length];
+            for (int i = 0; i < indexes.Length; i++) key[i] = row[indexes[i]];
+            if (seen.Add(new GroupKey(key)))
+                yield return row;
+        }
+    }
+
+    /// <summary>The set of source-table qualifiers that supply the DISTINCTROW projection's output columns.
+    /// An unqualified column is resolved to its source table via the input's columns.</summary>
+    private static HashSet<string> ContributingQualifiers(
+        IReadOnlyList<SelectItem> projection, IReadOnlyList<OutputColumn> columns)
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (SelectItem item in projection)
+            foreach ((string? qualifier, string column) in ColumnRefs(item.Value))
+            {
+                if (qualifier is not null) { result.Add(qualifier); continue; }
+                OutputColumn match = columns.FirstOrDefault(
+                    c => string.Equals(c.Name, column, StringComparison.OrdinalIgnoreCase));
+                if (match.Qualifier is not null) result.Add(match.Qualifier);
+            }
+        return result;
+    }
+
+    /// <summary>The column references an expression reads from the current row scope (a <c>t.*</c> counts as
+    /// its table). Subqueries are opaque — their column refs bind in the inner scope, not here.</summary>
+    private static IEnumerable<(string? Qualifier, string Column)> ColumnRefs(Expression expression) => expression switch
+    {
+        ColumnReference c => [(c.Table, c.Column)],
+        QualifiedStarExpression qs => [(qs.Table, "*")],
+        BinaryExpression b => ColumnRefs(b.Left).Concat(ColumnRefs(b.Right)),
+        UnaryExpression u => ColumnRefs(u.Operand),
+        FunctionCall f => f.Arguments.SelectMany(ColumnRefs),
+        InListExpression il => ColumnRefs(il.Value).Concat(il.Items.SelectMany(ColumnRefs)),
+        _ => [],
+    };
 
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteJoin(JoinNode join, EvalScope? outer)
     {

@@ -15,7 +15,11 @@ public sealed record SelectStatement(
     Expression? Having,
     IReadOnlyList<OrderByItem> OrderBy,
     Expression? Top,
-    bool Distinct = false) : SqlStatement;
+    bool Distinct = false,
+    // DISTINCTROW: dedupe on the underlying rows of the output-contributing tables (Access-specific).
+    bool DistinctRow = false,
+    // TOP n PERCENT: Top is a percentage (0–100) of the row count rather than an absolute count.
+    bool TopPercent = false) : SqlStatement;
 
 /// <summary>A FROM-less <c>SELECT @@IDENTITY</c> / <c>SELECT @@ROWCOUNT</c> (a comma list of system
 /// variables only). ACE allows these without a FROM clause; they yield a single row. The projection

@@ -43,6 +43,12 @@ public sealed class QueryPlanner
         else if (select.OrderBy.Count > 0)
             node = new SortNode(node, select.OrderBy);
 
+        // DISTINCTROW dedupes on the *pre-projection* rows of the contributing tables, so it goes below the
+        // projection. It is meaningless with aggregation (grouping already collapses rows) and a no-op for
+        // SELECT * (output covers every table), so only the plain projected case needs the node.
+        if (select.DistinctRow && !aggregate && !select.IsSelectStar)
+            node = new DistinctRowNode(node, select.Projection);
+
         if (!aggregate && !select.IsSelectStar)
             node = new ProjectNode(node, select.Projection);
 
@@ -50,7 +56,7 @@ public sealed class QueryPlanner
             node = new DistinctNode(node);
 
         if (select.Top is { } top)
-            node = new LimitNode(node, top);
+            node = new LimitNode(node, top, select.TopPercent);
 
         return node;
     }

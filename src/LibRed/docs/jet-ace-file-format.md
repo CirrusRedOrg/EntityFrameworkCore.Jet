@@ -523,8 +523,7 @@ of the page backward, so a slot runs from its offset up to where the previous sl
 | `0x13` | Int64 — **BIGINT** (ACE 16) | 8-byte little-endian signed integer. Stored as a *variable*-length column |
 | `0x14` | DateTimeExtended — **DATETIME2** (ACE 16) | fixed 42-byte ASCII `<day>:<time>:<precision>` (see below) |
 
-**ACE 16 types.** Office 2016 (the `Microsoft.ACE.OLEDB.16.0` engine, which creates version-byte
-`0x06` databases) added `BIGINT` and `DATETIME2`. `DATETIME2` is a fixed 42-byte ASCII string of
+**ACE 16 types.** Office 2016 added `BIGINT` and `DATETIME2`. `DATETIME2` is a fixed 42-byte ASCII string of
 three colon-separated fields: the .NET **day number**, the count of **100-ns ticks within the
 day**, and the fractional **precision** (e.g. `7`). The first two are zero-padded to 19 digits so
 that byte order equals chronological order (an order-preserving inline encoding). The value is

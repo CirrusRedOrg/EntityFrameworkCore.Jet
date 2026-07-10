@@ -191,8 +191,13 @@ queryTerm
 setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 
 selectStatement
-    : SELECT distinct=DISTINCT? topClause? selectList fromClause whereClause? groupByClause? havingClause? orderByClause?
+    : SELECT predicate=selectPredicate? topClause? selectList fromClause whereClause? groupByClause? havingClause? orderByClause?
     ;
+
+// The optional row predicate. ALL is the default (return every row); DISTINCT dedupes on the output
+// columns; DISTINCTROW dedupes on the underlying rows of the tables that contribute output columns
+// (Access-specific — a no-op unless output is drawn from a strict subset of the joined tables).
+selectPredicate : ALL | DISTINCT | DISTINCTROW ;
 
 groupByClause : GROUP BY expression (COMMA expression)* ;
 havingClause : HAVING expression ;
@@ -200,7 +205,8 @@ havingClause : HAVING expression ;
 // Access allows only a literal after TOP, but LibRed also accepts a parameter (or a +/- expression of
 // literals/parameters) — EFCore.Jet normally inlines the value, and we can evaluate it directly instead.
 // Restricted to additive operands (no bare '*') so it can't swallow a following SELECT star ('TOP n *').
-topClause : TOP topOperand ((PLUS | MINUS) topOperand)* ;
+// A trailing PERCENT returns that percentage of rows (ceil) instead of a fixed count.
+topClause : TOP topOperand ((PLUS | MINUS) topOperand)* percent=PERCENT? ;
 topOperand : INTEGER_LITERAL | PARAM | LPAREN expression RPAREN ;
 
 selectList
@@ -318,7 +324,9 @@ IS     : [Ii][Ss] ;
 BY     : [Bb][Yy] ;
 HAVING : [Hh][Aa][Vv][Ii][Nn][Gg] ;
 EXISTS : [Ee][Xx][Ii][Ss][Tt][Ss] ;
+DISTINCTROW : [Dd][Ii][Ss][Tt][Ii][Nn][Cc][Tt][Rr][Oo][Ww] ;
 DISTINCT : [Dd][Ii][Ss][Tt][Ii][Nn][Cc][Tt] ;
+PERCENT  : [Pp][Ee][Rr][Cc][Ee][Nn][Tt] ;
 BETWEEN  : [Bb][Ee][Tt][Ww][Ee][Ee][Nn] ;
 UNION     : [Uu][Nn][Ii][Oo][Nn] ;
 ALL       : [Aa][Ll][Ll] ;

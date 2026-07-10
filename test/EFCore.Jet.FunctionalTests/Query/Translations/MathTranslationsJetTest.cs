@@ -437,7 +437,7 @@ WHERE `b`.`Double` > 0.0 AND (LOG(`b`.`Double`) / 2.302585092994046) <> 0.0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`Float` > 0 AND (LOG(`b`.`Float`) / 2.302585) <> 0
+WHERE `b`.`Float` > 0 AND (LOG(`b`.`Float`) / 2.3025851) <> 0
 """);
     }
 
@@ -584,7 +584,7 @@ WHERE (`b`.`Double` * (180.0 / 3.141592653589793)) > 0.0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (`b`.`Float` * (180 / 3.141593)) > 0
+WHERE (`b`.`Float` * (180 / 3.1415927)) > 0
 """);
     }
 
@@ -608,7 +608,7 @@ WHERE (`b`.`Double` * (3.141592653589793 / 180.0)) > 0.0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (`b`.`Float` * (3.141593 / 180)) > 0
+WHERE (`b`.`Float` * (3.1415927 / 180)) > 0
 """);
     }
 

@@ -90,15 +90,14 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         int leaf = Descend(index.RootPage, WithTrailer(key, 0))[^1];
         while (leaf != 0)
         {
-            byte[] page = _channel.ReadPage(leaf).Span.ToArray();
-            (List<Entry> entries, _) = Parse(page);
-            foreach (Entry e in entries)
+            ParsedIndexPage page = ReadIndexPage(leaf);
+            foreach (Entry e in page.Entries)
             {
                 int cmp = CompareBytes(e.Key, key);
                 if (cmp > 0) yield break;                 // sorted past the key — no more matches
                 if (cmp == 0) yield return new RowId(e.Trailer >> 8, e.Trailer & 0xFF);
             }
-            leaf = ReadInt32Le(page, NextPageOffset);     // matches may continue on the next leaf
+            leaf = page.Next;                             // matches may continue on the next leaf
         }
     }
 
@@ -117,15 +116,14 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         int leaf = Descend(index.RootPage, WithTrailer(lowKey ?? [], 0))[^1];
         while (leaf != 0)
         {
-            byte[] page = _channel.ReadPage(leaf).Span.ToArray();
-            (List<Entry> entries, _) = Parse(page);
-            foreach (Entry e in entries)
+            ParsedIndexPage page = ReadIndexPage(leaf);
+            foreach (Entry e in page.Entries)
             {
                 if (lowKey is not null && CompareBytes(e.Key, lowKey) < 0) continue;     // before the low bound
                 if (highKey is not null && CompareBytes(e.Key, highKey) > 0) yield break; // past the high bound
                 yield return new RowId(e.Trailer >> 8, e.Trailer & 0xFF);
             }
-            leaf = ReadInt32Le(page, NextPageOffset);
+            leaf = page.Next;
         }
     }
 
@@ -186,15 +184,34 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         while (true)
         {
             path.Add(pageNumber);
-            byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
-            if ((PageType)page[0] == PageType.LeafIndexPage) return path;
+            ParsedIndexPage page = ReadIndexPage(pageNumber);
+            if (page.Type == PageType.LeafIndexPage) return path;
 
-            (List<Entry> entries, int tail) = Parse(page);
-            int child = tail;
-            foreach (Entry e in entries)
+            int child = page.Tail;
+            foreach (Entry e in page.Entries)
                 if (CompareBytes(e.Key, fullKey) >= 0) { child = e.Trailer; break; }
             pageNumber = child;
         }
+    }
+
+    /// <summary>An index page decoded for the read paths (<see cref="Descend"/>/<see cref="Seek"/>/
+    /// <see cref="SeekRange"/>): its type, entries, node child-tail and leaf next-pointer.</summary>
+    private sealed record ParsedIndexPage(PageType Type, List<Entry> Entries, int Tail, int Next);
+
+    /// <summary>Reads an index page as decoded entries, served from the channel's parsed-page cache on a repeat
+    /// visit — a B-tree descent re-reads its root/internal pages on every seek, so caching the decode (not just
+    /// the bytes) removes both the page copy and the entry decode. Read-only: the write paths parse fresh, and
+    /// their <c>WritePage</c> invalidates the cached parse, so a hit is always consistent with the bytes.</summary>
+    private ParsedIndexPage ReadIndexPage(int pageNumber)
+    {
+        if (_channel.TryGetParsedPage(pageNumber, out object? cached) && cached is ParsedIndexPage hit)
+            return hit;
+
+        byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
+        (List<Entry> entries, int tail) = Parse(page);
+        var parsed = new ParsedIndexPage((PageType)page[0], entries, tail, ReadInt32Le(page, NextPageOffset));
+        _channel.SetParsedPage(pageNumber, parsed);
+        return parsed;
     }
 
     private void InsertIntoLeaf(IndexDef index, List<int> path, byte[] key, int pointer)

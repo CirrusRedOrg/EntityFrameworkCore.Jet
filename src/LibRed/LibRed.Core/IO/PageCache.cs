@@ -23,6 +23,11 @@ internal sealed class PageCache
     {
         public readonly int Page = page;
         public byte[] Bytes = bytes;
+
+        // An optional higher-layer parse of this page (e.g. an index page's decoded entries), cached alongside
+        // the raw bytes so it is invalidated by the same write-through/eviction path — whenever the bytes change
+        // the parse is stale, so Store() clears it. Opaque to the cache (boxed as object).
+        public object? Parsed;
     }
 
     private readonly int _pageSize;
@@ -92,6 +97,7 @@ internal sealed class PageCache
             if (_map.TryGetValue(page, out var node))
             {
                 source.CopyTo(node.Value.Bytes);
+                node.Value.Parsed = null; // the bytes changed, so any cached parse of them is stale
                 _lru.Remove(node);
                 _lru.AddFirst(node);
                 return;
@@ -108,6 +114,34 @@ internal sealed class PageCache
                 _map.Remove(lruNode.Value.Page);
             }
         }
+    }
+
+    /// <summary>Returns a previously cached higher-layer parse of <paramref name="page"/> (see
+    /// <see cref="SetParsed"/>), or false if the page is not resident or has no parse cached.</summary>
+    public bool TryGetParsed(int page, out object? parsed)
+    {
+        lock (_gate)
+        {
+            if (_map.TryGetValue(page, out var node) && node.Value.Parsed is { } p)
+            {
+                _lru.Remove(node);
+                _lru.AddFirst(node);
+                parsed = p;
+                return true;
+            }
+            parsed = null;
+            return false;
+        }
+    }
+
+    /// <summary>Attaches a higher-layer parse to a resident page so later reads can skip re-parsing; a no-op if
+    /// the page is not resident (it will simply be re-parsed next time). Cleared automatically when the page's
+    /// bytes change (see <see cref="Store"/>) or it is evicted.</summary>
+    public void SetParsed(int page, object parsed)
+    {
+        lock (_gate)
+            if (_map.TryGetValue(page, out var node))
+                node.Value.Parsed = parsed;
     }
 
     /// <summary>Drops every cached page numbered <paramref name="fromPageInclusive"/> or higher — used after a

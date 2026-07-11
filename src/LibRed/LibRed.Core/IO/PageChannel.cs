@@ -207,6 +207,16 @@ public sealed class PageChannel : IDisposable
         _stream.Flush(flushToDisk: true);
     }
 
+    /// <summary>Retrieves a higher-layer parse of a page previously stored via <see cref="SetParsedPage"/>
+    /// (e.g. an index page's decoded entries), or false if none is cached. The parse is dropped automatically
+    /// when the page is written (any channel) or evicted, so a hit is always consistent with the current bytes.</summary>
+    public bool TryGetParsedPage(int pageNumber, out object? parsed) => _cache.TryGetParsed(pageNumber, out parsed);
+
+    /// <summary>Caches a higher-layer parse of a (resident) page so repeated reads — e.g. a B-tree descent that
+    /// re-visits the same root/internal pages — can skip re-decoding it. The caller must not mutate the object
+    /// afterwards, as it is shared with other readers of the same file.</summary>
+    public void SetParsedPage(int pageNumber, object parsed) => _cache.SetParsed(pageNumber, parsed);
+
     public void Flush() => _stream.Flush(flushToDisk: true);
 
     public void Dispose()

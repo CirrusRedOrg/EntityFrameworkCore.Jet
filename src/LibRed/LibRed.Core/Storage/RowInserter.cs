@@ -105,7 +105,10 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         MaterializeLongValues(values);
 
         byte[] srcPage = _channel.ReadPage(id.Page).Span.ToArray();
-        var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(srcPage, format));
+        // Use the same guarded inference as Insert (Math.Max with the column-derived length): the raw per-row
+        // parse returns a negative length for an all-fixed-column table (no variable columns — e.g. Northwind
+        // Order Details), which without the guard would overflow `new byte[len]`.
+        var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format));
         byte[] record = encoder.Encode(values);
 
         int raw = BinaryPrimitives.ReadUInt16LittleEndian(srcPage.AsSpan(format.DataRowDirectoryOffset + id.Row * 2, 2));

@@ -63,6 +63,16 @@ public sealed class Table
                 yield return row;
     }
 
+    /// <summary>Like <see cref="SeekRows"/> but yields each matching row together with its <see cref="RowId"/> —
+    /// for an UPDATE/DELETE join that must know which physical row to rewrite/remove, not just its values.</summary>
+    public IEnumerable<(RowId Id, object?[] Values)> SeekRowsWithIds(IndexDef index, object?[] values)
+    {
+        var decoder = NewDecoder();
+        foreach (RowId id in new IndexWriter(Channel, Definition).Seek(index, values))
+            if (GetRow(id, decoder) is { } row)
+                yield return (id, row);
+    }
+
     /// <summary>Yields the rows whose <paramref name="index"/> key lies in [<paramref name="low"/>,
     /// <paramref name="high"/>] (either bound null = open) — an index range scan. May over-return at the
     /// boundaries; the caller re-checks the predicate.</summary>

@@ -650,30 +650,117 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private List<(RowId Id, object?[] Values)[]> JoinRows(
         List<SourceTable> tables, List<Expression> ons, Expression? where, IReadOnlyList<OutputColumn> columns)
     {
+        // A physical row's value array is shared across every join row it appears in (see the method summary).
         var cache = new Dictionary<(string, RowId), object?[]>();
-
-        IEnumerable<(RowId, object?[])[]> Combine(int i, (RowId, object?[])[] acc)
+        object?[] Shared(string alias, RowId id, object?[] values)
         {
-            if (i == tables.Count) { yield return (((RowId, object?[])[])acc.Clone()); yield break; }
-            foreach ((RowId id, object?[] values) in tables[i].Table.Rows().WithIds())
+            var key = (alias, id);
+            if (!cache.TryGetValue(key, out object?[]? s)) cache[key] = s = values;
+            return s;
+        }
+
+        // Access's multi-table UPDATE/DELETE joins are equi-joins on keys; for each table after the first, if an
+        // ON equates one of its single-column-indexed columns to a column of an earlier table, seek it by that
+        // key instead of scanning it in full — turning an O(∏ rows) cartesian product into an index-nested-loop.
+        var seekPlan = new (IndexDef Index, Expression Key)?[tables.Count];
+        for (int i = 1; i < tables.Count; i++)
+            seekPlan[i] = SeekPlanFor(i, tables, ons);
+
+        // Precompute the accumulated columns visible when seeking/emitting at each depth.
+        var colsUpTo = new List<OutputColumn>[tables.Count + 1];
+        colsUpTo[0] = [];
+        for (int i = 0; i < tables.Count; i++)
+            colsUpTo[i + 1] = [.. colsUpTo[i], .. tables[i].Columns];
+
+        var result = new List<(RowId, object?[])[]>();
+        var acc = new (RowId, object?[])[tables.Count];
+
+        void Recurse(int i)
+        {
+            if (i == tables.Count)
             {
-                var key = (tables[i].Alias, id);
-                if (!cache.TryGetValue(key, out object?[]? shared)) cache[key] = shared = values;
-                acc[i] = (id, shared);
-                foreach (var r in Combine(i + 1, acc)) yield return r;
+                // The seek only prunes candidates; ON (index keys can over-return) and WHERE are the arbiters.
+                object?[] flat = Flatten(acc, i);
+                var eval = new ExpressionEvaluator(new EvalScope(columns, flat, null), _scalarRunner, _parameters, _session);
+                if (ons.All(o => eval.Evaluate(o) is true) && (where is null || eval.Evaluate(where) is true))
+                    result.Add(((RowId, object?[])[])acc.Clone());
+                return;
+            }
+
+            IEnumerable<(RowId Id, object?[] Values)> rows;
+            if (seekPlan[i] is { } p)
+            {
+                var keyEval = new ExpressionEvaluator(new EvalScope(colsUpTo[i], Flatten(acc, i), null), _scalarRunner, _parameters, _session);
+                var keyValues = new object?[tables[i].Table.Definition.Columns.Count];
+                keyValues[p.Index.Columns[0].Column.Index] = keyEval.Evaluate(p.Key);
+                rows = tables[i].Table.SeekRowsWithIds(p.Index, keyValues);
+            }
+            else
+            {
+                rows = tables[i].Table.Rows().WithIds();
+            }
+
+            foreach ((RowId id, object?[] values) in rows)
+            {
+                acc[i] = (id, Shared(tables[i].Alias, id, values));
+                Recurse(i + 1);
             }
         }
 
-        var result = new List<(RowId, object?[])[]>();
-        foreach (var combo in Combine(0, new (RowId, object?[])[tables.Count]))
-        {
-            object?[] flat = combo.SelectMany(c => c.Item2).ToArray();
-            var eval = new ExpressionEvaluator(new EvalScope(columns, flat, null), _scalarRunner, _parameters, _session);
-            if (ons.All(o => eval.Evaluate(o) is true) && (where is null || eval.Evaluate(where) is true))
-                result.Add(combo);
-        }
+        Recurse(0);
         return result;
     }
+
+    /// <summary>Concatenates the value arrays of the first <paramref name="count"/> accumulated join rows.</summary>
+    private static object?[] Flatten((RowId, object?[])[] acc, int count)
+    {
+        var flat = new List<object?>();
+        for (int i = 0; i < count; i++) flat.AddRange(acc[i].Item2);
+        return [.. flat];
+    }
+
+    /// <summary>If table <paramref name="i"/> has an ON equality between one of its single-column-indexed columns
+    /// and an expression over the earlier tables, returns that index and key expression (to seek it per outer
+    /// row); else null (scan it).</summary>
+    private static (IndexDef Index, Expression Key)? SeekPlanFor(int i, List<SourceTable> tables, List<Expression> ons)
+    {
+        TableDef def = tables[i].Table.Definition;
+        string alias = tables[i].Alias;
+        HashSet<string> earlier = tables.Take(i).Select(t => t.Alias).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (Expression on in ons)
+        {
+            if (on is not BinaryExpression { Operator: BinaryOperator.Equal } eq)
+                continue;
+            if (MatchSeek(eq.Left, eq.Right, alias, def, earlier) is { } a) return a;
+            if (MatchSeek(eq.Right, eq.Left, alias, def, earlier) is { } b) return b;
+        }
+        return null;
+    }
+
+    private static (IndexDef Index, Expression Key)? MatchSeek(
+        Expression colSide, Expression keySide, string alias, TableDef def, HashSet<string> earlier)
+    {
+        if (colSide is not ColumnReference c
+            || (c.Table is { } t && !string.Equals(t, alias, StringComparison.OrdinalIgnoreCase))
+            || !def.Columns.Any(cd => string.Equals(cd.Name, c.Column, StringComparison.OrdinalIgnoreCase)))
+            return null;
+
+        IndexDef? index = def.Indexes.FirstOrDefault(ix => ix.RootPage > 0 && ix.Columns.Count == 1
+            && string.Equals(ix.Columns[0].Column.Name, c.Column, StringComparison.OrdinalIgnoreCase));
+        return index is not null && ReferencesOnly(keySide, earlier) ? (index, keySide) : null;
+    }
+
+    private static bool ReferencesOnly(Expression e, HashSet<string> aliases) => e switch
+    {
+        ColumnReference { Table: { } t } => aliases.Contains(t),
+        ColumnReference => false, // unqualified — can't attribute it to an earlier table safely
+        LiteralExpression or ParameterExpression or SystemVariableExpression => true,
+        BinaryExpression b => ReferencesOnly(b.Left, aliases) && ReferencesOnly(b.Right, aliases),
+        UnaryExpression u => ReferencesOnly(u.Operand, aliases),
+        FunctionCall f => f.Arguments.All(a => ReferencesOnly(a, aliases)),
+        _ => false,
+    };
 
     /// <summary>The source-table index a SET assignment (or a delete target) applies to: the alias/table-name
     /// qualifier if given, else the single table (ambiguous when there are several).</summary>

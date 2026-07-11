@@ -430,6 +430,10 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     {
         int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
 
+        // Take the largest sane fixed length across the page's inline rows rather than trusting the first one:
+        // some rows decode to a nonsensical (e.g. zero) variable-data offset, which would yield a negative
+        // length — those are ignored, and the real rows agree on the true fixed length.
+        int? best = null;
         int prevEnd = format.PageSize;
         for (int i = 0; i < rowCount; i++)
         {
@@ -452,10 +456,14 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             int varTableStart = row.Length - nullBitmapSize - 2 - (numVar + 1) * 2;
             if (varTableStart < format.RowColumnCountSize) continue; // malformed
             int varDataStart = BinaryPrimitives.ReadUInt16LittleEndian(row.Slice(varTableStart + numVar * 2, 2));
-            return varDataStart - format.RowColumnCountSize;
-        }
 
-        return null;
+            // The variable-data start is the end of the fixed region; it must lie after the column-count field
+            // and no later than the offset table. A row that fails this decoded garbage — skip it.
+            int candidate = varDataStart - format.RowColumnCountSize;
+            if (candidate > 0 && varDataStart <= varTableStart)
+                best = best is null ? candidate : Math.Max(best.Value, candidate);
+        }
+        return best;
     }
 
     /// <summary>

@@ -36,7 +36,10 @@ public class ScaffoldingTests
         var orderId = orders.Columns.Single(c => c.Name == "OrderID");
         Assert.Equal("counter", orderId.StoreType); // autonumber PK
         Assert.Equal("datetime", orders.Columns.Single(c => c.Name == "OrderDate").StoreType);
-        Assert.StartsWith("varchar(", orders.Columns.Single(c => c.Name == "CustomerID").StoreType);
+        // CustomerID is a fixed-length 5-char text column in Northwind (the EFCore.Jet fixture maps it
+        // nchar(5)), so it scaffolds as char(5); ShipName is an ordinary variable-length text → varchar.
+        Assert.Equal("char(5)", orders.Columns.Single(c => c.Name == "CustomerID").StoreType);
+        Assert.StartsWith("varchar(", orders.Columns.Single(c => c.Name == "ShipName").StoreType);
 
         // Primary key.
         Assert.NotNull(orders.PrimaryKey);

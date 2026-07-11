@@ -32,7 +32,7 @@ public sealed class QueryPlanner
         PlanNode node = PlanFrom(select.From);
 
         if (select.Where is not null)
-            node = new FilterNode(node, select.Where);
+            node = PushPredicates(node, select.Where);
 
         bool aggregate = select.GroupBy.Count > 0 || select.Having is not null
             || select.Projection.Any(i => HasAggregate(i.Value));
@@ -84,4 +84,90 @@ public sealed class QueryPlanner
         SubqueryTable s => new DerivedTableNode(PlanStatement(s.Query), s.Alias), // alias optional (Access allows aliasless)
         _ => throw new NotSupportedException($"Unsupported FROM source {from.GetType().Name}."),
     };
+
+    /// <summary>
+    /// Places the WHERE clause's AND-conjuncts as low in the join tree as each can go — a single-table
+    /// predicate onto that table's scan, a two-table equality onto the join of those tables — instead of
+    /// filtering the full cross product on top. This is what makes an Access comma-join
+    /// (<c>FROM a, b, c WHERE a.x=b.x AND …</c>, planned as CROSS joins) tractable: the nested-loop join
+    /// evaluates the pushed predicate inside its loop, so intermediate results stay small.
+    /// </summary>
+    private static PlanNode PushPredicates(PlanNode joinTree, Expression where)
+    {
+        var conjuncts = new List<Expression>();
+        SplitAnd(where, conjuncts);
+        (PlanNode node, List<Expression> unplaced) = Place(joinTree, conjuncts);
+        return unplaced.Count == 0 ? node : new FilterNode(node, CombineAnd(unplaced));
+    }
+
+    /// <summary>Pushes each conjunct that lies entirely within <paramref name="node"/>'s subtree as deep as it
+    /// fits; returns the rewritten node and the conjuncts that reference tables outside it (to bubble up).</summary>
+    private static (PlanNode Node, List<Expression> Unplaced) Place(PlanNode node, List<Expression> conjuncts)
+    {
+        HashSet<string> aliases = SubtreeAliases(node);
+        var candidates = new List<Expression>();
+        var outside = new List<Expression>();
+        foreach (Expression c in conjuncts)
+            (Qualifiers(c) is { } q && q.Count > 0 && q.IsSubsetOf(aliases) ? candidates : outside).Add(c);
+
+        // Only CROSS/INNER joins are safe to push below (an outer join's null-supplying side changes meaning).
+        if (node is JoinNode { Kind: JoinKind.Cross or JoinKind.Inner } j)
+        {
+            (PlanNode left, List<Expression> afterLeft) = Place(j.Left, candidates);
+            (PlanNode right, List<Expression> both) = Place(j.Right, afterLeft);
+            // `both` reference columns from each side → this is the lowest join that sees them: fold into ON.
+            Expression? on = j.On;
+            foreach (Expression c in both) on = on is null ? c : new BinaryExpression(BinaryOperator.And, on, c);
+            return (new JoinNode(left, right, j.Kind, on), outside);
+        }
+
+        PlanNode placed = candidates.Count > 0 ? new FilterNode(node, CombineAnd(candidates)) : node;
+        return (placed, outside);
+    }
+
+    /// <summary>The table aliases (or names) exposed by a plan subtree — a scan's alias/name, or the union
+    /// over a join. A derived table exposes only its own alias (its inner columns are already projected).</summary>
+    private static HashSet<string> SubtreeAliases(PlanNode node) => node switch
+    {
+        ScanNode s => new(StringComparer.OrdinalIgnoreCase) { s.Alias ?? s.Table },
+        DerivedTableNode d => d.Alias is { } a ? new(StringComparer.OrdinalIgnoreCase) { a } : new(StringComparer.OrdinalIgnoreCase),
+        JoinNode j => SubtreeAliases(j.Left).Union(SubtreeAliases(j.Right)).ToHashSet(StringComparer.OrdinalIgnoreCase),
+        FilterNode f => SubtreeAliases(f.Input),
+        _ => new(StringComparer.OrdinalIgnoreCase),
+    };
+
+    /// <summary>The set of table qualifiers an expression's column references use, or <see langword="null"/>
+    /// if it can't be safely placed — an unqualified column (ambiguous) or a subquery (references an inner
+    /// scope). Such a conjunct stays at the top filter.</summary>
+    private static HashSet<string>? Qualifiers(Expression e)
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        return Collect(e, result) ? result : null;
+
+        static bool Collect(Expression e, HashSet<string> acc) => e switch
+        {
+            ColumnReference { Table: { } t } => Add(acc, t),
+            ColumnReference => false, // unqualified — can't determine its table
+            LiteralExpression or ParameterExpression or SystemVariableExpression => true,
+            BinaryExpression b => Collect(b.Left, acc) && Collect(b.Right, acc),
+            UnaryExpression u => Collect(u.Operand, acc),
+            FunctionCall f => f.Arguments.All(a => Collect(a, acc)),
+            InListExpression il => Collect(il.Value, acc) && il.Items.All(a => Collect(a, acc)),
+            _ => false, // subqueries (scalar/EXISTS/IN), qualified star, etc. — don't push
+        };
+        static bool Add(HashSet<string> acc, string t) { acc.Add(t); return true; }
+    }
+
+    private static void SplitAnd(Expression e, List<Expression> into)
+    {
+        if (e is BinaryExpression { Operator: BinaryOperator.And } b)
+        {
+            SplitAnd(b.Left, into);
+            SplitAnd(b.Right, into);
+        }
+        else into.Add(e);
+    }
+
+    private static Expression CombineAnd(IReadOnlyList<Expression> conjuncts) =>
+        conjuncts.Aggregate((a, b) => new BinaryExpression(BinaryOperator.And, a, b));
 }

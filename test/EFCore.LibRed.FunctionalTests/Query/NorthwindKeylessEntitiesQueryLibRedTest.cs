@@ -67,8 +67,10 @@ FROM `Alphabetical list of products` AS `a`
 
         public override async Task KeylessEntity_with_nav_defining_query(bool isAsync)
         {
-            // FromSql mapping. Issue #21627.
-            await Assert.ThrowsAsync<Exception>(() => base.KeylessEntity_with_nav_defining_query(isAsync));
+            // FromSql mapping. Issue #21627. The defining query references a table that isn't materialised, so
+            // the scenario is expected to throw; ThrowsAnyAsync accepts LibRed's specific SqlBindException (a
+            // subclass) — ThrowsAsync<Exception> requires an exact System.Exception match, which nothing throws.
+            await Assert.ThrowsAnyAsync<Exception>(() => base.KeylessEntity_with_nav_defining_query(isAsync));
         }
 
         public override async Task KeylessEntity_with_mixed_tracking(bool isAsync)

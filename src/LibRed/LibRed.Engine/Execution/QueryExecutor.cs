@@ -19,6 +19,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private readonly ParameterBag _parameters;
     private readonly SessionState? _session;
 
+    // Optimised plans for subqueries, keyed by their AST node (reference identity). A correlated subquery is
+    // executed once per outer row, so planning + index selection must be done ONCE, not on every evaluation.
+    private readonly Dictionary<SelectStatement, PlanNode> _subqueryPlans = new(ReferenceEqualityComparer.Instance);
+
     public QueryExecutor(JetDatabase database, IReadOnlyDictionary<string, object?>? parameters = null, SessionState? session = null)
     {
         _database = database;
@@ -51,7 +55,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     object? IScalarSubqueryRunner.ExecuteScalar(SelectStatement query, EvalScope outerScope)
     {
-        var (_, rows) = Execute(QueryPlanner.PlanSelect(query), outerScope);
+        var (_, rows) = Execute(SubqueryPlan(query), outerScope);
         foreach (object?[] row in rows)
             return row.Length > 0 ? row[0] : null;
         return null; // no rows → NULL
@@ -59,15 +63,25 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     bool IScalarSubqueryRunner.ExecuteExists(SelectStatement query, EvalScope outerScope)
     {
-        var (_, rows) = Execute(QueryPlanner.PlanSelect(query), outerScope);
+        var (_, rows) = Execute(SubqueryPlan(query), outerScope);
         return rows.Any();
     }
 
     IEnumerable<object?> IScalarSubqueryRunner.ExecuteColumn(SelectStatement query, EvalScope outerScope)
     {
-        var (_, rows) = Execute(QueryPlanner.PlanSelect(query), outerScope);
+        var (_, rows) = Execute(SubqueryPlan(query), outerScope);
         // Materialize: the outer scope is reused across the enclosing row loop, so don't defer.
         return rows.Select(r => r.Length > 0 ? r[0] : null).ToList();
+    }
+
+    /// <summary>The optimised plan for a subquery, planned once and cached: index selection (index seeks, hash
+    /// joins) is applied just like a top-level query — a correlated subquery runs per outer row, so an
+    /// unoptimised nested-loop plan re-run thousands of times is what made correlated EXISTS/scalar pathological.</summary>
+    private PlanNode SubqueryPlan(SelectStatement query)
+    {
+        if (!_subqueryPlans.TryGetValue(query, out PlanNode? plan))
+            _subqueryPlans[query] = plan = Planning.IndexSelection.Apply(QueryPlanner.PlanSelect(query), _database.Catalog);
+        return plan;
     }
 
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) Execute(PlanNode node, EvalScope? outer)
@@ -405,43 +419,56 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         var (leftColumns, leftRows) = Execute(join.Left, outer);
         var (rightColumns, rightRowsEnum) = Execute(join.Right, outer);
         var joinColumns = leftColumns.Concat(rightColumns).ToList();
-        bool leftOuter = join.Kind == JoinKind.Left;
-        int rightWidth = rightColumns.Count;
+        int leftWidth = leftColumns.Count, rightWidth = rightColumns.Count;
         Expression on = join.On;
+
+        // INNER/LEFT build the right side and probe with the left; RIGHT builds the left and probes with the
+        // right (so the preserved — outer — side is always the probe side). The emitted row is [left.., right..]
+        // regardless of which side was built.
+        bool buildRight = join.Kind != JoinKind.Right;
+        bool preserveProbe = join.Kind is JoinKind.Left or JoinKind.Right; // probe side is the outer/preserved side
+        var buildColumns = buildRight ? rightColumns : leftColumns;
+        var buildKeys = buildRight ? join.RightKeys : join.LeftKeys;
+        var buildRowsEnum = buildRight ? rightRowsEnum : leftRows;
+        var probeColumns = buildRight ? leftColumns : rightColumns;
+        var probeKeys = buildRight ? join.LeftKeys : join.RightKeys;
+        var probeRowsEnum = buildRight ? leftRows : rightRowsEnum;
 
         IEnumerable<object?[]> Rows()
         {
-            // Build phase: hash the right (build) side by its keys. A row with any null key can never satisfy an
+            // Build phase: hash the build side by its keys. A row with any null key can never satisfy an
             // equi-join (SQL null = null is not true), so it is dropped from the table.
             var table = new Dictionary<object?[], List<object?[]>>(HashKeyComparer.Instance);
-            var buildScope = new EvalScope(rightColumns, [], outer);
+            var buildScope = new EvalScope(buildColumns, [], outer);
             var buildEval = new ExpressionEvaluator(buildScope, this, parameters: _parameters, session: _session);
-            foreach (object?[] right in rightRowsEnum)
+            foreach (object?[] b in buildRowsEnum)
             {
-                buildScope.Rebind(right);
-                var key = new object?[join.RightKeys.Count];
-                if (!EvalKey(buildEval, join.RightKeys, key)) continue; // null key → unmatchable
+                buildScope.Rebind(b);
+                var key = new object?[buildKeys.Count];
+                if (!EvalKey(buildEval, buildKeys, key)) continue; // null key → unmatchable
                 if (!table.TryGetValue(key, out List<object?[]>? bucket))
                     table[key] = bucket = [];
-                bucket.Add(right);
+                bucket.Add(b);
             }
 
-            // Probe phase: each left row looks up its bucket; the full ON re-checks each candidate (buckets can
-            // collide, and ON may carry extra non-equi conjuncts). LEFT join emits a null-padded row on no match.
-            var probeScope = new EvalScope(leftColumns, [], outer);
+            // Probe phase: each probe row looks up its bucket; the full ON re-checks each candidate (buckets can
+            // collide, and ON may carry extra non-equi conjuncts). An outer join emits a null-padded row on no match.
+            var probeScope = new EvalScope(probeColumns, [], outer);
             var probeEval = new ExpressionEvaluator(probeScope, this, parameters: _parameters, session: _session);
             var onScope = new EvalScope(joinColumns, [], outer);
             var onEval = new ExpressionEvaluator(onScope, this, parameters: _parameters, session: _session);
-            var probe = new object?[join.LeftKeys.Count]; // reused; only used to look up, never stored
+            var probe = new object?[probeKeys.Count]; // reused; only used to look up, never stored
 
-            foreach (object?[] left in leftRows)
+            foreach (object?[] p in probeRowsEnum)
             {
-                probeScope.Rebind(left);
+                probeScope.Rebind(p);
                 bool matched = false;
-                if (EvalKey(probeEval, join.LeftKeys, probe) && table.TryGetValue(probe, out List<object?[]>? bucket))
+                if (EvalKey(probeEval, probeKeys, probe) && table.TryGetValue(probe, out List<object?[]>? bucket))
                 {
-                    foreach (object?[] right in bucket)
+                    foreach (object?[] b in bucket)
                     {
+                        object?[] left = buildRight ? p : b;
+                        object?[] right = buildRight ? b : p;
                         object?[] combined = [.. left, .. right];
                         if (onEval.Rebind(combined).IsTrue(on))
                         {
@@ -450,8 +477,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                         }
                     }
                 }
-                if (leftOuter && !matched)
-                    yield return [.. left, .. new object?[rightWidth]];
+                if (preserveProbe && !matched)
+                    yield return buildRight
+                        ? [.. p, .. new object?[rightWidth]]  // probe is the left side; right is null
+                        : [.. new object?[leftWidth], .. p];  // probe is the right side; left is null
             }
         }
 

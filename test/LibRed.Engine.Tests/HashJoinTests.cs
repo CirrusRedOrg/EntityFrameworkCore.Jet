@@ -101,6 +101,40 @@ public class HashJoinTests
         Assert.Equal(1, Count(e, "SELECT A.X FROM A INNER JOIN B ON A.X = B.X AND A.Y = B.Y"));
     }
 
+    [Fact]
+    public void Right_join_is_hashed_and_preserves_unmatched_right_rows()
+    {
+        var e = TwoTables();
+        e.ExecuteNonQuery("INSERT INTO P (Id, Nm) VALUES (999, 'childless')"); // a P (right side) with no children
+        // C RIGHT JOIN P keeps every P; 200 children match + 50 childless P (ids 50..99 have no children, since
+        // Pid = i%50 ∈ 0..49) ... actually every id 0..49 has children, only 999 is childless → 200 + 1 = 201.
+        Assert.True(ContainsHashJoin(e.PlanFor("SELECT P.Nm, C.Amt FROM C RIGHT JOIN P ON C.Pid = P.Id")));
+        Assert.Equal(201, Count(e, "SELECT P.Nm, C.Amt FROM C RIGHT JOIN P ON C.Pid = P.Id"));
+        // The childless P appears with a null C side.
+        Assert.Equal(1, Count(e, "SELECT P.Nm FROM C RIGHT JOIN P ON C.Pid = P.Id WHERE C.Id IS NULL"));
+    }
+
+    [Fact]
+    public void Right_join_matches_the_equivalent_left_join()
+    {
+        var e = TwoTables();
+        int right = Count(e, "SELECT C.Amt FROM C RIGHT JOIN P ON C.Pid = P.Id");
+        int left = Count(e, "SELECT C.Amt FROM P LEFT JOIN C ON P.Id = C.Pid");
+        Assert.Equal(left, right); // A RIGHT JOIN B ≡ B LEFT JOIN A
+    }
+
+    [Fact]
+    public void Hash_join_resolves_a_derived_table_key_column()
+    {
+        // The right side is a derived table; its key column's kind is resolved through the projection, so the
+        // join still hashes (this is what an unindexed join against a subquery relies on).
+        var e = TwoTables();
+        const string sql = "SELECT P.Nm FROM P INNER JOIN (SELECT Pid FROM C WHERE Amt > 100) AS d ON P.Id = d.Pid";
+        Assert.True(ContainsHashJoin(e.PlanFor(sql)));
+        // Each C row with Amt>100 (Amt=i∈101..199 → 99 rows) has a matching P, so 99 joined rows.
+        Assert.Equal(99, Count(e, sql));
+    }
+
     private static bool ContainsHashJoin(PlanNode node) =>
         node is HashJoinNode || node.Children.Any(ContainsHashJoin);
 }

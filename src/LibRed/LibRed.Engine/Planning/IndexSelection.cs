@@ -150,7 +150,8 @@ internal static class IndexSelection
 
         // No index-nested-loop available: if this is an equi-join whose keys are same-kind columns, hash it
         // (O(n+m)) instead of leaving the O(n·m) nested loop. See HashJoinNode for why same-kind is required.
-        if (j.Kind is (JoinKind.Inner or JoinKind.Left) && j.On is { } cond
+        // RIGHT joins hash too (the executor builds the left and probes with the right).
+        if (j.Kind is (JoinKind.Inner or JoinKind.Left or JoinKind.Right) && j.On is { } cond
             && TryHashKeys(cond, left, right, catalog) is { } keys)
             return new HashJoinNode(left, right, j.Kind, keys.Left, keys.Right, cond);
 
@@ -208,9 +209,10 @@ internal static class IndexSelection
         _ => null,
     };
 
-    /// <summary>The type kind of a column resolved against the base tables of <paramref name="subtree"/>, or
-    /// null if it can't be pinned to a base-table column (e.g. it comes from a subquery) — in which case the
-    /// join is left as a nested loop rather than risk an unsound hash.</summary>
+    /// <summary>The type kind of a column resolved against <paramref name="subtree"/> — a base-table column
+    /// directly, or a derived-table column followed through its projection to the underlying base column — or
+    /// null if it can't be pinned down (e.g. the projection is a computed expression), in which case the join
+    /// is left as a nested loop rather than risk an unsound hash.</summary>
     private static TypeKind? ResolveKind(ColumnReference col, PlanNode subtree, JetCatalog catalog)
     {
         foreach ((string alias, string table) in BaseTables(subtree))
@@ -222,15 +224,62 @@ internal static class IndexSelection
             if (c is not null)
                 return Classify(c.Type);
         }
+
+        // A derived-table column: match its alias, find what its SELECT list projects for this name, and resolve
+        // that expression's kind against the derived query's own tables (only if it is itself a plain column).
+        foreach (DerivedTableNode d in DerivedTables(subtree))
+        {
+            if (col.Table is { } t && !string.Equals(t, d.Alias, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (ProjectionExprFor(d.Input, col.Column) is ColumnReference inner)
+                return ResolveKind(inner, d.Input, catalog);
+        }
         return null;
     }
 
+    // A derived table is an opaque boundary: its inner tables/aliases are not visible outside it, so BaseTables
+    // stops there (DerivedTables handles the derived level separately).
     private static IEnumerable<(string Alias, string Table)> BaseTables(PlanNode node) => node switch
     {
         ScanNode s => [(s.Alias ?? s.Table, s.Table)],
         IndexSeekNode s => [(s.Alias ?? s.Table, s.Table)],
         IndexRangeSeekNode s => [(s.Alias ?? s.Table, s.Table)],
+        DerivedTableNode => [],
         _ => node.Children.SelectMany(BaseTables),
+    };
+
+    /// <summary>The derived tables directly visible in <paramref name="node"/> (not descending into a derived
+    /// table's own body, which is its private scope).</summary>
+    private static IEnumerable<DerivedTableNode> DerivedTables(PlanNode node) => node switch
+    {
+        DerivedTableNode d => [d],
+        _ => node.Children.SelectMany(DerivedTables),
+    };
+
+    /// <summary>The expression a derived query projects under output name <paramref name="column"/>, or null.</summary>
+    private static Expression? ProjectionExprFor(PlanNode derivedBody, string column)
+    {
+        if (FindProject(derivedBody) is not { } proj)
+            return null;
+        foreach (SelectItem item in proj.Projection)
+        {
+            string name = item.Alias ?? (item.Value as ColumnReference)?.Column ?? "";
+            if (string.Equals(name, column, StringComparison.OrdinalIgnoreCase))
+                return item.Value;
+        }
+        return null;
+    }
+
+    private static ProjectNode? FindProject(PlanNode node) => node switch
+    {
+        ProjectNode p => p,
+        SortNode s => FindProject(s.Input),
+        LimitNode l => FindProject(l.Input),
+        DistinctNode d => FindProject(d.Input),
+        DistinctRowNode dr => FindProject(dr.Input),
+        FilterNode f => FindProject(f.Input),
+        DerivedTableNode dt => FindProject(dt.Input),
+        _ => null,
     };
 
     /// <summary>Whether every column an expression references is one of the given aliases (and it has no

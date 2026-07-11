@@ -83,6 +83,26 @@ public sealed class PageChannel : IDisposable
         return new PageBuffer(buffer, pageNumber);
     }
 
+    /// <summary>
+    /// Returns a page backed by the shared cache's own buffer, without copying it out — a zero-allocation read
+    /// for callers that consume the bytes immediately and never mutate or retain them (e.g. decoding one row
+    /// during an index seek, where <see cref="ReadPage(int)"/>'s per-call 4 KB copy dominated). On a cache miss
+    /// the page is read from disk and cached, then returned. The returned bytes are live cache state: valid
+    /// only until the next write to or eviction of this page.
+    /// </summary>
+    public PageBuffer ReadPageShared(int pageNumber)
+    {
+        if (_cache.TryGetArray(pageNumber, out byte[] cached))
+            return new PageBuffer(cached, pageNumber);
+
+        var buffer = new byte[PageSize];
+        long offset = (long)pageNumber * PageSize;
+        _stream.Seek(offset, SeekOrigin.Begin);
+        _stream.ReadExactly(buffer);
+        _cache.Store(pageNumber, buffer);
+        return new PageBuffer(buffer, pageNumber);
+    }
+
     /// <summary>Reads a single page into the supplied buffer (must be at least <see cref="PageSize"/>).</summary>
     public void ReadPage(int pageNumber, Span<byte> destination)
     {

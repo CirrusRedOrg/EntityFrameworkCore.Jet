@@ -88,6 +88,26 @@ internal sealed class PageCache
         }
     }
 
+    /// <summary>Returns the cache's own byte array for a resident <paramref name="page"/> without copying it out
+    /// — for a read that consumes the bytes immediately (e.g. decoding one row) and never mutates or retains
+    /// them. False on a miss. The array is live cache state: treat it read-only and use it before any further
+    /// cache operation on the same thread could evict or overwrite it.</summary>
+    public bool TryGetArray(int page, out byte[] array)
+    {
+        lock (_gate)
+        {
+            if (_map.TryGetValue(page, out var node))
+            {
+                _lru.Remove(node);
+                _lru.AddFirst(node);
+                array = node.Value.Bytes;
+                return true;
+            }
+            array = [];
+            return false;
+        }
+    }
+
     /// <summary>Stores <paramref name="source"/> as the cached image of <paramref name="page"/> (copying it),
     /// used both to fill a read miss and to write through a page write.</summary>
     public void Store(int page, ReadOnlySpan<byte> source)

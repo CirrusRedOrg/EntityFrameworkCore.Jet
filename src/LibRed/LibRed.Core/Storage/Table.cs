@@ -36,15 +36,16 @@ public sealed class Table
 
     private object?[]? GetRow(RowId id, RowDecoder decoder)
     {
-        // Read just the one wanted slot straight from the page directory (O(1)); parsing every slot on the
-        // page to take a single row was the seek's per-row hot cost.
-        if (!Pages.DataPage.TryReadRow(Channel.ReadPage(id.Page), Channel.Format, id.Row, out Pages.RowSlot slot, out ReadOnlySpan<byte> bytes))
+        // Read just the one wanted slot straight from the page directory (O(1)), over the shared cache buffer
+        // without copying the 4 KB page out — the bytes are consumed immediately by Decode. Both were the
+        // seek's per-row hot cost.
+        if (!Pages.DataPage.TryReadRow(Channel.ReadPageShared(id.Page), Channel.Format, id.Row, out Pages.RowSlot slot, out ReadOnlySpan<byte> bytes))
             return null;
 
         if (slot.HasOverflow)
         {
             int pointer = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(bytes);
-            return Pages.DataPage.TryReadRow(Channel.ReadPage(pointer >> 8), Channel.Format, pointer & 0xFF, out _, out ReadOnlySpan<byte> target)
+            return Pages.DataPage.TryReadRow(Channel.ReadPageShared(pointer >> 8), Channel.Format, pointer & 0xFF, out _, out ReadOnlySpan<byte> target)
                 ? decoder.Decode(target)
                 : null;
         }

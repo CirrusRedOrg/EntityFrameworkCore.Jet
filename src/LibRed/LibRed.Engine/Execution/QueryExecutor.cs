@@ -557,9 +557,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             .Select((item, i) => new OutputColumn(null, item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}")))
             .ToList();
 
-        // Each output row carries its ORDER BY key values, evaluated in the same group scope as the
-        // projection (so a key like a grouping expression resolves), to sort the groups afterward.
-        var outRows = new List<(object?[] Row, object?[] SortKeys)>();
+        // Each output row carries its ORDER BY key values AND its grouping-key values, evaluated in the same
+        // group scope as the projection, to sort the groups afterward: by ORDER BY if present, otherwise —
+        // matching Access, which returns GROUP BY results ascending by the grouping columns — by the group key
+        // (this also makes a TOP-1-over-a-GROUP-BY deterministic, as Access/SQL Server do).
+        var outRows = new List<(object?[] Row, object?[] SortKeys, object?[] GroupKeys)>();
         foreach (List<object?[]> group in GroupRows(inRows, node.GroupBy, inColumns, outer))
         {
             var values = new Dictionary<FunctionCall, object?>(ReferenceComparer.Instance);
@@ -585,7 +587,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
             object?[] row = node.Projection.Select(item => eval.Evaluate(item.Value)).ToArray();
             object?[] sortKeys = node.OrderBy.Select(k => eval.Evaluate(k.Value)).ToArray();
-            outRows.Add((row, sortKeys));
+            object?[] groupKeys = node.GroupBy.Select(k => eval.Evaluate(k)).ToArray();
+            outRows.Add((row, sortKeys, groupKeys));
         }
 
         if (node.OrderBy.Count > 0)
@@ -595,6 +598,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 {
                     int c = ExpressionEvaluator.CompareForSort(a.SortKeys[i], b.SortKeys[i]);
                     if (node.OrderBy[i].Direction == SortDirection.Descending) c = -c;
+                    if (c != 0) return c;
+                }
+                return 0;
+            });
+        else if (node.GroupBy.Count > 0)
+            // No explicit ORDER BY: Access orders GROUP BY output ascending by the grouping columns.
+            outRows.Sort((a, b) =>
+            {
+                for (int i = 0; i < node.GroupBy.Count; i++)
+                {
+                    int c = ExpressionEvaluator.CompareForSort(a.GroupKeys[i], b.GroupKeys[i]);
                     if (c != 0) return c;
                 }
                 return 0;

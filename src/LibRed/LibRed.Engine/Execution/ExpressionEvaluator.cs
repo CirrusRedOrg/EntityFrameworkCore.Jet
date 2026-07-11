@@ -535,8 +535,15 @@ internal sealed class ExpressionEvaluator(
         object? sv = Evaluate(f.Arguments[0]);
         object? modeV = Evaluate(f.Arguments[1]);
         if (sv is null || modeV is null) return null;
+        int mode = Convert.ToInt32(modeV, CultureInfo.InvariantCulture);
+
+        // vbUnicode (64) on binary widens each byte to one Unicode char — Jet's binary→string conversion.
+        // This is the byte-array path EF emits for `byte[].Contains(x)`: INSTR(1, STRCONV(arr, 64), 0xXX, 0).
+        if (mode == 64 && sv is byte[] binary)
+            return ByteArrayToString(binary);
+
         string s = sv.ToString()!;
-        return Convert.ToInt32(modeV, CultureInfo.InvariantCulture) switch
+        return mode switch
         {
             1 => s.ToUpperInvariant(),
             2 => s.ToLowerInvariant(),
@@ -546,6 +553,14 @@ internal sealed class ExpressionEvaluator(
             _ => throw new InvalidOperationException("Invalid procedure call: unsupported StrConv conversion mode."),
         };
     }
+
+    /// <summary>Jet coerces a binary value to a string by mapping each byte to a single char (the value it
+    /// widens back to via <c>STRCONV(…, 64)</c>). A <c>byte[]</c> reaching a string function — e.g. a
+    /// <c>0xNN</c> hex literal used as an <c>INSTR</c> needle — is coerced this way, not via
+    /// <c>ToString()</c> (which would yield "System.Byte[]").</summary>
+    private static string ByteArrayToString(byte[] bytes) => new(Array.ConvertAll(bytes, b => (char)b));
+
+    private static string ToJetString(object value) => value is byte[] b ? ByteArrayToString(b) : value.ToString()!;
 
     /// <summary>StrConv vbFromUnicode (128): combine successive character pairs into single UTF-16 code units
     /// (low char = low byte, next char = high byte); a trailing unpaired char is dropped (verified vs ACE).</summary>
@@ -945,7 +960,9 @@ internal sealed class ExpressionEvaluator(
         StringComparison cmp = argc >= 4 && Convert.ToInt32(Evaluate(f.Arguments[3]), CultureInfo.InvariantCulture) == 0
             ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
-        string s1 = s1v.ToString()!, s2 = s2v.ToString()!;
+        // A byte[] argument (e.g. a 0xNN hex literal needle, or a binary haystack) coerces to a string one
+        // char per byte, matching Jet — not "System.Byte[]".
+        string s1 = ToJetString(s1v), s2 = ToJetString(s2v);
         if (start < 1) start = 1;
         if (start > s1.Length) return 0;
         int idx = s1.IndexOf(s2, start - 1, cmp);

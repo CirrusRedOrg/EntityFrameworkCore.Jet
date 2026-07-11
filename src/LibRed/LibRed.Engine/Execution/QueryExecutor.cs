@@ -55,7 +55,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     object? IScalarSubqueryRunner.ExecuteScalar(SelectStatement query, EvalScope outerScope)
     {
-        var (_, rows) = Execute(SubqueryPlan(query), outerScope);
+        var (_, rows) = Execute(SubqueryPlan(query, outerScope), outerScope);
         foreach (object?[] row in rows)
             return row.Length > 0 ? row[0] : null;
         return null; // no rows → NULL
@@ -63,24 +63,30 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     bool IScalarSubqueryRunner.ExecuteExists(SelectStatement query, EvalScope outerScope)
     {
-        var (_, rows) = Execute(SubqueryPlan(query), outerScope);
+        var (_, rows) = Execute(SubqueryPlan(query, outerScope), outerScope);
         return rows.Any();
     }
 
     IEnumerable<object?> IScalarSubqueryRunner.ExecuteColumn(SelectStatement query, EvalScope outerScope)
     {
-        var (_, rows) = Execute(SubqueryPlan(query), outerScope);
+        var (_, rows) = Execute(SubqueryPlan(query, outerScope), outerScope);
         // Materialize: the outer scope is reused across the enclosing row loop, so don't defer.
         return rows.Select(r => r.Length > 0 ? r[0] : null).ToList();
     }
 
     /// <summary>The optimised plan for a subquery, planned once and cached: index selection (index seeks, hash
-    /// joins) is applied just like a top-level query — a correlated subquery runs per outer row, so an
-    /// unoptimised nested-loop plan re-run thousands of times is what made correlated EXISTS/scalar pathological.</summary>
-    private PlanNode SubqueryPlan(SelectStatement query)
+    /// joins) is applied just like a top-level query, and the outer query's aliases are passed so a correlated
+    /// predicate (<c>inner.col = outer.col</c>) becomes an index seek keyed off the outer row — a correlated
+    /// subquery runs per outer row, so an unoptimised plan re-run thousands of times is what made correlated
+    /// EXISTS/scalar pathological.</summary>
+    private PlanNode SubqueryPlan(SelectStatement query, EvalScope outerScope)
     {
         if (!_subqueryPlans.TryGetValue(query, out PlanNode? plan))
-            _subqueryPlans[query] = plan = Planning.IndexSelection.Apply(QueryPlanner.PlanSelect(query), _database.Catalog);
+        {
+            var outerAliases = outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase);
+            _subqueryPlans[query] = plan =
+                Planning.IndexSelection.Apply(QueryPlanner.PlanSelect(query), _database.Catalog, outerAliases);
+        }
         return plan;
     }
 

@@ -63,6 +63,18 @@ internal sealed class EvalScope(
     }
 
     internal static string Describe(ColumnReference r) => r.Table is null ? r.Column : $"{r.Table}.{r.Column}";
+
+    /// <summary>Every table alias visible in this scope and its enclosing scopes — so index selection on a
+    /// correlated subquery knows which column references belong to the outer query (and are seekable constants).</summary>
+    public IEnumerable<string> VisibleAliases()
+    {
+        foreach (OutputColumn c in schema)
+            if (c.Qualifier is { } q)
+                yield return q;
+        if (outer is not null)
+            foreach (string a in outer.VisibleAliases())
+                yield return a;
+    }
 }
 
 /// <summary>Executes a subquery, correlating it to <paramref name="outerScope"/>.</summary>

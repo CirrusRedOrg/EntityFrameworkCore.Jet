@@ -13,46 +13,64 @@ namespace LibRed.Engine.Planning;
 /// </summary>
 internal static class IndexSelection
 {
-    public static PlanNode Apply(PlanNode node, JetCatalog catalog) => node switch
+    private static readonly HashSet<string> NoOuter = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <param name="outer">Aliases of the enclosing query (empty at top level). A value referencing only these
+    /// is a constant from this query's view, so a correlated predicate <c>t.col = outer.col</c> becomes an
+    /// index seek keyed off the outer row — the point of running index selection on correlated subqueries.</param>
+    public static PlanNode Apply(PlanNode node, JetCatalog catalog, HashSet<string>? outer = null)
     {
-        FilterNode { Input: ScanNode scan } filter => RewriteFilterOverScan(filter, scan, catalog),
-        JoinNode j => RewriteJoin(j, catalog),
+        outer ??= NoOuter;
+        return node switch
+        {
+            FilterNode { Input: ScanNode scan } filter => RewriteFilterOverScan(filter, scan, catalog, outer),
+            JoinNode j => RewriteJoin(j, catalog, outer),
 
-        // Otherwise rebuild the node with its children rewritten.
-        FilterNode f => f with { Input = Apply(f.Input, catalog) },
-        SortNode s => s with { Input = Apply(s.Input, catalog) },
-        ProjectNode p => p with { Input = Apply(p.Input, catalog) },
-        DistinctNode d => d with { Input = Apply(d.Input, catalog) },
-        DistinctRowNode dr => dr with { Input = Apply(dr.Input, catalog) },
-        LimitNode l => l with { Input = Apply(l.Input, catalog) },
-        AggregateNode a => a with { Input = Apply(a.Input, catalog) },
-        DerivedTableNode dt => dt with { Input = Apply(dt.Input, catalog) },
-        SetOperationNode so => so with { Left = Apply(so.Left, catalog), Right = Apply(so.Right, catalog) },
-        _ => node,
-    };
+            // Otherwise rebuild the node with its children rewritten.
+            FilterNode f => f with { Input = Apply(f.Input, catalog, outer) },
+            SortNode s => s with { Input = Apply(s.Input, catalog, outer) },
+            ProjectNode p => p with { Input = Apply(p.Input, catalog, outer) },
+            DistinctNode d => d with { Input = Apply(d.Input, catalog, outer) },
+            DistinctRowNode dr => dr with { Input = Apply(dr.Input, catalog, outer) },
+            LimitNode l => l with { Input = Apply(l.Input, catalog, outer) },
+            AggregateNode a => a with { Input = Apply(a.Input, catalog, outer) },
+            DerivedTableNode dt => dt with { Input = Apply(dt.Input, catalog, outer) },
+            SetOperationNode so => so with { Left = Apply(so.Left, catalog, outer), Right = Apply(so.Right, catalog, outer) },
+            _ => node,
+        };
+    }
 
-    private static PlanNode RewriteFilterOverScan(FilterNode filter, ScanNode scan, JetCatalog catalog)
+    private static PlanNode RewriteFilterOverScan(FilterNode filter, ScanNode scan, JetCatalog catalog, HashSet<string> outer)
     {
         if (catalog.FindTable(scan.Table) is not { } def)
             return filter;
         string alias = scan.Alias ?? scan.Table;
         var conjuncts = Conjuncts(filter.Predicate).ToList();
 
-        // 1. Equality on a single-column index → an exact point seek (the tightest access path).
+        // 1. Equality seek. Collect every `col = value` where col is a column of this scan and value is
+        //    evaluable without a row of it (a constant, a parameter, or — in a correlated subquery — an outer
+        //    column), then use the index (composite preferred) all of whose columns are so constrained. This is
+        //    an exact point seek; a fully-constrained composite key (e.g. a correlated PK match) hits one row.
+        var equalities = new Dictionary<string, Expression>(StringComparer.OrdinalIgnoreCase);
         foreach (Expression conjunct in conjuncts)
         {
             if (conjunct is not BinaryExpression { Operator: BinaryOperator.Equal } eq)
                 continue;
-
-            // One side must be a column of this scan; the other a value with no column references (a constant
-            // or a parameter) so it can be evaluated to seek. (Correlated keys — the join case — are elsewhere.)
             (ColumnReference col, Expression value)? match =
-                Column(eq.Left, alias, def) is { } c1 && !HasColumnRef(eq.Right) ? (c1, eq.Right)
-                : Column(eq.Right, alias, def) is { } c2 && !HasColumnRef(eq.Left) ? (c2, eq.Left)
+                Column(eq.Left, alias, def) is { } c1 && Seekable(eq.Right, outer) ? (c1, eq.Right)
+                : Column(eq.Right, alias, def) is { } c2 && Seekable(eq.Left, outer) ? (c2, eq.Left)
                 : null;
-            if (match is { } m && SingleColumnIndex(def, m.col.Column) is { } index)
-                return filter with { Input = new IndexSeekNode(scan.Table, scan.Alias, index, [m.value]) };
+            if (match is { } m)
+                equalities.TryAdd(m.col.Column, m.value);
         }
+        if (equalities.Count > 0)
+            // Most columns first, so a correlated composite PK match is preferred over a single-column index.
+            foreach (IndexDef index in def.Indexes.OrderByDescending(i => i.Columns.Count))
+                if (index.Columns.All(c => equalities.ContainsKey(c.Column.Name)))
+                {
+                    var keys = index.Columns.Select(c => equalities[c.Column.Name]).ToList();
+                    return filter with { Input = new IndexSeekNode(scan.Table, scan.Alias, index, keys) };
+                }
 
         // 2. Range comparison(s) on a single-column index → a range scan (lower and/or upper bound).
         foreach (IndexDef index in def.Indexes.Where(i => i.Columns.Count == 1))
@@ -75,9 +93,9 @@ internal static class IndexSelection
         return filter;
     }
 
-    /// <summary>The index whose sole column is <paramref name="colName"/>, or null.</summary>
-    private static IndexDef? SingleColumnIndex(TableDef def, string colName) => def.Indexes.FirstOrDefault(
-        i => i.Columns.Count == 1 && string.Equals(i.Columns[0].Column.Name, colName, StringComparison.OrdinalIgnoreCase));
+    /// <summary>Whether <paramref name="e"/> can be evaluated as a seek key without a row of the table being
+    /// scanned — a constant, a parameter, or a column of the enclosing (outer) query in a correlated subquery.</summary>
+    private static bool Seekable(Expression e, HashSet<string> outer) => ReferencesOnly(e, outer);
 
     /// <summary>If <paramref name="conjunct"/> is a range comparison of column <paramref name="colName"/> against
     /// a value (either orientation), returns the operator as if the column were on the left (so <c>5 &lt; K</c>
@@ -111,9 +129,9 @@ internal static class IndexSelection
     /// inner scan becomes an <see cref="IndexSeekNode"/> keyed off the outer row. Executed per left row, it
     /// seeks the index instead of scanning the whole inner table. The join keeps its ON as the residual check.
     /// </summary>
-    private static PlanNode RewriteJoin(JoinNode j, JetCatalog catalog)
+    private static PlanNode RewriteJoin(JoinNode j, JetCatalog catalog, HashSet<string> outer)
     {
-        PlanNode left = Apply(j.Left, catalog); // rewrite the outer side first (independent of this join)
+        PlanNode left = Apply(j.Left, catalog, outer); // rewrite the outer side first (independent of this join)
 
         // Only a plain nested-loop join with an ON can become index-nested-loop; an outer join is left alone
         // for now (the right side must still contribute null rows when nothing matches — a scan, not a seek).
@@ -121,7 +139,8 @@ internal static class IndexSelection
             && j.Right is ScanNode scan && catalog.FindTable(scan.Table) is { } def)
         {
             string rAlias = scan.Alias ?? scan.Table;
-            HashSet<string> leftAliases = QueryPlanner.SubtreeAliases(left);
+            // The seek key may reference the join's own left side or the enclosing (outer) query.
+            HashSet<string> keySources = QueryPlanner.SubtreeAliases(left).Union(outer).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
             foreach (Expression conjunct in Conjuncts(on))
             {
@@ -130,8 +149,8 @@ internal static class IndexSelection
 
                 // One side is an inner-table column; the other references only the outer side (the seek key).
                 (ColumnReference innerCol, Expression outerKey)? m =
-                    Column(eq.Left, rAlias, def) is { } c1 && ReferencesOnly(eq.Right, leftAliases) ? (c1, eq.Right)
-                    : Column(eq.Right, rAlias, def) is { } c2 && ReferencesOnly(eq.Left, leftAliases) ? (c2, eq.Left)
+                    Column(eq.Left, rAlias, def) is { } c1 && ReferencesOnly(eq.Right, keySources) ? (c1, eq.Right)
+                    : Column(eq.Right, rAlias, def) is { } c2 && ReferencesOnly(eq.Left, keySources) ? (c2, eq.Left)
                     : null;
                 if (m is not { } match)
                     continue;
@@ -146,7 +165,7 @@ internal static class IndexSelection
             }
         }
 
-        PlanNode right = Apply(j.Right, catalog);
+        PlanNode right = Apply(j.Right, catalog, outer);
 
         // No index-nested-loop available: if this is an equi-join whose keys are same-kind columns, hash it
         // (O(n+m)) instead of leaving the O(n·m) nested loop. See HashJoinNode for why same-kind is required.

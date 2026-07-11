@@ -21,10 +21,8 @@ public class JoinedUpdateDeleteTests
         e.ExecuteNonQuery("CREATE TABLE P (Id LONG PRIMARY KEY, Flag LONG)");
         e.ExecuteNonQuery("CREATE TABLE C (Id LONG PRIMARY KEY, Pid LONG, Amt LONG)");
         e.ExecuteNonQuery("CREATE INDEX IX_Pid ON C (Pid)");
-        e.ExecuteNonQuery("CREATE TABLE F (Id LONG PRIMARY KEY, N LONG)"); // all fixed-length columns
         for (int i = 0; i < 40; i++) e.ExecuteNonQuery($"INSERT INTO P (Id, Flag) VALUES ({i}, {i % 2})");
         for (int i = 0; i < 200; i++) e.ExecuteNonQuery($"INSERT INTO C (Id, Pid, Amt) VALUES ({i}, {i % 40}, {i})");
-        for (int i = 0; i < 20; i++) e.ExecuteNonQuery($"INSERT INTO F (Id, N) VALUES ({i}, {i})");
         return e;
     }
 
@@ -56,14 +54,18 @@ public class JoinedUpdateDeleteTests
     }
 
     [Fact]
-    public void Update_of_an_all_fixed_column_table_does_not_overflow()
+    public void Update_of_an_ace_authored_all_fixed_column_table_does_not_overflow()
     {
-        // Regression: re-encoding a row of a table with no variable-length columns used to throw
-        // OverflowException (negative inferred fixed-data length) on the UPDATE path.
+        // Regression: updating a row of an ACE-AUTHORED all-fixed-column table used to throw OverflowException.
+        // The trigger is specific to rows written by Access/ACE (some decode to a 0 variable-data offset →
+        // negative inferred fixed length); rows LibRed writes itself don't hit it, so this must update the real
+        // Order Details table (OrderID, ProductID, UnitPrice, Quantity, Discount — all fixed) from the copied,
+        // ACE-created Northwind, NOT a LibRed-created table.
         var e = Seeded();
-        int affected = e.ExecuteNonQuery("UPDATE F SET N = 99 WHERE Id = 5");
-        Assert.Equal(1, affected);
-        Assert.Equal(99L, Convert.ToInt64(e.ExecuteQuery("SELECT N FROM F WHERE Id = 5").Rows.Single()[0]!));
+        int affected = e.ExecuteNonQuery("UPDATE `Order Details` SET Quantity = 99 WHERE OrderID = 10248");
+        Assert.True(affected > 0);
+        Assert.Equal(affected, (int)Convert.ToInt64(
+            e.ExecuteQuery("SELECT COUNT(*) FROM `Order Details` WHERE OrderID = 10248 AND Quantity = 99").Rows.Single()[0]!));
     }
 
     [Fact]

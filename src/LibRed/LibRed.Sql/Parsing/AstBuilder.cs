@@ -38,9 +38,13 @@ internal sealed class AstBuilder
         if (ctx.insertStatement() is { } insert) return BuildInsert(insert);
         if (ctx.updateStatement() is { } update) return BuildUpdate(update);
         if (ctx.deleteStatement() is { } delete) return BuildDelete(delete);
+        if (ctx.executeStatement() is { } exec) return BuildExecute(exec);
         if (ctx.systemVariableSelect() is { } sysSelect) return BuildSystemVariableSelect(sysSelect);
         return BuildQueryExpression(ctx.queryExpression());
     }
+
+    private ExecuteStatement BuildExecute(ExecuteStatementContext ctx) =>
+        new(Identifier(ctx.name), ctx.expression().Select(BuildExpression).ToList());
 
     private static SqlStatement BuildDrop(DropStatementContext ctx) => ctx switch
     {

@@ -34,7 +34,9 @@ public sealed class QueryEngine
 
     public ResultSet ExecuteQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
-        SqlStatement ast = ViewExpander.Expand(_parser.ParseStatement(sql), _database.Catalog.Views, _parser);
+        SqlStatement parsed = _parser.ParseStatement(sql);
+        if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters).Rows;
+        SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog.Views, _parser);
         BoundStatement bound = _binder.Bind(ast);
         var executor = new QueryExecutor(_database, parameters, _session);
         return bound.Statement is SystemVariableSelectStatement sysSelect
@@ -67,7 +69,9 @@ public sealed class QueryEngine
     /// </summary>
     public CommandResult Execute(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
-        SqlStatement ast = ViewExpander.Expand(_parser.ParseStatement(sql), _database.Catalog.Views, _parser);
+        SqlStatement parsed = _parser.ParseStatement(sql);
+        if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters);
+        SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog.Views, _parser);
         BoundStatement bound = _binder.Bind(ast);
 
         if (bound.Statement is SystemVariableSelectStatement sysSelect)
@@ -84,6 +88,45 @@ public sealed class QueryEngine
 
         int affected = new StatementExecutor(_database, parameters, _parser, _session).Execute(bound.Statement);
         return new CommandResult(ResultSet.Empty, affected);
+    }
+
+    /// <summary>
+    /// Runs an <c>EXECUTE|EXEC procedure arg, …</c>: resolves the stored procedure/query by name, binds the
+    /// positional argument values to its declared parameters (in declaration order), and runs it — a stored
+    /// SELECT returns its rows, a stored action query (INSERT/DDL) returns its rows-affected count.
+    /// </summary>
+    private CommandResult ExecuteProcedure(ExecuteStatement exec, IReadOnlyDictionary<string, object?>? parameters)
+    {
+        JetCatalog catalog = _database.Catalog;
+
+        // Evaluate the positional arguments (literals, or @params from the caller's command).
+        var executor = new QueryExecutor(_database, parameters, _session);
+        var evaluator = new ExpressionEvaluator(new EvalScope([], [], null), executor,
+            new ParameterBag(parameters), _session);
+        var argValues = exec.Arguments.Select(evaluator.Evaluate).ToList();
+
+        IReadOnlyList<string> paramNames = catalog.QueryParameters.TryGetValue(exec.Procedure, out var ns)
+            ? ns : [];
+        if (argValues.Count != paramNames.Count)
+            throw new InvalidOperationException(
+                $"Procedure '{exec.Procedure}' declares {paramNames.Count} parameter(s) but was executed with {argValues.Count} argument(s).");
+
+        var args = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < paramNames.Count; i++) args[paramNames[i]] = argValues[i];
+
+        // A stored SELECT (with its PARAMETERS clause) → rows; a stored action query → rows-affected.
+        if (catalog.Views.TryGetValue(exec.Procedure, out string? viewSql))
+            return Execute(viewSql, args);
+
+        if (catalog.ActionQueries.TryGetValue(exec.Procedure, out StoredActionQuery? action))
+        {
+            if (action.Sql is null)
+                throw new NotSupportedException(
+                    action.UnsupportedReason ?? $"Stored query '{exec.Procedure}' cannot be executed by LibRed yet.");
+            return new CommandResult(ResultSet.Empty, ExecuteNonQuery(action.Sql, args));
+        }
+
+        throw new InvalidOperationException($"No stored procedure or query named '{exec.Procedure}'.");
     }
 }
 

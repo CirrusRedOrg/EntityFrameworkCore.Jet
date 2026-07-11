@@ -11,7 +11,11 @@
 grammar AccessSql;
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
-statement : parametersClause? (createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
+statement : parametersClause? (createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | executeStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
+
+// EXECUTE|EXEC procedure [arg [, arg …]] — invoke a stored procedure/query by name with positional
+// argument values (Access syntax has no parentheses). The args bind to the procedure's declared parameters.
+executeStatement : (EXECUTE | EXEC) name=identifier (expression (COMMA expression)*)? ;
 
 // UPDATE table SET col = expr, … [WHERE criteria]. The WHERE criteria is an ordinary expression, the same
 // as a SELECT's; each SET value expression may reference the row's current column values.
@@ -366,6 +370,8 @@ CHECK      : [Cc][Hh][Ee][Cc][Kk] ;
 VIEW       : [Vv][Ii][Ee][Ww] ;
 PROCEDURE  : [Pp][Rr][Oo][Cc][Ee][Dd][Uu][Rr][Ee] ;
 PARAMETERS : [Pp][Aa][Rr][Aa][Mm][Ee][Tt][Ee][Rr][Ss] ;
+EXECUTE    : [Ee][Xx][Ee][Cc][Uu][Tt][Ee] ;
+EXEC       : [Ee][Xx][Ee][Cc] ;
 ASC    : [Aa][Ss][Cc] ;
 DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;

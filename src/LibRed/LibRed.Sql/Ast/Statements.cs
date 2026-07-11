@@ -21,6 +21,10 @@ public sealed record SelectStatement(
     // TOP n PERCENT: Top is a percentage (0–100) of the row count rather than an absolute count.
     bool TopPercent = false) : SqlStatement;
 
+/// <summary><c>EXECUTE|EXEC procedure [arg, …]</c> — invokes a stored procedure/query by name, passing
+/// positional argument values that bind to its declared parameters (in declaration order).</summary>
+public sealed record ExecuteStatement(string Procedure, IReadOnlyList<Expression> Arguments) : SqlStatement;
+
 /// <summary>A FROM-less <c>SELECT @@IDENTITY</c> / <c>SELECT @@ROWCOUNT</c> (a comma list of system
 /// variables only). ACE allows these without a FROM clause; they yield a single row. The projection
 /// items' <see cref="SelectItem.Value"/> are all <see cref="SystemVariableExpression"/>.</summary>

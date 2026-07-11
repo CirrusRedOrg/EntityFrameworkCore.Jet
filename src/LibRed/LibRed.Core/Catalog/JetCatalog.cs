@@ -40,6 +40,7 @@ public sealed class JetCatalog(PageChannel channel)
     private List<ForeignKey>? _relationships;
     private Dictionary<string, string>? _views;
     private Dictionary<string, StoredActionQuery>? _actionQueries;
+    private Dictionary<string, IReadOnlyList<string>>? _queryParameters;
 
     /// <summary>All tables in the database (user and system).</summary>
     public IReadOnlyList<TableDef> Tables => _tables ??= LoadTables();
@@ -53,6 +54,11 @@ public sealed class JetCatalog(PageChannel channel)
     /// (INSERT … SELECT, etc.) carries only a reason and throws when LibRed is asked to execute it.</summary>
     public IReadOnlyDictionary<string, StoredActionQuery> ActionQueries { get { EnsureStoredQueries(); return _actionQueries!; } }
 
+    /// <summary>A stored query's declared parameter names in declaration order (its <c>Attribute=2</c> rows).
+    /// Used to bind an <c>EXECUTE proc a, b</c>'s positional arguments to the procedure's named parameters.
+    /// Empty for a query with no parameters.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> QueryParameters { get { EnsureStoredQueries(); return _queryParameters!; } }
+
     /// <summary>Drops the cached catalog so a freshly created table is picked up on next read.</summary>
     public void Invalidate()
     {
@@ -60,6 +66,7 @@ public sealed class JetCatalog(PageChannel channel)
         _relationships = null;
         _views = null;
         _actionQueries = null;
+        _queryParameters = null;
     }
 
     /// <summary>All relationships (foreign keys) defined in the database.</summary>
@@ -184,6 +191,7 @@ public sealed class JetCatalog(PageChannel channel)
         if (_views is not null) return;
         _views = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         _actionQueries = new Dictionary<string, StoredActionQuery>(StringComparer.OrdinalIgnoreCase);
+        _queryParameters = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
 
         TableDef? mqDef = FindTable("MSysQueries");
         TableDef? objDef = FindTable("MSysObjects");
@@ -212,6 +220,13 @@ public sealed class JetCatalog(PageChannel channel)
                 _actionQueries[name] = ReconstructAction(rows, attr, expr, flag, n1, n2, order);
             else if (Reconstruct(rows, attr, expr, flag, n1, n2, order) is { } sql)
                 _views[name] = sql;
+
+            // The declared parameters (Attribute=2 rows), in declaration order, for EXECUTE positional binding.
+            var paramNames = rows.Where(r => r[attr] is byte b && b == QueryAttrParameter)
+                .OrderBy(r => r[order] is byte[] ob && ob.Length >= 4
+                    ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(ob) : 0)
+                .Select(r => r[n1] as string).Where(s => s is not null).Select(s => s!).ToList();
+            if (paramNames.Count > 0) _queryParameters[name] = paramNames;
         }
     }
 

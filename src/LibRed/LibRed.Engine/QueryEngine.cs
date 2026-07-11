@@ -1,5 +1,6 @@
 using LibRed.Catalog;
 using LibRed.Engine.Execution;
+using LibRed.Engine.Plan;
 using LibRed.Engine.Planning;
 using LibRed.Sql.Ast;
 using LibRed.Sql.Binding;
@@ -41,7 +42,7 @@ public sealed class QueryEngine
         var executor = new QueryExecutor(_database, parameters, _session);
         return bound.Statement is SystemVariableSelectStatement sysSelect
             ? executor.ExecuteSystemVariableSelect(sysSelect)
-            : executor.ExecuteQuery(_planner.Plan(bound));
+            : executor.ExecuteQuery(PlanWithIndexes(bound));
     }
 
     public int ExecuteNonQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
@@ -82,13 +83,18 @@ public sealed class QueryEngine
 
         if (bound.Statement is SelectStatement or SetOperationStatement)
         {
-            ResultSet rows = new QueryExecutor(_database, parameters, _session).ExecuteQuery(_planner.Plan(bound));
+            ResultSet rows = new QueryExecutor(_database, parameters, _session).ExecuteQuery(PlanWithIndexes(bound));
             return new CommandResult(rows, RecordsAffected: -1);
         }
 
         int affected = new StatementExecutor(_database, parameters, _parser, _session).Execute(bound.Statement);
         return new CommandResult(ResultSet.Empty, affected);
     }
+
+    /// <summary>Plans a bound statement, then applies index selection (turning scans into index seeks where a
+    /// predicate allows).</summary>
+    private PlanNode PlanWithIndexes(BoundStatement bound) =>
+        IndexSelection.Apply(_planner.Plan(bound), _database.Catalog);
 
     /// <summary>
     /// Runs an <c>EXECUTE|EXEC procedure arg, …</c>: resolves the stored procedure/query by name, binds the

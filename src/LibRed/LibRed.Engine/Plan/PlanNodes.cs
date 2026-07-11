@@ -1,9 +1,19 @@
+using LibRed.Catalog;
 using LibRed.Sql.Ast;
 
 namespace LibRed.Engine.Plan;
 
 /// <summary>Full-table scan of a base table, exposing its columns under <paramref name="Alias"/>.</summary>
 public sealed record ScanNode(string Table, string? Alias) : PlanNode;
+
+/// <summary>
+/// An index seek: reads the rows of <paramref name="Table"/> whose <paramref name="Index"/> key equals the
+/// evaluated <paramref name="Keys"/> (one per index column, in index order), instead of a full scan. Exposes
+/// the same columns as a scan of the table. The seek is an access path that may over-return (the key encoding
+/// is lossy for text/binary), so the residual predicate is re-checked by the <see cref="FilterNode"/> above.
+/// A key may reference an outer row (index-nested-loop join).
+/// </summary>
+public sealed record IndexSeekNode(string Table, string? Alias, IndexDef Index, IReadOnlyList<Expression> Keys) : PlanNode;
 
 /// <summary>A derived table: the output of <paramref name="Input"/> re-exposed under an alias. The alias
 /// is optional (Access permits an aliasless derived table); its columns are then unqualified.</summary>

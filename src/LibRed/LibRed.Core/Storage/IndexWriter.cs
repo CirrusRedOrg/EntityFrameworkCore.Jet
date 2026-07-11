@@ -76,6 +76,33 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     }
 
     /// <summary>
+    /// Seeks the index for the rows whose key equals <paramref name="values"/> (an equality lookup): descends
+    /// the B-tree to the leaf where the key belongs, then walks the leaf chain yielding matching row ids until
+    /// a larger key is reached. O(log n) descent + O(matches), versus a full table scan.
+    /// </summary>
+    /// <remarks>
+    /// The key encoding is order-preserving but <b>lossy</b> for text/binary collation, so distinct values can
+    /// share a key — the seek is an access path that may over-return; the caller re-applies the real predicate.
+    /// </remarks>
+    public IEnumerable<RowId> Seek(IndexDef index, object?[] values)
+    {
+        byte[] key = IndexKeyEncoder.Encode(index.Columns, values);
+        int leaf = Descend(index.RootPage, WithTrailer(key, 0))[^1];
+        while (leaf != 0)
+        {
+            byte[] page = _channel.ReadPage(leaf).Span.ToArray();
+            (List<Entry> entries, _) = Parse(page);
+            foreach (Entry e in entries)
+            {
+                int cmp = CompareBytes(e.Key, key);
+                if (cmp > 0) yield break;                 // sorted past the key — no more matches
+                if (cmp == 0) yield return new RowId(e.Trailer >> 8, e.Trailer & 0xFF);
+            }
+            leaf = ReadInt32Le(page, NextPageOffset);     // matches may continue on the next leaf
+        }
+    }
+
+    /// <summary>
     /// Moves a row's entry when its key changes: removes the old-key entry and inserts the new-key one (the
     /// row id is unchanged — Access rewrites rows in place). Honours WITH IGNORE NULL on each side (a row with
     /// a null key is simply absent from the index). Used by UPDATE of an indexed column.

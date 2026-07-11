@@ -25,6 +25,37 @@ public sealed class Table
     /// <summary>Returns a forward-only cursor over all rows in the table.</summary>
     public TableCursor Rows() => new(this);
 
+    /// <summary>Decodes the row at <paramref name="id"/> (following an overflow forward-pointer to a
+    /// relocated row), or <see langword="null"/> if the slot is empty/deleted. Used by an index seek, which
+    /// yields row ids.</summary>
+    public object?[]? GetRow(RowId id)
+    {
+        var page = new Pages.DataPage();
+        page.Read(Channel.ReadPage(id.Page), Channel.Format);
+        if (id.Row >= page.RowCount) return null;
+        Pages.RowSlot slot = page.Rows[id.Row];
+
+        var decoder = new RowDecoder(Definition.Columns, Channel.Format, new LongValueReader(Channel));
+        if (slot.HasOverflow)
+        {
+            int pointer = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(page.GetRow(id.Row));
+            var target = new Pages.DataPage();
+            target.Read(Channel.ReadPage(pointer >> 8), Channel.Format);
+            return decoder.Decode(target.GetRow(pointer & 0xFF));
+        }
+        return slot.IsDeleted ? null : decoder.Decode(page.GetRow(id.Row));
+    }
+
+    /// <summary>Yields the rows whose <paramref name="index"/> key equals <paramref name="values"/> — an index
+    /// seek (equality) instead of a full scan. May over-return (lossy text/binary keys); the caller re-checks
+    /// the predicate.</summary>
+    public IEnumerable<object?[]> SeekRows(IndexDef index, object?[] values)
+    {
+        foreach (RowId id in new IndexWriter(Channel, Definition).Seek(index, values))
+            if (GetRow(id) is { } row)
+                yield return row;
+    }
+
     /// <summary>Inserts a row (values aligned to column <see cref="ColumnDef.Index"/>) into the table.</summary>
     public void Insert(object?[] values) => new RowInserter(Channel, Definition).Insert(values);
 

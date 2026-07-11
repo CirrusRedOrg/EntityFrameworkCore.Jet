@@ -82,6 +82,22 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return (columns, table.Rows());
             }
 
+            case IndexSeekNode seek:
+            {
+                var table = _database.OpenTable(seek.Table);
+                string alias = seek.Alias ?? seek.Table;
+                var columns = table.Definition.Columns.Select(c => new OutputColumn(alias, c.Name)).ToList();
+
+                // Evaluate the key(s) in the outer scope (so an index-nested-loop join can key off the outer
+                // row); a single-table seek's key is a constant/parameter.
+                var evaluator = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
+                var keyValues = new object?[table.Definition.Columns.Count];
+                for (int i = 0; i < seek.Keys.Count; i++)
+                    keyValues[seek.Index.Columns[i].Column.Index] = evaluator.Evaluate(seek.Keys[i]);
+
+                return (columns, table.SeekRows(seek.Index, keyValues));
+            }
+
             case DerivedTableNode derived:
             {
                 var (inner, rows) = Execute(derived.Input, outer);

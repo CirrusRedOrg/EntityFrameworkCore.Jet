@@ -293,14 +293,49 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteJoin(JoinNode join, EvalScope? outer)
     {
         var (leftColumns, leftRows) = Execute(join.Left, outer);
+        Expression? on = join.On; // null for a CROSS join (cartesian product)
+        bool leftOuter = join.Kind == JoinKind.Left;
+
+        // Index-nested-loop: the right side is a *correlated* index seek (keyed off the outer row). Re-execute
+        // it per left row — seeking the inner index — instead of materialising and scanning the whole inner
+        // table. IndexSelection produces this for a join whose ON is an equality on an indexed inner column.
+        if (join.Right is IndexSeekNode seek)
+        {
+            var innerTable = _database.OpenTable(seek.Table);
+            string innerAlias = seek.Alias ?? seek.Table;
+            var seekColumns = innerTable.Definition.Columns.Select(c => new OutputColumn(innerAlias, c.Name)).ToList();
+            var joinColumns = leftColumns.Concat(seekColumns).ToList();
+
+            IEnumerable<object?[]> SeekRows()
+            {
+                foreach (object?[] left in leftRows)
+                {
+                    var leftScope = new EvalScope(leftColumns, left, outer);
+                    (_, IEnumerable<object?[]> matches) = Execute(join.Right, leftScope); // seek by this left row
+                    bool matched = false;
+                    foreach (object?[] right in matches)
+                    {
+                        object?[] combined = [.. left, .. right];
+                        if (on is null || Eval(joinColumns, combined, outer).IsTrue(on))
+                        {
+                            matched = true;
+                            yield return combined;
+                        }
+                    }
+                    if (leftOuter && !matched)
+                        yield return [.. left, .. new object?[seekColumns.Count]];
+                }
+            }
+
+            return (joinColumns, SeekRows());
+        }
+
         var (rightColumns, rightRowsEnum) = Execute(join.Right, outer);
 
         var columns = leftColumns.Concat(rightColumns).ToList();
         var rightRows = rightRowsEnum.ToList(); // re-iterated per left row
-        Expression? on = join.On; // null for a CROSS join (cartesian product)
         if (on is null && join.Kind != JoinKind.Cross)
             throw new NotSupportedException("Joins require an ON condition.");
-        bool leftOuter = join.Kind == JoinKind.Left;
 
         IEnumerable<object?[]> Rows()
         {

@@ -127,9 +127,10 @@ public sealed class QueryPlanner
 
     /// <summary>The table aliases (or names) exposed by a plan subtree — a scan's alias/name, or the union
     /// over a join. A derived table exposes only its own alias (its inner columns are already projected).</summary>
-    private static HashSet<string> SubtreeAliases(PlanNode node) => node switch
+    internal static HashSet<string> SubtreeAliases(PlanNode node) => node switch
     {
         ScanNode s => new(StringComparer.OrdinalIgnoreCase) { s.Alias ?? s.Table },
+        IndexSeekNode s => new(StringComparer.OrdinalIgnoreCase) { s.Alias ?? s.Table },
         DerivedTableNode d => d.Alias is { } a ? new(StringComparer.OrdinalIgnoreCase) { a } : new(StringComparer.OrdinalIgnoreCase),
         JoinNode j => SubtreeAliases(j.Left).Union(SubtreeAliases(j.Right)).ToHashSet(StringComparer.OrdinalIgnoreCase),
         FilterNode f => SubtreeAliases(f.Input),

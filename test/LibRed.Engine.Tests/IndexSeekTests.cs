@@ -57,4 +57,45 @@ public class IndexSeekTests
     [Fact]
     public void No_match_returns_empty()
         => Assert.Equal(0, Count(Seeded(), "SELECT Id FROM B WHERE Id = 99999"));
+
+    // --- index-nested-loop join: the inner side is seeked per outer row, not scanned ---
+    private static QueryEngine TwoTables()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"nlj-{Guid.NewGuid():N}.accdb");
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        e.ExecuteNonQuery("CREATE TABLE P (Id LONG PRIMARY KEY, Nm TEXT(20))");
+        e.ExecuteNonQuery("CREATE TABLE C (Id LONG PRIMARY KEY, Pid LONG, Amt LONG)");
+        e.ExecuteNonQuery("CREATE INDEX IX_Pid ON C (Pid)");
+        for (int i = 0; i < 100; i++) e.ExecuteNonQuery($"INSERT INTO P (Id, Nm) VALUES ({i}, 'p{i}')");
+        for (int i = 0; i < 500; i++) e.ExecuteNonQuery($"INSERT INTO C (Id, Pid, Amt) VALUES ({i}, {i % 100}, {i})");
+        return e;
+    }
+
+    [Fact]
+    public void Index_nested_loop_join_matches_a_scan_join()
+    {
+        // C.Pid is indexed → the inner (C) is seeked per P row. Each P has 5 children (500/100).
+        var e = TwoTables();
+        Assert.Equal(500, Count(e, "SELECT P.Nm, C.Amt FROM P INNER JOIN C ON P.Id = C.Pid"));
+        Assert.Equal(5, Count(e, "SELECT C.Amt FROM P INNER JOIN C ON P.Id = C.Pid WHERE P.Id = 7"));
+    }
+
+    [Fact]
+    public void Index_nested_loop_join_honours_a_residual_on_condition()
+    {
+        // The join seeks C by Pid, then the extra ON conjunct (C.Amt > 200) is the residual check.
+        var e = TwoTables();
+        int viaJoin = Count(e, "SELECT C.Amt FROM P INNER JOIN C ON P.Id = C.Pid AND C.Amt > 200");
+        int viaScan = Count(e, "SELECT Amt FROM C WHERE Amt > 200"); // every C has a P, so equivalent
+        Assert.Equal(viaScan, viaJoin);
+    }
+
+    [Fact]
+    public void Join_on_an_unindexed_inner_column_still_works()
+    {
+        // Joining on C.Amt (no index) falls back to the scan-based nested loop — must still be correct.
+        var e = TwoTables();
+        Assert.Equal(1, Count(e, "SELECT P.Nm FROM P INNER JOIN C ON P.Id = C.Amt WHERE C.Amt = 50"));
+    }
 }

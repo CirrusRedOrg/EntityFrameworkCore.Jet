@@ -16,10 +16,10 @@ internal static class IndexSelection
     public static PlanNode Apply(PlanNode node, JetCatalog catalog) => node switch
     {
         FilterNode { Input: ScanNode scan } filter => RewriteFilterOverScan(filter, scan, catalog),
+        JoinNode j => RewriteJoin(j, catalog),
 
         // Otherwise rebuild the node with its children rewritten.
         FilterNode f => f with { Input = Apply(f.Input, catalog) },
-        JoinNode j => j with { Left = Apply(j.Left, catalog), Right = Apply(j.Right, catalog) },
         SortNode s => s with { Input = Apply(s.Input, catalog) },
         ProjectNode p => p with { Input = Apply(p.Input, catalog) },
         DistinctNode d => d with { Input = Apply(d.Input, catalog) },
@@ -63,6 +63,65 @@ internal static class IndexSelection
 
         return filter;
     }
+
+    /// <summary>
+    /// Turns a nested-loop join whose inner (right) side is a base-table scan into an <b>index-nested-loop</b>
+    /// join: if the join's ON has an equality <c>right.col = leftExpr</c> where <c>right.col</c> is the sole
+    /// column of an index of the inner table and <c>leftExpr</c> references only the outer (left) side, the
+    /// inner scan becomes an <see cref="IndexSeekNode"/> keyed off the outer row. Executed per left row, it
+    /// seeks the index instead of scanning the whole inner table. The join keeps its ON as the residual check.
+    /// </summary>
+    private static PlanNode RewriteJoin(JoinNode j, JetCatalog catalog)
+    {
+        PlanNode left = Apply(j.Left, catalog); // rewrite the outer side first (independent of this join)
+
+        // Only a plain nested-loop join with an ON can become index-nested-loop; an outer join is left alone
+        // for now (the right side must still contribute null rows when nothing matches — a scan, not a seek).
+        if (j.Kind is (JoinKind.Inner or JoinKind.Cross) && j.On is { } on
+            && j.Right is ScanNode scan && catalog.FindTable(scan.Table) is { } def)
+        {
+            string rAlias = scan.Alias ?? scan.Table;
+            HashSet<string> leftAliases = QueryPlanner.SubtreeAliases(left);
+
+            foreach (Expression conjunct in Conjuncts(on))
+            {
+                if (conjunct is not BinaryExpression { Operator: BinaryOperator.Equal } eq)
+                    continue;
+
+                // One side is an inner-table column; the other references only the outer side (the seek key).
+                (ColumnReference innerCol, Expression outerKey)? m =
+                    Column(eq.Left, rAlias, def) is { } c1 && ReferencesOnly(eq.Right, leftAliases) ? (c1, eq.Right)
+                    : Column(eq.Right, rAlias, def) is { } c2 && ReferencesOnly(eq.Left, leftAliases) ? (c2, eq.Left)
+                    : null;
+                if (m is not { } match)
+                    continue;
+
+                IndexDef? index = def.Indexes.FirstOrDefault(
+                    i => i.Columns.Count == 1 && string.Equals(i.Columns[0].Column.Name, match.innerCol.Column, StringComparison.OrdinalIgnoreCase));
+                if (index is null)
+                    continue;
+
+                var seek = new IndexSeekNode(scan.Table, scan.Alias, index, [match.outerKey]);
+                return j with { Left = left, Right = seek }; // ON kept as residual
+            }
+        }
+
+        return j with { Left = left, Right = Apply(j.Right, catalog) };
+    }
+
+    /// <summary>Whether every column an expression references is one of the given aliases (and it has no
+    /// subquery) — i.e. it can be evaluated from the outer row alone, as an index-seek key.</summary>
+    private static bool ReferencesOnly(Expression e, HashSet<string> aliases) => e switch
+    {
+        ColumnReference { Table: { } t } => aliases.Contains(t),
+        ColumnReference => false, // unqualified — can't attribute it to the outer side safely
+        LiteralExpression or ParameterExpression or SystemVariableExpression => true,
+        BinaryExpression b => ReferencesOnly(b.Left, aliases) && ReferencesOnly(b.Right, aliases),
+        UnaryExpression u => ReferencesOnly(u.Operand, aliases),
+        FunctionCall f => f.Arguments.All(a => ReferencesOnly(a, aliases)),
+        InListExpression il => ReferencesOnly(il.Value, aliases) && il.Items.All(a => ReferencesOnly(a, aliases)),
+        _ => false,
+    };
 
     /// <summary>The column reference if <paramref name="e"/> is a column of the given scan (its qualifier is
     /// the scan's alias, or it is unqualified and the table has such a column), else null.</summary>

@@ -51,7 +51,8 @@ public partial class AccessSqlParser : Parser {
 		MINUS=82, AMP=83, EQ=84, NEQ=85, LTE=86, GTE=87, LT=88, GT=89, LPAREN=90, 
 		RPAREN=91, COMMA=92, DOT=93, SEMI=94, SYSVAR=95, PARAM=96, HEX_LITERAL=97, 
 		INTEGER_LITERAL=98, NUMBER_LITERAL=99, STRING_LITERAL=100, DATE_LITERAL=101, 
-		GUID_LITERAL=102, BRACKET_ID=103, BACKTICK_ID=104, IDENTIFIER=105, WS=106;
+		GUID_LITERAL=102, BRACKET_ID=103, BACKTICK_ID=104, IDENTIFIER=105, WS=106, 
+		LINE_COMMENT=107, BLOCK_COMMENT=108;
 	public const int
 		RULE_statement = 0, RULE_executeStatement = 1, RULE_updateStatement = 2, 
 		RULE_assignment = 3, RULE_deleteStatement = 4, RULE_systemVariableSelect = 5, 
@@ -111,7 +112,8 @@ public partial class AccessSqlParser : Parser {
 		"CARET", "PLUS", "MINUS", "AMP", "EQ", "NEQ", "LTE", "GTE", "LT", "GT", 
 		"LPAREN", "RPAREN", "COMMA", "DOT", "SEMI", "SYSVAR", "PARAM", "HEX_LITERAL", 
 		"INTEGER_LITERAL", "NUMBER_LITERAL", "STRING_LITERAL", "DATE_LITERAL", 
-		"GUID_LITERAL", "BRACKET_ID", "BACKTICK_ID", "IDENTIFIER", "WS"
+		"GUID_LITERAL", "BRACKET_ID", "BACKTICK_ID", "IDENTIFIER", "WS", "LINE_COMMENT", 
+		"BLOCK_COMMENT"
 	};
 	public static readonly IVocabulary DefaultVocabulary = new Vocabulary(_LiteralNames, _SymbolicNames);
 
@@ -3141,7 +3143,7 @@ public partial class AccessSqlParser : Parser {
 			State = 564;
 			ErrorHandler.Sync(this);
 			_la = TokenStream.LA(1);
-			while ((((_la) & ~0x3f) == 0 && ((1L << _la) & -2L) != 0) || ((((_la - 64)) & ~0x3f) == 0 && ((1L << (_la - 64)) & 8795958804479L) != 0)) {
+			while ((((_la) & ~0x3f) == 0 && ((1L << _la) & -2L) != 0) || ((((_la - 64)) & ~0x3f) == 0 && ((1L << (_la - 64)) & 35184237871103L) != 0)) {
 				{
 				State = 562;
 				ErrorHandler.Sync(this);
@@ -3250,6 +3252,8 @@ public partial class AccessSqlParser : Parser {
 				case BACKTICK_ID:
 				case IDENTIFIER:
 				case WS:
+				case LINE_COMMENT:
+				case BLOCK_COMMENT:
 					{
 					State = 557;
 					_la = TokenStream.LA(1);
@@ -6593,7 +6597,7 @@ public partial class AccessSqlParser : Parser {
 	}
 
 	private static int[] _serializedATN = {
-		4,1,106,939,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,
+		4,1,108,939,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,6,2,
 		7,7,7,2,8,7,8,2,9,7,9,2,10,7,10,2,11,7,11,2,12,7,12,2,13,7,13,2,14,7,14,
 		2,15,7,15,2,16,7,16,2,17,7,17,2,18,7,18,2,19,7,19,2,20,7,20,2,21,7,21,
 		2,22,7,22,2,23,7,23,2,24,7,24,2,25,7,25,2,26,7,26,2,27,7,27,2,28,7,28,

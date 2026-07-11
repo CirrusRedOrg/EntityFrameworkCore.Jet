@@ -424,3 +424,6 @@ BACKTICK_ID     : '`' ~[`]+ '`' ;
 IDENTIFIER      : [A-Za-z_][A-Za-z_0-9]* '$'? ;
 
 WS      : [ \t\r\n]+ -> skip ;
+// SQL comments — EF Core query tags prepend a `-- tag` line comment to the statement; also block comments.
+LINE_COMMENT  : '--' ~[\r\n]* -> skip ;
+BLOCK_COMMENT : '/*' .*? '*/' -> skip ;

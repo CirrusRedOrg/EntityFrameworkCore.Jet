@@ -1147,7 +1147,6 @@ WHERE `c`.`City` = 'Seattle'
         AssertExecuteUpdateSql(
             """
 @p='1'
-@p='1'
 
 UPDATE (`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)

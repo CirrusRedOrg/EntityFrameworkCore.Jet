@@ -79,6 +79,22 @@ public class JoinedUpdateDeleteTests
     }
 
     [Fact]
+    public void Right_join_with_a_derived_table_update()
+    {
+        // EF's Update_with_RightJoin shape: UPDATE target RIGHT JOIN (subquery) ON … SET … WHERE target.col < v.
+        // The right (preserved) side is a derived table; the left (target) is modelled as LEFT-joined onto it,
+        // and the WHERE on the target drops the unmatched (null-target) rows — so the result equals the inner join.
+        var e = Seeded();
+        int expected = Count(e,
+            "SELECT COUNT(*) FROM C INNER JOIN (SELECT Id FROM P WHERE Flag = 1) d ON C.Pid = d.Id WHERE C.Id < 50");
+        Assert.True(expected > 0);
+        int affected = e.ExecuteNonQuery(
+            "UPDATE C RIGHT JOIN (SELECT Id FROM P WHERE Flag = 1) d ON C.Pid = d.Id SET C.Amt = -1 WHERE C.Id < 50");
+        Assert.Equal(expected, affected);
+        Assert.Equal(expected, Count(e, "SELECT COUNT(*) FROM C WHERE Amt = -1"));
+    }
+
+    [Fact]
     public void Update_of_an_ace_authored_all_fixed_column_table_does_not_overflow()
     {
         // Regression: updating a row of an ACE-AUTHORED all-fixed-column table used to throw OverflowException.

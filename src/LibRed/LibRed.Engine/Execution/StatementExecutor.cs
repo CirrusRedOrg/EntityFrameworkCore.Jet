@@ -607,9 +607,12 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         return affected;
     }
 
-    /// <summary>A table participating in an UPDATE/DELETE source: its alias, the opened table, and its
-    /// columns as alias-qualified output columns (for the combined evaluation scope).</summary>
-    private sealed record SourceTable(string Alias, Table Table, IReadOnlyList<OutputColumn> Columns);
+    /// <summary>A table participating in an UPDATE/DELETE source: its alias, columns (alias-qualified, for the
+    /// combined evaluation scope), and its rows. A physical table exposes <see cref="Table"/> (rows have real
+    /// <see cref="RowId"/>s and can be a SET/DELETE target); a derived table (a subquery in the source) has
+    /// <see cref="Table"/> null and its already-materialised <see cref="DerivedRows"/> (never a target).</summary>
+    private sealed record SourceTable(string Alias, Table? Table, IReadOnlyList<OutputColumn> Columns,
+        IReadOnlyList<object?[]>? DerivedRows);
 
     /// <summary>Flattens the UPDATE/DELETE table source into its tables in order, each paired with the join that
     /// introduced it: its <see cref="JoinKind"/> and ON condition (the first/base table is Inner with a null ON).
@@ -620,11 +623,20 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         var kinds = new List<JoinKind>();
         var ons = new List<Expression?>();
 
-        void Emit(NamedTable n, JoinKind kind, Expression? on)
+        void EmitTable(NamedTable n, JoinKind kind, Expression? on)
         {
             Table t = _database.OpenTable(n.Name);
             string alias = n.Alias ?? n.Name;
-            tables.Add(new SourceTable(alias, t, t.Definition.Columns.Select(c => new OutputColumn(alias, c.Name)).ToList()));
+            tables.Add(new SourceTable(alias, t, t.Definition.Columns.Select(c => new OutputColumn(alias, c.Name)).ToList(), null));
+            kinds.Add(kind);
+            ons.Add(on);
+        }
+
+        void EmitDerived(SubqueryTable sq, JoinKind kind, Expression? on)
+        {
+            string alias = sq.Alias ?? throw new NotSupportedException("A derived table in an UPDATE/DELETE source requires an alias.");
+            var (columns, rows) = ExecuteDerivedSource(sq.Query, alias);
+            tables.Add(new SourceTable(alias, null, columns, rows));
             kinds.Add(kind);
             ons.Add(on);
         }
@@ -634,13 +646,23 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             switch (r)
             {
                 case NamedTable n:
-                    Emit(n, kind, on);
+                    EmitTable(n, kind, on);
                     break;
-                // Left-deep: the left subtree carries its own joins (its base table is the source's first table,
-                // Inner with no ON); the right side is the newly joined table, tagged with this join's kind/ON.
-                case JoinTable { Kind: JoinKind.Inner or JoinKind.Cross or JoinKind.Left, Right: NamedTable rn } j:
+                case SubqueryTable sq:
+                    EmitDerived(sq, kind, on);
+                    break;
+                // Left-deep: the left subtree carries its own joins (its base is the source's first table, Inner
+                // with no ON); the right side is the newly joined named/derived table, tagged with this join.
+                case JoinTable { Kind: JoinKind.Inner or JoinKind.Cross or JoinKind.Left, Right: NamedTable or SubqueryTable } j:
                     Walk(j.Left, JoinKind.Inner, null);
-                    Emit(rn, j.Kind, j.On);
+                    Walk(j.Right, j.Kind, j.On);
+                    break;
+                // RIGHT JOIN keeps the right side: model it as the right side preserved (the base) with the left
+                // side LEFT-joined onto it. The SET/DELETE target is usually that left side — which then becomes
+                // the nullable side, so a right row with no match yields a null target that the WHERE drops.
+                case JoinTable { Kind: JoinKind.Right, Left: NamedTable or SubqueryTable } j:
+                    Walk(j.Right, JoinKind.Inner, null);
+                    Walk(j.Left, JoinKind.Left, j.On);
                     break;
                 default:
                     throw new NotSupportedException($"UPDATE/DELETE over a {r.GetType().Name} source is not supported yet.");
@@ -649,6 +671,19 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         Walk(from, JoinKind.Inner, null);
         return (tables, kinds, ons);
+    }
+
+    /// <summary>Runs a derived-table subquery (uncorrelated — a FROM/JOIN source) through the full query
+    /// pipeline (index selection included) and materialises its rows, with columns qualified by the derived
+    /// table's alias for the combined evaluation scope.</summary>
+    private (List<OutputColumn> Columns, List<object?[]> Rows) ExecuteDerivedSource(SqlStatement query, string alias)
+    {
+        if (query is not SelectStatement select)
+            throw new NotSupportedException("Only a SELECT is supported as a derived table in an UPDATE/DELETE source.");
+        var plan = Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanSelect(select), _database.Catalog);
+        ResultSet result = _scalarRunner.ExecuteQuery(plan);
+        var columns = result.ColumnNames.Select(n => new OutputColumn(alias, n)).ToList();
+        return (columns, result.Rows.ToList());
     }
 
     /// <summary>
@@ -699,24 +734,32 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 return;
             }
 
+            // A derived table's rows are already materialised and have no RowId (never a target). A physical
+            // table is seeked when its ON allows (index-nested-loop), else scanned.
             IEnumerable<(RowId Id, object?[] Values)> rows;
-            if (seekPlan[i] is { } p)
+            if (tables[i].Table is null)
+            {
+                rows = tables[i].DerivedRows!.Select(v => (default(RowId), v));
+            }
+            else if (seekPlan[i] is { } p)
             {
                 var keyEval = new ExpressionEvaluator(new EvalScope(colsUpTo[i], Flatten(acc, i), null), _scalarRunner, _parameters, _session);
-                var keyValues = new object?[tables[i].Table.Definition.Columns.Count];
+                var keyValues = new object?[tables[i].Table!.Definition.Columns.Count];
                 keyValues[p.Index.Columns[0].Column.Index] = keyEval.Evaluate(p.Key);
-                rows = tables[i].Table.SeekRowsWithIds(p.Index, keyValues);
+                rows = tables[i].Table!.SeekRowsWithIds(p.Index, keyValues);
             }
             else
             {
-                rows = tables[i].Table.Rows().WithIds();
+                rows = tables[i].Table!.Rows().WithIds();
             }
 
             // The ON (also the seek's residual re-check — index keys can over-return) gates each candidate.
             bool matched = false;
             foreach ((RowId id, object?[] values) in rows)
             {
-                acc[i] = (id, Shared(tables[i].Alias, id, values));
+                // Share a physical row's array across the combos it appears in (counter-accumulation semantics);
+                // a derived row has no identity to share on, so use it directly.
+                acc[i] = tables[i].Table is null ? (id, values) : (id, Shared(tables[i].Alias, id, values));
                 if (Holds(ons[i], i + 1))
                 {
                     matched = true;
@@ -727,7 +770,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             // LEFT join: an outer row with no matching inner row is still emitted, with the inner side all-null.
             if (kinds[i] == JoinKind.Left && !matched)
             {
-                acc[i] = (default, new object?[tables[i].Table.Definition.Columns.Count]);
+                acc[i] = (default, new object?[tables[i].Columns.Count]);
                 Recurse(i + 1);
             }
         }
@@ -749,8 +792,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// expression (to seek it per outer row); else null (scan it).</summary>
     private static (IndexDef Index, Expression Key)? SeekPlanFor(int i, List<SourceTable> tables, Expression? on)
     {
-        if (on is null) return null;
-        TableDef def = tables[i].Table.Definition;
+        if (on is null || tables[i].Table is null) return null; // a derived table has no index to seek
+        TableDef def = tables[i].Table!.Definition;
         string alias = tables[i].Alias;
         HashSet<string> earlier = tables.Take(i).Select(t => t.Alias).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -802,9 +845,14 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 : throw new InvalidOperationException($"{what} must be table-qualified when the statement joins several tables.");
         int i = tables.FindIndex(t =>
             string.Equals(t.Alias, qualifier, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(t.Table.Name, qualifier, StringComparison.OrdinalIgnoreCase));
+            string.Equals(t.Table?.Name, qualifier, StringComparison.OrdinalIgnoreCase));
         return i >= 0 ? i : throw new InvalidOperationException($"{what} '{qualifier}' is not one of the statement's tables.");
     }
+
+    /// <summary>The physical <see cref="Table"/> a SET/DELETE targets — a derived table (subquery source) has no
+    /// rows to write back, so targeting one is rejected.</summary>
+    private static Table TargetTable(List<SourceTable> tables, int ti) =>
+        tables[ti].Table ?? throw new NotSupportedException($"Cannot UPDATE/DELETE the derived table '{tables[ti].Alias}'.");
 
     /// <summary>
     /// Executes UPDATE tableexpression SET col = expr, … [WHERE criteria]. The table expression may be a join,
@@ -822,20 +870,21 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         var targets = statement.Assignments.Select(a =>
         {
             int ti = TargetIndex(tables, a.Table, "UPDATE SET column");
-            ColumnDef col = tables[ti].Table.Definition.FindColumn(a.Column)
-                ?? throw new InvalidOperationException($"Column '{a.Column}' does not exist in '{tables[ti].Table.Name}'.");
+            Table tt = TargetTable(tables, ti);
+            ColumnDef col = tt.Definition.FindColumn(a.Column)
+                ?? throw new InvalidOperationException($"Column '{a.Column}' does not exist in '{tt.Name}'.");
             return (TableIndex: ti, Column: col, a.Value);
         }).ToList();
 
         // Apply SETs to the shared value arrays; snapshot each touched row's original bytes on first touch.
-        var dirty = new Dictionary<(string, RowId), (SourceTable Table, RowId Id, object?[] Original, object?[] Values)>();
+        var dirty = new Dictionary<(string, RowId), (Table Table, RowId Id, object?[] Original, object?[] Values)>();
         foreach (var combo in joinRows)
         {
             foreach ((int ti, ColumnDef col, Expression valueExpr) in targets)
             {
                 object?[] shared = combo[ti].Values;
                 var key = (tables[ti].Alias, combo[ti].Id);
-                if (!dirty.ContainsKey(key)) dirty[key] = (tables[ti], combo[ti].Id, (object?[])shared.Clone(), shared);
+                if (!dirty.ContainsKey(key)) dirty[key] = (TargetTable(tables, ti), combo[ti].Id, (object?[])shared.Clone(), shared);
 
                 object?[] flat = combo.SelectMany(c => c.Item2).ToArray();
                 var eval = new ExpressionEvaluator(new EvalScope(columns, flat, null), _scalarRunner, _parameters, _session);
@@ -851,32 +900,32 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             if (changed.Count == 0) continue; // unchanged after all
 
             // Child side: a changed FK column must still reference an existing parent (like an insert).
-            if (_database.Catalog.ForeignKeysOf(table.Table.Name).Any(f => f.IsEnforced &&
-                    f.Columns.Any(c => changed.Contains(table.Table.Definition.FindColumn(c.Column)!.Index))))
-                EnforceReferentialIntegrity(table.Table.Name, table.Table, values);
+            if (_database.Catalog.ForeignKeysOf(table.Name).Any(f => f.IsEnforced &&
+                    f.Columns.Any(c => changed.Contains(table.Definition.FindColumn(c.Column)!.Index))))
+                EnforceReferentialIntegrity(table.Name, table, values);
 
             // A changed UNIQUE/PRIMARY key must not collide with another row (null keys are distinct — a
             // unique index permits multiple nulls, so they're skipped, matching the insert rule).
-            foreach (IndexDef index in table.Table.Definition.Indexes
+            foreach (IndexDef index in table.Definition.Indexes
                 .Where(i => i.IsUnique && i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
                 .GroupBy(i => i.RootPage).Select(g => g.First()))
-                if (!index.Columns.Any(c => values[c.Column.Index] is null) && table.Table.HasDuplicateKey(index, values, id))
+                if (!index.Columns.Any(c => values[c.Column.Index] is null) && table.HasDuplicateKey(index, values, id))
                     throw new InvalidOperationException(
-                        $"Cannot update '{table.Table.Name}': a row with the same " +
+                        $"Cannot update '{table.Name}': a row with the same " +
                         $"{(index.IsPrimaryKey ? "primary key" : "unique key")} already exists (index '{index.Name}').");
 
             // The updated row must still satisfy every CHECK constraint (evaluated against the full new row).
-            EnforceCheckConstraints(table.Table.Definition, values);
+            EnforceCheckConstraints(table.Definition, values);
 
             // Parent side: a changed referenced-key column triggers each relationship's ON UPDATE action
             // (CASCADE rewrites children, NO ACTION rejects if children exist).
-            CascadeParentKeyUpdate(table.Table.Name, original, values);
+            CascadeParentKeyUpdate(table.Name, original, values);
 
-            table.Table.Update(id, values, changed);
-            foreach (IndexDef index in table.Table.Definition.Indexes
+            table.Update(id, values, changed);
+            foreach (IndexDef index in table.Definition.Indexes
                 .Where(i => i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
                 .GroupBy(i => i.RootPage).Select(g => g.First()))
-                table.Table.MoveIndexEntry(index, original, values, id);
+                table.MoveIndexEntry(index, original, values, id);
         }
 
         int affected = joinRows.Count;
@@ -897,7 +946,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, statement.Where, columns);
 
         int ti = TargetIndex(tables, statement.TargetTable, "DELETE target");
-        SourceTable target = tables[ti];
+        Table target = TargetTable(tables, ti);
 
         var deleted = new Dictionary<RowId, object?[]>();
         foreach (var combo in joinRows)
@@ -906,7 +955,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // DeleteRowCascading applies each row's ON DELETE actions (cascade/set-null/reject) to its children,
         // then removes its index entries and soft-deletes it.
         foreach ((RowId id, object?[] values) in deleted)
-            DeleteRowCascading(target.Table, id, values);
+            DeleteRowCascading(target, id, values);
 
         int affected = deleted.Count;
         if (_session is not null) _session.RowCount = affected;

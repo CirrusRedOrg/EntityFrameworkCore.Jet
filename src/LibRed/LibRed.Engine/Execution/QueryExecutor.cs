@@ -319,19 +319,29 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         // table. IndexSelection produces this for a join whose ON is an equality on an indexed inner column.
         if (join.Right is IndexSeekNode seek)
         {
+            // Open the inner table, resolve its columns, and precompute the seek key-column positions ONCE —
+            // not per left row. Per left row we only rebuild the tiny key-value array and seek; this is the
+            // hot path of the join, so everything hoistable stays out of the loop.
             var innerTable = _database.OpenTable(seek.Table);
             string innerAlias = seek.Alias ?? seek.Table;
+            int innerWidth = innerTable.Definition.Columns.Count;
             var seekColumns = innerTable.Definition.Columns.Select(c => new OutputColumn(innerAlias, c.Name)).ToList();
             var joinColumns = leftColumns.Concat(seekColumns).ToList();
+            int[] keyCols = seek.Index.Columns.Select(c => c.Column.Index).ToArray();
 
             IEnumerable<object?[]> SeekRows()
             {
                 foreach (object?[] left in leftRows)
                 {
+                    // Evaluate the correlated key from this left row (keys reference only the outer side).
                     var leftScope = new EvalScope(leftColumns, left, outer);
-                    (_, IEnumerable<object?[]> matches) = Execute(join.Right, leftScope); // seek by this left row
+                    var evaluator = new ExpressionEvaluator(leftScope, this, parameters: _parameters, session: _session);
+                    var keyValues = new object?[innerWidth];
+                    for (int i = 0; i < seek.Keys.Count; i++)
+                        keyValues[keyCols[i]] = evaluator.Evaluate(seek.Keys[i]);
+
                     bool matched = false;
-                    foreach (object?[] right in matches)
+                    foreach (object?[] right in innerTable.SeekRows(seek.Index, keyValues))
                     {
                         object?[] combined = [.. left, .. right];
                         if (on is null || Eval(joinColumns, combined, outer).IsTrue(on))
@@ -341,7 +351,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                         }
                     }
                     if (leftOuter && !matched)
-                        yield return [.. left, .. new object?[seekColumns.Count]];
+                        yield return [.. left, .. new object?[innerWidth]];
                 }
             }
 

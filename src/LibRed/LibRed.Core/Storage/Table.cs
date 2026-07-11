@@ -25,17 +25,22 @@ public sealed class Table
     /// <summary>Returns a forward-only cursor over all rows in the table.</summary>
     public TableCursor Rows() => new(this);
 
+    /// <summary>A row decoder over this table's columns — reuse one across a seek/scan rather than allocating
+    /// per row (each carries a shared <see cref="LongValueReader"/>).</summary>
+    private RowDecoder NewDecoder() => new(Definition.Columns, Channel.Format, new LongValueReader(Channel));
+
     /// <summary>Decodes the row at <paramref name="id"/> (following an overflow forward-pointer to a
     /// relocated row), or <see langword="null"/> if the slot is empty/deleted. Used by an index seek, which
     /// yields row ids.</summary>
-    public object?[]? GetRow(RowId id)
+    public object?[]? GetRow(RowId id) => GetRow(id, NewDecoder());
+
+    private object?[]? GetRow(RowId id, RowDecoder decoder)
     {
         var page = new Pages.DataPage();
         page.Read(Channel.ReadPage(id.Page), Channel.Format);
         if (id.Row >= page.RowCount) return null;
         Pages.RowSlot slot = page.Rows[id.Row];
 
-        var decoder = new RowDecoder(Definition.Columns, Channel.Format, new LongValueReader(Channel));
         if (slot.HasOverflow)
         {
             int pointer = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(page.GetRow(id.Row));
@@ -51,8 +56,9 @@ public sealed class Table
     /// the predicate.</summary>
     public IEnumerable<object?[]> SeekRows(IndexDef index, object?[] values)
     {
+        var decoder = NewDecoder();
         foreach (RowId id in new IndexWriter(Channel, Definition).Seek(index, values))
-            if (GetRow(id) is { } row)
+            if (GetRow(id, decoder) is { } row)
                 yield return row;
     }
 
@@ -61,8 +67,9 @@ public sealed class Table
     /// boundaries; the caller re-checks the predicate.</summary>
     public IEnumerable<object?[]> SeekRangeRows(IndexDef index, object?[]? low, object?[]? high)
     {
+        var decoder = NewDecoder();
         foreach (RowId id in new IndexWriter(Channel, Definition).SeekRange(index, low, high))
-            if (GetRow(id) is { } row)
+            if (GetRow(id, decoder) is { } row)
                 yield return row;
     }
 

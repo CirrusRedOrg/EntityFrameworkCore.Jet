@@ -82,4 +82,30 @@ public class ExecuteStatementTests
     [Fact]
     public void Execute_an_unknown_procedure_throws()
         => Assert.Throws<InvalidOperationException>(() => Seeded().ExecuteQuery("EXECUTE nope 1"));
+
+    // Access EXEC argument forms EF emits for stored procedures (verified vs the SqlExecutor test SQL):
+    //   `EXEC proc Name`        — a bare identifier references a supplied command parameter of that name;
+    //   `EXEC proc Param = @v`  — a named argument binding the procedure's parameter.
+    private static QueryEngine WithLookupProc()
+    {
+        var e = Seeded();
+        e.ExecuteNonQuery("CREATE PROCEDURE pByName pNm TEXT AS SELECT Amt FROM T WHERE Nm = pNm");
+        return e;
+    }
+
+    [Fact]
+    public void A_bare_identifier_argument_references_a_supplied_command_parameter()
+    {
+        var r = WithLookupProc().ExecuteQuery("EXEC pByName pNm",
+            new Dictionary<string, object?> { ["@pNm"] = "b" });
+        Assert.Equal(20, Convert.ToInt32(r.Rows.Single()[0]));
+    }
+
+    [Fact]
+    public void A_named_argument_binds_the_named_parameter()
+    {
+        var r = WithLookupProc().ExecuteQuery("EXEC pByName pNm = @p0",
+            new Dictionary<string, object?> { ["@p0"] = "c" });
+        Assert.Equal(30, Convert.ToInt32(r.Rows.Single()[0]));
+    }
 }

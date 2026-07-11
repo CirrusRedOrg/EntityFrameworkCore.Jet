@@ -98,21 +98,51 @@ public sealed class QueryEngine
     private CommandResult ExecuteProcedure(ExecuteStatement exec, IReadOnlyDictionary<string, object?>? parameters)
     {
         JetCatalog catalog = _database.Catalog;
-
-        // Evaluate the positional arguments (literals, or @params from the caller's command).
+        var bag = new ParameterBag(parameters);
         var executor = new QueryExecutor(_database, parameters, _session);
-        var evaluator = new ExpressionEvaluator(new EvalScope([], [], null), executor,
-            new ParameterBag(parameters), _session);
-        var argValues = exec.Arguments.Select(evaluator.Evaluate).ToList();
+        var evaluator = new ExpressionEvaluator(new EvalScope([], [], null), executor, bag, _session);
 
         IReadOnlyList<string> paramNames = catalog.QueryParameters.TryGetValue(exec.Procedure, out var ns)
             ? ns : [];
-        if (argValues.Count != paramNames.Count)
-            throw new InvalidOperationException(
-                $"Procedure '{exec.Procedure}' declares {paramNames.Count} parameter(s) but was executed with {argValues.Count} argument(s).");
 
-        var args = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < paramNames.Count; i++) args[paramNames[i]] = argValues[i];
+        // Access EXEC arguments take three shapes (EF emits all of them):
+        //   procParam = value  → a NAMED argument (bind the proc's named parameter to the value)
+        //   name               → a bare identifier REFERENCING a supplied command parameter (`EXEC p CustomerID`)
+        //   literal / @param   → a positional value
+        var named = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        var positional = new List<object?>();
+        foreach (Expression arg in exec.Arguments)
+        {
+            switch (arg)
+            {
+                case BinaryExpression { Operator: BinaryOperator.Equal, Left: ColumnReference { Table: null } target } eq:
+                    named[target.Column] = evaluator.Evaluate(eq.Right);
+                    break;
+                case ColumnReference { Table: null } paramRef:
+                    positional.Add(bag.Resolve(paramRef.Column));
+                    break;
+                default:
+                    positional.Add(evaluator.Evaluate(arg));
+                    break;
+            }
+        }
+
+        Dictionary<string, object?> args;
+        if (named.Count > 0)
+        {
+            if (positional.Count > 0)
+                throw new InvalidOperationException(
+                    $"Procedure '{exec.Procedure}' was executed with a mix of named and positional arguments.");
+            args = named; // keyed by the procedure's parameter names directly
+        }
+        else
+        {
+            if (positional.Count != paramNames.Count)
+                throw new InvalidOperationException(
+                    $"Procedure '{exec.Procedure}' declares {paramNames.Count} parameter(s) but was executed with {positional.Count} argument(s).");
+            args = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < paramNames.Count; i++) args[paramNames[i]] = positional[i];
+        }
 
         // A stored SELECT (with its PARAMETERS clause) → rows; a stored action query → rows-affected.
         if (catalog.Views.TryGetValue(exec.Procedure, out string? viewSql))

@@ -11,6 +11,19 @@ internal sealed class EvalScope(
     IReadOnlyList<OutputColumn> schema, object?[] row, EvalScope? outer,
     IReadOnlyDictionary<FunctionCall, object?>? aggregates = null)
 {
+    // The current row's values. Mutable so a hot loop (e.g. a join's per-row key/residual evaluation) can
+    // rebind the same scope + evaluator to successive rows instead of allocating a fresh pair each iteration;
+    // the schema and outer link are fixed for the scope's lifetime.
+    private object?[] row = row;
+
+    /// <summary>Points this scope at a new row of the same schema (see <see cref="Rebind"/>'s callers for why
+    /// reuse is worthwhile). Returns the scope for fluent use.</summary>
+    public EvalScope Rebind(object?[] newRow)
+    {
+        row = newRow;
+        return this;
+    }
+
     /// <summary>Resolves a precomputed aggregate (by reference), walking out to enclosing scopes so an outer
     /// aggregate referenced inside a correlated subquery (e.g. <c>… WHERE x = MAX(o.Col) …</c>) is found.</summary>
     public bool TryResolveAggregate(FunctionCall call, out object? value)

@@ -36,19 +36,19 @@ public sealed class Table
 
     private object?[]? GetRow(RowId id, RowDecoder decoder)
     {
-        var page = new Pages.DataPage();
-        page.Read(Channel.ReadPage(id.Page), Channel.Format);
-        if (id.Row >= page.RowCount) return null;
-        Pages.RowSlot slot = page.Rows[id.Row];
+        // Read just the one wanted slot straight from the page directory (O(1)); parsing every slot on the
+        // page to take a single row was the seek's per-row hot cost.
+        if (!Pages.DataPage.TryReadRow(Channel.ReadPage(id.Page), Channel.Format, id.Row, out Pages.RowSlot slot, out ReadOnlySpan<byte> bytes))
+            return null;
 
         if (slot.HasOverflow)
         {
-            int pointer = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(page.GetRow(id.Row));
-            var target = new Pages.DataPage();
-            target.Read(Channel.ReadPage(pointer >> 8), Channel.Format);
-            return decoder.Decode(target.GetRow(pointer & 0xFF));
+            int pointer = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(bytes);
+            return Pages.DataPage.TryReadRow(Channel.ReadPage(pointer >> 8), Channel.Format, pointer & 0xFF, out _, out ReadOnlySpan<byte> target)
+                ? decoder.Decode(target)
+                : null;
         }
-        return slot.IsDeleted ? null : decoder.Decode(page.GetRow(id.Row));
+        return slot.IsDeleted ? null : decoder.Decode(bytes);
     }
 
     /// <summary>Yields the rows whose <paramref name="index"/> key equals <paramref name="values"/> — an index

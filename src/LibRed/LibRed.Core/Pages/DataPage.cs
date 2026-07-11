@@ -75,4 +75,30 @@ public sealed class DataPage : Page
         RowSlot slot = _rows[index];
         return _buffer.Slice(slot.Offset, slot.Length);
     }
+
+    /// <summary>Reads a single row's slot and bytes straight from the raw page directory in O(1), without
+    /// materialising the whole slot list the way <see cref="Read"/> does — for an index seek's per-row fetch,
+    /// where parsing every slot on the page just to take one row was the dominant cost. Returns false when
+    /// <paramref name="index"/> is past the page's row count.</summary>
+    public static bool TryReadRow(PageBuffer buffer, JetFormatBase format, int index,
+        out RowSlot slot, out ReadOnlySpan<byte> bytes)
+    {
+        int rowCount = buffer.ReadUInt16(format.DataRowCountOffset);
+        if (index < 0 || index >= rowCount)
+        {
+            slot = default;
+            bytes = default;
+            return false;
+        }
+
+        int dir = format.DataRowDirectoryOffset;
+        int raw = buffer.ReadUInt16(dir + index * 2);
+        int offset = raw & RowOffsetMask;
+        // Rows pack from the page end backward, so this slot runs up to where the previous slot began
+        // (or the page end for slot 0) — read just those two directory entries instead of walking all of them.
+        int prevEnd = index == 0 ? format.PageSize : buffer.ReadUInt16(dir + (index - 1) * 2) & RowOffsetMask;
+        slot = new RowSlot(offset, prevEnd - offset, (raw & DeletedFlag) != 0, (raw & OverflowFlag) != 0);
+        bytes = buffer.Slice(offset, prevEnd - offset);
+        return true;
+    }
 }

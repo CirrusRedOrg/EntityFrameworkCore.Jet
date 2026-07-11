@@ -331,20 +331,26 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
             IEnumerable<object?[]> SeekRows()
             {
+                // Build the scopes + evaluators once and rebind them to each row (see EvalScope.Rebind): the
+                // key eval fires per outer row and the residual-ON eval per matched row, so allocating a fresh
+                // pair each time was the join's dominant per-row cost once the page cache made reads free.
+                var keyScope = new EvalScope(leftColumns, [], outer);
+                var keyEval = new ExpressionEvaluator(keyScope, this, parameters: _parameters, session: _session);
+                var onScope = new EvalScope(joinColumns, [], outer);
+                var onEval = new ExpressionEvaluator(onScope, this, parameters: _parameters, session: _session);
+                var keyValues = new object?[innerWidth]; // reused; the inner seek is fully drained each outer row
+
                 foreach (object?[] left in leftRows)
                 {
-                    // Evaluate the correlated key from this left row (keys reference only the outer side).
-                    var leftScope = new EvalScope(leftColumns, left, outer);
-                    var evaluator = new ExpressionEvaluator(leftScope, this, parameters: _parameters, session: _session);
-                    var keyValues = new object?[innerWidth];
+                    keyScope.Rebind(left);
                     for (int i = 0; i < seek.Keys.Count; i++)
-                        keyValues[keyCols[i]] = evaluator.Evaluate(seek.Keys[i]);
+                        keyValues[keyCols[i]] = keyEval.Evaluate(seek.Keys[i]);
 
                     bool matched = false;
                     foreach (object?[] right in innerTable.SeekRows(seek.Index, keyValues))
                     {
                         object?[] combined = [.. left, .. right];
-                        if (on is null || Eval(joinColumns, combined, outer).IsTrue(on))
+                        if (on is null || onEval.Rebind(combined).IsTrue(on))
                         {
                             matched = true;
                             yield return combined;
@@ -367,13 +373,16 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
         IEnumerable<object?[]> Rows()
         {
+            var onScope = new EvalScope(columns, [], outer); // one scope/evaluator, rebound per combined row
+            var onEval = new ExpressionEvaluator(onScope, this, parameters: _parameters, session: _session);
+
             foreach (object?[] left in leftRows)
             {
                 bool matched = false;
                 foreach (object?[] right in rightRows)
                 {
                     object?[] combined = [.. left, .. right];
-                    if (on is null || Eval(columns, combined, outer).IsTrue(on))
+                    if (on is null || onEval.Rebind(combined).IsTrue(on))
                     {
                         matched = true;
                         yield return combined;

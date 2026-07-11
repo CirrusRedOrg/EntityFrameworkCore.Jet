@@ -17,6 +17,14 @@ internal sealed class ExpressionEvaluator(
     ParameterBag? parameters = null,
     SessionState? session = null)
 {
+    /// <summary>Rebinds this evaluator's scope to a new row of the same schema and returns the evaluator, so a
+    /// hot loop can reuse one evaluator across rows instead of allocating a fresh evaluator + scope per row.</summary>
+    public ExpressionEvaluator Rebind(object?[] row)
+    {
+        scope.Rebind(row);
+        return this;
+    }
+
     public object? Evaluate(Expression expression) => expression switch
     {
         LiteralExpression l => l.Value,

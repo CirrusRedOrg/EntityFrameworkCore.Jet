@@ -54,6 +54,31 @@ public class JoinedUpdateDeleteTests
     }
 
     [Fact]
+    public void Left_join_update_keeps_unmatched_outer_rows()
+    {
+        var e = Seeded();
+        e.ExecuteNonQuery("INSERT INTO P (Id, Flag) VALUES (999, 0)"); // a parent with no children
+        // LEFT JOIN so the childless parent survives as a null-padded row; C.Id IS NULL selects ONLY it — an
+        // INNER join (dropping unmatched rows) could never match this, so it exercises true LEFT semantics.
+        int affected = e.ExecuteNonQuery(
+            "UPDATE P LEFT JOIN C ON P.Id = C.Pid SET P.Flag = -1 WHERE C.Id IS NULL");
+        Assert.Equal(1, affected);
+        Assert.Equal(-1L, Convert.ToInt64(e.ExecuteQuery("SELECT Flag FROM P WHERE Id = 999").Rows.Single()[0]!));
+        Assert.Equal(0, Count(e, "SELECT COUNT(*) FROM P WHERE Flag = -1 AND Id <> 999")); // no matched parent touched
+    }
+
+    [Fact]
+    public void Left_join_update_via_navigation_matches_inner_when_where_is_on_the_inner_side()
+    {
+        var e = Seeded();
+        // The EF "set navigation null" shape: UPDATE outer LEFT JOIN inner … WHERE inner.col = v. Because the
+        // WHERE rejects the null-padded rows, the result equals the INNER-join equivalent.
+        int expected = Count(e, "SELECT COUNT(*) FROM P INNER JOIN C ON P.Id = C.Pid WHERE C.Amt = 0");
+        int affected = e.ExecuteNonQuery("UPDATE P LEFT JOIN C ON P.Id = C.Pid SET P.Flag = 7 WHERE C.Amt = 0");
+        Assert.Equal(expected, affected);
+    }
+
+    [Fact]
     public void Update_of_an_ace_authored_all_fixed_column_table_does_not_overflow()
     {
         // Regression: updating a row of an ACE-AUTHORED all-fixed-column table used to throw OverflowException.

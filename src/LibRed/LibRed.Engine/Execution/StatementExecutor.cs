@@ -611,34 +611,44 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// columns as alias-qualified output columns (for the combined evaluation scope).</summary>
     private sealed record SourceTable(string Alias, Table Table, IReadOnlyList<OutputColumn> Columns);
 
-    /// <summary>Flattens the UPDATE/DELETE table source into its tables (in order) plus the join ON
-    /// conditions. Only INNER/CROSS joins over named tables are supported (Access's multi-table form).</summary>
-    private (List<SourceTable> Tables, List<Expression> Ons) ResolveSource(TableReference from)
+    /// <summary>Flattens the UPDATE/DELETE table source into its tables in order, each paired with the join that
+    /// introduced it: its <see cref="JoinKind"/> and ON condition (the first/base table is Inner with a null ON).
+    /// INNER/CROSS/LEFT joins over named tables are supported — the left-deep form EF and Access emit.</summary>
+    private (List<SourceTable> Tables, List<JoinKind> Kinds, List<Expression?> Ons) ResolveSource(TableReference from)
     {
         var tables = new List<SourceTable>();
-        var ons = new List<Expression>();
+        var kinds = new List<JoinKind>();
+        var ons = new List<Expression?>();
 
-        void Walk(TableReference r)
+        void Emit(NamedTable n, JoinKind kind, Expression? on)
+        {
+            Table t = _database.OpenTable(n.Name);
+            string alias = n.Alias ?? n.Name;
+            tables.Add(new SourceTable(alias, t, t.Definition.Columns.Select(c => new OutputColumn(alias, c.Name)).ToList()));
+            kinds.Add(kind);
+            ons.Add(on);
+        }
+
+        void Walk(TableReference r, JoinKind kind, Expression? on)
         {
             switch (r)
             {
                 case NamedTable n:
-                    Table t = _database.OpenTable(n.Name);
-                    string alias = n.Alias ?? n.Name;
-                    tables.Add(new SourceTable(alias, t, t.Definition.Columns.Select(c => new OutputColumn(alias, c.Name)).ToList()));
+                    Emit(n, kind, on);
                     break;
-                case JoinTable { Kind: JoinKind.Inner or JoinKind.Cross } j:
-                    Walk(j.Left);
-                    Walk(j.Right);
-                    if (j.On is not null) ons.Add(j.On);
+                // Left-deep: the left subtree carries its own joins (its base table is the source's first table,
+                // Inner with no ON); the right side is the newly joined table, tagged with this join's kind/ON.
+                case JoinTable { Kind: JoinKind.Inner or JoinKind.Cross or JoinKind.Left, Right: NamedTable rn } j:
+                    Walk(j.Left, JoinKind.Inner, null);
+                    Emit(rn, j.Kind, j.On);
                     break;
                 default:
                     throw new NotSupportedException($"UPDATE/DELETE over a {r.GetType().Name} source is not supported yet.");
             }
         }
 
-        Walk(from);
-        return (tables, ons);
+        Walk(from, JoinKind.Inner, null);
+        return (tables, kinds, ons);
     }
 
     /// <summary>
@@ -648,7 +658,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// value accumulates across matches — matching Access (e.g. a "one"-side counter incremented per match).
     /// </summary>
     private List<(RowId Id, object?[] Values)[]> JoinRows(
-        List<SourceTable> tables, List<Expression> ons, Expression? where, IReadOnlyList<OutputColumn> columns)
+        List<SourceTable> tables, List<JoinKind> kinds, List<Expression?> ons, Expression? where, IReadOnlyList<OutputColumn> columns)
     {
         // A physical row's value array is shared across every join row it appears in (see the method summary).
         var cache = new Dictionary<(string, RowId), object?[]>();
@@ -659,14 +669,14 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             return s;
         }
 
-        // Access's multi-table UPDATE/DELETE joins are equi-joins on keys; for each table after the first, if an
+        // Access's multi-table UPDATE/DELETE joins are equi-joins on keys; for each table after the first, if its
         // ON equates one of its single-column-indexed columns to a column of an earlier table, seek it by that
         // key instead of scanning it in full — turning an O(∏ rows) cartesian product into an index-nested-loop.
         var seekPlan = new (IndexDef Index, Expression Key)?[tables.Count];
         for (int i = 1; i < tables.Count; i++)
-            seekPlan[i] = SeekPlanFor(i, tables, ons);
+            seekPlan[i] = SeekPlanFor(i, tables, ons[i]);
 
-        // Precompute the accumulated columns visible when seeking/emitting at each depth.
+        // Precompute the accumulated columns visible when seeking/evaluating an ON at each depth.
         var colsUpTo = new List<OutputColumn>[tables.Count + 1];
         colsUpTo[0] = [];
         for (int i = 0; i < tables.Count; i++)
@@ -675,14 +685,16 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         var result = new List<(RowId, object?[])[]>();
         var acc = new (RowId, object?[])[tables.Count];
 
+        bool Holds(Expression? predicate, int depth) =>
+            predicate is null || new ExpressionEvaluator(
+                new EvalScope(colsUpTo[depth], Flatten(acc, depth), null), _scalarRunner, _parameters, _session)
+                .Evaluate(predicate) is true;
+
         void Recurse(int i)
         {
             if (i == tables.Count)
             {
-                // The seek only prunes candidates; ON (index keys can over-return) and WHERE are the arbiters.
-                object?[] flat = Flatten(acc, i);
-                var eval = new ExpressionEvaluator(new EvalScope(columns, flat, null), _scalarRunner, _parameters, _session);
-                if (ons.All(o => eval.Evaluate(o) is true) && (where is null || eval.Evaluate(where) is true))
+                if (Holds(where, tables.Count))
                     result.Add(((RowId, object?[])[])acc.Clone());
                 return;
             }
@@ -700,9 +712,22 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 rows = tables[i].Table.Rows().WithIds();
             }
 
+            // The ON (also the seek's residual re-check — index keys can over-return) gates each candidate.
+            bool matched = false;
             foreach ((RowId id, object?[] values) in rows)
             {
                 acc[i] = (id, Shared(tables[i].Alias, id, values));
+                if (Holds(ons[i], i + 1))
+                {
+                    matched = true;
+                    Recurse(i + 1);
+                }
+            }
+
+            // LEFT join: an outer row with no matching inner row is still emitted, with the inner side all-null.
+            if (kinds[i] == JoinKind.Left && !matched)
+            {
+                acc[i] = (default, new object?[tables[i].Table.Definition.Columns.Count]);
                 Recurse(i + 1);
             }
         }
@@ -719,24 +744,30 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         return [.. flat];
     }
 
-    /// <summary>If table <paramref name="i"/> has an ON equality between one of its single-column-indexed columns
-    /// and an expression over the earlier tables, returns that index and key expression (to seek it per outer
-    /// row); else null (scan it).</summary>
-    private static (IndexDef Index, Expression Key)? SeekPlanFor(int i, List<SourceTable> tables, List<Expression> ons)
+    /// <summary>If table <paramref name="i"/>'s own join <paramref name="on"/> has an equality between one of its
+    /// single-column-indexed columns and an expression over the earlier tables, returns that index and key
+    /// expression (to seek it per outer row); else null (scan it).</summary>
+    private static (IndexDef Index, Expression Key)? SeekPlanFor(int i, List<SourceTable> tables, Expression? on)
     {
+        if (on is null) return null;
         TableDef def = tables[i].Table.Definition;
         string alias = tables[i].Alias;
         HashSet<string> earlier = tables.Take(i).Select(t => t.Alias).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        foreach (Expression on in ons)
+        foreach (Expression conjunct in Conjuncts(on))
         {
-            if (on is not BinaryExpression { Operator: BinaryOperator.Equal } eq)
+            if (conjunct is not BinaryExpression { Operator: BinaryOperator.Equal } eq)
                 continue;
             if (MatchSeek(eq.Left, eq.Right, alias, def, earlier) is { } a) return a;
             if (MatchSeek(eq.Right, eq.Left, alias, def, earlier) is { } b) return b;
         }
         return null;
     }
+
+    private static IEnumerable<Expression> Conjuncts(Expression e) =>
+        e is BinaryExpression { Operator: BinaryOperator.And } b
+            ? Conjuncts(b.Left).Concat(Conjuncts(b.Right))
+            : [e];
 
     private static (IndexDef Index, Expression Key)? MatchSeek(
         Expression colSide, Expression keySide, string alias, TableDef def, HashSet<string> earlier)
@@ -783,9 +814,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// </summary>
     private int ExecuteUpdate(UpdateStatement statement)
     {
-        var (tables, ons) = ResolveSource(statement.From);
+        var (tables, kinds, ons) = ResolveSource(statement.From);
         var columns = tables.SelectMany(t => t.Columns).ToList();
-        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, ons, statement.Where, columns);
+        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, statement.Where, columns);
 
         // Resolve each assignment to its (table index, column) once.
         var targets = statement.Assignments.Select(a =>
@@ -861,9 +892,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// </summary>
     private int ExecuteDelete(DeleteStatement statement)
     {
-        var (tables, ons) = ResolveSource(statement.From);
+        var (tables, kinds, ons) = ResolveSource(statement.From);
         var columns = tables.SelectMany(t => t.Columns).ToList();
-        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, ons, statement.Where, columns);
+        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, statement.Where, columns);
 
         int ti = TargetIndex(tables, statement.TargetTable, "DELETE target");
         SourceTable target = tables[ti];

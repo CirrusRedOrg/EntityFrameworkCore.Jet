@@ -724,10 +724,10 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
 
 
         [ConditionalFact]
-        public void Types_with_required_length_uses_length_of_one()
+        public void Types_without_a_length_use_the_max_length()
             => Test(
                 """
-                    
+
                     CREATE TABLE OneLengthColumns (
                     	Id int,
                     	binaryColumn binary NULL,
@@ -752,24 +752,27 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 {
                     var columns = dbModel.Tables.Single().Columns;
 
-                    // Access/ACE has no separate nchar/nvarchar (all text is UTF-16) and reports every binary
-                    // column as varbinary, so the N-prefixed and fixed-binary forms collapse to char/varchar/
-                    // varbinary — corrected from the SQL-Server-style expectations this test was adapted from.
-                    Assert.Equal("varbinary(1)", columns.Single(c => c.Name == "binaryColumn").StoreType);
-                    Assert.Equal("varbinary(1)", columns.Single(c => c.Name == "binaryVaryingColumn").StoreType);
-                    Assert.Equal("char(1)", columns.Single(c => c.Name == "characterColumn").StoreType);
-                    Assert.Equal("varchar(1)", columns.Single(c => c.Name == "characterVaryingColumn").StoreType);
-                    Assert.Equal("char(1)", columns.Single(c => c.Name == "charColumn").StoreType);
-                    Assert.Equal("varchar(1)", columns.Single(c => c.Name == "charVaryingColumn").StoreType);
-                    Assert.Equal("char(1)", columns.Single(c => c.Name == "nationalCharColumn").StoreType);
-                    Assert.Equal("char(1)", columns.Single(c => c.Name == "nationalCharacterColumn").StoreType);
-                    Assert.Equal("varchar(1)",
+                    // Two corrections from the SQL-Server test this was adapted from. (1) Access/ACE has no
+                    // separate nchar/nvarchar (all text is UTF-16) and reports every binary column as varbinary,
+                    // so the N-prefixed and fixed-binary forms collapse to char/varchar/varbinary. (2) A size-less
+                    // char/varchar/binary takes the MAXIMUM in ACE — 255 characters / 510 bytes — not 1 (verified
+                    // against ACE's own schema: a bare `varchar` reports CHARACTER_MAXIMUM_LENGTH = 255, a bare
+                    // `binary` = 510). SQL Server's "length of one" default simply does not apply here.
+                    Assert.Equal("varbinary(510)", columns.Single(c => c.Name == "binaryColumn").StoreType);
+                    Assert.Equal("varbinary(510)", columns.Single(c => c.Name == "binaryVaryingColumn").StoreType);
+                    Assert.Equal("char(255)", columns.Single(c => c.Name == "characterColumn").StoreType);
+                    Assert.Equal("varchar(255)", columns.Single(c => c.Name == "characterVaryingColumn").StoreType);
+                    Assert.Equal("char(255)", columns.Single(c => c.Name == "charColumn").StoreType);
+                    Assert.Equal("varchar(255)", columns.Single(c => c.Name == "charVaryingColumn").StoreType);
+                    Assert.Equal("char(255)", columns.Single(c => c.Name == "nationalCharColumn").StoreType);
+                    Assert.Equal("char(255)", columns.Single(c => c.Name == "nationalCharacterColumn").StoreType);
+                    Assert.Equal("varchar(255)",
                         columns.Single(c => c.Name == "nationalCharacterVaryingColumn").StoreType);
-                    Assert.Equal("varchar(1)", columns.Single(c => c.Name == "nationalCharVaryingColumn").StoreType);
-                    Assert.Equal("char(1)", columns.Single(c => c.Name == "ncharColumn").StoreType);
-                    Assert.Equal("varchar(1)", columns.Single(c => c.Name == "nvarcharColumn").StoreType);
-                    Assert.Equal("varbinary(1)", columns.Single(c => c.Name == "varbinaryColumn").StoreType);
-                    Assert.Equal("varchar(1)", columns.Single(c => c.Name == "varcharColumn").StoreType);
+                    Assert.Equal("varchar(255)", columns.Single(c => c.Name == "nationalCharVaryingColumn").StoreType);
+                    Assert.Equal("char(255)", columns.Single(c => c.Name == "ncharColumn").StoreType);
+                    Assert.Equal("varchar(255)", columns.Single(c => c.Name == "nvarcharColumn").StoreType);
+                    Assert.Equal("varbinary(510)", columns.Single(c => c.Name == "varbinaryColumn").StoreType);
+                    Assert.Equal("varchar(255)", columns.Single(c => c.Name == "varcharColumn").StoreType);
                 },
                 "DROP TABLE OneLengthColumns;");
 

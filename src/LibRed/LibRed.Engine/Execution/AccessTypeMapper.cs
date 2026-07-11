@@ -48,9 +48,13 @@ internal static class AccessTypeMapper
                 => Fixed(column, JetDataType.Single, 4),
             "FLOAT" or "DOUBLE" or "DOUBLE PRECISION" or "IEEEDOUBLE" or "FLOAT8" or "NUMBER"
                 => Fixed(column, JetDataType.Double, 8),
-            "CURRENCY" or "MONEY"
+            // SMALLMONEY is a SQL-Server alias ACE accepts and folds onto CURRENCY — there is no narrower
+            // money storage in Jet/ACE (verified vs ACE: SMALLMONEY → Currency, 8 bytes).
+            "CURRENCY" or "MONEY" or "SMALLMONEY"
                 => Fixed(column, JetDataType.Currency, 8),
-            "DATETIME" or "DATE" or "TIME" or "TIMESTAMP"
+            // SMALLDATETIME likewise folds onto the single 8-byte DateTime (no narrower date storage exists);
+            // no file-format upgrade (verified vs ACE: SMALLDATETIME → DateTime, version byte unchanged).
+            "DATETIME" or "DATE" or "TIME" or "TIMESTAMP" or "SMALLDATETIME"
                 => Fixed(column, JetDataType.DateTime, 8),
             "BIT" or "YESNO" or "BOOLEAN" or "LOGICAL" or "LOGICAL1"
                 => Fixed(column, JetDataType.Boolean, 1),
@@ -65,8 +69,13 @@ internal static class AccessTypeMapper
             // characters; on disk it is 2 bytes each.
             "CHAR" or "CHARACTER" or "NCHAR" or "NATIONAL CHAR" or "NATIONAL CHARACTER"
                 => Text(column, isFixed: true),
-            // Variable-length character types (the VARCHAR family, incl. Access TEXT) → a variable Text column.
-            "TEXT" or "VARCHAR" or "NVARCHAR" or "STRING" or "ALPHANUMERIC"
+            // Bare TEXT is a Jet quirk: with no size it means LONGTEXT (Memo), but TEXT(n) is a variable
+            // Text column of n characters. Verified vs ACE: `TEXT` → Memo, `TEXT(50)` → Text(50).
+            "TEXT" => column.Size is null
+                ? new ColumnSpec(column.Name, JetDataType.Memo, 0, IsFixedLength: false)
+                : Text(column, isFixed: false),
+            // Variable-length character types (the VARCHAR family) → a variable Text column.
+            "VARCHAR" or "NVARCHAR" or "STRING" or "ALPHANUMERIC"
             or "CHARACTER VARYING" or "CHAR VARYING"
             or "NATIONAL CHAR VARYING" or "NATIONAL CHARACTER VARYING" or "NCHAR VARYING"
                 => Text(column, isFixed: false),
@@ -97,11 +106,12 @@ internal static class AccessTypeMapper
     private const int MaxTextCharacters = 255;
     private const int MaxBinaryBytes = 510;
 
-    // A character column: length is declared in characters, stored as UTF-16 (2 bytes each). A type with no
-    // declared size takes length 1 (SQL's CHAR == CHAR(1); ACE reports length 1 for a size-less char/varchar).
+    // A character column: length is declared in characters, stored as UTF-16 (2 bytes each). A size-less
+    // char/varchar takes the MAXIMUM (255 characters) — verified vs ACE, which defaults a bare CHAR/VARCHAR
+    // to a 255-char (510-byte) field, not CHAR(1).
     private static ColumnSpec Text(ColumnDefinition column, bool isFixed)
     {
-        int characters = column.Size ?? 1;
+        int characters = column.Size ?? MaxTextCharacters;
         if (characters > MaxTextCharacters)
             throw new InvalidOperationException(
                 $"Size of field '{column.Name}' is too long: a char/varchar column holds at most {MaxTextCharacters} " +
@@ -109,10 +119,11 @@ internal static class AccessTypeMapper
         return new(column.Name, JetDataType.Text, characters * 2, IsFixedLength: isFixed);
     }
 
-    // A binary column: length is in bytes (not char-doubled). Size-less takes length 1.
+    // A binary column: length is in bytes (not char-doubled). A size-less binary/varbinary takes the
+    // MAXIMUM (510 bytes) — verified vs ACE, which defaults a bare BINARY/VARBINARY to a 510-byte field.
     private static ColumnSpec Binary(ColumnDefinition column, bool isFixed)
     {
-        int bytes = column.Size ?? 1;
+        int bytes = column.Size ?? MaxBinaryBytes;
         if (bytes > MaxBinaryBytes)
             throw new InvalidOperationException(
                 $"Size of field '{column.Name}' is too long: a binary/varbinary column holds at most {MaxBinaryBytes} " +

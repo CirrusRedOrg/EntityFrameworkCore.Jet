@@ -161,9 +161,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case SortNode sort:
             {
                 var (columns, rows) = Execute(sort.Input, outer);
-                var sorted = rows.ToList();
-                sorted.Sort((a, b) => CompareKeys(sort.Keys, columns, outer, a, b));
-                return (columns, sorted);
+                // Stable sort: rows with equal ORDER BY keys keep their input order. A List.Sort (unstable
+                // introsort) would reorder ties arbitrarily; EF's reference and SQL Server preserve input order,
+                // so an ORDER BY that doesn't fully disambiguate (e.g. ORDER BY CustomerID with several orders
+                // per customer) must too. Enumerable.OrderBy is a documented stable sort.
+                var comparer = Comparer<object?[]>.Create((a, b) => CompareKeys(sort.Keys, columns, outer, a, b));
+                return (columns, rows.OrderBy(r => r, comparer).ToList());
             }
 
             case ProjectNode project:
@@ -592,7 +595,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
 
         if (node.OrderBy.Count > 0)
-            outRows.Sort((a, b) =>
+            // Stable (see SortNode): groups with equal ORDER BY keys keep their input (first-appearance) order.
+            outRows = outRows.OrderBy(x => x, Comparer<(object?[] Row, object?[] SortKeys, object?[] GroupKeys)>.Create((a, b) =>
             {
                 for (int i = 0; i < node.OrderBy.Count; i++)
                 {
@@ -601,7 +605,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     if (c != 0) return c;
                 }
                 return 0;
-            });
+            })).ToList();
         else if (node.GroupBy.Count > 0)
             // No explicit ORDER BY: Access orders GROUP BY output ascending by the grouping columns.
             outRows.Sort((a, b) =>

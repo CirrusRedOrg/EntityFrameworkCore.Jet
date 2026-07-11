@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Threading.Tasks;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.LibRed.Infrastructure;
+using LibRed.Sql.Parsing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.NullSemanticsModel;
@@ -4460,7 +4461,7 @@ WHERE `e`.`NullableStringA` NOT LIKE `e`.`NullableStringB` OR `e`.`NullableStrin
 
         public override async Task Like_with_escape_char(bool async)
         {
-            await Assert.ThrowsAnyAsync<DbException>(
+            await Assert.ThrowsAnyAsync<SqlParseException>(
                 async () => await base.Like_with_escape_char(async));
         }
 

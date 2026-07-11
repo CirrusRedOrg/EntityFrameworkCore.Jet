@@ -890,6 +890,7 @@ INNER JOIN (
 
         AssertExecuteUpdateSql(
             """
+@p='4'
 @p1='Updated' (Size = 30)
 
 UPDATE `Customers` AS `c0`
@@ -908,6 +909,8 @@ SET `c0`.`ContactName` = @p1
 
         AssertExecuteUpdateSql(
             """
+@p1='4'
+@p='2'
 @p2='Updated' (Size = 30)
 
 UPDATE `Customers` AS `c0`
@@ -971,6 +974,7 @@ INNER JOIN (
 
         AssertExecuteUpdateSql(
             """
+@p='4'
 @p1='Updated' (Size = 30)
 
 UPDATE `Customers` AS `c0`
@@ -990,6 +994,8 @@ SET `c0`.`ContactName` = @p1
 
         AssertExecuteUpdateSql(
             """
+@p1='4'
+@p='2'
 @p2='Updated' (Size = 30)
 
 UPDATE `Customers` AS `c0`
@@ -1017,6 +1023,8 @@ SET `c0`.`ContactName` = @p2
 
         AssertExecuteUpdateSql(
             """
+@p='2'
+@p1='6'
 @p4='Updated' (Size = 30)
 
 UPDATE `Customers` AS `c1`
@@ -1121,9 +1129,15 @@ WHERE `c`.`CustomerID` IN (
 
         AssertExecuteUpdateSql(
             """
-UPDATE `Customers` AS `c`
-SET `c`.`ContactName` = 'Updated'
-WHERE `c`.`CustomerID` LIKE 'F%'
+@p='Updated' (Size = 30)
+
+UPDATE `Customers` AS `c0`
+INNER JOIN (
+    SELECT DISTINCT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
+) AS `c1` ON `c0`.`CustomerID` = `c1`.`CustomerID`
+SET `c0`.`ContactName` = @p
 """);
     }
 

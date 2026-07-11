@@ -1316,30 +1316,21 @@ ORDER BY `c1`.`CustomerID`, `c2`.`CustomerID`
         await base.Repro9735(async);
 
         AssertSql(
-"""
-@__p_0='2'
+            """
+@p='2'
 
-SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate], [t].[CustomerID0], [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice]
+SELECT `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `s`.`CustomerID0`, `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
 FROM (
-    SELECT TOP(@__p_0) [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], [c].[CustomerID] AS [CustomerID0], CASE
-        WHEN [c].[CustomerID] IS NOT NULL THEN CAST(1 AS bit)
-        ELSE CAST(0 AS bit)
-    END AS [c], CASE
-        WHEN [c].[CustomerID] IS NOT NULL THEN [c].[CustomerID]
-        ELSE N''
-    END AS [c0]
-    FROM [Orders] AS [o]
-    LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]
-    ORDER BY CASE
-        WHEN [c].[CustomerID] IS NOT NULL THEN CAST(1 AS bit)
-        ELSE CAST(0 AS bit)
-    END, CASE
-        WHEN [c].[CustomerID] IS NOT NULL THEN [c].[CustomerID]
-        ELSE N''
-    END
-) AS [t]
-LEFT JOIN [Order Details] AS [o0] ON [t].[OrderID] = [o0].[OrderID]
-ORDER BY [t].[c], [t].[c0], [t].[OrderID], [t].[CustomerID0], [o0].[OrderID]
+    SELECT TOP @p `s0`.`OrderID`, `s0`.`CustomerID`, `s0`.`EmployeeID`, `s0`.`OrderDate`, `s0`.`CustomerID0`, `s0`.`c`, `s0`.`c0`
+    FROM (
+        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID` AS `CustomerID0`, `c`.`CustomerID` IS NOT NULL AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, '') AS `c0`
+        FROM `Orders` AS `o`
+        LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+    ) AS `s0`
+    ORDER BY NOT (`s0`.`c`), `s0`.`c0`
+) AS `s`
+LEFT JOIN `Order Details` AS `o0` ON `s`.`OrderID` = `o0`.`OrderID`
+ORDER BY NOT (`s`.`c`), `s`.`c0`, `s`.`OrderID`, `s`.`CustomerID0`, `o0`.`OrderID`
 """);
     }
 

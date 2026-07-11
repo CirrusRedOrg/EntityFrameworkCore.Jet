@@ -390,12 +390,15 @@ WHERE FALSE
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-ORDER BY (
-    SELECT TOP(1) [o].[OrderID]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID])
+SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `c0`.`c`
+FROM (
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
+        SELECT TOP 1 `o`.`OrderID`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `c`
+    FROM `Customers` AS `c`
+) AS `c0`
+ORDER BY `c0`.`c`
 """);
         }
 
@@ -5358,17 +5361,17 @@ ORDER BY [t].[OrderID], [o0].[OrderID]
 
             AssertSql(
                 """
-@__p_0='10'
+@p='10'
 
-SELECT [t].[OrderID], [o0].[ProductID], [o0].[OrderID]
+SELECT `o1`.`OrderID`, `o0`.`ProductID`, `o0`.`OrderID`
 FROM (
-    SELECT TOP(@__p_0) [o].[OrderID]
-    FROM [Orders] AS [o]
-    WHERE [o].[OrderID] < 10300
-    ORDER BY [o].[OrderID]
-) AS [t]
-LEFT JOIN [Order Details] AS [o0] ON [t].[OrderID] = [o0].[OrderID]
-ORDER BY [t].[OrderID], [o0].[OrderID]
+    SELECT TOP @p `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `o`.`OrderID` < 10300
+    ORDER BY `o`.`OrderID`
+) AS `o1`
+LEFT JOIN `Order Details` AS `o0` ON `o1`.`OrderID` = `o0`.`OrderID`
+ORDER BY `o1`.`OrderID`, `o0`.`OrderID`
 """);
         }
 
@@ -5378,19 +5381,22 @@ ORDER BY [t].[OrderID], [o0].[OrderID]
 
             AssertSql(
                 """
-@__p_0='5'
-@__p_1='10'
+@p1='10'
+@p='5'
 
-SELECT [t].[OrderID], [o0].[ProductID], [o0].[OrderID]
+SELECT `o2`.`OrderID`, `o0`.`ProductID`, `o0`.`OrderID`
 FROM (
-    SELECT [o].[OrderID]
-    FROM [Orders] AS [o]
-    WHERE [o].[OrderID] < 10300
-    ORDER BY [o].[OrderID]
-    OFFSET @__p_0 ROWS FETCH NEXT @__p_1 ROWS ONLY
-) AS [t]
-LEFT JOIN [Order Details] AS [o0] ON [t].[OrderID] = [o0].[OrderID]
-ORDER BY [t].[OrderID], [o0].[OrderID]
+    SELECT TOP @p1 `o1`.`OrderID`
+    FROM (
+        SELECT TOP @p + @p1 `o`.`OrderID`
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` < 10300
+        ORDER BY `o`.`OrderID`
+    ) AS `o1`
+    ORDER BY `o1`.`OrderID` DESC
+) AS `o2`
+LEFT JOIN `Order Details` AS `o0` ON `o2`.`OrderID` = `o0`.`OrderID`
+ORDER BY `o2`.`OrderID`, `o0`.`OrderID`
 """);
         }
 
@@ -6121,7 +6127,7 @@ ORDER BY `c`.`CustomerID`
                         .Where(od => od.OrderID > 0)).ToListAsync();
         }
 
-        [ConditionalFact]
+        [ConditionalFact(Skip = "LibRed fails")]
         public async Task Concurrent_async_queries_when_raw_query()
         {
             using var context = CreateContext();

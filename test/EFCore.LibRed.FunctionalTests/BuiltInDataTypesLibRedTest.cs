@@ -616,7 +616,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
                    @p25='Value2' (Nullable = false) (Size = 255)
                    @p26='84.4'
                    @p27='a8f9f951-145f-4545-ac60-b92ff57ada47'
-                   @p28='78' (DbType = Decimal)
+                   @p28='78'
                    @p29='-128'
                    @p30='128' (Size = 1)
                    @p31='79'
@@ -635,7 +635,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
                    @p44='11:15:12'
                    @p45='65535'
                    @p46='-1'
-                   @p47='4294967295' (DbType = Decimal)
+                   @p47='4294967295'
                    @p48='-1'
                    @p49='18446744073709551615' (Precision = 20)
                    @p50='18446744073709551615' (Precision = 20)
@@ -814,7 +814,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
                    @p25='Value2' (Size = 255)
                    @p26='84.4' (Nullable = true)
                    @p27='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)
-                   @p28='78' (Nullable = true) (DbType = Decimal)
+                   @p28='78' (Nullable = true)
                    @p29='-128' (Nullable = true)
                    @p30='128' (Nullable = true) (Size = 1)
                    @p31='79' (Nullable = true)
@@ -833,7 +833,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
                    @p44='11:15:12' (Nullable = true)
                    @p45='65535' (Nullable = true)
                    @p46='-1' (Nullable = true)
-                   @p47='4294967295' (Nullable = true) (DbType = Decimal)
+                   @p47='4294967295' (Nullable = true)
                    @p48='-1' (Nullable = true)
                    @p49='18446744073709551615' (Nullable = true) (Precision = 20)
                    @p50='18446744073709551615' (Nullable = true) (Precision = 20)
@@ -1005,7 +1005,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
                    @p25=NULL (Size = 255)
                    @p26=NULL (DbType = Single)
                    @p27=NULL (DbType = Guid)
-                   @p28=NULL (DbType = Decimal)
+                   @p28=NULL (DbType = Int64)
                    @p29=NULL (DbType = Int16)
                    @p30=NULL (DbType = Byte)
                    @p31=NULL (DbType = Int16)
@@ -1024,7 +1024,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
                    @p44=NULL (DbType = Time)
                    @p45=NULL (DbType = Int32)
                    @p46=NULL (DbType = Int16)
-                   @p47=NULL (DbType = Decimal)
+                   @p47=NULL (DbType = Int64)
                    @p48=NULL (DbType = Int32)
                    @p49=NULL (Precision = 20) (DbType = Decimal)
                    @p50=NULL (Precision = 20) (DbType = Decimal)
@@ -1414,7 +1414,7 @@ parameters,
                    @p25='84.4'
                    @p26='a8f9f951-145f-4545-ac60-b92ff57ada47'
                    @p27='77'
-                   @p28='78' (DbType = Decimal)
+                   @p28='78'
                    @p29='-128'
                    @p30='128' (Size = 1)
                    @p31='79'
@@ -1433,7 +1433,7 @@ parameters,
                    @p44='11:15:12'
                    @p45='65535'
                    @p46='-1'
-                   @p47='4294967295' (DbType = Decimal)
+                   @p47='4294967295'
                    @p48='-1'
                    @p49='18446744073709551615' (Precision = 20)
                    @p50='18446744073709551615' (Precision = 20)
@@ -1608,7 +1608,7 @@ parameters,
                    @p25='84.4' (Nullable = true)
                    @p26='a8f9f951-145f-4545-ac60-b92ff57ada47' (Nullable = true)
                    @p27='77' (Nullable = true)
-                   @p28='78' (Nullable = true) (DbType = Decimal)
+                   @p28='78' (Nullable = true)
                    @p29='-128' (Nullable = true)
                    @p30='128' (Nullable = true) (Size = 1)
                    @p31='79' (Nullable = true)
@@ -1626,7 +1626,7 @@ parameters,
                    @p43='11:15:12' (Nullable = true)
                    @p44='11:15:12' (Nullable = true)
                    @p45='65535' (Nullable = true)
-                   @p46='4294967295' (Nullable = true) (DbType = Decimal)
+                   @p46='4294967295' (Nullable = true)
                    @p47='-1' (Nullable = true)
                    @p48='18446744073709551615' (Nullable = true) (Precision = 20)
                    @p49='18446744073709551615' (Nullable = true) (Precision = 20)
@@ -1799,7 +1799,7 @@ parameters,
                    @p25=NULL (DbType = Single)
                    @p26=NULL (DbType = Guid)
                    @p27='78' (Nullable = true)
-                   @p28=NULL (DbType = Decimal)
+                   @p28=NULL (DbType = Int64)
                    @p29=NULL (DbType = Int16)
                    @p30=NULL (DbType = Byte)
                    @p31=NULL (DbType = Int16)
@@ -1817,7 +1817,7 @@ parameters,
                    @p43=NULL (DbType = Time)
                    @p44=NULL (DbType = Time)
                    @p45=NULL (DbType = Int32)
-                   @p46=NULL (DbType = Decimal)
+                   @p46=NULL (DbType = Int64)
                    @p47=NULL (DbType = Int32)
                    @p48=NULL (Precision = 20) (DbType = Decimal)
                    @p49=NULL (Precision = 20) (DbType = Decimal)

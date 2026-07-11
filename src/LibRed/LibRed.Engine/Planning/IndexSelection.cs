@@ -146,8 +146,92 @@ internal static class IndexSelection
             }
         }
 
-        return j with { Left = left, Right = Apply(j.Right, catalog) };
+        PlanNode right = Apply(j.Right, catalog);
+
+        // No index-nested-loop available: if this is an equi-join whose keys are same-kind columns, hash it
+        // (O(n+m)) instead of leaving the O(n·m) nested loop. See HashJoinNode for why same-kind is required.
+        if (j.Kind is (JoinKind.Inner or JoinKind.Left) && j.On is { } cond
+            && TryHashKeys(cond, left, right, catalog) is { } keys)
+            return new HashJoinNode(left, right, j.Kind, keys.Left, keys.Right, cond);
+
+        return j with { Left = left, Right = right };
     }
+
+    /// <summary>Splits the join condition into equi-key column pairs (left-referencing = right-referencing)
+    /// whose columns are of the same type kind, or null if there is no such pair. The full ON is still applied
+    /// as a residual, so a partial split (extra non-equi conjuncts) is fine.</summary>
+    private static (IReadOnlyList<Expression> Left, IReadOnlyList<Expression> Right)? TryHashKeys(
+        Expression on, PlanNode left, PlanNode right, JetCatalog catalog)
+    {
+        HashSet<string> leftAliases = QueryPlanner.SubtreeAliases(left);
+        HashSet<string> rightAliases = QueryPlanner.SubtreeAliases(right);
+        var leftKeys = new List<Expression>();
+        var rightKeys = new List<Expression>();
+
+        foreach (Expression conjunct in Conjuncts(on))
+        {
+            if (conjunct is not BinaryExpression { Operator: BinaryOperator.Equal } eq)
+                continue;
+
+            // Orient the equality so L is the left-subtree side and R the right-subtree side.
+            (Expression L, Expression R)? oriented =
+                ReferencesOnly(eq.Left, leftAliases) && ReferencesOnly(eq.Right, rightAliases) ? (eq.Left, eq.Right)
+                : ReferencesOnly(eq.Right, leftAliases) && ReferencesOnly(eq.Left, rightAliases) ? (eq.Right, eq.Left)
+                : null;
+            if (oriented is not { } o || o.L is not ColumnReference lc || o.R is not ColumnReference rc)
+                continue;
+
+            // A hash consistent with the evaluator's equality only exists within one type kind (5 = '5' and
+            // 5 = 5.0 but '5' ≠ '5.0'), so both key columns must resolve to the same kind.
+            TypeKind? lk = ResolveKind(lc, left, catalog);
+            TypeKind? rk = ResolveKind(rc, right, catalog);
+            if (lk is null || lk != rk)
+                continue;
+
+            leftKeys.Add(o.L);
+            rightKeys.Add(o.R);
+        }
+
+        return leftKeys.Count > 0 ? (leftKeys, rightKeys) : null;
+    }
+
+    private enum TypeKind { Numeric, Text, Binary, Temporal, Guid }
+
+    private static TypeKind? Classify(JetDataType t) => t switch
+    {
+        JetDataType.Boolean or JetDataType.Byte or JetDataType.Int16 or JetDataType.Int32 or JetDataType.Int64
+            or JetDataType.Single or JetDataType.Double or JetDataType.Currency or JetDataType.FixedPoint => TypeKind.Numeric,
+        JetDataType.Text or JetDataType.Memo => TypeKind.Text,
+        JetDataType.Binary or JetDataType.Ole => TypeKind.Binary,
+        JetDataType.DateTime or JetDataType.DateTimeExtended => TypeKind.Temporal,
+        JetDataType.Guid => TypeKind.Guid,
+        _ => null,
+    };
+
+    /// <summary>The type kind of a column resolved against the base tables of <paramref name="subtree"/>, or
+    /// null if it can't be pinned to a base-table column (e.g. it comes from a subquery) — in which case the
+    /// join is left as a nested loop rather than risk an unsound hash.</summary>
+    private static TypeKind? ResolveKind(ColumnReference col, PlanNode subtree, JetCatalog catalog)
+    {
+        foreach ((string alias, string table) in BaseTables(subtree))
+        {
+            if (col.Table is { } t && !string.Equals(t, alias, StringComparison.OrdinalIgnoreCase))
+                continue;
+            ColumnDef? c = catalog.FindTable(table)?.Columns
+                .FirstOrDefault(cd => string.Equals(cd.Name, col.Column, StringComparison.OrdinalIgnoreCase));
+            if (c is not null)
+                return Classify(c.Type);
+        }
+        return null;
+    }
+
+    private static IEnumerable<(string Alias, string Table)> BaseTables(PlanNode node) => node switch
+    {
+        ScanNode s => [(s.Alias ?? s.Table, s.Table)],
+        IndexSeekNode s => [(s.Alias ?? s.Table, s.Table)],
+        IndexRangeSeekNode s => [(s.Alias ?? s.Table, s.Table)],
+        _ => node.Children.SelectMany(BaseTables),
+    };
 
     /// <summary>Whether every column an expression references is one of the given aliases (and it has no
     /// subquery) — i.e. it can be evaluated from the outer row alone, as an index-seek key.</summary>

@@ -96,6 +96,14 @@ public sealed class QueryEngine
     private PlanNode PlanWithIndexes(BoundStatement bound) =>
         IndexSelection.Apply(_planner.Plan(bound), _database.Catalog);
 
+    /// <summary>The optimised plan for a query — exposed for tests to assert the chosen access path/strategy
+    /// (e.g. that an unindexed equi-join becomes a hash join).</summary>
+    internal PlanNode PlanFor(string sql)
+    {
+        SqlStatement ast = ViewExpander.Expand(_parser.ParseStatement(sql), _database.Catalog.Views, _parser);
+        return PlanWithIndexes(_binder.Bind(ast));
+    }
+
     /// <summary>
     /// Runs an <c>EXECUTE|EXEC procedure arg, …</c>: resolves the stored procedure/query by name, binds the
     /// positional argument values to its declared parameters (in declaration order), and runs it — a stored

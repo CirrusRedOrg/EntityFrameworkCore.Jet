@@ -132,7 +132,9 @@ public sealed class QueryPlanner
         ScanNode s => new(StringComparer.OrdinalIgnoreCase) { s.Alias ?? s.Table },
         IndexSeekNode s => new(StringComparer.OrdinalIgnoreCase) { s.Alias ?? s.Table },
         DerivedTableNode d => d.Alias is { } a ? new(StringComparer.OrdinalIgnoreCase) { a } : new(StringComparer.OrdinalIgnoreCase),
+        IndexRangeSeekNode s => new(StringComparer.OrdinalIgnoreCase) { s.Alias ?? s.Table },
         JoinNode j => SubtreeAliases(j.Left).Union(SubtreeAliases(j.Right)).ToHashSet(StringComparer.OrdinalIgnoreCase),
+        HashJoinNode h => SubtreeAliases(h.Left).Union(SubtreeAliases(h.Right)).ToHashSet(StringComparer.OrdinalIgnoreCase),
         FilterNode f => SubtreeAliases(f.Input),
         _ => new(StringComparer.OrdinalIgnoreCase),
     };

@@ -132,6 +132,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case JoinNode join:
                 return ExecuteJoin(join, outer);
 
+            case HashJoinNode hashJoin:
+                return ExecuteHashJoin(hashJoin, outer);
+
             case AggregateNode aggregate:
                 return ExecuteAggregate(aggregate, outer);
 
@@ -395,6 +398,97 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
 
         return (columns, Rows());
+    }
+
+    private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteHashJoin(HashJoinNode join, EvalScope? outer)
+    {
+        var (leftColumns, leftRows) = Execute(join.Left, outer);
+        var (rightColumns, rightRowsEnum) = Execute(join.Right, outer);
+        var joinColumns = leftColumns.Concat(rightColumns).ToList();
+        bool leftOuter = join.Kind == JoinKind.Left;
+        int rightWidth = rightColumns.Count;
+        Expression on = join.On;
+
+        IEnumerable<object?[]> Rows()
+        {
+            // Build phase: hash the right (build) side by its keys. A row with any null key can never satisfy an
+            // equi-join (SQL null = null is not true), so it is dropped from the table.
+            var table = new Dictionary<object?[], List<object?[]>>(HashKeyComparer.Instance);
+            var buildScope = new EvalScope(rightColumns, [], outer);
+            var buildEval = new ExpressionEvaluator(buildScope, this, parameters: _parameters, session: _session);
+            foreach (object?[] right in rightRowsEnum)
+            {
+                buildScope.Rebind(right);
+                var key = new object?[join.RightKeys.Count];
+                if (!EvalKey(buildEval, join.RightKeys, key)) continue; // null key → unmatchable
+                if (!table.TryGetValue(key, out List<object?[]>? bucket))
+                    table[key] = bucket = [];
+                bucket.Add(right);
+            }
+
+            // Probe phase: each left row looks up its bucket; the full ON re-checks each candidate (buckets can
+            // collide, and ON may carry extra non-equi conjuncts). LEFT join emits a null-padded row on no match.
+            var probeScope = new EvalScope(leftColumns, [], outer);
+            var probeEval = new ExpressionEvaluator(probeScope, this, parameters: _parameters, session: _session);
+            var onScope = new EvalScope(joinColumns, [], outer);
+            var onEval = new ExpressionEvaluator(onScope, this, parameters: _parameters, session: _session);
+            var probe = new object?[join.LeftKeys.Count]; // reused; only used to look up, never stored
+
+            foreach (object?[] left in leftRows)
+            {
+                probeScope.Rebind(left);
+                bool matched = false;
+                if (EvalKey(probeEval, join.LeftKeys, probe) && table.TryGetValue(probe, out List<object?[]>? bucket))
+                {
+                    foreach (object?[] right in bucket)
+                    {
+                        object?[] combined = [.. left, .. right];
+                        if (onEval.Rebind(combined).IsTrue(on))
+                        {
+                            matched = true;
+                            yield return combined;
+                        }
+                    }
+                }
+                if (leftOuter && !matched)
+                    yield return [.. left, .. new object?[rightWidth]];
+            }
+        }
+
+        return (joinColumns, Rows());
+    }
+
+    /// <summary>Evaluates the key expressions into <paramref name="dest"/>; returns false (short-circuiting) if
+    /// any key is null, since a null key never participates in an equi-join match.</summary>
+    private static bool EvalKey(ExpressionEvaluator eval, IReadOnlyList<Expression> keys, object?[] dest)
+    {
+        for (int i = 0; i < keys.Count; i++)
+            if ((dest[i] = eval.Evaluate(keys[i])) is null)
+                return false;
+        return true;
+    }
+
+    /// <summary>Hash/equality over a composite join key that mirrors the evaluator's <c>=</c> within a type kind
+    /// (the planner only builds a hash join over same-kind key columns). Key elements are never null.</summary>
+    private sealed class HashKeyComparer : IEqualityComparer<object?[]>
+    {
+        public static readonly HashKeyComparer Instance = new();
+
+        public bool Equals(object?[]? a, object?[]? b)
+        {
+            if (a is null || b is null) return ReferenceEquals(a, b);
+            if (a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++)
+                if (!ExpressionEvaluator.KeyEqual(a[i]!, b[i]!)) return false;
+            return true;
+        }
+
+        public int GetHashCode(object?[] a)
+        {
+            var h = new HashCode();
+            foreach (object? v in a) h.Add(ExpressionEvaluator.KeyHash(v!));
+            return h.ToHashCode();
+        }
     }
 
     private int CompareKeys(IReadOnlyList<OrderByItem> keys, IReadOnlyList<OutputColumn> columns, EvalScope? outer, object?[] a, object?[] b)

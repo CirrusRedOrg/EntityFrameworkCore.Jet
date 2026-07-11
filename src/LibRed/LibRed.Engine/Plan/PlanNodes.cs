@@ -56,6 +56,21 @@ public sealed record JoinNode(PlanNode Left, PlanNode Right, JoinKind Kind, Expr
 }
 
 /// <summary>
+/// An equi-join executed by hashing: the <paramref name="Right"/> side is materialised into a hash table keyed
+/// by <paramref name="RightKeys"/>, then each <paramref name="Left"/> row probes it by <paramref name="LeftKeys"/>
+/// — O(n+m) instead of the nested loop's O(n·m). The full <paramref name="On"/> is kept as a residual re-check
+/// (hash buckets can collide, and the ON may carry non-equi conjuncts). Produced by the planner only when every
+/// key pair is columns of the same type kind, since the evaluator's equality is not transitive across kinds
+/// (5 = '5' and 5 = 5.0 but '5' ≠ '5.0'), so a hash consistent with it exists only within one kind.
+/// </summary>
+public sealed record HashJoinNode(
+    PlanNode Left, PlanNode Right, JoinKind Kind,
+    IReadOnlyList<Expression> LeftKeys, IReadOnlyList<Expression> RightKeys, Expression On) : PlanNode
+{
+    public override IReadOnlyList<PlanNode> Children => [Left, Right];
+}
+
+/// <summary>
 /// Groups input rows by the <paramref name="GroupBy"/> key expressions and emits one row per
 /// group by evaluating <paramref name="Projection"/> — where aggregate calls are computed over
 /// the group and other expressions see the group's key values.

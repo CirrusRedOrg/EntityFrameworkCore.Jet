@@ -42,6 +42,7 @@ var ops = new Op[]
     new("Repeated PK lookup", _ => "SELECT Id, K, V FROM Bench WHERE Id = 500",                               Warmup: 20, Iters: 200),
     new("Indexed range (K)", _ => "SELECT Id FROM Bench WHERE K BETWEEN 100 AND 110",                          Warmup: 10, Iters: 100),
     new("2-table join",      _ => "SELECT o.OrderID, d.ProductID FROM Orders o INNER JOIN `Order Details` d ON o.OrderID = d.OrderID", Warmup: 3, Iters: 20),
+    new("Unindexed join (hash)", _ => "SELECT o.OrderID, c.CompanyName FROM Orders o INNER JOIN Customers c ON o.ShipCity = c.City", Warmup: 3, Iters: 20),
     new("GROUP BY aggregate", _ => "SELECT CustomerID, COUNT(*) AS N FROM Orders GROUP BY CustomerID",         Warmup: 3, Iters: 30),
     new("Full table scan",   _ => "SELECT Id, K, V FROM Bench",                                                Warmup: 3, Iters: 20),
 };

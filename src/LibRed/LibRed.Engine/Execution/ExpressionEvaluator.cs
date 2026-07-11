@@ -1339,6 +1339,30 @@ internal sealed class ExpressionEvaluator(
         return CompareText(left.ToString()!, right.ToString()!);
     }
 
+    /// <summary>Whether two non-null values are equal under the same coercions as <c>=</c> (used by the hash
+    /// join to re-check a bucket candidate). Only meaningful within one type kind — see <see cref="KeyHash"/>.</summary>
+    public static bool KeyEqual(object a, object b) => Compare(a, b) == 0;
+
+    /// <summary>A hash for a non-null join key that agrees with <see cref="KeyEqual"/> within a type kind: values
+    /// the evaluator treats as equal hash the same (numeric via double, text via Access's case-insensitive/
+    /// trailing-space-trimmed collation, binary structurally). The planner only builds a hash join over
+    /// same-kind key columns, so this is total over the keys it actually sees.</summary>
+    public static int KeyHash(object v) => v switch
+    {
+        byte[] b => BinaryHash(b),
+        string s => System.Globalization.CultureInfo.InvariantCulture.CompareInfo
+            .GetHashCode(s.TrimEnd(' '), System.Globalization.CompareOptions.IgnoreCase),
+        _ when IsNumeric(v) => Dbl(v).GetHashCode(),
+        _ => v.GetHashCode(),
+    };
+
+    private static int BinaryHash(byte[] b)
+    {
+        var h = new HashCode();
+        h.AddBytes(b);
+        return h.ToHashCode();
+    }
+
     /// <summary>Lexicographic byte comparison, then by length (shorter prefix sorts first).</summary>
     private static int CompareBytes(byte[] a, byte[] b)
     {

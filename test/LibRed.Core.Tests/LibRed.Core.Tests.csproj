@@ -31,6 +31,12 @@
     <ProjectReference Include="..\..\src\LibRed\LibRed.Core\LibRed.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="xunit.runner.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <!-- A real ACCDB to read in tests. Reuse the tracked Northwind sample. -->
   <ItemGroup>
     <Content Include="..\JetProviderExceptionTests\Northwind.accdb">

@@ -98,6 +98,24 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return (columns, table.SeekRows(seek.Index, keyValues));
             }
 
+            case IndexRangeSeekNode range:
+            {
+                var table = _database.OpenTable(range.Table);
+                string alias = range.Alias ?? range.Table;
+                var columns = table.Definition.Columns.Select(c => new OutputColumn(alias, c.Name)).ToList();
+
+                var evaluator = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
+                int col = range.Index.Columns[0].Column.Index;
+                object?[]? Bound(Expression? e)
+                {
+                    if (e is null) return null;
+                    var v = new object?[table.Definition.Columns.Count];
+                    v[col] = evaluator.Evaluate(e);
+                    return v;
+                }
+                return (columns, table.SeekRangeRows(range.Index, Bound(range.Low), Bound(range.High)));
+            }
+
             case DerivedTableNode derived:
             {
                 var (inner, rows) = Execute(derived.Input, outer);

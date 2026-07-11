@@ -98,4 +98,25 @@ public class IndexSeekTests
         var e = TwoTables();
         Assert.Equal(1, Count(e, "SELECT P.Nm FROM P INNER JOIN C ON P.Id = C.Amt WHERE C.Amt = 50"));
     }
+
+    // --- index range scan: comparison predicates on an indexed column ---
+    [Theory]
+    [InlineData("SELECT Id FROM B WHERE Id BETWEEN 100 AND 149", 50)]  // lowered to >= AND <=
+    [InlineData("SELECT Id FROM B WHERE Id >= 480", 20)]               // open high
+    [InlineData("SELECT Id FROM B WHERE Id > 480", 19)]                // strict lower (residual exactifies)
+    [InlineData("SELECT Id FROM B WHERE Id < 5", 5)]                   // open low
+    [InlineData("SELECT Id FROM B WHERE Id <= 5", 6)]
+    [InlineData("SELECT Id FROM B WHERE 100 <= Id AND Id < 110", 10)]  // value-on-left orientation
+    public void Range_scan_matches_a_scan(string sql, int expected)
+        => Assert.Equal(expected, Count(Seeded(), sql));
+
+    [Fact]
+    public void Range_on_a_secondary_index_with_a_residual()
+    {
+        // K in [3,6] seeks the IX_K range (i%10 ∈ {3,4,5,6} → 200 rows), then V LIKE-style residual narrows.
+        var e = Seeded();
+        Assert.Equal(200, Count(e, "SELECT Id FROM B WHERE K >= 3 AND K <= 6"));
+        // residual Id<100: for i in [0,100), i%10 in {3,4,5,6} → 4 residues × 10 = 40.
+        Assert.Equal(40, Count(e, "SELECT Id FROM B WHERE K >= 3 AND K <= 6 AND Id < 100"));
+    }
 }

@@ -15,6 +15,15 @@ public sealed record ScanNode(string Table, string? Alias) : PlanNode;
 /// </summary>
 public sealed record IndexSeekNode(string Table, string? Alias, IndexDef Index, IReadOnlyList<Expression> Keys) : PlanNode;
 
+/// <summary>
+/// An index range scan: reads the rows of <paramref name="Table"/> whose single-column <paramref name="Index"/>
+/// key lies in [<paramref name="Low"/>, <paramref name="High"/>] (either bound null = open), instead of a full
+/// scan. Emitted for range predicates (<c>&gt;</c>/<c>&gt;=</c>/<c>&lt;</c>/<c>&lt;=</c>/<c>BETWEEN</c>) on an
+/// indexed column. The residual <see cref="FilterNode"/> above re-applies the exact bounds (the seek is an
+/// over-returning access path — lossy keys, strict-vs-inclusive boundaries).
+/// </summary>
+public sealed record IndexRangeSeekNode(string Table, string? Alias, IndexDef Index, Expression? Low, Expression? High) : PlanNode;
+
 /// <summary>A derived table: the output of <paramref name="Input"/> re-exposed under an alias. The alias
 /// is optional (Access permits an aliasless derived table); its columns are then unqualified.</summary>
 public sealed record DerivedTableNode(PlanNode Input, string? Alias) : PlanNode

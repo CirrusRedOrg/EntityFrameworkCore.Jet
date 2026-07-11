@@ -56,6 +56,16 @@ public sealed class Table
                 yield return row;
     }
 
+    /// <summary>Yields the rows whose <paramref name="index"/> key lies in [<paramref name="low"/>,
+    /// <paramref name="high"/>] (either bound null = open) — an index range scan. May over-return at the
+    /// boundaries; the caller re-checks the predicate.</summary>
+    public IEnumerable<object?[]> SeekRangeRows(IndexDef index, object?[]? low, object?[]? high)
+    {
+        foreach (RowId id in new IndexWriter(Channel, Definition).SeekRange(index, low, high))
+            if (GetRow(id) is { } row)
+                yield return row;
+    }
+
     /// <summary>Inserts a row (values aligned to column <see cref="ColumnDef.Index"/>) into the table.</summary>
     public void Insert(object?[] values) => new RowInserter(Channel, Definition).Insert(values);
 

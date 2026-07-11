@@ -103,6 +103,33 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     }
 
     /// <summary>
+    /// Seeks the index for the rows whose key lies in the range [<paramref name="low"/>, <paramref name="high"/>]
+    /// (either bound null = open): descends to the low bound's leaf and walks the leaf chain, yielding row ids
+    /// while the key does not exceed the high bound. The key encoding is order-preserving so this returns the
+    /// range in order. Like <see cref="Seek"/> it may over-return at the boundaries (lossy keys / strict-vs-
+    /// inclusive) — the caller re-applies the real predicate.
+    /// </summary>
+    public IEnumerable<RowId> SeekRange(IndexDef index, object?[]? low, object?[]? high)
+    {
+        byte[]? lowKey = low is null ? null : IndexKeyEncoder.Encode(index.Columns, low);
+        byte[]? highKey = high is null ? null : IndexKeyEncoder.Encode(index.Columns, high);
+
+        int leaf = Descend(index.RootPage, WithTrailer(lowKey ?? [], 0))[^1];
+        while (leaf != 0)
+        {
+            byte[] page = _channel.ReadPage(leaf).Span.ToArray();
+            (List<Entry> entries, _) = Parse(page);
+            foreach (Entry e in entries)
+            {
+                if (lowKey is not null && CompareBytes(e.Key, lowKey) < 0) continue;     // before the low bound
+                if (highKey is not null && CompareBytes(e.Key, highKey) > 0) yield break; // past the high bound
+                yield return new RowId(e.Trailer >> 8, e.Trailer & 0xFF);
+            }
+            leaf = ReadInt32Le(page, NextPageOffset);
+        }
+    }
+
+    /// <summary>
     /// Moves a row's entry when its key changes: removes the old-key entry and inserts the new-key one (the
     /// row id is unchanged — Access rewrites rows in place). Honours WITH IGNORE NULL on each side (a row with
     /// a null key is simply absent from the index). Used by UPDATE of an indexed column.

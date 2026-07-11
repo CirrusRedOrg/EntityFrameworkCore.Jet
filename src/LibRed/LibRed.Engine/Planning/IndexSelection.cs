@@ -36,33 +36,73 @@ internal static class IndexSelection
         if (catalog.FindTable(scan.Table) is not { } def)
             return filter;
         string alias = scan.Alias ?? scan.Table;
+        var conjuncts = Conjuncts(filter.Predicate).ToList();
 
-        foreach (Expression conjunct in Conjuncts(filter.Predicate))
+        // 1. Equality on a single-column index → an exact point seek (the tightest access path).
+        foreach (Expression conjunct in conjuncts)
         {
             if (conjunct is not BinaryExpression { Operator: BinaryOperator.Equal } eq)
                 continue;
 
             // One side must be a column of this scan; the other a value with no column references (a constant
-            // or a parameter) so it can be evaluated to seek. (Correlated keys — the join case — come later.)
+            // or a parameter) so it can be evaluated to seek. (Correlated keys — the join case — are elsewhere.)
             (ColumnReference col, Expression value)? match =
                 Column(eq.Left, alias, def) is { } c1 && !HasColumnRef(eq.Right) ? (c1, eq.Right)
                 : Column(eq.Right, alias, def) is { } c2 && !HasColumnRef(eq.Left) ? (c2, eq.Left)
                 : null;
-            if (match is not { } m)
-                continue;
+            if (match is { } m && SingleColumnIndex(def, m.col.Column) is { } index)
+                return filter with { Input = new IndexSeekNode(scan.Table, scan.Alias, index, [m.value]) };
+        }
 
-            // Use an index whose sole column is this column (single-column equality seek).
-            IndexDef? index = def.Indexes.FirstOrDefault(
-                i => i.Columns.Count == 1 && string.Equals(i.Columns[0].Column.Name, m.col.Column, StringComparison.OrdinalIgnoreCase));
-            if (index is null)
-                continue;
-
-            var seek = new IndexSeekNode(scan.Table, scan.Alias, index, [m.value]);
-            return filter with { Input = seek }; // keep the full predicate as the residual check
+        // 2. Range comparison(s) on a single-column index → a range scan (lower and/or upper bound).
+        foreach (IndexDef index in def.Indexes.Where(i => i.Columns.Count == 1))
+        {
+            string colName = index.Columns[0].Column.Name;
+            Expression? low = null, high = null;
+            foreach (Expression conjunct in conjuncts)
+            {
+                if (Bound(conjunct, colName, alias, def) is not { } b)
+                    continue;
+                if (b.Op is BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual)
+                    low ??= b.Value;
+                else
+                    high ??= b.Value; // LessThan / LessThanOrEqual
+            }
+            if (low is not null || high is not null)
+                return filter with { Input = new IndexRangeSeekNode(scan.Table, scan.Alias, index, low, high) };
         }
 
         return filter;
     }
+
+    /// <summary>The index whose sole column is <paramref name="colName"/>, or null.</summary>
+    private static IndexDef? SingleColumnIndex(TableDef def, string colName) => def.Indexes.FirstOrDefault(
+        i => i.Columns.Count == 1 && string.Equals(i.Columns[0].Column.Name, colName, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>If <paramref name="conjunct"/> is a range comparison of column <paramref name="colName"/> against
+    /// a value (either orientation), returns the operator as if the column were on the left (so <c>5 &lt; K</c>
+    /// yields <c>K &gt; 5</c>) and the value expression; else null.</summary>
+    private static (BinaryOperator Op, Expression Value)? Bound(Expression conjunct, string colName, string alias, TableDef def)
+    {
+        if (conjunct is not BinaryExpression { Operator: var op } cmp
+            || op is not (BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual
+                or BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual))
+            return null;
+
+        bool IsCol(Expression e) => Column(e, alias, def) is { } c && string.Equals(c.Column, colName, StringComparison.OrdinalIgnoreCase);
+        if (IsCol(cmp.Left) && !HasColumnRef(cmp.Right)) return (op, cmp.Right);
+        if (IsCol(cmp.Right) && !HasColumnRef(cmp.Left)) return (Flip(op), cmp.Left);
+        return null;
+    }
+
+    private static BinaryOperator Flip(BinaryOperator op) => op switch
+    {
+        BinaryOperator.GreaterThan => BinaryOperator.LessThan,
+        BinaryOperator.GreaterThanOrEqual => BinaryOperator.LessThanOrEqual,
+        BinaryOperator.LessThan => BinaryOperator.GreaterThan,
+        BinaryOperator.LessThanOrEqual => BinaryOperator.GreaterThanOrEqual,
+        _ => op,
+    };
 
     /// <summary>
     /// Turns a nested-loop join whose inner (right) side is a base-table scan into an <b>index-nested-loop</b>

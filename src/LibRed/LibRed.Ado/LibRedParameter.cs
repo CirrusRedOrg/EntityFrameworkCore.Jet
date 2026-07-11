@@ -7,9 +7,20 @@ namespace LibRed.Data;
 /// <summary>A command parameter for the LibRed provider.</summary>
 public sealed class LibRedParameter : DbParameter
 {
-    public override DbType DbType { get; set; } = DbType.Object;
+    // Like SqlParameter/OleDbParameter/OdbcParameter, an unset DbType is INFERRED from the value's CLR type
+    // (not left at Object): a raw `new LibRedParameter { Value = "ALFKI" }` reports DbType.String, so EF Core's
+    // command logging prints it faithfully (no bare `(DbType = Object)`). An explicitly-set DbType always wins.
+    private DbType? _dbType;
+    public override DbType DbType
+    {
+        get => _dbType ?? InferDbType(Value);
+        set => _dbType = value;
+    }
+
     public override ParameterDirection Direction { get; set; } = ParameterDirection.Input;
-    public override bool IsNullable { get; set; } = true;
+
+    // Defaults to false, matching SqlParameter/OleDbParameter/OdbcParameter (whose IsNullable is false until set).
+    public override bool IsNullable { get; set; }
     private string _parameterName = string.Empty;
     private string _sourceColumn = string.Empty;
 
@@ -29,15 +40,15 @@ public sealed class LibRedParameter : DbParameter
     public override bool SourceColumnNullMapping { get; set; }
     public override object? Value { get; set; }
 
-    // Mirror OleDbParameter/OdbcParameter: they derive a non-zero Size from the VALUE for a byte (1), and only
-    // for a byte — Int16/32/64, Single, Double, Decimal, Guid, DateTime, Boolean all report 0, and a NULL byte
-    // reports 0 too (the size comes from the value, not the DbType). EF Core's command logging prints
-    // `(Size = N)` from this, so the LibRed conformance baselines (copied from the Jet OLE DB provider) expect
-    // `(Size = 1)` only on a non-null byte parameter. An explicitly-set size always wins.
+    // Mirror OleDbParameter/OdbcParameter: they derive a non-zero Size from the VALUE — a variable-length value
+    // reports its length (a string's character count, a byte[]'s byte count), a byte reports 1, and the fixed
+    // numeric/temporal/Guid/Boolean types all report 0 (the size comes from the value, not the DbType). EF Core's
+    // command logging prints `(Size = N)` from this. An explicitly-set size always wins.
     private int _size;
     public override int Size
     {
-        get => _size != 0 ? _size : Value is byte ? 1 : 0;
+        get => _size != 0 ? _size
+            : Value switch { string s => s.Length, byte[] b => b.Length, byte => 1, _ => 0 };
         set => _size = value;
     }
 
@@ -73,5 +84,32 @@ public sealed class LibRedParameter : DbParameter
         return (byte)Math.Max(1, mantissa.Length);
     }
 
-    public override void ResetDbType() => DbType = DbType.Object;
+    public override void ResetDbType() => _dbType = null;
+
+    // The DbType a value maps to when none was set explicitly — the standard ADO.NET/OLE DB value inference,
+    // so the parameter looks the same as the other providers'. An unknown/null value falls back to Object.
+    private static DbType InferDbType(object? value) => value switch
+    {
+        null => DbType.Object,
+        string => DbType.String,
+        byte[] => DbType.Binary,
+        bool => DbType.Boolean,
+        byte => DbType.Byte,
+        sbyte => DbType.SByte,
+        short => DbType.Int16,
+        ushort => DbType.UInt16,
+        int => DbType.Int32,
+        uint => DbType.UInt32,
+        long => DbType.Int64,
+        ulong => DbType.UInt64,
+        float => DbType.Single,
+        double => DbType.Double,
+        decimal => DbType.Decimal,
+        DateTime => DbType.DateTime,
+        DateTimeOffset => DbType.DateTimeOffset,
+        TimeSpan => DbType.Time,
+        Guid => DbType.Guid,
+        char => DbType.StringFixedLength,
+        _ => DbType.Object,
+    };
 }

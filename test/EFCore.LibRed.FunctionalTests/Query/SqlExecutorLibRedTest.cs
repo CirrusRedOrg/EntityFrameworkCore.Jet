@@ -37,7 +37,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
             AssertSql(
                 $"""
                     {AssertSqlHelper.Declaration("@CustomerID='ALFKI' (Nullable = false) (Size = 5)")}
-                    
+
                     EXEC `CustOrderHist` CustomerID
                     """);
         }
@@ -92,7 +92,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
 
             AssertSql(
                 """
-@city='London' (DbType = Object)
+@city='London' (Nullable = false) (Size = 6)
 
 SELECT COUNT(*) FROM `Customers` WHERE `City` = @city
 """);
@@ -112,7 +112,7 @@ SELECT COUNT(*) FROM `Customers` WHERE `City` = @city
 
             AssertSql(
                 """
-@city='London' (DbType = Object)
+@city='London' (Nullable = false) (Size = 6)
 
 SELECT COUNT(*) FROM `Customers` WHERE `City` = @city
 """);
@@ -132,7 +132,7 @@ SELECT COUNT(*) FROM `Customers` WHERE `City` = @city
 
             AssertSql(
                 """
-@p0='London' (DbType = Object)
+@p0='London' (Nullable = false) (Size = 6)
 
 SELECT COUNT(*) FROM `Customers` WHERE `City` = @p0
 """);
@@ -169,13 +169,13 @@ SELECT COUNT(*) FROM `Customers` WHERE `City` = @p0
             AssertSql(
                 """
 @p0='London' (Size = 255)
-@contactTitle='Sales Representative' (DbType = Object)
+@contactTitle='Sales Representative' (Nullable = false) (Size = 20)
 
 SELECT COUNT(*) FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @contactTitle
 """,
                 //
                 """
-@city='London' (DbType = Object)
+@city='London' (Nullable = false) (Size = 6)
 @p0='Sales Representative' (Size = 255)
 
 SELECT COUNT(*) FROM `Customers` WHERE `City` = @city AND `ContactTitle` = @p0

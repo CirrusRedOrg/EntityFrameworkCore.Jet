@@ -106,7 +106,7 @@ WHERE `m`.`ContactName` LIKE '%z%'
 
         AssertSql(
             """
-customer='CONSH' (DbType = Object)
+customer='CONSH' (Nullable = false) (Size = 5)
 
 SELECT `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`CustomerID`, `m`.`Fax`, `m`.`Phone`, `m`.`Region`, `m`.`PostalCode`
 FROM (
@@ -122,7 +122,7 @@ WHERE `m`.`ContactName` LIKE '%z%'
 
         AssertSql(
             """
-p0='CONSH' (DbType = Object)
+p0='CONSH' (Nullable = false) (Size = 5)
 
 SELECT `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`CustomerID`, `m`.`Fax`, `m`.`Phone`, `m`.`Region`, `m`.`PostalCode`
 FROM (
@@ -360,7 +360,7 @@ WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 
         AssertSql(
             """
-p0=NULL (DbType = Object)
+p0=NULL (Nullable = false) (DbType = Object)
 
 SELECT * FROM `Employees` WHERE `ReportsTo` = @p0 OR (`ReportsTo` IS NULL AND @p0 IS NULL)
 """);
@@ -479,7 +479,7 @@ WHERE MID(`m`.`ContactName`, IIF(0 = -1, 0, 0) + 1, 1) = MID(`m`.`CompanyName`, 
 
         AssertSql(
             """
-@city='London' (DbType = Object)
+@city='London' (Nullable = false) (Size = 6)
 
 SELECT * FROM `Customers` WHERE `City` = @city
 """);
@@ -490,7 +490,7 @@ SELECT * FROM `Customers` WHERE `City` = @city
         await base.SqlQueryRaw_with_dbParameter_without_name_prefix(async);
         AssertSql(
             """
-city='London' (DbType = Object)
+city='London' (Nullable = false) (Size = 6)
 
 SELECT * FROM `Customers` WHERE `City` = @city
 """);
@@ -503,13 +503,13 @@ SELECT * FROM `Customers` WHERE `City` = @city
         AssertSql(
             """
 p0='London' (Size = 255)
-@title='Sales Representative' (DbType = Object)
+@title='Sales Representative' (Nullable = false) (Size = 20)
 
 SELECT * FROM `Customers` WHERE `City` = @p0 AND `ContactTitle` = @title
 """,
             //
             """
-@city='London' (DbType = Object)
+@city='London' (Nullable = false) (Size = 6)
 p0='Sales Representative' (Size = 255)
 
 SELECT * FROM `Customers` WHERE `City` = @city AND `ContactTitle` = @p0
@@ -522,13 +522,13 @@ SELECT * FROM `Customers` WHERE `City` = @city AND `ContactTitle` = @p0
 
         AssertSql(
             """
-@id='ALFKI' (DbType = Object)
+@id='ALFKI' (Nullable = false) (Size = 5)
 
 SELECT * FROM `Customers` WHERE `CustomerID` = @id
 """,
             //
             """
-@id='ALFKI' (DbType = Object)
+@id='ALFKI' (Nullable = false) (Size = 5)
 
 SELECT * FROM `Customers` WHERE `CustomerID` = @id
 """);
@@ -540,7 +540,7 @@ SELECT * FROM `Customers` WHERE `CustomerID` = @id
 
         AssertSql(
             """
-@somename='ALFKI' (DbType = Object)
+@somename='ALFKI' (Nullable = false) (Size = 5)
 
 SELECT * FROM `Customers` WHERE `CustomerID` = @somename
 """);
@@ -552,7 +552,7 @@ SELECT * FROM `Customers` WHERE `CustomerID` = @somename
 
         AssertSql(
             """
-somename='ALFKI' (DbType = Object)
+somename='ALFKI' (Nullable = false) (Size = 5)
 
 SELECT * FROM `Customers` WHERE `CustomerID` = @somename
 """);
@@ -656,7 +656,7 @@ WHERE `m`.`City` = 'Seattle'
 
         AssertSql(
             """
-@city='London' (DbType = Object)
+@city='London' (Nullable = false) (Size = 6)
 
 SELECT `m`.`CustomerID`, `m`.`EmployeeID`, `m`.`Freight`, `m`.`OrderDate`, `m`.`OrderID`, `m`.`RequiredDate`, `m`.`ShipAddress`, `m`.`ShipCity`, `m`.`ShipCountry`, `m`.`ShipName`, `m`.`ShipPostalCode`, `m`.`ShipRegion`, `m`.`ShipVia`, `m`.`ShippedDate`
 FROM (
@@ -677,7 +677,7 @@ WHERE `m`.`CustomerID` IN (
 
         AssertSql(
             """
-p0='London' (DbType = Object)
+p0='London' (Nullable = false) (Size = 6)
 
 SELECT `m`.`CustomerID`, `m`.`EmployeeID`, `m`.`Freight`, `m`.`OrderDate`, `m`.`OrderID`, `m`.`RequiredDate`, `m`.`ShipAddress`, `m`.`ShipCity`, `m`.`ShipCountry`, `m`.`ShipName`, `m`.`ShipPostalCode`, `m`.`ShipRegion`, `m`.`ShipVia`, `m`.`ShippedDate`
 FROM (
@@ -698,7 +698,7 @@ WHERE `m`.`CustomerID` IN (
 
         AssertSql(
             """
-@city='London' (DbType = Object)
+@city='London' (Nullable = false) (Size = 6)
 
 SELECT `m`.`CustomerID`, `m`.`EmployeeID`, `m`.`Freight`, `m`.`OrderDate`, `m`.`OrderID`, `m`.`RequiredDate`, `m`.`ShipAddress`, `m`.`ShipCity`, `m`.`ShipCountry`, `m`.`ShipName`, `m`.`ShipPostalCode`, `m`.`ShipRegion`, `m`.`ShipVia`, `m`.`ShippedDate`
 FROM (
@@ -720,7 +720,7 @@ WHERE `m`.`CustomerID` IN (
         AssertSql(
             """
 p0='London' (Size = 255)
-@title='Sales Representative' (DbType = Object)
+@title='Sales Representative' (Nullable = false) (Size = 20)
 
 SELECT `m`.`CustomerID`, `m`.`EmployeeID`, `m`.`Freight`, `m`.`OrderDate`, `m`.`OrderID`, `m`.`RequiredDate`, `m`.`ShipAddress`, `m`.`ShipCity`, `m`.`ShipCountry`, `m`.`ShipName`, `m`.`ShipPostalCode`, `m`.`ShipRegion`, `m`.`ShipVia`, `m`.`ShippedDate`
 FROM (
@@ -735,7 +735,7 @@ WHERE `m`.`CustomerID` IN (
 """,
             //
             """
-@city='London' (DbType = Object)
+@city='London' (Nullable = false) (Size = 6)
 p0='Sales Representative' (Size = 255)
 
 SELECT `m`.`CustomerID`, `m`.`EmployeeID`, `m`.`Freight`, `m`.`OrderDate`, `m`.`OrderID`, `m`.`RequiredDate`, `m`.`ShipAddress`, `m`.`ShipCity`, `m`.`ShipCountry`, `m`.`ShipName`, `m`.`ShipPostalCode`, `m`.`ShipRegion`, `m`.`ShipVia`, `m`.`ShippedDate`

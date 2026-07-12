@@ -218,6 +218,8 @@ public abstract class GraphUpdatesLibRedTestBase<TFixture>(TFixture fixture) : G
             modelBuilder.Entity<SharedFkRoot>().Property(x => x.Id).HasColumnType("int");
             modelBuilder.Entity<SharedFkDependant>().Property(x => x.Id).HasColumnType("int");
             modelBuilder.Entity<SharedFkParent>().Property(x => x.Id).HasColumnType("int");
+
+            modelBuilder.Entity<EntityZ>().Property(x => x.Id).HasConversion<int>();
         }
 
         protected override async Task SeedAsync(PoolableDbContext context)

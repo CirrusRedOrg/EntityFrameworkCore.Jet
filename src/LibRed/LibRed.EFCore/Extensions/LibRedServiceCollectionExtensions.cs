@@ -37,8 +37,16 @@ public static class LibRedServiceCollectionExtensions
         // constructed once with whichever context resolves it first and then shared across every context,
         // baking in the wrong UseShortTextForSystemString (the model-building context, False, wins over the
         // store context, True) — which made unbounded strings scaffold/migrate as `longchar` instead of
-        // `varchar(255)`. TryAdd won't replace Jet's existing registration, so drop it first.
-        serviceCollection.RemoveAll<IRelationalTypeMappingSource>();
+        // `varchar(255)`. TryAdd won't replace Jet's existing registration, so drop it first — but drop ONLY
+        // EFCore.Jet's own JetTypeMappingSource, NOT a custom source a fixture/downstream registered before us.
+        // (RemoveAll<IRelationalTypeMappingSource> wiped those too: e.g. the EverythingIsStrings/EverythingIsBytes
+        // fixtures register their own all-string/all-byte IRelationalTypeMappingSource, then call AddProviderServices
+        // → us; when one is present Jet's TryAdd already no-op'd, so there's no Jet mapping to remove and our TryAdd
+        // below correctly no-ops too, leaving the custom source in place.)
+        foreach (ServiceDescriptor jetMapping in serviceCollection.Where(d =>
+                     d.ServiceType == typeof(IRelationalTypeMappingSource) &&
+                     d.ImplementationType == typeof(JetTypeMappingSource)).ToList())
+            serviceCollection.Remove(jetMapping);
         new EntityFrameworkRelationalServicesBuilder(serviceCollection)
             .TryAdd<IRelationalTypeMappingSource, LibRedTypeMappingSource>();
         serviceCollection.AddScoped<IExecutionStrategyFactory, LibRedExecutionStrategyFactory>();

@@ -94,6 +94,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         switch (node)
         {
+            case SingleRowNode:
+                // FROM-less SELECT: one row, no columns — the projection above evaluates its constants once.
+                return ([], [new object?[0]]);
+
             case ScanNode scan:
             {
                 var table = _database.OpenTable(scan.Table);

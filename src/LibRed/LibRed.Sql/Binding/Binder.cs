@@ -38,10 +38,12 @@ public sealed class Binder(ISchemaProvider schema)
         ValidateSources(select.From);
     }
 
-    private void ValidateSources(TableReference from)
+    private void ValidateSources(TableReference? from)
     {
         switch (from)
         {
+            case null: // FROM-less SELECT (e.g. `SELECT 2`) — nothing to validate
+                break;
             case NamedTable n when _schema.GetTable(n.Name) is null:
                 throw new SqlBindException($"Table '{n.Name}' does not exist.");
             case JoinTable j:

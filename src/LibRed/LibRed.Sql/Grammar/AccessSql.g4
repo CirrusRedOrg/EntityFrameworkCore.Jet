@@ -194,8 +194,9 @@ queryTerm
     ;
 setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 
+// The FROM clause is optional: ACE accepts a bare `SELECT 2` (verified) — a FROM-less SELECT yields one row.
 selectStatement
-    : SELECT predicate=selectPredicate? topClause? selectList fromClause whereClause? groupByClause? havingClause? orderByClause?
+    : SELECT predicate=selectPredicate? topClause? selectList fromClause? whereClause? groupByClause? havingClause? orderByClause?
     ;
 
 // The optional row predicate. ALL is the default (return every row); DISTINCT dedupes on the output

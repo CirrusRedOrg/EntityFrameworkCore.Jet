@@ -6,6 +6,10 @@ namespace LibRed.Engine.Plan;
 /// <summary>Full-table scan of a base table, exposing its columns under <paramref name="Alias"/>.</summary>
 public sealed record ScanNode(string Table, string? Alias) : PlanNode;
 
+/// <summary>A FROM-less SELECT source: yields exactly one row with no columns, so a constant projection like
+/// <c>SELECT 2</c> evaluates once. ACE accepts a bare <c>SELECT 2</c> (verified) — this matches that.</summary>
+public sealed record SingleRowNode : PlanNode;
+
 /// <summary>
 /// An index seek: reads the rows of <paramref name="Table"/> whose <paramref name="Index"/> key equals the
 /// evaluated <paramref name="Keys"/> (one per index column, in index order), instead of a full scan. Exposes

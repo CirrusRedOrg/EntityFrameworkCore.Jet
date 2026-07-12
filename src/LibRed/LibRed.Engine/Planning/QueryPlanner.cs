@@ -77,8 +77,9 @@ public sealed class QueryPlanner
         _ => false,
     };
 
-    private static PlanNode PlanFrom(TableReference from) => from switch
+    private static PlanNode PlanFrom(TableReference? from) => from switch
     {
+        null => new SingleRowNode(), // FROM-less SELECT (e.g. `SELECT 2`) — one row, no columns
         NamedTable t => new ScanNode(t.Name, t.Alias),
         JoinTable j => new JoinNode(PlanFrom(j.Left), PlanFrom(j.Right), j.Kind, j.On),
         SubqueryTable s => new DerivedTableNode(PlanStatement(s.Query), s.Alias), // alias optional (Access allows aliasless)

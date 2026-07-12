@@ -375,12 +375,13 @@ internal sealed class AstBuilder
         OrderBy = sel.OrderBy.Select(o => o with { Value = LowerExpr(o.Value, names) }).ToList(),
     };
 
-    private static TableReference LowerFrom(TableReference t, HashSet<string> names) => t switch
+    private static TableReference? LowerFrom(TableReference? t, HashSet<string> names) => t switch
     {
+        null => null, // FROM-less SELECT
         JoinTable j => j with
         {
-            Left = LowerFrom(j.Left, names),
-            Right = LowerFrom(j.Right, names),
+            Left = LowerFrom(j.Left, names)!,   // a join always has both sides
+            Right = LowerFrom(j.Right, names)!,
             On = j.On is null ? null : LowerExpr(j.On, names),
         },
         SubqueryTable sub => sub with { Query = LowerParameters(sub.Query, names) },
@@ -557,7 +558,7 @@ internal sealed class AstBuilder
             ? (IReadOnlyList<SelectItem>)[]
             : list.selectItem().Select(BuildSelectItem).ToList();
 
-        TableReference from = BuildFrom(ctx.fromClause());
+        TableReference? from = ctx.fromClause() is { } fc ? BuildFrom(fc) : null;
         Expression? where = ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null;
         var groupBy = ctx.groupByClause() is { } g
             ? g.expression().Select(BuildExpression).ToList()

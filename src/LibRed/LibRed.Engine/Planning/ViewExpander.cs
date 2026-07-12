@@ -31,7 +31,7 @@ internal static class ViewExpander
         Expression Expr(Expression e) => RewriteExpression(e, views, parser);
         return select with
         {
-            From = RewriteSource(select.From, views, parser),
+            From = select.From is null ? null : RewriteSource(select.From, views, parser),
             Projection = select.Projection.Select(i => i with { Value = Expr(i.Value) }).ToList(),
             Where = select.Where is { } w ? Expr(w) : null,
             GroupBy = select.GroupBy.Select(Expr).ToList(),

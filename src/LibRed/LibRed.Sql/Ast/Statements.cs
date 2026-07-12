@@ -9,7 +9,8 @@ public sealed record SelectItem(Expression Value, string? Alias) : SqlNode;
 public sealed record SelectStatement(
     IReadOnlyList<SelectItem> Projection,
     bool IsSelectStar,
-    TableReference From,
+    // Null for a FROM-less SELECT (e.g. `SELECT 2`): a single-row source that evaluates the projection once.
+    TableReference? From,
     Expression? Where,
     IReadOnlyList<Expression> GroupBy,
     Expression? Having,

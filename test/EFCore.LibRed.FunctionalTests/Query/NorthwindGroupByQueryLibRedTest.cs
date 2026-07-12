@@ -2470,9 +2470,9 @@ FROM (
 
             AssertSql(
                 """
-SELECT [o].[CustomerID] AS [Key], AVG(DISTINCT (CAST([o].[OrderID] AS float))) AS [Average], COUNT(DISTINCT ([o].[EmployeeID])) AS [Count], COUNT_BIG(DISTINCT ([o].[EmployeeID])) AS [LongCount], MAX(DISTINCT ([o].[OrderDate])) AS [Max], MIN(DISTINCT ([o].[OrderDate])) AS [Min], COALESCE(SUM(DISTINCT ([o].[OrderID])), 0) AS [Sum]
-FROM [Orders] AS [o]
-GROUP BY [o].[CustomerID]
+SELECT `o`.`CustomerID` AS `Key`, AVG(DISTINCT (CDBL(`o`.`OrderID`))) AS `Average`, COUNT(DISTINCT (`o`.`EmployeeID`)) AS `Count`, COUNT(DISTINCT (`o`.`EmployeeID`)) AS `LongCount`, MAX(`o`.`OrderDate`) AS `Max`, MIN(`o`.`OrderDate`) AS `Min`, IIF(SUM(DISTINCT (`o`.`OrderID`)) IS NULL, 0, SUM(DISTINCT (`o`.`OrderID`))) AS `Sum`
+FROM `Orders` AS `o`
+GROUP BY `o`.`CustomerID`
 """);
         }
 

@@ -64,4 +64,25 @@ public class JetNameValidationTests
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
+
+    // Constraint names (PK/unique/check) go to disk too and carry the same limits — a 100-char one corrupts
+    // (FK name overruns, index enumeration breaks). Verified vs ACE.
+    [Fact]
+    public void CreateTable_rejects_over_long_constraint_names()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"nv-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var K = new ColumnSpec("K", JetDataType.Int32, 4, IsFixedLength: true);
+            string L100 = new('x', 100);
+            Assert.Throws<ArgumentException>(() => db.CreateTable("T1", [K], primaryKey: ["K"], primaryKeyName: L100));
+            Assert.Throws<ArgumentException>(() => db.CreateTable("T2", [K], primaryKey: ["K"],
+                checkConstraints: [(L100, "K > 0")]));
+            Assert.Throws<ArgumentException>(() => db.CreateTable("T3", [K, new("U", JetDataType.Int32, 4, IsFixedLength: true)],
+                primaryKey: ["K"], uniqueConstraints: [new UniqueIndexSpec(L100, ["U"])]));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
 }

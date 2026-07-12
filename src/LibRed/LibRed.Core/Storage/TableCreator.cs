@@ -43,6 +43,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         JetName.Validate(name, "table name");
         foreach (ColumnSpec c in columns)
             JetName.Validate(c.Name, "column name");
+        // Constraint names go to disk too (PK/unique → index names, FK → MSysRelationships, CHECK → LvProp) and
+        // carry the same 64-char + forbidden-char limits — verified: a 100-char FK name overruns into adjacent
+        // data and a 100-char index name breaks ACE's index enumeration. Only validate caller-supplied names.
+        if (primaryKeyName is not null) JetName.Validate(primaryKeyName, "primary key name");
+        foreach (RelationshipSpec r in relationships) JetName.Validate(r.Name, "foreign key name");
+        foreach (UniqueIndexSpec u in uniqueConstraints) JetName.Validate(u.Name, "unique constraint name");
+        foreach ((string checkName, _) in checkConstraints) JetName.Validate(checkName, "check constraint name");
 
         // A table name is unique (case-insensitively) across the database; reject a duplicate rather
         // than writing a second MSysObjects row that shadows the existing table.
@@ -523,6 +530,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// </summary>
     public void AddForeignKey(string childTable, RelationshipSpec fk)
     {
+        JetName.Validate(fk.Name, "foreign key name");
         TableDef child = _catalog.FindTable(childTable)
             ?? throw new InvalidOperationException($"Table '{childTable}' was not found.");
         if (fk.NoIndex)
@@ -1001,6 +1009,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// re-loaded <c>TableDef.CheckConstraints</c>.</summary>
     public void AddCheckConstraint(string tableName, string checkName, string expression)
     {
+        JetName.Validate(checkName, "check constraint name");
         TableDef target = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
         int tdefPage = target.DefinitionPage;

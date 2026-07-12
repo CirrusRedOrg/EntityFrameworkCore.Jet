@@ -11,7 +11,12 @@
 grammar AccessSql;
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
-statement : parametersClause? (createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | executeStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
+statement : parametersClause? (ifThenStatement | createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | executeStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
+
+// EF emits Jet's conditional DDL for idempotent migrations: `IF [NOT] EXISTS (<select>) THEN <statement>`.
+// A single guarded statement (all EF produces); the condition is an ordinary subquery (e.g. over INFORMATION_SCHEMA).
+ifThenStatement : IF not=NOT? EXISTS LPAREN selectStatement RPAREN THEN thenBody ;
+thenBody : createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | executeStatement | queryExpression ;
 
 // EXECUTE|EXEC procedure [arg [, arg …]] — invoke a stored procedure/query by name with positional
 // argument values (Access syntax has no parentheses). The args bind to the procedure's declared parameters.
@@ -331,6 +336,8 @@ IS     : [Ii][Ss] ;
 BY     : [Bb][Yy] ;
 HAVING : [Hh][Aa][Vv][Ii][Nn][Gg] ;
 EXISTS : [Ee][Xx][Ii][Ss][Tt][Ss] ;
+IF     : [Ii][Ff] ;
+THEN   : [Tt][Hh][Ee][Nn] ;
 DISTINCTROW : [Dd][Ii][Ss][Tt][Ii][Nn][Cc][Tt][Rr][Oo][Ww] ;
 DISTINCT : [Dd][Ii][Ss][Tt][Ii][Nn][Cc][Tt] ;
 PERCENT  : [Pp][Ee][Rr][Cc][Ee][Nn][Tt] ;

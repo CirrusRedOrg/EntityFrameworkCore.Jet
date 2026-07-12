@@ -29,6 +29,7 @@ internal sealed class AstBuilder
 
     private SqlStatement BuildBody(StatementContext ctx)
     {
+        if (ctx.ifThenStatement() is { } ifThen) return BuildIfThen(ifThen);
         if (ctx.createTableStatement() is { } create) return BuildCreateTable(create);
         if (ctx.createIndexStatement() is { } createIndex) return BuildCreateIndex(createIndex);
         if (ctx.createViewStatement() is { } createView) return BuildCreateView(createView);
@@ -40,6 +41,24 @@ internal sealed class AstBuilder
         if (ctx.deleteStatement() is { } delete) return BuildDelete(delete);
         if (ctx.executeStatement() is { } exec) return BuildExecute(exec);
         if (ctx.systemVariableSelect() is { } sysSelect) return BuildSystemVariableSelect(sysSelect);
+        return BuildQueryExpression(ctx.queryExpression());
+    }
+
+    private SqlStatement BuildIfThen(IfThenStatementContext ctx) =>
+        new IfThenStatement(ctx.not is not null, BuildSelect(ctx.selectStatement()), BuildThenBody(ctx.thenBody()));
+
+    private SqlStatement BuildThenBody(ThenBodyContext ctx)
+    {
+        if (ctx.createTableStatement() is { } create) return BuildCreateTable(create);
+        if (ctx.createIndexStatement() is { } createIndex) return BuildCreateIndex(createIndex);
+        if (ctx.createViewStatement() is { } createView) return BuildCreateView(createView);
+        if (ctx.createProcedureStatement() is { } createProc) return BuildCreateProcedure(createProc);
+        if (ctx.alterTableStatement() is { } alter) return BuildAlterTable(alter);
+        if (ctx.dropStatement() is { } drop) return BuildDrop(drop);
+        if (ctx.insertStatement() is { } insert) return BuildInsert(insert);
+        if (ctx.updateStatement() is { } update) return BuildUpdate(update);
+        if (ctx.deleteStatement() is { } delete) return BuildDelete(delete);
+        if (ctx.executeStatement() is { } exec) return BuildExecute(exec);
         return BuildQueryExpression(ctx.queryExpression());
     }
 

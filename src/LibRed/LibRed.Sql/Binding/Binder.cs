@@ -27,6 +27,10 @@ public sealed class Binder(ISchemaProvider schema)
                 BindStatement(set.Left);
                 BindStatement(set.Right);
                 break;
+            case IfThenStatement ifThen:
+                BindSelect(ifThen.Condition); // validate the condition's sources (e.g. INFORMATION_SCHEMA.TABLES)
+                BindStatement(ifThen.Then);   // DDL/DML Then is validated at execution; a query Then is bound here
+                break;
         }
     }
 

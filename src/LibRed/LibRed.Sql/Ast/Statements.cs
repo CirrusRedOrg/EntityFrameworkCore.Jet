@@ -26,6 +26,12 @@ public sealed record SelectStatement(
 /// positional argument values that bind to its declared parameters (in declaration order).</summary>
 public sealed record ExecuteStatement(string Procedure, IReadOnlyList<Expression> Arguments) : SqlStatement;
 
+/// <summary>Jet's conditional DDL <c>IF [NOT] EXISTS (&lt;condition&gt;) THEN &lt;then&gt;</c> — EF emits it for
+/// idempotent migrations (e.g. create the history table only if it isn't already in INFORMATION_SCHEMA.TABLES).
+/// <paramref name="Then"/> runs when the (possibly correlated) condition subquery returns a row — or, when
+/// <paramref name="Negated"/>, when it returns none.</summary>
+public sealed record IfThenStatement(bool Negated, SelectStatement Condition, SqlStatement Then) : SqlStatement;
+
 /// <summary>A FROM-less <c>SELECT @@IDENTITY</c> / <c>SELECT @@ROWCOUNT</c> (a comma list of system
 /// variables only). ACE allows these without a FROM clause; they yield a single row. The projection
 /// items' <see cref="SelectItem.Value"/> are all <see cref="SystemVariableExpression"/>.</summary>

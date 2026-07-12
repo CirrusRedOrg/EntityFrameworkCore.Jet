@@ -74,21 +74,38 @@ public sealed class QueryEngine
         if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters);
         SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog.Views, _parser);
         BoundStatement bound = _binder.Bind(ast);
+        return Route(bound.Statement, parameters);
+    }
 
-        if (bound.Statement is SystemVariableSelectStatement sysSelect)
+    /// <summary>Routes an already-bound statement to the right executor (system-variable select, IF…THEN,
+    /// query, or a DML/DDL non-query). Split out so IF…THEN can run its guarded body through the same path.</summary>
+    private CommandResult Route(SqlStatement statement, IReadOnlyDictionary<string, object?>? parameters)
+    {
+        switch (statement)
         {
-            ResultSet rows = new QueryExecutor(_database, parameters, _session).ExecuteSystemVariableSelect(sysSelect);
-            return new CommandResult(rows, RecordsAffected: -1);
+            case SystemVariableSelectStatement sysSelect:
+                return new CommandResult(
+                    new QueryExecutor(_database, parameters, _session).ExecuteSystemVariableSelect(sysSelect), -1);
+            case IfThenStatement ifThen:
+                return ExecuteIfThen(ifThen, parameters);
+            case SelectStatement or SetOperationStatement:
+                return new CommandResult(
+                    new QueryExecutor(_database, parameters, _session).ExecuteQuery(PlanWithIndexes(new BoundStatement(statement))), -1);
+            default:
+                return new CommandResult(ResultSet.Empty,
+                    new StatementExecutor(_database, parameters, _parser, _session).Execute(statement));
         }
+    }
 
-        if (bound.Statement is SelectStatement or SetOperationStatement)
-        {
-            ResultSet rows = new QueryExecutor(_database, parameters, _session).ExecuteQuery(PlanWithIndexes(bound));
-            return new CommandResult(rows, RecordsAffected: -1);
-        }
-
-        int affected = new StatementExecutor(_database, parameters, _parser, _session).Execute(bound.Statement);
-        return new CommandResult(ResultSet.Empty, affected);
+    /// <summary>Evaluates the condition subquery; runs the guarded THEN statement only when the EXISTS test holds
+    /// (or, for NOT EXISTS, when it doesn't). @@ROWCOUNT reflects the THEN, or 0 when the guard skips it.</summary>
+    private CommandResult ExecuteIfThen(IfThenStatement ifThen, IReadOnlyDictionary<string, object?>? parameters)
+    {
+        var condPlan = IndexSelection.Apply(QueryPlanner.PlanSelect(ifThen.Condition), _database.Catalog);
+        bool hasRows = new QueryExecutor(_database, parameters, _session).ExecuteQuery(condPlan).Rows.Any();
+        if (hasRows == ifThen.Negated)
+            return new CommandResult(ResultSet.Empty, 0); // guard not satisfied — skip the body
+        return Route(ifThen.Then, parameters);
     }
 
     /// <summary>Plans a bound statement, then applies index selection (turning scans into index seeks where a

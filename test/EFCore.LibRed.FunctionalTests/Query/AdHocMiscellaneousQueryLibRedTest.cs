@@ -978,10 +978,10 @@ FROM `Posts` AS `p`
 
         AssertSql(
             """
-            SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
-            FROM `Entities` AS `e`
-            WHERE (`e`.`PermissionShort` BAND 4) = 4
-            """);
+SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
+FROM `Entities` AS `e`
+WHERE (`e`.`PermissionShort` BAND CINT(4)) = CINT(4)
+""");
     }
 
     public override async Task Enum_has_flag_does_not_apply_explicit_cast_for_non_constant()

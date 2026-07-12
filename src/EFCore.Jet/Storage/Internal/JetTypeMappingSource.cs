@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         private readonly JetIntTypeMapping _counter = JetIntTypeMapping.Default;
 
         private readonly JetByteTypeMapping _byte = JetByteTypeMapping.Default; // unsigned, there is no signed byte in Jet
-        private readonly ShortTypeMapping _smallint = new("smallint", DbType.Int16);
+        private readonly JetShortTypeMapping _smallint = JetShortTypeMapping.Default;
         private readonly JetIntTypeMapping _integer = JetIntTypeMapping.Default;
         private readonly JetLongTypeMapping _bigint = JetLongTypeMapping.Default;
 

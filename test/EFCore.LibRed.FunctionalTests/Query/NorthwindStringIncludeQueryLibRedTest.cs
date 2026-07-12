@@ -257,12 +257,12 @@ ORDER BY `o`.`OrderID`, `c`.`CustomerID`
             """
 SELECT `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`,
-(
+((
     SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
     FROM `Customers` AS `c0`
     WHERE `c0`.`CustomerID` = 'ALFKI'
 ) AS `c1`
-LEFT JOIN `Orders` AS `o` ON `c1`.`CustomerID` = `o`.`CustomerID`
+LEFT JOIN `Orders` AS `o` ON `c1`.`CustomerID` = `o`.`CustomerID`)
 ORDER BY `c`.`CustomerID`, `c1`.`CustomerID`
 """);
     }
@@ -1205,7 +1205,7 @@ FROM ((`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
 LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
-WHERE (`o`.`ProductID` MOD 23) = 17 AND `o`.`Quantity` < 10
+WHERE (`o`.`ProductID` MOD 23) = 17 AND `o`.`Quantity` < CINT(10)
 ORDER BY `o`.`OrderID`, `o`.`ProductID`, `o0`.`OrderID`, `c`.`CustomerID`
 """);
     }
@@ -1435,12 +1435,12 @@ FROM (
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
 ) AS `c1`,
-(
+((
     SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
     FROM `Customers` AS `c0`
     WHERE `c0`.`CustomerID` LIKE 'F%'
 ) AS `c2`
-LEFT JOIN `Orders` AS `o` ON `c2`.`CustomerID` = `o`.`CustomerID`
+LEFT JOIN `Orders` AS `o` ON `c2`.`CustomerID` = `o`.`CustomerID`)
 ORDER BY `c1`.`CustomerID`, `c2`.`CustomerID`
 """);
     }
@@ -2081,7 +2081,7 @@ FROM (
     FROM (
         SELECT TOP @p + @p1 `o`.`OrderID`, `o`.`ProductID`
         FROM `Order Details` AS `o`
-        WHERE `o`.`Quantity` = 10
+        WHERE `o`.`Quantity` = CINT(10)
         ORDER BY `o`.`OrderID`, `o`.`ProductID`
     ) AS `o2`
     ORDER BY `o2`.`OrderID` DESC, `o2`.`ProductID` DESC

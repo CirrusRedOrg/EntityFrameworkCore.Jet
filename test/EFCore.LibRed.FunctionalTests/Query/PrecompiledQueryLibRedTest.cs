@@ -262,7 +262,7 @@ FROM `Blogs` AS `b`
             """
 SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
-WHERE CINT(`b`.`Id`) = 8
+WHERE CINT(`b`.`Id`) = CINT(8)
 """);
     }
 

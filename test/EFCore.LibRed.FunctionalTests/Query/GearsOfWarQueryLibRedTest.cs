@@ -972,7 +972,7 @@ LEFT JOIN (
     FROM `LocustLeaders` AS `l0`
     WHERE `l0`.`Discriminator` = 'LocustCommander'
 ) AS `l1` ON `f`.`CommanderName` = `l1`.`Name`
-WHERE IIF(`l`.`Name` IS NOT NULL, `l`.`ThreatLevel`, `l1`.`ThreatLevel`) = 4
+WHERE IIF(`l`.`Name` IS NOT NULL, `l`.`ThreatLevel`, `l1`.`ThreatLevel`) = CINT(4)
 """);
         }
 

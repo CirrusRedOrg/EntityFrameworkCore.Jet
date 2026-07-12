@@ -564,7 +564,7 @@ FROM (
     FROM (
         SELECT TOP @p + @p1 `o`.`OrderID`, `o`.`ProductID`
         FROM `Order Details` AS `o`
-        WHERE `o`.`Quantity` = 10
+        WHERE `o`.`Quantity` = CINT(10)
         ORDER BY `o`.`OrderID`, `o`.`ProductID`
     ) AS `o2`
     ORDER BY `o2`.`OrderID` DESC, `o2`.`ProductID` DESC
@@ -691,13 +691,12 @@ ORDER BY `c`.`CustomerID`, `c1`.`CustomerID`
             """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`, `c1`.`CustomerID`
 FROM `Customers` AS `c`,
-(
+((
     SELECT `c0`.`CustomerID`
     FROM `Customers` AS `c0`
     WHERE `c0`.`CustomerID` = 'ALFKI'
 ) AS `c1`
-LEFT JOIN `Orders` AS `o` ON `c1`.`CustomerID` = `o`.`CustomerID`
-WHERE `c1`.`CustomerID` IS NOT NULL AND `o`.`CustomerID` IS NOT NULL
+INNER JOIN `Orders` AS `o` ON `c1`.`CustomerID` = `o`.`CustomerID`)
 ORDER BY `c`.`CustomerID`, `c1`.`CustomerID`
 """);
     }
@@ -2245,13 +2244,12 @@ FROM (
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
 ) AS `c1`,
-(
+((
     SELECT `c0`.`CustomerID`
     FROM `Customers` AS `c0`
     WHERE `c0`.`CustomerID` LIKE 'F%'
 ) AS `c2`
-LEFT JOIN `Orders` AS `o` ON `c2`.`CustomerID` = `o`.`CustomerID`
-WHERE `c2`.`CustomerID` IS NOT NULL AND `o`.`CustomerID` IS NOT NULL
+INNER JOIN `Orders` AS `o` ON `c2`.`CustomerID` = `o`.`CustomerID`)
 ORDER BY `c1`.`CustomerID`, `c2`.`CustomerID`
 """);
     }

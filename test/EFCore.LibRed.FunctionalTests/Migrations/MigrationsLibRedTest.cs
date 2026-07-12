@@ -525,7 +525,7 @@ ALTER TABLE [People] ADD [RowVersion] rowversion NOT NULL;
 
         AssertSql(
             """
-ALTER TABLE [People] ADD [Sum] int NOT NULL DEFAULT (1 + 2);
+ALTER TABLE `People` ADD `Sum` integer NOT NULL DEFAULT 1 + 2;
 """);
     }
 
@@ -646,7 +646,7 @@ ALTER TABLE `People` ADD `FullName` varchar(255) NULL;
         AssertSql("");
     }
 
-    [ConditionalFact(Skip = "Jet does not support collation")]
+    [ConditionalTheory(Skip = "Jet does not support collation")]
     public override async Task Add_column_computed_with_collation(bool stored)
     {
         await base.Add_column_computed_with_collation(stored);
@@ -787,7 +787,7 @@ ALTER TABLE `Animal` ADD `IdentityColumn` integer NOT NULL DEFAULT 0;
         AssertSql(
             """
 ALTER TABLE `People` ALTER COLUMN `SomeColumn` DROP DEFAULT;
-ALTER TABLE `People` ALTER COLUMN `SomeColumn` decimal(20,0) NOT NULL;
+ALTER TABLE `People` ALTER COLUMN `SomeColumn` decimal(20, 0) NOT NULL;
 """);
     }
 
@@ -1113,13 +1113,8 @@ ALTER TABLE `Entity` ALTER COLUMN `Name` longchar NOT NULL DEFAULT '{}';
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'Name');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] ALTER COLUMN [Name] nvarchar(450) NULL;
+ALTER TABLE `People` ALTER COLUMN `Name` DROP DEFAULT;
+ALTER TABLE `People` ALTER COLUMN `Name` varchar(255) NULL;
 """);
     }
 

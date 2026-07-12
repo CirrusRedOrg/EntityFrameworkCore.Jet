@@ -1078,7 +1078,7 @@ ORDER BY `c`.`CustomerID`
                 """
 SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-ORDER BY NOT (`p`.`UnitsInStock` > 0), `p`.`ProductID`
+ORDER BY NOT (`p`.`UnitsInStock` > CINT(0)), `p`.`ProductID`
 """);
         }
 
@@ -2910,10 +2910,10 @@ WHERE 'Chai' IN (
             await base.Where_subquery_on_collection(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE 5 IN (
+WHERE CINT(5) IN (
     SELECT `o`.`Quantity`
     FROM `Order Details` AS `o`
     WHERE `o`.`ProductID` = `p`.`ProductID`
@@ -5128,12 +5128,12 @@ FROM (
 SELECT (
     SELECT COUNT(*)
     FROM `Order Details` AS `o1`
-    WHERE `o`.`OrderID` = `o1`.`OrderID` AND `o1`.`Quantity` < 10) AS `Count`
+    WHERE `o`.`OrderID` = `o1`.`OrderID` AND `o1`.`Quantity` < CINT(10)) AS `Count`
 FROM `Orders` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `Order Details` AS `o0`
-    WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`Quantity` < 10)
+    WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`Quantity` < CINT(10))
 """);
         }
 
@@ -5620,7 +5620,7 @@ LEFT JOIN (
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE (`o`.`Quantity` + 1) = 5 AND (`o`.`Quantity` - 1) = 3 AND (`o`.`Quantity` * 1) = `o`.`Quantity`
+WHERE (`o`.`Quantity` + CINT(1)) = CINT(5) AND (`o`.`Quantity` - CINT(1)) = CINT(3) AND (`o`.`Quantity` * CINT(1)) = `o`.`Quantity`
 ORDER BY `o`.`OrderID`
 """);
         }

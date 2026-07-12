@@ -1132,11 +1132,11 @@ WHERE NOT (`p`.`Discontinued`) AND `p`.`ProductID` < 60 AND `p`.`ProductID` > 30
             await base.Where_short_member_comparison(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-                    FROM `Products` AS `p`
-                    WHERE `p`.`UnitsInStock` > 10
-                    """);
+                """
+SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Products` AS `p`
+WHERE `p`.`UnitsInStock` > CINT(10)
+""");
         }
 
         public override async Task Where_comparison_to_nullable_bool(bool isAsync)
@@ -1228,11 +1228,11 @@ WHERE `c`.`CustomerID` = 'ALFKI'
             await base.Where_ternary_boolean_condition_true(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-                    FROM `Products` AS `p`
-                    WHERE `p`.`UnitsInStock` >= 20
-                    """);
+                """
+SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Products` AS `p`
+WHERE `p`.`UnitsInStock` >= CINT(20)
+""");
         }
 
         public override async Task Where_ternary_boolean_condition_false(bool isAsync)
@@ -1240,11 +1240,11 @@ WHERE `c`.`CustomerID` = 'ALFKI'
             await base.Where_ternary_boolean_condition_false(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-                    FROM `Products` AS `p`
-                    WHERE `p`.`UnitsInStock` < 20
-                    """);
+                """
+SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Products` AS `p`
+WHERE `p`.`UnitsInStock` < CINT(20)
+""");
         }
 
         public override async Task Where_ternary_boolean_condition_with_another_condition(bool isAsync)
@@ -1257,7 +1257,7 @@ WHERE `c`.`CustomerID` = 'ALFKI'
 
 SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE `p`.`ProductID` < @productId AND `p`.`UnitsInStock` >= 20
+WHERE `p`.`ProductID` < @productId AND `p`.`UnitsInStock` >= CINT(20)
 """);
         }
 
@@ -1266,11 +1266,11 @@ WHERE `p`.`ProductID` < @productId AND `p`.`UnitsInStock` >= 20
             await base.Where_ternary_boolean_condition_with_false_as_result_true(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-                    FROM `Products` AS `p`
-                    WHERE `p`.`UnitsInStock` >= 20
-                    """);
+                """
+SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Products` AS `p`
+WHERE `p`.`UnitsInStock` >= CINT(20)
+""");
         }
 
         public override async Task Where_ternary_boolean_condition_with_false_as_result_false(bool isAsync)
@@ -1293,7 +1293,7 @@ WHERE FALSE
                 """
 SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE IIF(`p`.`UnitsInStock` >= 20, TRUE, FALSE)
+WHERE IIF(`p`.`UnitsInStock` >= CINT(20), TRUE, FALSE)
 """);
         }
 

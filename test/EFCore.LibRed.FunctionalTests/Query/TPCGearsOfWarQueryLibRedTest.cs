@@ -1375,7 +1375,7 @@ LEFT JOIN (
     FROM `LocustCommanders` AS `l1`
 ) AS `u` ON `l`.`DeputyCommanderName` = `u`.`Name`)
 LEFT JOIN `LocustCommanders` AS `l2` ON `l`.`CommanderName` = `l2`.`Name`
-WHERE IIF(`u`.`Name` IS NOT NULL, `u`.`ThreatLevel`, `l2`.`ThreatLevel`) = 4
+WHERE IIF(`u`.`Name` IS NOT NULL, `u`.`ThreatLevel`, `l2`.`ThreatLevel`) = CINT(4)
 """);
     }
 

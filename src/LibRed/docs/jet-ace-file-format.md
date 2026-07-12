@@ -168,12 +168,22 @@ absolute from the first page, so parsing is otherwise unchanged.
 ```
 0x3F : index statistics      RealIndexCount(0x33) × 12 bytes   (per-index, §3.3.1)
        column descriptors    ColumnCount(0x2D)    × 25 bytes
-       column names          ColumnCount          × (2-byte length + UTF-16LE)
+       column names          ColumnCount          × (2-byte length + UTF-16LE)   (naming limits below)
        index-data blocks     RealIndexCount(0x33) × 52 bytes
        index-info blocks     LogicalIndexCount(0x2F) × 28 bytes
        index names           LogicalIndexCount    × (2-byte length + UTF-16LE)
        column usage maps     (per long-value column) × 10 bytes, then 0xFFFF  (§3.3.2)
 ```
+
+> **Object-name limits (verified vs ACE OLE DB 2026-07-12).** The 2-byte length prefix could physically hold a
+> 65535-byte name, but ACE enforces **64 characters** for table/column/index names — a longer name makes ACE
+> reject the *entire file* (65+ char column → "Unrecognized database format"; 65+ char table → "Unspecified
+> error"), not just the object. ACE's *storage/read* path tolerates every special character (quotes, `#`, `%`,
+> `&`, spaces, tab, unicode all round-trip), but `. ! ` `` ` `` `[ ]` make the name **unreferenceable in SQL**
+> (both bracket- and backtick-quoted `SELECT` fail) — matching Access's documented forbidden set. LibRed enforces
+> both (max 64 + forbidden chars) on caller-supplied names via `JetName.Validate`, since writing the format
+> directly bypasses ACE's DDL parser. Internal hidden names (the `.rN` incoming-relationship index names, §3.6)
+> legitimately start with `.` and are **not** validated.
 
 ### 3.3.2 Column usage-map list (trailing the index names)
 

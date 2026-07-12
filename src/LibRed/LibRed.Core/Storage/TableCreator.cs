@@ -37,6 +37,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         columnDefaults ??= [];
         checkConstraints ??= [];
 
+        // Reject names ACE can't use before writing anything: > 64 chars corrupts the whole file for ACE, and
+        // the characters . ! ` [ ] make the name unreferenceable in ACE SQL (both verified vs ACE). Applies only
+        // to caller-supplied names — LibRed's own hidden .rN relationship-index names are generated later.
+        JetName.Validate(name, "table name");
+        foreach (ColumnSpec c in columns)
+            JetName.Validate(c.Name, "column name");
+
         // A table name is unique (case-insensitively) across the database; reject a duplicate rather
         // than writing a second MSysObjects row that shadows the existing table.
         if (_catalog.FindTable(name) is not null)
@@ -329,6 +336,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     public void AddIndex(string tableName, string indexName, IReadOnlyList<(string Column, bool Descending)> columns,
         bool isUnique, bool isPrimary, bool disallowNull, bool ignoreNulls)
     {
+        JetName.Validate(indexName, "index name");
         TableDef table = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
         var slots = ResolveSlots(table, columns.Select(c => (c.Column, Ascending: !c.Descending)));
@@ -777,6 +785,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// </summary>
     public bool AddColumn(string tableName, ColumnSpec spec, string? defaultValue = null)
     {
+        JetName.Validate(spec.Name, "column name");
         TableDef table = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
         if (table.Columns.Any(c => string.Equals(c.Name, spec.Name, StringComparison.OrdinalIgnoreCase)))

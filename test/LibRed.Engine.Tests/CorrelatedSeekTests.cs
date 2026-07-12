@@ -75,4 +75,16 @@ public class CorrelatedSeekTests
         int direct = Count(e, "SELECT V FROM D WHERE V > 20");
         Assert.Equal(direct, viaExists);
     }
+
+    [Fact]
+    public void Correlated_subquery_as_a_range_bound_is_not_turned_into_a_seek()
+    {
+        // `P.Id > (correlated aggregate subquery)` must NOT be rewritten to an index range-seek with the
+        // subquery as the bound: the bound is evaluated once with no row scope, but the subquery correlates to
+        // P.Id (the row being sought) — that would throw "Column 'P.Id' was not found". It must stay a filter.
+        var e = Seeded();
+        // Every P (Id 0..39) has exactly 5 children (200 C rows, Pid = i%40), so the correlated COUNT is 5 for
+        // each → P.Id > 5 keeps Ids 6..39 = 34 rows. The seek-rewrite bug would instead throw before returning.
+        Assert.Equal(34, Count(e, "SELECT P.Id FROM P WHERE P.Id > (SELECT COUNT(*) FROM C WHERE C.Pid = P.Id)"));
+    }
 }

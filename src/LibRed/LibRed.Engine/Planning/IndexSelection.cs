@@ -327,11 +327,15 @@ internal static class IndexSelection
     private static bool HasColumnRef(Expression e) => e switch
     {
         ColumnReference => true,
+        // A subquery is opaque: it may be CORRELATED to this scan's own row (e.g. `t.Id > (SELECT … WHERE
+        // t.Id = …)`), so it must never be used as a seek key/bound — treat it as referencing a column. (A
+        // seek bound is evaluated once, with no row scope; a correlated subquery would fail to resolve there.)
+        ScalarSubquery or ExistsExpression or InSubqueryExpression => true,
         BinaryExpression b => HasColumnRef(b.Left) || HasColumnRef(b.Right),
         UnaryExpression u => HasColumnRef(u.Operand),
         FunctionCall f => f.Arguments.Any(HasColumnRef),
         InListExpression il => HasColumnRef(il.Value) || il.Items.Any(HasColumnRef),
-        _ => false, // literals, parameters, system vars; subqueries are opaque and left as residual-only
+        _ => false, // literals, parameters, system vars
     };
 
     private static IEnumerable<Expression> Conjuncts(Expression e)

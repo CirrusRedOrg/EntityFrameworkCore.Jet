@@ -154,7 +154,7 @@ public static class JetTypeCodec
             case JetDataType.Guid:
                 return ((Guid)value).ToByteArray();
             case JetDataType.Text:
-                return EncodeText(column, (string)value);
+                return EncodeText(column, AsText(value, c));
             case JetDataType.Binary:
                 return EncodeBinary(column, (byte[])value);
             case JetDataType.FixedPoint:
@@ -164,7 +164,7 @@ public static class JetTypeCodec
             // text as UTF-16LE, OLE as raw bytes). LongValueReader reads this back via the inline
             // flag. Chained LVAL pages for values too large to inline are not written yet.
             case JetDataType.Memo:
-                return EncodeInlineLongValue(Encoding.Unicode.GetBytes((string)value));
+                return EncodeInlineLongValue(Encoding.Unicode.GetBytes(AsText(value, c)));
             case JetDataType.Ole:
                 return EncodeInlineLongValue((byte[])value);
 
@@ -172,6 +172,13 @@ public static class JetTypeCodec
                 throw new NotSupportedException($"Encoding {column.Type} is not supported yet.");
         }
     }
+
+    /// <summary>The string form of a value being written to a Text/Memo column. A CLR string is used as-is;
+    /// anything else (a DateTime, number, GUID …) is coerced to its invariant string form — Jet/ACE likewise
+    /// stores a non-text value inserted into a text column as text (e.g. EF writes a DateTimeOffset lock
+    /// timestamp into a TEXT column). Prevents an InvalidCastException on the hard <c>(string)</c> cast.</summary>
+    private static string AsText(object value, IFormatProvider culture) =>
+        value as string ?? Convert.ToString(value, culture) ?? "";
 
     /// <summary>Encodes text. A fixed-length (CHAR/NCHAR) column is **space-padded** (or truncated) to its byte
     /// length — matching ACE, which stores and returns fixed text space-padded to the full width; a variable

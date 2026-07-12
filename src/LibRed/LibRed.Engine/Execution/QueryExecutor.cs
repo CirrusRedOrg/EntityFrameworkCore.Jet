@@ -642,6 +642,18 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         return order.Select(k => groups[k]).ToList();
     }
 
+    /// <summary>The distinct set of scalar values, using the same value-equality (<see cref="GroupKey"/>) as
+    /// SELECT DISTINCT / GROUP BY, so <c>COUNT(DISTINCT col)</c> dedupes exactly as ACE groups. Order preserved.</summary>
+    private static List<object?> DistinctValues(IEnumerable<object?> values)
+    {
+        var seen = new HashSet<GroupKey>();
+        var result = new List<object?>();
+        foreach (object? v in values)
+            if (seen.Add(new GroupKey([v])))
+                result.Add(v);
+        return result;
+    }
+
     private object? ComputeAggregate(FunctionCall call, List<object?[]> group, IReadOnlyList<OutputColumn> columns, EvalScope? outer)
     {
         string name = call.Name.ToUpperInvariant();
@@ -649,9 +661,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
         // COUNT is an Access Long Integer (32-bit) — EF reads it with GetInt32, so return int, not long.
         if (name == "COUNT")
-            return arg is StarExpression or null
-                ? group.Count
-                : group.Count(r => Eval(columns, r, outer).Evaluate(arg) is not null);
+        {
+            if (arg is StarExpression or null)
+                return group.Count; // COUNT(*) counts rows; DISTINCT is meaningless (and EF never emits it)
+            var counted = group.Select(r => Eval(columns, r, outer).Evaluate(arg)).Where(v => v is not null);
+            return call.Distinct ? DistinctValues(counted).Count : counted.Count();
+        }
 
         // FIRST/LAST return the argument's value from the first/last row of the group in scan order — NOT
         // null-filtered (verified vs ACE: First over a leading NULL row returns NULL).
@@ -661,6 +676,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             return group.Count == 0 ? null : Eval(columns, group[^1], outer).Evaluate(arg!);
 
         var values = group.Select(r => Eval(columns, r, outer).Evaluate(arg!)).Where(v => v is not null).ToList();
+        // SUM(DISTINCT)/AVG(DISTINCT)/… aggregate the distinct set of the argument's values. MIN/MAX are
+        // unaffected by dedup, but applying it uniformly keeps the one code path.
+        if (call.Distinct)
+            values = DistinctValues(values);
         if (values.Count == 0)
             return null; // SUM/AVG/MIN/MAX of nothing is NULL (COUNT already returned above)
 

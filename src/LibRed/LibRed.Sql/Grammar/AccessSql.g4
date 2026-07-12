@@ -277,7 +277,9 @@ primary
     | LPAREN expression RPAREN         # ParenPrimary
     ;
 
-functionCall : name=functionName LPAREN (star=STAR | (expression (COMMA expression)*))? RPAREN ;
+// An optional DISTINCT before the argument applies to aggregates (COUNT/SUM/AVG/…): the aggregate operates
+// on the distinct set of the argument's VALUES (COUNT(DISTINCT col)), not on distinct rows — see DISTINCTROW.
+functionCall : name=functionName LPAREN (star=STAR | (distinct=DISTINCT? expression (COMMA expression)*))? RPAREN ;
 // A function name is an identifier, or the LEFT/RIGHT/ASC keywords used as the Left()/Right()/Asc() functions —
 // unambiguous with LEFT/RIGHT JOIN and ORDER BY ... ASC because a function call is always followed by '(' and
 // never appears in the FROM/ORDER BY clause.

@@ -684,7 +684,7 @@ internal sealed class AstBuilder
         IReadOnlyList<Expression> args = ctx.star is not null
             ? [new StarExpression()]
             : ctx.expression().Select(BuildExpression).ToList();
-        return new FunctionCall(FunctionName(ctx.name), args);
+        return new FunctionCall(FunctionName(ctx.name), args, Distinct: ctx.distinct is not null);
     }
 
     /// <summary>A function name: an identifier, or the LEFT/RIGHT keyword tokens as Left()/Right().</summary>

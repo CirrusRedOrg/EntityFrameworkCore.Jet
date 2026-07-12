@@ -39,8 +39,10 @@ public enum UnaryOperator { Negate, Not, IsNull, IsNotNull, BitNot }
 
 public sealed record UnaryExpression(UnaryOperator Operator, Expression Operand) : Expression;
 
-/// <summary>A scalar/aggregate function call, e.g. <c>Count(*)</c>, <c>IIf(...)</c>, <c>Format(...)</c>.</summary>
-public sealed record FunctionCall(string Name, IReadOnlyList<Expression> Arguments) : Expression;
+/// <summary>A scalar/aggregate function call, e.g. <c>Count(*)</c>, <c>IIf(...)</c>, <c>Format(...)</c>.
+/// <paramref name="Distinct"/> is set for the ANSI aggregate form <c>COUNT(DISTINCT col)</c> — the aggregate
+/// runs over the distinct set of the argument's values (not distinct rows).</summary>
+public sealed record FunctionCall(string Name, IReadOnlyList<Expression> Arguments, bool Distinct = false) : Expression;
 
 /// <summary>A subquery used as a scalar value: <c>(SELECT … )</c>. May correlate to the outer query.</summary>
 public sealed record ScalarSubquery(SelectStatement Query) : Expression;

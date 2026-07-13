@@ -24,6 +24,13 @@
 **Flags (`0x0F`):** `0x01` fixed-length, `0x02` updatable, `0x04` auto-number,
 `0x40` auto-number GUID, `0x80` hyperlink (on a Memo column).
 
+> **Every documented flag is modelled — nothing rides through raw except the reserved/unknown.** LibRed reads
+> each `0x0F` bit and the whole `0x10` byte into `ColumnDef` (`IsUpdatable`/`IsGuidAutoNumber`/`IsHyperlink`,
+> `SupportsCompressedUnicode`/`IsCalculated`) and composes them back on write, so they round-trip explicitly.
+> The only bytes preserved verbatim through `ColumnDef.RawDescriptor` are the genuinely reserved/unknown ones:
+> the reserved words at `0x03` and `0x11`, and any *undocumented* bits of `0x0F`/`0x10` (zero in every file
+> observed). `ColumnDescriptorFlagTests`.
+
 > **Nullability, defaults and checks are *not* in the descriptor.** The column's *Required* (NOT NULL)
 > property is **not** encoded anywhere in the 25-byte descriptor — verified against Northwind: a nullable
 > column (`Orders.ShippedDate`) and a non-null column of the same type (`Orders.OrderDate`) have

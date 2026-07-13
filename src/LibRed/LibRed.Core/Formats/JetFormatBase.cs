@@ -101,14 +101,34 @@ public abstract class JetFormatBase
     public virtual int ColumnLocaleOffset => 0x0B;
     public virtual int ColumnCollationVersionOffset => 0x0D;
     public virtual int ColumnFlagsOffset => 0x0F;
+    /// <summary>Extended column flags (0x10): bit 0x01 = compressed-Unicode capable, 0xC0 = calculated column.</summary>
+    public virtual int ColumnExtendedFlagsOffset => 0x10;
     public virtual int ColumnFixedOffsetOffset => 0x15;
     public virtual int ColumnLengthOffset => 0x17;
 
+    // Column flag byte (0x0F). Every documented bit is modelled (read into ColumnDef, written from it); the
+    // undocumented bits (0x08/0x10/0x20, zero in every file observed) are the only ones carried through raw.
     /// <summary>Column flag: the column is fixed-length.</summary>
     public const byte ColumnFlagFixedLength = 0x01;
-
+    /// <summary>Column flag: the column is updatable (set on essentially every column).</summary>
+    public const byte ColumnFlagUpdatable = 0x02;
     /// <summary>Column flag: the column is an AutoNumber.</summary>
     public const byte ColumnFlagAutoNumber = 0x04;
+    /// <summary>Column flag: an AutoNumber column that generates GUIDs (Replication ID) rather than Longs.</summary>
+    public const byte ColumnFlagGuidAutoNumber = 0x40;
+    /// <summary>Column flag: a hyperlink (a Memo column presented as a hyperlink).</summary>
+    public const byte ColumnFlagHyperlink = 0x80;
+    /// <summary>Mask of the documented flag bits — the complement is undocumented and preserved from raw.</summary>
+    public const byte ColumnFlagsDocumented =
+        ColumnFlagFixedLength | ColumnFlagUpdatable | ColumnFlagAutoNumber | ColumnFlagGuidAutoNumber | ColumnFlagHyperlink;
+
+    // Extended flag byte (0x10).
+    /// <summary>Extended flag: the column can store compressed Unicode text (§7).</summary>
+    public const byte ColumnExtFlagCompressedUnicode = 0x01;
+    /// <summary>Extended flag: a calculated (computed) column (ACE 14+); the 0xC0 pair.</summary>
+    public const byte ColumnExtFlagCalculated = 0xC0;
+    /// <summary>Mask of the documented extended-flag bits — the complement is preserved from raw.</summary>
+    public const byte ColumnExtFlagsDocumented = ColumnExtFlagCompressedUnicode | ColumnExtFlagCalculated;
     // Note: nullability is NOT in the column flag byte (bit 0x02 is set on every column). A NOT NULL column
     // is marked by a boolean `Required` property in the LvProp blob instead — see PropertyBlob / §11.
 

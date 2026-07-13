@@ -49,8 +49,6 @@ public sealed record LongValueColumnSpec(int ColumnId, int UsedRow, int FreeRow,
 /// </summary>
 public static class TdefBuilder
 {
-    private const byte ColumnFlagUpdatable = 0x02;
-
     // TDEF header offsets + the record marker / continuation-header size live on JetFormatBase (shared,
     // version-aware); the column-descriptor sub-offsets Access needs but the reader ignores are below.
     private const int ColumnRecordMarkerOffset = 0x01; // 0x0659
@@ -252,7 +250,6 @@ public static class TdefBuilder
 
     private static List<ColumnDef> ResolveColumns(JetFormatBase format, IReadOnlyList<ColumnSpec> specs, Collation collation)
     {
-        _ = format;
         // A column's id is its declaration position unless the spec pins one explicitly (ALTER COLUMN burns a
         // fresh id at the same position, so ids can be non-contiguous — the row codec reads var-index from the
         // descriptor, not from id arithmetic). Variable columns are addressed in ascending column-id order.
@@ -271,6 +268,12 @@ public static class TdefBuilder
             // Booleans live in the null bitmap and occupy no fixed-data bytes, so they don't
             // advance the fixed offset (matching how the row codec skips them).
             bool occupiesFixedData = s.IsFixedLength && s.Type != JetDataType.Boolean;
+            // The documented flag bits LibRed doesn't drive from the spec (updatable, GUID-autonumber, hyperlink,
+            // compressed-Unicode, calculated) are carried through a rebuild by reading them off the original
+            // descriptor. A fresh column (no raw) is updatable with the rest clear — the CREATE default.
+            bool hasRaw = s.RawDescriptor is { } r && r.Length == format.ColumnDescriptorSize;
+            byte rawFlags = hasRaw ? s.RawDescriptor![format.ColumnFlagsOffset] : JetFormatBase.ColumnFlagUpdatable;
+            byte rawExt = hasRaw ? s.RawDescriptor![format.ColumnExtendedFlagsOffset] : (byte)0;
             columns.Add(new ColumnDef
             {
                 Name = s.Name,
@@ -282,6 +285,11 @@ public static class TdefBuilder
                 VariableIndex = s.IsFixedLength ? -1 : variableRank[i],
                 IsFixedLength = s.IsFixedLength,
                 IsAutoNumber = s.IsAutoNumber,
+                IsUpdatable = (rawFlags & JetFormatBase.ColumnFlagUpdatable) != 0,
+                IsGuidAutoNumber = (rawFlags & JetFormatBase.ColumnFlagGuidAutoNumber) != 0,
+                IsHyperlink = (rawFlags & JetFormatBase.ColumnFlagHyperlink) != 0,
+                SupportsCompressedUnicode = (rawExt & JetFormatBase.ColumnExtFlagCompressedUnicode) != 0,
+                IsCalculated = (rawExt & JetFormatBase.ColumnExtFlagCalculated) != 0,
                 Precision = s.Precision,
                 Scale = s.Scale,
                 // Numeric columns carry no collation (their 0x0B/0x0C bytes are precision/scale); every
@@ -305,9 +313,10 @@ public static class TdefBuilder
     public static byte[] BuildColumnDescriptor(ColumnDef c, JetFormatBase format)
     {
         // Faithful round-trip: when we have the column's original bytes (a rebuild of a read column that we're
-        // NOT retyping), start from them and overwrite only the fields LibRed manages, so unmodeled bytes
-        // (extended flags 0x10, hyperlink/GUID-autonumber flag bits, reserved words 0x03/0x11) survive. A fresh
-        // column (RawDescriptor null — CREATE, ADD COLUMN, or the deliberately-retyped ALTER target) builds from zero.
+        // NOT retyping), start from them and overwrite every field LibRed models, so the only bytes that survive
+        // untouched are the genuinely reserved/unknown ones — the reserved words 0x03/0x11 and the undocumented
+        // bits of the two flag bytes. A fresh column (RawDescriptor null — CREATE, ADD COLUMN, or the
+        // deliberately-retyped ALTER target) builds from zero.
         byte[] d = c.RawDescriptor is { } raw && raw.Length == format.ColumnDescriptorSize
             ? (byte[])raw.Clone()
             : new byte[format.ColumnDescriptorSize];
@@ -329,14 +338,21 @@ public static class TdefBuilder
             BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnLocaleOffset, 2), (ushort)c.Collation.Order);
             d[format.ColumnCollationVersionOffset] = c.Collation.Version;
         }
-        // Overwrite only the flag bits LibRed manages (fixed-length / updatable / auto-number); preserve any
-        // other bits already present (hyperlink 0x80, GUID-autonumber 0x40) from the original descriptor.
-        const byte managedFlags = ColumnFlagUpdatable | JetFormatBase.ColumnFlagFixedLength | JetFormatBase.ColumnFlagAutoNumber;
+        // Compose the flag byte (0x0F) from EVERY documented bit; only the undocumented bits survive from the
+        // original (zero in every file observed). Likewise the extended-flag byte (0x10).
         byte flags = (byte)(
-            ColumnFlagUpdatable
+            (c.IsUpdatable ? JetFormatBase.ColumnFlagUpdatable : 0)
             | (c.IsFixedLength ? JetFormatBase.ColumnFlagFixedLength : 0)
-            | (c.IsAutoNumber ? JetFormatBase.ColumnFlagAutoNumber : 0));
-        d[format.ColumnFlagsOffset] = (byte)((d[format.ColumnFlagsOffset] & ~managedFlags) | flags);
+            | (c.IsAutoNumber ? JetFormatBase.ColumnFlagAutoNumber : 0)
+            | (c.IsGuidAutoNumber ? JetFormatBase.ColumnFlagGuidAutoNumber : 0)
+            | (c.IsHyperlink ? JetFormatBase.ColumnFlagHyperlink : 0));
+        d[format.ColumnFlagsOffset] = (byte)((d[format.ColumnFlagsOffset] & ~JetFormatBase.ColumnFlagsDocumented) | flags);
+
+        byte extFlags = (byte)(
+            (c.SupportsCompressedUnicode ? JetFormatBase.ColumnExtFlagCompressedUnicode : 0)
+            | (c.IsCalculated ? JetFormatBase.ColumnExtFlagCalculated : 0));
+        d[format.ColumnExtendedFlagsOffset] = (byte)((d[format.ColumnExtendedFlagsOffset] & ~JetFormatBase.ColumnExtFlagsDocumented) | extFlags);
+
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnFixedOffsetOffset, 2), (ushort)c.FixedOffset);
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnLengthOffset, 2), (ushort)c.Length);
         return d;

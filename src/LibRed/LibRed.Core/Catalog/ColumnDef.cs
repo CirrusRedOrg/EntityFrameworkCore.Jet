@@ -33,6 +33,24 @@ public sealed class ColumnDef
 
     public bool IsAutoNumber { get; init; }
 
+    /// <summary>The column's <c>updatable</c> flag bit (0x0F bit 0x02) — set on essentially every column.
+    /// Modelled so it round-trips explicitly rather than riding through the raw descriptor.</summary>
+    public bool IsUpdatable { get; init; } = true;
+
+    /// <summary>An AutoNumber column that generates GUIDs (Replication ID), not sequential Longs — flag bit
+    /// 0x0F/0x40. Modelled for faithful round-trip; LibRed does not create these but preserves them.</summary>
+    public bool IsGuidAutoNumber { get; init; }
+
+    /// <summary>A hyperlink column (a Memo presented as a hyperlink) — flag bit 0x0F/0x80.</summary>
+    public bool IsHyperlink { get; init; }
+
+    /// <summary>The column can store compressed Unicode text (§7) — extended-flag bit 0x10/0x01.</summary>
+    public bool SupportsCompressedUnicode { get; init; }
+
+    /// <summary>A calculated (computed) column (ACE 14+) — extended-flag bits 0x10/0xC0. LibRed reads and
+    /// preserves the flag; evaluating a calculated column's expression is separate (see the format spec).</summary>
+    public bool IsCalculated { get; init; }
+
     /// <summary>AutoNumber (COUNTER) seed and increment. The increment is read from the TDEF header (0x18);
     /// the seed is the header's last-assigned value (0x14) plus the increment — which equals the original
     /// seed on a freshly created table (before any inserts advance the last value). Default 1/1.</summary>
@@ -62,8 +80,9 @@ public sealed class ColumnDef
     public Collation Collation { get; init; } = Collation.GeneralLegacy;
 
     /// <summary>The column's original on-disk descriptor bytes (the 25-byte Jet4 record), captured verbatim on
-    /// read. Carried so a rewrite can re-emit the fields LibRed doesn't model (extended flags, hyperlink /
-    /// GUID-autonumber column-flag bits, reserved words) instead of stamping defaults over them — see the
-    /// faithful round-trip rule. Null for a freshly-built (never-read) column.</summary>
+    /// read. Every documented field is now modelled explicitly, so this is carried only to re-emit the
+    /// genuinely <b>reserved/unknown</b> bytes on a rewrite — the reserved words at <c>0x03</c> and <c>0x11</c>,
+    /// and the undocumented bits of the two flag bytes (<c>0x0F</c>/<c>0x10</c>) — instead of stamping zero over
+    /// them (the faithful round-trip rule). Null for a freshly-built (never-read) column.</summary>
     public byte[]? RawDescriptor { get; init; }
 }

@@ -212,7 +212,7 @@ public sealed class TableDefinitionPage : Page
         _columns.Clear();
 
         // Pass 1: fixed-size column descriptors.
-        var descriptors = new (JetDataType Type, int ColumnId, byte Flags, int FixedOffset, int Length, byte Precision, byte Scale, int VariableIndex, Collation Collation)[ColumnCount];
+        var descriptors = new (JetDataType Type, int ColumnId, byte Flags, byte ExtFlags, int FixedOffset, int Length, byte Precision, byte Scale, int VariableIndex, Collation Collation)[ColumnCount];
         for (int i = 0; i < ColumnCount; i++)
         {
             int entry = columnBlock + i * format.ColumnDescriptorSize;
@@ -225,6 +225,7 @@ public sealed class TableDefinitionPage : Page
                 type,
                 buffer.ReadUInt16(entry + format.ColumnNumberOffset),
                 buffer.ReadByte(entry + format.ColumnFlagsOffset),
+                buffer.ReadByte(entry + format.ColumnExtendedFlagsOffset),
                 buffer.ReadUInt16(entry + format.ColumnFixedOffsetOffset),
                 buffer.ReadUInt16(entry + format.ColumnLengthOffset),
                 numeric ? buffer.ReadByte(entry + format.ColumnPrecisionOffset) : (byte)0,
@@ -262,6 +263,13 @@ public sealed class TableDefinitionPage : Page
                 VariableIndex = isFixed ? -1 : d.VariableIndex,
                 IsFixedLength = isFixed,
                 IsAutoNumber = (d.Flags & JetFormatBase.ColumnFlagAutoNumber) != 0,
+                // Every documented flag bit is modelled (0x0F: updatable/GUID-autonumber/hyperlink; 0x10:
+                // compressed-Unicode / calculated) so it round-trips explicitly, not via RawDescriptor.
+                IsUpdatable = (d.Flags & JetFormatBase.ColumnFlagUpdatable) != 0,
+                IsGuidAutoNumber = (d.Flags & JetFormatBase.ColumnFlagGuidAutoNumber) != 0,
+                IsHyperlink = (d.Flags & JetFormatBase.ColumnFlagHyperlink) != 0,
+                SupportsCompressedUnicode = (d.ExtFlags & JetFormatBase.ColumnExtFlagCompressedUnicode) != 0,
+                IsCalculated = (d.ExtFlags & JetFormatBase.ColumnExtFlagCalculated) != 0,
                 Precision = d.Precision,
                 Scale = d.Scale,
                 Collation = d.Collation,

@@ -18,6 +18,12 @@ public sealed class TableDefinitionPage : Page
 
     public int NextDefinitionPage { get; private set; }
     public int RowCount { get; private set; }
+
+    /// <summary>The complex-type AutoNumber high-water (header <c>0x1C</c>) — the next id for a complex
+    /// (multi-value/attachment) column. Read and carried for faithful round-trip; 0 for every table without
+    /// such a column (LibRed neither creates nor consumes complex columns).</summary>
+    public int ComplexAutoNumber { get; private set; }
+
     public TableType TableType { get; private set; }
     public int VariableColumnCount { get; private set; }
     public int ColumnCount { get; private set; }
@@ -81,6 +87,7 @@ public sealed class TableDefinitionPage : Page
 
         NextDefinitionPage = buffer.ReadInt32(format.TdefNextPageOffset);
         RowCount = buffer.ReadInt32(format.TdefRowCountOffset);
+        ComplexAutoNumber = buffer.ReadInt32(format.TdefComplexAutoNumberOffset);
         TableType = (TableType)buffer.ReadByte(format.TdefTableTypeOffset);
         VariableColumnCount = buffer.ReadUInt16(format.TdefVariableColumnsOffset);
         ColumnCount = buffer.ReadUInt16(format.TdefColumnCountOffset);

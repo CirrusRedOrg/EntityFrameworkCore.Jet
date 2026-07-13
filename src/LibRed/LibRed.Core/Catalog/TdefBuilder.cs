@@ -85,7 +85,8 @@ public static class TdefBuilder
         IReadOnlyList<IndexSpec>? indexes = null,
         IReadOnlyList<LongValueColumnSpec>? longValueColumns = null,
         IReadOnlyList<LogicalIndexSpec>? logicalIndexes = null,
-        Collation? collation = null)
+        Collation? collation = null,
+        int complexAutoNumber = 0)
     {
         indexes ??= [];
         longValueColumns ??= [];
@@ -109,6 +110,9 @@ public static class TdefBuilder
         // last 0). Verified vs ACE (COUNTER(1000, 7) → 0x18=7, 0x14=993).
         ColumnSpec? counter = specs.FirstOrDefault(s => s.IsAutoNumber);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefAutoNumberIncrementOffset, 4), counter?.Increment ?? 1);
+        // Complex-type AutoNumber high-water (0x1C) — 0 for a table with no complex column, carried through on
+        // a rebuild for faithful round-trip.
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefComplexAutoNumberOffset, 4), complexAutoNumber);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefNextPageOffset, 4), 0);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRowCountOffset, 4), 0);
         if (counter is not null)

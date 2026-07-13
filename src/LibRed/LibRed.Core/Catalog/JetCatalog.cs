@@ -376,6 +376,7 @@ public sealed class JetCatalog(PageChannel channel)
             DefinitionPage = definitionPage,
             Columns = tdef.Columns,
             Indexes = tdef.Indexes,
+            ComplexAutoNumber = tdef.ComplexAutoNumber,
             IsSystem = isSystem,
         };
     }

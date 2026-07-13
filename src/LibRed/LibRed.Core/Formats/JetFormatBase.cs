@@ -66,6 +66,10 @@ public abstract class JetFormatBase
     /// <summary>Offset of the 4-byte AutoNumber increment (default 1; a custom COUNTER sets it).</summary>
     public virtual int TdefAutoNumberIncrementOffset => 0x18;
 
+    /// <summary>Offset of the 4-byte complex-type AutoNumber high-water (mdbtools <c>ct_autonum</c>) — the
+    /// next id for a complex (multi-value/attachment) column. 0 for every table without such a column.</summary>
+    public virtual int TdefComplexAutoNumberOffset => 0x1C;
+
     /// <summary>Offset of the 1-byte table type (0x4E 'N' user, 0x53 'S' system).</summary>
     public virtual int TdefTableTypeOffset => 0x28;
 

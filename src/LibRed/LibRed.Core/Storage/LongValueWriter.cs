@@ -31,9 +31,6 @@ public sealed record LongValueResult(byte[] Descriptor, IReadOnlyList<int> Owned
 /// </remarks>
 public sealed class LongValueWriter(PageChannel channel)
 {
-    private const byte FlagSinglePage = 0x40;
-    private const byte FlagChained = 0x00;
-    private const uint LongValueMarker = 0x4C41564C; // "LVAL" (little-endian bytes 4C 56 41 4C)
 
     // Access caps an LVAL page row at MAX_LONG_VALUE_ROW_SIZE (Jackcess) — 4076 on Jet4 (Jet3 = 2032),
     // 4 bytes short of the page's usable space. A single-page value up to this fits in one row; a chained
@@ -53,7 +50,7 @@ public sealed class LongValueWriter(PageChannel channel)
         {
             int page = _allocator.Allocate();
             WriteChunkPage(page, payload); // a single-page row is the payload itself (no next pointer)
-            return new LongValueResult(Descriptor(payload.Length, FlagSinglePage, page), [page], page);
+            return new LongValueResult(Descriptor(payload.Length, LongValueFormat.FlagSinglePage, page), [page], page);
         }
 
         // Chained: split into chunks that each fit on a page after a 4-byte next-pointer.
@@ -76,7 +73,7 @@ public sealed class LongValueWriter(PageChannel channel)
             WriteChunkPage(pages[i], row);
         }
 
-        return new LongValueResult(Descriptor(payload.Length, FlagChained, pages[0]), pages, pages[^1]);
+        return new LongValueResult(Descriptor(payload.Length, LongValueFormat.FlagChained, pages[0]), pages, pages[^1]);
     }
 
     /// <summary>Allocates a fresh LVAL page, writes <paramref name="row"/> as its row 0, and returns the
@@ -117,7 +114,7 @@ public sealed class LongValueWriter(PageChannel channel)
     /// <summary>The single-page (<c>0x40</c>) descriptor for a value stored at (<paramref name="page"/>,
     /// <paramref name="row"/>) — used when a value is packed onto an existing page at a non-zero row.</summary>
     public static byte[] SinglePageDescriptor(int length, int page, int row) =>
-        Descriptor(length, FlagSinglePage, page, row);
+        Descriptor(length, LongValueFormat.FlagSinglePage, page, row);
 
     /// <summary>Writes one row (<paramref name="row"/>) to a fresh LVAL data page, packed from the page end.</summary>
     private void WriteChunkPage(int pageNumber, byte[] row)
@@ -126,7 +123,7 @@ public sealed class LongValueWriter(PageChannel channel)
         var page = new byte[format.PageSize];
         page[0] = (byte)PageType.DataPage;
         page[1] = 0x01; // page flags (observed constant)
-        BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4), LongValueMarker);
+        BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4), LongValueFormat.LvalMarker);
 
         int offset = format.PageSize - row.Length;
         row.CopyTo(page.AsSpan(offset));

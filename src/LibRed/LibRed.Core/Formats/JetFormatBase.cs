@@ -31,8 +31,31 @@ public abstract class JetFormatBase
     // Defaults below are for Jet 4 / ACE (verified against a real ACCDB). Jet 3 differs
     // (18-byte column entries, 1-byte ASCII name lengths) and will override these.
 
+    /// <summary>Offset of the 1-byte TDEF header flags (observed 0x01).</summary>
+    public virtual int TdefHeaderFlagsOffset => 0x01;
+
+    /// <summary>Offset of the 2-byte free-space-remaining-in-this-page field.</summary>
+    public virtual int TdefFreeSpaceOffset => 0x02;
+
     /// <summary>Offset of the 4-byte pointer to the next TDEF page (0 if the definition fits one page).</summary>
     public virtual int TdefNextPageOffset => 0x04;
+
+    /// <summary>Offset of the 4-byte total TDEF definition length.</summary>
+    public virtual int TdefLengthOffset => 0x08;
+
+    /// <summary>Offset of the 4-byte TDEF record marker (0x00000659); see <see cref="TdefRecordMarker"/>.</summary>
+    public virtual int TdefRecordMarkerOffset => 0x0C;
+
+    /// <summary>Offset of the 2-byte maximum-column-count high-water (the next column id to assign).</summary>
+    public virtual int TdefMaxColumnsOffset => 0x29;
+
+    /// <summary>The 0x00000659 record marker written at the TDEF header (<see cref="TdefRecordMarkerOffset"/>),
+    /// each column descriptor (+0x01) and each index-info block (+0x00). Access validates it; the reader ignores it.</summary>
+    public const uint TdefRecordMarker = 0x00000659;
+
+    /// <summary>Size of the 8-byte continuation header that prefixes each TDEF continuation page's payload
+    /// (also the free-space reserve the first page leaves for it).</summary>
+    public const int TdefContinuationHeaderSize = 8;
 
     /// <summary>Offset of the 4-byte row count.</summary>
     public virtual int TdefRowCountOffset => 0x10;

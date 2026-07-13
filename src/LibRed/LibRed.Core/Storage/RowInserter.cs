@@ -15,10 +15,6 @@ namespace LibRed.Storage;
 /// </summary>
 public sealed class RowInserter(PageChannel channel, TableDef table)
 {
-    private const int RowOffsetMask = 0x1FFF;
-    private const int DeletedFlag = 0x8000;
-    private const int OverflowFlag = 0x4000;
-
     private readonly PageChannel _channel = channel;
     private readonly UsageMapWriter _usageMaps = new(channel);
     private readonly TableDef _table = table;
@@ -68,7 +64,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Append the slot, bump the row count, shrink free space by row + slot-entry bytes.
         // The new row's slot index is the old row count, giving its row id on this page.
         BinaryPrimitives.WriteUInt16LittleEndian(
-            page.AsSpan(format.DataRowDirectoryOffset + rowCount * 2, 2), (ushort)(newOffset & RowOffsetMask));
+            page.AsSpan(format.DataRowDirectoryOffset + rowCount * 2, 2), (ushort)(newOffset & RowPointer.OffsetMask));
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), (ushort)(rowCount + 1));
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2), (ushort)(freeSpace - record.Length - 2));
 
@@ -112,7 +108,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         byte[] record = encoder.Encode(values);
 
         int raw = BinaryPrimitives.ReadUInt16LittleEndian(srcPage.AsSpan(format.DataRowDirectoryOffset + id.Row * 2, 2));
-        if ((raw & OverflowFlag) != 0)
+        if ((raw & RowPointer.OverflowFlag) != 0)
         {
             // This slot is a 4-byte forward pointer to the real (relocated) row; rewrite it on its target page
             // (which keeps its hidden "deleted" flag). If it grows past that page too, we'd need to re-relocate.
@@ -131,7 +127,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         (int targetPage, int targetRow) = WriteHiddenRow(format, record);
         var pointerBytes = new byte[4];
         BinaryPrimitives.WriteInt32LittleEndian(pointerBytes, (targetPage << 8) | targetRow);
-        TryRewriteRowInPlace(id.Page, id.Row, pointerBytes, addFlags: OverflowFlag); // 4 bytes always fits
+        TryRewriteRowInPlace(id.Page, id.Row, pointerBytes, addFlags: RowPointer.OverflowFlag); // 4 bytes always fits
     }
 
     /// <summary>Rewrites the row at (page, slot) in place, repacking the page from the end in slot order so
@@ -150,7 +146,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         {
             int raw = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2));
             rawDir[i] = raw;
-            int offset = raw & RowOffsetMask;
+            int offset = raw & RowPointer.OffsetMask;
             rows[i] = page.AsSpan(offset, prevEnd - offset).ToArray(); // preserve every row's bytes (deleted/overflow included)
             prevEnd = offset;
         }
@@ -166,7 +162,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             off -= rows[i].Length;
             rows[i].CopyTo(page.AsSpan(off));
             BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2),
-                (ushort)((rawDir[i] & ~RowOffsetMask) | (off & RowOffsetMask)));
+                (ushort)((rawDir[i] & ~RowPointer.OffsetMask) | (off & RowPointer.OffsetMask)));
         }
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
             (ushort)(off - format.DataRowDirectoryOffset - rowCount * 2));
@@ -185,7 +181,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         record.CopyTo(page.AsSpan(newOffset));
 
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + rowCount * 2, 2),
-            (ushort)((newOffset & RowOffsetMask) | DeletedFlag)); // hidden target
+            (ushort)((newOffset & RowPointer.OffsetMask) | RowPointer.DeletedFlag)); // hidden target
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), (ushort)(rowCount + 1));
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2), (ushort)(freeSpace - record.Length - 2));
         _channel.WritePage(pageNumber, page);
@@ -210,13 +206,38 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         byte[] page = _channel.ReadPage(id.Page).Span.ToArray();
         int dir = format.DataRowDirectoryOffset + id.Row * 2;
         ushort entry = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir, 2));
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir, 2), (ushort)(entry | DeletedFlag));
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir, 2), (ushort)(entry | RowPointer.DeletedFlag));
         _channel.WritePage(id.Page, page);
 
         byte[] tdef = _channel.ReadPage(_table.DefinitionPage).Span.ToArray();
         int rowCount = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4));
         BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4), rowCount - 1);
         _channel.WritePage(_table.DefinitionPage, tdef);
+    }
+
+    /// <summary>The full inline bytes of the row at <paramref name="id"/> (following an overflow pointer).</summary>
+    public byte[] ReadRow(RowId id) => ReadRowBytes(id);
+
+    /// <summary>Rewrites the row at <paramref name="id"/> with the exact <paramref name="record"/> bytes given,
+    /// handling growth the same way <see cref="Update"/> does — repack in place if it fits, else relocate as a
+    /// hidden row with a forward pointer. The row id is preserved (so index entries stay valid).</summary>
+    public void RewriteRowRaw(RowId id, byte[] record)
+    {
+        JetFormatBase format = _channel.Format;
+        byte[] srcPage = _channel.ReadPage(id.Page).Span.ToArray();
+        int raw = BinaryPrimitives.ReadUInt16LittleEndian(srcPage.AsSpan(format.DataRowDirectoryOffset + id.Row * 2, 2));
+        if ((raw & RowPointer.OverflowFlag) != 0)
+        {
+            int pointer = BinaryPrimitives.ReadInt32LittleEndian(SlotBytes(srcPage, format, id.Row));
+            if (!TryRewriteRowInPlace(pointer >> 8, pointer & 0xFF, record))
+                throw new NotSupportedException("Re-relocating an already-relocated row that grew again is not supported yet.");
+            return;
+        }
+        if (TryRewriteRowInPlace(id.Page, id.Row, record)) return;
+        (int targetPage, int targetRow) = WriteHiddenRow(format, record);
+        var pointerBytes = new byte[4];
+        BinaryPrimitives.WriteInt32LittleEndian(pointerBytes, (targetPage << 8) | targetRow);
+        TryRewriteRowInPlace(id.Page, id.Row, pointerBytes, addFlags: RowPointer.OverflowFlag);
     }
 
     /// <summary>The full inline bytes of the row at <paramref name="id"/>, following an overflow-forward
@@ -227,7 +248,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         byte[] page = _channel.ReadPage(id.Page).Span.ToArray();
         int raw = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + id.Row * 2, 2));
         byte[] slot = SlotBytes(page, format, id.Row);
-        if ((raw & OverflowFlag) == 0) return slot;
+        if ((raw & RowPointer.OverflowFlag) == 0) return slot;
 
         int pointer = BinaryPrimitives.ReadInt32LittleEndian(slot);
         var target = new DataPage();
@@ -282,7 +303,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         int prevEnd = format.PageSize;
         for (int i = 0; i <= slot; i++)
         {
-            int offset = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2)) & RowOffsetMask;
+            int offset = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2)) & RowPointer.OffsetMask;
             if (i == slot) return page.AsSpan(offset, prevEnd - offset).ToArray();
             prevEnd = offset;
         }
@@ -401,6 +422,11 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         int derived = _table.Columns.Where(c => c.IsFixedLength)
             .Select(c => c.FixedOffset + c.Length).DefaultIfEmpty(0).Max();
 
+        // A table with no variable columns has no variable-offset table in its rows (ACE omits it), so a row
+        // can't pin the fixed length — and the schema fully determines it. Let the encoder derive it.
+        if (_table.Columns.All(c => c.IsFixedLength))
+            return null;
+
         foreach (int pageNumber in new UsageMap(_channel, _table).DataPages())
         {
             byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
@@ -416,7 +442,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         for (int i = 0; i < rowCount; i++)
         {
             int raw = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2));
-            lowest = Math.Min(lowest, raw & RowOffsetMask);
+            lowest = Math.Min(lowest, raw & RowPointer.OffsetMask);
         }
         return lowest;
     }
@@ -438,29 +464,26 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         for (int i = 0; i < rowCount; i++)
         {
             int raw = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2));
-            int offset = raw & RowOffsetMask;
+            int offset = raw & RowPointer.OffsetMask;
             int length = prevEnd - offset;
             prevEnd = offset;
 
-            if ((raw & (DeletedFlag | OverflowFlag)) != 0) continue;
+            if ((raw & (RowPointer.DeletedFlag | RowPointer.OverflowFlag)) != 0) continue;
             if (length < format.RowColumnCountSize + 2) continue;
 
             ReadOnlySpan<byte> row = page.AsSpan(offset, length);
             // Parse with the ROW's own column count (its leading field), not the table's current count — an
-            // old row written before an ADD COLUMN has fewer columns, hence a smaller null bitmap.
-            int rowColumnCount = BinaryPrimitives.ReadUInt16LittleEndian(row[..2]);
-            int nullBitmapSize = (rowColumnCount + 7) / 8;
-            if (length < format.RowColumnCountSize + 2 + 2 + nullBitmapSize) continue; // not an inline record
-
-            int numVar = BinaryPrimitives.ReadUInt16LittleEndian(row.Slice(row.Length - nullBitmapSize - 2, 2));
-            int varTableStart = row.Length - nullBitmapSize - 2 - (numVar + 1) * 2;
-            if (varTableStart < format.RowColumnCountSize) continue; // malformed
-            int varDataStart = BinaryPrimitives.ReadUInt16LittleEndian(row.Slice(varTableStart + numVar * 2, 2));
+            // old row written before an ADD COLUMN has fewer columns, hence a smaller null bitmap. This path
+            // only runs for a table that HAS variable columns (the caller returns early otherwise).
+            RowLayout layout = RowLayout.Parse(row, format.RowColumnCountSize, hasVar: true);
+            if (length < format.RowColumnCountSize + 2 + 2 + layout.NullBitmapSize) continue; // not an inline record
+            if (layout.VarTableStart < format.RowColumnCountSize) continue; // malformed
+            int varDataStart = layout.FixedRegionLength + format.RowColumnCountSize;
 
             // The variable-data start is the end of the fixed region; it must lie after the column-count field
             // and no later than the offset table. A row that fails this decoded garbage — skip it.
-            int candidate = varDataStart - format.RowColumnCountSize;
-            if (candidate > 0 && varDataStart <= varTableStart)
+            int candidate = layout.FixedRegionLength;
+            if (candidate > 0 && varDataStart <= layout.VarTableStart)
                 best = best is null ? candidate : Math.Max(best.Value, candidate);
         }
         return best;

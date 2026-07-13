@@ -1,3 +1,4 @@
+using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
 using LibRed.Storage;
@@ -25,15 +26,6 @@ public sealed class JetCatalog(PageChannel channel)
     /// nav-pane tables and on EFCore.Jet's `#Dual` helper). Access excludes hidden objects from its
     /// user-table list, so we treat them as non-user too.</summary>
     private const uint HiddenObjectFlags = 0x00000008;
-
-    // MSysRelationships.grbit flags (DAO RelationAttributeEnum).
-    private const int RelationshipDontEnforce = 0x00000002;
-    private const int RelationshipUpdateCascade = 0x00000100;
-    private const int RelationshipDeleteCascade = 0x00001000;
-    private const int RelationshipDeleteSetNull = 0x00002000; // Jet ON DELETE SET NULL (verified vs ACE)
-
-    /// <summary>MSysObjects.Type value for a view/query object.</summary>
-    private const short ObjectTypeQuery = 5;
 
     private readonly PageChannel _channel = channel;
     private List<TableDef>? _tables;
@@ -171,20 +163,12 @@ public sealed class JetCatalog(PageChannel channel)
                 kvp.Value.Child,
                 kvp.Value.Parent,
                 kvp.Value.Columns.OrderBy(x => x.Order).Select(x => (x.Column, x.ReferencedColumn)).ToList(),
-                (kvp.Value.Flags & RelationshipDontEnforce) == 0,
-                (kvp.Value.Flags & RelationshipUpdateCascade) != 0,
-                (kvp.Value.Flags & RelationshipDeleteCascade) != 0,
-                (kvp.Value.Flags & RelationshipDeleteSetNull) != 0))
+                IsEnforced: (kvp.Value.Flags & RelationshipFlags.DontEnforce) == 0,
+                CascadeUpdate: (kvp.Value.Flags & RelationshipFlags.UpdateCascade) != 0,
+                CascadeDelete: (kvp.Value.Flags & RelationshipFlags.DeleteCascade) != 0,
+                DeleteSetNull: (kvp.Value.Flags & RelationshipFlags.DeleteSetNull) != 0))
             .ToList();
     }
-
-    // MSysQueries attribute codes (see spec §11).
-    private const byte QueryAttrType = 0x00, QueryAttrAction = 0x01, QueryAttrParameter = 0x02, QueryAttrFlag = 0x03,
-        QueryAttrTable = 0x05, QueryAttrColumn = 0x06, QueryAttrJoin = 0x07, QueryAttrWhere = 0x08,
-        QueryAttrGroupBy = 0x09, QueryAttrOrderBy = 0x0B;
-    private const short QueryFlagDistinct = 2, QueryFlagTop = 0x10;
-    private const short ActionFlagDdl = 7, ActionFlagAppend = 3;
-    private const short AppendValueFlag = unchecked((short)0x8000);
 
     private void EnsureStoredQueries()
     {
@@ -212,17 +196,17 @@ public sealed class JetCatalog(PageChannel channel)
         int objId = ColumnIndex(oc, "Id"), objType = ColumnIndex(oc, "Type"), objName = ColumnIndex(oc, "Name");
         foreach (object?[] row in new Table(_channel, objDef).Rows())
         {
-            if (row[objType] is not short type || type != ObjectTypeQuery) continue;
+            if (row[objType] is not short type || type != StoredQueryFormat.ObjectTypeQuery) continue;
             if (row[objId] is not int id || row[objName] is not string name) continue;
             if (!byObject.TryGetValue(id, out var rows)) continue;
 
-            if (rows.Any(r => r[attr] is byte b && b == QueryAttrAction))
+            if (rows.Any(r => r[attr] is byte b && b == StoredQueryFormat.AttrAction))
                 _actionQueries[name] = ReconstructAction(rows, attr, expr, flag, n1, n2, order);
             else if (Reconstruct(rows, attr, expr, flag, n1, n2, order) is { } sql)
                 _views[name] = sql;
 
             // The declared parameters (Attribute=2 rows), in declaration order, for EXECUTE positional binding.
-            var paramNames = rows.Where(r => r[attr] is byte b && b == QueryAttrParameter)
+            var paramNames = rows.Where(r => r[attr] is byte b && b == StoredQueryFormat.AttrParameter)
                 .OrderBy(r => r[order] is byte[] ob && ob.Length >= 4
                     ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(ob) : 0)
                 .Select(r => r[n1] as string).Where(s => s is not null).Select(s => s!).ToList();
@@ -235,22 +219,22 @@ public sealed class JetCatalog(PageChannel channel)
     private static StoredActionQuery ReconstructAction(List<object?[]> rows, int attr, int expr, int flag, int n1, int n2, int order)
     {
         static int Ord(object? v) => v is byte[] b && b.Length >= 4 ? System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(b) : 0;
-        object?[]? action = rows.FirstOrDefault(r => r[attr] is byte b && b == QueryAttrAction);
+        object?[]? action = rows.FirstOrDefault(r => r[attr] is byte b && b == StoredQueryFormat.AttrAction);
         if (action is null) return new StoredActionQuery(null, "The stored action query has no action row.");
 
         short kind = action[flag] is short f ? f : (short)0;
-        if (kind == ActionFlagDdl)
+        if (kind == StoredQueryFormat.ActionDdl)
             // The whole DDL statement is in Expression (Access stored it with a leading space).
             return new StoredActionQuery((action[expr] as string)?.TrimStart(), null);
 
-        if (kind == ActionFlagAppend)
+        if (kind == StoredQueryFormat.ActionAppend)
         {
             // INSERT … VALUES: only literal-value columns (Flag 0x8000) and no FROM source. An INSERT …
             // SELECT (table rows present / Flag-0 columns) is stored but LibRed does not execute it yet.
-            if (rows.Any(r => r[attr] is byte b && b == QueryAttrTable))
+            if (rows.Any(r => r[attr] is byte b && b == StoredQueryFormat.AttrTable))
                 return new StoredActionQuery(null, "INSERT … SELECT stored queries are not executed by LibRed yet.");
-            var cols = rows.Where(r => r[attr] is byte b && b == QueryAttrColumn).OrderBy(r => Ord(r[order])).ToList();
-            if (cols.Count == 0 || cols.Any(r => r[flag] is short cf && cf != AppendValueFlag))
+            var cols = rows.Where(r => r[attr] is byte b && b == StoredQueryFormat.AttrColumn).OrderBy(r => Ord(r[order])).ToList();
+            if (cols.Count == 0 || cols.Any(r => r[flag] is short cf && cf != StoredQueryFormat.AppendValueFlag))
                 return new StoredActionQuery(null, "This append query shape is not executed by LibRed yet.");
 
             string target = action[n1] as string ?? "";
@@ -270,39 +254,39 @@ public sealed class JetCatalog(PageChannel channel)
         IEnumerable<object?[]> OfAttr(byte a) => rows.Where(r => r[attr] is byte b && b == a).OrderBy(r => Ord(r[order]));
 
         // Bail out if the query uses attributes beyond a simple SELECT (e.g. GROUP BY/HAVING/ORDER BY).
-        var known = new byte[] { QueryAttrType, QueryAttrParameter, QueryAttrFlag, QueryAttrTable, QueryAttrColumn, QueryAttrJoin, QueryAttrWhere, QueryAttrGroupBy, QueryAttrOrderBy, 0xFF };
+        var known = new byte[] { StoredQueryFormat.AttrType, StoredQueryFormat.AttrParameter, StoredQueryFormat.AttrFlag, StoredQueryFormat.AttrTable, StoredQueryFormat.AttrColumn, StoredQueryFormat.AttrJoin, StoredQueryFormat.AttrWhere, StoredQueryFormat.AttrGroupBy, StoredQueryFormat.AttrOrderBy, 0xFF };
         if (rows.Any(r => r[attr] is byte b && !known.Contains(b))) return null;
 
         // Declared parameters (a stored procedure): each Attribute=2 row is Name1=name, Flag=Jet type code.
         // Emitted as a leading PARAMETERS clause so the parser lowers body references to them as parameters.
-        var parameters = OfAttr(QueryAttrParameter)
+        var parameters = OfAttr(StoredQueryFormat.AttrParameter)
             .Select(r => (Name: r[n1] as string, Code: r[flag] is short f ? (byte)f : (byte)0))
             .Where(p => p.Name is not null)
             .Select(p => $"[{p.Name}] {AccessTypeName(p.Code)}")
             .ToList();
 
         // A column row's Name1 (when present) is its output alias.
-        var columns = OfAttr(QueryAttrColumn)
+        var columns = OfAttr(StoredQueryFormat.AttrColumn)
             .Select(r => (r[n1] as string) is { } a ? $"{r[expr] as string} AS [{a}]" : r[expr] as string ?? "").ToList();
         // A derived-table source has its subquery SQL in Expression and no Name1; a named table uses Name1.
-        var tables = OfAttr(QueryAttrTable)
+        var tables = OfAttr(StoredQueryFormat.AttrTable)
             .Select(r => (Table: r[n1] as string ?? "", Alias: r[n2] as string, Sub: r[n1] is null ? r[expr] as string : null)).ToList();
         if (columns.Count == 0 || tables.Count == 0) return null;
 
-        bool distinct = OfAttr(QueryAttrFlag).Any(r => r[flag] is short f && (f & QueryFlagDistinct) != 0);
+        bool distinct = OfAttr(StoredQueryFormat.AttrFlag).Any(r => r[flag] is short f && (f & StoredQueryFormat.FlagDistinct) != 0);
         // TOP n: an AttrFlag row with the TOP bit; the count is in Name1.
-        string? top = OfAttr(QueryAttrFlag)
-            .Where(r => r[flag] is short f && (f & QueryFlagTop) != 0)
+        string? top = OfAttr(StoredQueryFormat.AttrFlag)
+            .Where(r => r[flag] is short f && (f & StoredQueryFormat.FlagTop) != 0)
             .Select(r => r[n1] as string).FirstOrDefault();
         // ORDER BY: one AttrOrderBy row per key (Expression = column, Name1 = "d" for descending).
-        var orderBy = OfAttr(QueryAttrOrderBy)
+        var orderBy = OfAttr(StoredQueryFormat.AttrOrderBy)
             .Select(r => (r[expr] as string ?? "") + (string.Equals(r[n1] as string, "d", StringComparison.OrdinalIgnoreCase) ? " DESC" : ""))
             .Where(s => s.Length > 0).ToList();
-        var joins = OfAttr(QueryAttrJoin)
+        var joins = OfAttr(StoredQueryFormat.AttrJoin)
             .Select(r => (Cond: r[expr] as string ?? "", Kind: r[flag] is short f ? f : (short)1,
                           Left: r[n1] as string ?? "", Right: r[n2] as string ?? "")).ToList();
-        string? where = OfAttr(QueryAttrWhere).Select(r => r[expr] as string).FirstOrDefault();
-        var groupBy = OfAttr(QueryAttrGroupBy).Select(r => r[expr] as string ?? "").ToList();
+        string? where = OfAttr(StoredQueryFormat.AttrWhere).Select(r => r[expr] as string).FirstOrDefault();
+        var groupBy = OfAttr(StoredQueryFormat.AttrGroupBy).Select(r => r[expr] as string ?? "").ToList();
 
         static string Ident(string s) => $"[{s}]";
         static string Render((string Table, string? Alias, string? Sub) t) =>

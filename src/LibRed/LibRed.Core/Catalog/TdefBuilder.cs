@@ -18,7 +18,12 @@ public sealed record ColumnSpec(
     // AutoNumber (COUNTER) seed and increment — the first generated id is Seed, then +Increment each row.
     // Default 1/1 (a plain COUNTER). Stored in the TDEF header: last-value 0x14 = Seed-Increment, 0x18 = Increment.
     int Seed = 1,
-    int Increment = 1);
+    int Increment = 1,
+    // Faithful-rebuild passthrough (ALTER COLUMN): an explicit column id (else the column's position is used)
+    // and the column's original 25-byte descriptor, re-emitted verbatim except for the fields LibRed manages
+    // so a rebuild preserves unmodeled bytes. Both null for an ordinary CREATE/ADD column. See ColumnDef.RawDescriptor.
+    int? ColumnId = null,
+    byte[]? RawDescriptor = null);
 
 /// <summary>An index to create over the named columns, anchored at an already-allocated root page.</summary>
 public sealed record IndexSpec(
@@ -44,56 +49,15 @@ public sealed record LongValueColumnSpec(int ColumnId, int UsedRow, int FreeRow,
 /// </summary>
 public static class TdefBuilder
 {
-    private const byte PageTypeTableDefinition = 0x02;
     private const byte ColumnFlagUpdatable = 0x02;
 
-    // TDEF header fields Access validates that the reader currently ignores (verified vs ACE).
-    private const int TdefHeaderFlagsOffset = 0x01;   // observed 0x01
-    private const int TdefFreeSpaceOffset = 0x02;     // bytes free in this page
-    private const int TdefLengthOffset = 0x08;        // total definition length
-    private const int TdefMarkerOffset = 0x0C;        // 0x00000659 record marker
-    private const int TdefAutoNumberIncrementOffset = 0x18; // AutoNumber increment (default 1)
-    private const int TdefMaxColumnsOffset = 0x29;    // maximum column count
-    private const uint TdefRecordMarker = 0x659;
-    private const int TdefContinuationReserve = 8;    // free space excludes the 8-byte continuation header
-
-    // Column-descriptor sub-offsets the reader doesn't consume but Access does.
+    // TDEF header offsets + the record marker / continuation-header size live on JetFormatBase (shared,
+    // version-aware); the column-descriptor sub-offsets Access needs but the reader ignores are below.
     private const int ColumnRecordMarkerOffset = 0x01; // 0x0659
     private const int ColumnNumber2Offset = 0x09;      // duplicate column id
-    private const int ColumnVariableIndexOffset = 0x07;
-    private const int ColumnLocaleLowOffset = 0x0B;    // non-numeric: text-collation LCID (2 bytes)
 
-    // Index-data block (52 bytes): a 0x783 marker, 10 column slots, root page, unique flag.
-    private const int IndexBlockSize = 52;
-    private const int IndexMaxColumns = 10;
+    // Index-data and index-info block layout + flags are shared with the reader via IndexBlockFormat / IndexFlags.
     private const int MaxIndexesPerTable = 32; // Jet/ACE limit, counting keys- and relationship-backing indexes
-    private const int IndexColumnSlotSize = 3;
-    private const int IndexColumnsOffset = 0x04;
-    private const int IndexUsageMapRowOffset = 0x22;  // 1-byte row + 3-byte page for the index's pages
-    private const int IndexRootPageOffset = 0x26;
-    private const int IndexFlagsOffset = 0x2E;
-    private const short IndexColumnUnused = -1; // 0xFFFF
-    private const byte IndexColumnAscending = 0x01;
-    private const ushort IndexFlagUnique = 0x0001;
-    private const ushort IndexFlagRequired = 0x0008;
-    private const ushort IndexFlagAlwaysSet = 0x0080; // Access 2000+
-    private const uint IndexDataMarker = 0x783;
-
-    // Index-info block (28 bytes, one per logical index): links a name to a data block.
-    private const int IndexInfoBlockSize = 28;
-    private const int IndexInfoMarkerOffset = 0x00;       // 0x0659
-    private const int IndexInfoNumberOffset = 0x04;
-    private const int IndexInfoDataNumberOffset = 0x08;
-    private const int IndexInfoFkTypeOffset = 0x0C;       // 0=none, 1=incoming, 2=outgoing relationship
-    private const int IndexInfoFkNumberOffset = 0x0D;     // 0xFFFFFFFF = no foreign key
-    private const int IndexInfoFkTablePageOffset = 0x11;  // the other table's TDEF page (0 = none)
-    private const int IndexInfoUpdateActionOffset = 0x15;
-    private const int IndexInfoDeleteActionOffset = 0x16;
-    private const byte IndexActionDefault = 0x04;         // observed on a plain index (no relationship)
-    private const int IndexInfoTypeOffset = 0x17;
-    private const byte IndexTypeSecondary = 0x00;
-    private const byte IndexTypePrimary = 0x01;
-    private const uint NoForeignKey = 0xFFFFFFFF;
 
     /// <summary>
     /// One logical index-info block (§3.6). Several logical indexes may share a data block: a plain
@@ -138,22 +102,25 @@ public static class TdefBuilder
         // pages when writing. 512 bytes/column comfortably covers a 25-byte descriptor + a long name.
         var page = new byte[format.PageSize + columns.Count * 512 + indexes.Count * 512];
 
-        page[0] = PageTypeTableDefinition;
-        page[TdefHeaderFlagsOffset] = 0x01;
-        BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(TdefMarkerOffset, 4), TdefRecordMarker);
+        page[0] = (byte)PageType.TableDefinition;
+        page[format.TdefHeaderFlagsOffset] = 0x01;
+        BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(format.TdefRecordMarkerOffset, 4), JetFormatBase.TdefRecordMarker);
         // AutoNumber (COUNTER) config lives in the TDEF header: 0x18 = increment (default 1), and 0x14 =
         // the last-assigned value initialized to Seed-Increment so the first insert yields Seed. A table has
         // at most one AutoNumber column; with none, these stay at the plain-counter defaults (increment 1,
         // last 0). Verified vs ACE (COUNTER(1000, 7) → 0x18=7, 0x14=993).
         ColumnSpec? counter = specs.FirstOrDefault(s => s.IsAutoNumber);
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(TdefAutoNumberIncrementOffset, 4), counter?.Increment ?? 1);
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefAutoNumberIncrementOffset, 4), counter?.Increment ?? 1);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefNextPageOffset, 4), 0);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRowCountOffset, 4), 0);
         if (counter is not null)
             BinaryPrimitives.WriteInt32LittleEndian(
                 page.AsSpan(format.TdefLastAutoNumberOffset, 4), counter.Seed - counter.Increment);
         page[format.TdefTableTypeOffset] = (byte)tableType;
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(TdefMaxColumnsOffset, 2), (ushort)columns.Count);
+        // The 0x29 high-water is the next column id to hand out = max existing id + 1. For contiguous ids this
+        // equals the column count; when a rebuild carries a burned id (ALTER COLUMN) it exceeds the count.
+        int maxColumnId = columns.Select(c => c.ColumnId).DefaultIfEmpty(-1).Max();
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefMaxColumnsOffset, 2), (ushort)(maxColumnId + 1));
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefVariableColumnsOffset, 2),
             (ushort)columns.Count(c => !c.IsFixedLength));
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefColumnCountOffset, 2), (ushort)columns.Count);
@@ -172,9 +139,9 @@ public static class TdefBuilder
 
         // Definition length and remaining free space (Access reserves an 8-byte continuation header). For a
         // multi-page definition the caller recomputes the first page's free space, so clamp at 0 here.
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(TdefLengthOffset, 4), definitionEnd);
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(TdefFreeSpaceOffset, 2),
-            (ushort)Math.Max(0, format.PageSize - definitionEnd - TdefContinuationReserve));
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefLengthOffset, 4), definitionEnd);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefFreeSpaceOffset, 2),
+            (ushort)Math.Max(0, format.PageSize - definitionEnd - JetFormatBase.TdefContinuationHeaderSize));
 
         return new Result(page, columns);
     }
@@ -184,70 +151,70 @@ public static class TdefBuilder
     {
         var columnIdByName = columns.ToDictionary(c => c.Name, c => c.ColumnId, StringComparer.OrdinalIgnoreCase);
 
-        // The index-data block (§3.5) has a fixed array of exactly IndexMaxColumns column slots and no
+        // The index-data block (§3.5) has a fixed array of exactly IndexBlockFormat.MaxColumns column slots and no
         // count field, so an index — hence any PRIMARY KEY / UNIQUE / FOREIGN KEY — spans at most that
         // many columns. Reject an over-wide index rather than silently truncating it.
         foreach (IndexSpec ix in indexes)
-            if (ix.Columns.Count > IndexMaxColumns)
+            if (ix.Columns.Count > IndexBlockFormat.MaxColumns)
                 throw new NotSupportedException(
-                    $"Index '{ix.Name}' spans {ix.Columns.Count} columns; Jet/ACE indexes (and the keys built on them) are limited to {IndexMaxColumns}.");
+                    $"Index '{ix.Name}' spans {ix.Columns.Count} columns; Jet/ACE indexes (and the keys built on them) are limited to {IndexBlockFormat.MaxColumns}.");
 
         // 1. Index-data blocks: columns, root page, unique flag.
         for (int i = 0; i < indexes.Count; i++)
         {
             IndexSpec index = indexes[i];
-            int block = dataBlockStart + i * IndexBlockSize;
+            int block = dataBlockStart + i * IndexBlockFormat.DataBlockSize;
 
-            BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(block, 4), IndexDataMarker);
-            for (int slot = 0; slot < IndexMaxColumns; slot++)
+            BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(block, 4), IndexBlockFormat.DataMarker);
+            for (int slot = 0; slot < IndexBlockFormat.MaxColumns; slot++)
             {
-                int entry = block + IndexColumnsOffset + slot * IndexColumnSlotSize;
+                int entry = block + IndexBlockFormat.ColumnsOffset + slot * IndexBlockFormat.ColumnSlotSize;
                 if (slot < index.Columns.Count)
                 {
                     BinaryPrimitives.WriteInt16LittleEndian(page.AsSpan(entry, 2), (short)columnIdByName[index.Columns[slot]]);
-                    page[entry + 2] = IndexColumnAscending;
+                    page[entry + 2] = IndexBlockFormat.ColumnAscending;
                 }
                 else
                 {
-                    BinaryPrimitives.WriteInt16LittleEndian(page.AsSpan(entry, 2), IndexColumnUnused);
+                    BinaryPrimitives.WriteInt16LittleEndian(page.AsSpan(entry, 2), IndexBlockFormat.ColumnUnused);
                 }
             }
-            page[block + IndexUsageMapRowOffset] = (byte)index.UsageMapRow;
-            page[block + IndexUsageMapRowOffset + 1] = (byte)index.UsageMapPage;
-            page[block + IndexUsageMapRowOffset + 2] = (byte)(index.UsageMapPage >> 8);
-            page[block + IndexUsageMapRowOffset + 3] = (byte)(index.UsageMapPage >> 16);
-            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexRootPageOffset, 4), index.RootPage);
-            ushort flags = IndexFlagAlwaysSet;
-            if (index.IsUnique) flags |= IndexFlagUnique;
-            if (index.IsPrimaryKey) flags |= IndexFlagRequired;
-            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(block + IndexFlagsOffset, 2), flags);
+            page[block + IndexBlockFormat.UsageMapRowOffset] = (byte)index.UsageMapRow;
+            page[block + IndexBlockFormat.UsageMapRowOffset + 1] = (byte)index.UsageMapPage;
+            page[block + IndexBlockFormat.UsageMapRowOffset + 2] = (byte)(index.UsageMapPage >> 8);
+            page[block + IndexBlockFormat.UsageMapRowOffset + 3] = (byte)(index.UsageMapPage >> 16);
+            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexBlockFormat.RootPageOffset, 4), index.RootPage);
+            ushort flags = IndexFlags.AlwaysSet;
+            if (index.IsUnique) flags |= IndexFlags.Unique;
+            if (index.IsPrimaryKey) flags |= IndexFlags.Required;
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(block + IndexBlockFormat.FlagsOffset, 2), flags);
         }
 
         // 2. Index-info blocks (one per logical index) and 3. their names. Without explicit logical
         // specs each data block maps 1:1 to a plain info block (back-compat); with them, relationship
         // blocks are included and stored name-sorted (matching Access).
         var logical = logicalIndexes ?? indexes.Select((ix, i) => new LogicalIndexSpec(
-            Number: i, DataOrdinal: i, FkType: 0, FkNumber: NoForeignKey, FkTablePage: 0,
-            UpdateAction: IndexActionDefault, DeleteAction: IndexActionDefault,
-            Type: ix.IsPrimaryKey ? IndexTypePrimary : IndexTypeSecondary, Name: ix.Name)).ToList();
+            Number: i, DataOrdinal: i, FkType: 0, FkNumber: IndexBlockFormat.NoForeignKey, FkTablePage: 0,
+            UpdateAction: IndexBlockFormat.PlainAction, DeleteAction: IndexBlockFormat.PlainAction,
+            Type: ix.IsPrimaryKey ? IndexBlockFormat.TypePrimary : IndexBlockFormat.TypeSecondary, Name: ix.Name)).ToList();
 
-        int infoStart = dataBlockStart + indexes.Count * IndexBlockSize;
+        int infoStart = dataBlockStart + indexes.Count * IndexBlockFormat.DataBlockSize;
         for (int i = 0; i < logical.Count; i++)
         {
             LogicalIndexSpec li = logical[i];
-            int block = infoStart + i * IndexInfoBlockSize;
-            BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(block + IndexInfoMarkerOffset, 4), TdefRecordMarker);
-            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexInfoNumberOffset, 4), li.Number);
-            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexInfoDataNumberOffset, 4), li.DataOrdinal);
-            page[block + IndexInfoFkTypeOffset] = li.FkType;
-            BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(block + IndexInfoFkNumberOffset, 4), li.FkNumber);
-            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexInfoFkTablePageOffset, 4), li.FkTablePage);
-            page[block + IndexInfoUpdateActionOffset] = li.UpdateAction;
-            page[block + IndexInfoDeleteActionOffset] = li.DeleteAction;
-            page[block + IndexInfoTypeOffset] = li.Type;
+            int block = infoStart + i * IndexBlockFormat.InfoBlockSize;
+            BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(block + IndexBlockFormat.InfoMarkerOffset, 4), JetFormatBase.TdefRecordMarker);
+            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexBlockFormat.InfoNumberOffset, 4), li.Number);
+            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexBlockFormat.InfoDataNumberOffset, 4), li.DataOrdinal);
+            page[block + IndexBlockFormat.InfoFkTypeOffset] = li.FkType;
+            BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(block + IndexBlockFormat.InfoFkNumberOffset, 4), li.FkNumber);
+            BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(block + IndexBlockFormat.InfoFkTablePageOffset, 4), li.FkTablePage);
+            page[block + IndexBlockFormat.InfoUpdateActionOffset] = li.UpdateAction;
+            page[block + IndexBlockFormat.InfoDeleteActionOffset] = li.DeleteAction;
+            page[block + IndexBlockFormat.InfoTypeOffset] = li.Type;
         }
 
-        int namePos = infoStart + logical.Count * IndexInfoBlockSize;
+        int namePos = infoStart + logical.Count * IndexBlockFormat.InfoBlockSize;
         foreach (LogicalIndexSpec li in logical)
         {
             byte[] name = System.Text.Encoding.Unicode.GetBytes(li.Name);
@@ -286,12 +253,15 @@ public static class TdefBuilder
     private static List<ColumnDef> ResolveColumns(JetFormatBase format, IReadOnlyList<ColumnSpec> specs, Collation collation)
     {
         _ = format;
-        // Variable columns are addressed in ascending column-id order; column id = declaration order.
+        // A column's id is its declaration position unless the spec pins one explicitly (ALTER COLUMN burns a
+        // fresh id at the same position, so ids can be non-contiguous — the row codec reads var-index from the
+        // descriptor, not from id arithmetic). Variable columns are addressed in ascending column-id order.
+        int EffectiveId(int i) => specs[i].ColumnId ?? i;
+
         var variableRank = new Dictionary<int, int>();
         int rank = 0;
-        for (int id = 0; id < specs.Count; id++)
-            if (!specs[id].IsFixedLength)
-                variableRank[id] = rank++;
+        foreach (int i in Enumerable.Range(0, specs.Count).Where(i => !specs[i].IsFixedLength).OrderBy(EffectiveId))
+            variableRank[i] = rank++;
 
         var columns = new List<ColumnDef>(specs.Count);
         int fixedOffset = 0;
@@ -306,7 +276,7 @@ public static class TdefBuilder
                 Name = s.Name,
                 Type = s.Type,
                 Index = i,
-                ColumnId = i,
+                ColumnId = EffectiveId(i),
                 Length = s.Length,
                 FixedOffset = occupiesFixedData ? fixedOffset : 0,
                 VariableIndex = s.IsFixedLength ? -1 : variableRank[i],
@@ -317,6 +287,7 @@ public static class TdefBuilder
                 // Numeric columns carry no collation (their 0x0B/0x0C bytes are precision/scale); every
                 // other column inherits the database's collating order.
                 Collation = s.Type == JetDataType.FixedPoint ? Collation.GeneralLegacy : collation,
+                RawDescriptor = s.RawDescriptor,
             });
             if (occupiesFixedData) fixedOffset += s.Length;
         }
@@ -333,12 +304,18 @@ public static class TdefBuilder
     /// ALTER TABLE ADD COLUMN.</summary>
     public static byte[] BuildColumnDescriptor(ColumnDef c, JetFormatBase format)
     {
-        var d = new byte[format.ColumnDescriptorSize];
+        // Faithful round-trip: when we have the column's original bytes (a rebuild of a read column that we're
+        // NOT retyping), start from them and overwrite only the fields LibRed manages, so unmodeled bytes
+        // (extended flags 0x10, hyperlink/GUID-autonumber flag bits, reserved words 0x03/0x11) survive. A fresh
+        // column (RawDescriptor null — CREATE, ADD COLUMN, or the deliberately-retyped ALTER target) builds from zero.
+        byte[] d = c.RawDescriptor is { } raw && raw.Length == format.ColumnDescriptorSize
+            ? (byte[])raw.Clone()
+            : new byte[format.ColumnDescriptorSize];
         d[format.ColumnTypeOffset] = (byte)c.Type;
-        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(ColumnRecordMarkerOffset, 2), (ushort)TdefRecordMarker);
+        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(ColumnRecordMarkerOffset, 2), (ushort)JetFormatBase.TdefRecordMarker);
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnNumberOffset, 2), (ushort)c.ColumnId);
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(ColumnNumber2Offset, 2), (ushort)c.ColumnId);
-        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(ColumnVariableIndexOffset, 2),
+        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnVariableIndexOffset, 2),
             (ushort)(c.IsFixedLength ? 0 : c.VariableIndex));
         if (c.Type == JetDataType.FixedPoint)
         {
@@ -349,13 +326,17 @@ public static class TdefBuilder
         {
             // Non-numeric columns store the text-collation LCID in the precision/scale bytes (0x0B/0x0C)
             // and its sort-order version in 0x0D. General legacy is LCID 1033 (0x0409), version 0.
-            BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(ColumnLocaleLowOffset, 2), (ushort)c.Collation.Order);
+            BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnLocaleOffset, 2), (ushort)c.Collation.Order);
             d[format.ColumnCollationVersionOffset] = c.Collation.Version;
         }
-        d[format.ColumnFlagsOffset] = (byte)(
+        // Overwrite only the flag bits LibRed manages (fixed-length / updatable / auto-number); preserve any
+        // other bits already present (hyperlink 0x80, GUID-autonumber 0x40) from the original descriptor.
+        const byte managedFlags = ColumnFlagUpdatable | JetFormatBase.ColumnFlagFixedLength | JetFormatBase.ColumnFlagAutoNumber;
+        byte flags = (byte)(
             ColumnFlagUpdatable
             | (c.IsFixedLength ? JetFormatBase.ColumnFlagFixedLength : 0)
             | (c.IsAutoNumber ? JetFormatBase.ColumnFlagAutoNumber : 0));
+        d[format.ColumnFlagsOffset] = (byte)((d[format.ColumnFlagsOffset] & ~managedFlags) | flags);
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnFixedOffsetOffset, 2), (ushort)c.FixedOffset);
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnLengthOffset, 2), (ushort)c.Length);
         return d;

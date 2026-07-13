@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using LibRed.Catalog;
+using LibRed.Formats;
 
 namespace LibRed.Storage;
 
@@ -15,10 +16,6 @@ namespace LibRed.Storage;
 /// </remarks>
 public static class IndexKeyDecoder
 {
-    private const byte AscStartFlag = 0x7F;
-    private const byte AscNullFlag = 0x00;
-    private const byte DescStartFlag = 0x80;
-    private const byte DescNullFlag = 0xFF;
     private const byte AscBooleanTrue = 0x00; // ascending: true sorts before false
 
     public static object?[] Decode(IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, ReadOnlySpan<byte> key)
@@ -40,7 +37,7 @@ public static class IndexKeyDecoder
             }
 
             byte flag = key[pos++];
-            if (flag == (ascending ? AscNullFlag : DescNullFlag))
+            if (flag == (ascending ? IndexKeyFlags.AscNull : IndexKeyFlags.DescNull))
             {
                 values[i] = null;
                 continue;

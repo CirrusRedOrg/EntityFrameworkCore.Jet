@@ -82,7 +82,7 @@ public static class InformationSchema
                 foreach (ForeignKey fk in catalog.Relationships)
                     rows.Add([fk.Name, fk.Table, fk.ReferencedTable, "FOREIGN KEY",
                         RefAction(fk.CascadeDelete, fk.DeleteSetNull), RefAction(fk.CascadeUpdate, false),
-                        fk.IsEnforced, false]);
+                        fk.IsEnforced, fk.IsInherited]);
                 break;
 
             case "RELATION_COLUMNS":

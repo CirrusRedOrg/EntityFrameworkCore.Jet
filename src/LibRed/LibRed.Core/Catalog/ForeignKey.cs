@@ -8,6 +8,10 @@ namespace LibRed.Catalog;
 /// <param name="ReferencedTable">The referenced (parent) table.</param>
 /// <param name="Columns">The column pairs (child column → referenced column), in key order.</param>
 /// <param name="IsEnforced">Whether referential integrity is enforced.</param>
+/// <param name="IsInherited">Whether the relationship is inherited from a linked table. LibRed neither reads
+/// nor writes this from disk (its grbit bit is unverified — no linked-table fixture to probe against), and it
+/// never authors inherited relationships, so it is always false today; the field exists on the model so
+/// callers have a place for it once linked tables are supported.</param>
 /// <param name="CascadeUpdate">Whether updates to the parent key cascade.</param>
 /// <param name="CascadeDelete">Whether deletes of the parent row cascade.</param>
 /// <param name="DeleteSetNull">Whether deleting the parent sets the child's FK columns to NULL (Jet's
@@ -21,6 +25,7 @@ public sealed record ForeignKey(
     bool IsEnforced,
     bool CascadeUpdate,
     bool CascadeDelete,
+    bool IsInherited = false,
     bool DeleteSetNull = false,
     /// <summary>ON UPDATE SET NULL — pathway only; not read back yet (its storage is unverified — the ACE
     /// OLE DB provider rejects the DDL, so the grbit/info-block bytes couldn't be probed).</summary>

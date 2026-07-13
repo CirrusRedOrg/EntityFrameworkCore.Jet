@@ -17,12 +17,6 @@ public readonly record struct RowSlot(int Offset, int Length, bool IsDeleted, bo
 /// </summary>
 public sealed class DataPage : Page
 {
-    /// <summary>The 4-byte owner marker used by long-value pages: ASCII "LVAL".</summary>
-    private const uint LongValueMarker = 0x4C41564C;
-
-    private const int RowOffsetMask = 0x1FFF;
-    private const int DeletedFlag = 0x8000;
-    private const int OverflowFlag = 0x4000;
 
     private readonly List<RowSlot> _rows = [];
     private PageBuffer _buffer;
@@ -46,7 +40,7 @@ public sealed class DataPage : Page
         PageNumber = buffer.PageNumber;
 
         uint owner = buffer.ReadUInt32(format.DataOwnerOffset);
-        IsLongValuePage = owner == LongValueMarker;
+        IsLongValuePage = owner == LongValueFormat.LvalMarker;
         OwningTablePage = IsLongValuePage ? 0 : (int)owner;
 
         FreeSpace = buffer.ReadUInt16(format.DataFreeSpaceOffset);
@@ -57,9 +51,9 @@ public sealed class DataPage : Page
         for (int i = 0; i < RowCount; i++)
         {
             int raw = buffer.ReadUInt16(format.DataRowDirectoryOffset + i * 2);
-            int offset = raw & RowOffsetMask;
-            bool deleted = (raw & DeletedFlag) != 0;
-            bool overflow = (raw & OverflowFlag) != 0;
+            int offset = raw & RowPointer.OffsetMask;
+            bool deleted = (raw & RowPointer.DeletedFlag) != 0;
+            bool overflow = (raw & RowPointer.OverflowFlag) != 0;
 
             // Rows are packed from the page end backward, so a slot runs from its own
             // offset up to where the previous slot's row began.
@@ -93,11 +87,11 @@ public sealed class DataPage : Page
 
         int dir = format.DataRowDirectoryOffset;
         int raw = buffer.ReadUInt16(dir + index * 2);
-        int offset = raw & RowOffsetMask;
+        int offset = raw & RowPointer.OffsetMask;
         // Rows pack from the page end backward, so this slot runs up to where the previous slot began
         // (or the page end for slot 0) — read just those two directory entries instead of walking all of them.
-        int prevEnd = index == 0 ? format.PageSize : buffer.ReadUInt16(dir + (index - 1) * 2) & RowOffsetMask;
-        slot = new RowSlot(offset, prevEnd - offset, (raw & DeletedFlag) != 0, (raw & OverflowFlag) != 0);
+        int prevEnd = index == 0 ? format.PageSize : buffer.ReadUInt16(dir + (index - 1) * 2) & RowPointer.OffsetMask;
+        slot = new RowSlot(offset, prevEnd - offset, (raw & RowPointer.DeletedFlag) != 0, (raw & RowPointer.OverflowFlag) != 0);
         bytes = buffer.Slice(offset, prevEnd - offset);
         return true;
     }

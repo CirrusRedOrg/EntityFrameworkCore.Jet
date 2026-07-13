@@ -60,4 +60,10 @@ public sealed class ColumnDef
     /// those bytes for precision/scale and carry no collation. Defaults to General legacy, which is what
     /// every file LibRed currently handles uses, and the only order whose index keys it can encode.</summary>
     public Collation Collation { get; init; } = Collation.GeneralLegacy;
+
+    /// <summary>The column's original on-disk descriptor bytes (the 25-byte Jet4 record), captured verbatim on
+    /// read. Carried so a rewrite can re-emit the fields LibRed doesn't model (extended flags, hyperlink /
+    /// GUID-autonumber column-flag bits, reserved words) instead of stamping defaults over them — see the
+    /// faithful round-trip rule. Null for a freshly-built (never-read) column.</summary>
+    public byte[]? RawDescriptor { get; init; }
 }

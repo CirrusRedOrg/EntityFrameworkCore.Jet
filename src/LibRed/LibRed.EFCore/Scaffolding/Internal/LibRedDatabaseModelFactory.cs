@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Text.RegularExpressions;
 using EntityFrameworkCore.Jet.Internal; // FK scaffolding-logger extensions (ForeignKeyFound, …)
 using EntityFrameworkCore.Jet.Metadata.Internal; // JetAnnotationNames (identity seed/increment)
 using LibRed;
@@ -190,7 +191,10 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                 else
                 {
                     _logger.IndexFound(index.Name, table.Name, index.IsUnique);
-                    var dbIndex = new DatabaseIndex { Table = table, Name = index.Name, IsUnique = index.IsUnique };
+                    // Surface the index's null-handling as the scaffolded Filter, as EFCore.Jet does: WITH IGNORE
+                    // NULL → "IGNORE NULLS" (wins), else a Required (DISALLOW NULL) index → "DISALLOW NULL".
+                    string? filter = index.IgnoreNulls ? "IGNORE NULLS" : index.Required ? "DISALLOW NULL" : null;
+                    var dbIndex = new DatabaseIndex { Table = table, Name = index.Name, IsUnique = index.IsUnique, Filter = filter };
                     // Carry the per-column sort direction (IsDescending, one bool per column) so scaffolding
                     // round-trips a DESC / mixed-order index — otherwise the list stays empty and a
                     // change-sort-order migration can't see the ordering.
@@ -233,6 +237,15 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                 ReferentialAction.SetNull => "SET NULL",
                 _ => "NO ACTION",
             };
+
+            // Read the whole relation record — the full column set EFCore.Jet's JetDatabaseModelFactory /
+            // AdoxSchema surface (INFORMATION_SCHEMA.RELATIONS ON_UPDATE / IS_ENFORCED / IS_INHERITED) — even
+            // though EF's DatabaseForeignKey models only OnDelete. Read for parity, not consumed by EF.
+            string onUpdate = relation.CascadeUpdate ? "CASCADE" : "NO ACTION";
+            bool isEnforced = relation.IsEnforced;
+            bool isInherited = relation.IsInherited;
+            _ = (onUpdate, isEnforced, isInherited);
+
             _logger.ForeignKeyFound(relation.Name, relation.Table, relation.ReferencedTable, onDelete);
 
             DatabaseTable? principalTable = Find(relation.ReferencedTable);
@@ -310,6 +323,9 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                 JetDataType.Double => double.Parse(text, ci),
                 JetDataType.Currency or JetDataType.FixedPoint => decimal.Parse(text, ci),
                 JetDataType.Guid => Guid.Parse(text.Trim('{', '}')),
+                // Temporal defaults: a bare date → DateOnly, date+time → DateTime, a time span → TimeOnly/TimeSpan
+                // (matching EFCore.Jet's scaffolder). A function default (Now()/Date()) matches none → raw text.
+                JetDataType.DateTime or JetDataType.DateTimeExtended => ParseTemporalDefault(text) ?? (object)text,
                 // A string literal is single-quoted with doubled inner quotes: 'Bon app''' → Bon app'.
                 JetDataType.Text or JetDataType.Memo => Unquote(text),
                 _ => text,
@@ -325,6 +341,25 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
         => s.Length >= 2 && s[0] == '\'' && s[^1] == '\''
             ? s[1..^1].Replace("''", "'")
             : s;
+
+    /// <summary>Parses a temporal default's text into the CLR type it denotes — DateOnly (date only), DateTime
+    /// (date + time), TimeOnly/TimeSpan (a time), matching EFCore.Jet's scaffolder. Returns null when the text is
+    /// not a recognised temporal literal (e.g. a function like <c>Now()</c>), so the caller keeps the raw text.</summary>
+    private static object? ParseTemporalDefault(string text)
+    {
+        string s = Unquote(text.Trim()).Trim('#').Trim();
+        var ci = System.Globalization.CultureInfo.InvariantCulture;
+        var t = TimeSpan.FromMilliseconds(1000);
+        if (Regex.IsMatch(s, @"^\d{4}-\d{2}-\d{2}$", default, t))
+            return DateOnly.Parse(s, ci);
+        if (Regex.IsMatch(s, @"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,7})?$", default, t))
+            return DateTime.Parse(s, ci);
+        if (Regex.IsMatch(s, @"^-?(\d+\.)?\d{2}:\d{2}:\d{2}(\.\d{1,7})?$", default, t)
+            && TimeSpan.TryParse(s, ci, out var ts))
+            return ts >= TimeOnly.MinValue.ToTimeSpan() && ts <= TimeOnly.MaxValue.ToTimeSpan()
+                ? TimeOnly.FromTimeSpan(ts) : ts;
+        return null;
+    }
 
     /// <summary>Maps a column to a store-type name EFCore.Jet's type mapping source recognises.</summary>
     private static string GetStoreType(ColumnDef column) => column.Type switch

@@ -14,6 +14,9 @@ public sealed record RelationshipSpec(
     bool CascadeUpdate,
     bool CascadeDelete,
     bool NoIndex = false,
+    // Inherited from a linked table. LibRed neither reads nor writes this on disk (its grbit bit is unverified)
+    // and never authors inherited relationships, so it stays false; the field exists for parity with ForeignKey.
+    bool IsInherited = false,
     bool DeleteSetNull = false,
     // ON UPDATE SET NULL: the docs list it, but the ACE OLE DB provider rejects it via SQL DDL ("Invalid
     // argument"), so its on-disk storage (grbit flag + info-block +0x15 byte) couldn't be probed. The

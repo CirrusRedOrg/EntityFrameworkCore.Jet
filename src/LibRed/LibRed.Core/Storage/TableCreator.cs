@@ -149,8 +149,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             {
                 childLogical.Add(new TdefBuilder.LogicalIndexSpec(
                     Number: i, DataOrdinal: i, FkType: 0, FkNumber: 0xFFFFFFFF, FkTablePage: 0,
-                    UpdateAction: PlainIndexAction, DeleteAction: PlainIndexAction,
-                    Type: plan.IsPk ? IndexTypePrimary : IndexTypeSecondary, Name: plan.Name));
+                    UpdateAction: IndexBlockFormat.PlainAction, DeleteAction: IndexBlockFormat.PlainAction,
+                    Type: plan.IsPk ? IndexBlockFormat.TypePrimary : IndexBlockFormat.TypeSecondary, Name: plan.Name));
                 continue;
             }
 
@@ -170,12 +170,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 childLogical.Add(new TdefBuilder.LogicalIndexSpec(
                     Number: i, DataOrdinal: i, FkType: outgoingType, FkNumber: (uint)inNum,
                     FkTablePage: tdefPage, UpdateAction: upd, DeleteAction: del,
-                    Type: IndexTypeForeign, Name: fk.Name));
+                    Type: IndexBlockFormat.TypeForeign, Name: fk.Name));
                 // Incoming block (this table's parent side), hidden ".r" name unique within the table.
                 childLogical.Add(new TdefBuilder.LogicalIndexSpec(
                     Number: inNum, DataOrdinal: refOrdinal, FkType: FkTypeIncoming, FkNumber: (uint)i,
                     FkTablePage: tdefPage, UpdateAction: upd, DeleteAction: del,
-                    Type: IndexTypeForeign, Name: NextHiddenRelationshipName(childLogical.Select(l => l.Name).ToList())));
+                    Type: IndexBlockFormat.TypeForeign, Name: NextHiddenRelationshipName(childLogical.Select(l => l.Name).ToList())));
                 continue;
             }
 
@@ -186,7 +186,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             childLogical.Add(new TdefBuilder.LogicalIndexSpec(
                 Number: i, DataOrdinal: i, FkType: outgoingType,
                 FkNumber: (uint)parentNum, FkTablePage: parentPage, UpdateAction: upd, DeleteAction: del,
-                Type: IndexTypeForeign, Name: fk.Name));
+                Type: IndexBlockFormat.TypeForeign, Name: fk.Name));
             incoming.Add(new IncomingRelationship(parentPage, parentNum, refOrd,
                 ChildBlockNumber: (uint)i, ChildPage: tdefPage, upd, del));
         }
@@ -202,7 +202,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         tdef[format.TdefFreePagesOffset] = 1; // free map record row
         WriteInt24(tdef, format.TdefFreePagesOffset + 1, usageMapPage);
         // A wide table's definition can exceed one page; write it split across continuation pages if needed.
-        int defEnd = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(TdefLengthOffset, 4));
+        int defEnd = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefLengthOffset, 4));
         WriteDefinition(tdefPage, tdef[..defEnd], []);
 
         // Per-column extended properties, in column order with DefaultValue before Required (matching ACE):
@@ -227,7 +227,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     }
 
     // Index-info block field values (§3.6), verified against ACE-created relationships.
-    private const byte PlainIndexAction = 0x04;   // update/delete action on a non-relationship index
+    // (PlainAction and the index-type bytes are shared with the reader via IndexBlockFormat.)
     private const byte NoCascadeAction = 0x00;    // relationship without ON UPDATE/DELETE CASCADE
     private const byte CascadeAction = 0x01;       // relationship with cascade
     private const byte SetNullAction = 0x02;       // ON DELETE SET NULL (verified vs ACE, index-info block +0x16)
@@ -238,9 +238,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     private static NotImplementedException UpdateSetNullNotImplemented() => new(
         "ON UPDATE SET NULL is not implemented: its Jet storage bytes are unverified (the ACE OLE DB provider " +
         "rejects the DDL, so they could not be probed). Only ON UPDATE {NO ACTION | CASCADE} are supported.");
-    private const byte IndexTypeSecondary = 0x00;
-    private const byte IndexTypePrimary = 0x01;
-    private const byte IndexTypeForeign = 0x02;
     private const byte FkTypeIncoming = 0x01;         // this table is the parent/referenced end
     private const byte FkTypeOutgoing = 0x02;         // this table is the child/referencing end (indexed)
     private const byte FkTypeOutgoingNoIndex = 0x03;  // child/referencing end declared FOREIGN KEY NO INDEX
@@ -287,12 +284,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         return (parent.DefinitionPage, refIndex.RealIndexOrdinal, ptdef.RealIndexCount);
     }
 
-    // MSysRelationships.grbit flags (DAO RelationAttributeEnum), mirroring JetCatalog's read side.
-    private const int RelationshipDontEnforce = 0x00000002;
-    private const int RelationshipDeleteSetNull = 0x00002000;
-    private const int RelationshipUpdateCascade = 0x00000100;
-    private const int RelationshipDeleteCascade = 0x00001000;
-
     /// <summary>
     /// Writes the <c>MSysRelationships</c> rows for one relationship — one row per column pair, with
     /// <c>ccolumn</c> = the pair count, <c>icolumn</c> = the 0-based pair index, and <c>grbit</c>
@@ -304,10 +295,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             ?? throw new InvalidOperationException("MSysRelationships catalog table was not found.");
 
         int grbit = 0;
-        if (!fk.IsEnforced) grbit |= RelationshipDontEnforce;
-        if (fk.CascadeUpdate) grbit |= RelationshipUpdateCascade;
-        if (fk.CascadeDelete) grbit |= RelationshipDeleteCascade;
-        if (fk.DeleteSetNull) grbit |= RelationshipDeleteSetNull;
+        if (!fk.IsEnforced) grbit |= RelationshipFlags.DontEnforce;
+        if (fk.CascadeUpdate) grbit |= RelationshipFlags.UpdateCascade;
+        if (fk.CascadeDelete) grbit |= RelationshipFlags.DeleteCascade;
+        if (fk.DeleteSetNull) grbit |= RelationshipFlags.DeleteSetNull;
 
         for (int i = 0; i < fk.Columns.Count; i++)
         {
@@ -325,14 +316,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         }
     }
 
-    private const int TdefLengthOffset = 0x08;
-    private const int TdefFreeSpaceOffset = 0x02;
-    private const int IndexDataBlockSize = 52;
-    private const int IndexInfoBlockSize = 28;
-    private const int TdefContinuationReserve = 8;
-    private const uint TdefRecordMarker = 0x659;
-    private const uint IndexDataMarker = 0x783;
-    private const int IndexMaxColumnSlots = 10;
 
     /// <summary>
     /// Adds an index to an existing (empty) table for CREATE INDEX. Surgically inserts a statistics
@@ -383,16 +366,16 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int pos = afterStats + colCount * format.ColumnDescriptorSize;
         for (int i = 0; i < colCount; i++) pos += 2 + buf.ReadUInt16(pos);
         int afterColumns = pos;                                   // start of the data blocks
-        int afterDataBlocks = afterColumns + dataCount * IndexDataBlockSize;
+        int afterDataBlocks = afterColumns + dataCount * IndexBlockFormat.DataBlockSize;
         int infoStart = afterDataBlocks;
 
         // Existing logical blocks and names, plus the max index_num, so the new block gets a fresh number.
-        int namePos = infoStart + logicalCount * IndexInfoBlockSize;
+        int namePos = infoStart + logicalCount * IndexBlockFormat.InfoBlockSize;
         var blocks = new List<byte[]>(logicalCount + 1);
         int maxNum = -1;
         for (int i = 0; i < logicalCount; i++)
         {
-            byte[] block = buf.Slice(infoStart + i * IndexInfoBlockSize, IndexInfoBlockSize).ToArray();
+            byte[] block = buf.Slice(infoStart + i * IndexBlockFormat.InfoBlockSize, IndexBlockFormat.InfoBlockSize).ToArray();
             maxNum = Math.Max(maxNum, System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(block.AsSpan(4, 4)));
             blocks.Add(block);
         }
@@ -406,7 +389,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             namePos += 2 + len;
         }
 
-        int defEnd = buf.ReadInt32(TdefLengthOffset);
+        int defEnd = buf.ReadInt32(format.TdefLengthOffset);
         byte[] lvalRegion = buf.Slice(namePos, defEnd - namePos).ToArray(); // §3.3.2 list + 0xFFFF terminator
         int lvalCount = (lvalRegion.Length - 2) / 10;                        // 10 bytes per entry, then 0xFFFF
 
@@ -434,8 +417,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         blocks.Insert(k, newInfo);
         nameBytes.Insert(k, EncodeName(indexName));
 
-        int newDefEnd = infoStart + IndexDataBlockSize          // one new data block shifts info start
-                        + blocks.Count * IndexInfoBlockSize + nameBytes.Sum(n => n.Length) + lvalRegion.Length
+        int newDefEnd = infoStart + IndexBlockFormat.DataBlockSize          // one new data block shifts info start
+                        + blocks.Count * IndexBlockFormat.InfoBlockSize + nameBytes.Sum(n => n.Length) + lvalRegion.Length
                         + format.RealIndexEntrySize;             // one new stats block at the front
 
         // Build the full definition buffer (may exceed one page — split across continuation pages below).
@@ -455,7 +438,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // Bump the two index counts and the definition length in the header.
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefIndexCountOffset, 4), dataCount + 1);
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefRealIndexCountOffset, 4), logicalCount + 1);
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(TdefLengthOffset, 4), newDefEnd);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLengthOffset, 4), newDefEnd);
 
         WriteDefinition(table.DefinitionPage, def, existingContinuations);
         _catalog.Invalidate();
@@ -689,7 +672,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int? objId = null;
         foreach (object?[] values in new Table(_channel, mo).Rows())
             if (string.Equals(values[nameIdx] as string, name, StringComparison.OrdinalIgnoreCase)
-                && Convert.ToInt16(values[typeIdx] ?? (short)0) == ObjectTypeQuery)
+                && Convert.ToInt16(values[typeIdx] ?? (short)0) == StoredQueryFormat.ObjectTypeQuery)
             { objId = Convert.ToInt32(values[idIdx]); break; }
         if (objId is null) return false;
 
@@ -700,7 +683,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         return true;
     }
 
-    private const short ObjectTypeQuery = 5;
 
     /// <summary>Deletes every row of <paramref name="catalogTable"/> whose <paramref name="keyColumn"/> equals
     /// <paramref name="keyValue"/> (the object id) — used to remove a dropped table's MSysObjects and MSysACEs
@@ -804,7 +786,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         bool isLongValue = spec.Type is JetDataType.Memo or JetDataType.Ole;
         TdefParts parts = ParseTdef(table.DefinitionPage); // stitches continuation pages for a multi-page TDEF
 
-        int maxCols = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(TdefMaxColumnsOffset, 2));
+        int maxCols = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefMaxColumnsOffset, 2));
         int varCount = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefVariableColumnsOffset, 2));
         int colCount = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefColumnCountOffset, 2));
 
@@ -840,7 +822,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         AppendColumnToParts(parts, colCount, TdefBuilder.BuildColumnDescriptor(newColumn, format), spec.Name, format);
 
         BinaryPrimitives.WriteUInt16LittleEndian(parts.Header.AsSpan(format.TdefColumnCountOffset, 2), (ushort)(colCount + 1));
-        BinaryPrimitives.WriteUInt16LittleEndian(parts.Header.AsSpan(TdefMaxColumnsOffset, 2), (ushort)(maxCols + 1));
+        BinaryPrimitives.WriteUInt16LittleEndian(parts.Header.AsSpan(format.TdefMaxColumnsOffset, 2), (ushort)(maxCols + 1));
         if (!spec.IsFixedLength)
             BinaryPrimitives.WriteUInt16LittleEndian(parts.Header.AsSpan(format.TdefVariableColumnsOffset, 2), (ushort)(varCount + 1));
 
@@ -1124,10 +1106,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             !col.IsFixedLength && !newSpec.IsFixedLength && col.Type == newSpec.Type &&
             newSpec.Type is JetDataType.Text or JetDataType.Binary;
         // A variable text/binary length change is a cheap in-place descriptor edit (below). A storage-type change
-        // (numeric type, fixed size, fixed↔variable) needs the full column rewrite — read/convert/re-lay-out.
+        // (numeric type, fixed size, fixed↔variable) is a full column rewrite: the byte-faithful in-place edit
+        // where it applies (all-fixed non-indexed target), else the logical rebuild (AlterColumnTypeInPlace picks).
         if (!variableLengthChange)
         {
-            RewriteColumn(tableName, columnName, newSpec);
+            AlterColumnTypeInPlace(tableName, columnName, newSpec);
             return;
         }
 
@@ -1231,13 +1214,17 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         _catalog.Invalidate();
     }
 
-    /// <summary>Changes a column's storage type by rebuilding the table: read all rows, convert the target
-    /// column's value, drop and recreate the table with the new column type, re-insert the data (rebuilding the
-    /// primary key on the insert path), then recreate the secondary indexes (back-filled). Column order, the
-    /// primary key, unique/secondary indexes, CHECK constraints, column defaults, and AutoNumber values are all
-    /// preserved. Rejects a table in a relationship (drop the FK first) — a rebuild can't preserve the linkage.
-    /// This is a logical rebuild (a fresh TDEF page, not ACE's byte-exact in-place rewrite), but yields an
-    /// equivalent, ACE-readable table with the column converted.</summary>
+    /// <summary>Changes a column's storage type, matching ACE's column-modify semantics (verified): the column
+    /// keeps its <b>position</b> but is internally a <b>new column</b> — it gets a fresh id burned from the 0x29
+    /// high-water, while every other column keeps its id and its <b>original descriptor bytes</b> (so fields
+    /// LibRed doesn't model are preserved, per the faithful round-trip rule). All target values are converted
+    /// <b>in memory first</b> (an unconvertible value fails before anything is written), then the rebuild — drop,
+    /// recreate with the new type, re-insert, recreate secondary indexes, re-add relationships — runs inside a
+    /// page-level <b>transaction</b> that rolls back atomically on any later failure. Column order, the primary
+    /// key, unique/secondary indexes, CHECK constraints, defaults, and AutoNumber values are preserved. Rejects a
+    /// table whose target column is in a relationship (drop the FK first). This is a logical rebuild (a fresh TDEF
+    /// page, not ACE's byte-exact in-place edit), but the resulting column layout — position, burned id, and the
+    /// untouched columns' bytes — matches what ACE produces.</summary>
     private void RewriteColumn(string tableName, string columnName, ColumnSpec newColumnSpec)
     {
         TableDef def = _catalog.FindTable(tableName)
@@ -1268,12 +1255,17 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // 1. Materialise all rows (values indexed by column position) before dropping the table.
         var rows = new Table(_channel, def).Rows().Select(r => (object?[])r.Clone()).ToList();
 
-        // 2. Reconstruct the schema — column order preserved; the target column re-typed, keeping its nullability.
+        // 2. Reconstruct the schema — column order preserved, the target re-typed. Every OTHER column keeps its
+        //    original descriptor bytes (RawDescriptor passthrough), so fields LibRed doesn't model survive the
+        //    rewrite (the faithful round-trip rule); the target builds fresh (RawDescriptor null). Column ids stay
+        //    contiguous by position — NOT burned like ACE — because the row codec's null bitmap is currently
+        //    keyed by column id, which only agrees with ACE's (position-keyed) bitmap when id == position. Burning
+        //    the id needs the codec switched to position-keying first (verified vs an ACE-modified file). TODO.
         int targetIndex = target.Index;
         var specs = def.Columns.Select(c => c.Index == targetIndex
-            ? newColumnSpec with { IsNullable = target.IsNullable }
+            ? newColumnSpec with { IsNullable = target.IsNullable, RawDescriptor = null }
             : new ColumnSpec(c.Name, c.Type, c.Length, c.IsFixedLength, c.IsAutoNumber, c.Precision, c.Scale,
-                c.IsNullable, c.Seed, c.Increment)).ToList();
+                c.IsNullable, c.Seed, c.Increment, RawDescriptor: c.RawDescriptor)).ToList();
 
         IndexDef? pk = def.Indexes.FirstOrDefault(i => i.IsPrimaryKey);
         IReadOnlyList<string>? primaryKey = pk?.Columns.Select(c => c.Column.Name).ToList();
@@ -1287,44 +1279,333 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         var defaults = def.Columns.Where(c => c.DefaultValue is not null)
             .Select(c => (Column: c.Name, DefaultSql: c.DefaultValue!)).ToList();
 
-        // 3. Convert the target column's value in each row.
+        // 3. Pre-check: convert every target value in memory BEFORE touching disk. An unconvertible value
+        //    (e.g. non-numeric text → INT) throws here, with nothing written — the caller sees a clean failure.
         foreach (object?[] row in rows)
             row[targetIndex] = ConvertValue(row[targetIndex], newColumnSpec.Type);
 
-        // 4. Drop incoming relationships (so the parent becomes unreferenced) → drop → recreate (PK only) →
-        //    re-insert → recreate secondary indexes → re-add outgoing then incoming relationships.
-        foreach (ForeignKey r in incoming) { DropConstraint(r.Table, r.Name); _catalog.Invalidate(); }
-        DropTable(tableName);
+        // 4. Apply the rebuild atomically: wrap it in a page-level transaction so any failure that slips past the
+        //    pre-check (a unique-index collision after narrowing, NOT NULL, an I/O or allocation error) rolls the
+        //    whole operation back and leaves the table byte-unchanged — never a half-converted table.
+        bool ownTransaction = !_channel.InTransaction;
+        if (ownTransaction) _channel.BeginTransaction();
+        try
+        {
+            // Drop incoming relationships (so the parent becomes unreferenced) → drop → recreate (PK only) →
+            // re-insert → recreate secondary indexes → re-add outgoing then incoming relationships.
+            foreach (ForeignKey r in incoming) { DropConstraint(r.Table, r.Name); _catalog.Invalidate(); }
+            DropTable(tableName);
+            _catalog.Invalidate();
+            Create(tableName, specs, primaryKey, relationships: null, uniqueConstraints: null,
+                columnDefaults: defaults, checkConstraints: checks, primaryKeyName: pk?.Name);
+            _catalog.Invalidate();
+
+            var dest = new Table(_channel, _catalog.FindTable(tableName)!);
+            foreach (object?[] row in rows) dest.Insert(row);
+
+            foreach (IndexDef ix in secondary)
+            {
+                AddIndex(tableName, ix.Name, ix.Columns.Select(c => (c.Column.Name, !c.Ascending)).ToList(),
+                    ix.IsUnique, isPrimary: false, disallowNull: false, ignoreNulls: false);
+                _catalog.Invalidate();
+            }
+
+            // Re-add the outgoing foreign keys (recreates their backing index + linkage + MSysRelationships rows).
+            foreach (ForeignKey fk in foreignKeys)
+            {
+                AddForeignKey(tableName, new RelationshipSpec(fk.Name, fk.ReferencedTable, fk.Columns.ToList(),
+                    fk.IsEnforced, fk.CascadeUpdate, fk.CascadeDelete, NoIndex: false,
+                    DeleteSetNull: fk.DeleteSetNull, UpdateSetNull: fk.UpdateSetNull));
+                _catalog.Invalidate();
+            }
+
+            // Re-add the incoming relationships — each child's FK back to the rebuilt parent.
+            foreach (ForeignKey r in incoming)
+            {
+                AddForeignKey(r.Table, new RelationshipSpec(r.Name, r.ReferencedTable, r.Columns.ToList(),
+                    r.IsEnforced, r.CascadeUpdate, r.CascadeDelete, NoIndex: false,
+                    DeleteSetNull: r.DeleteSetNull, UpdateSetNull: r.UpdateSetNull));
+                _catalog.Invalidate();
+            }
+
+            if (ownTransaction) _channel.CommitTransaction();
+        }
+        catch when (ownTransaction)
+        {
+            _channel.RollbackTransaction();
+            _catalog.Invalidate(); // the in-memory catalog cache is stale after the pages are restored
+            throw;
+        }
+    }
+
+    /// <summary>The TDEF-page step of the in-place column type change: bump the <c>0x29</c> high-water and rewrite
+    /// ONLY the target descriptor (type, burned id, fixed-offset appended to the end of the fixed region with the
+    /// old slot left dead, length), leaving the TDEF page number and every other descriptor byte-identical to ACE.
+    /// This alone is not a self-consistent change — <see cref="AlterColumnTypeInPlace"/> wraps it with the row
+    /// re-lay and index rebuild; this entry point exists so a byte-diff test can isolate the TDEF page.</summary>
+    public void AlterColumnTypeInPlaceTdef(string tableName, string columnName, ColumnSpec newSpec, int? fixedEndOverride = null)
+    {
+        TableDef def = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
+        ColumnDef target = def.FindColumn(columnName)
+            ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
+        JetFormatBase format = _channel.Format;
+
+        TdefParts parts = ParseTdef(def.DefinitionPage);
+        // The fixed-region end must include dead slots, so callers with rows pass the row-derived length.
+        int fixedEnd = fixedEndOverride ?? def.Columns.Where(c => c.IsFixedLength && c.Type != JetDataType.Boolean)
+            .Select(c => c.FixedOffset + c.Length).DefaultIfEmpty(0).Max();
+
+        EditTargetDescriptor(parts, target, newSpec, fixedEnd, format);
+        WriteTdef(def.DefinitionPage, parts);
         _catalog.Invalidate();
-        Create(tableName, specs, primaryKey, relationships: null, uniqueConstraints: null,
-            columnDefaults: defaults, checkConstraints: checks, primaryKeyName: pk?.Name);
+    }
+
+    /// <summary>Applies ACE's in-place column retype to the target descriptor within <paramref name="parts"/>
+    /// (no page write — the caller writes the TDEF once): the target becomes a NEW column with a fresh id from the
+    /// <c>0x29</c> high-water and its fixed data appended to the END of the current fixed region (its old slot left
+    /// as dead space — ACE does not compact); <c>0x29</c> bumps, and <c>0x2B</c> too for a variable retype. Only
+    /// the target descriptor changes; every other descriptor stays byte-identical. Returns the burned new id.</summary>
+    private static int EditTargetDescriptor(TdefParts parts, ColumnDef target, ColumnSpec newSpec, int fixedEnd, JetFormatBase format)
+    {
+        int maxCols = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefMaxColumnsOffset, 2));
+        int varCount = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefVariableColumnsOffset, 2));
+
+        Span<byte> d = parts.Columns.AsSpan(target.Index * format.ColumnDescriptorSize, format.ColumnDescriptorSize);
+        d[format.ColumnTypeOffset] = (byte)newSpec.Type;
+        BinaryPrimitives.WriteUInt16LittleEndian(d[format.ColumnNumberOffset..], (ushort)maxCols); // +0x05 id burned
+        // The target's var-index (+0x07) becomes the old variable-column count — the next var slot — for BOTH a
+        // fixed and a variable retype (verified vs ACE); a variable retype also bumps the 0x2B var-column count.
+        BinaryPrimitives.WriteUInt16LittleEndian(d[format.ColumnVariableIndexOffset..], (ushort)varCount);
+        // The duplicate id at +0x09 is deliberately left unchanged — verified ACE does not update it.
+        byte flags = d[format.ColumnFlagsOffset];
+        flags = newSpec.IsFixedLength ? (byte)(flags | JetFormatBase.ColumnFlagFixedLength)
+                                      : (byte)(flags & ~JetFormatBase.ColumnFlagFixedLength);
+        flags = newSpec.IsAutoNumber ? (byte)(flags | JetFormatBase.ColumnFlagAutoNumber)
+                                     : (byte)(flags & ~JetFormatBase.ColumnFlagAutoNumber);
+        d[format.ColumnFlagsOffset] = flags;
+        BinaryPrimitives.WriteUInt16LittleEndian(d[format.ColumnFixedOffsetOffset..], (ushort)(newSpec.IsFixedLength ? fixedEnd : 0)); // +0x15
+        BinaryPrimitives.WriteUInt16LittleEndian(d[format.ColumnLengthOffset..], (ushort)newSpec.Length); // +0x17
+        if (newSpec.Type == JetDataType.FixedPoint)   // Decimal/Numeric: precision/scale share the 0x0B/0x0C bytes
+        {
+            d[format.ColumnPrecisionOffset] = newSpec.Precision;
+            d[format.ColumnScaleOffset] = newSpec.Scale;
+        }
+
+        BinaryPrimitives.WriteUInt16LittleEndian(parts.Header.AsSpan(format.TdefMaxColumnsOffset, 2), (ushort)(maxCols + 1)); // 0x29++
+        if (!newSpec.IsFixedLength)
+            BinaryPrimitives.WriteUInt16LittleEndian(parts.Header.AsSpan(format.TdefVariableColumnsOffset, 2), (ushort)(varCount + 1)); // 0x2B++
+        return maxCols;
+    }
+
+    /// <summary>Full in-place column type change, byte-for-byte like ACE (currently: an all-fixed, non-boolean
+    /// table whose target stays fixed and is not indexed; falls back to <see cref="RewriteColumn"/> otherwise).
+    /// Edits the TDEF in place (<see cref="AlterColumnTypeInPlaceTdef"/>) and re-lays every row — the target's
+    /// OLD fixed slot is kept as dead space, its converted value appended at the new offset, count + null bitmap
+    /// updated. Converts values in memory first (throws on bad data before any write); runs in a transaction.</summary>
+    public void AlterColumnTypeInPlace(string tableName, string columnName, ColumnSpec newSpec)
+    {
+        TableDef oldDef = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
+        ColumnDef oldTarget = oldDef.FindColumn(columnName)
+            ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
+
+        // A long-value (Memo/OLE) target — or converting one away — needs long-value column mechanics (a §3.3.2
+        // usage-map entry, LVAL pages, freeing the old value). That's out of scope for the byte-faithful in-place
+        // edit; the logical rebuild (Create handles long-value columns) does it correctly, if not byte-exactly.
+        if (newSpec.Type is JetDataType.Memo or JetDataType.Ole || oldTarget.Type is JetDataType.Memo or JetDataType.Ole)
+        {
+            RewriteColumn(tableName, columnName, newSpec);
+            return;
+        }
+
+        // Indexes that include the target column must be rebuilt (their keys change type) — captured now.
+        var affectedIndexes = oldDef.Indexes
+            .Where(i => i.Columns.Any(col => col.Column.Index == oldTarget.Index))
+            .Select(i => i.Name).ToList();
+        int oldTargetId = oldTarget.ColumnId;
+
+        // 1. Materialize (id + raw bytes + values) before touching disk; conversion throws here on bad data.
+        var reader = new RowInserter(_channel, oldDef);
+        var rows = new Table(_channel, oldDef).Rows().WithIds()
+            .Select(r => (r.Id, Raw: reader.ReadRow(r.Id), Values: (object?[])r.Values.Clone()))
+            .ToList();
+        foreach (var r in rows) r.Values[oldTarget.Index] = ConvertValue(r.Values[oldTarget.Index], newSpec.Type);
+
+        // The fixed-region length is authoritative from an existing row (its var-data-start), NOT the live
+        // column descriptors — those diverge once a high-offset column has been retyped to variable and left a
+        // dead fixed slot at the end. Fall back to the schema for an empty table (encoder derives the same).
+        bool hasVar = oldDef.Columns.Any(c => !c.IsFixedLength);
+        int oldFixedLen = rows.Count > 0
+            ? FixedRegionLength(rows[0].Raw, hasVar)
+            : oldDef.Columns.Where(c => c.IsFixedLength && c.Type != JetDataType.Boolean)
+                .Select(c => c.FixedOffset + c.Length).DefaultIfEmpty(0).Max();
+
+        bool ownTx = !_channel.InTransaction;
+        if (ownTx) _channel.BeginTransaction();
+        try
+        {
+            JetFormatBase format = _channel.Format;
+
+            // 2. One TDEF edit for the whole modify: patch only the target descriptor (bump 0x29 / 0x2B — its
+            //    appended fixed offset is the row's true fixed-region end incl. dead slots) AND re-point every
+            //    index over the target, all into the SAME parts, then write the TDEF a single time. Each index
+            //    re-point needs the fresh root allocated + owned-map recycled first (page work off the TDEF).
+            TdefParts parts = ParseTdef(oldDef.DefinitionPage);
+            int newTargetId = EditTargetDescriptor(parts, oldTarget, newSpec, oldFixedLen, format);
+
+            var pending = new List<(string Name, int OldRoot, int NewRoot, bool IgnoreNulls)>();
+            foreach (string ixName in affectedIndexes)
+            {
+                IndexDef index = oldDef.Indexes.First(i => string.Equals(i.Name, ixName, StringComparison.OrdinalIgnoreCase));
+                int newRoot = PrepareIndexRebuild(parts, oldDef, index, oldTargetId, newTargetId);
+                pending.Add((ixName, index.RootPage, newRoot, index.IgnoreNulls));
+            }
+
+            WriteTdef(oldDef.DefinitionPage, parts);
+            _catalog.Invalidate();
+
+            TableDef newDef = _catalog.FindTable(tableName)!;
+            ColumnDef newTarget = newDef.FindColumn(columnName)!;
+            int newMaxId = newDef.Columns.Max(c => c.ColumnId);
+            int newFixedLen = newTarget.IsFixedLength ? oldFixedLen + newTarget.Length : oldFixedLen;
+            var writer = new RowInserter(_channel, newDef);
+
+            // 3. Re-lay each row: old fixed region + old var chunks verbatim (incl. the dead old slot), target
+            //    appended (a new fixed slot, or a new variable chunk); count/var-table/null-bitmap rebuilt.
+            foreach (var r in rows)
+                writer.RewriteRowRaw(r.Id, BuildRelaidRecord(r.Raw, oldFixedLen, hasVar, newTarget, r.Values, newDef.Columns, newMaxId, newFixedLen));
+
+            // 4. Finish each index rebuild: backfill the fresh B-tree with new-type keys, then free the old root
+            //    (last, so the new root got the appended page rather than reusing this one) — as ACE does.
+            foreach (var p in pending)
+            {
+                BackfillIndex(tableName, p.Name, p.IgnoreNulls);
+                _allocator.Free(p.OldRoot);
+            }
+
+            if (ownTx) _channel.CommitTransaction();
+        }
+        catch when (ownTx) { _channel.RollbackTransaction(); _catalog.Invalidate(); throw; }
         _catalog.Invalidate();
+    }
 
-        var dest = new Table(_channel, _catalog.FindTable(tableName)!);
-        foreach (object?[] row in rows) dest.Insert(row);
+    /// <summary>Builds the re-laid row record, matching ACE's in-place modify byte-for-byte: the OLD fixed
+    /// region and OLD variable chunks are kept verbatim (the dead old-target slot/chunk keeps its stale bytes),
+    /// the converted target is appended (a new fixed slot if it is fixed, else a new variable chunk), and the
+    /// leading count (= max id + 1), variable-offset table + numVar (omitted if none), and null bitmap
+    /// (dead-id bits set present) are rebuilt.</summary>
+    private static byte[] BuildRelaidRecord(byte[] oldRow, int oldFixedLen, bool hasVar, ColumnDef newTarget,
+        object?[] values, IReadOnlyList<ColumnDef> newCols, int newMaxId, int newFixedLen)
+    {
+        object? tv = values[newTarget.Index];
+        byte[] targetBytes = tv is null
+            ? (newTarget.IsFixedLength ? new byte[newTarget.Length] : [])
+            : Types.JetTypeCodec.Encode(newTarget, tv);
 
-        foreach (IndexDef ix in secondary)
+        // Fixed region: old fixed bytes verbatim (incl. a dead fixed slot); append the target if it is fixed.
+        var newFixed = new byte[newFixedLen];
+        Array.Copy(oldRow, 2, newFixed, 0, oldFixedLen);
+        if (newTarget.IsFixedLength && tv is not null)
+            Array.Copy(targetBytes, 0, newFixed, newTarget.FixedOffset, newTarget.Length);
+
+        // Variable chunks: old chunks verbatim (incl. a dead variable chunk); append the target if it is variable.
+        List<byte[]> chunks = ExtractVarChunks(oldRow, hasVar);
+        if (!newTarget.IsFixedLength) chunks.Add(targetBytes);
+
+        // Assemble via the shared row layout (count + var table + null bitmap identical to a fresh encode).
+        _ = newFixedLen; // == newFixed.Length
+        return RowEncoder.AssembleRow(newMaxId, newFixed, chunks, newCols, values);
+    }
+
+    /// <summary>The length of a row's fixed-data region (bytes between the leading count and the variable data),
+    /// read from the row itself — its variable-offset table's last entry is the variable-data start (= 2 + fixed
+    /// length), or for an all-fixed row it's the whole row minus the count field and null bitmap. This is
+    /// authoritative over the live column descriptors, which omit dead fixed slots left by prior retypes.</summary>
+    private static int FixedRegionLength(byte[] row, bool hasVar) =>
+        RowLayout.Parse(row, 2, hasVar).FixedRegionLength;
+
+    /// <summary>Extracts a row's variable-column chunks (in variable-index order) verbatim, using the row's own
+    /// stored numVar. <paramref name="hasVar"/> (from the schema) says whether a variable section exists at all —
+    /// an all-fixed table omits it entirely, so its "numVar" bytes would otherwise be misread from fixed data.</summary>
+    private static List<byte[]> ExtractVarChunks(byte[] row, bool hasVar)
+    {
+        RowLayout layout = RowLayout.Parse(row, 2, hasVar);
+        var chunks = new List<byte[]>(layout.NumVar);
+        for (int j = 0; j < layout.NumVar; j++)
+            chunks.Add(layout.VarChunk(j).ToArray());
+        return chunks;
+    }
+
+    /// <summary>Prepares one index rebuild over a just-modified column, matching ACE's reconstruction: allocate a
+    /// fresh empty root leaf (appended — the old root is left orphaned) and extend/recycle the owned usage map to
+    /// track it, then re-point the index-data block within <paramref name="parts"/> to the new root with the
+    /// target's burned column id and the new usage-map row (bumping the stats block). The caller writes the TDEF
+    /// once, then backfills the fresh B-tree and frees the old root. Returns the new root page.</summary>
+    private int PrepareIndexRebuild(TdefParts parts, TableDef table, IndexDef index, int oldTargetId, int newTargetId)
+    {
+        JetFormatBase format = _channel.Format;
+
+        // A fresh empty root leaf, appended; the old root is freed by the caller afterwards (ACE reuses it on the
+        // next alloc). This and the owned-map recycle touch pages OFF the TDEF, so they happen before the single
+        // TDEF write; only the index-data block + stats mutations below go into the shared parts.
+        int newRoot = _allocator.Allocate();
+        WriteEmptyLeafIndexPage(format, newRoot, owner: table.DefinitionPage);
+
+        int usageMapPage = parts.Header[format.TdefOwnedPagesOffset + 1]
+            | (parts.Header[format.TdefOwnedPagesOffset + 2] << 8) | (parts.Header[format.TdefOwnedPagesOffset + 3] << 16);
+
+        // Recycle the index's owned-map row (ACE soft-deletes the old row and reuses its space for a new row
+        // tracking the new root), reading the current row number from the (as-yet-unwritten) data block.
+        Span<byte> block = parts.DataBlocks[index.RealIndexOrdinal];
+        int oldUsageRow = block[IndexBlockFormat.UsageMapRowOffset];
+        int newRow = RecycleOwnedMapRow(format, usageMapPage, oldUsageRow, newRoot);
+
+        // Re-point the index-data block: the target's burned id in its column slot, the new root, the new
+        // usage-map row; bump the stats block (+0x00, observed 0→1 on ACE's rebuild).
+        for (int slot = 0; slot < IndexBlockFormat.MaxColumns; slot++)
         {
-            AddIndex(tableName, ix.Name, ix.Columns.Select(c => (c.Column.Name, !c.Ascending)).ToList(),
-                ix.IsUnique, isPrimary: false, disallowNull: false, ignoreNulls: false);
-            _catalog.Invalidate();
+            int at = IndexBlockFormat.ColumnsOffset + slot * IndexBlockFormat.ColumnSlotSize;
+            if (BinaryPrimitives.ReadInt16LittleEndian(block.Slice(at, 2)) == oldTargetId)
+                BinaryPrimitives.WriteInt16LittleEndian(block.Slice(at, 2), (short)newTargetId);
         }
+        block[IndexBlockFormat.UsageMapRowOffset] = (byte)newRow;
+        BinaryPrimitives.WriteInt32LittleEndian(block.Slice(IndexBlockFormat.RootPageOffset, 4), newRoot);
+        Span<byte> stats = parts.Stats[index.RealIndexOrdinal];
+        BinaryPrimitives.WriteInt32LittleEndian(stats, BinaryPrimitives.ReadInt32LittleEndian(stats) + 1);
+        return newRoot;
+    }
 
-        // Re-add the outgoing foreign keys (recreates their backing index + linkage + MSysRelationships rows).
-        foreach (ForeignKey fk in foreignKeys)
-        {
-            AddForeignKey(tableName, new RelationshipSpec(fk.Name, fk.ReferencedTable, fk.Columns.ToList(),
-                fk.IsEnforced, fk.CascadeUpdate, fk.CascadeDelete, NoIndex: false, fk.DeleteSetNull, fk.UpdateSetNull));
-            _catalog.Invalidate();
-        }
+    /// <summary>Recycles an index's owned-pages usage-map row exactly the way ACE does on a rebuild: append a
+    /// fresh row and set the new root's bit (ACE's first write, at the appended slot), then MOVE that map into
+    /// the old row's freed slot and soft-delete the old row (a 0-length deleted+overflow tombstone) — leaving
+    /// the appended slot's bytes stale in free space, byte-for-byte as ACE does. Returns the new row number.</summary>
+    private int RecycleOwnedMapRow(JetFormatBase format, int usageMapPage, int oldRow, int newRoot)
+    {
+        const int MapLength = 1 + 4 + 64;
+        int dir = format.DataRowDirectoryOffset;
+        int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(_channel.ReadPage(usageMapPage).Span.Slice(format.DataRowCountOffset, 2));
+        int newRow = rowCount;
 
-        // Re-add the incoming relationships — each child's FK back to the rebuilt parent.
-        foreach (ForeignKey r in incoming)
-        {
-            AddForeignKey(r.Table, new RelationshipSpec(r.Name, r.ReferencedTable, r.Columns.ToList(),
-                r.IsEnforced, r.CascadeUpdate, r.CascadeDelete, NoIndex: false, r.DeleteSetNull, r.UpdateSetNull));
-            _catalog.Invalidate();
-        }
+        // ACE's first write: append a fresh row and set the new root's bit (this copy is later left stale).
+        AppendEmptyUsageMapRow(format, usageMapPage, newRow);
+        new UsageMapWriter(_channel).SetBit(newRow, usageMapPage, newRoot, set: true);
+
+        // Then move that map into the old row's freed slot and turn the old row into a tombstone; the appended
+        // slot's bytes are left in place (stale, in free space) — matching ACE's leftover.
+        byte[] page = _channel.ReadPage(usageMapPage).Span.ToArray();
+        int freshOffset = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir + newRow * 2, 2)) & RowPointer.OffsetMask;
+        int oldOffset = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir + oldRow * 2, 2)) & RowPointer.OffsetMask;
+        int aboveOffset = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir + (oldRow - 1) * 2, 2)) & RowPointer.OffsetMask;
+
+        Array.Copy(page, freshOffset, page, oldOffset, MapLength);                 // move the map into the old slot
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir + newRow * 2, 2), (ushort)oldOffset);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir + oldRow * 2, 2),
+            (ushort)(aboveOffset | RowPointer.DeletedFlag | RowPointer.OverflowFlag)); // old row → 0-length tombstone
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
+            (ushort)(oldOffset - (dir + (rowCount + 1) * 2)));
+        _channel.WritePage(usageMapPage, page);
+        return newRow;
     }
 
     /// <summary>Converts a stored value to the CLR type for a new column type (ALTER COLUMN). NULL stays NULL;
@@ -1351,7 +1632,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         };
     }
 
-    private const int TdefMaxColumnsOffset = 0x29;
 
     /// <summary>Appends the new column's descriptor (after the existing descriptors) and its name (after the
     /// existing names) to the column region.</summary>
@@ -1480,9 +1760,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// child's outgoing block number on the child's TDEF page (info block layout: +0x0C fk_type,
     /// +0x0D child block number, +0x11 child page).</summary>
     private static bool IsIncomingBlockFor(byte[] info, int childBlockNum, int childPage) =>
-        info[0x0C] == FkTypeIncoming &&
-        (int)BinaryPrimitives.ReadUInt32LittleEndian(info.AsSpan(0x0D, 4)) == childBlockNum &&
-        BinaryPrimitives.ReadInt32LittleEndian(info.AsSpan(0x11, 4)) == childPage;
+        info[IndexBlockFormat.InfoFkTypeOffset] == FkTypeIncoming &&
+        (int)BinaryPrimitives.ReadUInt32LittleEndian(info.AsSpan(IndexBlockFormat.InfoFkNumberOffset, 4)) == childBlockNum &&
+        BinaryPrimitives.ReadInt32LittleEndian(info.AsSpan(IndexBlockFormat.InfoFkTablePageOffset, 4)) == childPage;
 
     /// <summary>Soft-deletes every MSysRelationships row for the named relationship.</summary>
     private void SoftDeleteRelationshipRows(string name)
@@ -1531,20 +1811,20 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int pos = afterStats + colCount * format.ColumnDescriptorSize;
         for (int i = 0; i < colCount; i++) pos += 2 + buf.ReadUInt16(pos);
         int afterColumns = pos;
-        int infoStart = afterColumns + dataCount * IndexDataBlockSize;
-        int namePos = infoStart + logicalCount * IndexInfoBlockSize;
-        int defEnd = buf.ReadInt32(TdefLengthOffset);
+        int infoStart = afterColumns + dataCount * IndexBlockFormat.DataBlockSize;
+        int namePos = infoStart + logicalCount * IndexBlockFormat.InfoBlockSize;
+        int defEnd = buf.ReadInt32(format.TdefLengthOffset);
 
         var stats = new List<byte[]>(dataCount);
         for (int i = 0; i < dataCount; i++) stats.Add(buf.Slice(statsStart + i * format.RealIndexEntrySize, format.RealIndexEntrySize).ToArray());
         var dataBlocks = new List<byte[]>(dataCount);
-        for (int i = 0; i < dataCount; i++) dataBlocks.Add(buf.Slice(afterColumns + i * IndexDataBlockSize, IndexDataBlockSize).ToArray());
+        for (int i = 0; i < dataCount; i++) dataBlocks.Add(buf.Slice(afterColumns + i * IndexBlockFormat.DataBlockSize, IndexBlockFormat.DataBlockSize).ToArray());
 
         var logical = new List<(byte[], byte[])>(logicalCount);
         int np = namePos;
         for (int i = 0; i < logicalCount; i++)
         {
-            byte[] info = buf.Slice(infoStart + i * IndexInfoBlockSize, IndexInfoBlockSize).ToArray();
+            byte[] info = buf.Slice(infoStart + i * IndexBlockFormat.InfoBlockSize, IndexBlockFormat.InfoBlockSize).ToArray();
             int len = buf.ReadUInt16(np);
             byte[] nm = buf.Slice(np, 2 + len).ToArray();
             np += 2 + len;
@@ -1597,7 +1877,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefIndexCountOffset, 4), parts.DataBlocks.Count);
         BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefRealIndexCountOffset, 4), parts.Logical.Count);
-        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(TdefLengthOffset, 4), defEnd);
+        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLengthOffset, 4), defEnd);
 
         // Write across the first page and continuation pages as needed (reusing the existing ones) — handles a
         // definition that shrinks to one page, stays multi-page, or grows past a page (e.g. ADD COLUMN).
@@ -1633,20 +1913,19 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// TdefBuilder writes at creation time.</summary>
     private static byte[] BuildOutgoingInfoBlock(int number, int dataOrdinal, byte fkType, int fkNumber, int fkTablePage, byte upd, byte del)
     {
-        var b = new byte[IndexInfoBlockSize];
-        BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(0x00, 4), TdefRecordMarker);
-        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(0x04, 4), number);
-        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(0x08, 4), dataOrdinal);
-        b[0x0C] = fkType;
-        BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(0x0D, 4), (uint)fkNumber);
-        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(0x11, 4), fkTablePage);
-        b[0x15] = upd;
-        b[0x16] = del;
-        b[0x17] = IndexTypeForeign;
+        var b = new byte[IndexBlockFormat.InfoBlockSize];
+        BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoMarkerOffset, 4), JetFormatBase.TdefRecordMarker);
+        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoNumberOffset, 4), number);
+        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoDataNumberOffset, 4), dataOrdinal);
+        b[IndexBlockFormat.InfoFkTypeOffset] = fkType;
+        BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoFkNumberOffset, 4), (uint)fkNumber);
+        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoFkTablePageOffset, 4), fkTablePage);
+        b[IndexBlockFormat.InfoUpdateActionOffset] = upd;
+        b[IndexBlockFormat.InfoDeleteActionOffset] = del;
+        b[IndexBlockFormat.InfoTypeOffset] = IndexBlockFormat.TypeForeign;
         return b;
     }
 
-    private const int ContinuationHeaderSize = 8;
 
     /// <summary>Reads a table definition, stitching continuation pages into one contiguous buffer (in
     /// the absolute coordinate space the descriptors use), and returns the continuation page numbers.</summary>
@@ -1664,7 +1943,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             continuations.Add(next);
             LibRed.IO.PageBuffer cont = _channel.ReadPage(next);
             next = cont.ReadInt32(format.TdefNextPageOffset);
-            assembled.AddRange(cont.Span[ContinuationHeaderSize..].ToArray());
+            assembled.AddRange(cont.Span[JetFormatBase.TdefContinuationHeaderSize..].ToArray());
         }
         return (new LibRed.IO.PageBuffer(assembled.ToArray(), firstPage), continuations);
     }
@@ -1672,7 +1951,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <summary>
     /// Writes a definition buffer across the first page and, if it overflows, continuation pages (each
     /// <c>[0x02][0x01][free:2][next:4]</c> then data). The first page carries the whole definition in its
-    /// coordinate space; each continuation contributes <see cref="ContinuationHeaderSize"/>-offset data.
+    /// coordinate space; each continuation contributes <see cref="JetFormatBase.TdefContinuationHeaderSize"/>-offset data.
     /// Existing continuation pages are reused before allocating new ones.
     /// </summary>
     private void WriteDefinition(int firstPage, byte[] def, IReadOnlyList<int> reusePages)
@@ -1681,12 +1960,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int ps = format.PageSize;
         int nextOffset = format.TdefNextPageOffset;
 
-        if (def.Length + TdefContinuationReserve <= ps)
+        if (def.Length + JetFormatBase.TdefContinuationHeaderSize <= ps)
         {
             var only = new byte[ps];
             def.CopyTo(only, 0);
             BinaryPrimitives.WriteInt32LittleEndian(only.AsSpan(nextOffset, 4), 0);
-            BinaryPrimitives.WriteUInt16LittleEndian(only.AsSpan(TdefFreeSpaceOffset, 2), (ushort)(ps - def.Length - TdefContinuationReserve));
+            BinaryPrimitives.WriteUInt16LittleEndian(only.AsSpan(format.TdefFreeSpaceOffset, 2), (ushort)(ps - def.Length - JetFormatBase.TdefContinuationHeaderSize));
             _channel.WritePage(firstPage, only);
             return;
         }
@@ -1696,9 +1975,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         for (int offset = ps; offset < def.Length;)
         {
             int remaining = def.Length - offset;
-            int length = remaining <= ps - ContinuationHeaderSize - TdefContinuationReserve
+            int length = remaining <= ps - JetFormatBase.TdefContinuationHeaderSize - JetFormatBase.TdefContinuationHeaderSize
                 ? remaining
-                : ps - ContinuationHeaderSize;
+                : ps - JetFormatBase.TdefContinuationHeaderSize;
             chunks.Add((offset, length));
             offset += length;
         }
@@ -1709,7 +1988,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         var page1 = new byte[ps];
         Array.Copy(def, 0, page1, 0, ps); // page 1 is completely full in a multi-page definition
         BinaryPrimitives.WriteInt32LittleEndian(page1.AsSpan(nextOffset, 4), pageNumbers[0]);
-        BinaryPrimitives.WriteUInt16LittleEndian(page1.AsSpan(TdefFreeSpaceOffset, 2), 0);
+        BinaryPrimitives.WriteUInt16LittleEndian(page1.AsSpan(format.TdefFreeSpaceOffset, 2), 0);
         _channel.WritePage(firstPage, page1);
 
         for (int i = 0; i < chunks.Count; i++)
@@ -1718,50 +1997,52 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             var page = new byte[ps];
             page[0] = (byte)PageType.TableDefinition;
             page[1] = 0x01;
-            Array.Copy(def, offset, page, ContinuationHeaderSize, length);
+            Array.Copy(def, offset, page, JetFormatBase.TdefContinuationHeaderSize, length);
             int next = i + 1 < pageNumbers.Length ? pageNumbers[i + 1] : 0;
             BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(nextOffset, 4), next);
-            int free = next != 0 ? 0 : ps - ContinuationHeaderSize - length - TdefContinuationReserve;
-            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(TdefFreeSpaceOffset, 2), (ushort)free);
+            int free = next != 0 ? 0 : ps - JetFormatBase.TdefContinuationHeaderSize - length - JetFormatBase.TdefContinuationHeaderSize;
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefFreeSpaceOffset, 2), (ushort)free);
             _channel.WritePage(pageNumbers[i], page);
         }
     }
 
     private static byte[] BuildIndexDataBlock(IReadOnlyList<(int Id, bool Ascending)> columns, int rootPage, int usageRow, int usagePage, bool unique, bool required, bool ignoreNulls)
     {
-        var b = new byte[IndexDataBlockSize];
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(0, 4), IndexDataMarker);
-        for (int slot = 0; slot < IndexMaxColumnSlots; slot++)
+        var b = new byte[IndexBlockFormat.DataBlockSize];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(0, 4), IndexBlockFormat.DataMarker);
+        for (int slot = 0; slot < IndexBlockFormat.MaxColumns; slot++)
         {
-            int entry = 0x04 + slot * 3;
+            int entry = IndexBlockFormat.ColumnsOffset + slot * IndexBlockFormat.ColumnSlotSize;
             if (slot < columns.Count)
             {
                 System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(b.AsSpan(entry, 2), (short)columns[slot].Id);
-                b[entry + 2] = columns[slot].Ascending ? (byte)0x01 : (byte)0x00; // 0x01 = ascending, 0x00 = descending
+                b[entry + 2] = columns[slot].Ascending ? IndexBlockFormat.ColumnAscending : (byte)0x00; // 0x00 = descending
             }
-            else System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(b.AsSpan(entry, 2), -1);
+            else System.Buffers.Binary.BinaryPrimitives.WriteInt16LittleEndian(b.AsSpan(entry, 2), IndexBlockFormat.ColumnUnused);
         }
-        b[0x22] = (byte)usageRow;
-        b[0x23] = (byte)usagePage; b[0x24] = (byte)(usagePage >> 8); b[0x25] = (byte)(usagePage >> 16);
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(0x26, 4), rootPage);
-        ushort flags = 0x0080; // always-set
-        if (unique) flags |= 0x0001;
-        if (ignoreNulls) flags |= 0x0002;
-        if (required) flags |= 0x0008;
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(b.AsSpan(0x2E, 2), flags);
+        b[IndexBlockFormat.UsageMapRowOffset] = (byte)usageRow;
+        b[IndexBlockFormat.UsageMapRowOffset + 1] = (byte)usagePage;
+        b[IndexBlockFormat.UsageMapRowOffset + 2] = (byte)(usagePage >> 8);
+        b[IndexBlockFormat.UsageMapRowOffset + 3] = (byte)(usagePage >> 16);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(IndexBlockFormat.RootPageOffset, 4), rootPage);
+        ushort flags = IndexFlags.AlwaysSet;
+        if (unique) flags |= IndexFlags.Unique;
+        if (ignoreNulls) flags |= IndexFlags.IgnoreNulls;
+        if (required) flags |= IndexFlags.Required;
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(b.AsSpan(IndexBlockFormat.FlagsOffset, 2), flags);
         return b;
     }
 
     private static byte[] BuildPlainInfoBlock(int number, int dataOrdinal, bool isPrimary)
     {
-        var b = new byte[IndexInfoBlockSize];
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(0x00, 4), TdefRecordMarker);
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(0x04, 4), number);
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(0x08, 4), dataOrdinal);
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(0x0D, 4), 0xFFFFFFFF); // no foreign key
-        b[0x15] = PlainIndexAction;
-        b[0x16] = PlainIndexAction;
-        b[0x17] = isPrimary ? IndexTypePrimary : IndexTypeSecondary;
+        var b = new byte[IndexBlockFormat.InfoBlockSize];
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoMarkerOffset, 4), JetFormatBase.TdefRecordMarker);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoNumberOffset, 4), number);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoDataNumberOffset, 4), dataOrdinal);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoFkNumberOffset, 4), IndexBlockFormat.NoForeignKey); // no foreign key
+        b[IndexBlockFormat.InfoUpdateActionOffset] = IndexBlockFormat.PlainAction;
+        b[IndexBlockFormat.InfoDeleteActionOffset] = IndexBlockFormat.PlainAction;
+        b[IndexBlockFormat.InfoTypeOffset] = isPrimary ? IndexBlockFormat.TypePrimary : IndexBlockFormat.TypeSecondary;
         return b;
     }
 
@@ -1789,13 +2070,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int pos = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize
                   + colCount * format.ColumnDescriptorSize;
         for (int i = 0; i < colCount; i++) pos += 2 + buf.ReadUInt16(pos);
-        int infoStart = pos + dataCount * IndexDataBlockSize;
+        int infoStart = pos + dataCount * IndexBlockFormat.DataBlockSize;
 
         var blocks = new List<byte[]>(logicalCount + 1);
         for (int i = 0; i < logicalCount; i++)
-            blocks.Add(buf.Slice(infoStart + i * IndexInfoBlockSize, IndexInfoBlockSize).ToArray());
+            blocks.Add(buf.Slice(infoStart + i * IndexBlockFormat.InfoBlockSize, IndexBlockFormat.InfoBlockSize).ToArray());
 
-        int namePos = infoStart + logicalCount * IndexInfoBlockSize;
+        int namePos = infoStart + logicalCount * IndexBlockFormat.InfoBlockSize;
         var names = new List<string>(logicalCount + 1);
         var nameBytes = new List<byte[]>(logicalCount + 1);
         for (int i = 0; i < logicalCount; i++)
@@ -1806,7 +2087,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             namePos += 2 + len;
         }
 
-        int defEnd = buf.ReadInt32(TdefLengthOffset);
+        int defEnd = buf.ReadInt32(format.TdefLengthOffset);
         byte[] lvalRegion = buf.Slice(namePos, defEnd - namePos).ToArray(); // §3.3.2 list + 0xFFFF terminator
 
         string newName = NextHiddenRelationshipName(names);
@@ -1814,8 +2095,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         blocks.Insert(k, BuildIncomingInfoBlock(inc));
         nameBytes.Insert(k, EncodeName(newName));
 
-        int newDefEnd = infoStart + blocks.Count * IndexInfoBlockSize + nameBytes.Sum(n => n.Length) + lvalRegion.Length;
-        if (newDefEnd > format.PageSize - TdefContinuationReserve)
+        int newDefEnd = infoStart + blocks.Count * IndexBlockFormat.InfoBlockSize + nameBytes.Sum(n => n.Length) + lvalRegion.Length;
+        if (newDefEnd > format.PageSize - JetFormatBase.TdefContinuationHeaderSize)
             throw new NotSupportedException("No room in the table definition for another relationship (needs a continuation page).");
 
         var page = buf.Span.ToArray();
@@ -1825,24 +2106,24 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         lvalRegion.CopyTo(page.AsSpan(w));
 
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRealIndexCountOffset, 4), logicalCount + 1);
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(TdefLengthOffset, 4), newDefEnd);
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(TdefFreeSpaceOffset, 2),
-            (ushort)(format.PageSize - newDefEnd - TdefContinuationReserve));
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefLengthOffset, 4), newDefEnd);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefFreeSpaceOffset, 2),
+            (ushort)(format.PageSize - newDefEnd - JetFormatBase.TdefContinuationHeaderSize));
         _channel.WritePage(inc.ParentPage, page);
     }
 
     private byte[] BuildIncomingInfoBlock(IncomingRelationship inc)
     {
-        var b = new byte[IndexInfoBlockSize];
-        BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(0x00, 4), TdefRecordMarker);
-        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(0x04, 4), inc.Number);            // index_num
-        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(0x08, 4), inc.ReferencedOrdinal); // index_num2 -> referenced-key data block
-        b[0x0C] = FkTypeIncoming;
-        BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(0x0D, 4), inc.ChildBlockNumber); // cross-link to child block
-        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(0x11, 4), inc.ChildPage);
-        b[0x15] = inc.UpdateAction;
-        b[0x16] = inc.DeleteAction;
-        b[0x17] = IndexTypeForeign;
+        var b = new byte[IndexBlockFormat.InfoBlockSize];
+        BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoMarkerOffset, 4), JetFormatBase.TdefRecordMarker);
+        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoNumberOffset, 4), inc.Number);            // index_num
+        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoDataNumberOffset, 4), inc.ReferencedOrdinal); // index_num2 -> referenced-key data block
+        b[IndexBlockFormat.InfoFkTypeOffset] = FkTypeIncoming;
+        BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoFkNumberOffset, 4), inc.ChildBlockNumber); // cross-link to child block
+        BinaryPrimitives.WriteInt32LittleEndian(b.AsSpan(IndexBlockFormat.InfoFkTablePageOffset, 4), inc.ChildPage);
+        b[IndexBlockFormat.InfoUpdateActionOffset] = inc.UpdateAction;
+        b[IndexBlockFormat.InfoDeleteActionOffset] = inc.DeleteAction;
+        b[IndexBlockFormat.InfoTypeOffset] = IndexBlockFormat.TypeForeign;
         return b;
     }
 
@@ -1922,7 +2203,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     private const int UsageMapRecordLength = 1 + 4 + 64;
 
     // A user table's parent object is the database's "Tables" container; observed constant.
-    private const int TablesContainerParentId = 0x0F000001;
 
     // The creating user's owner SID; for a workgroup-less database this 2-byte value is constant
     // across all user tables (verified on Northwind).
@@ -1945,7 +2225,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         DateTime now = DateTime.Now;
         var values = new object?[msysObjects.Columns.Count];
         SetByName(msysObjects, values, "Id", tdefPage);
-        SetByName(msysObjects, values, "ParentId", TablesContainerParentId);
+        SetByName(msysObjects, values, "ParentId", CatalogFormat.ObjectContainerParentId);
         SetByName(msysObjects, values, "Type", (short)1); // table object
         SetByName(msysObjects, values, "Name", name);
         SetByName(msysObjects, values, "Flags", 0);

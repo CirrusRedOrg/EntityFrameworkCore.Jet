@@ -211,6 +211,47 @@ public class AceAlterColumnTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    // Faithful round-trip: changing ONE column's type must not disturb another column's on-disk descriptor.
+    // ACE authors the table (so the untouched column's bytes are ACE's, not LibRed's defaults); LibRed retypes a
+    // different, same-width column (no layout shift), then the untouched column's 25 descriptor bytes must be
+    // byte-identical — the RawDescriptor passthrough, not a rebuild-from-model that would stamp defaults.
+    [Fact]
+    public void Libred_type_change_preserves_an_untouched_columns_descriptor_bytes()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"pre-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using (var conn = OpenOleDb(path))
+            {
+                void Exec(string s) { using var c = conn.CreateCommand(); c.CommandText = s; c.ExecuteNonQuery(); }
+                Exec("CREATE TABLE T ( A LONG, B LONG, C TEXT(20) )");
+                Exec("INSERT INTO T (A, B, C) VALUES (1, 2, 'hi')");
+            }
+
+            byte[] before;
+            using (var db = JetDatabase.Open(path, readOnly: true))
+                before = (byte[])db.Catalog.FindTable("T")!.FindColumn("C")!.RawDescriptor!.Clone();
+
+            // Retype A: LONG -> SINGLE (both 4-byte fixed → no row-layout shift, so C is wholly untouched).
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                db.AlterColumn("T", "A", new ColumnSpec("A", JetDataType.Single, 4, IsFixedLength: true));
+
+            byte[] after;
+            using (var db = JetDatabase.Open(path, readOnly: true))
+                after = db.Catalog.FindTable("T")!.FindColumn("C")!.RawDescriptor!;
+
+            Assert.Equal(before, after);   // C's descriptor bytes preserved verbatim
+
+            // And ACE still reads the table (A converted, C intact).
+            using var conn2 = OpenOleDb(path);
+            using var q = conn2.CreateCommand();
+            q.CommandText = "SELECT C FROM T";
+            Assert.Equal("hi", (string?)q.ExecuteScalar());
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     [Fact]
     public void Access_reads_a_libred_full_rewrite_with_converted_values()
     {

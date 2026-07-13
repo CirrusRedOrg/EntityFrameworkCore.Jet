@@ -38,30 +38,12 @@ public sealed class TableDefinitionPage : Page
     /// <summary>Per long-value column id → its free-pages usage-map pointer (LVAL pages with spare room).</summary>
     public IReadOnlyDictionary<int, (int Row, int Page)> LongValueFreeMaps => _longValueFreeMaps;
 
-    /// <summary>Bytes of a continuation TDEF page that precede the resumed definition data.</summary>
-    private const int ContinuationHeaderSize = 8;
-
     // Index structures (Jet 4 / ACE) follow the column names, in this order:
     //   IndexCount  (0x33) data blocks  : 52 bytes each — columns, flags, root page
     //   LogicalIndexCount (0x2F) info blocks : 28 bytes each — links a name to a data block
     //   LogicalIndexCount names         : 2-byte length + UTF-16
     // A logical index may be a relationship (FK) sharing a data block with a real index.
-    private const int IndexBlockSize = 52;
-    private const int IndexMaxColumns = 10;
-    private const int IndexColumnSlotSize = 3;   // 2-byte column id + 1-byte flags
-    private const int IndexColumnsOffset = 0x04;
-    private const int IndexRootPageOffset = 0x26;
-    private const int IndexFlagsOffset = 0x2E;
-    private const short IndexColumnUnused = -1;   // 0xFFFF
-    private const byte IndexColumnAscending = 0x01;
-    private const ushort IndexFlagUnique = 0x0001;
-    private const ushort IndexFlagIgnoreNulls = 0x0002;
-
-    private const int IndexInfoBlockSize = 28;
-    private const int IndexInfoDataNumberOffset = 0x08;
-    private const int IndexInfoFkTablePageOffset = 0x11;
-    private const int IndexInfoTypeOffset = 0x17;
-    private const byte IndexTypePrimary = 0x01;
+    // Index-block layout and flag values are shared with the writers via IndexBlockFormat / IndexFlags.
 
     /// <summary>
     /// Reads a table definition starting at <paramref name="page"/>, transparently
@@ -87,7 +69,7 @@ public sealed class TableDefinitionPage : Page
         {
             PageBuffer continuation = channel.ReadPage(next);
             next = continuation.ReadInt32(channel.Format.TdefNextPageOffset);
-            assembled.AddRange(continuation.Span[ContinuationHeaderSize..]);
+            assembled.AddRange(continuation.Span[JetFormatBase.TdefContinuationHeaderSize..]);
         }
 
         return new PageBuffer(assembled.ToArray(), page);
@@ -127,7 +109,7 @@ public sealed class TableDefinitionPage : Page
         // 1. Index-data blocks (one IndexDef each): columns, unique flag, root page.
         for (int i = 0; i < IndexCount; i++)
         {
-            int block = blockStart + i * IndexBlockSize;
+            int block = blockStart + i * IndexBlockFormat.DataBlockSize;
 
             // Per-index statistics live in the 12-byte block at TdefRealIndexBlockOffset:
             // [+0] total entries (= row count), [+4] unique entry count (cumulative, never
@@ -136,29 +118,30 @@ public sealed class TableDefinitionPage : Page
             int uniqueEntryCount = buffer.ReadInt32(statsBlock + 4);
 
             var columns = new List<(ColumnDef Column, bool Ascending)>();
-            for (int slot = 0; slot < IndexMaxColumns; slot++)
+            for (int slot = 0; slot < IndexBlockFormat.MaxColumns; slot++)
             {
-                int entry = block + IndexColumnsOffset + slot * IndexColumnSlotSize;
+                int entry = block + IndexBlockFormat.ColumnsOffset + slot * IndexBlockFormat.ColumnSlotSize;
                 short columnId = buffer.ReadInt16(entry);
-                if (columnId == IndexColumnUnused) continue;
+                if (columnId == IndexBlockFormat.ColumnUnused) continue;
                 if (byColumnId.TryGetValue(columnId, out ColumnDef? column))
-                    columns.Add((column, (buffer.ReadByte(entry + 2) & IndexColumnAscending) != 0));
+                    columns.Add((column, (buffer.ReadByte(entry + 2) & IndexBlockFormat.ColumnAscending) != 0));
             }
 
             _indexes.Add(new IndexDef
             {
                 Name = string.Empty,
                 Columns = columns,
-                IsUnique = (buffer.ReadUInt16(block + IndexFlagsOffset) & IndexFlagUnique) != 0,
-                IgnoreNulls = (buffer.ReadUInt16(block + IndexFlagsOffset) & IndexFlagIgnoreNulls) != 0,
+                IsUnique = (buffer.ReadUInt16(block + IndexBlockFormat.FlagsOffset) & IndexFlags.Unique) != 0,
+                IgnoreNulls = (buffer.ReadUInt16(block + IndexBlockFormat.FlagsOffset) & IndexFlags.IgnoreNulls) != 0,
+                Required = (buffer.ReadUInt16(block + IndexBlockFormat.FlagsOffset) & IndexFlags.Required) != 0,
                 IsPrimaryKey = false,
                 UniqueEntryCount = uniqueEntryCount,
-                RootPage = buffer.ReadInt32(block + IndexRootPageOffset),
+                RootPage = buffer.ReadInt32(block + IndexBlockFormat.RootPageOffset),
                 RealIndexOrdinal = i,
             });
         }
 
-        int afterIndexNames = ResolveIndexNames(buffer, blockStart + IndexCount * IndexBlockSize);
+        int afterIndexNames = ResolveIndexNames(buffer, blockStart + IndexCount * IndexBlockFormat.DataBlockSize);
         ReadLongValueMaps(buffer, afterIndexNames);
     }
 
@@ -189,14 +172,14 @@ public sealed class TableDefinitionPage : Page
         var info = new (int DataNumber, bool IsRelationship, byte Type)[logicalCount];
         for (int i = 0; i < logicalCount; i++)
         {
-            int block = infoStart + i * IndexInfoBlockSize;
+            int block = infoStart + i * IndexBlockFormat.InfoBlockSize;
             info[i] = (
-                buffer.ReadInt32(block + IndexInfoDataNumberOffset),
-                buffer.ReadInt32(block + IndexInfoFkTablePageOffset) != 0,
-                buffer.ReadByte(block + IndexInfoTypeOffset));
+                buffer.ReadInt32(block + IndexBlockFormat.InfoDataNumberOffset),
+                buffer.ReadInt32(block + IndexBlockFormat.InfoFkTablePageOffset) != 0,
+                buffer.ReadByte(block + IndexBlockFormat.InfoTypeOffset));
         }
 
-        int namePos = infoStart + logicalCount * IndexInfoBlockSize;
+        int namePos = infoStart + logicalCount * IndexBlockFormat.InfoBlockSize;
         var priority = new int[_indexes.Count];
         for (int i = 0; i < logicalCount; i++)
         {
@@ -209,14 +192,14 @@ public sealed class TableDefinitionPage : Page
             if (dataNumber < 0 || dataNumber >= _indexes.Count) continue;
 
             // Prefer a real index name over a relationship's; prefer the primary among real ones.
-            int p = isRelationship ? 1 : type == IndexTypePrimary ? 3 : 2;
+            int p = isRelationship ? 1 : type == IndexBlockFormat.TypePrimary ? 3 : 2;
             if (p > priority[dataNumber])
             {
                 priority[dataNumber] = p;
                 _indexes[dataNumber] = _indexes[dataNumber] with
                 {
                     Name = name,
-                    IsPrimaryKey = !isRelationship && type == IndexTypePrimary,
+                    IsPrimaryKey = !isRelationship && type == IndexBlockFormat.TypePrimary,
                 };
             }
         }
@@ -282,6 +265,8 @@ public sealed class TableDefinitionPage : Page
                 Precision = d.Precision,
                 Scale = d.Scale,
                 Collation = d.Collation,
+                // Keep the original 25 bytes so a rewrite preserves fields we don't model (faithful round-trip).
+                RawDescriptor = buffer.Slice(columnBlock + i * format.ColumnDescriptorSize, format.ColumnDescriptorSize).ToArray(),
             });
         }
 

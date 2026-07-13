@@ -27,18 +27,19 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     {
         var values = new object?[_columns.Count];
 
-        int nullBitmapSize = (_columns.Count + 7) / 8;
-
-        // A real inline row is at least: column count + an empty var table (1 entry) +
-        // var count + null bitmap. Anything shorter is an overflow/lookup pointer slot,
-        // which the caller should have skipped.
+        // The null-bitmap width comes from the row's own leading count (= max id + 1), NOT the live column
+        // count — they differ once ids have a gap (a burned type-change id / DROP COLUMN gap). Reading the
+        // stored count is exactly how ACE sizes it, and is robust to any id scheme (spec §5). A real inline
+        // row is at least: column count + an empty var table (1 entry) + var count + null bitmap; anything
+        // shorter is an overflow/lookup pointer slot the caller should have skipped.
+        if (row.Length < _format.RowColumnCountSize)
+            throw new ArgumentException("Row is too short to be an inline record (overflow/lookup slot?).", nameof(row));
+        RowLayout layout = RowLayout.Parse(row, _format.RowColumnCountSize, hasVar: true);
+        int nullBitmapSize = layout.NullBitmapSize;
         if (row.Length < _format.RowColumnCountSize + 2 + 2 + nullBitmapSize)
             throw new ArgumentException("Row is too short to be an inline record (overflow/lookup slot?).", nameof(row));
 
         ReadOnlySpan<byte> nullBitmap = row[^nullBitmapSize..];
-
-        int numVarCols = BinaryPrimitives.ReadUInt16LittleEndian(row.Slice(row.Length - nullBitmapSize - 2, 2));
-        int varTableStart = row.Length - nullBitmapSize - 2 - (numVarCols + 1) * 2;
 
         foreach (ColumnDef column in _columns)
         {
@@ -60,7 +61,7 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
 
             ReadOnlySpan<byte> raw = column.IsFixedLength
                 ? FixedSlice(row, column)
-                : VariableSlice(row, varTableStart, numVarCols, column.VariableIndex);
+                : layout.VarChunk(column.VariableIndex);
 
             // Memo / OLE columns store a long-value descriptor, not the data itself.
             if (_longValues is not null && column.Type is JetDataType.Memo or JetDataType.Ole)
@@ -85,16 +86,16 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     public Dictionary<int, byte[]> LongValueRaw(ReadOnlySpan<byte> row)
     {
         var result = new Dictionary<int, byte[]>();
-        int nullBitmapSize = (_columns.Count + 7) / 8;
+        if (row.Length < _format.RowColumnCountSize) return result; // overflow/lookup slot
+        RowLayout layout = RowLayout.Parse(row, _format.RowColumnCountSize, hasVar: true);
+        int nullBitmapSize = layout.NullBitmapSize;
         if (row.Length < _format.RowColumnCountSize + 2 + 2 + nullBitmapSize) return result; // overflow/lookup slot
 
         ReadOnlySpan<byte> nullBitmap = row[^nullBitmapSize..];
-        int numVarCols = BinaryPrimitives.ReadUInt16LittleEndian(row.Slice(row.Length - nullBitmapSize - 2, 2));
-        int varTableStart = row.Length - nullBitmapSize - 2 - (numVarCols + 1) * 2;
 
         foreach (ColumnDef column in _columns)
             if (column.Type is JetDataType.Memo or JetDataType.Ole && IsPresent(nullBitmap, column.ColumnId))
-                result[column.Index] = VariableSlice(row, varTableStart, numVarCols, column.VariableIndex).ToArray();
+                result[column.Index] = layout.VarChunk(column.VariableIndex).ToArray();
 
         return result;
     }
@@ -104,17 +105,6 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         int start = _format.RowColumnCountSize + column.FixedOffset;
         return row.Slice(start, column.Length);
     }
-
-    private static ReadOnlySpan<byte> VariableSlice(ReadOnlySpan<byte> row, int varTableStart, int numVarCols, int variableIndex)
-    {
-        // Offsets are stored end-first: variable column j starts at entry[numVar - j].
-        int start = VarOffset(row, varTableStart, numVarCols - variableIndex);
-        int end = VarOffset(row, varTableStart, numVarCols - variableIndex - 1);
-        return row[start..end];
-    }
-
-    private static int VarOffset(ReadOnlySpan<byte> row, int varTableStart, int entry) =>
-        BinaryPrimitives.ReadUInt16LittleEndian(row.Slice(varTableStart + entry * 2, 2));
 
     private static bool IsPresent(ReadOnlySpan<byte> nullBitmap, int columnId) =>
         (nullBitmap[columnId >> 3] & (1 << (columnId & 7))) != 0;

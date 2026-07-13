@@ -15,6 +15,10 @@ public sealed record IndexDef
     /// (index flag <c>0x02</c>). Such rows are not added to the B-tree on insert.</summary>
     public bool IgnoreNulls { get; init; }
 
+    /// <summary>WITH DISALLOW NULL (Required): the index rejects a null key — the indexed column(s) are
+    /// required (index flag <c>0x08</c>). Surfaced by scaffolding as the index <c>DISALLOW NULL</c> filter.</summary>
+    public bool Required { get; init; }
+
     /// <summary>
     /// The index's unique-entry count from the TDEF statistics block. This is a cumulative
     /// count of distinct entries ever added that Access increments but <b>never decrements</b>,

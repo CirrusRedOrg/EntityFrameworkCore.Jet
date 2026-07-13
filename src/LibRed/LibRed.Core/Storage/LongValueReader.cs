@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
 
@@ -17,9 +18,6 @@ namespace LibRed.Storage;
 /// </remarks>
 public sealed class LongValueReader(PageChannel channel)
 {
-    private const byte FlagInline = 0x80;
-    private const byte FlagSinglePage = 0x40;
-
     private readonly PageChannel _channel = channel;
 
     public byte[] Resolve(ReadOnlySpan<byte> descriptor)
@@ -27,13 +25,13 @@ public sealed class LongValueReader(PageChannel channel)
         int length = descriptor[0] | (descriptor[1] << 8) | (descriptor[2] << 16);
         byte flags = descriptor[3];
 
-        if ((flags & FlagInline) != 0)
+        if ((flags & LongValueFormat.FlagInline) != 0)
             return descriptor.Slice(12, length).ToArray();
 
         int row = descriptor[4];
         int page = descriptor[5] | (descriptor[6] << 8) | (descriptor[7] << 16);
 
-        return (flags & FlagSinglePage) != 0
+        return (flags & LongValueFormat.FlagSinglePage) != 0
             ? ReadLvalRow(page, row)[..length]
             : ReadChain(page, row, length);
     }

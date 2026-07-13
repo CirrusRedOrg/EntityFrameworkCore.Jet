@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.IO;
 
 namespace LibRed.Storage;
@@ -12,8 +13,6 @@ namespace LibRed.Storage;
 /// </summary>
 public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
 {
-    private const short ObjectTypeQuery = 5;
-    private const int QueriesContainerParentId = 0x0F000001;
     private const int ViewFlags = 0x10000000;         // a SELECT query / view
     private const int AppendFlags = 0x10000040;       // an INSERT (append) query
     private const int DataDefinitionFlags = 0x10000060; // a CREATE/DROP TABLE (data-definition) query
@@ -26,25 +25,6 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
     private const int QueryOwnerAcm = 0xF00FE;  // 983294
     private const int QueryAdminAcm = 0xFFEFF;  // 1048319
 
-    // MSysQueries attribute codes (Jackcess "query rows"), verified against ACE.
-    private const byte AttrType = 0x00;    // Flag = 1 for a SELECT query
-    private const byte AttrAction = 0x01;  // action query: Flag 7 = DDL (Expression = SQL), Flag 3 = append (Name1 = table)
-    private const byte AttrParameter = 0x02; // Name1 = param name, Flag = Jet type code
-    private const byte AttrFlag = 0x03;    // Flag = 2 for DISTINCT
-    private const byte AttrTable = 0x05;   // named table: Name1 = table, Name2 = alias;
-                                           // derived table: Expression = subquery SQL, Name2 = alias
-    private const byte AttrColumn = 0x06;  // Expression = column text
-    private const byte AttrJoin = 0x07;    // Expression = condition, Flag = kind, Name1/Name2 = aliases
-    private const byte AttrWhere = 0x08;   // Expression = predicate text
-    private const byte AttrGroupBy = 0x09; // Expression = a GROUP BY column (a totals query)
-    private const byte AttrOrderBy = 0x0B; // Expression = a sort column, Name1 = "d" for descending
-    private const byte AttrEnd = 0xFF;
-    private const short QueryTypeSelect = 1;
-    private const short FlagDistinct = 2;
-    private const short FlagTop = 0x10;    // an AttrFlag row with Name1 = the TOP count (as text)
-    private const short ActionFlagDdl = 7;     // AttrAction: data-definition query (whole SQL in Expression)
-    private const short ActionFlagAppend = 3;  // AttrAction: append (INSERT) query (target table in Name1)
-    private const short AppendValueFlag = unchecked((short)0x8000); // AttrColumn: an appended literal value
 
     private readonly PageChannel _channel = channel;
     private readonly JetCatalog _catalog = catalog;
@@ -113,8 +93,8 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         DateTime now = DateTime.Now;
         var values = new object?[msysObjects.Columns.Count];
         SetByName(msysObjects, values, "Id", objectId);
-        SetByName(msysObjects, values, "ParentId", QueriesContainerParentId);
-        SetByName(msysObjects, values, "Type", ObjectTypeQuery);
+        SetByName(msysObjects, values, "ParentId", CatalogFormat.ObjectContainerParentId);
+        SetByName(msysObjects, values, "Type", StoredQueryFormat.ObjectTypeQuery);
         SetByName(msysObjects, values, "Name", name);
         SetByName(msysObjects, values, "Flags", flags);
         SetByName(msysObjects, values, "Owner", DefaultOwner);
@@ -128,21 +108,21 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         TableDef mq = _catalog.FindTable("MSysQueries")
             ?? throw new InvalidOperationException("MSysQueries catalog table was not found.");
 
-        Row(mq, objectId, AttrType, order: 1, flag: QueryTypeSelect);
-        Row(mq, objectId, AttrEnd, order: 1);
+        Row(mq, objectId, StoredQueryFormat.AttrType, order: 1, flag: StoredQueryFormat.QueryTypeSelect);
+        Row(mq, objectId, StoredQueryFormat.AttrEnd, order: 1);
         if (spec.Kind == ActionQueryKind.DataDefinition)
         {
             // The whole DDL statement is stored verbatim in one row; Access records it with a leading space.
-            Row(mq, objectId, AttrAction, order: 1, flag: ActionFlagDdl, expression: " " + spec.DdlSql);
+            Row(mq, objectId, StoredQueryFormat.AttrAction, order: 1, flag: StoredQueryFormat.ActionDdl, expression: " " + spec.DdlSql);
         }
         else
         {
-            Row(mq, objectId, AttrAction, order: 1, flag: ActionFlagAppend, name1: spec.TargetTable);
+            Row(mq, objectId, StoredQueryFormat.AttrAction, order: 1, flag: StoredQueryFormat.ActionAppend, name1: spec.TargetTable);
             // Each appended column: Name2 = target column, Expression = the (literal) value; the 0x8000 flag
             // marks a VALUES append (as opposed to an INSERT … SELECT, whose columns carry Flag 0).
             var values = spec.Values ?? [];
             for (int i = 0; i < values.Count; i++)
-                Row(mq, objectId, AttrColumn, order: i + 1, flag: AppendValueFlag,
+                Row(mq, objectId, StoredQueryFormat.AttrColumn, order: i + 1, flag: StoredQueryFormat.AppendValueFlag,
                     expression: values[i].ValueExpression, name2: values[i].Column);
         }
     }
@@ -157,42 +137,42 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         // column expressions reference, and Access processes the rows in order, so columns-before-tables
         // makes it fail to run the view (it opens, but SELECT-from-view errors). Order fields are
         // per-attribute counters, independent of this insertion order.
-        Row(mq, objectId, AttrType, order: 1, flag: QueryTypeSelect);
-        Row(mq, objectId, AttrEnd, order: 1);
+        Row(mq, objectId, StoredQueryFormat.AttrType, order: 1, flag: StoredQueryFormat.QueryTypeSelect);
+        Row(mq, objectId, StoredQueryFormat.AttrEnd, order: 1);
         // Declared parameters (CREATE PROCEDURE) come right after the End row, before the tables.
         for (int i = 0; i < (spec.Parameters?.Count ?? 0); i++)
-            Row(mq, objectId, AttrParameter, order: i + 1,
+            Row(mq, objectId, StoredQueryFormat.AttrParameter, order: i + 1,
                 flag: spec.Parameters![i].TypeCode, name1: spec.Parameters[i].Name);
-        // DISTINCT and TOP are both AttrFlag (0x03) rows, distinguished by their Flag bits; a TOP row also
+        // DISTINCT and TOP are both StoredQueryFormat.AttrFlag (0x03) rows, distinguished by their Flag bits; a TOP row also
         // carries the count in Name1. Give them distinct Order values so the composite PK stays unique.
         int flagOrder = 1;
         if (spec.Distinct)
-            Row(mq, objectId, AttrFlag, order: flagOrder++, flag: FlagDistinct);
+            Row(mq, objectId, StoredQueryFormat.AttrFlag, order: flagOrder++, flag: StoredQueryFormat.FlagDistinct);
         if (spec.Top is { } top)
-            Row(mq, objectId, AttrFlag, order: flagOrder++, flag: FlagTop, name1: top.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Row(mq, objectId, StoredQueryFormat.AttrFlag, order: flagOrder++, flag: StoredQueryFormat.FlagTop, name1: top.ToString(System.Globalization.CultureInfo.InvariantCulture));
         for (int i = 0; i < spec.Tables.Count; i++)
         {
             ViewTableSpec t = spec.Tables[i];
             // A derived table stores its subquery SQL in Expression (Name1 empty); a named table uses Name1.
             if (t.SubquerySql is { } sub)
-                Row(mq, objectId, AttrTable, order: i + 1, expression: sub, name2: t.Alias);
+                Row(mq, objectId, StoredQueryFormat.AttrTable, order: i + 1, expression: sub, name2: t.Alias);
             else
-                Row(mq, objectId, AttrTable, order: i + 1, name1: t.Table, name2: t.Alias);
+                Row(mq, objectId, StoredQueryFormat.AttrTable, order: i + 1, name1: t.Table, name2: t.Alias);
         }
         for (int i = 0; i < spec.Columns.Count; i++)
-            Row(mq, objectId, AttrColumn, order: i + 1, flag: 0,
+            Row(mq, objectId, StoredQueryFormat.AttrColumn, order: i + 1, flag: 0,
                 expression: spec.Columns[i].Expression, name1: spec.Columns[i].Alias);
         for (int i = 0; i < spec.Joins.Count; i++)
         {
             ViewJoinSpec j = spec.Joins[i];
-            Row(mq, objectId, AttrJoin, order: i + 1, flag: (short)j.Kind, expression: j.Condition, name1: j.LeftAlias, name2: j.RightAlias);
+            Row(mq, objectId, StoredQueryFormat.AttrJoin, order: i + 1, flag: (short)j.Kind, expression: j.Condition, name1: j.LeftAlias, name2: j.RightAlias);
         }
         if (spec.Where is { } where)
-            Row(mq, objectId, AttrWhere, order: 1, expression: where);
+            Row(mq, objectId, StoredQueryFormat.AttrWhere, order: 1, expression: where);
         for (int i = 0; i < (spec.GroupBy?.Count ?? 0); i++)
-            Row(mq, objectId, AttrGroupBy, order: i + 1, flag: 0, expression: spec.GroupBy![i]);
+            Row(mq, objectId, StoredQueryFormat.AttrGroupBy, order: i + 1, flag: 0, expression: spec.GroupBy![i]);
         for (int i = 0; i < (spec.OrderBy?.Count ?? 0); i++)
-            Row(mq, objectId, AttrOrderBy, order: i + 1, expression: spec.OrderBy![i].Expression,
+            Row(mq, objectId, StoredQueryFormat.AttrOrderBy, order: i + 1, expression: spec.OrderBy![i].Expression,
                 name1: spec.OrderBy[i].Descending ? "d" : null);
     }
 

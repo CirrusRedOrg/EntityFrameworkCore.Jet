@@ -147,6 +147,25 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
+    /// <summary>Just the in-place TDEF descriptor edit of a column type-change (bump 0x29 + rewrite only the
+    /// target descriptor), matching ACE byte-for-byte — the TDEF-page step of <see cref="AlterColumnTypeInPlace"/>,
+    /// exposed on its own so a byte-diff test can isolate the TDEF page. It does NOT re-lay rows or rebuild
+    /// indexes; call <see cref="AlterColumnTypeInPlace"/> for the full, self-consistent change.</summary>
+    public void AlterColumnTypeInPlaceTdef(string table, string column, ColumnSpec newSpec)
+    {
+        new Storage.TableCreator(_channel, Catalog).AlterColumnTypeInPlaceTdef(table, column, newSpec);
+        Catalog.Invalidate();
+    }
+
+    /// <summary>Full in-place column type change, byte-for-byte like ACE for every shape (fixed/variable columns
+    /// and targets, fixed↔variable, and indexed targets): TDEF edit + row re-lay preserving the dead old slot +
+    /// index rebuild. Falls back to the logical rebuild only for a Memo/OLE (long-value) source or target.</summary>
+    public void AlterColumnTypeInPlace(string table, string column, ColumnSpec newSpec)
+    {
+        new Storage.TableCreator(_channel, Catalog).AlterColumnTypeInPlace(table, column, newSpec);
+        Catalog.Invalidate();
+    }
+
     /// <summary>Sets a column's DEFAULT — ALTER TABLE … ALTER COLUMN … DEFAULT. Replaces the column's
     /// DefaultValue in the LvProp blob; the engine applies it on an omit-insert.</summary>
     public void SetColumnDefault(string table, string column, string defaultSql)

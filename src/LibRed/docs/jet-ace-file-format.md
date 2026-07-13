@@ -129,13 +129,24 @@ version. (Page-level encryption for password-protected files is not implemented.
 >   `ADD COLUMN` fails even if the *live* count (`0x2D`) is lower — only a **compact** (which renumbers) frees
 >   the id space. ACE-verified: create 255 columns, drop 10, `ADD COLUMN` → *"Too many fields defined."*
 >   LibRed enforces this on `0x29` (not the live count) rather than write a 256th id ACE can't represent.
->   **Divergence — Access burns an id per *modify* too:** per MS's "Too Many Fields Defined" article, Access
->   bumps `0x29` not only on ADD but for **every field whose properties/type you modify** — internally it
->   creates a new column, copies + converts the data into it, then drops the original. LibRed does **not**:
->   an in-place descriptor edit consumes no id, a type change (`RewriteColumn`) rebuilds the TDEF and *resets*
->   `0x29` to the live count, and LvProp edits don't touch it. So LibRed is more permissive (never spuriously
->   "Too many fields" after many ALTERs) while still never exceeding 255 live ids — a deliberate design call,
->   not a correctness gap.
+>   **Access burns an id per *modify* too, but keeps the column's position (both verified vs ACE via OLE DB
+>   `ALTER TABLE … ALTER COLUMN`).** Changing a column's type is internally *a new column*: the column keeps its
+>   **ordinal position** in the field list but gets a **fresh id** from the `0x29` high-water. Probed: a
+>   4-column table `A,B,C,D` (ids 0,1,2,3); `ALTER COLUMN B …` → B stays at index 1 with **id 4**; a later
+>   `ALTER COLUMN C …` → C stays at index 2 with **id 5**; every *other* column keeps its id. So after modifies,
+>   descriptor **position ≠ id** (ids non-contiguous, in a fixed physical order).
+>   - **Null bitmap is keyed by column *id*** (not position) — verified: a row ACE wrote into that modified
+>     table (`A` null, `B` id 4 non-null) is read back correctly by LibRed's id-keyed decoder, i.e. `B`'s
+>     present-bit sits at bit *4*, not bit 1.
+>   - **LibRed today:** `RewriteColumn` preserves each untouched column's **original descriptor bytes**
+>     verbatim (the `RawDescriptor` passthrough — fields LibRed doesn't model survive the rewrite) and keeps
+>     column order, but it does **not** yet burn the target's id: it rebuilds with **contiguous** ids (the
+>     target keeps its position/id). Reason: LibRed's row **encoder** keys the null bitmap by id sized to the
+>     *live* column count, so a burned id that exceeds the live count writes a present-bit ACE can't find
+>     (verified: a LibRed-written burned-id table read back null in ACE). Burning the id faithfully needs the
+>     encoder's bitmap sizing reconciled with ACE's first. Until then LibRed stays more permissive on the 255
+>     cap (never spuriously "Too many fields"), which is a deliberate, ACE-readable divergence — not a
+>     correctness gap.
 > - **`0x2B` variable-length column count** — also a **high-water**. `ADD COLUMN` of a variable column
 >   increments it (the new column's variable index = the old value); `DROP COLUMN` of a variable column
 >   **leaves it unchanged**, so survivors keep their stored variable index (§3.4) and existing rows keep the
@@ -255,7 +266,7 @@ insert/delete/insert sequence and against saved Northwind tables:**
 | `0x03` | 2 | Unknown (zero observed) |
 | `0x05` | 2 | Column id |
 | `0x07` | 2 | Variable-length table index — this column's position among the variable columns (0 for fixed columns) |
-| `0x09` | 2 | Column number (equals the column id `0x05` in every file observed) |
+| `0x09` | 2 | Column number (equals the column id `0x05` in a freshly written descriptor — but **diverges after an `ALTER COLUMN` type change**, which burns a new id into `0x05` yet leaves `0x09` at the *old* id; see §3.8) |
 | `0x0B` | 1 | Numeric **precision** (Decimal/Numeric columns); otherwise the low byte of the locale id, `0x09` |
 | `0x0C` | 1 | Numeric **scale** (Decimal/Numeric columns); otherwise the high byte of the locale id, `0x04` |
 | `0x0D` | 2 | Text sort-order **version** (mdbtools `misc_ext`; Jackcess's sort-order version) — the high half of a 4-byte sort-order descriptor whose low half is the locale at `0x0B` (`0x0409` = General, §10.4). `0` for **every** column (all types) in ACE 2007 — the General collation is version 0; see note |
@@ -446,6 +457,65 @@ Only a few fields are *not* fixed constants and so warrant a write note:
 > 4. **Catalog rows** — a complete MSysObjects row with its indexes maintained (§11) and the
 >    MSysACEs permission rows, so Access resolves the table by name before it opens it.
 
+### 3.8 In-place column type/length change (`ALTER COLUMN`) — verified byte-for-byte
+
+Changing a column's **type or length** does **not** edit that column in place. Access **makes a brand-new
+column that keeps the old one's ordinal position but takes a fresh id**, copies + converts the data into
+it, and **leaves the old column's storage as dead space** (it is *not* compacted away). Verified by
+diffing whole files before/after `ALTER COLUMN` over the ACE OLE DB provider; LibRed reproduces every byte
+(`AceModifyByteDiffProbe.Libred_in_place_modify_matches_ace_whole_file`, a theory over fixed / variable /
+fixed↔variable / PK / indexed / multi-page / decimal shapes, plus a 20-column 7-step non-sequential stress
+run). This is **the same mechanism for every type/length change** — including a *widening* `TEXT(n)→TEXT(m)`;
+there is no cheap "just bump the length" path, ACE burns the id there too.
+
+**TDEF header:** the max-column-id high-water (`0x29`, §3.1) bumps **+1** (this is the burned id). For a
+change **to a variable type**, the variable-column count (`0x2B`) also bumps **+1**. Every field burn is
+permanent: repeated modifies keep consuming ids from `0x29`, which is why a heavily-altered table can hit
+"Too many fields defined" with far fewer than 255 *live* columns (only a compact renumbers).
+
+**Target column descriptor (§3.4)** — the *only* descriptor that changes; all others stay byte-identical:
+
+| Offset | New value |
+| --- | --- |
+| `0x00` | new data type |
+| `0x05` | **burned id** = the old `0x29` high-water (so the id ≥ every existing id; position is unchanged) |
+| `0x07` | variable-table index = the **old** variable-column count (the next free var slot) — set for **both** a fixed and a variable retype |
+| `0x09` | **left unchanged** — ACE does *not* update the duplicate id here (it keeps the *old* id), a deliberate quirk |
+| `0x0F` | fixed-length bit (`0x01`) set/cleared for the new type; auto-number bit likewise |
+| `0x0B`/`0x0C` | precision/scale for a `DECIMAL`/`NUMERIC` (`FixedPoint`) target |
+| `0x15` | fixed-data offset = **end of the current fixed region** (appended) for a fixed target, or `0` for a variable target. The old slot is left where it was as dead bytes. |
+| `0x17` | new length |
+
+The "end of the current fixed region" must be measured from an **existing row** (its variable-data start),
+**not** from the live column descriptors — after a prior retype left a dead fixed slot, the descriptors
+under-count the true fixed width. An all-fixed table has no var-data pointer, so its fixed length comes
+from the schema (§5).
+
+**Row re-lay** — every row is rewritten (in place, landing at the offset ACE's repack-from-end produces):
+the **old fixed region and old variable chunks are kept verbatim** (the dead old-target slot / chunk keeps
+its stale bytes), and the converted target is **appended** — a new fixed slot at the offset above, or a new
+variable chunk at variable-index = the old var count. The leading count, variable-offset table + `numVar`,
+and null bitmap are then rebuilt per §5 (count and bitmap width = max id + 1, dead ids' bits set present).
+
+**Indexed target — full index rebuild.** When the modified column is in an index, ACE reconstructs that
+index (its keys change type). Verified reproduction:
+
+- Allocate a **fresh empty root leaf** (an appended page); the old root is freed **last** (so the new root
+  gets the appended page, not the recycled old one).
+- **Re-point the index-data block** (§3.5) in the TDEF: the target's **burned id** replaces the old id in
+  its column slot (`0x04` array), the **new root** at `0x26`, the **new usage-map row** at `0x22`, and the
+  index **stats block** (§3.3.1) first word bumped **0→1**.
+- **Recycle the owned-pages usage-map row** the way ACE does (§9): *append* a fresh row and set the new
+  root's bit, then **move** that map into the old row's freed slot and soft-delete the old row as a
+  0-length deleted+overflow tombstone — leaving the appended slot's bytes **stale in free space**, a
+  deterministic ACE artifact reproduced byte-for-byte.
+- **Back-fill** the new B-tree with new-type keys (one `AddEntry` per row).
+
+The descriptor edit and the index-block re-point are applied to **one** parsed TDEF and written **once**.
+
+**Unmatchable environmental diffs** (not faithfulness gaps): the **page-0 modification counter** and
+**MSysObjects.DateUpdate** (the table's last-modified wall-clock timestamp) — no writer can match a clock.
+
 ---
 
 ## 4. Data page — type `0x01`
@@ -479,14 +549,28 @@ of the page backward, so a slot runs from its offset up to where the previous sl
 ## 5. Row record format
 
 ```
-[ colCount : 2 ]
+[ colCount : 2 ]                                ← (max column id + 1), NOT the live column count
 [ fixed-length column data ... ]
-[ variable-length column data ... ]
-[ variable-offset table : (numVarCols + 1) × 2, stored end-first ]
-[ numVarCols : 2 ]
+[ variable-length column data ... ]             ┐
+[ variable-offset table : (numVarCols + 1) × 2 ]│ present ONLY when numVarCols > 0
+[ numVarCols : 2 ]                              ┘
 [ null bitmap : ceil(colCount / 8) bytes ]      ← the very end of the row
 ```
 
+- **The variable section (offset table + `numVarCols` field) is OMITTED entirely when the table has no
+  variable columns.** An all-fixed row is just `[colCount][fixed][nullBitmap]` — verified vs ACE
+  (`AceModifyByteDiffProbe.Diff_libred_vs_ace_all_fixed_row_bytes`): `T(A,B,C LONG)` + row `(11,22,33)` is
+  **15 bytes** `03 00 | 0B000000 16000000 21000000 | 07`, not 19. The fixed-region length is recovered from the
+  schema (column offsets), so the row needs no var-data-start pointer. (A reader keyed on fixed offsets +
+  null bitmap decodes both forms; a *writer* must omit the section to be byte-faithful.)
+
+- **`colCount` is `max(column id) + 1`, not the live column count** — the two coincide only while ids are
+  contiguous (a fresh table, or after ADD COLUMN, which keeps ids contiguous). They **diverge** once ids have a
+  gap — a burned id from a type-change ALTER, or a DROP COLUMN gap — and then `colCount` (and therefore the null
+  bitmap width) is driven by the **highest id**, leaving bit positions for the dead ids. Verified vs ACE
+  (`AceModifyByteDiffProbe`): after `ALTER COLUMN B DOUBLE` burns B's id 1→3 in a 3-column table, the row's
+  `colCount` field is **4** and the null bitmap is `0x0F` (the dead id 1's bit is set present). A writer that
+  sizes these by the live count writes a bit ACE can't find for any id ≥ live count → ACE reads that column null.
 - **Null bitmap** is indexed by **column id**; a **set bit = the value is present** (non-null).
 - **Fixed** column value is at `rowStart + 2 + fixedOffset`, `length` bytes.
   - A **fixed-length text** column (`CHAR`/`NCHAR`, not `TEXT`/`VARCHAR`) fills its whole `length`: the value is
@@ -719,6 +803,16 @@ themselves marked as owned by the table.
 >   > the index's pages (its own B-tree), further shrinking the owned map's budget — LibRed now matches this
 >   > (`IndexWriter` marks each index page it allocates), where it previously left the index map at 69 bytes.
 
+> **Owned-row recycle on an index rebuild (verified vs ACE, §3.8).** When ACE rebuilds an index (e.g. an
+> `ALTER COLUMN` on an indexed column) it gives the index a **new** owned-pages usage-map row rather than
+> editing the old one in place, in two steps whose leftover is observable on disk: **(1)** append a fresh row
+> at the end of the usage-map data page and set the new root's bit; **(2)** **move** that map into the *old*
+> row's freed slot (its row-directory entry now points there) and turn the **old** row into a **0-length
+> deleted + overflow tombstone** — leaving the bytes at the *appended* slot **stale in free space** (never
+> reclaimed). The index-data block's usage-map row field (`0x22`, §3.5) is re-pointed to the recycled row
+> number. LibRed reproduces this exactly (`RecycleOwnedMapRow`), including the stale appended bytes, so the
+> whole file matches ACE byte-for-byte.
+
 ### 9.1 Global free-pages map — page 1 (page allocation)
 
 Besides the per-table maps, the database has a **global free-pages map** at **page 1, row 0** (a
@@ -791,6 +885,12 @@ pointer is never compressed, so reading row pointers needs none of this.)
 > (correct leaf-chain offsets, but nodes compressed and `0x1A=0`) still gave the right `COUNT`/`SUM`.
 > The earlier "compression breaks tail descent" idea was a misattribution to the leaf-chain bug (§10.1).
 > LibRed writes nodes uncompressed only to stay byte-faithful with ACE, not because it's required.
+>
+> **A leaf with ≤ 1 entry writes `0x18 = 0`.** Prefix compression describes a prefix *shared across
+> entries*, so with zero or one entry there is nothing to share — ACE writes `compressedByteCount = 0`,
+> not the sole key's whole length. (LibRed had a bug writing the full length there via
+> `CommonPrefixLength(key, key)`; now `entries.Count ≤ 1 ⇒ 0`. Verified vs ACE on an index whose fresh
+> root leaf holds a single key, e.g. the rebuild in §3.8.)
 
 ### 10.4 Key encoding (order-preserving)
 

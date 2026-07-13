@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using LibRed.Catalog;
+using LibRed.Formats;
 
 namespace LibRed.Storage;
 
@@ -18,11 +19,6 @@ namespace LibRed.Storage;
 /// </remarks>
 public static class IndexKeyEncoder
 {
-    private const byte AscStartFlag = 0x7F;
-    private const byte AscNullFlag = 0x00;
-    private const byte DescStartFlag = 0x80;
-    private const byte DescNullFlag = 0xFF;
-
     /// <summary>Access indexes only the first 255 characters of a Memo (Long Text) value (verified vs ACE).</summary>
     private const int MemoKeyMaxChars = 255;
 
@@ -45,7 +41,7 @@ public static class IndexKeyEncoder
 
             if (value is null)
             {
-                buffer.Add(ascending ? AscNullFlag : DescNullFlag);
+                buffer.Add(ascending ? IndexKeyFlags.AscNull : IndexKeyFlags.DescNull);
                 continue;
             }
 
@@ -70,7 +66,7 @@ public static class IndexKeyEncoder
                 if (column.Type == JetDataType.Memo && text.Length > MemoKeyMaxChars)
                     text = text[..MemoKeyMaxChars];
 
-                var ascendingKey = new List<byte> { AscStartFlag };
+                var ascendingKey = new List<byte> { IndexKeyFlags.AscStart };
                 if (!JetTextCollation.TryEncode(text, ascendingKey))
                     throw new NotSupportedException($"Text index key '{text}' contains a character whose collation weight is not implemented yet.");
 
@@ -104,7 +100,7 @@ public static class IndexKeyEncoder
 
                 if (ascending)
                 {
-                    buffer.Add(AscStartFlag);           // 0x7F
+                    buffer.Add(IndexKeyFlags.AscStart);           // 0x7F
                     buffer.AddRange(s.AsSpan(0, 8));
                     buffer.Add(0x09);
                     buffer.AddRange(s.AsSpan(8, 8));
@@ -112,7 +108,7 @@ public static class IndexKeyEncoder
                 }
                 else
                 {
-                    buffer.Add(DescStartFlag);          // 0x80 = ~0x7F
+                    buffer.Add(IndexKeyFlags.DescStart);          // 0x80 = ~0x7F
                     for (int j = 0; j < 8; j++) buffer.Add((byte)~s[j]);
                     buffer.Add(0x09);                   // field marker kept as-is
                     for (int j = 8; j < 16; j++) buffer.Add((byte)~s[j]);
@@ -140,7 +136,7 @@ public static class IndexKeyEncoder
                 throw new NotSupportedException(
                     $"Index key encoding for {column.Type} (binary collation) is not supported yet.");
 
-            buffer.Add(ascending ? AscStartFlag : DescStartFlag);
+            buffer.Add(ascending ? IndexKeyFlags.AscStart : IndexKeyFlags.DescStart);
             byte[] raw = EncodeFixed(column, value);
             if (!ascending)
                 for (int j = 0; j < raw.Length; j++) raw[j] = (byte)~raw[j];
@@ -157,7 +153,7 @@ public static class IndexKeyEncoder
     /// </summary>
     private static void EncodeBinaryChunked(List<byte> buffer, byte[] data, bool ascending)
     {
-        buffer.Add(ascending ? AscStartFlag : DescStartFlag);
+        buffer.Add(ascending ? IndexKeyFlags.AscStart : IndexKeyFlags.DescStart);
 
         int offset = 0;
         do

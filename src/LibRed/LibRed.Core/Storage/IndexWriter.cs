@@ -358,7 +358,9 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         WriteInt32Le(page, NextPageOffset, next);
         WriteInt32Le(page, ChildTailOffset, tail);
 
-        int compress = !isLeaf || entries.Count == 0 ? 0 : CommonPrefixLength(entries[0].Key, entries[^1].Key);
+        // A single entry (or a node) has no common-prefix compression — ACE writes 0 here (the whole key with
+        // itself would otherwise "compress" to its full length, which ACE does not do for one entry).
+        int compress = !isLeaf || entries.Count <= 1 ? 0 : CommonPrefixLength(entries[0].Key, entries[^1].Key);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(CompressedByteCountOffset, 2), (ushort)compress);
 
         int pos = EntryDataOffset;

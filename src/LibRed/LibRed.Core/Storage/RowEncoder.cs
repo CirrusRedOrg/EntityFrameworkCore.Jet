@@ -33,7 +33,12 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
             throw new ArgumentException($"Expected {_columns.Count} values, got {values.Length}.", nameof(values));
 
         int colCountSize = _format.RowColumnCountSize;
-        int nullBitmapSize = (_columns.Count + 7) / 8;
+        // The leading count and the null-bitmap width are driven by the highest column id + 1, NOT the live
+        // column count — the two coincide only while ids are contiguous (fresh table / ADD COLUMN), and diverge
+        // once ids have a gap (a burned type-change id, or a DROP COLUMN gap). Verified vs ACE (spec §5).
+        int maxColumnId = _columns.Count == 0 ? -1 : _columns.Max(c => c.ColumnId);
+        int colCount = maxColumnId + 1;
+        int nullBitmapSize = (colCount + 7) / 8;
 
         var varCols = _columns.Where(c => !c.IsFixedLength).OrderBy(c => c.VariableIndex).ToList();
         int numVar = varCols.Count;
@@ -57,56 +62,64 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
             object? v = values[varCols[j].Index];
             varChunks[j] = v is null ? [] : JetTypeCodec.Encode(varCols[j], v);
         }
-        int varDataLength = varChunks.Sum(b => b.Length);
 
-        int total = colCountSize + _fixedDataLength + varDataLength + (numVar + 1) * 2 + 2 + nullBitmapSize;
-        var row = new byte[total];
+        _ = colCount; _ = colCountSize; _ = nullBitmapSize; // sizes are derived inside AssembleRow
+        return AssembleRow(maxColumnId, fixedRegion, varChunks, _columns, values);
+    }
 
-        // Leading column count.
-        BinaryPrimitives.WriteUInt16LittleEndian(row, (ushort)_columns.Count);
+    /// <summary>Assembles the on-disk row bytes from a prepared fixed region and the ordered variable chunks:
+    /// <c>[count][fixed][var data][var-offset table][numVar]</c> (the variable section is omitted entirely when
+    /// there are none) then <c>[null bitmap]</c>. The count and bitmap width are <c>maxColumnId + 1</c>; a
+    /// column's bit is set when present (Boolean = its truthy value), and dead ids (gaps below the max, from a
+    /// burned/dropped id) are set present too — all verified vs ACE (§5). Shared by <see cref="Encode"/> and
+    /// the ALTER COLUMN row re-lay so the two can never drift.</summary>
+    internal static byte[] AssembleRow(int maxColumnId, ReadOnlySpan<byte> fixedRegion,
+        IReadOnlyList<byte[]> varChunks, IReadOnlyList<ColumnDef> columns, object?[] values)
+    {
+        const int countSize = 2;
+        int count = maxColumnId + 1;
+        int nullBitmapSize = (count + 7) / 8;
+        int numVar = varChunks.Count;
+        int varDataLength = 0;
+        for (int j = 0; j < numVar; j++) varDataLength += varChunks[j].Length;
+        int varSectionLen = numVar > 0 ? varDataLength + (numVar + 1) * 2 + 2 : 0;
 
-        // Fixed region.
-        fixedRegion.CopyTo(row.AsSpan(colCountSize));
+        var row = new byte[countSize + fixedRegion.Length + varSectionLen + nullBitmapSize];
+        BinaryPrimitives.WriteUInt16LittleEndian(row, (ushort)count);
+        fixedRegion.CopyTo(row.AsSpan(countSize));
 
-        // Variable data, immediately after the fixed region.
-        int varDataStart = colCountSize + _fixedDataLength;
-        int pos = varDataStart;
-        foreach (byte[] chunk in varChunks)
+        int bitmapPos;
+        if (numVar > 0)
         {
-            chunk.CopyTo(row.AsSpan(pos));
-            pos += chunk.Length;
-        }
+            int varDataStart = countSize + fixedRegion.Length;
+            int pos = varDataStart;
+            for (int j = 0; j < numVar; j++) { varChunks[j].CopyTo(row.AsSpan(pos)); pos += varChunks[j].Length; }
 
-        // End-first offset table: entry[numVar] = var-data start, entry[numVar-j-1] = end of var col j.
-        int tableStart = pos; // == varDataStart + varDataLength
-        var offsets = new int[numVar + 1];
-        offsets[numVar] = varDataStart;
-        int running = varDataStart;
-        for (int j = 0; j < numVar; j++)
+            // End-first offset table: entry[numVar] = var-data start, entry[numVar-j-1] = end of var col j.
+            int tableStart = pos;
+            BinaryPrimitives.WriteUInt16LittleEndian(row.AsSpan(tableStart + numVar * 2, 2), (ushort)varDataStart);
+            int running = varDataStart;
+            for (int j = 0; j < numVar; j++)
+            {
+                running += varChunks[j].Length;
+                BinaryPrimitives.WriteUInt16LittleEndian(row.AsSpan(tableStart + (numVar - j - 1) * 2, 2), (ushort)running);
+            }
+            int numVarPos = tableStart + (numVar + 1) * 2;
+            BinaryPrimitives.WriteUInt16LittleEndian(row.AsSpan(numVarPos, 2), (ushort)numVar);
+            bitmapPos = numVarPos + 2;
+        }
+        else bitmapPos = countSize + fixedRegion.Length;
+
+        var liveIds = new HashSet<int>();
+        foreach (ColumnDef column in columns)
         {
-            running += varChunks[j].Length;
-            offsets[numVar - j - 1] = running;
+            liveIds.Add(column.ColumnId);
+            bool present = column.Type == JetDataType.Boolean ? IsTruthy(values[column.Index]) : values[column.Index] is not null;
+            if (present) row[bitmapPos + (column.ColumnId >> 3)] |= (byte)(1 << (column.ColumnId & 7));
         }
-        for (int e = 0; e <= numVar; e++)
-            BinaryPrimitives.WriteUInt16LittleEndian(row.AsSpan(tableStart + e * 2, 2), (ushort)offsets[e]);
-
-        // Variable column count, then the null bitmap.
-        int numVarPos = tableStart + (numVar + 1) * 2;
-        BinaryPrimitives.WriteUInt16LittleEndian(row.AsSpan(numVarPos, 2), (ushort)numVar);
-
-        int bitmapPos = numVarPos + 2;
-        foreach (ColumnDef column in _columns)
-        {
-            // 1 = present; for Boolean the bit IS the value (and booleans are never null). The value may
-            // arrive as a bool or as a number (a bit column is often inserted as 1/-1/0, or defaulted from
-            // "0"), so coerce with Access truthiness: any non-zero number (or bool true) sets the bit.
-            bool bit = column.Type == JetDataType.Boolean
-                ? IsTruthy(values[column.Index])
-                : values[column.Index] is not null;
-            if (bit)
-                row[bitmapPos + (column.ColumnId >> 3)] |= (byte)(1 << (column.ColumnId & 7));
-        }
-
+        for (int id = 0; id <= maxColumnId; id++)   // dead ids read present in ACE
+            if (!liveIds.Contains(id))
+                row[bitmapPos + (id >> 3)] |= (byte)(1 << (id & 7));
         return row;
     }
 

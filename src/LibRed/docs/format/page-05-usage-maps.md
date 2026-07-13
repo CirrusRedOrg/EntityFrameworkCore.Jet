@@ -128,7 +128,14 @@ one cleared bit per page taken.
 > LibRed allocates **through** this map (`PageAllocator`): it takes a free page, clears its bit,
 > and reuses it — only growing the file when none is free — so its pages now match Access's
 > allocation. Free bits beyond the current file end are the pre-allocated growth region; taking one
-> grows the file. The reference-type global map (very large databases) is not handled yet.
+> grows the file. **Both map forms are handled.** For an inline (`0x00`) map it scans the record's
+> bitmap directly; for a **reference (`0x01`)** map — as a very large pre-existing ACE file carries —
+> it scans each slot's dedicated bitmap page (type `0x05`), where a **set bit is a free page** (the
+> global map's sense), clears the bit on that bitmap page, and returns `slot × (pageSize−4)×8 + bit`.
+> `Free` is the inverse (sets the bit on the range's bitmap page). A page in a range with no bitmap
+> page (e.g. one grown past the map's coverage) is simply left unrecorded — it won't be reused, the
+> same as the inline-window edge. (`GlobalReferenceFreeMapTests`; the bit↔page math is the one the
+> per-table reference map is byte-verified against, §9.)
 >
 > **Create-table side effects.** An ACE `CREATE TABLE` *also* (1) adds two rows to **`MSysACEs`**
 > (the new object's permission entries) and updates its `ObjectId` index, and (2) bumps a counter in

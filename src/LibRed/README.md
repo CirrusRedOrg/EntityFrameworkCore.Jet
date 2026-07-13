@@ -136,8 +136,6 @@ LibRed-side `CHECK` enforcement, self-pointing self-references, and writing Memo
   populate `JetDatabase.Collation` from the page-0 sort order (needs page-0 de-obfuscation).
 - **Computed / calculated columns** (ACE 14) — the evaluation half exists; the gap is the on-disk
   TDEF/`LvProp` storage of the expression (and persisted-vs-virtual semantics).
-- **Reference-type *global* free-pages map** (page 1) — `PageAllocator` falls back to growing the file
-  for very large databases. (Per-table reference maps are done.)
 - **`LvProp` properties not modelled** — `ValidationRule`/`ValidationText` (UI-authored validation,
   distinct from a SQL `CHECK`), `AllowZeroLength`, and `UnicodeCompression` (storage-affecting). Column-level
   `CHECK` persistence is likewise unprobed (its ACE storage differs).

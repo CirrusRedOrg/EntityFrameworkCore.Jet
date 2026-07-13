@@ -30,8 +30,13 @@ public static class PropertyBlob
     /// (text; for a boolean, <c>"1"</c>/<c>"0"</c>), and its stored type. The type is an ordinary
     /// <see cref="JetDataType"/> code — the same byte used by column descriptors and MSysQueries — so Access
     /// stores <c>DefaultValue</c>/<c>CheckConstraints</c> as <see cref="JetDataType.Memo"/> and <c>Required</c>
-    /// as <see cref="JetDataType.Boolean"/>.</summary>
-    public readonly record struct Property(string Owner, string Name, string Value, JetDataType Type = JetDataType.Memo);
+    /// as <see cref="JetDataType.Boolean"/>.
+    /// <para><see cref="RawValue"/> holds the exact stored value bytes when the property was <see cref="Read"/>
+    /// from a blob; <see cref="Write"/> emits it verbatim, so a property LibRed does not model (a numeric
+    /// <c>DecimalPlaces</c>, a designer <c>ValidationRule</c>/<c>Format</c>, …) round-trips byte-for-byte even
+    /// though its <see cref="Value"/> string is only a best-effort UTF-16 decode. It is <c>null</c> for a
+    /// property LibRed constructs, which is then encoded from <see cref="Value"/>/<see cref="Type"/>.</para></summary>
+    public readonly record struct Property(string Owner, string Name, string Value, JetDataType Type = JetDataType.Memo, byte[]? RawValue = null);
 
     /// <summary>A boolean property (e.g. <c>Required</c>), stored as a single 0/1 byte.</summary>
     public static Property Bool(string owner, string name, bool value) =>
@@ -117,9 +122,13 @@ public static class PropertyBlob
 
         foreach (Property p in props)
         {
-            byte[] value = p.Type == JetDataType.Boolean
-                ? [(byte)(p.Value is "1" or "true" or "True" ? 1 : 0)]
-                : Encoding.Unicode.GetBytes(p.Value);
+            // A property Read from a blob carries its exact stored bytes (RawValue) — emit them verbatim so
+            // anything LibRed does not model round-trips byte-for-byte. A LibRed-constructed property has no
+            // RawValue and is encoded from Value/Type (Boolean = one 0/1 byte, else UTF-16).
+            byte[] value = p.RawValue
+                ?? (p.Type == JetDataType.Boolean
+                    ? [(byte)(p.Value is "1" or "true" or "True" ? 1 : 0)]
+                    : Encoding.Unicode.GetBytes(p.Value));
             var entry = new List<byte>();
             AppendUInt16(entry, (ushort)(2 + 1 + 1 + 2 + 2 + value.Length)); // entry length
             entry.Add(PropFlag);
@@ -211,11 +220,13 @@ public static class PropertyBlob
                     if (nameIdx < names.Count)
                     {
                         ReadOnlySpan<byte> raw = blob.Slice(q + 8, vl);
-                        // A boolean is a single 0/1 byte; the text/memo values we consume are UTF-16.
+                        // A boolean is a single 0/1 byte; the text/memo values we consume are UTF-16. The UTF-16
+                        // decode is only a best effort for a value LibRed doesn't model (a numeric property would
+                        // decode to junk) — RawValue keeps the exact bytes so Write round-trips it losslessly.
                         string value = dataType == JetDataType.Boolean
                             ? (raw.Length > 0 && raw[0] != 0 ? "1" : "0")
                             : Encoding.Unicode.GetString(raw);
-                        result.Add(new Property(owner, names[nameIdx], value, dataType));
+                        result.Add(new Property(owner, names[nameIdx], value, dataType, raw.ToArray()));
                     }
                     q += el;
                 }

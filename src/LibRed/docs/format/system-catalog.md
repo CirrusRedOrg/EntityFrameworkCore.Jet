@@ -75,6 +75,13 @@
   > and `Required` — reproduced byte-for-byte by `PropertyBlob.Write` (which builds the pool by first
   > appearance via `Distinct()`).
   >
+  > **Unmodelled properties round-trip verbatim.** LibRed only *interprets* `DefaultValue`, `Required` and
+  > `CheckConstraints`, but a database-first file may carry many more per column (`ValidationRule`, `Format`,
+  > `AllowZeroLength`, the numeric `DecimalPlaces`, …). An ALTER that edits one property rewrites the whole
+  > blob (`PropertyBlob.Read` → mutate → `Write`), so `PropertyBlob.Property` keeps each value's **exact stored
+  > bytes** (`RawValue`) and re-emits them unchanged — a property LibRed doesn't model is never dropped or
+  > corrupted by the best-effort UTF-16 value decode (which would mangle a numeric one). `PropertyBlobRoundTripTests`.
+  >
   > LibRed **writes** `DefaultValue`, `Required` and `CheckConstraints` properties (`PropertyBlob.Write`) and
   > **reads** them back (`ColumnDef.DefaultValue`, `ColumnDef.IsNullable`, `TableDef.CheckConstraints`),
   > applying the default when an insert omits the column and **rejecting** an insert that leaves a required

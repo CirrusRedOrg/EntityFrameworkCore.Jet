@@ -136,19 +136,21 @@ are **not** stamped `[SupportedOSPlatform("windows")]`. Strong-naming is preserv
 node types rather than rewrites):
 `text → ISqlParser → AST → Binder(ISchemaProvider) → BoundStatement → QueryPlanner → PlanNode → QueryExecutor → ResultSet`
 
-**Format spec:** `src/LibRed/docs/jet-ace-file-format.md` is LibRed's own verified
-reference for the on-disk Jet 4 / ACE format (page types, TDEF/row/index/usage-map/long-value
-layouts, key encodings). It is the source of truth — keep it updated as the format
-understanding grows.
+**Format spec:** `src/LibRed/docs/format/` is LibRed's own verified reference for the on-disk
+Jet 4 / ACE format, **split one file per page type** (plus cross-cutting topics). Start at
+`format/README.md` — it maps every page type and the original §-numbers to their file, and links
+the `appendix-structures.md` bare field-layout reference. It is the source of truth — keep it
+updated as the format understanding grows. (`docs/jet-ace-file-format.md` is now just a redirect
+stub to that folder.)
 
 > **Rule — spec sync on every `LibRed.Core` change.** Whenever you touch the actual on-disk
 > read/write code in `src/LibRed/LibRed.Core/` (page/row/index/TDEF/usage-map parsing or
-> writing, type codecs, key encoding), you **must** check whether
-> `src/LibRed/docs/jet-ace-file-format.md` needs updating in the same change, and update it if
-> so. New offsets, structures, type behaviours, or write mechanics go in the spec; only record
-> facts **verified** against real files (or Access's own engine) — mark anything assumed as
-> such. If a `LibRed.Core` change genuinely needs no spec edit, that's fine — but the check is
-> not optional.
+> writing, type codecs, key encoding), you **must** check whether the relevant file under
+> `src/LibRed/docs/format/` needs updating in the same change, and update it if so — structure/field
+> changes in the matching `page-0X-*.md` (and the `appendix-structures.md` table). New offsets,
+> structures, type behaviours, or write mechanics go in the spec; only record facts **verified**
+> against real files (or Access's own engine) — mark anything assumed as such. If a `LibRed.Core`
+> change genuinely needs no spec edit, that's fine — but the check is not optional.
 
 Reference implementations for the binary layouts: **mdbtools** (its `HACKING.md` documents the
 on-disk structures) and **Jackcess** — neither is vendored in this repo; consult them upstream.

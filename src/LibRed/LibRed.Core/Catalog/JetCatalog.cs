@@ -13,8 +13,12 @@ namespace LibRed.Catalog;
 /// so we build a <see cref="TableDef"/> for it from that page and read its rows like any
 /// other table. For a table object, the row's <c>Id</c> is its TDEF page number.
 /// </remarks>
-public sealed class JetCatalog(PageChannel channel)
+public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
 {
+    // MSysObjects TDEF page — the catalog root. Normally read from the page-0 bootstrap pointer (0x20)
+    // and passed in by JetDatabase; defaults to Access's canonical page 2 for direct construction.
+    private readonly int _catalogPage = catalogPage;
+
     /// <summary>MSysObjects.Type value for a table object.</summary>
     private const short ObjectTypeTable = 1;
 
@@ -77,7 +81,7 @@ public sealed class JetCatalog(PageChannel channel)
     private List<TableDef> LoadTables()
     {
         // Build a TableDef for MSysObjects from its own (fixed) TDEF page, then scan its rows.
-        TableDef catalogDef = ReadTableDefinition(_channel.Format.CatalogPage, "MSysObjects", isSystem: true);
+        TableDef catalogDef = ReadTableDefinition(_catalogPage, "MSysObjects", isSystem: true);
         var columns = catalogDef.Columns;
 
         int idIndex = ColumnIndex(columns, "Id");

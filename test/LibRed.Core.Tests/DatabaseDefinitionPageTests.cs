@@ -53,6 +53,9 @@ public class DatabaseDefinitionPageTests
         Assert.Equal(1033, db.DefaultCollationLcid);
         Assert.Equal(0, db.DefaultCollationVersion);
         Assert.Equal(0, db.DefinitionPage.DatabaseKey);
+
+        // The page-0 catalog-root pointer (0x20) names the MSysObjects TDEF — page 2 in every file.
+        Assert.Equal(2, db.DefinitionPage.CatalogRootPage);
     }
 
     [Fact]

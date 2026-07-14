@@ -37,6 +37,14 @@ public abstract class JetFormatBase
     /// <summary>Start offset of the obfuscated page-0 header region (also the mask's first byte).</summary>
     public const int PageZeroHeaderMaskStart = 0x18;
 
+    /// <summary>Offset of the 4-byte page number of the <c>MSysObjects</c> TDEF — the catalog root, the
+    /// bootstrap pointer that lets the engine find the system catalog before it can read any table. It is
+    /// the first of four system-table pointers (<c>MSysObjects</c>/<c>MSysACEs</c>/<c>MSysQueries</c>/
+    /// <c>MSysRelationships</c> at <c>0x20</c>/<c>0x24</c>/<c>0x28</c>/<c>0x2C</c>, values 2/3/4/5 in every
+    /// file); the others are reachable via the catalog itself. Verified: each value equals the object's
+    /// <c>MSysObjects.Id</c> and the page it names is a TDEF.</summary>
+    public const int CatalogRootPointerOffset = 0x20;
+
     /// <summary>Offset of the 2-byte ANSI code page (LE): <c>0x04E4</c> = 1252, <c>0x04E2</c> = 1250.</summary>
     public const int CodePageOffset = 0x3C;
 

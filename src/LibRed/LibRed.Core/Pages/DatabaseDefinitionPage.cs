@@ -32,6 +32,10 @@ public sealed class DatabaseDefinitionPage : Page
     /// Matches each column descriptor's byte <c>0x0E</c>.</summary>
     public byte DefaultCollationVersion { get; internal set; }
 
+    /// <summary>Page number of the <c>MSysObjects</c> TDEF (the catalog root), read from the bootstrap
+    /// pointer at <see cref="Formats.JetFormatBase.CatalogRootPointerOffset"/>. 2 in every observed file.</summary>
+    public int CatalogRootPage { get; internal set; }
+
     public DateTime DatabaseCreationDate { get; internal set; }
 
     public override void Read(PageBuffer buffer, Formats.JetFormatBase format)
@@ -50,6 +54,7 @@ public sealed class DatabaseDefinitionPage : Page
         DatabaseKey = BinaryPrimitives.ReadInt32LittleEndian(clear.Slice(Formats.JetFormatBase.DatabaseKeyOffset - b, 4));
         DefaultCollationLcid = BinaryPrimitives.ReadUInt16LittleEndian(clear.Slice(Formats.JetFormatBase.CollationSortOrderOffset - b, 2));
         DefaultCollationVersion = clear[Formats.JetFormatBase.CollationVersionOffset - b];
+        CatalogRootPage = BinaryPrimitives.ReadInt32LittleEndian(clear.Slice(Formats.JetFormatBase.CatalogRootPointerOffset - b, 4));
         double days = BinaryPrimitives.ReadDoubleLittleEndian(clear.Slice(Formats.JetFormatBase.CreationDateOffset - b, 8));
         DatabaseCreationDate = OleAutomationEpoch.AddDays(days);
     }

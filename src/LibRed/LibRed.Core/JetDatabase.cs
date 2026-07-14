@@ -22,7 +22,10 @@ public sealed class JetDatabase : IDisposable
         DefinitionPage = new DatabaseDefinitionPage();
         DefinitionPage.Read(channel.ReadPage(0), channel.Format);
 
-        Catalog = new JetCatalog(channel);
+        // Find MSysObjects via the page-0 bootstrap pointer (0x20); fall back to the format default
+        // if it reads as 0 (never observed — every file points at page 2).
+        int catalogPage = DefinitionPage.CatalogRootPage > 0 ? DefinitionPage.CatalogRootPage : channel.Format.CatalogPage;
+        Catalog = new JetCatalog(channel, catalogPage);
     }
 
     /// <summary>The decoded database definition page (page 0).</summary>

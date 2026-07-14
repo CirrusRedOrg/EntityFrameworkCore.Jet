@@ -13,9 +13,13 @@
 | `0x14` | 1 | Version byte (see below). mdbtools reads `jet_version` as a 4-byte word at `0x14`; the version is its low byte and `0x15`–`0x17` are zero |
 | `0x15` | 3 | Unknown — upper bytes of the version word (zero observed; not decoded) |
 | `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with a fixed 128-byte mask (§2.1). Jet 3 masks 126 bytes. Fields below are offsets into it. |
+| `0x18`, `0x1C` | 4+4 | Fixed constants `0x00000100`, `0x00000101` (not page pointers — out of range in small files) |
+| `0x20`–`0x2C` | 4×4 | **System-catalog bootstrap pointers**: TDEF pages of `MSysObjects` / `MSysACEs` / `MSysQueries` / `MSysRelationships` = `2, 3, 4, 5`. `0x20` is the **catalog root** (how the engine finds `MSysObjects`). |
+| `0x30`–`0x3B` | 12 | Reserved (zero) |
 | `0x3C` | 2 | **ANSI code page** — LE (`0x04E4` = 1252, `0x04E2` = 1250) |
 | `0x3E` | 4 | **Database (encryption) key** — 0 when there is no password |
 | `0x42` | 40 | **Password** (Jet 4; Jet 3 = 20 bytes) — additionally masked by a creation-date-derived value, so an empty password does not read as zeroes |
+| `0x6A` | 4 | Fixed constant `0x000011A6` (undecoded) |
 | `0x6E` | 4 | **Default text collating sort order** — LCID (2, LE, `0x0409` = 1033 en-US) + **sort-order version** at `0x71` (0 = General Legacy, 1 = General) |
 | `0x72` | 8 | **Database creation timestamp** — OLE automation `double` (days from 1899-12-30) |
 | `~0x9C` | 4 | ASCII engine-version string `"4.0"` — **in the clear** (past the masked window) |
@@ -31,6 +35,17 @@ Version byte → format:
 | `0x03` | ACE 14 (Access 2010) | 4096 | ACCDB |
 | `0x05` | ACE 16 (Access 2016) | 4096 | ACCDB |
 | `0x06` | ACE 17 (Access 2019+) | 4096 | ACCDB |
+
+**Catalog bootstrap.** Reading the database is a two-step hop from page 0: the pointer at `0x20` gives the
+`MSysObjects` TDEF page (2), and `MSysObjects` then lists every other object (each table's row `Id` is *its*
+TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` and hands it to `JetCatalog`
+(falling back to page 2 only if it reads 0). Verified: the four pointer values equal the objects'
+`MSysObjects.Id` and each names a real TDEF page.
+
+> **Implication for creating a database from scratch.** A minimal bootable page 0 needs the mask, the
+> code page / collation / creation date, and this pointer block aimed at the four core system tables
+> (`MSysObjects`, `MSysACEs`, `MSysQueries`, `MSysRelationships`) — which are therefore the minimum
+> catalog a new file must contain. (Native creation is still template-copy; this is the target layout.)
 
 ### 2.1 The obfuscated header (`0x18`–`0x98`)
 

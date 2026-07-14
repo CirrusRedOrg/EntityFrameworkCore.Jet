@@ -109,6 +109,32 @@ public class RoundTripTests
     }
 
     [Fact]
+    public void EnsureCreated_creates_a_new_database_natively_and_round_trips()
+    {
+        // A brand-new file (no copy): EnsureCreated must create the .accdb natively (DatabaseCreator),
+        // then create the model's schema, then the context is usable for insert + query.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-newdb-{Guid.NewGuid():N}.accdb");
+        var options = new DbContextOptionsBuilder<NorthwindContext>()
+            .UseLibRed($"Data Source={path}").Options;
+        try
+        {
+            using (var context = new NorthwindContext(options))
+            {
+                Assert.True(context.Database.EnsureCreated()); // created from scratch
+                context.Customers.Add(new Customer { CustomerID = "ADA01", CompanyName = "Analytical Engines", City = "London" });
+                Assert.Equal(1, context.SaveChanges());
+            }
+            using (var context = new NorthwindContext(options))
+            {
+                var c = context.Customers.Single();
+                Assert.Equal("ADA01", c.CustomerID);
+                Assert.Equal("Analytical Engines", c.CompanyName);
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void Where_query_round_trips_through_the_provider()
     {
         using var context = CreateContext();

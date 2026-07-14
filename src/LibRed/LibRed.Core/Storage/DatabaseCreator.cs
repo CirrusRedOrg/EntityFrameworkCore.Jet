@@ -131,14 +131,16 @@ public static class DatabaseCreator
         JetFormatBase format = JetFormatBase.FromVersionByte(version);
         const int msysObjPage = 2, msysObjMapPage = 3, msysAcesPage = 4, msysAcesMapPage = 5;
 
+        var (msysObjTdef, msysObjMap) = BuildSystemTable(format, MSysObjectsColumns, msysObjMapPage);
+        var (msysAcesTdef, msysAcesMap) = BuildSystemTable(format, MSysAcesColumns, msysAcesMapPage);
         byte[][] seed =
         [
             BuildDefinitionPage(version, isAccdb: true, 1252, 1033, 0, DateTime.Now),
-            BuildEmptyDataPage(format),                                          // page 1: free map (empty)
-            BuildSystemTdef(format, MSysObjectsColumns, msysObjMapPage),         // page 2
-            BuildUsageMapPage(format, 2),                                        // page 3
-            BuildSystemTdef(format, MSysAcesColumns, msysAcesMapPage),           // page 4
-            BuildUsageMapPage(format, 2),                                        // page 5
+            BuildEmptyDataPage(format),   // page 1: free map (empty)
+            msysObjTdef,                  // page 2
+            msysObjMap,                   // page 3
+            msysAcesTdef,                 // page 4
+            msysAcesMap,                  // page 5
         ];
         using (var fs = File.Create(path))
             foreach (byte[] p in seed) fs.Write(p, 0, format.PageSize);
@@ -173,14 +175,27 @@ public static class DatabaseCreator
         return page; // rowCount 0 → the allocator grows the file on demand
     }
 
-    private static byte[] BuildSystemTdef(JetFormatBase format, IReadOnlyList<ColumnSpec> columns, int usageMapPage)
+    /// <summary>Builds a system table's TDEF page and its owned/free usage-map page. Long-value (Memo/Ole)
+    /// columns each get an owned+free map on that page (rows 2 onward, after the two data-page maps), so a
+    /// row that stores a long value — e.g. an <c>MSysObjects</c> catalog row carrying an <c>LvProp</c> blob —
+    /// has somewhere to record its LVAL page.</summary>
+    private static (byte[] Tdef, byte[] UsageMap) BuildSystemTable(
+        JetFormatBase format, IReadOnlyList<ColumnSpec> columns, int usageMapPage)
     {
-        byte[] tdef = TdefBuilder.Build(format, TableType.System, columns).Page;
+        var longValueCols = columns.Select((c, id) => (c, id))
+            .Where(x => x.c.Type is JetDataType.Memo or JetDataType.Ole).ToList();
+        var longValueSpecs = new List<LongValueColumnSpec>(longValueCols.Count);
+        for (int j = 0; j < longValueCols.Count; j++)
+            longValueSpecs.Add(new LongValueColumnSpec(longValueCols[j].id, UsedRow: 2 + 2 * j, FreeRow: 3 + 2 * j, MapPage: usageMapPage));
+
+        byte[] tdef = TdefBuilder.Build(format, TableType.System, columns, longValueColumns: longValueSpecs).Page;
         tdef[format.TdefOwnedPagesOffset] = 0; WriteInt24(tdef, format.TdefOwnedPagesOffset + 1, usageMapPage);
         tdef[format.TdefFreePagesOffset] = 1; WriteInt24(tdef, format.TdefFreePagesOffset + 1, usageMapPage);
-        var page = new byte[format.PageSize];
-        Array.Copy(tdef, page, format.PageSize);   // these system TDEFs fit one page
-        return page;
+        var tdefPage = new byte[format.PageSize];
+        Array.Copy(tdef, tdefPage, format.PageSize);   // these system TDEFs fit one page
+
+        byte[] usageMap = BuildUsageMapPage(format, 2 + longValueCols.Count * 2);
+        return (tdefPage, usageMap);
     }
 
     private static byte[] BuildUsageMapPage(JetFormatBase format, int mapCount)

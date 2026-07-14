@@ -117,6 +117,32 @@ public static class DatabaseCreator
         new("SID", JetDataType.Binary, 510, false),
     ];
 
+    // MSysQueries — stored query/view definitions (empty in a fresh database).
+    private static readonly ColumnSpec[] MSysQueriesColumns =
+    [
+        new("Attribute", JetDataType.Byte, 1, true),
+        new("Expression", JetDataType.Memo, 0, false),
+        new("Flag", JetDataType.Int16, 2, true),
+        new("LvExtra", JetDataType.Int32, 4, true),
+        new("Name1", JetDataType.Text, 510, false),
+        new("Name2", JetDataType.Text, 510, false),
+        new("ObjectId", JetDataType.Int32, 4, true),
+        new("Order", JetDataType.Binary, 510, false),
+    ];
+
+    // MSysRelationships — relationship (foreign key) definitions (empty in a fresh database).
+    private static readonly ColumnSpec[] MSysRelationshipsColumns =
+    [
+        new("ccolumn", JetDataType.Int32, 4, true),
+        new("grbit", JetDataType.Int32, 4, true),
+        new("icolumn", JetDataType.Int32, 4, true),
+        new("szColumn", JetDataType.Text, 510, false),
+        new("szObject", JetDataType.Text, 510, false),
+        new("szReferencedColumn", JetDataType.Text, 510, false),
+        new("szReferencedObject", JetDataType.Text, 510, false),
+        new("szRelationship", JetDataType.Text, 510, false),
+    ];
+
     private const int SystemFlag = unchecked((int)0x80000000);
 
     /// <summary>
@@ -129,44 +155,64 @@ public static class DatabaseCreator
     public static void CreateEmpty(string path, byte version = 0x02)
     {
         JetFormatBase format = JetFormatBase.FromVersionByte(version);
-        const int msysObjPage = 2, msysObjMapPage = 3, msysAcesPage = 4, msysAcesMapPage = 5;
+        // The four core system tables live at the exact pages the page-0 bootstrap pointers name (2/3/4/5);
+        // their usage maps follow at 6..9. Access uses those pointers to find the catalog.
+        const int objPage = 2, acesPage = 3, queriesPage = 4, relPage = 5;
 
-        var (msysObjTdef, msysObjMap) = BuildSystemTable(format, MSysObjectsColumns, msysObjMapPage);
-        var (msysAcesTdef, msysAcesMap) = BuildSystemTable(format, MSysAcesColumns, msysAcesMapPage);
+        var (objTdef, objMap) = BuildSystemTable(format, MSysObjectsColumns, usageMapPage: 6);
+        var (acesTdef, acesMap) = BuildSystemTable(format, MSysAcesColumns, usageMapPage: 7);
+        var (queriesTdef, queriesMap) = BuildSystemTable(format, MSysQueriesColumns, usageMapPage: 8);
+        var (relTdef, relMap) = BuildSystemTable(format, MSysRelationshipsColumns, usageMapPage: 9);
         byte[][] seed =
         [
             BuildDefinitionPage(version, isAccdb: true, 1252, 1033, 0, DateTime.Now),
             BuildEmptyDataPage(format),   // page 1: free map (empty)
-            msysObjTdef,                  // page 2
-            msysObjMap,                   // page 3
-            msysAcesTdef,                 // page 4
-            msysAcesMap,                  // page 5
+            objTdef, acesTdef, queriesTdef, relTdef,   // pages 2..5: core TDEFs
+            objMap, acesMap, queriesMap, relMap,       // pages 6..9: their usage maps
         ];
         using (var fs = File.Create(path))
             foreach (byte[] p in seed) fs.Write(p, 0, format.PageSize);
 
-        // Reopen through the normal stack and self-register the two bootstrap tables, so the catalog then
-        // finds them and every other table can go through TableCreator.
+        // Reopen through the normal stack and self-register the four core tables, so the catalog then finds
+        // them and every other table can go through TableCreator.
         using var db = JetDatabase.Open(path, readOnly: false);
-        Table msysObjects = db.OpenTableAt(msysObjPage, "MSysObjects");
-        InsertCatalogRow(msysObjects, msysObjPage, "MSysObjects", SystemFlag);
-        InsertCatalogRow(msysObjects, msysAcesPage, "MSysACEs", SystemFlag);
+        // The DAO catalog hierarchy Access navigates: a root (0x0F000000) parents the three containers
+        // (Tables/Databases/Relationships); tables live under Tables, MSysDb under Databases. Access looks
+        // objects up by (ParentId, Name), so these parents must be exact.
+        const int root = 0x0F000000, tablesC = 0x0F000001, databasesC = 0x0F000002, relationshipsC = 0x0F000003;
 
-        // The system tables carry the indexes Access uses to navigate the catalog. Add them now (over the
-        // self-rows, which the index writer backfills); later inserts through the normal writers maintain them.
+        Table msysObjects = db.OpenTableAt(objPage, "MSysObjects");
+        InsertCatalogRow(msysObjects, objPage, "MSysObjects", type: 1, SystemFlag, parentId: tablesC);
+        InsertCatalogRow(msysObjects, acesPage, "MSysACEs", type: 1, SystemFlag, parentId: tablesC);
+        InsertCatalogRow(msysObjects, queriesPage, "MSysQueries", type: 1, SystemFlag, parentId: tablesC);
+        InsertCatalogRow(msysObjects, relPage, "MSysRelationships", type: 1, SystemFlag, parentId: tablesC);
+
+        // The DAO container objects + the database-properties object (MSysDb). Catalog rows, not tables
+        // (their Id is a logical id, not a page); LibRed ignores non-table (Type != 1) rows.
+        InsertCatalogRow(msysObjects, tablesC, "Tables", type: 3, SystemFlag, parentId: root);
+        InsertCatalogRow(msysObjects, databasesC, "Databases", type: 3, SystemFlag, parentId: root);
+        InsertCatalogRow(msysObjects, relationshipsC, "Relationships", type: 3, SystemFlag, parentId: root);
+        InsertCatalogRow(msysObjects, 0x10000000, "MSysDb", type: 2, SystemFlag, parentId: databasesC);
+
+        // The system tables carry the indexes Access uses to navigate the catalog. Add them over the
+        // self-rows (the index writer backfills); later inserts through the normal writers maintain them.
         db.CreateIndex("MSysObjects", "Id", [("Id", false)], isUnique: true, isPrimary: true, disallowNull: true);
         db.CreateIndex("MSysObjects", "ParentIdName", [("ParentId", false), ("Name", false)], isUnique: true);
         db.CreateIndex("MSysACEs", "ObjectId", [("ObjectId", false)]);
+        db.CreateIndex("MSysQueries", "ObjectIdAttribute", [("ObjectId", false), ("Attribute", false), ("Order", false)], isUnique: true, isPrimary: true);
+        db.CreateIndex("MSysRelationships", "szRelationship", [("szRelationship", false)]);
+        db.CreateIndex("MSysRelationships", "szObject", [("szObject", false)]);
+        db.CreateIndex("MSysRelationships", "szReferencedObject", [("szReferencedObject", false)]);
     }
 
-    private static void InsertCatalogRow(Table msysObjects, int id, string name, int flags)
+    private static void InsertCatalogRow(Table msysObjects, int id, string name, short type, int flags, int parentId = 0)
     {
         var values = new object?[msysObjects.Definition.Columns.Count];
         void Set(string col, object? v) => values[msysObjects.Definition.FindColumn(col)!.Index] = v;
         Set("Id", id);
-        Set("ParentId", 0);
+        Set("ParentId", parentId);
         Set("Name", name);
-        Set("Type", (short)1);      // table object
+        Set("Type", type);          // 1 = table, 2 = database (MSysDb), 3 = DAO container
         Set("Flags", flags);
         Set("DateCreate", DateTime.Now);
         Set("DateUpdate", DateTime.Now);

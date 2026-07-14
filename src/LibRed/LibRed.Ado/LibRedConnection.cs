@@ -81,15 +81,13 @@ public sealed class LibRedConnection : DbConnection
 
     /// <summary>
     /// Creates a new, empty Jet/ACE database file at the location named by
-    /// <paramref name="connectionString"/>.
+    /// <paramref name="connectionString"/> — **natively, no DAO/ADOX, cross-platform**.
     /// </summary>
     /// <remarks>
-    /// Bootstrap: LibRed can read and write into an existing Jet/ACE file, but can't yet write a
-    /// brand-new file's header/catalog/system tables from scratch. So - same as EFCore.Jet itself,
-    /// which also can't create a database via pure SQL - this hands off to
-    /// <see cref="JetConnection.CreateDatabase(string, DatabaseVersion, CollatingOrder, string, SchemaProviderType, DataAccessProviderType?)"/>,
-    /// which creates the file via DAO/ADOX. Windows-only for now; replace with a native writer once
-    /// LibRed.Core/LibRed.Engine can create a file itself.
+    /// <see cref="Storage.DatabaseCreator.CreateEmpty"/> synthesises the file from scratch (page 0,
+    /// the free map, and the bootstrap system catalog), then LibRed's ordinary writers populate it.
+    /// Produces an ACE 2007-format (<c>.accdb</c>) database that LibRed reads and writes fully; the
+    /// remaining Access-compatibility system tables are still being filled in.
     /// </remarks>
     public static void CreateDatabase(string connectionString)
     {
@@ -97,7 +95,7 @@ public sealed class LibRedConnection : DbConnection
         if (string.IsNullOrEmpty(path))
             throw new ArgumentException("The connection string is missing a Data Source.", nameof(connectionString));
 
-        JetConnection.CreateDatabase(path);
+        Storage.DatabaseCreator.CreateEmpty(path);
     }
 
     /// <summary>Deletes the database file named by <paramref name="connectionString"/>, if it exists.</summary>

@@ -106,6 +106,28 @@ public class LibRedCommandTests
     }
 
     [Fact]
+    public void CreateDatabase_creates_a_native_usable_file()
+    {
+        // Native, DAO/ADOX-free creation through the ADO surface: create the file, then CREATE/INSERT/SELECT.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-create-{Guid.NewGuid():N}.accdb");
+        try
+        {
+            LibRedConnection.CreateDatabase($"Data Source={path}");
+            Assert.True(File.Exists(path));
+
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+            using (var create = conn.CreateCommand())
+            { create.CommandText = "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `Name` TEXT)"; create.ExecuteNonQuery(); }
+            using (var ins = conn.CreateCommand())
+            { ins.CommandText = "INSERT INTO `T` (`Id`, `Name`) VALUES (1, 'Ada')"; Assert.Equal(1, ins.ExecuteNonQuery()); }
+            using (var sel = conn.CreateCommand())
+            { sel.CommandText = "SELECT `Name` FROM `T` WHERE `Id` = 1"; Assert.Equal("Ada", sel.ExecuteScalar()); }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void TimeSpan_parameter_round_trips_through_a_datetime_column()
     {
         // Jet has no TimeSpan type; EF stores it in a datetime column as an offset from 1899-12-30.

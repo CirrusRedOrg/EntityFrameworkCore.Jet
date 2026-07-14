@@ -147,6 +147,10 @@ per-file last-commit states (`01 01`, `05 01`, …). **`00 00` means "mid-write 
 "accessed a corrupted page" — either one *without a matching user lock* makes Jet declare the database
 suspect and demand a repair before it will open.
 
+This region is **undocumented by mdbtools and Jackcess** — LibRed's own decode, cross-checked three ways:
+the white paper's Jet 2.x/3.x structure, the raw bytes of real ACE files, and the Microsoft **LDBView**
+utility (Jet 2/3 only), which shows `1` for every unregistered slot — matching the idle `00 01`.
+
 > **Creation must seed this.** A freshly created file has no users, so every slot must be the neutral
 > `00 01`, **not** zero — an all-zero table reads as "every user is mid-write," which Access rejects as
 > corrupt. `DatabaseCreator.BuildDefinitionPage` fills `0xE00`–`0xFFF` with the repeating `00 01`.

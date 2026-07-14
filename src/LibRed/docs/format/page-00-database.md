@@ -25,7 +25,8 @@
 | `0x72` | 8 | **Database creation timestamp** — OLE automation `double` (days from 1899-12-30) |
 | `0x98` | 4 | **Past the masked window** (cleartext). Fixed constant `0x00000654` (1620), undecoded |
 | `0x9C` | 4 | ASCII **engine/format version string `"4.0"`** (NUL-terminated) — the Jet **4.0** version, present in both `.mdb` (Jet 4) and `.accdb` (ACE, which is Jet-4-based) |
-| `0xA0`+ | … | Zero padding to end of page |
+| `0xA0`–`0xDFF` | … | Zero padding |
+| **`0xE00`–`0xFFF`** | **512** | **User commit-byte table** — 256 users × 2 bytes; per-user commit/lock status (see §2.2) |
 
 Version byte → format:
 
@@ -126,3 +127,27 @@ Regression tests: `DatabaseDefinitionPageTests.Decodes_creation_date_matching_ca
 > the unencrypted twin; `AgileEncryptionTests`). Encrypted databases open **read-only**; *writing*
 > encryption is not implemented, and neither is the legacy Jet 3/4 RC4 scheme.
 
+
+### 2.2 The user commit-byte table (`0xE00`–`0xFFF`)
+
+The last 512 bytes of page 0 are a **per-user commit-byte table**: 256 possible users × 2 bytes. This is
+the Jet 3.x locking structure (documented in Microsoft's Jet locking white paper, written for Jet 2.x/3.x)
+relocated to the end of the larger 4 KB page:
+
+- Jet 2.x: `0x700`–`0x800` (256 × 1 byte, end of the 2 KB page)
+- Jet 3.x: `0x600`–`0x800` (256 × 2 bytes, end of the 2 KB page)
+- **Jet 4 / ACE: `0xE00`–`0x1000`** (256 × 2 bytes, end of the 4 KB page) — same structure, same "end of
+  header page" placement, scaled to the bigger page.
+
+The first slot is the **exclusive-mode** commit state; the remaining 255 are shared-mode users. Each 2-byte
+value is a commit/lock status Jet uses (with the matching user lock in the `.ldb`/`.laccdb`) to coordinate
+concurrency — this table is only the per-user *overall status*; the `.ldb`/`.laccdb` holds the actual
+page-level read/write registration. Observed: an idle/unused slot reads **`00 01`**; the head slots carry
+per-file last-commit states (`01 01`, `05 01`, …). **`00 00` means "mid-write to disk"**, and `01 00` means
+"accessed a corrupted page" — either one *without a matching user lock* makes Jet declare the database
+suspect and demand a repair before it will open.
+
+> **Creation must seed this.** A freshly created file has no users, so every slot must be the neutral
+> `00 01`, **not** zero — an all-zero table reads as "every user is mid-write," which Access rejects as
+> corrupt. `DatabaseCreator.BuildDefinitionPage` fills `0xE00`–`0xFFF` with the repeating `00 01`.
+> LibRed itself does not read the table.

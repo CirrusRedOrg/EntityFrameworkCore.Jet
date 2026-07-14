@@ -76,9 +76,12 @@ public static class DatabaseCreator
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(0x98), 0x00000654);           // fixed constant
         Encoding.ASCII.GetBytes("4.0").CopyTo(page, 0x9C);                                 // engine version string
 
-        // TODO: page 0 also carries a 512-byte structure at 0xE00–0xFFF (256 two-byte entries, almost all
-        // 0x0100, a small per-file-varying head) — a free-space/usage-summary map, undecoded. LibRed does
-        // not read it, so a file is LibRed-openable without it; reproduce it for full Access fidelity.
+        // User commit-byte table (0xE00–0xFFF): 256 users × 2 bytes at the end of the header page — Jet 3.x's
+        // 0x600 commit region relocated to the end of the 4 KB page (see the Jet locking white paper). Each
+        // pair is a per-user commit/lock status. A fresh file must seed every slot to the neutral idle value
+        // 00 01 — NOT 00 00, which Jet reads as "mid-write to disk"; with no matching .ldb user lock that
+        // reads as a suspect/corrupt database and forces a repair before Access will open it.
+        for (int i = 0xE00; i < 0x1000; i++) page[i] = (byte)(i & 1);
 
         return page;
     }

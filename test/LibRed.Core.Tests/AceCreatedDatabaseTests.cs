@@ -45,6 +45,12 @@ public class AceCreatedDatabaseTests
             { count.CommandText = "SELECT COUNT(*) FROM [People]"; Assert.Equal(1, Convert.ToInt32(count.ExecuteScalar())); }
             using (var sel = conn.CreateCommand())
             { sel.CommandText = "SELECT [Name] FROM [People] WHERE [Id]=1"; Assert.Equal("Ada", sel.ExecuteScalar()); }
+
+            // And Access can WRITE into the file (needs a valid page-1 free map to allocate pages).
+            using (var ins = conn.CreateCommand())
+            { ins.CommandText = "INSERT INTO [People] ([Id],[Name]) VALUES (2,'Alan')"; Assert.Equal(1, ins.ExecuteNonQuery()); }
+            using (var sel = conn.CreateCommand())
+            { sel.CommandText = "SELECT [Name] FROM [People] WHERE [Id]=2"; Assert.Equal("Alan", sel.ExecuteScalar()); }
         }
         finally { try { File.Delete(path); } catch (IOException) { } }
     }

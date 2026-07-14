@@ -163,10 +163,11 @@ public static class DatabaseCreator
         var (acesTdef, acesMap) = BuildSystemTable(format, MSysAcesColumns, usageMapPage: 7);
         var (queriesTdef, queriesMap) = BuildSystemTable(format, MSysQueriesColumns, usageMapPage: 8);
         var (relTdef, relMap) = BuildSystemTable(format, MSysRelationshipsColumns, usageMapPage: 9);
+        const int seedPages = 10;   // page 0, page 1, 4 core TDEFs (2..5), 4 usage maps (6..9)
         byte[][] seed =
         [
             BuildDefinitionPage(version, isAccdb: true, 1252, 1033, 0, DateTime.Now),
-            BuildEmptyDataPage(format),   // page 1: free map (empty)
+            BuildFreeMapPage(format, seedPages),       // page 1: global free-pages map
             objTdef, acesTdef, queriesTdef, relTdef,   // pages 2..5: core TDEFs
             objMap, acesMap, queriesMap, relMap,       // pages 6..9: their usage maps
         ];
@@ -219,12 +220,29 @@ public static class DatabaseCreator
         msysObjects.Insert(values);
     }
 
-    private static byte[] BuildEmptyDataPage(JetFormatBase format)
+    /// <summary>Builds the page-1 global free-pages map: a data page with two 69-byte inline maps. Row 0 is
+    /// the free map — pages &lt; <paramref name="usedPages"/> are used (bit 0); pages from there to the map's
+    /// 512-page reach are marked <b>free</b> (bit 1), pre-declaring space beyond the file end so an allocator
+    /// (LibRed's or Access's) grabs a "free" page and grows the file. Row 1 is an all-zeros companion, as real
+    /// files carry.</summary>
+    private static byte[] BuildFreeMapPage(JetFormatBase format, int usedPages)
     {
+        const int mapLen = 1 + 4 + 64;   // inline map: type + start page + 64-byte bitmap (512 pages)
         var page = new byte[format.PageSize];
         page[0] = (byte)PageType.DataPage;
         page[1] = 0x01;
-        return page; // rowCount 0 → the allocator grows the file on demand
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4), 1);  // global-map owner (observed)
+
+        int row0 = format.PageSize - mapLen;        // free map (highest offset — the one the allocator reads)
+        int row1 = row0 - mapLen;                    // all-zeros companion
+        for (int p = usedPages; p < 64 * 8; p++)     // mark pages >= usedPages free
+            page[row0 + 5 + (p >> 3)] |= (byte)(1 << (p & 7));
+
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset, 2), (ushort)row0);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + 2, 2), (ushort)row1);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), 2);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2), (ushort)(row1 - format.DataRowDirectoryOffset - 4));
+        return page;
     }
 
     /// <summary>Builds a system table's TDEF page and its owned/free usage-map page. Long-value (Memo/Ole)

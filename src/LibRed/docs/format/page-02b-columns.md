@@ -14,7 +14,7 @@
 | `0x09` | 2 | Column number (equals the column id `0x05` in a freshly written descriptor — but **diverges after an `ALTER COLUMN` type change**, which burns a new id into `0x05` yet leaves `0x09` at the *old* id; see §3.8) |
 | `0x0B` | 1 | Numeric **precision** (Decimal/Numeric columns); otherwise the low byte of the locale id, `0x09` |
 | `0x0C` | 1 | Numeric **scale** (Decimal/Numeric columns); otherwise the high byte of the locale id, `0x04` |
-| `0x0D` | 2 | Text sort-order **version** (mdbtools `misc_ext`; Jackcess's sort-order version) — the high half of a 4-byte sort-order descriptor whose low half is the locale at `0x0B` (`0x0409` = General, §10.4). `0` for **every** column (all types) in ACE 2007 — the General collation is version 0; see note |
+| `0x0D` | 2 | Text sort-order **version** — a 2-byte field (the high half of a 4-byte sort-order descriptor whose low half is the locale at `0x0B`, `0x0409` = General, §10.4). The version *number* is the **high byte at `0x0E`**: `0` = General Legacy (Access 2000–2007), `1` = the "General" order Access 2010+ made default (a different key encoding). The **low byte `0x0D` is `0` in every file observed** and isn't modelled — but the field is nominally 2 bytes, so keep an eye on it (see note). |
 | `0x0F` | 1 | Flags (see below) |
 | `0x10` | 1 | Extended flags: `0x01` compressed-Unicode capable, `0xC0` calculated column |
 | `0x11` | 4 | Unknown (zero observed) |
@@ -48,29 +48,50 @@
 > which reads precision = 12, scale = 3; for every other type it reads the constant `0x0409`
 > (the en-US LCID / text collation).
 >
-> **Sort-order version (`0x0D`) — confirmed.** For non-Numeric columns, `0x0B`–`0x0E` form a 4-byte
-> **sort-order descriptor**: locale `0x0409` (1033) at `0x0B`, **version** at `0x0D`. mdbtools states
-> it explicitly (note after its index-record section): the encoding is the **"General" sort order in
-> Access 2000–2007 = (1033, version 0)**; as of Access 2010 that is renamed **"General legacy"** and
-> the new default **"General" = (1033, version 1)** is a *different* key encoding. So `0x0D` selects
-> which collation the text keys use.
+> **Sort-order version — the version number is the byte at `0x0E`.** For non-numeric columns `0x0B`–`0x0E`
+> is a 4-byte **sort-order descriptor**: locale `0x0409` (1033) at `0x0B`, then a nominally 2-byte **version**
+> at `0x0D`. The version *number* is the **high byte, `0x0E`**:
+> - **General Legacy** (Access 2000–2007) → `0x0D`-`0x0E` = `00 00`, i.e. version `0`.
+> - **General** (the Access-2010 default, a *different* key encoding, §10.4) → `00 01`, version `1`.
 >
-> Observed `0` on **every** column of ACE-2007 Northwind, *and* on a text column freshly created by
-> the installed ACE 16 engine — because the file is ACE-2007 format (version byte `2`), the engine
-> writes the version-0 "General legacy" order regardless of its own age. LibRed's `JetTextCollation`
-> (§10.4) implements exactly this **version-0** order and its writer leaves `0x0D` at 0 — correct for
-> ACE-2007 files. A **version-1** file (Access 2010+, version byte ≥ `3`, created with the default
-> General order) would carry `0x0D = 1` and different index-key bytes that LibRed does not yet handle
-> (no version-1 fixture available here to verify against).
+> **Verified** against three databases authored with each order (`México`/`O'Brien`/`a`/`A` fixtures): a
+> v1 text column has `0x0E = 01` and produces index keys unlike the v0 encoder. LibRed reads the version from
+> `0x0E` as a byte. (This was a real bug: it used to read the byte at `0x0D` — which is `0` in *both* orders —
+> and so reported every database as v0.)
+>
+> > **⚠ Watch the low byte `0x0D`.** It is `0` in every file observed, so LibRed doesn't model it (it rides
+> > through the raw descriptor unchanged on a rewrite). But the field is *nominally 2 bytes* — if a database
+> > ever carries a non-zero `0x0D`, the version is wider than one byte and we're truncating it. This is the
+> > same trap as the AutoNumber increment at TDEF `0x18`, which looked like a 1-byte flag but is a full
+> > signed int32; re-check `0x0D` if a new collation ever behaves oddly.
+>
+> **The collation is stored in two places, and they agree.** The `(LCID, version)` sort order lives
+> *both* per column (here: locale at `0x0B`–`0x0C`, version at `0x0E`) *and* database-wide in the
+> obfuscated page-0 header (LCID at `0x6E`, version byte at `0x71`; see
+> [page-00-database.md §2.1](page-00-database.md#21-the-obfuscated-header-0x180x98)). For a given
+> database the per-column `0x0E` equals the page-0 `0x71` (verified across seven files). Changing the
+> default **language** moves the LCID in both places; flipping **General vs General Legacy** moves the
+> version byte in both places.
+>
+> (An earlier revision claimed page 0 held *no* sort-order value — that was inferred from a v0/v1 diff
+> whose obfuscated `0x71` looked like creation-date noise. De-obfuscating the header with the fixed mask
+> showed the version is there too.)
+>
+> **Format-version coupling.** Access sets the file format to the lowest version that supports the features
+> used, so choosing General Legacy in the UI *downgrades the file to the 2007 format*, while General (v1)
+> forces 2010+. But the format byte is a **ceiling**, not a fingerprint — a 2016/2019 file (bumped by BigInt
+> or datetime2) can still be v0 — so the collation must be read from `0x0D`-`0x0E`, never inferred from the
+> format version.
 >
 > **LibRed model.** The `(locale, version)` pair is a `Collation` value (`CollatingOrder` enum = the DAO
-> LCIDs). It is **read** per column into `ColumnDef.Collation` (numeric columns, whose `0x0B/0x0C` are
-> precision/scale, carry none), and **written** from `JetDatabase.Collation` — the database's default,
-> threaded through `TdefBuilder` instead of the former hardcoded `0x0409`/`0x00` constant. The write is
-> byte-identical to the constant for General legacy (verified). `IndexKeyEncoder` **gates** on the
-> column's collation: it refuses (throws) anything but General legacy rather than emit version-0 key bytes
-> for a version-1 or non-English column. `JetDatabase.Collation` currently defaults to General legacy;
-> populating it from the page-0 sort order needs that region's de-obfuscation (still a TODO, §2).
+> LCIDs; `Version` is the `byte` at `0x0E` — `0` legacy, `1` General). It is **read** per column into
+> `ColumnDef.Collation` (numeric columns, whose `0x0B/0x0C` are precision/scale, carry none) and **written**
+> from `JetDatabase.Collation` (the database default) as that one byte; the low byte `0x0D` is left as-is (0
+> on a fresh column, preserved from the original otherwise). The write is byte-identical for General legacy
+> (verified). `IndexKeyEncoder` **gates** on the collation: it refuses (throws) anything but General legacy
+> rather than emit v0 key bytes for a v1 or non-English column.
+> LibRed reads and distinguishes v1, but does not yet **encode** its index keys (the v1 weight table is the
+> remaining work, §10.4).
 >
 > LibRed **reads** the variable-table index from the descriptor (`0x07`) rather than deriving it by
 > ranking column ids. For an untouched table the two agree, but they **diverge after a `DROP COLUMN`**:

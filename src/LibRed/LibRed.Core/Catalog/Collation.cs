@@ -43,13 +43,24 @@ public enum CollatingOrder
 /// bytes for text/memo columns, and is written into their column descriptors.
 /// </summary>
 /// <param name="Order">The collating order (LCID).</param>
-/// <param name="Version">The sort-order version (column descriptor <c>0x0D</c>): 0 = the legacy order
-/// (Access 2000–2007), 1 = the order introduced by Access 2010.</param>
+/// <param name="Version">The sort-order version — the byte at column-descriptor <c>0x0E</c> (the high byte of
+/// a nominally 2-byte version field at <c>0x0D</c>). Verified vs Access: General Legacy (Access 2000–2007) =
+/// <c>0</c>; the "General" order Access 2010 made default = <c>1</c>. <b>The low byte at <c>0x0D</c> is <c>0</c>
+/// in every file seen and is not modelled — but the field is nominally 2 bytes, so keep an eye on it: if a
+/// database ever carries a non-zero <c>0x0D</c> we are truncating a wider value (cf. the AutoNumber increment
+/// at TDEF <c>0x18</c>, which looked like a 1-byte flag but was a full signed int32).</b></summary>
 public readonly record struct Collation(CollatingOrder Order, byte Version)
 {
-    /// <summary>Jet's "General legacy" order — locale 1033, version 0. The order LibRed reads and writes,
-    /// and the default for every file it currently handles (an ACE-2007-format database).</summary>
+    /// <summary>The sort-order version byte for the Access-2010+ "General" order.</summary>
+    public const byte GeneralVersion = 1;
+
+    /// <summary>Jet's "General legacy" order — locale 1033, version 0. The order LibRed reads and writes and
+    /// can encode index keys for.</summary>
     public static Collation GeneralLegacy => new(CollatingOrder.General, 0);
+
+    /// <summary>The Access-2010+ default "General" order — locale 1033, version 1. LibRed reads and
+    /// distinguishes it, but does not yet encode its (different) index keys — see <see cref="IsIndexKeyEncodable"/>.</summary>
+    public static Collation General => new(CollatingOrder.General, GeneralVersion);
 
     /// <summary>Whether LibRed can encode index keys for this collation. Only General legacy is implemented;
     /// see <c>JetTextCollation</c> and the format spec §10.4.</summary>

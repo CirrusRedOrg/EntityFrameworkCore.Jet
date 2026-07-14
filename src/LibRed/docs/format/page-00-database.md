@@ -12,7 +12,14 @@
 | `0x13` | 1 | Unknown — string padding/terminator (not decoded) |
 | `0x14` | 1 | Version byte (see below). mdbtools reads `jet_version` as a 4-byte word at `0x14`; the version is its low byte and `0x15`–`0x17` are zero |
 | `0x15` | 3 | Unknown — upper bytes of the version word (zero observed; not decoded) |
-| `0x18`+ | … | Obfuscated/encrypted (code page, collation, creation date, password) — **not decoded** |
+| `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with a fixed 128-byte mask (§2.1). Jet 3 masks 126 bytes. Fields below are offsets into it. |
+| `0x3C` | 2 | **ANSI code page** — LE (`0x04E4` = 1252, `0x04E2` = 1250) |
+| `0x3E` | 4 | **Database (encryption) key** — 0 when there is no password |
+| `0x42` | 40 | **Password** (Jet 4; Jet 3 = 20 bytes) — additionally masked by a creation-date-derived value, so an empty password does not read as zeroes |
+| `0x6E` | 4 | **Default text collating sort order** — LCID (2, LE, `0x0409` = 1033 en-US) + **sort-order version** at `0x71` (0 = General Legacy, 1 = General) |
+| `0x72` | 8 | **Database creation timestamp** — OLE automation `double` (days from 1899-12-30) |
+| `~0x9C` | 4 | ASCII engine-version string `"4.0"` — **in the clear** (past the masked window) |
+| `~0xA0`+ | … | Zero padding to end of page |
 
 Version byte → format:
 
@@ -25,6 +32,73 @@ Version byte → format:
 | `0x05` | ACE 16 (Access 2016) | 4096 | ACCDB |
 | `0x06` | ACE 17 (Access 2019+) | 4096 | ACCDB |
 
-Everything from `0x18` onward on page 0 is obfuscated; LibRed reads only the identifier and
-version. (Page-level encryption for password-protected files is not implemented.)
+### 2.1 The obfuscated header (`0x18`–`0x98`)
+
+From `0x18` for **128 bytes** (Jet 4 / ACE; 126 for Jet 3), page 0 is obfuscated by XOR-ing the
+plaintext with a **fixed byte mask** — a constant baked into the format, not a per-file salt. Past
+the window (`~0x9C`) the ASCII engine-version string `"4.0"` and zero padding appear in the clear.
+
+**The mask.** LibRed uses the 128-byte mask below (`JetFormatBase.PageZeroHeaderMask`), de-obfuscating
+the whole region once in `DatabaseDefinitionPage.Read`:
+
+```
+B5 6F 03 62 61 08 C2 55 EB A9 67 72 43 3F 00 9C   ; 0x18
+7A 9F 90 FF 80 9A 31 C5 79 BA ED 30 BC DF CC 9D   ; 0x28
+63 D9 E4 C3 7B 42 FB 8A BC 4E 86 FB EC 37 5D 44   ; 0x38  (7B 42 @0x3C = code page)
+9C FA C6 5E 28 E6 13 B6 8A 60 54 94 7B 36 F5 72   ; 0x48
+DF B1 77 F4 13 43 CF AF B1 33 34 61 79 5B 92 B5   ; 0x58
+7C 2A 05 F1 7C 99 01 1B 98 FD 12 4F 4A 94 6C 3E   ; 0x68  (01 1B @0x6E = LCID; 12 4F.. @0x72 = date)
+60 26 5F 95 F8 D0 89 24 85 67 C6 1F 27 44 D2 EE   ; 0x78
+CF 65 ED FF 07 C7 46 A1 78 16 0C ED E9 2D 62 D4   ; 0x88
+```
+
+**Verification (why this is recorded despite being an external mask).** The mask is Jackcess's
+`BASE_HEADER_MASK`, but it is **not adopted on faith** — it is confirmed against real files two ways:
+
+1. **Reproduces bytes recovered from first principles.** Independently, by a known-plaintext attack —
+   varying one Access setting and reading its plaintext from an unobfuscated in-file copy — LibRed
+   recovered the mask at three fields: the code page (`mask[0x3C]=7B,42` — de-obfuscation yields the
+   canonical Windows code pages `0x04E4`/`0x04E2`), the collation LCID (`mask[0x6E]=01,1B`, checked
+   against each column descriptor's own locale at `0x0B`–`0x0C` over five distinct LCIDs), and the
+   creation date (`mask[0x72]=12 4F 4A 94 6C 3E 60 26`, matching `MSysObjects.DateCreate` to the
+   second). The Jackcess mask matches all twelve of those bytes exactly.
+2. **Decodes every fixture sensibly.** Applied whole, it yields valid code pages (1252/1250), the
+   expected LCIDs, correct creation dates, a zero database key (no-password files), and an empty
+   password that unmasks to the creation-date-derived pattern (below).
+
+**Decoded fields** (all little-endian; `DatabaseDefinitionPage` → `JetDatabase`):
+
+- **Code page (`0x3C`, 2 bytes)** → `CodePage` (1252 / 1250).
+- **Database key (`0x3E`, 4 bytes)** → `DatabaseKey`. **Zero ⇒ the data pages are unencrypted;
+  nonzero ⇒ the file is ACE-encrypted** (Access 2007+ "Set Database Password" encrypts the whole
+  database). Verified: an unprotected file reads `0`; a password-protected `.accdb` reads a nonzero
+  key and its data pages are encrypted. **Page 0's header itself is never page-encrypted — only
+  base-masked — so the creation date, code page, LCID, etc. stay readable even on an encrypted file**
+  (they must, to bootstrap decryption).
+- **Password (`0x42`, 40 bytes)** — *not* decoded to a value, and the two families differ:
+  - **Jet 4 `.mdb`**: light access-control obfuscation only — the field is the password XOR the base
+    mask XOR an **additional 4-byte mask = `(int)creationDate`** (repeated). An empty password
+    therefore unmasks to that creation-date pattern, not zeroes (this is the per-file variation once
+    mistaken for a signature — there is no ESE-style machine signature here). The plaintext is
+    recoverable, as mdbtools/Jackcess do.
+  - **ACE `.accdb`**: real encryption — this region is an encryption **verifier**, not recoverable
+    plaintext (an actual password decodes to random-looking bytes under the Jet 4 scheme). Recovering
+    it is a crypto attack, not format work.
+- **Collation sort order (`0x6E`, 4 bytes)** → `DefaultCollationLcid` (LCID at `0x6E`) +
+  `DefaultCollationVersion` (the byte at `0x71`, 0 = General Legacy, 1 = General). The version here
+  **matches each column descriptor's `0x0E`** — the sort version lives both database-wide (page 0)
+  and per column (see [page-02b-columns.md](page-02b-columns.md)).
+- **Creation date (`0x72`, 8 bytes)** → `CreationDate` — an OLE `double`. Matches the earliest
+  `MSysObjects.DateCreate`; on an *edited* database (e.g. Northwind) it is the **file's** creation
+  instant and can differ from the first object's by minutes.
+
+Regression tests: `DatabaseDefinitionPageTests.Decodes_creation_date_matching_catalog` and
+`Decodes_code_page_and_default_collation`.
+
+> **Deferred: ACE page decryption.** LibRed does not yet read the data pages of a password-encrypted
+> `.accdb` (detected by a nonzero `DatabaseKey`). With the **password known**, this is a standard,
+> bounded subsystem — not a crack: derive the file key from the password plus the header salt/verifier
+> (`0x3E`/`0x42`), validate it against the stored verifier, then decrypt each page with its
+> page-number-derived key. Jackcess's `jackcess-encrypt` module (MSISAM / Jet / Office providers) is
+> the reference to verify against. A known-password fixture is the ideal test vector for it.
 

@@ -28,6 +28,19 @@ public sealed class JetDatabase : IDisposable
     /// <summary>The decoded database definition page (page 0).</summary>
     public DatabaseDefinitionPage DefinitionPage { get; }
 
+    /// <summary>The instant the database file was created, decoded from the obfuscated OLE
+    /// timestamp on page 0 (see <see cref="DatabaseDefinitionPage.DatabaseCreationDate"/>).</summary>
+    public DateTime CreationDate => DefinitionPage.DatabaseCreationDate;
+
+    /// <summary>The database's ANSI code page (e.g. 1252, 1250), decoded from page 0.</summary>
+    public int CodePage => DefinitionPage.CodePage;
+
+    /// <summary>The database's default collation LCID (e.g. 1033 = en-US), decoded from page 0.</summary>
+    public int DefaultCollationLcid => DefinitionPage.DefaultCollationLcid;
+
+    /// <summary>The database default sort-order version (0 = General Legacy, 1 = General), from page 0.</summary>
+    public byte DefaultCollationVersion => DefinitionPage.DefaultCollationVersion;
+
     /// <summary>The database's default text collating order — the source of truth for the LCID and
     /// sort-order version written into new columns, in place of a hardcoded constant. Defaults to General
     /// legacy (locale 1033, version 0), which is what every file LibRed currently handles uses; decoding

@@ -27,6 +27,55 @@ public abstract class JetFormatBase
     /// <summary>Identifier for the ACCDB (ACE 12+) family.</summary>
     public const string AceIdentifier = "Standard ACE DB";
 
+    // --- Page 0 obfuscated header (0x18..0x98) ---
+    // The header is XOR-obfuscated with a fixed 128-byte mask (below). Field offsets and the mask
+    // are corroborated by mdbtools and Jackcess AND verified against real files here: the mask
+    // reproduces the code page (0x3C), collation LCID (0x6E) and creation date (0x72) bytes we
+    // recovered independently by known-plaintext, and it decodes every fixture's header to sensible
+    // values (see docs/format/page-00-database.md §2.1).
+
+    /// <summary>Start offset of the obfuscated page-0 header region (also the mask's first byte).</summary>
+    public const int PageZeroHeaderMaskStart = 0x18;
+
+    /// <summary>Offset of the 2-byte ANSI code page (LE): <c>0x04E4</c> = 1252, <c>0x04E2</c> = 1250.</summary>
+    public const int CodePageOffset = 0x3C;
+
+    /// <summary>Offset of the 4-byte database (encryption) key; 0 when the database has no password.</summary>
+    public const int DatabaseKeyOffset = 0x3E;
+
+    /// <summary>Offset of the database password (Jet 4: 40 bytes; additionally masked by a
+    /// creation-date-derived value, so an empty password does not read as zeroes).</summary>
+    public const int PasswordOffset = 0x42;
+
+    /// <summary>Offset of the 4-byte default text collating sort order: LCID (2 bytes LE, e.g.
+    /// <c>0x0409</c> = 1033 en-US) followed by the sort-order version at <c>0x71</c> (0 = General
+    /// Legacy, 1 = General). The version here matches each column's descriptor byte <c>0x0E</c>.</summary>
+    public const int CollationSortOrderOffset = 0x6E;
+
+    /// <summary>Offset of the 1-byte collation sort-order version within the sort-order field (0/1).</summary>
+    public const int CollationVersionOffset = 0x71;
+
+    /// <summary>Offset of the 8-byte database creation timestamp: an OLE automation date
+    /// (IEEE <c>double</c>, days from the 1899-12-30 epoch).</summary>
+    public const int CreationDateOffset = 0x72;
+
+    /// <summary>
+    /// The fixed 128-byte XOR mask applied to the page-0 header from <see cref="PageZeroHeaderMaskStart"/>
+    /// (Jet 4 / ACE; Jet 3 uses 126 bytes). This is Jackcess's <c>BASE_HEADER_MASK</c>, verified here to
+    /// reproduce the header bytes LibRed recovered from first principles and to decode real fixtures.
+    /// </summary>
+    public static ReadOnlySpan<byte> PageZeroHeaderMask =>
+    [
+        0xB5, 0x6F, 0x03, 0x62, 0x61, 0x08, 0xC2, 0x55, 0xEB, 0xA9, 0x67, 0x72, 0x43, 0x3F, 0x00, 0x9C,
+        0x7A, 0x9F, 0x90, 0xFF, 0x80, 0x9A, 0x31, 0xC5, 0x79, 0xBA, 0xED, 0x30, 0xBC, 0xDF, 0xCC, 0x9D,
+        0x63, 0xD9, 0xE4, 0xC3, 0x7B, 0x42, 0xFB, 0x8A, 0xBC, 0x4E, 0x86, 0xFB, 0xEC, 0x37, 0x5D, 0x44,
+        0x9C, 0xFA, 0xC6, 0x5E, 0x28, 0xE6, 0x13, 0xB6, 0x8A, 0x60, 0x54, 0x94, 0x7B, 0x36, 0xF5, 0x72,
+        0xDF, 0xB1, 0x77, 0xF4, 0x13, 0x43, 0xCF, 0xAF, 0xB1, 0x33, 0x34, 0x61, 0x79, 0x5B, 0x92, 0xB5,
+        0x7C, 0x2A, 0x05, 0xF1, 0x7C, 0x99, 0x01, 0x1B, 0x98, 0xFD, 0x12, 0x4F, 0x4A, 0x94, 0x6C, 0x3E,
+        0x60, 0x26, 0x5F, 0x95, 0xF8, 0xD0, 0x89, 0x24, 0x85, 0x67, 0xC6, 0x1F, 0x27, 0x44, 0xD2, 0xEE,
+        0xCF, 0x65, 0xED, 0xFF, 0x07, 0xC7, 0x46, 0xA1, 0x78, 0x16, 0x0C, 0xED, 0xE9, 0x2D, 0x62, 0xD4,
+    ];
+
     // --- Table definition (TDEF) page layout ---
     // Defaults below are for Jet 4 / ACE (verified against a real ACCDB). Jet 3 differs
     // (18-byte column entries, 1-byte ASCII name lengths) and will override these.

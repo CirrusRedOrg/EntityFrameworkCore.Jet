@@ -56,7 +56,7 @@ public static class IndexKeyEncoder
             {
                 // Index-key weights are only implemented for General legacy; refuse other collations up front
                 // rather than emit wrong bytes with the General-v0 table (e.g. a 2010+ General-v1 column, or a
-                // non-English locale). The collation is read per-column from the descriptor (0x0B–0x0D).
+                // non-English locale). The collation is read per-column from the descriptor (0x0B–0x0E).
                 if (!column.Collation.IsIndexKeyEncodable)
                     throw new NotSupportedException(
                         $"Index key encoding for column '{column.Name}' uses collation {column.Collation.Order} " +

@@ -27,4 +27,11 @@ internal static class TestDatabases
     /// values), for byte-faithful binary index-key checks.</summary>
     public static string EverythingIsBytesAccdb { get; } =
         Path.Combine(AppContext.BaseDirectory, "Data", "EverythingIsBytes.accdb");
+
+    /// <summary>A password-encrypted ACCDB (Office Agile encryption; the password is "Test").</summary>
+    public static string EncryptedAccdb { get; } =
+        Path.Combine(AppContext.BaseDirectory, "Data", "EncryptedTest.accdb");
+
+    /// <summary>The password for <see cref="EncryptedAccdb"/>.</summary>
+    public const string EncryptedPassword = "Test";
 }

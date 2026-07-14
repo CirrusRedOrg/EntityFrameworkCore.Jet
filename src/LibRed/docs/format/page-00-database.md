@@ -95,10 +95,15 @@ CF 65 ED FF 07 C7 46 A1 78 16 0C ED E9 2D 62 D4   ; 0x88
 Regression tests: `DatabaseDefinitionPageTests.Decodes_creation_date_matching_catalog` and
 `Decodes_code_page_and_default_collation`.
 
-> **Deferred: ACE page decryption.** LibRed does not yet read the data pages of a password-encrypted
-> `.accdb` (detected by a nonzero `DatabaseKey`). With the **password known**, this is a standard,
-> bounded subsystem — not a crack: derive the file key from the password plus the header salt/verifier
-> (`0x3E`/`0x42`), validate it against the stored verifier, then decrypt each page with its
-> page-number-derived key. Jackcess's `jackcess-encrypt` module (MSISAM / Jet / Office providers) is
-> the reference to verify against. A known-password fixture is the ideal test vector for it.
+> **ACE page decryption (implemented — Office Agile).** A password-encrypted `.accdb` (nonzero
+> `DatabaseKey`) uses **Office Agile encryption** (MS-OFFCRYPTO §2.3.4): an `EncryptionInfo` XML
+> descriptor sits in the clear in page 0 (after the masked header), giving AES-256-CBC + SHA-512
+> parameters, salts, and the password verifier. `LibRed.Crypto.AgileEncryption` derives the data key
+> from the password (SHA-512 KDF, 100 000-spin), validates the verifier (wrong password →
+> `UnauthorizedAccessException`), then decrypts each data page. **Access's one deviation from stock
+> Agile:** the per-page IV block key is `LE32(pageNumber) XOR databaseKey` (the 4-byte key at `0x3E`),
+> so `IV = SHA512(keyDataSalt ‖ blockKey)[:blockSize]`; the page is `AES-256-CBC(dataKey, IV)`. Page 0
+> is never page-encrypted. Verified end-to-end against a known-password fixture (decrypted pages match
+> the unencrypted twin; `AgileEncryptionTests`). Encrypted databases open **read-only**; *writing*
+> encryption is not implemented, and neither is the legacy Jet 3/4 RC4 scheme.
 

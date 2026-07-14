@@ -1,3 +1,5 @@
+using System.Buffers.Binary;
+using LibRed.Crypto;
 using LibRed.Formats;
 
 namespace LibRed.IO;
@@ -18,6 +20,10 @@ public sealed class PageChannel : IDisposable
     private readonly string _path;
     private readonly PageCache _cache;
 
+    // Page decryptor for a password-encrypted database (null when the file is unencrypted). Applied to
+    // every page as it comes off disk; page 0 (the readable header) is a no-op inside the codec.
+    private readonly IPageCodec? _codec;
+
     // Page-level undo log for the current transaction (null when none is open). Keyed by page
     // number; the value is the page's bytes as they were *before* the transaction first touched
     // it. Pages allocated during the transaction lie beyond _txnOriginalLength and are not logged
@@ -25,12 +31,13 @@ public sealed class PageChannel : IDisposable
     private Dictionary<int, byte[]>? _undo;
     private long _txnOriginalLength;
 
-    private PageChannel(FileStream stream, JetFormatBase format, bool readOnly, string path)
+    private PageChannel(FileStream stream, JetFormatBase format, bool readOnly, string path, IPageCodec? codec)
     {
         _stream = stream;
         _readOnly = readOnly;
         Format = format;
         _path = path;
+        _codec = codec;
         _cache = PageCache.Acquire(path, format.PageSize);
     }
 
@@ -48,7 +55,7 @@ public sealed class PageChannel : IDisposable
     /// Opens a database file, sniffs its Jet/ACE version from page 0 and resolves the
     /// matching <see cref="JetFormatBase"/>.
     /// </summary>
-    public static PageChannel Open(string path, bool readOnly = true)
+    public static PageChannel Open(string path, bool readOnly = true, string? password = null)
     {
         // A Jet/ACE file is a shared-file database — Access, ODBC and OLE DB all open it with multiple
         // concurrent handles (a store's long-lived connection plus per-context connections to the same
@@ -66,13 +73,33 @@ public sealed class PageChannel : IDisposable
         try
         {
             var format = JetFormatBase.Detect(stream);
-            return new PageChannel(stream, format, readOnly, path);
+
+            // Read page 0 (always unencrypted) to detect encryption: a nonzero database key at 0x3E means the
+            // data pages are ACE-encrypted, and the EncryptionInfo descriptor lives in the clear on this page.
+            var page0 = new byte[format.PageSize];
+            stream.Seek(0, SeekOrigin.Begin);
+            stream.ReadExactly(page0);
+            int databaseKey = DecodeDatabaseKey(page0);
+            IPageCodec? codec = AgileEncryption.TryCreate(page0, databaseKey, password);
+
+            return new PageChannel(stream, format, readOnly, path, codec);
         }
         catch
         {
             stream.Dispose();
             throw;
         }
+    }
+
+    /// <summary>Decodes the 4-byte database (encryption) key at page-0 <c>0x3E</c> through the fixed header mask.</summary>
+    private static int DecodeDatabaseKey(ReadOnlySpan<byte> page0)
+    {
+        ReadOnlySpan<byte> mask = JetFormatBase.PageZeroHeaderMask;
+        int start = JetFormatBase.PageZeroHeaderMaskStart;
+        Span<byte> key = stackalloc byte[4];
+        for (int i = 0; i < 4; i++)
+            key[i] = (byte)(page0[JetFormatBase.DatabaseKeyOffset + i] ^ mask[JetFormatBase.DatabaseKeyOffset - start + i]);
+        return BinaryPrimitives.ReadInt32LittleEndian(key);
     }
 
     /// <summary>Reads a single page into a freshly allocated buffer.</summary>
@@ -99,6 +126,7 @@ public sealed class PageChannel : IDisposable
         long offset = (long)pageNumber * PageSize;
         _stream.Seek(offset, SeekOrigin.Begin);
         _stream.ReadExactly(buffer);
+        _codec?.DecryptPage(pageNumber, buffer);
         _cache.Store(pageNumber, buffer);
         return new PageBuffer(buffer, pageNumber);
     }
@@ -116,10 +144,8 @@ public sealed class PageChannel : IDisposable
         long offset = (long)pageNumber * PageSize;
         _stream.Seek(offset, SeekOrigin.Begin);
         _stream.ReadExactly(destination[..PageSize]);
+        _codec?.DecryptPage(pageNumber, destination[..PageSize]);
         _cache.Store(pageNumber, destination[..PageSize]);
-
-        // TODO: page-level decryption (RC4 for Jet3/4, AES for ACE) happens here,
-        // keyed off Format + the database definition page. See LibRed.Crypto.JetCrypto.
     }
 
     /// <summary>
@@ -133,6 +159,8 @@ public sealed class PageChannel : IDisposable
     {
         if (_readOnly)
             throw new InvalidOperationException("This channel was opened read-only.");
+        if (_codec is not null)
+            throw new NotSupportedException("Writing to a password-encrypted database is not supported (read-only).");
         if (source.Length != PageSize)
             throw new ArgumentException($"A page write must be exactly {PageSize} bytes.", nameof(source));
         if (pageNumber < 0)

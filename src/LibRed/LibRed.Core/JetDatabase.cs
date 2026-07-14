@@ -64,9 +64,10 @@ public sealed class JetDatabase : IDisposable
         return page;
     }
 
-    /// <summary>Opens a database file (read-only by default).</summary>
-    public static JetDatabase Open(string path, bool readOnly = true) =>
-        new(PageChannel.Open(path, readOnly));
+    /// <summary>Opens a database file (read-only by default). For a password-encrypted ACCDB, supply
+    /// <paramref name="password"/> — encrypted databases open read-only.</summary>
+    public static JetDatabase Open(string path, bool readOnly = true, string? password = null) =>
+        new(PageChannel.Open(path, readOnly, password));
 
     /// <summary>The resolved on-disk format/version of the database.</summary>
     public JetFormatBase Format => _channel.Format;

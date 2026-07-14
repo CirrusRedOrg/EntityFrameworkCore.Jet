@@ -7,11 +7,12 @@
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 1 | Page type, `0x00` |
-| `0x01` | 3 | Unknown (not decoded) |
+| `0x01` | 3 | Unknown (observed `01 00 00`, constant across Jet 4 and ACE; not decoded) |
 | `0x04` | 15 | Format identifier ASCII: `Standard Jet DB` or `Standard ACE DB` |
-| `0x13` | 1 | Unknown — string padding/terminator (not decoded) |
-| `0x14` | 1 | Version byte (see below). mdbtools reads `jet_version` as a 4-byte word at `0x14`; the version is its low byte and `0x15`–`0x17` are zero |
-| `0x15` | 3 | Unknown — upper bytes of the version word (zero observed; not decoded) |
+| `0x13` | 1 | NUL terminator of the identifier string |
+| `0x14` | 1 | Version byte (see below). mdbtools reads `jet_version` as a 4-byte word at `0x14`; the version is its low byte |
+| `0x15` | 1 | Version **minor/update** byte: **`0x01` on ACE 14 / Access 2010 (version `0x03`)**, `0x00` on every other version tested (Jet 4, ACE 12/17). mdbtools says this is always zero — not universally true. Purpose beyond distinguishing the 2010 format unknown |
+| `0x16` | 2 | Unknown (zero observed) |
 | `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with a fixed 128-byte mask (§2.1). Jet 3 masks 126 bytes. Fields below are offsets into it. |
 | `0x18`, `0x1C` | 4+4 | Fixed constants `0x00000100`, `0x00000101` (not page pointers — out of range in small files) |
 | `0x20`–`0x2C` | 4×4 | **System-catalog bootstrap pointers**: TDEF pages of `MSysObjects` / `MSysACEs` / `MSysQueries` / `MSysRelationships` = `2, 3, 4, 5`. `0x20` is the **catalog root** (how the engine finds `MSysObjects`). |
@@ -19,11 +20,12 @@
 | `0x3C` | 2 | **ANSI code page** — LE (`0x04E4` = 1252, `0x04E2` = 1250) |
 | `0x3E` | 4 | **Database (encryption) key** — 0 when there is no password |
 | `0x42` | 40 | **Password** (Jet 4; Jet 3 = 20 bytes) — additionally masked by a creation-date-derived value, so an empty password does not read as zeroes |
-| `0x6A` | 4 | Fixed constant `0x000011A6` (undecoded) |
+| `0x6A` | 4 | Fixed constant `0x000011A6` — invariant across the entire Jet 4 lineage (every version/engine/collation/language tested); likely a validation sentinel/marker (cf. the `0x0659` TDEF record marker, §3.1), exact purpose unconfirmed |
 | `0x6E` | 4 | **Default text collating sort order** — LCID (2, LE, `0x0409` = 1033 en-US) + **sort-order version** at `0x71` (0 = General Legacy, 1 = General) |
 | `0x72` | 8 | **Database creation timestamp** — OLE automation `double` (days from 1899-12-30) |
-| `~0x9C` | 4 | ASCII engine-version string `"4.0"` — **in the clear** (past the masked window) |
-| `~0xA0`+ | … | Zero padding to end of page |
+| `0x98` | 4 | **Past the masked window** (cleartext). Fixed constant `0x00000654` (1620), undecoded |
+| `0x9C` | 4 | ASCII **engine/format version string `"4.0"`** (NUL-terminated) — the Jet **4.0** version, present in both `.mdb` (Jet 4) and `.accdb` (ACE, which is Jet-4-based) |
+| `0xA0`+ | … | Zero padding to end of page |
 
 Version byte → format:
 
@@ -51,7 +53,9 @@ TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` an
 
 From `0x18` for **128 bytes** (Jet 4 / ACE; 126 for Jet 3), page 0 is obfuscated by XOR-ing the
 plaintext with a **fixed byte mask** — a constant baked into the format, not a per-file salt. Past
-the window (`~0x9C`) the ASCII engine-version string `"4.0"` and zero padding appear in the clear.
+the window the bytes are in the clear: a fixed constant `0x00000654` at `0x98`, the NUL-terminated
+ASCII engine-version string **`"4.0"`** at `0x9C` (the Jet 4.0 version — identical in `.mdb` and
+`.accdb`), then zero padding.
 
 **The mask.** LibRed uses the 128-byte mask below (`JetFormatBase.PageZeroHeaderMask`), de-obfuscating
 the whole region once in `DatabaseDefinitionPage.Read`:

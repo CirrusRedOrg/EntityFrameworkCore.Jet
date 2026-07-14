@@ -1,0 +1,48 @@
+using LibRed;
+using LibRed.Storage;
+using Xunit;
+
+namespace LibRed.Core.Tests;
+
+/// <summary>Synthesising a new database's pages from scratch (native, DAO/ADOX-free creation).</summary>
+public class DatabaseCreatorTests
+{
+    [Theory]
+    [InlineData(nameof(TestDatabases.NorthwindAccdb))]
+    [InlineData(nameof(TestDatabases.BuiltInDataTypesAccdb))]
+    public void Synthesized_page0_header_matches_a_real_file(string fixture)
+    {
+        string path = (string)typeof(TestDatabases).GetProperty(fixture)!.GetValue(null)!;
+        byte[] real = File.ReadAllBytes(path);
+        using var db = JetDatabase.Open(path);
+        var dp = db.DefinitionPage;
+
+        byte[] synth = DatabaseCreator.BuildDefinitionPage(
+            dp.JetVersion, isAccdb: true, dp.CodePage, dp.DefaultCollationLcid,
+            dp.DefaultCollationVersion, dp.DatabaseCreationDate);
+
+        // The whole page-0 header (0x00–0x9F: identifier, version, the masked field block, and the
+        // cleartext "4.0" tail) is reproduced byte-for-byte. (0xA0–0xDFF is zero; 0xE00+ is an
+        // undecoded usage structure LibRed doesn't need — not asserted here.)
+        Assert.Equal(real[0x00..0xA0], synth[0x00..0xA0]);
+    }
+
+    [Fact]
+    public void Synthesized_page0_round_trips_through_the_reader()
+    {
+        var created = new DateTime(2026, 7, 14, 12, 0, 0);
+        byte[] page = DatabaseCreator.BuildDefinitionPage(0x02, isAccdb: true, 1252, 1033, 0, created);
+
+        var dp = new LibRed.Pages.DatabaseDefinitionPage();
+        dp.Read(new LibRed.IO.PageBuffer(page, 0), LibRed.Formats.JetFormatBase.FromVersionByte(0x02));
+
+        Assert.Equal("Standard ACE DB", dp.FormatIdentifier);
+        Assert.Equal(0x02, dp.JetVersion);
+        Assert.Equal(1252, dp.CodePage);
+        Assert.Equal(1033, dp.DefaultCollationLcid);
+        Assert.Equal(0, dp.DefaultCollationVersion);
+        Assert.Equal(0, dp.DatabaseKey);
+        Assert.Equal(2, dp.CatalogRootPage);
+        Assert.Equal(created, dp.DatabaseCreationDate, TimeSpan.FromSeconds(1));
+    }
+}

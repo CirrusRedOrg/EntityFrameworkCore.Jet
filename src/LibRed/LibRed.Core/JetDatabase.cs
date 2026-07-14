@@ -255,6 +255,11 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
+    /// <summary>Opens a table directly from its TDEF page, bypassing the catalog — used during database
+    /// creation to seed the system tables before they self-register in <c>MSysObjects</c>.</summary>
+    public Storage.Table OpenTableAt(int tdefPage, string name, bool isSystem = true) =>
+        new(_channel, Catalog.ReadTableDefinitionAt(tdefPage, name, isSystem));
+
     /// <summary>Opens a table by name for row access.</summary>
     public Table OpenTable(string name)
     {

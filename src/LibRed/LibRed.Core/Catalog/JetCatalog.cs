@@ -369,6 +369,11 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
         _ => "TEXT",
     };
 
+    /// <summary>Builds a <see cref="TableDef"/> straight from a TDEF page, bypassing the catalog — used
+    /// during database creation to seed the system tables before they are self-registered.</summary>
+    internal TableDef ReadTableDefinitionAt(int definitionPage, string name, bool isSystem) =>
+        ReadTableDefinition(definitionPage, name, isSystem);
+
     private TableDef ReadTableDefinition(int definitionPage, string name, bool isSystem)
     {
         var tdef = new TableDefinitionPage();

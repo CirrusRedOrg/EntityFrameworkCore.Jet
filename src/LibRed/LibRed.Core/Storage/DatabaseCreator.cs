@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using System.Text;
+using LibRed.Catalog;
 using LibRed.Formats;
+using LibRed.Pages;
 
 namespace LibRed.Storage;
 
@@ -77,9 +79,127 @@ public static class DatabaseCreator
         // TODO: page 0 also carries a 512-byte structure at 0xE00–0xFFF (256 two-byte entries, almost all
         // 0x0100, a small per-file-varying head) — a free-space/usage-summary map, undecoded. LibRed does
         // not read it, so a file is LibRed-openable without it; reproduce it for full Access fidelity.
-        // TODO: the system catalog (MSysObjects/ACEs/Queries/Relationships TDEFs + seed rows) — the rest
-        // of a bootable file — is built by the catalog synthesiser (still to come).
 
         return page;
+    }
+
+    // MSysObjects — the system catalog. 17 columns (see the format docs); LibRed reads it by scan.
+    private static readonly ColumnSpec[] MSysObjectsColumns =
+    [
+        new("Id", JetDataType.Int32, 4, true),
+        new("ParentId", JetDataType.Int32, 4, true),
+        new("Name", JetDataType.Text, 510, false),
+        new("Type", JetDataType.Int16, 2, true),
+        new("Flags", JetDataType.Int32, 4, true),
+        new("Owner", JetDataType.Binary, 510, false),
+        new("Connect", JetDataType.Memo, 0, false),
+        new("Database", JetDataType.Memo, 0, false),
+        new("ForeignName", JetDataType.Text, 510, false),
+        new("DateCreate", JetDataType.DateTime, 8, true),
+        new("DateUpdate", JetDataType.DateTime, 8, true),
+        new("Lv", JetDataType.Ole, 0, false),
+        new("LvExtra", JetDataType.Ole, 0, false),
+        new("LvModule", JetDataType.Ole, 0, false),
+        new("LvProp", JetDataType.Ole, 0, false),
+        new("RmtInfoLong", JetDataType.Ole, 0, false),
+        new("RmtInfoShort", JetDataType.Binary, 510, false),
+    ];
+
+    // MSysACEs — per-object access-control rows. TableCreator inserts into it when a table is created.
+    private static readonly ColumnSpec[] MSysAcesColumns =
+    [
+        new("ACM", JetDataType.Int32, 4, true),
+        new("FInheritable", JetDataType.Boolean, 1, true),
+        new("ObjectId", JetDataType.Int32, 4, true),
+        new("SID", JetDataType.Binary, 510, false),
+    ];
+
+    private const int SystemFlag = unchecked((int)0x80000000);
+
+    /// <summary>
+    /// Creates a new, empty database at <paramref name="path"/> from scratch — no DAO/ADOX. Hand-builds the
+    /// bootstrap (page 0, the page-1 free map, and the <c>MSysObjects</c>/<c>MSysACEs</c> TDEFs with their
+    /// usage maps + self-registering catalog rows), then the file is a normal LibRed database: further tables
+    /// are added through the ordinary writers. Produces a LibRed-openable, round-trippable file (Access-level
+    /// fidelity — the remaining system tables and the 0xE00 map — is a follow-up).
+    /// </summary>
+    public static void CreateEmpty(string path, byte version = 0x02)
+    {
+        JetFormatBase format = JetFormatBase.FromVersionByte(version);
+        const int msysObjPage = 2, msysObjMapPage = 3, msysAcesPage = 4, msysAcesMapPage = 5;
+
+        byte[][] seed =
+        [
+            BuildDefinitionPage(version, isAccdb: true, 1252, 1033, 0, DateTime.Now),
+            BuildEmptyDataPage(format),                                          // page 1: free map (empty)
+            BuildSystemTdef(format, MSysObjectsColumns, msysObjMapPage),         // page 2
+            BuildUsageMapPage(format, 2),                                        // page 3
+            BuildSystemTdef(format, MSysAcesColumns, msysAcesMapPage),           // page 4
+            BuildUsageMapPage(format, 2),                                        // page 5
+        ];
+        using (var fs = File.Create(path))
+            foreach (byte[] p in seed) fs.Write(p, 0, format.PageSize);
+
+        // Reopen through the normal stack and self-register the two bootstrap tables, so the catalog then
+        // finds them and every other table can go through TableCreator.
+        using var db = JetDatabase.Open(path, readOnly: false);
+        Table msysObjects = db.OpenTableAt(msysObjPage, "MSysObjects");
+        InsertCatalogRow(msysObjects, msysObjPage, "MSysObjects", SystemFlag);
+        InsertCatalogRow(msysObjects, msysAcesPage, "MSysACEs", SystemFlag);
+    }
+
+    private static void InsertCatalogRow(Table msysObjects, int id, string name, int flags)
+    {
+        var values = new object?[msysObjects.Definition.Columns.Count];
+        void Set(string col, object? v) => values[msysObjects.Definition.FindColumn(col)!.Index] = v;
+        Set("Id", id);
+        Set("ParentId", 0);
+        Set("Name", name);
+        Set("Type", (short)1);      // table object
+        Set("Flags", flags);
+        Set("DateCreate", DateTime.Now);
+        Set("DateUpdate", DateTime.Now);
+        msysObjects.Insert(values);
+    }
+
+    private static byte[] BuildEmptyDataPage(JetFormatBase format)
+    {
+        var page = new byte[format.PageSize];
+        page[0] = (byte)PageType.DataPage;
+        page[1] = 0x01;
+        return page; // rowCount 0 → the allocator grows the file on demand
+    }
+
+    private static byte[] BuildSystemTdef(JetFormatBase format, IReadOnlyList<ColumnSpec> columns, int usageMapPage)
+    {
+        byte[] tdef = TdefBuilder.Build(format, TableType.System, columns).Page;
+        tdef[format.TdefOwnedPagesOffset] = 0; WriteInt24(tdef, format.TdefOwnedPagesOffset + 1, usageMapPage);
+        tdef[format.TdefFreePagesOffset] = 1; WriteInt24(tdef, format.TdefFreePagesOffset + 1, usageMapPage);
+        var page = new byte[format.PageSize];
+        Array.Copy(tdef, page, format.PageSize);   // these system TDEFs fit one page
+        return page;
+    }
+
+    private static byte[] BuildUsageMapPage(JetFormatBase format, int mapCount)
+    {
+        const int mapLen = 1 + 4 + 64;   // inline map record: type + start page + 64-byte bitmap
+        var page = new byte[format.PageSize];
+        page[0] = (byte)PageType.DataPage;
+        page[1] = 0x01;
+        int offset = format.PageSize;
+        for (int row = 0; row < mapCount; row++)
+        {
+            offset -= mapLen;
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + row * 2, 2), (ushort)offset);
+        }
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), (ushort)mapCount);
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
+            (ushort)(offset - format.DataRowDirectoryOffset - mapCount * 2));
+        return page;
+    }
+
+    private static void WriteInt24(byte[] b, int o, int v)
+    {
+        b[o] = (byte)v; b[o + 1] = (byte)(v >> 8); b[o + 2] = (byte)(v >> 16);
     }
 }

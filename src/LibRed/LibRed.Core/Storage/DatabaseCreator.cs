@@ -151,6 +151,12 @@ public static class DatabaseCreator
         Table msysObjects = db.OpenTableAt(msysObjPage, "MSysObjects");
         InsertCatalogRow(msysObjects, msysObjPage, "MSysObjects", SystemFlag);
         InsertCatalogRow(msysObjects, msysAcesPage, "MSysACEs", SystemFlag);
+
+        // The system tables carry the indexes Access uses to navigate the catalog. Add them now (over the
+        // self-rows, which the index writer backfills); later inserts through the normal writers maintain them.
+        db.CreateIndex("MSysObjects", "Id", [("Id", false)], isUnique: true, isPrimary: true, disallowNull: true);
+        db.CreateIndex("MSysObjects", "ParentIdName", [("ParentId", false), ("Name", false)], isUnique: true);
+        db.CreateIndex("MSysACEs", "ObjectId", [("ObjectId", false)]);
     }
 
     private static void InsertCatalogRow(Table msysObjects, int id, string name, int flags)

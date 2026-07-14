@@ -21,10 +21,14 @@
 | `0x0F` | GUID | 16 raw bytes |
 | `0x10` | FixedPoint (Numeric/Decimal) | 17 bytes: sign byte (`0x80` = negative) + 128-bit magnitude (four 32-bit little-endian words, low word last); value = magnitude / 10^scale. Precision/scale from the column descriptor (§3.4) |
 | `0x12` | Complex (multi-value / attachment) | descriptor parsed; contents not materialized (out of scope for SQL/EF) |
-| `0x13` | Int64 — **BIGINT** (ACE 16) | 8-byte little-endian signed integer. Stored as a *variable*-length column |
-| `0x14` | DateTimeExtended — **DATETIME2** (ACE 16) | fixed 42-byte ASCII `<day>:<time>:<precision>` (see below) |
+| `0x13` | Int64 — **BIGINT** (ACE 16 / Access 2016) | 8-byte little-endian signed integer. Stored as a *variable*-length column |
+| `0x14` | DateTimeExtended — **DATETIME2** (ACE 17 / Access 2019+) | fixed 42-byte ASCII `<day>:<time>:<precision>` (see below) |
 
-**ACE 16 types.** Office 2016 added `BIGINT` and `DATETIME2`. `DATETIME2` is a fixed 42-byte ASCII string of
+**New-type format versions — the two are NOT the same version** (verified against files authored with each
+feature enabled: enabling BigInt made the file version byte `0x05`, enabling Date/Time Extended made it
+`0x06`). **`BIGINT` (Large Number)** requires the **ACE 16 / Access 2016** format (`0x05`); **`DATETIME2`
+(Date/Time Extended)** requires the **ACE 17 / Access 2019+** format (`0x06`) — it arrived later (Access for
+Microsoft 365). LibRed gates each accordingly (`AccessTypeMapper`). `DATETIME2` is a fixed 42-byte ASCII string of
 three colon-separated fields: the .NET **day number**, the count of **100-ns ticks within the
 day**, and the fractional **precision** (e.g. `7`). The first two are zero-padded to 19 digits so
 that byte order equals chronological order (an order-preserving inline encoding). The value is

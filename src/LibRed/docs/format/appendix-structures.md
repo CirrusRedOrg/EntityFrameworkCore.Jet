@@ -209,8 +209,8 @@ Global free-pages map: **page 1, row 0**, inline — set bit = **free** (opposit
 | `0x04` | Int32 | | `0x0F` | GUID (16 bytes) |
 | `0x05` | Currency (int64/10000) | | `0x10` | FixedPoint (Numeric/Decimal, 17 bytes) |
 | `0x06` | Single | | `0x12` | Complex (multi-value/attachment) |
-| `0x07` | Double | | `0x13` | Int64 / BIGINT (ACE 16, variable) |
-| `0x08` | DateTime (double, 1899-12-30) | | `0x14` | DateTimeExtended / DATETIME2 (ACE 16, 42-byte ASCII) |
+| `0x07` | Double | | `0x13` | Int64 / BIGINT (ACE 16 / 2016, variable) |
+| `0x08` | DateTime (double, 1899-12-30) | | `0x14` | DateTimeExtended / DATETIME2 (ACE 17 / 2019+, 42-byte ASCII) |
 | `0x09` | Binary | | | |
 
 ---

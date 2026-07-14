@@ -21,12 +21,20 @@ internal static class AccessTypeMapper
         // Collapse any internal whitespace so two-word aliases ("character  varying") match.
         string t = string.Join(' ', column.TypeName.ToUpperInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
-        // BIGINT and DATETIME2 are Access 2016 (ACE 16) additions. On any older format the engine cannot
-        // represent them, so refuse to create/alter a column to one rather than silently producing a file the
-        // real Access version couldn't open. Gated here, the single choke point for every DDL type name.
-        if (t is "BIGINT" or "DATETIME2" && version < JetVersion.Version16_2016)
+        // BIGINT and DATETIME2 were added in DIFFERENT format versions — verified against files authored with
+        // each feature enabled: BIGINT (Large Number) forces the ACE 16 / Access 2016 format (version byte
+        // 0x05), while DATETIME2 (Date/Time Extended) forces the ACE 17 / 2019+ format (0x06). On any older
+        // format the engine can't represent the type, so refuse to create/alter a column to one rather than
+        // silently producing a file the real Access version couldn't open. This is the single DDL choke point.
+        (JetVersion Min, string Label)? gate = t switch
+        {
+            "BIGINT" => (JetVersion.Version16_2016, "Access 2016 (ACE 16)"),
+            "DATETIME2" => (JetVersion.Version17_2019, "Access 2019+ (ACE 17)"),
+            _ => null,
+        };
+        if (gate is { } g && version < g.Min)
             throw new NotSupportedException(
-                $"Column type '{column.TypeName}' requires Access 2016 (ACE 16) or later; this database is {version}.");
+                $"Column type '{column.TypeName}' requires {g.Label} or later; this database is {version}.");
 
         return t switch
         {

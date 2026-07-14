@@ -20,6 +20,6 @@ public enum JetDataType : byte
     Guid = 0x0F,
     FixedPoint = 0x10, // NUMERIC / DECIMAL
     Complex = 0x12,    // ACE complex/multi-value columns
-    Int64 = 0x13,      // ACE 16: BIGINT (Large Number)
-    DateTimeExtended = 0x14, // ACE 16: DATETIME2
+    Int64 = 0x13,      // ACE 16 (Access 2016, version byte 0x05): BIGINT (Large Number)
+    DateTimeExtended = 0x14, // ACE 17 (Access 2019+, version byte 0x06): DATETIME2 (Date/Time Extended)
 }

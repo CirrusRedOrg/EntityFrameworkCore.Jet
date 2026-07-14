@@ -13,20 +13,21 @@ public class DdlDmlTests
         return path;
     }
 
-    // BIGINT and DATETIME2 are Access 2016 (ACE 16) features. On an older format (Northwind is ACE 12 /
-    // Access 2007) LibRed must refuse to create or alter a column to them, rather than write a file the real
-    // Access engine couldn't open.
+    // BIGINT (Large Number) and DATETIME2 (Date/Time Extended) were added in DIFFERENT format versions:
+    // BIGINT needs Access 2016 (ACE 16, version 0x05), DATETIME2 needs Access 2019+ (ACE 17, 0x06) — verified
+    // against files authored with each feature. On an older format (Northwind is ACE 12 / Access 2007) LibRed
+    // must refuse to create a column to either, rather than write a file the real Access engine couldn't open.
     [Theory]
-    [InlineData("CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `V` BIGINT)")]
-    [InlineData("CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `V` DATETIME2)")]
-    public void Bigint_and_datetime2_are_rejected_when_creating_on_a_pre_2016_format(string sql)
+    [InlineData("CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `V` BIGINT)", "Access 2016")]
+    [InlineData("CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `V` DATETIME2)", "Access 2019")]
+    public void Bigint_and_datetime2_are_rejected_when_creating_on_a_pre_2016_format(string sql, string expectedVersionInMessage)
     {
         string path = CopyToTemp();
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
             var ex = Assert.Throws<NotSupportedException>(() => new QueryEngine(db).ExecuteNonQuery(sql));
-            Assert.Contains("Access 2016", ex.Message);
+            Assert.Contains(expectedVersionInMessage, ex.Message);
         }
         finally { File.Delete(path); }
     }

@@ -85,6 +85,77 @@ public sealed class OfficeStandardEncryption : IPageCodec
         throw new UnauthorizedAccessException("Incorrect database password.");
     }
 
+    /// <summary>Generates a fresh Office-Standard <c>EncryptionInfo</c> for a new password: returns the
+    /// descriptor blob (to place at page-0 <c>0x29B</c>, with its 2-byte length at <c>0x299</c>) and a codec that
+    /// encrypts the data pages. <paramref name="aes"/> selects AES-256 (the 0-iteration variant Access accepts on
+    /// a created file) vs RC4-40; <paramref name="databaseKey"/> is a fresh random <c>0x3E</c> key.</summary>
+    internal static (byte[] Descriptor, OfficeStandardEncryption Codec) Create(string password, bool aes, int databaseKey)
+    {
+        uint algId = aes ? 0x6610u : AlgIdRc4;
+        int keyBits = aes ? 256 : 40;
+        byte[] salt = RandomBytes(16);
+        byte[] baseHash = SHA1.HashData(Concat(salt, Encoding.Unicode.GetBytes(password)));
+        int keyLen = keyBits / 8;
+        int rc4Pad = !aes && keyBits == 40 ? 16 : 0;
+        var codec = new OfficeStandardEncryption(!aes, baseHash, 0, keyLen, rc4Pad, BitConverter.GetBytes(databaseKey));
+
+        byte[] verKey = codec.ComputeKey(VerifierBlock);
+        byte[] verifier = RandomBytes(16);
+        byte[] verifierHash = SHA1.HashData(verifier);
+        byte[] encVerifier, encVerifierHash;
+        if (aes)
+        {
+            encVerifier = AesEcbEncrypt(verKey, verifier);
+            encVerifierHash = AesEcbEncrypt(verKey, Fix(verifierHash, 32)); // pad the 20-byte hash to a cipher block
+        }
+        else
+        {
+            byte[] stream = Concat(verifier, verifierHash); // one continuous RC4 stream
+            Rc4(verKey, stream);
+            encVerifier = stream[..16];
+            encVerifierHash = stream[16..];
+        }
+
+        return (BuildDescriptor(algId, aes ? 0x0Cu : 0x04u, keyBits, salt, encVerifier, encVerifierHash), codec);
+    }
+
+    // Builds the binary EncryptionInfo (version 4.2 + EncryptionHeader incl. ProviderType + CSP name +
+    // EncryptionVerifier) byte-for-byte as Access writes it (verified against real files).
+    private static byte[] BuildDescriptor(uint algId, uint flags, int keyBits, byte[] salt, byte[] encVerifier, byte[] encVerifierHash)
+    {
+        bool aes = algId != AlgIdRc4;
+        uint providerType = aes ? 0x18u : 0x01u;
+        string csp = aes ? "Microsoft Enhanced RSA and AES Cryptographic Provider" : "Microsoft Base Cryptographic Provider v1.0";
+        byte[] cspBytes = Concat(Encoding.Unicode.GetBytes(csp), new byte[2]); // null-terminated UTF-16LE
+
+        var b = new List<byte>();
+        void U16(ushort x) => b.AddRange(BitConverter.GetBytes(x));
+        void U32(uint x) => b.AddRange(BitConverter.GetBytes(x));
+
+        int headerSize = 8 * 4 + cspBytes.Length; // Flags,SizeExtra,AlgID,AlgIDHash,KeySize,ProviderType,Reserved1,Reserved2 + CSP
+        U16(4); U16(2);            // EncryptionVersionInfo 4.2
+        U32(flags);                // EncryptionInfo flags
+        U32((uint)headerSize);
+        U32(flags); U32(0); U32(algId); U32(0x8004); U32((uint)keyBits); U32(providerType); U32(0); U32(0);
+        b.AddRange(cspBytes);
+        // EncryptionVerifier
+        U32((uint)salt.Length); b.AddRange(salt);
+        b.AddRange(encVerifier);
+        U32(20); b.AddRange(encVerifierHash); // VerifierHashSize = SHA1
+        return b.ToArray();
+    }
+
+    private static byte[] AesEcbEncrypt(byte[] key, byte[] data)
+    {
+        using var aes = Aes.Create();
+        aes.Mode = CipherMode.ECB;
+        aes.Padding = PaddingMode.None;
+        aes.Key = key;
+        return aes.EncryptEcb(data, PaddingMode.None);
+    }
+
+    private static byte[] RandomBytes(int n) { byte[] b = new byte[n]; RandomNumberGenerator.Fill(b); return b; }
+
     private bool VerifyPassword(byte[] encVerifier, byte[] encVerifierHash, int hashSize)
     {
         byte[] key = ComputeKey(VerifierBlock);

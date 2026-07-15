@@ -216,6 +216,25 @@ Which of the two AES iteration counts applies is decided by whichever authentica
 known-answer tests (real salt + verifier vectors, synthetic page 0) in `OfficeStandardEncryptionTests`.
 Remaining unsupported: **Jet 3** (Access 97) encryption, which also needs Jet 3 format support (2048-byte pages).
 
+**Descriptor placement + the encryption signal (verified).** For a binary-descriptor ACE file the
+`EncryptionInfo` sits at a **fixed page-0 offset `0x29B`**, immediately preceded by a **2-byte blob length at
+`0x299`**. That length is **Access's "is this file encrypted?" signal**: on open Access reads `len@0x299` and, if
+nonzero, parses `len` bytes of `EncryptionInfo` at `0x29B`; if **zero it treats the file as unencrypted** — even
+with a nonzero `0x3E` key and a valid descriptor present. Verified across `db-nonstandard`/`db2007-oldenc`/
+`db2013` (each length equals its exact blob size: 224 / 190 / 1055) and by experiment: a file with the key +
+descriptor but `len@0x299 = 0` makes Access read ciphertext as plaintext and offer to "recover"; writing the
+length makes it prompt for the password and open. LibRed's *reader* ignores this (it scans for the descriptor),
+but a *writer* must set it. The Agile XML descriptor uses the same `len@0x299` + blob-at-`0x29B` framing.
+
+> **Creating encryption from scratch (implemented — Office Standard).** `LibRed.Crypto.DatabaseEncryption`
+> (`SetPassword`/`RemovePassword`/`ChangePassword`, scheme via `AccessEncryption`) encrypts a plaintext `.accdb`
+> with no Access/COM: generate a random `0x3E` key + salt + verifier, build the `EncryptionInfo` **byte-for-byte
+> as Access writes it** (`EncryptionHeader` incl. `ProviderType` + the CSP-name string — AES `"Microsoft Enhanced
+> RSA and AES Cryptographic Provider"`/RC4 `"Microsoft Base Cryptographic Provider v1.0"`), write the `0x299`
+> length signal, and encrypt every page. **Verified: both AES-256 and RC4-40 files created this way open in the
+> Access desktop GUI with the password.** `ChangePassword` = decrypt + re-encrypt. Agile/legacy set-password and
+> Jet 3 remain unimplemented.
+
 > **Writing to an existing encrypted database (implemented).** `IPageCodec.EncryptPage` is the inverse of
 > `DecryptPage`, so `PageChannel.WritePage` encrypts each page on the way to disk (page 0 stays clear) while the
 > page cache holds plaintext — a symmetric mirror of the read path. RC4 is self-inverse; AES flips CBC/ECB

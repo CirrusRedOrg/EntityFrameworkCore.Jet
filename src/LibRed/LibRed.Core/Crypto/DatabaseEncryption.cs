@@ -6,9 +6,9 @@ namespace LibRed.Crypto;
 
 /// <summary>
 /// Sets, removes, and changes the password/encryption of an existing Access database file, in place.
-/// Currently implements the Office "Standard"/CryptoAPI schemes (RC4-40 and AES-256) for <c>.accdb</c>;
-/// legacy Jet and Agile set-password are reserved in <see cref="AccessEncryption"/> but not yet built.
-/// The whole file is loaded into memory, transformed, and written back — intended for the typical Access
+/// Implements every <c>.accdb</c> scheme — Office "Standard"/CryptoAPI (RC4-40, AES-256) and Agile
+/// (AES-256-CBC / SHA-512); legacy Jet set-password is reserved in <see cref="AccessEncryption"/> but not yet
+/// built. The whole file is loaded into memory, transformed, and written back — intended for the typical Access
 /// database size, not multi-gigabyte files.
 /// </summary>
 public static class DatabaseEncryption
@@ -60,11 +60,18 @@ public static class DatabaseEncryption
 
     private static void Encrypt(byte[] file, string password, AccessEncryption scheme)
     {
-        bool aes = scheme == AccessEncryption.OfficeStandardAes;
         int dbKey = BinaryPrimitives.ReadInt32LittleEndian(RandomBytes(4));
         if (dbKey == 0) dbKey = 1; // 0 would read back as "unencrypted"
 
-        var (descriptor, codec) = OfficeStandardEncryption.Create(password, aes, dbKey);
+        byte[] descriptor;
+        IPageCodec codec;
+        switch (scheme)
+        {
+            case AccessEncryption.Agile: (descriptor, codec) = AgileEncryption.Create(password, dbKey); break;
+            case AccessEncryption.OfficeStandardAes: (descriptor, codec) = OfficeStandardEncryption.Create(password, aes: true, dbKey); break;
+            case AccessEncryption.OfficeStandardRc4: (descriptor, codec) = OfficeStandardEncryption.Create(password, aes: false, dbKey); break;
+            default: throw new ArgumentOutOfRangeException(nameof(scheme));
+        }
         WriteDatabaseKey(file, dbKey);
         BinaryPrimitives.WriteUInt16LittleEndian(file.AsSpan(LengthOffset, 2), (ushort)descriptor.Length);
         descriptor.CopyTo(file, DescriptorOffset);
@@ -103,7 +110,7 @@ public static class DatabaseEncryption
             case AccessEncryption.Agile:
                 if (!format.IsAccdb)
                     throw new ArgumentException("Agile encryption requires an .accdb (ACE) database.", nameof(scheme));
-                throw new NotSupportedException("Agile set-password is not yet implemented.");
+                break;
             case AccessEncryption.LegacyJet:
                 if (format.IsAccdb)
                     throw new ArgumentException("Legacy Jet encryption applies to .mdb, not .accdb.", nameof(scheme));

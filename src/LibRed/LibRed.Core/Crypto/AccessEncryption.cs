@@ -21,7 +21,6 @@ public enum AccessEncryption
     /// <summary>Office "Standard"/CryptoAPI AES-256 (binary <c>EncryptionInfo</c> descriptor). <c>.accdb</c> only.</summary>
     OfficeStandardAes,
 
-    /// <summary>ACE Agile encryption (AES-256-CBC / SHA-512, XML descriptor). <c>.accdb</c> only.
-    /// <b>Not yet implemented for set.</b></summary>
+    /// <summary>ACE Agile encryption (AES-256-CBC / SHA-512, spinCount 100000, XML descriptor). <c>.accdb</c> only.</summary>
     Agile,
 }

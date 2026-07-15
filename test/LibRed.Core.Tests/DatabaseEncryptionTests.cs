@@ -24,6 +24,7 @@ public class DatabaseEncryptionTests
     [Theory]
     [InlineData(AccessEncryption.OfficeStandardAes)]
     [InlineData(AccessEncryption.OfficeStandardRc4)]
+    [InlineData(AccessEncryption.Agile)]
     public void Set_then_read_with_password_then_remove(AccessEncryption scheme)
     {
         string path = Copy();
@@ -81,13 +82,12 @@ public class DatabaseEncryptionTests
     }
 
     [Fact]
-    public void Unimplemented_schemes_are_rejected()
+    public void Invalid_schemes_are_rejected()
     {
         string path = Copy();
         try
         {
-            Assert.Throws<NotSupportedException>(() => DatabaseEncryption.SetPassword(path, "pw", AccessEncryption.Agile));
-            // LegacyJet on an .accdb is a format mismatch (reported before the not-implemented check)
+            // LegacyJet on an .accdb is a format mismatch; None is not a set-scheme.
             Assert.Throws<ArgumentException>(() => DatabaseEncryption.SetPassword(path, "pw", AccessEncryption.LegacyJet));
             Assert.Throws<ArgumentException>(() => DatabaseEncryption.SetPassword(path, "pw", AccessEncryption.None));
         }

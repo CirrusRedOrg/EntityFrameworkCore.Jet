@@ -99,6 +99,58 @@ public sealed class AgileEncryption : IPageCodec
         return new AgileEncryption(secretKey, keyDataSalt, blockSize, encodingKey, hash);
     }
 
+    /// <summary>Generates a fresh Agile <c>EncryptionInfo</c> (AES-256-CBC / SHA-512, spinCount 100000) for a new
+    /// password: returns the descriptor blob (8-byte version prefix + the XML, to place at page-0 <c>0x29B</c>
+    /// with its 2-byte length at <c>0x299</c>) and a codec that encrypts the data pages. This is the read path
+    /// run forward — generate salts + a random data key, wrap it, and emit the descriptor Access writes.</summary>
+    internal static (byte[] Descriptor, AgileEncryption Codec) Create(string password, int databaseKey)
+    {
+        const HashKind hash = HashKind.Sha512;
+        const int keyBytes = 32, blockSize = 16, spinCount = 100000;
+        byte[] keyDataSalt = RandomBytes(16), pwdSalt = RandomBytes(16), secretKey = RandomBytes(keyBytes);
+
+        // H_spin = Hash(pwdSalt ‖ UTF16LE(password)), then spinCount folds of Hash(LE32(i) ‖ H).
+        byte[] hspin = Hash(hash, pwdSalt, Encoding.Unicode.GetBytes(password));
+        byte[] iter = new byte[4];
+        for (int i = 0; i < spinCount; i++) { BinaryPrimitives.WriteInt32LittleEndian(iter, i); hspin = Hash(hash, iter, hspin); }
+        byte[] DeriveKey(byte[] blockKey) => Fit(Hash(hash, hspin, blockKey), keyBytes);
+
+        byte[] verifierInput = RandomBytes(16);
+        byte[] encVerifierInput = AesCbcEncrypt(DeriveKey(BlockVerifierHashInput), pwdSalt, verifierInput);
+        byte[] encVerifierValue = AesCbcEncrypt(DeriveKey(BlockVerifierHashValue), pwdSalt, Hash(hash, verifierInput));
+        byte[] encKeyValue = AesCbcEncrypt(DeriveKey(BlockKeyValue), pwdSalt, secretKey);
+
+        string b64K = Convert.ToBase64String(keyDataSalt), b64P = Convert.ToBase64String(pwdSalt);
+        string xml =
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" +
+            "<encryption xmlns=\"http://schemas.microsoft.com/office/2006/encryption\" " +
+            "xmlns:p=\"http://schemas.microsoft.com/office/2006/keyEncryptor/password\" " +
+            "xmlns:c=\"http://schemas.microsoft.com/office/2006/keyEncryptor/certificate\">" +
+            $"<keyData saltSize=\"16\" blockSize=\"16\" keyBits=\"256\" hashSize=\"64\" cipherAlgorithm=\"AES\" cipherChaining=\"ChainingModeCBC\" hashAlgorithm=\"SHA512\" saltValue=\"{b64K}\"/>" +
+            "<keyEncryptors><keyEncryptor uri=\"http://schemas.microsoft.com/office/2006/keyEncryptor/password\">" +
+            "<p:encryptedKey spinCount=\"100000\" saltSize=\"16\" blockSize=\"16\" keyBits=\"256\" hashSize=\"64\" cipherAlgorithm=\"AES\" cipherChaining=\"ChainingModeCBC\" hashAlgorithm=\"SHA512\" " +
+            $"saltValue=\"{b64P}\" encryptedVerifierHashInput=\"{Convert.ToBase64String(encVerifierInput)}\" " +
+            $"encryptedVerifierHashValue=\"{Convert.ToBase64String(encVerifierValue)}\" encryptedKeyValue=\"{Convert.ToBase64String(encKeyValue)}\"/>" +
+            "</keyEncryptor></keyEncryptors></encryption>";
+
+        // EncryptionInfo = version 4.4 + flags 0x40 + the UTF-8 XML (verified against a real file).
+        byte[] descriptor = Concat([0x04, 0x00, 0x04, 0x00, 0x40, 0x00, 0x00, 0x00], Encoding.UTF8.GetBytes(xml));
+        byte[] encodingKey = BitConverter.GetBytes(databaseKey);
+        return (descriptor, new AgileEncryption(secretKey, keyDataSalt, blockSize, encodingKey, hash));
+    }
+
+    private static byte[] AesCbcEncrypt(byte[] key, byte[] iv, byte[] data)
+    {
+        using var aes = Aes.Create();
+        aes.Mode = CipherMode.CBC;
+        aes.Padding = PaddingMode.None;
+        aes.Key = key;
+        aes.IV = iv.Length == 16 ? iv : Fit(iv, 16);
+        return aes.EncryptCbc(data, aes.IV, PaddingMode.None);
+    }
+
+    private static byte[] RandomBytes(int n) { byte[] b = new byte[n]; RandomNumberGenerator.Fill(b); return b; }
+
     public void DecryptPage(int pageNumber, Span<byte> page) => Transform(pageNumber, page, decrypt: true);
 
     /// <summary>Encrypts a page — the inverse of <see cref="DecryptPage"/> (AES-CBC encrypt with the same

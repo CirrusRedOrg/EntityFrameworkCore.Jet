@@ -231,9 +231,12 @@ but a *writer* must set it. The Agile XML descriptor uses the same `len@0x299` +
 > with no Access/COM: generate a random `0x3E` key + salt + verifier, build the `EncryptionInfo` **byte-for-byte
 > as Access writes it** (`EncryptionHeader` incl. `ProviderType` + the CSP-name string — AES `"Microsoft Enhanced
 > RSA and AES Cryptographic Provider"`/RC4 `"Microsoft Base Cryptographic Provider v1.0"`), write the `0x299`
-> length signal, and encrypt every page. **Verified: both AES-256 and RC4-40 files created this way open in the
-> Access desktop GUI with the password.** `ChangePassword` = decrypt + re-encrypt. Agile/legacy set-password and
-> Jet 3 remain unimplemented.
+> length signal, and encrypt every page. **Verified: AES-256, RC4-40, and Agile files created this way open in
+> the Access desktop GUI with the password.** For **Agile**, the same path emits the XML descriptor (version 4.4
+> prefix `04 00 04 00 40 00 00 00` + UTF-8 XML) with a random data key wrapped via the 100000-spin SHA-512 KDF —
+> Access's `.accdb` Agile has **no `<dataIntegrity>` element** (verified against `db2013` and a created file), so
+> none is emitted. `ChangePassword` = decrypt + re-encrypt. Legacy Jet set-password and Jet 3 remain
+> unimplemented.
 
 > **Writing to an existing encrypted database (implemented).** `IPageCodec.EncryptPage` is the inverse of
 > `DecryptPage`, so `PageChannel.WritePage` encrypts each page on the way to disk (page 0 stays clear) while the

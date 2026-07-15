@@ -193,7 +193,28 @@ key-derivation check).
 > so `IV = SHA512(keyDataSalt ‖ blockKey)[:blockSize]`; the page is `AES-256-CBC(dataKey, IV)`. Page 0
 > is never page-encrypted. Verified end-to-end against a known-password fixture (decrypted pages match
 > the unencrypted twin; `AgileEncryptionTests`). Encrypted databases open **read-only**; *writing*
-> encryption is not implemented, and neither is the legacy Jet 3/4 RC4 scheme.
+> encryption is not implemented. Agile supports **SHA-1/256/384/512** (the descriptor's `hashAlgorithm`).
+
+### 2.5 Office "Standard"/CryptoAPI page encryption (verified)
+
+The pre-Agile `.accdb` encryption, carried by a **binary** `EncryptionInfo` header (version x.2, no XML) rather
+than the Agile XML — covering **RC4-CryptoAPI** and an **AES "non-standard"** variant. `LibRed.Crypto.
+OfficeStandardEncryption`; `PageChannel` selects it for an ACE file when no Agile descriptor is present.
+Algorithm (matched to jackcess-encrypt and verified against real fixtures — db2007-oldenc = RC4-40 / `Test123`;
+db-nonstandard = AES-256 / `password`):
+
+- `baseHash = SHA1(salt ‖ UTF16LE(password))`.
+- per-block key: `iterHash = iterate(baseHash, N)` where `N` = **0** for RC4-CryptoAPI and the AES non-standard
+  variant, **50000** for ECMA-standard AES (`iterate` folds `SHA1(LE32(i) ‖ H)`); `H = SHA1(iterHash ‖ block)`;
+  then AES applies the `0x36`/`0x5C` expansion `key = (SHA1(0x36pad⊕H) ‖ SHA1(0x5Cpad⊕H))[:keyLen]` while RC4
+  uses `key = H[:keyLen]` (a 40-bit RC4 key is zero-padded to 16 bytes).
+- verifier block = `LE32(0)`; per-page block = `LE32(pageNumber) XOR databaseKey` (the `0x3E` key) — the same
+  page mixing as Agile/legacy.
+- cipher: RC4 (re-keyed per page; the verifier + verifier-hash decrypt as one continuous stream) or **AES-ECB**.
+
+Which of the two AES iteration counts applies is decided by whichever authenticates the verifier. Fixture-free
+known-answer tests (real salt + verifier vectors, synthetic page 0) in `OfficeStandardEncryptionTests`.
+Remaining unsupported: **Jet 3** (Access 97) encryption, which also needs Jet 3 format support (2048-byte pages).
 
 
 ### 2.2 The user commit-byte table (`0xE00`–`0xFFF`)

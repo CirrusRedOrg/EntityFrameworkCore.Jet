@@ -83,8 +83,12 @@ public sealed class PageChannel : IDisposable
             // A nonzero database key means the pages are encrypted. ACE (.accdb) uses Office Agile encryption
             // (with a password); the pre-ACE Jet 3/4 formats (.mdb and the .mdw workgroup file) use the legacy
             // RC4 scheme keyed by the database key alone (no password).
+            // ACE (.accdb) may use Agile (XML descriptor) or the older Office "Standard"/CryptoAPI scheme (binary
+            // descriptor) — detect by descriptor, trying Agile first then Standard. The pre-ACE Jet 3/4 formats
+            // (.mdb and the .mdw workgroup file) use the legacy RC4 scheme keyed by the database key alone.
             IPageCodec? codec = format.IsAccdb
-                ? AgileEncryption.TryCreate(page0, databaseKey, password)
+                ? (IPageCodec?)AgileEncryption.TryCreate(page0, databaseKey, password)
+                    ?? OfficeStandardEncryption.TryCreate(page0, databaseKey, password)
                 : JetLegacyEncryption.TryCreate(databaseKey);
 
             return new PageChannel(stream, format, readOnly, path, codec);

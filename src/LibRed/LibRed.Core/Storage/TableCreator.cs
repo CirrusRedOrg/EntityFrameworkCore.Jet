@@ -2204,9 +2204,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
     // A user table's parent object is the database's "Tables" container; observed constant.
 
-    // The creating user's owner SID; for a workgroup-less database this 2-byte value is constant
-    // across all user tables (verified on Northwind).
-    private static readonly byte[] DefaultOwner = [0x69, 0x0C];
+    // A user table's owner + grantee SIDs, matching the cluster DatabaseCreator seeds for the system objects
+    // (Users owns user objects; Users + Admin get the user-table grants).
+    private static readonly byte[] DefaultOwner = DatabaseCreator.SidUsers;  // Users/Engine (per-file masked)
+    private static readonly byte[] AdminSid = DatabaseCreator.SidAdmin;      // Admin user (per-file masked)
 
     /// <summary>
     /// Adds the MSysObjects row describing the new table so Access (and the catalog) see it: Id =
@@ -2254,24 +2255,24 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         inserter.Insert(values, updateIndexes: true);
     }
 
-    // Permissions for a newly created table object: the owner (SID 0x690C) and the Admin/Users
-    // SID (0x680C), each with full access (verified against an ACE-created table).
-    private const int FullAccessMask = 1048319; // 0xFFEFF
-    private static readonly byte[] AdminSid = [0x68, 0x0C];
+    // A new user table's per-object-class masks (verified against DAO-created files): Users get read/write
+    // data (0x0F00FE), Admin gets full-access-minus-ownership (0x0FFEFF).
+    private const int UserTableUsersMask = 0x0F00FE;
+    private const int UserTableAdminMask = 0x0FFEFF;
 
     /// <summary>
-    /// Adds the two MSysACEs permission rows Access writes for a new table object (owner + admin,
-    /// full access), maintaining the table's ObjectId index so Access's security check sees them.
+    /// Adds the two MSysACEs permission rows Access writes for a new user table (Users + Admin, with the
+    /// user-table masks), maintaining the table's ObjectId index so Access's security check sees them.
     /// </summary>
     private void AddPermissionRows(int objectId)
     {
         TableDef msysAces = _catalog.FindTable("MSysACEs")
             ?? throw new InvalidOperationException("MSysACEs catalog table was not found.");
 
-        foreach (byte[] sid in new[] { DefaultOwner, AdminSid })
+        foreach ((byte[] sid, int acm) in new[] { (DefaultOwner, UserTableUsersMask), (AdminSid, UserTableAdminMask) })
         {
             var values = new object?[msysAces.Columns.Count];
-            SetByName(msysAces, values, "ACM", FullAccessMask);
+            SetByName(msysAces, values, "ACM", acm);
             SetByName(msysAces, values, "FInheritable", false);
             SetByName(msysAces, values, "ObjectId", objectId);
             SetByName(msysAces, values, "SID", sid);

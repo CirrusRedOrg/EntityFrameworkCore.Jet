@@ -271,6 +271,9 @@ public sealed class TableDefinitionPage : Page
                 Length = d.Length,
                 FixedOffset = d.FixedOffset,
                 VariableIndex = isFixed ? -1 : d.VariableIndex,
+                // Byte 7 is stored on fixed columns too (the running count of preceding variable columns); keep
+                // it so a faithful rebuild re-emits the exact value instead of clobbering fixed columns to 0.
+                VariableTableIndex = d.VariableIndex,
                 IsFixedLength = isFixed,
                 IsAutoNumber = (d.Flags & JetFormatBase.ColumnFlagAutoNumber) != 0,
                 // Every documented flag bit is modelled (0x0F: updatable/GUID-autonumber/hyperlink; 0x10:

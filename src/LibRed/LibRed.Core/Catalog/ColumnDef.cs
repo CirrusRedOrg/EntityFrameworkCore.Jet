@@ -24,6 +24,13 @@ public sealed class ColumnDef
     /// <summary>Position of this column among the variable-length columns (in column-id order); -1 if fixed.</summary>
     public int VariableIndex { get; init; } = -1;
 
+    /// <summary>The "variable-table index" stored at descriptor offset 7 (<see cref="JetFormatBase.ColumnVariableIndexOffset"/>):
+    /// the count of variable-length columns whose column-id is smaller than this one's. For a variable column this
+    /// equals <see cref="VariableIndex"/>; for a fixed column it is the running count of preceding variable columns
+    /// (Access stores it on fixed columns too, and its strict row reader relies on it). -1 = unset (falls back to
+    /// the legacy "0 for fixed" behaviour used by the ADD COLUMN path).</summary>
+    public int VariableTableIndex { get; init; } = -1;
+
     public bool IsFixedLength { get; init; }
 
     /// <summary>Whether the column accepts NULL. False for a NOT NULL / Required column — read from the
@@ -85,4 +92,8 @@ public sealed class ColumnDef
     /// and the undocumented bits of the two flag bytes (<c>0x0F</c>/<c>0x10</c>) — instead of stamping zero over
     /// them (the faithful round-trip rule). Null for a freshly-built (never-read) column.</summary>
     public byte[]? RawDescriptor { get; init; }
+
+    /// <summary>Undocumented flag bits (byte 0x0F) to force-set — the system-catalog column marker (0x10) and
+    /// security-identifier marker (0x20) Access sets on MSys* columns. 0 for ordinary columns.</summary>
+    public byte SystemFlags { get; init; }
 }

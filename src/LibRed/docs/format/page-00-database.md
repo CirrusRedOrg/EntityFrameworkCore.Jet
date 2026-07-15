@@ -45,10 +45,14 @@ TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` an
 (falling back to page 2 only if it reads 0). Verified: the four pointer values equal the objects'
 `MSysObjects.Id` and each names a real TDEF page.
 
-> **Implication for creating a database from scratch.** A minimal bootable page 0 needs the mask, the
+> **Creation from scratch (implemented — `DatabaseCreator`).** A minimal bootable page 0 needs the mask, the
 > code page / collation / creation date, and this pointer block aimed at the four core system tables
-> (`MSysObjects`, `MSysACEs`, `MSysQueries`, `MSysRelationships`) — which are therefore the minimum
-> catalog a new file must contain. (Native creation is still template-copy; this is the target layout.)
+> (`MSysObjects`, `MSysACEs`, `MSysQueries`, `MSysRelationships`) — the minimum catalog a new file must
+> contain. LibRed now synthesises all of this natively (no DAO/ADOX, no template copy) and the result opens
+> **clean in the Access desktop GUI** (no permission popups, no auto-compact error). Two non-obvious facts made
+> that work, both recorded below: the **creation date is bound to the on-disk security SIDs** (§2.3), and the
+> file must **not** hand-create the `MSysAccessStorage` / `MSysNavPane*` tables — real DAO files omit them and
+> Access adds them (with the nav-pane long SID) on first open (verified across ~135 pure-DAO files).
 
 ### 2.1 The obfuscated header (`0x18`–`0x98`)
 
@@ -110,10 +114,54 @@ CF 65 ED FF 07 C7 46 A1 78 16 0C ED E9 2D 62 D4   ; 0x88
   and per column (see [page-02b-columns.md](page-02b-columns.md)).
 - **Creation date (`0x72`, 8 bytes)** → `CreationDate` — an OLE `double`. Matches the earliest
   `MSysObjects.DateCreate`; on an *edited* database (e.g. Northwind) it is the **file's** creation
-  instant and can differ from the first object's by minutes.
+  instant and can differ from the first object's by minutes. **Unlike a normal Jet/ACE `DateTime`
+  column (whole-second resolution), this header stamp carries sub-second precision** — verified across
+  144 files, every value sits a whole number of milliseconds off a whole second (−284, −383, +78, +462 ms…),
+  i.e. ~1 ms resolution, consistent with a Windows `SYSTEMTIME`. The column codec truncates to seconds;
+  this field is written straight from the OS clock and keeps the milliseconds. See §2.3 — those low bits
+  matter because the security SIDs are bound to them.
 
 Regression tests: `DatabaseDefinitionPageTests.Decodes_creation_date_matching_catalog` and
 `Decodes_code_page_and_default_collation`.
+
+### 2.3 Creation date ⇄ security-SID coupling (verified)
+
+Access opens the **workgroup file** (`System.mdw`, in `%AppData%\Microsoft\Access`) *before* the database —
+confirmed with Process Monitor — and authenticates the current user against it. `System.mdw` is itself a Jet 4
+DB (identifier `"Jet System DB"`, version byte `0x01`) whose data pages use the legacy Jet page obfuscation
+(LibRed can't yet read it; Access can). Its `MSysAccounts`/`MSysGroups` hold the **default-workgroup account
+SIDs**, read verbatim (VBA `Debug.Print` of the `SID` column as hex):
+
+| Account | kind | SID |
+|---|---|---|
+| `admin` | user | `03-01` |
+| `Users` | group | `02-01` |
+| `Engine` | — | `02-03` |
+| `Creator` | — | `02-04` |
+| `Admins` | group | `01-DB-87-93-20-81-4F-AB-38-…` (long, per-workgroup-unique) |
+
+These short SIDs are the well-known Access defaults (identical on every stock install — which is why a captured
+SID cluster opens cross-PC). Object ownership in a database uses the **"user" form** (byte0 `0x03`) of
+`Engine`/`Creator`.
+
+The 2-byte on-disk SIDs in `MSysACEs.SID` / `MSysObjects.Owner` are each a **workgroup account SID XOR'd with a
+per-file 2-byte mask**. Verified against WideTable (mask `24-CC`): `Users 02-01 ^ 24-CC = 26-CD`,
+`admin 03-01 ^ 24-CC = 27-CD` (read grantee), `Engine 03-03 ^ 24-CC = 27-CF` (system-object owner),
+`Creator 03-04 ^ 24-CC = 27-C8` (inheritable container grant). The long `Admins` SID isn't emitted — Access
+materialises it (as a 98-byte SID) on first open.
+
+That mask is **bound to the exact millisecond-precise creation-date `double`** at `0x72`: a file with
+self-consistent SIDs but a *different* creation date is rejected with *"Record(s) cannot be read; no read
+permission on 'MSysObjects'/'MSysACEs'"* (Jet 3112). Grafting a real file's date **and** SIDs together opens
+clean; either alone fails. There is **no closed-form `date → mask` function** — tested against all 144
+reference files (word XOR/sum, CRC-16, MSVCRT `rand`, VBA LCG, multiplicative hashes: 0 hits) and same-second
+files have unrelated masks; Access most likely draws both the mask and the sub-second creation bits from one
+PRNG state, so they correlate but neither derives from the other. `DatabaseCreator` therefore **bakes one
+verified `(SeedCreationDateBits, SidMask)` pair** (`0x40E68F1E8943D217` + `24-CC`, from WideTable) rather than
+computing it — the from-scratch analogue of the account-SID constants. Limitations (deferred): every
+LibRed-created file reports the same creation instant, and only the **default** workgroup is supported;
+per-file-random dates and custom/secured workgroups both need the date↔mask coupling cracked (and, for the
+latter, reading `System.mdw`, which needs the legacy Jet page-decode).
 
 > **ACE page decryption (implemented — Office Agile).** A password-encrypted `.accdb` (nonzero
 > `DatabaseKey`) uses **Office Agile encryption** (MS-OFFCRYPTO §2.3.4): an `EncryptionInfo` XML

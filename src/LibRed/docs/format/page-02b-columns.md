@@ -10,7 +10,7 @@
 | `0x01` | 2 | Record marker `0x0659` (see §3.1 note); ignored |
 | `0x03` | 2 | Unknown (zero observed) |
 | `0x05` | 2 | Column id |
-| `0x07` | 2 | Variable-length table index — this column's position among the variable columns (0 for fixed columns) |
+| `0x07` | 2 | Variable-table index — the count of variable-length columns whose column id is smaller than this one's. For a **variable** column this equals its own position in the variable-offset table; for a **fixed** column it is the running count of preceding variable columns (**not** `0`). Access stores it on every column and its strict reader relies on it — writing `0` on fixed columns yields a file Access rejects with *"record(s) cannot be read"* even though LibRed/OLE DB (which recompute the index) tolerate it. Verified byte-for-byte against `MSysObjects`/`MSysACEs` in a real DAO file. |
 | `0x09` | 2 | Column number (equals the column id `0x05` in a freshly written descriptor — but **diverges after an `ALTER COLUMN` type change**, which burns a new id into `0x05` yet leaves `0x09` at the *old* id; see §3.8) |
 | `0x0B` | 1 | Numeric **precision** (Decimal/Numeric columns); otherwise the low byte of the locale id, `0x09` |
 | `0x0C` | 1 | Numeric **scale** (Decimal/Numeric columns); otherwise the high byte of the locale id, `0x04` |

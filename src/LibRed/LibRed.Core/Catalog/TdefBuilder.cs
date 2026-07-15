@@ -23,7 +23,11 @@ public sealed record ColumnSpec(
     // and the column's original 25-byte descriptor, re-emitted verbatim except for the fields LibRed manages
     // so a rebuild preserves unmodeled bytes. Both null for an ordinary CREATE/ADD column. See ColumnDef.RawDescriptor.
     int? ColumnId = null,
-    byte[]? RawDescriptor = null);
+    byte[]? RawDescriptor = null,
+    // Undocumented flag bits (0x0F) Access sets on system-table columns: 0x10 marks a system-catalog column,
+    // 0x20 additionally marks a security-identifier column (MSysObjects.Owner, MSysACEs.SID). User-table
+    // columns leave these clear. Verified against real files; the desktop engine expects them on MSys* columns.
+    byte SystemFlags = 0);
 
 /// <summary>An index to create over the named columns, anchored at an already-allocated root page.</summary>
 public sealed record IndexSpec(
@@ -264,8 +268,25 @@ public static class TdefBuilder
         foreach (int i in Enumerable.Range(0, specs.Count).Where(i => !specs[i].IsFixedLength).OrderBy(EffectiveId))
             variableRank[i] = rank++;
 
+        // Descriptor offset 7 ("variable-table index") = number of variable columns with a smaller column-id.
+        // Access stores this on EVERY column (fixed columns included) and its strict row reader relies on it;
+        // writing 0 on fixed columns yields a file Access rejects with "record(s) cannot be read".
+        int VarTableIndex(int i) =>
+            Enumerable.Range(0, specs.Count).Count(j => !specs[j].IsFixedLength && EffectiveId(j) < EffectiveId(i));
+
+        // Fixed-data offsets are assigned in ascending column-id order, NOT declaration order — Access lays the
+        // fixed columns out by column id (e.g. MSysACEs stores ObjectId(id0) at offset 0 even though its
+        // descriptor is written after ACM). Only differs from declaration order when ids are reordered (MSys*).
+        bool Occupies(int i) => specs[i].IsFixedLength && specs[i].Type != JetDataType.Boolean;
+        var fixedOffsets = new Dictionary<int, int>();
+        int running = 0;
+        foreach (int i in Enumerable.Range(0, specs.Count).Where(Occupies).OrderBy(EffectiveId))
+        {
+            fixedOffsets[i] = running;
+            running += specs[i].Length;
+        }
+
         var columns = new List<ColumnDef>(specs.Count);
-        int fixedOffset = 0;
         for (int i = 0; i < specs.Count; i++)
         {
             ColumnSpec s = specs[i];
@@ -285,8 +306,9 @@ public static class TdefBuilder
                 Index = i,
                 ColumnId = EffectiveId(i),
                 Length = s.Length,
-                FixedOffset = occupiesFixedData ? fixedOffset : 0,
+                FixedOffset = occupiesFixedData ? fixedOffsets[i] : 0,
                 VariableIndex = s.IsFixedLength ? -1 : variableRank[i],
+                VariableTableIndex = VarTableIndex(i),
                 IsFixedLength = s.IsFixedLength,
                 IsAutoNumber = s.IsAutoNumber,
                 IsUpdatable = (rawFlags & JetFormatBase.ColumnFlagUpdatable) != 0,
@@ -294,6 +316,7 @@ public static class TdefBuilder
                 IsHyperlink = (rawFlags & JetFormatBase.ColumnFlagHyperlink) != 0,
                 SupportsCompressedUnicode = (rawExt & JetFormatBase.ColumnExtFlagCompressedUnicode) != 0,
                 IsCalculated = (rawExt & JetFormatBase.ColumnExtFlagCalculated) != 0,
+                SystemFlags = s.SystemFlags,
                 Precision = s.Precision,
                 Scale = s.Scale,
                 // Numeric columns carry no collation (their 0x0B/0x0C bytes are precision/scale); every
@@ -301,7 +324,6 @@ public static class TdefBuilder
                 Collation = s.Type == JetDataType.FixedPoint ? Collation.GeneralLegacy : collation,
                 RawDescriptor = s.RawDescriptor,
             });
-            if (occupiesFixedData) fixedOffset += s.Length;
         }
         return columns;
     }
@@ -327,9 +349,11 @@ public static class TdefBuilder
         d[format.ColumnTypeOffset] = (byte)c.Type;
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(ColumnRecordMarkerOffset, 2), (ushort)JetFormatBase.TdefRecordMarker);
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnNumberOffset, 2), (ushort)c.ColumnId);
-        BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(ColumnNumber2Offset, 2), (ushort)c.ColumnId);
+        // Offset 0x09 stays zero on a fresh column (real DAO/Access files store 0 here, not a duplicate id).
+        // Offset 7 = variable-table index (count of variable columns with a smaller id), stored on fixed columns
+        // too. Prefer the precomputed value; fall back to the legacy rule (0 for fixed) when unset (ADD COLUMN).
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnVariableIndexOffset, 2),
-            (ushort)(c.IsFixedLength ? 0 : c.VariableIndex));
+            (ushort)(c.VariableTableIndex >= 0 ? c.VariableTableIndex : (c.IsFixedLength ? 0 : c.VariableIndex)));
         if (c.Type == JetDataType.FixedPoint)
         {
             d[format.ColumnPrecisionOffset] = c.Precision;
@@ -352,7 +376,7 @@ public static class TdefBuilder
             | (c.IsAutoNumber ? JetFormatBase.ColumnFlagAutoNumber : 0)
             | (c.IsGuidAutoNumber ? JetFormatBase.ColumnFlagGuidAutoNumber : 0)
             | (c.IsHyperlink ? JetFormatBase.ColumnFlagHyperlink : 0));
-        d[format.ColumnFlagsOffset] = (byte)((d[format.ColumnFlagsOffset] & ~JetFormatBase.ColumnFlagsDocumented) | flags);
+        d[format.ColumnFlagsOffset] = (byte)((d[format.ColumnFlagsOffset] & ~JetFormatBase.ColumnFlagsDocumented) | flags | c.SystemFlags);
 
         byte extFlags = (byte)(
             (c.SupportsCompressedUnicode ? JetFormatBase.ColumnExtFlagCompressedUnicode : 0)

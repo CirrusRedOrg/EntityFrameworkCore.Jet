@@ -27,6 +27,11 @@ public abstract class JetFormatBase
     /// <summary>Identifier for the ACCDB (ACE 12+) family.</summary>
     public const string AceIdentifier = "Standard ACE DB";
 
+    /// <summary>Identifier for a Jet workgroup / system database (<c>System.mdw</c>). Same Jet 4 binary format
+    /// as <see cref="JetIdentifier"/>, but with this signature and always engine-encrypted (see
+    /// <see cref="JetLegacyEncryption"/>).</summary>
+    public const string JetSystemIdentifier = "Jet System DB";
+
     // --- Page 0 obfuscated header (0x18..0x98) ---
     // The header is XOR-obfuscated with a fixed 128-byte mask (below). Field offsets and the mask
     // are corroborated by mdbtools and Jackcess AND verified against real files here: the mask
@@ -243,16 +248,18 @@ public abstract class JetFormatBase
         stream.Seek(original, SeekOrigin.Begin);
 
         string identifier = ReadFormatIdentifier(header);
-        if (identifier is not (JetIdentifier or AceIdentifier))
+        if (identifier is not (JetIdentifier or AceIdentifier or JetSystemIdentifier))
             throw new NotSupportedException(
-                $"Not a Jet/ACE database: expected \"{JetIdentifier}\" or \"{AceIdentifier}\" at offset 0x{FormatIdentifierOffset:X2}, found \"{identifier}\".");
+                $"Not a Jet/ACE database: expected \"{JetIdentifier}\", \"{AceIdentifier}\" or \"{JetSystemIdentifier}\" at offset 0x{FormatIdentifierOffset:X2}, found \"{identifier}\".");
 
         return FromVersionByte(header[VersionOffset]);
     }
 
     /// <summary>Reads the ASCII format identifier ("Standard Jet DB"/"Standard ACE DB") from a page-0 header.</summary>
     public static string ReadFormatIdentifier(ReadOnlySpan<byte> header) =>
-        System.Text.Encoding.ASCII.GetString(header.Slice(FormatIdentifierOffset, FormatIdentifierLength)).TrimEnd('\0');
+        // Trim trailing NULs and spaces: the ACE/Jet identifiers fill the field exactly, but "Jet System DB"
+        // (a workgroup file) is padded with spaces to the field width.
+        System.Text.Encoding.ASCII.GetString(header.Slice(FormatIdentifierOffset, FormatIdentifierLength)).TrimEnd('\0', ' ');
 
     /// <summary>Maps the raw version byte at <see cref="VersionOffset"/> to a format instance.</summary>
     public static JetFormatBase FromVersionByte(byte versionByte) => versionByte switch

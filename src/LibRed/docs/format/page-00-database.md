@@ -128,9 +128,9 @@ Regression tests: `DatabaseDefinitionPageTests.Decodes_creation_date_matching_ca
 
 Access opens the **workgroup file** (`System.mdw`, in `%AppData%\Microsoft\Access`) *before* the database —
 confirmed with Process Monitor — and authenticates the current user against it. `System.mdw` is itself a Jet 4
-DB (identifier `"Jet System DB"`, version byte `0x01`) whose data pages use the legacy Jet page obfuscation
-(LibRed can't yet read it; Access can). Its `MSysAccounts`/`MSysGroups` hold the **default-workgroup account
-SIDs**, read verbatim (VBA `Debug.Print` of the `SID` column as hex):
+DB (identifier `"Jet System DB"`, version byte `0x01`) with **legacy Jet RC4 page encryption** (§2.4); LibRed
+reads it directly. Its `MSysAccounts`/`MSysGroups` hold the **default-workgroup account SIDs**, which LibRed
+now decodes to exactly the values Access shows (cross-checked against a VBA `Debug.Print` of the `SID` column):
 
 | Account | kind | SID |
 |---|---|---|
@@ -160,8 +160,28 @@ PRNG state, so they correlate but neither derives from the other. `DatabaseCreat
 verified `(SeedCreationDateBits, SidMask)` pair** (`0x40E68F1E8943D217` + `24-CC`, from WideTable) rather than
 computing it — the from-scratch analogue of the account-SID constants. Limitations (deferred): every
 LibRed-created file reports the same creation instant, and only the **default** workgroup is supported;
-per-file-random dates and custom/secured workgroups both need the date↔mask coupling cracked (and, for the
-latter, reading `System.mdw`, which needs the legacy Jet page-decode).
+per-file-random dates and custom/secured workgroups both need the date↔mask coupling cracked (reading a
+custom `System.mdw` itself now works — §2.4).
+
+### 2.4 Legacy Jet 3/4 RC4 page encryption (verified)
+
+The pre-ACE engine-level encryption (used by password-protected `.mdb` files and *always* by the `.mdw`
+workgroup file, which is why its account/password data isn't readable in a hex editor). The 4-byte **database
+key** at page-0 `0x3E` is the whole secret — there is **no password or key derivation** (unlike ACE Agile,
+§2 above). Every page **except page 0** is RC4-encrypted with a per-page key of
+
+```
+key = LE32(pageNumber XOR databaseKey)
+```
+
+and the page bytes are the RC4 keystream XOR'd over the plaintext. This is the same per-page key mixing ACE
+Agile uses (`LE32(pageNumber) XOR encodingKey`), just feeding RC4 directly instead of deriving an AES IV.
+Verified against a real `System.mdw` (`databaseKey = 0xABBB315C`): with XOR (not ADD) page-number mixing,
+every page decrypts to a valid page-type byte (page 1 → `01` data, pages 2/3 → `02` TDEF, index pages → `04`),
+`MSysObjects`/`MSysACEs` parse, and `MSysAccounts` yields the account SIDs in §2.3. Implemented as
+`LibRed.Crypto.JetLegacyEncryption`; `PageChannel` selects it for non-ACE (`!IsAccdb`) files with a nonzero
+database key. Regression tests in `JetLegacyEncryptionTests` (published RC4 vector + independent-oracle
+key-derivation check).
 
 > **ACE page decryption (implemented — Office Agile).** A password-encrypted `.accdb` (nonzero
 > `DatabaseKey`) uses **Office Agile encryption** (MS-OFFCRYPTO §2.3.4): an `EncryptionInfo` XML

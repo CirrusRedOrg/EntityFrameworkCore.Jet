@@ -192,8 +192,8 @@ key-derivation check).
 > Agile:** the per-page IV block key is `LE32(pageNumber) XOR databaseKey` (the 4-byte key at `0x3E`),
 > so `IV = SHA512(keyDataSalt ‖ blockKey)[:blockSize]`; the page is `AES-256-CBC(dataKey, IV)`. Page 0
 > is never page-encrypted. Verified end-to-end against a known-password fixture (decrypted pages match
-> the unencrypted twin; `AgileEncryptionTests`). Encrypted databases open **read-only**; *writing*
-> encryption is not implemented. Agile supports **SHA-1/256/384/512** (the descriptor's `hashAlgorithm`).
+> the unencrypted twin; `AgileEncryptionTests`). Agile supports **SHA-1/256/384/512** (the descriptor's
+> `hashAlgorithm`).
 
 ### 2.5 Office "Standard"/CryptoAPI page encryption (verified)
 
@@ -215,6 +215,14 @@ db-nonstandard = AES-256 / `password`):
 Which of the two AES iteration counts applies is decided by whichever authenticates the verifier. Fixture-free
 known-answer tests (real salt + verifier vectors, synthetic page 0) in `OfficeStandardEncryptionTests`.
 Remaining unsupported: **Jet 3** (Access 97) encryption, which also needs Jet 3 format support (2048-byte pages).
+
+> **Writing to an existing encrypted database (implemented).** `IPageCodec.EncryptPage` is the inverse of
+> `DecryptPage`, so `PageChannel.WritePage` encrypts each page on the way to disk (page 0 stays clear) while the
+> page cache holds plaintext — a symmetric mirror of the read path. RC4 is self-inverse; AES flips CBC/ECB
+> decrypt→encrypt. Verified by round-tripping a row insert through all four schemes (legacy RC4, Standard RC4,
+> Standard AES-ECB, Agile AES-CBC): reopening with the codec reads the new row back, and the file stays
+> encrypted (opening without the password still fails). *Creating* a new encrypted database from scratch (an
+> `EncryptionInfo` descriptor + verifier) is not implemented — only writing back into an already-encrypted file.
 
 
 ### 2.2 The user commit-byte table (`0xE00`–`0xFFF`)

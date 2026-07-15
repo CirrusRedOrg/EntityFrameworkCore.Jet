@@ -56,6 +56,29 @@ public class JetLegacyEncryptionTests
     [Fact]
     public void TryCreate_returns_null_for_unencrypted() => Assert.Null(JetLegacyEncryption.TryCreate(0));
 
+    [Fact]
+    public void Encrypt_then_decrypt_round_trips()
+    {
+        var codec = new JetLegacyEncryption(0x0BADF00D);
+        var page = RandomPage(99);
+        var original = (byte[])page.Clone();
+        codec.EncryptPage(5, page);
+        Assert.NotEqual(original, page);
+        codec.DecryptPage(5, page);
+        Assert.Equal(original, page);
+    }
+
+    [Fact]
+    public void Encrypt_equals_decrypt_for_rc4()
+    {
+        var codec = new JetLegacyEncryption(0x0BADF00D);
+        var a = RandomPage(7);
+        var b = (byte[])a.Clone();
+        codec.EncryptPage(3, a);
+        codec.DecryptPage(3, b); // RC4 is symmetric — same keystream both directions
+        Assert.Equal(a, b);
+    }
+
     private static byte[] RandomPage(uint seed)
     {
         var page = new byte[4096];

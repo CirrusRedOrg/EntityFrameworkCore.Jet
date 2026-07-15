@@ -99,7 +99,13 @@ public sealed class AgileEncryption : IPageCodec
         return new AgileEncryption(secretKey, keyDataSalt, blockSize, encodingKey, hash);
     }
 
-    public void DecryptPage(int pageNumber, Span<byte> page)
+    public void DecryptPage(int pageNumber, Span<byte> page) => Transform(pageNumber, page, decrypt: true);
+
+    /// <summary>Encrypts a page — the inverse of <see cref="DecryptPage"/> (AES-CBC encrypt with the same
+    /// per-page IV) — for writing back to an encrypted database.</summary>
+    public void EncryptPage(int pageNumber, Span<byte> page) => Transform(pageNumber, page, decrypt: false);
+
+    private void Transform(int pageNumber, Span<byte> page, bool decrypt)
     {
         if (pageNumber == 0)
             return; // header page is not encrypted
@@ -116,9 +122,9 @@ public sealed class AgileEncryption : IPageCodec
         aes.Padding = PaddingMode.None;
         aes.Key = _secretKey;
         aes.IV = iv;
-        // Decrypt in place (length is a whole number of AES blocks — a page).
-        byte[] clear = aes.DecryptCbc(page, iv, PaddingMode.None);
-        clear.CopyTo(page);
+        // Transform in place (length is a whole number of AES blocks — a page).
+        byte[] result = decrypt ? aes.DecryptCbc(page, iv, PaddingMode.None) : aes.EncryptCbc(page, iv, PaddingMode.None);
+        result.CopyTo(page);
     }
 
     // --- helpers ---

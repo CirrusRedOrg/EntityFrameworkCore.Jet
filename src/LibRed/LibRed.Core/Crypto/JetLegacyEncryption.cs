@@ -36,6 +36,9 @@ public sealed class JetLegacyEncryption : IPageCodec
         Rc4(key, page);
     }
 
+    // RC4 is a symmetric XOR keystream, so encryption is the identical operation.
+    public void EncryptPage(int pageNumber, Span<byte> page) => DecryptPage(pageNumber, page);
+
     /// <summary>Standard RC4: KSA then PRGA, XOR'ing the keystream over <paramref name="data"/> in place.</summary>
     private static void Rc4(ReadOnlySpan<byte> key, Span<byte> data)
     {

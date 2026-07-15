@@ -44,6 +44,24 @@ public class OfficeStandardEncryptionTests
     public void Unencrypted_returns_null() =>
         Assert.Null(OfficeStandardEncryption.TryCreate(new byte[4096], databaseKey: 0, password: "x"));
 
+    [Theory]
+    [InlineData(true)]   // RC4-40 (symmetric stream)
+    [InlineData(false)]  // AES-256 (ECB, distinct encrypt/decrypt directions)
+    public void Encrypt_then_decrypt_round_trips(bool rc4)
+    {
+        var codec = rc4
+            ? OfficeStandardEncryption.TryCreate(BuildPage0(AlgRc4, 0x04, 40, Rc4Salt, Rc4EncVerifier, Rc4EncVerifierHash), 0x12345678, "Test123")!
+            : OfficeStandardEncryption.TryCreate(BuildPage0(AlgAes256, 0x0C, 256, AesSalt, AesEncVerifier, AesEncVerifierHash), 0x12345678, "password")!;
+
+        var page = new byte[4096];
+        new Random(5).NextBytes(page);
+        var original = (byte[])page.Clone();
+        codec.EncryptPage(4, page);
+        Assert.NotEqual(original, page);
+        codec.DecryptPage(4, page);
+        Assert.Equal(original, page);
+    }
+
     // Lays a binary EncryptionInfo (version 4.2) into a synthetic 4 KB page 0: [ver major/minor][flags]
     // [headerSize][EncryptionHeader: Flags,SizeExtra,AlgID,AlgIDHash,KeySize,ProviderType,Reserved1,Reserved2]
     // [EncryptionVerifier: SaltSize,Salt(16),EncryptedVerifier(16),VerifierHashSize,EncryptedVerifierHash].

@@ -168,8 +168,6 @@ public sealed class PageChannel : IDisposable
     {
         if (_readOnly)
             throw new InvalidOperationException("This channel was opened read-only.");
-        if (_codec is not null)
-            throw new NotSupportedException("Writing to a password-encrypted database is not supported (read-only).");
         if (source.Length != PageSize)
             throw new ArgumentException($"A page write must be exactly {PageSize} bytes.", nameof(source));
         if (pageNumber < 0)
@@ -190,15 +188,26 @@ public sealed class PageChannel : IDisposable
             }
         }
 
-        // TODO: page-level encryption mirrors the decryption in ReadPage once that lands.
+        // The cache holds plaintext and the disk holds ciphertext (for an encrypted file), so encrypt a copy on
+        // the way to disk — the mirror of ReadPage's decrypt — while caching the plaintext. Page 0 is a no-op
+        // inside the codec (never page-encrypted).
+        ReadOnlySpan<byte> toDisk = source[..PageSize];
+        byte[]? encrypted = null;
+        if (_codec is not null)
+        {
+            encrypted = source[..PageSize].ToArray();
+            _codec.EncryptPage(pageNumber, encrypted);
+            toDisk = encrypted;
+        }
+
         long offset = (long)pageNumber * PageSize;
         if (offset > _stream.Length)
             _stream.SetLength(offset); // zero-fills the gap up to this page
         _stream.Seek(offset, SeekOrigin.Begin);
-        _stream.Write(source[..PageSize]);
+        _stream.Write(toDisk);
 
-        // Write through: the pool now holds the just-written image, so a subsequent read (this channel or any
-        // other on the file) sees it without touching disk.
+        // Write through: the pool now holds the just-written (plaintext) image, so a subsequent read (this channel
+        // or any other on the file) sees it without touching disk.
         _cache.Store(pageNumber, source[..PageSize]);
     }
 
@@ -253,9 +262,13 @@ public sealed class PageChannel : IDisposable
 
         foreach (var (pageNumber, original) in _undo)
         {
+            // `original` is the raw on-disk image (ciphertext for an encrypted file) — write it back verbatim,
+            // but keep the pool in plaintext by decrypting a copy for the cache.
             _stream.Seek((long)pageNumber * PageSize, SeekOrigin.Begin);
             _stream.Write(original);
-            _cache.Store(pageNumber, original); // keep the pool in step with the restored disk image
+            byte[] plain = original;
+            if (_codec is not null) { plain = (byte[])original.Clone(); _codec.DecryptPage(pageNumber, plain); }
+            _cache.Store(pageNumber, plain);
         }
 
         _stream.SetLength(_txnOriginalLength);

@@ -105,7 +105,12 @@ public sealed class OfficeStandardEncryption : IPageCodec
         return SHA1.HashData(verifier).AsSpan(0, hashSize).SequenceEqual(storedHash.AsSpan(0, hashSize));
     }
 
-    public void DecryptPage(int pageNumber, Span<byte> page)
+    public void DecryptPage(int pageNumber, Span<byte> page) => Transform(pageNumber, page, decrypt: true);
+
+    // RC4 is symmetric; AES-ECB uses the encrypt direction when writing.
+    public void EncryptPage(int pageNumber, Span<byte> page) => Transform(pageNumber, page, decrypt: false);
+
+    private void Transform(int pageNumber, Span<byte> page, bool decrypt)
     {
         if (pageNumber == 0)
             return;
@@ -117,9 +122,9 @@ public sealed class OfficeStandardEncryption : IPageCodec
 
         byte[] key = ComputeKey(BinaryPrimitives.ReadInt32LittleEndian(block));
         if (_rc4)
-            Rc4(key, page);
+            Rc4(key, page);            // symmetric
         else
-            AesEcbInPlace(key, page);
+            AesEcbInPlace(key, page, decrypt);
     }
 
     private byte[] ComputeKey(int block)
@@ -180,15 +185,15 @@ public sealed class OfficeStandardEncryption : IPageCodec
         return aes.DecryptEcb(data, PaddingMode.None);
     }
 
-    private static void AesEcbInPlace(byte[] key, Span<byte> page)
+    private static void AesEcbInPlace(byte[] key, Span<byte> page, bool decrypt)
     {
         using var aes = Aes.Create();
         aes.Mode = CipherMode.ECB;
         aes.Padding = PaddingMode.None;
         aes.Key = key;
         int len = page.Length - page.Length % 16;
-        byte[] clear = aes.DecryptEcb(page[..len], PaddingMode.None);
-        clear.CopyTo(page);
+        byte[] result = decrypt ? aes.DecryptEcb(page[..len], PaddingMode.None) : aes.EncryptEcb(page[..len], PaddingMode.None);
+        result.CopyTo(page);
     }
 
     private static void Rc4(ReadOnlySpan<byte> key, Span<byte> data)

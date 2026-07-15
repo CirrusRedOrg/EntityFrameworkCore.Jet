@@ -28,13 +28,15 @@ public sealed class AgileEncryption : IPageCodec
     private readonly byte[] _keyDataSalt;
     private readonly int _blockSize;
     private readonly byte[] _encodingKey;  // 4-byte database key (page-0 0x3E)
+    private readonly HashKind _hash;       // the descriptor's hashAlgorithm (also used per-page for the IV)
 
-    private AgileEncryption(byte[] secretKey, byte[] keyDataSalt, int blockSize, byte[] encodingKey)
+    private AgileEncryption(byte[] secretKey, byte[] keyDataSalt, int blockSize, byte[] encodingKey, HashKind hash)
     {
         _secretKey = secretKey;
         _keyDataSalt = keyDataSalt;
         _blockSize = blockSize;
         _encodingKey = encodingKey;
+        _hash = hash;
     }
 
     /// <summary>
@@ -84,7 +86,9 @@ public sealed class AgileEncryption : IPageCodec
         byte[] verifierInput = AesCbcDecrypt(DeriveKey(BlockVerifierHashInput), pwdSalt, B64(encKey, "encryptedVerifierHashInput"));
         byte[] verifierValue = AesCbcDecrypt(DeriveKey(BlockVerifierHashValue), pwdSalt, B64(encKey, "encryptedVerifierHashValue"));
         byte[] check = Hash(hash, verifierInput);
-        if (!check.AsSpan(0, verifierValue.Length).SequenceEqual(verifierValue))
+        // encryptedVerifierHashValue decrypts to the hash padded up to a cipher-block multiple, so compare only
+        // the leading hashSize bytes (for SHA-512 that is the whole block; for SHA-1 the block is longer).
+        if (!verifierValue.AsSpan(0, check.Length).SequenceEqual(check))
             throw new UnauthorizedAccessException("Incorrect database password.");
 
         // Recover the data-encryption key.
@@ -92,7 +96,7 @@ public sealed class AgileEncryption : IPageCodec
 
         byte[] encodingKey = new byte[4];
         BinaryPrimitives.WriteInt32LittleEndian(encodingKey, databaseKey);
-        return new AgileEncryption(secretKey, keyDataSalt, blockSize, encodingKey);
+        return new AgileEncryption(secretKey, keyDataSalt, blockSize, encodingKey, hash);
     }
 
     public void DecryptPage(int pageNumber, Span<byte> page)
@@ -105,7 +109,7 @@ public sealed class AgileEncryption : IPageCodec
         BinaryPrimitives.WriteInt32LittleEndian(blockKey, pageNumber);
         for (int i = 0; i < 4; i++) blockKey[i] ^= _encodingKey[i];
 
-        byte[] iv = Fit(SHA512.HashData(Concat(_keyDataSalt, blockKey.ToArray())), _blockSize);
+        byte[] iv = Fit(Hash(_hash, _keyDataSalt, blockKey.ToArray()), _blockSize);
 
         using var aes = Aes.Create();
         aes.Mode = CipherMode.CBC;
@@ -119,7 +123,7 @@ public sealed class AgileEncryption : IPageCodec
 
     // --- helpers ---
 
-    private enum HashKind { Sha512 }
+    private enum HashKind { Sha1, Sha256, Sha384, Sha512 }
 
     private static XElement? LocateEncryptionInfo(ReadOnlySpan<byte> page0)
     {
@@ -157,16 +161,26 @@ public sealed class AgileEncryption : IPageCodec
         }
     }
 
-    private static HashKind ParseHash(string name) => name switch
+    private static HashKind ParseHash(string name) => name.Replace("-", "").ToUpperInvariant() switch
     {
+        "SHA1" => HashKind.Sha1,
+        "SHA256" => HashKind.Sha256,
+        "SHA384" => HashKind.Sha384,
         "SHA512" => HashKind.Sha512,
-        _ => throw new NotSupportedException($"Unsupported Agile hash algorithm '{name}' (only SHA512 is verified).")
+        _ => throw new NotSupportedException($"Unsupported Agile hash algorithm '{name}' (SHA1/256/384/512 supported).")
     };
 
     private static byte[] Hash(HashKind kind, params byte[][] parts)
     {
         byte[] all = parts.Length == 1 ? parts[0] : Concat(parts);
-        return kind switch { HashKind.Sha512 => SHA512.HashData(all), _ => throw new NotSupportedException() };
+        return kind switch
+        {
+            HashKind.Sha1 => SHA1.HashData(all),
+            HashKind.Sha256 => SHA256.HashData(all),
+            HashKind.Sha384 => SHA384.HashData(all),
+            HashKind.Sha512 => SHA512.HashData(all),
+            _ => throw new NotSupportedException()
+        };
     }
 
     private static byte[] Concat(params byte[][] parts)

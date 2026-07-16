@@ -44,6 +44,41 @@ public class DatabaseEncryptionTests
         finally { File.Delete(path); }
     }
 
+    [Theory]
+    [InlineData(40, StandardHash.Sha1)]    // the Access 2007 default
+    [InlineData(40, StandardHash.Md5)]
+    [InlineData(56, StandardHash.Sha1)]
+    [InlineData(128, StandardHash.Sha1)]   // enhanced key length
+    [InlineData(128, StandardHash.Sha256)] // enhanced hash
+    [InlineData(120, StandardHash.Sha512)]
+    public void SetPasswordRc4_with_options_roundtrips(int keyBits, StandardHash hash)
+    {
+        string path = Copy();
+        try
+        {
+            int rows = TableRows(path, null);
+            DatabaseEncryption.SetPasswordRc4(path, "S3cret!", keyBits, hash);
+
+            Assert.Equal(rows, TableRows(path, "S3cret!"));                              // opens with password
+            Assert.ThrowsAny<Exception>(() => TableRows(path, null));                    // requires it
+
+            DatabaseEncryption.RemovePassword(path, "S3cret!");
+            Assert.Equal(rows, TableRows(path, null));                                   // plaintext again
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Theory]
+    [InlineData(33)]   // not a multiple of 8
+    [InlineData(160)]  // above 128
+    [InlineData(32)]   // below 40
+    public void SetPasswordRc4_rejects_invalid_key_length(int keyBits)
+    {
+        string path = Copy();
+        try { Assert.Throws<ArgumentOutOfRangeException>(() => DatabaseEncryption.SetPasswordRc4(path, "pw", keyBits)); }
+        finally { File.Delete(path); }
+    }
+
     [Fact]
     public void Change_password_re_encrypts()
     {

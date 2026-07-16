@@ -134,7 +134,7 @@ absolute from the first page, so parsing is otherwise unchanged.
 > legitimately start with `.` and are **not** validated.
 
 
-### 3.7 Writing a TDEF Access accepts (in progress)
+### 3.7 Writing a TDEF Access accepts (verified)
 
 Every field documented above is part of the format and must be written — **including the constants
 and markers the reader ignores** (`0x01` flags, the `0x0659`/`0x0783` markers, the en-US locale

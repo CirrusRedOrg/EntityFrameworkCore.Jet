@@ -71,6 +71,12 @@ public sealed class AgileEncryption : IPageCodec
         int spinCount = (int)encKey.Attribute("spinCount")!;
         int keyBytes = (int)encKey.Attribute("keyBits")! / 8;
 
+        // Cross-check the descriptor's declared sizes against reality: the salt bytes must be saltSize long, the
+        // hash must match hashSize, and both elements must name the same hash. A disagreement means a malformed or
+        // misparsed descriptor — fail here with a clear message rather than deep in the KDF.
+        VerifyDeclaredSizes(keyData, hash, keyDataSalt.Length);
+        VerifyDeclaredSizes(encKey, hash, pwdSalt.Length);
+
         // H_spin = Hash(salt ‖ UTF16LE(password)), then spinCount iterations of Hash(LE32(i) ‖ H).
         byte[] hspin = Hash(hash, pwdSalt, Encoding.Unicode.GetBytes(password));
         Span<byte> iter = stackalloc byte[4];
@@ -217,6 +223,31 @@ public sealed class AgileEncryption : IPageCodec
                 (string?)el.Attribute("cipherChaining") != "ChainingModeCBC")
                 throw new NotSupportedException("Only AES-CBC Agile encryption is supported.");
         }
+    }
+
+    private static int HashSize(HashKind kind) => kind switch
+    {
+        HashKind.Sha1 => 20,
+        HashKind.Sha256 => 32,
+        HashKind.Sha384 => 48,
+        HashKind.Sha512 => 64,
+        _ => throw new NotSupportedException(),
+    };
+
+    // Asserts the element's declared saltSize/hashSize/hashAlgorithm agree with the actual salt length and the
+    // hash we're using. These attributes are redundant with the data, so a mismatch signals corruption/misparse.
+    private static void VerifyDeclaredSizes(XElement el, HashKind hash, int actualSaltLength)
+    {
+        int saltSize = (int)el.Attribute("saltSize")!;
+        if (saltSize != actualSaltLength)
+            throw new NotSupportedException($"Agile descriptor saltSize ({saltSize}) disagrees with the salt value length ({actualSaltLength}).");
+
+        int hashSize = (int)el.Attribute("hashSize")!;
+        if (hashSize != HashSize(hash))
+            throw new NotSupportedException($"Agile descriptor hashSize ({hashSize}) disagrees with {hash} ({HashSize(hash)}).");
+
+        if (ParseHash((string)el.Attribute("hashAlgorithm")!) != hash)
+            throw new NotSupportedException("Agile descriptor hashAlgorithm differs between keyData and encryptedKey.");
     }
 
     private static HashKind ParseHash(string name) => name.Replace("-", "").ToUpperInvariant() switch

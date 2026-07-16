@@ -91,6 +91,11 @@ public sealed class PageChannel : IDisposable
                     ?? OfficeStandardEncryption.TryCreate(page0, databaseKey, password)
                 : JetLegacyEncryption.TryCreate(databaseKey);
 
+            // A nonzero database key means the file is encrypted; if no codec recognised the descriptor the scheme
+            // is unsupported — fail clearly rather than decoding ciphertext as plaintext (which corrupts downstream).
+            if (databaseKey != 0 && codec is null)
+                throw new NotSupportedException("The database is encrypted with an unsupported scheme.");
+
             return new PageChannel(stream, format, readOnly, path, codec);
         }
         catch

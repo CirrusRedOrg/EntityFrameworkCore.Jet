@@ -24,12 +24,29 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | Offset | Size | Meaning |
 | --- | --- | --- |
 | `0x00` | 1 | Page type `0x00` |
-| `0x01` | 3 | Unknown (not decoded) |
+| `0x01` | 3 | Unknown (observed `01 00 00`, constant) |
 | `0x04` | 15 | Format id ASCII: `Standard Jet DB` / `Standard ACE DB` |
-| `0x13` | 1 | Unknown — string padding/terminator (not decoded) |
+| `0x13` | 1 | NUL terminator of the id string |
 | `0x14` | 1 | Version byte (`0x00` Jet3, `0x01` Jet4, `0x02` ACE12, `0x03` ACE14, `0x05` ACE16, `0x06` ACE17) |
-| `0x15` | 3 | Unknown — upper bytes of the version word (zero) |
-| `0x18`+ | … | Obfuscated (code page, collation, creation date, password) — not decoded |
+| `0x15` | 1 | Version minor/update byte (`0x01` on ACE14/Access 2010, else `0x00`) |
+| `0x16` | 2 | Unknown (zero) |
+| `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with the fixed 128-byte mask; the `0x18`–`0x72` fields below are offsets into it (Jet3 masks 126) |
+| `0x18`, `0x1C` | 4+4 | Fixed constants `0x00000100` / `0x00000101` |
+| `0x20`–`0x2C` | 4×4 | Catalog bootstrap pointers — `MSysObjects`/`MSysACEs`/`MSysQueries`/`MSysRelationships` TDEF pages (`2`/`3`/`4`/`5`); `0x20` = catalog root |
+| `0x30`–`0x3B` | 12 | Reserved (zero) |
+| `0x3C` | 2 | ANSI code page (LE; `0x04E4` = 1252) |
+| `0x3E` | 4 | Database/encryption key (`0` = not encrypted) |
+| `0x42` | 40 | Password (Jet4; Jet3 = 20) — also XOR `(int)creationDate` |
+| `0x6A` | 4 | Fixed constant `0x000011A6` |
+| `0x6E` | 4 | Collation: LCID (2, LE) + sort-order version at `0x71` (`0` Legacy, `1` General) |
+| `0x72` | 8 | Creation timestamp — OLE `double` (days from 1899-12-30) |
+| `0x98` | 4 | Fixed constant `0x00000654` (past the masked window) |
+| `0x9C` | 4 | Engine version string `"4.0"` (ASCII, NUL-term) |
+| `0xA0`–`0x298` | … | Zero padding |
+| `0x299` | 2 | `EncryptionInfo` blob length (LE) — nonzero ⇒ ACE encrypted, `0` ⇒ not |
+| `0x29B` | *len* | `EncryptionInfo` descriptor — **binary** (Office Standard/CryptoAPI RC4·AES) or `04 00 04 00`-prefixed **XML** (Agile) |
+| `0x29B+len`–`0xDFF` | … | Zero padding |
+| `0xE00` | 512 | User commit-byte table (256 × 2 bytes; idle slot `00 01`) |
 
 ---
 

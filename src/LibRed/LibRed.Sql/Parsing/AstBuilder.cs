@@ -548,10 +548,44 @@ internal sealed class AstBuilder
     {
         QueryTermContext[] terms = ctx.queryTerm();
         SetOperatorContext[] operators = ctx.setOperator();
+        if (operators.Length == 0)
+            return BuildQueryTerm(terms[0]);
+
+        // A long chain of one associative operator — e.g. EF's 5000-way `UNION ALL` for a huge primitive
+        // collection — must be built as a *balanced* tree. A left-nested tree is O(n) deep, and the binder,
+        // planner and executor all recurse over it (plus the runtime nested LINQ Concat), overflowing the stack
+        // (an uncatchable StackOverflowException that kills the process). Balancing makes every walk O(log n).
+        // Set operators are left-associative, so this is only sound when every operator is the same and
+        // associative (UNION / UNION ALL / INTERSECT — EXCEPT is not); mixed/EXCEPT chains left-fold as before
+        // (they are correct that way and never occur thousands deep).
+        SetOperator first = SetOperatorOf(operators[0]);
+        if (IsAssociative(first) && operators.All(o => SetOperatorOf(o) == first))
+        {
+            var operands = new SqlStatement[terms.Length];
+            for (int i = 0; i < terms.Length; i++)
+                operands[i] = BuildQueryTerm(terms[i]);
+            return BuildBalanced(operands, first, 0, operands.Length - 1);
+        }
+
         SqlStatement result = BuildQueryTerm(terms[0]);
         for (int i = 0; i < operators.Length; i++)
             result = new SetOperationStatement(result, SetOperatorOf(operators[i]), BuildQueryTerm(terms[i + 1]));
         return result;
+    }
+
+    // UNION / UNION ALL / INTERSECT are associative (can be regrouped); EXCEPT is not.
+    private static bool IsAssociative(SetOperator op) =>
+        op is SetOperator.Union or SetOperator.UnionAll or SetOperator.Intersect;
+
+    // Builds a balanced binary set-operation tree over operands[lo..hi] — O(log n) depth, preserving the
+    // left-to-right operand order (so UNION ALL row order is unchanged).
+    private static SqlStatement BuildBalanced(SqlStatement[] operands, SetOperator op, int lo, int hi)
+    {
+        if (lo == hi)
+            return operands[lo];
+        int mid = lo + (hi - lo) / 2;
+        return new SetOperationStatement(
+            BuildBalanced(operands, op, lo, mid), op, BuildBalanced(operands, op, mid + 1, hi));
     }
 
     /// <summary>A set-operation operand: a SELECT, or a parenthesised (possibly nested) query expression.</summary>

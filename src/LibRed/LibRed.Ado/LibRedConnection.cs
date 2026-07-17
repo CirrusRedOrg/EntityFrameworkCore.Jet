@@ -96,6 +96,23 @@ public sealed class LibRedConnection : DbConnection
             throw new ArgumentException("The connection string is missing a Data Source.", nameof(connectionString));
 
         Storage.DatabaseCreator.CreateEmpty(path);
+        CreateDualTable(path);
+    }
+
+    // EFCore.Jet's query generator renders FROM-less scalar queries (All/Any/Count/constant projections) as
+    // `FROM (SELECT COUNT(*) FROM `#Dual`)`, so every provider-created database needs a single-row `#Dual`
+    // helper table (Jet has no Oracle-style DUAL). The DAO/ADOX creation path did this via
+    // ISchemaOperationsProvider.EnsureDualTable; native creation must do the same or those queries fail to bind.
+    // The leading '#' keeps it out of Catalog.UserTables (so HasUserTables() ignores it) while the binder still
+    // resolves it by name.
+    private static void CreateDualTable(string path)
+    {
+        using var db = JetDatabase.Open(path, readOnly: false);
+        db.CreateTable(
+            JetConnection.DefaultDualTableName,
+            [new LibRed.Catalog.ColumnSpec("ID", LibRed.Catalog.JetDataType.Int32, 4, IsFixedLength: true, IsNullable: false)],
+            primaryKey: ["ID"]);
+        db.OpenTable(JetConnection.DefaultDualTableName).Insert([1]);
     }
 
     /// <summary>Deletes the database file named by <paramref name="connectionString"/>, if it exists.</summary>

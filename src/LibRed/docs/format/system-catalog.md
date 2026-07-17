@@ -75,9 +75,11 @@
   > and `Required` — reproduced byte-for-byte by `PropertyBlob.Write` (which builds the pool by first
   > appearance via `Distinct()`).
   >
-  > **Unmodelled properties round-trip verbatim.** LibRed only *interprets* `DefaultValue`, `Required` and
-  > `CheckConstraints`, but a database-first file may carry many more per column (`ValidationRule`, `Format`,
-  > `AllowZeroLength`, the numeric `DecimalPlaces`, …). An ALTER that edits one property rewrites the whole
+  > **Unmodelled properties round-trip verbatim.** LibRed *interprets* `DefaultValue`, `Required`,
+  > `CheckConstraints` and the text `ValidationRule`/`ValidationText` (the last two are **read-only**: surfaced
+  > through `INFORMATION_SCHEMA.{TABLES,COLUMNS}.VALIDATION_RULE/VALIDATION_TEXT` to match EFCore.Jet's ADOX
+  > `Jet OLEDB:{Table,Column} Validation Rule/Text`, but not yet written or enforced), while a database-first
+  > file may carry many more per column (`Format`, `AllowZeroLength`, the numeric `DecimalPlaces`, …). An ALTER that edits one property rewrites the whole
   > blob (`PropertyBlob.Read` → mutate → `Write`), so `PropertyBlob.Property` keeps each value's **exact stored
   > bytes** (`RawValue`) and re-emits them unchanged — a property LibRed doesn't model is never dropped or
   > corrupted by the best-effort UTF-16 value decode (which would mangle a numeric one). `PropertyBlobRoundTripTests`.

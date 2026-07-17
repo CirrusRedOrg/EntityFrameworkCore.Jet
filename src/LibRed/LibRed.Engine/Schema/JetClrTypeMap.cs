@@ -1,6 +1,6 @@
 using LibRed.Catalog;
 
-namespace LibRed.Engine.Planning;
+namespace LibRed.Engine.Schema;
 
 /// <summary>Maps Jet/ACE column types to the CLR types the engine exposes.</summary>
 public static class JetClrTypeMap

@@ -25,6 +25,8 @@ public static class PropertyBlob
     public const string DefaultValueProperty = "DefaultValue";
     public const string CheckConstraintsProperty = "CheckConstraints";
     public const string RequiredProperty = "Required";
+    public const string ValidationRuleProperty = "ValidationRule";
+    public const string ValidationTextProperty = "ValidationText";
 
     /// <summary>A single property: the owning column (or "" for the table), the property name, its value
     /// (text; for a boolean, <c>"1"</c>/<c>"0"</c>), and its stored type. The type is an ordinary
@@ -255,6 +257,22 @@ public static class PropertyBlob
             if (p.Owner.Length > 0 && p.Name == RequiredProperty && p.Value == "1")
                 result.Add(p.Owner);
         return result;
+    }
+
+    /// <summary>Extracts the <c>ValidationRule</c>/<c>ValidationText</c> designer properties for the given
+    /// owner (a column name, or "" for the table) from a blob; each is null if absent. Access stores these as
+    /// ordinary text properties in the <c>LvProp</c> blob, which is what EFCore.Jet's ADOX surfaces as
+    /// <c>Jet OLEDB:{Column,Table} Validation Rule/Text</c>.</summary>
+    public static (string? Rule, string? Text) ReadValidation(ReadOnlySpan<byte> blob, string owner)
+    {
+        string? rule = null, text = null;
+        foreach (Property p in Read(blob))
+        {
+            if (!string.Equals(p.Owner, owner, StringComparison.OrdinalIgnoreCase)) continue;
+            if (p.Name == ValidationRuleProperty) rule = p.Value.Length > 0 ? p.Value : null;
+            else if (p.Name == ValidationTextProperty) text = p.Value.Length > 0 ? p.Value : null;
+        }
+        return (rule, text);
     }
 
     /// <summary>Extracts the table's CHECK constraints (name, expression) from a blob. The

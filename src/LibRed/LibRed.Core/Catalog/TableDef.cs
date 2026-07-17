@@ -23,6 +23,15 @@ public sealed class TableDef
     /// (<c>LvProp</c>) blob. Set by the catalog after the definition is decoded.</summary>
     public IReadOnlyList<(string Name, string Expression)> CheckConstraints { get; internal set; } = [];
 
+    /// <summary>The table's <c>ValidationRule</c>/<c>ValidationText</c> designer properties, read from the
+    /// extended-properties (<c>LvProp</c>) blob; null if none. Surfaced through
+    /// <c>INFORMATION_SCHEMA.TABLES</c> (VALIDATION_RULE/VALIDATION_TEXT), matching EFCore.Jet's
+    /// <c>AdoxSchema.GetTables</c> (<c>Jet OLEDB:Table Validation Rule/Text</c>).</summary>
+    public string? ValidationRule { get; internal set; }
+
+    /// <inheritdoc cref="ValidationRule"/>
+    public string? ValidationText { get; internal set; }
+
     /// <summary>True for the MSys* system tables.</summary>
     public bool IsSystem { get; init; }
 

@@ -45,6 +45,8 @@ dotnet test test\EFCore.Jet.FunctionalTests\EFCore.Jet.FunctionalTests.csproj --
 dotnet test test\EFCore.Jet.FunctionalTests\EFCore.Jet.FunctionalTests.csproj --filter "FullyQualifiedName=EntityFrameworkCore.Jet.FunctionalTests.Query.NorthwindQueryJetTest.Where_simple"
 ```
 
+**When running a suite, capture the failing test *names* in the same run** — don't reduce the output to just the `Passed!/Failed!` count line and then re-run the whole suite to find which failed. Grep a pattern that catches both, e.g. `grep -iE "Passed!|Failed!|\[FAIL\]|error CS"` (xUnit prints `… [FAIL]` and `Failed <FullyQualifiedName>` lines as it goes), or tee the full output to a file and inspect it. Only re-run after changing something.
+
 Tests run in **fixed order by default** (`FIXED_TEST_ORDER` compile constant). All tests lock culture to `en-US` via a module initializer.
 
 Tests that require features Jet doesn't support are marked `[Fact(Skip = "Unsupported by JET: ...")]` — see `SkipMessages.txt` for the catalog of known unsupported patterns.

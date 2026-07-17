@@ -5,6 +5,7 @@ using EntityFrameworkCore.Jet.Metadata.Internal; // JetAnnotationNames (identity
 using LibRed;
 using LibRed.Catalog;
 using LibRed.Data;
+using LibRed.Engine.Schema; // shared store-type/nullability derivations (JetStoreType) — kept in sync with INFORMATION_SCHEMA
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -96,14 +97,11 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
             for (int ordinal = 0; ordinal < definition.Columns.Count; ordinal++)
             {
                 ColumnDef column = definition.Columns[ordinal];
-                string storeType = GetStoreType(column);
+                // Store type + nullability come from the shared JetStoreType so INFORMATION_SCHEMA and this
+                // scaffolder can never report a column differently (see JetStoreType).
+                string storeType = JetStoreType.StoreType(column);
                 int maxLength = column.Type == JetDataType.Text ? Math.Max(1, column.Length / 2) : 0;
-
-                // Nullability comes from the column's `Required` property (read from the LvProp blob into
-                // ColumnDef.IsNullable). An **auto-number (counter) column is always required** even without
-                // a Required property — its non-null behaviour comes from the AutoNumber flag, not LvProp
-                // (verified; matches Access/DAO), so it must never be reported nullable.
-                bool nullable = !column.IsAutoNumber && column.IsNullable;
+                bool nullable = JetStoreType.IsNullable(column);
 
                 // DefaultValue is the expression's source text (e.g. "0", "'hi'"), read from the same blob.
                 string? defaultValueSql = column.DefaultValue;
@@ -361,31 +359,4 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
         return null;
     }
 
-    /// <summary>Maps a column to a store-type name EFCore.Jet's type mapping source recognises.</summary>
-    private static string GetStoreType(ColumnDef column) => column.Type switch
-    {
-        JetDataType.Boolean => "bit",
-        JetDataType.Byte => "byte",
-        JetDataType.Int16 => "smallint",
-        JetDataType.Int32 => column.IsAutoNumber ? "counter" : "integer",
-        JetDataType.Int64 => "bigint",
-        JetDataType.Single => "single",
-        JetDataType.Double => "double",
-        JetDataType.Currency => "currency",
-        JetDataType.DateTime or JetDataType.DateTimeExtended => "datetime",
-        JetDataType.Guid => "guid",
-        JetDataType.FixedPoint => $"decimal({column.Precision}, {column.Scale})",
-        // Text/Binary map to char/varchar (binary/varbinary) by the column's fixed-length flag — the same
-        // distinction Access reports (adChar→char, adVarChar→varchar; adBinary→binary, adVarBinary→varbinary).
-        // Text length is in characters (2 bytes each on disk); binary length is already in bytes.
-        JetDataType.Text => column.IsFixedLength
-            ? $"char({Math.Max(1, column.Length / 2)})"
-            : $"varchar({Math.Max(1, column.Length / 2)})",
-        JetDataType.Binary => column.IsFixedLength
-            ? $"binary({Math.Max(1, column.Length)})"
-            : $"varbinary({Math.Max(1, column.Length)})",
-        JetDataType.Memo => "longchar",
-        JetDataType.Ole => "longbinary",
-        _ => "varchar(255)",
-    };
 }

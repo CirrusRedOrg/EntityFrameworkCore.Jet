@@ -588,6 +588,10 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             {
                 context.Database.EnsureCreatedResiliently();
 
+                // Work around LibRed/ACE MATCH FULL: the Actor insert has GameId set but CurrentWeaponId null
+                // (a partial-null composite FK), which Jet/ACE reject. Drop it so the row inserts.
+                context.Database.ExecuteSql($"ALTER TABLE `Actor` DROP CONSTRAINT `FK_Actor_Items_GameId_CurrentWeaponId`");
+
                 context.Characters.Add(
                     new PlayerCharacter(
                         new Level { Game = new Game() }));
@@ -974,6 +978,10 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             using var context = new GameDbContext(options);
             context.Database.EnsureCreatedResiliently();
 
+            // Work around LibRed/ACE MATCH FULL: the Actor insert has GameId set but CurrentWeaponId null
+            // (a partial-null composite FK), which Jet/ACE reject. Drop it so the row inserts.
+            context.Database.ExecuteSql($"ALTER TABLE `Actor` DROP CONSTRAINT `FK_Actor_Items_GameId_CurrentWeaponId`");
+
             var player = new PlayerCharacter(
                 new Level { Game = new Game() });
 
@@ -999,6 +1007,14 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             using (var context = new GameDbContext(options))
             {
                 context.Database.EnsureCreatedResiliently();
+
+                // Drop constraints to work around LibRed/ACE limitation regarding compound foreign keys and NULL:
+                // the initial inserts have a partial-null composite FK (GameId set, the second column null) which
+                // Jet/ACE reject under MATCH FULL — the Actor's CurrentWeapon FK and the Item's self-referencing
+                // Container FK. Dropping them lets the test exercise its actual subject: assigning the CurrentWeapon
+                // reference repeatedly and round-tripping it.
+                context.Database.ExecuteSql($"ALTER TABLE `Actor` DROP CONSTRAINT `FK_Actor_Items_GameId_CurrentWeaponId`");
+                context.Database.ExecuteSql($"ALTER TABLE `Items` DROP CONSTRAINT `FK_Items_Items_GameId_ContainerId`");
 
                 var player = new PlayerCharacter(
                     new Level { Game = new Game() });
@@ -1039,6 +1055,12 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             using (var context = new GameDbContext(options))
             {
                 context.Database.EnsureCreatedResiliently();
+
+                // Work around LibRed/ACE MATCH FULL: the initial inserts carry a partial-null composite FK
+                // (GameId set, second column null), which Jet/ACE reject — the Actor's CurrentWeapon FK and the
+                // Item's self-referencing Container FK. Drop both so the graph inserts.
+                context.Database.ExecuteSql($"ALTER TABLE `Actor` DROP CONSTRAINT `FK_Actor_Items_GameId_CurrentWeaponId`");
+                context.Database.ExecuteSql($"ALTER TABLE `Items` DROP CONSTRAINT `FK_Items_Items_GameId_ContainerId`");
 
                 var player = new PlayerCharacter(
                     new Level { Game = new Game() });

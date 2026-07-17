@@ -98,13 +98,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 // FROM-less SELECT: one row, no columns — the projection above evaluates its constants once.
                 return ([], [new object?[0]]);
 
-            case ScanNode scan when Planning.InformationSchema.IsInformationSchema(scan.Table):
+            case ScanNode scan when Schema.InformationSchema.IsInformationSchema(scan.Table):
             {
                 // Virtual INFORMATION_SCHEMA.<view> table: materialise rows from the catalog.
                 string alias = scan.Alias ?? scan.Table;
-                var columns = Planning.InformationSchema.ColumnsOf(scan.Table)
+                var columns = Schema.InformationSchema.ColumnsOf(scan.Table)
                     .Select(c => new OutputColumn(alias, c)).ToList();
-                return (columns, Planning.InformationSchema.Rows(scan.Table, _database.Catalog));
+                return (columns, Schema.InformationSchema.Rows(scan.Table, _database.Catalog));
             }
 
             case ScanNode scan:

@@ -120,10 +120,13 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
                         column.DefaultValue = value;
                     if (required.Contains(column.Name))
                         column.IsNullable = false;
+                    (column.ValidationRule, column.ValidationText) = PropertyBlob.ReadValidation(blob, column.Name);
                 }
 
                 var checks = PropertyBlob.ReadCheckConstraints(blob);
                 if (checks.Count > 0) definition.CheckConstraints = checks;
+
+                (definition.ValidationRule, definition.ValidationText) = PropertyBlob.ReadValidation(blob, "");
             }
             tables.Add(definition);
         }

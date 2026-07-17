@@ -69,6 +69,15 @@ public sealed class ColumnDef
     /// Set by the catalog after the descriptors are decoded (the property lives outside the TDEF).</summary>
     public string? DefaultValue { get; internal set; }
 
+    /// <summary>The column's <c>ValidationRule</c>/<c>ValidationText</c> designer properties, read from the
+    /// table's extended-properties (<c>LvProp</c>) blob; null if none. Surfaced through
+    /// <c>INFORMATION_SCHEMA.COLUMNS</c> (VALIDATION_RULE/VALIDATION_TEXT), matching EFCore.Jet's
+    /// <c>AdoxSchema.GetColumns</c> which reads the equivalent <c>Jet OLEDB:Column Validation Rule/Text</c>.</summary>
+    public string? ValidationRule { get; internal set; }
+
+    /// <inheritdoc cref="ValidationRule"/>
+    public string? ValidationText { get; internal set; }
+
     /// <summary>A "Random" AutoNumber — an AutoNumber column whose <see cref="DefaultValue"/> is the built-in
     /// <c>GenUniqueID()</c> expression (Access's "New Values = Random"). Such a column is assigned a random
     /// Int32 on insert instead of the sequential seed/increment counter, and its TDEF high-water is left

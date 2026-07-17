@@ -1,7 +1,7 @@
 using LibRed.Catalog;
 using LibRed.Sql.Binding;
 
-namespace LibRed.Engine.Planning;
+namespace LibRed.Engine.Schema;
 
 /// <summary>
 /// Adapts the Core <see cref="JetCatalog"/> to the SQL binder's <see cref="ISchemaProvider"/>.

@@ -2,6 +2,7 @@ using LibRed.Catalog;
 using LibRed.Engine.Execution;
 using LibRed.Engine.Plan;
 using LibRed.Engine.Planning;
+using LibRed.Engine.Schema;
 using LibRed.Sql.Ast;
 using LibRed.Sql.Binding;
 using LibRed.Sql.Parsing;

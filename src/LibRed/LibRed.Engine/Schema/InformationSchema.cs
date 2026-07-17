@@ -1,6 +1,6 @@
 using LibRed.Catalog;
 
-namespace LibRed.Engine.Planning;
+namespace LibRed.Engine.Schema;
 
 /// <summary>
 /// Exposes the Jet-flavoured <c>INFORMATION_SCHEMA</c> views as engine-native virtual tables backed by the
@@ -47,41 +47,64 @@ public static class InformationSchema
     /// in <see cref="ColumnsOf"/> order).</summary>
     public static IReadOnlyList<object?[]> Rows(string tableName, JetCatalog catalog)
     {
-        var tables = catalog.UserTables.ToList();
+        // All views cover the same set — user tables PLUS the '#Dual' internal helper (INFORMATION_SCHEMA
+        // surfaces it the way EFCore.Jet's AdoxSchema does), but not MSys*/temp system tables — matching how
+        // EFCore.Jet applies its MSys filter uniformly across every schema query.
+        var tables = catalog.Tables.Where(t => !t.IsSystem || t.Name.StartsWith('#')).ToList();
         var rows = new List<object?[]>();
         switch (View(tableName))
         {
             case "TABLES":
+                // Same table set as every other view — user tables plus the '#Dual' internal helper, no
+                // MSys*/temp system tables — each classified by TABLE_TYPE. Consumers filter by type anyway
+                // (e.g. the creator's "has tables" check is TABLE_TYPE IN ('BASE TABLE','VIEW')).
                 foreach (TableDef t in tables)
-                    rows.Add([t.Name, "BASE TABLE", null, null]);
+                    rows.Add([t.Name, TableType(t), t.ValidationRule, t.ValidationText]);
                 break;
 
             case "COLUMNS":
                 foreach (TableDef t in tables)
                     foreach (ColumnDef c in t.Columns)
-                        rows.Add([t.Name, c.Name, c.Index + 1, c.Type.ToString(), c.IsNullable,
-                            IsText(c.Type) ? c.Length : (object?)null, null, null, c.DefaultValue,
-                            null, null, c.IsAutoNumber ? c.Seed : (object?)null,
+                        // DATA_TYPE / IS_NULLABLE / CHARACTER_MAXIMUM_LENGTH come from the shared JetStoreType so
+                        // they always agree with the scaffolder. Precision/Scale are cast to int (they are byte on
+                        // ColumnDef) so a consumer's GetInt32 can read them.
+                        // ORDINAL_POSITION is 0-based, matching EFCore.Jet's AdoxSchema.GetColumns (ADOX reports
+                        // the OpenSchema position minus one; consumers only ORDER BY it).
+                        rows.Add([t.Name, c.Name, c.Index, JetStoreType.TypeName(c), JetStoreType.IsNullable(c),
+                            JetStoreType.MaxLength(c), c.Type == JetDataType.FixedPoint ? (int)c.Precision : (object?)null,
+                            c.Type == JetDataType.FixedPoint ? (int)c.Scale : (object?)null, c.DefaultValue,
+                            c.ValidationRule, c.ValidationText, c.IsAutoNumber ? c.Seed : (object?)null,
                             c.IsAutoNumber ? c.Increment : (object?)null]);
                 break;
 
             case "INDEXES":
                 foreach (TableDef t in tables)
                     foreach (IndexDef ix in t.Indexes)
-                        rows.Add([t.Name, ix.Name, IndexType(ix), !ix.IsUnique, ix.IgnoreNulls]);
+                        // IS_NULLABLE / IGNORES_NULLS mirror AdoxSchema.GetIndexes' AllowNullsEnum derivation,
+                        // NOT uniqueness: an index is non-nullable only when it DISALLOW NULLs (Required, flag
+                        // 0x08 = adIndexNullsDisallow); IGNORES_NULLS is the Ignore-nulls state (flag 0x02) and,
+                        // as ADOX gates it, is only meaningful when the index is otherwise nullable.
+                        rows.Add([t.Name, ix.Name, IndexType(ix), !ix.Required, !ix.Required && ix.IgnoreNulls]);
                 break;
 
             case "INDEX_COLUMNS":
                 foreach (TableDef t in tables)
                     foreach (IndexDef ix in t.Indexes)
+                        // ORDINAL_POSITION is 0-based here too, matching AdoxSchema.GetIndexColumns (which uses the
+                        // loop index k directly). RELATION_COLUMNS below stays 1-based, as ADOX does there.
                         for (int i = 0; i < ix.Columns.Count; i++)
-                            rows.Add([t.Name, ix.Name, i + 1, ix.Columns[i].Column.Name, !ix.Columns[i].Ascending]);
+                            rows.Add([t.Name, ix.Name, i, ix.Columns[i].Column.Name, !ix.Columns[i].Ascending]);
                 break;
 
             case "RELATIONS":
                 foreach (ForeignKey fk in catalog.Relationships)
-                    rows.Add([fk.Name, fk.Table, fk.ReferencedTable, "FOREIGN KEY",
-                        RefAction(fk.CascadeDelete, fk.DeleteSetNull), RefAction(fk.CascadeUpdate, false),
+                    // RELATION_TYPE: EFCore.Jet's live provider is PreciseSchema, which overrides ADOX's value
+                    // with DAO's GetRelationTypes — "ONE" for a one-to-one relationship, else "MANY". This is
+                    // NOT a grbit flag (MSysRelationships.grbit only carries enforce/cascade/set-null); Access
+                    // encodes one-to-one by making the child-side FK backing index UNIQUE (a 1:many child index
+                    // is non-unique). So derive it from that index's uniqueness, which LibRed already models.
+                    rows.Add([fk.Name, fk.Table, fk.ReferencedTable, RelationType(fk, catalog),
+                        RefAction(fk.CascadeDelete, fk.DeleteSetNull), RefAction(fk.CascadeUpdate, fk.UpdateSetNull),
                         fk.IsEnforced, fk.IsInherited]);
                 break;
 
@@ -102,9 +125,28 @@ public static class InformationSchema
 
     private static string View(string tableName) => tableName[Prefix.Length..].ToUpperInvariant();
 
-    private static bool IsText(JetDataType t) => t is JetDataType.Text or JetDataType.Memo;
+    // Classify TABLE_TYPE as EFCore.Jet's AdoxSchema / SchemaProvider does: a '#'-prefixed helper (#Dual) is an
+    // INTERNAL TABLE, an MSys* table is a SYSTEM TABLE, everything else is a user BASE TABLE.
+    private static string TableType(TableDef t) =>
+        t.Name.StartsWith('#') ? "INTERNAL TABLE"
+        : t.Name.StartsWith("MSys", StringComparison.OrdinalIgnoreCase) ? "SYSTEM TABLE"
+        : "BASE TABLE";
 
     private static string IndexType(IndexDef ix) => ix.IsPrimaryKey ? "PRIMARY" : ix.IsUnique ? "UNIQUE" : "INDEX";
 
     private static string RefAction(bool cascade, bool setNull) => cascade ? "CASCADE" : setNull ? "SET NULL" : "NO ACTION";
+
+    /// <summary>RELATION_TYPE — "ONE" for a one-to-one relationship, else "MANY", as DAO reports it. A
+    /// relationship is one-to-one when the child (referencing) table's backing index over the FK columns is
+    /// UNIQUE; a one-to-many child index is non-unique (see system-catalog.md). Defaults to "MANY" when no
+    /// matching child index is found (e.g. an unenforced FK that Access left unindexed).</summary>
+    private static string RelationType(ForeignKey fk, JetCatalog catalog)
+    {
+        TableDef? child = catalog.Tables.FirstOrDefault(t => t.Name.Equals(fk.Table, StringComparison.OrdinalIgnoreCase));
+        var fkColumns = fk.Columns.Select(c => c.Column).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        IndexDef? backing = child?.Indexes.FirstOrDefault(ix =>
+            ix.Columns.Count == fkColumns.Count
+            && ix.Columns.All(c => fkColumns.Contains(c.Column.Name)));
+        return backing?.IsUnique == true ? "ONE" : "MANY";
+    }
 }

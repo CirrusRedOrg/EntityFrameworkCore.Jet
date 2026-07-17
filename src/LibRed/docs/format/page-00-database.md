@@ -39,8 +39,21 @@ Version byte → format:
 | `0x01` | Jet 4 (Access 2000–2003) | 4096 | MDB |
 | `0x02` | ACE 12 (Access 2007) | 4096 | ACCDB |
 | `0x03` | ACE 14 (Access 2010) | 4096 | ACCDB |
-| `0x05` | ACE 16 (Access 2016) | 4096 | ACCDB |
-| `0x06` | ACE 17 (Access 2019+) | 4096 | ACCDB |
+| `0x04` | ACE 15 (Access 2013) — **reserved, never emitted** | 4096 | ACCDB |
+| `0x05` | ACE 16 (Access 2016) — triggered by **Large Number** | 4096 | ACCDB |
+| `0x06` | ACE 17 (Access 2019+) — triggered by **Date/Time Extended** | 4096 | ACCDB |
+
+The version byte is **"the minimum ACE engine whose format features this file uses,"** and Microsoft allocates one
+byte per engine release whether or not that release adds a format-forcing feature. The only features that push
+past `0x03` are the two new *data types*: **Large Number** (Int64) → `0x05`, and **Date/Time Extended** (datetime2)
+→ `0x06`. Access **2010 through 2019 all default to `0x03`** unless a file actually uses one of those types.
+**`0x04` (ACE 15 / Access 2013) is reserved but never stamped** — 2013 added no format-forcing data type, so its
+files fall back to `0x03` (verified: a real `db2013` reads `0x03`; jackcess ships no 2013 fixture; Access 2013
+defaults to the 2007-2016 format). LibRed maps `0x04` to the `0x03` (2010) layout rather than a clone class.
+A genuinely **unknown** version byte on an `.accdb` that still carries the cleartext `"4.0"` engine string at
+`0x9C` is read as the **latest known ACE** layout (currently ACE 17) — the format grows conservatively, so an
+unrecognised byte is almost certainly a newer 4KB ACE variant; the `"4.0"` guard stops a genuinely different
+future engine (e.g. a `"5.0"` string) from being mis-read as ACE.
 
 **Catalog bootstrap.** Reading the database is a two-step hop from page 0: the pointer at `0x20` gives the
 `MSysObjects` TDEF page (2), and `MSysObjects` then lists every other object (each table's row `Id` is *its*

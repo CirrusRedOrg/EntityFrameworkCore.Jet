@@ -15,6 +15,14 @@ public abstract class JetFormatBase
     /// <summary>Offset of the one-byte format version marker within page 0.</summary>
     public const int VersionOffset = 0x14;
 
+    /// <summary>Offset of the cleartext ASCII engine-version string ("4.0", NUL-terminated) — past the masked
+    /// header window, so readable directly. Present on both Jet 4 (<c>.mdb</c>) and ACE (<c>.accdb</c>), which
+    /// are both the Jet-4.0 engine. Used to confirm an unknown version byte is still a 4.0-family database
+    /// before falling back to the latest known ACE layout.</summary>
+    public const int EngineVersionOffset = 0x9C;
+    public const int EngineVersionLength = 4;
+    private const string Jet40EngineVersion = "4.0";
+
     /// <summary>Offset of the ASCII format identifier string within page 0.</summary>
     public const int FormatIdentifierOffset = 0x04;
 
@@ -241,7 +249,7 @@ public abstract class JetFormatBase
     /// </summary>
     public static JetFormatBase Detect(Stream stream)
     {
-        Span<byte> header = stackalloc byte[VersionOffset + 1];
+        Span<byte> header = stackalloc byte[EngineVersionOffset + EngineVersionLength]; // through the 0x9C engine string
         long original = stream.Position;
         stream.Seek(0, SeekOrigin.Begin);
         stream.ReadExactly(header);
@@ -252,8 +260,25 @@ public abstract class JetFormatBase
             throw new NotSupportedException(
                 $"Not a Jet/ACE database: expected \"{JetIdentifier}\", \"{AceIdentifier}\" or \"{JetSystemIdentifier}\" at offset 0x{FormatIdentifierOffset:X2}, found \"{identifier}\".");
 
-        return FromVersionByte(header[VersionOffset]);
+        try
+        {
+            return FromVersionByte(header[VersionOffset]);
+        }
+        catch (NotSupportedException)
+        {
+            // Unknown version byte on an ACCDB that still carries the Jet-4.0 engine string is almost certainly a
+            // newer 4KB ACE variant (the format grows conservatively, adding a byte per engine release). Read it
+            // with the latest known ACE layout rather than failing. The 4.0 guard is essential: it stops us from
+            // mis-reading a genuinely different future engine (e.g. a "5.0" string) as ACE.
+            if (identifier == AceIdentifier && ReadEngineVersion(header) == Jet40EngineVersion)
+                return new Jet17Format();
+            throw;
+        }
     }
+
+    /// <summary>Reads the cleartext engine-version string ("4.0") at <see cref="EngineVersionOffset"/>.</summary>
+    private static string ReadEngineVersion(ReadOnlySpan<byte> header) =>
+        System.Text.Encoding.ASCII.GetString(header.Slice(EngineVersionOffset, EngineVersionLength)).TrimEnd('\0');
 
     /// <summary>Reads the ASCII format identifier ("Standard Jet DB"/"Standard ACE DB") from a page-0 header.</summary>
     public static string ReadFormatIdentifier(ReadOnlySpan<byte> header) =>
@@ -268,6 +293,11 @@ public abstract class JetFormatBase
         0x01 => new Jet4Format(),
         0x02 => new Jet12Format(),
         0x03 => new Jet14Format(),
+        // 0x04 = ACE 15 (Access 2013)'s reserved engine byte. 2013 added no format-forcing data type (Large Number
+        // is 0x05, Date/Time Extended is 0x06), so this is byte-identical to the 0x03 (2010) format and is never
+        // actually emitted — 2013 defaults to 0x03. Read it with the 2010 layout rather than inventing a clone
+        // Jet15Format (verified: a real db2013 reads 0x03; jackcess ships no 2013 fixture).
+        0x04 => new Jet14Format(),
         0x05 => new Jet16Format(),
         0x06 => new Jet17Format(),
         _ => throw new NotSupportedException($"Unknown Jet/ACE format version byte 0x{versionByte:X2}."),

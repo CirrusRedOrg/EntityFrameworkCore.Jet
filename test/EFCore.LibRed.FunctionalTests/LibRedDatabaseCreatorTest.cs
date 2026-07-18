@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
+using System.IO;
 using Xunit;
 using LibRedDatabaseCreator = EntityFrameworkCore.LibRed.Storage.Internal.LibRedDatabaseCreator;
 
@@ -387,10 +388,8 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 async creator =>
                 {
                     var errorNumber = async
-                        ? (await Assert.ThrowsAnyAsync<DbException>(() => creator.HasTablesAsyncBase())).ErrorCode
-                        : Assert.ThrowsAny<DbException>(() => creator.HasTablesBase()).ErrorCode;
-
-                    Assert.NotEqual(errorNumber, 0);
+                        ? (await Assert.ThrowsAnyAsync<FileNotFoundException>(() => creator.HasTablesAsyncBase()))
+                        : Assert.ThrowsAny<FileNotFoundException>(() => creator.HasTablesBase());
                 });
         }
 

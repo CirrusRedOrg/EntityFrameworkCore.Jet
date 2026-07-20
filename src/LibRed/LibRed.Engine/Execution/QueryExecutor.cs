@@ -5,7 +5,7 @@ using LibRed.Sql.Ast;
 namespace LibRed.Engine.Execution;
 
 /// <summary>A column produced by a plan node: an optional table-alias qualifier and a name.</summary>
-internal readonly record struct OutputColumn(string? Qualifier, string Name);
+internal readonly record struct OutputColumn(string? Qualifier, string Name, Type? ClrType = null);
 
 /// <summary>
 /// Interprets a logical plan tree against the storage layer, producing a
@@ -33,7 +33,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     public ResultSet ExecuteQuery(PlanNode plan)
     {
         var (columns, rows) = Execute(plan, null);
-        return new ResultSet(columns.Select(c => c.Name).ToList(), rows);
+        return new ResultSet(
+            columns.Select(c => c.Name).ToList(),
+            rows,
+            columns.Select(c => c.ClrType ?? typeof(object)).ToList());
     }
 
     /// <summary>Runs a FROM-less <c>SELECT @@IDENTITY</c> / <c>SELECT @@ROWCOUNT</c>: evaluates each system
@@ -50,7 +53,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             row[i] = evaluator.Evaluate(item.Value);
             names.Add(item.Alias ?? ((SystemVariableExpression)item.Value).Name);
         }
-        return new ResultSet(names, [row]);
+        return new ResultSet(names, [row], statement.Projection
+            .Select(item => DeclaredType(item.Value, []) ?? typeof(object)).ToList());
     }
 
     object? IScalarSubqueryRunner.ExecuteScalar(SelectStatement query, EvalScope outerScope)
@@ -103,7 +107,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 // Virtual INFORMATION_SCHEMA.<view> table: materialise rows from the catalog.
                 string alias = scan.Alias ?? scan.Table;
                 var columns = Schema.InformationSchema.ColumnsOf(scan.Table)
-                    .Select(c => new OutputColumn(alias, c)).ToList();
+                    .Zip(Schema.InformationSchema.ColumnTypesOf(scan.Table),
+                        (name, type) => new OutputColumn(alias, name, type)).ToList();
                 return (columns, Schema.InformationSchema.Rows(scan.Table, _database.Catalog));
             }
 
@@ -111,7 +116,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 var table = _database.OpenTable(scan.Table);
                 string alias = scan.Alias ?? scan.Table;
-                var columns = table.Definition.Columns.Select(c => new OutputColumn(alias, c.Name)).ToList();
+                var columns = table.Definition.Columns
+                    .Select(c => new OutputColumn(alias, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList();
                 return (columns, table.Rows());
             }
 
@@ -119,7 +125,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 var table = _database.OpenTable(seek.Table);
                 string alias = seek.Alias ?? seek.Table;
-                var columns = table.Definition.Columns.Select(c => new OutputColumn(alias, c.Name)).ToList();
+                var columns = table.Definition.Columns
+                    .Select(c => new OutputColumn(alias, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList();
 
                 // Evaluate the key(s) in the outer scope (so an index-nested-loop join can key off the outer
                 // row); a single-table seek's key is a constant/parameter.
@@ -135,7 +142,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 var table = _database.OpenTable(range.Table);
                 string alias = range.Alias ?? range.Table;
-                var columns = table.Definition.Columns.Select(c => new OutputColumn(alias, c.Name)).ToList();
+                var columns = table.Definition.Columns
+                    .Select(c => new OutputColumn(alias, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList();
 
                 var evaluator = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
                 int col = range.Index.Columns[0].Column.Index;
@@ -152,7 +160,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case DerivedTableNode derived:
             {
                 var (inner, rows) = Execute(derived.Input, outer);
-                var columns = inner.Select(c => new OutputColumn(derived.Alias, c.Name)).ToList();
+                var columns = inner.Select(c => new OutputColumn(derived.Alias, c.Name, c.ClrType)).ToList();
                 return (columns, rows);
             }
 
@@ -200,7 +208,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     else
                     {
                         string name = item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{plan.Count + 1}");
-                        plan.Add((new OutputColumn(null, name), -1, item.Value));
+                        plan.Add((new OutputColumn(null, name, DeclaredType(item.Value, columns)), -1, item.Value));
                     }
                 }
 
@@ -317,6 +325,133 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
     }
 
+    /// <summary>Infers a stable declared CLR type from schema and expression shape. It deliberately returns
+    /// null for expressions whose result type depends on runtime coercion; the ADO layer can still fall back
+    /// to a non-null runtime value in those cases without publishing misleading metadata for empty results.</summary>
+    private Type? DeclaredType(Expression expression, IReadOnlyList<OutputColumn> columns)
+    {
+        switch (expression)
+        {
+            case LiteralExpression { Value: { } value }:
+                return value.GetType();
+            case LiteralExpression:
+                return null;
+            case ColumnReference column:
+                return DeclaredColumnType(column, columns)
+                    ?? (column.Table is null && column.Column.Equals("Now", StringComparison.OrdinalIgnoreCase)
+                        ? typeof(DateTime) : null);
+            case SystemVariableExpression variable:
+                return variable.Name.Equals("ROWCOUNT", StringComparison.OrdinalIgnoreCase)
+                    ? typeof(int) : _session?.LastIdentity?.GetType();
+            case ExistsExpression or InSubqueryExpression or InListExpression:
+                return typeof(bool);
+            case UnaryExpression unary:
+                return unary.Operator is UnaryOperator.Not or UnaryOperator.IsNull or UnaryOperator.IsNotNull
+                    ? typeof(bool) : DeclaredType(unary.Operand, columns);
+            case BinaryExpression binary:
+                if (binary.Operator is BinaryOperator.Equal or BinaryOperator.NotEqual
+                    or BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual
+                    or BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual
+                    or BinaryOperator.And or BinaryOperator.Or or BinaryOperator.Like or BinaryOperator.In)
+                    return typeof(bool);
+                if (binary.Operator == BinaryOperator.Concat)
+                    return typeof(string);
+                Type? left = DeclaredType(binary.Left, columns);
+                Type? right = DeclaredType(binary.Right, columns);
+                return DeclaredBinaryType(binary.Operator, left, right);
+            case FunctionCall function:
+                return DeclaredFunctionType(function, columns);
+            default:
+                return null;
+        }
+    }
+
+    private static Type? DeclaredColumnType(ColumnReference reference, IReadOnlyList<OutputColumn> columns)
+    {
+        Type? result = null;
+        bool found = false;
+        foreach (OutputColumn column in columns)
+        {
+            if (!string.Equals(column.Name, reference.Column, StringComparison.OrdinalIgnoreCase)
+                || reference.Table is not null
+                && !string.Equals(column.Qualifier, reference.Table, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (found) return null; // execution will report the ambiguous reference
+            found = true;
+            result = column.ClrType;
+        }
+        return result;
+    }
+
+    private Type? DeclaredFunctionType(FunctionCall function, IReadOnlyList<OutputColumn> columns)
+    {
+        string name = function.Name.TrimEnd('$').ToUpperInvariant();
+        Type? argument = function.Arguments.Count > 0 ? DeclaredType(function.Arguments[0], columns) : null;
+        return name switch
+        {
+            "COUNT" => typeof(int),
+            "SUM" or "MIN" or "MAX" or "FIRST" or "LAST" => argument,
+            "AVG" => argument == typeof(decimal) ? typeof(decimal) : typeof(double),
+            "CBOOL" or "ISDATE" => typeof(bool),
+            "CBYTE" => typeof(byte),
+            "CINT" => typeof(short),
+            "CLNG" => typeof(int),
+            "CSNG" => typeof(float),
+            "CDBL" => typeof(double),
+            "CDEC" or "CCUR" => typeof(decimal),
+            "CSTR" or "FORMAT" or "LCASE" or "UCASE" or "TRIM" or "LTRIM" or "RTRIM"
+                or "LEFT" or "RIGHT" or "MID" or "REPLACE" or "STRING" or "SPACE" or "HEX"
+                or "OCT" or "WEEKDAYNAME" or "MONTHNAME" or "PARTITION" => typeof(string),
+            "LEN" or "INSTR" or "INSTRREV" or "ASC" or "ASCW" or "DATEPART" or "DATEDIFF"
+                or "YEAR" or "MONTH" or "DAY" or "HOUR" or "MINUTE" or "SECOND" or "WEEKDAY" => typeof(int),
+            "CDATE" or "NOW" or "DATE" or "TIME" or "DATEADD" or "DATESERIAL" or "TIMESERIAL"
+                or "DATEVALUE" or "TIMEVALUE" => typeof(DateTime),
+            "SQR" or "SIN" or "COS" or "TAN" or "ATN" or "LOG" or "EXP" or "RND"
+                or "PMT" or "FV" or "PV" or "NPER" or "IPMT" or "PPMT" or "DDB" or "RATE" => typeof(double),
+            "IIF" when function.Arguments.Count == 3 => SameType(
+                DeclaredType(function.Arguments[1], columns), DeclaredType(function.Arguments[2], columns)),
+            _ => null,
+        };
+    }
+
+    private static Type? SameType(Type? left, Type? right) => left == right ? left : null;
+
+    private static Type? DeclaredBinaryType(BinaryOperator op, Type? left, Type? right)
+    {
+        if (left is null || right is null)
+            return null;
+
+        if (op == BinaryOperator.Add && (left == typeof(string) || right == typeof(string)))
+            return typeof(string);
+        if (op == BinaryOperator.Power)
+            return typeof(double);
+        if (op == BinaryOperator.Divide)
+            return left == typeof(decimal) || right == typeof(decimal) ? typeof(decimal) : typeof(double);
+        if (op is BinaryOperator.Modulo or BinaryOperator.IntDivide
+            or BinaryOperator.BitAnd or BinaryOperator.BitOr or BinaryOperator.BitXor)
+            return IsInt64(left) || IsInt64(right) ? typeof(long) : typeof(int);
+
+        if (op is not (BinaryOperator.Add or BinaryOperator.Subtract or BinaryOperator.Multiply))
+            return null;
+
+        // Keep this in lock-step with ExpressionEvaluator.Arithmetic. Date +/- number produces a date,
+        // date-date subtraction produces a day count, while date multiplication is numeric.
+        if (left == typeof(DateTime) || right == typeof(DateTime))
+        {
+            if (op == BinaryOperator.Subtract && left == typeof(DateTime) && right == typeof(DateTime))
+                return typeof(double);
+            return op is BinaryOperator.Add or BinaryOperator.Subtract ? typeof(DateTime) : typeof(double);
+        }
+        if (left == typeof(decimal) || right == typeof(decimal)) return typeof(decimal);
+        if (left == typeof(double) || right == typeof(double)) return typeof(double);
+        if (left == typeof(float) || right == typeof(float)) return typeof(float);
+        if (IsInt64(left) || IsInt64(right)) return typeof(long);
+        return typeof(int);
+    }
+
+    private static bool IsInt64(Type type) => type == typeof(long) || type == typeof(ulong);
+
     /// <summary>The set of source-table qualifiers that supply the DISTINCTROW projection's output columns.
     /// An unqualified column is resolved to its source table via the input's columns.</summary>
     private static HashSet<string> ContributingQualifiers(
@@ -364,7 +499,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var innerTable = _database.OpenTable(seek.Table);
             string innerAlias = seek.Alias ?? seek.Table;
             int innerWidth = innerTable.Definition.Columns.Count;
-            var seekColumns = innerTable.Definition.Columns.Select(c => new OutputColumn(innerAlias, c.Name)).ToList();
+            var seekColumns = innerTable.Definition.Columns
+                .Select(c => new OutputColumn(innerAlias, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList();
             var joinColumns = leftColumns.Concat(seekColumns).ToList();
             int[] keyCols = seek.Index.Columns.Select(c => c.Column.Index).ToArray();
 
@@ -570,7 +706,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             .ToList();
 
         var outColumns = node.Projection
-            .Select((item, i) => new OutputColumn(null, item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}")))
+            .Select((item, i) => new OutputColumn(null,
+                item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}"),
+                DeclaredType(item.Value, inColumns)))
             .ToList();
 
         // Each output row carries its ORDER BY key values AND its grouping-key values, evaluated in the same

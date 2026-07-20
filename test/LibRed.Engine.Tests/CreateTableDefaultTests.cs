@@ -131,6 +131,26 @@ public class CreateTableDefaultTests
         finally { try { File.Delete(path); } catch (IOException) { } }
     }
 
+    [Fact]
+    public void Update_setting_a_required_column_null_throws_without_mutating_the_row()
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE `T` (`Id` int PRIMARY KEY, `Req` varchar(20) NOT NULL)");
+            e.ExecuteNonQuery("INSERT INTO `T` (`Id`, `Req`) VALUES (1, 'kept')");
+
+            var ex = Assert.Throws<InvalidOperationException>(() =>
+                e.ExecuteNonQuery("UPDATE `T` SET `Req` = NULL WHERE `Id` = 1"));
+
+            Assert.Contains("T.Req", ex.Message);
+            Assert.Equal("kept", e.ExecuteQuery("SELECT `Req` FROM `T` WHERE `Id` = 1").Rows.Single()[0]);
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
     // DEFAULT VALUES succeeds when every required column is covered by a DEFAULT (or is the AutoNumber).
     [Fact]
     public void Insert_default_values_succeeds_when_required_columns_have_defaults()

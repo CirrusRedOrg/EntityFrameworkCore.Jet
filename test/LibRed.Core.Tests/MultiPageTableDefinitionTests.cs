@@ -1,4 +1,6 @@
 using LibRed;
+using LibRed.Pages;
+using System.Buffers.Binary;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -39,5 +41,72 @@ public class MultiPageTableDefinitionTests
         Assert.Equal(1100, row[Idx("C100")]);
         Assert.Equal(1199, row[Idx("C199")]);
         Assert.Null(row[Idx("C001")]); // not inserted
+    }
+
+    [Theory]
+    [InlineData("wrong-type")]
+    [InlineData("outside-file")]
+    [InlineData("declared-single-page")]
+    [InlineData("cycle")]
+    [InlineData("missing-continuation")]
+    [InlineData("oversized-length")]
+    [InlineData("wrong-root-header")]
+    public void Rejects_an_invalid_continuation_chain_before_assembly(string corruption)
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"bad-tdef-chain-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.WideTableAccdb, path);
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var table = db.OpenTable("WideTable");
+            var channel = table.Channel;
+            int firstPage = table.Definition.DefinitionPage;
+            byte[] first = channel.ReadPage(firstPage).Span.ToArray();
+            int continuation = BinaryPrimitives.ReadInt32LittleEndian(
+                first.AsSpan(db.Format.TdefNextPageOffset, 4));
+            Assert.True(continuation > 0);
+
+            switch (corruption)
+            {
+                case "wrong-type":
+                    byte[] wrongType = channel.ReadPage(continuation).Span.ToArray();
+                    wrongType[0] = (byte)PageType.DataPage;
+                    channel.WritePage(continuation, wrongType);
+                    break;
+                case "outside-file":
+                    BinaryPrimitives.WriteInt32LittleEndian(
+                        first.AsSpan(db.Format.TdefNextPageOffset, 4), channel.PageCount + 1);
+                    channel.WritePage(firstPage, first);
+                    break;
+                case "declared-single-page":
+                    BinaryPrimitives.WriteInt32LittleEndian(
+                        first.AsSpan(db.Format.TdefLengthOffset, 4), db.Format.PageSize);
+                    channel.WritePage(firstPage, first);
+                    break;
+                case "cycle":
+                    byte[] cyclic = channel.ReadPage(continuation).Span.ToArray();
+                    BinaryPrimitives.WriteInt32LittleEndian(
+                        cyclic.AsSpan(db.Format.TdefNextPageOffset, 4), continuation);
+                    channel.WritePage(continuation, cyclic);
+                    break;
+                case "missing-continuation":
+                    BinaryPrimitives.WriteInt32LittleEndian(
+                        first.AsSpan(db.Format.TdefNextPageOffset, 4), 0);
+                    channel.WritePage(firstPage, first);
+                    break;
+                case "oversized-length":
+                    BinaryPrimitives.WriteInt32LittleEndian(
+                        first.AsSpan(db.Format.TdefLengthOffset, 4), 1024 * 1024 + 1);
+                    channel.WritePage(firstPage, first);
+                    break;
+                case "wrong-root-header":
+                    first[1] = 0;
+                    channel.WritePage(firstPage, first);
+                    break;
+            }
+
+            Assert.Throws<InvalidDataException>(() => db.ReadTableDefinition(firstPage));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
     }
 }

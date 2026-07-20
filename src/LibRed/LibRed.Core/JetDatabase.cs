@@ -69,8 +69,21 @@ public sealed class JetDatabase : IDisposable
 
     /// <summary>Opens a database file (read-only by default). For a password-encrypted ACCDB, supply
     /// <paramref name="password"/> — encrypted databases open read-only.</summary>
-    public static JetDatabase Open(string path, bool readOnly = true, string? password = null) =>
-        new(PageChannel.Open(path, readOnly, password));
+    public static JetDatabase Open(string path, bool readOnly = true, string? password = null)
+    {
+        var channel = PageChannel.Open(path, readOnly, password);
+        try
+        {
+            return new JetDatabase(channel);
+        }
+        catch
+        {
+            // PageChannel.Open owns the file handle and shared cache lease. Ownership transfers
+            // to JetDatabase only after its page-0/catalog initialization has completed.
+            channel.Dispose();
+            throw;
+        }
+    }
 
     /// <summary>The resolved on-disk format/version of the database.</summary>
     public JetFormatBase Format => _channel.Format;

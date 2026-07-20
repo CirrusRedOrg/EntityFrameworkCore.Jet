@@ -27,16 +27,17 @@ public sealed class CatalogSchemaProvider(JetCatalog catalog) : ISchemaProvider
     {
         public string Name => name;
         public IReadOnlyList<IColumnSchema> Columns { get; } =
-            InformationSchema.ColumnsOf(name).Select(c => (IColumnSchema)new VirtualColumn(c)).ToList();
+            InformationSchema.ColumnsOf(name).Zip(InformationSchema.ColumnTypesOf(name),
+                (column, type) => (IColumnSchema)new VirtualColumn(column, type)).ToList();
         public IColumnSchema? FindColumn(string col) =>
             Columns.FirstOrDefault(c => string.Equals(c.Name, col, StringComparison.OrdinalIgnoreCase));
     }
 
-    private sealed class VirtualColumn(string name) : IColumnSchema
+    private sealed class VirtualColumn(string name, Type clrType) : IColumnSchema
     {
         public string Name => name;
         public bool IsNullable => true;
-        public Type ClrType => typeof(object);
+        public Type ClrType => clrType;
     }
 
     private sealed class TableSchema(TableDef def) : ITableSchema

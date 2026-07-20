@@ -32,18 +32,14 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         // stored count is exactly how ACE sizes it, and is robust to any id scheme (spec §5). A real inline
         // row is at least: column count + an empty var table (1 entry) + var count + null bitmap; anything
         // shorter is an overflow/lookup pointer slot the caller should have skipped.
-        if (row.Length < _format.RowColumnCountSize)
-            throw new ArgumentException("Row is too short to be an inline record (overflow/lookup slot?).", nameof(row));
-        RowLayout layout = RowLayout.Parse(row, _format.RowColumnCountSize, hasVar: true);
+        RowLayout layout = ParseLayout(row);
         int nullBitmapSize = layout.NullBitmapSize;
-        if (row.Length < _format.RowColumnCountSize + 2 + 2 + nullBitmapSize)
-            throw new ArgumentException("Row is too short to be an inline record (overflow/lookup slot?).", nameof(row));
 
         ReadOnlySpan<byte> nullBitmap = row[^nullBitmapSize..];
 
         foreach (ColumnDef column in _columns)
         {
-            bool present = IsPresent(nullBitmap, column.ColumnId);
+            bool present = IsPresent(nullBitmap, layout.ColumnCount, column.ColumnId);
 
             // Jet stores Boolean (YesNo) columns with no fixed/variable data: the value
             // IS the null-bitmap bit (set = true). Booleans are never null.
@@ -60,7 +56,7 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
             }
 
             ReadOnlySpan<byte> raw = column.IsFixedLength
-                ? FixedSlice(row, column)
+                ? FixedSlice(row, layout, column)
                 : layout.VarChunk(column.VariableIndex);
 
             // Memo / OLE columns store a long-value descriptor, not the data itself.
@@ -86,26 +82,40 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     public Dictionary<int, byte[]> LongValueRaw(ReadOnlySpan<byte> row)
     {
         var result = new Dictionary<int, byte[]>();
-        if (row.Length < _format.RowColumnCountSize) return result; // overflow/lookup slot
-        RowLayout layout = RowLayout.Parse(row, _format.RowColumnCountSize, hasVar: true);
+        RowLayout layout = ParseLayout(row);
         int nullBitmapSize = layout.NullBitmapSize;
-        if (row.Length < _format.RowColumnCountSize + 2 + 2 + nullBitmapSize) return result; // overflow/lookup slot
 
         ReadOnlySpan<byte> nullBitmap = row[^nullBitmapSize..];
 
         foreach (ColumnDef column in _columns)
-            if (column.Type is JetDataType.Memo or JetDataType.Ole && IsPresent(nullBitmap, column.ColumnId))
+            if (column.Type is JetDataType.Memo or JetDataType.Ole
+                && IsPresent(nullBitmap, layout.ColumnCount, column.ColumnId))
                 result[column.Index] = layout.VarChunk(column.VariableIndex).ToArray();
 
         return result;
     }
 
-    private ReadOnlySpan<byte> FixedSlice(ReadOnlySpan<byte> row, ColumnDef column)
+    private ReadOnlySpan<byte> FixedSlice(ReadOnlySpan<byte> row, RowLayout layout, ColumnDef column)
     {
         int start = _format.RowColumnCountSize + column.FixedOffset;
+        long end = (long)start + column.Length;
+        if (column.FixedOffset < 0 || column.Length < 0
+            || end > _format.RowColumnCountSize + (long)layout.FixedRegionLength)
+            throw new InvalidDataException(
+                $"Row fixed value for column '{column.Name}' extends outside the fixed-data region.");
         return row.Slice(start, column.Length);
     }
 
-    private static bool IsPresent(ReadOnlySpan<byte> nullBitmap, int columnId) =>
-        (nullBitmap[columnId >> 3] & (1 << (columnId & 7))) != 0;
+    private RowLayout ParseLayout(ReadOnlySpan<byte> row)
+    {
+        if (row.Length < _format.RowColumnCountSize)
+            throw new InvalidDataException("Row is too short to be an inline record.");
+        int storedCount = BinaryPrimitives.ReadUInt16LittleEndian(row[.._format.RowColumnCountSize]);
+        bool hasVar = _columns.Any(c => !c.IsFixedLength && c.ColumnId < storedCount);
+        return RowLayout.Parse(row, _format.RowColumnCountSize, hasVar);
+    }
+
+    private static bool IsPresent(ReadOnlySpan<byte> nullBitmap, int storedColumnCount, int columnId) =>
+        columnId >= 0 && columnId < storedColumnCount
+        && (nullBitmap[columnId >> 3] & (1 << (columnId & 7))) != 0;
 }

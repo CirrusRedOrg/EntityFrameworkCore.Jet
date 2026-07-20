@@ -43,6 +43,23 @@ public static class InformationSchema
         _ => throw new InvalidOperationException($"'{tableName}' is not an INFORMATION_SCHEMA view."),
     };
 
+    /// <summary>Declared CLR types corresponding to <see cref="ColumnsOf"/>. Nullable schema values still
+    /// report their underlying type, as ADO.NET metadata does; row nulls are represented by <c>DBNull</c>.</summary>
+    public static IReadOnlyList<Type> ColumnTypesOf(string tableName) => View(tableName) switch
+    {
+        "TABLES" => [typeof(string), typeof(string), typeof(string), typeof(string)],
+        "COLUMNS" => [typeof(string), typeof(string), typeof(int), typeof(string), typeof(bool),
+            typeof(int), typeof(int), typeof(int), typeof(string), typeof(string), typeof(string),
+            typeof(int), typeof(int)],
+        "INDEXES" => [typeof(string), typeof(string), typeof(string), typeof(bool), typeof(bool)],
+        "INDEX_COLUMNS" => [typeof(string), typeof(string), typeof(int), typeof(string), typeof(bool)],
+        "RELATIONS" => [typeof(string), typeof(string), typeof(string), typeof(string), typeof(string),
+            typeof(string), typeof(bool), typeof(bool)],
+        "RELATION_COLUMNS" => [typeof(string), typeof(string), typeof(string), typeof(int)],
+        "CHECK_CONSTRAINTS" => [typeof(string), typeof(string), typeof(string)],
+        _ => throw new InvalidOperationException($"'{tableName}' is not an INFORMATION_SCHEMA view."),
+    };
+
     /// <summary>The rows of the given view, materialised from the catalog (one <c>object?[]</c> per row, columns
     /// in <see cref="ColumnsOf"/> order).</summary>
     public static IReadOnlyList<object?[]> Rows(string tableName, JetCatalog catalog)

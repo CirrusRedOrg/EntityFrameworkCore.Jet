@@ -128,6 +128,21 @@ public class LibRedCommandTests
     }
 
     [Fact]
+    public void CreateDatabase_does_not_overwrite_an_existing_file()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"libred-create-existing-{Guid.NewGuid():N}.accdb");
+        byte[] original = [0x4C, 0x69, 0x62, 0x52, 0x65, 0x64];
+        File.WriteAllBytes(path, original);
+        try
+        {
+            Assert.Throws<IOException>(() =>
+                LibRedConnection.CreateDatabase($"Data Source={path}"));
+            Assert.Equal(original, File.ReadAllBytes(path));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void TimeSpan_parameter_round_trips_through_a_datetime_column()
     {
         // Jet has no TimeSpan type; EF stores it in a datetime column as an offset from 1899-12-30.

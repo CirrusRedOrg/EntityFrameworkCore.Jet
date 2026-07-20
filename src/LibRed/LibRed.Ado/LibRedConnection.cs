@@ -24,7 +24,13 @@ public sealed class LibRedConnection : DbConnection
     public override string ConnectionString
     {
         get => _connectionString;
-        set => _connectionString = value ?? string.Empty;
+        set
+        {
+            if (State != ConnectionState.Closed)
+                throw new InvalidOperationException("The connection string cannot be changed while the connection is open.");
+
+            _connectionString = value ?? string.Empty;
+        }
     }
 
     /// <summary>The open database, or <c>null</c> when closed. Used by commands.</summary>
@@ -197,26 +203,23 @@ public sealed class LibRedConnection : DbConnection
     {
         if (string.IsNullOrWhiteSpace(connectionString)) return string.Empty;
 
-        string? raw = null;
-        foreach (string part in connectionString.Split(';', StringSplitOptions.RemoveEmptyEntries))
-        {
-            int eq = part.IndexOf('=');
-            if (eq < 0) continue;
-            string key = part[..eq].Trim();
-            if (key.Equals("Data Source", StringComparison.OrdinalIgnoreCase) ||
-                key.Equals("DataSource", StringComparison.OrdinalIgnoreCase) ||
-                key.Equals("DBQ", StringComparison.OrdinalIgnoreCase))
-            {
-                raw = part[(eq + 1)..].Trim().Trim('"');
-                break;
-            }
-        }
-
         // Allow a bare path as the whole connection string.
-        raw ??= connectionString.Contains('=') ? null : connectionString.Trim();
+        if (!connectionString.Contains('='))
+            return ExpandPath(connectionString.Trim());
+
+        // Let the framework parser handle quoted/escaped values. In particular, splitting on
+        // semicolons selects the wrong file for a valid value such as Data Source="a;b.accdb".
+        // When aliases are mixed, prefer the canonical spelling, then DataSource, then DBQ.
+        var builder = new DbConnectionStringBuilder { ConnectionString = connectionString };
+        string? raw = TryGetString(builder, "Data Source")
+            ?? TryGetString(builder, "DataSource")
+            ?? TryGetString(builder, "DBQ");
 
         return string.IsNullOrEmpty(raw) ? string.Empty : ExpandPath(raw);
     }
+
+    private static string? TryGetString(DbConnectionStringBuilder builder, string key) =>
+        builder.TryGetValue(key, out object? value) ? Convert.ToString(value) : null;
 
     /// <summary>
     /// Resolves to a full path and defaults to a ".accdb" extension - matches EFCore.Jet.Data's

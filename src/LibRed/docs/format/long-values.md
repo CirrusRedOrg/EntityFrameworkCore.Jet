@@ -25,6 +25,15 @@ Flags:
 
 LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII marker `LVAL`.
 
+> **Reader and reclamation guardrails.** LibRed requires the complete 12-byte descriptor before reading
+> its fields, accepts only the three flags above, and bounds inline data against the bytes actually present.
+> Every external pointer must name an in-file type-`0x01` page with the `LVAL` owner marker and a live,
+> ordinary row slot. Chained rows must contain their 4-byte next pointer, make payload progress, never repeat
+> a `(page,row)`, terminate at zero exactly when the declared length is reached, and neither underfill nor
+> overrun that length. Before reclaiming a replaced chain, LibRed validates the complete chain and requires
+> every page to be present in that column's owned-pages map; only then does it begin clearing maps/free bits.
+> Those subsequent writes are not yet atomic without the planned transaction/savepoint layer.
+
 ### 3.3.2 Column usage-map list (trailing the index names)
 
 After the index names (in the TDEF body, §3.3) comes a list of per-**long-value-column** (memo/OLE)

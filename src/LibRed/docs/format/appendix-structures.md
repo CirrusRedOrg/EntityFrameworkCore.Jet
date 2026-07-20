@@ -25,7 +25,7 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | --- | --- | --- |
 | `0x00` | 1 | Page type `0x00` |
 | `0x01` | 3 | Unknown (observed `01 00 00`, constant) |
-| `0x04` | 15 | Format id ASCII: `Standard Jet DB` / `Standard ACE DB` |
+| `0x04` | 15 | Format id ASCII: `Standard Jet DB` (`0x00`/`0x01`) / `Jet System DB` (`0x01`) / `Standard ACE DB` (`0x02`+) |
 | `0x13` | 1 | NUL terminator of the id string |
 | `0x14` | 1 | Version byte (`0x00` Jet3, `0x01` Jet4, `0x02` ACE12, `0x03` ACE14, `0x04` ACE15/2013 reserved-unemitted, `0x05` ACE16, `0x06` ACE17) |
 | `0x15` | 1 | Version minor/update byte (`0x01` on ACE14/Access 2010, else `0x00`) |
@@ -237,8 +237,8 @@ Global free-pages map: **page 1, row 0**, inline — set bit = **free** (opposit
 - **MSysObjects** (TDEF page 2): `Id`, `Name`, `Type` (1 table, 5 query/view), `Flags`, `ParentId`, `Owner`, `DateCreate`/`DateUpdate`, `LvProp` (property blob).
 - **MSysACEs** (4 cols): `ObjectId`, `SID`, `ACM`, `FInheritable` — two rows per object.
 - **MSysQueries** (8 cols): `ObjectId`, `Attribute`, `Flag`, `Name1`, `Name2`, `Expression`, `Order`, `LvExtra`; PK `(ObjectId, Attribute, Order)`.
-- **MSysRelationships**: `szRelationship`, `szObject`, `szColumn`, `szReferencedObject`, `szReferencedColumn`, `icolumn`, `ccolumn`, `grbit` (`0x02` don't-enforce, `0x100` cascade-update, `0x1000` cascade-delete).
-- **LvProp blob:** `MR2\0` signature, then `[int len][short type][body]` blocks; type `0x80` = name pool; per-owner value maps carry `DefaultValue`, `Required`, `CheckConstraints`.
+- **MSysRelationships**: `szRelationship`, `szObject`, `szColumn`, `szReferencedObject`, `szReferencedColumn`, `icolumn`, `ccolumn`, `grbit` (`0x02` don't-enforce, `0x100` cascade-update, `0x1000` cascade-delete, `0x2000` delete-set-null).
+- **LvProp blob:** `MR2\0` signature, then `[int len][short type][body]` blocks; type `0x80` = name pool; per-owner entries are `[short entryLen][byte DDL flag][byte dataType][short nameIndex][short valueLen][value]`. DDL flag `0x01` marks a definition-protected/schema property and `0x00` an ordinary property; it is preserved per entry. Values include `DefaultValue`, `Required`, and `CheckConstraints`.
 
 ---
 

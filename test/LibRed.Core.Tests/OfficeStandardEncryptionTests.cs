@@ -45,6 +45,38 @@ public class OfficeStandardEncryptionTests
         Assert.Null(OfficeStandardEncryption.TryCreate(new byte[4096], databaseKey: 0, password: "x"));
 
     [Theory]
+    [InlineData(0)]
+    [InlineData(19)]
+    [InlineData(21)]
+    public void Verifier_hash_size_must_exactly_match_the_declared_hash(int verifierHashSize)
+    {
+        Assert.Throws<NotSupportedException>(() => OfficeStandardEncryption.TryCreate(
+            BuildPage0(AlgRc4, 0x04, 40, Rc4Salt, Rc4EncVerifier, Rc4EncVerifierHash, verifierHashSize),
+            0x12345678, "Test123"));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(39)]
+    [InlineData(41)]
+    [InlineData(127)]
+    [InlineData(129)]
+    public void Rc4_key_size_must_be_a_supported_whole_byte_count(int keyBits)
+    {
+        Assert.Throws<NotSupportedException>(() => OfficeStandardEncryption.TryCreate(
+            BuildPage0(AlgRc4, 0x04, keyBits, Rc4Salt, Rc4EncVerifier, Rc4EncVerifierHash),
+            0x12345678, "Test123"));
+    }
+
+    [Fact]
+    public void Aes_key_size_must_be_a_supported_exact_size()
+    {
+        Assert.Throws<NotSupportedException>(() => OfficeStandardEncryption.TryCreate(
+            BuildPage0(AlgAes256, 0x0C, 257, AesSalt, AesEncVerifier, AesEncVerifierHash),
+            0x12345678, "password"));
+    }
+
+    [Theory]
     [InlineData(true)]   // RC4-40 (symmetric stream)
     [InlineData(false)]  // AES-256 (ECB, distinct encrypt/decrypt directions)
     public void Encrypt_then_decrypt_round_trips(bool rc4)
@@ -65,7 +97,9 @@ public class OfficeStandardEncryptionTests
     // Lays a binary EncryptionInfo (version 4.2) into a synthetic 4 KB page 0: [ver major/minor][flags]
     // [headerSize][EncryptionHeader: Flags,SizeExtra,AlgID,AlgIDHash,KeySize,ProviderType,Reserved1,Reserved2]
     // [EncryptionVerifier: SaltSize,Salt(16),EncryptedVerifier(16),VerifierHashSize,EncryptedVerifierHash].
-    private static byte[] BuildPage0(uint algId, uint flags, int keyBits, byte[] salt, byte[] encVerifier, byte[] encVerifierHash)
+    private static byte[] BuildPage0(
+        uint algId, uint flags, int keyBits, byte[] salt, byte[] encVerifier, byte[] encVerifierHash,
+        int verifierHashSize = 20)
     {
         var page = new byte[4096];
         int ei = 0x100;
@@ -85,7 +119,7 @@ public class OfficeStandardEncryptionTests
         U32(v, (uint)salt.Length);
         salt.CopyTo(page, v + 4);
         encVerifier.CopyTo(page, v + 4 + salt.Length);
-        U32(v + 4 + salt.Length + 16, 20u);    // VerifierHashSize (SHA1)
+        U32(v + 4 + salt.Length + 16, (uint)verifierHashSize); // VerifierHashSize (SHA1 normally 20)
         encVerifierHash.CopyTo(page, v + 4 + salt.Length + 16 + 4);
         return page;
     }

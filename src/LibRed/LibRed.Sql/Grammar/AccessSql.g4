@@ -307,6 +307,11 @@ literal
     | NULL              # NullLiteral
     ;
 
+// A standalone expression read from catalog metadata (DEFAULT/CHECK/validation text). Requiring
+// EOF prevents a valid prefix from silently weakening the stored expression's intended meaning.
+// Kept after the existing parser rules so adding it does not renumber their generated rule ids.
+standaloneExpression : expression EOF ;
+
 // ---- Lexer ----
 
 SELECT : [Ss][Ee][Ll][Ee][Cc][Tt] ;

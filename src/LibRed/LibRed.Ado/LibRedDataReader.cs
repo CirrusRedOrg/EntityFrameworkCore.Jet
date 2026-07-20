@@ -101,8 +101,13 @@ public sealed class LibRedDataReader : DbDataReader
 
     public override bool IsDBNull(int ordinal) => _current[ordinal] is null;
 
-    public override Type GetFieldType(int ordinal) =>
-        ordinal >= 0 && ordinal < _current.Length && _current[ordinal] is { } v ? v.GetType() : typeof(object);
+    public override Type GetFieldType(int ordinal)
+    {
+        Type declared = _result.ColumnTypes[ordinal];
+        return declared != typeof(object)
+            ? declared
+            : ordinal < _current.Length && _current[ordinal] is { } value ? value.GetType() : typeof(object);
+    }
 
     public override string GetDataTypeName(int ordinal) => GetFieldType(ordinal).Name;
 
@@ -148,18 +153,36 @@ public sealed class LibRedDataReader : DbDataReader
     {
         var source = (byte[])GetValue(ordinal);
         if (buffer is null) return source.Length;
-        long copy = Math.Min(length, source.Length - dataOffset);
-        Array.Copy(source, dataOffset, buffer, bufferOffset, copy);
+
+        ValidateCopyArguments(dataOffset, buffer.Length, bufferOffset, length);
+        if (dataOffset >= source.Length) return 0;
+
+        int copy = Math.Min(length, source.Length - checked((int)dataOffset));
+        source.AsSpan(checked((int)dataOffset), copy).CopyTo(buffer.AsSpan(bufferOffset, copy));
         return copy;
     }
 
     public override long GetChars(int ordinal, long dataOffset, char[]? buffer, int bufferOffset, int length)
     {
-        var source = GetString(ordinal).ToCharArray();
+        var source = GetString(ordinal);
         if (buffer is null) return source.Length;
-        long copy = Math.Min(length, source.Length - dataOffset);
-        Array.Copy(source, dataOffset, buffer, bufferOffset, copy);
+
+        ValidateCopyArguments(dataOffset, buffer.Length, bufferOffset, length);
+        if (dataOffset >= source.Length) return 0;
+
+        int copy = Math.Min(length, source.Length - checked((int)dataOffset));
+        source.AsSpan(checked((int)dataOffset), copy).CopyTo(buffer.AsSpan(bufferOffset, copy));
         return copy;
+    }
+
+    private static void ValidateCopyArguments(long dataOffset, int bufferLength, int bufferOffset, int length)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(dataOffset);
+        ArgumentOutOfRangeException.ThrowIfNegative(bufferOffset);
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+
+        if (bufferOffset > bufferLength || length > bufferLength - bufferOffset)
+            throw new ArgumentException("The requested range does not fit in the destination buffer.");
     }
 
     public override IEnumerator GetEnumerator() => new DbEnumerator(this, closeReader: false);

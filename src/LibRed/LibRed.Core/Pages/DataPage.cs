@@ -36,6 +36,7 @@ public sealed class DataPage : Page
 
     public override void Read(PageBuffer buffer, JetFormatBase format)
     {
+        ValidateHeader(buffer, format, out int rowCount, out int directoryEnd);
         _buffer = buffer;
         PageNumber = buffer.PageNumber;
 
@@ -44,10 +45,10 @@ public sealed class DataPage : Page
         OwningTablePage = IsLongValuePage ? 0 : (int)owner;
 
         FreeSpace = buffer.ReadUInt16(format.DataFreeSpaceOffset);
-        RowCount = buffer.ReadUInt16(format.DataRowCountOffset);
+        RowCount = rowCount;
 
         _rows.Clear();
-        int prevEnd = format.PageSize;
+        int prevEnd = buffer.Length;
         for (int i = 0; i < RowCount; i++)
         {
             int raw = buffer.ReadUInt16(format.DataRowDirectoryOffset + i * 2);
@@ -57,6 +58,7 @@ public sealed class DataPage : Page
 
             // Rows are packed from the page end backward, so a slot runs from its own
             // offset up to where the previous slot's row began.
+            ValidateSlot(buffer, i, offset, prevEnd, directoryEnd);
             int length = prevEnd - offset;
             _rows.Add(new RowSlot(offset, length, deleted, overflow));
             prevEnd = offset;
@@ -77,7 +79,7 @@ public sealed class DataPage : Page
     public static bool TryReadRow(PageBuffer buffer, JetFormatBase format, int index,
         out RowSlot slot, out ReadOnlySpan<byte> bytes)
     {
-        int rowCount = buffer.ReadUInt16(format.DataRowCountOffset);
+        ValidateHeader(buffer, format, out int rowCount, out int directoryEnd);
         if (index < 0 || index >= rowCount)
         {
             slot = default;
@@ -90,9 +92,38 @@ public sealed class DataPage : Page
         int offset = raw & RowPointer.OffsetMask;
         // Rows pack from the page end backward, so this slot runs up to where the previous slot began
         // (or the page end for slot 0) — read just those two directory entries instead of walking all of them.
-        int prevEnd = index == 0 ? format.PageSize : buffer.ReadUInt16(dir + (index - 1) * 2) & RowPointer.OffsetMask;
+        int prevEnd = index == 0 ? buffer.Length : buffer.ReadUInt16(dir + (index - 1) * 2) & RowPointer.OffsetMask;
+        ValidateSlot(buffer, index, offset, prevEnd, directoryEnd);
         slot = new RowSlot(offset, prevEnd - offset, (raw & RowPointer.DeletedFlag) != 0, (raw & RowPointer.OverflowFlag) != 0);
         bytes = buffer.Slice(offset, prevEnd - offset);
         return true;
+    }
+
+    private static void ValidateHeader(PageBuffer buffer, JetFormatBase format, out int rowCount, out int directoryEnd)
+    {
+        if (buffer.Length != format.PageSize)
+            throw new InvalidDataException(
+                $"Data page {buffer.PageNumber} has {buffer.Length} bytes; expected {format.PageSize}.");
+        if (buffer.ReadByte(0) != (byte)PageType.DataPage)
+            throw new InvalidDataException(
+                $"Page {buffer.PageNumber} is type 0x{buffer.ReadByte(0):X2}, not a data page (0x01).");
+
+        rowCount = buffer.ReadUInt16(format.DataRowCountOffset);
+        long end = (long)format.DataRowDirectoryOffset + rowCount * 2L;
+        if (end > buffer.Length)
+            throw new InvalidDataException(
+                $"Data page {buffer.PageNumber} declares {rowCount} rows, placing its slot directory past the page.");
+        directoryEnd = (int)end;
+    }
+
+    private static void ValidateSlot(PageBuffer buffer, int index, int offset, int previousEnd, int directoryEnd)
+    {
+        if (offset < directoryEnd || offset > buffer.Length)
+            throw new InvalidDataException(
+                $"Data page {buffer.PageNumber} row slot {index} has offset {offset}, outside the row heap " +
+                $"[{directoryEnd}, {buffer.Length}].");
+        if (offset > previousEnd)
+            throw new InvalidDataException(
+                $"Data page {buffer.PageNumber} row slot {index} has offset {offset}, above the previous row boundary {previousEnd}.");
     }
 }

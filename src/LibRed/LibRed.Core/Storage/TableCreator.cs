@@ -1073,6 +1073,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
         ColumnDef col = table.FindColumn(columnName)
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
+        EnsureColumnIsNotInRelationship(table, col);
 
         // A pure reseed of an existing counter — ALTER COLUMN c COUNTER(seed, increment) where c is already an
         // AutoNumber of the same storage type — changes only the next id, not the data or layout. It's an
@@ -1128,6 +1129,21 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             return;
         }
         throw new InvalidOperationException($"Descriptor for column '{columnName}' (id {col.ColumnId}) was not found.");
+    }
+
+    /// <summary>ACE rejects every type/length alteration of a relationship column, on either the
+    /// referencing or referenced side. Keep this check ahead of all specialized ALTER paths so an
+    /// in-place descriptor edit cannot bypass the same rule enforced by a logical table rebuild.</summary>
+    private void EnsureColumnIsNotInRelationship(TableDef table, ColumnDef column)
+    {
+        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
+        if (_catalog.Relationships.Any(r =>
+                (string.Equals(r.Table, table.Name, oic) &&
+                 r.Columns.Any(c => string.Equals(c.Column, column.Name, oic))) ||
+                (string.Equals(r.ReferencedTable, table.Name, oic) &&
+                 r.Columns.Any(c => string.Equals(c.ReferencedColumn, column.Name, oic)))))
+            throw new InvalidOperationException(
+                $"Cannot change field '{column.Name}'. It is part of one or more relationships.");
     }
 
     /// <summary>Reseeds an existing AutoNumber column in place — ALTER COLUMN c COUNTER(seed, increment). Writes
@@ -1349,6 +1365,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
         ColumnDef target = def.FindColumn(columnName)
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
+        EnsureColumnIsNotInRelationship(def, target);
         JetFormatBase format = _channel.Format;
 
         TdefParts parts = ParseTdef(def.DefinitionPage);
@@ -1409,6 +1426,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
         ColumnDef oldTarget = oldDef.FindColumn(columnName)
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
+        EnsureColumnIsNotInRelationship(oldDef, oldTarget);
 
         // A long-value (Memo/OLE) target — or converting one away — needs long-value column mechanics (a §3.3.2
         // usage-map entry, LVAL pages, freeing the old value). That's out of scope for the byte-faithful in-place
@@ -1930,23 +1948,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <summary>Reads a table definition, stitching continuation pages into one contiguous buffer (in
     /// the absolute coordinate space the descriptors use), and returns the continuation page numbers.</summary>
     private (LibRed.IO.PageBuffer Buffer, IReadOnlyList<int> ContinuationPages) ReadDefinition(int firstPage)
-    {
-        JetFormatBase format = _channel.Format;
-        LibRed.IO.PageBuffer first = _channel.ReadPage(firstPage);
-        int next = first.ReadInt32(format.TdefNextPageOffset);
-        if (next == 0) return (first, []);
-
-        var continuations = new List<int>();
-        var assembled = new List<byte>(first.Span.ToArray());
-        while (next != 0)
-        {
-            continuations.Add(next);
-            LibRed.IO.PageBuffer cont = _channel.ReadPage(next);
-            next = cont.ReadInt32(format.TdefNextPageOffset);
-            assembled.AddRange(cont.Span[JetFormatBase.TdefContinuationHeaderSize..].ToArray());
-        }
-        return (new LibRed.IO.PageBuffer(assembled.ToArray(), firstPage), continuations);
-    }
+        => TdefChainReader.Read(_channel, firstPage);
 
     /// <summary>
     /// Writes a definition buffer across the first page and, if it overflows, continuation pages (each

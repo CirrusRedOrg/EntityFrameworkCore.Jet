@@ -60,6 +60,8 @@ public static class TdefBuilder
 
     // Index-data and index-info block layout + flags are shared with the reader via IndexBlockFormat / IndexFlags.
     private const int MaxIndexesPerTable = 32; // Jet/ACE limit, counting keys- and relationship-backing indexes
+    private const int MaxColumnsPerTable = 255;
+    private const int MaxNameBytes = 128; // verified Access limit: 64 UTF-16 code units
 
     /// <summary>
     /// One logical index-info block (§3.6). Several logical indexes may share a data block: a plain
@@ -94,16 +96,21 @@ public static class TdefBuilder
     {
         indexes ??= [];
         longValueColumns ??= [];
+        ValidateColumnSpecs(format, specs);
         // Jet/ACE caps a table at 32 indexes, counting those backing primary keys, unique constraints
         // and relationships (§3.5 index-data blocks, the 0x33 count). Reject rather than write a bad TDEF.
         if (indexes.Count > MaxIndexesPerTable)
             throw new NotSupportedException(
                 $"Table has {indexes.Count} indexes; Jet/ACE allows at most {MaxIndexesPerTable} per table (including those backing keys and relationships).");
         var columns = ResolveColumns(format, specs, collation ?? Collation.GeneralLegacy);
-        // The definition (descriptors + names + index blocks) can exceed one page for a wide table; build it
-        // into a buffer sized generously for the worst case, then the caller splits it across continuation
-        // pages when writing. 512 bytes/column comfortably covers a 25-byte descriptor + a long name.
-        var page = new byte[format.PageSize + columns.Count * 512 + indexes.Count * 512];
+        IReadOnlyList<LogicalIndexSpec> logical = logicalIndexes ?? indexes.Select((ix, i) => new LogicalIndexSpec(
+            Number: i, DataOrdinal: i, FkType: 0, FkNumber: IndexBlockFormat.NoForeignKey, FkTablePage: 0,
+            UpdateAction: IndexBlockFormat.PlainAction, DeleteAction: IndexBlockFormat.PlainAction,
+            Type: ix.IsPrimaryKey ? IndexBlockFormat.TypePrimary : IndexBlockFormat.TypeSecondary, Name: ix.Name)).ToList();
+        ValidateIndexAndLongValueSpecs(columns, indexes, logical, longValueColumns);
+
+        int definitionSize = DefinitionSize(format, columns, indexes, logical, longValueColumns);
+        var page = new byte[Math.Max(format.PageSize, definitionSize)];
 
         page[0] = (byte)PageType.TableDefinition;
         page[format.TdefHeaderFlagsOffset] = 0x01;
@@ -132,7 +139,7 @@ public static class TdefBuilder
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefColumnCountOffset, 2), (ushort)columns.Count);
         // Logical index count (0x2F) may exceed the real data-block count (0x33): a relationship adds
         // a logical block that shares a data block. Without explicit logical specs the two are equal.
-        int logicalCount = logicalIndexes?.Count ?? indexes.Count;
+        int logicalCount = logical.Count;
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRealIndexCountOffset, 4), logicalCount);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefIndexCountOffset, 4), indexes.Count);
 
@@ -141,7 +148,10 @@ public static class TdefBuilder
         WriteColumnDescriptors(page, format, columns, columnBlock);
         int afterNames = WriteColumnNames(page, format, columns, columnBlock + columns.Count * format.ColumnDescriptorSize);
 
-        int definitionEnd = WriteIndexes(page, format, columns, indexes, logicalIndexes, longValueColumns, afterNames);
+        int definitionEnd = WriteIndexes(page, format, columns, indexes, logical, longValueColumns, afterNames);
+        if (definitionEnd != definitionSize)
+            throw new InvalidOperationException(
+                $"TDEF sizing preflight calculated {definitionSize} bytes but serialization wrote {definitionEnd}.");
 
         // Definition length and remaining free space (Access reserves an 8-byte continuation header). For a
         // multi-page definition the caller recomputes the first page's free space, so clamp at 0 here.
@@ -152,8 +162,121 @@ public static class TdefBuilder
         return new Result(page, columns);
     }
 
+    private static void ValidateColumnSpecs(JetFormatBase format, IReadOnlyList<ColumnSpec> specs)
+    {
+        if (specs.Count > MaxColumnsPerTable)
+            throw new NotSupportedException(
+                $"Table has {specs.Count} columns; Jet/ACE allows at most {MaxColumnsPerTable} per table.");
+
+        var ids = new HashSet<int>();
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        long fixedBytes = 0;
+        for (int i = 0; i < specs.Count; i++)
+        {
+            ColumnSpec spec = specs[i];
+            ValidateNameLength(spec.Name, "Column");
+            if (!names.Add(spec.Name))
+                throw new NotSupportedException($"Column name '{spec.Name}' is used more than once.");
+            if (spec.RawDescriptor is { } raw && raw.Length != format.ColumnDescriptorSize)
+                throw new NotSupportedException(
+                    $"Column '{spec.Name}' carries a {raw.Length}-byte raw descriptor; this format requires {format.ColumnDescriptorSize} bytes.");
+            int id = spec.ColumnId ?? i;
+            if (id is < 0 or >= MaxColumnsPerTable)
+                throw new NotSupportedException(
+                    $"Column '{spec.Name}' has id {id}; Jet/ACE column ids range from 0 through {MaxColumnsPerTable - 1}.");
+            if (!ids.Add(id))
+                throw new NotSupportedException($"Column id {id} is used more than once.");
+            if (spec.Length is < 0 or > ushort.MaxValue)
+                throw new NotSupportedException(
+                    $"Column '{spec.Name}' has byte length {spec.Length}, which does not fit the TDEF field.");
+            if (spec.IsFixedLength && spec.Type != JetDataType.Boolean)
+                fixedBytes += spec.Length;
+        }
+
+        if (fixedBytes > ushort.MaxValue)
+            throw new NotSupportedException(
+                $"The table's fixed-data region is {fixedBytes} bytes, which does not fit the TDEF offset fields.");
+    }
+
+    private static void ValidateIndexAndLongValueSpecs(
+        IReadOnlyList<ColumnDef> columns,
+        IReadOnlyList<IndexSpec> indexes,
+        IReadOnlyList<LogicalIndexSpec> logical,
+        IReadOnlyList<LongValueColumnSpec> longValueColumns)
+    {
+        if (logical.Count > MaxIndexesPerTable)
+            throw new NotSupportedException(
+                $"Table has {logical.Count} logical indexes; Jet/ACE allows at most {MaxIndexesPerTable}.");
+
+        var columnByName = columns.ToDictionary(c => c.Name, StringComparer.OrdinalIgnoreCase);
+        foreach (IndexSpec index in indexes)
+        {
+            ValidateNameLength(index.Name, "Index");
+            if (index.Columns.Count > IndexBlockFormat.MaxColumns)
+                throw new NotSupportedException(
+                    $"Index '{index.Name}' spans {index.Columns.Count} columns; Jet/ACE allows {IndexBlockFormat.MaxColumns}.");
+            foreach (string column in index.Columns)
+                if (!columnByName.ContainsKey(column))
+                    throw new NotSupportedException($"Index '{index.Name}' refers to unknown column '{column}'.");
+            ValidateUsageMapPointer(index.UsageMapRow, index.UsageMapPage, $"index '{index.Name}'", allowNull: true);
+        }
+        foreach (LogicalIndexSpec index in logical) ValidateNameLength(index.Name, "Logical index");
+
+        var columnById = columns.ToDictionary(c => c.ColumnId);
+        var seen = new HashSet<int>();
+        foreach (LongValueColumnSpec value in longValueColumns)
+        {
+            if (!seen.Add(value.ColumnId))
+                throw new NotSupportedException($"Long-value column id {value.ColumnId} has more than one usage-map entry.");
+            if (!columnById.TryGetValue(value.ColumnId, out ColumnDef? column)
+                || column.Type is not (JetDataType.Memo or JetDataType.Ole))
+                throw new NotSupportedException(
+                    $"Long-value usage-map entry {value.ColumnId} does not identify a Memo/OLE column.");
+            ValidateUsageMapPointer(value.UsedRow, value.MapPage, $"long-value column '{column.Name}' owned map", allowNull: false);
+            ValidateUsageMapPointer(value.FreeRow, value.MapPage, $"long-value column '{column.Name}' free map", allowNull: false);
+        }
+    }
+
+    private static void ValidateUsageMapPointer(int row, int page, string owner, bool allowNull)
+    {
+        if (allowNull && row == 0 && page == 0) return;
+        if (row is < 0 or > byte.MaxValue || page is <= 0 or > 0xFFFFFF)
+            throw new NotSupportedException(
+                $"The {owner} usage-map pointer ({row}, {page}) does not fit its 1-byte row / 3-byte page fields.");
+    }
+
+    private static void ValidateNameLength(string name, string kind)
+    {
+        int length = Encoding.Unicode.GetByteCount(name);
+        if (length is 0 or > MaxNameBytes)
+            throw new NotSupportedException(
+                $"{kind} name is {length} UTF-16 bytes; Jet/ACE names must use 1 through {MaxNameBytes / 2} characters.");
+    }
+
+    private static int DefinitionSize(
+        JetFormatBase format,
+        IReadOnlyList<ColumnDef> columns,
+        IReadOnlyList<IndexSpec> indexes,
+        IReadOnlyList<LogicalIndexSpec> logical,
+        IReadOnlyList<LongValueColumnSpec> longValueColumns)
+    {
+        long size = format.TdefRealIndexBlockOffset
+            + (long)indexes.Count * format.RealIndexEntrySize
+            + (long)columns.Count * format.ColumnDescriptorSize
+            + columns.Sum(c => 2L + Encoding.Unicode.GetByteCount(c.Name))
+            + (long)indexes.Count * IndexBlockFormat.DataBlockSize
+            + (long)logical.Count * IndexBlockFormat.InfoBlockSize
+            + logical.Sum(i => 2L + Encoding.Unicode.GetByteCount(i.Name))
+            + (long)longValueColumns.Count * 10
+            + 2;
+        if (size > TdefChainReader.MaxDefinitionLength)
+            throw new NotSupportedException(
+                $"The serialized table definition requires {size} bytes; LibRed's validated TDEF budget is {TdefChainReader.MaxDefinitionLength}.");
+        return (int)size;
+    }
+
     /// <summary>Writes the index structures and returns the offset just past them (the definition end).</summary>
-    private static int WriteIndexes(byte[] page, JetFormatBase format, List<ColumnDef> columns, IReadOnlyList<IndexSpec> indexes, IReadOnlyList<LogicalIndexSpec>? logicalIndexes, IReadOnlyList<LongValueColumnSpec> longValueColumns, int dataBlockStart)
+    private static int WriteIndexes(byte[] page, JetFormatBase format, List<ColumnDef> columns, IReadOnlyList<IndexSpec> indexes, IReadOnlyList<LogicalIndexSpec> logical, IReadOnlyList<LongValueColumnSpec> longValueColumns, int dataBlockStart)
     {
         var columnIdByName = columns.ToDictionary(c => c.Name, c => c.ColumnId, StringComparer.OrdinalIgnoreCase);
 
@@ -199,11 +322,6 @@ public static class TdefBuilder
         // 2. Index-info blocks (one per logical index) and 3. their names. Without explicit logical
         // specs each data block maps 1:1 to a plain info block (back-compat); with them, relationship
         // blocks are included and stored name-sorted (matching Access).
-        var logical = logicalIndexes ?? indexes.Select((ix, i) => new LogicalIndexSpec(
-            Number: i, DataOrdinal: i, FkType: 0, FkNumber: IndexBlockFormat.NoForeignKey, FkTablePage: 0,
-            UpdateAction: IndexBlockFormat.PlainAction, DeleteAction: IndexBlockFormat.PlainAction,
-            Type: ix.IsPrimaryKey ? IndexBlockFormat.TypePrimary : IndexBlockFormat.TypeSecondary, Name: ix.Name)).ToList();
-
         int infoStart = dataBlockStart + indexes.Count * IndexBlockFormat.DataBlockSize;
         for (int i = 0; i < logical.Count; i++)
         {

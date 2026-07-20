@@ -136,6 +136,20 @@ public class AlterColumnTests
         Assert.Contains("part of one or more relationships", ex.Message);
     }
 
+    [Theory]
+    [InlineData("ALTER TABLE C ALTER COLUMN Code TEXT(20)")]
+    [InlineData("ALTER TABLE P ALTER COLUMN Code TEXT(20)")]
+    public void Alter_a_text_relationship_column_length_is_rejected(string sql)
+    {
+        var (e, _) = Fresh();
+        e.ExecuteNonQuery("CREATE TABLE P (Code TEXT(10) PRIMARY KEY)");
+        e.ExecuteNonQuery("CREATE TABLE C (Id LONG PRIMARY KEY, Code TEXT(10), " +
+            "CONSTRAINT FK FOREIGN KEY (Code) REFERENCES P (Code))");
+
+        var ex = Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery(sql));
+        Assert.Contains("part of one or more relationships", ex.Message);
+    }
+
     [Fact]
     public void Alter_column_with_default_sets_and_applies_it()
     {

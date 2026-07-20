@@ -43,6 +43,12 @@ Version byte → format:
 | `0x05` | ACE 16 (Access 2016) — triggered by **Large Number** | 4096 | ACCDB |
 | `0x06` | ACE 17 (Access 2019+) — triggered by **Date/Time Extended** | 4096 | ACCDB |
 
+The identifier and version are one discriminator, not independent hints: `Standard Jet DB` uses version
+`0x00`/`0x01`, `Jet System DB` uses `0x01`, and `Standard ACE DB` uses `0x02` or later. LibRed rejects
+mismatched pairs before selecting offsets. It also deliberately rejects Jet 3 (`0x00`) until the distinct
+2 KB page, TDEF, column-descriptor, and row layouts listed in [README §12](README.md#version-differences)
+are implemented; recognizing the byte is not sufficient to read it safely.
+
 The version byte is **"the minimum ACE engine whose format features this file uses,"** and Microsoft allocates one
 byte per engine release whether or not that release adds a format-forcing feature. The only features that push
 past `0x03` are the two new *data types*: **Large Number** (Int64) → `0x05`, and **Date/Time Extended** (datetime2)
@@ -383,7 +389,7 @@ but a *writer* must set it. The Agile XML descriptor uses the same `len@0x299` +
 ### 2.6 ACE Agile page encryption (verified)
 
 Access 2010+ "Set Database Password" on an `.accdb` uses **Office Agile encryption** (MS-OFFCRYPTO §2.3.4): an
-`EncryptionInfo` **XML** descriptor sits in the clear in page 0 (after the masked header), carrying the AES-256-CBC
+`EncryptionInfo` **XML** descriptor sits in the clear in page 0 (framed by `len@0x299` and the blob at `0x29B`), carrying the AES-256-CBC
 + SHA-512 parameters, salts, and the password verifier. `LibRed.Crypto.AgileEncryption` derives the data key from
 the password (SHA-512 KDF, 100 000-spin), validates the verifier (wrong password → `UnauthorizedAccessException`),
 then decrypts each data page. **Access's one deviation from stock Agile:** the per-page IV block key is
@@ -391,10 +397,11 @@ then decrypts each data page. **Access's one deviation from stock Agile:** the p
 and the page is `AES-256-CBC(dataKey, IV)`. Page 0 is never page-encrypted. Verified end-to-end against a
 known-password fixture (decrypted pages match the unencrypted twin; `AgileEncryptionTests`).
 
-The reader is **data-driven** — `hashAlgorithm` (SHA-1/256/384/512), `keyBits`, `spinCount`, `blockSize`, and the
-salts all come from the XML, not hardcoded — and it **cross-checks the redundant `saltSize`/`hashSize` attributes**
-against the actual salt length and hash output, plus that `keyData` and `encryptedKey` name the same hash, throwing
-`NotSupportedException` on any disagreement (a malformed/misparsed descriptor). Only the cipher is fixed:
-`cipherAlgorithm`/`cipherChaining` are read and required to be `AES`/`ChainingModeCBC` (all Access `.accdb` Agile is
-AES-CBC). This is the scheme Access 2010+ writes by default; the pre-2010 binary-descriptor schemes are §2.4/§2.5.
-Creating Agile encryption from scratch is implemented (§2.5's "Creating encryption from scratch" note).
+LibRed supports the exact Access profile verified from real files and its own Access-openable writer:
+AES-256-CBC, SHA-512, 16-byte salts/blocks, and `spinCount=100000`. These cleartext dimensions are validated
+before allocation, KDF work, or AES setup; the encrypted verifier/key fields must be exactly 16/64/32 bytes.
+The reader also cross-checks redundant `saltSize`/`hashSize` attributes and requires `keyData` and `encryptedKey`
+to agree. Unsupported or malformed profiles throw `NotSupportedException`, while a structurally valid profile
+with the wrong password throws `UnauthorizedAccessException`. XML outside the declared `0x299`/`0x29B`
+descriptor frame is ignored. This is the scheme Access 2010+ writes by default; the pre-2010 binary-descriptor
+schemes are §2.4/§2.5. Creating Agile encryption from scratch is implemented (§2.5's note).

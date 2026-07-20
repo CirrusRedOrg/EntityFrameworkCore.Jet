@@ -30,10 +30,16 @@ internal readonly ref struct RowLayout
 
     private RowLayout(ReadOnlySpan<byte> row, int countSize, bool hasVar)
     {
+        if (countSize != 2 || row.Length < countSize)
+            throw new InvalidDataException("Row is too short to contain its 2-byte column count.");
+
         _row = row;
         _countSize = countSize;
         ColumnCount = BinaryPrimitives.ReadUInt16LittleEndian(row[..countSize]);
         NullBitmapSize = (ColumnCount + 7) / 8;
+        if (row.Length < countSize + NullBitmapSize)
+            throw new InvalidDataException(
+                $"Row is {row.Length} bytes, too short for its {NullBitmapSize}-byte null bitmap.");
 
         if (!hasVar)
         {
@@ -44,10 +50,29 @@ internal readonly ref struct RowLayout
         }
 
         int numVarPos = row.Length - NullBitmapSize - 2;
+        if (numVarPos < countSize + 2)
+            throw new InvalidDataException("Row is too short to contain a variable-column trailer.");
         NumVar = BinaryPrimitives.ReadUInt16LittleEndian(row.Slice(numVarPos, 2));
-        VarTableStart = numVarPos - (NumVar + 1) * 2;
+        long tableStart = (long)numVarPos - ((long)NumVar + 1) * 2;
+        if (tableStart < countSize || tableStart > numVarPos)
+            throw new InvalidDataException(
+                $"Row declares {NumVar} variable slots, placing its offset table outside the row.");
+        VarTableStart = (int)tableStart;
+
+        int previous = VarOffset(0);
+        if (previous < countSize || previous > VarTableStart)
+            throw new InvalidDataException(
+                $"Row variable-data end {previous} is outside the data region ending at {VarTableStart}.");
+        for (int entry = 1; entry <= NumVar; entry++)
+        {
+            int current = VarOffset(entry);
+            if (current < countSize || current > previous)
+                throw new InvalidDataException(
+                    $"Row variable offset {entry} ({current}) is outside or above its preceding boundary {previous}.");
+            previous = current;
+        }
         // The last offset-table entry is the variable-data start (= count field + fixed region).
-        FixedRegionLength = BinaryPrimitives.ReadUInt16LittleEndian(row.Slice(VarTableStart + NumVar * 2, 2)) - countSize;
+        FixedRegionLength = previous - countSize;
     }
 
     /// <summary>Parses <paramref name="row"/>; <paramref name="hasVar"/> is whether the schema has any variable column.</summary>
@@ -56,6 +81,9 @@ internal readonly ref struct RowLayout
     /// <summary>The raw bytes of variable column <paramref name="variableIndex"/> (end-first offset table).</summary>
     public ReadOnlySpan<byte> VarChunk(int variableIndex)
     {
+        if (variableIndex < 0 || variableIndex >= NumVar)
+            throw new InvalidDataException(
+                $"Row has {NumVar} variable slots but column metadata requests slot {variableIndex}.");
         int start = VarOffset(NumVar - variableIndex);
         int end = VarOffset(NumVar - variableIndex - 1);
         return _row[start..end];

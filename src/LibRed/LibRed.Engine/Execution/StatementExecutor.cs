@@ -105,7 +105,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private void EnforceCheckConstraints(TableDef definition, object?[] values)
     {
         if (definition.CheckConstraints.Count == 0) return;
-        var schema = definition.Columns.Select(c => new OutputColumn(definition.Name, c.Name)).ToList();
+        var schema = definition.Columns
+            .Select(c => new OutputColumn(definition.Name, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList();
         var evaluator = new ExpressionEvaluator(new EvalScope(schema, values, null), _scalarRunner, _parameters, _session);
         foreach (var (name, expression) in definition.CheckConstraints)
             if (evaluator.Evaluate(_parser.ParseExpression(expression)) is false)
@@ -627,7 +628,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         {
             Table t = _database.OpenTable(n.Name);
             string alias = n.Alias ?? n.Name;
-            tables.Add(new SourceTable(alias, t, t.Definition.Columns.Select(c => new OutputColumn(alias, c.Name)).ToList(), null));
+            tables.Add(new SourceTable(alias, t, t.Definition.Columns
+                .Select(c => new OutputColumn(alias, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList(), null));
             kinds.Add(kind);
             ons.Add(on);
         }
@@ -682,7 +684,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             throw new NotSupportedException("Only a SELECT is supported as a derived table in an UPDATE/DELETE source.");
         var plan = Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanSelect(select), _database.Catalog);
         ResultSet result = _scalarRunner.ExecuteQuery(plan);
-        var columns = result.ColumnNames.Select(n => new OutputColumn(alias, n)).ToList();
+        var columns = result.ColumnNames.Select((name, i) => new OutputColumn(alias, name, result.ColumnTypes[i])).ToList();
         return (columns, result.Rows.ToList());
     }
 
@@ -898,6 +900,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             for (int i = 0; i < values.Length; i++)
                 if (!Equals(original[i], values[i])) changed.Add(i);
             if (changed.Count == 0) continue; // unchanged after all
+
+            // UPDATE must preserve the same Required/NOT NULL invariant as INSERT. Check the complete
+            // post-assignment row before any referential action, row rewrite, or index mutation occurs.
+            EnforceRequired(table.Name, table.Definition.Columns, values);
 
             // Child side: a changed FK column must still reference an existing parent (like an insert).
             if (_database.Catalog.ForeignKeysOf(table.Name).Any(f => f.IsEnforced &&

@@ -108,14 +108,24 @@ public sealed class OfficeStandardEncryption : IPageCodec
         // so throw a clear error rather than falling through to read ciphertext as plaintext.
         if (!rc4 && algId is not (0x660E or 0x660F or 0x6610))
             throw new NotSupportedException($"Unsupported Office-Standard cipher AlgID 0x{algId:X4}.");
-        if (MapHash(algIdHash) is not var (hashName, _))
+        if (MapHash(algIdHash) is not var (hashName, hashLength))
             throw new NotSupportedException($"Unsupported Office-Standard hash AlgID 0x{algIdHash:X4}.");
+        if (keyBits != 0 && (rc4
+                ? keyBits is < 40 or > 128 || keyBits % 8 != 0
+                : keyBits is not (128 or 192 or 256)))
+            throw new NotSupportedException(
+                $"Unsupported Office-Standard {(rc4 ? "RC4" : "AES")} key size {keyBits} bits.");
 
         int v = h + headerSize;                       // EncryptionVerifier
         int saltSize = BinaryPrimitives.ReadInt32LittleEndian(page0.Slice(v, 4));
+        if (saltSize != 16)
+            throw new NotSupportedException($"Unsupported Office-Standard salt size {saltSize}; expected 16 bytes.");
         byte[] salt = page0.Slice(v + 4, saltSize).ToArray();
         byte[] encVerifier = page0.Slice(v + 4 + saltSize, 16).ToArray();
         int verifierHashSize = BinaryPrimitives.ReadInt32LittleEndian(page0.Slice(v + 4 + saltSize + 16, 4));
+        if (verifierHashSize != hashLength)
+            throw new NotSupportedException(
+                $"Office-Standard verifier hash size {verifierHashSize} does not match {hashName.Name} ({hashLength} bytes).");
         int encHashLen = rc4 ? verifierHashSize : (verifierHashSize + 15) / 16 * 16; // RC4: raw hash; AES: padded to block
         byte[] encVerifierHash = page0.Slice(v + 4 + saltSize + 16 + 4, encHashLen).ToArray();
 
@@ -272,8 +282,8 @@ public sealed class OfficeStandardEncryption : IPageCodec
             storedHash = AesEcb(key, encVerifierHash);
         }
         byte[] computed = Hash(_hashName, verifier);
-        int n = Math.Min(hashSize, Math.Min(computed.Length, storedHash.Length));
-        return computed.AsSpan(0, n).SequenceEqual(storedHash.AsSpan(0, n));
+        return computed.Length == hashSize && storedHash.Length >= hashSize
+            && CryptographicOperations.FixedTimeEquals(computed, storedHash.AsSpan(0, hashSize));
     }
 
     public void DecryptPage(int pageNumber, Span<byte> page) => Transform(pageNumber, page, decrypt: true);

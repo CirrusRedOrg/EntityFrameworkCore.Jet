@@ -500,7 +500,7 @@ WHERE SGN(`b`.`Float`) > 0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(`b`.`Int` > (`b`.`Short` - 3), `b`.`Int`, `b`.`Short` - 3) = `b`.`Int`
+WHERE IIF(`b`.`Int` > (`b`.`Short` - CINT(3)), `b`.`Int`, `b`.`Short` - CINT(3)) = `b`.`Int`
 """);
     }
 
@@ -512,7 +512,7 @@ WHERE IIF(`b`.`Int` > (`b`.`Short` - 3), `b`.`Int`, `b`.`Short` - 3) = `b`.`Int`
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(IIF((`b`.`Short` - 3) > `b`.`Int`, `b`.`Short` - 3, `b`.`Int`) > 1, IIF((`b`.`Short` - 3) > `b`.`Int`, `b`.`Short` - 3, `b`.`Int`), 1) = `b`.`Int`
+WHERE IIF(IIF((`b`.`Short` - CINT(3)) > `b`.`Int`, `b`.`Short` - CINT(3), `b`.`Int`) > 1, IIF((`b`.`Short` - CINT(3)) > `b`.`Int`, `b`.`Short` - CINT(3), `b`.`Int`), 1) = `b`.`Int`
 """);
     }
 
@@ -524,7 +524,7 @@ WHERE IIF(IIF((`b`.`Short` - 3) > `b`.`Int`, `b`.`Short` - 3, `b`.`Int`) > 1, II
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(IIF(IIF(1 > `b`.`Int`, 1, `b`.`Int`) > 2, IIF(1 > `b`.`Int`, 1, `b`.`Int`), 2) > (`b`.`Short` - 3), IIF(IIF(1 > `b`.`Int`, 1, `b`.`Int`) > 2, IIF(1 > `b`.`Int`, 1, `b`.`Int`), 2), `b`.`Short` - 3) = `b`.`Int`
+WHERE IIF(IIF(IIF(1 > `b`.`Int`, 1, `b`.`Int`) > 2, IIF(1 > `b`.`Int`, 1, `b`.`Int`), 2) > (`b`.`Short` - CINT(3)), IIF(IIF(1 > `b`.`Int`, 1, `b`.`Int`) > 2, IIF(1 > `b`.`Int`, 1, `b`.`Int`), 2), `b`.`Short` - CINT(3)) = `b`.`Int`
 """);
     }
 
@@ -536,7 +536,7 @@ WHERE IIF(IIF(IIF(1 > `b`.`Int`, 1, `b`.`Int`) > 2, IIF(1 > `b`.`Int`, 1, `b`.`I
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(`b`.`Int` < (`b`.`Short` + 3), `b`.`Int`, `b`.`Short` + 3) = `b`.`Int`
+WHERE IIF(`b`.`Int` < (`b`.`Short` + CINT(3)), `b`.`Int`, `b`.`Short` + CINT(3)) = `b`.`Int`
 """);
     }
 
@@ -548,7 +548,7 @@ WHERE IIF(`b`.`Int` < (`b`.`Short` + 3), `b`.`Int`, `b`.`Short` + 3) = `b`.`Int`
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(IIF((`b`.`Short` + 3) < `b`.`Int`, `b`.`Short` + 3, `b`.`Int`) < 99999, IIF((`b`.`Short` + 3) < `b`.`Int`, `b`.`Short` + 3, `b`.`Int`), 99999) = `b`.`Int`
+WHERE IIF(IIF((`b`.`Short` + CINT(3)) < `b`.`Int`, `b`.`Short` + CINT(3), `b`.`Int`) < 99999, IIF((`b`.`Short` + CINT(3)) < `b`.`Int`, `b`.`Short` + CINT(3), `b`.`Int`), 99999) = `b`.`Int`
 """);
     }
 
@@ -560,7 +560,7 @@ WHERE IIF(IIF((`b`.`Short` + 3) < `b`.`Int`, `b`.`Short` + 3, `b`.`Int`) < 99999
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(IIF(IIF(99999 < `b`.`Int`, 99999, `b`.`Int`) < 99998, IIF(99999 < `b`.`Int`, 99999, `b`.`Int`), 99998) < (`b`.`Short` + 3), IIF(IIF(99999 < `b`.`Int`, 99999, `b`.`Int`) < 99998, IIF(99999 < `b`.`Int`, 99999, `b`.`Int`), 99998), `b`.`Short` + 3) = `b`.`Int`
+WHERE IIF(IIF(IIF(99999 < `b`.`Int`, 99999, `b`.`Int`) < 99998, IIF(99999 < `b`.`Int`, 99999, `b`.`Int`), 99998) < (`b`.`Short` + CINT(3)), IIF(IIF(99999 < `b`.`Int`, 99999, `b`.`Int`) < 99998, IIF(99999 < `b`.`Int`, 99999, `b`.`Int`), 99998), `b`.`Short` + CINT(3)) = `b`.`Int`
 """);
     }
 

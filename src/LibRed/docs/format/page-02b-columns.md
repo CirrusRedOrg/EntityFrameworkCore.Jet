@@ -116,6 +116,11 @@ fixed↔variable / PK / indexed / multi-page / decimal shapes, plus a 20-column 
 run). This is **the same mechanism for every type/length change** — including a *widening* `TEXT(n)→TEXT(m)`;
 there is no cheap "just bump the length" path, ACE burns the id there too.
 
+> **Relationship columns cannot be altered.** ACE rejects a type or length change when the target is either
+> a referencing FK column or its referenced parent column: *"Cannot change field 'X'. It is part of one or
+> more relationships."* This is verified for both sides. LibRed performs this check before choosing an
+> in-place edit or logical rebuild, so no descriptor, row, or index page is changed on rejection.
+
 **TDEF header:** the max-column-id high-water (`0x29`, §3.1) bumps **+1** (this is the burned id). For a
 change **to a variable type**, the variable-column count (`0x2B`) also bumps **+1**. Every field burn is
 permanent: repeated modifies keep consuming ids from `0x29`, which is why a heavily-altered table can hit

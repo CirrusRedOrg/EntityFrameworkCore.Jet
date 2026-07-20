@@ -24,6 +24,11 @@
 | `0x13` | Int64 — **BIGINT** (ACE 16 / Access 2016) | 8-byte little-endian signed integer. Stored as a *variable*-length column |
 | `0x14` | DateTimeExtended — **DATETIME2** (ACE 17 / Access 2019+) | fixed 42-byte ASCII `<day>:<time>:<precision>` (see below) |
 
+LibRed's scalar reader requires the exact fixed widths listed above before invoking the numeric,
+GUID, date, or decimal codec. Text, Binary, Memo/OLE descriptors, and Complex values remain
+variable-length. A width mismatch is treated as row corruption (`InvalidDataException`) rather
+than being allowed to fail incidentally inside a primitive decoder.
+
 **New-type format versions — the two are NOT the same version** (verified against files authored with each
 feature enabled: enabling BigInt made the file version byte `0x05`, enabling Date/Time Extended made it
 `0x06`). **`BIGINT` (Large Number)** requires the **ACE 16 / Access 2016** format (`0x05`); **`DATETIME2`
@@ -63,6 +68,9 @@ Points verified against ACE that aren't obvious from that page:
 - **Size-less `char`/`varchar` default to 255**, size-less `binary`/`varbinary` to **510** (ACE's schema
   `CHARACTER_MAXIMUM_LENGTH`), **not** 1.
 - **Bare `TEXT` → Memo** (long text); `TEXT(n)` → `varchar(n)` (a Jet quirk, ACE-verified).
+- Sized Text/Binary dimensions must be positive: Text is `1..255` characters and Binary is `1..510` bytes.
+- `DECIMAL(p,s)` / `NUMERIC(p,s)` use precision `1..28` and scale `0..p`; LibRed rejects dimensions outside
+  those ACE/.NET decimal bounds before allocating or writing a table definition.
 - The grammar parses **two-word** type names (`CHARACTER VARYING`, `BIT VARYING`); three-word
   (`NATIONAL CHARACTER VARYING`) is not parsed yet. `HYPERLINK`/`XML`/`SQL_VARIANT`/`VARIANT`/`COMP` have no
   mapping (rejected, as ACE also rejects them).

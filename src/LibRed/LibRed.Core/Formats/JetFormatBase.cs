@@ -251,18 +251,32 @@ public abstract class JetFormatBase
     {
         Span<byte> header = stackalloc byte[EngineVersionOffset + EngineVersionLength]; // through the 0x9C engine string
         long original = stream.Position;
-        stream.Seek(0, SeekOrigin.Begin);
-        stream.ReadExactly(header);
-        stream.Seek(original, SeekOrigin.Begin);
+        try
+        {
+            stream.Seek(0, SeekOrigin.Begin);
+            stream.ReadExactly(header);
+        }
+        finally
+        {
+            stream.Seek(original, SeekOrigin.Begin);
+        }
 
         string identifier = ReadFormatIdentifier(header);
         if (identifier is not (JetIdentifier or AceIdentifier or JetSystemIdentifier))
             throw new NotSupportedException(
                 $"Not a Jet/ACE database: expected \"{JetIdentifier}\", \"{AceIdentifier}\" or \"{JetSystemIdentifier}\" at offset 0x{FormatIdentifierOffset:X2}, found \"{identifier}\".");
 
+        byte version = header[VersionOffset];
+        bool identifierMatchesVersion = identifier == AceIdentifier
+            ? version >= 0x02
+            : version <= 0x01;
+        if (!identifierMatchesVersion)
+            throw new NotSupportedException(
+                $"Jet/ACE format identifier \"{identifier}\" does not match version byte 0x{version:X2}.");
+
         try
         {
-            return FromVersionByte(header[VersionOffset]);
+            return FromVersionByte(version);
         }
         catch (NotSupportedException)
         {
@@ -289,7 +303,8 @@ public abstract class JetFormatBase
     /// <summary>Maps the raw version byte at <see cref="VersionOffset"/> to a format instance.</summary>
     public static JetFormatBase FromVersionByte(byte versionByte) => versionByte switch
     {
-        0x00 => new Jet3Format(),
+        0x00 => throw new NotSupportedException(
+            "Jet 3 / Access 97 databases are not supported because their 2 KB page, TDEF, column, and row layouts are not yet implemented."),
         0x01 => new Jet4Format(),
         0x02 => new Jet12Format(),
         0x03 => new Jet14Format(),

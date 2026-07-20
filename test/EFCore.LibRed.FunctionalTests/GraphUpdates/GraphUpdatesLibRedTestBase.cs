@@ -14,9 +14,16 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests;
 
 #nullable disable
 
-public abstract class GraphUpdatesLibRedTestBase<TFixture>(TFixture fixture) : GraphUpdatesTestBase<TFixture>(fixture)
+public abstract class GraphUpdatesLibRedTestBase<TFixture> : GraphUpdatesTestBase<TFixture>
     where TFixture : GraphUpdatesLibRedTestBase<TFixture>.GraphUpdatesLibRedFixtureBase, new()
 {
+    protected GraphUpdatesLibRedTestBase(TFixture fixture)
+        : base(fixture)
+        // GraphUpdates fixtures execute thousands of commands and live for the entire class. Without a
+        // per-test clear, TestSqlLoggerFactory retains every formatted EF diagnostic string and eventually
+        // exhausts the functional-test host (observed at >425 MB of live strings in a managed heap dump).
+        => fixture.TestSqlLoggerFactory.Clear();
+
     [ConditionalFact] // Issue #32638
     public virtual void Key_and_index_properties_use_appropriate_comparer()
     {

@@ -42,4 +42,35 @@ public class ColumnSizeLimitTests
             () => e.ExecuteNonQuery($"CREATE TABLE T ( col {type} )"));
         Assert.Contains("too long", ex.Message);
     }
+
+    [Theory]
+    [InlineData("char(0)")]
+    [InlineData("varchar(-1)")]
+    [InlineData("binary(0)")]
+    [InlineData("varbinary(-1)")]
+    [InlineData("decimal(0,0)")]
+    [InlineData("decimal(-1,0)")]
+    [InlineData("decimal(29,0)")]
+    [InlineData("decimal(10,-1)")]
+    [InlineData("decimal(10,11)")]
+    [InlineData("decimal(300,1)")]
+    public void Invalid_dimensions_are_rejected_before_creating_the_table(string type)
+    {
+        var e = Fresh();
+        Assert.Throws<InvalidOperationException>(() =>
+            e.ExecuteNonQuery($"CREATE TABLE T ( col {type} )"));
+        Assert.DoesNotContain(e.Database.Catalog.UserTables, t => t.Name == "T");
+    }
+
+    [Theory]
+    [InlineData("decimal(1,0)", 1, 0)]
+    [InlineData("decimal(28,28)", 28, 28)]
+    public void Decimal_boundary_dimensions_are_preserved(string type, byte precision, byte scale)
+    {
+        var e = Fresh();
+        e.ExecuteNonQuery($"CREATE TABLE T ( col {type} )");
+        var column = e.Database.Catalog.UserTables.Single(t => t.Name == "T").Columns.Single();
+        Assert.Equal(precision, column.Precision);
+        Assert.Equal(scale, column.Scale);
+    }
 }

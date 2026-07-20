@@ -12,6 +12,11 @@ namespace LibRed.Pages;
 /// </summary>
 public sealed class TableDefinitionPage : Page
 {
+    private const int MaxColumnsPerTable = 255;
+    private const int MaxIndexesPerTable = 32;
+    private const int MaxNameBytes = JetName.MaxLength * 2;
+    private static readonly Encoding StrictUnicode = new UnicodeEncoding(
+        bigEndian: false, byteOrderMark: false, throwOnInvalidBytes: true);
     private readonly List<ColumnDef> _columns = [];
 
     public override PageType Type => PageType.TableDefinition;
@@ -57,32 +62,23 @@ public sealed class TableDefinitionPage : Page
     /// into one contiguous buffer before parsing.
     /// </summary>
     public void Read(PageChannel channel, int page)
-        => Read(AssembleDefinition(channel, page), channel.Format);
-
-    private static PageBuffer AssembleDefinition(PageChannel channel, int page)
     {
-        PageBuffer first = channel.ReadPage(page);
-        int next = first.ReadInt32(channel.Format.TdefNextPageOffset);
-        if (next == 0)
-            return first;
-
-        // The column offsets are absolute from the first page's start, so the first page
-        // is taken whole and each continuation contributes its data after the 8-byte header.
-        var assembled = new List<byte>(first.Span.Length * 2);
-        assembled.AddRange(first.Span);
-
-        while (next != 0)
-        {
-            PageBuffer continuation = channel.ReadPage(next);
-            next = continuation.ReadInt32(channel.Format.TdefNextPageOffset);
-            assembled.AddRange(continuation.Span[JetFormatBase.TdefContinuationHeaderSize..]);
-        }
-
-        return new PageBuffer(assembled.ToArray(), page);
+        (PageBuffer buffer, _) = TdefChainReader.Read(channel, page);
+        Read(buffer, channel.Format);
     }
 
     public override void Read(PageBuffer buffer, JetFormatBase format)
     {
+        if (buffer.Length < format.TdefRealIndexBlockOffset)
+            throw new InvalidDataException(
+                $"TDEF buffer is {buffer.Length} bytes; the fixed header requires {format.TdefRealIndexBlockOffset}.");
+        int declaredLength = buffer.ReadInt32(format.TdefLengthOffset);
+        if (declaredLength < format.TdefRealIndexBlockOffset || declaredLength > buffer.Length)
+            throw new InvalidDataException(
+                $"TDEF declares length {declaredLength}, outside the available {buffer.Length}-byte buffer.");
+        if (declaredLength != buffer.Length)
+            buffer = new PageBuffer(buffer.Data[..declaredLength], buffer.PageNumber);
+
         PageNumber = buffer.PageNumber;
 
         NextDefinitionPage = buffer.ReadInt32(format.TdefNextPageOffset);
@@ -94,11 +90,24 @@ public sealed class TableDefinitionPage : Page
         RealIndexCount = buffer.ReadInt32(format.TdefRealIndexCountOffset);
         IndexCount = buffer.ReadInt32(format.TdefIndexCountOffset);
 
+        if (ColumnCount > MaxColumnsPerTable)
+            throw new InvalidDataException($"TDEF declares {ColumnCount} columns; Jet/ACE permits at most {MaxColumnsPerTable}.");
+        if (VariableColumnCount > MaxColumnsPerTable)
+            throw new InvalidDataException(
+                $"TDEF declares a variable-column high-water of {VariableColumnCount}; Jet/ACE permits at most {MaxColumnsPerTable}.");
+        if (IndexCount is < 0 or > MaxIndexesPerTable)
+            throw new InvalidDataException($"TDEF declares {IndexCount} real indexes; Jet/ACE permits 0 through {MaxIndexesPerTable}.");
+        if (RealIndexCount < 0)
+            throw new InvalidDataException($"TDEF declares a negative logical-index count ({RealIndexCount}).");
+
         // The column descriptors follow a per-index block sized by the index count at
         // 0x33 (IndexCount) — NOT the index-slot count at 0x2F. The two are equal for
         // MSysObjects but differ for user tables (e.g. slots=2, indexes=1).
         // The buffer here may already be a stitched multi-page definition (see Read(channel, page)).
-        int columnBlock = format.TdefRealIndexBlockOffset + IndexCount * format.RealIndexEntrySize;
+        int columnBlock = CheckedRegionEnd(
+            format.TdefRealIndexBlockOffset, IndexCount, format.RealIndexEntrySize, buffer.Span.Length, "index statistics");
+        _ = CheckedRegionEnd(
+            columnBlock, ColumnCount, format.ColumnDescriptorSize, buffer.Span.Length, "column descriptors");
         int afterNames = ReadColumns(buffer, format, columnBlock);
         ReadIndexes(buffer, format, afterNames);
     }
@@ -112,6 +121,10 @@ public sealed class TableDefinitionPage : Page
     {
         _indexes.Clear();
         var byColumnId = _columns.ToDictionary(c => c.ColumnId);
+        int infoStart = CheckedRegionEnd(
+            blockStart, IndexCount, IndexBlockFormat.DataBlockSize, buffer.Span.Length, "index-data blocks");
+        _ = CheckedRegionEnd(
+            infoStart, RealIndexCount, IndexBlockFormat.InfoBlockSize, buffer.Span.Length, "logical-index blocks");
 
         // 1. Index-data blocks (one IndexDef each): columns, unique flag, root page.
         for (int i = 0; i < IndexCount; i++)
@@ -148,8 +161,18 @@ public sealed class TableDefinitionPage : Page
             });
         }
 
-        int afterIndexNames = ResolveIndexNames(buffer, blockStart + IndexCount * IndexBlockFormat.DataBlockSize);
+        int afterIndexNames = ResolveIndexNames(buffer, infoStart);
         ReadLongValueMaps(buffer, afterIndexNames);
+    }
+
+    private static int CheckedRegionEnd(
+        int start, int count, int itemSize, int bufferLength, string section)
+    {
+        long end = (long)start + (long)count * itemSize;
+        if (start < 0 || count < 0 || end < start || end > bufferLength)
+            throw new InvalidDataException(
+                $"TDEF {section} extend past the assembled definition ({start} + {count} * {itemSize} > {bufferLength}).");
+        return (int)end;
     }
 
     /// <summary>Parses the §3.3.2 long-value column usage-map list (after the index names): one 10-byte
@@ -159,8 +182,30 @@ public sealed class TableDefinitionPage : Page
     {
         _longValueOwnedMaps.Clear();
         _longValueFreeMaps.Clear();
-        while (buffer.ReadUInt16(pos) is var colNum && colNum != 0xFFFF)
+        var seen = new HashSet<int>();
+        while (true)
         {
+            EnsureAvailable(buffer, pos, 2, "long-value map terminator");
+            int colNum = buffer.ReadUInt16(pos);
+            if (colNum == 0xFFFF)
+            {
+                pos += 2;
+                if (pos != buffer.Length)
+                    throw new InvalidDataException(
+                        $"TDEF has {buffer.Length - pos} trailing bytes after the long-value map terminator.");
+                return;
+            }
+
+            EnsureAvailable(buffer, pos, 10, "long-value map entry");
+            ColumnDef? column = _columns.FirstOrDefault(c => c.ColumnId == colNum);
+            if (column is null)
+                throw new InvalidDataException($"TDEF long-value map references unknown column id {colNum}.");
+            if (column.Type is not (JetDataType.Memo or JetDataType.Ole))
+                throw new InvalidDataException(
+                    $"TDEF long-value map references non-long-value column '{column.Name}' ({column.Type}).");
+            if (!seen.Add(colNum))
+                throw new InvalidDataException($"TDEF contains duplicate long-value map entries for column id {colNum}.");
+
             _longValueOwnedMaps[colNum] = (buffer.ReadByte(pos + 2), buffer.ReadInt24(pos + 3));
             _longValueFreeMaps[colNum] = (buffer.ReadByte(pos + 6), buffer.ReadInt24(pos + 7));
             pos += 10;
@@ -190,10 +235,7 @@ public sealed class TableDefinitionPage : Page
         var priority = new int[_indexes.Count];
         for (int i = 0; i < logicalCount; i++)
         {
-            int byteLength = buffer.ReadUInt16(namePos);
-            namePos += 2;
-            string name = Encoding.Unicode.GetString(buffer.Slice(namePos, byteLength));
-            namePos += byteLength;
+            (string name, namePos) = ReadName(buffer, namePos, $"logical index {i}");
 
             (int dataNumber, bool isRelationship, byte type) = info[i];
             if (dataNumber < 0 || dataNumber >= _indexes.Count) continue;
@@ -220,17 +262,26 @@ public sealed class TableDefinitionPage : Page
 
         // Pass 1: fixed-size column descriptors.
         var descriptors = new (JetDataType Type, int ColumnId, byte Flags, byte ExtFlags, int FixedOffset, int Length, byte Precision, byte Scale, int VariableIndex, Collation Collation)[ColumnCount];
+        var columnIds = new HashSet<int>();
         for (int i = 0; i < ColumnCount; i++)
         {
             int entry = columnBlock + i * format.ColumnDescriptorSize;
             var type = (JetDataType)buffer.ReadByte(entry + format.ColumnTypeOffset);
+            int columnId = buffer.ReadUInt16(entry + format.ColumnNumberOffset);
+            if (!Enum.IsDefined(type))
+                throw new InvalidDataException($"TDEF column {i} has unknown type code 0x{(byte)type:X2}.");
+            if (columnId >= MaxColumnsPerTable)
+                throw new InvalidDataException(
+                    $"TDEF column {i} has id {columnId}; valid ids are 0 through {MaxColumnsPerTable - 1}.");
+            if (!columnIds.Add(columnId))
+                throw new InvalidDataException($"TDEF contains duplicate column id {columnId}.");
 
             // Bytes 0x0B/0x0C are precision/scale for a Decimal/Numeric column and the text-collation LCID
             // for everything else; 0x0D is the collation's sort-order version. Read whichever applies.
             bool numeric = type == JetDataType.FixedPoint;
             descriptors[i] = (
                 type,
-                buffer.ReadUInt16(entry + format.ColumnNumberOffset),
+                columnId,
                 buffer.ReadByte(entry + format.ColumnFlagsOffset),
                 buffer.ReadByte(entry + format.ColumnExtendedFlagsOffset),
                 buffer.ReadUInt16(entry + format.ColumnFixedOffsetOffset),
@@ -255,13 +306,15 @@ public sealed class TableDefinitionPage : Page
         int namePos = columnBlock + ColumnCount * format.ColumnDescriptorSize;
         for (int i = 0; i < ColumnCount; i++)
         {
-            int byteLength = buffer.ReadUInt16(namePos);
-            namePos += 2;
-            string name = Encoding.Unicode.GetString(buffer.Slice(namePos, byteLength));
-            namePos += byteLength;
+            (string name, namePos) = ReadName(buffer, namePos, $"column {i}");
 
             var d = descriptors[i];
             bool isFixed = (d.Flags & JetFormatBase.ColumnFlagFixedLength) != 0;
+            if ((!isFixed && d.VariableIndex >= VariableColumnCount)
+                || (isFixed && d.VariableIndex > VariableColumnCount))
+                throw new InvalidDataException(
+                    $"TDEF column '{name}' has variable-table index {d.VariableIndex}, " +
+                    $"outside high-water {VariableColumnCount}.");
             _columns.Add(new ColumnDef
             {
                 Name = name,
@@ -305,5 +358,32 @@ public sealed class TableDefinitionPage : Page
             }
 
         return namePos;
+    }
+
+    private static (string Name, int Next) ReadName(PageBuffer buffer, int pos, string kind)
+    {
+        EnsureAvailable(buffer, pos, 2, $"{kind} name length");
+        int byteLength = buffer.ReadUInt16(pos);
+        pos += 2;
+        if (byteLength == 0 || byteLength > MaxNameBytes || (byteLength & 1) != 0)
+            throw new InvalidDataException(
+                $"TDEF {kind} name has invalid UTF-16 byte length {byteLength}; expected an even value from 2 through {MaxNameBytes}.");
+        EnsureAvailable(buffer, pos, byteLength, $"{kind} name");
+        try
+        {
+            return (StrictUnicode.GetString(buffer.Slice(pos, byteLength)), pos + byteLength);
+        }
+        catch (DecoderFallbackException ex)
+        {
+            throw new InvalidDataException($"TDEF {kind} name is not valid UTF-16LE.", ex);
+        }
+    }
+
+    private static void EnsureAvailable(PageBuffer buffer, int pos, int length, string section)
+    {
+        long end = (long)pos + length;
+        if (pos < 0 || length < 0 || end > buffer.Length)
+            throw new InvalidDataException(
+                $"TDEF {section} extends past the declared definition ({pos} + {length} > {buffer.Length}).");
     }
 }

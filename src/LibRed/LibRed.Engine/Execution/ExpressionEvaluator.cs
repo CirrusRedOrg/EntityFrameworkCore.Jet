@@ -1051,6 +1051,9 @@ internal sealed class ExpressionEvaluator(
             "h" => d.Hour,
             "n" => d.Minute,
             "s" => d.Second,
+            "ms" => d.Millisecond,
+            "mcs" => d.Microsecond,
+            "ns" => d.Nanosecond,
             _ => throw new NotSupportedException($"DATEPART interval '{interval}' is not supported."),
         };
     }

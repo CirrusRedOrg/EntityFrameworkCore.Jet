@@ -59,18 +59,22 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     {
         byte[] key = IndexKeyEncoder.Encode(index.Columns, values);
         int leaf = Descend(index.RootPage, WithTrailer(key, 0))[^1];
+        var visitedLeaves = new HashSet<int>();
         while (leaf != 0)
         {
-            byte[] page = _channel.ReadPage(leaf).Span.ToArray();
-            (List<Entry> entries, _) = Parse(page);
-            foreach (Entry e in entries)
+            if (!visitedLeaves.Add(leaf))
+                throw new InvalidDataException($"Index leaf chain contains a cycle at page {leaf}.");
+            ParsedIndexPage page = ReadIndexPage(leaf);
+            if (page.Type != PageType.LeafIndexPage)
+                throw new InvalidDataException($"Index leaf chain points to non-leaf page {leaf}.");
+            foreach (Entry e in page.Entries)
             {
                 int cmp = CompareBytes(e.Key, key);
                 if (cmp > 0) return false;   // sorted past where the key would be — it's absent
                 // Same key held by a *different* row (for an UPDATE, the row's own entry is excluded).
                 if (cmp == 0 && e.Trailer != excludePointer) return true;
             }
-            leaf = ReadInt32Le(page, NextPageOffset); // all keys here sort below it — may continue on the next leaf
+            leaf = page.Next; // all keys here sort below it — may continue on the next leaf
         }
         return false;
     }
@@ -88,9 +92,14 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     {
         byte[] key = IndexKeyEncoder.Encode(index.Columns, values);
         int leaf = Descend(index.RootPage, WithTrailer(key, 0))[^1];
+        var visitedLeaves = new HashSet<int>();
         while (leaf != 0)
         {
+            if (!visitedLeaves.Add(leaf))
+                throw new InvalidDataException($"Index leaf chain contains a cycle at page {leaf}.");
             ParsedIndexPage page = ReadIndexPage(leaf);
+            if (page.Type != PageType.LeafIndexPage)
+                throw new InvalidDataException($"Index leaf chain points to non-leaf page {leaf}.");
             foreach (Entry e in page.Entries)
             {
                 int cmp = CompareBytes(e.Key, key);
@@ -114,9 +123,14 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         byte[]? highKey = high is null ? null : IndexKeyEncoder.Encode(index.Columns, high);
 
         int leaf = Descend(index.RootPage, WithTrailer(lowKey ?? [], 0))[^1];
+        var visitedLeaves = new HashSet<int>();
         while (leaf != 0)
         {
+            if (!visitedLeaves.Add(leaf))
+                throw new InvalidDataException($"Index leaf chain contains a cycle at page {leaf}.");
             ParsedIndexPage page = ReadIndexPage(leaf);
+            if (page.Type != PageType.LeafIndexPage)
+                throw new InvalidDataException($"Index leaf chain points to non-leaf page {leaf}.");
             foreach (Entry e in page.Entries)
             {
                 if (lowKey is not null && CompareBytes(e.Key, lowKey) < 0) continue;     // before the low bound
@@ -159,7 +173,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
         List<int> path = Descend(index.RootPage, WithTrailer(key, pointer));
         int leafPage = path[^1];
-        byte[] page = _channel.ReadPage(leafPage).Span.ToArray();
+        CheckedIndexPage page = ReadMutationPage(leafPage, PageType.LeafIndexPage);
         (List<Entry> entries, _) = Parse(page);
 
         int idx = entries.FindIndex(e => e.Trailer == pointer && CompareBytes(e.Key, key) == 0);
@@ -168,9 +182,9 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
                 $"Index '{index.Name}': entry for row {rowId.Page}:{rowId.Row} was not found on leaf {leafPage}.");
         entries.RemoveAt(idx);
 
-        int prev = ReadInt32Le(page, PrevPageOffset), next = ReadInt32Le(page, NextPageOffset);
         // Removing only shrinks the page, so Build never overflows.
-        _channel.WritePage(leafPage, Build(PageType.LeafIndexPage, prev, next, tail: 0, level: 0, entries)!);
+        _channel.WritePage(leafPage,
+            Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries)!);
     }
 
     private static bool HasNullKey(IndexDef index, object?[] values) =>
@@ -180,12 +194,17 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     private List<int> Descend(int rootPage, byte[] fullKey)
     {
         var path = new List<int>();
+        var visited = new HashSet<int>();
         int pageNumber = rootPage;
         while (true)
         {
+            if (!visited.Add(pageNumber))
+                throw new InvalidDataException($"Index descent contains a cycle at page {pageNumber}.");
             path.Add(pageNumber);
             ParsedIndexPage page = ReadIndexPage(pageNumber);
             if (page.Type == PageType.LeafIndexPage) return path;
+            if (page.Type != PageType.IntermediateIndexPage)
+                throw new InvalidDataException($"Index descent reached non-index page {pageNumber}.");
 
             int child = page.Tail;
             foreach (Entry e in page.Entries)
@@ -196,7 +215,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
     /// <summary>An index page decoded for the read paths (<see cref="Descend"/>/<see cref="Seek"/>/
     /// <see cref="SeekRange"/>): its type, entries, node child-tail and leaf next-pointer.</summary>
-    private sealed record ParsedIndexPage(PageType Type, List<Entry> Entries, int Tail, int Next);
+    private sealed record ParsedIndexPage(PageType Type, int Owner, List<Entry> Entries, int Tail, int Next);
 
     /// <summary>Reads an index page as decoded entries, served from the channel's parsed-page cache on a repeat
     /// visit — a B-tree descent re-reads its root/internal pages on every seek, so caching the decode (not just
@@ -205,11 +224,16 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     private ParsedIndexPage ReadIndexPage(int pageNumber)
     {
         if (_channel.TryGetParsedPage(pageNumber, out object? cached) && cached is ParsedIndexPage hit)
+        {
+            if (hit.Owner != _table.DefinitionPage)
+                throw new InvalidDataException(
+                    $"Index page {pageNumber} belongs to TDEF {hit.Owner}, not TDEF {_table.DefinitionPage}.");
             return hit;
+        }
 
-        byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
+        CheckedIndexPage page = IndexPageReader.Read(_channel, pageNumber, _table.DefinitionPage);
         (List<Entry> entries, int tail) = Parse(page);
-        var parsed = new ParsedIndexPage((PageType)page[0], entries, tail, ReadInt32Le(page, NextPageOffset));
+        var parsed = new ParsedIndexPage(page.Type, page.Owner, entries, tail, page.Next);
         _channel.SetParsedPage(pageNumber, parsed);
         return parsed;
     }
@@ -217,7 +241,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     private void InsertIntoLeaf(IndexDef index, List<int> path, byte[] key, int pointer)
     {
         int leafPage = path[^1];
-        byte[] page = _channel.ReadPage(leafPage).Span.ToArray();
+        CheckedIndexPage page = ReadMutationPage(leafPage, PageType.LeafIndexPage);
         (List<Entry> entries, _) = Parse(page);
 
         // Insert in key order (key then pointer tiebreaker) — the full leaf key is key ++ pointer.
@@ -226,14 +250,14 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         while (pos < entries.Count && CompareBytes(WithTrailer(entries[pos].Key, entries[pos].Trailer), fullKey) < 0) pos++;
         entries.Insert(pos, new Entry(key, pointer));
 
-        int prev = ReadInt32Le(page, PrevPageOffset), next = ReadInt32Le(page, NextPageOffset);
-        if (Build(PageType.LeafIndexPage, prev, next, tail: 0, level: 0, entries) is { } built)
+        if (Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries) is { } built)
         {
             _channel.WritePage(leafPage, built);
             return;
         }
 
-        SplitAndPropagate(index, path, path.Count - 1, entries, PageType.LeafIndexPage, prev, next);
+        SplitAndPropagate(index, path, path.Count - 1, entries, PageType.LeafIndexPage,
+            page.Previous, page.Next);
     }
 
     /// <summary>
@@ -292,7 +316,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     private void InsertSeparator(IndexDef index, List<int> path, int level, int oldChild, byte[] promoted, int newRight)
     {
         int parentPage = path[level];
-        byte[] page = _channel.ReadPage(parentPage).Span.ToArray();
+        CheckedIndexPage page = ReadMutationPage(parentPage, PageType.IntermediateIndexPage);
         (List<Entry> entries, int tail) = Parse(page);
 
         int slot = entries.FindIndex(e => e.Trailer == oldChild);
@@ -320,24 +344,32 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
     private int _splitTail; // carries a node's tail into SplitAndPropagate
 
-    /// <summary>Parses a page's entries (decompressing the shared prefix) and its child-tail (nodes).</summary>
-    private static (List<Entry> Entries, int Tail) Parse(byte[] page)
+    /// <summary>Parses a checked page's entries, decompressing their shared prefix.</summary>
+    private static (List<Entry> Entries, int Tail) Parse(CheckedIndexPage page)
     {
-        int compress = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(CompressedByteCountOffset, 2));
-        int tail = ReadInt32Le(page, ChildTailOffset);
-        var entries = new List<Entry>();
+        var entries = new List<Entry>(page.EntryRanges.Count);
         byte[] prefix = [];
         bool first = true;
-
-        foreach ((int start, int end) in EntryRanges(page))
+        foreach ((int start, int end) in page.EntryRanges)
         {
-            int trailer = ReadInt32Be(page, EntryDataOffset + end - 4);
-            ReadOnlySpan<byte> stored = page.AsSpan(EntryDataOffset + start, end - start - 4);
+            int trailer = IndexPageReader.ReadInt32BigEndian(page.Buffer, EntryDataOffset + end - 4);
+            ReadOnlySpan<byte> stored = page.Buffer.Slice(EntryDataOffset + start, end - start - 4);
             byte[] full = first ? stored.ToArray() : Concat(prefix, stored);
-            if (first) { prefix = full[..compress]; first = false; }
+            if (first) { prefix = full[..page.CompressedByteCount]; first = false; }
             entries.Add(new Entry(full, trailer));
         }
-        return (entries, tail);
+        return (entries, page.Tail);
+    }
+
+    /// <summary>Revalidates a page immediately before mutation, closing the gap between B-tree descent and
+    /// the final read-modify-write operation.</summary>
+    private CheckedIndexPage ReadMutationPage(int pageNumber, PageType expectedType)
+    {
+        CheckedIndexPage page = IndexPageReader.Read(_channel, pageNumber, _table.DefinitionPage);
+        if (page.Type != expectedType)
+            throw new InvalidDataException(
+                $"Index mutation expected page {pageNumber} to be {expectedType}, but found {page.Type}.");
+        return page;
     }
 
     /// <summary>Builds a page from entries; null if they overflow the page. Leaf pages are prefix-compressed;
@@ -440,27 +472,13 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         return page;
     }
 
-    private const int ContinuationHeaderSize = 8;
-
     /// <summary>Reads the table definition, stitching continuation pages into one contiguous buffer, and
     /// returns the continuation page numbers in chain order.</summary>
     private (byte[] Definition, IReadOnlyList<int> ContinuationPages) ReadDefinition()
     {
-        JetFormatBase format = _channel.Format;
-        PageBuffer first = _channel.ReadPage(_table.DefinitionPage);
-        int next = first.ReadInt32(format.TdefNextPageOffset);
-        if (next == 0) return (first.Span.ToArray(), []);
-
-        var continuations = new List<int>();
-        var assembled = new List<byte>(first.Span.ToArray());
-        while (next != 0)
-        {
-            continuations.Add(next);
-            PageBuffer cont = _channel.ReadPage(next);
-            next = cont.ReadInt32(format.TdefNextPageOffset);
-            assembled.AddRange(cont.Span[ContinuationHeaderSize..].ToArray());
-        }
-        return (assembled.ToArray(), continuations);
+        (PageBuffer buffer, IReadOnlyList<int> continuations) =
+            TdefChainReader.Read(_channel, _table.DefinitionPage);
+        return (buffer.Span.ToArray(), continuations);
     }
 
     /// <summary>Maps an absolute definition offset to the page holding it and the offset within that page.</summary>
@@ -469,13 +487,13 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         int pageSize = _channel.Format.PageSize;
         if (offset < pageSize) return (_table.DefinitionPage, offset);
 
-        int body = pageSize - ContinuationHeaderSize;
+        int body = pageSize - JetFormatBase.TdefContinuationHeaderSize;
         int relative = offset - pageSize;
         int index = relative / body;
         if (index >= continuations.Count)
             throw new InvalidOperationException(
                 $"Definition offset {offset} lies past the end of table '{_table.Name}'s definition chain.");
-        return (continuations[index], ContinuationHeaderSize + relative % body);
+        return (continuations[index], JetFormatBase.TdefContinuationHeaderSize + relative % body);
     }
 
     /// <summary>Writes 4 little-endian bytes at an absolute definition offset, splitting the write when the
@@ -505,7 +523,10 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
     private void SetPrev(int pageNumber, int prev)
     {
-        byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
+        CheckedIndexPage checkedPage = IndexPageReader.Read(_channel, pageNumber, _table.DefinitionPage);
+        if (checkedPage.Type != PageType.LeafIndexPage)
+            throw new InvalidDataException($"Leaf next-pointer targets non-leaf page {pageNumber}.");
+        byte[] page = checkedPage.Buffer.Span.ToArray();
         WriteInt32Le(page, PrevPageOffset, prev);
         _channel.WritePage(pageNumber, page);
     }
@@ -537,23 +558,6 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         return a.Length - b.Length;
     }
 
-    private static IEnumerable<(int Start, int End)> EntryRanges(byte[] page)
-    {
-        int start = 0;
-        for (int i = EntryMaskOffset; i < EntryDataOffset; i++)
-        {
-            byte mask = page[i];
-            if (mask == 0) continue;
-            for (int bit = 0; bit < 8; bit++)
-            {
-                if ((mask & (1 << bit)) == 0) continue;
-                int end = (i - EntryMaskOffset) * 8 + bit;
-                yield return (start, end);
-                start = end;
-            }
-        }
-    }
-
     private static byte[] Concat(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
     {
         var result = new byte[a.Length + b.Length];
@@ -562,8 +566,6 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         return result;
     }
 
-    private static int ReadInt32Le(byte[] page, int offset) => BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(offset, 4));
     private static void WriteInt32Le(byte[] page, int offset, int value) => BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(offset, 4), value);
-    private static int ReadInt32Be(byte[] page, int offset) => BinaryPrimitives.ReadInt32BigEndian(page.AsSpan(offset, 4));
     private static void WriteInt32Be(byte[] page, int offset, int value) => BinaryPrimitives.WriteInt32BigEndian(page.AsSpan(offset, 4), value);
 }

@@ -49,6 +49,8 @@ public class FunctionalTestsSmokeTest(ITestOutputHelper output)
         }
 
         _output.WriteLine($"files={files.Length} tables={totalTables} rows={totalRows}");
+        foreach (string failure in allFailures)
+            _output.WriteLine(failure);
         Assert.Empty(allFailures);
     }
 

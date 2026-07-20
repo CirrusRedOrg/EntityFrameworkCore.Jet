@@ -48,7 +48,17 @@
   > length covering the whole block. Type `0x80` is the **property-name pool** (`[short len][UTF-16
   > name]` repeated, indexed 0,1,…). Other blocks are a **per-owner value map** (owner = a column name,
   > or `""` for the table): `[short ownerRecLen][short 0][short nameLen][owner name]` then property
-  > entries `[short entryLen][byte flag=1][byte dataType][short nameIndex][short valueLen][value]`. The
+  > entries `[short entryLen][byte DDL flag][byte dataType][short nameIndex][short valueLen][value]`.
+  > The per-entry flag is `0x01` for a **DDL/property-definition property** and `0x00` for an ordinary
+  > property. Jackcess independently names it `isDdl`: a set flag makes the property definition-protected
+  > (`dbSecWriteDef` permission is needed to change/delete it), and it notes that Access only recognises
+  > some properties when the classification is correct. The fixture corpus matches that semantic:
+  > `DefaultValue`, `Required`, `CheckConstraints`, `GUID`, and `ResultType` are `0x01`, while `Title`,
+  > `Author`, `AccessVersion`, and datasheet-layout properties are `0x00`. Jackcess's built-in classifications
+  > additionally mark `ValidationRule`/`ValidationText` as DDL and `Caption`/`Description` as ordinary.
+  > The flag is independent per entry; it is not a file-version, encryption, owner, or data-type marker.
+  > LibRed accepts the two observed values, preserves both the flag and raw value read for every property,
+  > and defaults newly constructed schema properties to `0x01`. The
   > `dataType` is an ordinary **`JetDataType` code** (the same byte used by column descriptors and
   > MSysQueries): **`0x0C`** (Memo) for a text value stored as **UTF-16**, **`0x01`** (Boolean) for a single
   > **0/1 byte**, and — on the `MSysDb` object's UI/nav settings only — `0x0A` (Text), `0x02`/`0x03`/`0x04`
@@ -62,6 +72,13 @@
   > <ck>` removes the matching entry from that list and rewrites it (dropping the whole table-level property
   > block when it was the last check) — ACE-verified: after the drop ACE stops enforcing the check. (In
   > Jet/ACE `DROP CONSTRAINT` is polymorphic over the name — FK / PK / unique index / CHECK.)
+  >
+  > **Property-reader/writer guardrails.** LibRed validates the signature and consumes the blob exactly to
+  > its end. Every block, pooled UTF-16 name, owner record, property entry, name-pool index, and value length
+  > must remain within its declared parent and use the exact nested lengths above. `Read`,
+  > `AddColumnProperties`, and `RemoveOwner` share this representation. Serialization preflights every
+  > 16-bit name, owner-record, entry, value, and name-index field plus the 32-bit block lengths before emitting
+  > bytes; unmodelled `RawValue` payloads still round-trip verbatim.
   >
   > **`Required` (NOT NULL)** is a per-column **boolean** property (`dataType 0x01`, one `0x01` byte); a
   > **nullable** column simply has **no** `Required` property, and an AutoNumber column is left without one
@@ -260,7 +277,7 @@
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`
   (parent table), `szReferencedColumn`, `icolumn` (0-based column order within the key),
   `ccolumn` (total column count of the key, repeated on every row), `grbit` (flags: `0x02`
-  don't-enforce, `0x100` cascade-update, `0x1000` cascade-delete). Verified against Northwind: an
+  don't-enforce, `0x100` cascade-update, `0x1000` cascade-delete, `0x2000` delete-set-null). Verified against Northwind: an
   enforced, no-cascade single-column FK stores `ccolumn = 1`, `icolumn = 0`, `grbit = 0`; the
   cascade nav-pane relationships store `grbit = 0x1100` (update+delete cascade).
 

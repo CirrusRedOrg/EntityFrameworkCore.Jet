@@ -69,8 +69,7 @@ internal static class AccessTypeMapper
             "GUID" or "UNIQUEIDENTIFIER"
                 => Fixed(column, JetDataType.Guid, 16),
             "DECIMAL" or "NUMERIC" or "DEC"
-                => new ColumnSpec(column.Name, JetDataType.FixedPoint, 17, IsFixedLength: true,
-                    Precision: (byte)(column.Size ?? 18), Scale: (byte)(column.Scale ?? 0)),
+                => Decimal(column),
             // Fixed-length character types (the CHAR family) → a fixed-length Text column (ACE stores it in
             // the row's fixed-data region, space-padded). The N-prefixed / "national" forms are the same
             // storage — Jet/ACE has no separate nchar (all text is UTF-16). Access TEXT length is in
@@ -113,6 +112,21 @@ internal static class AccessTypeMapper
     // openable by Access (an over-long fixed column produces an unreadable file).
     private const int MaxTextCharacters = 255;
     private const int MaxBinaryBytes = 510;
+    private const int MaxDecimalPrecision = 28;
+
+    private static ColumnSpec Decimal(ColumnDefinition column)
+    {
+        int precision = column.Size ?? 18;
+        int scale = column.Scale ?? 0;
+        if (precision is < 1 or > MaxDecimalPrecision)
+            throw new InvalidOperationException(
+                $"Precision of field '{column.Name}' must be from 1 through {MaxDecimalPrecision} (got {precision}).");
+        if (scale < 0 || scale > precision)
+            throw new InvalidOperationException(
+                $"Scale of field '{column.Name}' must be from 0 through its precision {precision} (got {scale}).");
+        return new ColumnSpec(column.Name, JetDataType.FixedPoint, 17, IsFixedLength: true,
+            Precision: (byte)precision, Scale: (byte)scale);
+    }
 
     // A character column: length is declared in characters, stored as UTF-16 (2 bytes each). A size-less
     // char/varchar takes the MAXIMUM (255 characters) — verified vs ACE, which defaults a bare CHAR/VARCHAR
@@ -120,6 +134,9 @@ internal static class AccessTypeMapper
     private static ColumnSpec Text(ColumnDefinition column, bool isFixed)
     {
         int characters = column.Size ?? MaxTextCharacters;
+        if (characters <= 0)
+            throw new InvalidOperationException(
+                $"Size of field '{column.Name}' must be positive (got {characters}).");
         if (characters > MaxTextCharacters)
             throw new InvalidOperationException(
                 $"Size of field '{column.Name}' is too long: a char/varchar column holds at most {MaxTextCharacters} " +
@@ -132,6 +149,9 @@ internal static class AccessTypeMapper
     private static ColumnSpec Binary(ColumnDefinition column, bool isFixed)
     {
         int bytes = column.Size ?? MaxBinaryBytes;
+        if (bytes <= 0)
+            throw new InvalidOperationException(
+                $"Size of field '{column.Name}' must be positive (got {bytes}).");
         if (bytes > MaxBinaryBytes)
             throw new InvalidOperationException(
                 $"Size of field '{column.Name}' is too long: a binary/varbinary column holds at most {MaxBinaryBytes} " +

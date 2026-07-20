@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
+using System.Xml;
 using System.Xml.Linq;
 
 namespace LibRed.Crypto;
@@ -19,6 +20,13 @@ namespace LibRed.Crypto;
 /// </remarks>
 public sealed class AgileEncryption : IPageCodec
 {
+    private const int EncryptionInfoLengthOffset = 0x299;
+    private const int EncryptionInfoOffset = 0x29B;
+    private const int SupportedBlockSize = 16;
+    private const int SupportedKeyBits = 256;
+    private const int SupportedSpinCount = 100000;
+    private static ReadOnlySpan<byte> AgilePrefix => [0x04, 0x00, 0x04, 0x00, 0x40, 0x00, 0x00, 0x00];
+
     // Block keys that salt the key-derivation for each purpose (MS-OFFCRYPTO §2.3.4.13/§2.3.4.14).
     private static readonly byte[] BlockVerifierHashInput = [0xFE, 0xA7, 0xD2, 0x76, 0x3B, 0x4B, 0x9E, 0x79];
     private static readonly byte[] BlockVerifierHashValue = [0xD7, 0xAA, 0x0F, 0x6D, 0x30, 0x61, 0x34, 0x4E];
@@ -58,51 +66,71 @@ public sealed class AgileEncryption : IPageCodec
         if (password is null)
             throw new InvalidOperationException("This database is password-encrypted; a password is required to open it.");
 
-        XElement keyData = Child(enc, "keyData");
-        XElement encKey = enc.Descendants().First(e => e.Name.LocalName == "encryptedKey");
+        try
+        {
+            XElement keyData = Child(enc, "keyData");
+            XElement encKey = enc.Descendants().First(e => e.Name.LocalName == "encryptedKey");
 
-        RequireAes(keyData, encKey);
-        HashKind hash = ParseHash((string)encKey.Attribute("hashAlgorithm")!);
+            RequireAes(keyData, encKey);
+            HashKind hash = ParseHash((string)encKey.Attribute("hashAlgorithm")!);
 
-        byte[] keyDataSalt = B64(keyData, "saltValue");
-        int blockSize = (int)keyData.Attribute("blockSize")!;
+            byte[] keyDataSalt = B64(keyData, "saltValue");
+            int blockSize = IntAttribute(keyData, "blockSize");
 
-        byte[] pwdSalt = B64(encKey, "saltValue");
-        int spinCount = (int)encKey.Attribute("spinCount")!;
-        int keyBytes = (int)encKey.Attribute("keyBits")! / 8;
+            byte[] pwdSalt = B64(encKey, "saltValue");
+            int spinCount = IntAttribute(encKey, "spinCount");
+            int keyBits = IntAttribute(encKey, "keyBits");
+            int keyBytes = keyBits / 8;
+
+            ValidateSupportedProfile(keyData, encKey, hash, blockSize, keyBits, spinCount);
+            RequireLength(keyDataSalt, 16, "keyData saltValue");
+            RequireLength(pwdSalt, 16, "encryptedKey saltValue");
 
         // Cross-check the descriptor's declared sizes against reality: the salt bytes must be saltSize long, the
         // hash must match hashSize, and both elements must name the same hash. A disagreement means a malformed or
         // misparsed descriptor — fail here with a clear message rather than deep in the KDF.
-        VerifyDeclaredSizes(keyData, hash, keyDataSalt.Length);
-        VerifyDeclaredSizes(encKey, hash, pwdSalt.Length);
+            VerifyDeclaredSizes(keyData, hash, keyDataSalt.Length);
+            VerifyDeclaredSizes(encKey, hash, pwdSalt.Length);
 
         // H_spin = Hash(salt ‖ UTF16LE(password)), then spinCount iterations of Hash(LE32(i) ‖ H).
-        byte[] hspin = Hash(hash, pwdSalt, Encoding.Unicode.GetBytes(password));
-        Span<byte> iter = stackalloc byte[4];
-        for (int i = 0; i < spinCount; i++)
-        {
-            BinaryPrimitives.WriteInt32LittleEndian(iter, i);
-            hspin = Hash(hash, iter.ToArray(), hspin);
-        }
+            byte[] hspin = Hash(hash, pwdSalt, Encoding.Unicode.GetBytes(password));
+            Span<byte> iter = stackalloc byte[4];
+            for (int i = 0; i < spinCount; i++)
+            {
+                BinaryPrimitives.WriteInt32LittleEndian(iter, i);
+                hspin = Hash(hash, iter.ToArray(), hspin);
+            }
 
-        byte[] DeriveKey(byte[] blockKey) => Fit(Hash(hash, hspin, blockKey), keyBytes);
+            byte[] DeriveKey(byte[] blockKey) => Fit(Hash(hash, hspin, blockKey), keyBytes);
 
         // Verify the password before trusting anything: SHA(verifierInput) must equal verifierValue.
-        byte[] verifierInput = AesCbcDecrypt(DeriveKey(BlockVerifierHashInput), pwdSalt, B64(encKey, "encryptedVerifierHashInput"));
-        byte[] verifierValue = AesCbcDecrypt(DeriveKey(BlockVerifierHashValue), pwdSalt, B64(encKey, "encryptedVerifierHashValue"));
-        byte[] check = Hash(hash, verifierInput);
-        // encryptedVerifierHashValue decrypts to the hash padded up to a cipher-block multiple, so compare only
-        // the leading hashSize bytes (for SHA-512 that is the whole block; for SHA-1 the block is longer).
-        if (!verifierValue.AsSpan(0, check.Length).SequenceEqual(check))
-            throw new UnauthorizedAccessException("Incorrect database password.");
+            byte[] encryptedVerifierInput = B64(encKey, "encryptedVerifierHashInput");
+            byte[] encryptedVerifierValue = B64(encKey, "encryptedVerifierHashValue");
+            byte[] encryptedKeyValue = B64(encKey, "encryptedKeyValue");
+            RequireLength(encryptedVerifierInput, SupportedBlockSize, "encryptedVerifierHashInput");
+            RequireLength(encryptedVerifierValue, HashSize(hash), "encryptedVerifierHashValue");
+            RequireLength(encryptedKeyValue, keyBytes, "encryptedKeyValue");
 
-        // Recover the data-encryption key.
-        byte[] secretKey = AesCbcDecrypt(DeriveKey(BlockKeyValue), pwdSalt, B64(encKey, "encryptedKeyValue"));
+            byte[] verifierInput = AesCbcDecrypt(DeriveKey(BlockVerifierHashInput), pwdSalt, encryptedVerifierInput);
+            byte[] verifierValue = AesCbcDecrypt(DeriveKey(BlockVerifierHashValue), pwdSalt, encryptedVerifierValue);
+            byte[] check = Hash(hash, verifierInput);
+            if (!CryptographicOperations.FixedTimeEquals(verifierValue, check))
+                throw new UnauthorizedAccessException("Incorrect database password.");
 
-        byte[] encodingKey = new byte[4];
-        BinaryPrimitives.WriteInt32LittleEndian(encodingKey, databaseKey);
-        return new AgileEncryption(secretKey, keyDataSalt, blockSize, encodingKey, hash);
+            // Recover the data-encryption key.
+            byte[] secretKey = AesCbcDecrypt(DeriveKey(BlockKeyValue), pwdSalt, encryptedKeyValue);
+
+            byte[] encodingKey = new byte[4];
+            BinaryPrimitives.WriteInt32LittleEndian(encodingKey, databaseKey);
+            return new AgileEncryption(secretKey, keyDataSalt, blockSize, encodingKey, hash);
+        }
+        catch (NotSupportedException) { throw; }
+        catch (UnauthorizedAccessException) { throw; }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or FormatException
+            or OverflowException or CryptographicException or NullReferenceException or InvalidCastException)
+        {
+            throw new NotSupportedException("The Agile EncryptionInfo descriptor is malformed.", ex);
+        }
     }
 
     /// <summary>Generates a fresh Agile <c>EncryptionInfo</c> (AES-256-CBC / SHA-512, spinCount 100000) for a new
@@ -191,29 +219,60 @@ public sealed class AgileEncryption : IPageCodec
 
     private static XElement? LocateEncryptionInfo(ReadOnlySpan<byte> page0)
     {
-        // The descriptor is an ASCII XML document embedded in page 0.
-        ReadOnlySpan<byte> open = "<?xml"u8;
-        ReadOnlySpan<byte> closeTag = "</encryption>"u8;
-        int start = IndexOf(page0, open);
-        if (start < 0) return null;
-        int end = IndexOf(page0[start..], closeTag);
-        if (end < 0) return null;
-        string xml = Encoding.UTF8.GetString(page0.Slice(start, end + closeTag.Length));
-        return XDocument.Parse(xml).Root;
-    }
+        if (page0.Length < EncryptionInfoOffset)
+            return null;
+        int length = BinaryPrimitives.ReadUInt16LittleEndian(page0.Slice(EncryptionInfoLengthOffset, 2));
+        if (length == 0)
+            return null;
+        if (length > page0.Length - EncryptionInfoOffset)
+            throw new NotSupportedException("The Agile EncryptionInfo descriptor extends past page 0.");
 
-    private static int IndexOf(ReadOnlySpan<byte> haystack, ReadOnlySpan<byte> needle)
-    {
-        for (int i = 0; i + needle.Length <= haystack.Length; i++)
-            if (haystack.Slice(i, needle.Length).SequenceEqual(needle))
-                return i;
-        return -1;
+        ReadOnlySpan<byte> descriptor = page0.Slice(EncryptionInfoOffset, length);
+        if (descriptor.Length < AgilePrefix.Length || !descriptor[..AgilePrefix.Length].SequenceEqual(AgilePrefix))
+            return null; // a binary Office-Standard descriptor may occupy the same framed field
+
+        try
+        {
+            return XDocument.Parse(Encoding.UTF8.GetString(descriptor[AgilePrefix.Length..])).Root;
+        }
+        catch (XmlException ex)
+        {
+            throw new NotSupportedException("The Agile EncryptionInfo XML descriptor is malformed.", ex);
+        }
     }
 
     private static XElement Child(XElement parent, string localName) =>
         parent.Descendants().First(e => e.Name.LocalName == localName);
 
     private static byte[] B64(XElement el, string attr) => Convert.FromBase64String((string)el.Attribute(attr)!);
+
+    private static int IntAttribute(XElement element, string name)
+    {
+        if (!int.TryParse((string?)element.Attribute(name), out int value))
+            throw new NotSupportedException($"The Agile descriptor has an invalid {name} value.");
+        return value;
+    }
+
+    private static void ValidateSupportedProfile(
+        XElement keyData, XElement encKey, HashKind hash, int blockSize, int keyBits, int spinCount)
+    {
+        if (hash != HashKind.Sha512
+            || ParseHash((string)keyData.Attribute("hashAlgorithm")!) != HashKind.Sha512)
+            throw new NotSupportedException("Only the Access Agile SHA-512 profile is supported.");
+        if (blockSize != SupportedBlockSize || IntAttribute(encKey, "blockSize") != SupportedBlockSize)
+            throw new NotSupportedException("Only the Access Agile 16-byte AES block size is supported.");
+        if (keyBits != SupportedKeyBits || IntAttribute(keyData, "keyBits") != SupportedKeyBits)
+            throw new NotSupportedException("Only the Access Agile AES-256 profile is supported.");
+        if (spinCount != SupportedSpinCount)
+            throw new NotSupportedException("Only the Access Agile 100000-spin profile is supported.");
+    }
+
+    private static void RequireLength(byte[] value, int expected, string name)
+    {
+        if (value.Length != expected)
+            throw new NotSupportedException(
+                $"The Agile descriptor {name} is {value.Length} bytes; expected {expected}.");
+    }
 
     private static void RequireAes(XElement keyData, XElement encKey)
     {

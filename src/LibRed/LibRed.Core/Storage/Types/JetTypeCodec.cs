@@ -15,6 +15,21 @@ public static class JetTypeCodec
     /// <summary>Decodes a single non-null column value from its raw bytes.</summary>
     public static object? Decode(ColumnDef column, ReadOnlySpan<byte> value)
     {
+        int expectedLength = column.Type switch
+        {
+            JetDataType.Byte => 1,
+            JetDataType.Int16 => 2,
+            JetDataType.Int32 or JetDataType.Single => 4,
+            JetDataType.Int64 or JetDataType.Double or JetDataType.DateTime or JetDataType.Currency => 8,
+            JetDataType.Guid => 16,
+            JetDataType.FixedPoint => 17,
+            JetDataType.DateTimeExtended => 42,
+            _ => -1,
+        };
+        if (expectedLength >= 0 && value.Length != expectedLength)
+            throw new InvalidDataException(
+                $"Column '{column.Name}' ({column.Type}) has {value.Length} bytes; expected {expectedLength}.");
+
         switch (column.Type)
         {
             case JetDataType.Boolean:

@@ -41,7 +41,7 @@ public sealed class AntlrSqlParser : ISqlParser
         parser.RemoveErrorListeners();
         parser.AddErrorListener(errors);
 
-        return AstBuilder.BuildExpression(parser.expression());
+        return AstBuilder.BuildExpression(parser.standaloneExpression().expression());
     }
 
     private sealed class ThrowingErrorListener : IAntlrErrorListener<int>, IAntlrErrorListener<IToken>

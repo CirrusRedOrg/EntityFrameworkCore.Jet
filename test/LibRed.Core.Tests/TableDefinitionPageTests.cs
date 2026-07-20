@@ -1,5 +1,9 @@
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
+using LibRed.IO;
+using LibRed.Pages;
+using System.Buffers.Binary;
 using Xunit;
 
 namespace LibRed.Core.Tests;
@@ -44,5 +48,37 @@ public class TableDefinitionPageTests
             Assert.False(string.IsNullOrEmpty(c.Name));
             Assert.True(Enum.IsDefined(c.Type));
         });
+    }
+
+    [Theory]
+    [InlineData("columns")]
+    [InlineData("variable-columns")]
+    [InlineData("real-indexes")]
+    [InlineData("logical-indexes")]
+    public void Rejects_counts_outside_jet_ace_table_geometry_before_parsing(string field)
+    {
+        using var db = JetDatabase.Open(TestDatabases.NorthwindAccdb);
+        JetFormatBase format = db.Format;
+        byte[] page = TdefBuilder.Build(format, TableType.User,
+            [new ColumnSpec("C", JetDataType.Int32, 4, IsFixedLength: true)]).Page;
+
+        switch (field)
+        {
+            case "columns":
+                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefColumnCountOffset, 2), 256);
+                break;
+            case "variable-columns":
+                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefVariableColumnsOffset, 2), 256);
+                break;
+            case "real-indexes":
+                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefIndexCountOffset, 4), 33);
+                break;
+            case "logical-indexes":
+                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRealIndexCountOffset, 4), -1);
+                break;
+        }
+
+        var definition = new TableDefinitionPage();
+        Assert.Throws<InvalidDataException>(() => definition.Read(new PageBuffer(page, 99), format));
     }
 }

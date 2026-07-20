@@ -112,8 +112,11 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         {
             // This slot is a 4-byte forward pointer to the real (relocated) row; rewrite it on its target page
             // (which keeps its hidden "deleted" flag). If it grows past that page too, we'd need to re-relocate.
-            int pointer = BinaryPrimitives.ReadInt32LittleEndian(SlotBytes(srcPage, format, id.Row));
-            if (!TryRewriteRowInPlace(pointer >> 8, pointer & 0xFF, record))
+            DataPage.TryReadRow(new PageBuffer(srcPage, id.Page), format, id.Row,
+                out RowSlot sourceSlot, out ReadOnlySpan<byte> sourceBytes);
+            RelocatedRow target = RowRelocationReader.Resolve(
+                _channel, _table.DefinitionPage, sourceSlot, sourceBytes);
+            if (!TryRewriteRowInPlace(target.Buffer.PageNumber, target.RowNumber, record))
                 throw new NotSupportedException("Re-relocating an already-relocated row that grew again is not supported yet.");
             return;
         }
@@ -228,8 +231,11 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         int raw = BinaryPrimitives.ReadUInt16LittleEndian(srcPage.AsSpan(format.DataRowDirectoryOffset + id.Row * 2, 2));
         if ((raw & RowPointer.OverflowFlag) != 0)
         {
-            int pointer = BinaryPrimitives.ReadInt32LittleEndian(SlotBytes(srcPage, format, id.Row));
-            if (!TryRewriteRowInPlace(pointer >> 8, pointer & 0xFF, record))
+            DataPage.TryReadRow(new PageBuffer(srcPage, id.Page), format, id.Row,
+                out RowSlot sourceSlot, out ReadOnlySpan<byte> sourceBytes);
+            RelocatedRow target = RowRelocationReader.Resolve(
+                _channel, _table.DefinitionPage, sourceSlot, sourceBytes);
+            if (!TryRewriteRowInPlace(target.Buffer.PageNumber, target.RowNumber, record))
                 throw new NotSupportedException("Re-relocating an already-relocated row that grew again is not supported yet.");
             return;
         }
@@ -245,23 +251,12 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private byte[] ReadRowBytes(RowId id)
     {
         JetFormatBase format = _channel.Format;
-        byte[] page = _channel.ReadPage(id.Page).Span.ToArray();
-        int raw = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + id.Row * 2, 2));
-        byte[] slot = SlotBytes(page, format, id.Row);
-        if ((raw & RowPointer.OverflowFlag) == 0) return slot;
+        PageBuffer page = _channel.ReadPage(id.Page);
+        if (!DataPage.TryReadRow(page, format, id.Row, out RowSlot slot, out ReadOnlySpan<byte> bytes))
+            throw new InvalidDataException($"Row {id.Page}:{id.Row} does not exist.");
+        if (!slot.HasOverflow) return bytes.ToArray();
 
-        int pointer = BinaryPrimitives.ReadInt32LittleEndian(slot);
-        var target = new DataPage();
-        target.Read(_channel.ReadPage(pointer >> 8), format);
-        return target.GetRow(pointer & 0xFF).ToArray();
-    }
-
-    /// <summary>Reads a single LVAL chunk row (used to walk a chained value's next-pointers when freeing).</summary>
-    private byte[] ReadLvalRow(int page, int row)
-    {
-        var lval = new DataPage();
-        lval.Read(_channel.ReadPage(page), _channel.Format);
-        return lval.GetRow(row).ToArray();
+        return RowRelocationReader.Resolve(_channel, _table.DefinitionPage, slot, bytes).Bytes.ToArray();
     }
 
     /// <summary>
@@ -279,21 +274,22 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned);
         definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) free);
         var allocator = new PageAllocator(_channel);
+        var reader = new LongValueReader(_channel);
+        _ = reader.ResolveWithPages(descriptor, out IReadOnlyList<int> pages);
+        HashSet<int> ownedPages = MapPages(owned.Row, owned.Page).ToHashSet();
+        _ = MapPages(free.Row, free.Page); // validate both mutation targets before the first free
+        foreach (int page in pages)
+            if (!ownedPages.Contains(page))
+                throw new InvalidDataException(
+                    $"Long-value page {page} is not present in column '{column.Name}'s owned-pages map.");
 
-        int row = descriptor[4];
-        int page = descriptor[5] | (descriptor[6] << 8) | (descriptor[7] << 16);
-        while (page != 0)
+        // Validation above completes before the first free-map or page mutation. The writes are still not
+        // atomic without the planned transaction/savepoint layer, but malformed chains cannot partially free.
+        foreach (int page in pages)
         {
-            byte[] chunk = ReadLvalRow(page, row);
-            int nextRow = chunk[0];
-            int nextPage = chunk[1] | (chunk[2] << 8) | (chunk[3] << 16);
-
             allocator.Free(page);
             _usageMaps.SetBit(owned.Row, owned.Page, page, set: false);
             _usageMaps.SetBit(free.Row, free.Page, page, set: false);
-
-            page = nextPage;
-            row = nextRow;
         }
     }
 
@@ -472,18 +468,18 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (length < format.RowColumnCountSize + 2) continue;
 
             ReadOnlySpan<byte> row = page.AsSpan(offset, length);
-            // Parse with the ROW's own column count (its leading field), not the table's current count — an
-            // old row written before an ADD COLUMN has fewer columns, hence a smaller null bitmap. This path
-            // only runs for a table that HAS variable columns (the caller returns early otherwise).
-            RowLayout layout = RowLayout.Parse(row, format.RowColumnCountSize, hasVar: true);
-            if (length < format.RowColumnCountSize + 2 + 2 + layout.NullBitmapSize) continue; // not an inline record
-            if (layout.VarTableStart < format.RowColumnCountSize) continue; // malformed
+            // An old row written before the table's first variable ADD has no variable trailer even though
+            // the current schema does. Its stored count cannot cover that new variable column, which lets us
+            // distinguish the verified all-fixed form without interpreting fixed bytes as trailer offsets.
+            int storedCount = BinaryPrimitives.ReadUInt16LittleEndian(row[..format.RowColumnCountSize]);
+            bool rowHasVar = _table.Columns.Any(c => !c.IsFixedLength && c.ColumnId < storedCount);
+            RowLayout layout = RowLayout.Parse(row, format.RowColumnCountSize, rowHasVar);
             int varDataStart = layout.FixedRegionLength + format.RowColumnCountSize;
 
             // The variable-data start is the end of the fixed region; it must lie after the column-count field
             // and no later than the offset table. A row that fails this decoded garbage — skip it.
             int candidate = layout.FixedRegionLength;
-            if (candidate > 0 && varDataStart <= layout.VarTableStart)
+            if (candidate > 0 && (!rowHasVar || varDataStart <= layout.VarTableStart))
                 best = best is null ? candidate : Math.Max(best.Value, candidate);
         }
         return best;
@@ -556,6 +552,11 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// </summary>
     private byte[] StoreLongValue(LongValueWriter writer, byte[] payload, (int Row, int Page) owned, (int Row, int Page) free)
     {
+        if (owned.Page == 0 || free.Page == 0)
+            throw new InvalidDataException("Long-value column has no complete owned/free usage-map pointers.");
+        _ = MapPages(owned.Row, owned.Page); // validate both map targets before allocating or writing LVAL pages
+        IReadOnlyList<int> freePages = MapPages(free.Row, free.Page);
+
         if (payload.Length > MaxLvalRowSize)
         {
             LongValueResult chained = writer.Write(payload);
@@ -566,7 +567,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
         // Pack onto the first free page that has room for the value plus its directory entry.
         if (free.Page != 0)
-            foreach (int page in MapPages(free.Row, free.Page))
+            foreach (int page in freePages)
                 if (writer.TryAppend(page, payload) is (int row, int remaining))
                 {
                     if (remaining < MinLvalRow) _usageMaps.SetBit(free.Row, free.Page, page, set: false); // now full
@@ -580,20 +581,64 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         return LongValueWriter.SinglePageDescriptor(payload.Length, newPage, 0);
     }
 
-    /// <summary>Yields the pages marked in an inline usage map (record row + page); empty for a
-    /// reference-type map (not used by the small per-column maps here).</summary>
-    private IEnumerable<int> MapPages(int mapRow, int mapPage)
+    /// <summary>Reads every page marked in a validated inline or reference usage map.</summary>
+    private IReadOnlyList<int> MapPages(int mapRow, int mapPage)
     {
+        if (mapPage <= 1 || mapPage >= _channel.PageCount)
+            throw new InvalidDataException($"Long-value usage-map page {mapPage} is outside the physical file.");
         var holder = new DataPage();
         holder.Read(_channel.ReadPage(mapPage), _channel.Format);
-        byte[] map = holder.GetRow(mapRow).ToArray();
-        if (map.Length == 0 || map[0] != 0x00) yield break;
+        if (holder.IsLongValuePage || holder.OwningTablePage != 0)
+            throw new InvalidDataException(
+                $"Long-value usage-map pointer {mapPage}:{mapRow} does not target an owner-zero usage-map data page.");
+        if (mapRow < 0 || mapRow >= holder.RowCount)
+            throw new InvalidDataException($"Long-value usage-map row {mapPage}:{mapRow} does not exist.");
+        RowSlot slot = holder.Rows[mapRow];
+        if (slot.IsDeleted || slot.HasOverflow || slot.Length == 0)
+            throw new InvalidDataException($"Long-value usage-map row {mapPage}:{mapRow} is deleted, overflowed, or empty.");
+        ReadOnlySpan<byte> map = holder.GetRow(mapRow);
+        var result = new List<int>();
 
-        int startPage = BinaryPrimitives.ReadInt32LittleEndian(map.AsSpan(1, 4));
-        for (int i = 5; i < map.Length; i++)
+        if (map[0] == 0x00)
+        {
+            if (map.Length < 5)
+                throw new InvalidDataException("Inline long-value usage map is shorter than its 5-byte header.");
+            int startPage = BinaryPrimitives.ReadInt32LittleEndian(map.Slice(1, 4));
+            AppendMapBits(result, map[5..], startPage);
+            return result;
+        }
+
+        if (map[0] != 0x01 || map.Length != 69)
+            throw new InvalidDataException(
+                $"Long-value usage map has invalid type/length 0x{map[0]:X2}/{map.Length}.");
+        int pagesPerBitmap = (_channel.PageSize - 4) * 8;
+        var bitmapPages = new HashSet<int>();
+        for (int i = 0; i < 17; i++)
+        {
+            int bitmapPage = BinaryPrimitives.ReadInt32LittleEndian(map.Slice(1 + i * 4, 4));
+            if (bitmapPage == 0) continue;
+            if (bitmapPage <= 1 || bitmapPage >= _channel.PageCount || !bitmapPages.Add(bitmapPage))
+                throw new InvalidDataException($"Long-value usage map has invalid bitmap-page pointer {bitmapPage}.");
+            ReadOnlySpan<byte> bitmap = _channel.ReadPage(bitmapPage).Span;
+            if (bitmap[0] != (byte)PageType.PageUsageBitmap || bitmap[1] != 0x01 || bitmap[2] != 0 || bitmap[3] != 0)
+                throw new InvalidDataException($"Long-value usage-map pointer {bitmapPage} is not a bitmap page.");
+            AppendMapBits(result, bitmap[4..], i * pagesPerBitmap);
+        }
+        return result;
+    }
+
+    private void AppendMapBits(List<int> result, ReadOnlySpan<byte> bitmap, int startPage)
+    {
+        for (int i = 0; i < bitmap.Length; i++)
             for (int bit = 0; bit < 8; bit++)
-                if ((map[i] & (1 << bit)) != 0)
-                    yield return startPage + (i - 5) * 8 + bit;
+                if ((bitmap[i] & (1 << bit)) != 0)
+                {
+                    int page = startPage + i * 8 + bit;
+                    if (page <= 1 || page >= _channel.PageCount)
+                        throw new InvalidDataException(
+                            $"Long-value usage map names page {page}, outside the physical reusable range.");
+                    result.Add(page);
+                }
     }
 
     private TableDefinitionPage ReadDefinition()

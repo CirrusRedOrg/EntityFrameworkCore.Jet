@@ -147,7 +147,7 @@ WHERE  (BNOT`b`.`Int`) = -9
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (`b`.`Int` = 12 AND `b`.`Short` = 12) OR `b`.`String` = 'Seattle'
+WHERE (`b`.`Int` = 12 AND `b`.`Short` = CINT(12)) OR `b`.`String` = 'Seattle'
 """);
     }
 
@@ -159,7 +159,7 @@ WHERE (`b`.`Int` = 12 AND `b`.`Short` = 12) OR `b`.`String` = 'Seattle'
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`Int` = 12 OR `b`.`Short` = 12 OR `b`.`String` = 'Seattle'
+WHERE `b`.`Int` = 12 OR `b`.`Short` = CINT(12) OR `b`.`String` = 'Seattle'
 """);
     }
 
@@ -171,7 +171,7 @@ WHERE `b`.`Int` = 12 OR `b`.`Short` = 12 OR `b`.`String` = 'Seattle'
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`Int` = 8 AND `b`.`Short` = 8 AND `b`.`String` = 'Seattle'
+WHERE `b`.`Int` = 8 AND `b`.`Short` = CINT(8) AND `b`.`String` = 'Seattle'
 """);
     }
 
@@ -183,7 +183,7 @@ WHERE `b`.`Int` = 8 AND `b`.`Short` = 8 AND `b`.`String` = 'Seattle'
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (`b`.`Int` = 8 OR `b`.`Short` = 9) AND `b`.`String` = 'Seattle'
+WHERE (`b`.`Int` = 8 OR `b`.`Short` = CINT(9)) AND `b`.`String` = 'Seattle'
 """);
     }
 
@@ -195,7 +195,7 @@ WHERE (`b`.`Int` = 8 OR `b`.`Short` = 9) AND `b`.`String` = 'Seattle'
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (`b`.`Int` = 12 AND `b`.`Short` = 12) OR `b`.`String` = 'Seattle'
+WHERE (`b`.`Int` = 12 AND `b`.`Short` = CINT(12)) OR `b`.`String` = 'Seattle'
 """);
     }
 

@@ -828,5 +828,11 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitNullLiteral([NotNull] AccessSqlParser.NullLiteralContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.standaloneExpression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitStandaloneExpression([NotNull] AccessSqlParser.StandaloneExpressionContext context);
 }
 } // namespace LibRed.Sql.Grammar

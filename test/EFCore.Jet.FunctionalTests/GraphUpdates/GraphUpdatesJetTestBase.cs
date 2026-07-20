@@ -14,9 +14,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests;
 
 #nullable disable
 
-public abstract class GraphUpdatesJetTestBase<TFixture>(TFixture fixture) : GraphUpdatesTestBase<TFixture>(fixture)
+public abstract class GraphUpdatesJetTestBase<TFixture> : GraphUpdatesTestBase<TFixture>
     where TFixture : GraphUpdatesJetTestBase<TFixture>.GraphUpdatesJetFixtureBase, new()
 {
+    protected GraphUpdatesJetTestBase(TFixture fixture)
+        : base(fixture)
+        // GraphUpdates fixtures execute thousands of commands and live for the entire class. Clear the
+        // formatted diagnostic log between tests so reader/command messages cannot exhaust the test host.
+        => fixture.TestSqlLoggerFactory.Clear();
+
     [ConditionalFact] // Issue #32638
     public virtual void Key_and_index_properties_use_appropriate_comparer()
     {

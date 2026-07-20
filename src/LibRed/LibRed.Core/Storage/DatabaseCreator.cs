@@ -198,7 +198,9 @@ public static class DatabaseCreator
             objTdef, acesTdef, queriesTdef, relTdef,   // pages 2..5: core TDEFs
             objMap, acesMap, queriesMap, relMap,       // pages 6..9: their usage maps
         ];
-        using (var fs = File.Create(path))
+        // Creation is an explicit create-new operation. FileMode.Create would silently truncate an existing
+        // database before any of the format bootstrap work could validate or fail.
+        using (var fs = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             foreach (byte[] p in seed) fs.Write(p, 0, format.PageSize);
 
         // Reopen through the normal stack and self-register the four core tables, so the catalog then finds

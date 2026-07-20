@@ -52,6 +52,21 @@
 > of logical-index info blocks and index names. A relationship adds a *logical* index that
 > shares a real index's data, so logical ≥ real.
 
+> **Reader/writer count guardrails.** LibRed validates the documented 255-column and 32-real-index
+> limits before allocating count-sized structures, rejects negative logical/real index counts, and checks
+> each fixed-size count-derived region against the fully assembled definition before parsing it. The writer
+> likewise rejects column counts/ids outside `0..254`, duplicate ids, byte lengths that do not fit the 16-bit
+> descriptor field, and fixed-data layouts whose offsets would exceed that field. These checks enforce existing
+> geometry; they do not change the layout or the high-water semantics below.
+
+> **Variable-region guardrails.** The declared definition length is also the parsing boundary for
+> direct/synthetic buffers, not only continuation-chain reads. Column and index names must have a nonzero,
+> even UTF-16LE byte length of at most 128 bytes (64 UTF-16 code units), decode without replacement, and fit
+> before that boundary. Column type codes and ids are validated, ids must be unique in `0..254`, and stored
+> variable-table indexes must fit the `0x2B` high-water. The final long-value-map list must contain complete,
+> unique 10-byte entries for existing Memo/OLE columns, end with `0xFFFF`, and consume the definition exactly.
+> LibRed reports violations as `InvalidDataException` before constructing catalog/index metadata.
+
 > **`ADD` / `DROP COLUMN` are metadata-only edits — the three column counts behave differently
 > (all probed vs ACE).** ACE never renumbers surviving columns or rewrites existing rows; a dropped
 > column's bytes become dead space, and an added column reads NULL on old rows (via the null bitmap).
@@ -100,6 +115,15 @@ Reassemble before parsing: take the **first page whole**, then append each conti
 page's bytes **from offset 8** (continuation pages have an 8-byte header). Column offsets are
 absolute from the first page, so parsing is otherwise unchanged.
 
+LibRed uses one shared reader for catalog parsing, index-root updates, and DDL surgery. It treats the
+`0x08` definition length as authoritative: the length determines the exact number of continuation
+pages and the exact number of bytes copied from the final page. Every page number must be in-file,
+the chain must be acyclic, continuation headers must be `[02 01]`, and the chain must be neither
+shorter nor longer than the declared length. LibRed additionally applies a **1 MiB per-definition
+safety budget** before allocation. That budget is an implementation hardening limit—not a newly
+claimed Jet/ACE field limit—and is deliberately far above the maximum observed/constructible from
+the documented 255-column, 32-index, and 64-character-name limits.
+
 > **Writing a multi-page TDEF (verified vs ACE).** The 8-byte continuation header is
 > `[0x02][0x01][free space: 2][next page: 4]` (page type, flags, then the same `0x02` free-space and
 > `0x04` next-page fields as page 1). The **first page is filled completely** (free space `0`) and its
@@ -146,6 +170,11 @@ diffing; only page numbers and the auto-generated index name differ).
 Only a few fields are *not* fixed constants and so warrant a write note:
 
 - **Definition length** (`0x08`) — the byte offset just past the last structure written.
+- **Writer sizing/preflight** — LibRed computes that definition length from the encoded descriptors,
+  UTF-16 column/index names, index blocks, and complete long-value usage-map list before allocating or
+  writing. Names obey ACE's verified 64-character limit; every referenced index column and Memo/OLE
+  column id must exist; long-value map rows/pages must fit their 1-byte/3-byte fields; duplicate LVAL
+  entries and definitions beyond the shared 1 MiB validated budget are rejected before serialization.
 - **Free space** (`0x02`) — `page size − definition length − 8` (Access reserves an 8-byte
   continuation header).
 - **Index-info update/delete actions** (`+0x15/+0x16`, §3.6) — `0x04` on a plain primary key (no
@@ -184,5 +213,3 @@ Only a few fields are *not* fixed constants and so warrant a write note:
 >    its bit in both the table's owned- and free-pages maps.
 > 4. **Catalog rows** — a complete MSysObjects row with its indexes maintained (§11) and the
 >    MSysACEs permission rows, so Access resolves the table by name before it opens it.
-
-

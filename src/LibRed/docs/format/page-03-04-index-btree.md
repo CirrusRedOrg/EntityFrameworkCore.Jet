@@ -32,6 +32,17 @@ Each entry ends with a **4-byte big-endian** trailing pointer:
 - **Node:** the trailing 4 bytes are the **child page**; recurse into it. After all entries,
   also recurse into the header's child-tail page (`0x14`).
 
+> **Reader/traversal guardrails.** LibRed validates every page number before I/O, requires page type
+> `0x03`/`0x04` and a consistent owning TDEF, bounds every bitmask-derived entry before reading its
+> 4-byte trailer, and requires the compressed prefix to fit the first key. Node child/tail and leaf
+> prev/next pointers must be zero where permitted or name an in-file page. Point/range seeks track every
+> descent and leaf-chain page and reject repeats; the full index cursor uses an iterative ordered walk
+> with the same repeated-page check, avoiding recursive stack exhaustion. A followed leaf link must
+> resolve to another leaf of the same owner. Insert, delete, split propagation, and leaf-link mutation
+> revalidate the target page at the final read-modify-write boundary, including its expected leaf/node
+> role; this avoids relying on an earlier descent check if the file changed between reads. Violations
+> are reported as `InvalidDataException`.
+
 ### 10.3 Prefix compression
 
 Entries on a page share a leading key prefix of `compressedByteCount` (`0x18`) bytes. The

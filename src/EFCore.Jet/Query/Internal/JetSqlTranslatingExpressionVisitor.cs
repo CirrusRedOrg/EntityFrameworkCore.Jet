@@ -565,7 +565,8 @@ public class JetSqlTranslatingExpressionVisitor(
             return null;
         }
 
-        return expressions.Aggregate((current, next) =>
+        IReadOnlyList<SqlExpression> mappedExpressions = ApplyMinMaxResultTypeMapping(expressions, resultType);
+        return mappedExpressions.Aggregate((current, next) =>
             Dependencies.SqlExpressionFactory.Case(
                 [
                     new CaseWhenClause(
@@ -582,7 +583,8 @@ public class JetSqlTranslatingExpressionVisitor(
             return null;
         }
 
-        return expressions.Aggregate((current, next) =>
+        IReadOnlyList<SqlExpression> mappedExpressions = ApplyMinMaxResultTypeMapping(expressions, resultType);
+        return mappedExpressions.Aggregate((current, next) =>
             Dependencies.SqlExpressionFactory.Case(
                 [
                     new CaseWhenClause(
@@ -590,6 +592,29 @@ public class JetSqlTranslatingExpressionVisitor(
                         current)
                 ],
                 elseResult: next));
+    }
+
+    /// <summary>
+    /// Math.Min/Max operands can arrive with different store mappings even though their CLR expression has one
+    /// declared result type. Prefer an operand mapping for that result type and apply it to every arm before
+    /// building the CASE/IIF tree; otherwise the first arm can incorrectly force (for example) an Int16 mapping
+    /// onto an Int32 constant in an outer nested Min/Max.
+    /// </summary>
+    private IReadOnlyList<SqlExpression> ApplyMinMaxResultTypeMapping(
+        IReadOnlyList<SqlExpression> expressions, Type resultType)
+    {
+        RelationalTypeMapping? resultMapping = expressions
+            .Select(e => e.TypeMapping)
+            .FirstOrDefault(m => m?.ClrType == resultType);
+
+        if (resultMapping is null)
+        {
+            return expressions;
+        }
+
+        return expressions
+            .Select(e => Dependencies.SqlExpressionFactory.ApplyTypeMapping(e, resultMapping))
+            .ToArray();
     }
 
 

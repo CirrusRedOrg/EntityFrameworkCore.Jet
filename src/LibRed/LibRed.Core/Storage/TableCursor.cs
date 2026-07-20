@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using LibRed.IO;
 using LibRed.Pages;
 
@@ -43,10 +42,9 @@ public sealed class TableCursor(Table table) : IEnumerable<object?[]>
                 // index entries keep pointing here. Follow the pointer and decode the target's bytes.
                 if (slot.HasOverflow)
                 {
-                    int pointer = BinaryPrimitives.ReadInt32LittleEndian(page.GetRow(i));
-                    var target = new DataPage();
-                    target.Read(_table.Channel.ReadPage(pointer >> 8), _table.Channel.Format);
-                    yield return (new RowId(pageNumber, i), decoder.Decode(target.GetRow(pointer & 0xFF)));
+                    RelocatedRow target = RowRelocationReader.Resolve(
+                        _table.Channel, _table.Definition.DefinitionPage, slot, page.GetRow(i));
+                    yield return (new RowId(pageNumber, i), decoder.Decode(target.Bytes));
                     continue;
                 }
 

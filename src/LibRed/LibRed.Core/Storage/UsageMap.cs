@@ -20,6 +20,8 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
 {
     private const byte MapTypeInline = 0x00;
     private const byte MapTypeReference = 0x01;
+    private const int ReferenceMapSlots = 17;
+    private const int ReferenceMapRecordSize = 1 + ReferenceMapSlots * 4;
 
     /// <summary>Bytes preceding the bitmap on a dedicated usage-bitmap page (type 0x05).</summary>
     private const int BitmapPageHeaderSize = 4;
@@ -45,20 +47,30 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
     {
         byte[] record = ReadMapRecord(_channel.Format.TdefOwnedPagesOffset);
 
+        if (record.Length == 0)
+            throw new InvalidDataException("A usage-map record cannot be empty.");
+
         if (record[0] == MapTypeInline)
         {
+            if (record.Length < 5)
+                throw new InvalidDataException("An inline usage-map record must contain its 5-byte header.");
             int startPage = BinaryPrimitives.ReadInt32LittleEndian(record.AsSpan(1, 4));
             int bit = HighestSetBit(record.AsSpan(5));
             return bit < 0 ? -1 : startPage + bit;
         }
 
+        if (record[0] != MapTypeReference)
+            throw new NotSupportedException($"Unknown usage map type 0x{record[0]:X2}.");
+
+        ValidateReferenceRecord(record);
+
         int pagesPerBitmap = (_channel.PageSize - BitmapPageHeaderSize) * 8;
-        for (int e = (record.Length - 1) / 4 - 1; e >= 0; e--)
+        for (int e = ReferenceMapSlots - 1; e >= 0; e--)
         {
             int bitmapPage = BinaryPrimitives.ReadInt32LittleEndian(record.AsSpan(1 + e * 4, 4));
             if (bitmapPage == 0) continue;
 
-            int bit = HighestSetBit(_channel.ReadPage(bitmapPage).Span[BitmapPageHeaderSize..]);
+            int bit = HighestSetBit(ReadBitmapPage(bitmapPage));
             if (bit >= 0) return e * pagesPerBitmap + bit;
         }
 
@@ -104,6 +116,9 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
         holder.Read(_channel.ReadPage(mapPage), format);
         ReadOnlySpan<byte> map = holder.GetRow(mapRow);
 
+        if (map.Length == 0)
+            throw new InvalidDataException("A usage-map record cannot be empty.");
+
         return map[0] switch
         {
             MapTypeInline => ReadInlineMap(map),
@@ -114,6 +129,8 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
 
     private static List<int> ReadInlineMap(ReadOnlySpan<byte> map)
     {
+        if (map.Length < 5)
+            throw new InvalidDataException("An inline usage-map record must contain its 5-byte header.");
         int startPage = BinaryPrimitives.ReadInt32LittleEndian(map.Slice(1, 4));
         var pages = new List<int>();
         AppendSetBits(pages, map[5..], startPage);
@@ -122,24 +139,42 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
 
     private List<int> ReadReferenceMap(ReadOnlySpan<byte> map)
     {
+        ValidateReferenceRecord(map);
         int pagesPerBitmap = (_channel.PageSize - BitmapPageHeaderSize) * 8;
         var pages = new List<int>();
 
         // The record is a list of 4-byte pointers to bitmap pages; pointer k's bitmap
         // covers the page range starting at k * pagesPerBitmap. A zero pointer means the
         // range has no owned pages.
-        int entryCount = (map.Length - 1) / 4;
-        for (int e = 0; e < entryCount; e++)
+        for (int e = 0; e < ReferenceMapSlots; e++)
         {
             int bitmapPage = BinaryPrimitives.ReadInt32LittleEndian(map.Slice(1 + e * 4, 4));
             if (bitmapPage == 0) continue;
 
             int rangeBase = e * pagesPerBitmap;
-            ReadOnlySpan<byte> bitmap = _channel.ReadPage(bitmapPage).Span[BitmapPageHeaderSize..];
+            ReadOnlySpan<byte> bitmap = ReadBitmapPage(bitmapPage);
             AppendSetBits(pages, bitmap, rangeBase);
         }
 
         return pages;
+    }
+
+    private static void ValidateReferenceRecord(ReadOnlySpan<byte> map)
+    {
+        if (map.Length != ReferenceMapRecordSize)
+            throw new InvalidDataException(
+                $"A reference usage-map record must be exactly {ReferenceMapRecordSize} bytes; got {map.Length}.");
+    }
+
+    private ReadOnlySpan<byte> ReadBitmapPage(int pageNumber)
+    {
+        if (pageNumber <= 0 || pageNumber >= _channel.PageCount)
+            throw new InvalidDataException($"Usage-map bitmap page {pageNumber} is outside the database.");
+
+        ReadOnlySpan<byte> page = _channel.ReadPage(pageNumber).Span;
+        if (page[0] != (byte)PageType.PageUsageBitmap || page[1] != 0x01 || page[2] != 0 || page[3] != 0)
+            throw new InvalidDataException($"Usage-map pointer {pageNumber} does not reference a valid bitmap page.");
+        return page[BitmapPageHeaderSize..];
     }
 
     private static void AppendSetBits(List<int> pages, ReadOnlySpan<byte> bitmap, int basePage)

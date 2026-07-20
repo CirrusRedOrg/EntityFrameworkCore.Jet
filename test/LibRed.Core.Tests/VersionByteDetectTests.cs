@@ -50,4 +50,31 @@ public class VersionByteDetectTests
         Assert.Equal(JetVersion.Version16_2016, JetFormatBase.Detect(Header(0x05)).Version);
         Assert.Equal(JetVersion.Version17_2019, JetFormatBase.Detect(Header(0x06)).Version);
     }
+
+    [Theory]
+    [InlineData(0x02, "Standard Jet DB")]
+    [InlineData(0x01, "Standard ACE DB")]
+    [InlineData(0x02, "Jet System DB")]
+    public void Mismatched_identifier_and_version_are_rejected(byte version, string identifier)
+    {
+        Assert.Throws<NotSupportedException>(() => JetFormatBase.Detect(Header(version, identifier: identifier)));
+    }
+
+    [Fact]
+    public void Jet3_is_rejected_until_its_distinct_layout_is_implemented()
+    {
+        Assert.Throws<NotSupportedException>(() =>
+            JetFormatBase.Detect(Header(0x00, identifier: "Standard Jet DB")));
+        Assert.Throws<NotSupportedException>(() => JetFormatBase.FromVersionByte(0x00));
+    }
+
+    [Theory]
+    [InlineData("Standard Jet DB")]
+    [InlineData("Jet System DB")]
+    public void Supported_jet4_identifiers_still_detect(string identifier)
+    {
+        var format = JetFormatBase.Detect(Header(0x01, identifier: identifier));
+        Assert.Equal(JetVersion.Version4, format.Version);
+        Assert.False(format.IsAccdb);
+    }
 }

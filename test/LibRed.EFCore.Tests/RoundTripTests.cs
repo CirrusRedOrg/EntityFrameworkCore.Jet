@@ -109,6 +109,19 @@ public class RoundTripTests
     }
 
     [Fact]
+    public async Task HasTablesAsync_honors_pre_cancellation()
+    {
+        using var context = CreateContext();
+        var creator = Assert.IsAssignableFrom<RelationalDatabaseCreator>(
+            context.GetService<IDatabaseCreator>());
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => creator.HasTablesAsync(cancellation.Token));
+    }
+
+    [Fact]
     public void EnsureCreated_creates_a_new_database_natively_and_round_trips()
     {
         // A brand-new file (no copy): EnsureCreated must create the .accdb natively (DatabaseCreator),

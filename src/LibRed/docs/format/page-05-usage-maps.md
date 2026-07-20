@@ -31,6 +31,11 @@ file ceiling. A bitmap page's header is `[0]=0x05`, `[1]=0x01`, `[2..3]=0`, bitm
 Bitmap pages are allocated **lazily**, only when a bit in their range is first set, and are *not*
 themselves marked as owned by the table.
 
+LibRed treats this geometry as mandatory on read: a type-`0x01` record must be exactly 69 bytes,
+each nonzero pointer must be within the physical file, and its target must carry the complete verified
+`[05 01 00 00]` bitmap-page header. This validation happens before any bitmap is expanded into page
+numbers, so appended pointer-shaped bytes or pointers to ordinary data pages cannot become ownership data.
+
 > Verified against an ACE-built 134 MB table (34,000 full-page rows): owned map record
 > `01 017D0000 E17F0000 00…` — type `0x01`, slot 0 → page 32,001, slot 1 → page 32,737, remaining
 > 15 slots zero, record length 69. Bitmap page 32,737's first bitmap byte is `0xFC`: pages 32,736 and
@@ -127,8 +132,10 @@ one cleared bit per page taken.
 
 > LibRed allocates **through** this map (`PageAllocator`): it takes a free page, clears its bit,
 > and reuses it — only growing the file when none is free — so its pages now match Access's
-> allocation. Free bits beyond the current file end are the pre-allocated growth region; taking one
-> grows the file. **Both map forms are handled.** For an inline (`0x00`) map it scans the record's
+> allocation. Free bits at the current file end are the pre-allocated growth region; LibRed materializes
+> that next page contiguously before returning it, and rejects a bit that would skip beyond it. Repeated
+> allocations can therefore consume an ACE-authored run of future bits without creating a sparse file.
+> **Both map forms are handled.** For an inline (`0x00`) map it scans the record's
 > bitmap directly; for a **reference (`0x01`)** map — as a very large pre-existing ACE file carries —
 > it scans each slot's dedicated bitmap page (type `0x05`), where a **set bit is a free page** (the
 > global map's sense), clears the bit on that bitmap page, and returns `slot × (pageSize−4)×8 + bit`.
@@ -137,6 +144,11 @@ one cleared bit per page taken.
 > same as the inline-window edge. (`GlobalReferenceFreeMapTests`; the bit↔page math is the one the
 > per-table reference map is byte-verified against, §9.)
 >
+> **Allocator mutation guardrails.** Page 1 must be a valid data page with a live, non-overflow row 0.
+> Inline records require their complete header; reference records require exactly 69 bytes, unique in-file
+> bitmap pointers, and the complete `[05 01 00 00]` header. Pages 0/1, bitmap pages themselves, out-of-file
+> free targets, and non-contiguous growth targets are rejected before a free bit is cleared or set.
+>
 > **Create-table side effects.** An ACE `CREATE TABLE` *also* (1) adds two rows to **`MSysACEs`**
 > (the new object's permission entries) and updates its `ObjectId` index, and (2) bumps a counter in
 > page 0's obfuscated region at `~0xE02` (not yet decoded). **(1) is now done** —
@@ -144,4 +156,3 @@ one cleared bit per page taken.
 > tables without repair (`CreateTableAccessTests`). **(2) appears not to be required:** LibRed does not
 > touch the page-0 counter, yet ACE opens/queries the created tables — so it's either unused for
 > table open or benign when stale. (Views likewise get their two `MSysACEs` rows now — §11.)
-

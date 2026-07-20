@@ -12,28 +12,34 @@ namespace LibRed.Ado.Tests;
 /// </summary>
 public class LargeUnionAllTests
 {
-    private static readonly string Northwind = Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb");
-
     [Theory]
     [InlineData(2)]
     [InlineData(5000)]
     public void Large_union_all_does_not_overflow_and_returns_every_branch(int n)
     {
-        using var conn = new LibRedConnection($"Data Source={Northwind}");
-        conn.Open();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = string.Join(" UNION ALL ", Enumerable.Range(1, n).Select(i => $"SELECT {i} AS V"));
-
-        int count = 0;
-        long sum = 0;
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
+        // The query is FROM-less, so isolate it from the suite's shared Northwind fixture. Otherwise parallel
+        // test deployment/copying can transiently hold that file exclusively before this connection opens.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-union-{Guid.NewGuid():N}.accdb");
+        try
         {
-            count++;
-            sum += Convert.ToInt64(reader.GetValue(0));
-        }
+            LibRedConnection.CreateDatabase($"Data Source={path}");
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = string.Join(" UNION ALL ", Enumerable.Range(1, n).Select(i => $"SELECT {i} AS V"));
 
-        Assert.Equal(n, count);
-        Assert.Equal((long)n * (n + 1) / 2, sum); // order-preserving concat of 1..n
+            int count = 0;
+            long sum = 0;
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                count++;
+                sum += Convert.ToInt64(reader.GetValue(0));
+            }
+
+            Assert.Equal(n, count);
+            Assert.Equal((long)n * (n + 1) / 2, sum); // order-preserving concat of 1..n
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
     }
 }

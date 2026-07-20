@@ -42,14 +42,14 @@ public sealed class Table
         if (!Pages.DataPage.TryReadRow(Channel.ReadPageShared(id.Page), Channel.Format, id.Row, out Pages.RowSlot slot, out ReadOnlySpan<byte> bytes))
             return null;
 
+        if (slot.IsDeleted) return null;
         if (slot.HasOverflow)
         {
-            int pointer = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(bytes);
-            return Pages.DataPage.TryReadRow(Channel.ReadPageShared(pointer >> 8), Channel.Format, pointer & 0xFF, out _, out ReadOnlySpan<byte> target)
-                ? decoder.Decode(target)
-                : null;
+            RelocatedRow target = RowRelocationReader.Resolve(
+                Channel, Definition.DefinitionPage, slot, bytes);
+            return decoder.Decode(target.Bytes);
         }
-        return slot.IsDeleted ? null : decoder.Decode(bytes);
+        return decoder.Decode(bytes);
     }
 
     /// <summary>Yields the rows whose <paramref name="index"/> key equals <paramref name="values"/> — an index

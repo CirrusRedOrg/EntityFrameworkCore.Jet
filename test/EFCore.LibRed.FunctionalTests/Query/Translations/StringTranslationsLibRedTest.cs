@@ -410,7 +410,7 @@ WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 2 AND MID
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 5 AND MID(`b`.`String`, @start + 1, 3) = 'att'
+WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 5 AND MID(`b`.`String`, IIF(@start = -1, 0, @start) + 1, 3) = 'att'
 """);
     }
 
@@ -422,7 +422,7 @@ WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 5 AND MID
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (`b`.`String` LIKE '%a%') AND MID(`b`.`String`, (INSTR(1, `b`.`String`, 'a', 1) - 1) + 1, 3) = 'att'
+WHERE (`b`.`String` LIKE '%a%') AND MID(`b`.`String`, IIF((INSTR(1, `b`.`String`, 'a', 1) - 1) = -1, 0, INSTR(1, `b`.`String`, 'a', 1) - 1) + 1, 3) = 'att'
 """);
     }
 

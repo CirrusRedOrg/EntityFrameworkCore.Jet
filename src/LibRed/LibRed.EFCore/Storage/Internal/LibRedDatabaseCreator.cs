@@ -52,5 +52,8 @@ public class LibRedDatabaseCreator(
     }
 
     public override Task<bool> HasTablesAsync(CancellationToken cancellationToken = default)
-        => Task.FromResult(HasTables());
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(HasTables());
+    }
 }

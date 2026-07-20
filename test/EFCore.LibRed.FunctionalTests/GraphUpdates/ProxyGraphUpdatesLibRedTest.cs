@@ -12,10 +12,14 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 {
     public abstract class ProxyGraphUpdatesLibRedTest
     {
-        public abstract class ProxyGraphUpdatesLibRedTestBase<TFixture>(TFixture fixture)
-            : ProxyGraphUpdatesTestBase<TFixture>(fixture)
+        public abstract class ProxyGraphUpdatesLibRedTestBase<TFixture>
+            : ProxyGraphUpdatesTestBase<TFixture>
             where TFixture : ProxyGraphUpdatesLibRedTestBase<TFixture>.ProxyGraphUpdatesLibRedFixtureBase, new()
         {
+            protected ProxyGraphUpdatesLibRedTestBase(TFixture fixture)
+                : base(fixture)
+                => fixture.TestSqlLoggerFactory.Clear();
+
             protected override void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
                 => facade.UseTransaction(transaction.GetDbTransaction());
 

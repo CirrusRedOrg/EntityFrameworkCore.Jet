@@ -18,6 +18,28 @@ Row slot entry: lower 13 bits (`& 0x1FFF`) = the row's byte offset in the page; 
 deleted, `0x4000` = overflow/lookup pointer (not an inline row). Rows are packed from the end
 of the page backward, so a slot runs from its offset up to where the previous slot's row began.
 
+> **Reader guardrails.** LibRed requires an exact format-sized type-`0x01` page before either a full
+> scan or the O(1) index-seek slot path. The declared slot directory must fit before the heap; every
+> masked row offset must lie between the directory end and page end and must not increase relative to
+> the previous slot. Equal offsets remain valid because ALTER/relocation can deliberately leave a
+> zero-length deleted+overflow tombstone. Violations are reported as `InvalidDataException` before a
+> row span is constructed.
+
+### Relocated rows
+
+A live slot with `0x4000` set contains exactly one 4-byte little-endian forward pointer,
+`(targetPage << 8) | targetRow`. The target is a nonempty inline row on a type-`0x01` page owned by
+the same table. Its target slot has `0x8000` (deleted/hidden) set and `0x4000` clear: ordinary scans
+skip the hidden physical row, while the original row id and its index entries continue to resolve
+through the live source slot. A zero-length slot with both flags set is a tombstone, not a relocation
+source. These shapes are verified by LibRed-created files opened by Access and Access-relocated files
+read by LibRed.
+
+LibRed follows relocations through one shared resolver used by scans, index seeks, and raw-row
+mutation helpers. It validates the exact source width, in-file page number, target row, page owner,
+and source/target flag shapes before exposing target bytes; malformed pointers fail with
+`InvalidDataException`.
+
 ## 5. Row record format
 
 ```
@@ -65,6 +87,17 @@ of the page backward, so a slot runs from its offset up to where the previous sl
 - Variable offsets are **always 2 bytes** in Jet 4 / ACE, at any row size. There is **no
   jump table** (that is a Jet 3 construct for its 1-byte offsets).
 
+> **Row-reader guardrails.** LibRed bounds the null bitmap and optional variable trailer before reading
+> them. The offset table must fit the row, entry 0 (the variable-data end) must not pass the table start,
+> and its end-first offsets must remain within the row and be non-increasing. LibRed permits unused bytes
+> between entry 0 and the table itself; this preserves existing schema-evolved rows in the functional corpus,
+> but the reason those rows retain the gap has not yet been verified against Access. A requested variable slot
+> must exist. Fixed values must fit the derived fixed region, and fixed-width scalar codecs require the
+> exact widths in §6. A column id beyond an older row's stored `colCount` is absent/null—this preserves
+> ADD COLUMN behavior—and the variable trailer is considered present only when the stored row count
+> covers a currently known variable column. This also preserves the verified all-fixed form that omits
+> the trailer entirely. Structural violations are reported as `InvalidDataException`.
+
 ## Writing — inserting a row
 
 Placing an encoded row record (§5) into a data page's heap:
@@ -78,4 +111,3 @@ Placing an encoded row record (§5) into a data page's heap:
 > variable-offset table (its last entry is the variable-data start = `2 + fixedRegionLength`).
 > A row is found by **table scan** as soon as it is in the heap, but an **indexed lookup** (and
 > Access's PK seek) misses it until it is also added to every index B-tree (§10.4).
-

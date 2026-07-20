@@ -91,21 +91,34 @@ public sealed class LongValueWriter(PageChannel channel)
     public (int Row, int RemainingFree)? TryAppend(int pageNumber, byte[] row)
     {
         JetFormatBase format = _channel.Format;
-        byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
-        int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
-        int freeSpace = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2));
-        if (freeSpace < row.Length + 2) return null; // row data + its 2-byte directory entry
+        if (pageNumber <= 0 || pageNumber >= _channel.PageCount)
+            throw new InvalidDataException($"LVAL append page {pageNumber} is outside the physical file.");
+        if (row.Length > MaxLvalRowSize)
+            throw new ArgumentOutOfRangeException(nameof(row),
+                $"An LVAL row cannot exceed {MaxLvalRowSize} bytes.");
 
-        int lowest = format.PageSize;
-        for (int i = 0; i < rowCount; i++)
-            lowest = Math.Min(lowest,
-                BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2)) & 0x1FFF);
+        PageBuffer buffer = _channel.ReadPage(pageNumber);
+        var parsed = new DataPage();
+        parsed.Read(buffer, format);
+        if (!parsed.IsLongValuePage)
+            throw new InvalidDataException($"LVAL append target {pageNumber} is not owned by the LVAL store.");
+
+        int rowCount = parsed.RowCount;
+        int lowest = parsed.Rows.Count == 0 ? format.PageSize : parsed.Rows.Min(r => r.Offset);
+        int directoryEnd = format.DataRowDirectoryOffset + rowCount * 2;
+        int physicalFree = lowest - directoryEnd;
+        if (parsed.FreeSpace != physicalFree)
+            throw new InvalidDataException(
+                $"LVAL page {pageNumber} declares {parsed.FreeSpace} free bytes but its row geometry has {physicalFree}.");
+        if (physicalFree < row.Length + 2) return null; // row data + its 2-byte directory entry
+
+        byte[] page = buffer.Span.ToArray();
 
         int offset = lowest - row.Length;
         row.CopyTo(page.AsSpan(offset));
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + rowCount * 2, 2), (ushort)offset);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), (ushort)(rowCount + 1));
-        int remaining = freeSpace - row.Length - 2;
+        int remaining = physicalFree - row.Length - 2;
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2), (ushort)remaining);
         _channel.WritePage(pageNumber, page);
         return (rowCount, remaining);

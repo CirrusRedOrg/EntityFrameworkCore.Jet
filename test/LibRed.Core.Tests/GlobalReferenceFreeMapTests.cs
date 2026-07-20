@@ -18,14 +18,15 @@ public class GlobalReferenceFreeMapTests
     public void Allocate_and_free_through_a_reference_type_global_map()
     {
         const int pageSize = 4096;
-        const int pagesPerBitmap = (pageSize - 4) * 8; // 32,736 — one bitmap page's span
         var format = JetFormatBase.FromVersionByte(0x02); // ACE 12
 
-        var file = new byte[4 * pageSize];
+        var file = new byte[6 * pageSize];
 
-        // Page 0 — just enough for JetFormatBase.Detect: the ACE identifier + version byte.
-        System.Text.Encoding.ASCII.GetBytes("Standard ACE DB").CopyTo(file, 0x04);
-        file[0x14] = 0x02;
+        // Page 0 — use a valid unencrypted header. A bare identifier/version leaves the masked database-key
+        // field invalid and makes PageChannel correctly treat this synthetic file as encrypted.
+        DatabaseCreator.BuildDefinitionPage(
+            0x02, isAccdb: true, codePage: 1252, collationLcid: 1033,
+            collationVersion: 0, creationDays: 45000).CopyTo(file, 0);
 
         // Page 1 — a data page whose row 0 is a reference-type global free map: slot 0 → bitmap page 2,
         // slot 1 → bitmap page 3. (The 69-byte record is packed at the page end, as ACE packs rows.)
@@ -38,9 +39,9 @@ public class GlobalReferenceFreeMapTests
         BinaryPrimitives.WriteInt32LittleEndian(file.AsSpan(p1 + mapOffset + 1 + 0 * 4, 4), 2); // slot 0 → page 2
         BinaryPrimitives.WriteInt32LittleEndian(file.AsSpan(p1 + mapOffset + 1 + 1 * 4, 4), 3); // slot 1 → page 3
 
-        // Page 2 — bitmap page for slot 0; free page 5.        Page 3 — bitmap page for slot 1; free page 32,746.
+        // Page 2 — bitmap page for slot 0; physical free page 5. Page 3 is an empty slot-1 bitmap.
         WriteBitmapPage(file, 2 * pageSize, inRangeBit: 5);
-        WriteBitmapPage(file, 3 * pageSize, inRangeBit: 10); // slot 1 base (32,736) + 10 = global page 32,746
+        WriteBitmapPage(file, 3 * pageSize, inRangeBit: null);
 
         string path = Path.Combine(Path.GetTempPath(), $"libred-globalref-{Guid.NewGuid():N}.accdb");
         File.WriteAllBytes(path, file);
@@ -49,15 +50,11 @@ public class GlobalReferenceFreeMapTests
             using var channel = PageChannel.Open(path, readOnly: false);
             var alloc = new PageAllocator(channel);
 
-            Assert.Equal(5, alloc.Allocate());                     // slot 0's free page
-            Assert.Equal(pagesPerBitmap + 10, alloc.Allocate());   // slot 1's free page (base = 1 × 32,736)
-            Assert.Equal(4, alloc.Allocate());                     // nothing free left → grows the file (page 4)
+            Assert.Equal(5, alloc.Allocate());                     // slot 0's physical free page
+            Assert.Equal(6, alloc.Allocate());                     // nothing free left → grows contiguously
 
             alloc.Free(5);
             Assert.Equal(5, alloc.Allocate());                     // page 5 is free again
-
-            alloc.Free(pagesPerBitmap + 10);
-            Assert.Equal(pagesPerBitmap + 10, alloc.Allocate());   // and the slot-1 page too
         }
         finally
         {
@@ -67,10 +64,11 @@ public class GlobalReferenceFreeMapTests
 
     /// <summary>Writes a type-0x05 usage-bitmap page at <paramref name="offset"/> with one free bit set (the
     /// bitmap starts 4 bytes past the page header; a set bit marks a free page).</summary>
-    private static void WriteBitmapPage(byte[] file, int offset, int inRangeBit)
+    private static void WriteBitmapPage(byte[] file, int offset, int? inRangeBit)
     {
         file[offset] = 0x05;
         file[offset + 1] = 0x01;
-        file[offset + 4 + inRangeBit / 8] |= (byte)(1 << (inRangeBit % 8));
+        if (inRangeBit is int bit)
+            file[offset + 4 + bit / 8] |= (byte)(1 << (bit % 8));
     }
 }

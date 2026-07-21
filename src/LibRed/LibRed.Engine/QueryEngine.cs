@@ -1,4 +1,5 @@
 using LibRed.Catalog;
+using LibRed.IO;
 using LibRed.Engine.Execution;
 using LibRed.Engine.Plan;
 using LibRed.Engine.Planning;
@@ -93,8 +94,48 @@ public sealed class QueryEngine
                 return new CommandResult(
                     new QueryExecutor(_database, parameters, _session).ExecuteQuery(PlanWithIndexes(new BoundStatement(statement))), -1);
             default:
-                return new CommandResult(ResultSet.Empty,
-                    new StatementExecutor(_database, parameters, _parser, _session).Execute(statement));
+                return ExecuteWritingStatement(statement, parameters);
+        }
+    }
+
+    /// <summary>
+    /// Runs a DML/DDL statement so that it is atomic on its own: with no user transaction open it runs inside
+    /// an implicit transaction (commit on success, roll back on any failure — a late constraint/I/O error can
+    /// never leave a half-written row, index, LVAL chain, or catalog entry); inside a user transaction it runs
+    /// under a savepoint, so a statement failure undoes just that statement and leaves the user's transaction
+    /// intact. Only writing statements reach here — reads never open a transaction.
+    /// </summary>
+    private CommandResult ExecuteWritingStatement(SqlStatement statement, IReadOnlyDictionary<string, object?>? parameters)
+    {
+        int Run() => new StatementExecutor(_database, parameters, _parser, _session).Execute(statement);
+
+        if (_database.InTransaction)
+        {
+            Savepoint savepoint = _database.CreateSavepoint();
+            try
+            {
+                int affected = Run();
+                _database.ReleaseSavepoint(savepoint);
+                return new CommandResult(ResultSet.Empty, affected);
+            }
+            catch
+            {
+                _database.RollbackToSavepoint(savepoint);
+                throw;
+            }
+        }
+
+        _database.BeginTransaction();
+        try
+        {
+            int affected = Run();
+            _database.Commit(flush: false); // autocommit: durability stays on Dispose, as before transactions existed
+            return new CommandResult(ResultSet.Empty, affected);
+        }
+        catch
+        {
+            _database.Rollback();
+            throw;
         }
     }
 

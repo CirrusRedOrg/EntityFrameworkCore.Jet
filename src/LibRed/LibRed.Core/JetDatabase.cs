@@ -94,8 +94,9 @@ public sealed class JetDatabase : IDisposable
     /// <summary>Begins a page-level transaction; writes are undoable until <see cref="Commit"/>.</summary>
     public void BeginTransaction() => _channel.BeginTransaction();
 
-    /// <summary>Commits the current transaction (writes are already on disk).</summary>
-    public void Commit() => _channel.CommitTransaction();
+    /// <summary>Commits the current transaction (writes are already on disk). <paramref name="flush"/> forces
+    /// durability (fsync) for an explicit user commit; an implicit per-statement autocommit passes false.</summary>
+    public void Commit(bool flush = true) => _channel.CommitTransaction(flush);
 
     /// <summary>
     /// Rolls the current transaction back, restoring every touched page and dropping any pages the
@@ -108,6 +109,22 @@ public sealed class JetDatabase : IDisposable
         _channel.RollbackTransaction();
         Catalog.Invalidate();
     }
+
+    /// <summary>Opens a savepoint within the current transaction (used to make a single statement atomic
+    /// inside a larger user transaction). Requires a transaction to be open.</summary>
+    public Savepoint CreateSavepoint() => _channel.CreateSavepoint();
+
+    /// <summary>Rolls back to <paramref name="savepoint"/>, undoing writes made since it was created; the
+    /// transaction (and savepoint) stay open. Invalidates the catalog cache, as a full rollback does, since a
+    /// restored page may be a TDEF/catalog page.</summary>
+    public void RollbackToSavepoint(Savepoint savepoint)
+    {
+        _channel.RollbackToSavepoint(savepoint);
+        Catalog.Invalidate();
+    }
+
+    /// <summary>Releases <paramref name="savepoint"/>, merging its writes into the enclosing scope.</summary>
+    public void ReleaseSavepoint(Savepoint savepoint) => _channel.ReleaseSavepoint(savepoint);
 
     /// <summary>The system catalog, used to enumerate and resolve tables.</summary>
     public JetCatalog Catalog { get; }

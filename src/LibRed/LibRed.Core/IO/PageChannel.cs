@@ -244,13 +244,16 @@ public sealed class PageChannel : IDisposable
         return _active = new Transaction(_stream.Length);
     }
 
-    /// <summary>Commits the current transaction: the writes are already on disk, so this just
-    /// flushes and discards the undo bookkeeping. No-op if no transaction is open.</summary>
-    public void CommitTransaction()
+    /// <summary>Commits the current transaction: the writes are already on disk (write-through), so this just
+    /// discards the undo bookkeeping. No-op if no transaction is open. <paramref name="flush"/> forces the OS
+    /// buffers to disk (durability) — used by an explicit user commit; an implicit per-statement autocommit
+    /// passes false, matching the pre-transaction behaviour of flushing only on <see cref="Dispose"/> rather
+    /// than fsyncing every statement.</summary>
+    public void CommitTransaction(bool flush = true)
     {
         if (_active is null) return;
         _active = null;
-        _stream.Flush(flushToDisk: true);
+        if (flush) _stream.Flush(flushToDisk: true);
     }
 
     /// <summary>

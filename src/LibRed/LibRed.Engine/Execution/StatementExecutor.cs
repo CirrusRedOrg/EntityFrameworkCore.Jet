@@ -232,10 +232,52 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         return result;
     }
 
-    /// <summary>Applies each enforced relationship's ON DELETE action to a parent row being deleted: CASCADE
-    /// deletes the children (recursively), SET NULL nulls their FK columns, and NO ACTION rejects the delete
-    /// if any child exists (matching Access's "record cannot be deleted… includes related records").</summary>
-    private void CascadeParentDelete(string parentTable, object?[] parentValues)
+    /// <summary>
+    /// Deletes the given root rows and everything ON DELETE CASCADE reaches from them, applying SET NULL and
+    /// NO ACTION as it goes. An explicit worklist replaces the former recursion: each row is scheduled at most
+    /// once (a <see cref="RowId"/> set makes cyclic and diamond-shaped FK graphs terminate and delete a shared
+    /// child exactly once), and rows are deleted in post-order — every cascade child before its parent — so no
+    /// row is removed while another still references it. Bounded by the number of rows in the database, so a
+    /// deep or cyclic chain can no longer overflow the call stack.
+    /// </summary>
+    private void CascadeDelete(Table rootTable, IEnumerable<(RowId Id, object?[] Values)> roots)
+    {
+        var scheduled = new HashSet<(string Table, RowId Id)>();
+        var order = new List<(Table Table, RowId Id, object?[] Values)>();
+        var stack = new Stack<(Table Table, RowId Id, object?[] Values, bool ChildrenExpanded)>();
+
+        foreach (var (id, values) in roots)
+            if (scheduled.Add((rootTable.Name, id)))
+                stack.Push((rootTable, id, values, false));
+
+        while (stack.Count > 0)
+        {
+            var (table, id, values, expanded) = stack.Pop();
+            if (expanded)
+            {
+                order.Add((table, id, values)); // its children are all below it on the stack / already emitted
+                continue;
+            }
+            stack.Push((table, id, values, true)); // revisit to emit after its children
+            EnqueueCascadeChildren(table.Name, values, scheduled, stack);
+        }
+
+        foreach (var (table, id, values) in order)
+        {
+            foreach (IndexDef index in table.Definition.Indexes.Where(i => i.RootPage > 0)
+                .GroupBy(i => i.RootPage).Select(g => g.First()))
+                table.RemoveIndexEntry(index, values, id);
+            table.Delete(id);
+        }
+    }
+
+    /// <summary>Applies each enforced relationship's ON DELETE action to a parent row about to be deleted:
+    /// CASCADE schedules its children for deletion (unless already scheduled), SET NULL nulls their FK columns
+    /// now, and NO ACTION rejects the delete if any child exists (matching Access's "record cannot be deleted…
+    /// includes related records").</summary>
+    private void EnqueueCascadeChildren(string parentTable, object?[] parentValues,
+        HashSet<(string Table, RowId Id)> scheduled,
+        Stack<(Table Table, RowId Id, object?[] Values, bool ChildrenExpanded)> stack)
     {
         foreach (ForeignKey fk in ChildRelationshipsOf(parentTable))
         {
@@ -247,7 +289,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             if (fk.CascadeDelete)
             {
                 Table child = _database.OpenTable(fk.Table);
-                foreach (var (cid, cvals) in children) DeleteRowCascading(child, cid, cvals);
+                foreach (var (cid, cvals) in children)
+                    if (scheduled.Add((child.Name, cid)))
+                        stack.Push((child, cid, cvals, false));
             }
             else if (fk.DeleteSetNull)
                 foreach (var (cid, cvals) in children) SetChildKey(fk, cid, cvals, newKey: null);
@@ -255,16 +299,6 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 throw new InvalidOperationException(
                     $"The record cannot be deleted or changed because table '{fk.Table}' includes related records.");
         }
-    }
-
-    /// <summary>Deletes a row after handling its children (cascade/set-null/reject), removing its index
-    /// entries and soft-deleting it. Recurses for a cascade chain.</summary>
-    private void DeleteRowCascading(Table table, RowId id, object?[] values)
-    {
-        CascadeParentDelete(table.Name, values);
-        foreach (IndexDef index in table.Definition.Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()))
-            table.RemoveIndexEntry(index, values, id);
-        table.Delete(id);
     }
 
     /// <summary>Applies each enforced relationship's ON UPDATE action when a parent row's referenced key
@@ -958,10 +992,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         foreach (var combo in joinRows)
             deleted.TryAdd(combo[ti].Id, combo[ti].Values); // one delete per distinct target row
 
-        // DeleteRowCascading applies each row's ON DELETE actions (cascade/set-null/reject) to its children,
-        // then removes its index entries and soft-deletes it.
-        foreach ((RowId id, object?[] values) in deleted)
-            DeleteRowCascading(target, id, values);
+        // Delete the distinct target rows and everything ON DELETE CASCADE reaches, children before parents.
+        CascadeDelete(target, deleted.Select(kv => (kv.Key, kv.Value)));
 
         int affected = deleted.Count;
         if (_session is not null) _session.RowCount = affected;

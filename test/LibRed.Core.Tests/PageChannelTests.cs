@@ -87,4 +87,101 @@ public class PageChannelTests
         }
         finally { File.Delete(path); }
     }
+
+    [Fact]
+    public void RollbackToSavepoint_keeps_pre_savepoint_writes_undoes_later_ones_and_drops_allocations()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"libred-sp-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using var channel = PageChannel.Open(path, readOnly: false);
+            byte original2 = channel.ReadPage(2).Span[10];
+
+            channel.BeginTransaction();
+
+            // Before the savepoint: change page 1.
+            var p1 = channel.ReadPage(1).Span.ToArray();
+            p1[10] = 0x11;
+            channel.WritePage(1, p1);
+
+            Savepoint sp = channel.CreateSavepoint();
+            int pagesAtSavepoint = channel.PageCount;
+
+            // After the savepoint: change page 2 and allocate a page.
+            var p2 = channel.ReadPage(2).Span.ToArray();
+            p2[10] = 0x22;
+            channel.WritePage(2, p2);
+            channel.WritePage(channel.PageCount, new byte[channel.PageSize]);
+            Assert.True(channel.PageCount > pagesAtSavepoint);
+
+            channel.RollbackToSavepoint(sp);
+
+            Assert.True(channel.InTransaction);                          // savepoint rollback leaves the txn open
+            Assert.Equal(0x11, channel.ReadPage(1).Span[10]);            // pre-savepoint write kept
+            Assert.Equal(original2, channel.ReadPage(2).Span[10]);       // post-savepoint write undone
+            Assert.Equal(pagesAtSavepoint, channel.PageCount);          // page allocated after the savepoint dropped
+
+            channel.CommitTransaction();
+            Assert.Equal(0x11, channel.ReadPage(1).Span[10]);            // and the kept write survives commit
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void RollbackToSavepoint_restores_a_page_to_its_savepoint_state_not_transaction_start()
+    {
+        // A page written both before and after the savepoint must come back to its at-savepoint bytes, which
+        // is what the per-frame (not per-transaction) before-image snapshot guarantees.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-sp2-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using var channel = PageChannel.Open(path, readOnly: false);
+            channel.BeginTransaction();
+
+            var page = channel.ReadPage(1).Span.ToArray();
+            page[10] = 0x11;
+            channel.WritePage(1, page);
+
+            Savepoint sp = channel.CreateSavepoint();
+
+            page[10] = 0x22;
+            channel.WritePage(1, page);
+
+            channel.RollbackToSavepoint(sp);
+
+            Assert.Equal(0x11, channel.ReadPage(1).Span[10]); // restored to the savepoint state, not the original
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void ReleaseSavepoint_merges_into_the_parent_so_an_outer_rollback_still_undoes_it()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"libred-sp3-{Guid.NewGuid():N}.accdb");
+        File.Copy(TestDatabases.NorthwindAccdb, path);
+        try
+        {
+            using var channel = PageChannel.Open(path, readOnly: false);
+            byte original = channel.ReadPage(1).Span[10];
+
+            channel.BeginTransaction();
+            Savepoint outer = channel.CreateSavepoint();
+
+            var page = channel.ReadPage(1).Span.ToArray();
+            page[10] = 0x11;
+            channel.WritePage(1, page);
+
+            Savepoint inner = channel.CreateSavepoint();
+            page[10] = 0x22;
+            channel.WritePage(1, page);
+            channel.ReleaseSavepoint(inner);            // inner's change folds into the outer frame
+
+            channel.RollbackToSavepoint(outer);          // undoes both the outer and the released-inner writes
+
+            Assert.Equal(original, channel.ReadPage(1).Span[10]);
+        }
+        finally { File.Delete(path); }
+    }
 }

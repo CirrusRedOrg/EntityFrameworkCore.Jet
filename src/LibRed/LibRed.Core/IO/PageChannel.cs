@@ -24,12 +24,10 @@ public sealed class PageChannel : IDisposable
     // every page as it comes off disk; page 0 (the readable header) is a no-op inside the codec.
     private readonly IPageCodec? _codec;
 
-    // Page-level undo log for the current transaction (null when none is open). Keyed by page
-    // number; the value is the page's bytes as they were *before* the transaction first touched
-    // it. Pages allocated during the transaction lie beyond _txnOriginalLength and are not logged
-    // — rollback simply truncates the file back to that length to drop them.
-    private Dictionary<int, byte[]>? _undo;
-    private long _txnOriginalLength;
+    // The open transaction's before-image/savepoint bookkeeping (null when none is open). This channel is the
+    // I/O executor; the Transaction only tracks what to undo. Pages allocated during a frame lie beyond its
+    // start length and are not snapshotted — rollback truncates the file to drop them.
+    private Transaction? _active;
 
     private PageChannel(FileStream stream, JetFormatBase format, bool readOnly, string path, IPageCodec? codec)
     {
@@ -42,7 +40,7 @@ public sealed class PageChannel : IDisposable
     }
 
     /// <summary>Whether a transaction is currently open on this channel.</summary>
-    public bool InTransaction => _undo is not null;
+    public bool InTransaction => _active is not null;
 
     public JetFormatBase Format { get; }
 
@@ -178,18 +176,18 @@ public sealed class PageChannel : IDisposable
         if (pageNumber < 0)
             throw new ArgumentOutOfRangeException(nameof(pageNumber));
 
-        // Before the first write to a pre-existing page inside a transaction, snapshot its current
-        // bytes so Rollback can restore them. Pages beyond the file's length at BeginTransaction are
-        // fresh allocations — no snapshot needed; rollback truncates them away wholesale.
-        if (_undo is not null)
+        // Before the first write within the current savepoint frame to a page that pre-dates that frame,
+        // snapshot its current (raw, on-disk) bytes so rollback can restore them. Pages allocated within the
+        // frame lie beyond its start length and need no snapshot — rollback truncates them away wholesale.
+        if (_active is not null)
         {
-            long pageOffset = (long)pageNumber * PageSize;
-            if (pageOffset < _txnOriginalLength && !_undo.ContainsKey(pageNumber))
+            long snapshotOffset = (long)pageNumber * PageSize;
+            if (_active.NeedsBeforeImage(pageNumber, snapshotOffset))
             {
                 var original = new byte[PageSize];
-                _stream.Seek(pageOffset, SeekOrigin.Begin);
+                _stream.Seek(snapshotOffset, SeekOrigin.Begin);
                 _stream.ReadExactly(original);
-                _undo[pageNumber] = original;
+                _active.RecordBeforeImage(pageNumber, original);
             }
         }
 
@@ -237,22 +235,21 @@ public sealed class PageChannel : IDisposable
     /// Reads continue to see writes made within the transaction (read-your-writes). Nesting is not
     /// supported.
     /// </summary>
-    public void BeginTransaction()
+    public Transaction BeginTransaction()
     {
         if (_readOnly)
             throw new InvalidOperationException("This channel was opened read-only.");
-        if (_undo is not null)
+        if (_active is not null)
             throw new InvalidOperationException("A transaction is already in progress.");
-        _undo = [];
-        _txnOriginalLength = _stream.Length;
+        return _active = new Transaction(_stream.Length);
     }
 
     /// <summary>Commits the current transaction: the writes are already on disk, so this just
-    /// flushes and discards the undo log. No-op if no transaction is open.</summary>
+    /// flushes and discards the undo bookkeeping. No-op if no transaction is open.</summary>
     public void CommitTransaction()
     {
-        if (_undo is null) return;
-        _undo = null;
+        if (_active is null) return;
+        _active = null;
         _stream.Flush(flushToDisk: true);
     }
 
@@ -263,9 +260,48 @@ public sealed class PageChannel : IDisposable
     /// </summary>
     public void RollbackTransaction()
     {
-        if (_undo is null) return;
+        if (_active is null) return;
+        var (images, truncateTo) = _active.TakeForRollback();
+        RestoreImages(images, truncateTo);
+        _active = null;
+        _stream.Flush(flushToDisk: true);
+    }
 
-        foreach (var (pageNumber, original) in _undo)
+    /// <summary>Opens a savepoint in the current transaction; pass the handle to
+    /// <see cref="RollbackToSavepoint"/> or <see cref="ReleaseSavepoint"/>.</summary>
+    public Savepoint CreateSavepoint()
+    {
+        if (_active is null)
+            throw new InvalidOperationException("No transaction is in progress.");
+        return _active.Save(_stream.Length);
+    }
+
+    /// <summary>Rolls the transaction back to <paramref name="savepoint"/>: undoes every write made since it was
+    /// created and drops pages allocated after it, leaving the savepoint (and the transaction) open.</summary>
+    public void RollbackToSavepoint(Savepoint savepoint)
+    {
+        if (_active is null)
+            throw new InvalidOperationException("No transaction is in progress.");
+        var (images, truncateTo) = _active.TakeForRollbackTo(savepoint);
+        RestoreImages(images, truncateTo);
+    }
+
+    /// <summary>Releases <paramref name="savepoint"/>, merging its changes into the enclosing scope. Only the
+    /// innermost open savepoint may be released.</summary>
+    public void ReleaseSavepoint(Savepoint savepoint)
+    {
+        if (_active is null)
+            throw new InvalidOperationException("No transaction is in progress.");
+        _active.Release(savepoint);
+    }
+
+    /// <summary>Restores raw before-images to disk and the plaintext pool, then truncates to
+    /// <paramref name="truncateTo"/> (dropping pages allocated past that point). Images are applied newest-first
+    /// so the oldest snapshot wins for a page touched in several frames; an image beyond the truncation point is
+    /// written but then dropped by the truncation, which keeps the logic simple and correct.</summary>
+    private void RestoreImages(List<KeyValuePair<int, byte[]>> images, long truncateTo)
+    {
+        foreach (var (pageNumber, original) in images)
         {
             // `original` is the raw on-disk image (ciphertext for an encrypted file) — write it back verbatim,
             // but keep the pool in plaintext by decrypting a copy for the cache.
@@ -276,10 +312,8 @@ public sealed class PageChannel : IDisposable
             _cache.Store(pageNumber, plain);
         }
 
-        _stream.SetLength(_txnOriginalLength);
-        _cache.EvictFrom((int)(_txnOriginalLength / PageSize)); // drop pages that the truncation removed
-        _undo = null;
-        _stream.Flush(flushToDisk: true);
+        _stream.SetLength(truncateTo);
+        _cache.EvictFrom((int)(truncateTo / PageSize)); // drop pages that the truncation removed
     }
 
     /// <summary>Retrieves a higher-layer parse of a page previously stored via <see cref="SetParsedPage"/>

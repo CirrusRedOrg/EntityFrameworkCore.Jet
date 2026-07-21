@@ -348,16 +348,8 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     private static (List<Entry> Entries, int Tail) Parse(CheckedIndexPage page)
     {
         var entries = new List<Entry>(page.EntryRanges.Count);
-        byte[] prefix = [];
-        bool first = true;
-        foreach ((int start, int end) in page.EntryRanges)
-        {
-            int trailer = IndexPageReader.ReadInt32BigEndian(page.Buffer, EntryDataOffset + end - 4);
-            ReadOnlySpan<byte> stored = page.Buffer.Slice(EntryDataOffset + start, end - start - 4);
-            byte[] full = first ? stored.ToArray() : Concat(prefix, stored);
-            if (first) { prefix = full[..page.CompressedByteCount]; first = false; }
-            entries.Add(new Entry(full, trailer));
-        }
+        foreach ((byte[] key, int trailer) in IndexPageReader.DecodeEntries(page))
+            entries.Add(new Entry(key, trailer));
         return (entries, page.Tail);
     }
 
@@ -556,14 +548,6 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         for (int i = 0; i < n; i++)
             if (a[i] != b[i]) return a[i] - b[i];
         return a.Length - b.Length;
-    }
-
-    private static byte[] Concat(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
-    {
-        var result = new byte[a.Length + b.Length];
-        a.CopyTo(result);
-        b.CopyTo(result.AsSpan(a.Length));
-        return result;
     }
 
     private static void WriteInt32Le(byte[] page, int offset, int value) => BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(offset, 4), value);

@@ -23,6 +23,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     // executed once per outer row, so planning + index selection must be done ONCE, not on every evaluation.
     private readonly Dictionary<SelectStatement, PlanNode> _subqueryPlans = new(ReferenceEqualityComparer.Instance);
 
+    // Flattened projection schema (output columns + per-item source), keyed by the ProjectNode. Depends only on
+    // the node and its input column structure — both invariant across outer rows — so, like the subquery plans,
+    // it must be built ONCE. Rebuilding it per row re-ran DeclaredType (linear column scans, string allocation)
+    // for every outer row of a correlated subquery / nested-loop inner.
+    private readonly Dictionary<ProjectNode, ProjectionSchema> _projectionSchemas = new(ReferenceEqualityComparer.Instance);
+
     public QueryExecutor(JetDatabase database, IReadOnlyDictionary<string, object?>? parameters = null, SessionState? session = null)
     {
         _database = database;
@@ -194,23 +200,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 var (columns, rows) = Execute(project.Input, outer);
 
-                // Flatten the projection, expanding a qualified star (Table.*) into the input columns of
-                // that source (passed through by index); every other item is an evaluated expression.
-                var plan = new List<(OutputColumn Column, int InputIndex, Expression? Expr)>();
-                foreach (SelectItem item in project.Projection)
-                {
-                    if (item.Value is QualifiedStarExpression star)
-                    {
-                        for (int ci = 0; ci < columns.Count; ci++)
-                            if (string.Equals(columns[ci].Qualifier, star.Table, StringComparison.OrdinalIgnoreCase))
-                                plan.Add((columns[ci], ci, null));
-                    }
-                    else
-                    {
-                        string name = item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{plan.Count + 1}");
-                        plan.Add((new OutputColumn(null, name, DeclaredType(item.Value, columns)), -1, item.Value));
-                    }
-                }
+                // The output schema is invariant across outer rows, so build (or reuse) it once. Rows are still
+                // produced fresh — only the per-item plan (which ran DeclaredType) is cached.
+                ProjectionSchema schema = ProjectionSchemaFor(project, columns);
+                var plan = schema.Plan;
 
                 var projected = rows.Select(row =>
                 {
@@ -218,7 +211,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     return plan.Select(p => p.InputIndex >= 0 ? row[p.InputIndex] : eval.Evaluate(p.Expr!)).ToArray();
                 });
 
-                return (plan.Select(p => p.Column).ToList(), projected);
+                return (schema.Columns, projected);
             }
 
             case SetOperationNode setOp:
@@ -328,6 +321,40 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// <summary>Infers a stable declared CLR type from schema and expression shape. It deliberately returns
     /// null for expressions whose result type depends on runtime coercion; the ADO layer can still fall back
     /// to a non-null runtime value in those cases without publishing misleading metadata for empty results.</summary>
+    /// <summary>A ProjectNode's flattened output: the per-item plan (source input index, or an expression to
+    /// evaluate) and the resulting output columns. Structural — the same for every outer row.</summary>
+    private sealed record ProjectionSchema(
+        List<(OutputColumn Column, int InputIndex, Expression? Expr)> Plan, List<OutputColumn> Columns);
+
+    /// <summary>Builds — or reuses — a ProjectNode's schema. Flattens the projection, expanding a qualified star
+    /// (Table.*) into the input columns of that source (passed through by index); every other item is an
+    /// evaluated expression whose declared type is derived once here.</summary>
+    private ProjectionSchema ProjectionSchemaFor(ProjectNode project, IReadOnlyList<OutputColumn> columns)
+    {
+        if (_projectionSchemas.TryGetValue(project, out ProjectionSchema? cached))
+            return cached;
+
+        var plan = new List<(OutputColumn Column, int InputIndex, Expression? Expr)>();
+        foreach (SelectItem item in project.Projection)
+        {
+            if (item.Value is QualifiedStarExpression star)
+            {
+                for (int ci = 0; ci < columns.Count; ci++)
+                    if (string.Equals(columns[ci].Qualifier, star.Table, StringComparison.OrdinalIgnoreCase))
+                        plan.Add((columns[ci], ci, null));
+            }
+            else
+            {
+                string name = item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{plan.Count + 1}");
+                plan.Add((new OutputColumn(null, name, DeclaredType(item.Value, columns)), -1, item.Value));
+            }
+        }
+
+        var schema = new ProjectionSchema(plan, plan.Select(p => p.Column).ToList());
+        _projectionSchemas[project] = schema;
+        return schema;
+    }
+
     private Type? DeclaredType(Expression expression, IReadOnlyList<OutputColumn> columns)
     {
         switch (expression)

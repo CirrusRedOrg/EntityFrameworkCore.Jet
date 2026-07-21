@@ -54,18 +54,8 @@ public sealed class IndexCursor(PageChannel channel, int rootPage)
 
             if (page.Type == PageType.LeafIndexPage)
             {
-                byte[] prefix = [];
-                bool first = true;
-                foreach ((int start, int end) in page.EntryRanges)
-                {
-                    int pointer = IndexPageReader.ReadInt32BigEndian(
-                        page.Buffer, IndexPageReader.EntryDataOffset + end - 4);
-                    ReadOnlySpan<byte> storedKey = page.Buffer.Slice(
-                        IndexPageReader.EntryDataOffset + start, end - start - 4);
-                    byte[] key = first ? storedKey.ToArray() : Concat(prefix, storedKey);
-                    if (first) { prefix = key[..page.CompressedByteCount]; first = false; }
+                foreach ((byte[] key, int pointer) in IndexPageReader.DecodeEntries(page))
                     yield return (key, new RowId(pointer >> 8, pointer & 0xFF));
-                }
                 continue;
             }
             pending.Push(page.Tail);
@@ -75,11 +65,4 @@ public sealed class IndexCursor(PageChannel channel, int rootPage)
         }
     }
 
-    private static byte[] Concat(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
-    {
-        var result = new byte[a.Length + b.Length];
-        a.CopyTo(result);
-        b.CopyTo(result.AsSpan(a.Length));
-        return result;
-    }
 }

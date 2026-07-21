@@ -80,6 +80,33 @@ internal static class IndexPageReader
     public static int ReadInt32BigEndian(PageBuffer page, int offset) =>
         BinaryPrimitives.ReadInt32BigEndian(page.Slice(offset, 4));
 
+    /// <summary>Decodes a checked page's entries in order, decompressing each entry's shared prefix: the first
+    /// entry is stored whole and its leading <c>CompressedByteCount</c> bytes are the prefix reapplied to every
+    /// following entry. Yields the full key bytes and the 4-byte big-endian trailer (a leaf entry's row pointer
+    /// or a node entry's child page). Shared by the cursor's leaf enumeration and the writer's parse so the
+    /// prefix rule lives in exactly one place.</summary>
+    public static IEnumerable<(byte[] Key, int Trailer)> DecodeEntries(CheckedIndexPage page)
+    {
+        byte[] prefix = [];
+        bool first = true;
+        foreach ((int start, int end) in page.EntryRanges)
+        {
+            int trailer = ReadInt32BigEndian(page.Buffer, EntryDataOffset + end - 4);
+            ReadOnlySpan<byte> stored = page.Buffer.Slice(EntryDataOffset + start, end - start - 4);
+            byte[] key = first ? stored.ToArray() : Concat(prefix, stored);
+            if (first) { prefix = key[..page.CompressedByteCount]; first = false; }
+            yield return (key, trailer);
+        }
+    }
+
+    private static byte[] Concat(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
+    {
+        var result = new byte[a.Length + b.Length];
+        a.CopyTo(result);
+        b.CopyTo(result.AsSpan(a.Length));
+        return result;
+    }
+
     private static void ValidateOptionalPageNumber(PageChannel channel, int pageNumber, string kind)
     {
         if (pageNumber != 0) ValidatePageNumber(channel, pageNumber, kind);

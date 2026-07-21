@@ -71,7 +71,10 @@ public sealed class JetDatabase : IDisposable
     /// <paramref name="password"/> — encrypted databases open read-only.</summary>
     public static JetDatabase Open(string path, bool readOnly = true, string? password = null)
     {
-        var channel = PageChannel.Open(path, readOnly, password);
+        // Coordinate page access between every handle open on this file (EF holds several connections on one
+        // .accdb) through one per-path lock manager: readers share a page, a writer excludes them. Process-local
+        // for now; the file-based (self-consistent, then Jet-exact) managers replace it behind ILockManager.
+        var channel = PageChannel.Open(path, readOnly, password, MonitorLockManager.ForPath(path));
         try
         {
             return new JetDatabase(channel);

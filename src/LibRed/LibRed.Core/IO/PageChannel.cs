@@ -24,18 +24,24 @@ public sealed class PageChannel : IDisposable
     // every page as it comes off disk; page 0 (the readable header) is a no-op inside the codec.
     private readonly IPageCodec? _codec;
 
+    // Cross-handle page coordination. Null (the default) means no coordination — the single-writer case, with
+    // zero per-access cost. When set (concurrency enabled), every read takes a shared page lock and every write
+    // an exclusive one. The `_locks?.` null-conditional keeps the disabled path free of any call.
+    private readonly ILockManager? _locks;
+
     // The open transaction's before-image/savepoint bookkeeping (null when none is open). This channel is the
     // I/O executor; the Transaction only tracks what to undo. Pages allocated during a frame lie beyond its
     // start length and are not snapshotted — rollback truncates the file to drop them.
     private Transaction? _active;
 
-    private PageChannel(FileStream stream, JetFormatBase format, bool readOnly, string path, IPageCodec? codec)
+    private PageChannel(FileStream stream, JetFormatBase format, bool readOnly, string path, IPageCodec? codec, ILockManager? locks)
     {
         _stream = stream;
         _readOnly = readOnly;
         Format = format;
         _path = path;
         _codec = codec;
+        _locks = locks;
         _cache = PageCache.Acquire(path, format.PageSize);
     }
 
@@ -53,7 +59,7 @@ public sealed class PageChannel : IDisposable
     /// Opens a database file, sniffs its Jet/ACE version from page 0 and resolves the
     /// matching <see cref="JetFormatBase"/>.
     /// </summary>
-    public static PageChannel Open(string path, bool readOnly = true, string? password = null)
+    public static PageChannel Open(string path, bool readOnly = true, string? password = null, ILockManager? locks = null)
     {
         // A Jet/ACE file is a shared-file database — Access, ODBC and OLE DB all open it with multiple
         // concurrent handles (a store's long-lived connection plus per-context connections to the same
@@ -94,7 +100,7 @@ public sealed class PageChannel : IDisposable
             if (databaseKey != 0 && codec is null)
                 throw new NotSupportedException("The database is encrypted with an unsupported scheme.");
 
-            return new PageChannel(stream, format, readOnly, path, codec);
+            return new PageChannel(stream, format, readOnly, path, codec, locks);
         }
         catch
         {
@@ -131,16 +137,28 @@ public sealed class PageChannel : IDisposable
     /// </summary>
     public PageBuffer ReadPageShared(int pageNumber)
     {
+        // Cache hit: the cache's own lock makes the lookup atomic and copy-on-write Store keeps the returned
+        // array stable, so no page lock is needed — this is the hot path and stays coordination-free.
         if (_cache.TryGetArray(pageNumber, out byte[] cached))
             return new PageBuffer(cached, pageNumber);
 
-        var buffer = new byte[PageSize];
-        long offset = (long)pageNumber * PageSize;
-        _stream.Seek(offset, SeekOrigin.Begin);
-        _stream.ReadExactly(buffer);
-        _codec?.DecryptPage(pageNumber, buffer);
-        _cache.Store(pageNumber, buffer);
-        return new PageBuffer(buffer, pageNumber);
+        // Miss: read from disk under a shared page lock so a concurrent cross-handle write of this page can't
+        // tear the read. Re-check the cache after acquiring — another handle may have filled it while we waited.
+        _locks?.EnterShared(pageNumber);
+        try
+        {
+            if (_cache.TryGetArray(pageNumber, out cached))
+                return new PageBuffer(cached, pageNumber);
+
+            var buffer = new byte[PageSize];
+            long offset = (long)pageNumber * PageSize;
+            _stream.Seek(offset, SeekOrigin.Begin);
+            _stream.ReadExactly(buffer);
+            _codec?.DecryptPage(pageNumber, buffer);
+            _cache.Store(pageNumber, buffer);
+            return new PageBuffer(buffer, pageNumber);
+        }
+        finally { _locks?.ExitShared(pageNumber); }
     }
 
     /// <summary>Reads a single page into the supplied buffer (must be at least <see cref="PageSize"/>).</summary>
@@ -149,15 +167,25 @@ public sealed class PageChannel : IDisposable
         if (destination.Length < PageSize)
             throw new ArgumentException($"Buffer must be at least {PageSize} bytes.", nameof(destination));
 
-        // Serve from the shared pool if resident; otherwise read the file once and fill the pool.
+        // Cache hit: served under the cache's own lock, no page lock needed (the hot path).
         if (_cache.TryRead(pageNumber, destination))
             return;
 
-        long offset = (long)pageNumber * PageSize;
-        _stream.Seek(offset, SeekOrigin.Begin);
-        _stream.ReadExactly(destination[..PageSize]);
-        _codec?.DecryptPage(pageNumber, destination[..PageSize]);
-        _cache.Store(pageNumber, destination[..PageSize]);
+        // Miss: read from disk under a shared page lock (coordinates with a cross-handle write), re-checking
+        // the cache after acquiring in case another handle filled it while we waited.
+        _locks?.EnterShared(pageNumber);
+        try
+        {
+            if (_cache.TryRead(pageNumber, destination))
+                return;
+
+            long offset = (long)pageNumber * PageSize;
+            _stream.Seek(offset, SeekOrigin.Begin);
+            _stream.ReadExactly(destination[..PageSize]);
+            _codec?.DecryptPage(pageNumber, destination[..PageSize]);
+            _cache.Store(pageNumber, destination[..PageSize]);
+        }
+        finally { _locks?.ExitShared(pageNumber); }
     }
 
     /// <summary>
@@ -176,42 +204,47 @@ public sealed class PageChannel : IDisposable
         if (pageNumber < 0)
             throw new ArgumentOutOfRangeException(nameof(pageNumber));
 
-        // Before the first write within the current savepoint frame to a page that pre-dates that frame,
-        // snapshot its current (raw, on-disk) bytes so rollback can restore them. Pages allocated within the
-        // frame lie beyond its start length and need no snapshot — rollback truncates them away wholesale.
-        if (_active is not null)
+        _locks?.EnterExclusive(pageNumber);
+        try
         {
-            long snapshotOffset = (long)pageNumber * PageSize;
-            if (_active.NeedsBeforeImage(pageNumber, snapshotOffset))
+            // Before the first write within the current savepoint frame to a page that pre-dates that frame,
+            // snapshot its current (raw, on-disk) bytes so rollback can restore them. Pages allocated within the
+            // frame lie beyond its start length and need no snapshot — rollback truncates them away wholesale.
+            if (_active is not null)
             {
-                var original = new byte[PageSize];
-                _stream.Seek(snapshotOffset, SeekOrigin.Begin);
-                _stream.ReadExactly(original);
-                _active.RecordBeforeImage(pageNumber, original);
+                long snapshotOffset = (long)pageNumber * PageSize;
+                if (_active.NeedsBeforeImage(pageNumber, snapshotOffset))
+                {
+                    var original = new byte[PageSize];
+                    _stream.Seek(snapshotOffset, SeekOrigin.Begin);
+                    _stream.ReadExactly(original);
+                    _active.RecordBeforeImage(pageNumber, original);
+                }
             }
+
+            // The cache holds plaintext and the disk holds ciphertext (for an encrypted file), so encrypt a copy
+            // on the way to disk — the mirror of ReadPage's decrypt — while caching the plaintext. Page 0 is a
+            // no-op inside the codec (never page-encrypted).
+            ReadOnlySpan<byte> toDisk = source[..PageSize];
+            byte[]? encrypted = null;
+            if (_codec is not null)
+            {
+                encrypted = source[..PageSize].ToArray();
+                _codec.EncryptPage(pageNumber, encrypted);
+                toDisk = encrypted;
+            }
+
+            long offset = (long)pageNumber * PageSize;
+            if (offset > _stream.Length)
+                _stream.SetLength(offset); // zero-fills the gap up to this page
+            _stream.Seek(offset, SeekOrigin.Begin);
+            _stream.Write(toDisk);
+
+            // Write through: the pool now holds the just-written (plaintext) image, so a subsequent read (this
+            // channel or any other on the file) sees it without touching disk.
+            _cache.Store(pageNumber, source[..PageSize]);
         }
-
-        // The cache holds plaintext and the disk holds ciphertext (for an encrypted file), so encrypt a copy on
-        // the way to disk — the mirror of ReadPage's decrypt — while caching the plaintext. Page 0 is a no-op
-        // inside the codec (never page-encrypted).
-        ReadOnlySpan<byte> toDisk = source[..PageSize];
-        byte[]? encrypted = null;
-        if (_codec is not null)
-        {
-            encrypted = source[..PageSize].ToArray();
-            _codec.EncryptPage(pageNumber, encrypted);
-            toDisk = encrypted;
-        }
-
-        long offset = (long)pageNumber * PageSize;
-        if (offset > _stream.Length)
-            _stream.SetLength(offset); // zero-fills the gap up to this page
-        _stream.Seek(offset, SeekOrigin.Begin);
-        _stream.Write(toDisk);
-
-        // Write through: the pool now holds the just-written (plaintext) image, so a subsequent read (this channel
-        // or any other on the file) sees it without touching disk.
-        _cache.Store(pageNumber, source[..PageSize]);
+        finally { _locks?.ExitExclusive(pageNumber); }
     }
 
     /// <summary>

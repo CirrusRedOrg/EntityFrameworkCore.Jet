@@ -116,7 +116,11 @@ internal sealed class PageCache
         {
             if (_map.TryGetValue(page, out var node))
             {
-                source.CopyTo(node.Value.Bytes);
+                // Copy-on-write: replace the array rather than overwriting it in place, so a zero-copy reader
+                // that already took the old array via TryGetArray keeps a stable (if now slightly stale) image
+                // instead of seeing bytes change under it. Reads on a cache hit therefore need no page lock —
+                // only the pre-existing _gate — which keeps the hot read path free of coordination overhead.
+                node.Value.Bytes = source.ToArray();
                 node.Value.Parsed = null; // the bytes changed, so any cached parse of them is stale
                 _lru.Remove(node);
                 _lru.AddFirst(node);

@@ -65,6 +65,7 @@ public sealed class LibRedCommand : DbCommand
     /// </summary>
     private Engine.CommandResult ExecuteBatch()
     {
+        ValidateTransaction();
         Engine.QueryEngine engine = RequireEngine();
         IReadOnlyDictionary<string, object?> parameters = BuildParameters();
 
@@ -107,6 +108,19 @@ public sealed class LibRedCommand : DbCommand
 
     private Engine.QueryEngine RequireEngine() =>
         Connection?.Engine ?? throw new InvalidOperationException("Connection is not open.");
+
+    /// <summary>Rejects executing under a transaction that isn't the one active on this command's connection —
+    /// one from another connection, or one already committed/rolled back (after which the connection no longer
+    /// holds it). A command with no transaction assigned runs directly on the connection (autocommit), which the
+    /// engine still makes atomic per statement.</summary>
+    private void ValidateTransaction()
+    {
+        if (DbTransaction is null) return;
+        if (!ReferenceEquals(DbTransaction, Connection?.CurrentTransaction))
+            throw new InvalidOperationException(
+                "The transaction assigned to this command is not active on its connection — it belongs to another " +
+                "connection or has already been committed or rolled back.");
+    }
 
     /// <summary>Snapshots the command's parameters as a name→value map for the engine,
     /// translating <see cref="DBNull"/> to a SQL null.</summary>

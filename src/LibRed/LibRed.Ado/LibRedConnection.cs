@@ -55,6 +55,17 @@ public sealed class LibRedConnection : DbConnection
         CurrentTransaction = null;
     }
 
+    /// <summary>Opens a savepoint in the connection's active transaction (called by
+    /// <see cref="LibRedTransaction.Save"/>).</summary>
+    internal LibRed.IO.Savepoint CreateSavepoint() =>
+        (_database ?? throw new InvalidOperationException("The connection is not open.")).CreateSavepoint();
+
+    /// <summary>Rolls the active transaction back to a savepoint (called by <see cref="LibRedTransaction.Rollback"/>).</summary>
+    internal void RollbackToSavepoint(LibRed.IO.Savepoint savepoint) => _database?.RollbackToSavepoint(savepoint);
+
+    /// <summary>Releases a savepoint in the active transaction (called by <see cref="LibRedTransaction.Release"/>).</summary>
+    internal void ReleaseSavepoint(LibRed.IO.Savepoint savepoint) => _database?.ReleaseSavepoint(savepoint);
+
     public override string Database => DataSource;
 
     public override string DataSource => ParseDataSource(_connectionString);

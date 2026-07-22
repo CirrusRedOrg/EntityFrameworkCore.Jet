@@ -48,11 +48,17 @@ public class LockManagerTests
     }
 
     [Fact]
-    public void ForPath_returns_one_shared_manager_per_path_case_insensitively()
+    public void Acquire_returns_one_shared_manager_per_path_and_frees_it_on_last_release()
     {
-        MonitorLockManager a = MonitorLockManager.ForPath(@"C:\dir\db.accdb");
-        MonitorLockManager b = MonitorLockManager.ForPath(@"C:\dir\DB.accdb");
+        MonitorLockManager a = MonitorLockManager.Acquire(@"C:\dir\db.accdb");
+        MonitorLockManager b = MonitorLockManager.Acquire(@"C:\dir\DB.accdb"); // same file (case-insensitive)
         Assert.Same(a, b);
+
+        // Two acquisitions → two releases; a fresh acquire after that is a new manager (the old was disposed).
+        MonitorLockManager.Release(@"C:\dir\db.accdb");
+        MonitorLockManager.Release(@"C:\dir\db.accdb");
+        Assert.NotSame(a, MonitorLockManager.Acquire(@"C:\dir\db.accdb"));
+        MonitorLockManager.Release(@"C:\dir\db.accdb");
     }
 
     [Fact]

@@ -72,9 +72,9 @@ public sealed class JetDatabase : IDisposable
     public static JetDatabase Open(string path, bool readOnly = true, string? password = null)
     {
         // Coordinate page access between every handle open on this file (EF holds several connections on one
-        // .accdb) through one per-path lock manager: readers share a page, a writer excludes them. Process-local
-        // for now; the file-based (self-consistent, then Jet-exact) managers replace it behind ILockManager.
-        var channel = PageChannel.Open(path, readOnly, password, MonitorLockManager.ForPath(path));
+        // .accdb): readers share a page, a writer excludes them. PageChannel shares one per-path manager
+        // (refcounted, freed on the last close). Process-local for now; the file-based managers replace it.
+        var channel = PageChannel.Open(path, readOnly, password);
         try
         {
             return new JetDatabase(channel);

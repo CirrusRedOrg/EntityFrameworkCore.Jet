@@ -24,10 +24,10 @@ public sealed class PageChannel : IDisposable
     // every page as it comes off disk; page 0 (the readable header) is a no-op inside the codec.
     private readonly IPageCodec? _codec;
 
-    // Cross-handle page coordination. Null (the default) means no coordination — the single-writer case, with
-    // zero per-access cost. When set (concurrency enabled), every read takes a shared page lock and every write
-    // an exclusive one. The `_locks?.` null-conditional keeps the disabled path free of any call.
+    // Cross-handle page coordination, shared per file path. Acquired here (refcounted, like the cache) unless a
+    // manager is injected for a test; _ownsLocks records which, so Dispose releases only the one we acquired.
     private readonly ILockManager? _locks;
+    private readonly bool _ownsLocks;
 
     // The open transaction's before-image/savepoint bookkeeping (null when none is open). This channel is the
     // I/O executor; the Transaction only tracks what to undo. Pages allocated during a frame lie beyond its
@@ -41,7 +41,9 @@ public sealed class PageChannel : IDisposable
         Format = format;
         _path = path;
         _codec = codec;
-        _locks = locks;
+        // A test may inject its own manager; otherwise share the per-path one (refcounted, released on Dispose).
+        _ownsLocks = locks is null;
+        _locks = locks ?? MonitorLockManager.Acquire(path);
         _cache = PageCache.Acquire(path, format.PageSize);
     }
 
@@ -369,5 +371,6 @@ public sealed class PageChannel : IDisposable
         if (!_readOnly) _stream.Flush(flushToDisk: true);
         _stream.Dispose();
         PageCache.Release(_path); // last channel on this file drops the shared pool
+        if (_ownsLocks) MonitorLockManager.Release(_path); // and the shared lock manager
     }
 }

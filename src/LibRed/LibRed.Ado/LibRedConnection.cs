@@ -39,11 +39,12 @@ public sealed class LibRedConnection : DbConnection
     /// <summary>The transaction currently open on this connection, or <c>null</c>.</summary>
     internal LibRedTransaction? CurrentTransaction { get; private set; }
 
-    /// <summary>Commits the page-level transaction and clears it as the active one.</summary>
+    /// <summary>Commits the page-level transaction and clears it as the active one. Goes through the shared
+    /// nested-transaction controller so SQL <c>COMMIT</c> and this ADO commit track one depth.</summary>
     internal void CommitTransaction(LibRedTransaction transaction)
     {
         if (!ReferenceEquals(CurrentTransaction, transaction)) return;
-        _database?.Commit();
+        _database?.CommitNested();
         CurrentTransaction = null;
     }
 
@@ -51,7 +52,7 @@ public sealed class LibRedConnection : DbConnection
     internal void RollbackTransaction(LibRedTransaction transaction)
     {
         if (!ReferenceEquals(CurrentTransaction, transaction)) return;
-        _database?.Rollback();
+        _database?.RollbackNested();
         CurrentTransaction = null;
     }
 
@@ -174,11 +175,12 @@ public sealed class LibRedConnection : DbConnection
 
     public override void Close()
     {
-        // An open transaction that was never committed is abandoned: roll it back so its writes
-        // don't leak onto disk (matches ADO.NET's implicit rollback on connection close).
-        if (CurrentTransaction is not null)
+        // An open transaction that was never committed is abandoned: roll it back (all nesting levels) so its
+        // writes don't leak onto disk (matches ADO.NET's implicit rollback on connection close). Keyed off the
+        // actual transaction depth so a SQL-opened BEGIN with no ADO handle is rolled back too.
+        if (_database is { TransactionDepth: > 0 })
         {
-            _database?.Rollback();
+            _database.RollbackAll();
             CurrentTransaction = null;
         }
 
@@ -198,9 +200,9 @@ public sealed class LibRedConnection : DbConnection
         if (_database is null || _state != ConnectionState.Open)
             throw new InvalidOperationException("The connection is not open.");
         if (CurrentTransaction is not null)
-            throw new InvalidOperationException("A transaction is already in progress; nested transactions are not supported.");
+            throw new InvalidOperationException("A transaction is already in progress on this connection; use SQL BEGIN/COMMIT or savepoints to nest.");
 
-        _database.BeginTransaction();
+        _database.BeginNested();
         return CurrentTransaction = new LibRedTransaction(this, isolationLevel);
     }
 

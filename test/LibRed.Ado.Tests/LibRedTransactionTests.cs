@@ -99,6 +99,49 @@ public class LibRedTransactionTests
         finally { File.Delete(path); }
     }
 
+    private static void Exec(LibRedConnection conn, string sql)
+    {
+        using DbCommand c = conn.CreateCommand();
+        c.CommandText = sql;
+        c.ExecuteNonQuery();
+    }
+
+    [Fact]
+    public void A_sql_begin_and_commit_through_commands_persist_the_work()
+    {
+        string path = FreshDb();
+        try
+        {
+            using LibRedConnection conn = OpenWithTable(path);
+            Exec(conn, "BEGIN TRANSACTION");
+            Exec(conn, "INSERT INTO `T` (`Id`) VALUES (1)");
+            Exec(conn, "COMMIT");
+            Assert.Equal(1, Count(conn));
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Closing_a_connection_with_a_sql_opened_transaction_rolls_it_back()
+    {
+        string path = FreshDb();
+        try
+        {
+            using (LibRedConnection conn = OpenWithTable(path))
+            {
+                Exec(conn, "BEGIN TRANSACTION");
+                Exec(conn, "INSERT INTO `T` (`Id`) VALUES (1)");
+                // No commit; the connection is disposed here — Close must roll the SQL-opened transaction back
+                // (there is no ADO transaction handle for it), so the write never reaches disk.
+            }
+
+            using var check = new LibRedConnection($"Data Source={path}");
+            check.Open();
+            Assert.Equal(0, Count(check));
+        }
+        finally { File.Delete(path); }
+    }
+
     [Fact]
     public void A_command_bound_to_a_completed_transaction_is_rejected()
     {

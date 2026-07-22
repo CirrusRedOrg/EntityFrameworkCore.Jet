@@ -129,6 +129,63 @@ public sealed class JetDatabase : IDisposable
     /// <summary>Releases <paramref name="savepoint"/>, merging its writes into the enclosing scope.</summary>
     public void ReleaseSavepoint(Savepoint savepoint) => _channel.ReleaseSavepoint(savepoint);
 
+    // --- nested transactions (shared by the ADO API and SQL BEGIN/COMMIT/ROLLBACK) ---
+    // One physical transaction; nesting maps onto the savepoint stack. The depth counts every open level, so a
+    // COMMIT/ROLLBACK at the innermost level releases/rolls back just that level and the outermost commits or
+    // rolls back the whole transaction — Jet/DAO nested semantics. See docs/design/transactions.md §4.
+    private int _txnDepth;
+    private readonly Stack<Savepoint> _nestedSavepoints = new();
+
+    /// <summary>Current transaction nesting depth (0 = none). Shared authority for both front doors.</summary>
+    public int TransactionDepth => _txnDepth;
+
+    /// <summary>Opens a transaction level: the outermost begins the real transaction, an inner one pushes a
+    /// savepoint.</summary>
+    public void BeginNested()
+    {
+        if (_txnDepth == 0) BeginTransaction();
+        else _nestedSavepoints.Push(CreateSavepoint());
+        _txnDepth++;
+    }
+
+    /// <summary>Commits the innermost level: the outermost commits the transaction, an inner one releases its
+    /// savepoint (merging into the enclosing level).</summary>
+    public void CommitNested()
+    {
+        if (_txnDepth == 0) throw new InvalidOperationException("No transaction is in progress.");
+        if (_txnDepth == 1) Commit();
+        else ReleaseSavepoint(_nestedSavepoints.Pop());
+        _txnDepth--;
+    }
+
+    /// <summary>Rolls back the entire transaction regardless of nesting depth (all levels at once) and resets the
+    /// controller — used when a connection closes with a transaction still open, so its writes don't leak.</summary>
+    public void RollbackAll()
+    {
+        if (_txnDepth == 0) return;
+        Rollback(); // a full rollback restores every frame's before-images
+        _txnDepth = 0;
+        _nestedSavepoints.Clear();
+    }
+
+    /// <summary>Rolls back the innermost level: the outermost rolls back the whole transaction, an inner one
+    /// rolls back to (and closes) its savepoint.</summary>
+    public void RollbackNested()
+    {
+        if (_txnDepth == 0) throw new InvalidOperationException("No transaction is in progress.");
+        if (_txnDepth == 1)
+        {
+            Rollback();
+        }
+        else
+        {
+            Savepoint sp = _nestedSavepoints.Pop();
+            RollbackToSavepoint(sp); // undo this level's writes
+            ReleaseSavepoint(sp);    // then drop the (now empty) level, returning to the parent
+        }
+        _txnDepth--;
+    }
+
     /// <summary>The system catalog, used to enumerate and resolve tables.</summary>
     public JetCatalog Catalog { get; }
 

@@ -155,6 +155,20 @@ interface ILockManager : IDisposable
   designed in here beyond "don't preclude" (before-images already exist).
 - **Savepoints:** nesting via the frame stack; an inner statement inside an explicit txn
   is a frame, so its failure rolls back just that statement, not the user's transaction.
+- **Nested transactions** (SQL `BEGIN`/`COMMIT`/`ROLLBACK`, and any caller that nests) map
+  onto the one savepoint stack — there is a single physical transaction, never truly nested
+  ones. A per-connection **transaction controller** holds a depth counter shared by *both*
+  front doors (the ADO API and SQL statements), so they can't open parallel transactions:
+  - **BEGIN** at depth 0 opens the real L2 transaction; at depth ≥ 1 it pushes a savepoint.
+    Depth increments.
+  - **COMMIT** at depth 1 commits the real transaction; at depth ≥ 2 it *releases* the
+    innermost savepoint (merges its work into the enclosing level). Depth decrements.
+  - **ROLLBACK** at depth 1 rolls the transaction back and closes it; at depth ≥ 2 it rolls
+    back to the innermost savepoint (undoing just that level). Depth decrements.
+  - This follows **Jet/DAO nested semantics** — commit/rollback act on the *innermost* level
+    — which is our compatibility target, *not* SQL Server's "unqualified ROLLBACK unwinds
+    all levels". A named `SAVE`/`ROLLBACK TRANSACTION <name>` addresses a specific frame.
+  No new mechanism is needed: nesting is the Phase-1 savepoint stack, driven by the controller.
 - **Durability:** commit flushes dirty pages then clears the commit-byte; a crash before
   the clear leaves the Jet "suspect" signal (later, with `JetLockManager`) → repair path.
   With the self-consistent manager, recovery is process-local (no cross-process crash
@@ -172,29 +186,44 @@ concurrency-visible state, exactly as Jet uses them.
 
 Build correctness first with lock seams stubbed; drop the Jet lock manager in last.
 
-1. **L2 core.** `Transaction` + `SavepointStack` with before-image undo, moved out of
+1. **L2 core.** ✅ done. `Transaction` + `SavepointStack` with before-image undo, moved out of
    `PageChannel`. `PageChannel.WritePage` records into the active transaction. Unit tests
    for commit/rollback/nested rollback, allocate-then-rollback truncation.
-2. **L3 statement atomicity.** Wrap every `QueryEngine` statement in an implicit txn;
+2. **L3 statement atomicity.** ✅ done. Wrap every `QueryEngine` statement in an implicit txn;
    convert the audit's non-atomic writers (`RowInserter`, `TableCreator`, `ViewCreator`,
-   usage-map/LVAL) to rely on it (delete their bespoke half-rollback). Regression: inject
-   a late failure mid-statement, assert no partial state.
-3. **Cascade worklist.** Replace recursive cascade with the queue+visited worklist inside
-   the txn. Tests: cyclic FK, diamond FK, deep chain (former stack-overflow).
-4. **L1 lock seams + `MonitorLockManager`.** Introduce `ILockManager`, route
-   read/write through acquire/release, ship the process-local monitor implementation.
-   Existing tests stay green; adds intra-process reader/writer coordination.
-5. **L4 ADO enforcement.** Wire `LibRedTransaction`/`LibRedCommand` to L2; reject stale
-   transactions; EF savepoint support.
-6. **L0 `SelfConsistentLockManager`.** Real byte-range page locks (our offsets) + presence
+   usage-map/LVAL) to rely on it. Regression: inject a late failure mid-statement, assert
+   no partial state.
+3. **Cascade worklist.** ✅ done. Replace recursive cascade with the queue+visited worklist
+   inside the txn. Tests: cyclic FK, diamond FK, deep chain (former stack-overflow).
+4. **L1 lock seams + `MonitorLockManager`.** ✅ done. Introduce `ILockManager`, route
+   read/write through it (cache-hit reads stay lock-free via copy-on-write `Store`), ship
+   the process-local monitor implementation.
+5. **L4 ADO enforcement.** ✅ done. Wire `LibRedTransaction`/`LibRedCommand` to L2; reject
+   stale/foreign transactions; EF savepoint support (`SupportsSavepoints`).
+6. **SQL transaction-control statements (with nesting).** Add engine-native `BEGIN`/`COMMIT`/
+   `ROLLBACK [TRANSACTION|WORK]` (and Access's `BEGIN TRANS`), plus named `SAVE`/`ROLLBACK
+   TRANSACTION <name>`. Parse to AST → a new `QueryEngine.Route` branch that drives a
+   per-connection **transaction controller** (the §4 depth counter) on the *same* L2 as the
+   ADO front door — so a SQL `BEGIN` and an ADO `BeginTransaction` can't open parallel
+   transactions, and the controller is the single source of `InTransaction`. Two must-haves:
+   (a) transaction-control statements are **exempt from the Phase-2 implicit wrap** — they
+   manage the transaction rather than run inside one; (b) nesting reuses the Phase-1 savepoint
+   stack (BEGIN→savepoint at depth ≥ 1; COMMIT→release; ROLLBACK→rollback-to). This is the
+   audit's deferred "ownership/liveness" item — the controller is where ADO and SQL reconcile.
+   Relevant to executing generated migration scripts and raw `BEGIN…COMMIT` batches; the EF
+   runtime path keeps using the ADO API. Tests: nested BEGIN/COMMIT/ROLLBACK depth behaviour,
+   SQL-then-ADO consistency, control statements not self-wrapped.
+7. **L0 `SelfConsistentLockManager`.** Real byte-range page locks (our offsets) + presence
    map; multi-*process* single-writer LibRed↔LibRed.
-7. **(Concurrency phase) `JetLockManager`.** Jet-exact offsets, commit-byte polling,
+8. **(Concurrency phase) `JetLockManager`.** Jet-exact offsets, commit-byte polling,
    `.laccdb` records → live co-residency with `MSACCESS.EXE`. Characterize the remaining
    unknowns from [[jet-locking-user-registry]] (own-slot writes, poll interval, Jet-4
    `.laccdb` record shape) first.
 
-Steps 1–3 alone close every transaction-related P0 in the audit. Steps 4–7 are the
-concurrency ladder and can land independently, because the seams from step 4 don't move.
+Steps 1–3 close every transaction-related P0 in the audit (✅). Step 5 completes the
+in-process transaction contract (✅), and step 6 adds the SQL front door onto it. Steps 7–8
+are the cross-process concurrency ladder and land independently — the seams from step 4
+don't move.
 
 ## 7. Open questions
 

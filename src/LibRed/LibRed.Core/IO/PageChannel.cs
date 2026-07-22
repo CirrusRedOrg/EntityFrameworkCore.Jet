@@ -40,7 +40,6 @@ public sealed class PageChannel : IDisposable
         _readOnly = readOnly;
         Format = format;
         _path = path;
-        LibRedDiagnostics.EnterPageChannel();
         _codec = codec;
         // A test may inject its own manager; otherwise share the per-path one (refcounted, released on Dispose).
         _ownsLocks = locks is null;
@@ -373,6 +372,5 @@ public sealed class PageChannel : IDisposable
         _stream.Dispose();
         PageCache.Release(_path); // last channel on this file drops the shared pool
         if (_ownsLocks) MonitorLockManager.Release(_path); // and the shared lock manager
-        LibRedDiagnostics.ExitPageChannel();
     }
 }

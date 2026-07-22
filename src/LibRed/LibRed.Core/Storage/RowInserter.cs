@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Text;
 using LibRed.Catalog;
@@ -100,7 +101,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
         MaterializeLongValues(values);
 
-        byte[] srcPage = _channel.ReadPage(id.Page).Span.ToArray();
+        byte[] srcPage = _channel.ReadPageShared(id.Page).Span.ToArray();
         // Use the same guarded inference as Insert (Math.Max with the column-derived length): the raw per-row
         // parse returns a negative length for an all-fixed-column table (no variable columns — e.g. Northwind
         // Order Details), which without the guard would overflow `new byte[len]`.
@@ -139,38 +140,45 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private bool TryRewriteRowInPlace(int pageNumber, int slot, byte[] record, int addFlags = 0)
     {
         JetFormatBase format = _channel.Format;
-        byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
-        int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
-
-        var rows = new byte[rowCount][];
-        var rawDir = new int[rowCount];
-        int prevEnd = format.PageSize;
-        for (int i = 0; i < rowCount; i++)
+        // Pool the transient working page: read into a rented buffer, repack in place, write back, return it —
+        // instead of allocating (and immediately discarding) two 4 KB arrays (ReadPage's + ToArray's) per rewrite.
+        byte[] page = ArrayPool<byte>.Shared.Rent(format.PageSize);
+        try
         {
-            int raw = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2));
-            rawDir[i] = raw;
-            int offset = raw & RowPointer.OffsetMask;
-            rows[i] = page.AsSpan(offset, prevEnd - offset).ToArray(); // preserve every row's bytes (deleted/overflow included)
-            prevEnd = offset;
-        }
-        rows[slot] = record;
-        rawDir[slot] |= addFlags;
+            _channel.ReadPage(pageNumber, page);
+            int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
 
-        int total = rows.Sum(r => r.Length);
-        if (total > format.PageSize - format.DataRowDirectoryOffset - rowCount * 2) return false;
+            var rows = new byte[rowCount][];
+            var rawDir = new int[rowCount];
+            int prevEnd = format.PageSize;
+            for (int i = 0; i < rowCount; i++)
+            {
+                int raw = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2));
+                rawDir[i] = raw;
+                int offset = raw & RowPointer.OffsetMask;
+                rows[i] = page.AsSpan(offset, prevEnd - offset).ToArray(); // preserve every row's bytes (deleted/overflow included)
+                prevEnd = offset;
+            }
+            rows[slot] = record;
+            rawDir[slot] |= addFlags;
 
-        int off = format.PageSize;
-        for (int i = 0; i < rowCount; i++)
-        {
-            off -= rows[i].Length;
-            rows[i].CopyTo(page.AsSpan(off));
-            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2),
-                (ushort)((rawDir[i] & ~RowPointer.OffsetMask) | (off & RowPointer.OffsetMask)));
+            int total = rows.Sum(r => r.Length);
+            if (total > format.PageSize - format.DataRowDirectoryOffset - rowCount * 2) return false;
+
+            int off = format.PageSize;
+            for (int i = 0; i < rowCount; i++)
+            {
+                off -= rows[i].Length;
+                rows[i].CopyTo(page.AsSpan(off));
+                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2),
+                    (ushort)((rawDir[i] & ~RowPointer.OffsetMask) | (off & RowPointer.OffsetMask)));
+            }
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
+                (ushort)(off - format.DataRowDirectoryOffset - rowCount * 2));
+            _channel.WritePage(pageNumber, page.AsSpan(0, format.PageSize));
+            return true;
         }
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
-            (ushort)(off - format.DataRowDirectoryOffset - rowCount * 2));
-        _channel.WritePage(pageNumber, page);
-        return true;
+        finally { ArrayPool<byte>.Shared.Return(page); }
     }
 
     /// <summary>Writes a relocated row's bytes onto a page with room, as a hidden slot (Access marks it
@@ -206,16 +214,26 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (column.Type is JetDataType.Memo or JetDataType.Ole && oldDescriptors.TryGetValue(column.Index, out byte[]? d))
                 FreeLongValue(column, d);
 
-        byte[] page = _channel.ReadPage(id.Page).Span.ToArray();
-        int dir = format.DataRowDirectoryOffset + id.Row * 2;
-        ushort entry = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir, 2));
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir, 2), (ushort)(entry | RowPointer.DeletedFlag));
-        _channel.WritePage(id.Page, page);
+        byte[] page = ArrayPool<byte>.Shared.Rent(format.PageSize);
+        try
+        {
+            _channel.ReadPage(id.Page, page);
+            int dir = format.DataRowDirectoryOffset + id.Row * 2;
+            ushort entry = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir, 2));
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir, 2), (ushort)(entry | RowPointer.DeletedFlag));
+            _channel.WritePage(id.Page, page.AsSpan(0, format.PageSize));
+        }
+        finally { ArrayPool<byte>.Shared.Return(page); }
 
-        byte[] tdef = _channel.ReadPage(_table.DefinitionPage).Span.ToArray();
-        int rowCount = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4));
-        BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4), rowCount - 1);
-        _channel.WritePage(_table.DefinitionPage, tdef);
+        byte[] tdef = ArrayPool<byte>.Shared.Rent(format.PageSize);
+        try
+        {
+            _channel.ReadPage(_table.DefinitionPage, tdef);
+            int rowCount = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4));
+            BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4), rowCount - 1);
+            _channel.WritePage(_table.DefinitionPage, tdef.AsSpan(0, format.PageSize));
+        }
+        finally { ArrayPool<byte>.Shared.Return(tdef); }
     }
 
     /// <summary>The full inline bytes of the row at <paramref name="id"/> (following an overflow pointer).</summary>
@@ -227,7 +245,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     public void RewriteRowRaw(RowId id, byte[] record)
     {
         JetFormatBase format = _channel.Format;
-        byte[] srcPage = _channel.ReadPage(id.Page).Span.ToArray();
+        byte[] srcPage = _channel.ReadPageShared(id.Page).Span.ToArray();
         int raw = BinaryPrimitives.ReadUInt16LittleEndian(srcPage.AsSpan(format.DataRowDirectoryOffset + id.Row * 2, 2));
         if ((raw & RowPointer.OverflowFlag) != 0)
         {
@@ -251,7 +269,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private byte[] ReadRowBytes(RowId id)
     {
         JetFormatBase format = _channel.Format;
-        PageBuffer page = _channel.ReadPage(id.Page);
+        PageBuffer page = _channel.ReadPageShared(id.Page);
         if (!DataPage.TryReadRow(page, format, id.Row, out RowSlot slot, out ReadOnlySpan<byte> bytes))
             throw new InvalidDataException($"Row {id.Page}:{id.Row} does not exist.");
         if (!slot.HasOverflow) return bytes.ToArray();
@@ -356,7 +374,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     {
         foreach (int pageNumber in new UsageMap(_channel, _table).FreeDataPages())
         {
-            byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
+            byte[] page = _channel.ReadPageShared(pageNumber).Span.ToArray();
             int freeSpace = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2));
             if (freeSpace >= needed)
                 return (pageNumber, page);
@@ -403,7 +421,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// referenced by the TDEF pointer at <paramref name="tdefPointerOffset"/> (row byte + 3-byte page).</summary>
     private void UpdateUsageBit(int tdefPointerOffset, int targetPage, bool set)
     {
-        PageBuffer tdef = _channel.ReadPage(_table.DefinitionPage);
+        PageBuffer tdef = _channel.ReadPageShared(_table.DefinitionPage);
         _usageMaps.SetBit(tdef.ReadByte(tdefPointerOffset), tdef.ReadInt24(tdefPointerOffset + 1), targetPage, set,
             movableWindow: tdefPointerOffset == _channel.Format.TdefFreePagesOffset);
     }
@@ -425,7 +443,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
         foreach (int pageNumber in new UsageMap(_channel, _table).DataPages())
         {
-            byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
+            byte[] page = _channel.ReadPageShared(pageNumber).Span.ToArray();
             if (InferFixedDataLength(page, format) is { } pinned)
                 return Math.Max(pinned, derived); // ADD COLUMN of a fixed column grows the region past old rows
         }
@@ -587,7 +605,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         if (mapPage <= 1 || mapPage >= _channel.PageCount)
             throw new InvalidDataException($"Long-value usage-map page {mapPage} is outside the physical file.");
         var holder = new DataPage();
-        holder.Read(_channel.ReadPage(mapPage), _channel.Format);
+        holder.Read(_channel.ReadPageShared(mapPage), _channel.Format);
         if (holder.IsLongValuePage || holder.OwningTablePage != 0)
             throw new InvalidDataException(
                 $"Long-value usage-map pointer {mapPage}:{mapRow} does not target an owner-zero usage-map data page.");
@@ -619,7 +637,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (bitmapPage == 0) continue;
             if (bitmapPage <= 1 || bitmapPage >= _channel.PageCount || !bitmapPages.Add(bitmapPage))
                 throw new InvalidDataException($"Long-value usage map has invalid bitmap-page pointer {bitmapPage}.");
-            ReadOnlySpan<byte> bitmap = _channel.ReadPage(bitmapPage).Span;
+            ReadOnlySpan<byte> bitmap = _channel.ReadPageShared(bitmapPage).Span;
             if (bitmap[0] != (byte)PageType.PageUsageBitmap || bitmap[1] != 0x01 || bitmap[2] != 0 || bitmap[3] != 0)
                 throw new InvalidDataException($"Long-value usage-map pointer {bitmapPage} is not a bitmap page.");
             AppendMapBits(result, bitmap[4..], i * pagesPerBitmap);
@@ -655,7 +673,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (column.IsAutoNumber && values[column.Index] is null or DBNull) { needed = true; break; }
         if (!needed) return;
 
-        ReadOnlySpan<byte> tdef = _channel.ReadPage(_table.DefinitionPage).Span;
+        ReadOnlySpan<byte> tdef = _channel.ReadPageShared(_table.DefinitionPage).Span;
         int highWater = BinaryPrimitives.ReadInt32LittleEndian(tdef.Slice(format.TdefLastAutoNumberOffset, 4));
 
         foreach (ColumnDef column in _table.Columns)
@@ -698,7 +716,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// </summary>
     private void UpdateTdefCounters(JetFormatBase format, object?[] values)
     {
-        byte[] tdef = _channel.ReadPage(_table.DefinitionPage).Span.ToArray();
+        byte[] tdef = _channel.ReadPageShared(_table.DefinitionPage).Span.ToArray();
 
         int count = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4));
         BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefRowCountOffset, 4), count + 1);

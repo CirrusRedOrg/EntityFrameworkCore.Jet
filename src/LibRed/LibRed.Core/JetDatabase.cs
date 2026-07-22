@@ -17,7 +17,6 @@ public sealed class JetDatabase : IDisposable
 
     private JetDatabase(PageChannel channel)
     {
-        LibRed.IO.LibRedDiagnostics.EnterJetDatabase();
         _channel = channel;
 
         DefinitionPage = new DatabaseDefinitionPage();
@@ -361,7 +360,6 @@ public sealed class JetDatabase : IDisposable
 
     public void Dispose()
     {
-        LibRed.IO.LibRedDiagnostics.ExitJetDatabase();
         _channel.Dispose();
     }
 }

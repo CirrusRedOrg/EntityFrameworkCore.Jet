@@ -28,7 +28,10 @@ public sealed class TableCursor(Table table) : IEnumerable<object?[]>
 
         foreach (int pageNumber in _table.UsageMap.DataPages())
         {
-            PageBuffer buffer = _table.Channel.ReadPage(pageNumber);
+            // Zero-copy read: the scan only reads this page and consumes each row immediately, so serve it from
+            // the shared cache instead of allocating a fresh 4 KB buffer per page. Copy-on-write Store keeps the
+            // returned array stable even if decoding a row triggers a long-value read that evicts this page.
+            PageBuffer buffer = _table.Channel.ReadPageShared(pageNumber);
             var page = new DataPage();
             page.Read(buffer, _table.Channel.Format);
 

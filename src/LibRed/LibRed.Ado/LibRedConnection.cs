@@ -171,7 +171,6 @@ public sealed class LibRedConnection : DbConnection
         _database = JetDatabase.Open(path, readOnly: false);
         Engine = new QueryEngine(_database);
         _state = ConnectionState.Open;
-        LibRed.IO.LibRedDiagnostics.EnterConnection();
     }
 
     public override void Close()
@@ -188,7 +187,6 @@ public sealed class LibRedConnection : DbConnection
         _database?.Dispose();
         _database = null;
         Engine = null;
-        if (_state == ConnectionState.Open) LibRed.IO.LibRedDiagnostics.ExitConnection();
         _state = ConnectionState.Closed;
     }
 
@@ -205,6 +203,11 @@ public sealed class LibRedConnection : DbConnection
             throw new InvalidOperationException("A transaction is already in progress on this connection; use SQL BEGIN/COMMIT or savepoints to nest.");
 
         _database.BeginNested();
+        // Resolve the ADO default (Unspecified) to a concrete level the way real providers do — EF and its
+        // TransactionStarted interceptor expect a started transaction to report a real IsolationLevel, not
+        // Unspecified. LibRed serialises writers via page-level locking; ReadCommitted is the reported default.
+        if (isolationLevel == IsolationLevel.Unspecified)
+            isolationLevel = IsolationLevel.ReadCommitted;
         return CurrentTransaction = new LibRedTransaction(this, isolationLevel);
     }
 

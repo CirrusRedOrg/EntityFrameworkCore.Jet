@@ -40,6 +40,9 @@ public sealed class MonitorLockManager : ILockManager, IDisposable
 
     private static string Key(string path) => Path.GetFullPath(path).ToLowerInvariant();
 
+    /// <summary>Number of distinct files with a live lock manager (a leak indicator).</summary>
+    public static int RegistryCount { get { lock (Registry) return Registry.Count; } }
+
     /// <summary>The shared manager for a file path (creating it on first use); each call must be paired with a
     /// <see cref="Release"/>.</summary>
     public static MonitorLockManager Acquire(string path)

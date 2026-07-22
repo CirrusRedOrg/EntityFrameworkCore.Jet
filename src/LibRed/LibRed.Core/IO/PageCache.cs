@@ -42,6 +42,26 @@ internal sealed class PageCache
     private static readonly Dictionary<string, (PageCache Cache, int RefCount)> Registry = new(StringComparer.Ordinal);
     private static readonly object RegistryGate = new();
 
+    /// <summary>Number of distinct files with a live cache (a leak indicator: should track open databases).</summary>
+    public static int RegistryCount { get { lock (RegistryGate) return Registry.Count; } }
+
+    /// <summary>Total resident pages across every live cache (memory held by the pools, in ~4 KB units).</summary>
+    public static int TotalResidentPages
+    {
+        get
+        {
+            lock (RegistryGate)
+            {
+                int total = 0;
+                foreach (var slot in Registry.Values)
+                    total += slot.Cache.ResidentPages;
+                return total;
+            }
+        }
+    }
+
+    private int ResidentPages { get { lock (_gate) return _map.Count; } }
+
     /// <summary>Returns the shared cache for <paramref name="path"/>, creating it on first use; each call must be
     /// paired with a <see cref="Release"/>. The key is the case-folded full path so relative and absolute opens
     /// of the same file share one pool (two pools for one file would reintroduce cross-handle staleness).</summary>

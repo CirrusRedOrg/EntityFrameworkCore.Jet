@@ -171,6 +171,7 @@ public sealed class LibRedConnection : DbConnection
         _database = JetDatabase.Open(path, readOnly: false);
         Engine = new QueryEngine(_database);
         _state = ConnectionState.Open;
+        LibRed.IO.LibRedDiagnostics.EnterConnection();
     }
 
     public override void Close()
@@ -187,6 +188,7 @@ public sealed class LibRedConnection : DbConnection
         _database?.Dispose();
         _database = null;
         Engine = null;
+        if (_state == ConnectionState.Open) LibRed.IO.LibRedDiagnostics.ExitConnection();
         _state = ConnectionState.Closed;
     }
 

@@ -35,9 +35,9 @@ public class SqlTransactionControlTests
     public void Begin_then_commit_keeps_the_work()
     {
         var e = Fresh();
-        e.ExecuteNonQuery("BEGIN TRANS"); // alias keyword
+        e.ExecuteNonQuery("BEGIN WORK");  // the WORK object keyword
         e.ExecuteNonQuery("INSERT INTO t (id) VALUES (1)");
-        e.ExecuteNonQuery("COMMIT WORK"); // alias keyword
+        e.ExecuteNonQuery("COMMIT WORK");
         Assert.Equal([1], Ids(e));
     }
 

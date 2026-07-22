@@ -39,10 +39,19 @@ internal sealed class AstBuilder
         if (ctx.insertStatement() is { } insert) return BuildInsert(insert);
         if (ctx.updateStatement() is { } update) return BuildUpdate(update);
         if (ctx.deleteStatement() is { } delete) return BuildDelete(delete);
+        if (ctx.transactionStatement() is { } txn) return BuildTransaction(txn);
         if (ctx.executeStatement() is { } exec) return BuildExecute(exec);
         if (ctx.systemVariableSelect() is { } sysSelect) return BuildSystemVariableSelect(sysSelect);
         return BuildQueryExpression(ctx.queryExpression());
     }
+
+    private static TransactionControlStatement BuildTransaction(TransactionStatementContext ctx) => ctx switch
+    {
+        BeginTransactionStatementContext => new TransactionControlStatement(TransactionControlKind.Begin),
+        CommitTransactionStatementContext => new TransactionControlStatement(TransactionControlKind.Commit),
+        RollbackTransactionStatementContext => new TransactionControlStatement(TransactionControlKind.Rollback),
+        _ => throw new NotSupportedException($"Unsupported transaction statement: {ctx.GetText()}"),
+    };
 
     private SqlStatement BuildIfThen(IfThenStatementContext ctx) =>
         new IfThenStatement(ctx.not is not null, BuildSelect(ctx.selectStatement()), BuildThenBody(ctx.thenBody()));

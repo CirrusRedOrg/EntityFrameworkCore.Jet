@@ -37,15 +37,15 @@ public sealed class QueryEngine
 
     public ResultSet ExecuteQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
-        if (TransactionControl(sql) is { } control)
-        {
-            RunTransactionControl(control);
-            return ResultSet.Empty;
-        }
         SqlStatement parsed = _parser.ParseStatement(sql);
         if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters).Rows;
         SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog.Views, _parser);
         BoundStatement bound = _binder.Bind(ast);
+        if (bound.Statement is TransactionControlStatement txnControl)
+        {
+            RunTransactionControl(txnControl.Kind);
+            return ResultSet.Empty;
+        }
         var executor = new QueryExecutor(_database, parameters, _session);
         return bound.Statement is SystemVariableSelectStatement sysSelect
             ? executor.ExecuteSystemVariableSelect(sysSelect)
@@ -77,11 +77,6 @@ public sealed class QueryEngine
     /// </summary>
     public CommandResult Execute(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
-        if (TransactionControl(sql) is { } control)
-        {
-            RunTransactionControl(control);
-            return new CommandResult(ResultSet.Empty, 0);
-        }
         SqlStatement parsed = _parser.ParseStatement(sql);
         if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters);
         SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog.Views, _parser);
@@ -89,42 +84,15 @@ public sealed class QueryEngine
         return Route(bound.Statement, parameters);
     }
 
-    private enum TxnControl { Begin, Commit, Rollback }
-
-    /// <summary>Recognises a transaction-control statement (<c>BEGIN TRANSACTION</c>, <c>COMMIT</c>,
-    /// <c>ROLLBACK</c>, with the optional <c>TRANSACTION</c>/<c>TRAN</c>/<c>TRANS</c>/<c>WORK</c> keyword) before
-    /// the SQL parser, since these manage the transaction rather than run inside one. Returns null for any other
-    /// statement. A bare <c>BEGIN</c> is not treated as a transaction start (it would be block syntax).</summary>
-    private static TxnControl? TransactionControl(string sql)
-    {
-        string[] words = sql.Trim().TrimEnd(';').Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-        if (words.Length is < 1 or > 2) return null;
-
-        TxnControl? kind = words[0].ToUpperInvariant() switch
-        {
-            "BEGIN" => TxnControl.Begin,
-            "COMMIT" => TxnControl.Commit,
-            "ROLLBACK" => TxnControl.Rollback,
-            _ => null,
-        };
-        if (kind is null) return null;
-
-        if (words.Length == 2)
-            return words[1].ToUpperInvariant() is "TRANSACTION" or "TRAN" or "TRANS" or "WORK" ? kind : null;
-
-        // One word: COMMIT/ROLLBACK stand alone; a bare BEGIN does not start a transaction.
-        return kind == TxnControl.Begin ? null : kind;
-    }
-
     /// <summary>Drives the nested-transaction controller on the shared <see cref="JetDatabase"/> — the same L2
     /// the ADO front door uses, so the two can't open parallel transactions.</summary>
-    private void RunTransactionControl(TxnControl control)
+    private void RunTransactionControl(TransactionControlKind kind)
     {
-        switch (control)
+        switch (kind)
         {
-            case TxnControl.Begin: _database.BeginNested(); break;
-            case TxnControl.Commit: _database.CommitNested(); break;
-            case TxnControl.Rollback: _database.RollbackNested(); break;
+            case TransactionControlKind.Begin: _database.BeginNested(); break;
+            case TransactionControlKind.Commit: _database.CommitNested(); break;
+            case TransactionControlKind.Rollback: _database.RollbackNested(); break;
         }
     }
 
@@ -142,6 +110,11 @@ public sealed class QueryEngine
             case SelectStatement or SetOperationStatement:
                 return new CommandResult(
                     new QueryExecutor(_database, parameters, _session).ExecuteQuery(PlanWithIndexes(new BoundStatement(statement))), -1);
+            case TransactionControlStatement txnControl:
+                // Transaction control manages the transaction itself — it must NOT go through the implicit
+                // per-statement wrap below (which would open/commit a transaction around it).
+                RunTransactionControl(txnControl.Kind);
+                return new CommandResult(ResultSet.Empty, 0);
             default:
                 return ExecuteWritingStatement(statement, parameters);
         }

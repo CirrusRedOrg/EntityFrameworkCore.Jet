@@ -829,6 +829,27 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitNullLiteral([NotNull] AccessSqlParser.NullLiteralContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>BeginTransactionStatement</c>
+	/// labeled alternative in <see cref="AccessSqlParser.transactionStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitBeginTransactionStatement([NotNull] AccessSqlParser.BeginTransactionStatementContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>CommitTransactionStatement</c>
+	/// labeled alternative in <see cref="AccessSqlParser.transactionStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCommitTransactionStatement([NotNull] AccessSqlParser.CommitTransactionStatementContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>RollbackTransactionStatement</c>
+	/// labeled alternative in <see cref="AccessSqlParser.transactionStatement"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitRollbackTransactionStatement([NotNull] AccessSqlParser.RollbackTransactionStatementContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.standaloneExpression"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

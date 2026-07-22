@@ -11,7 +11,7 @@
 grammar AccessSql;
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
-statement : parametersClause? (ifThenStatement | createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | executeStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
+statement : parametersClause? (ifThenStatement | createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | transactionStatement | executeStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
 
 // EF emits Jet's conditional DDL for idempotent migrations: `IF [NOT] EXISTS (<select>) THEN <statement>`.
 // A single guarded statement (all EF produces); the condition is an ordinary subquery (e.g. over INFORMATION_SCHEMA).
@@ -307,6 +307,15 @@ literal
     | NULL              # NullLiteral
     ;
 
+// Transaction control (engine-native BEGIN/COMMIT/ROLLBACK, with the optional TRANSACTION/WORK keyword).
+// These manage the transaction rather than run inside one, so the engine routes them straight to the
+// transaction controller (exempt from the implicit per-statement wrap).
+transactionStatement
+    : BEGIN (TRANSACTION | WORK)?     # BeginTransactionStatement
+    | COMMIT (TRANSACTION | WORK)?    # CommitTransactionStatement
+    | ROLLBACK (TRANSACTION | WORK)?  # RollbackTransactionStatement
+    ;
+
 // A standalone expression read from catalog metadata (DEFAULT/CHECK/validation text). Requiring
 // EOF prevents a valid prefix from silently weakening the stored expression's intended meaning.
 // Kept after the existing parser rules so adding it does not renumber their generated rule ids.
@@ -353,6 +362,11 @@ INTERSECT : [Ii][Nn][Tt][Ee][Rr][Ss][Ee][Cc][Tt] ;
 EXCEPT    : [Ee][Xx][Cc][Ee][Pp][Tt] ;
 CREATE    : [Cc][Rr][Ee][Aa][Tt][Ee] ;
 TABLE     : [Tt][Aa][Bb][Ll][Ee] ;
+BEGIN       : [Bb][Ee][Gg][Ii][Nn] ;
+COMMIT      : [Cc][Oo][Mm][Mm][Ii][Tt] ;
+ROLLBACK    : [Rr][Oo][Ll][Ll][Bb][Aa][Cc][Kk] ;
+TRANSACTION : [Tt][Rr][Aa][Nn][Ss][Aa][Cc][Tt][Ii][Oo][Nn] ;
+WORK        : [Ww][Oo][Rr][Kk] ;
 ALTER     : [Aa][Ll][Tt][Ee][Rr] ;
 ADD       : [Aa][Dd][Dd] ;
 DROP      : [Dd][Rr][Oo][Pp] ;

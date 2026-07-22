@@ -3,6 +3,13 @@ namespace LibRed.Sql.Ast;
 /// <summary>Base type for top-level SQL statements.</summary>
 public abstract record SqlStatement : SqlNode;
 
+/// <summary>Which transaction-control action a <see cref="TransactionControlStatement"/> performs.</summary>
+public enum TransactionControlKind { Begin, Commit, Rollback }
+
+/// <summary>A transaction-control statement: <c>BEGIN</c>/<c>COMMIT</c>/<c>ROLLBACK [TRANSACTION|WORK]</c>.
+/// Manages the transaction rather than running inside one.</summary>
+public sealed record TransactionControlStatement(TransactionControlKind Kind) : SqlStatement;
+
 /// <summary>A single item in a SELECT projection, optionally aliased.</summary>
 public sealed record SelectItem(Expression Value, string? Alias) : SqlNode;
 

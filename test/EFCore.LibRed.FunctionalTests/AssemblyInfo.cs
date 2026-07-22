@@ -1,14 +1,15 @@
 using Xunit;
 
-// Kept sequential (MaxParallelThreads = 1) — but for a DIFFERENT reason than EFCore.Jet.FunctionalTests.
-// Jet must serialise because the ACE OLE DB provider crashes the host with 0xC0000005 under concurrent
-// connections. LibRed uses no ACE, so that does not apply; however LibRed still cannot run these tests in
-// parallel because EF's shared-store fixtures put many different test classes (separate xUnit collections,
-// which xUnit parallelises) on the SAME physical <name>.accdb file, and LibRed has no multi-connection
-// concurrency control yet (concurrency is deliberately the last priority). A trial with MaxParallelThreads = 0
-// corrupted reads en masse ("Nullable object must have a value") from parallel connections racing on the shared
-// Northwind file + page cache. Re-enable only once LibRed has shared-file concurrency control (locking /
-// per-connection isolation).
+// Runs in parallel (MaxParallelThreads = 0). Unlike EFCore.Jet.FunctionalTests — which must serialise because
+// the ACE OLE DB provider crashes the host with 0xC0000005 under concurrent connections — LibRed uses no ACE
+// and now coordinates shared-file access itself: page-level reader/writer locking (MonitorLockManager) plus a
+// copy-on-write page cache, so the many xUnit collections EF's shared-store fixtures place on one physical
+// <name>.accdb run concurrently without the read corruption an earlier, uncoordinated trial hit.
+//
+// Requires an x64 test host. testhost.x86.exe is not LargeAddressAware (2 GB cap), and LibRed — being an
+// in-process, fully-managed engine — puts its whole working set (page caches, catalogs, query buffers) in the
+// same managed address space as EF and the test platform, unlike out-of-process/native providers (SQL Server,
+// ACE). Under this concurrency that overflows 32-bit; on x64 the full ~38k-test suite runs green in parallel.
 [assembly: CollectionBehavior(
     DisableTestParallelization = false,
-    MaxParallelThreads = 1)]
+    MaxParallelThreads = 0)]

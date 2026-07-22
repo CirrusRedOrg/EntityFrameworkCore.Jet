@@ -5,6 +5,7 @@
     <RootNamespace>LibRed</RootNamespace>
     <AssemblyName>LibRed.Core</AssemblyName>
     <Description>Native, fully managed reader/writer for the Microsoft Jet/ACE (Access MDB/ACCDB) file format: pages, tables, columns, indexes, catalog, encoding and memo/OLE fields.</Description>
+    <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
 
 </Project>

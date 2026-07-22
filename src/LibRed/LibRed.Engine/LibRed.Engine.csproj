@@ -5,6 +5,7 @@
     <RootNamespace>LibRed.Engine</RootNamespace>
     <AssemblyName>LibRed.Engine</AssemblyName>
     <Description>Query engine: plans and executes bound SQL statements (select/insert/update/delete, joins, filters, expressions) against the LibRed.Core storage layer.</Description>
+    <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>

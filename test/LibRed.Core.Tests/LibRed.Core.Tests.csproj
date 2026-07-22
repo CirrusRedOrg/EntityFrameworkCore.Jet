@@ -9,6 +9,7 @@
     <IsTestProject>true</IsTestProject>
     <!-- The insert verification compares against Access's own OLE DB engine (Windows-only). -->
     <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>

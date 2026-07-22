@@ -9,6 +9,7 @@
          JetConnection.CreateDatabase (DAO/ADOX) until LibRed can write a new Jet/ACE file itself.
          Transitional, same as LibRed.EFCore.csproj - remove once that's implemented natively. -->
     <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>

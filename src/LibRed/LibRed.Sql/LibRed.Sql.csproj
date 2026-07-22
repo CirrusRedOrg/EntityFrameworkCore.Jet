@@ -7,6 +7,7 @@
     <Description>Jet/ACE SQL front end: lexer, parser, AST and binder. Has no dependency on the storage engine; binding resolves names through an injected schema abstraction.</Description>
     <!-- CS3021: ANTLR-generated types carry [CLSCompliant(false)]; the assembly is not CLS-marked. -->
     <NoWarn>$(NoWarn);CS3021</NoWarn>
+    <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>

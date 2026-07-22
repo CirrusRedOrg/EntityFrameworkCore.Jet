@@ -9,6 +9,7 @@
          JetRelationalConnection). CA1416: those are Windows-only, so this transitional provider is
          too until the reused Jet services are reimplemented on LibRed. Both are accepted by design. -->
     <NoWarn>$(NoWarn);EF1001;CA1416</NoWarn>
+    <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>

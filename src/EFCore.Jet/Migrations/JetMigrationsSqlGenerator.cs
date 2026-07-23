@@ -420,9 +420,12 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                 throw new InvalidOperationException(JetStrings.IndexTableRequired);
             }
 
-            builder.Append("RENAME INDEX ")
+            // Provider pseudo-SQL (Jet/ACE has no rename syntax): kept in the same `ALTER TABLE <table> RENAME
+            // <kind> <old> TO <new>` family as the table and column renames, rather than a dotted
+            // `RENAME INDEX <table>.<index>` form that named the table differently from its siblings.
+            builder.Append("ALTER TABLE ")
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Table))
-                .Append(".")
+                .Append(" RENAME INDEX ")
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name))
                 .Append(" TO ")
                 .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.NewName))

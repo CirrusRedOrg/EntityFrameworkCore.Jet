@@ -1,11 +1,9 @@
-// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using EntityFrameworkCore.Jet.Data;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.Odbc;
-using System.Data.OleDb;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;

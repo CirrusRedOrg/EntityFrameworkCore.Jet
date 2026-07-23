@@ -3,8 +3,6 @@
 
 using System;
 using System.Data.Common;
-using System.Data.Odbc;
-using System.Data.OleDb;
 using System.Threading.Tasks;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Diagnostics;

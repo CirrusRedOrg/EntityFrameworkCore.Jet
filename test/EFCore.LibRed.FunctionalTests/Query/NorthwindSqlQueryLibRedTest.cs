@@ -2,8 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Data.Common;
-using System.Data.Odbc;
-using System.Data.OleDb;
 using System.Threading.Tasks;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;

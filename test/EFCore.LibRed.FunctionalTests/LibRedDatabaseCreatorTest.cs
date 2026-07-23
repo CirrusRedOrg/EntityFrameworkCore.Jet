@@ -1,15 +1,13 @@
-// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Data;
 using System.Data.Common;
-using System.Data.Odbc;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.LibRed.Storage.Internal;
-using System.Data.OleDb;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -547,19 +545,10 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             var exception = async
                 ? await Record.ExceptionAsync(() => creator.CreateTablesAsync())
                 : Record.Exception(() => creator.CreateTables());
-            Assert.NotNull(exception);
-            var isoledbex = exception is OleDbException;
-            var isodbcex = exception is OdbcException;
-            int errorNumber = 0;
-            if (isoledbex)
-            {
-                errorNumber = ((OleDbException)exception).ErrorCode;
-            }
-            if (isodbcex)
-            {
-                errorNumber = ((OdbcException)exception).ErrorCode;
-            }
-            Assert.True(isoledbex || isodbcex);
+            // Copied from the Jet suite, where the only possible outcomes were OleDbException/OdbcException.
+            // LibRed is a native managed engine and raises neither: it opens the .accdb itself, so a database
+            // that isn't there fails on the file.
+            Assert.IsType<FileNotFoundException>(exception);
         }
 
         [ConditionalFact]

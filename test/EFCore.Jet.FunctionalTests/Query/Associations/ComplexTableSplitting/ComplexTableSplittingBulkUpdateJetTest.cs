@@ -19,7 +19,7 @@ public class ComplexTableSplittingBulkUpdateJetTest(
 
         AssertSql(
             """
-@deletableEntity_Name='Root3_With_different_values' (Size = 255)
+@deletableEntity_Name='?' (Size = 255)
 
 DELETE FROM `RootEntity` AS `r`
 WHERE `r`.`Name` = @deletableEntity_Name
@@ -50,7 +50,7 @@ WHERE `r`.`Name` = @deletableEntity_Name
 
         AssertExecuteUpdateSql(
             """
-@p='foo_updated' (Size = 255)
+@p='?' (Size = 255)
 
 UPDATE `RootEntity` AS `r`
 SET `r`.`RequiredAssociate_String` = @p
@@ -75,7 +75,7 @@ WHERE `r`.`RequiredAssociate_String` = '{ this may/look:like JSON but it [isn''t
 
         AssertExecuteUpdateSql(
             """
-@p='foo_updated' (Size = 255)
+@p='?' (Size = 255)
 
 UPDATE `RootEntity` AS `r`
 SET `r`.`RequiredAssociate_RequiredNestedAssociate_String` = @p
@@ -87,8 +87,8 @@ SET `r`.`RequiredAssociate_RequiredNestedAssociate_String` = @p
         await base.Update_property_on_projected_associate();
         
         AssertExecuteUpdateSql(
-    """
-@p='foo_updated' (Size = 255)
+            """
+@p='?' (Size = 255)
 
 UPDATE `RootEntity` AS `r`
 SET `r`.`RequiredAssociate_String` = @p
@@ -119,16 +119,16 @@ SET `r`.`RequiredAssociate_String` = @p
 
         AssertExecuteUpdateSql(
             """
-@complex_type_p_Id='1000' (Nullable = true)
-@complex_type_p_Int='80' (Nullable = true)
-@complex_type_p_Ints='[1,2,3]' (Size = 255)
-@complex_type_p_Name='Updated associate name' (Size = 255)
-@complex_type_p_String='Updated nested string' (Size = 255)
-@complex_type_p_RequiredNestedAssociate_Id='1000' (Nullable = true)
-@complex_type_p_RequiredNestedAssociate_Int='80' (Nullable = true)
-@complex_type_p_RequiredNestedAssociate_Ints='[1,2,3]' (Size = 255)
-@complex_type_p_RequiredNestedAssociate_Name='Updated nested name' (Size = 255)
-@complex_type_p_RequiredNestedAssociate_String='Updated nested string' (Size = 255)
+@complex_type_p_Id='?' (DbType = Int32)
+@complex_type_p_Int='?' (DbType = Int32)
+@complex_type_p_Ints='?' (Size = 255)
+@complex_type_p_Name='?' (Size = 255)
+@complex_type_p_String='?' (Size = 255)
+@complex_type_p_RequiredNestedAssociate_Id='?' (DbType = Int32)
+@complex_type_p_RequiredNestedAssociate_Int='?' (DbType = Int32)
+@complex_type_p_RequiredNestedAssociate_Ints='?' (Size = 255)
+@complex_type_p_RequiredNestedAssociate_Name='?' (Size = 255)
+@complex_type_p_RequiredNestedAssociate_String='?' (Size = 255)
 
 UPDATE `RootEntity` AS `r`
 SET `r`.`RequiredAssociate_Id` = @complex_type_p_Id,
@@ -155,11 +155,11 @@ SET `r`.`RequiredAssociate_Id` = @complex_type_p_Id,
 
         AssertExecuteUpdateSql(
             """
-@complex_type_p_Id='1000' (Nullable = true)
-@complex_type_p_Int='80' (Nullable = true)
-@complex_type_p_Ints='[1,2,4]' (Size = 255)
-@complex_type_p_Name='Updated nested name' (Size = 255)
-@complex_type_p_String='Updated nested string' (Size = 255)
+@complex_type_p_Id='?' (DbType = Int32)
+@complex_type_p_Int='?' (DbType = Int32)
+@complex_type_p_Ints='?' (Size = 255)
+@complex_type_p_Name='?' (Size = 255)
+@complex_type_p_String='?' (Size = 255)
 
 UPDATE `RootEntity` AS `r`
 SET `r`.`RequiredAssociate_RequiredNestedAssociate_Id` = @complex_type_p_Id,
@@ -216,16 +216,16 @@ SET `r`.`RequiredAssociate_OptionalNestedAssociate_Id` = `r`.`RequiredAssociate_
 
         AssertExecuteUpdateSql(
             """
-@complex_type_p_Id='1000' (Nullable = true)
-@complex_type_p_Int='70' (Nullable = true)
-@complex_type_p_Ints='[1,2,4]' (Size = 255)
-@complex_type_p_Name='Updated associate name' (Size = 255)
-@complex_type_p_String='Updated associate string' (Size = 255)
-@complex_type_p_RequiredNestedAssociate_Id='1000' (Nullable = true)
-@complex_type_p_RequiredNestedAssociate_Int='80' (Nullable = true)
-@complex_type_p_RequiredNestedAssociate_Ints='[1,2,4]' (Size = 255)
-@complex_type_p_RequiredNestedAssociate_Name='Updated nested name' (Size = 255)
-@complex_type_p_RequiredNestedAssociate_String='Updated nested string' (Size = 255)
+@complex_type_p_Id='?' (DbType = Int32)
+@complex_type_p_Int='?' (DbType = Int32)
+@complex_type_p_Ints='?' (Size = 255)
+@complex_type_p_Name='?' (Size = 255)
+@complex_type_p_String='?' (Size = 255)
+@complex_type_p_RequiredNestedAssociate_Id='?' (DbType = Int32)
+@complex_type_p_RequiredNestedAssociate_Int='?' (DbType = Int32)
+@complex_type_p_RequiredNestedAssociate_Ints='?' (Size = 255)
+@complex_type_p_RequiredNestedAssociate_Name='?' (Size = 255)
+@complex_type_p_RequiredNestedAssociate_String='?' (Size = 255)
 
 UPDATE `RootEntity` AS `r`
 SET `r`.`RequiredAssociate_Id` = @complex_type_p_Id,
@@ -435,7 +435,7 @@ SET `r`.`RequiredAssociate_Ints` = '[1,2,4]'
 
         AssertExecuteUpdateSql(
             """
-@ints='[1,2,4]' (Size = 255)
+@ints='?' (Size = 255)
 
 UPDATE `RootEntity` AS `r`
 SET `r`.`RequiredAssociate_Ints` = @ints
@@ -479,9 +479,9 @@ WHERE (
         await base.Update_multiple_properties_inside_same_associate();
         
         AssertExecuteUpdateSql(
-    """
-@p='foo_updated' (Size = 255)
-@p1='20'
+            """
+@p='?' (Size = 255)
+@p1='?' (DbType = Int32)
 
 UPDATE `RootEntity` AS `r`
 SET `r`.`RequiredAssociate_String` = @p,
@@ -494,8 +494,8 @@ SET `r`.`RequiredAssociate_String` = @p,
         await base.Update_multiple_properties_inside_associates_and_on_entity_type();
         
         AssertExecuteUpdateSql(
-    """
-@p='foo_updated' (Size = 255)
+            """
+@p='?' (Size = 255)
 
 UPDATE `RootEntity` AS `r`
 SET `r`.`Name` = `r`.`Name` & 'Modified',
@@ -510,8 +510,8 @@ WHERE `r`.`OptionalAssociate_Id` IS NOT NULL
         await base.Update_multiple_projected_associates_via_anonymous_type();
         
         AssertExecuteUpdateSql(
-    """
-@p='foo_updated' (Size = 255)
+            """
+@p='?' (Size = 255)
 
 UPDATE `RootEntity` AS `r`
 SET `r`.`RequiredAssociate_String` = `r`.`OptionalAssociate_String`,

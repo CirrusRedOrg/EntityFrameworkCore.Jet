@@ -948,7 +948,7 @@ namespace TestNamespace
                     JsonInt16ReaderWriter.Instance)),
                 jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<List<short>, short>(
                     JsonInt16ReaderWriter.Instance),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<short>(
                         bool (short v1, short v2) => v1 == v2,
                         int (short v) => ((int)v),
@@ -1829,7 +1829,7 @@ namespace TestNamespace
                         JsonInt16ReaderWriter.Instance)),
                     jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<List<short>, short>(
                         JsonInt16ReaderWriter.Instance),
-                    elementMapping: ShortTypeMapping.Default.Clone(
+                    elementMapping: JetShortTypeMapping.Default.Clone(
                         comparer: new ValueComparer<short>(
                             bool (short v1, short v2) => v1 == v2,
                             int (short v) => ((int)v),
@@ -3002,7 +3002,7 @@ namespace TestNamespace
                             JsonInt16ReaderWriter.Instance)),
                         jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<List<short>, short>(
                             JsonInt16ReaderWriter.Instance),
-                        elementMapping: ShortTypeMapping.Default.Clone(
+                        elementMapping: JetShortTypeMapping.Default.Clone(
                             comparer: new ValueComparer<short>(
                                 bool (short v1, short v2) => v1 == v2,
                                 int (short v) => ((int)v),

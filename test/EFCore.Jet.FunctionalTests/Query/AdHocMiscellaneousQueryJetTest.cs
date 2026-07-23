@@ -980,7 +980,7 @@ FROM `Posts` AS `p`
             """
 SELECT `e`.`Id`, `e`.`Permission`, `e`.`PermissionByte`, `e`.`PermissionShort`
 FROM `Entities` AS `e`
-WHERE (`e`.`PermissionShort` BAND 4) = 4
+WHERE (`e`.`PermissionShort` BAND CINT(4)) = CINT(4)
 """);
     }
 

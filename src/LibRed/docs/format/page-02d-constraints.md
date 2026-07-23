@@ -49,7 +49,9 @@ insert/delete/insert sequence and against saved Northwind tables:**
 > **not** `WITH IGNORE NULL`) rejects a duplicate **non-null** key but permits **multiple NULL** keys — two
 > rows may both be null in the indexed column(s). So uniqueness is enforced only over the non-null keys; a
 > row with a null in any indexed column is exempt (matching SQL's "nulls are distinct"). LibRed enforces
-> this on insert/update (`IndexWriter.KeyExists`, skipping null-keyed rows). A `WITH IGNORE NULL` index
+> this on insert/update (`IndexWriter.KeyExists`, skipping null-keyed rows), and rejects
+> `CREATE UNIQUE INDEX` when the rows that already exist are not unique — scanned up front, before the
+> TDEF is written, so a rejected statement leaves the file untouched. A `WITH IGNORE NULL` index
 > (`0x02`) additionally leaves null-keyed rows out of the B-tree entirely; a PK (`0x08` required) forbids
 > nulls, so the question doesn't arise.
 
@@ -107,5 +109,4 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > index on this table's side — the child FK column for an outgoing FK, the referenced key (PK) for an
 > incoming one — which is exactly mdbtools' "index into index cols list". LibRed's reader keys off
 > `0x08` (its `DataNumber`) and does not use `0x04`.
-
 

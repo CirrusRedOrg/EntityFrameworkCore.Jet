@@ -1,4 +1,4 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
@@ -357,6 +357,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         (LibRed.IO.PageBuffer buf, IReadOnlyList<int> existingContinuations) = ReadDefinition(table.DefinitionPage);
         int existingRowCount = buf.ReadInt32(format.TdefRowCountOffset);
 
+        // A unique index over rows that already exist has to be rejected if those rows aren't unique — ACE
+        // refuses the DDL too. Done *here*, before a single byte of the TDEF moves, rather than during the
+        // back-fill: this path is not transactional, so a failure discovered mid-back-fill would leave the
+        // index committed to the TDEF and half-populated. Scanning first means a rejected CREATE INDEX
+        // leaves the file exactly as it was.
+        if (unique && existingRowCount != 0)
+            EnsureNoDuplicateKeys(table, indexName, slots);
+
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
         int logicalCount = buf.ReadInt32(format.TdefRealIndexCountOffset);
         int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
@@ -445,14 +453,45 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         // Back-fill the new (empty) index B-tree with an entry per existing row, so the index is complete.
         if (existingRowCount != 0)
-            BackfillIndex(table.Name, indexName, ignoreNulls);
+            BackfillIndex(table.Name, indexName, ignoreNulls, validateUnique: false);
         return maxNum + 1;
+    }
+
+    /// <summary>
+    /// Throws if the table's existing rows already hold a duplicate key for a would-be unique index. Purely a
+    /// read: it encodes each row's key and looks for a repeat, touching nothing on disk, so it is safe to call
+    /// before the index exists. Rows with a null in any key column are exempt — Jet's uniqueness is over the
+    /// non-null keys only, so several rows may be null (verified vs ACE; see the constraints page). That skip
+    /// is unconditional: a WITH IGNORE NULL index leaves null-keyed rows out of the B-tree altogether, so
+    /// either way they cannot collide.
+    /// </summary>
+    /// <remarks>
+    /// Comparison is on the encoded key, not the raw values, which is deliberate: the encoding is what the
+    /// B-tree stores and it is collation-lossy, so "ABC" and "abc" share a key. That is precisely Access's
+    /// uniqueness domain, and it keeps this agreeing with the insert- and update-time checks, which compare
+    /// the same way via <see cref="IndexWriter.KeyExists"/>.
+    /// </remarks>
+    private void EnsureNoDuplicateKeys(
+        TableDef table, string indexName, IReadOnlyList<(int Id, bool Ascending)> slots)
+    {
+        var keyColumns = slots
+            .Select(s => (Column: table.Columns.First(c => c.ColumnId == s.Id), s.Ascending))
+            .ToArray();
+
+        var seen = new HashSet<string>();
+        foreach (object?[] values in new Table(_channel, table).Rows())
+        {
+            if (keyColumns.Any(k => values[k.Column.Index] is null)) continue;
+            if (!seen.Add(Convert.ToHexString(IndexKeyEncoder.Encode(keyColumns, values))))
+                throw new InvalidOperationException(
+                    $"Cannot create unique index '{indexName}' on '{table.Name}': duplicate key values exist.");
+        }
     }
 
     /// <summary>Populates a freshly added index over a table's existing rows: scans every live row and
     /// inserts its key (IndexWriter handles B-tree growth). Rows with a null in an IGNORE NULL index's key
     /// are skipped, matching the per-insert path.</summary>
-    private void BackfillIndex(string tableName, string indexName, bool ignoreNulls)
+    private void BackfillIndex(string tableName, string indexName, bool ignoreNulls, bool validateUnique)
     {
         TableDef table = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found after adding the index.");
@@ -462,7 +501,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         foreach ((RowId id, object?[] values) in new Table(_channel, table).Rows().WithIds())
         {
-            if (ignoreNulls && keyColumnIds.Any(i => values[i] is null)) continue;
+            bool hasNullKey = keyColumnIds.Any(i => values[i] is null);
+            if (ignoreNulls && hasNullKey) continue;
+            if (validateUnique && index.IsUnique && !hasNullKey && writer.KeyExists(index, values))
+                throw new InvalidOperationException(
+                    $"Cannot create unique index '{indexName}' on '{tableName}': duplicate key values exist.");
             writer.AddEntry(index, values, id);
         }
     }
@@ -1735,7 +1778,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             //    (last, so the new root got the appended page rather than reusing this one) — as ACE does.
             foreach (var p in pending)
             {
-                BackfillIndex(tableName, p.Name, p.IgnoreNulls);
+                BackfillIndex(tableName, p.Name, p.IgnoreNulls, validateUnique: true);
                 _allocator.Free(p.OldRoot);
             }
 

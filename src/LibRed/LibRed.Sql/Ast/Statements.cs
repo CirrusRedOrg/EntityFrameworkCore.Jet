@@ -224,6 +224,15 @@ public sealed record DropColumnAction(string Field) : AlterTableAction;
 /// <summary>DROP CONSTRAINT name — delete a (multi-field) index/constraint by name.</summary>
 public sealed record DropConstraintAction(string Name) : AlterTableAction;
 
+/// <summary>RENAME TO newName — rename the table itself.</summary>
+public sealed record RenameTableAction(string NewName) : AlterTableAction;
+
+/// <summary>RENAME COLUMN field TO newName — rename one of the table's columns.</summary>
+public sealed record RenameColumnAction(string Field, string NewName) : AlterTableAction;
+
+/// <summary>RENAME INDEX index TO newName — rename one of the table's indexes.</summary>
+public sealed record RenameIndexAction(string Index, string NewName) : AlterTableAction;
+
 /// <summary>ALTER TABLE table &lt;action&gt; — modifies an existing table's design.</summary>
 public sealed record AlterTableStatement(string Table, AlterTableAction Action) : SqlStatement;
 

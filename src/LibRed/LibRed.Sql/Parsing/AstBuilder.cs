@@ -192,6 +192,9 @@ internal sealed class AstBuilder
             AlterColumnDropDefaultActionContext a => new AlterColumnDropDefaultAction(Identifier(a.field)),
             DropColumnActionContext a => new DropColumnAction(Identifier(a.field)),
             DropConstraintActionContext a => new DropConstraintAction(Identifier(a.cname)),
+            RenameTableActionContext a => new RenameTableAction(Identifier(a.newName)),
+            RenameColumnActionContext a => new RenameColumnAction(Identifier(a.field), Identifier(a.newName)),
+            RenameIndexActionContext a => new RenameIndexAction(Identifier(a.index), Identifier(a.newName)),
             _ => throw new SqlParseException("Unsupported ALTER TABLE action."),
         };
         return new AlterTableStatement(Identifier(ctx.table), action);

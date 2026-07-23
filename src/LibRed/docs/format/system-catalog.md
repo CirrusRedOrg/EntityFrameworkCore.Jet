@@ -310,6 +310,27 @@
   > `DropIndex` guard protects the child index whose name equals a relationship name and the parent's
   > unique/PK referenced key, and scaffolding hides the child FK index (so a database cleaner drops the
   > relationship via the table, not by dropping that index).
+  >
+  > **Renaming a table or column (ACE-verified).** Because this table stores its tables and columns **by
+  > name**, a rename has to repoint them — and ACE does. Measured (Jet suite's `RenameFanOutProbeTest`,
+  > against a real ACE engine via the DAO/ADOX rename path): renaming a table rewrites `szObject` /
+  > `szReferencedObject`, renaming a column rewrites `szColumn` / `szReferencedColumn`, and in both cases the
+  > relationship keeps its own `szRelationship` name and its enforcement — the rename is **not** refused for a
+  > table in an enforced relationship. Nothing else moves: indexes (including the PK) keep their own names and
+  > need no fixup because they reference the table and its columns **by id**, and a renamed column keeps its
+  > `DEFAULT` (ACE rewrites the name-keyed entry in the table's `LvProp` blob). Stored queries are **not**
+  > rewritten — a view naming the old object is left dangling and fails with *"cannot find the input table or
+  > query"* (Name AutoCorrect is an Access *application* feature, so it never runs for an engine-level rename).
+  > LibRed reproduces exactly this, deliberately including the dangling query.
+  >
+  > **Name collisions.** Tables and saved queries share **one namespace**: ACE rejects renaming a table onto
+  > the name of an existing table *or* an existing query (both verified). Note the unique `(ParentId, Name)`
+  > index does **not** enforce the table/query half of that on its own — the two object kinds sit in different
+  > containers, so they differ in `ParentId`. A rename therefore has to pre-check `MSysObjects` for a matching
+  > `Name` with `Type` 1 (table) or 5 (query), which is what LibRed does — **excluding the object being
+  > renamed**, which cannot collide with itself: ACE allows renaming a table to its own name, and allows a
+  > case-only change (both verified). The self-rename case is not hypothetical — EF models "move a table to
+  > another schema" as a rename, and on a schema-less engine that degrades to `RENAME TO` the *same* name.
 
 
 ---

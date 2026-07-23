@@ -163,6 +163,54 @@ public static class PropertyBlob
         return [.. result];
     }
 
+    /// <summary>
+    /// Renames the owner of a property block (a column being renamed), keeping the block's property entries —
+    /// and every other block, including the name pool — byte-for-byte. Only the owner record's name and the two
+    /// lengths that describe it change; the unmodelled field at +2 is carried through. Returns the blob
+    /// unchanged if the owner has no block. This is what ACE does on a column rename: the column keeps its
+    /// DefaultValue/Required (verified — <c>RenameFanOutProbeTest</c>).
+    /// </summary>
+    public static byte[] RenameOwner(ReadOnlySpan<byte> blob, string oldOwner, string newOwner)
+    {
+        if (blob.Length == 0) return [];
+
+        ParsedBlob parsed = Parse(blob);
+
+        var result = new List<byte>(blob.Length);
+        result.AddRange(blob[..4]); // signature
+        foreach (ParsedBlock block in parsed.Blocks)
+        {
+            if (block.Type == NameListBlock
+                || !string.Equals(ReadOwner(block.Body), oldOwner, StringComparison.OrdinalIgnoreCase))
+            {
+                result.AddRange(block.Raw);
+                continue;
+            }
+
+            // Owner record: [uint16 recordLength][uint16 unmodelled][uint16 ownerLength][UTF-16 name].
+            // Everything past it is this owner's property entries, which the rename must not disturb.
+            int oldRecordLength = BinaryPrimitives.ReadUInt16LittleEndian(block.Body.AsSpan(0, 2));
+            byte[] nameBytes = Encoding.Unicode.GetBytes(newOwner);
+
+            var body = new List<byte>(block.Body.Length - oldRecordLength + 6 + nameBytes.Length);
+            byte[] header = new byte[6];
+            BinaryPrimitives.WriteUInt16LittleEndian(header.AsSpan(0, 2), (ushort)(6 + nameBytes.Length));
+            block.Body.AsSpan(2, 2).CopyTo(header.AsSpan(2, 2)); // preserved verbatim
+            BinaryPrimitives.WriteUInt16LittleEndian(header.AsSpan(4, 2), (ushort)nameBytes.Length);
+            body.AddRange(header);
+            body.AddRange(nameBytes);
+            body.AddRange(block.Body.AsSpan(oldRecordLength).ToArray());
+
+            byte[] raw = new byte[6 + body.Count];
+            BinaryPrimitives.WriteInt32LittleEndian(raw.AsSpan(0, 4), raw.Length);
+            BinaryPrimitives.WriteUInt16LittleEndian(raw.AsSpan(4, 2), block.Type);
+            body.CopyTo(raw, 6);
+            result.AddRange(raw);
+        }
+
+        return [.. result];
+    }
+
     /// <summary>Parses every property (owner, name, value) from a blob. Empty owner = a table property.</summary>
     public static IReadOnlyList<Property> Read(ReadOnlySpan<byte> blob)
     {

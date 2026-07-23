@@ -689,6 +689,243 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// rows. A full delete: its **index entries are removed** (not just the slot soft-deleted) so, e.g., the
     /// MSysObjects <c>ParentIdName</c> unique index doesn't retain a stale entry that would then reject
     /// re-creating a same-named table.</summary>
+    /// <summary>
+    /// Renames a table — <c>ALTER TABLE … RENAME TO</c>. Measured against ACE (see <c>RenameFanOutProbeTest</c>):
+    /// only two things move — the object's <c>MSysObjects.Name</c>, and the by-name table references in
+    /// <c>MSysRelationships</c>. Everything else is deliberately left alone, matching ACE exactly:
+    /// <list type="bullet">
+    /// <item>indexes (including the PK) keep their own names and need no fixup — they reference the table by id;</item>
+    /// <item>the relationship keeps its own name and its enforcement;</item>
+    /// <item>stored queries/views are left <b>dangling</b> — ACE does not rewrite <c>MSysQueries</c> (Name
+    /// AutoCorrect is an Access application feature), and "helpfully" fixing them would diverge from Jet.</item>
+    /// </list>
+    /// Returns false if no such table exists; throws if the new name is already taken.
+    /// </summary>
+    public bool RenameTable(string oldName, string newName)
+    {
+        TableDef? table = _catalog.FindTable(oldName);
+        if (table is null) return false;
+        // The table being renamed is not a collision with itself: renaming to the same name is a no-op that ACE
+        // allows (and EF's schema "move" degrades to exactly that on a schema-less engine), as is a case-only
+        // change. Both verified — RenameFanOutProbeTest.
+        if (ObjectNameExists(newName, exceptObjectId: table.DefinitionPage))
+            throw new InvalidOperationException(
+                $"ALTER TABLE '{oldName}' RENAME TO '{newName}': a table or query named '{newName}' already exists.");
+
+        RenameCatalogObject(table.DefinitionPage, newName);
+        RepointRelationshipTables(oldName, newName);
+        return true;
+    }
+
+    /// <summary>Sets the <c>Name</c> of the MSysObjects row whose <c>Id</c> is this table's TDEF page.</summary>
+    private void RenameCatalogObject(int tdefPage, string newName)
+    {
+        TableDef def = _catalog.FindTable("MSysObjects")
+            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
+        int idIndex = ColumnIndexOf(def, "Id");
+        int nameIndex = ColumnIndexOf(def, "Name");
+        var table = new Table(_channel, def);
+
+        foreach ((RowId id, object?[] values) in table.Rows().WithIds()
+                     .Where(r => r.Values[idIndex] is not null && Convert.ToInt32(r.Values[idIndex]) == tdefPage)
+                     .ToList())
+        {
+            SetCatalogValues(table, def, id, values, (nameIndex, newName));
+        }
+    }
+
+    /// <summary>Repoints every relationship that names <paramref name="oldName"/> on either side. Both the
+    /// child (<c>szObject</c>) and parent (<c>szReferencedObject</c>) are stored by name, and a self-reference
+    /// names the table twice — hence updating both columns in one pass over each row.</summary>
+    private void RepointRelationshipTables(string oldName, string newName)
+    {
+        TableDef? def = _catalog.FindTable("MSysRelationships");
+        if (def is null) return; // a database with no relationships has no catalog table to fix up
+
+        int childIndex = ColumnIndexOf(def, "szObject");
+        int parentIndex = ColumnIndexOf(def, "szReferencedObject");
+        var table = new Table(_channel, def);
+
+        foreach ((RowId id, object?[] values) in table.Rows().WithIds().ToList())
+        {
+            var updates = new List<(int Column, object? Value)>(2);
+            if (NameMatches(values[childIndex], oldName)) updates.Add((childIndex, newName));
+            if (NameMatches(values[parentIndex], oldName)) updates.Add((parentIndex, newName));
+            if (updates.Count > 0)
+                SetCatalogValues(table, def, id, values, updates.ToArray());
+        }
+    }
+
+    /// <summary>
+    /// Renames a column — <c>ALTER TABLE … RENAME COLUMN … TO</c>. Measured against ACE (see
+    /// <c>RenameFanOutProbeTest</c>): the name in the TDEF's column region moves, <c>MSysRelationships</c>'
+    /// by-name column references are repointed, and the column's <c>LvProp</c> property block is re-owned so it
+    /// <b>keeps its DEFAULT</b>. Nothing else moves — indexes reference columns by id, so they keep their own
+    /// names and need no fixup, and stored queries are left dangling exactly as ACE leaves them.
+    /// Returns false if no such column exists; throws if the new name is already used on the table.
+    /// </summary>
+    public bool RenameColumn(string tableName, string oldName, string newName)
+    {
+        TableDef table = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
+        ColumnDef? col = table.Columns.FirstOrDefault(c => string.Equals(c.Name, oldName, StringComparison.OrdinalIgnoreCase));
+        if (col is null) return false;
+        if (table.Columns.Any(c => string.Equals(c.Name, newName, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException(
+                $"ALTER TABLE '{tableName}' RENAME COLUMN '{oldName}' TO '{newName}': the table already has a column named '{newName}'.");
+
+        TdefParts parts = ParseTdef(table.DefinitionPage); // stitches continuation pages for a multi-page TDEF
+        RenameColumnInParts(parts, table.Columns.Count, col.Index, newName, _channel.Format);
+        WriteTdef(table.DefinitionPage, parts);
+        RenameColumnProperties(table.DefinitionPage, oldName, newName);
+        RepointRelationshipColumns(tableName, oldName, newName);
+        _catalog.Invalidate();
+        return true;
+    }
+
+    /// <summary>Replaces the name entry of the column at <paramref name="renameIndex"/> in the column region.
+    /// The descriptors are fixed-size and untouched; only the variable-length name pool is rebuilt (a
+    /// different-length name shifts every following entry), and the column count is unchanged.</summary>
+    private static void RenameColumnInParts(
+        TdefParts parts, int colCount, int renameIndex, string newName, JetFormatBase format)
+    {
+        int descSize = format.ColumnDescriptorSize;
+        ReadOnlySpan<byte> cols = parts.Columns;
+
+        var descriptors = new List<byte[]>(colCount);
+        for (int i = 0; i < colCount; i++)
+            descriptors.Add(cols.Slice(i * descSize, descSize).ToArray());
+
+        int np = colCount * descSize;
+        var names = new List<byte[]>(colCount);
+        for (int i = 0; i < colCount; i++)
+        {
+            int len = BinaryPrimitives.ReadUInt16LittleEndian(cols.Slice(np, 2));
+            names.Add(cols.Slice(np, 2 + len).ToArray());
+            np += 2 + len;
+        }
+
+        byte[] nameBytes = System.Text.Encoding.Unicode.GetBytes(newName);
+        byte[] entry = new byte[2 + nameBytes.Length];
+        BinaryPrimitives.WriteUInt16LittleEndian(entry.AsSpan(0, 2), (ushort)nameBytes.Length);
+        nameBytes.CopyTo(entry, 2);
+        names[renameIndex] = entry;
+
+        var blob = new List<byte>(parts.Columns.Length);
+        foreach (byte[] d in descriptors) blob.AddRange(d);
+        foreach (byte[] n in names) blob.AddRange(n);
+        parts.Columns = [.. blob];
+    }
+
+    /// <summary>Re-owns the renamed column's extended-property block in its table's <c>MSysObjects.LvProp</c>
+    /// blob, so its DefaultValue/Required/validation survive the rename (ACE does this — verified). No-op when
+    /// the column had no properties.</summary>
+    private void RenameColumnProperties(int tdefPage, string oldName, string newName)
+    {
+        TableDef msys = _catalog.FindTable("MSysObjects")
+            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
+        int idIndex = ColumnIndexOf(msys, "Id");
+        ColumnDef lvProp = msys.FindColumn("LvProp")
+            ?? throw new InvalidOperationException("MSysObjects is missing 'LvProp'.");
+        var table = new Table(_channel, msys);
+
+        foreach ((RowId id, object?[] values) in table.Rows().WithIds())
+        {
+            if (values[idIndex] is null || Convert.ToInt32(values[idIndex]) != tdefPage) continue;
+            if (values[lvProp.Index] is not byte[] { Length: > 0 } blob) return;
+
+            byte[] renamed = PropertyBlob.RenameOwner(blob, oldName, newName);
+            if (renamed.AsSpan().SequenceEqual(blob)) return; // the column had no property block
+
+            byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, renamed);
+            values[lvProp.Index] = new LongValueDescriptor(descriptor);
+            table.Update(id, values, new HashSet<int> { lvProp.Index });
+            return;
+        }
+    }
+
+    /// <summary>Repoints every relationship that names this column, on whichever side owns it. Unlike a table
+    /// name, a column name is only unique within its table, so each side is matched on its table name too.</summary>
+    private void RepointRelationshipColumns(string tableName, string oldName, string newName)
+    {
+        TableDef? def = _catalog.FindTable("MSysRelationships");
+        if (def is null) return;
+
+        int childTable = ColumnIndexOf(def, "szObject");
+        int childColumn = ColumnIndexOf(def, "szColumn");
+        int parentTable = ColumnIndexOf(def, "szReferencedObject");
+        int parentColumn = ColumnIndexOf(def, "szReferencedColumn");
+        var table = new Table(_channel, def);
+
+        foreach ((RowId id, object?[] values) in table.Rows().WithIds().ToList())
+        {
+            var updates = new List<(int Column, object? Value)>(2);
+            if (NameMatches(values[childTable], tableName) && NameMatches(values[childColumn], oldName))
+                updates.Add((childColumn, newName));
+            if (NameMatches(values[parentTable], tableName) && NameMatches(values[parentColumn], oldName))
+                updates.Add((parentColumn, newName));
+            if (updates.Count > 0)
+                SetCatalogValues(table, def, id, values, updates.ToArray());
+        }
+    }
+
+    /// <summary>MSysObjects.Type for a table object (queries use <see cref="StoredQueryFormat.ObjectTypeQuery"/>).</summary>
+    private const short ObjectTypeTable = 1;
+
+    /// <summary>
+    /// Whether any <b>table or saved query</b> already uses this name. Access keeps tables and queries in a
+    /// single namespace: ACE rejects renaming a table onto either (verified — <c>RenameFanOutProbeTest</c>),
+    /// even though they live in different MSysObjects containers, so the unique <c>(ParentId, Name)</c> index
+    /// would <i>not</i> catch a table/query collision on its own. Scanned straight from MSysObjects rather than
+    /// the catalog's reconstructed <c>Views</c>/<c>ActionQueries</c>, which omit queries LibRed can't rebuild.
+    /// </summary>
+    private bool ObjectNameExists(string name, int exceptObjectId)
+    {
+        TableDef mo = _catalog.FindTable("MSysObjects")
+            ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
+        int idIndex = ColumnIndexOf(mo, "Id");
+        int nameIndex = ColumnIndexOf(mo, "Name");
+        int typeIndex = ColumnIndexOf(mo, "Type");
+
+        foreach (object?[] values in new Table(_channel, mo).Rows())
+        {
+            if (!NameMatches(values[nameIndex], name)) continue;
+            // Skip the object being renamed — it can't collide with itself (same-name and case-only renames).
+            if (values[idIndex] is not null && Convert.ToInt32(values[idIndex]) == exceptObjectId) continue;
+            short type = Convert.ToInt16(values[typeIndex] ?? (short)0);
+            if (type is ObjectTypeTable or StoredQueryFormat.ObjectTypeQuery) return true;
+        }
+
+        return false;
+    }
+
+    private static bool NameMatches(object? value, string name) =>
+        value is string s && string.Equals(s, name, StringComparison.OrdinalIgnoreCase);
+
+    private static int ColumnIndexOf(TableDef def, string column) =>
+        (def.FindColumn(column) ?? throw new InvalidOperationException($"'{def.Name}' is missing '{column}'.")).Index;
+
+    /// <summary>Rewrites some columns of one catalog row, keeping any index whose key covers a changed column in
+    /// step — MSysObjects is uniquely indexed on (ParentId, Name), so a rename has to move that entry rather
+    /// than just overwrite the value.</summary>
+    private static void SetCatalogValues(
+        Table table, TableDef def, RowId id, object?[] values, params (int Column, object? Value)[] updates)
+    {
+        var newValues = (object?[])values.Clone();
+        var changed = new HashSet<int>();
+        foreach ((int column, object? value) in updates)
+        {
+            newValues[column] = value;
+            changed.Add(column);
+        }
+
+        foreach (IndexDef index in def.Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()))
+            if (index.Columns.Any(c => changed.Contains(c.Column.Index)))
+                table.MoveIndexEntry(index, values, newValues, id);
+
+        table.Update(id, newValues, changed);
+    }
+
     private void DeleteCatalogRows(string catalogTable, string keyColumn, int keyValue)
     {
         TableDef t = _catalog.FindTable(catalogTable)

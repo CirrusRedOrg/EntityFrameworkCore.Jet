@@ -184,6 +184,27 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitDropConstraintAction([NotNull] AccessSqlParser.DropConstraintActionContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>RenameTableAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.alterTableAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitRenameTableAction([NotNull] AccessSqlParser.RenameTableActionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>RenameColumnAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.alterTableAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitRenameColumnAction([NotNull] AccessSqlParser.RenameColumnActionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>RenameIndexAction</c>
+	/// labeled alternative in <see cref="AccessSqlParser.alterTableAction"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitRenameIndexAction([NotNull] AccessSqlParser.RenameIndexActionContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.procedureBody"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

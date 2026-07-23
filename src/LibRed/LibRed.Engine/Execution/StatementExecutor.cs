@@ -410,10 +410,60 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // ALTER COLUMN … SET/DROP DEFAULT: an LvProp edit only — no type change, and DROP DEFAULT keeps NOT NULL.
         AlterColumnSetDefaultAction setDef => SetColumnDefault(statement.Table, setDef),
         AlterColumnDropDefaultAction dropDef => DropColumnDefault(statement.Table, dropDef),
+        // RENAME { TO | COLUMN … TO | INDEX … TO }: provider DDL — Jet/ACE has no rename syntax at all (Access
+        // renames through DAO/ADOX), so EFCore.Jet emits this as pseudo-SQL and intercepts it out-of-engine.
+        // LibRed has no COM to delegate to, so it does the catalog/TDEF surgery itself.
+        RenameTableAction rt => RenameTable(statement.Table, rt.NewName),
+        RenameColumnAction rc => RenameColumn(statement.Table, rc.Field, rc.NewName),
+        RenameIndexAction ri => RenameIndex(statement.Table, ri.Index, ri.NewName),
         // The remaining actions land in their own follow-up steps.
         _ => throw new NotSupportedException(
             $"ALTER TABLE {statement.Action.GetType().Name} is parsed but not executed yet."),
     };
+
+    /// <summary>
+    /// RENAME TO — renames the table itself. Behaviour measured against ACE (see <c>RenameFanOutProbeTest</c>):
+    /// update the object's <c>MSysObjects.Name</c> and repoint <c>MSysRelationships</c>
+    /// (<c>szObject</c>/<c>szReferencedObject</c>), which stores tables by name — ACE rewrites those, preserves
+    /// the relationship's name and enforcement, and does <b>not</b> refuse the rename for a table in an enforced
+    /// relationship. Indexes need no action: they ride along with the table and keep their own names.
+    /// Stored queries/views are deliberately left dangling — ACE does not rewrite <c>MSysQueries</c> (Name
+    /// AutoCorrect is an Access application feature, not an engine one), so a view naming the old table breaks.
+    /// Match that rather than "fixing" it, or LibRed and Jet diverge on the same migration.
+    /// </summary>
+    private int RenameTable(string table, string newName)
+    {
+        if (!_database.RenameTable(table, newName))
+            throw new InvalidOperationException($"ALTER TABLE '{table}' RENAME TO '{newName}': the table was not found.");
+        return 0;
+    }
+
+    /// <summary>
+    /// RENAME COLUMN — renames a column. Behaviour measured against ACE (see <c>RenameFanOutProbeTest</c>).
+    /// The name lives in the TDEF's column descriptor and is variable-length, so a different-length name relays
+    /// out the TDEF: the rewrite must be faithful (every unparsed descriptor byte preserved, only the name
+    /// changed). Two fixups are required because ACE performs them: <c>MSysRelationships</c>
+    /// (<c>szColumn</c>/<c>szReferencedColumn</c>), and the per-column keys in the table's <c>LvProp</c> property
+    /// blob — a renamed column <b>keeps its DEFAULT</b>, so the name-keyed properties must be carried across.
+    /// Indexes need no fixup: they reference columns by id and keep their own names. Stored queries/views are
+    /// left dangling, as for a table rename — ACE does not rewrite <c>MSysQueries</c>.
+    /// </summary>
+    private int RenameColumn(string table, string field, string newName)
+    {
+        if (!_database.RenameColumn(table, field, newName))
+            throw new InvalidOperationException(
+                $"ALTER TABLE '{table}' RENAME COLUMN '{field}' TO '{newName}': the column was not found.");
+        return 0;
+    }
+
+    /// <summary>
+    /// RENAME INDEX — renames an index; the name lives in the TDEF's index block. If the index backs a foreign
+    /// key, check its coupling to the relationship name (<c>szRelationship</c>). Access cannot do this through
+    /// SQL <i>or</i> DAO/ADOX, so there is no ACE oracle for the operation itself — verify via the converged
+    /// end state (an index created as the new name should match one created then renamed).
+    /// </summary>
+    private int RenameIndex(string table, string index, string newName) => throw new NotSupportedException(
+        $"ALTER TABLE `{table}` RENAME INDEX `{index}` TO `{newName}` is parsed and routed but the TDEF rewrite is not implemented yet.");
 
     private int DropConstraint(string table, string name)
     {

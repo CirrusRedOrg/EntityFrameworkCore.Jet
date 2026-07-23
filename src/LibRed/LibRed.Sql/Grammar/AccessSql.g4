@@ -90,6 +90,11 @@ alterTableAction
     | ALTER COLUMN? field=identifier DROP DEFAULT                 # AlterColumnDropDefaultAction
     | DROP COLUMN field=identifier               # DropColumnAction
     | DROP CONSTRAINT cname=identifier           # DropConstraintAction
+    // Renames. Jet/ACE has no rename syntax at all (Access does them through DAO/ADOX), so these are the
+    // provider's own DDL — kept as one ALTER TABLE family so the table is always the statement's subject.
+    | RENAME TO newName=identifier                                  # RenameTableAction
+    | RENAME COLUMN field=identifier TO newName=identifier          # RenameColumnAction
+    | RENAME INDEX index=identifier TO newName=identifier           # RenameIndexAction
     ;
 
 // A procedure body is any statement Access allows. We store/execute the ones we know (SELECT, INSERT,
@@ -368,6 +373,8 @@ ROLLBACK    : [Rr][Oo][Ll][Ll][Bb][Aa][Cc][Kk] ;
 TRANSACTION : [Tt][Rr][Aa][Nn][Ss][Aa][Cc][Tt][Ii][Oo][Nn] ;
 WORK        : [Ww][Oo][Rr][Kk] ;
 ALTER     : [Aa][Ll][Tt][Ee][Rr] ;
+RENAME    : [Rr][Ee][Nn][Aa][Mm][Ee] ;
+TO        : [Tt][Oo] ;
 ADD       : [Aa][Dd][Dd] ;
 DROP      : [Dd][Rr][Oo][Pp] ;
 COLUMN    : [Cc][Oo][Ll][Uu][Mm][Nn] ;

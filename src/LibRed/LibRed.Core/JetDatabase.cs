@@ -304,6 +304,26 @@ public sealed class JetDatabase : IDisposable
     public bool DropConstraint(string childTable, string name) =>
         new Storage.TableCreator(_channel, Catalog).DropConstraint(childTable, name);
 
+    /// <summary>Renames a table — ALTER TABLE … RENAME TO. Updates MSysObjects.Name and repoints the by-name
+    /// table references in MSysRelationships; indexes and stored queries are left alone, matching ACE. Returns
+    /// false if the table doesn't exist; throws if the new name is taken.</summary>
+    public bool RenameTable(string oldName, string newName)
+    {
+        bool renamed = new Storage.TableCreator(_channel, Catalog).RenameTable(oldName, newName);
+        if (renamed) Catalog.Invalidate(); // the cached TableDefs still carry the old name
+        return renamed;
+    }
+
+    /// <summary>Renames a column — ALTER TABLE … RENAME COLUMN … TO. Rewrites the name in the TDEF, repoints
+    /// MSysRelationships' by-name column references, and re-owns the column's LvProp properties so it keeps its
+    /// DEFAULT. Returns false if the column doesn't exist; throws if the new name is taken on that table.</summary>
+    public bool RenameColumn(string table, string oldName, string newName)
+    {
+        bool renamed = new Storage.TableCreator(_channel, Catalog).RenameColumn(table, oldName, newName);
+        if (renamed) Catalog.Invalidate();
+        return renamed;
+    }
+
     /// <summary>Drops a column — ALTER TABLE … DROP COLUMN. A metadata-only TDEF edit (survivors and rows are
     /// untouched). Returns false if the column doesn't exist; throws for an indexed/keyed or memo/OLE column.</summary>
     public bool DropColumn(string table, string column) =>

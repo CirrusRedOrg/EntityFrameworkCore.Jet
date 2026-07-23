@@ -1,7 +1,6 @@
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
-using EntityFrameworkCore.Jet.Data;
 using LibRed.Engine;
 
 namespace LibRed.Data;
@@ -117,20 +116,31 @@ public sealed class LibRedConnection : DbConnection
         CreateDualTable(path);
     }
 
-    // EFCore.Jet's query generator renders FROM-less scalar queries (All/Any/Count/constant projections) as
-    // `FROM (SELECT COUNT(*) FROM `#Dual`)`, so every provider-created database needs a single-row `#Dual`
-    // helper table (Jet has no Oracle-style DUAL). The DAO/ADOX creation path did this via
-    // ISchemaOperationsProvider.EnsureDualTable; native creation must do the same or those queries fail to bind.
-    // The leading '#' keeps it out of Catalog.UserTables (so HasUserTables() ignores it) while the binder still
-    // resolves it by name.
+    /// <summary>
+    /// The single-row helper table every provider-created database carries. EFCore.Jet's query generator
+    /// renders FROM-less scalar queries (All/Any/Count/constant projections) as
+    /// <c>FROM (SELECT COUNT(*) FROM `#Dual`)</c>, because Jet has no Oracle-style DUAL. The leading '#'
+    /// keeps it out of <c>Catalog.UserTables</c> (so <c>HasUserTables()</c> ignores it) while the binder
+    /// still resolves it by name.
+    /// </summary>
+    /// <remarks>
+    /// Spelled out here rather than read from <c>JetConnection.DefaultDualTableName</c>: it is the same
+    /// name by necessity — EF's generated SQL is what has to find the table — but sharing one constant was
+    /// the last thing tying this assembly to the Windows-only EFCore.Jet.Data, for no benefit beyond a
+    /// five-character string.
+    /// </remarks>
+    internal const string DualTableName = "#Dual";
+
+    // The DAO/ADOX creation path created this via ISchemaOperationsProvider.EnsureDualTable; native
+    // creation must do the same or those queries fail to bind.
     private static void CreateDualTable(string path)
     {
         using var db = JetDatabase.Open(path, readOnly: false);
         db.CreateTable(
-            JetConnection.DefaultDualTableName,
+            DualTableName,
             [new LibRed.Catalog.ColumnSpec("ID", LibRed.Catalog.JetDataType.Int32, 4, IsFixedLength: true, IsNullable: false)],
             primaryKey: ["ID"]);
-        db.OpenTable(JetConnection.DefaultDualTableName).Insert([1]);
+        db.OpenTable(DualTableName).Insert([1]);
     }
 
     /// <summary>Deletes the database file named by <paramref name="connectionString"/>, if it exists.</summary>

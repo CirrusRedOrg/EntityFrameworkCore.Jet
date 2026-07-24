@@ -50,6 +50,16 @@ public static class LibRedServiceCollectionExtensions
         new EntityFrameworkRelationalServicesBuilder(serviceCollection)
             .TryAdd<IRelationalTypeMappingSource, LibRedTypeMappingSource>();
         serviceCollection.AddScoped<IExecutionStrategyFactory, LibRedExecutionStrategyFactory>();
+        // EFCore.Jet's JetTransaction disables savepoints (ACE has none). LibRed's engine and ADO layer both
+        // support them, so swap in a factory that builds EF Core's base RelationalTransaction, which honours
+        // savepoints via the ADO transaction. Same shape as the type-mapping swap above: drop Jet's descriptor
+        // (TryAdd won't replace it), then re-add ours through the services builder at the conventional lifetime.
+        foreach (ServiceDescriptor jetTxFactory in serviceCollection.Where(d =>
+                     d.ServiceType == typeof(IRelationalTransactionFactory) &&
+                     d.ImplementationType == typeof(JetTransactionFactory)).ToList())
+            serviceCollection.Remove(jetTxFactory);
+        new EntityFrameworkRelationalServicesBuilder(serviceCollection)
+            .TryAdd<IRelationalTransactionFactory, LibRedTransactionFactory>();
         return serviceCollection;
     }
 }

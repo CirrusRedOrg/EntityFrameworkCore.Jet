@@ -63,10 +63,12 @@ public sealed class LibRedTransaction : DbTransaction
             throw new InvalidOperationException("This transaction has already been committed or rolled back.");
     }
 
+    // A DbException (not a plain InvalidOperationException): referencing a released/never-opened savepoint is a
+    // database-operation error, and callers — EF Core's transaction tests included — expect DbException for it.
     private Savepoint Lookup(string name) =>
         _savepoints.TryGetValue(name, out Savepoint sp)
             ? sp
-            : throw new InvalidOperationException($"No savepoint named '{name}' is open in this transaction.");
+            : throw new LibRedException($"No savepoint named '{name}' is open in this transaction.", 0);
 
     public override void Commit()
     {

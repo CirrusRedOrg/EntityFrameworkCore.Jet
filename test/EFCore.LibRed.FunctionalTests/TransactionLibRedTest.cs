@@ -17,7 +17,6 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         protected override bool SnapshotSupported => false;
         protected override bool AmbientTransactionsSupported => false;
         protected override bool DirtyReadsOccur => false;
-        protected override bool SavepointsSupported => false;
 
         protected override DbContext CreateContextWithConnectionString()
         {
@@ -30,30 +29,6 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 .UseInternalServiceProvider(Fixture.ServiceProvider);
 
             return new DbContext(options.Options);
-        }
-
-        [ConditionalTheory(Skip = "LibRed does not support savepoints")]
-        [InlineData(true)]
-        [InlineData(false)]
-        public override Task Savepoint_can_be_released(bool async)
-        {
-            return base.Savepoint_can_be_released(async);
-        }
-
-        [ConditionalTheory(Skip = "LibRed does not support savepoints")]
-        [InlineData(true)]
-        [InlineData(false)]
-        public override Task Savepoint_can_be_rolled_back(bool async)
-        {
-            return base.Savepoint_can_be_rolled_back(async);
-        }
-
-        [ConditionalTheory(Skip = "LibRed does not support savepoints")]
-        [InlineData(true)]
-        [InlineData(false)]
-        public override Task Savepoint_name_is_quoted(bool async)
-        {
-            return base.Savepoint_name_is_quoted(async);
         }
 
         public class TransactionLibRedFixture : TransactionFixtureBase

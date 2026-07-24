@@ -2164,7 +2164,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                     // discovery, so this registration wins — and the test needs no Access engine installed.
                     var databaseModelFactory = LibRedTestHelpers.Instance.CreateDesignServiceProvider(
                             addDesignTimeServices: services =>
-                                services.AddSingleton<IDatabaseModelFactory, LibRedDatabaseModelFactory>(),
+                                services.AddScoped<IDatabaseModelFactory, LibRedDatabaseModelFactory>(),
                             reporter: Fixture.OperationReporter)
                         .CreateScope().ServiceProvider.GetRequiredService<IDatabaseModelFactory>();
 

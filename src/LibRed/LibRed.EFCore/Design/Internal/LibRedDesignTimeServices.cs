@@ -15,7 +15,10 @@ public class LibRedDesignTimeServices : JetDesignTimeServices
     public override void ConfigureDesignTimeServices(IServiceCollection serviceCollection)
     {
         base.ConfigureDesignTimeServices(serviceCollection);
-        // Registered after the base Jet factory; the later registration wins on resolution.
-        serviceCollection.AddSingleton<IDatabaseModelFactory, LibRedDatabaseModelFactory>();
+        // Registered after the base Jet factory; the later registration wins on resolution. Scoped, NOT
+        // singleton, to match EF Core's conventional lifetime for IDatabaseModelFactory (which the base Jet
+        // registration gets via TryAdd): the factory depends on the scoped scaffolding logger, so a singleton
+        // would capture a scoped ILoggerFactory and fail service-provider scope validation.
+        serviceCollection.AddScoped<IDatabaseModelFactory, LibRedDatabaseModelFactory>();
     }
 }

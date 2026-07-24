@@ -70,7 +70,7 @@ jobs:
           fetch-depth: 0
       - name: 'Filter Changed Paths'
         id: Filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           # Diff only THIS push's commits. Without a base, paths-filter defaults a non-default-branch push to
           # the merge-base with the default branch (master), which on a long-lived branch like `libred` means

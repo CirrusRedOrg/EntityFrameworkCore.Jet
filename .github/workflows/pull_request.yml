@@ -68,7 +68,7 @@ jobs:
           fetch-depth: 0
       - name: 'Filter Changed Paths'
         id: Filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             # Anything here rebuilds the world, so it belongs to both sides.

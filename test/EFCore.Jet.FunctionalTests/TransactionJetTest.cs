@@ -5,6 +5,7 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Infrastructure;
 using EntityFrameworkCore.Jet.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 
@@ -64,6 +65,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                 new JetDbContextOptionsBuilder(
                         base.AddOptions(builder))
                     .ExecutionStrategy(c => new JetExecutionStrategy(c));
+                // Jet doesn't support ambient transactions (like SQLite); the enlisted-transaction conformance
+                // test needs the warning logged rather than thrown so it can read it from the log. Configure it
+                // here (test-side), not in the provider — matching EFCore.Sqlite's TransactionSqliteTest fixture.
+                builder.ConfigureWarnings(w => w.Log(RelationalEventId.AmbientTransactionWarning));
                 return builder;
             }
         }

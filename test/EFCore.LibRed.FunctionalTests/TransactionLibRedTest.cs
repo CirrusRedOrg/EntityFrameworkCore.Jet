@@ -5,6 +5,7 @@ using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.LibRed.Infrastructure;
 using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 
@@ -64,6 +65,11 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 new LibRedDbContextOptionsBuilder(
                         base.AddOptions(builder))
                     .ExecutionStrategy(c => new LibRedExecutionStrategy(c));
+                // LibRed doesn't support ambient transactions (nor does SQLite). The provider leaves EF's
+                // default (Throw) so real users still get it; the enlisted-transaction conformance test needs
+                // the warning logged instead so it can read it from the log, so downgrade it here — test-side —
+                // exactly as EFCore.Sqlite's TransactionSqliteTest fixture does.
+                builder.ConfigureWarnings(w => w.Log(RelationalEventId.AmbientTransactionWarning));
                 return builder;
             }
         }

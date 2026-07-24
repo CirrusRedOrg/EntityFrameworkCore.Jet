@@ -263,10 +263,6 @@ public static class LibRedDbContextOptionsBuilderExtensions
 
         coreOptionsExtension = RelationalOptionsExtension.WithDefaultWarningConfiguration(coreOptionsExtension);
 
-        coreOptionsExtension = coreOptionsExtension.WithWarningsConfiguration(
-            coreOptionsExtension.WarningsConfiguration.TryWithExplicit(
-                RelationalEventId.AmbientTransactionWarning, WarningBehavior.Throw));
-
         ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(coreOptionsExtension);
     }
 }

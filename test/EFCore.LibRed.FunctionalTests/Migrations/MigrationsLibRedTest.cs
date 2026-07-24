@@ -4,6 +4,7 @@
 
 using EntityFrameworkCore.Jet.Internal;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -39,6 +40,15 @@ public class MigrationsLibRedTest : MigrationsTestBase<MigrationsLibRedTest.Migr
         Fixture.TestSqlLoggerFactory.Clear();
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
+
+    // LibRed reuses EFCore.Jet's design-time code generators, so generated model snapshots
+    // reference Jet types (JetValueGenerationStrategy, using EntityFrameworkCore.Jet). The base
+    // compiles the snapshot against ActiveProvider only, which is now "EntityFrameworkCore.LibRed"
+    // (since LibRed owns its provider identity) and does not contain those Jet types. Add the Jet
+    // assembly explicitly. Remove once LibRed owns its own migrations annotation/code generators
+    // (same transitional coupling as this project's CA1416 suppression).
+    protected override ICollection<BuildReference> GetAdditionalReferences()
+        => [.. base.GetAdditionalReferences(), BuildReference.ByName("EntityFrameworkCore.Jet")];
 
     public override async Task Create_table()
     {

@@ -1,4 +1,6 @@
+using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.LibRed.Infrastructure.Internal;
 using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -24,10 +26,14 @@ public static class LibRedServiceCollectionExtensions
         // (and therefore IRelationalConnection, which Jet forwards to it) resolve to the same instance.
         // Registering on the LibRed interface — not IJetRelationalConnection — lets tests and downstream
         // code override "the LibRed connection" without naming a Jet type.
-        serviceCollection.AddScoped<ILibRedRelationalConnection, LibRedRelationalConnection>();
-        serviceCollection.AddScoped<IJetRelationalConnection>(p => p.GetRequiredService<ILibRedRelationalConnection>());
+        // TryAdd/Replace (never plain Add) so a second AddEntityFrameworkLibRed() call is idempotent and Jet's
+        // original registration doesn't linger beside ours — the service-collection conformance test checks both
+        // (Repeated_calls_to_add_do_not_modify_collection, Required_services_are_registered_with_expected_lifetimes).
+        serviceCollection.TryAddScoped<ILibRedRelationalConnection, LibRedRelationalConnection>();
+        serviceCollection.Replace(ServiceDescriptor.Scoped<IJetRelationalConnection>(
+            p => p.GetRequiredService<ILibRedRelationalConnection>()));
         // Answer existence / has-tables from LibRed's catalog instead of INFORMATION_SCHEMA + ADOX.
-        serviceCollection.AddScoped<IRelationalDatabaseCreator, LibRedDatabaseCreator>();
+        serviceCollection.Replace(ServiceDescriptor.Scoped<IRelationalDatabaseCreator, LibRedDatabaseCreator>());
         // Substitute the driver-free `long` mapping (DbType reflects the decimal(20,0) it's stored as) for
         // EFCore.Jet's, which only reports Decimal via an OLE DB/ODBC reflection poke a native engine can't use.
         //
@@ -49,7 +55,17 @@ public static class LibRedServiceCollectionExtensions
             serviceCollection.Remove(jetMapping);
         new EntityFrameworkRelationalServicesBuilder(serviceCollection)
             .TryAdd<IRelationalTypeMappingSource, LibRedTypeMappingSource>();
-        serviceCollection.AddScoped<IExecutionStrategyFactory, LibRedExecutionStrategyFactory>();
+        serviceCollection.Replace(ServiceDescriptor.Scoped<IExecutionStrategyFactory, LibRedExecutionStrategyFactory>());
+        // Report LibRed's own provider identity in logs/diagnostics ("EntityFrameworkCore.LibRed", not
+        // "EntityFrameworkCore.Jet"): IDatabaseProvider's Name is DatabaseProvider<TOptionsExtension>'s
+        // options-extension assembly name. Swap Jet's registration (keyed on JetOptionsExtension) for one keyed
+        // on LibRedOptionsExtension. Same remove-then-TryAdd shape as the other service swaps.
+        foreach (ServiceDescriptor jetProvider in serviceCollection.Where(d =>
+                     d.ServiceType == typeof(IDatabaseProvider) &&
+                     d.ImplementationType == typeof(DatabaseProvider<JetOptionsExtension>)).ToList())
+            serviceCollection.Remove(jetProvider);
+        new EntityFrameworkRelationalServicesBuilder(serviceCollection)
+            .TryAdd<IDatabaseProvider, DatabaseProvider<LibRedOptionsExtension>>();
         // EFCore.Jet's JetTransaction disables savepoints (ACE has none). LibRed's engine and ADO layer both
         // support them, so swap in a factory that builds EF Core's base RelationalTransaction, which honours
         // savepoints via the ADO transaction. Same shape as the type-mapping swap above: drop Jet's descriptor

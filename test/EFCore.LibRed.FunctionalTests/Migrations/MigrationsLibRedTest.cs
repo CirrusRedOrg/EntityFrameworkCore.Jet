@@ -787,7 +787,7 @@ ALTER TABLE `Animal` ADD `IdentityColumn` integer NOT NULL DEFAULT 0;
         AssertSql(
             """
 ALTER TABLE `People` ALTER COLUMN `SomeColumn` DROP DEFAULT;
-ALTER TABLE `People` ALTER COLUMN `SomeColumn` decimal(20, 0) NOT NULL;
+ALTER TABLE `People` ALTER COLUMN `SomeColumn` decimal(20,0) NOT NULL;
 """);
     }
 

@@ -600,9 +600,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        aceVersion:
-          - 2016
-    runs-on: windows-latest
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -610,17 +612,19 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+      # Windows keeps ACE installed as a control - its result is the known baseline. Linux and macOS run the
+      # suite with no Access engine at all: LibRed is meant to need none, so a test that fails only off
+      # Windows is a real cross-platform gap to chase, not noise.
       - name: Install Access Database Engine
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $setupFileName = 'AccessDatabaseEngine_${{ matrix.aceVersion }}_x64.exe'
+          $setupFileName = 'AccessDatabaseEngine_2016_x64.exe'
           Invoke-WebRequest "https://cirrusredorg.github.io/EntityFrameworkCore.Jet/$setupFileName" -OutFile $setupFileName
           & ".\$setupFileName" /passive /quiet /norestart REBOOT=ReallySuppress | Out-Default
       - name: 'Run Tests: EFCore.LibRed.FunctionalTests'
         if: env.skipTests != 'true'
-        shell: pwsh
-        run: dotnet test .\test\EFCore.LibRed.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 10m
-
+        run: dotnet test test/EFCore.LibRed.FunctionalTests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 10m
   MergeArtifacts:
     needs: BuildAndTest
     if: always()

@@ -2,6 +2,22 @@
 
 Status: **draft / accepted direction** · Date: 2026-07-18
 
+> **Implementation note (2026-07-24) — isolation is a deferred-write overlay, not undo + strict 2PL.**
+> Isolation shipped by a simpler route than the write-through-undo-under-held-locks sketch in §3 L1 / §4.
+> `PageChannel` now buffers a transaction's writes into a **private per-connection overlay**
+> (`page → uncommitted bytes`) instead of writing them through to disk and the shared page cache. Reads on the
+> owning channel see the overlay (read-your-writes); every other channel on the file sees only committed
+> state — so a concurrent reader never observes an uncommitted page. **Commit** replays the overlay to
+> disk + shared cache in ascending page order; **rollback** simply discards it (nothing to restore, truncate,
+> or flush); **savepoints** snapshot the prior overlay state per frame (`Transaction`). This gives
+> **read-committed** isolation **without holding exclusive locks for the transaction's lifetime** — so the
+> writer-serialization / reader-blocking of strict 2PL (§4) is not needed for isolation, and EF's parallel
+> shared-store tests (each mutating inside a rolled-back transaction) no longer leak into concurrent readers.
+> The exclusive page lock is now held only for the duration of an individual committed page write, not the
+> whole transaction. The undo log described below is gone. Everything else here — the lock-manager layering
+> (L0), the ACE co-residency constraint (§2), commit-byte / cross-process protocol, cascade worklist — still
+> stands as the roadmap. See `TransactionIsolationTests` and [[libred-parallel-dirty-read-flakiness]].
+
 This is the ground-up design for LibRed's transaction support and the concurrency
 infrastructure it sits on. It replaces the ad-hoc page-level undo log currently in
 `PageChannel`, and is written so the localized atomicity gaps the production audit

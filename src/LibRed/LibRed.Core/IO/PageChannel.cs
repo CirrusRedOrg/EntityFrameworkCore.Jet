@@ -29,10 +29,18 @@ public sealed class PageChannel : IDisposable
     private readonly ILockManager? _locks;
     private readonly bool _ownsLocks;
 
-    // The open transaction's before-image/savepoint bookkeeping (null when none is open). This channel is the
-    // I/O executor; the Transaction only tracks what to undo. Pages allocated during a frame lie beyond its
-    // start length and are not snapshotted — rollback truncates the file to drop them.
+    // The open transaction's savepoint bookkeeping (null when none is open). This channel is the I/O executor;
+    // the Transaction only tracks what a savepoint rollback must restore.
     private Transaction? _active;
+
+    // Deferred-write overlay for the open transaction: page -> uncommitted plaintext bytes. Transactional writes
+    // land here instead of on disk / in the shared cache, so a concurrent channel on the same file never sees
+    // this channel's uncommitted pages (read-committed isolation). Commit replays it; rollback discards it.
+    // Per-channel and only touched while a transaction is open, so a channel's own single thread owns it — no
+    // lock. `_txPageCount` is the logical page count during a transaction (committed pages plus any the overlay
+    // allocated), since deferred allocations do not grow the file until commit.
+    private readonly Dictionary<int, byte[]> _overlay = [];
+    private int _txPageCount;
 
     private PageChannel(FileStream stream, JetFormatBase format, bool readOnly, string path, IPageCodec? codec, ILockManager? locks)
     {
@@ -54,8 +62,9 @@ public sealed class PageChannel : IDisposable
 
     public int PageSize => Format.PageSize;
 
-    /// <summary>Number of pages currently in the file.</summary>
-    public int PageCount => (int)(_stream.Length / PageSize);
+    /// <summary>Number of pages currently in the file — or, inside a transaction, the logical count including
+    /// pages the overlay has allocated but not yet written to disk.</summary>
+    public int PageCount => _active is not null ? _txPageCount : (int)(_stream.Length / PageSize);
 
     /// <summary>
     /// Opens a database file, sniffs its Jet/ACE version from page 0 and resolves the
@@ -139,6 +148,10 @@ public sealed class PageChannel : IDisposable
     /// </summary>
     public PageBuffer ReadPageShared(int pageNumber)
     {
+        // Read-your-own-writes: a page this transaction has written lives only in the overlay until commit.
+        if (_active is not null && _overlay.TryGetValue(pageNumber, out byte[]? buffered))
+            return new PageBuffer(buffered, pageNumber);
+
         // Cache hit: the cache's own lock makes the lookup atomic and copy-on-write Store keeps the returned
         // array stable, so no page lock is needed — this is the hot path and stays coordination-free.
         if (_cache.TryGetArray(pageNumber, out byte[] cached))
@@ -168,6 +181,13 @@ public sealed class PageChannel : IDisposable
     {
         if (destination.Length < PageSize)
             throw new ArgumentException($"Buffer must be at least {PageSize} bytes.", nameof(destination));
+
+        // Read-your-own-writes: a page this transaction has written lives only in the overlay until commit.
+        if (_active is not null && _overlay.TryGetValue(pageNumber, out byte[]? buffered))
+        {
+            buffered.CopyTo(destination);
+            return;
+        }
 
         // Cache hit: served under the cache's own lock, no page lock needed (the hot path).
         if (_cache.TryRead(pageNumber, destination))
@@ -206,24 +226,29 @@ public sealed class PageChannel : IDisposable
         if (pageNumber < 0)
             throw new ArgumentOutOfRangeException(nameof(pageNumber));
 
+        // Inside a transaction, defer the write into the private overlay — invisible to other channels until
+        // commit. Snapshot the page's prior overlay state (once per savepoint frame) so a savepoint rollback can
+        // restore it, then buffer a private copy of the new bytes and advance the logical page count.
+        if (_active is not null)
+        {
+            if (_active.NeedsBeforeImage(pageNumber))
+                _active.RecordBeforeImage(pageNumber, _overlay.TryGetValue(pageNumber, out byte[]? prior) ? prior : null);
+            _overlay[pageNumber] = source[..PageSize].ToArray();
+            if (pageNumber >= _txPageCount) _txPageCount = pageNumber + 1;
+            return;
+        }
+
+        WriteThrough(pageNumber, source);
+    }
+
+    /// <summary>Writes a page to disk and the shared cache (the committed path): encrypts a copy on the way to
+    /// disk for an encrypted file while caching plaintext, growing the file if the page lies past its end. Used
+    /// for non-transactional writes and to publish each overlay page on commit.</summary>
+    private void WriteThrough(int pageNumber, ReadOnlySpan<byte> source)
+    {
         _locks?.EnterExclusive(pageNumber);
         try
         {
-            // Before the first write within the current savepoint frame to a page that pre-dates that frame,
-            // snapshot its current (raw, on-disk) bytes so rollback can restore them. Pages allocated within the
-            // frame lie beyond its start length and need no snapshot — rollback truncates them away wholesale.
-            if (_active is not null)
-            {
-                long snapshotOffset = (long)pageNumber * PageSize;
-                if (_active.NeedsBeforeImage(pageNumber, snapshotOffset))
-                {
-                    var original = new byte[PageSize];
-                    _stream.Seek(snapshotOffset, SeekOrigin.Begin);
-                    _stream.ReadExactly(original);
-                    _active.RecordBeforeImage(pageNumber, original);
-                }
-            }
-
             // The cache holds plaintext and the disk holds ciphertext (for an encrypted file), so encrypt a copy
             // on the way to disk — the mirror of ReadPage's decrypt — while caching the plaintext. Page 0 is a
             // no-op inside the codec (never page-encrypted).
@@ -276,33 +301,40 @@ public sealed class PageChannel : IDisposable
             throw new InvalidOperationException("This channel was opened read-only.");
         if (_active is not null)
             throw new InvalidOperationException("A transaction is already in progress.");
-        return _active = new Transaction(_stream.Length);
+        _overlay.Clear();
+        _txPageCount = PageCount; // committed count at start (PageCount is still file-based while _active is null)
+        return _active = new Transaction(_txPageCount);
     }
 
-    /// <summary>Commits the current transaction: the writes are already on disk (write-through), so this just
-    /// discards the undo bookkeeping. No-op if no transaction is open. <paramref name="flush"/> forces the OS
-    /// buffers to disk (durability) — used by an explicit user commit; an implicit per-statement autocommit
-    /// passes false, matching the pre-transaction behaviour of flushing only on <see cref="Dispose"/> rather
-    /// than fsyncing every statement.</summary>
+    /// <summary>Commits the current transaction: publishes every buffered overlay page to disk and the shared
+    /// cache — making the writes visible to other channels for the first time — in ascending page order so the
+    /// file grows monotonically. No-op if no transaction is open. <paramref name="flush"/> forces the OS buffers
+    /// to disk (durability) — used by an explicit user commit; an implicit per-statement autocommit passes false,
+    /// matching the pre-transaction behaviour of flushing only on <see cref="Dispose"/> rather than fsyncing
+    /// every statement.</summary>
     public void CommitTransaction(bool flush = true)
     {
         if (_active is null) return;
-        _active = null;
+
+        int[] pages = _overlay.Keys.ToArray();
+        Array.Sort(pages);
+        _active = null; // clear first so WriteThrough takes the committed path and PageCount reverts to the file
+        foreach (int page in pages)
+            WriteThrough(page, _overlay[page]);
+        _overlay.Clear();
+
         if (flush) _stream.Flush(flushToDisk: true);
     }
 
     /// <summary>
-    /// Rolls the current transaction back: restores every snapshotted page to its pre-transaction
-    /// bytes and truncates the file to its pre-transaction length (dropping any pages allocated
-    /// during the transaction). No-op if no transaction is open.
+    /// Rolls the current transaction back by discarding its overlay. Nothing the transaction wrote ever reached
+    /// disk or the shared cache, so there is nothing to restore, truncate or flush. No-op if none is open.
     /// </summary>
     public void RollbackTransaction()
     {
         if (_active is null) return;
-        var (images, truncateTo) = _active.TakeForRollback();
-        RestoreImages(images, truncateTo);
+        _overlay.Clear();
         _active = null;
-        _stream.Flush(flushToDisk: true);
     }
 
     /// <summary>Opens a savepoint in the current transaction; pass the handle to
@@ -311,7 +343,7 @@ public sealed class PageChannel : IDisposable
     {
         if (_active is null)
             throw new InvalidOperationException("No transaction is in progress.");
-        return _active.Save(_stream.Length);
+        return _active.Save(_txPageCount);
     }
 
     /// <summary>Rolls the transaction back to <paramref name="savepoint"/>: undoes every write made since it was
@@ -320,8 +352,8 @@ public sealed class PageChannel : IDisposable
     {
         if (_active is null)
             throw new InvalidOperationException("No transaction is in progress.");
-        var (images, truncateTo) = _active.TakeForRollbackTo(savepoint);
-        RestoreImages(images, truncateTo);
+        var (before, pageCount) = _active.TakeForRollbackTo(savepoint);
+        RestoreOverlay(before, pageCount);
     }
 
     /// <summary>Releases <paramref name="savepoint"/>, merging its changes into the enclosing scope. Only the
@@ -333,36 +365,40 @@ public sealed class PageChannel : IDisposable
         _active.Release(savepoint);
     }
 
-    /// <summary>Restores raw before-images to disk and the plaintext pool, then truncates to
-    /// <paramref name="truncateTo"/> (dropping pages allocated past that point). Images are applied newest-first
-    /// so the oldest snapshot wins for a page touched in several frames; an image beyond the truncation point is
-    /// written but then dropped by the truncation, which keeps the logic simple and correct.</summary>
-    private void RestoreImages(List<KeyValuePair<int, byte[]>> images, long truncateTo)
+    /// <summary>Restores the overlay to a savepoint: each before-image is re-applied newest-first so the oldest
+    /// snapshot wins for a page touched in several frames — a <c>null</c> image means the page was absent at the
+    /// savepoint, so drop it. The logical page count is reset, dropping overlay pages the rolled-back frames
+    /// allocated. Nothing touches disk or the shared cache; the overlay never left this channel.</summary>
+    private void RestoreOverlay(List<KeyValuePair<int, byte[]?>> before, int pageCount)
     {
-        foreach (var (pageNumber, original) in images)
+        foreach (var (page, image) in before)
         {
-            // `original` is the raw on-disk image (ciphertext for an encrypted file) — write it back verbatim,
-            // but keep the pool in plaintext by decrypting a copy for the cache.
-            _stream.Seek((long)pageNumber * PageSize, SeekOrigin.Begin);
-            _stream.Write(original);
-            byte[] plain = original;
-            if (_codec is not null) { plain = (byte[])original.Clone(); _codec.DecryptPage(pageNumber, plain); }
-            _cache.Store(pageNumber, plain);
+            if (image is null) _overlay.Remove(page);
+            else _overlay[page] = image;
         }
-
-        _stream.SetLength(truncateTo);
-        _cache.EvictFrom((int)(truncateTo / PageSize)); // drop pages that the truncation removed
+        _txPageCount = pageCount;
     }
 
     /// <summary>Retrieves a higher-layer parse of a page previously stored via <see cref="SetParsedPage"/>
     /// (e.g. an index page's decoded entries), or false if none is cached. The parse is dropped automatically
     /// when the page is written (any channel) or evicted, so a hit is always consistent with the current bytes.</summary>
-    public bool TryGetParsedPage(int pageNumber, out object? parsed) => _cache.TryGetParsed(pageNumber, out parsed);
+    public bool TryGetParsedPage(int pageNumber, out object? parsed)
+    {
+        // A page buffered in this transaction's overlay has uncommitted bytes; the shared parsed cache reflects
+        // the committed image, so don't serve it — force a re-parse of the overlay bytes instead.
+        if (_active is not null && _overlay.ContainsKey(pageNumber)) { parsed = null; return false; }
+        return _cache.TryGetParsed(pageNumber, out parsed);
+    }
 
     /// <summary>Caches a higher-layer parse of a (resident) page so repeated reads — e.g. a B-tree descent that
     /// re-visits the same root/internal pages — can skip re-decoding it. The caller must not mutate the object
     /// afterwards, as it is shared with other readers of the same file.</summary>
-    public void SetParsedPage(int pageNumber, object parsed) => _cache.SetParsed(pageNumber, parsed);
+    public void SetParsedPage(int pageNumber, object parsed)
+    {
+        // Don't attach a transaction-local parse to the shared (committed) cache entry for an overlay page.
+        if (_active is not null && _overlay.ContainsKey(pageNumber)) return;
+        _cache.SetParsed(pageNumber, parsed);
+    }
 
     public void Flush() => _stream.Flush(flushToDisk: true);
 

@@ -4,63 +4,66 @@ namespace LibRed.IO;
 public readonly record struct Savepoint(int Index);
 
 /// <summary>
-/// A page-level, in-process transaction: a LIFO stack of savepoint frames. Each frame holds the
-/// <b>before-images</b> (raw on-disk bytes) of the pages it was the first to touch, plus the file length
-/// when the frame opened — so a rollback can restore those pages and drop any allocated after the frame.
+/// A page-level, in-process transaction implemented with <b>deferred writes</b>: the owning
+/// <see cref="PageChannel"/> buffers every transactional page write into a private overlay and publishes it to
+/// disk and the shared cache only on commit, so concurrent channels on the same file never observe uncommitted
+/// pages (read-committed isolation). A full rollback simply discards the overlay.
 ///
-/// This type only tracks <i>what to undo</i>; the owning <see cref="PageChannel"/> performs the actual page
-/// I/O (it is the only thing that can read/write/encrypt pages). Snapshotting is <b>per frame</b>: the first
-/// write to a page within a frame records that page's current bytes, so rolling back to a savepoint restores
-/// the page to its state <i>at</i> the savepoint, not at transaction start.
+/// <para>This type tracks only what is needed to roll back <b>to a savepoint</b>: a LIFO stack of frames, each
+/// recording — for every page it was the first to write — what the overlay held for that page <i>before</i>
+/// this frame touched it. A <c>null</c> before-image means the page was <b>absent</b> from the overlay at the
+/// frame's start, so restoring drops it. Each frame also captures the logical page count when it opened, the
+/// high-water mark to restore (pages the frame allocated are dropped). The owning channel performs the actual
+/// overlay restore; this type is pure bookkeeping.</para>
 /// </summary>
 public sealed class Transaction
 {
     private sealed class Frame
     {
-        public readonly Dictionary<int, byte[]> Before = [];
-        public long StartLength;
+        // page -> overlay bytes before this frame's first write to it; null = the page was not in the overlay.
+        public readonly Dictionary<int, byte[]?> Before = [];
+        public int StartPageCount;
     }
 
     private readonly List<Frame> _frames;
 
-    internal Transaction(long originalLength) => _frames = [new Frame { StartLength = originalLength }];
+    internal Transaction(int originalPageCount) => _frames = [new Frame { StartPageCount = originalPageCount }];
 
-    /// <summary>File length when the transaction began — the truncation target for a full rollback.</summary>
-    internal long OriginalLength => _frames[0].StartLength;
+    /// <summary>Logical page count when the transaction began — the high-water to restore on a full rollback.</summary>
+    internal int OriginalPageCount => _frames[0].StartPageCount;
 
     /// <summary>Nesting depth: 1 with no open savepoint, higher inside savepoints.</summary>
     internal int Depth => _frames.Count;
 
-    /// <summary>Whether the innermost frame needs a before-image for a page about to be written: the page must
-    /// pre-date this frame (offset below the frame's start length — pages allocated within the frame are dropped
-    /// by truncation, not restored) and not already be snapshotted in this frame.</summary>
-    internal bool NeedsBeforeImage(int page, long pageOffset) =>
-        pageOffset < _frames[^1].StartLength && !_frames[^1].Before.ContainsKey(page);
+    /// <summary>Whether the innermost frame still needs to snapshot the overlay state of a page about to be
+    /// written (i.e. this frame has not yet recorded a before-image for it).</summary>
+    internal bool NeedsBeforeImage(int page) => !_frames[^1].Before.ContainsKey(page);
 
-    /// <summary>Records a page's pre-write raw bytes in the innermost frame. Call only when
-    /// <see cref="NeedsBeforeImage"/> returned true.</summary>
-    internal void RecordBeforeImage(int page, byte[] rawOriginal) => _frames[^1].Before[page] = rawOriginal;
+    /// <summary>Records, in the innermost frame, what the overlay held for <paramref name="page"/> before this
+    /// frame's first write to it (<c>null</c> = it was absent). Call only when <see cref="NeedsBeforeImage"/>
+    /// returned true.</summary>
+    internal void RecordBeforeImage(int page, byte[]? priorOverlay) => _frames[^1].Before[page] = priorOverlay;
 
-    /// <summary>Opens a savepoint over the given current file length; returns a handle for
+    /// <summary>Opens a savepoint over the given current logical page count; returns a handle for
     /// <see cref="TakeForRollbackTo"/> / <see cref="Release"/>.</summary>
-    internal Savepoint Save(long currentLength)
+    internal Savepoint Save(int currentPageCount)
     {
-        _frames.Add(new Frame { StartLength = currentLength });
+        _frames.Add(new Frame { StartPageCount = currentPageCount });
         return new Savepoint(_frames.Count - 1);
     }
 
-    /// <summary>Collects the before-images to restore (newest first, so the oldest image wins for a page touched
-    /// in several frames) and the truncation length for rolling back to <paramref name="sp"/>. Discards the
-    /// frames above the savepoint and empties the savepoint's own frame, leaving it active for reuse. The caller
-    /// performs the restore I/O and truncation.</summary>
-    internal (List<KeyValuePair<int, byte[]>> Images, long TruncateTo) TakeForRollbackTo(Savepoint sp)
+    /// <summary>Collects the overlay before-images to restore (newest first, so the oldest image wins for a page
+    /// touched in several frames) and the logical page count for rolling back to <paramref name="sp"/>. Discards
+    /// the frames above the savepoint and empties the savepoint's own frame, leaving it active for reuse. The
+    /// caller applies the restore to the overlay.</summary>
+    internal (List<KeyValuePair<int, byte[]?>> Before, int PageCount) TakeForRollbackTo(Savepoint sp)
     {
         ValidateFrame(sp.Index);
-        var images = CollectNewestFirst(sp.Index);
-        long truncateTo = _frames[sp.Index].StartLength;
+        var before = CollectNewestFirst(sp.Index);
+        int pageCount = _frames[sp.Index].StartPageCount;
         _frames.RemoveRange(sp.Index + 1, _frames.Count - sp.Index - 1);
         _frames[sp.Index].Before.Clear();
-        return (images, truncateTo);
+        return (before, pageCount);
     }
 
     /// <summary>Releases (merges) the innermost savepoint into its parent: the child's changes become part of the
@@ -80,14 +83,15 @@ public sealed class Transaction
         _frames.RemoveAt(_frames.Count - 1);
     }
 
-    /// <summary>Collects every before-image (newest first) for a full rollback, and the transaction's original
-    /// length. The transaction is spent after this.</summary>
-    internal (List<KeyValuePair<int, byte[]>> Images, long TruncateTo) TakeForRollback() =>
-        (CollectNewestFirst(0), OriginalLength);
+    /// <summary>Collects every overlay before-image (newest first) for a full rollback, and the transaction's
+    /// original logical page count. The transaction is spent after this. (The channel may instead simply clear
+    /// the whole overlay, which is equivalent and cheaper.)</summary>
+    internal (List<KeyValuePair<int, byte[]?>> Before, int PageCount) TakeForRollback() =>
+        (CollectNewestFirst(0), OriginalPageCount);
 
-    private List<KeyValuePair<int, byte[]>> CollectNewestFirst(int fromFrame)
+    private List<KeyValuePair<int, byte[]?>> CollectNewestFirst(int fromFrame)
     {
-        var images = new List<KeyValuePair<int, byte[]>>();
+        var images = new List<KeyValuePair<int, byte[]?>>();
         for (int i = _frames.Count - 1; i >= fromFrame; i--)
             foreach (var kv in _frames[i].Before)
                 images.Add(kv);

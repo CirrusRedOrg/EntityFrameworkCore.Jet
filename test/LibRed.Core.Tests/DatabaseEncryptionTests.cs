@@ -6,7 +6,9 @@ namespace LibRed.Core.Tests;
 
 public class DatabaseEncryptionTests
 {
-    private static readonly string Plain = @"D:\toolkits\efcorejetlibred\test\LibRed.Core.Tests\Data\WideTable.accdb";
+    // Resolve against the test assembly's output (where the csproj copies Data\*.accdb), not a hardcoded
+    // machine path — the latter only exists on one dev box and breaks in CI (checkout is under D:\a\...).
+    private static readonly string Plain = TestDatabases.WideTableAccdb;
 
     private static string Copy()
     {

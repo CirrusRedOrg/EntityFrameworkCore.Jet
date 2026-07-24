@@ -1299,6 +1299,8 @@ internal sealed class ExpressionEvaluator(
     private static object Numeric(object v) => v is bool b ? (b ? -1 : 0) : v;
     private static decimal Dec(object v) => Convert.ToDecimal(Numeric(v), CultureInfo.InvariantCulture);
     private static double Dbl(object v) => Convert.ToDouble(Numeric(v), CultureInfo.InvariantCulture);
+    // Narrow to single precision (the cast yields ±Infinity for an out-of-range double rather than throwing).
+    private static float Sng(object v) => (float)Dbl(v);
     private static long Lng(object v) => Convert.ToInt64(Numeric(v), CultureInfo.InvariantCulture);
     private static int Int(object v) => Convert.ToInt32(Numeric(v), CultureInfo.InvariantCulture);
 
@@ -1318,13 +1320,23 @@ internal sealed class ExpressionEvaluator(
     private static int Compare(object left, object right)
     {
         if (IsNumeric(left) && IsNumeric(right))
-            // Compare in double when either side is floating point: a double/float can exceed decimal's range
-            // (e.g. EXP of a large value), and coercing it to decimal overflows. For integer/decimal operands
-            // keep decimal, which holds 64-bit integers and exact decimals without the precision loss double
-            // would introduce.
-            return left is double or float || right is double or float
+        {
+            // A single-precision operand (a Single column value, a CSNG result, a SUM of singles) compares in
+            // single precision — narrow the other side to Single too. Widening the single to double instead
+            // exposes its rounding (a stored -1.234f is -1.2339999675… as a double) and breaks equality against
+            // a double literal, whereas ACE compares the literal in the column's single precision (no CSNG in
+            // the SQL). Only a Single present, no genuine double column, triggers this.
+            if (left is float || right is float)
+                return Sng(left).CompareTo(Sng(right));
+
+            // Otherwise compare in double when either side is floating point: a double can exceed decimal's
+            // range (e.g. EXP of a large value) and coercing it to decimal overflows. For integer/decimal
+            // operands keep decimal, which holds 64-bit integers and exact decimals without the precision loss
+            // double would introduce.
+            return left is double || right is double
                 ? Dbl(left).CompareTo(Dbl(right))
                 : Dec(left).CompareTo(Dec(right));
+        }
 
         // Binary (byte[]) columns: structural, length-sensitive byte compare — lexicographic then by
         // length, so a shorter value sorts before a longer one sharing its prefix (Jet's binary order,

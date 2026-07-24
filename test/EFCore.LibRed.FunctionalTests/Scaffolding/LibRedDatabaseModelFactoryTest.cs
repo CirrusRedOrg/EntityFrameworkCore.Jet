@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.LibRed.Scaffolding.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Scaffolding;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -2157,7 +2158,13 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
 
                 try
                 {
+                    // Scaffold through LibRed's own native, cross-platform catalog reader rather than the
+                    // Jet ADOX factory that provider-assembly discovery would otherwise resolve (LibRed's
+                    // IDatabaseProvider comes from EFCore.Jet). addDesignTimeServices runs after that
+                    // discovery, so this registration wins — and the test needs no Access engine installed.
                     var databaseModelFactory = LibRedTestHelpers.Instance.CreateDesignServiceProvider(
+                            addDesignTimeServices: services =>
+                                services.AddSingleton<IDatabaseModelFactory, LibRedDatabaseModelFactory>(),
                             reporter: Fixture.OperationReporter)
                         .CreateScope().ServiceProvider.GetRequiredService<IDatabaseModelFactory>();
 

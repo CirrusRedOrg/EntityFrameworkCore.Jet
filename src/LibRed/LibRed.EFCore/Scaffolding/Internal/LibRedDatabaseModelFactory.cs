@@ -56,10 +56,19 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
 
         foreach (string table in tableList)
         {
-            if (databaseModel.Tables.All(t => !string.Equals(t.Name, table, StringComparison.OrdinalIgnoreCase)))
+            string parsed = StripDelimiters(table);
+            if (databaseModel.Tables.All(t => !string.Equals(t.Name, parsed, StringComparison.OrdinalIgnoreCase)))
             {
                 _logger.MissingTableWarning(table);
             }
+        }
+
+        // Access has no schemas, so every requested schema is "missing" — warn, matching EFCore.Jet's factory.
+        foreach (string schema in options.Schemas
+                     .Where(s => !string.IsNullOrWhiteSpace(s))
+                     .Except(databaseModel.Tables.Select(t => t.Schema ?? string.Empty), StringComparer.OrdinalIgnoreCase))
+        {
+            _logger.MissingSchemaWarning(schema);
         }
 
         return databaseModel;
@@ -292,8 +301,20 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
 
     private static Func<string, bool>? GenerateTableFilter(IReadOnlyList<string> tables)
     {
-        var wanted = tables.Where(t => !string.IsNullOrWhiteSpace(t)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var wanted = tables.Where(t => !string.IsNullOrWhiteSpace(t))
+            .Select(StripDelimiters)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         return wanted.Count > 0 ? name => wanted.Contains(name) : null;
+    }
+
+    /// <summary>Strips a leading/trailing <c>`..`</c> or <c>[..]</c> identifier delimiter so a filter given as
+    /// <c>`K2`</c> matches the bare table name <c>K2</c> (mirrors EFCore.Jet's <c>Parse</c>).</summary>
+    private static string StripDelimiters(string name)
+    {
+        name = name.Trim();
+        return name.Length >= 2 && ((name[0] == '`' && name[^1] == '`') || (name[0] == '[' && name[^1] == ']'))
+            ? name[1..^1]
+            : name;
     }
 
     /// <summary>Converts a column's stored default-value text (e.g. <c>"0"</c>, <c>"'hi'"</c>, <c>"-1"</c>) to
@@ -320,12 +341,12 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                 JetDataType.Single => float.Parse(text, ci),
                 JetDataType.Double => double.Parse(text, ci),
                 JetDataType.Currency or JetDataType.FixedPoint => decimal.Parse(text, ci),
-                JetDataType.Guid => Guid.Parse(text.Trim('{', '}')),
+                JetDataType.Guid => Guid.Parse(Unquote(text).Trim('{', '}')),
                 // Temporal defaults: a bare date → DateOnly, date+time → DateTime, a time span → TimeOnly/TimeSpan
                 // (matching EFCore.Jet's scaffolder). A function default (Now()/Date()) matches none → raw text.
                 JetDataType.DateTime or JetDataType.DateTimeExtended => ParseTemporalDefault(text) ?? (object)text,
                 // A string literal is single-quoted with doubled inner quotes: 'Bon app''' → Bon app'.
-                JetDataType.Text or JetDataType.Memo => Unquote(text),
+                JetDataType.Text or JetDataType.Memo => ParseStringDefault(text),
                 _ => text,
             };
         }
@@ -339,6 +360,16 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
         => s.Length >= 2 && s[0] == '\'' && s[^1] == '\''
             ? s[1..^1].Replace("''", "'")
             : s;
+
+    /// <summary>A string-column default is normally just the unquoted text, but a literal that reads as a
+    /// <see cref="DateTimeOffset"/> is surfaced as one: Jet has no datetimeoffset type, so EF models such a
+    /// column as text yet still expects the parsed value (matches EFCore.Jet's scaffolder).</summary>
+    private static object ParseStringDefault(string text)
+    {
+        string s = Unquote(text);
+        return DateTimeOffset.TryParse(s, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out DateTimeOffset dto) ? dto : s;
+    }
 
     /// <summary>Parses a temporal default's text into the CLR type it denotes — DateOnly (date only), DateTime
     /// (date + time), TimeOnly/TimeSpan (a time), matching EFCore.Jet's scaffolder. Returns null when the text is

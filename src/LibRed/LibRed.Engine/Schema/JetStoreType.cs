@@ -52,14 +52,15 @@ public static class JetStoreType
     };
 
     /// <summary>The full store type EF's type mapping consumes — bare name plus its facet suffix, e.g.
-    /// <c>varchar(255)</c>, <c>decimal(18, 2)</c>, <c>counter</c>. Built from <see cref="TypeName"/> so it can
-    /// never disagree with the INFORMATION_SCHEMA presentation.</summary>
+    /// <c>varchar(255)</c>, <c>decimal(18,0)</c>, <c>counter</c>. Built from <see cref="TypeName"/> so it can
+    /// never disagree with the INFORMATION_SCHEMA presentation. No space after the precision/scale comma —
+    /// EF's own store types are unspaced (SQL Server, and what the scaffolding tests expect).</summary>
     public static string StoreType(ColumnDef column)
     {
         string name = TypeName(column);
         return column.Type switch
         {
-            JetDataType.FixedPoint => $"{name}({column.Precision}, {column.Scale})",
+            JetDataType.FixedPoint => $"{name}({column.Precision},{column.Scale})",
             JetDataType.Text or JetDataType.Binary => $"{name}({MaxLength(column)})",
             _ => name,
         };

@@ -72,6 +72,12 @@ jobs:
         id: Filter
         uses: dorny/paths-filter@v3
         with:
+          # Diff only THIS push's commits. Without a base, paths-filter defaults a non-default-branch push to
+          # the merge-base with the default branch (master), which on a long-lived branch like `libred` means
+          # every push is compared against the whole ~869-file divergence — so every filter always matched. The
+          # push's own delta (before..after) is what "did this push touch Jet/LibRed" actually means. On the
+          # first push to a branch `before` is all-zeros; paths-filter treats that as "everything changed".
+          base: ${{ github.event.before }}
           filters: |
             # Anything here rebuilds the world, so it belongs to both sides.
             shared: &shared

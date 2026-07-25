@@ -11,10 +11,6 @@ public class TPTTableSplittingLibRedTest(NonSharedFixture fixture, ITestOutputHe
     protected override ITestStoreFactory TestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
-    public override Task Can_insert_dependent_with_just_one_parent()
-        // This scenario is not valid for TPT
-        => Task.CompletedTask;
-
     public override async Task Can_use_with_redundant_relationships()
     {
         await base.Can_use_with_redundant_relationships();
@@ -211,4 +207,8 @@ WHERE `v`.`Name` = 'AIM-9M Sidewinder'
 ORDER BY `v`.`Name`
 """);
     }
+
+    public override Task Can_insert_dependent_with_just_one_parent()
+        // This scenario is not valid for TPT
+        => Task.CompletedTask;
 }

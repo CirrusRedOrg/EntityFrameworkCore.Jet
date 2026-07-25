@@ -74,11 +74,15 @@ public static class LockDecoder
         }
 
         long page = withinRegion / LockBytesPerPage;
-        long user = withinRegion % LockBytesPerPage;
+        long low = withinRegion % LockBytesPerPage;
 
-        // The raw region-relative offset goes in hex too: the page/user split is an inference, and printing what it
-        // was derived from is what makes an anomalous value obvious instead of plausible-looking.
-        return $"{kind,-11} page {page,-6} user {user,-3} {width}  [0x{withinRegion:X}]";
+        // Called "low" rather than "user" on purpose. The white paper says the trailing digits are the user number,
+        // and for every exclusive lock observed so far they are. But shared locks on some pages carry other values
+        // (a near-contiguous run of 8, 17, 18, 44..53 on one page of a single-session trace), which is an index into
+        // something within the page rather than a user. Report the field; don't name it after an unproven meaning.
+        //
+        // The raw region-relative offset goes in hex too, so an anomalous split is obvious rather than plausible.
+        return $"{kind,-11} page {page,-6} low {low,-4} {width}  [0x{withinRegion:X}]";
     }
 
     private static string DescribeWidth(long? length)

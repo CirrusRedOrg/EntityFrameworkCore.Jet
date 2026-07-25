@@ -74,10 +74,13 @@ Things the tool deliberately reports rather than explains, pending experiments:
   (`0x10000001`–`0x100000FF`), which is group 0 here. Observed ACE 2010 traces also use groups 1 and 5, each
   following the same handshake as group 0: take the whole 256-byte group exclusively to test whether anyone else
   is present, release, then claim one's own byte within it. What groups 1 and 5 *mean* is unknown.
-- **Shared locks whose low byte is not a user number.** Page 68 has been seen locked at `0x2000_882C` and
-  `0x2000_882D` — low byte 44 and 45 — on a single-session file where every other lock reads user 1. So for at
-  least some shared locks the low byte identifies something else, perhaps a sub-page item. The raw hex is printed
-  on every lock line so this stays visible rather than looking like a plausible user number.
+- **What the `low` field means for shared locks.** The white paper says the trailing digits are the user number,
+  and in every *exclusive* lock observed so far they are — always 1 on a single-session trace. But shared locks on
+  one particular page (68 in the sample capture, which sees 67 I/O operations) carry `8, 17, 18, 44, 45 … 53`,
+  a near-contiguous run, while shared locks on every *other* page carry 1. A run of sub-positions on a single busy
+  page looks like an index into that page, not a user. Hence the neutral name: the tool reports the field and
+  prints the raw offset in hex, rather than naming it after an unproven meaning. Correlating those values against
+  which object is touched next is a good first experiment.
 - **Which file a lock lands on.** The paper states locks are only ever placed on the lock file, never the
   database. One screenshot showed a region `0x6` lock on the `.accdb`; a later CSV export of the same scenario
   had it on the `.laccdb`. Unresolved — the `lck`/`db ` column exists to settle it.

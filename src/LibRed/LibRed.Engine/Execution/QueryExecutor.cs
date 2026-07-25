@@ -33,6 +33,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     // decorrelatable", so an unsound-to-rewrite subquery isn't re-analysed on every outer row.
     private readonly Dictionary<SelectStatement, ExistsSemiJoin?> _semiJoins = new(ReferenceEqualityComparer.Instance);
 
+    // Results of subqueries that turned out not to depend on the outer row: same answer every time, so they are
+    // evaluated once per statement. Keyed by AST node; the boxed value may legitimately be null (SQL NULL), hence
+    // separate dictionaries rather than a null-means-absent convention.
+    private readonly Dictionary<SelectStatement, object?> _hoistedScalar = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SelectStatement, List<object?>> _hoistedColumn = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SelectStatement, bool> _hoistedExists = new(ReferenceEqualityComparer.Instance);
+
+    // Subqueries proven to depend on the outer row. Recorded so a correlated subquery pays ONE failed hoist
+    // attempt per statement rather than one per row.
+    private readonly HashSet<SelectStatement> _correlated = new(ReferenceEqualityComparer.Instance);
+
     public QueryExecutor(JetDatabase database, IReadOnlyDictionary<string, object?>? parameters = null, SessionState? session = null)
     {
         _database = database;
@@ -69,14 +80,32 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     object? IScalarSubqueryRunner.ExecuteScalar(SelectStatement query, EvalScope outerScope)
     {
-        var (_, rows) = Execute(SubqueryPlan(query, outerScope), outerScope);
-        foreach (object?[] row in rows)
-            return row.Length > 0 ? row[0] : null;
-        return null; // no rows → NULL
+        if (_hoistedScalar.TryGetValue(query, out object? hoisted))
+            return hoisted;
+
+        if (TryHoist(query, outerScope, ScalarOf, out object? once))
+            return _hoistedScalar[query] = once;
+
+        return ScalarOf(outerScope);
+
+        object? ScalarOf(EvalScope? scope)
+        {
+            var (_, rows) = Execute(SubqueryPlan(query, outerScope), scope);
+            foreach (object?[] row in rows)
+                return row.Length > 0 ? row[0] : null;
+            return null; // no rows → NULL
+        }
     }
 
     bool IScalarSubqueryRunner.ExecuteExists(SelectStatement query, EvalScope outerScope)
     {
+        // An EXISTS that doesn't depend on the outer row at all has one answer for the whole statement.
+        if (_hoistedExists.TryGetValue(query, out bool hoisted))
+            return hoisted;
+
+        if (TryHoist(query, outerScope, ExistsOf, out bool once))
+            return _hoistedExists[query] = once;
+
         // A correlated EXISTS runs once per outer row, so if it can be turned into a hash semi-join the body is
         // executed once for the whole statement instead of once per row. See ExistsSemiJoin for the measurements.
         if (!_semiJoins.TryGetValue(query, out ExistsSemiJoin? semi))
@@ -93,6 +122,45 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
         var (_, rows) = Execute(SubqueryPlan(query, outerScope), outerScope);
         return rows.Any();
+
+        bool ExistsOf(EvalScope? scope)
+        {
+            var (_, r) = Execute(SubqueryPlan(query, outerScope), scope);
+            return r.Any();
+        }
+    }
+
+    /// <summary>
+    ///     Tries to evaluate a subquery once for the whole statement, which is valid exactly when its result does
+    ///     not depend on the outer row. See <see cref="SubqueryHoisting" /> for why this takes two checks: a
+    ///     static one for qualified outer references (which a conditional could hide from any single evaluation),
+    ///     and this trial run with <b>no outer scope</b>, which settles unqualified references by letting the
+    ///     evaluator's own resolver fail on anything that would bind outward.
+    /// </summary>
+    /// <remarks>
+    ///     Catching broadly is safe in the harmless direction: a body that throws for an unrelated reason is
+    ///     recorded as correlated and re-run per row, which raises the same error the caller would have seen
+    ///     anyway. A subquery is a SELECT, so the abandoned attempt has no side effects.
+    /// </remarks>
+    private bool TryHoist<T>(SelectStatement query, EvalScope outerScope, Func<EvalScope?, T> run, out T result)
+    {
+        result = default!;
+        if (_correlated.Contains(query)
+            || SubqueryHoisting.MayReferenceOuter(query, outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        try
+        {
+            result = run(null);
+            return true;
+        }
+        catch (Exception)
+        {
+            _correlated.Add(query);
+            return false;
+        }
     }
 
     /// <summary>
@@ -128,9 +196,20 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     IEnumerable<object?> IScalarSubqueryRunner.ExecuteColumn(SelectStatement query, EvalScope outerScope)
     {
-        var (_, rows) = Execute(SubqueryPlan(query, outerScope), outerScope);
-        // Materialize: the outer scope is reused across the enclosing row loop, so don't defer.
-        return rows.Select(r => r.Length > 0 ? r[0] : null).ToList();
+        if (_hoistedColumn.TryGetValue(query, out List<object?>? hoisted))
+            return hoisted;
+
+        if (TryHoist(query, outerScope, ColumnOf, out List<object?>? once))
+            return _hoistedColumn[query] = once!;
+
+        return ColumnOf(outerScope);
+
+        List<object?> ColumnOf(EvalScope? scope)
+        {
+            var (_, rows) = Execute(SubqueryPlan(query, outerScope), scope);
+            // Materialize: the outer scope is reused across the enclosing row loop, so don't defer.
+            return rows.Select(r => r.Length > 0 ? r[0] : null).ToList();
+        }
     }
 
     /// <summary>The optimised plan for a subquery, planned once and cached: index selection (index seeks, hash

@@ -42,10 +42,27 @@ Lock offsets pack three fields:
 offset = (region << 28) | (page << 9) | userNumber
 ```
 
-The `<< 9` gives each page a 512-byte window in lock space, because an exclusive lock spans 256–512 bytes and
-must not reach into the next page's window. It is **not** the page size — Jet 3.5 used 2 KB pages with the same
-shift, and ACE uses 4 KB. The locks sit beyond end-of-file, so no database bytes are ever really locked; the
-ranges are pure semaphores.
+The `<< 9` gives each page a 512-byte window in lock space. It is **not** the page size — Jet 3.5 used 2 KB pages
+with the same shift, and ACE uses 4 KB. The window is dimensioned by what it has to address:
+
+```
+byte 0          unused — locks always start at +1
+bytes 1..256    one byte per row   (byte = rowId + 1)
+bytes 257..512  one byte per user
+```
+
+- A **shared** lock is 1 byte and names a **single row**.
+- An **exclusive** lock covers all 256 row bytes and then extends far enough to touch the holder's byte in the
+  user array, so the **user is identified by where the range ends**, not where it starts — which is what the white
+  paper means by "take the last two digits of the ending lock range". `length 257` = 256 rows + user 1.
+
+That is also why the paper says exclusive locks "span between 256 and 512 bytes": 256 row bytes plus up to 256
+user bytes, which is the window.
+
+Verified against `complexDataTestV2010.accdb`: a data page holding 53 rows (`0x0C` row count) is read-locked at
+bytes 1–53 — i.e. rowIds 0–52, exactly its range — while pages holding one row are only ever locked at byte 1.
+
+The locks sit beyond end-of-file, so no database bytes are ever really locked; the ranges are pure semaphores.
 
 | Region | Lock kind | Target |
 |---|---|---|
@@ -74,13 +91,10 @@ Things the tool deliberately reports rather than explains, pending experiments:
   (`0x10000001`–`0x100000FF`), which is group 0 here. Observed ACE 2010 traces also use groups 1 and 5, each
   following the same handshake as group 0: take the whole 256-byte group exclusively to test whether anyone else
   is present, release, then claim one's own byte within it. What groups 1 and 5 *mean* is unknown.
-- **What the `low` field means for shared locks.** The white paper says the trailing digits are the user number,
-  and in every *exclusive* lock observed so far they are — always 1 on a single-session trace. But shared locks on
-  one particular page (68 in the sample capture, which sees 67 I/O operations) carry `8, 17, 18, 44, 45 … 53`,
-  a near-contiguous run, while shared locks on every *other* page carry 1. A run of sub-positions on a single busy
-  page looks like an index into that page, not a user. Hence the neutral name: the tool reports the field and
-  prints the raw offset in hex, rather than naming it after an unproven meaning. Correlating those values against
-  which object is touched next is a good first experiment.
+- **Whether the row array is really 256 wide.** The row/user split above is verified at the low end (a 53-row page,
+  single-row pages), but no observed trace locks a row above 52 or a user above 1, so the 256/256 boundary is
+  inferred from the 512-byte window and the paper's "256 to 512 bytes" rather than seen. A page with more than 256
+  rows, or a second concurrent session, would confirm it.
 - **Which file a lock lands on.** The paper states locks are only ever placed on the lock file, never the
   database. One screenshot showed a region `0x6` lock on the `.accdb`; a later CSV export of the same scenario
   had it on the `.laccdb`. Unresolved — the `lck`/`db ` column exists to settle it.

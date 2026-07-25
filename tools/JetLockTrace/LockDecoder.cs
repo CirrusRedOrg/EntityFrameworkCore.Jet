@@ -24,8 +24,17 @@ namespace JetLockTrace;
 /// </remarks>
 public static class LockDecoder
 {
-    /// <summary>Bytes of lock space reserved per page. See the remarks on <see cref="LockDecoder" />.</summary>
+    /// <summary>
+    ///     Bytes of lock space reserved per page: 256 for the rows plus 256 for the users. See the remarks on
+    ///     <see cref="LockDecoder" />.
+    /// </summary>
     private const int LockBytesPerPage = 512;
+
+    /// <summary>
+    ///     The first half of a page's lock window: one byte per row, at <c>rowId + 1</c>, so byte 0 is unused and
+    ///     locks always begin at +1. The user array occupies the bytes above this.
+    /// </summary>
+    private const int RowBytesPerPage = 256;
 
     /// <summary>Offset of the user commit-byte table within page 0.</summary>
     private const int CommitByteTableOffset = 0xE00;
@@ -74,15 +83,27 @@ public static class LockDecoder
         }
 
         long page = withinRegion / LockBytesPerPage;
-        long low = withinRegion % LockBytesPerPage;
+        long offsetInWindow = withinRegion % LockBytesPerPage;
 
-        // Called "low" rather than "user" on purpose. The white paper says the trailing digits are the user number,
-        // and for every exclusive lock observed so far they are. But shared locks on some pages carry other values
-        // (a near-contiguous run of 8, 17, 18, 44..53 on one page of a single-session trace), which is an index into
-        // something within the page rather than a user. Report the field; don't name it after an unproven meaning.
-        //
-        // The raw region-relative offset goes in hex too, so an anomalous split is obvious rather than plausible.
-        return $"{kind,-11} page {page,-6} low {low,-4} {width}  [0x{withinRegion:X}]";
+        // A shared lock is one byte, and that byte names a row: byte = rowId + 1, so byte 0 is unused and locks
+        // always start at +1. Verified against the fixture — a page holding 53 rows is locked at bytes up to 53,
+        // and pages holding a single row are only ever locked at byte 1.
+        if (length == 1)
+        {
+            return $"{kind,-11} page {page,-6} row {offsetInWindow - 1,-4} {width}  [0x{withinRegion:X}]";
+        }
+
+        // An exclusive lock blankets all 256 row bytes and then extends far enough to touch the holder's own byte in
+        // the user array that follows, so the USER is identified by where the range ends, not where it starts —
+        // which is what the white paper means by "the last two digits of the ending lock range". That also explains
+        // the 512-byte window: 256 row bytes + 256 user bytes.
+        if (length is >= RowBytesPerPage and <= LockBytesPerPage && offsetInWindow is 0 or 1)
+        {
+            long user = offsetInWindow + length.Value - 1 - RowBytesPerPage;
+            return $"{kind,-11} page {page,-6} all rows, user {user,-3} {width}  [0x{withinRegion:X}]";
+        }
+
+        return $"{kind,-11} page {page,-6} +{offsetInWindow,-5} {width}  [0x{withinRegion:X}]";
     }
 
     private static string DescribeWidth(long? length)

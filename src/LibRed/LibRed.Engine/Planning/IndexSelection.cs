@@ -215,9 +215,9 @@ internal static class IndexSelection
         return leftKeys.Count > 0 ? (leftKeys, rightKeys) : null;
     }
 
-    private enum TypeKind { Numeric, Text, Binary, Temporal, Guid }
+    internal enum TypeKind { Numeric, Text, Binary, Temporal, Guid }
 
-    private static TypeKind? Classify(JetDataType t) => t switch
+    internal static TypeKind? Classify(JetDataType t) => t switch
     {
         JetDataType.Boolean or JetDataType.Byte or JetDataType.Int16 or JetDataType.Int32 or JetDataType.Int64
             or JetDataType.Single or JetDataType.Double or JetDataType.Currency or JetDataType.FixedPoint => TypeKind.Numeric,
@@ -232,7 +232,7 @@ internal static class IndexSelection
     /// directly, or a derived-table column followed through its projection to the underlying base column — or
     /// null if it can't be pinned down (e.g. the projection is a computed expression), in which case the join
     /// is left as a nested loop rather than risk an unsound hash.</summary>
-    private static TypeKind? ResolveKind(ColumnReference col, PlanNode subtree, JetCatalog catalog)
+    internal static TypeKind? ResolveKind(ColumnReference col, PlanNode subtree, JetCatalog catalog)
     {
         foreach ((string alias, string table) in BaseTables(subtree))
         {
@@ -303,7 +303,7 @@ internal static class IndexSelection
 
     /// <summary>Whether every column an expression references is one of the given aliases (and it has no
     /// subquery) — i.e. it can be evaluated from the outer row alone, as an index-seek key.</summary>
-    private static bool ReferencesOnly(Expression e, HashSet<string> aliases) => e switch
+    internal static bool ReferencesOnly(Expression e, HashSet<string> aliases) => e switch
     {
         ColumnReference { Table: { } t } => aliases.Contains(t),
         ColumnReference => false, // unqualified — can't attribute it to the outer side safely
@@ -338,7 +338,7 @@ internal static class IndexSelection
         _ => false, // literals, parameters, system vars
     };
 
-    private static IEnumerable<Expression> Conjuncts(Expression e)
+    internal static IEnumerable<Expression> Conjuncts(Expression e)
     {
         if (e is BinaryExpression { Operator: BinaryOperator.And } b)
             return Conjuncts(b.Left).Concat(Conjuncts(b.Right));

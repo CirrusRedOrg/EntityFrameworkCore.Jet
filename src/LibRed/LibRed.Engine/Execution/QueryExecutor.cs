@@ -29,6 +29,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     // for every outer row of a correlated subquery / nested-loop inner.
     private readonly Dictionary<ProjectNode, ProjectionSchema> _projectionSchemas = new(ReferenceEqualityComparer.Instance);
 
+    // Decorrelated EXISTS subqueries, keyed by AST node. A present-but-null value records "analysed, not
+    // decorrelatable", so an unsound-to-rewrite subquery isn't re-analysed on every outer row.
+    private readonly Dictionary<SelectStatement, ExistsSemiJoin?> _semiJoins = new(ReferenceEqualityComparer.Instance);
+
     public QueryExecutor(JetDatabase database, IReadOnlyDictionary<string, object?>? parameters = null, SessionState? session = null)
     {
         _database = database;
@@ -73,8 +77,53 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     bool IScalarSubqueryRunner.ExecuteExists(SelectStatement query, EvalScope outerScope)
     {
+        // A correlated EXISTS runs once per outer row, so if it can be turned into a hash semi-join the body is
+        // executed once for the whole statement instead of once per row. See ExistsSemiJoin for the measurements.
+        if (!_semiJoins.TryGetValue(query, out ExistsSemiJoin? semi))
+        {
+            _semiJoins[query] = semi = ExistsSemiJoin.TryBuild(
+                query, outerScope.AllColumns(), outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase),
+                _database.Catalog);
+        }
+
+        if (semi is not null)
+        {
+            return semi.Matches(this, new ExpressionEvaluator(outerScope, this, _parameters, _session));
+        }
+
         var (_, rows) = Execute(SubqueryPlan(query, outerScope), outerScope);
         return rows.Any();
+    }
+
+    /// <summary>
+    ///     Runs a decorrelated EXISTS body once and hashes the values it correlates on. Tuples containing a null
+    ///     are dropped: a null can never satisfy an equi-predicate, exactly as the hash join's build phase does.
+    /// </summary>
+    internal HashSet<object?[]> BuildSemiJoinKeys(SelectStatement keyQuery, int keyWidth)
+    {
+        var keys = new HashSet<object?[]>(HashKeyComparer.Instance);
+        var (_, rows) = Execute(SubqueryPlan(keyQuery, new EvalScope([], [], null)), null);
+        foreach (object?[] row in rows)
+        {
+            if (row.Length < keyWidth)
+            {
+                continue;
+            }
+
+            var key = new object?[keyWidth];
+            var usable = true;
+            for (var i = 0; i < keyWidth && usable; i++)
+            {
+                usable = (key[i] = row[i]) is not null;
+            }
+
+            if (usable)
+            {
+                keys.Add(key);
+            }
+        }
+
+        return keys;
     }
 
     IEnumerable<object?> IScalarSubqueryRunner.ExecuteColumn(SelectStatement query, EvalScope outerScope)

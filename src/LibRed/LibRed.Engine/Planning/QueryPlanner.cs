@@ -137,6 +137,17 @@ public sealed class QueryPlanner
         JoinNode j => SubtreeAliases(j.Left).Union(SubtreeAliases(j.Right)).ToHashSet(StringComparer.OrdinalIgnoreCase),
         HashJoinNode h => SubtreeAliases(h.Left).Union(SubtreeAliases(h.Right)).ToHashSet(StringComparer.OrdinalIgnoreCase),
         FilterNode f => SubtreeAliases(f.Input),
+        // Pass-through nodes keep their input's aliases: they reshape or restrict rows without renaming a
+        // source. A ProjectNode in particular sits at the root of every planned SELECT, so omitting it made
+        // SubtreeAliases(PlanSelect(q)) report NO aliases at all — which silently defeated any caller asking
+        // "which aliases does this query introduce?" (ExistsSemiJoin declined every subquery because of it).
+        // A DerivedTableNode is deliberately NOT pass-through: above it only its own alias is visible.
+        ProjectNode p => SubtreeAliases(p.Input),
+        SortNode s => SubtreeAliases(s.Input),
+        LimitNode l => SubtreeAliases(l.Input),
+        DistinctNode d => SubtreeAliases(d.Input),
+        DistinctRowNode d => SubtreeAliases(d.Input),
+        IndexScanNode s => new(StringComparer.OrdinalIgnoreCase) { s.Table },
         _ => new(StringComparer.OrdinalIgnoreCase),
     };
 

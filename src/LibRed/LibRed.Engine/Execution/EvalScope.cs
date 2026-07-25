@@ -75,6 +75,17 @@ internal sealed class EvalScope(
             foreach (string a in outer.VisibleAliases())
                 yield return a;
     }
+
+    /// <summary>Every column visible in this scope and its enclosing scopes — so decorrelating a correlated
+    /// EXISTS can read the outer side's declared type, which decides whether a hash key is sound (see
+    /// <see cref="ExistsSemiJoin"/>).</summary>
+    public IReadOnlyList<OutputColumn> AllColumns()
+    {
+        if (outer is null) return schema;
+        var all = new List<OutputColumn>(schema);
+        all.AddRange(outer.AllColumns());
+        return all;
+    }
 }
 
 /// <summary>Executes a subquery, correlating it to <paramref name="outerScope"/>.</summary>

@@ -92,12 +92,27 @@ public class CorrelatedExistsSemiJoinTests
                 """));
 
     [Fact]
-    public void A_top_in_the_body_is_not_decorrelated()
-        // TOP makes the body's result depend on which rows the correlation admitted, so the rewrite must decline
-        // and fall back. Per outer row the body yields at most one row, so each key still matches on its own.
+    public void A_top_of_at_least_one_does_not_change_existence()
+        // TOP n for n >= 1 cannot affect whether ANY row exists, so it is dropped and the body decorrelates.
+        // EF emits this shape for Any().
         => Assert.Equal([1, 3, 5],
             Ids(Fresh(),
                 "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT TOP 1 1 FROM I AS i WHERE i.K = o.K)"));
+
+    [Fact]
+    public void A_top_of_zero_makes_exists_always_false()
+        // TOP 0 DOES change existence: the body returns nothing whatever the correlation, so no outer row
+        // qualifies. Dropping this TOP would wrongly admit rows 1, 3 and 5.
+        => Assert.Empty(
+            Ids(Fresh(),
+                "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT TOP 0 1 FROM I AS i WHERE i.K = o.K)"));
+
+    [Fact]
+    public void A_top_percent_falls_back()
+        // Refused rather than reasoned about — see TopCannotChangeExistence. Falling back keeps it correct.
+        => Assert.Equal([1, 3, 5],
+            Ids(Fresh(),
+                "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT TOP 50 PERCENT 1 FROM I AS i WHERE i.K = o.K)"));
 
     [Fact]
     public void A_residual_referencing_the_outer_scope_falls_back()
@@ -185,5 +200,33 @@ public class CorrelatedExistsSemiJoinTests
         Assert.Equal(164, deleted);
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(15),
             $"correlated EXISTS took {sw.Elapsed.TotalSeconds:F1}s — the decorrelation is no longer engaging");
+    }
+
+    // Same guard for the TOP form, because A_top_of_at_least_one_does_not_change_existence gives the right answer
+    // whether the TOP is dropped or the whole rewrite is declined — so only timing distinguishes them. EF emits
+    // TOP 1 inside EXISTS for Any(), so this is the shape that matters most in practice.
+    [Fact]
+    public void The_rewrite_engages_even_when_the_body_has_a_top()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"exsemitop-{Guid.NewGuid():N}.accdb");
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        int deleted = e.ExecuteNonQuery(
+            """
+            DELETE FROM `Order Details` AS `o`
+            WHERE EXISTS (
+                SELECT TOP 1 1
+                FROM (`Order Details` AS `o0`
+                INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`)
+                LEFT JOIN `Customers` AS `c` ON `o1`.`CustomerID` = `c`.`CustomerID`
+                WHERE (`c`.`CustomerID` LIKE 'F%') AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
+            """);
+        sw.Stop();
+
+        Assert.Equal(164, deleted);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(15),
+            $"TOP-bodied correlated EXISTS took {sw.Elapsed.TotalSeconds:F1}s — the TOP is no longer being dropped");
     }
 }

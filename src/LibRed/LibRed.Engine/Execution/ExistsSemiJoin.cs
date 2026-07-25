@@ -53,7 +53,8 @@ internal sealed class ExistsSemiJoin
     {
         // TOP/GROUP BY/HAVING make the body's result depend on which rows the correlation admitted, so the body
         // cannot be evaluated once for all outer rows. (ORDER BY and DISTINCT are irrelevant to EXISTS.)
-        if (subquery is not { Top: null, GroupBy.Count: 0, Having: null, Where: { } where, From: not null })
+        if (subquery is not { GroupBy.Count: 0, Having: null, Where: { } where, From: not null }
+            || !TopCannotChangeExistence(subquery))
         {
             return null;
         }
@@ -116,10 +117,45 @@ internal sealed class ExistsSemiJoin
             OrderBy = [],
             Distinct = false,
             DistinctRow = false,
+            // Dropped deliberately: the key query must yield EVERY matching key, not the first n. Existence per
+            // key is unaffected, which is what TopCannotChangeExistence establishes.
+            Top = null,
+            TopPercent = false,
         };
 
         return new ExistsSemiJoin(keyQuery, outerKeys);
     }
+
+    /// <summary>
+    ///     Whether the body's <c>TOP</c> can be ignored when all we are asking is whether ANY row exists.
+    /// </summary>
+    /// <remarks>
+    ///     <c>TOP n</c> for <c>n &gt;= 1</c> cannot change existence: if the body matches at all it still returns a
+    ///     row, and if it matches nothing no limit conjures one. EF emits <c>EXISTS (SELECT TOP 1 …)</c> for
+    ///     <c>Any()</c>, so declining on any <c>TOP</c> at all left that common shape running per outer row.
+    ///     <para>
+    ///         <c>TOP 0</c> does change it — the body returns nothing, so EXISTS is always false — and so does
+    ///         <c>TOP 0 PERCENT</c>. A non-literal <c>TOP</c> (parameter or expression) cannot be judged here.
+    ///         All of those decline. PERCENT is refused outright rather than reasoned about: for n &gt; 0 it
+    ///         rounds up to at least one row and would be safe, but that is a rule worth verifying against ACE
+    ///         before relying on it.
+    ///     </para>
+    /// </remarks>
+    private static bool TopCannotChangeExistence(SelectStatement subquery)
+    {
+        if (subquery.Top is null)
+        {
+            return true;
+        }
+
+        return !subquery.TopPercent
+            && subquery.Top is LiteralExpression { Value: { } value }
+            && IsNumeric(value)
+            && Convert.ToDecimal(value, System.Globalization.CultureInfo.InvariantCulture) >= 1m;
+    }
+
+    private static bool IsNumeric(object v)
+        => v is byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;
 
     /// <summary>Orients an equality so the first element is the subquery side and the second the outer side.</summary>
     private static (Expression Inner, Expression Outer)? Orient(

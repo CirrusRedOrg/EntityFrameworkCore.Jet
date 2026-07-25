@@ -42,6 +42,65 @@ internal static class SubqueryHoisting
     internal static bool MayReferenceOuter(SelectStatement query, HashSet<string> outerAliases)
         => outerAliases.Count > 0 && Statement(query, outerAliases);
 
+    /// <summary>
+    ///     The same question for a single expression: does it qualify a column with an outer alias, or contain
+    ///     something the walk cannot inspect? Unlike <see cref="IndexSelection.ReferencesOnly" />, this descends
+    ///     INTO nested subqueries rather than treating them as opaque, so an expression holding an
+    ///     outer-independent <c>IN (…)</c> can be recognised as outer-independent too.
+    /// </summary>
+    internal static bool MayReferenceOuter(Expression expression, HashSet<string> outerAliases)
+        => outerAliases.Count > 0 && Expr(expression, outerAliases);
+
+    /// <summary>
+    ///     Whether an expression contains a column reference with no table qualifier, at any depth.
+    /// </summary>
+    /// <remarks>
+    ///     A bare name may bind to an outer table, and only the evaluator's resolver can say which
+    ///     (see <see cref="MayReferenceOuter(SelectStatement, HashSet{string})" />). Callers that cannot afford a
+    ///     trial run — because their rewrite commits before the body is ever executed — use this to decline
+    ///     instead. EF always qualifies, so in practice nothing is lost.
+    /// </remarks>
+    internal static bool HasUnqualifiedColumn(Expression? expression) => expression switch
+    {
+        null => false,
+        ColumnReference { Table: null } => true,
+        ColumnReference => false,
+        LiteralExpression or ParameterExpression or SystemVariableExpression
+            or StarExpression or QualifiedStarExpression => false,
+        BinaryExpression b => HasUnqualifiedColumn(b.Left) || HasUnqualifiedColumn(b.Right),
+        UnaryExpression u => HasUnqualifiedColumn(u.Operand),
+        FunctionCall f => f.Arguments.Any(HasUnqualifiedColumn),
+        InListExpression il => HasUnqualifiedColumn(il.Value) || il.Items.Any(HasUnqualifiedColumn),
+        ScalarSubquery sq => StatementHasUnqualified(sq.Query),
+        ExistsExpression ex => StatementHasUnqualified(ex.Query),
+        InSubqueryExpression isq => HasUnqualifiedColumn(isq.Value) || StatementHasUnqualified(isq.Query),
+        _ => true, // unknown shape: assume the worst
+    };
+
+    private static bool StatementHasUnqualified(SqlStatement statement)
+    {
+        if (statement is not SelectStatement s)
+        {
+            return true;
+        }
+
+        return s.Projection.Any(p => HasUnqualifiedColumn(p.Value))
+            || (s.From is { } from && TableHasUnqualified(from))
+            || HasUnqualifiedColumn(s.Where)
+            || s.GroupBy.Any(HasUnqualifiedColumn)
+            || HasUnqualifiedColumn(s.Having)
+            || s.OrderBy.Any(o => HasUnqualifiedColumn(o.Value))
+            || HasUnqualifiedColumn(s.Top);
+    }
+
+    private static bool TableHasUnqualified(TableReference table) => table switch
+    {
+        NamedTable => false,
+        SubqueryTable t => StatementHasUnqualified(t.Query),
+        JoinTable j => TableHasUnqualified(j.Left) || TableHasUnqualified(j.Right) || HasUnqualifiedColumn(j.On),
+        _ => true,
+    };
+
     private static bool Statement(SqlStatement statement, HashSet<string> outer)
     {
         if (statement is not SelectStatement s)

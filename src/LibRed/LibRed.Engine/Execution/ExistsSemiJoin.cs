@@ -90,9 +90,20 @@ internal sealed class ExistsSemiJoin
             }
         }
 
-        // Every outer reference must have been consumed as a key. ReferencesOnly is false for anything holding a
-        // subquery, so a residual with a nested subquery declines rather than risk a hidden correlation.
-        if (innerKeys.Count == 0 || residual.Any(r => !IndexSelection.ReferencesOnly(r, innerAliases)))
+        // Every outer reference must have been consumed as a key, or the body would still vary per outer row.
+        //
+        // The test is "references no OUTER alias", not "references only inner aliases": the latter (ReferencesOnly)
+        // treats a nested subquery as opaque and refuses, which declined an EXISTS whose residual merely holds an
+        // outer-INDEPENDENT `IN (…)` — the Delete_Where_predicate_with_GroupBy_aggregate_2 shape. MayReferenceOuter
+        // descends into nested subqueries instead, so such a residual is recognised as outer-independent.
+        //
+        // Unqualified columns are refused outright. A bare name may bind outward and only the evaluator's resolver
+        // can tell; the hoisting path settles that with a trial run, but this rewrite commits before the body is
+        // ever executed (the key set is built lazily on first probe), so a wrong guess would surface as a query
+        // error rather than a fallback. EF always qualifies, so nothing real is lost.
+        if (innerKeys.Count == 0
+            || residual.Any(r => SubqueryHoisting.MayReferenceOuter(r, outerAliases)
+                || SubqueryHoisting.HasUnqualifiedColumn(r)))
         {
             return null;
         }

@@ -121,6 +121,41 @@ public class CorrelatedExistsSemiJoinTests
         Assert.Equal([2, 4], Ids(e, "SELECT Id FROM O"));
     }
 
+    [Fact]
+    public void A_residual_holding_an_outer_independent_subquery_is_decorrelated()
+        // MAX(i2.Keep) over I is 1 regardless of the outer row, so the residual `i.Keep = (…)` doesn't vary and the
+        // rewrite is sound. The residual test has to descend INTO the subquery to see that: treating a nested
+        // subquery as opaque declined this shape, which is why GroupBy_aggregate_2 stayed slow.
+        => Assert.Equal([1, 3],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (
+                    SELECT 1 FROM I AS i
+                    WHERE i.K = o.K AND i.Keep = (SELECT MAX(i2.Keep) FROM I AS i2))
+                """));
+
+    [Fact]
+    public void A_residual_holding_a_correlated_subquery_falls_back()
+        // Here the residual's subquery DOES reference the outer row, so the body varies and the rewrite must
+        // decline. Per outer row the MAX is taken over that row's own K, which admits row 5 as well.
+        => Assert.Equal([1, 3, 5],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (
+                    SELECT 1 FROM I AS i
+                    WHERE i.K = o.K AND i.Keep = (SELECT MAX(i2.Keep) FROM I AS i2 WHERE i2.K = o.K))
+                """));
+
+    [Fact]
+    public void An_unqualified_column_in_the_residual_falls_back()
+        // Bare `Keep` binds to I.Keep here, but only the evaluator's resolver could establish that, and this
+        // rewrite commits before the body ever runs — so it declines and stays correct.
+        => Assert.Equal([1, 3],
+            Ids(Fresh(),
+                "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K AND Keep = 1)"));
+
     // Every test above passes whether or not the rewrite engages, because falling back gives the same answer —
     // which is precisely how an earlier version of this optimisation appeared "correct" while never firing at
     // all (SubtreeAliases returned no aliases for a projected plan, so every subquery was declined). This guard

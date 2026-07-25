@@ -12,6 +12,19 @@ dotnet run --project tools/JetLockTrace -- trace.csv
 | `--page-size <n>` | Database page size. Default 4096 (Jet 4 / ACE); 2048 for Jet 3. |
 | `--canonical` | Omit the file column, so traces of two scenarios diff cleanly. |
 | `--file <substr>` | Only rows whose path contains `<substr>`. |
+| `--out [path]` | Write to a file rather than stdout. With no path, writes next to the CSV as `<trace>.locks.txt`, or `<trace>.canonical.txt` under `--canonical`. |
+
+Output goes to stdout by default. `--out` avoids shell redirection — worth using, because `dotnet run`
+can emit build output onto stdout and contaminate a redirected file (pass `--no-build` if you do redirect).
+The "writing to…" confirmation goes to stderr, so it never ends up in the output.
+
+Comparing two scenarios:
+
+```
+jetlocktrace open.CSV   --canonical --out
+jetlocktrace update.CSV --canonical --out
+diff open.canonical.txt update.canonical.txt
+```
 
 ## Capturing a trace
 

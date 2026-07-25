@@ -35,6 +35,15 @@ public class SelectPredicateTests
     public void Top_n_still_takes_an_absolute_count()
         => Assert.Equal(5, Count(Northwind(), "SELECT TOP 5 * FROM Orders ORDER BY OrderID"));
 
+    [Theory]
+    // A zero limit returns nothing and, more to the point, reads nothing: the PERCENT path has to materialise its
+    // input before it can work out the take, so without an early exit `TOP 0 PERCENT` buffered all 830 rows only
+    // to discard every one — and did so per outer row when it sat inside a correlated subquery.
+    [InlineData("SELECT TOP 0 * FROM Orders ORDER BY OrderID")]
+    [InlineData("SELECT TOP 0 PERCENT * FROM Orders ORDER BY OrderID")]
+    public void A_zero_limit_returns_no_rows(string sql)
+        => Assert.Equal(0, Count(Northwind(), sql));
+
     [Fact]
     public void All_is_the_default_and_returns_every_row()
     {

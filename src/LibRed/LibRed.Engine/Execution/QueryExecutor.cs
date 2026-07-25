@@ -357,6 +357,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 object? countValue = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session)
                     .Evaluate(limit.Count);
                 int n = Convert.ToInt32(countValue, System.Globalization.CultureInfo.InvariantCulture);
+
+                // Nothing can be returned, so don't read the input at all. This matters for the PERCENT branch
+                // below, which materialises its whole input before it can compute the take — so `TOP 0 PERCENT`
+                // otherwise buffers every row only to discard all of them, once per outer row when it sits inside
+                // a correlated subquery. (Plain `TOP 0` was already cheap: Take(0) never pulls from the source.)
+                if (n <= 0)
+                    return (columns, []);
+
                 if (!limit.Percent)
                     return (columns, rows.Take(n));
 

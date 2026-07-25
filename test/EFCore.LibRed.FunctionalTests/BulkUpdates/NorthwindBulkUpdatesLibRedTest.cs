@@ -311,7 +311,6 @@ WHERE `o`.`OrderID` < 10300
 """);
     }
 
-    [ConditionalTheory(Skip = "LibRed fails")]
     public override async Task Delete_SelectMany(bool async)
     {
         await base.Delete_SelectMany(async);
@@ -327,7 +326,6 @@ WHERE EXISTS (
 """);
     }
 
-    [ConditionalTheory(Skip = "LibRed fails")]
     public override async Task Delete_SelectMany_subquery(bool async)
     {
         await base.Delete_SelectMany_subquery(async);
@@ -347,7 +345,6 @@ WHERE EXISTS (
 """);
     }
 
-    [ConditionalTheory(Skip = "LibRed fails")]
     public override async Task Delete_Where_using_navigation(bool async)
     {
         await base.Delete_Where_using_navigation(async);
@@ -363,7 +360,6 @@ WHERE EXISTS (
 """);
     }
 
-    [ConditionalTheory(Skip = "LibRed fails")]
     public override async Task Delete_Where_using_navigation_2(bool async)
     {
         await base.Delete_Where_using_navigation_2(async);
@@ -509,7 +505,6 @@ WHERE EXISTS (
 """);
     }
 
-    [ConditionalTheory(Skip="LibRed fails")]
     public override async Task Delete_Where_optional_navigation_predicate(bool async)
     {
         await base.Delete_Where_optional_navigation_predicate(async);
@@ -1399,7 +1394,7 @@ WHERE `c`.`CustomerID` LIKE 'F%'
         await base.Update_with_LeftJoin(async); 
         
         AssertExecuteUpdateSql(
-    """
+            """
 @p='Updated' (Size = 30)
 
 UPDATE `Customers` AS `c`
@@ -1624,14 +1619,18 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 
         AssertExecuteUpdateSql(
             """
-UPDATE `Customers` AS `c`,
-(
-    SELECT `c0`.`City`
-    FROM `Customers` AS `c0`
-    WHERE `c0`.`CustomerID` = 'ALFKI'
-) AS `c1`
-SET `c`.`City` = `c1`.`City`
-WHERE `c`.`CustomerID` LIKE 'F%'
+UPDATE `Customers` AS `c2`
+INNER JOIN (
+    SELECT `c`.`CustomerID`, `c1`.`City` AS `City0`
+    FROM `Customers` AS `c`,
+    (
+        SELECT `c0`.`City`
+        FROM `Customers` AS `c0`
+        WHERE `c0`.`CustomerID` = 'ALFKI'
+    ) AS `c1`
+    WHERE `c`.`CustomerID` LIKE 'F%'
+) AS `s` ON `c2`.`CustomerID` = `s`.`CustomerID`
+SET `c2`.`City` = `s`.`City0`
 """);
     }
 

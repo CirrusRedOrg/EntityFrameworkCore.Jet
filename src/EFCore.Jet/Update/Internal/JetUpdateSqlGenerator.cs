@@ -59,9 +59,19 @@ namespace EntityFrameworkCore.Jet.Update.Internal
                 requiresTransaction = requiresTransaction || localRequiresTransaction;
             }
 
+            // Each command above was appended as its own INSERT + SELECT, so the group produces one result set
+            // PER COMMAND, not one for the group. Report "not last": JetModificationCommandBatch stamps this
+            // single value onto every command in the group and then patches only the final entry to
+            // LastInResultSet. Returning LastInResultSet here instead left commands 1..N-1 each claiming to be the
+            // last result set, so the reader could stop advancing early. (For a single-command group the outcome is
+            // unchanged — the patch turns the one entry into LastInResultSet either way.)
+            //
+            // Deliberately NOT IsPositionalResultMappingEnabled: that says the rows carry a position column for
+            // correlating them back to commands, which exists for a set-based MERGE ... OUTPUT. Jet has no MERGE —
+            // these are ordered, one-row-each result sets, so there is nothing to correlate positionally.
             return readOperations.Count == 0
                 ? ResultSetMapping.NoResults
-                : ResultSetMapping.LastInResultSet;
+                : ResultSetMapping.NotLastInResultSet;
         }
 
         /// <summary>

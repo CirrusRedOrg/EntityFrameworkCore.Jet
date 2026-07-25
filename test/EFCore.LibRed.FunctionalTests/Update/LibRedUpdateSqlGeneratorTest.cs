@@ -117,7 +117,9 @@ FROM `Ducks`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
             stringBuilder.ToString());
-        Assert.Equal(ResultSetMapping.NotLastInResultSet | ResultSetMapping.IsPositionalResultMappingEnabled, grouping);
+        // Not IsPositionalResultMappingEnabled: Jet emits an INSERT + SELECT per command rather than a set-based
+        // MERGE ... OUTPUT, so the result rows carry no position column to correlate back to commands.
+        Assert.Equal(ResultSetMapping.NotLastInResultSet, grouping);
     }
 
     [ConditionalFact]

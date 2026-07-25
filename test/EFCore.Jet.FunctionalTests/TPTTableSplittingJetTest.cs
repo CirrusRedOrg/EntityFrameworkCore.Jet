@@ -11,6 +11,10 @@ public class TPTTableSplittingJetTest(NonSharedFixture fixture, ITestOutputHelpe
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;
 
+    public override Task Can_insert_dependent_with_just_one_parent()
+        // This scenario is not valid for TPT
+        => Task.CompletedTask;
+
     public override async Task Can_use_with_redundant_relationships()
     {
         await base.Can_use_with_redundant_relationships();

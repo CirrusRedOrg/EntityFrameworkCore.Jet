@@ -104,13 +104,17 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 
         AssertBaseline(
 """
-MERGE [dbo].[Ducks] USING (
-VALUES (@p0, @p1, @p2, 0),
-(@p0, @p1, @p2, 1)) AS i ([Name], [Quacks], [ConcurrencyToken], _Position) ON 1=0
-WHEN NOT MATCHED THEN
-INSERT ([Name], [Quacks], [ConcurrencyToken])
-VALUES (i.[Name], i.[Quacks], i.[ConcurrencyToken])
-OUTPUT INSERTED.[Id], INSERTED.[Computed], i._Position;
+INSERT INTO `Ducks` (`Name`, `Quacks`, `ConcurrencyToken`)
+VALUES (@p0, @p1, @p2);
+SELECT `Id`, `Computed`
+FROM `Ducks`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
+
+INSERT INTO `Ducks` (`Name`, `Quacks`, `ConcurrencyToken`)
+VALUES (@p0, @p1, @p2);
+SELECT `Id`, `Computed`
+FROM `Ducks`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
             stringBuilder.ToString());
         Assert.Equal(ResultSetMapping.NotLastInResultSet | ResultSetMapping.IsPositionalResultMappingEnabled, grouping);
@@ -147,14 +151,17 @@ VALUES (@p0, @p1, @p2, @p3);
 
         AssertBaseline(
 """
-DECLARE @inserted0 TABLE ([Id] int);
-INSERT INTO [dbo].[Ducks] ([Id])
-OUTPUT INSERTED.[Id]
-INTO @inserted0
-VALUES (DEFAULT),
-(DEFAULT);
-SELECT [t].[Id], [t].[Computed] FROM [dbo].[Ducks] t
-INNER JOIN @inserted0 i ON ([t].[Id] = [i].[Id]);
+INSERT INTO `Ducks`
+DEFAULT VALUES;
+SELECT `Id`, `Computed`
+FROM `Ducks`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
+
+INSERT INTO `Ducks`
+DEFAULT VALUES;
+SELECT `Id`, `Computed`
+FROM `Ducks`
+WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
             stringBuilder.ToString());
         Assert.Equal(ResultSetMapping.NotLastInResultSet, grouping);
@@ -248,10 +255,13 @@ SELECT @@ROWCOUNT;
         => throw new NotImplementedException();
 
     protected override string OpenDelimiter
-        => "[";
+        => "`";
 
     protected override string CloseDelimiter
-        => "]";
+        => "`";
+
+    protected override string Schema
+        => null!;
 
     private void AssertBaseline(string expected, string actual)
         => Assert.Equal(expected, actual.TrimEnd(), ignoreLineEndingDifferences: true);

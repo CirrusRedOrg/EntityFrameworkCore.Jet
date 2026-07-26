@@ -624,10 +624,11 @@ jobs:
       # control has served its purpose. LibRedAccess still installs it, which is where the cross-checks
       # against the real engine belong.
       #
-      # Defender is excluded from the workspace and temp: this leg spends its time writing .accdb files, and
-      # it ran 14m01 against ubuntu's 9m30 and macOS's 10m22 on identical work - identical managed code, no
-      # platform-conditional paths, and durable flushing measured as not the cause. Real-time scanning of
-      # every database write is the remaining candidate. If the gap survives this, the exclusion can go.
+      # Defender is excluded from the workspace and temp because this leg spends its time writing .accdb
+      # files. CONFIRMED, don't remove: Windows ran 14m01 against ubuntu's 9m30 and macOS's 10m22 on
+      # identical work, and adding the exclusion took it to 8m18 - a 41% drop on the only leg that got the
+      # change, with results byte-identical (179 failed / 35,578 passed / 2,016 skipped on all three).
+      # Real-time scanning of every database write really was the cost.
       - name: Exclude test files from Defender
         if: runner.os == 'Windows'
         shell: pwsh

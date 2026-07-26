@@ -51,6 +51,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     // attempt per statement rather than one per row.
     private readonly HashSet<SelectStatement> _correlated = new(ReferenceEqualityComparer.Instance);
 
+    // Per-row time spent on each decorrelatable subquery, which is what decides when to switch over. See
+    // DecorrelationGate: the rewrite is sound from the first probe but not always cheaper, and the outer row count
+    // that would settle it isn't known until the outer scan has finished.
+    private readonly Dictionary<SelectStatement, DecorrelationGate> _gates = new(ReferenceEqualityComparer.Instance);
+
+    private DecorrelationGate Gate(SelectStatement query)
+        => _gates.TryGetValue(query, out DecorrelationGate? gate) ? gate : _gates[query] = new DecorrelationGate();
+
     public QueryExecutor(JetDatabase database, IReadOnlyDictionary<string, object?>? parameters = null, SessionState? session = null)
     {
         _database = database;
@@ -101,10 +109,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 _database.Catalog);
         }
 
-        if (semi is not null)
+        if (semi is null)
+            return ScalarOf(outerScope);
+
+        DecorrelationGate gate = Gate(query);
+        if (gate.Ready)
             return semi.Evaluate(this, new ExpressionEvaluator(outerScope, this, _parameters, _session));
 
-        return ScalarOf(outerScope);
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
+        object? perRow = ScalarOf(outerScope);
+        gate.Charge(started);
+        return perRow;
 
         object? ScalarOf(EvalScope? scope)
         {
@@ -133,13 +148,21 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 _database.Catalog);
         }
 
-        if (semi is not null)
+        if (semi is null)
+        {
+            return ExistsOf(outerScope);
+        }
+
+        DecorrelationGate gate = Gate(query);
+        if (gate.Ready)
         {
             return semi.Matches(this, new ExpressionEvaluator(outerScope, this, _parameters, _session));
         }
 
-        var (_, rows) = Execute(SubqueryPlan(query, outerScope), outerScope);
-        return rows.Any();
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
+        bool perRow = ExistsOf(outerScope);
+        gate.Charge(started);
+        return perRow;
 
         bool ExistsOf(EvalScope? scope)
         {
@@ -298,7 +321,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog);
         }
 
-        return semi?.ContainsValue(this, new ExpressionEvaluator(outerScope, this, _parameters, _session), evaluated);
+        // Not ready yet: decline, and the caller's loop runs the body through ExecuteColumn, which charges the gate.
+        return semi is not null && Gate(query).Ready
+            ? semi.ContainsValue(this, new ExpressionEvaluator(outerScope, this, _parameters, _session), evaluated)
+            : null;
     }
 
     IEnumerable<object?> IScalarSubqueryRunner.ExecuteColumn(SelectStatement query, EvalScope outerScope)
@@ -309,7 +335,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (TryHoist(query, outerScope, ColumnOf, out List<object?>? once))
             return _hoistedColumn[query] = once!;
 
-        return ColumnOf(outerScope);
+        // This is the per-row cost of an IN, so it is what the gate measures — the membership comparison the caller
+        // then does over the returned values is negligible beside running the body.
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
+        List<object?> values = ColumnOf(outerScope);
+        Gate(query).Charge(started);
+        return values;
 
         List<object?> ColumnOf(EvalScope? scope)
         {

@@ -225,7 +225,6 @@ WHERE `o`.`OrderID` < (
 """);
     }
 
-    [ConditionalTheory(Skip = "LibRed fails")]
     public override async Task Delete_Where_predicate_with_GroupBy_aggregate_2(bool async)
     {
         await base.Delete_Where_predicate_with_GroupBy_aggregate_2(async);

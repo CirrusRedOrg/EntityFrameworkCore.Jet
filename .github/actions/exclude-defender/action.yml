@@ -9,6 +9,14 @@ description: >-
 # 41% drop on the only leg that changed, with results byte-identical across all three (179 failed / 35,578
 # passed / 2,016 skipped). Windows went from slowest to second-fastest.
 #
+# It helps FAR less on the Jet side: BuildAndTest moved by a couple of minutes out of ~30 (2010/x86/ODBC
+# 29m16, OLE DB 33m32), not 41%. Likely because those suites run sequentially (MaxParallelThreads = 1, since
+# the ACE provider crashes concurrently), so they spend much of their time blocked on ACE/COM round trips and
+# Defender scans during time the test was going to wait anyway. LibRed's suite is unlimited-parallel, so every
+# core is busy and scanning contends directly. A hypothesis, not a measurement — but it fits both numbers, and
+# it means "less benefit here" is expected rather than a sign the exclusion stopped working. Still worth
+# keeping on those jobs: a couple of minutes across eight matrix combinations is ~15 minutes a push.
+#
 # Call it immediately after checkout so that restore, build and any engine install are covered too, not just
 # the test run. Failure is tolerated: a policy-managed Defender logs and carries on rather than failing the
 # job, since this is a speed measure and never a correctness one.

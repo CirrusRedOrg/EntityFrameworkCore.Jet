@@ -64,6 +64,19 @@ public class CorrelatedInSemiJoinTests
             Ids(Fresh(), "SELECT o.Id FROM O AS o WHERE o.Id IN (SELECT i.V FROM I AS i WHERE i.K = o.K)"));
 
     [Fact]
+    public void A_null_safe_correlation_widens_which_partners_are_seen()
+        // EF's null-safe equality on the CORRELATION, which is independent of the three-valued logic of IN itself:
+        // row 4's key is NULL, so with a plain `=` it has no partners at all, while here it sees inner row 4 —
+        // whose V is 4, matching its own Id. So row 4 joins the result, and the rest are unchanged.
+        => Assert.Equal([1, 4, 5],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE o.Id IN (
+                    SELECT i.V FROM I AS i WHERE i.K = o.K OR (i.K IS NULL AND o.K IS NULL))
+                """));
+
+    [Fact]
     public void Not_in_is_not_the_complement_when_the_column_holds_a_null()
     {
         // The three-valued trap. Row 3's body yields {NULL}: `3 IN (NULL)` is UNKNOWN, so row 3 satisfies NEITHER

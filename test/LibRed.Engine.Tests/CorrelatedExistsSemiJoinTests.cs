@@ -231,12 +231,82 @@ public class CorrelatedExistsSemiJoinTests
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K GROUP BY o.Tag HAVING COUNT(*) > 0)")]
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K GROUP BY i.Keep HAVING COUNT(*) > o.Id)")]
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K AND o.Tag <> 'zz')")]
+    // EF's null-safe equality is a correlation key too, in any operand arrangement.
+    [InlineData(true, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K OR (i.K IS NULL AND o.K IS NULL))")]
+    [InlineData(true, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE (i.K IS NULL AND o.K IS NULL) OR i.K = o.K)")]
+    // But only when BOTH sides' nulls are tested — otherwise it isn't null-safe equality at all.
+    [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K OR i.K IS NULL)")]
+    [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K OR (i.K IS NULL AND o.Id IS NULL))")]
     // No correlation to hash at all, and the shapes TOP rules out.
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.Keep = 1)")]
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT TOP 0 1 FROM I AS i WHERE i.K = o.K)")]
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT TOP 50 PERCENT 1 FROM I AS i WHERE i.K = o.K)")]
     public void The_analysis_accepts_exactly_these_shapes(bool expected, string sql)
         => Assert.Equal(expected, Decorrelates(Fresh(), sql));
+
+    [Fact]
+    public void A_null_safe_correlation_matches_null_to_null()
+        // EF's null-safe equality, which it emits for any correlation on a nullable column. Unlike plain `=`, row 4
+        // (K NULL) DOES match — against inner row 4, whose K is also NULL. Contrast A_null_outer_key_never_matches:
+        // same data, same rows, different answer, and the only difference is the null handling of the correlation.
+        => Assert.Equal([1, 3, 4, 5],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (
+                    SELECT 1 FROM I AS i
+                    WHERE i.K = o.K OR (i.K IS NULL AND o.K IS NULL))
+                """));
+
+    [Fact]
+    public void A_null_safe_correlation_gives_the_same_answer_per_row()
+        // The same predicate in a shape that DECLINES (the residual references the outer row), so this runs the
+        // per-row path. It must reach the identical answer — that is what makes the rewrite above a rewrite and
+        // not a change of meaning.
+        => Assert.Equal([1, 3, 4, 5],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (
+                    SELECT 1 FROM I AS i
+                    WHERE (i.K = o.K OR (i.K IS NULL AND o.K IS NULL)) AND o.Tag <> 'zz')
+                """));
+
+    [Theory]
+    // The operand order of neither connective is depended on: EF writes the equality first and the inner column
+    // first, but all four arrangements mean the same thing and must all be recognised.
+    [InlineData("i.K = o.K OR (i.K IS NULL AND o.K IS NULL)")]
+    [InlineData("i.K = o.K OR (o.K IS NULL AND i.K IS NULL)")]
+    [InlineData("(i.K IS NULL AND o.K IS NULL) OR i.K = o.K")]
+    [InlineData("o.K = i.K OR (o.K IS NULL AND i.K IS NULL)")]
+    public void The_null_safe_form_is_recognised_whichever_way_it_is_written(string predicate)
+        => Assert.Equal([1, 3, 4, 5],
+            Ids(Fresh(), $"SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE {predicate})"));
+
+    [Fact]
+    public void A_half_null_safe_pattern_is_not_treated_as_null_safe()
+        // Only ONE side's null is tested, so this is not null-safe equality: it is true when the keys are equal, or
+        // whenever i.K is null (regardless of o.K). Row 4 (K NULL) matches because inner row 4 has K NULL, but so
+        // would every other row — which is why treating it as a correlation key would be wrong. It must decline and
+        // evaluate per row: for every outer row inner row 4 satisfies `i.K IS NULL`, so ALL rows qualify.
+        => Assert.Equal([1, 2, 3, 4, 5],
+            Ids(Fresh(),
+                "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K OR i.K IS NULL)"));
+
+    [Fact]
+    public void A_null_safe_correlation_works_alongside_a_plain_one()
+        // Two keys of different kinds in one correlation: Id plain, K null-safe. Each outer row meets the single I
+        // row with its Id, then the K pair decides — row 1 (10 = 10) and row 5 (50 = 50) match on equality, rows 2
+        // and 3 mismatch, and row 4 matches ONLY because the K pair is null-safe (both null). Written with a plain
+        // `=` for K, row 4 would drop out, so the per-key flag is doing exactly what it claims.
+        => Assert.Equal([1, 4, 5],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (
+                    SELECT 1 FROM I AS i
+                    WHERE i.Id = o.Id AND (i.K = o.K OR (i.K IS NULL AND o.K IS NULL)))
+                """));
 
     [Fact]
     public void An_uncorrelated_exists_is_unaffected()

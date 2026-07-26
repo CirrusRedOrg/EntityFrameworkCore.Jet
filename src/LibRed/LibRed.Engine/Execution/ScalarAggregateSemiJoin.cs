@@ -32,14 +32,18 @@ internal sealed class ScalarAggregateSemiJoin
     private readonly SelectStatement _keyQuery;
     private readonly IReadOnlyList<Expression> _outerKeys;
 
+    /// <summary>Per correlation key, whether NULL matches NULL. See <see cref="CorrelationSplit.NullSafe" />.</summary>
+    private readonly IReadOnlyList<bool> _nullSafe;
+
     /// <summary>The aggregate call itself, kept to compute the value a key absent from the map stands for.</summary>
     private readonly FunctionCall _aggregate;
 
     private Dictionary<object?[], object?>? _values;
     private object? _empty;
 
-    private ScalarAggregateSemiJoin(SelectStatement keyQuery, IReadOnlyList<Expression> outerKeys, FunctionCall aggregate)
-        => (_keyQuery, _outerKeys, _aggregate) = (keyQuery, outerKeys, aggregate);
+    private ScalarAggregateSemiJoin(
+        SelectStatement keyQuery, IReadOnlyList<Expression> outerKeys, IReadOnlyList<bool> nullSafe, FunctionCall aggregate)
+        => (_keyQuery, _outerKeys, _nullSafe, _aggregate) = (keyQuery, outerKeys, nullSafe, aggregate);
 
     internal static ScalarAggregateSemiJoin? TryBuild(
         SelectStatement subquery,
@@ -72,7 +76,7 @@ internal sealed class ScalarAggregateSemiJoin
             DistinctRow = false,
         };
 
-        return new ScalarAggregateSemiJoin(keyQuery, split.OuterKeys, call);
+        return new ScalarAggregateSemiJoin(keyQuery, split.OuterKeys, split.NullSafe, call);
     }
 
     /// <summary>
@@ -83,15 +87,16 @@ internal sealed class ScalarAggregateSemiJoin
     {
         if (_values is null)
         {
-            _values = executor.BuildGroupedAggregate(_keyQuery, _outerKeys.Count);
+            _values = executor.BuildGroupedAggregate(_keyQuery, _outerKeys.Count, _nullSafe);
             _empty = executor.EmptyGroupAggregate(_aggregate);
         }
 
         var probe = new object?[_outerKeys.Count];
         for (var i = 0; i < _outerKeys.Count; i++)
         {
-            // A null correlation value equals no inner row, so the body aggregates over nothing.
-            if ((probe[i] = outerEval.Evaluate(_outerKeys[i])) is null)
+            // Under a plain `=` a null correlation value equals no inner row, so the body aggregates over nothing.
+            // Under the null-safe form it matches the inner rows that are also null, so it must be looked up.
+            if ((probe[i] = outerEval.Evaluate(_outerKeys[i])) is null && !_nullSafe[i])
             {
                 return _empty;
             }

@@ -40,14 +40,18 @@ internal sealed class ExistsSemiJoin
     /// <summary>The outer sides of the equalities, in the same order as the key query's projection.</summary>
     private readonly IReadOnlyList<Expression> _outerKeys;
 
+    /// <summary>Per correlation key, whether NULL matches NULL. See <see cref="CorrelationSplit.NullSafe" />.</summary>
+    private readonly IReadOnlyList<bool> _nullSafe;
+
     /// <summary>True when the key query projects the <c>IN</c> value after the correlation columns.</summary>
     private readonly bool _hasInValue;
 
     private HashSet<object?[]>? _keys;
     private HashSet<object?[]>? _nullTail;
 
-    private ExistsSemiJoin(SelectStatement keyQuery, IReadOnlyList<Expression> outerKeys, bool hasInValue)
-        => (_keyQuery, _outerKeys, _hasInValue) = (keyQuery, outerKeys, hasInValue);
+    private ExistsSemiJoin(
+        SelectStatement keyQuery, IReadOnlyList<Expression> outerKeys, IReadOnlyList<bool> nullSafe, bool hasInValue)
+        => (_keyQuery, _outerKeys, _nullSafe, _hasInValue) = (keyQuery, outerKeys, nullSafe, hasInValue);
 
     /// <summary>
     ///     Analyses an <c>EXISTS</c> subquery, returning a semi-join plan or null when the rewrite would not be
@@ -142,7 +146,7 @@ internal sealed class ExistsSemiJoin
             TopPercent = false,
         };
 
-        return new ExistsSemiJoin(keyQuery, split.OuterKeys, inValue is not null);
+        return new ExistsSemiJoin(keyQuery, split.OuterKeys, split.NullSafe, inValue is not null);
     }
 
     /// <summary>
@@ -235,13 +239,15 @@ internal sealed class ExistsSemiJoin
         if (_keys is null)
         {
             (_keys, _nullTail) = executor.BuildSemiJoinKeys(
-                _keyQuery, _outerKeys.Count + (_hasInValue ? 1 : 0), _hasInValue);
+                _keyQuery, _outerKeys.Count + (_hasInValue ? 1 : 0), _nullSafe, _hasInValue);
         }
 
         var probe = new object?[_outerKeys.Count + (_hasInValue ? 1 : 0)];
         for (var i = 0; i < _outerKeys.Count; i++)
         {
-            if ((probe[i] = outerEval.Evaluate(_outerKeys[i])) is null)
+            // A null matches nothing under a plain `=`, so there is no point probing. Under the null-safe form it
+            // is a key like any other and must be looked up.
+            if ((probe[i] = outerEval.Evaluate(_outerKeys[i])) is null && !_nullSafe[i])
             {
                 return null;
             }

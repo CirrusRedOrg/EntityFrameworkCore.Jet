@@ -11,11 +11,17 @@ namespace LibRed.Engine.Execution;
 /// <param name="Plan">The body's plan, used to tell inner aliases and column types from outer ones.</param>
 /// <param name="InnerKeys">The subquery sides of the correlation equalities.</param>
 /// <param name="OuterKeys">The outer sides, positionally matched to <paramref name="InnerKeys" />.</param>
+/// <param name="NullSafe">
+/// Per key, whether NULL matches NULL there — true for EF's <c>a = b OR (a IS NULL AND b IS NULL)</c> form. A
+/// plain <c>=</c> key drops null-bearing rows from the hash and fails a null probe outright, because a null can
+/// never satisfy it; a null-safe key must instead hash the null and match it.
+/// </param>
 /// <param name="Residual">The conjuncts that were not correlation equalities, re-ANDed, or null if there were none.</param>
 internal readonly record struct CorrelationSplit(
     PlanNode Plan,
     IReadOnlyList<Expression> InnerKeys,
     IReadOnlyList<Expression> OuterKeys,
+    IReadOnlyList<bool> NullSafe,
     Expression? Residual);
 
 /// <summary>
@@ -57,17 +63,27 @@ internal static class SubqueryCorrelation
 
         var innerKeys = new List<Expression>();
         var outerKeys = new List<Expression>();
+        var nullSafe = new List<bool>();
         var residual = new List<Expression>();
 
         foreach (Expression conjunct in IndexSelection.Conjuncts(where))
         {
-            if (conjunct is BinaryExpression { Operator: BinaryOperator.Equal } eq
-                && Orient(eq, innerAliases, outerAliases) is var (inner, outer)
+            // A correlation is either a plain equality or EF's null-safe form. Both give the same pair of
+            // operands; they differ only in what a null on either side means.
+            (Expression Left, Expression Right)? operands = conjunct switch
+            {
+                BinaryExpression { Operator: BinaryOperator.Equal } eq => (eq.Left, eq.Right),
+                _ => NullSafeEquality(conjunct),
+            };
+
+            if (operands is var (left, right)
+                && Orient(left, right, innerAliases, outerAliases) is var (inner, outer)
                 && inner is ColumnReference innerCol
                 && SameKind(innerCol, plan, catalog, outer, outerColumns))
             {
                 innerKeys.Add(inner);
                 outerKeys.Add(outer);
+                nullSafe.Add(conjunct is not BinaryExpression { Operator: BinaryOperator.Equal });
             }
             else
             {
@@ -97,17 +113,76 @@ internal static class SubqueryCorrelation
         }
 
         return new CorrelationSplit(
-            plan, innerKeys, outerKeys,
+            plan, innerKeys, outerKeys, nullSafe,
             residual.Count == 0 ? null : residual.Aggregate((a, b) => new BinaryExpression(BinaryOperator.And, a, b)));
     }
 
+    /// <summary>
+    ///     Recognises EF's null-safe equality — <c>a = b OR (a IS NULL AND b IS NULL)</c> — returning the two
+    ///     operands, or null when the conjunct is not that shape.
+    /// </summary>
+    /// <remarks>
+    ///     EF emits this wherever a correlation involves a nullable column, so it is not an edge case but the
+    ///     common form. Read as one opaque disjunction it looked like a residual mentioning the outer row, which
+    ///     declined the whole rewrite: measured on Northwind, the <c>Late_subquery_pushdown</c> shape took
+    ///     <b>9,632 ms</b> written this way against <b>55 ms</b> with a plain <c>=</c>, the SQL being otherwise
+    ///     identical.
+    ///     <para>
+    ///         It really is null-safe equality: <c>a = b</c> is UNKNOWN if either side is null, so the disjunction
+    ///         is true exactly when both are non-null and equal, or both are null.
+    ///     </para>
+    /// </remarks>
+    private static (Expression Left, Expression Right)? NullSafeEquality(Expression conjunct)
+    {
+        if (conjunct is not BinaryExpression { Operator: BinaryOperator.Or } or)
+        {
+            return null;
+        }
+
+        // EF puts the equality first, but don't depend on the operand order of either connective.
+        foreach ((Expression eqSide, Expression nullSide) in new[] { (or.Left, or.Right), (or.Right, or.Left) })
+        {
+            if (eqSide is not BinaryExpression { Operator: BinaryOperator.Equal } eq
+                || nullSide is not BinaryExpression { Operator: BinaryOperator.And } and)
+            {
+                continue;
+            }
+
+            if ((IsNullTestOf(and.Left, eq.Left) && IsNullTestOf(and.Right, eq.Right))
+                || (IsNullTestOf(and.Left, eq.Right) && IsNullTestOf(and.Right, eq.Left)))
+            {
+                return (eq.Left, eq.Right);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Whether <paramref name="test" /> is <c>operand IS NULL</c> for that same operand.</summary>
+    private static bool IsNullTestOf(Expression test, Expression operand)
+        => test is UnaryExpression { Operator: UnaryOperator.IsNull, Operand: { } tested } && SameOperand(tested, operand);
+
+    /// <summary>
+    ///     Whether two operands of the null-safe form are the same expression. Column references compare
+    ///     case-insensitively, since SQL identifiers are; anything else falls back to the AST's own structural
+    ///     equality (the expression records are value types by construction).
+    /// </summary>
+    private static bool SameOperand(Expression a, Expression b)
+        => (a, b) switch
+        {
+            (ColumnReference x, ColumnReference y) =>
+                string.Equals(x.Column, y.Column, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(x.Table, y.Table, StringComparison.OrdinalIgnoreCase),
+            _ => a.Equals(b),
+        };
+
     /// <summary>Orients an equality so the first element is the subquery side and the second the outer side.</summary>
     private static (Expression Inner, Expression Outer)? Orient(
-        BinaryExpression eq, HashSet<string> innerAliases, HashSet<string> outerAliases)
-        => IndexSelection.ReferencesOnly(eq.Left, innerAliases) && IndexSelection.ReferencesOnly(eq.Right, outerAliases)
-            ? (eq.Left, eq.Right)
-            : IndexSelection.ReferencesOnly(eq.Right, innerAliases) && IndexSelection.ReferencesOnly(eq.Left, outerAliases)
-                ? (eq.Right, eq.Left)
+        Expression left, Expression right, HashSet<string> innerAliases, HashSet<string> outerAliases)
+        => IndexSelection.ReferencesOnly(left, innerAliases) && IndexSelection.ReferencesOnly(right, outerAliases)
+            ? (left, right)
+            : IndexSelection.ReferencesOnly(right, innerAliases) && IndexSelection.ReferencesOnly(left, outerAliases)
+                ? (right, left)
                 : null;
 
     /// <summary>

@@ -214,8 +214,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     ///     to <c>NullTailKeys</c> — that is how the caller learns the column held a null for a given outer row.
     ///     A null in the correlation prefix still drops the row from both sets.
     /// </param>
+    /// <param name="nullSafe">
+    ///     Per correlation column, whether a null there is a value to be hashed rather than a row to discard. See
+    ///     <see cref="CorrelationSplit.NullSafe" />.
+    /// </param>
     internal (HashSet<object?[]> Keys, HashSet<object?[]> NullTailKeys) BuildSemiJoinKeys(
-        SelectStatement keyQuery, int keyWidth, bool trackNullTail = false)
+        SelectStatement keyQuery, int keyWidth, IReadOnlyList<bool> nullSafe, bool trackNullTail = false)
     {
         var keys = new HashSet<object?[]>(HashKeyComparer.Instance);
         var nullTail = new HashSet<object?[]>(HashKeyComparer.Instance);
@@ -233,7 +237,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var usable = true;
             for (var i = 0; i < prefix && usable; i++)
             {
-                usable = (key[i] = row[i]) is not null;
+                usable = (key[i] = row[i]) is not null || (i < nullSafe.Count && nullSafe[i]);
             }
 
             if (!usable)
@@ -263,7 +267,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     ///     value that group aggregated to. Key tuples containing a null are dropped, as in
     ///     <see cref="BuildSemiJoinKeys" />; the aggregate itself may legitimately be null (<c>SUM</c> of nulls).
     /// </summary>
-    internal Dictionary<object?[], object?> BuildGroupedAggregate(SelectStatement keyQuery, int keyWidth)
+    internal Dictionary<object?[], object?> BuildGroupedAggregate(
+        SelectStatement keyQuery, int keyWidth, IReadOnlyList<bool> nullSafe)
     {
         var values = new Dictionary<object?[], object?>(HashKeyComparer.Instance);
         var (_, rows) = Execute(SubqueryPlan(keyQuery, new EvalScope([], [], null)), null);
@@ -278,7 +283,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var usable = true;
             for (var i = 0; i < keyWidth && usable; i++)
             {
-                usable = (key[i] = row[i]) is not null;
+                usable = (key[i] = row[i]) is not null || (i < nullSafe.Count && nullSafe[i]);
             }
 
             if (usable)
@@ -961,19 +966,31 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         public static readonly HashKeyComparer Instance = new();
 
+        // A null element equals only a null element. KeyEqual/KeyHash are documented for non-null keys, and for a
+        // plain `=` correlation no null ever reaches here (such rows are dropped from the build and short-circuit
+        // on probe). A null-safe correlation — EF's `a = b OR (a IS NULL AND b IS NULL)` — does hash nulls, so the
+        // tuple level owns that case rather than widening KeyEqual's contract.
         public bool Equals(object?[]? a, object?[]? b)
         {
             if (a is null || b is null) return ReferenceEquals(a, b);
             if (a.Length != b.Length) return false;
             for (int i = 0; i < a.Length; i++)
+            {
+                if (a[i] is null || b[i] is null)
+                {
+                    if (a[i] is not null || b[i] is not null) return false;
+                    continue;
+                }
+
                 if (!ExpressionEvaluator.KeyEqual(a[i]!, b[i]!)) return false;
+            }
             return true;
         }
 
         public int GetHashCode(object?[] a)
         {
             var h = new HashCode();
-            foreach (object? v in a) h.Add(ExpressionEvaluator.KeyHash(v!));
+            foreach (object? v in a) h.Add(v is null ? 0 : ExpressionEvaluator.KeyHash(v));
             return h.ToHashCode();
         }
     }

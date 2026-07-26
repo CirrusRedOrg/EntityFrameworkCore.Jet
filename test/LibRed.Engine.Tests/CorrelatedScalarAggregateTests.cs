@@ -144,8 +144,22 @@ public class CorrelatedScalarAggregateTests
         Assert.Null(values[2]); // no rows ⇒ a scalar subquery is NULL
     }
 
+    [Fact]
+    public void A_null_safe_correlation_counts_the_null_partners()
+    {
+        // EF's null-safe equality. Row 4's key is NULL, which under a plain `=` matches nothing (count 0) but here
+        // matches the one inner row whose K is also NULL. Every other row is unaffected.
+        Dictionary<long, object?> counts = Values(
+            Fresh(), "(SELECT COUNT(*) FROM I AS i WHERE i.K = o.K OR (i.K IS NULL AND o.K IS NULL))");
+        Assert.Equal(2, Convert.ToInt32(counts[1]));
+        Assert.Equal(0, Convert.ToInt32(counts[2]));
+        Assert.Equal(1, Convert.ToInt32(counts[4]));
+        Assert.Equal(1, Convert.ToInt32(counts[5]));
+    }
+
     [Theory]
     [InlineData(true, "SELECT o.Id, (SELECT COUNT(*) FROM I AS i WHERE i.K = o.K) FROM O AS o")]
+    [InlineData(true, "SELECT o.Id, (SELECT COUNT(*) FROM I AS i WHERE i.K = o.K OR (i.K IS NULL AND o.K IS NULL)) FROM O AS o")]
     [InlineData(true, "SELECT o.Id, (SELECT SUM(i.V) FROM I AS i WHERE i.K = o.K) FROM O AS o")]
     [InlineData(true, "SELECT o.Id, (SELECT COUNT(DISTINCT i.V) FROM I AS i WHERE i.K = o.K) FROM O AS o")]
     // First-row semantics, not an aggregate: the answer depends on an ordering the rewrite discards.

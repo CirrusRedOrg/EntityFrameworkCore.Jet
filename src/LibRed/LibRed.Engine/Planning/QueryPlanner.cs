@@ -41,7 +41,7 @@ public sealed class QueryPlanner
             // reference grouping expressions / aggregates), not over the already-projected output.
             node = new AggregateNode(node, select.GroupBy, select.Projection, select.Having, select.OrderBy);
         else if (select.OrderBy.Count > 0)
-            node = new SortNode(node, select.OrderBy);
+            node = PushSort(node, select.OrderBy);
 
         // DISTINCTROW dedupes on the *pre-projection* rows of the contributing tables, so it goes below the
         // projection. It is meaningless with aggregation (grouping already collapses rows) and a no-op for
@@ -69,6 +69,49 @@ public sealed class QueryPlanner
         }
 
         return node;
+    }
+
+    /// <summary>
+    ///     Places an ORDER BY as deep in the join tree as it can go: when every key comes from one side of a join,
+    ///     sorting that side and letting the join stream produces the same order as sorting the join's output —
+    ///     without building the product to sort it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>SELECT TOP 1 c.… FROM Customers c, Orders o, Employees e ORDER BY c.CustomerID</c> ordered a
+    ///         679,770-row cross product (91 × 830 × 9) to return one row. Sorting the 91 customers instead lets
+    ///         the join emit rows in that order, so the enclosing TOP stops after the first: 1,363 ms to ~10 ms.
+    ///         It pays off without a TOP as well — EF's Include emits <c>LEFT JOIN … ORDER BY {principal key}</c>,
+    ///         where this sorts the principal table rather than the whole joined result, and the join then streams
+    ///         instead of being materialised.
+    ///     </para>
+    ///     <para>
+    ///         Only the LEFT input drives output order: the nested loop iterates it in the outer loop, and the hash
+    ///         join probes with it (building the right) for INNER/LEFT. A RIGHT join instead probes with the right,
+    ///         so its output follows the right side and a left-side sort would be lost — hence the kind check. The
+    ///         recursion handles left-deep chains, so a key on <c>c</c> sinks past both joins of <c>c, o, e</c>.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="Qualifiers" /> returns null for anything it cannot pin to a table — an unqualified column
+    ///         (which might bind to either side), a subquery, a qualified star — and those decline, leaving the sort
+    ///         above the join.
+    ///     </para>
+    ///     <para>
+    ///         A pushed sort deliberately gets NO row bound from <see cref="BoundSort" />, which only walks
+    ///         row-preserving nodes and so stops at the join. Bounding it would be wrong in general: an INNER join
+    ///         can drop left rows, so the first n rows of the sorted side need not yield n joined rows. (It would be
+    ///         sound for LEFT and CROSS, which never drop one — a refinement, not done here.)
+    ///     </para>
+    /// </remarks>
+    private static PlanNode PushSort(PlanNode node, IReadOnlyList<OrderByItem> keys)
+    {
+        if (node is JoinNode { Kind: JoinKind.Inner or JoinKind.Left or JoinKind.Cross } j
+            && keys.All(k => Qualifiers(k.Value) is { Count: > 0 } q && q.IsSubsetOf(SubtreeAliases(j.Left))))
+        {
+            return j with { Left = PushSort(j.Left, keys) };
+        }
+
+        return new SortNode(node, keys);
     }
 
     /// <summary>

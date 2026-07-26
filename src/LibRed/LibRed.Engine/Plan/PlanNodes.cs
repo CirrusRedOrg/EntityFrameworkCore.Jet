@@ -90,7 +90,13 @@ public sealed record AggregateNode(
 }
 
 /// <summary>Orders rows.</summary>
-public sealed record SortNode(PlanNode Input, IReadOnlyList<OrderByItem> Keys) : PlanNode
+/// <param name="Limit">
+/// When set, only this many rows are needed from the ordering, so the sort keeps the smallest n as it goes instead
+/// of ordering its whole input (see QueryExecutor.SortRows). The planner sets it from an enclosing <c>TOP n</c>
+/// when nothing between the two changes the row count; the <see cref="LimitNode"/> still applies the count itself,
+/// so this is purely a way to avoid ordering rows that cannot survive it.
+/// </param>
+public sealed record SortNode(PlanNode Input, IReadOnlyList<OrderByItem> Keys, Expression? Limit = null) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }

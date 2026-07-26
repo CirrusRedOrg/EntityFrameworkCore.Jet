@@ -454,12 +454,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case SortNode sort:
             {
                 var (columns, rows) = Execute(sort.Input, outer);
-                // Stable sort: rows with equal ORDER BY keys keep their input order. A List.Sort (unstable
-                // introsort) would reorder ties arbitrarily; EF's reference and SQL Server preserve input order,
-                // so an ORDER BY that doesn't fully disambiguate (e.g. ORDER BY CustomerID with several orders
-                // per customer) must too. Enumerable.OrderBy is a documented stable sort.
-                var comparer = Comparer<object?[]>.Create((a, b) => CompareKeys(sort.Keys, columns, outer, a, b));
-                return (columns, rows.OrderBy(r => r, comparer).ToList());
+                // As in LimitNode: the count is literal/parameter/arithmetic, so an empty row scope suffices.
+                int? bound = sort.Limit is { } lim
+                    ? Convert.ToInt32(Eval([], [], outer).Evaluate(lim), System.Globalization.CultureInfo.InvariantCulture)
+                    : null;
+                return (columns, SortRows(sort.Keys, columns, outer, rows, bound));
             }
 
             case ProjectNode project:
@@ -979,16 +978,114 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
     }
 
-    private int CompareKeys(IReadOnlyList<OrderByItem> keys, IReadOnlyList<OutputColumn> columns, EvalScope? outer, object?[] a, object?[] b)
+    /// <summary>
+    ///     Sorts rows by their ORDER BY keys, evaluating each key ONCE PER ROW rather than inside the comparer.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Evaluating in the comparer costs an expression evaluation — plus an <see cref="EvalScope" /> and an
+    ///         <see cref="ExpressionEvaluator" /> allocation — for both operands of every comparison, so a sort of
+    ///         n rows paid O(n log n) evaluations instead of n. Measured: <c>SELECT TOP 1 c.… FROM Customers c,
+    ///         Orders o, Employees e ORDER BY c.CustomerID</c> — 679,770 rows, ~13.4M comparisons, so ~27M
+    ///         evaluations — took <b>31.2 s</b>, against <b>6 ms</b> for the identical query without the ORDER BY.
+    ///         The cross join was never the problem; evaluating the key 40 times per row was.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="ExecuteAggregate" /> already precomputed its per-group sort keys this way, so this also
+    ///         settles a disagreement between the two paths, and they now share
+    ///         <see cref="CompareEvaluatedKeys" />.
+    ///     </para>
+    ///     <para>
+    ///         Rows with equal keys must keep their input order: EF's reference and SQL Server both preserve it,
+    ///         so an ORDER BY that doesn't fully disambiguate (e.g. ORDER BY CustomerID with several orders per
+    ///         customer) has to as well. That used to come from Enumerable.OrderBy being a documented stable sort;
+    ///         it now comes from carrying each row's input position and comparing it when the keys tie. That makes
+    ///         the ordering total, so an unstable algorithm produces the stable answer anyway — which is what lets
+    ///         <paramref name="bound" /> discard rows early without the notion of "first among equals" drifting.
+    ///     </para>
+    ///     <para>
+    ///         With a <paramref name="bound" /> (an enclosing <c>TOP n</c>) only the n smallest rows can survive,
+    ///         so the buffer is trimmed back to n whenever it reaches 2n and the input is never fully ordered.
+    ///         Trimming in batches rather than per row amortises each sort over the n rows it throws away.
+    ///     </para>
+    /// </remarks>
+    private List<object?[]> SortRows(
+        IReadOnlyList<OrderByItem> keys,
+        IReadOnlyList<OutputColumn> columns,
+        EvalScope? outer,
+        IEnumerable<object?[]> rows,
+        int? bound = null)
     {
-        foreach (OrderByItem key in keys)
+        // Rows paired with their evaluated keys and their input position. The position makes the ordering TOTAL,
+        // which is what lets the bounded path below be stable without relying on a stable algorithm.
+        var decorated = new List<(object?[] Row, object?[] Keys, int Index)>();
+        var index = 0;
+        foreach (object?[] row in rows)
         {
-            object? va = Eval(columns, a, outer).Evaluate(key.Value);
-            object? vb = Eval(columns, b, outer).Evaluate(key.Value);
-            int c = ExpressionEvaluator.CompareForSort(va, vb);
-            if (key.Direction == SortDirection.Descending) c = -c;
-            if (c != 0) return c;
+            ExpressionEvaluator eval = Eval(columns, row, outer);
+            var rowKeys = new object?[keys.Count];
+            for (var i = 0; i < keys.Count; i++)
+            {
+                rowKeys[i] = eval.Evaluate(keys[i].Value);
+            }
+
+            decorated.Add((row, rowKeys, index++));
+            if (bound is { } max && decorated.Count > max * 2 && max > 0)
+            {
+                // Keep only the best `max` so far. Doing this in batches (rather than per row) amortises the sort
+                // over the rows it discards, so the list never grows past 2·max however large the input is.
+                Trim(decorated, keys, max);
+            }
         }
+
+        if (bound is { } limit && limit <= 0)
+        {
+            return [];
+        }
+
+        decorated.Sort((a, b) => Compare(a, b));
+        if (bound is { } take && decorated.Count > take)
+        {
+            decorated.RemoveRange(take, decorated.Count - take);
+        }
+
+        return decorated.Select(x => x.Row).ToList();
+
+        int Compare((object?[] Row, object?[] Keys, int Index) a, (object?[] Row, object?[] Keys, int Index) b)
+        {
+            int c = CompareEvaluatedKeys(keys, a.Keys, b.Keys);
+            // Ties fall back to input order, reproducing a stable sort's result exactly.
+            return c != 0 ? c : a.Index.CompareTo(b.Index);
+        }
+
+        static void Trim(List<(object?[] Row, object?[] Keys, int Index)> list, IReadOnlyList<OrderByItem> keys, int max)
+        {
+            list.Sort((a, b) =>
+            {
+                int c = CompareEvaluatedKeys(keys, a.Keys, b.Keys);
+                return c != 0 ? c : a.Index.CompareTo(b.Index);
+            });
+            list.RemoveRange(max, list.Count - max);
+        }
+    }
+
+    /// <summary>Compares two rows' already-evaluated ORDER BY key values, honouring each key's direction.</summary>
+    private static int CompareEvaluatedKeys(IReadOnlyList<OrderByItem> keys, object?[] a, object?[] b)
+    {
+        for (var i = 0; i < keys.Count; i++)
+        {
+            int c = ExpressionEvaluator.CompareForSort(a[i], b[i]);
+            if (keys[i].Direction == SortDirection.Descending)
+            {
+                c = -c;
+            }
+
+            if (c != 0)
+            {
+                return c;
+            }
+        }
+
         return 0;
     }
 
@@ -1048,16 +1145,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
         if (node.OrderBy.Count > 0)
             // Stable (see SortNode): groups with equal ORDER BY keys keep their input (first-appearance) order.
-            outRows = outRows.OrderBy(x => x, Comparer<(object?[] Row, object?[] SortKeys, object?[] GroupKeys)>.Create((a, b) =>
-            {
-                for (int i = 0; i < node.OrderBy.Count; i++)
-                {
-                    int c = ExpressionEvaluator.CompareForSort(a.SortKeys[i], b.SortKeys[i]);
-                    if (node.OrderBy[i].Direction == SortDirection.Descending) c = -c;
-                    if (c != 0) return c;
-                }
-                return 0;
-            })).ToList();
+            outRows = outRows.OrderBy(x => x, Comparer<(object?[] Row, object?[] SortKeys, object?[] GroupKeys)>.Create(
+                (a, b) => CompareEvaluatedKeys(node.OrderBy, a.SortKeys, b.SortKeys))).ToList();
         else if (node.GroupBy.Count > 0)
             // No explicit ORDER BY: Access orders GROUP BY output ascending by the grouping columns.
             outRows.Sort((a, b) =>

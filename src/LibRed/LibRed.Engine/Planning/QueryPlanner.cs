@@ -56,10 +56,31 @@ public sealed class QueryPlanner
             node = new DistinctNode(node);
 
         if (select.Top is { } top)
+        {
+            // `TOP n ... ORDER BY k` only needs the n smallest rows by k, so tell the sort the bound and let it
+            // discard rows that can't survive rather than ordering everything. Only sound when nothing between the
+            // sort and the limit changes the row count: a projection is 1:1, but DISTINCT/DISTINCTROW collapse
+            // rows, so the n rows reaching the limit are not the n the sort would have kept. PERCENT is excluded
+            // because it needs the full input count to work out the take at all.
+            if (!select.TopPercent && !select.Distinct && !select.DistinctRow)
+                node = BoundSort(node, top);
+
             node = new LimitNode(node, top, select.TopPercent);
+        }
 
         return node;
     }
+
+    /// <summary>
+    ///     Attaches a row bound to the sort at the top of <paramref name="node" />, descending through the
+    ///     row-preserving nodes above it. Returns the tree unchanged when there is no sort to bound.
+    /// </summary>
+    private static PlanNode BoundSort(PlanNode node, Expression limit) => node switch
+    {
+        SortNode s => s with { Limit = limit },
+        ProjectNode p => p with { Input = BoundSort(p.Input, limit) },
+        _ => node,
+    };
 
     /// <summary>The aggregate function names recognised by the planner/executor. Includes the Access statistical
     /// aggregates StDev/StDevP (sample/population standard deviation) and Var/VarP (sample/population variance);

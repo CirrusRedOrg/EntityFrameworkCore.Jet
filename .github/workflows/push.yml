@@ -618,16 +618,30 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
-      # Windows keeps ACE installed as a control - its result is the known baseline. Linux and macOS run the
-      # suite with no Access engine at all: LibRed is meant to need none, so a test that fails only off
-      # Windows is a real cross-platform gap to chase, not noise.
-      - name: Install Access Database Engine
+      # No Access engine on ANY leg now. Windows used to install ACE as a control, on the reasoning that a
+      # test failing only off Windows would be a real cross-platform gap - but all three legs have since
+      # agreed exactly (35,578 passed / 179 failed / 2,016 skipped), so nothing here needs ACE and the
+      # control has served its purpose. LibRedAccess still installs it, which is where the cross-checks
+      # against the real engine belong.
+      #
+      # Defender is excluded from the workspace and temp: this leg spends its time writing .accdb files, and
+      # it ran 14m01 against ubuntu's 9m30 and macOS's 10m22 on identical work - identical managed code, no
+      # platform-conditional paths, and durable flushing measured as not the cause. Real-time scanning of
+      # every database write is the remaining candidate. If the gap survives this, the exclusion can go.
+      - name: Exclude test files from Defender
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $setupFileName = 'AccessDatabaseEngine_2016_x64.exe'
-          Invoke-WebRequest "https://cirrusredorg.github.io/EntityFrameworkCore.Jet/$setupFileName" -OutFile $setupFileName
-          & ".\$setupFileName" /passive /quiet /norestart REBOOT=ReallySuppress | Out-Default
+          try
+          {
+              Add-MpPreference -ExclusionPath $env:GITHUB_WORKSPACE, $env:TEMP, $env:RUNNER_TEMP -ErrorAction Stop
+              Add-MpPreference -ExclusionExtension 'accdb', 'mdb' -ErrorAction Stop
+              echo 'Defender exclusions applied.'
+          }
+          catch
+          {
+              echo "Defender exclusions not applied (continuing): $_"
+          }
       - name: 'Run Tests: EFCore.LibRed.FunctionalTests'
         if: env.skipTests != 'true'
         run: dotnet test test/EFCore.LibRed.FunctionalTests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 10m

@@ -1,5 +1,8 @@
 using LibRed;
 using LibRed.Engine;
+using LibRed.Engine.Execution;
+using LibRed.Sql.Ast;
+using LibRed.Sql.Parsing;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -36,6 +39,26 @@ public class CorrelatedExistsSemiJoinTests
 
     private static long[] Ids(QueryEngine e, string sql)
         => e.ExecuteQuery(sql).Rows.Select(r => Convert.ToInt64(r[0])).OrderBy(x => x).ToArray();
+
+    // Whether the rewrite engages, asked of the analysis directly. Every semantics test here passes either way,
+    // since falling back gives the same answer — so this is the only thing that can tell a decorrelated shape
+    // from a declined one. (The timing guards below do the same job for the shape EF actually emits, but at the
+    // cost of running a 92 s query when they fail.) The outer scope is O aliased `o`, as in the queries above.
+    private static bool Decorrelates(QueryEngine e, string sql)
+    {
+        var select = (SelectStatement)new AntlrSqlParser().ParseStatement(sql);
+        Expression predicate = select.Where is UnaryExpression u ? u.Operand : select.Where!;
+        var exists = (ExistsExpression)predicate;
+
+        OutputColumn[] outer =
+        [
+            new("o", "Id", typeof(long)), new("o", "K", typeof(long)), new("o", "Tag", typeof(string)),
+        ];
+
+        return ExistsSemiJoin.TryBuild(
+            (SelectStatement)exists.Query, outer, new(StringComparer.OrdinalIgnoreCase) { "o" },
+            e.Database.Catalog) is not null;
+    }
 
     [Fact]
     public void Matches_only_rows_with_a_correlated_partner()
@@ -121,6 +144,99 @@ public class CorrelatedExistsSemiJoinTests
         => Assert.Equal([1, 3, 5],
             Ids(Fresh(),
                 "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K AND o.Tag <> 'zz')"));
+
+    [Fact]
+    public void An_aggregate_body_with_no_group_by_is_always_true()
+        // A bare aggregate over zero rows still yields one row (COUNT(*) = 0), so this EXISTS is true for EVERY
+        // outer row — including 2 and 4, which have no partner at all. A key-existence test would say false for
+        // them, so this body cannot be decorrelated.
+        => Assert.Equal([1, 2, 3, 4, 5],
+            Ids(Fresh(), "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT COUNT(*) FROM I AS i WHERE i.K = o.K)"));
+
+    [Fact]
+    public void A_having_with_no_group_by_is_not_decorrelated()
+        // The lone group again: for outer rows 2 and 4 nothing matches, COUNT(*) is 0, and `HAVING COUNT(*) < 1`
+        // admits that empty group — so those rows DO qualify, while a key test would drop them. Rows 1/3/5 have
+        // partners, so their count is >= 1 and they don't qualify.
+        => Assert.Equal([2, 4],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K HAVING COUNT(*) < 1)
+                """));
+
+    [Fact]
+    public void A_group_by_body_is_decorrelated_by_grouping_on_the_key_too()
+        // Grouping on i.Keep as well as the correlation column: every matching inner row has Keep = 1 except the
+        // one holding K = 50, so rows 1, 3 and 5 each have a group and qualify.
+        => Assert.Equal([1, 3, 5],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K GROUP BY i.Keep)
+                """));
+
+    [Fact]
+    public void A_having_over_a_group_by_is_applied_per_key()
+        // K = 10 has two inner rows (both Keep = 1) so its group passes COUNT(*) > 1; K = 30 and K = 50 have one
+        // row each and fail. Grouping by the key as well is what keeps those counts per-key rather than global —
+        // grouping on i.Keep alone would count all four Keep = 1 rows and wrongly admit every matching outer row.
+        => Assert.Equal([1],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K GROUP BY i.Keep HAVING COUNT(*) > 1)
+                """));
+
+    [Fact]
+    public void A_group_by_body_with_a_residual_still_applies_it()
+        => Assert.Equal([1, 3],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (
+                    SELECT 1 FROM I AS i WHERE i.K = o.K AND i.Keep = 1 GROUP BY i.Id HAVING COUNT(*) > 0)
+                """));
+
+    [Fact]
+    public void A_group_by_key_referencing_the_outer_scope_falls_back()
+        // Grouping on an outer column makes the body vary per outer row, so it must decline. Per row the group is
+        // whatever matched, and `COUNT(*) > 0` then admits exactly the rows with a partner.
+        => Assert.Equal([1, 3, 5],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K GROUP BY o.Tag HAVING COUNT(*) > 0)
+                """));
+
+    [Fact]
+    public void A_having_referencing_the_outer_scope_falls_back()
+        => Assert.Equal([1],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K GROUP BY i.Keep HAVING COUNT(*) > o.Id)
+                """));
+
+    [Theory]
+    // Which shapes the analysis actually accepts, stated outright rather than inferred from a runtime. The
+    // grouped rows are the point of this change; the rest pin the boundaries the semantics tests above cover.
+    [InlineData(true, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K)")]
+    [InlineData(true, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K GROUP BY i.Keep)")]
+    [InlineData(true, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K GROUP BY i.Keep HAVING COUNT(*) > 1)")]
+    // An aggregate or HAVING with no GROUP BY: one group even over no rows, so a key test can't stand in for it.
+    [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT COUNT(*) FROM I AS i WHERE i.K = o.K)")]
+    [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K HAVING COUNT(*) < 1)")]
+    // An outer reference left anywhere the correlation split didn't consume.
+    [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K GROUP BY o.Tag HAVING COUNT(*) > 0)")]
+    [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K GROUP BY i.Keep HAVING COUNT(*) > o.Id)")]
+    [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K AND o.Tag <> 'zz')")]
+    // No correlation to hash at all, and the shapes TOP rules out.
+    [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.Keep = 1)")]
+    [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT TOP 0 1 FROM I AS i WHERE i.K = o.K)")]
+    [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT TOP 50 PERCENT 1 FROM I AS i WHERE i.K = o.K)")]
+    public void The_analysis_accepts_exactly_these_shapes(bool expected, string sql)
+        => Assert.Equal(expected, Decorrelates(Fresh(), sql));
 
     [Fact]
     public void An_uncorrelated_exists_is_unaffected()

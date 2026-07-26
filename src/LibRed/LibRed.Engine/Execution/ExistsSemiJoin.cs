@@ -21,10 +21,15 @@ namespace LibRed.Engine.Execution;
 /// </para>
 /// <para>
 /// The rewrite is only valid when every outer reference sits in a top-level <c>inner = outer</c> equality, so
-/// removing those conjuncts leaves a subquery that means the same thing for every outer row. Anything else —
-/// an outer reference in a residual conjunct or a nested subquery, <c>TOP</c>, <c>GROUP BY</c>/<c>HAVING</c>
-/// (whose result depends on which rows the correlation admitted) — declines, and the caller falls back to
-/// per-row evaluation.
+/// removing those conjuncts leaves a subquery that means the same thing for every outer row. Anything else — an
+/// outer reference in a residual conjunct, a <c>GROUP BY</c> key, a <c>HAVING</c>, or a nested subquery — declines,
+/// and the caller falls back to per-row evaluation.
+/// </para>
+/// <para>
+/// A <c>GROUP BY</c> body is still decorrelated, by grouping on the correlation columns as well: that splits each
+/// group by key, giving the same partition the correlation produced one key at a time, so <c>HAVING</c> decides
+/// each group identically. What must decline is a body that yields a row over an EMPTY input — see
+/// <see cref="EmptyInputMeansNoRows" />.
 /// </para>
 /// </remarks>
 internal sealed class ExistsSemiJoin
@@ -51,10 +56,10 @@ internal sealed class ExistsSemiJoin
         HashSet<string> outerAliases,
         JetCatalog catalog)
     {
-        // TOP/GROUP BY/HAVING make the body's result depend on which rows the correlation admitted, so the body
-        // cannot be evaluated once for all outer rows. (ORDER BY and DISTINCT are irrelevant to EXISTS.)
-        if (subquery is not { GroupBy.Count: 0, Having: null, Where: { } where, From: not null }
-            || !TopCannotChangeExistence(subquery))
+        // (ORDER BY and DISTINCT are irrelevant to EXISTS.)
+        if (subquery is not { Where: { } where, From: not null }
+            || !TopCannotChangeExistence(subquery)
+            || !EmptyInputMeansNoRows(subquery))
         {
             return null;
         }
@@ -102,9 +107,12 @@ internal sealed class ExistsSemiJoin
         // can tell; the hoisting path settles that with a trial run, but this rewrite commits before the body is
         // ever executed (the key set is built lazily on first probe), so a wrong guess would surface as a query
         // error rather than a fallback. EF always qualifies, so nothing real is lost.
+        //
+        // GROUP BY and HAVING stay in the key query, so they face the same test as a residual conjunct.
         if (innerKeys.Count == 0
-            || residual.Any(r => SubqueryHoisting.MayReferenceOuter(r, outerAliases)
-                || SubqueryHoisting.HasUnqualifiedColumn(r)))
+            || residual.Concat(subquery.GroupBy).Concat(subquery.Having is { } h ? [h] : Array.Empty<Expression>())
+                .Any(r => SubqueryHoisting.MayReferenceOuter(r, outerAliases)
+                    || SubqueryHoisting.HasUnqualifiedColumn(r)))
         {
             return null;
         }
@@ -114,6 +122,11 @@ internal sealed class ExistsSemiJoin
             Projection = innerKeys.Select(k => new SelectItem(k, null)).ToList(),
             IsSelectStar = false,
             Where = residual.Count == 0 ? null : residual.Aggregate((a, b) => new BinaryExpression(BinaryOperator.And, a, b)),
+            // Grouping by the correlation columns as well splits each group by key, which is exactly the
+            // partition the correlation predicate produced one key at a time — so a group passes HAVING here
+            // if and only if it passed for that outer row. The keys must also be grouping columns to be
+            // projectable at all. (Empty for a non-grouped body, leaving the plan unchanged.)
+            GroupBy = subquery.GroupBy.Count == 0 ? [] : [.. subquery.GroupBy, .. innerKeys],
             OrderBy = [],
             Distinct = false,
             DistinctRow = false,
@@ -125,6 +138,27 @@ internal sealed class ExistsSemiJoin
 
         return new ExistsSemiJoin(keyQuery, outerKeys);
     }
+
+    /// <summary>
+    ///     Whether a body over zero rows returns zero rows — which is what makes "the key is absent from the set"
+    ///     mean "EXISTS is false".
+    /// </summary>
+    /// <remarks>
+    ///     It fails for exactly one shape: an aggregate with no <c>GROUP BY</c>, which has a single group even
+    ///     when nothing matched, so it yields a row regardless — <c>EXISTS (SELECT COUNT(*) FROM I WHERE I.K =
+    ///     o.K)</c> is true for every outer row, and a key test would say false for the unmatched ones. A
+    ///     <c>HAVING</c> without <c>GROUP BY</c> filters that same lone group and can admit it on empty input
+    ///     (<c>HAVING COUNT(*) = 0</c>), so it goes the same way.
+    ///     <para>
+    ///         With a <c>GROUP BY</c> there is no such row: no input rows means no groups. Before this test the
+    ///         non-grouped aggregate declined only by accident — <c>SubtreeAliases</c> had no
+    ///         <c>AggregateNode</c> case, so no inner alias was ever found and every conjunct fell to the
+    ///         residual. Adding that case to support grouped bodies removed the accident.
+    ///     </para>
+    /// </remarks>
+    private static bool EmptyInputMeansNoRows(SelectStatement subquery)
+        => subquery.GroupBy.Count > 0
+            || (subquery.Having is null && !subquery.Projection.Any(p => QueryPlanner.HasAggregate(p.Value)));
 
     /// <summary>
     ///     Whether the body's <c>TOP</c> can be ignored when all we are asking is whether ANY row exists.

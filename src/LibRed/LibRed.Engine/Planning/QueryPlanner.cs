@@ -68,7 +68,7 @@ public sealed class QueryPlanner
         name.ToUpperInvariant() is "COUNT" or "SUM" or "AVG" or "MIN" or "MAX" or "FIRST" or "LAST"
             or "STDEV" or "STDEVP" or "STDDEV" or "STDDEVP" or "VAR" or "VARP";
 
-    private static bool HasAggregate(Expression e) => e switch
+    internal static bool HasAggregate(Expression e) => e switch
     {
         FunctionCall f when IsAggregate(f.Name) => true,
         FunctionCall f => f.Arguments.Any(HasAggregate),
@@ -147,6 +147,9 @@ public sealed class QueryPlanner
         LimitNode l => SubtreeAliases(l.Input),
         DistinctNode d => SubtreeAliases(d.Input),
         DistinctRowNode d => SubtreeAliases(d.Input),
+        // Grouping collapses rows but doesn't rename their source: the group scope still exposes the input's
+        // columns (which is what lets HAVING and the projection qualify them), so the aliases carry through.
+        AggregateNode a => SubtreeAliases(a.Input),
         IndexScanNode s => new(StringComparer.OrdinalIgnoreCase) { s.Table },
         _ => new(StringComparer.OrdinalIgnoreCase),
     };

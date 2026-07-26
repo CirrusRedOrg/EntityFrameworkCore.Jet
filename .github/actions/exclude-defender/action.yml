@@ -4,18 +4,18 @@ description: >-
   so it is safe to call unconditionally from a cross-platform matrix job.
 
 # Why: these suites spend their time creating and writing .accdb files, and Defender scans every one.
-# Measured on EFCore.LibRed.FunctionalTests, which is the largest of them at ~37,800 tests: the Windows leg
-# ran 14m01 against ubuntu's 9m30 and macOS's 10m22 on identical work, and adding this took it to 8m18 - a
-# 41% drop on the only leg that changed, with results byte-identical across all three (179 failed / 35,578
-# passed / 2,016 skipped). Windows went from slowest to second-fastest.
 #
-# It helps FAR less on the Jet side: BuildAndTest moved by a couple of minutes out of ~30 (2010/x86/ODBC
-# 29m16, OLE DB 33m32), not 41%. Likely because those suites run sequentially (MaxParallelThreads = 1, since
-# the ACE provider crashes concurrently), so they spend much of their time blocked on ACE/COM round trips and
-# Defender scans during time the test was going to wait anyway. LibRed's suite is unlimited-parallel, so every
-# core is busy and scanning contends directly. A hypothesis, not a measurement — but it fits both numbers, and
-# it means "less benefit here" is expected rather than a sign the exclusion stopped working. Still worth
-# keeping on those jobs: a couple of minutes across eight matrix combinations is ~15 minutes a push.
+# NOT PROVEN, and don't repeat the 41% figure. On EFCore.LibRed.FunctionalTests (~37,800 tests) the Windows
+# leg ran 14m01 before this and 8m18 immediately after, against ubuntu's 9m30 and macOS's 10m22 - but a later
+# run of the same code came back at 13m. GitHub's runners are VMs on shared hardware, so a single before/after
+# pair cannot separate the change from whoever else was on that host. The honest position is that the
+# exclusion plausibly helps and demonstrably costs nothing; establishing it would need several runs each way,
+# and the windows:ubuntu ratio across them rather than one absolute number.
+#
+# On the Jet side BuildAndTest moved by a couple of minutes out of ~30 (2010/x86/ODBC 29m16, OLE DB 33m32),
+# which is also inside the noise band, so treat it the same way: kept because it is free, not because it is
+# shown to work. Those suites run sequentially anyway (MaxParallelThreads = 1, since the ACE provider crashes
+# concurrently), and that serialisation - not I/O overhead - is what their ~30 minutes actually is.
 #
 # Call it immediately after checkout so that restore, build and any engine install are covered too, not just
 # the test run. Failure is tolerated: a policy-managed Defender logs and carries on rather than failing the

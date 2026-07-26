@@ -1,0 +1,31 @@
+name: 'Exclude test files from Defender'
+description: >-
+  Excludes the workspace and temp directories from Windows Defender real-time scanning. A no-op off Windows,
+  so it is safe to call unconditionally from a cross-platform matrix job.
+
+# Why: these suites spend their time creating and writing .accdb files, and Defender scans every one.
+# Measured on EFCore.LibRed.FunctionalTests, which is the largest of them at ~37,800 tests: the Windows leg
+# ran 14m01 against ubuntu's 9m30 and macOS's 10m22 on identical work, and adding this took it to 8m18 - a
+# 41% drop on the only leg that changed, with results byte-identical across all three (179 failed / 35,578
+# passed / 2,016 skipped). Windows went from slowest to second-fastest.
+#
+# Call it immediately after checkout so that restore, build and any engine install are covered too, not just
+# the test run. Failure is tolerated: a policy-managed Defender logs and carries on rather than failing the
+# job, since this is a speed measure and never a correctness one.
+runs:
+  using: composite
+  steps:
+    - name: Exclude test files from Defender
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        try
+        {
+            Add-MpPreference -ExclusionPath $env:GITHUB_WORKSPACE, $env:TEMP, $env:RUNNER_TEMP -ErrorAction Stop
+            Add-MpPreference -ExclusionExtension 'accdb', 'mdb', 'mdw' -ErrorAction Stop
+            echo 'Defender exclusions applied.'
+        }
+        catch
+        {
+            echo "Defender exclusions not applied (continuing): $_"
+        }

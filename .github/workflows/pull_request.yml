@@ -151,6 +151,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+      # Defender scans every .accdb these suites write; see the action for the measurement.
+      - name: Exclude test files from Defender
+        uses: ./.github/actions/exclude-defender
       - name: Set additional variables
         shell: pwsh
         run: |
@@ -525,6 +528,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+      # Defender scans every .accdb these suites write; see the action for the measurement.
+      - name: Exclude test files from Defender
+        uses: ./.github/actions/exclude-defender
       - name: Install .NET SDK
         uses: actions/setup-dotnet@v5
         with:
@@ -551,6 +557,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+      # Defender scans every .accdb these suites write; see the action for the measurement.
+      - name: Exclude test files from Defender
+        uses: ./.github/actions/exclude-defender
       - name: Install .NET SDK
         uses: actions/setup-dotnet@v5
         with:
@@ -606,6 +615,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+      # Defender scans every .accdb these suites write; see the action for the measurement.
+      - name: Exclude test files from Defender
+        uses: ./.github/actions/exclude-defender
       - name: Install .NET SDK
         uses: actions/setup-dotnet@v5
         with:
@@ -615,26 +627,6 @@ jobs:
       # agreed exactly (35,578 passed / 179 failed / 2,016 skipped), so nothing here needs ACE and the
       # control has served its purpose. LibRedAccess still installs it, which is where the cross-checks
       # against the real engine belong.
-      #
-      # Defender is excluded from the workspace and temp because this leg spends its time writing .accdb
-      # files. CONFIRMED, don't remove: Windows ran 14m01 against ubuntu's 9m30 and macOS's 10m22 on
-      # identical work, and adding the exclusion took it to 8m18 - a 41% drop on the only leg that got the
-      # change, with results byte-identical (179 failed / 35,578 passed / 2,016 skipped on all three).
-      # Real-time scanning of every database write really was the cost.
-      - name: Exclude test files from Defender
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          try
-          {
-              Add-MpPreference -ExclusionPath $env:GITHUB_WORKSPACE, $env:TEMP, $env:RUNNER_TEMP -ErrorAction Stop
-              Add-MpPreference -ExclusionExtension 'accdb', 'mdb' -ErrorAction Stop
-              echo 'Defender exclusions applied.'
-          }
-          catch
-          {
-              echo "Defender exclusions not applied (continuing): $_"
-          }
       - name: 'Run Tests: EFCore.LibRed.FunctionalTests'
         if: env.skipTests != 'true'
         run: dotnet test test/EFCore.LibRed.FunctionalTests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 10m

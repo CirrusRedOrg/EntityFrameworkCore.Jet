@@ -101,62 +101,9 @@ internal sealed class ExistsSemiJoin
         JetCatalog catalog)
     {
         // (ORDER BY and DISTINCT are irrelevant to EXISTS.)
-        if (subquery is not { Where: { } where, From: not null }
-            || !TopCannotChangeExistence(subquery)
-            || !EmptyInputMeansNoRows(subquery))
-        {
-            return null;
-        }
-
-        PlanNode plan;
-        try
-        {
-            plan = QueryPlanner.PlanSelect(subquery);
-        }
-        catch (Exception)
-        {
-            return null; // Unplannable here is not our problem to report; let the normal path raise it.
-        }
-
-        HashSet<string> innerAliases = QueryPlanner.SubtreeAliases(plan);
-
-        var innerKeys = new List<Expression>();
-        var outerKeys = new List<Expression>();
-        var residual = new List<Expression>();
-
-        foreach (Expression conjunct in IndexSelection.Conjuncts(where))
-        {
-            if (conjunct is BinaryExpression { Operator: BinaryOperator.Equal } eq
-                && Orient(eq, innerAliases, outerAliases) is var (inner, outer)
-                && inner is ColumnReference innerCol
-                && SameKind(innerCol, plan, catalog, outer, outerColumns))
-            {
-                innerKeys.Add(inner);
-                outerKeys.Add(outer);
-            }
-            else
-            {
-                residual.Add(conjunct);
-            }
-        }
-
-        // Every outer reference must have been consumed as a key, or the body would still vary per outer row.
-        //
-        // The test is "references no OUTER alias", not "references only inner aliases": the latter (ReferencesOnly)
-        // treats a nested subquery as opaque and refuses, which declined an EXISTS whose residual merely holds an
-        // outer-INDEPENDENT `IN (…)` — the Delete_Where_predicate_with_GroupBy_aggregate_2 shape. MayReferenceOuter
-        // descends into nested subqueries instead, so such a residual is recognised as outer-independent.
-        //
-        // Unqualified columns are refused outright. A bare name may bind outward and only the evaluator's resolver
-        // can tell; the hoisting path settles that with a trial run, but this rewrite commits before the body is
-        // ever executed (the key set is built lazily on first probe), so a wrong guess would surface as a query
-        // error rather than a fallback. EF always qualifies, so nothing real is lost.
-        //
-        // GROUP BY and HAVING stay in the key query, so they face the same test as a residual conjunct.
-        if (innerKeys.Count == 0
-            || residual.Concat(subquery.GroupBy).Concat(subquery.Having is { } h ? [h] : Array.Empty<Expression>())
-                .Any(r => SubqueryHoisting.MayReferenceOuter(r, outerAliases)
-                    || SubqueryHoisting.HasUnqualifiedColumn(r)))
+        if (!TopCannotChangeExistence(subquery)
+            || !EmptyInputMeansNoRows(subquery)
+            || SubqueryCorrelation.TrySplit(subquery, outerColumns, outerAliases, catalog) is not { } split)
         {
             return null;
         }
@@ -164,11 +111,11 @@ internal sealed class ExistsSemiJoin
         // The IN value is a key column like any other — the difference is only that its inner side comes from the
         // projection rather than from a WHERE equality, and that a null there means UNKNOWN rather than no match
         // (see BuildSemiJoinKeys). It goes last so the probe can append the already-evaluated value.
-        var projected = new List<Expression>(innerKeys);
+        var projected = new List<Expression>(split.InnerKeys);
         if (inValue is not null)
         {
             Expression output = subquery.Projection[0].Value;
-            if (!SameKind((ColumnReference)output, plan, catalog, inValue, outerColumns))
+            if (!SubqueryCorrelation.SameKind((ColumnReference)output, split.Plan, catalog, inValue, outerColumns))
             {
                 return null;
             }
@@ -180,12 +127,12 @@ internal sealed class ExistsSemiJoin
         {
             Projection = projected.Select(k => new SelectItem(k, null)).ToList(),
             IsSelectStar = false,
-            Where = residual.Count == 0 ? null : residual.Aggregate((a, b) => new BinaryExpression(BinaryOperator.And, a, b)),
+            Where = split.Residual,
             // Grouping by the correlation columns as well splits each group by key, which is exactly the
             // partition the correlation predicate produced one key at a time — so a group passes HAVING here
             // if and only if it passed for that outer row. The keys must also be grouping columns to be
             // projectable at all. (Empty for a non-grouped body, leaving the plan unchanged.)
-            GroupBy = subquery.GroupBy.Count == 0 ? [] : [.. subquery.GroupBy, .. innerKeys],
+            GroupBy = subquery.GroupBy.Count == 0 ? [] : [.. subquery.GroupBy, .. split.InnerKeys],
             OrderBy = [],
             Distinct = false,
             DistinctRow = false,
@@ -195,7 +142,7 @@ internal sealed class ExistsSemiJoin
             TopPercent = false,
         };
 
-        return new ExistsSemiJoin(keyQuery, outerKeys, inValue is not null);
+        return new ExistsSemiJoin(keyQuery, split.OuterKeys, inValue is not null);
     }
 
     /// <summary>
@@ -249,61 +196,6 @@ internal sealed class ExistsSemiJoin
 
     private static bool IsNumeric(object v)
         => v is byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;
-
-    /// <summary>Orients an equality so the first element is the subquery side and the second the outer side.</summary>
-    private static (Expression Inner, Expression Outer)? Orient(
-        BinaryExpression eq, HashSet<string> innerAliases, HashSet<string> outerAliases)
-        => IndexSelection.ReferencesOnly(eq.Left, innerAliases) && IndexSelection.ReferencesOnly(eq.Right, outerAliases)
-            ? (eq.Left, eq.Right)
-            : IndexSelection.ReferencesOnly(eq.Right, innerAliases) && IndexSelection.ReferencesOnly(eq.Left, outerAliases)
-                ? (eq.Right, eq.Left)
-                : null;
-
-    /// <summary>
-    ///     Whether both sides of a correlation equality are the same type kind. A hash agreeing with the
-    ///     evaluator's <c>=</c> only exists within a kind (<c>5 = '5'</c> and <c>5 = 5.0</c>, but
-    ///     <c>'5' ≠ '5.0'</c>), so a cross-kind correlation must stay a per-row comparison.
-    /// </summary>
-    private static bool SameKind(
-        ColumnReference innerCol,
-        PlanNode innerPlan,
-        JetCatalog catalog,
-        Expression outer,
-        IReadOnlyList<OutputColumn> outerColumns)
-    {
-        IndexSelection.TypeKind? innerKind = IndexSelection.ResolveKind(innerCol, innerPlan, catalog);
-        if (innerKind is null)
-        {
-            return false;
-        }
-
-        // The outer side's kind comes from the scope's CLR types rather than the catalog: it may be any
-        // expression over already-materialised rows, not necessarily a base-table column.
-        if (outer is not ColumnReference outerCol)
-        {
-            return false;
-        }
-
-        Type? clr = outerColumns
-            .Where(c => string.Equals(c.Name, outerCol.Column, StringComparison.OrdinalIgnoreCase)
-                && (outerCol.Table is null || string.Equals(c.Qualifier, outerCol.Table, StringComparison.OrdinalIgnoreCase)))
-            .Select(c => c.ClrType)
-            .FirstOrDefault();
-
-        return clr is not null && KindOf(clr) == innerKind;
-    }
-
-    private static IndexSelection.TypeKind? KindOf(Type t)
-    {
-        Type u = Nullable.GetUnderlyingType(t) ?? t;
-        if (u == typeof(string)) return IndexSelection.TypeKind.Text;
-        if (u == typeof(byte[])) return IndexSelection.TypeKind.Binary;
-        if (u == typeof(DateTime)) return IndexSelection.TypeKind.Temporal;
-        if (u == typeof(Guid)) return IndexSelection.TypeKind.Guid;
-        if (u == typeof(bool) || u == typeof(byte) || u == typeof(short) || u == typeof(int) || u == typeof(long)
-            || u == typeof(float) || u == typeof(double) || u == typeof(decimal)) return IndexSelection.TypeKind.Numeric;
-        return null;
-    }
 
     /// <summary>
     ///     Tests one outer row. The key set is built on first use — once per statement, not per row.

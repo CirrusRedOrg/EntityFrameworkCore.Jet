@@ -37,6 +37,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     // column — the same SelectStatement node reached as an EXISTS body would need a different one.
     private readonly Dictionary<SelectStatement, ExistsSemiJoin?> _inSemiJoins = new(ReferenceEqualityComparer.Instance);
 
+    // And for a correlated scalar aggregate, which maps each key to one value rather than testing membership.
+    private readonly Dictionary<SelectStatement, ScalarAggregateSemiJoin?> _scalarSemiJoins = new(ReferenceEqualityComparer.Instance);
+
     // Results of subqueries that turned out not to depend on the outer row: same answer every time, so they are
     // evaluated once per statement. Keyed by AST node; the boxed value may legitimately be null (SQL NULL), hence
     // separate dictionaries rather than a null-means-absent convention.
@@ -89,6 +92,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
         if (TryHoist(query, outerScope, ScalarOf, out object? once))
             return _hoistedScalar[query] = once;
+
+        // A correlated aggregate is one grouped pass over the body rather than one aggregate per outer row.
+        if (!_scalarSemiJoins.TryGetValue(query, out ScalarAggregateSemiJoin? semi))
+        {
+            _scalarSemiJoins[query] = semi = ScalarAggregateSemiJoin.TryBuild(
+                query, outerScope.AllColumns(), outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase),
+                _database.Catalog);
+        }
+
+        if (semi is not null)
+            return semi.Evaluate(this, new ExpressionEvaluator(outerScope, this, _parameters, _session));
 
         return ScalarOf(outerScope);
 
@@ -219,6 +233,57 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
 
         return (keys, nullTail);
+    }
+
+    /// <summary>
+    ///     Runs a decorrelated aggregate body grouped by its correlation columns, mapping each key tuple to the one
+    ///     value that group aggregated to. Key tuples containing a null are dropped, as in
+    ///     <see cref="BuildSemiJoinKeys" />; the aggregate itself may legitimately be null (<c>SUM</c> of nulls).
+    /// </summary>
+    internal Dictionary<object?[], object?> BuildGroupedAggregate(SelectStatement keyQuery, int keyWidth)
+    {
+        var values = new Dictionary<object?[], object?>(HashKeyComparer.Instance);
+        var (_, rows) = Execute(SubqueryPlan(keyQuery, new EvalScope([], [], null)), null);
+        foreach (object?[] row in rows)
+        {
+            if (row.Length <= keyWidth)
+            {
+                continue;
+            }
+
+            var key = new object?[keyWidth];
+            var usable = true;
+            for (var i = 0; i < keyWidth && usable; i++)
+            {
+                usable = (key[i] = row[i]) is not null;
+            }
+
+            if (usable)
+            {
+                // Grouping is by exactly these columns, so a key cannot repeat; indexing rather than Add would
+                // hide it if that ever stopped holding, so let a duplicate throw.
+                values.Add(key, row[keyWidth]);
+            }
+        }
+
+        return values;
+    }
+
+    /// <summary>
+    ///     What an aggregate call evaluates to over an empty group — <c>COUNT</c> is 0 where <c>SUM</c>/<c>MIN</c>
+    ///     are null. This is what a correlated aggregate returns for an outer row with no matching inner rows, and
+    ///     it comes from the same computation the per-row path uses so the two cannot disagree.
+    /// </summary>
+    internal object? EmptyGroupAggregate(FunctionCall call)
+    {
+        try
+        {
+            return ComputeAggregate(call, [], [], null);
+        }
+        catch (InvalidOperationException)
+        {
+            return null; // As in ExecuteAggregate: a call that can't be computed here isn't ours to compute.
+        }
     }
 
     (bool Found, bool HasNull)? IScalarSubqueryRunner.ExecuteInSubquery(

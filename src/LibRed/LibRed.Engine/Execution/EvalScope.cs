@@ -98,4 +98,12 @@ internal interface IScalarSubqueryRunner
 
     /// <summary>The values of the first column of the (possibly correlated) subquery — for <c>IN (subquery)</c>.</summary>
     IEnumerable<object?> ExecuteColumn(SelectStatement query, EvalScope outerScope);
+
+    /// <summary>
+    ///     Membership of <paramref name="value" /> in a correlated subquery's column, answered from a hash rather
+    ///     than by re-running the body for this row, together with whether that column held a null (which
+    ///     <c>IN</c> reports as UNKNOWN, not as no-match). Null when the subquery has no such form and the caller
+    ///     should fall back to <see cref="ExecuteColumn" />.
+    /// </summary>
+    (bool Found, bool HasNull)? ExecuteInSubquery(SelectStatement query, Expression value, object? evaluated, EvalScope outerScope);
 }

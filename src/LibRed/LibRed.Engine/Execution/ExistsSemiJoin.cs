@@ -40,10 +40,14 @@ internal sealed class ExistsSemiJoin
     /// <summary>The outer sides of the equalities, in the same order as the key query's projection.</summary>
     private readonly IReadOnlyList<Expression> _outerKeys;
 
-    private HashSet<object?[]>? _keys;
+    /// <summary>True when the key query projects the <c>IN</c> value after the correlation columns.</summary>
+    private readonly bool _hasInValue;
 
-    private ExistsSemiJoin(SelectStatement keyQuery, IReadOnlyList<Expression> outerKeys)
-        => (_keyQuery, _outerKeys) = (keyQuery, outerKeys);
+    private HashSet<object?[]>? _keys;
+    private HashSet<object?[]>? _nullTail;
+
+    private ExistsSemiJoin(SelectStatement keyQuery, IReadOnlyList<Expression> outerKeys, bool hasInValue)
+        => (_keyQuery, _outerKeys, _hasInValue) = (keyQuery, outerKeys, hasInValue);
 
     /// <summary>
     ///     Analyses an <c>EXISTS</c> subquery, returning a semi-join plan or null when the rewrite would not be
@@ -52,6 +56,46 @@ internal sealed class ExistsSemiJoin
     /// </summary>
     internal static ExistsSemiJoin? TryBuild(
         SelectStatement subquery,
+        IReadOnlyList<OutputColumn> outerColumns,
+        HashSet<string> outerAliases,
+        JetCatalog catalog)
+        => TryBuild(subquery, null, outerColumns, outerAliases, catalog);
+
+    /// <summary>
+    ///     The same analysis for <c>x [NOT] IN (subquery)</c>, where <paramref name="inValue" /> is the outer
+    ///     expression being tested. A correlated <c>IN</c> is a semi-join too — membership is one more equality
+    ///     between the subquery's output column and <paramref name="inValue" /> — so the value joins the hash key
+    ///     as a final column and the probe supplies it alongside the correlation values.
+    /// </summary>
+    /// <remarks>
+    ///     Stricter than the <c>EXISTS</c> form in two ways, both because <c>IN</c> asks for the body's VALUES and
+    ///     not merely for a row:
+    ///     <list type="bullet">
+    ///       <item>
+    ///         Any <c>TOP</c> declines. <c>TOP n</c> cannot change whether a row exists, but it certainly changes
+    ///         which values are in the set, so it cannot be dropped from the key query.
+    ///       </item>
+    ///       <item>
+    ///         <c>GROUP BY</c>/<c>HAVING</c> decline. The <c>EXISTS</c> form groups by the correlation columns as
+    ///         well, which is sound when only existence is asked; here the output column would have to be added to
+    ///         the grouping too, and whether that preserves the projected values depends on what a non-grouping
+    ///         column projects out of a group. Not worth guessing at — EF emits the ungrouped shape.
+    ///       </item>
+    ///     </list>
+    /// </remarks>
+    internal static ExistsSemiJoin? TryBuildForIn(
+        SelectStatement subquery,
+        Expression inValue,
+        IReadOnlyList<OutputColumn> outerColumns,
+        HashSet<string> outerAliases,
+        JetCatalog catalog)
+        => subquery is { Top: null, GroupBy.Count: 0, Having: null, IsSelectStar: false, Projection: [{ Value: ColumnReference }] }
+            ? TryBuild(subquery, inValue, outerColumns, outerAliases, catalog)
+            : null;
+
+    private static ExistsSemiJoin? TryBuild(
+        SelectStatement subquery,
+        Expression? inValue,
         IReadOnlyList<OutputColumn> outerColumns,
         HashSet<string> outerAliases,
         JetCatalog catalog)
@@ -117,9 +161,24 @@ internal sealed class ExistsSemiJoin
             return null;
         }
 
+        // The IN value is a key column like any other — the difference is only that its inner side comes from the
+        // projection rather than from a WHERE equality, and that a null there means UNKNOWN rather than no match
+        // (see BuildSemiJoinKeys). It goes last so the probe can append the already-evaluated value.
+        var projected = new List<Expression>(innerKeys);
+        if (inValue is not null)
+        {
+            Expression output = subquery.Projection[0].Value;
+            if (!SameKind((ColumnReference)output, plan, catalog, inValue, outerColumns))
+            {
+                return null;
+            }
+
+            projected.Add(output);
+        }
+
         var keyQuery = subquery with
         {
-            Projection = innerKeys.Select(k => new SelectItem(k, null)).ToList(),
+            Projection = projected.Select(k => new SelectItem(k, null)).ToList(),
             IsSelectStar = false,
             Where = residual.Count == 0 ? null : residual.Aggregate((a, b) => new BinaryExpression(BinaryOperator.And, a, b)),
             // Grouping by the correlation columns as well splits each group by key, which is exactly the
@@ -136,7 +195,7 @@ internal sealed class ExistsSemiJoin
             TopPercent = false,
         };
 
-        return new ExistsSemiJoin(keyQuery, outerKeys);
+        return new ExistsSemiJoin(keyQuery, outerKeys, inValue is not null);
     }
 
     /// <summary>
@@ -250,19 +309,57 @@ internal sealed class ExistsSemiJoin
     ///     Tests one outer row. The key set is built on first use — once per statement, not per row.
     /// </summary>
     internal bool Matches(QueryExecutor executor, ExpressionEvaluator outerEval)
-    {
-        _keys ??= executor.BuildSemiJoinKeys(_keyQuery, _outerKeys.Count);
+        => Probe(executor, outerEval, null) is { } probe && _keys!.Contains(probe);
 
-        var probe = new object?[_outerKeys.Count];
+    /// <summary>
+    ///     Tests one outer row for <c>x IN (subquery)</c>, reporting membership <b>and</b> whether the subquery's
+    ///     column yielded a null for this row — the caller needs both to reproduce SQL's three-valued <c>IN</c>,
+    ///     where "no match" and "no match but a null was seen" differ (FALSE against UNKNOWN).
+    /// </summary>
+    /// <param name="value">
+    ///     The already-evaluated left side. The caller has evaluated it to check for null before reaching here, so
+    ///     re-evaluating it would only repeat that work.
+    /// </param>
+    internal (bool Found, bool HasNull) ContainsValue(QueryExecutor executor, ExpressionEvaluator outerEval, object? value)
+    {
+        if (Probe(executor, outerEval, value) is not { } probe)
+        {
+            // A null correlation value matches no inner row, so the subquery is empty for this outer row —
+            // which is FALSE, not UNKNOWN, even for `x IN ()`.
+            return (false, false);
+        }
+
+        return _keys!.Contains(probe)
+            ? (true, false) // Short-circuits like the row-by-row loop: on a match the null flag is unused.
+            : (false, _nullTail!.Contains(probe[..^1]));
+    }
+
+    /// <summary>
+    ///     Builds the key set on first use — once per statement, not per row — and evaluates this outer row's
+    ///     probe. Null when a correlation value is null, which no inner row can equal.
+    /// </summary>
+    private object?[]? Probe(QueryExecutor executor, ExpressionEvaluator outerEval, object? inValue)
+    {
+        if (_keys is null)
+        {
+            (_keys, _nullTail) = executor.BuildSemiJoinKeys(
+                _keyQuery, _outerKeys.Count + (_hasInValue ? 1 : 0), _hasInValue);
+        }
+
+        var probe = new object?[_outerKeys.Count + (_hasInValue ? 1 : 0)];
         for (var i = 0; i < _outerKeys.Count; i++)
         {
-            // A null can never satisfy an equi-predicate, so EXISTS is false without probing.
             if ((probe[i] = outerEval.Evaluate(_outerKeys[i])) is null)
             {
-                return false;
+                return null;
             }
         }
 
-        return _keys.Contains(probe);
+        if (_hasInValue)
+        {
+            probe[^1] = inValue;
+        }
+
+        return probe;
     }
 }

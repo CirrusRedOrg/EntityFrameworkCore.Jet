@@ -33,6 +33,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     // decorrelatable", so an unsound-to-rewrite subquery isn't re-analysed on every outer row.
     private readonly Dictionary<SelectStatement, ExistsSemiJoin?> _semiJoins = new(ReferenceEqualityComparer.Instance);
 
+    // The same for `x IN (subquery)`, kept separate because the plan there carries the IN value as an extra key
+    // column — the same SelectStatement node reached as an EXISTS body would need a different one.
+    private readonly Dictionary<SelectStatement, ExistsSemiJoin?> _inSemiJoins = new(ReferenceEqualityComparer.Instance);
+
     // Results of subqueries that turned out not to depend on the outer row: same answer every time, so they are
     // evaluated once per statement. Keyed by AST node; the boxed value may legitimately be null (SQL NULL), hence
     // separate dictionaries rather than a null-means-absent convention.
@@ -164,12 +168,20 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     }
 
     /// <summary>
-    ///     Runs a decorrelated EXISTS body once and hashes the values it correlates on. Tuples containing a null
+    ///     Runs a decorrelated subquery body once and hashes the values it correlates on. Tuples containing a null
     ///     are dropped: a null can never satisfy an equi-predicate, exactly as the hash join's build phase does.
     /// </summary>
-    internal HashSet<object?[]> BuildSemiJoinKeys(SelectStatement keyQuery, int keyWidth)
+    /// <param name="trackNullTail">
+    ///     For <c>IN</c>, whose last key column is the subquery's own output rather than a correlation. A null
+    ///     there is not "no match" but SQL's UNKNOWN, so instead of dropping the row its correlation prefix goes
+    ///     to <c>NullTailKeys</c> — that is how the caller learns the column held a null for a given outer row.
+    ///     A null in the correlation prefix still drops the row from both sets.
+    /// </param>
+    internal (HashSet<object?[]> Keys, HashSet<object?[]> NullTailKeys) BuildSemiJoinKeys(
+        SelectStatement keyQuery, int keyWidth, bool trackNullTail = false)
     {
         var keys = new HashSet<object?[]>(HashKeyComparer.Instance);
+        var nullTail = new HashSet<object?[]>(HashKeyComparer.Instance);
         var (_, rows) = Execute(SubqueryPlan(keyQuery, new EvalScope([], [], null)), null);
         foreach (object?[] row in rows)
         {
@@ -178,20 +190,50 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 continue;
             }
 
+            // The correlation prefix — every column but the IN value, which is the whole key for EXISTS.
+            int prefix = trackNullTail ? keyWidth - 1 : keyWidth;
             var key = new object?[keyWidth];
             var usable = true;
-            for (var i = 0; i < keyWidth && usable; i++)
+            for (var i = 0; i < prefix && usable; i++)
             {
                 usable = (key[i] = row[i]) is not null;
             }
 
-            if (usable)
+            if (!usable)
+            {
+                continue;
+            }
+
+            if (!trackNullTail)
+            {
+                keys.Add(key);
+            }
+            else if ((key[prefix] = row[prefix]) is null)
+            {
+                nullTail.Add(key[..prefix]);
+            }
+            else
             {
                 keys.Add(key);
             }
         }
 
-        return keys;
+        return (keys, nullTail);
+    }
+
+    (bool Found, bool HasNull)? IScalarSubqueryRunner.ExecuteInSubquery(
+        SelectStatement query, Expression value, object? evaluated, EvalScope outerScope)
+    {
+        // An uncorrelated IN needs nothing from here: ExecuteColumn hoists it, so the body already runs once and
+        // the caller's loop walks a cached list. TryBuildForIn declines it too (there are no correlation keys).
+        if (!_inSemiJoins.TryGetValue(query, out ExistsSemiJoin? semi))
+        {
+            _inSemiJoins[query] = semi = ExistsSemiJoin.TryBuildForIn(
+                query, value, outerScope.AllColumns(),
+                outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog);
+        }
+
+        return semi?.ContainsValue(this, new ExpressionEvaluator(outerScope, this, _parameters, _session), evaluated);
     }
 
     IEnumerable<object?> IScalarSubqueryRunner.ExecuteColumn(SelectStatement query, EvalScope outerScope)

@@ -87,11 +87,20 @@ internal sealed class ExpressionEvaluator(
         if (val is null) return null;
 
         bool hasNull = false, found = false;
-        foreach (object? item in subqueries.ExecuteColumn(inq.Query, scope))
+        // A correlated IN is a semi-join: hash the body's values once instead of re-running it for every outer row.
+        if (subqueries.ExecuteInSubquery(inq.Query, inq.Value, val, scope) is var (semiFound, semiNull))
         {
-            if (item is null) hasNull = true;
-            else if (Compare(val, item) == 0) { found = true; break; }
+            (found, hasNull) = (semiFound, semiNull);
         }
+        else
+        {
+            foreach (object? item in subqueries.ExecuteColumn(inq.Query, scope))
+            {
+                if (item is null) hasNull = true;
+                else if (Compare(val, item) == 0) { found = true; break; }
+            }
+        }
+
         bool? result = found ? true : hasNull ? null : false;
         return inq.Negated ? (result is null ? null : !result) : result;
     }

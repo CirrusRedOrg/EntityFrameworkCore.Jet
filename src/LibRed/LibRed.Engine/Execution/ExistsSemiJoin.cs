@@ -132,6 +132,9 @@ internal sealed class ExistsSemiJoin
             Projection = projected.Select(k => new SelectItem(k, null)).ToList(),
             IsSelectStar = false,
             Where = split.Residual,
+            // The residual HAVING, not the original: a correlation on a grouping key may have been lifted out
+            // of it, and leaving that behind would keep the body referencing the outer row.
+            Having = split.ResidualHaving,
             // Grouping by the correlation columns as well splits each group by key, which is exactly the
             // partition the correlation predicate produced one key at a time — so a group passes HAVING here
             // if and only if it passed for that outer row. The keys must also be grouping columns to be

@@ -338,8 +338,11 @@ internal static class IndexSelection
         _ => false, // literals, parameters, system vars
     };
 
-    internal static IEnumerable<Expression> Conjuncts(Expression e)
+    /// <summary>The AND-conjuncts of a predicate; none at all for an absent one (a missing WHERE or HAVING).</summary>
+    internal static IEnumerable<Expression> Conjuncts(Expression? e)
     {
+        if (e is null)
+            return [];
         if (e is BinaryExpression { Operator: BinaryOperator.And } b)
             return Conjuncts(b.Left).Concat(Conjuncts(b.Right));
         return [e];

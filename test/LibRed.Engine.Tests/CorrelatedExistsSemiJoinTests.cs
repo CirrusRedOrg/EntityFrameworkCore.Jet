@@ -237,6 +237,11 @@ public class CorrelatedExistsSemiJoinTests
     // But only when BOTH sides' nulls are tested — otherwise it isn't null-safe equality at all.
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K OR i.K IS NULL)")]
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K OR (i.K IS NULL AND o.Id IS NULL))")]
+    // A correlation in HAVING is lifted only when its subquery side is a grouping key.
+    [InlineData(true, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i GROUP BY i.K HAVING COUNT(*) > 1 AND i.K = o.K)")]
+    [InlineData(true, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i GROUP BY i.K HAVING COUNT(*) > 1 AND (i.K = o.K OR (i.K IS NULL AND o.K IS NULL)))")]
+    [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i GROUP BY i.K HAVING COUNT(*) >= 1 AND i.Id = o.Id)")]
+    [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K HAVING COUNT(*) > 0 AND MAX(i.Keep) = 1)")]
     // No correlation to hash at all, and the shapes TOP rules out.
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.Keep = 1)")]
     [InlineData(false, "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT TOP 0 1 FROM I AS i WHERE i.K = o.K)")]
@@ -306,6 +311,78 @@ public class CorrelatedExistsSemiJoinTests
                 WHERE EXISTS (
                     SELECT 1 FROM I AS i
                     WHERE i.Id = o.Id AND (i.K = o.K OR (i.K IS NULL AND o.K IS NULL)))
+                """));
+
+    [Fact]
+    public void A_correlation_in_having_on_a_grouping_key_is_decorrelated()
+        // EF's Contains-over-a-GroupBy shape: the correlation sits in HAVING beside an aggregate condition, and
+        // its subquery side is the grouping key. K = 10 has two inner rows so it passes COUNT(*) > 1; K = 30 and
+        // K = 50 have one each and fail. Only outer row 1 qualifies.
+        => Assert.Equal([1],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (
+                    SELECT 1 FROM I AS i
+                    GROUP BY i.K
+                    HAVING COUNT(*) > 1 AND i.K = o.K)
+                """));
+
+    [Fact]
+    public void A_having_correlation_leaves_the_aggregate_over_the_same_rows()
+        // The soundness point. Lifting the correlation out must not change which rows the aggregate sees: the
+        // count per group is over ALL of that key's rows either way, because a grouping key is constant within
+        // its group. With `>= 1` every matching key qualifies, so this is the plain existence answer.
+        => Assert.Equal([1, 3, 5],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (
+                    SELECT 1 FROM I AS i
+                    GROUP BY i.K
+                    HAVING COUNT(*) >= 1 AND i.K = o.K)
+                """));
+
+    [Fact]
+    public void A_having_correlation_can_be_null_safe_too()
+        // Both extensions at once: correlation in HAVING, written in EF's null-safe form. Row 4's key is NULL and
+        // matches the inner NULL group, which has one row.
+        => Assert.Equal([1, 3, 4, 5],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (
+                    SELECT 1 FROM I AS i
+                    GROUP BY i.K
+                    HAVING COUNT(*) >= 1 AND (i.K = o.K OR (i.K IS NULL AND o.K IS NULL)))
+                """));
+
+    [Fact]
+    public void A_having_correlation_on_a_non_grouping_column_falls_back()
+        // i.Id is not a grouping key, so the predicate does NOT select whole groups: grouping by K and then
+        // testing `i.Id = o.Id` reads Id from each group's FIRST row. It must decline, and the answer it falls
+        // back to shows why lifting it would have been wrong. The four groups by K are 10 → rows (Id 1, Id 3),
+        // 30 → (Id 2), NULL → (Id 4), 50 → (Id 5), so the Ids on offer are {1, 2, 4, 5} — note 3 is absent, being
+        // the second row of its group. Every outer row whose own Id is in that set qualifies.
+        => Assert.Equal([1, 2, 4, 5],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (
+                    SELECT 1 FROM I AS i
+                    GROUP BY i.K
+                    HAVING COUNT(*) >= 1 AND i.Id = o.Id)
+                """));
+
+    [Fact]
+    public void A_having_correlation_with_no_group_by_falls_back()
+        // No grouping key at all, so nothing in HAVING can be lifted: the lone group's COUNT depends on the
+        // correlation, which is precisely what a key test cannot express. Declines.
+        => Assert.Equal([1, 3],
+            Ids(Fresh(),
+                """
+                SELECT o.Id FROM O AS o
+                WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K HAVING COUNT(*) > 0 AND MAX(i.Keep) = 1)
                 """));
 
     [Fact]

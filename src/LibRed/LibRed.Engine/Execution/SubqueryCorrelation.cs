@@ -6,7 +6,7 @@ using LibRed.Sql.Ast;
 namespace LibRed.Engine.Execution;
 
 /// <summary>
-/// A correlated subquery's WHERE split into the equalities that tie it to the outer row and the rest.
+/// A correlated subquery's WHERE and HAVING split into the equalities that tie it to the outer row and the rest.
 /// </summary>
 /// <param name="Plan">The body's plan, used to tell inner aliases and column types from outer ones.</param>
 /// <param name="InnerKeys">The subquery sides of the correlation equalities.</param>
@@ -16,13 +16,18 @@ namespace LibRed.Engine.Execution;
 /// plain <c>=</c> key drops null-bearing rows from the hash and fails a null probe outright, because a null can
 /// never satisfy it; a null-safe key must instead hash the null and match it.
 /// </param>
-/// <param name="Residual">The conjuncts that were not correlation equalities, re-ANDed, or null if there were none.</param>
+/// <param name="Residual">The WHERE conjuncts that were not correlation equalities, re-ANDed, or null if none.</param>
+/// <param name="ResidualHaving">
+/// The same for HAVING. The key query must use this and not the original HAVING, which still holds the
+/// correlation conjunct that was lifted out of it.
+/// </param>
 internal readonly record struct CorrelationSplit(
     PlanNode Plan,
     IReadOnlyList<Expression> InnerKeys,
     IReadOnlyList<Expression> OuterKeys,
     IReadOnlyList<bool> NullSafe,
-    Expression? Residual);
+    Expression? Residual,
+    Expression? ResidualHaving);
 
 /// <summary>
 /// The analysis every decorrelation rewrite starts from: which conjuncts of a subquery's WHERE are
@@ -44,7 +49,7 @@ internal static class SubqueryCorrelation
         HashSet<string> outerAliases,
         JetCatalog catalog)
     {
-        if (subquery is not { Where: { } where, From: not null })
+        if (subquery is not { From: not null })
         {
             return null;
         }
@@ -65,8 +70,19 @@ internal static class SubqueryCorrelation
         var outerKeys = new List<Expression>();
         var nullSafe = new List<bool>();
         var residual = new List<Expression>();
+        var residualHaving = new List<Expression>();
 
-        foreach (Expression conjunct in IndexSelection.Conjuncts(where))
+        // HAVING is searched for correlations too, but only for conjuncts whose subquery side is a GROUPING KEY.
+        // Such a predicate is constant within a group, so it selects whole groups rather than filtering rows
+        // inside them — which is exactly what makes lifting it out equivalent to a WHERE correlation, and what
+        // leaves the remaining aggregates (COUNT(*) and friends) computed over the same rows as before. A
+        // correlation against an aggregate or a non-grouping column would change which rows the aggregate sees,
+        // so it stays put. EF emits the grouping-key form: `GROUP BY o0.CustomerID HAVING COUNT(*) > 30 AND
+        // o0.CustomerID = o.CustomerID` (its Contains-over-a-GroupBy shape), which without this ran the whole
+        // grouping once per outer row — 3.0 s on Northwind.
+        foreach ((Expression conjunct, bool fromHaving) in
+            IndexSelection.Conjuncts(subquery.Where).Select(c => (c, false))
+                .Concat(IndexSelection.Conjuncts(subquery.Having).Select(c => (c, true))))
         {
             // A correlation is either a plain equality or EF's null-safe form. Both give the same pair of
             // operands; they differ only in what a null on either side means.
@@ -79,6 +95,7 @@ internal static class SubqueryCorrelation
             if (operands is var (left, right)
                 && Orient(left, right, innerAliases, outerAliases) is var (inner, outer)
                 && inner is ColumnReference innerCol
+                && (!fromHaving || IsGroupingKey(inner, subquery.GroupBy))
                 && SameKind(innerCol, plan, catalog, outer, outerColumns))
             {
                 innerKeys.Add(inner);
@@ -87,7 +104,7 @@ internal static class SubqueryCorrelation
             }
             else
             {
-                residual.Add(conjunct);
+                (fromHaving ? residualHaving : residual).Add(conjunct);
             }
         }
 
@@ -103,19 +120,28 @@ internal static class SubqueryCorrelation
         // ever executed (the key set is built lazily on first probe), so a wrong guess would surface as a query
         // error rather than a fallback. EF always qualifies, so nothing real is lost.
         //
-        // GROUP BY and HAVING stay in the key query, so they face the same test as a residual conjunct.
+        // The GROUP BY keys and whatever is left of HAVING stay in the key query, so they face the same test as a
+        // residual WHERE conjunct.
         if (innerKeys.Count == 0
-            || residual.Concat(subquery.GroupBy).Concat(subquery.Having is { } h ? [h] : Array.Empty<Expression>())
+            || residual.Concat(residualHaving).Concat(subquery.GroupBy)
                 .Any(r => SubqueryHoisting.MayReferenceOuter(r, outerAliases)
                     || SubqueryHoisting.HasUnqualifiedColumn(r)))
         {
             return null;
         }
 
-        return new CorrelationSplit(
-            plan, innerKeys, outerKeys, nullSafe,
-            residual.Count == 0 ? null : residual.Aggregate((a, b) => new BinaryExpression(BinaryOperator.And, a, b)));
+        return new CorrelationSplit(plan, innerKeys, outerKeys, nullSafe, And(residual), And(residualHaving));
+
+        static Expression? And(List<Expression> conjuncts)
+            => conjuncts.Count == 0 ? null : conjuncts.Aggregate((a, b) => new BinaryExpression(BinaryOperator.And, a, b));
     }
+
+    /// <summary>
+    ///     Whether <paramref name="inner" /> is one of the GROUP BY key expressions — the condition for lifting a
+    ///     correlation out of HAVING.
+    /// </summary>
+    private static bool IsGroupingKey(Expression inner, IReadOnlyList<Expression> groupBy)
+        => groupBy.Any(k => SameOperand(k, inner));
 
     /// <summary>
     ///     Recognises EF's null-safe equality — <c>a = b OR (a IS NULL AND b IS NULL)</c> — returning the two

@@ -35,12 +35,10 @@ jobs:
 
           which node
           node --version
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          repository: ${{ github.event.workflow_run.head_repository.full_name }}
-          ref: ${{ github.event.workflow_run.head_branch }}
-          fetch-depth: 1
+      # No checkout: nothing here reads a repository file. The artifact is fetched through the API and written
+      # to the workspace, which exists anyway. Checking out the HEAD repo/ref also broke on fork PRs, where
+      # actions/checkout refuses to place a fork's code in a workflow_run context holding the base repo's token
+      # and secrets - and opting into that ("pwn request") to obtain files nothing uses would be a bad trade.
       # Download the artifact manually and feed it to dorny/test-reporter as local files.
       - name: 'Download Test Results'
         id: DownloadTestResults

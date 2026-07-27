@@ -54,7 +54,7 @@ inspect it. Only re-run after changing something.
 
 Tests run in **fixed order by default** (`FIXED_TEST_ORDER` compile constant). All tests lock culture to `en-US` via a module initializer.
 
-Tests that require features Jet doesn't support are marked `[Fact(Skip = "Unsupported by JET: ...")]` — see `SkipMessages.txt` for the catalog of known unsupported patterns.
+Tests that require features Jet doesn't support are skipped with a reason on the test.
 
 ## Project Structure
 

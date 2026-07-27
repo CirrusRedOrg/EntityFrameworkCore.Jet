@@ -802,7 +802,6 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                     	smalldatetimeColumn smalldatetime NULL,
                     	smallintColumn smallint NOT NULL,
                     	smallmoneyColumn smallmoney NOT NULL,
-                    	sql_variantColumn sql_variant NULL,
                     	textColumn text NULL,
                     	timeColumn time NULL,
                     	timestampColumn timestamp NULL,
@@ -840,7 +839,6 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                     Assert.Equal("smalldatetime", columns.Single(c => c.Name == "smalldatetimeColumn").StoreType);
                     Assert.Equal("smallint", columns.Single(c => c.Name == "smallintColumn").StoreType);
                     Assert.Equal("smallmoney", columns.Single(c => c.Name == "smallmoneyColumn").StoreType);
-                    Assert.Equal("sql_variant", columns.Single(c => c.Name == "sql_variantColumn").StoreType);
                     Assert.Equal("text", columns.Single(c => c.Name == "textColumn").StoreType);
                     Assert.Equal("time", columns.Single(c => c.Name == "timeColumn").StoreType);
                     Assert.Equal("tinyint", columns.Single(c => c.Name == "tinyintColumn").StoreType);

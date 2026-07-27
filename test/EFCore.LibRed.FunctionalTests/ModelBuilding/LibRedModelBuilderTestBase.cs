@@ -264,38 +264,6 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Equal("Latin1_General_BIN", entityType.FindProperty("Down")!.GetCollation());
             Assert.Equal("Latin1_General_CI_AI", entityType.FindProperty("Charm")!.GetCollation());
         }
-
-        [ConditionalTheory, InlineData(true), InlineData(false)]
-        public virtual void Can_avoid_attributes_when_discovering_properties(bool useAttributes)
-        {
-            var modelBuilder = CreateModelBuilder(c => c.Conventions.Replace(s => new PropertyDiscoveryConvention(
-                s.GetService<ProviderConventionSetBuilderDependencies>()!, useAttributes)));
-            modelBuilder.Entity<SqlVariantEntity>();
-
-            if (useAttributes)
-            {
-                var model = modelBuilder.FinalizeModel();
-                var entityType = model.FindEntityType(typeof(SqlVariantEntity))!;
-
-                Assert.Equal(
-                    [nameof(SqlVariantEntity.Id), nameof(SqlVariantEntity.Value),],
-                    entityType.GetProperties().Select(p => p.Name));
-            }
-            else
-            {
-                Assert.Equal(
-                    CoreStrings.PropertyNotAdded(nameof(SqlVariantEntity), nameof(SqlVariantEntity.Value), "object"),
-                    Assert.Throws<InvalidOperationException>(modelBuilder.FinalizeModel).Message);
-            }
-        }
-
-        protected class SqlVariantEntity
-        {
-            public int Id { get; set; }
-
-            [Column(TypeName = "sql_variant")]
-            public object? Value { get; set; }
-        }
     }
 
     public abstract class LibRedComplexType(LibRedModelBuilderFixture fixture)

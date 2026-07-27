@@ -3317,12 +3317,6 @@ parameters,
 
             [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16 EnumAsNvarchar20 { get; set; }
-
-            /*[Column(TypeName = "sql_variant")]
-            public object SqlVariantString { get; set; }
-
-            [Column(TypeName = "sql_variant")]
-            public object SqlVariantInt { get; set; }*/
         }
 
         protected class MappedSizedDataTypes
@@ -3774,12 +3768,6 @@ parameters,
 
             [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16? EnumAsNvarchar20 { get; set; }
-
-            /*[Column(TypeName = "sql_variant")]
-            public object SqlVariantString { get; set; }
-
-            [Column(TypeName = "sql_variant")]
-            public object SqlVariantInt { get; set; }*/
         }
 
         protected class MappedDataTypesWithIdentity
@@ -3953,12 +3941,6 @@ parameters,
 
             [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16 EnumAsNvarchar20 { get; set; }
-
-            /*[Column(TypeName = "sql_variant")]
-            public object SqlVariantString { get; set; }
-
-            [Column(TypeName = "sql_variant")]
-            public object SqlVariantInt { get; set; }*/
         }
 
         protected class MappedSizedDataTypesWithIdentity
@@ -4270,12 +4252,6 @@ parameters,
 
             [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16? EnumAsNvarchar20 { get; set; }
-
-            /*[Column(TypeName = "sql_variant")]
-            public object SqlVariantString { get; set; }
-
-            [Column(TypeName = "sql_variant")]
-            public object SqlVariantInt { get; set; }*/
         }
 
         public class ColumnInfo

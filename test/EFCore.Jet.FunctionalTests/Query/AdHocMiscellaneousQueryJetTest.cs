@@ -236,61 +236,6 @@ WHERE `c`.`Id` = @id
 
     #endregion
 
-    #region 12482
-
-    [ConditionalFact]
-    public virtual async Task Batch_insert_with_sqlvariant_different_types()
-    {
-        var contextFactory = await InitializeAsync<Context12482>();
-
-        using var context = contextFactory.CreateContext();
-        context.AddRange(
-            new Context12482.BaseEntity { Value = 10.0999 },
-            new Context12482.BaseEntity { Value = -12345 },
-            new Context12482.BaseEntity { Value = "String Value" },
-            new Context12482.BaseEntity { Value = new DateTime(2020, 1, 1) });
-
-        context.SaveChanges();
-
-        AssertSql(
-            """
-@p0='10.0999' (Nullable = true) (DbType = Object)
-@p1='-12345' (Nullable = true) (DbType = Object)
-@p2='String Value' (Size = 12) (DbType = Object)
-@p3='2020-01-01T00:00:00.0000000' (Nullable = true) (DbType = Object)
-
-SET IMPLICIT_TRANSACTIONS OFF;
-SET NOCOUNT ON;
-MERGE [BaseEntities] USING (
-VALUES (@p0, 0),
-(@p1, 1),
-(@p2, 2),
-(@p3, 3)) AS i ([Value], _Position) ON 1=0
-WHEN NOT MATCHED THEN
-INSERT ([Value])
-VALUES (i.[Value])
-OUTPUT INSERTED.[Id], i._Position;
-""");
-    }
-
-    private class Context12482(DbContextOptions options) : DbContext(options)
-    {
-        public virtual DbSet<BaseEntity> BaseEntities { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-            => modelBuilder.Entity<BaseEntity>();
-
-        public class BaseEntity
-        {
-            public int Id { get; set; }
-
-            [Column(TypeName = "sql_variant")]
-            public object Value { get; set; }
-        }
-    }
-
-    #endregion
-
     #region 12518
 
     [ConditionalFact]

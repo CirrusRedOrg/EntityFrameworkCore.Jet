@@ -43,12 +43,12 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.*">
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.*" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="10.0.*" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">

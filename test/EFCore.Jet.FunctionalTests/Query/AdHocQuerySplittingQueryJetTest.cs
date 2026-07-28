@@ -280,7 +280,7 @@ ORDER BY `p1`.`Id`
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Using_AsSplitQuery_without_multiple_active_result_sets_works()
     {
         var contextFactory = await InitializeAsync<Context21355>(

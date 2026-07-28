@@ -25,7 +25,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
     {
         protected BatchingTestFixture Fixture { get; } = fixture;
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, true, true)]
         [InlineData(false, true, true)]
         [InlineData(true, false, true)]
@@ -72,7 +72,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 context => AssertDatabaseState(context, clientOrder, expectedBlogs));
         }
 
-        [ConditionalFact]
+        [Fact]
         public Task Inserts_and_updates_are_batched_correctly()
         {
             var expectedBlogs = new List<Blog>();
@@ -125,7 +125,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 context => AssertDatabaseState(context, true, expectedBlogs));
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(1)]
         [InlineData(3)]
         [InlineData(4)]
@@ -161,7 +161,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 });
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Deadlock_on_inserts_and_deletes_with_dependents_is_handled_correctly()
         {
             var blogs = new List<Blog>();
@@ -235,7 +235,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             await Fixture.ReseedAsync();
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Deadlock_on_deletes_with_dependents_is_handled_correctly()
         {
             var owners = new[] { new Owner { Name = "0" }, new Owner { Name = "1" } };
@@ -289,7 +289,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             await Fixture.ReseedAsync();
         }
 
-        [ConditionalFact]
+        [Fact]
         public Task Inserts_when_database_type_is_different()
             => ExecuteWithStrategyInTransactionAsync(
                 context =>
@@ -302,7 +302,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     return context.SaveChangesAsync();
                 }, async context => Assert.Equal(2, await context.Owners.CountAsync()));
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(3)]
         [InlineData(4)]
         public Task Inserts_are_batched_only_when_necessary(int minBatchSize)

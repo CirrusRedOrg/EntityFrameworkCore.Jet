@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;

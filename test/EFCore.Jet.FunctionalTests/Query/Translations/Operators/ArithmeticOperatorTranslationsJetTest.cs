@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.Query.Translations.Operators;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query.Translations.Operators;
 
@@ -78,7 +77,7 @@ WHERE -`b`.`Int` = -8
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

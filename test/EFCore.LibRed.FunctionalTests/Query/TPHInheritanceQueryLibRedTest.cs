@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.InheritanceModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 #nullable disable
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
@@ -16,11 +15,11 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 public class TPHInheritanceQueryLibRedTest(TPHInheritanceQueryLibRedFixture fixture, ITestOutputHelper testOutputHelper)
     : TPHInheritanceQueryTestBase<TPHInheritanceQueryLibRedFixture>(fixture, testOutputHelper)
 {
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Common_property_shares_column()
     {
         using var context = CreateContext();

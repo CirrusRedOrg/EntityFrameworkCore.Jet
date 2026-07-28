@@ -26,7 +26,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
     [LibRedCondition(LibRedCondition.IsNotCI)]
     public class LibRedDatabaseCreatorExistsTest : LibRedDatabaseCreatorTest
     {
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, true, false)]
         [InlineData(false, false, false)]
         [InlineData(true, true, true)]
@@ -36,7 +36,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             return Returns_false_when_database_does_not_exist_test(async, ambientTransaction, useCanConnect);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, false, false)]
         [InlineData(false, true, false)]
         [InlineData(true, false, true)]
@@ -72,7 +72,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, false, false)]
         [InlineData(false, true, false)]
         [InlineData(true, false, true)]
@@ -82,7 +82,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             return Returns_true_when_database_exists_test(async, ambientTransaction, useCanConnect);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, true, false)]
         [InlineData(false, false, false)]
         [InlineData(true, true, true)]
@@ -122,7 +122,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
     [LibRedCondition(LibRedCondition.IsNotCI)]
     public class LibRedDatabaseCreatorEnsureDeletedTest : LibRedDatabaseCreatorTest
     {
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, true, true)]
         [InlineData(false, false, true)]
         [InlineData(true, false, false)]
@@ -132,7 +132,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             return Delete_database_test(async, open, ambientTransaction);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, true, false)]
         [InlineData(true, false, true)]
         [InlineData(false, true, true)]
@@ -178,7 +178,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public Task Noop_when_database_does_not_exist(bool async)
@@ -186,7 +186,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             return Noop_when_database_does_not_exist_test(async);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public Task Noop_when_database_with_filename_does_not_exist(bool async)
@@ -222,7 +222,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
     [LibRedCondition(LibRedCondition.IsNotCI)]
     public class LibRedDatabaseCreatorEnsureCreatedTest : LibRedDatabaseCreatorTest
     {
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, true)]
         [InlineData(false, false)]
         public Task Creates_schema_in_existing_database(bool async, bool ambientTransaction)
@@ -230,7 +230,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             return Creates_schema_in_existing_database_test(async, ambientTransaction);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, false)]
         [InlineData(false, true)]
         public Task Creates_schema_in_existing_database_with_filename(bool async, bool ambientTransaction)
@@ -243,7 +243,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             return Creates_physical_database_and_schema_test((true, async, ambientTransaction));
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, false)]
         [InlineData(false, true)]
         public Task Creates_physical_database_and_schema(bool async, bool ambientTransaction)
@@ -251,7 +251,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             return Creates_new_physical_database_and_schema_test(async, ambientTransaction);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, true)]
         [InlineData(false, false)]
         public Task Creates_physical_database_with_filename_and_schema(bool async, bool ambientTransaction)
@@ -336,7 +336,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                         columns);*/
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public Task Noop_when_database_exists_and_has_schema(bool async)
@@ -344,7 +344,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             return Noop_when_database_exists_and_has_schema_test(async);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public Task Noop_when_database_with_filename_exists_and_has_schema(bool async)
@@ -374,7 +374,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
     [LibRedCondition(LibRedCondition.IsNotCI)]
     public class LibRedDatabaseCreatorHasTablesTest : LibRedDatabaseCreatorTest
     {
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task Throws_when_database_does_not_exist(bool async)
@@ -391,7 +391,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 });
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, true)]
         [InlineData(true, false)]
         [InlineData(false, true)]
@@ -411,7 +411,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 });
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, true)]
         [InlineData(true, false)]
         [InlineData(false, true)]
@@ -436,7 +436,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
     [LibRedCondition(LibRedCondition.IsNotCI)]
     public class LibRedDatabaseCreatorDeleteTest : LibRedDatabaseCreatorTest
     {
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, true)]
         [InlineData(false, false)]
         public static async Task Deletes_database(bool async, bool ambientTransaction)
@@ -463,7 +463,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Assert.False(async ? await creator.ExistsAsync() : creator.Exists());
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task Throws_when_database_does_not_exist(bool async)
@@ -485,7 +485,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
     [LibRedCondition(LibRedCondition.IsNotCI)]
     public class LibRedDatabaseCreatorCreateTablesTest : LibRedDatabaseCreatorTest
     {
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, true)]
         [InlineData(false, false)]
         public async Task Creates_schema_in_existing_database_test(bool async, bool ambientTransaction)
@@ -535,7 +535,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Assert.Contains(columns, c => c == "Blogs.AndRow");
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task Throws_if_database_does_not_exist(bool async)
@@ -551,7 +551,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Assert.IsType<FileNotFoundException>(exception);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void GenerateCreateScript_works()
         {
             using var context = new BloggingContext("Data Source=foo");
@@ -602,7 +602,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
     [LibRedCondition(LibRedCondition.IsNotCI)]
     public class LibRedDatabaseCreatorCreateTest : LibRedDatabaseCreatorTest
     {
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, false)]
         [InlineData(false, true)]
         public async Task Creates_physical_database_but_not_tables(bool async, bool ambientTransaction)
@@ -640,7 +640,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     "SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE TABLE_TYPE = 'BASE TABLE'")));
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task Throws_if_database_already_exists(bool async)

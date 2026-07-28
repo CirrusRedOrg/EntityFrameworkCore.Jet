@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         : BuiltInDataTypesTestBase<
             EverythingIsStringsLibRedTest.EverythingIsStringsLibRedFixture>(fixture)
     {
-        [ConditionalFact]
+        [Fact]
         public virtual void Columns_have_expected_data_types()
         {
             var actual = BuiltInDataTypesLibRedTest.QueryForColumnTypes(

@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.Query.Translations.Temporal;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query.Translations.Temporal;
 
@@ -90,7 +89,7 @@ WHERE DATEPART(nanosecond, [b].[TimeSpan]) % 1000 = 400
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

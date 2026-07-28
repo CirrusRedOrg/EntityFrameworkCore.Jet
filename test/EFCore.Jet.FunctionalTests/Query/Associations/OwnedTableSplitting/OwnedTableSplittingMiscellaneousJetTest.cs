@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore.Query.Associations.OwnedTableSplitting;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query.Associations.OwnedTableSplitting;
 
@@ -106,7 +105,7 @@ ORDER BY [m].[Id], [r].[Id], [r0].[Id], [s].[RootEntityId], [s].[Id], [s].[Assoc
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 }

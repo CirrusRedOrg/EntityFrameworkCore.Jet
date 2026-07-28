@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.Query.Translations;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query.Translations;
 
@@ -802,7 +801,7 @@ WHERE TAN(`b`.`Float`) > 0
 
     #endregion Trigonometry
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

@@ -9,7 +9,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
@@ -25,7 +24,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -1583,7 +1582,7 @@ WHERE `c1`.`CustomerID` LIKE 'A%'
             AssertSql();
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task Union_with_different_store_types_is_fine_if_database_can_translate_it(bool async)
         {
@@ -1603,7 +1602,7 @@ FROM `Customers` AS `c0`
 """);
         }
 
-        [ConditionalTheory] // Issue #29020
+        [Theory] // Issue #29020
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task Union_with_type_mappings_to_same_store_type(bool async)
         {

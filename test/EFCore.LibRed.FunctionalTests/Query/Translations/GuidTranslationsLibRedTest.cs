@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.Query.Translations;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query.Translations;
 
@@ -60,7 +59,7 @@ FROM `BasicTypesEntities` AS `b`
         await base.NewGuid();
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

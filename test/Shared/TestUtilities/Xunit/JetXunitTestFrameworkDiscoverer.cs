@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.EntityFrameworkCore.TestUtilities.Xunit;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;

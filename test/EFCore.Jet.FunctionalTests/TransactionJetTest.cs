@@ -32,7 +32,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             return new DbContext(options.Options);
         }
 
-        [ConditionalTheory(Skip = "Jet does not support savepoints")]
+        [Theory(Skip = "Jet does not support savepoints")]
         [InlineData(true)]
         [InlineData(false)]
         public override Task Savepoint_can_be_released(bool async)
@@ -40,7 +40,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             return base.Savepoint_can_be_released(async);
         }
 
-        [ConditionalTheory(Skip = "Jet does not support savepoints")]
+        [Theory(Skip = "Jet does not support savepoints")]
         [InlineData(true)]
         [InlineData(false)]
         public override Task Savepoint_can_be_rolled_back(bool async)
@@ -48,7 +48,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             return base.Savepoint_can_be_rolled_back(async);
         }
 
-        [ConditionalTheory(Skip = "Jet does not support savepoints")]
+        [Theory(Skip = "Jet does not support savepoints")]
         [InlineData(true)]
         [InlineData(false)]
         public override Task Savepoint_name_is_quoted(bool async)

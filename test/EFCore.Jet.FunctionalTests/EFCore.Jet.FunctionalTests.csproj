@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
+    <OutputType>Exe</OutputType>
 		<TargetFramework>$(JetTestWindowsOnlyTargetFramework)</TargetFramework>
 		<RootNamespace>EntityFrameworkCore.Jet.FunctionalTests</RootNamespace>
 		<AssemblyName>EntityFrameworkCore.Jet.FunctionalTests</AssemblyName>
@@ -25,10 +26,9 @@
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Build.Tasks.Core" Version="18.7.1" />
 		<PackageReference Include="MSTest.TestFramework" />
-		<PackageReference Include="xunit.core" />
-		<PackageReference Include="xunit.assert" />
+		<PackageReference Include="xunit.v3.core" />
+		<PackageReference Include="xunit.v3.assert" />
 		<PackageReference Include="xunit.runner.visualstudio" />
-		<PackageReference Include="xunit.runner.console" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" />

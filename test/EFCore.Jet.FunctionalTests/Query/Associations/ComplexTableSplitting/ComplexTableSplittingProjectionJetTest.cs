@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore.Query.Associations.ComplexTableSplitting;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query.Associations.ComplexTableSplitting;
 
@@ -359,7 +358,7 @@ ORDER BY `v`.`Id`
 
     #endregion Value types
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 }

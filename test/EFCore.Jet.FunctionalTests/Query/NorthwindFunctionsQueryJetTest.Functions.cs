@@ -11,7 +11,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 #nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
@@ -28,7 +27,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -167,7 +166,7 @@ WHERE FALSE
 """);
         }
 
-       [ConditionalTheory]
+       [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task StandardDeviation(bool async)
         {
@@ -199,7 +198,7 @@ GROUP BY `o`.`ProductID`
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task Variance(bool async)
         {

@@ -19,7 +19,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests;
 public class ValueConvertersEndToEndJetTest(ValueConvertersEndToEndJetTest.ValueConvertersEndToEndJetFixture fixture)
     : ValueConvertersEndToEndTestBase<ValueConvertersEndToEndJetTest.ValueConvertersEndToEndJetFixture>(fixture)
 {
-    [ConditionalTheory]
+    [Theory]
     [InlineData(nameof(ConvertingEntity.BoolAsChar), "varchar(1)", false)]
     [InlineData(nameof(ConvertingEntity.BoolAsNullableChar), "varchar(1)", false)]
     [InlineData(nameof(ConvertingEntity.BoolAsString), "varchar(3)", false)]
@@ -165,7 +165,7 @@ public class ValueConvertersEndToEndJetTest(ValueConvertersEndToEndJetTest.Value
         Assert.Equal(isNullable, property!.IsNullable);
     }
 
-    /*[ConditionalFact]
+    /*[Fact]
     public virtual void Can_use_custom_converters_without_property()
     {
         Fixture.TestSqlLoggerFactory.Clear();

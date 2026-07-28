@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore.Query.Associations.OwnedNavigations;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query.Associations.OwnedNavigations;
 
@@ -231,7 +230,7 @@ ORDER BY [r].[Id], [s].[RootEntityId], [s].[Id], [s].[AssociateTypeRootEntityId]
 
     #region GroupBy
 
-    [ConditionalFact]
+    [Fact]
     public override async Task GroupBy()
     {
         await base.GroupBy();
@@ -287,7 +286,7 @@ FROM `RootEntity` AS `r`
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 }

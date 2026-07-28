@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         : BuiltInDataTypesTestBase<
             EverythingIsStringsJetTest.EverythingIsStringsJetFixture>(fixture)
     {
-        [ConditionalFact]
+        [Fact]
         public virtual void Columns_have_expected_data_types()
         {
             var actual = BuiltInDataTypesJetTest.QueryForColumnTypes(

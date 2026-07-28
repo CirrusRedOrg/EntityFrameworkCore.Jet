@@ -35,10 +35,13 @@
 		<PackageReference Update="Newtonsoft.Json" Version="13.0.4" />
 
 		<!-- EFCore.Jet.FunctionalTests -->
-		<PackageReference Update="xunit.core" Version="2.9.3"/>
-		<PackageReference Update="xunit.assert" Version="2.9.3" />
+		<!-- xunit v3. Not a preference: EF 11's Relational.Specification.Tests depends on
+		     Microsoft.DotNet.XUnitV3Extensions, so inheriting from its test bases requires v3. Pinned to the
+		     same build EF resolves, so the two cannot disagree about which xunit is in the graph. -->
+		<PackageReference Update="xunit.v3.core" Version="4.0.0-pre.108" />
+		<PackageReference Update="xunit.v3.assert" Version="4.0.0-pre.108" />
+		<PackageReference Update="xunit.v3.extensibility.core" Version="4.0.0-pre.108" />
 		<PackageReference Update="xunit.runner.visualstudio" Version="3.1.5" />
-		<PackageReference Update="xunit.runner.console" Version="2.9.3" />
 		<PackageReference Update="Microsoft.Extensions.Configuration.FileExtensions" Version="$(MSLibVersion)" />
 		<PackageReference Update="NetTopologySuite" Version="2.5.0" />
 		<PackageReference Update="System.ComponentModel.TypeConverter" Version="4.3.0" />

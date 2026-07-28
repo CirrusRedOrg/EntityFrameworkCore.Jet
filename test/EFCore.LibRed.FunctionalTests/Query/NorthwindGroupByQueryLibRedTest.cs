@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
 {
@@ -22,7 +21,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -2693,7 +2692,7 @@ GROUP BY `o1`.`Key0`
 """);
         }
 
-        [ConditionalTheory(Skip = "LibRed fails")]
+        [Theory(Skip = "LibRed fails")]
         public override async Task GroupBy_Count_in_projection(bool async)
         {
             await base.GroupBy_Count_in_projection(async);

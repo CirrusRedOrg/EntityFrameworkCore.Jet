@@ -23,7 +23,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Fixture.TestSqlLoggerFactory.Clear();
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Columns_have_expected_data_types()
         {
             var actual = BuiltInDataTypesLibRedTest.QueryForColumnTypes(
@@ -550,7 +550,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 || type == typeof(ushort)
                 || type == typeof(char);
 
-        [ConditionalFact]
+        [Fact]
         public override async Task Value_conversion_is_appropriately_used_for_join_condition()
         {
             await base.Value_conversion_is_appropriately_used_for_join_condition();
@@ -566,7 +566,7 @@ WHERE [b].[IsVisible] = N'Y'
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public override async Task Value_conversion_is_appropriately_used_for_left_join_condition()
         {
             await base.Value_conversion_is_appropriately_used_for_left_join_condition();
@@ -582,7 +582,7 @@ WHERE [b].[IsVisible] = N'Y'
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public override async Task Where_bool_gets_converted_to_equality_when_value_conversion_is_used()
         {
             await base.Where_bool_gets_converted_to_equality_when_value_conversion_is_used();
@@ -595,7 +595,7 @@ WHERE `b`.`IsVisible` = 'Y'
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public override async Task Where_negated_bool_gets_converted_to_equality_when_value_conversion_is_used()
         {
             await base.Where_negated_bool_gets_converted_to_equality_when_value_conversion_is_used();

@@ -2,7 +2,6 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.TestUtilities.Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;

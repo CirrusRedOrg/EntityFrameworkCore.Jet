@@ -9,7 +9,6 @@ using System;
 using System.Data.OleDb;
 using Microsoft.EntityFrameworkCore.Query;
 using Xunit;
-using Xunit.Abstractions;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using System.Data.Odbc;
 using EntityFrameworkCore.Jet.Storage.Internal;

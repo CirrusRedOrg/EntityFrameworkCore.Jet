@@ -9,7 +9,6 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query.Translations;
 
@@ -779,7 +778,7 @@ WHERE `b`.`TimeSpan` <= @timeSpan
     #endregion Compare
 
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Sum_over_bool()
     {
         await AssertSum(
@@ -793,7 +792,7 @@ FROM `BasicTypesEntities` AS `b`
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Sum_over_bool_with_ternary()
     {
         await AssertSum(
@@ -807,7 +806,7 @@ FROM `BasicTypesEntities` AS `b`
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

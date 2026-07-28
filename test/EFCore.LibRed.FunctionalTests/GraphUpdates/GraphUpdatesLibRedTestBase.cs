@@ -24,7 +24,7 @@ public abstract class GraphUpdatesLibRedTestBase<TFixture> : GraphUpdatesTestBas
         // exhausts the functional-test host (observed at >425 MB of live strings in a managed heap dump).
         => fixture.TestSqlLoggerFactory.Clear();
 
-    [ConditionalFact] // Issue #32638
+    [Fact] // Issue #32638
     public virtual void Key_and_index_properties_use_appropriate_comparer()
     {
         var parent = new StringKeyAndIndexParent

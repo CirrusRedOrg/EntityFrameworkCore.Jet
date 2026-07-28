@@ -4,7 +4,6 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit.Abstractions;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.TestModels.GearsOfWarModel;
 using System.Linq;
@@ -26,7 +25,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [Xunit.ConditionalFact]
+        [Xunit.Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -6992,7 +6991,7 @@ WHERE IIF(`f`.`Name` = 'Locust', TRUE, NULL) <> TRUE OR IIF(`f`.`Name` = 'Locust
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task Byte_array_filter_by_length_literal2(bool async)
         {
@@ -7009,7 +7008,7 @@ WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`B
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task Byte_array_filter_by_length_parameter2(bool async)
         {
@@ -7029,7 +7028,7 @@ WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`B
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Byte_array_filter_by_length_parameter_compiled2()
         {
             var query = EF.CompileQuery(
@@ -7061,7 +7060,7 @@ WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`B
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => base.Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n(async));
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n2(bool async)
         {

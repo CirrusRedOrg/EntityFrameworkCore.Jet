@@ -7,7 +7,6 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
@@ -23,11 +22,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
-        [ConditionalTheory]
+        [Theory]
         public override async Task KeylessEntity_simple(bool isAsync)
         {
             await base.KeylessEntity_simple(isAsync);
@@ -38,7 +37,7 @@ SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[Cont
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         public override async Task KeylessEntity_where_simple(bool isAsync)
         {
             await base.KeylessEntity_where_simple(isAsync);

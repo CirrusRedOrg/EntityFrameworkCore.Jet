@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore.Query.Associations.OwnedNavigations;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query.Associations.OwnedNavigations;
 
@@ -269,7 +268,7 @@ ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`A
 
     #endregion Contains
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 }

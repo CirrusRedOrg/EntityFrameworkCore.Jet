@@ -7,7 +7,6 @@ using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
@@ -20,7 +19,7 @@ public class Ef6GroupByLibRedTest : Ef6GroupByTestBase<Ef6GroupByLibRedTest.Ef6G
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

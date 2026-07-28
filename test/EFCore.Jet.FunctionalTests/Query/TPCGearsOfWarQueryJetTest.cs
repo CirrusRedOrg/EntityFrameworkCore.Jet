@@ -10,7 +10,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
@@ -25,7 +24,7 @@ public class TPCGearsOfWarQueryJetTest : TPCGearsOfWarQueryRelationalTestBase<TP
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -9435,7 +9434,7 @@ WHERE IIF(`l1`.`Name` = 'Locust', TRUE, NULL) <> TRUE OR IIF(`l1`.`Name` = 'Locu
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [MemberData(nameof(IsAsyncData))]
     public async Task Byte_array_filter_by_length_literal2(bool async)
     {
@@ -9452,7 +9451,7 @@ WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`B
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [MemberData(nameof(IsAsyncData))]
     public async Task Byte_array_filter_by_length_parameter2(bool async)
     {
@@ -9472,7 +9471,7 @@ WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`B
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Byte_array_filter_by_length_parameter_compiled2()
     {
         var query = EF.CompileQuery(
@@ -9504,7 +9503,7 @@ WHERE IIF(ASCB(RIGHTB(`s`.`Banner`, 1)) = 0, LENB(`s`.`Banner`) - 1, LENB(`s`.`B
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => base.Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n(async));
     }
 
-    [ConditionalTheory]
+    [Theory]
     [MemberData(nameof(IsAsyncData))]
     public async Task Byte_array_filter_by_length_literal_does_not_cast_on_varbinary_n2(bool async)
     {
@@ -10075,7 +10074,7 @@ WHERE @rank = `u`.`Rank`
 """);
     }
 
-    /*[ConditionalTheory]
+    /*[Theory]
     [MemberData(nameof(IsAsyncData))]
     public async Task DataLength_function_for_string_parameter(bool async)
     {

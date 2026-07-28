@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.Query.Translations.Operators;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query.Translations.Operators;
 
@@ -205,7 +204,7 @@ WHERE (`b`.`Int` = 12 AND `b`.`Short` = CINT(12)) OR `b`.`String` = 'Seattle'
     public override Task Right_shift()
         => AssertTranslationFailed(() => base.Right_shift());
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

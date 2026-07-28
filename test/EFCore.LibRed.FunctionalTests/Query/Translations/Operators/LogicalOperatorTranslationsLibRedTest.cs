@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.Query.Translations.Operators;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query.Translations.Operators;
 
@@ -90,7 +89,7 @@ WHERE NOT (`b`.`Bool`)
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <OutputType>Exe</OutputType>
     <TargetFramework>$(JetTargetFramework)</TargetFramework>
     <RootNamespace>LibRed.Engine.Tests</RootNamespace>
     <Nullable>enable</Nullable>
@@ -16,8 +17,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit.core" />
-    <PackageReference Include="xunit.assert" />
+    <PackageReference Include="xunit.v3.core" />
+    <PackageReference Include="xunit.v3.assert" />
     <PackageReference Include="xunit.runner.visualstudio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

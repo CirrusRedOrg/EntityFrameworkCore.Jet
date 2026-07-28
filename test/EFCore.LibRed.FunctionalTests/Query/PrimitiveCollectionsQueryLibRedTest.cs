@@ -9,7 +9,6 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using System;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
@@ -999,7 +998,7 @@ WHERE (
 """);
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
+    [Fact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_Count_with_huge_number_of_values()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values();
@@ -1148,7 +1147,7 @@ WHERE [p].[Int] NOT IN (10, 999)
     public override Task Column_collection_of_bools_Contains()
         => AssertTranslationFailedWithDetails(() => base.Column_collection_of_bools_Contains(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Json_representation_of_bool_array()
     {
         await using var context = CreateContext();
@@ -1812,7 +1811,7 @@ WHERE (
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

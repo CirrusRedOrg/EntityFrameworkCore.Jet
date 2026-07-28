@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.ComplexNavigationsModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 #nullable disable
 // ReSharper disable InconsistentNaming
@@ -28,11 +27,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 
         private bool SupportsOffset => true;
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task Distinct_skip_without_orderby(bool async)
         {
@@ -62,7 +61,7 @@ WHERE [l].[Id] < 3
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task Distinct_take_without_orderby(bool async)
         {
@@ -1344,7 +1343,7 @@ INNER JOIN (
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Multiple_complex_includes_from_sql()
         {
             using var context = CreateContext();

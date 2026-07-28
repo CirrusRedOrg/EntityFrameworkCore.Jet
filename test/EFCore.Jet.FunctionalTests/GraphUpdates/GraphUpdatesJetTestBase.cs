@@ -23,7 +23,7 @@ public abstract class GraphUpdatesJetTestBase<TFixture> : GraphUpdatesTestBase<T
         // formatted diagnostic log between tests so reader/command messages cannot exhaust the test host.
         => fixture.TestSqlLoggerFactory.Clear();
 
-    [ConditionalFact] // Issue #32638
+    [Fact] // Issue #32638
     public virtual void Key_and_index_properties_use_appropriate_comparer()
     {
         var parent = new StringKeyAndIndexParent

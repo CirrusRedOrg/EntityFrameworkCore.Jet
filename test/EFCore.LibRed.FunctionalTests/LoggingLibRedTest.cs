@@ -20,7 +20,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 {
     public class LoggingLibRedTest : LoggingRelationalTestBase<LibRedDbContextOptionsBuilder, LibRedOptionsExtension>
     {
-        [ConditionalFact]
+        [Fact]
         public virtual void StoredProcedureConcurrencyTokenNotMapped_throws_by_default()
         {
             using var context = new StoredProcedureConcurrencyTokenNotMappedContext(CreateOptionsBuilder(new ServiceCollection()));

@@ -21,7 +21,7 @@ public class AdHocQueryFiltersQueryJetTest(NonSharedFixture fixture) : AdHocQuer
 
     #region 11803
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Query_filter_with_db_set_should_not_block_other_filters()
     {
         var contextFactory = await InitializeAsync<Context11803>(seed: c => c.SeedAsync());
@@ -41,7 +41,7 @@ WHERE EXISTS (
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Keyless_type_used_inside_defining_query()
     {
         var contextFactory = await InitializeAsync<Context11803>(seed: c => c.SeedAsync());

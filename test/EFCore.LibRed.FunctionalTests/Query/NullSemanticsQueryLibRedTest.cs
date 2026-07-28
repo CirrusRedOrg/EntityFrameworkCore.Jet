@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.NullSemanticsModel;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query

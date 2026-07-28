@@ -6,7 +6,6 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
@@ -21,7 +20,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -779,7 +778,7 @@ FROM `Orders` AS `o`
                     """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault(isAsync);
@@ -818,7 +817,7 @@ LEFT JOIN (
 """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Skip_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Skip_and_FirstOrDefault(isAsync);
@@ -849,7 +848,7 @@ FROM `Customers` AS `c`
 """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task
             Project_single_element_from_collection_with_OrderBy_Distinct_and_FirstOrDefault_followed_by_projecting_length(bool isAsync)
         {
@@ -869,7 +868,7 @@ FROM `Customers` AS `c`
                     """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Take_and_SingleOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Take_and_SingleOrDefault(isAsync);
@@ -890,7 +889,7 @@ FROM `Customers` AS `c`
                     """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault_with_parameter(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault_with_parameter(isAsync);
@@ -912,7 +911,7 @@ FROM `Customers` AS `c`
                     """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault(isAsync);
@@ -951,7 +950,7 @@ FROM `Customers` AS `c`
 """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault_2(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault_2(isAsync);
@@ -971,7 +970,7 @@ FROM `Customers` AS `c`
                     """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_over_navigation_Take_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_over_navigation_Take_and_FirstOrDefault(isAsync);

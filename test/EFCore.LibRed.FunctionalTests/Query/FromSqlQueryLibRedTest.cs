@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using System;
 using Microsoft.EntityFrameworkCore.Query;
 using Xunit;
-using Xunit.Abstractions;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Storage;

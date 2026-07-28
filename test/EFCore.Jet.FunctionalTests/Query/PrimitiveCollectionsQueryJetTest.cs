@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using System;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
@@ -925,7 +924,7 @@ WHERE (
 """);
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
+    [Fact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_Count_with_huge_number_of_values()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values();
@@ -933,37 +932,37 @@ WHERE (
         Assert.Contains("VALUES", Fixture.TestSqlLoggerFactory.SqlStatements[0], StringComparison.Ordinal);
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
+    [Fact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_Count_with_huge_number_of_values_over_2_operations_same_parameter_different_type_mapping()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values_over_2_operations_same_parameter_different_type_mapping();
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
+    [Fact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_Count_with_huge_number_of_values_over_5_operations()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values_over_5_operations();
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
+    [Fact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_Count_with_huge_number_of_values_over_5_operations_forced_constants()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values_over_5_operations_forced_constants();
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
+    [Fact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_Count_with_huge_number_of_values_over_5_operations_mixed_parameters_constants()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values_over_5_operations_mixed_parameters_constants();
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
+    [Fact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_Count_with_huge_number_of_values_over_5_operations_same_parameter()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values_over_5_operations_same_parameter();
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
+    [Fact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_5_operations()
     {
         await base.Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_5_operations();
@@ -987,7 +986,7 @@ WHERE (
         Assert.Contains("OPENJSON(@ints) WITH ([Value] int '$')", Fixture.TestSqlLoggerFactory.SqlStatements[1], StringComparison.Ordinal);
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
+    [Fact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_5_operations_forced_constants()
     {
         await base.Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_5_operations_forced_constants();
@@ -1081,7 +1080,7 @@ WHERE [p].[Int] NOT IN (10, 999)
     public override Task Column_collection_of_bools_Contains()
         => AssertTranslationFailedWithDetails(() => base.Column_collection_of_bools_Contains(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Json_representation_of_bool_array()
     {
         await using var context = CreateContext();
@@ -1745,7 +1744,7 @@ WHERE (
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

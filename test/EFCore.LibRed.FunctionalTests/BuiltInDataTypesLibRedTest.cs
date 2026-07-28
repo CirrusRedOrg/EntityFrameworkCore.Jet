@@ -19,7 +19,6 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 // ReSharper disable InconsistentNaming
 // ReSharper disable ParameterOnlyUsedForPreconditionCheck.Local
@@ -42,7 +41,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Sql_translation_uses_type_mapper_when_constant()
         {
             using var context = CreateContext();
@@ -62,7 +61,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                         """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Sql_translation_uses_type_mapper_when_parameter()
         {
             using var context = CreateContext();
@@ -85,7 +84,7 @@ WHERE `m`.`TimeSpanAsTime` = @timeSpan
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_query_using_DateDiffHour_using_TimeSpan()
         {
             using var context = CreateContext();
@@ -108,7 +107,7 @@ WHERE DATEDIFF('h', `m`.`TimeSpanAsTime`, @timeSpan) = 0
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_query_using_DateDiffMinute_using_TimeSpan()
         {
             using var context = CreateContext();
@@ -131,7 +130,7 @@ WHERE DATEDIFF('n', `m`.`TimeSpanAsTime`, @timeSpan) = 0
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_query_using_DateDiffSecond_using_TimeSpan()
         {
             using var context = CreateContext();
@@ -154,7 +153,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_query_using_any_mapped_data_type()
         {
             using (var context = CreateContext())
@@ -379,7 +378,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_query_using_any_mapped_data_types_with_nulls()
         {
             using (var context = CreateContext())
@@ -574,7 +573,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types()
         {
             var entity = CreateMappedDataTypes(77);
@@ -773,7 +772,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
                 EnumAsVarcharMax = StringEnum16.Value2
             };
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_nullable_data_types()
         {
             using (var context = CreateContext())
@@ -964,7 +963,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
                 EnumAsVarcharMax = StringEnum16.Value2
             };
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_set_to_null()
         {
             using (var context = CreateContext())
@@ -1094,7 +1093,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
             Assert.Null(entity.EnumAsVarcharMax);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_sized_data_types()
         {
             using (var context = CreateContext())
@@ -1191,7 +1190,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
                 CharAsNationalCharacterVarying3 = 'F'
             };
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_nulls_for_all_mapped_sized_data_types()
         {
             using (var context = CreateContext())
@@ -1263,7 +1262,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
             Assert.Null(entity.CharAsNationalCharacterVarying3);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_scale()
         {
             using (var context = CreateContext())
@@ -1329,7 +1328,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
                 TimeSpanAsTime3 = TimeSpan.Parse("12:34:56", CultureInfo.InvariantCulture)
             };
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_precision_and_scale()
         {
             using (var context = CreateContext())
@@ -1373,7 +1372,7 @@ parameters,
                 DecimalAsNumeric52 = 103.3m
             };
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_identity()
         {
             using (var context = CreateContext())
@@ -1567,7 +1566,7 @@ parameters,
                 EnumAsVarcharMax = StringEnum16.Value2
             };
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_nullable_data_types_with_identity()
         {
             using (var context = CreateContext())
@@ -1758,7 +1757,7 @@ parameters,
                 EnumAsVarcharMax = StringEnum16.Value2
             };
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_set_to_null_with_identity()
         {
             using (var context = CreateContext())
@@ -1889,7 +1888,7 @@ parameters,
             Assert.Null(entity.EnumAsVarcharMax);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_sized_data_types_with_identity()
         {
             using (var context = CreateContext())
@@ -1996,7 +1995,7 @@ parameters,
                 CharAsNationalCharacterVarying3 = 'F'
             };
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_nulls_for_all_mapped_sized_data_types_with_identity()
         {
             using (var context = CreateContext())
@@ -2073,7 +2072,7 @@ parameters,
             Assert.Null(entity.CharAsNationalCharacterVarying3);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_scale_with_identity()
         {
             using (var context = CreateContext())
@@ -2140,7 +2139,7 @@ parameters,
                 TimeSpanAsTime3 = TimeSpan.Parse("12:34:56", CultureInfo.InvariantCulture)
             };
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_precision_and_scale_with_identity()
         {
             using (var context = CreateContext())
@@ -2187,7 +2186,7 @@ parameters,
                 DecimalAsNumeric52 = 103.3m
             };
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_in_batch()
         {
             using (var context = CreateContext())
@@ -2207,7 +2206,7 @@ parameters,
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_nullable_data_types_in_batch()
         {
             using (var context = CreateContext())
@@ -2227,7 +2226,7 @@ parameters,
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_set_to_null_in_batch()
         {
             using (var context = CreateContext())
@@ -2247,7 +2246,7 @@ parameters,
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_sized_data_types_in_batch()
         {
             using (var context = CreateContext())
@@ -2267,7 +2266,7 @@ parameters,
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_nulls_for_all_mapped_sized_data_types_in_batch()
         {
             using (var context = CreateContext())
@@ -2287,7 +2286,7 @@ parameters,
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_scale_in_batch()
         {
             using (var context = CreateContext())
@@ -2307,7 +2306,7 @@ parameters,
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_precision_and_scale_in_batch()
         {
             using (var context = CreateContext())
@@ -2327,7 +2326,7 @@ parameters,
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -2347,7 +2346,7 @@ parameters,
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_nullable_data_types_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -2370,7 +2369,7 @@ parameters,
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_set_to_null_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -2393,7 +2392,7 @@ parameters,
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_sized_data_types_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -2413,7 +2412,7 @@ parameters,
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_nulls_for_all_mapped_sized_data_types_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -2433,7 +2432,7 @@ parameters,
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_scale_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -2453,7 +2452,7 @@ parameters,
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_insert_and_read_back_all_mapped_data_types_with_precision_and_scale_with_identity_in_batch()
         {
             using (var context = CreateContext())
@@ -2476,7 +2475,7 @@ parameters,
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Columns_have_expected_data_types()
         {
             var actual = QueryForColumnTypes(
@@ -2926,7 +2925,7 @@ parameters,
             Assert.Equal(expected, actual, ignoreLineEndingDifferences: true);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Can_get_column_types_from_built_model()
         {
             using var context = CreateContext();

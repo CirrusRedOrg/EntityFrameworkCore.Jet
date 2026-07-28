@@ -17,7 +17,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             .AddEntityFrameworkLibRed()
             .BuildServiceProvider();
 
-        [ConditionalFact]
+        [Fact]
         public void Can_use_SQL_Server_default_values()
         {
             using (var context = new ChipsContext(_serviceProvider, TestStore.Name))

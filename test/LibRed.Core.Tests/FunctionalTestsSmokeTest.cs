@@ -2,7 +2,6 @@ using System.Runtime.CompilerServices;
 using LibRed;
 using LibRed.Catalog;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace LibRed.Core.Tests;
 

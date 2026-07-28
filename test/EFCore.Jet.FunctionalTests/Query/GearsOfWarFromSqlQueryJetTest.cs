@@ -2,7 +2,6 @@
 
 using Microsoft.EntityFrameworkCore.Query;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {

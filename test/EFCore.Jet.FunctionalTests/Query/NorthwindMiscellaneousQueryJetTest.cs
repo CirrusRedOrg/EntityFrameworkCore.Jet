@@ -13,7 +13,6 @@ using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 
 // ReSharper disable UnusedParameter.Local
@@ -29,7 +28,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -108,7 +107,7 @@ ORDER BY `s`.`CustomerID`
 """);
         }
 
-        [ConditionalFact(Skip = "Issue #16006")]
+        [Fact(Skip = "Issue #16006")]
         public virtual void Cache_key_contexts_are_detached()
         {
             var weakRef = Scoper(
@@ -4686,7 +4685,7 @@ WHERE FALSE
                     """);
         }
 
-        [ConditionalTheory(Skip = "Can be supported after rearranging CROSS JOIN/JOIN expressions.")]
+        [Theory(Skip = "Can be supported after rearranging CROSS JOIN/JOIN expressions.")]
         public override async Task Comparing_navigations_using_Equals(bool isAsync)
         {
             await base.Comparing_navigations_using_Equals(isAsync);
@@ -5888,13 +5887,13 @@ ORDER BY `c`.`CustomerID`
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Single_Predicate_Cancellation()
             => await Assert.ThrowsAnyAsync<OperationCanceledException>(
                 async () =>
                     await Single_Predicate_Cancellation_test(Fixture.TestSqlLoggerFactory.CancelQuery()));
 #nullable disable
-        [ConditionalFact]
+        [Fact]
         public Task Query_compiler_concurrency()
         {
             const int threadCount = 50;
@@ -5928,7 +5927,7 @@ ORDER BY `c`.`CustomerID`
         }
 #nullable enable
 
-        [ConditionalFact]
+        [Fact]
         public Task Race_when_context_disposed_before_query_termination()
         {
             DbSet<Customer> task;
@@ -5941,7 +5940,7 @@ ORDER BY `c`.`CustomerID`
             return Assert.ThrowsAsync<ObjectDisposedException>(() => task.SingleAsync(c => c.CustomerID == "ALFKI"));
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Concurrent_async_queries_are_serialized2()
         {
             using var context = CreateContext();
@@ -5955,7 +5954,7 @@ ORDER BY `c`.`CustomerID`
                         .Where(od => od.OrderID > 0)).ToListAsync();
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Concurrent_async_queries_when_raw_query()
         {
             using var context = CreateContext();

@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit.Abstractions;
+using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {

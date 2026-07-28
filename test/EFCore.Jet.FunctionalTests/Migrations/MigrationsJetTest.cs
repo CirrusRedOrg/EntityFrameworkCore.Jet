@@ -19,7 +19,6 @@ using Microsoft.EntityFrameworkCore.Scaffolding.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
-using Xunit.Abstractions;
 
 // ReSharper disable StringLiteralTypo
 // ReSharper disable UnusedParameter.Local
@@ -178,7 +177,7 @@ CREATE TABLE `Entity` (
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Create_table_with_identity_column_value_converter()
     {
         await Test(
@@ -319,7 +318,7 @@ CREATE TABLE `People` (
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Create_schema_dbo_is_ignored()
     {
         await Test(
@@ -358,7 +357,7 @@ ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT '2015-04-12 17:05:
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(0, "", 1234567)]
     [InlineData(1, ".1", 1234567)]
     [InlineData(2, ".12", 1234567)]
@@ -389,7 +388,7 @@ ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT '2015-04-12 17:05:
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(0, "", 1234567)]
     [InlineData(1, ".1", 1234567)]
     [InlineData(2, ".12", 1234567)]
@@ -423,7 +422,7 @@ ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT CDATE('2015-04-12 
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(0, "", 1234567)]
     [InlineData(1, ".1", 1234567)]
     [InlineData(2, ".12", 1234567)]
@@ -455,7 +454,7 @@ ALTER TABLE `People` ADD `Age` datetime NOT NULL DEFAULT TIMEVALUE('12:34:56');
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Add_column_with_defaultValue_datetime_store_type()
     {
         await Test(
@@ -477,7 +476,7 @@ ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT '2019-01-01';
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Add_column_with_rowversion()
     {
         await Test(
@@ -498,7 +497,7 @@ ALTER TABLE [People] ADD [RowVersion] rowversion NULL;
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Add_column_with_rowversion_and_value_conversion()
     {
         await Test(
@@ -561,7 +560,7 @@ ALTER TABLE [People] ADD [Sum] AS [X] + [Y]{computedColumnTypeSql};
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Add_column_generates_exec_when_computed_and_idempotent()
     {
         await Test(
@@ -640,7 +639,7 @@ ALTER TABLE `People` ADD `FullName` varchar(255) NULL;
 """);
     }
 
-    [ConditionalFact(Skip = "Jet does not support collation")]
+    [Fact(Skip = "Jet does not support collation")]
     public override async Task Add_column_with_collation()
     {
         await base.Add_column_with_collation();
@@ -648,7 +647,7 @@ ALTER TABLE `People` ADD `FullName` varchar(255) NULL;
         AssertSql("");
     }
 
-    [ConditionalTheory(Skip = "Jet does not support collation")]
+    [Theory(Skip = "Jet does not support collation")]
     public override async Task Add_column_computed_with_collation(bool stored)
     {
         await base.Add_column_computed_with_collation(stored);
@@ -677,7 +676,7 @@ ALTER TABLE `People` ADD CONSTRAINT `CK_People_Foo` CHECK (`DriverLicense` > 0);
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Add_column_identity()
     {
         await Test(
@@ -697,7 +696,7 @@ ALTER TABLE `People` ADD `IdentityColumn` counter NOT NULL;
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Add_column_identity_seed_increment()
     {
         await Test(
@@ -719,7 +718,7 @@ ALTER TABLE `People` ADD `IdentityColumn` counter(100, 5) NOT NULL;
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Add_column_identity_seed_increment_for_TPC()
     {
         await Test(
@@ -814,7 +813,7 @@ ALTER TABLE `People` ALTER COLUMN `SomeColumn` varchar(255) NOT NULL DEFAULT '';
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Alter_column_make_required_with_index()
     {
         await base.Alter_column_make_required_with_index();
@@ -829,7 +828,7 @@ CREATE INDEX `IX_People_SomeColumn` ON `People` (`SomeColumn`);
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Alter_column_make_required_with_composite_index()
     {
         await base.Alter_column_make_required_with_composite_index();
@@ -936,7 +935,7 @@ ALTER TABLE [People] ADD [Sum] int NOT NULL;
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Alter_column_add_comment()
     {
         await base.Alter_column_add_comment();
@@ -945,7 +944,7 @@ ALTER TABLE [People] ADD [Sum] int NOT NULL;
         );
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Alter_computed_column_add_comment()
     {
         await base.Alter_computed_column_add_comment();
@@ -954,7 +953,7 @@ ALTER TABLE [People] ADD [Sum] int NOT NULL;
         );
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Alter_column_change_comment()
     {
         await base.Alter_column_change_comment();
@@ -963,7 +962,7 @@ ALTER TABLE [People] ADD [Sum] int NOT NULL;
         );
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Alter_column_remove_comment()
     {
         await base.Alter_column_remove_comment();
@@ -1090,7 +1089,7 @@ ALTER TABLE `Entity` ALTER COLUMN `Name` longchar NOT NULL DEFAULT '{}';
         AssertSql();
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Alter_column_with_index_no_narrowing()
     {
         await Test(
@@ -1122,7 +1121,7 @@ ALTER TABLE [People] ALTER COLUMN [Name] nvarchar(450) NULL;
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Alter_column_add_identity()
     {
         var ex = await TestThrows<InvalidOperationException>(
@@ -1132,7 +1131,7 @@ ALTER TABLE [People] ALTER COLUMN [Name] nvarchar(450) NULL;
         Assert.Equal(JetStrings.AlterIdentityColumn, ex.Message);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Alter_column_remove_identity()
     {
         var ex = await TestThrows<InvalidOperationException>(
@@ -1142,7 +1141,7 @@ ALTER TABLE [People] ALTER COLUMN [Name] nvarchar(450) NULL;
         Assert.Equal(JetStrings.AlterIdentityColumn, ex.Message);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Alter_column_change_identity_seed()
     {
         await Test(
@@ -1159,7 +1158,7 @@ ALTER TABLE [People] ALTER COLUMN [Name] nvarchar(450) NULL;
 );
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Alter_column_change_default()
     {
         await Test(
@@ -1360,7 +1359,7 @@ CREATE INDEX [IX_People_Name] ON [People] ([Name]) WHERE [Name] IS NOT NULL;
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task CreateIndex_generates_exec_when_filter_and_idempotent()
     {
         await Test(
@@ -1584,7 +1583,7 @@ ALTER TABLE `People` ADD CONSTRAINT `CK_People_Foo` CHECK (`DriverLicense` > 0);
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Add_check_constraint_generates_exec_when_idempotent()
     {
         await Test(
@@ -1742,7 +1741,7 @@ ALTER SCHEMA [TestSequenceSchema] TRANSFER [TestSequence];
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Move_sequence_into_default_schema()
     {
         await Test(
@@ -1762,7 +1761,7 @@ EXEC(N'ALTER SCHEMA [' + @defaultSchema + N'] TRANSFER [TestSequenceSchema].[Tes
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public async Task Create_sequence_and_dependent_column()
     {
         await Test(
@@ -1789,7 +1788,7 @@ ALTER TABLE [People] ADD [SeqProp] int NOT NULL DEFAULT (NEXT VALUE FOR TestSequ
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public async Task Drop_sequence_and_dependent_column()
     {
         await Test(
@@ -1902,7 +1901,7 @@ SELECT @@ROWCOUNT;
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task InsertDataOperation_generates_exec_when_idempotent()
     {
         await Test(
@@ -1939,7 +1938,7 @@ IF EXISTS (SELECT * FROM [sys].[identity_columns] WHERE [name] IN (N'Id', N'Name
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task DeleteDataOperation_generates_exec_when_idempotent()
     {
         await Test(
@@ -1964,7 +1963,7 @@ SELECT @@ROWCOUNT');
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task UpdateDataOperation_generates_exec_when_idempotent()
     {
         await Test(
@@ -1989,7 +1988,7 @@ SELECT @@ROWCOUNT');
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Add_required_primitive_collection_to_existing_table()
     {
         await base.Add_required_primitive_collection_to_existing_table();
@@ -2000,7 +1999,7 @@ ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT '[]';
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Add_required_primitive_collection_with_custom_default_value_to_existing_table()
     {
         await base.Add_required_primitive_collection_with_custom_default_value_to_existing_table();
@@ -2011,7 +2010,7 @@ ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT '[1,2,3]';
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Add_required_primitive_collection_with_custom_default_value_sql_to_existing_table()
     {
         await base.Add_required_primitive_collection_with_custom_default_value_sql_to_existing_table_core("'[3, 2, 1]'");
@@ -2022,7 +2021,7 @@ ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT '[3, 2, 1]';
 """);
     }
 
-    [ConditionalFact(Skip = "issue #33038")]
+    [Fact(Skip = "issue #33038")]
     public override async Task Add_required_primitive_collection_with_custom_converter_to_existing_table()
     {
         await base.Add_required_primitive_collection_with_custom_converter_to_existing_table();
@@ -2033,7 +2032,7 @@ ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT N'nothing';
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Add_required_primitive_collection_with_custom_converter_and_custom_default_value_to_existing_table()
     {
         await base.Add_required_primitive_collection_with_custom_converter_and_custom_default_value_to_existing_table();
@@ -2044,7 +2043,7 @@ ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT 'some number
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Add_optional_primitive_collection_to_existing_table()
     {
         await base.Add_optional_primitive_collection_to_existing_table();
@@ -2055,7 +2054,7 @@ ALTER TABLE `Customers` ADD `Numbers` varchar(255) NULL;
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Create_table_with_required_primitive_collection()
     {
         await base.Create_table_with_required_primitive_collection();
@@ -2071,7 +2070,7 @@ CREATE TABLE `Customers` (
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Create_table_with_optional_primitive_collection()
     {
         await base.Create_table_with_optional_primitive_collection();
@@ -2087,7 +2086,7 @@ CREATE TABLE `Customers` (
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Create_table_with_complex_type_with_required_properties_on_derived_entity_in_TPH()
     {
         await base.Create_table_with_complex_type_with_required_properties_on_derived_entity_in_TPH();
@@ -2110,7 +2109,7 @@ CREATE TABLE `Contacts` (
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Add_required_primitve_collection_to_existing_table()
     {
         await base.Add_required_primitve_collection_to_existing_table();
@@ -2121,7 +2120,7 @@ ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT '[]';
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Add_required_primitve_collection_with_custom_default_value_to_existing_table()
     {
         await base.Add_required_primitve_collection_with_custom_default_value_to_existing_table();
@@ -2132,7 +2131,7 @@ ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT '[1,2,3]';
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Add_required_primitve_collection_with_custom_default_value_sql_to_existing_table()
     {
         await base.Add_required_primitve_collection_with_custom_default_value_sql_to_existing_table_core("'[3, 2, 1]'");
@@ -2143,7 +2142,7 @@ ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT '[3, 2, 1]';
 """);
     }
 
-    [ConditionalFact(Skip = "issue #33038")]
+    [Fact(Skip = "issue #33038")]
     public override async Task Add_required_primitve_collection_with_custom_converter_to_existing_table()
     {
         await base.Add_required_primitve_collection_with_custom_converter_to_existing_table();
@@ -2154,7 +2153,7 @@ ALTER TABLE [Customers] ADD [Numbers] nvarchar(max) NOT NULL DEFAULT N'nothing';
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public override async Task Add_required_primitve_collection_with_custom_converter_and_custom_default_value_to_existing_table()
     {
         await base.Add_required_primitve_collection_with_custom_converter_and_custom_default_value_to_existing_table();

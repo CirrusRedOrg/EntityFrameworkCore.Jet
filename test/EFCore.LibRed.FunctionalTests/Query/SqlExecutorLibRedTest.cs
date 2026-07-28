@@ -4,7 +4,6 @@ using System.Data.Common;
 using System.Threading.Tasks;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
-using Xunit.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 using Microsoft.EntityFrameworkCore.TestModels.ConcurrencyModel;

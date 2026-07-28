@@ -19,7 +19,7 @@ public class MismatchedKeyTypesLibRedTest(MismatchedKeyTypesLibRedTest.Mismatche
 {
     public MismatchedKeyTypesLibRedFixture Fixture { get; } = fixture;
 
-    [ConditionalFact] // Issue #28392
+    [Fact] // Issue #28392
     public virtual void Can_update_and_delete_with_tinyint_FK_and_smallint_PK()
     {
         using var context = new MismatchedKeyTypesContext(Fixture);
@@ -92,7 +92,7 @@ public class MismatchedKeyTypesLibRedTest(MismatchedKeyTypesLibRedTest.Mismatche
                 .Include(e => e.RequiredSingle);
     }
 
-    [ConditionalFact] // Issue #28392
+    [Fact] // Issue #28392
     public virtual void Can_update_and_delete_with_string_FK_and_GUID_PK()
     {
         using var context = new MismatchedKeyTypesContext(Fixture);
@@ -165,7 +165,7 @@ public class MismatchedKeyTypesLibRedTest(MismatchedKeyTypesLibRedTest.Mismatche
                 .Include(e => e.RequiredSingle);
     }
 
-    [ConditionalFact] // Issue #28392
+    [Fact] // Issue #28392
     public virtual void Can_update_and_delete_composite_keys_mismatched_in_store()
     {
         using var context = new MismatchedKeyTypesContext(Fixture);
@@ -238,7 +238,7 @@ public class MismatchedKeyTypesLibRedTest(MismatchedKeyTypesLibRedTest.Mismatche
                 .Include(e => e.RequiredSingle);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Queries_work_but_SaveChanges_fails_when_composite_keys_incompatible_in_store()
     {
         using var context = new MismatchedKeyTypesContext(Fixture);
@@ -266,7 +266,7 @@ public class MismatchedKeyTypesLibRedTest(MismatchedKeyTypesLibRedTest.Mismatche
             Assert.Throws<InvalidOperationException>(() => context.SaveChanges()).Message);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Queries_work_but_SaveChanges_fails_when_keys_incompatible_in_store()
     {
         using var context = new MismatchedKeyTypesContext(Fixture);

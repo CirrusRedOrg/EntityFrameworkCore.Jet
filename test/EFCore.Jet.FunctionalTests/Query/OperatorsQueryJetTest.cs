@@ -9,7 +9,6 @@ using System;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
-using Xunit.Abstractions;
 using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
@@ -131,7 +130,7 @@ WHERE `o`.`Value` NOT LIKE 'A%' OR `o`.`Value` IS NULL
 """);
     }
 
-    /*[ConditionalTheory]
+    /*[Theory]
     [MemberData(nameof(IsAsyncData))]
     public virtual async Task Where_AtTimeZone_datetimeoffset_constant(bool async)
     {
@@ -160,7 +159,7 @@ WHERE [o].[Value] AT TIME ZONE 'UTC' = '2000-01-01T18:00:00.0000000+00:00'
 """);
     }*/
 
-    /*[ConditionalTheory]
+    /*[Theory]
     [MemberData(nameof(IsAsyncData))]
     public virtual async Task Where_AtTimeZone_datetimeoffset_parameter(bool async)
     {
@@ -195,7 +194,7 @@ WHERE [o].[Value] AT TIME ZONE @__timeZone_1 = @__dateTime_2
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [MemberData(nameof(IsAsyncData))]
     public virtual async Task Where_AtTimeZone_datetimeoffset_column(bool async)
     {

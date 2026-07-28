@@ -15,21 +15,21 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         TransactionInterceptionJetTestBase.InterceptionJetFixtureBase fixture)
         : TransactionInterceptionTestBase(fixture)
     {
-        [ConditionalTheory(Skip = "Jet does not support savepoints")]
+        [Theory(Skip = "Jet does not support savepoints")]
         [InlineData(true)]
         [InlineData(false)]
         public override Task Intercept_CreateSavepoint(bool async)
         {
             return base.Intercept_CreateSavepoint(async);
         }
-        [ConditionalTheory(Skip = "Jet does not support savepoints")]
+        [Theory(Skip = "Jet does not support savepoints")]
         [InlineData(true)]
         [InlineData(false)]
         public override Task Intercept_ReleaseSavepoint(bool async)
         {
             return base.Intercept_ReleaseSavepoint(async);
         }
-        [ConditionalTheory(Skip = "Jet does not support savepoints")]
+        [Theory(Skip = "Jet does not support savepoints")]
         [InlineData(true)]
         [InlineData(false)]
         public override Task Intercept_RollbackToSavepoint(bool async)

@@ -98,7 +98,7 @@ SELECT @@ROWCOUNT;
 """);
     }
 
-    /*[ConditionalFact] // Issue #29502
+    /*[Fact] // Issue #29502
     public virtual async Task Bulk_insert_result_set_mapping()
     {
         var contextFactory = await InitializeAsync<DbContext>(

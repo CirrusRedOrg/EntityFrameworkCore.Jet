@@ -9,7 +9,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
@@ -19,7 +18,7 @@ public class AdHocPrecompiledQueryLibRedTest(NonSharedFixture fixture, ITestOutp
     protected override bool AlwaysPrintGeneratedSources
         => false;
 
-    [ConditionalTheory(Skip = "Not supported in LibRed")]
+    [Theory(Skip = "Not supported in LibRed")]
     public override async Task Index_no_evaluatability()
     {
         await base.Index_no_evaluatability();
@@ -31,7 +30,7 @@ WHERE CAST(JSON_VALUE([j].[IntList], '$[' + CAST([j].[Id] AS nvarchar(max)) + ']
 """);
     }
 
-    [ConditionalTheory(Skip = "Not supported in LibRed")]
+    [Theory(Skip = "Not supported in LibRed")]
     public override async Task Index_with_captured_variable()
     {
         await base.Index_with_captured_variable();
@@ -45,7 +44,7 @@ WHERE CAST(JSON_VALUE([j].[IntList], '$[' + CAST(@__id_0 AS nvarchar(max)) + ']'
 """);
     }
 
-    [ConditionalFact(Skip = "Not supported in LibRed")]
+    [Fact(Skip = "Not supported in LibRed")]
     public override async Task JsonScalar()
     {
         await base.JsonScalar();
@@ -109,7 +108,7 @@ FROM `Books` AS `b`
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore.Query.Associations.OwnedTableSplitting;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query.Associations.OwnedTableSplitting;
 
@@ -414,7 +413,7 @@ OUTER APPLY (
 
     #endregion Subquery
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 }

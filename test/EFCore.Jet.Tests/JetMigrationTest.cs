@@ -7,7 +7,7 @@ namespace EntityFrameworkCore.Jet
 {
     public class JetMigrationTest : TestBase<JetMigrationTest.Context>
     {
-        [ConditionalFact]
+        [Fact]
         public virtual void Create_table_with_HasDefaultValueSql()
         {
             using var context = CreateContext(
@@ -49,7 +49,7 @@ SELECT `c`.`CookieId`, `c`.`BestServedBefore`, `c`.`Name`
 FROM `Cookie` AS `c`");
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Create_many_to_many_table_with_explicit_counter_column_type()
         {
             using var context = CreateContext(
@@ -138,7 +138,7 @@ INNER JOIN `Cookie` AS `c0` ON `c`.`CookieId` = `c0`.`CookieId`)
 INNER JOIN `Backery` AS `b` ON `c`.`BackeryId` = `b`.`BackeryId`");
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Create_many_to_many_table_with_explicit_int_column_type()
         {
             using var context = CreateContext(
@@ -227,7 +227,7 @@ INNER JOIN `Cookie` AS `c0` ON `c`.`CookieId` = `c0`.`CookieId`)
 INNER JOIN `Backery` AS `b` ON `c`.`BackeryId` = `b`.`BackeryId`");
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Create_many_to_many_table_with_inappropriate_counter_column_type()
         {
             using var context = CreateContext(

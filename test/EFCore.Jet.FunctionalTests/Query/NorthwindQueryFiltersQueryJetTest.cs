@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
@@ -21,7 +20,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -257,7 +256,7 @@ WHERE ((`c`.`CompanyName` LIKE @ef_filter__TenantPrefix_startswith) AND `s1`.`Di
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void FromSql_is_composed()
         {
             using (var context = Fixture.CreateContext())
@@ -279,7 +278,7 @@ WHERE `m`.`CompanyName` LIKE @ef_filter__TenantPrefix_startswith
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void FromSql_is_composed_when_filter_has_navigation()
         {
             using (var context = Fixture.CreateContext())

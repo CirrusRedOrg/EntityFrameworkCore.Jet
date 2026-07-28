@@ -21,7 +21,7 @@ public class NorthwindEFPropertyIncludeQueryLibRedTest : NorthwindEFPropertyIncl
         Fixture.TestSqlLoggerFactory.Clear();
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

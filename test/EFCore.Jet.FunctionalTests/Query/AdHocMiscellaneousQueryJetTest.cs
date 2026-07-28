@@ -48,7 +48,7 @@ INSERT ZeroKey VALUES (NULL)
 
     #region 5456
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Include_group_join_is_per_query_context()
     {
         var contextFactory = await InitializeAsync<Context5456>(
@@ -83,7 +83,7 @@ INSERT ZeroKey VALUES (NULL)
             });
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Include_group_join_is_per_query_context_async()
     {
         var contextFactory = await InitializeAsync<Context5456>(
@@ -169,7 +169,7 @@ INSERT ZeroKey VALUES (NULL)
 
     #region 8864
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Select_nested_projection()
     {
         var contextFactory = await InitializeAsync<Context8864>(seed: c => c.SeedAsync());
@@ -238,7 +238,7 @@ WHERE `c`.`Id` = @id
 
     #region 12518
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Projecting_entity_with_value_converter_and_include_works()
     {
         var contextFactory = await InitializeAsync<Context12518>(seed: c => c.SeedAsync());
@@ -254,7 +254,7 @@ ORDER BY `p`.`Id`
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Projecting_column_with_value_converter_of_ulong_byte_array()
     {
         var contextFactory = await InitializeAsync<Context12518>(seed: c => c.SeedAsync());
@@ -316,7 +316,7 @@ ORDER BY `p`.`Id`
 
     #region 13118
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task DateTime_Contains_with_smalldatetime_generates_correct_literal()
     {
         var contextFactory = await InitializeAsync<Context13118>(seed: c => c.SeedAsync());
@@ -365,7 +365,7 @@ WHERE `r`.`MyTime` = CDATE(@testDateList1)
 
     #region 14095
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Where_equals_DateTime_Now(bool async)
@@ -393,7 +393,7 @@ WHERE `d`.`DateTime2_2` = NOW() OR `d`.`DateTime2_7` = NOW() OR `d`.`DateTime` =
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Where_not_equals_DateTime_Now(bool async)
@@ -421,7 +421,7 @@ WHERE `d`.`DateTime2_2` <> NOW() AND `d`.`DateTime2_7` <> NOW() AND `d`.`DateTim
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Where_equals_new_DateTime(bool async)
@@ -456,7 +456,7 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Where_contains_DateTime_literals(bool async)
@@ -573,7 +573,7 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
 
     #region 15518
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public virtual async Task Nested_queries_does_not_cause_concurrency_exception_sync(bool tracking)
@@ -674,7 +674,7 @@ ORDER BY `r`.`Id`
 
     #region 19206
 
-    /*[ConditionalFact]
+    /*[Fact]
     public virtual async Task From_sql_expression_compares_correctly()
     {
         var contextFactory = await InitializeAsync<Context19206>(seed: c => c.SeedAsync());
@@ -741,7 +741,7 @@ CROSS JOIN (
 
     #region 21666
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Thread_safety_in_relational_command_cache()
     {
         var contextFactory = await InitializeAsync<Context21666>(
@@ -780,7 +780,7 @@ CROSS JOIN (
 
     #region 27427
 
-    /*[ConditionalTheory]
+    /*[Theory]
     [MemberData(nameof(IsAsyncData))]
     public virtual async Task Muliple_occurrences_of_FromSql_in_group_by_aggregate(bool async)
     {

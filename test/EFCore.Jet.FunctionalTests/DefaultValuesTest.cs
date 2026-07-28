@@ -18,7 +18,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             .AddEntityFrameworkJet()
             .BuildServiceProvider();
 
-        [ConditionalFact]
+        [Fact]
         public void Can_use_SQL_Server_default_values()
         {
             using (var context = new ChipsContext(_serviceProvider, TestStore.Name))

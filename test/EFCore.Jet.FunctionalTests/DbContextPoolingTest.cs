@@ -19,7 +19,6 @@ using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
-using Xunit.Abstractions;
 
 // ReSharper disable MethodHasAsyncOverload
 
@@ -223,7 +222,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         }
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Invalid_pool_size()
     {
         Assert.Throws<ArgumentOutOfRangeException>(
@@ -239,7 +238,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
             () => BuildServiceProvider<IPooledContext, PooledContext>(poolSize: -1));
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void Invalid_pool_size_with_factory(bool withDependencyInjection)
@@ -251,7 +250,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
             () => BuildFactory<PooledContext>(withDependencyInjection, poolSize: -1));
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Validate_pool_size()
     {
         var serviceProvider = BuildServiceProvider<PooledContext>(poolSize: 64);
@@ -266,7 +265,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
                 .FindExtension<CoreOptionsExtension>()!.MaxPoolSize);
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Validate_pool_size_with_service_interface()
     {
         var serviceProvider = BuildServiceProvider<IPooledContext, PooledContext>(poolSize: 64);
@@ -281,7 +280,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
             .FindExtension<CoreOptionsExtension>()!.MaxPoolSize);
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Validate_pool_size_with_factory()
     {
         var serviceProvider = BuildServiceProviderWithFactory<PooledContext>(poolSize: 64);
@@ -294,7 +293,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
                 .FindExtension<CoreOptionsExtension>()!.MaxPoolSize);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void Validate_pool_size_behavior_with_factory(bool withDependencyInjection)
@@ -311,7 +310,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.NotSame(ctx2, ctx4);
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Validate_pool_size_default()
     {
         var serviceProvider = BuildServiceProvider<PooledContext>();
@@ -326,7 +325,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
                 .FindExtension<CoreOptionsExtension>()!.MaxPoolSize);
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Validate_pool_size_with_service_interface_default()
     {
         var serviceProvider = BuildServiceProvider<IPooledContext, PooledContext>();
@@ -341,7 +340,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
             .FindExtension<CoreOptionsExtension>()!.MaxPoolSize);
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Pool_can_get_context_by_concrete_type_even_when_service_interface_is_used()
     {
         var serviceProvider = BuildServiceProvider<IPooledContext, PooledContext>();
@@ -353,7 +352,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
             scope.ServiceProvider.GetRequiredService<PooledContext>());
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Validate_pool_size_with_factory_default()
     {
         var serviceProvider = BuildServiceProviderWithFactory<PooledContext>();
@@ -366,7 +365,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
                 .FindExtension<CoreOptionsExtension>()!.MaxPoolSize);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public void Options_modified_in_on_configuring(bool useInterface)
@@ -392,7 +391,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         }
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Options_modified_in_on_configuring_with_factory()
     {
         var serviceProvider = BuildServiceProviderWithFactory<PooledContext>();
@@ -415,7 +414,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
     {
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Throws_when_used_with_parameterless_constructor_context()
     {
         var serviceCollection = new ServiceCollection();
@@ -439,7 +438,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
                     (_, __) => { })).Message);
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Throws_when_pooled_context_constructor_has_second_parameter_that_cannot_be_resolved_from_service_provider()
     {
         var serviceProvider
@@ -456,7 +455,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         public string StringParameter { get; } = x;
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Throws_when_pooled_context_constructor_has_single_parameter_that_cannot_be_resolved_from_service_provider()
     {
         var serviceProvider
@@ -472,7 +471,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
     private class WrongParameterConstructorContext(string x) : DbContext(new DbContextOptions<WrongParameterConstructorContext>());
 #pragma warning restore CS9113
 
-    [ConditionalFact]
+    [Fact]
     public void Throws_when_pooled_context_constructor_has_scoped_service()
     {
         var serviceProvider
@@ -486,7 +485,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.Throws<InvalidOperationException>(() => scope.ServiceProvider.GetService<TwoParameterConstructorContext>());
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Does_not_throw_when_pooled_context_constructor_has_singleton_service()
     {
         var serviceProvider
@@ -501,7 +500,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.Equal("string", context.StringParameter);
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Does_not_throw_when_parameterless_and_correct_constructor()
     {
         var serviceProvider
@@ -515,7 +514,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.Equal("Options", context.ConstructorUsed);
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Does_not_throw_when_parameterless_and_correct_constructor_using_factory_pool()
     {
         var serviceProvider
@@ -546,7 +545,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         }
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -625,7 +624,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
                 : serviceScope.ServiceProvider.GetService<DbContext>();
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task ContextIds_make_sense_when_not_pooling(bool async)
@@ -689,7 +688,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.Equal(0, id2r.Lease);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -762,7 +761,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         await Dispose(serviceScope4, async);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -803,7 +802,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         await Dispose(secondContext2, async);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false, null)]
     [InlineData(true, false, null)]
     [InlineData(false, true, null)]
@@ -926,7 +925,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.False(_localView_OnCollectionChanged);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, null)]
     [InlineData(true, null)]
     [InlineData(false, QueryTrackingBehavior.TrackAll)]
@@ -959,7 +958,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         await Dispose(serviceScope, async);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -1046,7 +1045,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.False(_localView_OnCollectionChanged);
     }
 
-    [ConditionalFact]
+    [Fact]
     public void Change_tracker_can_be_cleared_without_resetting_context_config()
     {
         var context = new PooledContext(
@@ -1185,7 +1184,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
     private void ChangeTracker_OnDetectedEntityChanges(object sender, DetectedEntityChangesEventArgs e)
         => _changeTracker_OnDetectedEntityChanges = true;
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, null)]
     [InlineData(true, null)]
     [InlineData(false, QueryTrackingBehavior.TrackAll)]
@@ -1229,7 +1228,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.True(context2.Database.AutoSavepointsEnabled);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -1263,7 +1262,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.True(context2.Database.AutoSavepointsEnabled);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -1311,7 +1310,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
     private static async Task<T> Scoper<T>(Func<Task<T>> getter)
         => await getter();
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -1344,7 +1343,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.False(weakRef.IsAlive);
     }
 
-    [ConditionalTheory] // Issue #25486
+    [Theory] // Issue #25486
     [InlineData(false, false, false)]
     [InlineData(true, false, false)]
     [InlineData(false, true, false)]
@@ -1390,7 +1389,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         AssertDisposed(() => orderLoader.Load(entity, nameof(Customer.Orders)), "Customer", "Orders");
     }
 
-    [ConditionalTheory] // Issue #25486
+    [Theory] // Issue #25486
     [InlineData(false, false, false)]
     [InlineData(true, false, false)]
     [InlineData(false, true, false)]
@@ -1439,7 +1438,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
             Assert.Throws<InvalidOperationException>(
                 testCode).Message);
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -1471,7 +1470,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.Throws<ObjectDisposedException>(() => context2.Customers.ToList());
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -1496,7 +1495,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.Throws<ObjectDisposedException>(() => context.Customers.ToList());
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -1519,7 +1518,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.Throws<ObjectDisposedException>(() => context!.Customers.ToList());
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -1548,7 +1547,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.NotSame(lease1.Context, lease2.Context);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -1575,7 +1574,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.NotSame(context1, context2);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -1597,7 +1596,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.Throws<ObjectDisposedException>(() => context.Customers.ToList());
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -1648,7 +1647,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.Null(context3!.Database.CurrentTransaction);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -1682,7 +1681,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         Assert.Null(context3.Database.CurrentTransaction);
     }
 
-    [ConditionalTheory] // Issue #27308.
+    [Theory] // Issue #27308.
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -1744,7 +1743,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         await Dispose(serviceScope, async);
     }
 
-    [ConditionalTheory] // Issue #27308.
+    [Theory] // Issue #27308.
     [InlineData(false, false, false)]
     [InlineData(true, false, false)]
     [InlineData(false, true, false)]
@@ -1824,7 +1823,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         await Dispose(serviceScope, async);
     }
 
-    [ConditionalTheory] // Issue #27308.
+    [Theory] // Issue #27308.
     [InlineData(false, false, false)]
     [InlineData(true, false, false)]
     [InlineData(false, true, false)]
@@ -1896,7 +1895,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         await Dispose(context2, async);
     }
 
-    [ConditionalTheory] // Issue #27308.
+    [Theory] // Issue #27308.
     [InlineData(false, false, false, false)]
     [InlineData(true, false, false, false)]
     [InlineData(false, true, false, false)]
@@ -1989,7 +1988,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
         await Dispose(context2, async);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public void Double_dispose_concurrency_test(bool useInterface)
@@ -2014,7 +2013,7 @@ public class DbContextPoolingTest(NorthwindQueryJetFixture<NoopModelCustomizer> 
             });
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Concurrency_test2(bool async)

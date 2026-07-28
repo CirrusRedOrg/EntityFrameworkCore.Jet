@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;

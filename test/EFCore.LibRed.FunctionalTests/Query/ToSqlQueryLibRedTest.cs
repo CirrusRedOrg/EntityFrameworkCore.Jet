@@ -15,7 +15,7 @@ public class ToSqlQueryLibRedTest(NonSharedFixture fixture) : ToSqlQueryTestBase
     protected override ITestStoreFactory TestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

@@ -4,7 +4,7 @@
 using System.Threading.Tasks;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
-using Xunit.Abstractions;
+using Xunit;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 

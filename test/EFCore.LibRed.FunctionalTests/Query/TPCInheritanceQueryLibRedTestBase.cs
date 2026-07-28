@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
@@ -13,7 +12,7 @@ public abstract class TPCInheritanceQueryLibRedTestBase<TFixture>(TFixture fixtu
     : TPCInheritanceQueryTestBase<TFixture>(fixture, testOutputHelper)
     where TFixture : TPCInheritanceQueryLibRedFixtureBase, new()
 {
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType().BaseType!);
 

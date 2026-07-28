@@ -248,7 +248,7 @@ public abstract class StoreGeneratedJetTestBase<TFixture>(TFixture fixture) : St
         public LongToDecimalPrincipal? Principal { get; set; }
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual Task Insert_update_and_delete_with_long_to_decimal_conversion()
     {
         var id1 = 0L;
@@ -352,7 +352,7 @@ public abstract class StoreGeneratedJetTestBase<TFixture>(TFixture fixture) : St
     protected override void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
         => facade.UseTransaction(transaction.GetDbTransaction());
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Exception_in_SaveChanges_causes_store_values_to_be_reverted()
     {
         var entities = new List<Darwin>();

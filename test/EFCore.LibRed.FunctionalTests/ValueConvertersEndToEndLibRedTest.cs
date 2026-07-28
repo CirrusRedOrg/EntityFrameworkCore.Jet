@@ -19,7 +19,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests;
 public class ValueConvertersEndToEndLibRedTest(ValueConvertersEndToEndLibRedTest.ValueConvertersEndToEndLibRedFixture fixture)
     : ValueConvertersEndToEndTestBase<ValueConvertersEndToEndLibRedTest.ValueConvertersEndToEndLibRedFixture>(fixture)
 {
-    [ConditionalTheory]
+    [Theory]
     [InlineData(nameof(ConvertingEntity.BoolAsChar), "varchar(1)", false)]
     [InlineData(nameof(ConvertingEntity.BoolAsNullableChar), "varchar(1)", false)]
     [InlineData(nameof(ConvertingEntity.BoolAsString), "varchar(3)", false)]
@@ -165,7 +165,7 @@ public class ValueConvertersEndToEndLibRedTest(ValueConvertersEndToEndLibRedTest
         Assert.Equal(isNullable, property!.IsNullable);
     }
 
-    /*[ConditionalFact]
+    /*[Fact]
     public virtual void Can_use_custom_converters_without_property()
     {
         Fixture.TestSqlLoggerFactory.Clear();

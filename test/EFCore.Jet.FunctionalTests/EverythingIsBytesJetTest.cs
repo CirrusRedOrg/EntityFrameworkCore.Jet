@@ -19,7 +19,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
     public class EverythingIsBytesJetTest(EverythingIsBytesJetTest.EverythingIsBytesJetFixture fixture)
         : BuiltInDataTypesTestBase<EverythingIsBytesJetTest.EverythingIsBytesJetFixture>(fixture)
     {
-        [ConditionalFact]
+        [Fact]
         public virtual void Columns_have_expected_data_types()
         {
             var actual = BuiltInDataTypesJetTest.QueryForColumnTypes(

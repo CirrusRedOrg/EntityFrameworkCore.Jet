@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
@@ -27,7 +26,7 @@ public class NorthwindSplitIncludeQueryLibRedTest : NorthwindSplitIncludeQueryTe
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -186,7 +185,7 @@ ORDER BY `o`.`OrderID`, `c`.`CustomerID`
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void ToQueryString_for_include_reference_and_collection()
     {
         using var context = CreateContext();

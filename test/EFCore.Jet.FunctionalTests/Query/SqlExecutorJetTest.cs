@@ -8,7 +8,6 @@ using System.Data.OleDb;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 using Microsoft.EntityFrameworkCore.TestModels.ConcurrencyModel;

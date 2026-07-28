@@ -330,7 +330,7 @@ COMMIT TRANSACTION;
             Assert.Equal("EntityFrameworkCore.LibRed", ActiveProvider);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Throws_when_no_migrations()
         {
             using var context = new DbContext(
@@ -350,7 +350,7 @@ COMMIT TRANSACTION;
                 (Assert.Throws<InvalidOperationException>(context.Database.Migrate)).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Throws_when_no_migrations_async()
         {
             using var context = new DbContext(
@@ -370,7 +370,7 @@ COMMIT TRANSACTION;
                 (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Database.MigrateAsync())).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Throws_when_no_snapshot()
         {
             using var context = new MigrationsContext(
@@ -390,7 +390,7 @@ COMMIT TRANSACTION;
                 (Assert.Throws<InvalidOperationException>(context.Database.Migrate)).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Throws_when_no_snapshot_async()
         {
             using var context = new MigrationsContext(
@@ -410,7 +410,7 @@ COMMIT TRANSACTION;
                 (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Database.MigrateAsync())).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Throws_for_nondeterministic_HasData()
         {
             using var context = new BloggingContext(
@@ -430,7 +430,7 @@ COMMIT TRANSACTION;
                 (Assert.Throws<InvalidOperationException>(context.Database.Migrate)).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Throws_for_nondeterministic_HasData_async()
         {
             using var context = new BloggingContext(
@@ -450,7 +450,7 @@ COMMIT TRANSACTION;
                 (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Database.MigrateAsync())).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Throws_for_pending_model_changes()
         {
             using var context = new BloggingContext(
@@ -470,7 +470,7 @@ COMMIT TRANSACTION;
                 (Assert.Throws<InvalidOperationException>(context.Database.Migrate)).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Throws_for_pending_model_changes_async()
         {
             using var context = new BloggingContext(
@@ -490,7 +490,7 @@ COMMIT TRANSACTION;
                 (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Database.MigrateAsync())).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Empty_Migration_Creates_Database()
         {
             using var context = new BloggingContext(
@@ -515,25 +515,25 @@ COMMIT TRANSACTION;
         public override Task Can_apply_all_migrations_async() // Issue efcore #33331
             => base.Can_apply_all_migrations_async();
 
-        [ConditionalFact(Skip ="For now")]
+        [Fact(Skip ="For now")]
         public override void Can_apply_one_migration_in_parallel()
         {
             base.Can_apply_one_migration_in_parallel();
         }
 
-        [ConditionalFact(Skip = "For now")]
+        [Fact(Skip = "For now")]
         public override Task Can_apply_one_migration_in_parallel_async()
         {
             return base.Can_apply_one_migration_in_parallel_async();
         }
 
-        [ConditionalFact(Skip = "For now")]
+        [Fact(Skip = "For now")]
         public override void Can_apply_second_migration_in_parallel()
         {
             base.Can_apply_second_migration_in_parallel();
         }
 
-        [ConditionalFact(Skip = "For now")]
+        [Fact(Skip = "For now")]
         public override Task Can_apply_second_migration_in_parallel_async()
         {
             return base.Can_apply_second_migration_in_parallel_async();

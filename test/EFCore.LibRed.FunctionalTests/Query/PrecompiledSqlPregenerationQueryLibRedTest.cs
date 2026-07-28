@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
@@ -235,7 +234,7 @@ ORDER BY `b`.`Name`
 
     #endregion Tests for the different querying enumerables
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Do_not_cache_is_respected()
     {
         // The "do not cache" flag in the 2nd part of the query pipeline is turned on in provider-specific situations, so we test it

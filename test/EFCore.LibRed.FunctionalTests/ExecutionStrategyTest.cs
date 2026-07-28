@@ -37,7 +37,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
         protected ExecutionStrategyFixture Fixture { get; }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(DataGenerator.GetBoolCombinations), 1, MemberType = typeof(DataGenerator))]
         public void Handles_commit_failure(bool realFailure)
         {
@@ -128,7 +128,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(DataGenerator.GetBoolCombinations), 1, MemberType = typeof(DataGenerator))]
         public async Task Handles_commit_failure_async(bool realFailure)
         {
@@ -239,7 +239,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(DataGenerator.GetBoolCombinations), 1, MemberType = typeof(DataGenerator))]
         public void Handles_commit_failure_multiple_SaveChanges(bool realFailure)
         {
@@ -278,7 +278,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(DataGenerator.GetBoolCombinations), 4, MemberType = typeof(DataGenerator))]
         public async Task Retries_SaveChanges_on_execution_failure(
             bool realFailure, bool externalStrategy, bool openConnection, bool async)
@@ -380,7 +380,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(DataGenerator.GetBoolCombinations), 2, MemberType = typeof(DataGenerator))]
         public async Task Retries_query_on_execution_failure(bool externalStrategy, bool async)
         {
@@ -436,7 +436,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(DataGenerator.GetBoolCombinations), 2, MemberType = typeof(DataGenerator))]
         public async Task Retries_FromSqlRaw_on_execution_failure(bool externalStrategy, bool async)
         {
@@ -510,7 +510,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(DataGenerator.GetBoolCombinations), 2, MemberType = typeof(DataGenerator))]
         public async Task Retries_OpenConnection_on_execution_failure(bool externalStrategy, bool async)
         {
@@ -562,7 +562,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public async Task Retries_BeginTransaction_on_execution_failure(bool async)
@@ -596,7 +596,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Verification_is_retried_using_same_retry_limit()
         {
             CleanContext();

@@ -448,7 +448,7 @@ WHERE `c`.`ParentId` = {AssertSqlHelper.Parameter("@p")}
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public override void Top_level_projection_track_entities_before_passing_to_client_method()
         {
             base.Top_level_projection_track_entities_before_passing_to_client_method();

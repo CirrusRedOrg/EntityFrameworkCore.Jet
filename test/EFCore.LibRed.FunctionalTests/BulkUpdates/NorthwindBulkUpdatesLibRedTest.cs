@@ -6,7 +6,6 @@ using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.BulkUpdates;
 
@@ -14,7 +13,7 @@ public class NorthwindBulkUpdatesLibRedTest(
     NorthwindBulkUpdatesLibRedFixture<NoopModelCustomizer> fixture,
     ITestOutputHelper testOutputHelper) : NorthwindBulkUpdatesRelationalTestBase<NorthwindBulkUpdatesLibRedFixture<NoopModelCustomizer>>(fixture, testOutputHelper)
 {
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -1649,7 +1648,7 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [MemberData(nameof(IsAsyncData))]
     public override async Task Update_with_two_inner_joins(bool async)
     {
@@ -1667,7 +1666,7 @@ WHERE `p`.`Discontinued` AND `o0`.`OrderDate` > #1990-01-01#
 """);
     }
 
-    [ConditionalTheory, MemberData(nameof(IsAsyncData))]
+    [Theory, MemberData(nameof(IsAsyncData))]
     public override async Task Update_with_PK_pushdown_and_join_and_multiple_setters(bool async)
     {
         await base.Update_with_PK_pushdown_and_join_and_multiple_setters(async);

@@ -16,7 +16,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
     public class NavigationTest(NavigationTestFixture fixture) : IClassFixture<NavigationTestFixture>
     {
-        [ConditionalFact]
+        [Fact]
         public void Duplicate_entries_are_not_created_for_navigations_to_principal()
         {
             using var context = fixture.CreateContext();
@@ -39,7 +39,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
                 entityType.GetForeignKeys().Skip(1).First().ToString());
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Duplicate_entries_are_not_created_for_navigations_to_dependent()
         {
             using var context = fixture.CreateContext();

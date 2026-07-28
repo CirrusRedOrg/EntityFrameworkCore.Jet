@@ -5,7 +5,6 @@ using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
 {
@@ -19,7 +18,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -918,7 +917,7 @@ WHERE `c`.`CustomerID` LIKE 'A%'
             AssertSql();
         }
 
-        [ConditionalTheory(Skip="LibRed Fails")]
+        [Theory(Skip="LibRed Fails")]
         public override async Task Navigation_in_subquery_referencing_outer_query(bool isAsync)
         {
             await base.Navigation_in_subquery_referencing_outer_query(isAsync);

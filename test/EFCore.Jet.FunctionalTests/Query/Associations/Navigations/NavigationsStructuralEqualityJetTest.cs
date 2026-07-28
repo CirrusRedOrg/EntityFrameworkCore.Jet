@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore.Query.Associations.Navigations;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query.Associations.Navigations;
 
@@ -415,7 +414,7 @@ ORDER BY `r`.`Id`, `a0`.`Id`, `n`.`Id`, `n0`.`Id`, `a1`.`Id`, `n1`.`Id`, `n2`.`I
 
     #endregion Contains
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 }

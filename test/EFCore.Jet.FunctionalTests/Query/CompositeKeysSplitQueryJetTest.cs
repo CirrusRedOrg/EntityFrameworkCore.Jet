@@ -3,7 +3,7 @@
 
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Query;
-using Xunit.Abstractions;
+using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 

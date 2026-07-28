@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public class LoggingJetTest : LoggingRelationalTestBase<JetDbContextOptionsBuilder, JetOptionsExtension>
     {
-        [ConditionalFact]
+        [Fact]
         public virtual void StoredProcedureConcurrencyTokenNotMapped_throws_by_default()
         {
             using var context = new StoredProcedureConcurrencyTokenNotMappedContext(CreateOptionsBuilder(new ServiceCollection()));

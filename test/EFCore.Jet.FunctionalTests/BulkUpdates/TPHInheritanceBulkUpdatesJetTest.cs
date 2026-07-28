@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
@@ -14,7 +13,7 @@ public class TPHInheritanceBulkUpdatesJetTest(
     ITestOutputHelper testOutputHelper)
     : TPHInheritanceBulkUpdatesTestBase<TPHInheritanceBulkUpdatesJetFixture>(fixture, testOutputHelper)
 {
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

@@ -11,7 +11,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
@@ -1668,7 +1667,7 @@ ORDER BY `m`.`Id`
 
     // SqlServerOpenJsonExpression is covered by PrecompiledQueryRelationalTestBase.Contains_with_parameterized_collection
 
-//     [ConditionalFact]
+//     [Fact]
 //     public virtual Task TableValuedFunctionExpression_toplevel()
 //         => Test(
 //             "_ = context.GetBlogsWithAtLeast(9).ToList();",
@@ -1706,7 +1705,7 @@ ORDER BY `m`.`Id`
 // """,
 //             cleanupSql: "DROP FUNCTION dbo.GetBlogsWithAtLeast;");
 //
-//     [ConditionalFact]
+//     [Fact]
 //     public virtual Task TableValuedFunctionExpression_non_toplevel()
 //         => Test(
 //             "_ = context.Blogs.Where(b => context.GetPosts(b.Id).Count() == 2).ToList();",
@@ -2102,7 +2101,7 @@ FROM `Blogs` AS `b`
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

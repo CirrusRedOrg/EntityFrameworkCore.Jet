@@ -16,7 +16,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 {
     public class SequentialGuidEndToEndTest : IAsyncLifetime
     {
-        [ConditionalFact]
+        [Fact]
         public async Task Can_use_sequential_GUID_end_to_end_async()
         {
             var serviceProvider = new ServiceCollection()
@@ -47,7 +47,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_use_explicit_values()
         {
             var serviceProvider = new ServiceCollection()
@@ -113,7 +113,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         public async Task DisposeAsync()
             => await TestStore.DisposeAsync();
 
-        [ConditionalFact]
+        [Fact]
         public void CustomUuid7Test()
         {
             DateTimeOffset dtoNow = DateTimeOffset.UtcNow;

@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore.Query.Associations.Navigations;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query.Associations.Navigations;
 
@@ -129,7 +128,7 @@ ORDER BY `m`.`Id`, `a`.`Id`, `n`.`Id`, `n0`.`Id`, `a0`.`Id`, `n1`.`Id`, `n2`.`Id
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 }

@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Microsoft.EntityFrameworkCore.Internal;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 
 // ReSharper disable once CheckNamespace

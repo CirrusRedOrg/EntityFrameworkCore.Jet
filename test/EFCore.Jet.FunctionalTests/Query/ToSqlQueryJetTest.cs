@@ -15,7 +15,7 @@ public class ToSqlQueryJetTest(NonSharedFixture fixture) : ToSqlQueryTestBase(fi
     protected override ITestStoreFactory TestStoreFactory
         => JetTestStoreFactory.Instance;
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

@@ -21,7 +21,7 @@ public class AdHocNavigationsQueryJetTest(NonSharedFixture fixture) : AdHocNavig
 
     #region 10447
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Nested_include_queries_do_not_populate_navigation_twice()
     {
         var contextFactory = await InitializeAsync<Context10447>(seed: c => c.SeedAsync());

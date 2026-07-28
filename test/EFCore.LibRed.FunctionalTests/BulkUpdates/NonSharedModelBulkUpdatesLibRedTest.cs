@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using System;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.BulkUpdates;
 
@@ -17,7 +16,7 @@ public class NonSharedModelBulkUpdatesLibRedTest(NonSharedFixture fixture) : Non
     protected override ITestStoreFactory TestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

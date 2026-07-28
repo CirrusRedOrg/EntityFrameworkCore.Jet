@@ -22,7 +22,7 @@ public abstract class SaveChangesInterceptionLibRedTestBase(
     SaveChangesInterceptionLibRedTestBase.InterceptionLibRedFixtureBase fixture)
     : SaveChangesInterceptionTestBase(fixture)
 {
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false, false)]
     [InlineData(true, false, false)]
     [InlineData(false, true, false)]

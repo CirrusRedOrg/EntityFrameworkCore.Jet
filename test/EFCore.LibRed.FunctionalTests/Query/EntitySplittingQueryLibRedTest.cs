@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
 public class EntitySplittingQueryLibRedTest(NonSharedFixture fixture) : EntitySplittingQueryTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory => LibRedTestStoreFactory.Instance;
+    protected override ITestStoreFactory NonSharedTestStoreFactory => LibRedTestStoreFactory.Instance;
 
     [Fact]
     public virtual void Check_all_tests_overridden()

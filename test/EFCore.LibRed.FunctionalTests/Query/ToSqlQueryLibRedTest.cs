@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
 public class ToSqlQueryLibRedTest(NonSharedFixture fixture) : ToSqlQueryTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
     [Fact]

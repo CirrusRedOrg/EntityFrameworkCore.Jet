@@ -44,6 +44,6 @@ INNER JOIN `MeterReadingDetails` AS `m0` ON `m`.`Id` = `m0`.`Id`
 """);
     }
 
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 }

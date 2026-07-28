@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class ToSqlQueryJetTest(NonSharedFixture fixture) : ToSqlQueryTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     [Fact]

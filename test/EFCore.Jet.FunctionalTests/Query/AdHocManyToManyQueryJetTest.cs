@@ -10,7 +10,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class AdHocManyToManyQueryJetTest(NonSharedFixture fixture) : AdHocManyToManyQueryRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     public override async Task SelectMany_with_collection_selector_having_subquery()

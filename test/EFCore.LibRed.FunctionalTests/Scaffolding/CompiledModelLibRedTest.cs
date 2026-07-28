@@ -230,7 +230,7 @@ public class CompiledModelLibRedTest(NonSharedFixture fixture) : CompiledModelRe
     protected override TestHelpers TestHelpers
         => LibRedTestHelpers.Instance;
 
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
     protected override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)

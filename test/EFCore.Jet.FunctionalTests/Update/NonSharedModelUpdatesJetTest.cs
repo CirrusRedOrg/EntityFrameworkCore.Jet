@@ -147,5 +147,5 @@ SELECT @@ROWCOUNT;
     private void AssertSql(params string[] expected)
         => TestSqlLoggerFactory.AssertBaseline(expected);
 
-    protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
+    protected override ITestStoreFactory NonSharedTestStoreFactory => JetTestStoreFactory.Instance;
 }

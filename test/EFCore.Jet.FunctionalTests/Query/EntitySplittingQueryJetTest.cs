@@ -12,7 +12,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class EntitySplittingQueryJetTest(NonSharedFixture fixture) : EntitySplittingQueryTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
+    protected override ITestStoreFactory NonSharedTestStoreFactory => JetTestStoreFactory.Instance;
 
     [Fact]
     public virtual void Check_all_tests_overridden()

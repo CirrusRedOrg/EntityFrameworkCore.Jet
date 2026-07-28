@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class OwnedEntityQueryJetTest(NonSharedFixture fixture) : OwnedEntityQueryRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     public override async Task Multiple_single_result_in_projection_containing_owned_types(bool async)

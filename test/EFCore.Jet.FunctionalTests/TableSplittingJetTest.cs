@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public class TableSplittingJetTest(NonSharedFixture fixture,ITestOutputHelper testOutputHelper) : TableSplittingTestBase(fixture, testOutputHelper)
     {
-        protected override ITestStoreFactory TestStoreFactory => JetTestStoreFactory.Instance;
+        protected override ITestStoreFactory NonSharedTestStoreFactory => JetTestStoreFactory.Instance;
 
         public override async Task Can_use_with_redundant_relationships()
         {

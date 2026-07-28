@@ -10,7 +10,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
 public class AdHocManyToManyQueryLibRedTest(NonSharedFixture fixture) : AdHocManyToManyQueryRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
     public override async Task SelectMany_with_collection_selector_having_subquery()

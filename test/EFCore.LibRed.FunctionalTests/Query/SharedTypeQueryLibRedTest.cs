@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
 public class SharedTypeQueryLibRedTest(NonSharedFixture fixture) : SharedTypeQueryRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
     public override async Task Can_use_shared_type_entity_type_in_query_filter(bool async)

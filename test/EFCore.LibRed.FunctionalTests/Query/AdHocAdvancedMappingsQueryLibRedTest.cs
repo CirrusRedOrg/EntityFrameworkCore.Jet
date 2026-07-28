@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
 public class AdHocAdvancedMappingsQueryLibRedTest(NonSharedFixture fixture) : AdHocAdvancedMappingsQueryRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
     public override async Task Setting_IsUnicode_generates_unicode_literal_in_SQL()

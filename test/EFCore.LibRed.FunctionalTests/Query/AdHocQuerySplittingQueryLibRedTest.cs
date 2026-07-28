@@ -19,7 +19,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
 public class AdHocQuerySplittingQueryLibRedTest(NonSharedFixture fixture) : AdHocQuerySplittingQueryTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
     private static readonly FieldInfo _querySplittingBehaviorFieldInfo =

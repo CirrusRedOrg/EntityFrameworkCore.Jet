@@ -169,7 +169,7 @@ public class JsonTypesJetTest(NonSharedFixture fixture) : JsonTypesRelationalTes
         // No built-in JSON support for spatial types in the Jet provider
         => await Assert.ThrowsAsync<InvalidOperationException>(() => base.Can_read_write_polygon_typed_as_nullable_geometry_as_GeoJson());
 
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     protected override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)

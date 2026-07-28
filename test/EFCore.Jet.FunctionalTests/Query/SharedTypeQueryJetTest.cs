@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class SharedTypeQueryJetTest(NonSharedFixture fixture) : SharedTypeQueryRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     public override async Task Can_use_shared_type_entity_type_in_query_filter(bool async)

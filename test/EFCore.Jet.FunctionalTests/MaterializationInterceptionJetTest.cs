@@ -28,6 +28,6 @@ public class MaterializationInterceptionJetTest(NonSharedFixture fixture) :
         }
     }
 
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 }

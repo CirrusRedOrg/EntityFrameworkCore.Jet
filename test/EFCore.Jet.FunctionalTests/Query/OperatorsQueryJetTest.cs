@@ -15,7 +15,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class OperatorsQueryJetTest(NonSharedFixture fixture) : OperatorsQueryTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     protected void AssertSql(params string[] expected)

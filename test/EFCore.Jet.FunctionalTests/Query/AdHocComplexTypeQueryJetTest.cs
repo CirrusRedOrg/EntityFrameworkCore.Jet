@@ -56,6 +56,6 @@ WHERE `e`.`ComplexThing_DateTime` = #2020-01-01 01:01:01#
     protected void AssertSql(params string[] expected)
         => TestSqlLoggerFactory.AssertBaseline(expected);
 
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 }

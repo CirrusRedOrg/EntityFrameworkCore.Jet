@@ -230,7 +230,7 @@ public class CompiledModelJetTest(NonSharedFixture fixture) : CompiledModelRelat
     protected override TestHelpers TestHelpers
         => JetTestHelpers.Instance;
 
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     protected override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)

@@ -8,7 +8,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests;
 
 public class TPTTableSplittingJetTest(NonSharedFixture fixture, ITestOutputHelper testOutputHelper) : TPTTableSplittingTestBase(fixture, testOutputHelper)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     public override async Task Can_use_with_redundant_relationships()

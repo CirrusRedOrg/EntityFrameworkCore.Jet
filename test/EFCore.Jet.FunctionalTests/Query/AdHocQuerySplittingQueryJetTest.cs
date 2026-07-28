@@ -19,7 +19,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class AdHocQuerySplittingQueryJetTest(NonSharedFixture fixture) : AdHocQuerySplittingQueryTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     private static readonly FieldInfo _querySplittingBehaviorFieldInfo =

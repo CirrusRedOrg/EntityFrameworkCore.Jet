@@ -16,7 +16,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class AdHocNavigationsQueryJetTest(NonSharedFixture fixture) : AdHocNavigationsQueryRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     #region 10447

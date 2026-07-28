@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
 public class NonSharedModelBulkUpdatesJetTest(NonSharedFixture fixture) : NonSharedModelBulkUpdatesRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     [Fact]

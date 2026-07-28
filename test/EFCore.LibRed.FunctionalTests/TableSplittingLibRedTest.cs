@@ -11,7 +11,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 {
     public class TableSplittingLibRedTest(NonSharedFixture fixture,ITestOutputHelper testOutputHelper) : TableSplittingTestBase(fixture, testOutputHelper)
     {
-        protected override ITestStoreFactory TestStoreFactory => LibRedTestStoreFactory.Instance;
+        protected override ITestStoreFactory NonSharedTestStoreFactory => LibRedTestStoreFactory.Instance;
 
         public override async Task Can_use_with_redundant_relationships()
         {

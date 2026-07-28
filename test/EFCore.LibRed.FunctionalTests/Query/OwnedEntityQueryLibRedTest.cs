@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
 public class OwnedEntityQueryLibRedTest(NonSharedFixture fixture) : OwnedEntityQueryRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
     public override async Task Multiple_single_result_in_projection_containing_owned_types(bool async)

@@ -28,6 +28,6 @@ public class MaterializationInterceptionLibRedTest(NonSharedFixture fixture) :
         }
     }
 
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 }

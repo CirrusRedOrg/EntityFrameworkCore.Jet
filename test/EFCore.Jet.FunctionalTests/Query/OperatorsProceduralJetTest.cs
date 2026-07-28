@@ -10,6 +10,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class OperatorsProceduralJetTest(NonSharedFixture fixture) : OperatorsProceduralQueryTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 }

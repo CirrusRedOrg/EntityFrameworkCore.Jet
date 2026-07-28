@@ -169,7 +169,7 @@ public class JsonTypesLibRedTest(NonSharedFixture fixture) : JsonTypesRelational
         // No built-in JSON support for spatial types in the LibRed provider
         => await Assert.ThrowsAsync<InvalidOperationException>(() => base.Can_read_write_polygon_typed_as_nullable_geometry_as_GeoJson());
 
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
     protected override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)

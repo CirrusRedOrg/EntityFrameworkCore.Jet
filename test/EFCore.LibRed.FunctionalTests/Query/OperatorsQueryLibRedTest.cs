@@ -15,7 +15,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
 public class OperatorsQueryLibRedTest(NonSharedFixture fixture) : OperatorsQueryTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
     protected void AssertSql(params string[] expected)

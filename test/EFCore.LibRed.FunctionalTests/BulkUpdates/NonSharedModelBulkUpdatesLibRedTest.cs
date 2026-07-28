@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.BulkUpdates;
 
 public class NonSharedModelBulkUpdatesLibRedTest(NonSharedFixture fixture) : NonSharedModelBulkUpdatesRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
     [Fact]

@@ -23,8 +23,6 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             typeof(SpatialTestBase<>),
             //Only very limited support for primitive collections.
             //Can read/write the whole field at a time but any query that needs access to a specific element will fail.
-            typeof(NonSharedPrimitiveCollectionsQueryTestBase),
-            typeof(NonSharedPrimitiveCollectionsQueryRelationalTestBase),
             //No Json query support in LibRed
             typeof(BadDataJsonDeserializationTestBase),
             typeof(JsonQueryTestBase<>),

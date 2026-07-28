@@ -2632,29 +2632,7 @@ ORDER BY `s0`.`Level2_Required_Id`
 """);
         }
 
-        public override async Task Join_condition_optimizations_applied_correctly_when_anonymous_type_with_single_property(bool isAsync)
-        {
-            await base.Join_condition_optimizations_applied_correctly_when_anonymous_type_with_single_property(isAsync);
 
-            AssertSql(
-                """
-SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
-FROM `LevelOne` AS `l`
-INNER JOIN `LevelTwo` AS `l0` ON (`l`.`OneToMany_Optional_Self_Inverse1Id` = `l0`.`Level1_Optional_Id`) OR (`l`.`OneToMany_Optional_Self_Inverse1Id` IS NULL AND `l0`.`Level1_Optional_Id` IS NULL)
-""");
-        }
-
-        public override async Task Join_condition_optimizations_applied_correctly_when_anonymous_type_with_multiple_properties(bool isAsync)
-        {
-            await base.Join_condition_optimizations_applied_correctly_when_anonymous_type_with_multiple_properties(isAsync);
-
-            AssertSql(
-                """
-SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
-FROM `LevelOne` AS `l`
-INNER JOIN `LevelTwo` AS `l0` ON (`l`.`OneToMany_Optional_Self_Inverse1Id` = `l0`.`Level1_Optional_Id` OR (`l`.`OneToMany_Optional_Self_Inverse1Id` IS NULL AND `l0`.`Level1_Optional_Id` IS NULL)) AND (`l`.`OneToOne_Optional_Self1Id` = `l0`.`OneToMany_Optional_Self_Inverse2Id` OR (`l`.`OneToOne_Optional_Self1Id` IS NULL AND `l0`.`OneToMany_Optional_Self_Inverse2Id` IS NULL))
-""");
-        }
 
         public override async Task Nested_group_join_with_take(bool isAsync)
         {

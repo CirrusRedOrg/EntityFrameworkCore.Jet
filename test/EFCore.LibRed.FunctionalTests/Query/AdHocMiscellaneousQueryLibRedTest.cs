@@ -51,14 +51,14 @@ INSERT ZeroKey VALUES (NULL)
     [Fact]
     public virtual async Task Include_group_join_is_per_query_context()
     {
-        var contextFactory = await InitializeAsync<Context5456>(
+        var contextFactory = await InitializeNonSharedTest<Context5456>(
             seed: c => c.SeedAsync(),
-            createTestStore: () => LibRedTestStore.Create(StoreName));
+            createTestStore: () => LibRedTestStore.Create(NonSharedStoreName));
 
         Parallel.For(
             0, 10, i =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).ToList();
 
                 Assert.Equal(198, result.Count);
@@ -67,7 +67,7 @@ INSERT ZeroKey VALUES (NULL)
         Parallel.For(
             0, 10, i =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).Include(x => x.Comments).ToList();
 
                 Assert.Equal(198, result.Count);
@@ -76,7 +76,7 @@ INSERT ZeroKey VALUES (NULL)
         Parallel.For(
             0, 10, i =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).ThenInclude(b => b.Author).ToList();
 
                 Assert.Equal(198, result.Count);
@@ -86,14 +86,14 @@ INSERT ZeroKey VALUES (NULL)
     [Fact]
     public virtual async Task Include_group_join_is_per_query_context_async()
     {
-        var contextFactory = await InitializeAsync<Context5456>(
+        var contextFactory = await InitializeNonSharedTest<Context5456>(
             seed: c => c.SeedAsync(),
-            createTestStore: () => LibRedTestStore.Create(StoreName));
+            createTestStore: () => LibRedTestStore.Create(NonSharedStoreName));
 
         await Parallel.ForAsync(
             0, 10, async (i, ct) =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = await ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).ToListAsync();
 
                 Assert.Equal(198, result.Count);
@@ -102,7 +102,7 @@ INSERT ZeroKey VALUES (NULL)
         await Parallel.ForAsync(
             0, 10, async (i, ct) =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = await ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).Include(x => x.Comments)
                     .ToListAsync();
 
@@ -112,7 +112,7 @@ INSERT ZeroKey VALUES (NULL)
         await Parallel.ForAsync(
             0, 10, async (i, ct) =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = await ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).ThenInclude(b => b.Author)
                     .ToListAsync();
 
@@ -172,9 +172,9 @@ INSERT ZeroKey VALUES (NULL)
     [Fact]
     public virtual async Task Select_nested_projection()
     {
-        var contextFactory = await InitializeAsync<Context8864>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context8864>(seed: c => c.SeedAsync());
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var customers = context.Customers
                 .Select(c => new { Customer = c, CustomerAgain = Context8864.Get(context, c.Id) })
@@ -241,8 +241,8 @@ WHERE `c`.`Id` = @id
     [Fact]
     public virtual async Task Projecting_entity_with_value_converter_and_include_works()
     {
-        var contextFactory = await InitializeAsync<Context12518>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context12518>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var result = context.Parents.Include(p => p.Child).OrderBy(e => e.Id).FirstOrDefault();
 
         AssertSql(
@@ -257,8 +257,8 @@ ORDER BY `p`.`Id`
     [Fact]
     public virtual async Task Projecting_column_with_value_converter_of_ulong_byte_array()
     {
-        var contextFactory = await InitializeAsync<Context12518>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context12518>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var result = context.Parents.OrderBy(e => e.Id).Select(p => (ulong?)p.Child.ULongRowVersion).FirstOrDefault();
 
         AssertSql(
@@ -319,14 +319,14 @@ ORDER BY `p`.`Id`
     [Fact]
     public virtual async Task DateTime_Contains_with_smalldatetime_generates_correct_literal()
     {
-        var contextFactory = await InitializeAsync<Context13118>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context13118>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var testDateList = new List<DateTime> { new(2018, 10, 07) };
         var findRecordsWithDateInList = context.ReproEntity
             .Where(a => testDateList.Contains(a.MyTime))
             .ToList();
 
-        Assert.Single((IEnumerable)findRecordsWithDateInList);
+        Assert.Single(findRecordsWithDateInList);
 
         AssertSql(
             """
@@ -370,9 +370,9 @@ WHERE `r`.`MyTime` = CDATE(@testDateList1)
     [InlineData(true)]
     public async Task Where_equals_DateTime_Now(bool async)
     {
-        var contextFactory = await InitializeAsync<Context14095>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context14095>(seed: c => c.SeedAsync());
 
-        using var context = contextFactory.CreateContext();
+        using var context = contextFactory.CreateDbContext();
         var query = context.Dates.Where(
             d => d.DateTime2_2 == DateTime.Now
                 || d.DateTime2_7 == DateTime.Now
@@ -398,20 +398,19 @@ WHERE `d`.`DateTime2_2` = NOW() OR `d`.`DateTime2_7` = NOW() OR `d`.`DateTime` =
     [InlineData(true)]
     public async Task Where_not_equals_DateTime_Now(bool async)
     {
-        var contextFactory = await InitializeAsync<Context14095>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context14095>(seed: c => c.SeedAsync());
 
-        using var context = contextFactory.CreateContext();
-        var query = context.Dates.Where(
-            d => d.DateTime2_2 != DateTime.Now
-                && d.DateTime2_7 != DateTime.Now
-                && d.DateTime != DateTime.Now
-                && d.SmallDateTime != DateTime.Now);
+        using var context = contextFactory.CreateDbContext();
+        var query = context.Dates.Where(d => d.DateTime2_2 != DateTime.Now
+                                             && d.DateTime2_7 != DateTime.Now
+                                             && d.DateTime != DateTime.Now
+                                             && d.SmallDateTime != DateTime.Now);
 
         var results = async
             ? await query.ToListAsync()
-            : [.. query];
+            : query.ToList();
 
-        Assert.Single((IEnumerable)results);
+        Assert.Single(results);
 
         AssertSql(
             """
@@ -426,9 +425,9 @@ WHERE `d`.`DateTime2_2` <> NOW() AND `d`.`DateTime2_7` <> NOW() AND `d`.`DateTim
     [InlineData(true)]
     public async Task Where_equals_new_DateTime(bool async)
     {
-        var contextFactory = await InitializeAsync<Context14095>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context14095>(seed: c => c.SeedAsync());
 
-        using var context = contextFactory.CreateContext();
+        using var context = contextFactory.CreateDbContext();
         var query = context.Dates.Where(
             d => d.SmallDateTime == new DateTime(1970, 9, 3, 12, 0, 0)
                 && d.DateTime == new DateTime(1971, 9, 3, 12, 0, 10, 220)
@@ -476,9 +475,9 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
             new DateTime(1980, 9, 3, 12, 0, 10, 222)
         };
 
-        var contextFactory = await InitializeAsync<Context14095>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context14095>(seed: c => c.SeedAsync());
 
-        using var context = contextFactory.CreateContext();
+        using var context = contextFactory.CreateDbContext();
         var query = context.Dates.Where(
             d => dateTimes.Contains(d.SmallDateTime)
                 && dateTimes.Contains(d.DateTime)
@@ -578,9 +577,9 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
     [InlineData(true)]
     public virtual async Task Nested_queries_does_not_cause_concurrency_exception_sync(bool tracking)
     {
-        var contextFactory = await InitializeAsync<Context15518>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context15518>(seed: c => c.SeedAsync());
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Repos.OrderBy(r => r.Id).Where(r => r.Id > 0);
             query = tracking ? query.AsTracking() : query.AsNoTracking();
@@ -593,7 +592,7 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
             }
         }
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Repos.OrderBy(r => r.Id).Where(r => r.Id > 0);
             query = tracking ? query.AsTracking() : query.AsNoTracking();
@@ -744,11 +743,11 @@ CROSS JOIN (
     [Fact]
     public virtual async Task Thread_safety_in_relational_command_cache()
     {
-        var contextFactory = await InitializeAsync<Context21666>(
+        var contextFactory = await InitializeNonSharedTest<Context21666>(
             onConfiguring: options => ((IDbContextOptionsBuilderInfrastructure)options).AddOrUpdateExtension(
                 options.Options.FindExtension<LibRedOptionsExtension>()
                     .WithConnection(null)
-                    .WithConnectionString(LibRedTestStore.CreateConnectionString(StoreName))));
+                    .WithConnectionString(LibRedTestStore.CreateConnectionString(NonSharedStoreName))));
 
         var ids = new[] { 1, 2, 3 };
 
@@ -756,7 +755,7 @@ CROSS JOIN (
             0, 100,
             i =>
             {
-                using var context = contextFactory.CreateContext();
+                using var context = contextFactory.CreateDbContext();
                 var query = context.Lists.Where(l => !l.IsDeleted && ids.Contains(l.Id)).ToList();
             });
     }
@@ -907,15 +906,16 @@ FROM `Posts` AS `p`
 
     public override async Task Enum_has_flag_applies_explicit_cast_for_constant()
     {
-        var contextFactory = await InitializeAsync<Context8538>(seed: c => c.SeedAsync());
-        //Context8538.Permission is Int64 and ontext8538.Permission.READ_WRITE is 36 bit and jet/ace cant do maths on bigint/decimal
-        /*using (var context = contextFactory.CreateContext())
+        var contextFactory = await InitializeNonSharedTest<Context8538>(seed: c => c.SeedAsync());
+        //Context8538.Permission is Int64 and Context8538.Permission.READ_WRITE is 36 bit and jet/ace cant do maths on bigint/decimal
+
+        /*using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Entities.Where(e => e.Permission.HasFlag(Context8538.Permission.READ_WRITE)).ToList();
             Assert.Single(query);
         }*/
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Entities.Where(e => e.PermissionShort.HasFlag(Context8538.PermissionShort.READ_WRITE)).ToList();
             Assert.Single(query);
@@ -931,15 +931,15 @@ WHERE (`e`.`PermissionShort` BAND CINT(4)) = CINT(4)
 
     public override async Task Enum_has_flag_does_not_apply_explicit_cast_for_non_constant()
     {
-        var contextFactory = await InitializeAsync<Context8538>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context8538>(seed: c => c.SeedAsync());
 
-        /*using (var context = contextFactory.CreateContext())
+        /*using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Entities.Where(e => e.Permission.HasFlag(e.Permission)).ToList();
             Assert.Equal(3, query.Count);
         }*/
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Entities.Where(e => e.PermissionByte.HasFlag(e.PermissionByte)).ToList();
             Assert.Equal(3, query.Count);

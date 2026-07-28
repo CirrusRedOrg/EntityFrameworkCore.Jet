@@ -53,7 +53,7 @@ public class AdHocQuerySplittingQueryJetTest(NonSharedFixture fixture) : AdHocQu
 
     protected override TestStore CreateTestStore25225()
     {
-        var testStore = JetTestStore.Create(StoreName);
+        var testStore = JetTestStore.Create(NonSharedStoreName);
         testStore.UseConnectionString = true;
         return testStore;
     }
@@ -283,11 +283,11 @@ ORDER BY `p1`.`Id`
     [Fact]
     public virtual async Task Using_AsSplitQuery_without_multiple_active_result_sets_works()
     {
-        var contextFactory = await InitializeAsync<Context21355>(
+        var contextFactory = await InitializeNonSharedTest<Context21355>(
             seed: c => c.SeedAsync(),
-            createTestStore: () => JetTestStore.Create(StoreName));
+            createTestStore: () => JetTestStore.Create(NonSharedStoreName));
 
-        using var context = contextFactory.CreateContext();
+        using var context = contextFactory.CreateDbContext();
         context.Parents.Include(p => p.Children1).Include(p => p.Children2).AsSplitQuery().ToList();
 
         AssertSql(

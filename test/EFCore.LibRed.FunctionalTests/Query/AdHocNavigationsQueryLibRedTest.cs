@@ -24,8 +24,8 @@ public class AdHocNavigationsQueryLibRedTest(NonSharedFixture fixture) : AdHocNa
     [Fact]
     public virtual async Task Nested_include_queries_do_not_populate_navigation_twice()
     {
-        var contextFactory = await InitializeAsync<Context10447>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context10447>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var query = context.Blogs.Include(b => b.Posts);
 
         foreach (var blog in query)

@@ -6,6 +6,10 @@ using Xunit;
 
 // Set assembly wide conditions to control tests in accordance with the environment they are run in.
 [assembly: LibRedConfiguredCondition]
+[assembly: TestConditions]
+
+// Reports queries the provider has declared it cannot translate as skipped rather than failed.
+[assembly: TestFramework(typeof(UnsupportedExpressionTestFramework))]
 
 #if FIXED_TEST_ORDER
 

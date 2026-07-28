@@ -146,17 +146,6 @@ ORDER BY `u`.`Species`
 """);
     }
 
-    public override async Task Filter_on_property_inside_complex_type_on_derived_type(bool async)
-    {
-        await base.Filter_on_property_inside_complex_type_on_derived_type(async);
-
-        AssertSql(
-            """
-SELECT `d`.`Species`, `d`.`CountryId`, `d`.`Genus`, `d`.`Name`, `d`.`AdditionalInfo_Nickname`, `d`.`AdditionalInfo_LeafStructure_AreLeavesBig`, `d`.`AdditionalInfo_LeafStructure_NumLeaves`
-FROM `Daisies` AS `d`
-WHERE `d`.`AdditionalInfo_LeafStructure_AreLeavesBig`
-""");
-    }
 
     public override async Task Can_query_all_types_when_shared_column(bool async)
     {

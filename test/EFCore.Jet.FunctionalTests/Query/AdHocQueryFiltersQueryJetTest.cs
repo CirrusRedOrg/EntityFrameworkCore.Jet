@@ -24,8 +24,8 @@ public class AdHocQueryFiltersQueryJetTest(NonSharedFixture fixture) : AdHocQuer
     [Fact]
     public virtual async Task Query_filter_with_db_set_should_not_block_other_filters()
     {
-        var contextFactory = await InitializeAsync<Context11803>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context11803>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var query = context.Factions.ToList();
 
         Assert.Empty(query);
@@ -44,8 +44,8 @@ WHERE EXISTS (
     [Fact]
     public virtual async Task Keyless_type_used_inside_defining_query()
     {
-        var contextFactory = await InitializeAsync<Context11803>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context11803>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var query = context.LeadersQuery.ToList();
 
         Assert.Single(query);

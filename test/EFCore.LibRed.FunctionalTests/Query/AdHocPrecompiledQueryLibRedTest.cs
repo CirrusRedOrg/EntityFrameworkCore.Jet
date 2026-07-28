@@ -117,14 +117,4 @@ FROM `Books` AS `b`
 
     protected override PrecompiledQueryTestHelpers PrecompiledQueryTestHelpers
         => LibRedPrecompiledQueryTestHelpers.Instance;
-
-    protected override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
-    {
-        builder = base.AddOptions(builder);
-
-        // TODO: Figure out if there's a nice way to continue using the retrying strategy
-        var sqlServerOptionsBuilder = new LibRedDbContextOptionsBuilder(builder);
-        sqlServerOptionsBuilder.ExecutionStrategy(d => new NonRetryingExecutionStrategy(d));
-        return builder;
-    }
 }

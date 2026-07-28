@@ -172,11 +172,4 @@ public class JsonTypesJetTest(NonSharedFixture fixture) : JsonTypesRelationalTes
     protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
-    protected override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
-    {
-        builder = base.AddOptions(builder)
-            .ConfigureWarnings(w => w.Ignore(JetEventId.DecimalTypeDefaultWarning));
-        new JetDbContextOptionsBuilder(builder);
-        return builder;
-    }
 }

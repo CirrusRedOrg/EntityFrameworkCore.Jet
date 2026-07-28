@@ -267,13 +267,6 @@ ORDER BY `p`.`Species`
 """);
     }
 
-    public override async Task Filter_on_property_inside_complex_type_on_derived_type(bool async)
-    {
-        await base.Filter_on_property_inside_complex_type_on_derived_type(async);
-
-        AssertSql();
-    }
-
     public override async Task Can_filter_all_animals(bool async)
     {
         await base.Can_filter_all_animals(async);

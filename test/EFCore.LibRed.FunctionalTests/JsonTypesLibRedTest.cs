@@ -171,12 +171,4 @@ public class JsonTypesLibRedTest(NonSharedFixture fixture) : JsonTypesRelational
 
     protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
-
-    protected override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
-    {
-        builder = base.AddOptions(builder)
-            .ConfigureWarnings(w => w.Ignore(JetEventId.DecimalTypeDefaultWarning));
-        new LibRedDbContextOptionsBuilder(builder);
-        return builder;
-    }
 }

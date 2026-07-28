@@ -38,17 +38,6 @@ FROM `EntityType` AS `e`
 """);
     }
 
-    public override async Task Complex_type_equality_with_non_default_type_mapping()
-    {
-        await base.Complex_type_equality_with_non_default_type_mapping();
-
-        AssertSql(
-            """
-SELECT COUNT(*)
-FROM `EntityType` AS `e`
-WHERE `e`.`ComplexThing_DateTime` = #2020-01-01 01:01:01#
-""");
-    }
 
     protected new TestSqlLoggerFactory TestSqlLoggerFactory
         => (TestSqlLoggerFactory)ListLoggerFactory;

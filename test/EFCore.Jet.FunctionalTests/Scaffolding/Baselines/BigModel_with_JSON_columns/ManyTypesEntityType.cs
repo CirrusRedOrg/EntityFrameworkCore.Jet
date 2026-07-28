@@ -420,7 +420,7 @@ namespace TestNamespace
                 shadowIndex: -1,
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
-            boolToZeroOneConverterProperty.TypeMapping = ShortTypeMapping.Default.Clone(
+            boolToZeroOneConverterProperty.TypeMapping = JetShortTypeMapping.Default.Clone(
                 comparer: new ValueComparer<bool>(
                     bool (bool v1, bool v2) => v1 == v2,
                     int (bool v) => ((object)v).GetHashCode(),
@@ -1980,7 +1980,7 @@ namespace TestNamespace
                 shadowIndex: -1,
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
-            enum16.TypeMapping = ShortTypeMapping.Default.Clone(
+            enum16.TypeMapping = JetShortTypeMapping.Default.Clone(
                 comparer: new ValueComparer<CompiledModelTestBase.Enum16>(
                     bool (CompiledModelTestBase.Enum16 v1, CompiledModelTestBase.Enum16 v2) => object.Equals(((object)v1), ((object)v2)),
                     int (CompiledModelTestBase.Enum16 v) => ((object)v).GetHashCode(),
@@ -2062,7 +2062,7 @@ namespace TestNamespace
                         new ValueConverter<CompiledModelTestBase.Enum16, short>(
                             short (CompiledModelTestBase.Enum16 value) => ((short)value),
                             CompiledModelTestBase.Enum16 (short value) => ((CompiledModelTestBase.Enum16)value)))),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<CompiledModelTestBase.Enum16>(
                         bool (CompiledModelTestBase.Enum16 v1, CompiledModelTestBase.Enum16 v2) => object.Equals(((object)v1), ((object)v2)),
                         int (CompiledModelTestBase.Enum16 v) => ((object)v).GetHashCode(),
@@ -2377,7 +2377,7 @@ namespace TestNamespace
                         new ValueConverter<CompiledModelTestBase.Enum16, short>(
                             short (CompiledModelTestBase.Enum16 value) => ((short)value),
                             CompiledModelTestBase.Enum16 (short value) => ((CompiledModelTestBase.Enum16)value)))),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<CompiledModelTestBase.Enum16>(
                         bool (CompiledModelTestBase.Enum16 v1, CompiledModelTestBase.Enum16 v2) => object.Equals(((object)v1), ((object)v2)),
                         int (CompiledModelTestBase.Enum16 v) => ((object)v).GetHashCode(),
@@ -3336,7 +3336,7 @@ namespace TestNamespace
                 shadowIndex: -1,
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
-            enum8.TypeMapping = ShortTypeMapping.Default.Clone(
+            enum8.TypeMapping = JetShortTypeMapping.Default.Clone(
                 comparer: new ValueComparer<CompiledModelTestBase.Enum8>(
                     bool (CompiledModelTestBase.Enum8 v1, CompiledModelTestBase.Enum8 v2) => object.Equals(((object)v1), ((object)v2)),
                     int (CompiledModelTestBase.Enum8 v) => ((object)v).GetHashCode(),
@@ -3418,7 +3418,7 @@ namespace TestNamespace
                         new ValueConverter<CompiledModelTestBase.Enum8, short>(
                             short (CompiledModelTestBase.Enum8 value) => ((short)value),
                             CompiledModelTestBase.Enum8 (short value) => ((CompiledModelTestBase.Enum8)value)))),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<CompiledModelTestBase.Enum8>(
                         bool (CompiledModelTestBase.Enum8 v1, CompiledModelTestBase.Enum8 v2) => object.Equals(((object)v1), ((object)v2)),
                         int (CompiledModelTestBase.Enum8 v) => ((object)v).GetHashCode(),
@@ -3733,7 +3733,7 @@ namespace TestNamespace
                         new ValueConverter<CompiledModelTestBase.Enum8, short>(
                             short (CompiledModelTestBase.Enum8 value) => ((short)value),
                             CompiledModelTestBase.Enum8 (short value) => ((CompiledModelTestBase.Enum8)value)))),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<CompiledModelTestBase.Enum8>(
                         bool (CompiledModelTestBase.Enum8 v1, CompiledModelTestBase.Enum8 v2) => object.Equals(((object)v1), ((object)v2)),
                         int (CompiledModelTestBase.Enum8 v) => ((object)v).GetHashCode(),
@@ -6407,7 +6407,7 @@ namespace TestNamespace
                 shadowIndex: -1,
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
-            int16.TypeMapping = ShortTypeMapping.Default.Clone(
+            int16.TypeMapping = JetShortTypeMapping.Default.Clone(
                 comparer: new ValueComparer<short>(
                     bool (short v1, short v2) => v1 == v2,
                     int (short v) => ((int)v),
@@ -6472,7 +6472,7 @@ namespace TestNamespace
                     JsonInt16ReaderWriter.Instance)),
                 jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<short[], short>(
                     JsonInt16ReaderWriter.Instance),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<short>(
                         bool (short v1, short v2) => v1 == v2,
                         int (short v) => ((int)v),
@@ -6812,7 +6812,7 @@ namespace TestNamespace
                 shadowIndex: -1,
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
-            int8.TypeMapping = ShortTypeMapping.Default.Clone(
+            int8.TypeMapping = JetShortTypeMapping.Default.Clone(
                 comparer: new ValueComparer<sbyte>(
                     bool (sbyte v1, sbyte v2) => v1 == v2,
                     int (sbyte v) => ((int)v),
@@ -6894,7 +6894,7 @@ namespace TestNamespace
                         new ValueConverter<sbyte, short>(
                             short (sbyte v) => ((short)v),
                             sbyte (short v) => ((sbyte)v)))),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<sbyte>(
                         bool (sbyte v1, sbyte v2) => v1 == v2,
                         int (sbyte v) => ((int)v),
@@ -7978,7 +7978,7 @@ namespace TestNamespace
                 shadowIndex: -1,
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
-            nullableEnum16.TypeMapping = ShortTypeMapping.Default.Clone(
+            nullableEnum16.TypeMapping = JetShortTypeMapping.Default.Clone(
                 comparer: new ValueComparer<CompiledModelTestBase.Enum16>(
                     bool (CompiledModelTestBase.Enum16 v1, CompiledModelTestBase.Enum16 v2) => object.Equals(((object)v1), ((object)v2)),
                     int (CompiledModelTestBase.Enum16 v) => ((object)v).GetHashCode(),
@@ -8061,7 +8061,7 @@ namespace TestNamespace
                         new ValueConverter<CompiledModelTestBase.Enum16, short>(
                             short (CompiledModelTestBase.Enum16 value) => ((short)value),
                             CompiledModelTestBase.Enum16 (short value) => ((CompiledModelTestBase.Enum16)value)))),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<CompiledModelTestBase.Enum16>(
                         bool (CompiledModelTestBase.Enum16 v1, CompiledModelTestBase.Enum16 v2) => object.Equals(((object)v1), ((object)v2)),
                         int (CompiledModelTestBase.Enum16 v) => ((object)v).GetHashCode(),
@@ -8119,7 +8119,7 @@ namespace TestNamespace
                 shadowIndex: -1,
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
-            nullableEnum16AsString.TypeMapping = ShortTypeMapping.Default.Clone(
+            nullableEnum16AsString.TypeMapping = JetShortTypeMapping.Default.Clone(
                 comparer: new ValueComparer<CompiledModelTestBase.Enum16>(
                     bool (CompiledModelTestBase.Enum16 v1, CompiledModelTestBase.Enum16 v2) => object.Equals(((object)v1), ((object)v2)),
                     int (CompiledModelTestBase.Enum16 v) => ((object)v).GetHashCode(),
@@ -8202,7 +8202,7 @@ namespace TestNamespace
                         new ValueConverter<CompiledModelTestBase.Enum16, short>(
                             short (CompiledModelTestBase.Enum16 value) => ((short)value),
                             CompiledModelTestBase.Enum16 (short value) => ((CompiledModelTestBase.Enum16)value)))),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<CompiledModelTestBase.Enum16>(
                         bool (CompiledModelTestBase.Enum16 v1, CompiledModelTestBase.Enum16 v2) => object.Equals(((object)v1), ((object)v2)),
                         int (CompiledModelTestBase.Enum16 v) => ((object)v).GetHashCode(),
@@ -8287,7 +8287,7 @@ namespace TestNamespace
                         new ValueConverter<CompiledModelTestBase.Enum16, short>(
                             short (CompiledModelTestBase.Enum16 value) => ((short)value),
                             CompiledModelTestBase.Enum16 (short value) => ((CompiledModelTestBase.Enum16)value)))),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<CompiledModelTestBase.Enum16>(
                         bool (CompiledModelTestBase.Enum16 v1, CompiledModelTestBase.Enum16 v2) => object.Equals(((object)v1), ((object)v2)),
                         int (CompiledModelTestBase.Enum16 v) => ((object)v).GetHashCode(),
@@ -8372,7 +8372,7 @@ namespace TestNamespace
                         new ValueConverter<CompiledModelTestBase.Enum16, short>(
                             short (CompiledModelTestBase.Enum16 value) => ((short)value),
                             CompiledModelTestBase.Enum16 (short value) => ((CompiledModelTestBase.Enum16)value)))),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<CompiledModelTestBase.Enum16>(
                         bool (CompiledModelTestBase.Enum16 v1, CompiledModelTestBase.Enum16 v2) => object.Equals(((object)v1), ((object)v2)),
                         int (CompiledModelTestBase.Enum16 v) => ((object)v).GetHashCode(),
@@ -9334,7 +9334,7 @@ namespace TestNamespace
                 shadowIndex: -1,
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
-            nullableEnum8.TypeMapping = ShortTypeMapping.Default.Clone(
+            nullableEnum8.TypeMapping = JetShortTypeMapping.Default.Clone(
                 comparer: new ValueComparer<CompiledModelTestBase.Enum8>(
                     bool (CompiledModelTestBase.Enum8 v1, CompiledModelTestBase.Enum8 v2) => object.Equals(((object)v1), ((object)v2)),
                     int (CompiledModelTestBase.Enum8 v) => ((object)v).GetHashCode(),
@@ -9417,7 +9417,7 @@ namespace TestNamespace
                         new ValueConverter<CompiledModelTestBase.Enum8, short>(
                             short (CompiledModelTestBase.Enum8 value) => ((short)value),
                             CompiledModelTestBase.Enum8 (short value) => ((CompiledModelTestBase.Enum8)value)))),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<CompiledModelTestBase.Enum8>(
                         bool (CompiledModelTestBase.Enum8 v1, CompiledModelTestBase.Enum8 v2) => object.Equals(((object)v1), ((object)v2)),
                         int (CompiledModelTestBase.Enum8 v) => ((object)v).GetHashCode(),
@@ -9475,7 +9475,7 @@ namespace TestNamespace
                 shadowIndex: -1,
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
-            nullableEnum8AsString.TypeMapping = ShortTypeMapping.Default.Clone(
+            nullableEnum8AsString.TypeMapping = JetShortTypeMapping.Default.Clone(
                 comparer: new ValueComparer<CompiledModelTestBase.Enum8>(
                     bool (CompiledModelTestBase.Enum8 v1, CompiledModelTestBase.Enum8 v2) => object.Equals(((object)v1), ((object)v2)),
                     int (CompiledModelTestBase.Enum8 v) => ((object)v).GetHashCode(),
@@ -9558,7 +9558,7 @@ namespace TestNamespace
                         new ValueConverter<CompiledModelTestBase.Enum8, short>(
                             short (CompiledModelTestBase.Enum8 value) => ((short)value),
                             CompiledModelTestBase.Enum8 (short value) => ((CompiledModelTestBase.Enum8)value)))),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<CompiledModelTestBase.Enum8>(
                         bool (CompiledModelTestBase.Enum8 v1, CompiledModelTestBase.Enum8 v2) => object.Equals(((object)v1), ((object)v2)),
                         int (CompiledModelTestBase.Enum8 v) => ((object)v).GetHashCode(),
@@ -9643,7 +9643,7 @@ namespace TestNamespace
                         new ValueConverter<CompiledModelTestBase.Enum8, short>(
                             short (CompiledModelTestBase.Enum8 value) => ((short)value),
                             CompiledModelTestBase.Enum8 (short value) => ((CompiledModelTestBase.Enum8)value)))),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<CompiledModelTestBase.Enum8>(
                         bool (CompiledModelTestBase.Enum8 v1, CompiledModelTestBase.Enum8 v2) => object.Equals(((object)v1), ((object)v2)),
                         int (CompiledModelTestBase.Enum8 v) => ((object)v).GetHashCode(),
@@ -9728,7 +9728,7 @@ namespace TestNamespace
                         new ValueConverter<CompiledModelTestBase.Enum8, short>(
                             short (CompiledModelTestBase.Enum8 value) => ((short)value),
                             CompiledModelTestBase.Enum8 (short value) => ((CompiledModelTestBase.Enum8)value)))),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<CompiledModelTestBase.Enum8>(
                         bool (CompiledModelTestBase.Enum8 v1, CompiledModelTestBase.Enum8 v2) => object.Equals(((object)v1), ((object)v2)),
                         int (CompiledModelTestBase.Enum8 v) => ((object)v).GetHashCode(),
@@ -11996,7 +11996,7 @@ namespace TestNamespace
                 shadowIndex: -1,
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
-            nullableInt16.TypeMapping = ShortTypeMapping.Default.Clone(
+            nullableInt16.TypeMapping = JetShortTypeMapping.Default.Clone(
                 comparer: new ValueComparer<short>(
                     bool (short v1, short v2) => v1 == v2,
                     int (short v) => ((int)v),
@@ -12063,7 +12063,7 @@ namespace TestNamespace
                     JsonInt16ReaderWriter.Instance)),
                 jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<short?[], short>(
                     JsonInt16ReaderWriter.Instance),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<short>(
                         bool (short v1, short v2) => v1 == v2,
                         int (short v) => ((int)v),
@@ -12347,7 +12347,7 @@ namespace TestNamespace
                 shadowIndex: -1,
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
-            nullableInt8.TypeMapping = ShortTypeMapping.Default.Clone(
+            nullableInt8.TypeMapping = JetShortTypeMapping.Default.Clone(
                 comparer: new ValueComparer<sbyte>(
                     bool (sbyte v1, sbyte v2) => v1 == v2,
                     int (sbyte v) => ((int)v),
@@ -12430,7 +12430,7 @@ namespace TestNamespace
                         new ValueConverter<sbyte, short>(
                             short (sbyte v) => ((short)v),
                             sbyte (short v) => ((sbyte)v)))),
-                elementMapping: ShortTypeMapping.Default.Clone(
+                elementMapping: JetShortTypeMapping.Default.Clone(
                     comparer: new ValueComparer<sbyte>(
                         bool (sbyte v1, sbyte v2) => v1 == v2,
                         int (sbyte v) => ((int)v),

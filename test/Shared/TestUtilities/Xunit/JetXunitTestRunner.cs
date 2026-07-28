@@ -2,10 +2,8 @@
 using System.Collections.Generic;
 using System.Data.Odbc;
 using System.Data.OleDb;
-using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit.Abstractions;
@@ -166,7 +164,6 @@ public class JetXunitTestRunner(
     protected virtual bool SkipFailedTest(Exception exception)
     {
         var skip = false;
-        var unexpectedUnsupportedTranslation = false;
 
         var aggregateException = exception as AggregateException ??
                                  new AggregateException(exception);
@@ -183,7 +180,6 @@ public class JetXunitTestRunner(
                                                          message.Contains("skipping rows") || message.Contains("sequences");
 
                     skip = expectedUnsupportedTranslation;
-                    unexpectedUnsupportedTranslation = !expectedUnsupportedTranslation;
                 }
                 else if (message.StartsWith("Unsupported Jet expression"))
                 {
@@ -200,22 +196,7 @@ public class JetXunitTestRunner(
 
                 if (skip)
                 {
-                    var sb = new StringBuilder();
-                    sb.AppendLine(message.ReplaceLineEndings(" "));
-                    sb.AppendLine("-----");
-
-                    File.AppendAllText("ExpectedUnsupportedTranslations.txt", sb.ToString());
-
                     break;
-                }
-
-                if (unexpectedUnsupportedTranslation)
-                {
-                    var sb = new StringBuilder();
-                    sb.AppendLine(message.ReplaceLineEndings(" "));
-                    sb.AppendLine("-----");
-
-                    File.AppendAllText("UnexpectedUnsupportedTranslations.txt", sb.ToString());
                 }
             }
         }

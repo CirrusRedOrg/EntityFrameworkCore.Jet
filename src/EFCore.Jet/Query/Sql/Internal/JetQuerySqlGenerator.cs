@@ -259,6 +259,12 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                     {
                         SqlBinaryExpression bin => ExtractColumnExpressions(bin),
                         SqlUnaryExpression unary => ExtractColumnExpressions(unary),
+                        // A bare boolean column used directly as the ON condition (e.g. `ON g.HasSoulPatch`,
+                        // once `= True` has been simplified away). Without this case it falls through to an
+                        // empty list, the tables[0] check fails, and the INNER JOIN is wrongly emitted as a
+                        // LEFT JOIN with nothing hoisted to WHERE — turning an inner join into an outer one
+                        // (extra unmatched rows). See GearsOfWar Join_predicate_value.
+                        ColumnExpression col => [col],
                         _ => (List<ColumnExpression>)[]
                     };
 
@@ -358,6 +364,11 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 {
                     SqlBinaryExpression bin => ExtractColumnExpressions(bin),
                     SqlUnaryExpression unary => ExtractColumnExpressions(unary),
+                    // A bare boolean column used directly as the ON condition (e.g. `ON g.HasSoulPatch`,
+                    // once `= True` is simplified away). Without this case it falls through to an empty
+                    // list, the tables[0] check fails, and the INNER JOIN is wrongly emitted as a LEFT
+                    // JOIN with nothing hoisted to WHERE — turning an inner join into an outer one.
+                    ColumnExpression col => [col],
                     _ => (List<ColumnExpression>)[]
                 };
 

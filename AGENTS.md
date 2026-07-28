@@ -45,9 +45,16 @@ dotnet test test\EFCore.Jet.FunctionalTests\EFCore.Jet.FunctionalTests.csproj --
 dotnet test test\EFCore.Jet.FunctionalTests\EFCore.Jet.FunctionalTests.csproj --filter "FullyQualifiedName=EntityFrameworkCore.Jet.FunctionalTests.Query.NorthwindQueryJetTest.Where_simple"
 ```
 
+**When running a suite, capture the failing test *names* in the same run** — don't
+reduce the output to just the `Passed!/Failed!` count line and then re-run the whole
+suite to find which failed. Grep a pattern that catches both, e.g.
+`grep -iE "Passed!|Failed!|\[FAIL\]|error CS"` (xUnit prints `… [FAIL]` and
+`Failed <FullyQualifiedName>` lines as it goes), or tee the full output to a file and
+inspect it. Only re-run after changing something.
+
 Tests run in **fixed order by default** (`FIXED_TEST_ORDER` compile constant). All tests lock culture to `en-US` via a module initializer.
 
-Tests that require features Jet doesn't support are marked `[Fact(Skip = "Unsupported by JET: ...")]` — see `SkipMessages.txt` for the catalog of known unsupported patterns.
+Tests that require features Jet doesn't support are skipped with a reason on the test.
 
 ## Project Structure
 
@@ -60,6 +67,8 @@ src/
   EFCore.Jet.Odbc/      Provider factory for ODBC data access
   EFCore.Jet.OleDb/     Provider factory for OLE DB data access
   Shared/               Shared source files compiled into multiple src projects
+  LibRed/               Native, fully-managed Jet/ACE engine (cross-platform) —
+                        see "LibRed" section below and src/LibRed/README.md
 
 test/
   EFCore.Jet.Data.Tests/          Unit tests for the ADO.NET driver layer
@@ -99,6 +108,63 @@ These shape much of the query pipeline complexity:
 - Booleans stored as `-1`/`0` (numeric), not `TRUE`/`FALSE`
 - `GUID` support is indirect
 - No `rowversion`, no `DateTimeOffset`, no nullable `BIT`
+
+## LibRed — Native Managed Engine (`libred` branch)
+
+A from-scratch, **fully managed and cross-platform** reimplementation of the Jet/ACE
+engine under `src/LibRed/`. It reads and writes the `.mdb`/`.accdb` file format
+**directly** — no ODBC, OLE DB, DAO, or ADOX — so it removes the Windows-only and
+driver-bitness constraints that the rest of the repo lives with. Eventually it
+subsumes the COM-based database creators (DAO/ADOX) and the OLE DB/ODBC quirk handling
+in `EFCore.Jet.Data`.
+
+**Five projects, clean dependency DAG** (`EFCore → Ado → Engine → Sql`, and `Engine → Core`):
+
+```
+src/LibRed/
+  LibRed.Core/      File format: IO (PageChannel/PageBuffer), Formats (version offsets),
+                    Pages, Catalog (MSysObjects → TableDef/ColumnDef/IndexDef), Storage
+                    (Table/TableCursor/RowDecoder/UsageMap), Crypto; JetDatabase entry point
+  LibRed.Sql/       SQL front end: ANTLR grammar (AccessSql.g4), AST, parser, binder.
+                    NO Jet dependency — binds via the ISchemaProvider abstraction
+  LibRed.Engine/    Logical Plan nodes, QueryPlanner, CatalogSchemaProvider (bridges the
+                    catalog to the binder), QueryExecutor, QueryEngine facade
+  LibRed.Ado/       ADO.NET surface: DbConnection/Command/DataReader/Parameter/Transaction/Factory
+  LibRed.EFCore/    EF Core provider over LibRed.Ado: AddEntityFrameworkLibRed/UseLibRed,
+                    connection, database creator, database-first scaffolding (query round-trips
+                    + scaffolding pass; IQuerySqlGeneratorFactory override still planned)
+```
+
+**Build configuration:** `src/LibRed/Directory.Build.props` deliberately bypasses
+`src/Directory.Build.props` (it imports the repo-root props directly) so these assemblies
+are **not** stamped `[SupportedOSPlatform("windows")]`. Strong-naming is preserved.
+
+**SQL pipeline** (always run end-to-end, even for trivial queries, so new features add
+node types rather than rewrites):
+`text → ISqlParser → AST → Binder(ISchemaProvider) → BoundStatement → QueryPlanner → PlanNode → QueryExecutor → ResultSet`
+
+**Format spec:** `src/LibRed/docs/format/` is LibRed's own verified reference for the on-disk
+Jet 4 / ACE format, **split one file per page type** (plus cross-cutting topics). Start at
+`format/README.md` — it maps every page type and the original §-numbers to their file, and links
+the `appendix-structures.md` bare field-layout reference. It is the source of truth — keep it
+updated as the format understanding grows. (`docs/jet-ace-file-format.md` is now just a redirect
+stub to that folder.)
+
+> **Rule — spec sync on every `LibRed.Core` change.** Whenever you touch the actual on-disk
+> read/write code in `src/LibRed/LibRed.Core/` (page/row/index/TDEF/usage-map parsing or
+> writing, type codecs, key encoding), you **must** check whether the relevant file under
+> `src/LibRed/docs/format/` needs updating in the same change, and update it if so — structure/field
+> changes in the matching `page-0X-*.md` (and the `appendix-structures.md` table). New offsets,
+> structures, type behaviours, or write mechanics go in the spec; only record facts **verified**
+> against real files (or Access's own engine) — mark anything assumed as such. If a `LibRed.Core`
+> change genuinely needs no spec edit, that's fine — but the check is not optional.
+
+Reference implementations for the binary layouts: **mdbtools** (its `HACKING.md` documents the
+on-disk structures) and **Jackcess** — neither is vendored in this repo; consult them upstream.
+The project detail and current status live in `src/LibRed/README.md`. ANTLR **is** the active SQL
+parser: the lexer/parser are pre-generated and committed under `LibRed.Sql/Grammar/Generated/`
+(managed `Antlr4.Runtime.Standard` runtime only, no build-time codegen), regenerated via
+`LibRed.Sql/Grammar/generate.ps1` after editing `AccessSql.g4`.
 
 ## Versioning
 

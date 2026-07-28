@@ -630,7 +630,7 @@ FROM (
     FROM (
         SELECT TOP @p + @p1 `o`.`OrderID`, `o`.`ProductID`
         FROM `Order Details` AS `o`
-        WHERE `o`.`Quantity` = 10
+        WHERE `o`.`Quantity` = CINT(10)
         ORDER BY `o`.`OrderID`, `o`.`ProductID`
     ) AS `o2`
     ORDER BY `o2`.`OrderID` DESC, `o2`.`ProductID` DESC

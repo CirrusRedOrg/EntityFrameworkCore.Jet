@@ -1291,7 +1291,7 @@ WHERE DATEDIFF('s', `m`.`TimeSpanAsTime`, @timeSpan) = 0
                    @p1='102' (Precision = 3)
                    @p2='101' (Precision = 3)
                    @p3='103' (Precision = 3)
-                   @p4='85.55'
+                   @p4='85.55000305175781'
                    @p5='85.5'
                    @p6='83.33000183105469'
                    @p7='83.30000305175781'
@@ -2109,7 +2109,7 @@ parameters,
                    @p0='102' (Precision = 3)
                    @p1='101' (Precision = 3)
                    @p2='103' (Precision = 3)
-                   @p3='85.55'
+                   @p3='85.55000305175781'
                    @p4='85.5'
                    @p5='83.33000183105469'
                    @p6='83.30000305175781'
@@ -3337,12 +3337,6 @@ parameters,
 
             [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16 EnumAsNvarchar20 { get; set; }
-
-            /*[Column(TypeName = "sql_variant")]
-            public object SqlVariantString { get; set; }
-
-            [Column(TypeName = "sql_variant")]
-            public object SqlVariantInt { get; set; }*/
         }
 
         protected class MappedSizedDataTypes
@@ -3794,12 +3788,6 @@ parameters,
 
             [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16? EnumAsNvarchar20 { get; set; }
-
-            /*[Column(TypeName = "sql_variant")]
-            public object SqlVariantString { get; set; }
-
-            [Column(TypeName = "sql_variant")]
-            public object SqlVariantInt { get; set; }*/
         }
 
         protected class MappedDataTypesWithIdentity
@@ -3973,12 +3961,6 @@ parameters,
 
             [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16 EnumAsNvarchar20 { get; set; }
-
-            /*[Column(TypeName = "sql_variant")]
-            public object SqlVariantString { get; set; }
-
-            [Column(TypeName = "sql_variant")]
-            public object SqlVariantInt { get; set; }*/
         }
 
         protected class MappedSizedDataTypesWithIdentity
@@ -4290,12 +4272,6 @@ parameters,
 
             [Column(TypeName = "nvarchar(20)")]
             public StringEnumU16? EnumAsNvarchar20 { get; set; }
-
-            /*[Column(TypeName = "sql_variant")]
-            public object SqlVariantString { get; set; }
-
-            [Column(TypeName = "sql_variant")]
-            public object SqlVariantInt { get; set; }*/
         }
 
         public class ColumnInfo

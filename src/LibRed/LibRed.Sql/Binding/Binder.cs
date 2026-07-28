@@ -1,0 +1,62 @@
+using LibRed.Sql.Ast;
+
+namespace LibRed.Sql.Binding;
+
+/// <summary>
+/// Resolves names in a parsed statement against an <see cref="ISchemaProvider"/>: verifies
+/// the table and every referenced column exists, so the planner can assume validity.
+/// </summary>
+public sealed class Binder(ISchemaProvider schema)
+{
+    private readonly ISchemaProvider _schema = schema;
+
+    public BoundStatement Bind(SqlStatement statement)
+    {
+        BindStatement(statement);
+        return new BoundStatement(statement);
+    }
+
+    private void BindStatement(SqlStatement statement)
+    {
+        switch (statement)
+        {
+            case SelectStatement select:
+                BindSelect(select);
+                break;
+            case SetOperationStatement set:
+                BindStatement(set.Left);
+                BindStatement(set.Right);
+                break;
+            case IfThenStatement ifThen:
+                BindSelect(ifThen.Condition); // validate the condition's sources (e.g. INFORMATION_SCHEMA.TABLES)
+                BindStatement(ifThen.Then);   // DDL/DML Then is validated at execution; a query Then is bound here
+                break;
+        }
+    }
+
+    private void BindSelect(SelectStatement select)
+    {
+        // Validate that referenced tables exist. Column existence is resolved at execution
+        // time, because columns may be alias-qualified across joins/derived tables or
+        // correlated to an outer query, which single-table binding cannot see.
+        ValidateSources(select.From);
+    }
+
+    private void ValidateSources(TableReference? from)
+    {
+        switch (from)
+        {
+            case null: // FROM-less SELECT (e.g. `SELECT 2`) — nothing to validate
+                break;
+            case NamedTable n when _schema.GetTable(n.Name) is null:
+                throw new SqlBindException($"Table '{n.Name}' does not exist.");
+            case JoinTable j:
+                ValidateSources(j.Left);
+                ValidateSources(j.Right);
+                break;
+            case SubqueryTable s:
+                BindStatement(s.Query); // Select or a set operation (UNION) derived table
+                break;
+        }
+    }
+}

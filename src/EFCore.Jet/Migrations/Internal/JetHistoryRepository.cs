@@ -61,7 +61,12 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
         /// </summary>
         protected override bool InterpretExistsResult(object? value)
         {
-            return value != DBNull.Value;
+            // The exists query (`SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = …`) returns a row only
+            // when the table exists. An empty result is "not found" — but ADO.NET's ExecuteScalar returns C# null
+            // for an empty result set (per contract), while ACE's OLE DB path returns DBNull.Value. Treat BOTH as
+            // not-found, else a null (e.g. from LibRed's spec-correct reader) is misread as "exists" and the lock/
+            // history table is never created.
+            return value is not null && value != DBNull.Value;
         }
 
         /// <summary>

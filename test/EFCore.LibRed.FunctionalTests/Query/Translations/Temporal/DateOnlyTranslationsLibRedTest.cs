@@ -1,0 +1,232 @@
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
+using Microsoft.EntityFrameworkCore.Query.Translations.Temporal;
+using Microsoft.EntityFrameworkCore.TestUtilities;
+using System.Threading.Tasks;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace EntityFrameworkCore.LibRed.FunctionalTests.Query.Translations.Temporal;
+
+public class DateOnlyTranslationsLibRedTest : DateOnlyTranslationsTestBase<BasicTypesQueryLibRedFixture>
+{
+    public DateOnlyTranslationsLibRedTest(BasicTypesQueryLibRedFixture fixture, ITestOutputHelper testOutputHelper)
+        : base(fixture)
+    {
+        Fixture.TestSqlLoggerFactory.Clear();
+        Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
+    }
+
+    public override async Task Year()
+    {
+        await base.Year();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEPART('yyyy', `b`.`DateOnly`) = 1990
+""");
+    }
+
+    public override async Task Month()
+    {
+        await base.Month();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEPART('m', `b`.`DateOnly`) = 11
+""");
+    }
+
+    public override async Task Day()
+    {
+        await base.Day();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEPART('d', `b`.`DateOnly`) = 10
+""");
+    }
+
+    public override async Task DayOfYear()
+    {
+        await base.DayOfYear();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEPART('y', `b`.`DateOnly`) = 314
+""");
+    }
+
+    public override async Task DayOfWeek()
+    {
+        await AssertTranslationFailed(() => base.DayOfWeek());
+
+        AssertSql();
+    }
+
+    public override async Task DayNumber()
+    {
+        await base.DayNumber();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE (DATEDIFF('d', #0100-01-01#, `b`.`DateOnly`) + 36159) = 726780
+""");
+    }
+
+    public override async Task AddYears()
+    {
+        await base.AddYears();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEADD('yyyy', CLNG(3), `b`.`DateOnly`) = #1993-11-10#
+""");
+    }
+
+    public override async Task AddMonths()
+    {
+        await base.AddMonths();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEADD('m', CLNG(3), `b`.`DateOnly`) = #1991-02-10#
+""");
+    }
+
+    public override async Task AddDays()
+    {
+        await base.AddDays();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEADD('d', CLNG(3), `b`.`DateOnly`) = #1990-11-13#
+""");
+    }
+
+    public override async Task DayNumber_subtraction()
+    {
+        await base.DayNumber_subtraction();
+
+        AssertSql(
+            """
+@DayNumber='726775'
+
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE ((DATEDIFF('d', #0100-01-01#, `b`.`DateOnly`) + 36159) - @DayNumber) = 5
+""");
+    }
+
+    public override async Task FromDateTime()
+    {
+        await base.FromDateTime();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEVALUE(`b`.`DateTime`) = #1998-05-04#
+""");
+    }
+
+    public override async Task FromDateTime_compared_to_property()
+    {
+        await base.FromDateTime_compared_to_property();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEVALUE(`b`.`DateTime`) = `b`.`DateOnly`
+""");
+    }
+
+    public override async Task FromDateTime_compared_to_constant_and_parameter()
+    {
+        await base.FromDateTime_compared_to_constant_and_parameter();
+
+        AssertSql(
+            """
+@dateOnly='0002-10-11T00:00:00.0000000' (DbType = Date)
+
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEVALUE(`b`.`DateTime`) IN (@dateOnly, #1998-05-04#)
+""");
+    }
+
+    public override async Task ToDateTime_property_with_constant_TimeOnly()
+    {
+        await base.ToDateTime_property_with_constant_TimeOnly();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE (DateSerial(DATEPART('yyyy', `b`.`DateOnly`), DATEPART('m', `b`.`DateOnly`), DATEPART('d', `b`.`DateOnly`)) + TimeSerial(21, 5, 19)) = #2020-01-01 21:05:19#
+""");
+    }
+
+    public override async Task ToDateTime_property_with_property_TimeOnly()
+    {
+        await base.ToDateTime_property_with_property_TimeOnly();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE (DateSerial(DATEPART('yyyy', `b`.`DateOnly`), DATEPART('m', `b`.`DateOnly`), DATEPART('d', `b`.`DateOnly`)) + TimeSerial(DATEPART('h', `b`.`TimeOnly`), DATEPART('n', `b`.`TimeOnly`), DATEPART('s', `b`.`TimeOnly`))) = #2020-01-01 15:30:10#
+""");
+    }
+
+    public override async Task ToDateTime_constant_DateTime_with_property_TimeOnly()
+    {
+        await base.ToDateTime_constant_DateTime_with_property_TimeOnly();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE (DateSerial(1990, 11, 10) + TimeSerial(DATEPART('h', `b`.`TimeOnly`), DATEPART('n', `b`.`TimeOnly`), DATEPART('s', `b`.`TimeOnly`))) = #1990-11-10 15:30:10#
+""");
+    }
+
+    public override async Task ToDateTime_with_complex_DateTime()
+    {
+        await AssertTranslationFailed(() => base.ToDateTime_with_complex_DateTime());
+
+        AssertSql();
+    }
+
+    public override async Task ToDateTime_with_complex_TimeOnly()
+    {
+        await AssertTranslationFailed(() => base.ToDateTime_with_complex_TimeOnly());
+
+        AssertSql();
+    }
+
+    [ConditionalFact]
+    public virtual void Check_all_tests_overridden()
+        => TestHelpers.AssertAllMethodsOverridden(GetType());
+
+    private void AssertSql(params string[] expected)
+        => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);
+}

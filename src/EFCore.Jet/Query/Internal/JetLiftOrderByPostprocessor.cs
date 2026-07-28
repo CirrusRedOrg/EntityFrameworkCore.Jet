@@ -86,13 +86,26 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
                                 columnsToRewrite.Add(i,
                                     (existingIndex, selectExpression.Orderings[i], selectExpression.Orderings[i].IsAscending, false, referouter));
                             }
-                            
+
                         }
                     }
 
                     if (columnsToRewrite.Count == 0 || columnsToRewrite.All(p => p.Value.rewrite == false))
                     {
                         return base.Visit(expression);
+                    }
+
+                    // A lift IS happening: ClearOrdering below wipes every ordering and we re-append only what's
+                    // captured in columnsToRewrite. Any ordering not captured above (e.g. a secondary ORDER BY on
+                    // an inner-table column such as `l1.Name`, which isn't in the projection) would be silently
+                    // dropped — losing a tie-breaker sort key. Project each such ordering so it survives pushdown
+                    // and gets re-appended, preserving the full multi-key ORDER BY.
+                    for (int i = 0; i < selectExpression.Orderings.Count; i++)
+                    {
+                        if (columnsToRewrite.ContainsKey(i))
+                            continue;
+                        int index = selectExpression.AddToProjection(selectExpression.Orderings[i].Expression);
+                        columnsToRewrite.Add(i, (index, null, selectExpression.Orderings[i].IsAscending, true, false));
                     }
 
                     selectExpression.ClearOrdering();
@@ -117,7 +130,7 @@ public class JetLiftOrderByPostprocessor(IRelationalTypeMappingSource typeMappin
                         selectExpression.PushdownIntoSubquery();
                     }
 
-                    foreach (var colr in columnsToRewrite)
+                    foreach (var colr in columnsToRewrite.OrderBy(p => p.Key))
                     {
                         (int? index, OrderingExpression? oexp, bool ascending, bool rewrite, bool referstocurouter) = colr.Value;
                         if (index.HasValue)

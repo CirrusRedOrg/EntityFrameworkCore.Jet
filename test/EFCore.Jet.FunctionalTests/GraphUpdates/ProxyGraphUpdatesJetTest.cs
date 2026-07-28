@@ -12,10 +12,14 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public abstract class ProxyGraphUpdatesJetTest
     {
-        public abstract class ProxyGraphUpdatesJetTestBase<TFixture>(TFixture fixture)
-            : ProxyGraphUpdatesTestBase<TFixture>(fixture)
+        public abstract class ProxyGraphUpdatesJetTestBase<TFixture>
+            : ProxyGraphUpdatesTestBase<TFixture>
             where TFixture : ProxyGraphUpdatesJetTestBase<TFixture>.ProxyGraphUpdatesJetFixtureBase, new()
         {
+            protected ProxyGraphUpdatesJetTestBase(TFixture fixture)
+                : base(fixture)
+                => fixture.TestSqlLoggerFactory.Clear();
+
             protected override void UseTransaction(DatabaseFacade facade, IDbContextTransaction transaction)
                 => facade.UseTransaction(transaction.GetDbTransaction());
 

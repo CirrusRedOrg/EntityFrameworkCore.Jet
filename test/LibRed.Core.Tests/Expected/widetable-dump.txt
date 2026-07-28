@@ -1,0 +1,317 @@
+Database: Standard ACE DB  (Version12_2007, page size 4096)
+
+[SYS] MSysObjects
+        tdefPage=2  type=System  rows=19  columns=17  indexes=2
+           0. Connect                    Memo      len=  0 var#3
+           1. Database                   Memo      len=  0 var#2
+           2. DateCreate                 DateTime  len=  8 fixed@10
+           3. DateUpdate                 DateTime  len=  8 fixed@18
+           4. Flags                      Int32     len=  4 fixed@26
+           5. ForeignName                Text      len=510 var#4
+           6. Id                         Int32     len=  4 fixed@0
+           7. Lv                         Ole       len=  0 var#7
+           8. LvExtra                    Ole       len=  0 var#10
+           9. LvModule                   Ole       len=  0 var#9
+          10. LvProp                     Ole       len=  0 var#8
+          11. Name                       Text      len=510 var#0
+          12. Owner                      Binary    len=510 var#1
+          13. ParentId                   Int32     len=  4 fixed@4
+          14. RmtInfoLong                Ole       len=  0 var#6
+          15. RmtInfoShort               Binary    len=510 var#5
+          16. Type                       Int16     len=  2 fixed@8
+        --- indexes ---
+          U  "ParentIdName"             [ParentId, Name] root=7 uniqueEntries=19
+          PK "Id"                       [Id] root=8 uniqueEntries=19
+
+[SYS] MSysACEs
+        tdefPage=3  type=System  rows=38  columns=4  indexes=1
+           0. ACM                        Int32     len=  4 fixed@4
+           1. FInheritable               Boolean   len=  1 fixed@0
+           2. ObjectId                   Int32     len=  4 fixed@0
+           3. SID                        Binary    len=510 var#0
+        --- indexes ---
+             "ObjectId"                 [ObjectId] root=10 uniqueEntries=19
+
+[SYS] MSysQueries
+        tdefPage=4  type=System  rows=0  columns=8  indexes=1
+           0. Attribute                  Byte      len=  1 fixed@4
+           1. Expression                 Memo      len=  0 var#3
+           2. Flag                       Int16     len=  2 fixed@5
+           3. LvExtra                    Int32     len=  4 fixed@7
+           4. Name1                      Text      len=510 var#1
+           5. Name2                      Text      len=510 var#2
+           6. ObjectId                   Int32     len=  4 fixed@0
+           7. Order                      Binary    len=510 var#0
+        --- indexes ---
+          PK "ObjectIdAttribute"        [ObjectId, Attribute, Order] root=12 uniqueEntries=0
+
+[SYS] MSysRelationships
+        tdefPage=5  type=System  rows=0  columns=8  indexes=3
+           0. ccolumn                    Int32     len=  4 fixed@4
+           1. grbit                      Int32     len=  4 fixed@0
+           2. icolumn                    Int32     len=  4 fixed@8
+           3. szColumn                   Text      len=510 var#2
+           4. szObject                   Text      len=510 var#1
+           5. szReferencedColumn         Text      len=510 var#4
+           6. szReferencedObject         Text      len=510 var#3
+           7. szRelationship             Text      len=510 var#0
+        --- indexes ---
+             "szRelationship"           [szRelationship] root=14 uniqueEntries=0
+             "szObject"                 [szObject] root=15 uniqueEntries=0
+             "szReferencedObject"       [szReferencedObject] root=16 uniqueEntries=0
+
+[SYS] MSysComplexColumns
+        tdefPage=18  type=User  rows=0  columns=5  indexes=3
+           0. ColumnName                 Text      len=510 var#0
+           1. ComplexID                  Int32     len=  4 fixed@12 auto
+           2. ComplexTypeObjectID        Int32     len=  4 fixed@0
+           3. ConceptualTableID          Int32     len=  4 fixed@8
+           4. FlatTableID                Int32     len=  4 fixed@4
+        --- indexes ---
+          PK "IdxID"                    [ComplexID] root=20 uniqueEntries=0
+             "IdxConceptualTableID"     [ConceptualTableID] root=21 uniqueEntries=0
+             "IdxFlatTableID"           [FlatTableID] root=22 uniqueEntries=0
+
+[SYS] MSysComplexType_UnsignedByte
+        tdefPage=23  type=User  rows=0  columns=1  indexes=0
+           0. Value                      Byte      len=  1 fixed@0
+
+[SYS] MSysComplexType_Short
+        tdefPage=25  type=User  rows=0  columns=1  indexes=0
+           0. Value                      Int16     len=  2 fixed@0
+
+[SYS] MSysComplexType_Long
+        tdefPage=27  type=User  rows=0  columns=1  indexes=0
+           0. Value                      Int32     len=  4 fixed@0
+
+[SYS] MSysComplexType_IEEESingle
+        tdefPage=29  type=User  rows=0  columns=1  indexes=0
+           0. Value                      Single    len=  4 fixed@0
+
+[SYS] MSysComplexType_IEEEDouble
+        tdefPage=31  type=User  rows=0  columns=1  indexes=0
+           0. Value                      Double    len=  8 fixed@0
+
+[SYS] MSysComplexType_GUID
+        tdefPage=33  type=User  rows=0  columns=1  indexes=0
+           0. Value                      Guid      len= 16 fixed@0
+
+[SYS] MSysComplexType_Decimal
+        tdefPage=35  type=User  rows=0  columns=1  indexes=0
+           0. Value                      FixedPoint len=  9 var#0
+
+[SYS] MSysComplexType_Text
+        tdefPage=37  type=User  rows=0  columns=1  indexes=0
+           0. Value                      Text      len=510 var#0
+
+[SYS] MSysComplexType_Attachment
+        tdefPage=39  type=User  rows=0  columns=6  indexes=0
+           0. FileData                   Ole       len=  0 var#3
+           1. FileFlags                  Int32     len=  4 fixed@8
+           2. FileName                   Text      len=510 var#1
+           3. FileTimeStamp              DateTime  len=  8 fixed@0
+           4. FileType                   Text      len=510 var#2
+           5. FileURL                    Memo      len=  0 var#0
+
+      WideTable
+        tdefPage=42  type=User  rows=1  columns=200  indexes=0
+           0. C000                       Int32     len=  4 fixed@0
+           1. C001                       Int32     len=  4 fixed@4
+           2. C002                       Int32     len=  4 fixed@8
+           3. C003                       Int32     len=  4 fixed@12
+           4. C004                       Int32     len=  4 fixed@16
+           5. C005                       Int32     len=  4 fixed@20
+           6. C006                       Int32     len=  4 fixed@24
+           7. C007                       Int32     len=  4 fixed@28
+           8. C008                       Int32     len=  4 fixed@32
+           9. C009                       Int32     len=  4 fixed@36
+          10. C010                       Int32     len=  4 fixed@40
+          11. C011                       Int32     len=  4 fixed@44
+          12. C012                       Int32     len=  4 fixed@48
+          13. C013                       Int32     len=  4 fixed@52
+          14. C014                       Int32     len=  4 fixed@56
+          15. C015                       Int32     len=  4 fixed@60
+          16. C016                       Int32     len=  4 fixed@64
+          17. C017                       Int32     len=  4 fixed@68
+          18. C018                       Int32     len=  4 fixed@72
+          19. C019                       Int32     len=  4 fixed@76
+          20. C020                       Int32     len=  4 fixed@80
+          21. C021                       Int32     len=  4 fixed@84
+          22. C022                       Int32     len=  4 fixed@88
+          23. C023                       Int32     len=  4 fixed@92
+          24. C024                       Int32     len=  4 fixed@96
+          25. C025                       Int32     len=  4 fixed@100
+          26. C026                       Int32     len=  4 fixed@104
+          27. C027                       Int32     len=  4 fixed@108
+          28. C028                       Int32     len=  4 fixed@112
+          29. C029                       Int32     len=  4 fixed@116
+          30. C030                       Int32     len=  4 fixed@120
+          31. C031                       Int32     len=  4 fixed@124
+          32. C032                       Int32     len=  4 fixed@128
+          33. C033                       Int32     len=  4 fixed@132
+          34. C034                       Int32     len=  4 fixed@136
+          35. C035                       Int32     len=  4 fixed@140
+          36. C036                       Int32     len=  4 fixed@144
+          37. C037                       Int32     len=  4 fixed@148
+          38. C038                       Int32     len=  4 fixed@152
+          39. C039                       Int32     len=  4 fixed@156
+          40. C040                       Int32     len=  4 fixed@160
+          41. C041                       Int32     len=  4 fixed@164
+          42. C042                       Int32     len=  4 fixed@168
+          43. C043                       Int32     len=  4 fixed@172
+          44. C044                       Int32     len=  4 fixed@176
+          45. C045                       Int32     len=  4 fixed@180
+          46. C046                       Int32     len=  4 fixed@184
+          47. C047                       Int32     len=  4 fixed@188
+          48. C048                       Int32     len=  4 fixed@192
+          49. C049                       Int32     len=  4 fixed@196
+          50. C050                       Int32     len=  4 fixed@200
+          51. C051                       Int32     len=  4 fixed@204
+          52. C052                       Int32     len=  4 fixed@208
+          53. C053                       Int32     len=  4 fixed@212
+          54. C054                       Int32     len=  4 fixed@216
+          55. C055                       Int32     len=  4 fixed@220
+          56. C056                       Int32     len=  4 fixed@224
+          57. C057                       Int32     len=  4 fixed@228
+          58. C058                       Int32     len=  4 fixed@232
+          59. C059                       Int32     len=  4 fixed@236
+          60. C060                       Int32     len=  4 fixed@240
+          61. C061                       Int32     len=  4 fixed@244
+          62. C062                       Int32     len=  4 fixed@248
+          63. C063                       Int32     len=  4 fixed@252
+          64. C064                       Int32     len=  4 fixed@256
+          65. C065                       Int32     len=  4 fixed@260
+          66. C066                       Int32     len=  4 fixed@264
+          67. C067                       Int32     len=  4 fixed@268
+          68. C068                       Int32     len=  4 fixed@272
+          69. C069                       Int32     len=  4 fixed@276
+          70. C070                       Int32     len=  4 fixed@280
+          71. C071                       Int32     len=  4 fixed@284
+          72. C072                       Int32     len=  4 fixed@288
+          73. C073                       Int32     len=  4 fixed@292
+          74. C074                       Int32     len=  4 fixed@296
+          75. C075                       Int32     len=  4 fixed@300
+          76. C076                       Int32     len=  4 fixed@304
+          77. C077                       Int32     len=  4 fixed@308
+          78. C078                       Int32     len=  4 fixed@312
+          79. C079                       Int32     len=  4 fixed@316
+          80. C080                       Int32     len=  4 fixed@320
+          81. C081                       Int32     len=  4 fixed@324
+          82. C082                       Int32     len=  4 fixed@328
+          83. C083                       Int32     len=  4 fixed@332
+          84. C084                       Int32     len=  4 fixed@336
+          85. C085                       Int32     len=  4 fixed@340
+          86. C086                       Int32     len=  4 fixed@344
+          87. C087                       Int32     len=  4 fixed@348
+          88. C088                       Int32     len=  4 fixed@352
+          89. C089                       Int32     len=  4 fixed@356
+          90. C090                       Int32     len=  4 fixed@360
+          91. C091                       Int32     len=  4 fixed@364
+          92. C092                       Int32     len=  4 fixed@368
+          93. C093                       Int32     len=  4 fixed@372
+          94. C094                       Int32     len=  4 fixed@376
+          95. C095                       Int32     len=  4 fixed@380
+          96. C096                       Int32     len=  4 fixed@384
+          97. C097                       Int32     len=  4 fixed@388
+          98. C098                       Int32     len=  4 fixed@392
+          99. C099                       Int32     len=  4 fixed@396
+          100. C100                       Int32     len=  4 fixed@400
+          101. C101                       Int32     len=  4 fixed@404
+          102. C102                       Int32     len=  4 fixed@408
+          103. C103                       Int32     len=  4 fixed@412
+          104. C104                       Int32     len=  4 fixed@416
+          105. C105                       Int32     len=  4 fixed@420
+          106. C106                       Int32     len=  4 fixed@424
+          107. C107                       Int32     len=  4 fixed@428
+          108. C108                       Int32     len=  4 fixed@432
+          109. C109                       Int32     len=  4 fixed@436
+          110. C110                       Int32     len=  4 fixed@440
+          111. C111                       Int32     len=  4 fixed@444
+          112. C112                       Int32     len=  4 fixed@448
+          113. C113                       Int32     len=  4 fixed@452
+          114. C114                       Int32     len=  4 fixed@456
+          115. C115                       Int32     len=  4 fixed@460
+          116. C116                       Int32     len=  4 fixed@464
+          117. C117                       Int32     len=  4 fixed@468
+          118. C118                       Int32     len=  4 fixed@472
+          119. C119                       Int32     len=  4 fixed@476
+          120. C120                       Int32     len=  4 fixed@480
+          121. C121                       Int32     len=  4 fixed@484
+          122. C122                       Int32     len=  4 fixed@488
+          123. C123                       Int32     len=  4 fixed@492
+          124. C124                       Int32     len=  4 fixed@496
+          125. C125                       Int32     len=  4 fixed@500
+          126. C126                       Int32     len=  4 fixed@504
+          127. C127                       Int32     len=  4 fixed@508
+          128. C128                       Int32     len=  4 fixed@512
+          129. C129                       Int32     len=  4 fixed@516
+          130. C130                       Int32     len=  4 fixed@520
+          131. C131                       Int32     len=  4 fixed@524
+          132. C132                       Int32     len=  4 fixed@528
+          133. C133                       Int32     len=  4 fixed@532
+          134. C134                       Int32     len=  4 fixed@536
+          135. C135                       Int32     len=  4 fixed@540
+          136. C136                       Int32     len=  4 fixed@544
+          137. C137                       Int32     len=  4 fixed@548
+          138. C138                       Int32     len=  4 fixed@552
+          139. C139                       Int32     len=  4 fixed@556
+          140. C140                       Int32     len=  4 fixed@560
+          141. C141                       Int32     len=  4 fixed@564
+          142. C142                       Int32     len=  4 fixed@568
+          143. C143                       Int32     len=  4 fixed@572
+          144. C144                       Int32     len=  4 fixed@576
+          145. C145                       Int32     len=  4 fixed@580
+          146. C146                       Int32     len=  4 fixed@584
+          147. C147                       Int32     len=  4 fixed@588
+          148. C148                       Int32     len=  4 fixed@592
+          149. C149                       Int32     len=  4 fixed@596
+          150. C150                       Int32     len=  4 fixed@600
+          151. C151                       Int32     len=  4 fixed@604
+          152. C152                       Int32     len=  4 fixed@608
+          153. C153                       Int32     len=  4 fixed@612
+          154. C154                       Int32     len=  4 fixed@616
+          155. C155                       Int32     len=  4 fixed@620
+          156. C156                       Int32     len=  4 fixed@624
+          157. C157                       Int32     len=  4 fixed@628
+          158. C158                       Int32     len=  4 fixed@632
+          159. C159                       Int32     len=  4 fixed@636
+          160. C160                       Int32     len=  4 fixed@640
+          161. C161                       Int32     len=  4 fixed@644
+          162. C162                       Int32     len=  4 fixed@648
+          163. C163                       Int32     len=  4 fixed@652
+          164. C164                       Int32     len=  4 fixed@656
+          165. C165                       Int32     len=  4 fixed@660
+          166. C166                       Int32     len=  4 fixed@664
+          167. C167                       Int32     len=  4 fixed@668
+          168. C168                       Int32     len=  4 fixed@672
+          169. C169                       Int32     len=  4 fixed@676
+          170. C170                       Int32     len=  4 fixed@680
+          171. C171                       Int32     len=  4 fixed@684
+          172. C172                       Int32     len=  4 fixed@688
+          173. C173                       Int32     len=  4 fixed@692
+          174. C174                       Int32     len=  4 fixed@696
+          175. C175                       Int32     len=  4 fixed@700
+          176. C176                       Int32     len=  4 fixed@704
+          177. C177                       Int32     len=  4 fixed@708
+          178. C178                       Int32     len=  4 fixed@712
+          179. C179                       Int32     len=  4 fixed@716
+          180. C180                       Int32     len=  4 fixed@720
+          181. C181                       Int32     len=  4 fixed@724
+          182. C182                       Int32     len=  4 fixed@728
+          183. C183                       Int32     len=  4 fixed@732
+          184. C184                       Int32     len=  4 fixed@736
+          185. C185                       Int32     len=  4 fixed@740
+          186. C186                       Int32     len=  4 fixed@744
+          187. C187                       Int32     len=  4 fixed@748
+          188. C188                       Int32     len=  4 fixed@752
+          189. C189                       Int32     len=  4 fixed@756
+          190. C190                       Int32     len=  4 fixed@760
+          191. C191                       Int32     len=  4 fixed@764
+          192. C192                       Int32     len=  4 fixed@768
+          193. C193                       Int32     len=  4 fixed@772
+          194. C194                       Int32     len=  4 fixed@776
+          195. C195                       Int32     len=  4 fixed@780
+          196. C196                       Int32     len=  4 fixed@784
+          197. C197                       Int32     len=  4 fixed@788
+          198. C198                       Int32     len=  4 fixed@792
+          199. C199                       Int32     len=  4 fixed@796

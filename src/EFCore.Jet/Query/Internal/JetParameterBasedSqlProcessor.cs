@@ -32,6 +32,9 @@ public class JetParameterBasedSqlProcessor(
         var optimizedQueryExpression = new JetZeroLimitConverter(Dependencies.SqlExpressionFactory)
             .Process(queryExpression, parametersDecorator);
 
+        optimizedQueryExpression = new JetDateTimeRangeConverter(Dependencies.SqlExpressionFactory)
+            .Process(optimizedQueryExpression, parametersDecorator);
+
         var afterBaseProcessing = base.Process(optimizedQueryExpression, parametersDecorator);
 
         var afterSearchConditionConversion = afterBaseProcessing;/*new SearchConditionConverter(Dependencies.SqlExpressionFactory)

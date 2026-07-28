@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(JetTargetFramework)</TargetFramework>
+    <RootNamespace>LibRed.Sql</RootNamespace>
+    <AssemblyName>LibRed.Sql</AssemblyName>
+    <Description>Jet/ACE SQL front end: lexer, parser, AST and binder. Has no dependency on the storage engine; binding resolves names through an injected schema abstraction.</Description>
+    <!-- CS3021: ANTLR-generated types carry [CLSCompliant(false)]; the assembly is not CLS-marked. -->
+    <NoWarn>$(NoWarn);CS3021</NoWarn>
+    <Platforms>AnyCPU;x86;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Managed ANTLR runtime only. The lexer/parser/visitor under Grammar/Generated are
+         pre-generated and committed (no Java/codegen at build time); regenerate with
+         Grammar/generate.ps1 after editing AccessSql.g4. -->
+    <PackageReference Include="Antlr4.Runtime.Standard" Version="4.13.1" />
+  </ItemGroup>
+
+  <!-- ANTLR-generated code is not nullable-annotated; don't fail the build on its warnings. -->
+  <ItemGroup>
+    <Compile Update="Grammar\Generated\*.cs">
+      <Nullable>disable</Nullable>
+    </Compile>
+  </ItemGroup>
+
+</Project>

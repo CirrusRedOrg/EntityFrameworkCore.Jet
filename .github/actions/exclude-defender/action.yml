@@ -1,0 +1,39 @@
+name: 'Exclude test files from Defender'
+description: >-
+  Excludes the workspace and temp directories from Windows Defender real-time scanning. A no-op off Windows,
+  so it is safe to call unconditionally from a cross-platform matrix job.
+
+# Why: these suites spend their time creating and writing .accdb files, and Defender scans every one.
+#
+# NOT PROVEN, and don't repeat the 41% figure. On EFCore.LibRed.FunctionalTests (~37,800 tests) the Windows
+# leg ran 14m01 before this and 8m18 immediately after, against ubuntu's 9m30 and macOS's 10m22 - but a later
+# run of the same code came back at 13m. GitHub's runners are VMs on shared hardware, so a single before/after
+# pair cannot separate the change from whoever else was on that host. The honest position is that the
+# exclusion plausibly helps and demonstrably costs nothing; establishing it would need several runs each way,
+# and the windows:ubuntu ratio across them rather than one absolute number.
+#
+# On the Jet side BuildAndTest moved by a couple of minutes out of ~30 (2010/x86/ODBC 29m16, OLE DB 33m32),
+# which is also inside the noise band, so treat it the same way: kept because it is free, not because it is
+# shown to work. Those suites run sequentially anyway (MaxParallelThreads = 1, since the ACE provider crashes
+# concurrently), and that serialisation - not I/O overhead - is what their ~30 minutes actually is.
+#
+# Call it immediately after checkout so that restore, build and any engine install are covered too, not just
+# the test run. Failure is tolerated: a policy-managed Defender logs and carries on rather than failing the
+# job, since this is a speed measure and never a correctness one.
+runs:
+  using: composite
+  steps:
+    - name: Exclude test files from Defender
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        try
+        {
+            Add-MpPreference -ExclusionPath $env:GITHUB_WORKSPACE, $env:TEMP, $env:RUNNER_TEMP -ErrorAction Stop
+            Add-MpPreference -ExclusionExtension 'accdb', 'mdb', 'mdw' -ErrorAction Stop
+            echo 'Defender exclusions applied.'
+        }
+        catch
+        {
+            echo "Defender exclusions not applied (continuing): $_"
+        }

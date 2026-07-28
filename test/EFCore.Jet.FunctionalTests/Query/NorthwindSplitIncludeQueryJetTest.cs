@@ -1146,7 +1146,7 @@ FROM (
     FROM (
         SELECT TOP @p + @p1 `o`.`OrderID`, `o`.`ProductID`
         FROM `Order Details` AS `o`
-        WHERE `o`.`Quantity` = 10
+        WHERE `o`.`Quantity` = CINT(10)
         ORDER BY `o`.`OrderID`, `o`.`ProductID`
     ) AS `o2`
     ORDER BY `o2`.`OrderID` DESC, `o2`.`ProductID` DESC
@@ -2787,7 +2787,7 @@ SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`Unit
 FROM (`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
-WHERE (`o`.`ProductID` MOD 23) = 17 AND `o`.`Quantity` < 10
+WHERE (`o`.`ProductID` MOD 23) = 17 AND `o`.`Quantity` < CINT(10)
 ORDER BY `o`.`OrderID`, `o`.`ProductID`, `o0`.`OrderID`, `c`.`CustomerID`
 """,
             //
@@ -2797,7 +2797,7 @@ FROM ((`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
 LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
-WHERE ((`o`.`ProductID` MOD 23) = 17 AND `o`.`Quantity` < 10) AND (`c`.`CustomerID` IS NOT NULL AND `o1`.`CustomerID` IS NOT NULL)
+WHERE ((`o`.`ProductID` MOD 23) = 17 AND `o`.`Quantity` < CINT(10)) AND (`c`.`CustomerID` IS NOT NULL AND `o1`.`CustomerID` IS NOT NULL)
 ORDER BY `o`.`OrderID`, `o`.`ProductID`, `o0`.`OrderID`, `c`.`CustomerID`
 """);
     }

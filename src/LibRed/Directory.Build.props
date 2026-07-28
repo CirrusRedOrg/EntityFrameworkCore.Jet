@@ -1,0 +1,26 @@
+<Project>
+  <!--
+    The LibRed.* projects are a from-scratch, fully managed implementation of the
+    Jet/ACE (Access MDB/ACCDB) engine. Unlike the ODBC/OleDb-based EFCore.Jet
+    projects, they have NO Windows dependency and must stay cross-platform.
+
+    We therefore deliberately bypass src/Directory.Build.props (which stamps every
+    assembly with [SupportedOSPlatform("windows")]) and import the repo-root props
+    directly to pick up shared metadata, versioning and analyzer settings.
+  -->
+  <Import Project="$(MSBuildThisFileDirectory)..\..\Directory.Build.props" />
+
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Keep strong-naming consistent with the rest of the repository. -->
+  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)..\..\Key.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+</Project>

@@ -59,9 +59,19 @@ namespace EntityFrameworkCore.Jet.Update.Internal
                 requiresTransaction = requiresTransaction || localRequiresTransaction;
             }
 
+            // Each command above was appended as its own INSERT + SELECT, so the group produces one result set
+            // PER COMMAND, not one for the group. Report "not last": JetModificationCommandBatch stamps this
+            // single value onto every command in the group and then patches only the final entry to
+            // LastInResultSet. Returning LastInResultSet here instead left commands 1..N-1 each claiming to be the
+            // last result set, so the reader could stop advancing early. (For a single-command group the outcome is
+            // unchanged — the patch turns the one entry into LastInResultSet either way.)
+            //
+            // Deliberately NOT IsPositionalResultMappingEnabled: that says the rows carry a position column for
+            // correlating them back to commands, which exists for a set-based MERGE ... OUTPUT. Jet has no MERGE —
+            // these are ordered, one-row-each result sets, so there is nothing to correlate positionally.
             return readOperations.Count == 0
                 ? ResultSetMapping.NoResults
-                : ResultSetMapping.LastInResultSet;
+                : ResultSetMapping.NotLastInResultSet;
         }
 
         /// <summary>
@@ -121,31 +131,71 @@ namespace EntityFrameworkCore.Jet.Update.Internal
                 .Append("WHERE ");
 
             AppendRowsAffectedWhereCondition(commandStringBuilder, 1);
-            bool isfirstkeycolumn = true;
-            if (operations.Count > 0)
+
+            // Choose the conditions before writing any of them: appending " AND " up front leaves a dangling
+            // "AND" — invalid SQL — whenever no operation ends up qualifying.
+            var conditions = new List<(IColumnModification Column, bool ByIdentity)>();
+            var identityUsed = false;
+            foreach (var v in operations)
             {
-                commandStringBuilder
-                    .Append(" AND ")
-                    .AppendJoin(
-                        operations, (sb, v) =>
-                        {
-                            if (v is { IsKey: true, IsRead: false })
-                            {
-                                AppendWhereCondition(sb, v, v.UseOriginalValueParameter);
-                                return true;
-                            }
-
-                            if (IsIdentityOperation(v) && isfirstkeycolumn)
-                            {
-                                AppendIdentityWhereCondition(sb, v);
-                                isfirstkeycolumn = false;
-                                return true;
-                            }
-
-                            return false;
-                        }, " AND ");
+                if (v is { IsKey: true, IsRead: false })
+                {
+                    conditions.Add((v, false));
+                }
+                else if (IsIdentityOperation(v) && !identityUsed && IsGeneratedByAutoNumber(v))
+                {
+                    // @@identity only ever holds the value of the FIRST AutoNumber, so at most one column
+                    // can be matched this way.
+                    conditions.Add((v, true));
+                    identityUsed = true;
+                }
             }
+
+            if (conditions.Count == 0)
+            {
+                return;
+            }
+
+            commandStringBuilder
+                .Append(" AND ")
+                .AppendJoin(
+                    conditions, (sb, c) =>
+                    {
+                        if (c.ByIdentity)
+                        {
+                            AppendIdentityWhereCondition(sb, c.Column);
+                        }
+                        else
+                        {
+                            AppendWhereCondition(sb, c.Column, c.Column.UseOriginalValueParameter);
+                        }
+
+                        return true;
+                    }, " AND ");
         }
+
+        /// <summary>
+        ///     Whether a store-generated read-back key column gets its value from a genuine AutoNumber, and so can
+        ///     be located again with <c>= @@identity</c>.
+        /// </summary>
+        /// <remarks>
+        ///     <c>@@identity</c> reflects only an AutoNumber. A key column store-generated some other way — by a
+        ///     DEFAULT or as a computed column — is not reflected in it, so <c>col = @@identity</c> would compare
+        ///     against the previous insert's AutoNumber (possibly from another table entirely) and match no row.
+        ///     Those columns get no condition at all: <c>@@ROWCOUNT = 1</c> plus the other provided (non-read) key
+        ///     columns identify the just-inserted row, and the generated value is what we read back.
+        ///     <para>
+        ///         Tested negatively, against the ways a value can be generated *other* than by AutoNumber, rather
+        ///         than positively against <c>GetValueGenerationStrategy() == IdentityColumn</c>: that also reports
+        ///         <see cref="JetValueGenerationStrategy.None" /> when the model-level strategy or the property
+        ///         itself is unavailable, which would wrongly drop the condition for a real AutoNumber.
+        ///     </para>
+        /// </remarks>
+        private static bool IsGeneratedByAutoNumber(IColumnModification columnModification)
+            => columnModification.Property is not { } property
+                || (!property.TryGetDefaultValue(out _)
+                    && property.GetDefaultValueSql() is null
+                    && property.GetComputedColumnSql() is null);
 
         public override ResultSetMapping AppendStoredProcedureCall(
         StringBuilder commandStringBuilder,

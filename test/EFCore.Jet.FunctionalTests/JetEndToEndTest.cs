@@ -588,6 +588,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             {
                 context.Database.EnsureCreatedResiliently();
 
+                // Drop constraint to work around Jet limitation regarding compound foreign keys and NULL: the
+                // Actor insert has GameId set but CurrentWeaponId null (a partial-null composite FK), which Jet
+                // rejects. Drop it so the row inserts.
+                context.Database.ExecuteSql($"ALTER TABLE `Actor` DROP CONSTRAINT `FK_Actor_Items_GameId_CurrentWeaponId`");
+
                 context.Characters.Add(
                     new PlayerCharacter(
                         new Level { Game = new Game() }));
@@ -974,6 +979,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             using var context = new GameDbContext(options);
             context.Database.EnsureCreatedResiliently();
 
+            // Drop constraint to work around Jet limitation regarding compound foreign keys and NULL: the Actor
+            // insert has GameId set but CurrentWeaponId null (a partial-null composite FK), which Jet rejects.
+            // Drop it so the row inserts.
+            context.Database.ExecuteSql($"ALTER TABLE `Actor` DROP CONSTRAINT `FK_Actor_Items_GameId_CurrentWeaponId`");
+
             var player = new PlayerCharacter(
                 new Level { Game = new Game() });
 
@@ -999,6 +1009,12 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             using (var context = new GameDbContext(options))
             {
                 context.Database.EnsureCreatedResiliently();
+
+                // Drop constraints to work around Jet limitation regarding compound foreign keys and NULL: the
+                // initial inserts carry a partial-null composite FK (GameId set, second column null), which Jet
+                // rejects — the Actor's CurrentWeapon FK and the Item's self-referencing Container FK.
+                context.Database.ExecuteSql($"ALTER TABLE `Actor` DROP CONSTRAINT `FK_Actor_Items_GameId_CurrentWeaponId`");
+                context.Database.ExecuteSql($"ALTER TABLE `Items` DROP CONSTRAINT `FK_Items_Items_GameId_ContainerId`");
 
                 var player = new PlayerCharacter(
                     new Level { Game = new Game() });
@@ -1039,6 +1055,12 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             using (var context = new GameDbContext(options))
             {
                 context.Database.EnsureCreatedResiliently();
+
+                // Drop constraints to work around Jet limitation regarding compound foreign keys and NULL: the
+                // initial inserts carry a partial-null composite FK (GameId set, second column null), which Jet
+                // rejects — the Actor's CurrentWeapon FK and the Item's self-referencing Container FK.
+                context.Database.ExecuteSql($"ALTER TABLE `Actor` DROP CONSTRAINT `FK_Actor_Items_GameId_CurrentWeaponId`");
+                context.Database.ExecuteSql($"ALTER TABLE `Items` DROP CONSTRAINT `FK_Items_Items_GameId_ContainerId`");
 
                 var player = new PlayerCharacter(
                     new Level { Game = new Game() });

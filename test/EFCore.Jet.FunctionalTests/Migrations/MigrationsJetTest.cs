@@ -648,7 +648,7 @@ ALTER TABLE `People` ADD `FullName` varchar(255) NULL;
         AssertSql("");
     }
 
-    [ConditionalFact(Skip = "Jet does not support collation")]
+    [ConditionalTheory(Skip = "Jet does not support collation")]
     public override async Task Add_column_computed_with_collation(bool stored)
     {
         await base.Add_column_computed_with_collation(stored);

@@ -1,0 +1,401 @@
+Database: Standard ACE DB  (Version12_2007, page size 4096)
+
+[SYS] MSysObjects
+        tdefPage=2  type=System  rows=82  columns=17  indexes=2
+           0. Connect                    Memo      len=  0 var#3
+           1. Database                   Memo      len=  0 var#2
+           2. DateCreate                 DateTime  len=  8 fixed@10
+           3. DateUpdate                 DateTime  len=  8 fixed@18
+           4. Flags                      Int32     len=  4 fixed@26
+           5. ForeignName                Text      len=510 var#4
+           6. Id                         Int32     len=  4 fixed@0
+           7. Lv                         Ole       len=  0 var#7
+           8. LvExtra                    Ole       len=  0 var#10
+           9. LvModule                   Ole       len=  0 var#9
+          10. LvProp                     Ole       len=  0 var#8
+          11. Name                       Text      len=510 var#0
+          12. Owner                      Binary    len=510 var#1
+          13. ParentId                   Int32     len=  4 fixed@4
+          14. RmtInfoLong                Ole       len=  0 var#6
+          15. RmtInfoShort               Binary    len=510 var#5
+          16. Type                       Int16     len=  2 fixed@8
+        --- indexes ---
+          U  "ParentIdName"             [ParentId, Name] root=7 uniqueEntries=82
+          PK "Id"                       [Id] root=8 uniqueEntries=82
+
+[SYS] MSysACEs
+        tdefPage=3  type=System  rows=183  columns=4  indexes=1
+           0. ACM                        Int32     len=  4 fixed@4
+           1. FInheritable               Boolean   len=  1 fixed@0
+           2. ObjectId                   Int32     len=  4 fixed@0
+           3. SID                        Binary    len=510 var#0
+        --- indexes ---
+             "ObjectId"                 [ObjectId] root=10 uniqueEntries=82
+
+[SYS] MSysQueries
+        tdefPage=4  type=System  rows=279  columns=8  indexes=1
+           0. Attribute                  Byte      len=  1 fixed@4
+           1. Expression                 Memo      len=  0 var#3
+           2. Flag                       Int16     len=  2 fixed@5
+           3. LvExtra                    Int32     len=  4 fixed@7
+           4. Name1                      Text      len=510 var#1
+           5. Name2                      Text      len=510 var#2
+           6. ObjectId                   Int32     len=  4 fixed@0
+           7. Order                      Binary    len=510 var#0
+        --- indexes ---
+          PK "ObjectIdAttribute"        [ObjectId, Attribute, Order] root=12 uniqueEntries=279
+
+[SYS] MSysRelationships
+        tdefPage=5  type=System  rows=15  columns=8  indexes=3
+           0. ccolumn                    Int32     len=  4 fixed@4
+           1. grbit                      Int32     len=  4 fixed@0
+           2. icolumn                    Int32     len=  4 fixed@8
+           3. szColumn                   Text      len=510 var#2
+           4. szObject                   Text      len=510 var#1
+           5. szReferencedColumn         Text      len=510 var#4
+           6. szReferencedObject         Text      len=510 var#3
+           7. szRelationship             Text      len=510 var#0
+        --- indexes ---
+             "szRelationship"           [szRelationship] root=14 uniqueEntries=15
+             "szObject"                 [szObject] root=15 uniqueEntries=9
+             "szReferencedObject"       [szReferencedObject] root=16 uniqueEntries=12
+
+[SYS] MSysComplexColumns
+        tdefPage=18  type=User  rows=1  columns=5  indexes=3
+           0. ColumnName                 Text      len=510 var#0
+           1. ComplexID                  Int32     len=  4 fixed@12 auto
+           2. ComplexTypeObjectID        Int32     len=  4 fixed@0
+           3. ConceptualTableID          Int32     len=  4 fixed@8
+           4. FlatTableID                Int32     len=  4 fixed@4
+        --- indexes ---
+          PK "IdxID"                    [ComplexID] root=20 uniqueEntries=1
+             "IdxConceptualTableID"     [ConceptualTableID] root=21 uniqueEntries=1
+             "IdxFlatTableID"           [FlatTableID] root=22 uniqueEntries=1
+
+[SYS] MSysComplexType_UnsignedByte
+        tdefPage=23  type=User  rows=0  columns=1  indexes=0
+           0. Value                      Byte      len=  1 fixed@0
+
+[SYS] MSysComplexType_Short
+        tdefPage=25  type=User  rows=0  columns=1  indexes=0
+           0. Value                      Int16     len=  2 fixed@0
+
+[SYS] MSysComplexType_Long
+        tdefPage=27  type=User  rows=0  columns=1  indexes=0
+           0. Value                      Int32     len=  4 fixed@0
+
+[SYS] MSysComplexType_IEEESingle
+        tdefPage=29  type=User  rows=0  columns=1  indexes=0
+           0. Value                      Single    len=  4 fixed@0
+
+[SYS] MSysComplexType_IEEEDouble
+        tdefPage=31  type=User  rows=0  columns=1  indexes=0
+           0. Value                      Double    len=  8 fixed@0
+
+[SYS] MSysComplexType_GUID
+        tdefPage=33  type=User  rows=0  columns=1  indexes=0
+           0. Value                      Guid      len= 16 fixed@0
+
+[SYS] MSysComplexType_Decimal
+        tdefPage=35  type=User  rows=0  columns=1  indexes=0
+           0. Value                      FixedPoint len=  9 var#0
+
+[SYS] MSysComplexType_Text
+        tdefPage=37  type=User  rows=0  columns=1  indexes=0
+           0. Value                      Text      len=510 var#0
+
+[SYS] MSysComplexType_Attachment
+        tdefPage=39  type=User  rows=0  columns=6  indexes=0
+           0. FileData                   Ole       len=  0 var#3
+           1. FileFlags                  Int32     len=  4 fixed@8
+           2. FileName                   Text      len=510 var#1
+           3. FileTimeStamp              DateTime  len=  8 fixed@0
+           4. FileType                   Text      len=510 var#2
+           5. FileURL                    Memo      len=  0 var#0
+
+      Categories
+        tdefPage=43  type=User  rows=8  columns=4  indexes=2
+           0. CategoryID                 Int32     len=  4 fixed@0 auto
+           1. CategoryName               Text      len= 30 var#0
+           2. Description                Memo      len=  0 var#1
+           3. Picture                    Ole       len=  0 var#2
+        --- indexes ---
+             "CategoryName"             [CategoryName] root=71 uniqueEntries=8
+          PK "PK_Categories"            [CategoryID] root=72 uniqueEntries=8
+
+      CustomerCustomerDemo
+        tdefPage=73  type=User  rows=0  columns=2  indexes=3
+           0. CustomerID                 Text      len= 10 fixed@0
+           1. CustomerTypeID             Text      len= 20 fixed@10
+        --- indexes ---
+          PK "PK_CustomerCustomerDemo"  [CustomerID, CustomerTypeID] root=75 uniqueEntries=0
+             "FK_CustomerCustomerDemo"  [CustomerTypeID] root=303 uniqueEntries=0
+             "FK_CustomerCustomerDemo_Customers" [CustomerID] root=304 uniqueEntries=0
+        --- foreign keys ---
+          "FK_CustomerCustomerDemo"                    [CustomerTypeID] -> CustomerDemographics [CustomerTypeID]
+          "FK_CustomerCustomerDemo_Customers"          [CustomerID] -> Customers [CustomerID]
+
+      CustomerDemographics
+        tdefPage=76  type=User  rows=0  columns=2  indexes=1
+           0. CustomerTypeID             Text      len= 20 fixed@0
+           1. CustomerDesc               Memo      len=  0 var#0
+        --- indexes ---
+          PK "PK_CustomerDemographics"  [CustomerTypeID] root=78 uniqueEntries=0
+
+      Customers
+        tdefPage=79  type=User  rows=91  columns=11  indexes=5
+           0. CustomerID                 Text      len= 10 fixed@0
+           1. CompanyName                Text      len= 80 var#0
+           2. ContactName                Text      len= 60 var#1
+           3. ContactTitle               Text      len= 60 var#2
+           4. Address                    Text      len=120 var#3
+           5. City                       Text      len= 30 var#4
+           6. Region                     Text      len= 30 var#5
+           7. PostalCode                 Text      len= 20 var#6
+           8. Country                    Text      len= 30 var#7
+           9. Phone                      Text      len= 48 var#8
+          10. Fax                        Text      len= 48 var#9
+        --- indexes ---
+             "City"                     [City] root=87 uniqueEntries=69
+             "CompanyName"              [CompanyName] root=88 uniqueEntries=91
+          PK "PK_Customers"             [CustomerID] root=89 uniqueEntries=91
+             "PostalCode"               [PostalCode] root=90 uniqueEntries=87
+             "Region"                   [Region] root=91 uniqueEntries=19
+
+      Employees
+        tdefPage=92  type=User  rows=9  columns=18  indexes=4
+           0. EmployeeID                 Int32     len=  4 fixed@0 auto
+           1. LastName                   Text      len= 40 var#0
+           2. FirstName                  Text      len= 20 var#1
+           3. Title                      Text      len= 60 var#2
+           4. TitleOfCourtesy            Text      len= 50 var#3
+           5. BirthDate                  DateTime  len=  8 fixed@4
+           6. HireDate                   DateTime  len=  8 fixed@12
+           7. Address                    Text      len=120 var#4
+           8. City                       Text      len= 30 var#5
+           9. Region                     Text      len= 30 var#6
+          10. PostalCode                 Text      len= 20 var#7
+          11. Country                    Text      len= 30 var#8
+          12. HomePhone                  Text      len= 48 var#9
+          13. Extension                  Text      len=  8 var#10
+          14. Photo                      Ole       len=  0 var#11
+          15. Notes                      Memo      len=  0 var#12
+          16. ReportsTo                  Int32     len=  4 fixed@20
+          17. PhotoPath                  Text      len=510 var#13
+        --- indexes ---
+             "LastName"                 [LastName] root=151 uniqueEntries=9
+          PK "PK_Employees"             [EmployeeID] root=152 uniqueEntries=9
+             "PostalCode"               [PostalCode] root=153 uniqueEntries=9
+             "FK_Employees_Employees"   [ReportsTo] root=305 uniqueEntries=3
+        --- foreign keys ---
+          "FK_Employees_Employees"                     [ReportsTo] -> Employees [EmployeeID]
+
+      EmployeeTerritories
+        tdefPage=154  type=User  rows=49  columns=2  indexes=3
+           0. EmployeeID                 Int32     len=  4 fixed@0
+           1. TerritoryID                Text      len= 40 var#0
+        --- indexes ---
+          PK "PK_EmployeeTerritories"   [EmployeeID, TerritoryID] root=157 uniqueEntries=49
+             "FK_EmployeeTerritories_Employees" [EmployeeID] root=306 uniqueEntries=9
+             "FK_EmployeeTerritories_Territories" [TerritoryID] root=307 uniqueEntries=49
+        --- foreign keys ---
+          "FK_EmployeeTerritories_Employees"           [EmployeeID] -> Employees [EmployeeID]
+          "FK_EmployeeTerritories_Territories"         [TerritoryID] -> Territories [TerritoryID]
+
+[SYS] MSysAccessStorage
+        tdefPage=159  type=User  rows=23  columns=7  indexes=3
+           0. DateCreate                 DateTime  len=  8 fixed@0
+           1. DateUpdate                 DateTime  len=  8 fixed@8
+           2. Id                         Int32     len=  4 fixed@16 auto
+           3. Lv                         Ole       len=  0 var#0
+           4. Name                       Text      len=256 var#1
+           5. ParentId                   Int32     len=  4 fixed@20
+           6. Type                       Int32     len=  4 fixed@24
+        --- indexes ---
+          PK "Id"                       [Id] root=161 uniqueEntries=24
+          U  "ParentIdId"               [ParentId, Id] root=162 uniqueEntries=24
+          U  "ParentIdName"             [ParentId, Name] root=163 uniqueEntries=24
+
+      Order Details
+        tdefPage=164  type=User  rows=2155  columns=5  indexes=3
+           0. OrderID                    Int32     len=  4 fixed@0
+           1. ProductID                  Int32     len=  4 fixed@4
+           2. UnitPrice                  Currency  len=  8 fixed@8
+           3. Quantity                   Int16     len=  2 fixed@16
+           4. Discount                   Single    len=  4 fixed@18
+        --- indexes ---
+             "OrderID"                  [OrderID] root=181 uniqueEntries=830
+          PK "PK_Order_Details"         [OrderID, ProductID] root=186 uniqueEntries=2155
+             "ProductID"                [ProductID] root=194 uniqueEntries=77
+        --- foreign keys ---
+          "FK_Order_Details_Orders"                    [OrderID] -> Orders [OrderID]
+          "FK_Order_Details_Products"                  [ProductID] -> Products [ProductID]
+
+      Orders
+        tdefPage=198  type=User  rows=830  columns=14  indexes=7
+           0. OrderID                    Int32     len=  4 fixed@0 auto
+           1. CustomerID                 Text      len= 10 fixed@4
+           2. EmployeeID                 Int32     len=  4 fixed@14
+           3. OrderDate                  DateTime  len=  8 fixed@18
+           4. RequiredDate               DateTime  len=  8 fixed@26
+           5. ShippedDate                DateTime  len=  8 fixed@34
+           6. ShipVia                    Int32     len=  4 fixed@42
+           7. Freight                    Currency  len=  8 fixed@46
+           8. ShipName                   Text      len= 80 var#0
+           9. ShipAddress                Text      len=120 var#1
+          10. ShipCity                   Text      len= 30 var#2
+          11. ShipRegion                 Text      len= 30 var#3
+          12. ShipPostalCode             Text      len= 20 var#4
+          13. ShipCountry                Text      len= 30 var#5
+        --- indexes ---
+             "CustomerID"               [CustomerID] root=240 uniqueEntries=89
+             "EmployeeID"               [EmployeeID] root=244 uniqueEntries=9
+             "OrderDate"                [OrderDate] root=247 uniqueEntries=480
+          PK "PK_Orders"                [OrderID] root=251 uniqueEntries=830
+             "ShippedDate"              [ShippedDate] root=254 uniqueEntries=388
+             "ShippersOrders"           [ShipVia] root=258 uniqueEntries=3
+             "ShipPostalCode"           [ShipPostalCode] root=261 uniqueEntries=85
+        --- foreign keys ---
+          "FK_Orders_Customers"                        [CustomerID] -> Customers [CustomerID]
+          "FK_Orders_Employees"                        [EmployeeID] -> Employees [EmployeeID]
+          "FK_Orders_Shippers"                         [ShipVia] -> Shippers [ShipperID]
+
+      Products
+        tdefPage=266  type=User  rows=77  columns=10  indexes=4
+           0. ProductID                  Int32     len=  4 fixed@0 auto
+           1. ProductName                Text      len= 80 var#0
+           2. SupplierID                 Int32     len=  4 fixed@4
+           3. CategoryID                 Int32     len=  4 fixed@8
+           4. QuantityPerUnit            Text      len= 40 var#1
+           5. UnitPrice                  Currency  len=  8 fixed@12
+           6. UnitsInStock               Int16     len=  2 fixed@20
+           7. UnitsOnOrder               Int16     len=  2 fixed@22
+           8. ReorderLevel               Int16     len=  2 fixed@24
+           9. Discontinued               Boolean   len=  1 fixed@0
+        --- indexes ---
+             "CategoriesProducts"       [CategoryID] root=270 uniqueEntries=8
+          PK "PK_Products"              [ProductID] root=271 uniqueEntries=77
+             "ProductName"              [ProductName] root=272 uniqueEntries=77
+             "SupplierID"               [SupplierID] root=273 uniqueEntries=29
+        --- foreign keys ---
+          "FK_Products_Categories"                     [CategoryID] -> Categories [CategoryID]
+          "FK_Products_Suppliers"                      [SupplierID] -> Suppliers [SupplierID]
+
+      Region
+        tdefPage=275  type=User  rows=4  columns=2  indexes=1
+           0. RegionID                   Int32     len=  4 fixed@0
+           1. RegionDescription          Text      len=100 fixed@4
+        --- indexes ---
+          PK "PK_Region"                [RegionID] root=278 uniqueEntries=4
+
+      Shippers
+        tdefPage=283  type=User  rows=3  columns=3  indexes=1
+           0. ShipperID                  Int32     len=  4 fixed@0 auto
+           1. CompanyName                Text      len= 80 var#0
+           2. Phone                      Text      len= 48 var#1
+        --- indexes ---
+          PK "PK_Shippers"              [ShipperID] root=286 uniqueEntries=3
+
+      Suppliers
+        tdefPage=287  type=User  rows=29  columns=12  indexes=3
+           0. SupplierID                 Int32     len=  4 fixed@0 auto
+           1. CompanyName                Text      len= 80 var#0
+           2. ContactName                Text      len= 60 var#1
+           3. ContactTitle               Text      len= 60 var#2
+           4. Address                    Text      len=120 var#3
+           5. City                       Text      len= 30 var#4
+           6. Region                     Text      len= 30 var#5
+           7. PostalCode                 Text      len= 20 var#6
+           8. Country                    Text      len= 30 var#7
+           9. Phone                      Text      len= 48 var#8
+          10. Fax                        Text      len= 48 var#9
+          11. HomePage                   Memo      len=  0 var#10
+        --- indexes ---
+             "CompanyName"              [CompanyName] root=292 uniqueEntries=29
+          PK "PK_Suppliers"             [SupplierID] root=293 uniqueEntries=29
+             "PostalCode"               [PostalCode] root=294 uniqueEntries=29
+
+      Territories
+        tdefPage=295  type=User  rows=53  columns=3  indexes=2
+           0. TerritoryID                Text      len= 40 var#0
+           1. TerritoryDescription       Text      len=100 fixed@0
+           2. RegionID                   Int32     len=  4 fixed@100
+        --- indexes ---
+          PK "PK_Territories"           [TerritoryID] root=299 uniqueEntries=53
+             "FK_Territories_Region"    [RegionID] root=308 uniqueEntries=4
+        --- foreign keys ---
+          "FK_Territories_Region"                      [RegionID] -> Region [RegionID]
+
+[SYS] MSysNavPaneGroupCategories
+        tdefPage=312  type=User  rows=3  columns=7  indexes=1
+           0. Filter                     Text      len=510 var#4
+           1. Flags                      Int32     len=  4 var#6
+           2. Id                         Int32     len=  4 var#0 auto
+           3. Name                       Text      len=510 var#1
+           4. Position                   Int32     len=  4 var#5
+           5. SelectedObjectID           Int32     len=  4 var#3
+           6. Type                       Int32     len=  4 var#2
+        --- indexes ---
+          PK "Id"                       [Id] root=314 uniqueEntries=3
+
+[SYS] MSysNavPaneGroups
+        tdefPage=315  type=User  rows=10  columns=7  indexes=2
+           0. Flags                      Int32     len=  4 var#6
+           1. GroupCategoryID            Int32     len=  4 var#2
+           2. Id                         Int32     len=  4 var#0 auto
+           3. Name                       Text      len=510 var#1
+           4. Object Type Group          Int32     len=  4 var#5
+           5. ObjectID                   Int32     len=  4 var#3
+           6. Position                   Int32     len=  4 var#4
+        --- indexes ---
+          PK "Id"                       [Id] root=317 uniqueEntries=10
+             "GroupCategoryID"          [GroupCategoryID] root=318 uniqueEntries=3
+        --- foreign keys ---
+          "MSysNavPaneGroupCategoriesMSysNavPaneGroups" [GroupCategoryID] -> MSysNavPaneGroupCategories [Id] cascadeUpdate cascadeDelete
+
+[SYS] MSysNavPaneGroupToObjects
+        tdefPage=319  type=User  rows=47  columns=7  indexes=2
+           0. Flags                      Int32     len=  4 var#6
+           1. GroupID                    Int32     len=  4 var#2
+           2. Icon                       Int32     len=  4 var#5
+           3. Id                         Int32     len=  4 var#0 auto
+           4. Name                       Text      len=510 var#3
+           5. ObjectID                   Int32     len=  4 var#1
+           6. Position                   Int32     len=  4 var#4
+        --- indexes ---
+          PK "Id"                       [Id] root=321 uniqueEntries=47
+             "GroupID"                  [GroupID] root=322 uniqueEntries=2
+        --- foreign keys ---
+          "MSysNavPaneGroupsMSysNavPaneGroupToObjects" [GroupID] -> MSysNavPaneGroups [Id] cascadeUpdate cascadeDelete
+
+[SYS] MSysNavPaneObjectIDs
+        tdefPage=327  type=User  rows=57  columns=3  indexes=0
+           0. Id                         Int32     len=  4 var#0
+           1. Name                       Text      len=130 var#1
+           2. Type                       Int32     len=  4 var#2
+
+[SYS] MSysResources
+        tdefPage=332  type=User  rows=1  columns=5  indexes=2
+           0. Data                       Complex   len=  4 fixed@0 auto
+           1. Extension                  Text      len=510 var#3
+           2. Id                         Int32     len=  4 var#0 auto
+           3. Name                       Text      len=510 var#1
+           4. Type                       Text      len=510 var#2
+        --- indexes ---
+          U  "Data_BF92175BD03C433695464F95CDF97589" [Data] root=340 uniqueEntries=1
+          PK "Id"                       [Id] root=341 uniqueEntries=1
+
+[SYS] f_3B3D4E1F479C4CCCA9CB8E549B05D3B7_Data
+        tdefPage=334  type=User  rows=1  columns=8  indexes=3
+           0. _Data                      Int32     len=  4 var#5
+           1. FileData                   Ole       len=  0 var#0
+           2. FileFlags                  Int32     len=  4 fixed@0
+           3. FileName                   Text      len=510 var#1
+           4. FileTimeStamp              DateTime  len=  8 fixed@4
+           5. FileType                   Text      len=510 var#2
+           6. FileURL                    Memo      len=  0 var#3
+           7. MSysResources_Data         Int32     len=  4 var#4 auto
+        --- indexes ---
+          PK "MSysComplexPKIndex"       [MSysResources_Data] root=336 uniqueEntries=1
+             "_Data"                    [_Data] root=337 uniqueEntries=1
+          U  "IdxFKPrimaryScalar"       [_Data, FileName] root=338 uniqueEntries=1

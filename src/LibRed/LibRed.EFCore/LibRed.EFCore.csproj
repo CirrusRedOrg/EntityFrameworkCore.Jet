@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>$(JetTargetFramework)</TargetFramework>
+    <RootNamespace>EntityFrameworkCore.LibRed</RootNamespace>
+    <AssemblyName>EntityFrameworkCore.LibRed</AssemblyName>
+    <Description>Entity Framework Core provider built on the LibRed ADO.NET provider and native engine.</Description>
+    <!-- EF1001: we deliberately extend EFCore.Jet's internal provider services (JetOptionsExtension,
+         JetRelationalConnection). CA1416: those are Windows-only, so this transitional provider is
+         too until the reused Jet services are reimplemented on LibRed. Both are accepted by design. -->
+    <NoWarn>$(NoWarn);EF1001;CA1416</NoWarn>
+    <Platforms>AnyCPU;x86;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LibRed.Ado\LibRed.Ado.csproj" />
+    <!-- Transitional: reuse EFCore.Jet's provider services, overriding only the connection
+         (and later the SQL generator) so LibRed sits on its native engine instead of ODBC/OLE DB. -->
+    <ProjectReference Include="..\..\EFCore.Jet\EFCore.Jet.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0-rc.2.*" PrivateAssets="none" />
+  </ItemGroup>
+
+</Project>

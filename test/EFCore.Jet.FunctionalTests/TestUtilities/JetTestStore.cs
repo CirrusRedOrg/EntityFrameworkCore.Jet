@@ -116,7 +116,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         }
 
         public override DbContextOptionsBuilder AddProviderOptions(DbContextOptionsBuilder builder)
-            => builder.UseJet(Connection, b => b.ApplyConfiguration().UseShortTextForSystemString()).EnableSensitiveDataLogging();
+            // Match EF Core's own SqlServer/Sqlite test stores, which do NOT enable sensitive-data logging at the
+            // store level (individual fixtures opt in where they need it). The blanket setting made the captured
+            // command logs balloon into large sensitive strings that pile up in the 32-bit test host.
+            => builder.UseJet(Connection, b => b.ApplyConfiguration().UseShortTextForSystemString());
 
         private bool CreateDatabase(Func<DbContext, Task>? clean)
         {

@@ -1,0 +1,61 @@
+namespace LibRed.Sql.Ast;
+
+/// <summary>Base type for scalar/boolean expressions.</summary>
+public abstract record Expression : SqlNode;
+
+/// <summary>A literal constant (number, string, date, boolean or null).</summary>
+public sealed record LiteralExpression(object? Value) : Expression;
+
+/// <summary>A reference to a column, optionally table-qualified.</summary>
+public sealed record ColumnReference(string? Table, string Column) : Expression;
+
+/// <summary>A positional or named query parameter (e.g. <c>?</c> or <c>@p</c>).</summary>
+public sealed record ParameterExpression(string Name) : Expression;
+
+/// <summary>A connection-scoped system variable: <c>@@ROWCOUNT</c> (rows affected by the previous
+/// statement) or <c>@@IDENTITY</c> (the last AutoNumber generated on this connection). EF Core emits
+/// these to read a store-generated key back after an INSERT. <paramref name="Name"/> is the bare name
+/// without the leading <c>@@</c>.</summary>
+public sealed record SystemVariableExpression(string Name) : Expression;
+
+/// <summary><c>*</c> in a projection or aggregate.</summary>
+public sealed record StarExpression : Expression;
+
+/// <summary>A table-qualified star, <c>Table.*</c> — all columns of that source. Expanded during
+/// projection into the input columns whose source is <paramref name="Table"/>.</summary>
+public sealed record QualifiedStarExpression(string Table) : Expression;
+
+public enum BinaryOperator
+{
+    Add, Subtract, Multiply, Divide, Modulo, IntDivide, Power, Concat,
+    Equal, NotEqual, LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual,
+    And, Or, Like, In,
+    BitAnd, BitOr, BitXor, // Access bitwise operators BAND / BOR / BXOR (integers only)
+}
+
+public sealed record BinaryExpression(BinaryOperator Operator, Expression Left, Expression Right) : Expression;
+
+public enum UnaryOperator { Negate, Not, IsNull, IsNotNull, BitNot }
+
+public sealed record UnaryExpression(UnaryOperator Operator, Expression Operand) : Expression;
+
+/// <summary>A scalar/aggregate function call, e.g. <c>Count(*)</c>, <c>IIf(...)</c>, <c>Format(...)</c>.
+/// <paramref name="Distinct"/> is set for the ANSI aggregate form <c>COUNT(DISTINCT col)</c> — the aggregate
+/// runs over the distinct set of the argument's values (not distinct rows).</summary>
+public sealed record FunctionCall(string Name, IReadOnlyList<Expression> Arguments, bool Distinct = false) : Expression;
+
+/// <summary>A subquery used as a scalar value: <c>(SELECT … )</c>. May correlate to the outer query.</summary>
+public sealed record ScalarSubquery(SelectStatement Query) : Expression;
+
+/// <summary><c>EXISTS (SELECT … )</c>: true when the (possibly correlated) subquery returns any row.</summary>
+public sealed record ExistsExpression(SelectStatement Query) : Expression;
+
+/// <summary><c>x [NOT] IN (SELECT … )</c>: membership of <paramref name="Value"/> in the first column of a
+/// (possibly correlated) subquery, with SQL three-valued semantics.</summary>
+public sealed record InSubqueryExpression(Expression Value, SelectStatement Query, bool Negated) : Expression;
+
+/// <summary><c>x [NOT] IN (a, b, …)</c> over a literal value list, kept as a flat node (rather than lowered to a
+/// deep <c>OR</c>-chain) so a very large list — EF Core inlines a "huge number of values" Contains as thousands
+/// of constants — evaluates iteratively instead of recursing once per item and overflowing the stack. Same SQL
+/// three-valued semantics as <see cref="InSubqueryExpression"/>.</summary>
+public sealed record InListExpression(Expression Value, IReadOnlyList<Expression> Items, bool Negated) : Expression;

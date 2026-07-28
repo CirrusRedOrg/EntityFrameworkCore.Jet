@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(JetTargetFramework)</TargetFramework>
+    <RootNamespace>LibRed.Benchmarks</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <!-- ACE OLE DB is the comparison baseline and is Windows-only. -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LibRed\LibRed.Engine\LibRed.Engine.csproj" />
+    <PackageReference Include="System.Data.OleDb" />
+  </ItemGroup>
+
+  <!-- Realistic query shapes come from the tracked Northwind sample. -->
+  <ItemGroup>
+    <Content Include="..\JetProviderExceptionTests\Northwind.accdb">
+      <Link>Data\Northwind.accdb</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

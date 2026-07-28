@@ -191,13 +191,19 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         argument = _sqlExpressionFactory.Coalesce(argument, _sqlExpressionFactory.Constant(0));
                     }
 
-                    argument = _sqlExpressionFactory.Case(
-                        [
-                            new CaseWhenClause(
-                                _sqlExpressionFactory.Equal(argument, _sqlExpressionFactory.Constant(-1)),
-                                _sqlExpressionFactory.Constant(0))
-                        ],
-                        argument);
+                    // A dynamic start can be an IndexOf result. Protect MID from a -1 result because ACE may
+                    // evaluate it before a preceding predicate which proves that the value was found. Constants
+                    // cannot change at execution time and do not need the otherwise noisy CASE expression.
+                    if (argument is not SqlConstantExpression)
+                    {
+                        argument = _sqlExpressionFactory.Case(
+                            [
+                                new CaseWhenClause(
+                                    _sqlExpressionFactory.Equal(argument, _sqlExpressionFactory.Constant(-1)),
+                                    _sqlExpressionFactory.Constant(0))
+                            ],
+                            argument);
+                    }
 
                     return _sqlExpressionFactory.Function(
                         "MID",

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 using Xunit.Sdk;
+using Microsoft.EntityFrameworkCore.BulkUpdates.Inheritance;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 

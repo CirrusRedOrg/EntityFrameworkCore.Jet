@@ -3,6 +3,7 @@
 
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
+using Microsoft.EntityFrameworkCore.BulkUpdates.Inheritance;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 

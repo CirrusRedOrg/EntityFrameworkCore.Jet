@@ -4,6 +4,7 @@
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using Microsoft.EntityFrameworkCore.BulkUpdates.Inheritance;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 

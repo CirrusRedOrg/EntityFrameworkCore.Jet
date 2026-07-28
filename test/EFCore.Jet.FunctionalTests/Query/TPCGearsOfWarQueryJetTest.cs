@@ -10,6 +10,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Xunit;
+using Microsoft.EntityFrameworkCore.BulkUpdates.Inheritance;
+using Microsoft.EntityFrameworkCore.Query.Inheritance;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 

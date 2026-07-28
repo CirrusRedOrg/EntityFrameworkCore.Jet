@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
+using Microsoft.EntityFrameworkCore.BulkUpdates.Inheritance;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.BulkUpdates;
 

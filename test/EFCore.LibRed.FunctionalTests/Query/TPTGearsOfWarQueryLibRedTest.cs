@@ -10,6 +10,8 @@ using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Xunit;
 using Microsoft.EntityFrameworkCore.TestModels.GearsOfWarModel;
 using System;
+using Microsoft.EntityFrameworkCore.BulkUpdates.Inheritance;
+using Microsoft.EntityFrameworkCore.Query.Inheritance;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 

@@ -50,7 +50,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model16_OwnCollection
             
 
             var firstBlog = Context.Blogs.First();
-            Context.Database.ExecuteSqlInterpolated(
+            Context.Database.ExecuteSql(
                 $"UPDATE Blogs SET Name = 'Another Name' WHERE BlogId = {firstBlog.BlogId}");
             firstBlog.Name = "Changed";
             Assert.Throws<DbUpdateConcurrencyException>(() => Context.SaveChanges());
@@ -60,7 +60,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model16_OwnCollection
         public void UpdateOnDeletedConcurrencyTest()
         {
             var firstBlog = Context.Blogs.First();
-            Context.Database.ExecuteSqlInterpolated(
+            Context.Database.ExecuteSql(
                 $"DELETE FROM Blogs WHERE BlogId = {firstBlog.BlogId}");
             firstBlog.Name = "Changed";
             Assert.Throws<DbUpdateConcurrencyException>(() => Context.SaveChanges());
@@ -70,7 +70,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model16_OwnCollection
         public void DeleteOnUpdatedConcurrencyTest()
         {
             var firstBlog = Context.Blogs.First();
-            Context.Database.ExecuteSqlInterpolated(
+            Context.Database.ExecuteSql(
                 $"UPDATE Blogs SET Name = 'Another Name2' WHERE BlogId ={firstBlog.BlogId} ");
             Context.Blogs.Remove(firstBlog);
             Assert.Throws<DbUpdateConcurrencyException>(() => Context.SaveChanges());
@@ -81,7 +81,7 @@ namespace EntityFrameworkCore.Jet.IntegrationTests.Model16_OwnCollection
         public void DeleteOnDeletedConcurrencyTest()
         {
             var firstBlog = Context.Blogs.First();
-            Context.Database.ExecuteSqlInterpolated(
+            Context.Database.ExecuteSql(
                 $"DELETE FROM Blogs WHERE BlogId = {firstBlog.BlogId}");
             Context.Blogs.Remove(firstBlog);
             Assert.Throws<DbUpdateConcurrencyException>(() => Context.SaveChanges());

@@ -642,7 +642,7 @@ public class MismatchedKeyTypesLibRedTest(MismatchedKeyTypesLibRedTest.Mismatche
 
         public LibRedTestStore Store { get; set; } = null!;
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             Store = await LibRedTestStore.CreateInitializedAsync("MismatchedKeyTypes");
 
@@ -654,7 +654,7 @@ public class MismatchedKeyTypesLibRedTest(MismatchedKeyTypesLibRedTest.Mismatche
             await SeedAsync();
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             if (Store != null)
             {

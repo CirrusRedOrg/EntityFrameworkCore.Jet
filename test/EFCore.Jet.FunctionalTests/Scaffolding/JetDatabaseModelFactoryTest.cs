@@ -2198,7 +2198,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Scaffolding
 
             public TestOperationReporter OperationReporter { get; } = new();
 
-            public override async Task InitializeAsync()
+            public override async ValueTask InitializeAsync()
             {
                 await base.InitializeAsync();
             }

@@ -4989,7 +4989,7 @@ parameters,
             };
         }
 
-        protected new EntityEntry<TEntity> AddTestBuiltInDataTypes<TEntity>(DbSet<TEntity> set)
+        protected EntityEntry<TEntity> AddTestBuiltInDataTypes<TEntity>(DbSet<TEntity> set)
             where TEntity : BuiltInDataTypesBase, new()
         {
             var entityEntry = set.Add(
@@ -5385,7 +5385,7 @@ parameters,
             }
         }
 
-        protected new virtual EntityEntry<TEntity> AddTestBuiltInNullableDataTypes<TEntity>(DbSet<TEntity> set)
+        protected virtual EntityEntry<TEntity> AddTestBuiltInNullableDataTypes<TEntity>(DbSet<TEntity> set)
             where TEntity : BuiltInNullableDataTypesBase, new()
         {
             var entityEntry = set.Add(

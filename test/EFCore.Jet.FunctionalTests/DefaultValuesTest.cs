@@ -89,10 +89,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         protected JetTestStore TestStore { get; private set; }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
             => TestStore = await JetTestStore.CreateInitializedAsync("DefaultValuesTest");
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
             => await TestStore.DisposeAsync();
     }
 }

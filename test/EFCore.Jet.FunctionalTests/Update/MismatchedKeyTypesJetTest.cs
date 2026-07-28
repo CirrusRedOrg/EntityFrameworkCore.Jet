@@ -640,7 +640,7 @@ public class MismatchedKeyTypesJetTest(MismatchedKeyTypesJetTest.MismatchedKeyTy
 
         public JetTestStore Store { get; set; } = null!;
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
         {
             Store = await JetTestStore.CreateInitializedAsync("MismatchedKeyTypes");
 
@@ -652,7 +652,7 @@ public class MismatchedKeyTypesJetTest(MismatchedKeyTypesJetTest.MismatchedKeyTy
             await SeedAsync();
         }
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             if (Store != null)
             {

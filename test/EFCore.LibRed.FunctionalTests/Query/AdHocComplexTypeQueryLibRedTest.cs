@@ -50,10 +50,10 @@ WHERE `e`.`ComplexThing_DateTime` = #2020-01-01 01:01:01#
 """);
     }
 
-    protected TestSqlLoggerFactory TestSqlLoggerFactory
+    protected new TestSqlLoggerFactory TestSqlLoggerFactory
         => (TestSqlLoggerFactory)ListLoggerFactory;
 
-    protected void AssertSql(params string[] expected)
+    protected new void AssertSql(params string[] expected)
         => TestSqlLoggerFactory.AssertBaseline(expected);
 
     protected override ITestStoreFactory NonSharedTestStoreFactory

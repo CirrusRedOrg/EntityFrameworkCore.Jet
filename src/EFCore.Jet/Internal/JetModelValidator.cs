@@ -116,11 +116,14 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     any release. You should only use it directly in your code with extreme caution and knowing that
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
+        // EF 11 moved this from ModelValidator to RelationalModelValidator and dropped the entity-type
+        // parameter, which the key already carries.
         protected override void ValidateValueGeneration(
-            IEntityType entityType,
             IKey key,
             IDiagnosticsLogger<DbLoggerCategory.Model.Validation> logger)
         {
+            IEntityType entityType = key.DeclaringEntityType;
+
             if (entityType.GetTableName() != null
                 && (string?)entityType[RelationalAnnotationNames.MappingStrategy] == RelationalAnnotationNames.TpcMappingStrategy)
             {

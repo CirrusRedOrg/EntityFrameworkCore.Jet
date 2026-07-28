@@ -188,8 +188,16 @@ public class JetIndexConvention(
 
         var nullableColumns = new List<string>();
         var table = StoreObjectIdentifier.Table(tableName, index.DeclaringEntityType.GetSchema());
-        foreach (var property in index.Properties)
+        foreach (var propertyBase in index.Properties)
         {
+            // EF 11 widened IReadOnlyIndex.Properties to IReadOnlyPropertyBase; the column extensions still
+            // require an IReadOnlyProperty. Anything else has no single column to filter on, which this method
+            // already reports the same way as an unmapped column — by giving up on the filter entirely.
+            if (propertyBase is not IReadOnlyProperty property)
+            {
+                return null;
+            }
+
             var columnName = property.GetColumnName(table);
             if (columnName == null)
             {

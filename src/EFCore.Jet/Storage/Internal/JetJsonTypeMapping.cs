@@ -12,7 +12,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal;
 ///     any release. You should only use it directly in your code with extreme caution and knowing that
 ///     doing so can result in application failures when updating to a new Entity Framework Core release.
 /// </summary>
-public class JetJsonTypeMapping : JsonTypeMapping
+// EF 11 renamed the base to StructuralJsonTypeMapping and reduced JsonTypeMapping to an obsolete stub that no
+// longer derives from RelationalTypeMapping — which is why the old base took GetDataReaderMethod,
+// CustomizeDataReaderExpression, GenerateNonNullSqlLiteral and the nested RelationalTypeMappingParameters out of
+// scope with it. The members themselves are unchanged.
+public class JetJsonTypeMapping : StructuralJsonTypeMapping
 {
     private static readonly MethodInfo GetStringMethod
         = typeof(DbDataReader).GetRuntimeMethod(nameof(DbDataReader.GetString), [typeof(int)])!;

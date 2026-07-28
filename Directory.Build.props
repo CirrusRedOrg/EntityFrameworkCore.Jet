@@ -24,10 +24,10 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <EfCoreTargetFramework>net10.0</EfCoreTargetFramework>
+    <EfCoreTargetFramework>net11.0</EfCoreTargetFramework>
     <EfCoreTestTargetFramework>$(EfCoreTargetFramework)</EfCoreTestTargetFramework>
     <JetTargetFramework>$(EfCoreTargetFramework)</JetTargetFramework>
-    <JetTestTargetFramework>net10.0</JetTestTargetFramework>
+    <JetTestTargetFramework>net11.0</JetTestTargetFramework>
     <JetTestWindowsOnlyTargetFramework>$(JetTestTargetFramework)-windows7.0</JetTestWindowsOnlyTargetFramework>
   </PropertyGroup>
 

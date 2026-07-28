@@ -7,8 +7,54 @@ using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 namespace EntityFrameworkCore.Jet.Query.Internal;
 
 public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sqlExpressionFactory)
-    : SqlExpressionVisitor
+    : ExpressionVisitor
 {
+    // EF 11 removed SqlExpressionVisitor, which dispatched each SqlExpression node type to its own VisitXxx.
+    // Every one of those nodes is an Expression with NodeType Extension, so the dispatch is reproduced here and
+    // the per-node methods below are unchanged. Anything unrecognised falls through to the base, which visits
+    // the node's children — the same default the removed base class applied.
+    protected override Expression VisitExtension(Expression extensionExpression)
+        => extensionExpression switch
+        {
+            AtTimeZoneExpression e => VisitAtTimeZone(e),
+            CaseExpression e => VisitCase(e),
+            CollateExpression e => VisitCollate(e),
+            ColumnExpression e => VisitColumn(e),
+            CrossApplyExpression e => VisitCrossApply(e),
+            CrossJoinExpression e => VisitCrossJoin(e),
+            DeleteExpression e => VisitDelete(e),
+            DistinctExpression e => VisitDistinct(e),
+            ExceptExpression e => VisitExcept(e),
+            ExistsExpression e => VisitExists(e),
+            FromSqlExpression e => VisitFromSql(e),
+            InExpression e => VisitIn(e),
+            InnerJoinExpression e => VisitInnerJoin(e),
+            IntersectExpression e => VisitIntersect(e),
+            JsonScalarExpression e => VisitJsonScalar(e),
+            LeftJoinExpression e => VisitLeftJoin(e),
+            LikeExpression e => VisitLike(e),
+            OrderingExpression e => VisitOrdering(e),
+            OuterApplyExpression e => VisitOuterApply(e),
+            ProjectionExpression e => VisitProjection(e),
+            RightJoinExpression e => VisitRightJoin(e),
+            RowNumberExpression e => VisitRowNumber(e),
+            RowValueExpression e => VisitRowValue(e),
+            ScalarSubqueryExpression e => VisitScalarSubquery(e),
+            SelectExpression e => VisitSelect(e),
+            SqlBinaryExpression e => VisitSqlBinary(e),
+            SqlConstantExpression e => VisitSqlConstant(e),
+            SqlFragmentExpression e => VisitSqlFragment(e),
+            SqlFunctionExpression e => VisitSqlFunction(e),
+            SqlParameterExpression e => VisitSqlParameter(e),
+            SqlUnaryExpression e => VisitSqlUnary(e),
+            TableExpression e => VisitTable(e),
+            TableValuedFunctionExpression e => VisitTableValuedFunction(e),
+            UnionExpression e => VisitUnion(e),
+            UpdateExpression e => VisitUpdate(e),
+            ValuesExpression e => VisitValues(e),
+            _ => base.VisitExtension(extensionExpression),
+        };
+
     private bool _isSearchCondition;
 
     private SqlExpression ApplyConversion(SqlExpression sqlExpression, bool condition)
@@ -90,7 +136,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return sqlExpression;
     }
 
-    protected override Expression VisitCase(CaseExpression caseExpression)
+    protected virtual Expression VisitCase(CaseExpression caseExpression)
     {
         var parentSearchCondition = _isSearchCondition;
 
@@ -115,7 +161,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return ApplyConversion(sqlExpressionFactory.Case(operand, whenClauses, elseResult, caseExpression), condition: false);
     }
 
-    protected override Expression VisitCollate(CollateExpression collateExpression)
+    protected virtual Expression VisitCollate(CollateExpression collateExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -125,15 +171,15 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return ApplyConversion(collateExpression.Update(operand), condition: false);
     }
 
-    protected override Expression VisitColumn(ColumnExpression columnExpression)
+    protected virtual Expression VisitColumn(ColumnExpression columnExpression)
     {
         return ApplyConversion(columnExpression, condition: false);
     }
 
-    protected override Expression VisitDelete(DeleteExpression deleteExpression)
+    protected virtual Expression VisitDelete(DeleteExpression deleteExpression)
         => deleteExpression.Update(deleteExpression.Table, (SelectExpression)Visit(deleteExpression.SelectExpression));
 
-    protected override Expression VisitDistinct(DistinctExpression distinctExpression)
+    protected virtual Expression VisitDistinct(DistinctExpression distinctExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -143,7 +189,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return ApplyConversion(distinctExpression.Update(operand), condition: false);
     }
 
-    protected override Expression VisitExists(ExistsExpression existsExpression)
+    protected virtual Expression VisitExists(ExistsExpression existsExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -153,14 +199,14 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return ApplyConversion(existsExpression.Update(subquery), condition: true);
     }
 
-    protected override Expression VisitFromSql(FromSqlExpression fromSqlExpression)
+    protected virtual Expression VisitFromSql(FromSqlExpression fromSqlExpression)
     {
         Check.NotNull(fromSqlExpression, nameof(fromSqlExpression));
 
         return fromSqlExpression;
     }
 
-    protected override Expression VisitIn(InExpression inExpression)
+    protected virtual Expression VisitIn(InExpression inExpression)
     {
         var parentSearchCondition = _isSearchCondition;
 
@@ -199,7 +245,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return ApplyConversion(inExpression.Update(item, subquery, newValues ?? values, valuesParameter), condition: true);
     }
 
-    protected override Expression VisitLike(LikeExpression likeExpression)
+    protected virtual Expression VisitLike(LikeExpression likeExpression)
     {
         Check.NotNull(likeExpression, nameof(likeExpression));
 
@@ -213,7 +259,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return ApplyConversion(likeExpression.Update(match, pattern, escapeChar), condition: true);
     }
 
-    protected override Expression VisitSelect(SelectExpression selectExpression)
+    protected virtual Expression VisitSelect(SelectExpression selectExpression)
     {
         var parentSearchCondition = _isSearchCondition;
 
@@ -242,7 +288,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    protected override Expression VisitAtTimeZone(AtTimeZoneExpression atTimeZoneExpression)
+    protected virtual Expression VisitAtTimeZone(AtTimeZoneExpression atTimeZoneExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -253,7 +299,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return atTimeZoneExpression.Update(operand, timeZone);
     }
 
-    protected override Expression VisitSqlBinary(SqlBinaryExpression sqlBinaryExpression)
+    protected virtual Expression VisitSqlBinary(SqlBinaryExpression sqlBinaryExpression)
     {
         var parentIsSearchCondition = _isSearchCondition;
 
@@ -314,7 +360,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return ApplyConversion(sqlBinaryExpression, condition);
     }
 
-    protected override Expression VisitSqlUnary(SqlUnaryExpression sqlUnaryExpression)
+    protected virtual Expression VisitSqlUnary(SqlUnaryExpression sqlUnaryExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         bool resultCondition;
@@ -373,13 +419,13 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
                 condition: resultCondition));
     }
 
-    protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
+    protected virtual Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
         => ApplyConversion(sqlConstantExpression, condition: false);
 
-    protected override Expression VisitSqlFragment(SqlFragmentExpression sqlFragmentExpression)
+    protected virtual Expression VisitSqlFragment(SqlFragmentExpression sqlFragmentExpression)
         => sqlFragmentExpression;
 
-    protected override Expression VisitSqlFunction(SqlFunctionExpression sqlFunctionExpression)
+    protected virtual Expression VisitSqlFunction(SqlFunctionExpression sqlFunctionExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -403,7 +449,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return ApplyConversion(newFunction, /* condition */ false);
     }
 
-    protected override Expression VisitRightJoin(RightJoinExpression rightJoinExpression)
+    protected virtual Expression VisitRightJoin(RightJoinExpression rightJoinExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -421,7 +467,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    protected override Expression VisitTableValuedFunction(TableValuedFunctionExpression tableValuedFunctionExpression)
+    protected virtual Expression VisitTableValuedFunction(TableValuedFunctionExpression tableValuedFunctionExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -436,20 +482,20 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return tableValuedFunctionExpression.Update(arguments);
     }
 
-    protected override Expression VisitSqlParameter(SqlParameterExpression sqlParameterExpression)
+    protected virtual Expression VisitSqlParameter(SqlParameterExpression sqlParameterExpression)
         => ApplyConversion(sqlParameterExpression, condition: false);
 
-    protected override Expression VisitTable(TableExpression tableExpression)
+    protected virtual Expression VisitTable(TableExpression tableExpression)
         => tableExpression;
 
-    protected override Expression VisitProjection(ProjectionExpression projectionExpression)
+    protected virtual Expression VisitProjection(ProjectionExpression projectionExpression)
     {
         var expression = (SqlExpression)Visit(projectionExpression.Expression);
 
         return projectionExpression.Update(expression);
     }
 
-    protected override Expression VisitOrdering(OrderingExpression orderingExpression)
+    protected virtual Expression VisitOrdering(OrderingExpression orderingExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -461,7 +507,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return orderingExpression.Update(expression);
     }
 
-    protected override Expression VisitCrossJoin(CrossJoinExpression crossJoinExpression)
+    protected virtual Expression VisitCrossJoin(CrossJoinExpression crossJoinExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -471,7 +517,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return crossJoinExpression.Update(table);
     }
 
-    protected override Expression VisitCrossApply(CrossApplyExpression crossApplyExpression)
+    protected virtual Expression VisitCrossApply(CrossApplyExpression crossApplyExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -481,7 +527,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return crossApplyExpression.Update(table);
     }
 
-    protected override Expression VisitOuterApply(OuterApplyExpression outerApplyExpression)
+    protected virtual Expression VisitOuterApply(OuterApplyExpression outerApplyExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -491,7 +537,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return outerApplyExpression.Update(table);
     }
 
-    protected override Expression VisitInnerJoin(InnerJoinExpression innerJoinExpression)
+    protected virtual Expression VisitInnerJoin(InnerJoinExpression innerJoinExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -503,7 +549,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return innerJoinExpression.Update(table, joinPredicate);
     }
 
-    protected override Expression VisitLeftJoin(LeftJoinExpression leftJoinExpression)
+    protected virtual Expression VisitLeftJoin(LeftJoinExpression leftJoinExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -515,7 +561,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return leftJoinExpression.Update(table, joinPredicate);
     }
 
-    protected override Expression VisitScalarSubquery(ScalarSubqueryExpression scalarSubqueryExpression)
+    protected virtual Expression VisitScalarSubquery(ScalarSubqueryExpression scalarSubqueryExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         var subquery = (SelectExpression)Visit(scalarSubqueryExpression.Subquery);
@@ -524,7 +570,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return ApplyConversion(scalarSubqueryExpression.Update(subquery), condition: false);
     }
 
-    protected override Expression VisitRowNumber(RowNumberExpression rowNumberExpression)
+    protected virtual Expression VisitRowNumber(RowNumberExpression rowNumberExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -547,7 +593,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return ApplyConversion(rowNumberExpression.Update(partitions, orderings), condition: false);
     }
 
-    protected override Expression VisitRowValue(RowValueExpression rowValueExpression)
+    protected virtual Expression VisitRowValue(RowValueExpression rowValueExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -562,7 +608,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return rowValueExpression.Update(values);
     }
 
-    protected override Expression VisitExcept(ExceptExpression exceptExpression)
+    protected virtual Expression VisitExcept(ExceptExpression exceptExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -573,7 +619,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return exceptExpression.Update(source1, source2);
     }
 
-    protected override Expression VisitIntersect(IntersectExpression intersectExpression)
+    protected virtual Expression VisitIntersect(IntersectExpression intersectExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -584,7 +630,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
         return intersectExpression.Update(source1, source2);
     }
 
-    protected override Expression VisitUnion(UnionExpression unionExpression)
+    protected virtual Expression VisitUnion(UnionExpression unionExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;
@@ -601,7 +647,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    protected override Expression VisitUpdate(UpdateExpression updateExpression)
+    protected virtual Expression VisitUpdate(UpdateExpression updateExpression)
     {
         var selectExpression = (SelectExpression)Visit(updateExpression.SelectExpression);
         var parentSearchCondition = _isSearchCondition;
@@ -637,7 +683,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    protected override Expression VisitJsonScalar(JsonScalarExpression jsonScalarExpression)
+    protected virtual Expression VisitJsonScalar(JsonScalarExpression jsonScalarExpression)
         => jsonScalarExpression;
 
     /// <summary>
@@ -646,7 +692,7 @@ public class SearchConditionConvertingExpressionVisitor(ISqlExpressionFactory sq
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    protected override Expression VisitValues(ValuesExpression valuesExpression)
+    protected virtual Expression VisitValues(ValuesExpression valuesExpression)
     {
         var parentSearchCondition = _isSearchCondition;
         _isSearchCondition = false;

@@ -23,7 +23,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 {
     // Tests are split into classes to enable parallel execution
     // Some combinations are skipped to reduce run time
-    [LibRedCondition(LibRedCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class LibRedDatabaseCreatorExistsTest : LibRedDatabaseCreatorTest
     {
         [Theory]
@@ -119,7 +119,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         }
     }
 
-    [LibRedCondition(LibRedCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class LibRedDatabaseCreatorEnsureDeletedTest : LibRedDatabaseCreatorTest
     {
         [Theory]
@@ -219,7 +219,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         }
     }
 
-    [LibRedCondition(LibRedCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class LibRedDatabaseCreatorEnsureCreatedTest : LibRedDatabaseCreatorTest
     {
         [Theory]
@@ -371,7 +371,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         }
     }
 
-    [LibRedCondition(LibRedCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class LibRedDatabaseCreatorHasTablesTest : LibRedDatabaseCreatorTest
     {
         [Theory]
@@ -433,7 +433,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         }
     }
 
-    [LibRedCondition(LibRedCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class LibRedDatabaseCreatorDeleteTest : LibRedDatabaseCreatorTest
     {
         [Theory]
@@ -482,7 +482,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         }
     }
 
-    [LibRedCondition(LibRedCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class LibRedDatabaseCreatorCreateTablesTest : LibRedDatabaseCreatorTest
     {
         [Theory]
@@ -599,7 +599,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         private static readonly string _eol = Environment.NewLine;
     }
 
-    [LibRedCondition(LibRedCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class LibRedDatabaseCreatorCreateTest : LibRedDatabaseCreatorTest
     {
         [Theory]
@@ -656,7 +656,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
     }
 
 #pragma warning disable RCS1102 // Make class static.
-    [LibRedCondition(LibRedCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class LibRedDatabaseCreatorTest
     {
         protected static IDisposable CreateTransactionScope(bool useTransaction)

@@ -41,6 +41,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities
         public static bool IsCI { get; } = Environment.GetEnvironmentVariable("PIPELINE_WORKSPACE") != null
             || Environment.GetEnvironmentVariable("TEAMCITY_VERSION") != null;
 
+        /// <summary>The positive form of <see cref="IsCI"/>, for ConditionalClass, which runs a
+        /// class when its named condition member is true.</summary>
+        public static bool IsNotCI => !IsCI;
+
         public static bool? GetFlag(string key)
             => bool.TryParse(Config[key], out var flag) ? flag : null;
 

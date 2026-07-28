@@ -27,7 +27,7 @@ using Xunit;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Migrations;
 
-[LibRedCondition(LibRedCondition.IsNotCI)]
+[ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
 public class MigrationsLibRedTest : MigrationsTestBase<MigrationsLibRedTest.MigrationsLibRedFixture>
 {
     protected static string EOL

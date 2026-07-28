@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using Microsoft.EntityFrameworkCore.Internal;
 using Xunit.Sdk;
+using Xunit.v3;
 
 // ReSharper disable once CheckNamespace
 namespace EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;
@@ -22,14 +23,14 @@ public class ExceptionTestCaseOrderer : ITestCaseOrderer
         "Select_bool_closure"
     ];
         
-    public IEnumerable<TTestCase> OrderTestCases<TTestCase>(IEnumerable<TTestCase> testCases)
+    public IReadOnlyCollection<TTestCase> OrderTestCases<TTestCase>(IReadOnlyCollection<TTestCase> testCases)
         where TTestCase : ITestCase
     {
-        var orderedTestCases = testCases.OrderBy(c => Array.IndexOf(_testCaseOrder, c.TestMethod.Method.Name)).ToList();
+        var orderedTestCases = testCases.OrderBy(c => Array.IndexOf(_testCaseOrder, c.TestMethodName)).ToList();
 
         var builder = new StringBuilder()
             .AppendLine("Test Case Order:")
-            .AppendLine(string.Join(Environment.NewLine, orderedTestCases.Select(c => c.TestMethod.Method.Name)));
+            .AppendLine(string.Join(Environment.NewLine, orderedTestCases.Select(c => c.TestMethodName)));
             
         Debug.WriteLine(builder);
         Console.WriteLine(builder);

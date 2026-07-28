@@ -27,7 +27,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     // Tests are split into classes to enable parallel execution
     // Some combinations are skipped to reduce run time
-    [JetCondition(JetCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class JetDatabaseCreatorExistsTest : JetDatabaseCreatorTest
     {
         [Theory]
@@ -123,7 +123,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         }
     }
 
-    [JetCondition(JetCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class JetDatabaseCreatorEnsureDeletedTest : JetDatabaseCreatorTest
     {
         [Theory]
@@ -223,7 +223,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         }
     }
 
-    [JetCondition(JetCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class JetDatabaseCreatorEnsureCreatedTest : JetDatabaseCreatorTest
     {
         [Theory]
@@ -375,7 +375,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         }
     }
 
-    [JetCondition(JetCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class JetDatabaseCreatorHasTablesTest : JetDatabaseCreatorTest
     {
         [Theory]
@@ -439,7 +439,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         }
     }
 
-    [JetCondition(JetCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class JetDatabaseCreatorDeleteTest : JetDatabaseCreatorTest
     {
         [Theory]
@@ -488,7 +488,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         }
     }
 
-    [JetCondition(JetCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class JetDatabaseCreatorCreateTablesTest : JetDatabaseCreatorTest
     {
         [Theory]
@@ -614,7 +614,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         private static readonly string _eol = Environment.NewLine;
     }
 
-    [JetCondition(JetCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class JetDatabaseCreatorCreateTest : JetDatabaseCreatorTest
     {
         [Theory]
@@ -671,7 +671,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
     }
 
 #pragma warning disable RCS1102 // Make class static.
-    [JetCondition(JetCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
     public class JetDatabaseCreatorTest
     {
         protected static IDisposable CreateTransactionScope(bool useTransaction)

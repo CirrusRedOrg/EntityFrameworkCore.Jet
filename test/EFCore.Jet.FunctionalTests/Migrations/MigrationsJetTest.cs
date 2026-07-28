@@ -28,7 +28,7 @@ using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Migrations;
 
-[JetCondition(JetCondition.IsNotCI)]
+[ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
 public class MigrationsJetTest : MigrationsTestBase<MigrationsJetTest.MigrationsJetFixture>
 {
     protected static string EOL

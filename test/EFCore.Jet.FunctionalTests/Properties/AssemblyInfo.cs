@@ -9,9 +9,10 @@ using Xunit;
 
 #if FIXED_TEST_ORDER
 
-[assembly: TestCollectionOrderer("EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit." + nameof(AscendingTestCollectionOrderer), "EntityFrameworkCore.Jet.FunctionalTests")]
-[assembly: TestCaseOrderer("EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit." + nameof(AscendingTestCaseOrderer), "EntityFrameworkCore.Jet.FunctionalTests")]
+[assembly: TestCollectionOrderer(typeof(AscendingTestCollectionOrderer))]
+[assembly: TestCaseOrderer(typeof(AscendingTestCaseOrderer))]
 
 #endif
 
-[assembly: TestFramework("EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit." + nameof(JetXunitTestFramework), "EntityFrameworkCore.Jet.FunctionalTests")]
+// Records the in-flight test so a runner-killing crash can be skipped next run.
+[assembly: TestRunnerCrashDetection]

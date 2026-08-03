@@ -69,7 +69,7 @@ LEFT JOIN (
     WHERE `m3`.`Id` = @p
 ) AS `s0` ON `s`.`Id` = `s0`.`ManyN_Id`
 WHERE `m`.`Id` = @p
-ORDER BY `m`.`Id`, `s`.`Id0`
+ORDER BY `m`.`Id`, `s`.`Id0`, `s0`.`Id`
 """,
             //
             """
@@ -97,7 +97,7 @@ LEFT JOIN (
     WHERE `m3`.`Id` = @p
 ) AS `s0` ON `s`.`Id` = `s0`.`ManyM_Id`
 WHERE `m`.`Id` = @p
-ORDER BY `m`.`Id`, `s`.`Id0`
+ORDER BY `m`.`Id`, `s`.`Id0`, `s0`.`Id`
 """);
     }
 }

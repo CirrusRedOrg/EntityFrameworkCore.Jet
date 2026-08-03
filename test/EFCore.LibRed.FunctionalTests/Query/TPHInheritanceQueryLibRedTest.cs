@@ -104,10 +104,10 @@ FROM `Drinks` AS `d`
         await base.Can_use_of_type_animal(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -162,10 +162,10 @@ FROM `Animals` AS `a`
         await base.Can_use_of_type_bird(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -174,11 +174,11 @@ ORDER BY `a`.`Species`
         await base.Can_use_of_type_bird_predicate(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`CountryId` = 1
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -234,10 +234,10 @@ WHERE `p`.`Genus` = 0
         await base.Can_query_all_animals(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -272,11 +272,11 @@ ORDER BY `p`.`Species`
         await base.Can_filter_all_animals(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Name` = 'Great spotted kiwi'
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -285,10 +285,10 @@ ORDER BY `a`.`Species`
         await base.Can_query_all_birds(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -329,7 +329,7 @@ FROM (
     WHERE `a`.`Discriminator` = 'Eagle'
 ) AS `a1`
 LEFT JOIN `Animals` AS `a0` ON `a1`.`Id` = `a0`.`EagleId`
-ORDER BY `a1`.`Id`
+ORDER BY `a1`.`Id`, `a0`.`Id`
 """);
     }
 
@@ -338,11 +338,11 @@ ORDER BY `a1`.`Id`
         await base.Can_include_animals(async);
 
         AssertSql(
-"""
+            """
 SELECT `c`.`Id`, `c`.`Name`, `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Countries` AS `c`
 LEFT JOIN `Animals` AS `a` ON `c`.`Id` = `a`.`CountryId`
-ORDER BY `c`.`Name`, `c`.`Id`
+ORDER BY `c`.`Name`, `c`.`Id`, `a`.`Id`
 """);
     }
 
@@ -510,11 +510,11 @@ WHERE 0 = 1
         await base.Member_access_on_intermediate_type_works();
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Name`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
-ORDER BY `a`.`Name`
+ORDER BY `a`.`Name`, `a`.`Id`
 """);
     }
 
@@ -538,14 +538,14 @@ WHERE `a`.`Discriminator` = 'Eagle'
         await base.Is_operator_on_result_of_FirstOrDefault(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE (
     SELECT TOP 1 `a0`.`Discriminator`
     FROM `Animals` AS `a0`
     WHERE `a0`.`Name` = 'Great spotted kiwi') = 'Kiwi'
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 

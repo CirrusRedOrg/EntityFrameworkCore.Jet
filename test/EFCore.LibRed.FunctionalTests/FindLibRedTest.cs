@@ -58,7 +58,7 @@ LEFT JOIN (
     LEFT JOIN `IntKey_OwnedCollection_NestedOwnedCollection` AS `i1` ON `i0`.`IntKeyId` = `i1`.`Owned1IntKeyId` AND `i0`.`Id` = `i1`.`Owned1Id`
 ) AS `s` ON `i3`.`Id` = `s`.`IntKeyId`)
 LEFT JOIN `IntKey_NestedOwnedCollection` AS `i2` ON IIF(`i3`.`OwnedReference_Prop` IS NOT NULL, `i3`.`Id`, NULL) = `i2`.`Owned1IntKeyId`
-ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `i2`.`Owned1IntKeyId`
+ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `i2`.`Owned1IntKeyId`, `i2`.`Id`
 """);
         }
 
@@ -82,7 +82,7 @@ LEFT JOIN (
     LEFT JOIN `IntKey_OwnedCollection_NestedOwnedCollection` AS `i1` ON `i0`.`IntKeyId` = `i1`.`Owned1IntKeyId` AND `i0`.`Id` = `i1`.`Owned1Id`
 ) AS `s` ON `i3`.`Id` = `s`.`IntKeyId`)
 LEFT JOIN `IntKey_NestedOwnedCollection` AS `i2` ON IIF(`i3`.`OwnedReference_Prop` IS NOT NULL, `i3`.`Id`, NULL) = `i2`.`Owned1IntKeyId`
-ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `i2`.`Owned1IntKeyId`
+ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `i2`.`Owned1IntKeyId`, `i2`.`Id`
 """);
         }
 
@@ -113,7 +113,7 @@ LEFT JOIN (
     LEFT JOIN `IntKey_OwnedCollection_NestedOwnedCollection` AS `i1` ON `i0`.`IntKeyId` = `i1`.`Owned1IntKeyId` AND `i0`.`Id` = `i1`.`Owned1Id`
 ) AS `s` ON `i3`.`Id` = `s`.`IntKeyId`)
 LEFT JOIN `IntKey_NestedOwnedCollection` AS `i2` ON IIF(`i3`.`OwnedReference_Prop` IS NOT NULL, `i3`.`Id`, NULL) = `i2`.`Owned1IntKeyId`
-ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `i2`.`Owned1IntKeyId`
+ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `i2`.`Owned1IntKeyId`, `i2`.`Id`
 """);
         }
 
@@ -137,7 +137,7 @@ LEFT JOIN (
     LEFT JOIN `IntKey_OwnedCollection_NestedOwnedCollection` AS `i1` ON `i0`.`IntKeyId` = `i1`.`Owned1IntKeyId` AND `i0`.`Id` = `i1`.`Owned1Id`
 ) AS `s` ON `i3`.`Id` = `s`.`IntKeyId`)
 LEFT JOIN `IntKey_NestedOwnedCollection` AS `i2` ON IIF(`i3`.`OwnedReference_Prop` IS NOT NULL, `i3`.`Id`, NULL) = `i2`.`Owned1IntKeyId`
-ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `i2`.`Owned1IntKeyId`
+ORDER BY `i3`.`Id`, `s`.`IntKeyId`, `s`.`Id`, `s`.`Owned1IntKeyId`, `s`.`Owned1Id`, `s`.`Id0`, `i2`.`Owned1IntKeyId`, `i2`.`Id`
 """);
         }
 

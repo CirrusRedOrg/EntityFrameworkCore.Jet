@@ -397,7 +397,7 @@ FROM (
         WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `c`
     FROM `Customers` AS `c`
 ) AS `c0`
-ORDER BY `c0`.`c`
+ORDER BY `c0`.`c`, `c0`.`CustomerID`
 """);
         }
 
@@ -418,7 +418,7 @@ FROM (
         WHERE `o`.`OrderID` = `o1`.`OrderID`) AS `c0`
     FROM `Orders` AS `o`
 ) AS `o4`
-ORDER BY `o4`.`c` DESC, `o4`.`c0` DESC
+ORDER BY `o4`.`c` DESC, `o4`.`c0` DESC, `o4`.`OrderID`
 """);
         }
 
@@ -990,7 +990,7 @@ FROM (
     ORDER BY `o`.`OrderID`
 ) AS `o0`
 WHERE `e0`.`EmployeeID` = `o0`.`EmployeeID`
-ORDER BY `e0`.`EmployeeID`
+ORDER BY `e0`.`EmployeeID`, `o0`.`OrderID`
 """);
         }
 
@@ -1019,7 +1019,7 @@ FROM (
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
 WHERE `e0`.`City` = 'Seattle'
-ORDER BY `e0`.`EmployeeID`
+ORDER BY `e0`.`EmployeeID`, `c0`.`CustomerID`
 """);
         }
 
@@ -1062,11 +1062,11 @@ ORDER BY `c`.`CustomerID`
             await base.OrderBy_arithmetic(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-                    FROM `Employees` AS `e`
-                    ORDER BY `e`.`EmployeeID` - `e`.`EmployeeID`
-                    """);
+                """
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+ORDER BY `e`.`EmployeeID` - `e`.`EmployeeID`, `e`.`EmployeeID`
+""");
         }
 
         public override async Task OrderBy_condition_comparison(bool isAsync)
@@ -1177,7 +1177,7 @@ FROM (
     ) AS `c0`
     ORDER BY `c0`.`ContactName` DESC
 ) AS `c1`
-ORDER BY `c1`.`ContactName`
+ORDER BY `c1`.`ContactName`, `c1`.`CustomerID`
 """);
         }
 
@@ -2140,13 +2140,13 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
             await base.Where_orderby_join_select(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    WHERE `c`.`CustomerID` <> 'ALFKI'
-                    ORDER BY `c`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+WHERE `c`.`CustomerID` <> 'ALFKI'
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+""");
         }
 
         public override async Task Where_join_orderby_join_select(bool isAsync)
@@ -2160,7 +2160,7 @@ FROM (`Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
 LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 WHERE (`c`.`CustomerID` <> 'ALFKI') AND (`o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL)
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o0`.`ProductID`
 """);
         }
 
@@ -2182,13 +2182,13 @@ ORDER BY `c`.`CustomerID`
             await base.Where_orderby_select_many(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`,
-                    `Orders` AS `o`
-                    WHERE `c`.`CustomerID` = 'ALFKI'
-                    ORDER BY `c`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`,
+`Orders` AS `o`
+WHERE `c`.`CustomerID` = 'ALFKI'
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+""");
         }
 
         public override async Task SelectMany_cartesian_product_with_ordering(bool isAsync)
@@ -2196,12 +2196,12 @@ ORDER BY `c`.`CustomerID`
             await base.SelectMany_cartesian_product_with_ordering(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`City`
 FROM `Customers` AS `c`,
 `Employees` AS `e`
 WHERE `c`.`City` = `e`.`City` OR (`c`.`City` IS NULL AND `e`.`City` IS NULL)
-ORDER BY `e`.`City`, `c`.`CustomerID` DESC
+ORDER BY `e`.`City`, `c`.`CustomerID` DESC, `e`.`EmployeeID`
 """);
         }
 
@@ -2344,7 +2344,7 @@ FROM (
     ) AS `c1`
     ORDER BY `c1`.`ContactName` DESC
 ) AS `c2`
-ORDER BY `c2`.`ContactName`
+ORDER BY `c2`.`ContactName`, `c2`.`CustomerID`
 """);
         }
 
@@ -2532,10 +2532,11 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
             await base.OrderBy_true(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task OrderBy_integer(bool isAsync)
@@ -2543,10 +2544,11 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
             await base.OrderBy_integer(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task OrderBy_parameter(bool isAsync)
@@ -2554,10 +2556,11 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
             await base.OrderBy_parameter(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task OrderBy_anon(bool isAsync)
@@ -2634,12 +2637,12 @@ FROM (
             await base.OrderBy_multiple(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`City`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` LIKE 'A%'
-                    ORDER BY `c`.`Country`, `c`.`City`
-                    """);
+                """
+SELECT `c`.`City`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` LIKE 'A%'
+ORDER BY `c`.`Country`, `c`.`City`, `c`.`CustomerID`
+""");
         }
 
         public override async Task OrderBy_ThenBy_Any(bool isAsync)
@@ -2772,7 +2775,7 @@ FROM (
     WHERE `o`.`OrderID` < 10300
 ) AS `o0`
 LEFT JOIN `Orders` AS `o1` ON `o0`.`CustomerID` = `o1`.`CustomerID`
-ORDER BY `o0`.`CustomerID`
+ORDER BY `o0`.`CustomerID`, `o1`.`OrderID`
 """);
         }
 
@@ -2795,7 +2798,7 @@ FROM (
     WHERE `o`.`OrderID` < 10300
 ) AS `o0`
 LEFT JOIN `Orders` AS `o1` ON `o0`.`CustomerID` = `o1`.`CustomerID`
-ORDER BY `o0`.`CustomerID`
+ORDER BY `o0`.`CustomerID`, `o1`.`OrderID`
 """);
         }
 
@@ -2884,7 +2887,7 @@ SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -3061,11 +3064,11 @@ FROM (
             await base.OrderBy_conditional_operator_where_condition_false(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    ORDER BY `c`.`City`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`City`, `c`.`CustomerID`
+""");
         }
 
         public override async Task OrderBy_comparison_operator(bool isAsync)
@@ -3076,7 +3079,7 @@ FROM (
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY NOT (`c`.`Region` = 'ASK' AND `c`.`Region` IS NOT NULL)
+ORDER BY NOT (`c`.`Region` = 'ASK' AND `c`.`Region` IS NOT NULL), `c`.`CustomerID`
 """);
         }
 
@@ -3208,11 +3211,11 @@ WHERE IIF(`c`.`ContactName` IS NULL, `c`.`CompanyName`, `c`.`ContactName`) = 'Li
             await base.Selected_column_can_coalesce(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    ORDER BY IIF(`c`.`Region` IS NULL, 'ZZ', `c`.`Region`)
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY IIF(`c`.`Region` IS NULL, 'ZZ', `c`.`Region`), `c`.`CustomerID`
+""");
         }
 
         public override async Task Environment_newline_is_funcletized(bool isAsync)
@@ -3763,7 +3766,7 @@ FROM (
     ) AS `c0`
     ORDER BY `c0`.`ContactTitle` DESC, `c0`.`ContactName` DESC
 ) AS `c1`
-ORDER BY `c1`.`ContactTitle`, `c1`.`ContactName`
+ORDER BY `c1`.`ContactTitle`, `c1`.`ContactName`, `c1`.`CustomerID`
 """);
         }
 
@@ -3811,7 +3814,7 @@ FROM (
     ) AS `c1`
     ORDER BY `c1`.`ContactTitle` DESC, `c1`.`ContactName` DESC
 ) AS `c0`
-ORDER BY `c0`.`ContactTitle`, `c0`.`ContactName`
+ORDER BY `c0`.`ContactTitle`, `c0`.`ContactName`, `c0`.`CustomerID`
 """);
         }
 
@@ -3844,7 +3847,7 @@ FROM (
     ) AS `c1`
     ORDER BY `c1`.`ContactTitle`, `c1`.`ContactName`
 ) AS `c2`
-ORDER BY `c2`.`ContactTitle`, `c2`.`ContactName`
+ORDER BY `c2`.`ContactTitle`, `c2`.`ContactName`, `c2`.`CustomerID`
 """);
         }
 
@@ -4007,7 +4010,7 @@ FROM (
         ORDER BY `c3`.`ContactTitle`, `c3`.`ContactName`
     ) AS `c0`
 ) AS `c1`
-ORDER BY `c1`.`ContactTitle`
+ORDER BY `c1`.`ContactTitle`, `c1`.`CustomerID`
 """);
         }
 
@@ -4224,12 +4227,12 @@ FROM (
 
             AssertSql(
                 """
-SELECT `c0`.`A`
+SELECT `c0`.`A`, `c0`.`CustomerID`
 FROM (
-    SELECT `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `A`
+    SELECT `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `A`, `c`.`CustomerID`
     FROM `Customers` AS `c`
 ) AS `c0`
-ORDER BY `c0`.`A`
+ORDER BY `c0`.`A`, `c0`.`CustomerID`
 """);
         }
 
@@ -4239,7 +4242,7 @@ ORDER BY `c0`.`A`
 
             AssertSql(
                 """
-SELECT `c0`.`A`, `c0`.`c`
+SELECT `c0`.`A`, `c0`.`c`, `c0`.`CustomerID`
 FROM (
     SELECT (
         SELECT TOP 1 `o1`.`OrderDate`
@@ -4249,14 +4252,14 @@ FROM (
         SELECT TOP 1 `o0`.`OrderDate`
         FROM `Orders` AS `o0`
         WHERE `c`.`CustomerID` = `o0`.`CustomerID`
-        ORDER BY `o0`.`OrderID` DESC) AS `c`
+        ORDER BY `o0`.`OrderID` DESC) AS `c`, `c`.`CustomerID`
     FROM `Customers` AS `c`
     WHERE (
         SELECT COUNT(*)
         FROM `Orders` AS `o`
         WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 1
 ) AS `c0`
-ORDER BY `c0`.`c`
+ORDER BY `c0`.`c`, `c0`.`CustomerID`
 """);
         }
 
@@ -4361,7 +4364,7 @@ FROM (
 
             AssertSql(
                 """
-SELECT `c0`.`Property`, `c0`.`c`
+SELECT `c0`.`Property`, `c0`.`c`, `c0`.`CustomerID`
 FROM (
     SELECT (
         SELECT TOP 1 `o1`.`OrderDate`
@@ -4371,14 +4374,14 @@ FROM (
         SELECT TOP 1 `o0`.`OrderDate`
         FROM `Orders` AS `o0`
         WHERE `c`.`CustomerID` = `o0`.`CustomerID`
-        ORDER BY `o0`.`OrderID` DESC) AS `c`
+        ORDER BY `o0`.`OrderID` DESC) AS `c`, `c`.`CustomerID`
     FROM `Customers` AS `c`
     WHERE (
         SELECT COUNT(*)
         FROM `Orders` AS `o`
         WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 1
 ) AS `c0`
-ORDER BY `c0`.`c`
+ORDER BY `c0`.`c`, `c0`.`CustomerID`
 """);
         }
 
@@ -4403,7 +4406,7 @@ FROM (
     ORDER BY `c0`.`City` DESC, `c0`.`CustomerID` DESC
 ) AS `c1`
 LEFT JOIN `Orders` AS `o` ON `c1`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c1`.`City`, `c1`.`CustomerID`
+ORDER BY `c1`.`City`, `c1`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -4831,7 +4834,7 @@ SELECT `c`.`CustomerID` AS `Id1`, `c0`.`CustomerID` AS `Id2`
 FROM `Customers` AS `c`,
 `Customers` AS `c0`
 WHERE (`c`.`CustomerID` LIKE 'ALFKI%') AND `c`.`CustomerID` = `c0`.`CustomerID`
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `c0`.`CustomerID`
 """);
         }
 
@@ -5117,10 +5120,11 @@ FROM (
             await base.OrderBy_empty_list_contains(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task OrderBy_empty_list_does_not_contains(bool isAsync)
@@ -5128,10 +5132,11 @@ FROM (
             await base.OrderBy_empty_list_does_not_contains(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Manual_expression_tree_typed_null_equality(bool isAsync)
@@ -5399,7 +5404,7 @@ FROM (
     ORDER BY `o`.`OrderID`
 ) AS `o1`
 LEFT JOIN `Order Details` AS `o0` ON `o1`.`OrderID` = `o0`.`OrderID`
-ORDER BY `o1`.`OrderID`, `o0`.`OrderID`
+ORDER BY `o1`.`OrderID`, `o0`.`OrderID`, `o0`.`ProductID`
 """);
         }
 
@@ -5424,7 +5429,7 @@ FROM (
     ORDER BY `o1`.`OrderID` DESC
 ) AS `o2`
 LEFT JOIN `Order Details` AS `o0` ON `o2`.`OrderID` = `o0`.`OrderID`
-ORDER BY `o2`.`OrderID`, `o0`.`OrderID`
+ORDER BY `o2`.`OrderID`, `o0`.`OrderID`, `o0`.`ProductID`
 """);
         }
 
@@ -5531,7 +5536,7 @@ FROM (
     ORDER BY `o`.`OrderID`
 ) AS `o1`
 LEFT JOIN `Order Details` AS `o0` ON `o1`.`OrderID` = `o0`.`OrderID`
-ORDER BY `o1`.`OrderID`, `o0`.`OrderID`
+ORDER BY `o1`.`OrderID`, `o0`.`OrderID`, `o0`.`ProductID`
 """);
         }
 
@@ -5556,7 +5561,7 @@ FROM (
     ORDER BY `o1`.`OrderID` DESC
 ) AS `o2`
 LEFT JOIN `Order Details` AS `o0` ON `o2`.`OrderID` = `o0`.`OrderID`
-ORDER BY `o2`.`OrderID`, `o0`.`OrderID`
+ORDER BY `o2`.`OrderID`, `o0`.`OrderID`, `o0`.`ProductID`
 """);
         }
 
@@ -5649,7 +5654,7 @@ LEFT JOIN (
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
 WHERE (`o`.`Quantity` + CINT(1)) = CINT(5) AND (`o`.`Quantity` - CINT(1)) = CINT(3) AND (`o`.`Quantity` * CINT(1)) = `o`.`Quantity`
-ORDER BY `o`.`OrderID`
+ORDER BY `o`.`OrderID`, `o`.`ProductID`
 """);
         }
 
@@ -6221,7 +6226,7 @@ LEFT JOIN (
     FROM `Orders` AS `o0`
 ) AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o1`.`CustomerID`
 """);
         }
 
@@ -6443,7 +6448,7 @@ FROM `Customers` AS `c`
 SELECT `c`.`CustomerID`, `o`.`OrderID`
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -7303,7 +7308,7 @@ FROM (
     WHERE `o`.`OrderID` IN (@ids1, @ids2)
     GROUP BY `o`.`Quantity`
 ) AS `o3`
-ORDER BY `o3`.`MaxTimestamp`
+ORDER BY `o3`.`MaxTimestamp`, `o3`.`Key`
 """);
         }
 
@@ -7535,6 +7540,7 @@ WHERE EXISTS (
                 """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
+ORDER BY `o`.`OrderID`
 """);
         }
 

@@ -490,7 +490,7 @@ LEFT JOIN (
     FROM `OrderForLinq` AS `o`
     LEFT JOIN `CustomerForLinq` AS `c0` ON `o`.`CustomerId` = `c0`.`Id`
 ) AS `s` ON `c`.`Id` = `s`.`Id0`
-ORDER BY `c`.`Id`
+ORDER BY `c`.`Id`, `s`.`Id`
 """);
     }
 
@@ -500,7 +500,7 @@ ORDER BY `c`.`Id`
 
         AssertSql(
             """
-SELECT `p2`.`c`, `p2`.`c0`
+SELECT `p2`.`c`, `p2`.`c0`, `p2`.`LastName`
 FROM (
     SELECT (
         SELECT TOP 1 `p0`.`LastName`
@@ -513,7 +513,7 @@ FROM (
     WHERE `p`.`MiddleInitial` = 'Q' AND `p`.`Age` = 20
     GROUP BY `p`.`LastName`
 ) AS `p2`
-ORDER BY `p2`.`c0`
+ORDER BY `p2`.`c0`, `p2`.`LastName`
 """);
     }
 
@@ -523,7 +523,7 @@ ORDER BY `p2`.`c0`
 
         AssertSql(
             """
-SELECT `p2`.`c`
+SELECT `p2`.`c`, `p2`.`FirstName`
 FROM (
     SELECT (
         SELECT TOP 1 `p0`.`LastName`
@@ -532,7 +532,7 @@ FROM (
     FROM `Person` AS `p`
     GROUP BY `p`.`FirstName`
 ) AS `p2`
-ORDER BY `p2`.`c`
+ORDER BY `p2`.`c`, `p2`.`FirstName`
 """);
     }
 
@@ -542,7 +542,7 @@ ORDER BY `p2`.`c`
 
         AssertSql(
             """
-SELECT `p2`.`c`
+SELECT `p2`.`c`, `p2`.`Id`
 FROM (
     SELECT (
         SELECT TOP 1 `p0`.`MiddleInitial`
@@ -552,7 +552,7 @@ FROM (
     WHERE `p`.`Age` = 20
     GROUP BY `p`.`Id`
 ) AS `p2`
-ORDER BY `p2`.`c`
+ORDER BY `p2`.`c`, `p2`.`Id`
 """);
     }
 
@@ -652,7 +652,7 @@ LEFT JOIN (
     FROM `Person` AS `p0`
     LEFT JOIN `Shoes` AS `s` ON `p0`.`Id` = `s`.`PersonId`
 ) AS `s0` ON `p1`.`FirstName` = `s0`.`FirstName`
-ORDER BY `p1`.`FirstName`, `s0`.`Id`
+ORDER BY `p1`.`FirstName`, `s0`.`Id`, `s0`.`Id0`
 """);
     }
 
@@ -674,7 +674,7 @@ LEFT JOIN (
     FROM `Person` AS `p0`
     INNER JOIN `Shoes` AS `s0` ON `p0`.`Age` = `s0`.`Age`
 ) AS `s2` ON `s1`.`Id` = `s2`.`Id0` AND (`s1`.`Style` = `s2`.`Style` OR (`s1`.`Style` IS NULL AND `s2`.`Style` IS NULL)) AND `s1`.`Age` = `s2`.`Age`
-ORDER BY `s1`.`Id`, `s1`.`Style`, `s1`.`Age`, `s2`.`Id0`
+ORDER BY `s1`.`Id`, `s1`.`Style`, `s1`.`Age`, `s2`.`Id0`, `s2`.`Id`
 """);
     }
 

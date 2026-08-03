@@ -444,7 +444,7 @@ FROM `Roses` AS `r`
             """
 SELECT `k`.`Name`
 FROM `Kiwi` AS `k`
-ORDER BY `k`.`Name`
+ORDER BY `k`.`Name`, `k`.`Id`
 """);
     }
 

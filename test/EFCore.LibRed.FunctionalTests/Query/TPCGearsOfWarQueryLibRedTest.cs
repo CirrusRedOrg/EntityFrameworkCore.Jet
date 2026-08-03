@@ -3766,10 +3766,10 @@ FROM `Weapons` AS `w`
         await base.Member_access_on_derived_entity_using_cast(async);
 
         AssertSql(
-"""
+            """
 SELECT `l`.`Name`, `l`.`Eradicated`
 FROM `LocustHordes` AS `l`
-ORDER BY `l`.`Name`
+ORDER BY `l`.`Name`, `l`.`Id`
 """);
     }
 
@@ -3781,7 +3781,7 @@ ORDER BY `l`.`Name`
             """
 SELECT `l`.`Id`, `l`.`CapitalName`, `l`.`Name`, `l`.`ServerAddress`, `l`.`CommanderName`, `l`.`DeputyCommanderName`, `l`.`Eradicated`
 FROM `LocustHordes` AS `l`
-ORDER BY `l`.`Name`
+ORDER BY `l`.`Name`, `l`.`Id`
 """);
     }
 
@@ -3790,10 +3790,10 @@ ORDER BY `l`.`Name`
         await base.Member_access_on_derived_entity_using_cast_and_let(async);
 
         AssertSql(
-"""
+            """
 SELECT `l`.`Name`, `l`.`Eradicated`
 FROM `LocustHordes` AS `l`
-ORDER BY `l`.`Name`
+ORDER BY `l`.`Name`, `l`.`Id`
 """);
     }
 
@@ -3802,10 +3802,10 @@ ORDER BY `l`.`Name`
         await base.Property_access_on_derived_entity_using_cast(async);
 
         AssertSql(
-"""
+            """
 SELECT `l`.`Name`, `l`.`Eradicated`
 FROM `LocustHordes` AS `l`
-ORDER BY `l`.`Name`
+ORDER BY `l`.`Name`, `l`.`Id`
 """);
     }
 
@@ -3814,11 +3814,11 @@ ORDER BY `l`.`Name`
         await base.Navigation_access_on_derived_entity_using_cast(async);
 
         AssertSql(
-"""
+            """
 SELECT `l`.`Name`, `l0`.`ThreatLevel` AS `Threat`
 FROM `LocustHordes` AS `l`
 LEFT JOIN `LocustCommanders` AS `l0` ON `l`.`CommanderName` = `l0`.`Name`
-ORDER BY `l`.`Name`
+ORDER BY `l`.`Name`, `l`.`Id`
 """);
     }
 
@@ -3831,7 +3831,7 @@ ORDER BY `l`.`Name`
 SELECT `l`.`Id`, `l`.`CapitalName`, `l`.`Name`, `l`.`ServerAddress`, `l`.`CommanderName`, `l`.`DeputyCommanderName`, `l`.`Eradicated`, `l0`.`ThreatLevel` AS `Threat`
 FROM `LocustHordes` AS `l`
 LEFT JOIN `LocustCommanders` AS `l0` ON `l`.`CommanderName` = `l0`.`Name`
-ORDER BY `l`.`Name`
+ORDER BY `l`.`Name`, `l`.`Id`
 """);
     }
 
@@ -3840,11 +3840,11 @@ ORDER BY `l`.`Name`
         await base.Navigation_access_via_EFProperty_on_derived_entity_using_cast(async);
 
         AssertSql(
-"""
+            """
 SELECT `l`.`Name`, `l0`.`ThreatLevel` AS `Threat`
 FROM `LocustHordes` AS `l`
 LEFT JOIN `LocustCommanders` AS `l0` ON `l`.`CommanderName` = `l0`.`Name`
-ORDER BY `l`.`Name`
+ORDER BY `l`.`Name`, `l`.`Id`
 """);
     }
 
@@ -3853,11 +3853,11 @@ ORDER BY `l`.`Name`
         await base.Navigation_access_fk_on_derived_entity_using_cast(async);
 
         AssertSql(
-"""
+            """
 SELECT `l`.`Name`, `l0`.`Name` AS `CommanderName`
 FROM `LocustHordes` AS `l`
 LEFT JOIN `LocustCommanders` AS `l0` ON `l`.`CommanderName` = `l0`.`Name`
-ORDER BY `l`.`Name`
+ORDER BY `l`.`Name`, `l`.`Id`
 """);
     }
 
@@ -4532,7 +4532,7 @@ LEFT JOIN (
         FROM `Officers` AS `o`
     ) AS `u0` ON `u`.`DefeatedByNickname` = `u0`.`Nickname` AND IIF(`u`.`DefeatedBySquadId` IS NULL, NULL, CLNG(`u`.`DefeatedBySquadId`)) = `u0`.`SquadId`
 ) AS `s` ON `l`.`Id` = `s`.`LocustHordeId`
-ORDER BY `l`.`Id`
+ORDER BY `l`.`Id`, `s`.`Name`
 """);
     }
 
@@ -4984,7 +4984,7 @@ LEFT JOIN (
     ) AS `s2` ON `m`.`Id` = `s2`.`MissionId`
     WHERE `s0`.`MissionId` < 42
 ) AS `s3` ON `s`.`Id` = `s3`.`SquadId`
-ORDER BY `s`.`Id`, `s3`.`SquadId`, `s3`.`MissionId`, `s3`.`SquadId0`
+ORDER BY `s`.`Id`, `s3`.`SquadId`, `s3`.`MissionId`, `s3`.`SquadId0`, `s3`.`MissionId0`
 """);
     }
 
@@ -5007,7 +5007,7 @@ LEFT JOIN (
     ) AS `s2` ON `m`.`Id` = `s2`.`MissionId`
     WHERE `s0`.`MissionId` < 3
 ) AS `s3` ON `s`.`Id` = `s3`.`SquadId`
-ORDER BY `s`.`Id`, `s3`.`SquadId`, `s3`.`MissionId`, `s3`.`SquadId0`
+ORDER BY `s`.`Id`, `s3`.`SquadId`, `s3`.`MissionId`, `s3`.`SquadId0`, `s3`.`MissionId0`
 """);
     }
 
@@ -5030,7 +5030,7 @@ LEFT JOIN (
     ) AS `s2` ON `m`.`Id` = `s2`.`MissionId`
     WHERE `s0`.`MissionId` < 42
 ) AS `s3` ON `s`.`Id` = `s3`.`SquadId`
-ORDER BY `s`.`Id`, `s3`.`SquadId`, `s3`.`MissionId`, `s3`.`SquadId0`
+ORDER BY `s`.`Id`, `s3`.`SquadId`, `s3`.`MissionId`, `s3`.`SquadId0`, `s3`.`MissionId0`
 """);
     }
 
@@ -6115,7 +6115,7 @@ FROM (
     ORDER BY `t`.`Note`
 ) AS `s`
 LEFT JOIN `Weapons` AS `w` ON `s`.`FullName` = `w`.`OwnerFullName`
-ORDER BY `s`.`Note`, `s`.`Name`
+ORDER BY `s`.`Note`, `s`.`Name`, `w`.`Id`
 """);
     }
 
@@ -7465,11 +7465,11 @@ ORDER BY `u`.`Nickname`, `u`.`SquadId`
         await base.Double_order_by_on_nullable_bool_coming_from_optional_navigation(async);
 
         AssertSql(
-"""
+            """
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-ORDER BY NOT (`w0`.`IsAutomatic`), `w0`.`Id`
+ORDER BY NOT (`w0`.`IsAutomatic`), `w0`.`Id`, `w`.`Id`
 """);
     }
 
@@ -7482,7 +7482,7 @@ ORDER BY NOT (`w0`.`IsAutomatic`), `w0`.`Id`
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-ORDER BY NOT ((`w0`.`Name` LIKE '%Lancer') AND `w0`.`Name` IS NOT NULL)
+ORDER BY NOT ((`w0`.`Name` LIKE '%Lancer') AND `w0`.`Name` IS NOT NULL), `w`.`Id`
 """);
     }
 
@@ -7495,7 +7495,7 @@ ORDER BY NOT ((`w0`.`Name` LIKE '%Lancer') AND `w0`.`Name` IS NOT NULL)
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-ORDER BY NOT (`w0`.`Name` IS NULL)
+ORDER BY NOT (`w0`.`Name` IS NULL), `w`.`Id`
 """);
     }
 
@@ -7517,12 +7517,12 @@ ORDER BY NOT (`w`.`Name` = 'Marcus'' Lancer' AND `w`.`Name` IS NOT NULL), `w`.`I
 
         AssertSql(
             """
-SELECT `w0`.`Binary`
+SELECT `w0`.`Binary`, `w0`.`Id`
 FROM (
-    SELECT `w`.`Id` + 2 AS `Binary`
+    SELECT `w`.`Id` + 2 AS `Binary`, `w`.`Id`
     FROM `Weapons` AS `w`
 ) AS `w0`
-ORDER BY `w0`.`Binary`
+ORDER BY `w0`.`Binary`, `w0`.`Id`
 """);
     }
 
@@ -7535,7 +7535,7 @@ ORDER BY `w0`.`Binary`
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-ORDER BY NOT (`w0`.`Name` = 'Marcus'' Lancer' AND `w0`.`Name` IS NOT NULL)
+ORDER BY NOT (`w0`.`Name` = 'Marcus'' Lancer' AND `w0`.`Name` IS NOT NULL), `w`.`Id`
 """);
     }
 
@@ -7548,7 +7548,7 @@ ORDER BY NOT (`w0`.`Name` = 'Marcus'' Lancer' AND `w0`.`Name` IS NOT NULL)
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-ORDER BY NOT ('Marcus'' Lancer' = `w0`.`Name` AND `w0`.`Name` IS NOT NULL)
+ORDER BY NOT ('Marcus'' Lancer' = `w0`.`Name` AND `w0`.`Name` IS NOT NULL), `w`.`Id`
 """);
     }
 
@@ -7557,11 +7557,11 @@ ORDER BY NOT ('Marcus'' Lancer' = `w0`.`Name` AND `w0`.`Name` IS NOT NULL)
         await base.String_concat_with_null_conditional_argument(async);
 
         AssertSql(
-"""
+            """
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-ORDER BY IIF(`w0`.`Name` IS NULL, '', `w0`.`Name`) & (5 & '')
+ORDER BY IIF(`w0`.`Name` IS NULL, '', `w0`.`Name`) & (5 & ''), `w`.`Id`
 """);
     }
 
@@ -7570,11 +7570,11 @@ ORDER BY IIF(`w0`.`Name` IS NULL, '', `w0`.`Name`) & (5 & '')
         await base.String_concat_with_null_conditional_argument2(async);
 
         AssertSql(
-"""
+            """
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-ORDER BY IIF(`w0`.`Name` IS NULL, '', `w0`.`Name`) & 'Marcus'' Lancer'
+ORDER BY IIF(`w0`.`Name` IS NULL, '', `w0`.`Name`) & 'Marcus'' Lancer', `w`.`Id`
 """);
     }
 
@@ -7870,7 +7870,7 @@ LEFT JOIN (
     LEFT JOIN `Weapons` AS `w` ON `u`.`FullName` = `w`.`OwnerFullName`
 ) AS `s0` ON `s`.`Id` = `s0`.`SquadId`
 WHERE `s`.`Name` = 'Delta'
-ORDER BY `s`.`Id`, `s0`.`Nickname`, `s0`.`SquadId`
+ORDER BY `s`.`Id`, `s0`.`Nickname`, `s0`.`SquadId`, `s0`.`Id`
 """);
     }
 
@@ -8812,7 +8812,7 @@ FROM (
     ) AS `u`
     WHERE `u`.`Nickname` <> @prm_Inner_Nickname
 ) AS `u0`
-ORDER BY `u0`.`FullName`
+ORDER BY `u0`.`FullName`, `u0`.`SquadId`
 """);
     }
 
@@ -8906,7 +8906,7 @@ FROM (
 ) AS `s1`
 INNER JOIN `Squads` AS `s0` ON `s1`.`SquadId` = `s0`.`Id`
 WHERE `s0`.`Id` = @entity_equality_prm_Inner_Squad_Id
-ORDER BY `s1`.`FullName`
+ORDER BY `s1`.`FullName`, `s1`.`SquadId`
 """);
     }
 
@@ -9576,11 +9576,11 @@ WHERE IIF(`u`.`HasSoulPatch` = @prm, (
         await base.OrderBy_bool_coming_from_optional_navigation(async);
 
         AssertSql(
-"""
+            """
 SELECT `w0`.`Id`, `w0`.`AmmunitionType`, `w0`.`IsAutomatic`, `w0`.`Name`, `w0`.`OwnerFullName`, `w0`.`SynergyWithId`
 FROM `Weapons` AS `w`
 LEFT JOIN `Weapons` AS `w0` ON `w`.`SynergyWithId` = `w0`.`Id`
-ORDER BY NOT (`w0`.`IsAutomatic`)
+ORDER BY NOT (`w0`.`IsAutomatic`), `w`.`Id`
 """);
     }
 
@@ -12077,7 +12077,7 @@ FROM (
     ) AS `u0`
     ORDER BY `u0`.`FullName` DESC
 ) AS `u1`
-ORDER BY `u1`.`FullName`
+ORDER BY `u1`.`FullName`, `u1`.`SquadId`
 """);
     }
 
@@ -12105,7 +12105,7 @@ FROM (
     ) AS `u0`
     ORDER BY `u0`.`FullName` DESC
 ) AS `u1`
-ORDER BY `u1`.`FullName`
+ORDER BY `u1`.`FullName`, `u1`.`SquadId`
 """);
     }
 
@@ -12133,7 +12133,7 @@ FROM (
     ) AS `u0`
     ORDER BY `u0`.`FullName` DESC
 ) AS `u1`
-ORDER BY `u1`.`FullName`
+ORDER BY `u1`.`FullName`, `u1`.`SquadId`
 """);
     }
 

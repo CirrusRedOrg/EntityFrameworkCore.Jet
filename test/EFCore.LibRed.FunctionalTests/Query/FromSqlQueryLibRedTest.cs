@@ -537,7 +537,7 @@ FROM (
     SELECT * FROM `Customers`
 ) AS `m`
 LEFT JOIN `Orders` AS `o` ON `m`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `m`.`CustomerID`
+ORDER BY `m`.`CustomerID`, `o`.`OrderID`
 """);
     }
 
@@ -553,7 +553,7 @@ FROM (
 ) AS `m`
 LEFT JOIN `Orders` AS `o` ON `m`.`CustomerID` = `o`.`CustomerID`
 WHERE `m`.`City` = 'London'
-ORDER BY `m`.`CustomerID`
+ORDER BY `m`.`CustomerID`, `o`.`OrderID`
 """);
     }
 
@@ -662,7 +662,7 @@ FROM (
     SELECT * FROM `Customers` WHERE `CustomerID` = 'AROUT'
 ) AS `m0`
 LEFT JOIN `Orders` AS `o` ON `m0`.`CustomerID` = `o`.`CustomerID`)
-ORDER BY `m`.`CustomerID`, `m0`.`CustomerID`
+ORDER BY `m`.`CustomerID`, `m0`.`CustomerID`, `o`.`OrderID`
 """);
     }
 
@@ -680,7 +680,7 @@ INNER JOIN (
     SELECT * FROM `Orders` WHERE `OrderID` <> 1
 ) AS `m0` ON `m`.`CustomerID` = `m0`.`CustomerID`)
 LEFT JOIN `Order Details` AS `o` ON `m0`.`OrderID` = `o`.`OrderID`
-ORDER BY `m`.`CustomerID`, `m0`.`OrderID`, `o`.`OrderID`
+ORDER BY `m`.`CustomerID`, `m0`.`OrderID`, `o`.`OrderID`, `o`.`ProductID`
 """);
     }
 

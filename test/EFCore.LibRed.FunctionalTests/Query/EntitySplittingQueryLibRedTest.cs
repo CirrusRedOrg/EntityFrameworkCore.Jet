@@ -109,7 +109,7 @@ LEFT JOIN (
     INNER JOIN `SplitEntityOnePart3` AS `s` ON `e0`.`Id` = `s`.`Id`)
     INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e0`.`Id` = `s0`.`Id`
 ) AS `s1` ON `e`.`Id` = `s1`.`EntityThreeId`
-ORDER BY `e`.`Id`
+ORDER BY `e`.`Id`, `s1`.`Id`
 """);
     }
 
@@ -146,7 +146,7 @@ LEFT JOIN (
     INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e0`.`Id` = `s0`.`Id`)
     LEFT JOIN `EntityTwo` AS `e1` ON `e0`.`Id` = `e1`.`EntityOneId`
 ) AS `s1` ON `e`.`Id` = `s1`.`EntityThreeId`
-ORDER BY `e`.`Id`, `s1`.`Id`
+ORDER BY `e`.`Id`, `s1`.`Id`, `s1`.`Id0`
 """);
     }
 
@@ -169,13 +169,13 @@ LEFT JOIN `EntityThree` AS `e0` ON `e`.`EntityThreeId` = `e0`.`Id`
         await base.Include_collection_on_split_entity(async);
 
         AssertSql(
-"""
+            """
 SELECT `e`.`Id`, `e`.`EntityThreeId`, `e`.`IntValue1`, `e`.`IntValue2`, `s0`.`IntValue3`, `s`.`IntValue4`, `e`.`StringValue1`, `e`.`StringValue2`, `s0`.`StringValue3`, `s`.`StringValue4`, `e0`.`Id`, `e0`.`EntityOneId`, `e0`.`Name`
 FROM ((`EntityOne` AS `e`
 INNER JOIN `SplitEntityOnePart3` AS `s` ON `e`.`Id` = `s`.`Id`)
 INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e`.`Id` = `s0`.`Id`)
 LEFT JOIN `EntityTwo` AS `e0` ON `e`.`Id` = `e0`.`EntityOneId`
-ORDER BY `e`.`Id`
+ORDER BY `e`.`Id`, `e0`.`Id`
 """);
     }
 
@@ -275,13 +275,13 @@ INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e`.`Id` = `s0`.`Id`
         await base.Split_entity_owning_a_collection(async);
 
         AssertSql(
-"""
+            """
 SELECT `e`.`Id`, `e`.`EntityThreeId`, `e`.`IntValue1`, `e`.`IntValue2`, `s0`.`IntValue3`, `s`.`IntValue4`, `e`.`StringValue1`, `e`.`StringValue2`, `s0`.`StringValue3`, `s`.`StringValue4`, `o`.`EntityOneId`, `o`.`Id`, `o`.`OwnedIntValue1`, `o`.`OwnedIntValue2`, `o`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `o`.`OwnedStringValue1`, `o`.`OwnedStringValue2`, `o`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
 FROM ((`EntityOne` AS `e`
 INNER JOIN `SplitEntityOnePart3` AS `s` ON `e`.`Id` = `s`.`Id`)
 INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e`.`Id` = `s0`.`Id`)
 LEFT JOIN `OwnedCollection` AS `o` ON `e`.`Id` = `o`.`EntityOneId`
-ORDER BY `e`.`Id`, `o`.`EntityOneId`
+ORDER BY `e`.`Id`, `o`.`EntityOneId`, `o`.`Id`
 """);
     }
 

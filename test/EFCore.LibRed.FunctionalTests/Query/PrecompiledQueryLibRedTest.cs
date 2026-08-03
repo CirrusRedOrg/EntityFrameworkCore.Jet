@@ -1882,7 +1882,7 @@ WHERE `b`.`Name` = 'Blog2'
             """
 SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
-ORDER BY `b`.`Name`
+ORDER BY `b`.`Name`, `b`.`Id`
 """);
     }
 
@@ -1926,7 +1926,7 @@ OFFSET @p ROWS
 
 SELECT TOP @p `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
-ORDER BY `b`.`Name`
+ORDER BY `b`.`Name`, `b`.`Id`
 """);
     }
 
@@ -1940,7 +1940,7 @@ ORDER BY `b`.`Name`
 
 SELECT TOP @p `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
-ORDER BY `b`.`Name`
+ORDER BY `b`.`Name`, `b`.`Id`
 """);
     }
 
@@ -1976,7 +1976,7 @@ SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`, `p`.`Id`, `p`.`BlogId`, `p`.`Title`
 FROM `Blogs` AS `b`
 LEFT JOIN `Posts` AS `p` ON `b`.`Id` = `p`.`BlogId`
 WHERE `b`.`Id` > 8
-ORDER BY `b`.`Id`
+ORDER BY `b`.`Id`, `p`.`Id`
 """);
     }
 
@@ -2007,7 +2007,7 @@ ORDER BY `b`.`Id`
             """
 SELECT `b`.`Name`, `b`.`Id`, `b`.`Json`
 FROM `Blogs` AS `b`
-ORDER BY `b`.`Name`
+ORDER BY `b`.`Name`, `b`.`Id`
 """);
     }
 

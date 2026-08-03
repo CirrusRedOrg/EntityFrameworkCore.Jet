@@ -136,7 +136,7 @@ ORDER BY LEN(`c`.`CustomerID`), `c`.`CustomerID`
 SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY LEN(`c`.`CustomerID`), `c`.`CustomerID`
+ORDER BY LEN(`c`.`CustomerID`), `c`.`CustomerID`, `o`.`OrderID`
 """);
         }
 

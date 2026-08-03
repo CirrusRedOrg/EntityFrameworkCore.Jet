@@ -33,7 +33,7 @@ LEFT JOIN (
 LEFT JOIN `NestedAssociateType` AS `n6` ON `a`.`Id` = `n6`.`CollectionAssociateId`)
 LEFT JOIN `NestedAssociateType` AS `n7` ON `a0`.`Id` = `n7`.`CollectionAssociateId`
 WHERE `a0`.`RequiredNestedAssociateId` IS NOT NULL AND `n2`.`Id` IS NOT NULL
-ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`, `n6`.`Id`
+ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`, `n6`.`Id`, `n7`.`Id`
 """);
     }
 
@@ -104,7 +104,7 @@ LEFT JOIN `NestedAssociateType` AS `n` ON `a`.`OptionalNestedAssociateId` = `n`.
 LEFT JOIN `NestedAssociateType` AS `n0` ON `a`.`RequiredNestedAssociateId` = `n0`.`Id`)
 LEFT JOIN `NestedAssociateType` AS `n1` ON `a`.`Id` = `n1`.`CollectionAssociateId`
 WHERE `a`.`RequiredNestedAssociateId` IS NOT NULL AND `n0`.`Id` IS NOT NULL
-ORDER BY `r`.`Id`
+ORDER BY `r`.`Id`, `n1`.`Id`
 """);
     }
 
@@ -120,7 +120,7 @@ LEFT JOIN `AssociateType` AS `a` ON `r`.`OptionalAssociateId` = `a`.`Id`)
 LEFT JOIN `NestedAssociateType` AS `n` ON `a`.`OptionalNestedAssociateId` = `n`.`Id`)
 LEFT JOIN `NestedAssociateType` AS `n0` ON `a`.`RequiredNestedAssociateId` = `n0`.`Id`)
 LEFT JOIN `NestedAssociateType` AS `n1` ON `a`.`Id` = `n1`.`CollectionAssociateId`
-ORDER BY `r`.`Id`
+ORDER BY `r`.`Id`, `n1`.`Id`
 """);
     }
 
@@ -190,7 +190,7 @@ LEFT JOIN `AssociateType` AS `a` ON `r0`.`RequiredAssociateId` = `a`.`Id`)
 LEFT JOIN `NestedAssociateType` AS `n` ON `a`.`OptionalNestedAssociateId` = `n`.`Id`)
 LEFT JOIN `NestedAssociateType` AS `n0` ON `a`.`RequiredNestedAssociateId` = `n0`.`Id`)
 LEFT JOIN `NestedAssociateType` AS `n1` ON `a`.`Id` = `n1`.`CollectionAssociateId`
-ORDER BY `r`.`Id`
+ORDER BY `r`.`Id`, `n1`.`Id`
 """);
     }
 
@@ -207,7 +207,7 @@ LEFT JOIN `NestedAssociateType` AS `n` ON `a`.`OptionalNestedAssociateId` = `n`.
 LEFT JOIN `NestedAssociateType` AS `n0` ON `a`.`RequiredNestedAssociateId` = `n0`.`Id`)
 LEFT JOIN `NestedAssociateType` AS `n1` ON `a`.`Id` = `n1`.`CollectionAssociateId`
 WHERE `a`.`RequiredNestedAssociateId` IS NOT NULL AND `n0`.`Id` IS NOT NULL
-ORDER BY `r`.`Id`
+ORDER BY `r`.`Id`, `n1`.`Id`
 """);
     }
 
@@ -242,7 +242,7 @@ LEFT JOIN (
     INNER JOIN `NestedAssociateType` AS `n0` ON `a`.`RequiredNestedAssociateId` = `n0`.`Id`)
     LEFT JOIN `NestedAssociateType` AS `n1` ON `a`.`Id` = `n1`.`CollectionAssociateId`
 ) AS `s` ON `r`.`Id` = `s`.`CollectionRootId`
-ORDER BY `r`.`Id`, `s`.`Id`
+ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`
 """);
     }
 
@@ -256,7 +256,7 @@ SELECT `r`.`Id`, `n`.`Id`, `n`.`CollectionAssociateId`, `n`.`Int`, `n`.`Ints`, `
 FROM (`RootEntity` AS `r`
 INNER JOIN `AssociateType` AS `a` ON `r`.`RequiredAssociateId` = `a`.`Id`)
 LEFT JOIN `NestedAssociateType` AS `n` ON `a`.`Id` = `n`.`CollectionAssociateId`
-ORDER BY `r`.`Id`
+ORDER BY `r`.`Id`, `n`.`Id`
 """);
     }
 
@@ -270,7 +270,7 @@ SELECT `r`.`Id`, `n`.`Id`, `n`.`CollectionAssociateId`, `n`.`Int`, `n`.`Ints`, `
 FROM (`RootEntity` AS `r`
 LEFT JOIN `AssociateType` AS `a` ON `r`.`OptionalAssociateId` = `a`.`Id`)
 LEFT JOIN `NestedAssociateType` AS `n` ON `a`.`Id` = `n`.`CollectionAssociateId`
-ORDER BY `r`.`Id`
+ORDER BY `r`.`Id`, `n`.`Id`
 """);
     }
 
@@ -287,7 +287,7 @@ LEFT JOIN `NestedAssociateType` AS `n` ON `a`.`OptionalNestedAssociateId` = `n`.
 LEFT JOIN `NestedAssociateType` AS `n0` ON `a`.`RequiredNestedAssociateId` = `n0`.`Id`)
 LEFT JOIN `NestedAssociateType` AS `n1` ON `a`.`Id` = `n1`.`CollectionAssociateId`
 WHERE `a`.`RequiredNestedAssociateId` IS NOT NULL AND `n0`.`Id` IS NOT NULL
-ORDER BY `r`.`Id`, `a`.`Id`
+ORDER BY `r`.`Id`, `a`.`Id`, `n1`.`Id`
 """);
     }
 
@@ -356,7 +356,7 @@ LEFT JOIN (
 LEFT JOIN `NestedAssociateType` AS `n11` ON `a`.`Id` = `n11`.`CollectionAssociateId`)
 LEFT JOIN `NestedAssociateType` AS `n12` ON `a0`.`Id` = `n12`.`CollectionAssociateId`
 WHERE `a0`.`RequiredNestedAssociateId` IS NOT NULL AND `n2`.`Id` IS NOT NULL
-ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`, `n6`.`Id`, `n7`.`Id`, `s0`.`Id`, `s0`.`Id0`, `n11`.`Id`
+ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`, `n6`.`Id`, `n7`.`Id`, `s0`.`Id`, `s0`.`Id0`, `n11`.`Id`, `n12`.`Id`
 """);
     }
 

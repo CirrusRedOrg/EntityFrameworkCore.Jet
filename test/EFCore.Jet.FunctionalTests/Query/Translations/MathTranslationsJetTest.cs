@@ -484,6 +484,40 @@ FROM `BasicTypesEntities` AS `b`
 """);
     }
 
+    public override async Task Sign_decimal()
+    {
+        await base.Sign_decimal();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE SGN(`b`.`Decimal`) > 0
+""",
+            //
+            """
+SELECT SGN(`b`.`Decimal`)
+FROM `BasicTypesEntities` AS `b`
+""");
+    }
+
+    public override async Task Sign_int()
+    {
+        await base.Sign_int();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE SGN(`b`.`Int`) > 0
+""",
+            //
+            """
+SELECT SGN(`b`.`Int`)
+FROM `BasicTypesEntities` AS `b`
+""");
+    }
+
     public override async Task Sign_float()
     {
         await base.Sign_float();

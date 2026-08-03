@@ -1060,7 +1060,7 @@ FROM (
     FROM `Customer` AS `c1`,
     `Customer` AS `c2`
 ) AS `u`
-ORDER BY `u`.`BillingAddress_ZipCode`, `u`.`BillingAddress_ZipCode0`
+ORDER BY `u`.`BillingAddress_ZipCode`, `u`.`BillingAddress_ZipCode0`, `u`.`BillingAddress_Country_FullName0`
 """);
     }
 
@@ -1089,7 +1089,7 @@ FROM (
         ORDER BY `u`.`BillingAddress_ZipCode`, `u`.`BillingAddress_ZipCode0`
     ) AS `u0`
 ) AS `u1`
-ORDER BY `u1`.`BillingAddress_ZipCode`, `u1`.`BillingAddress_ZipCode0`
+ORDER BY `u1`.`BillingAddress_ZipCode`, `u1`.`BillingAddress_ZipCode0`, `u1`.`BillingAddress_Country_FullName0`
 """);
     }
 

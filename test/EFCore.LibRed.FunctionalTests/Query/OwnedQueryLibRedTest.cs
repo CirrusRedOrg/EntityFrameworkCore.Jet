@@ -53,7 +53,7 @@ LEFT JOIN (
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
 ) AS `s` ON `o`.`Id` = `s`.`ClientId`
-ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`
 """);
         }
 
@@ -82,7 +82,7 @@ LEFT JOIN (
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
 ) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `o`.`Discriminator` IN ('Branch', 'LeafA')
-ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`
 """);
         }
 
@@ -100,7 +100,7 @@ LEFT JOIN (
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
 ) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `o`.`Discriminator` IN ('Branch', 'LeafA')
-ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`
 """);
         }
 
@@ -118,7 +118,7 @@ LEFT JOIN (
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
 ) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `o`.`Discriminator` = 'LeafA'
-ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`
 """);
         }
 
@@ -144,7 +144,7 @@ LEFT JOIN (
     FROM `Order` AS `o1`
     LEFT JOIN `OrderDetail` AS `o2` ON `o1`.`ClientId` = `o2`.`OrderClientId` AND `o1`.`Id` = `o2`.`OrderId`
 ) AS `s` ON `o3`.`Id` = `s`.`ClientId`
-ORDER BY `o3`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
+ORDER BY `o3`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`
 """);
         }
 
@@ -174,7 +174,7 @@ LEFT JOIN (
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
 ) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `o`.`PersonAddress_Country_Name` = 'USA'
-ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`
 """);
         }
 
@@ -195,7 +195,7 @@ WHERE EXISTS (
     SELECT 1
     FROM `Order` AS `o0`
     WHERE `o`.`Id` = `o0`.`ClientId`)
-ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`
 """);
         }
 
@@ -241,12 +241,12 @@ ORDER BY `o`.`Id`
 
             AssertSql(
                 """
-                    SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o`.`Id`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id`, `o1`.`Detail`
-                    FROM (`OwnedPerson` AS `o`
-                    INNER JOIN `Order` AS `o0` ON `o`.`Id` = `o0`.`ClientId`)
-                    LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
-                    ORDER BY `o`.`Id`, `o0`.`ClientId`, `o0`.`Id`, `o1`.`OrderClientId`, `o1`.`OrderId`
-                    """);
+SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o`.`Id`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id`, `o1`.`Detail`
+FROM (`OwnedPerson` AS `o`
+INNER JOIN `Order` AS `o0` ON `o`.`Id` = `o0`.`ClientId`)
+LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
+ORDER BY `o`.`Id`, `o0`.`ClientId`, `o0`.`Id`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id`
+""");
         }
 
         public override async Task Navigation_rewrite_on_owned_reference_followed_by_regular_entity(bool isAsync)
@@ -276,7 +276,7 @@ LEFT JOIN (
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
 ) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `p`.`Id` <> 42 OR `p`.`Id` IS NULL
-ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`
 """);
         }
 
@@ -294,7 +294,7 @@ LEFT JOIN (
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
 ) AS `s` ON `o`.`Id` = `s`.`ClientId`
-ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`
 """);
         }
 
@@ -332,7 +332,7 @@ LEFT JOIN (
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
 ) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `p`.`Id` <> 7 OR `p`.`Id` IS NULL
-ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`
 """);
         }
 
@@ -358,7 +358,7 @@ SELECT `o`.`Id`, `m`.`Id`, `m`.`Diameter`, `m`.`PlanetId`
 FROM (`OwnedPerson` AS `o`
 LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
 LEFT JOIN `Moon` AS `m` ON `p`.`Id` = `m`.`PlanetId`
-ORDER BY `o`.`Id`
+ORDER BY `o`.`Id`, `m`.`Id`
 """);
         }
 
@@ -402,7 +402,7 @@ FROM ((`OwnedPerson` AS `o`
 LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
 LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`)
 LEFT JOIN `Element` AS `e` ON `s`.`Id` = `e`.`StarId`
-ORDER BY `o`.`Id`
+ORDER BY `o`.`Id`, `e`.`Id`
 """);
         }
 
@@ -434,7 +434,7 @@ LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
 LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`)
 LEFT JOIN `Element` AS `e` ON `s`.`Id` = `e`.`StarId`
 WHERE `s`.`Name` = 'Sol'
-ORDER BY `o`.`Id`
+ORDER BY `o`.`Id`, `e`.`Id`
 """);
         }
 
@@ -452,7 +452,7 @@ LEFT JOIN (
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
 ) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `o`.`Discriminator` = 'LeafA'
-ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`
 """);
         }
 
@@ -482,7 +482,7 @@ LEFT JOIN (
     FROM `Order` AS `o0`
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
 ) AS `s` ON `o4`.`Id` = `s`.`ClientId`
-ORDER BY `o4`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
+ORDER BY `o4`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`
 """);
         }
 
@@ -500,7 +500,7 @@ LEFT JOIN (
     LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
 ) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE `o`.`Id` = 1
-ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
+ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`
 """);
         }
 

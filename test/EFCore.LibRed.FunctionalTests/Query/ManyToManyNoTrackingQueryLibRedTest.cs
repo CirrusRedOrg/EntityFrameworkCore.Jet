@@ -378,7 +378,7 @@ LEFT JOIN (
         WHERE `e0`.`Discriminator` = 'EntityLeaf'
     ) AS `e1` ON `j`.`LeafId` = `e1`.`Id`
 ) AS `s` ON `e`.`Key1` = `s`.`CompositeId1` AND `e`.`Key2` = `s`.`CompositeId2` AND `e`.`Key3` = `s`.`CompositeId3`
-ORDER BY `e`.`Key1`, `e`.`Key2`, `e`.`Key3`, `s`.`LeafId`, `s`.`CompositeId1`, `s`.`CompositeId2`
+ORDER BY `e`.`Key1`, `e`.`Key2`, `e`.`Key3`, `s`.`LeafId`, `s`.`CompositeId1`, `s`.`CompositeId2`, `s`.`CompositeId3`
 """);
     }
 
@@ -396,7 +396,7 @@ LEFT JOIN (
     INNER JOIN `EntityRoots` AS `e1` ON `e0`.`RootSkipSharedId` = `e1`.`Id`
     WHERE `e1`.`Discriminator` = 'EntityLeaf'
 ) AS `s` ON `e`.`Key1` = `s`.`CompositeKeySkipSharedKey1` AND `e`.`Key2` = `s`.`CompositeKeySkipSharedKey2` AND `e`.`Key3` = `s`.`CompositeKeySkipSharedKey3`
-ORDER BY `e`.`Key1`, `e`.`Key2`, `e`.`Key3`, `s`.`RootSkipSharedId`, `s`.`CompositeKeySkipSharedKey1`, `s`.`CompositeKeySkipSharedKey2`
+ORDER BY `e`.`Key1`, `e`.`Key2`, `e`.`Key3`, `s`.`RootSkipSharedId`, `s`.`CompositeKeySkipSharedKey1`, `s`.`CompositeKeySkipSharedKey2`, `s`.`CompositeKeySkipSharedKey3`
 """);
     }
 
@@ -582,7 +582,7 @@ LEFT JOIN (
     FROM `JoinOneSelfPayload` AS `j`
     INNER JOIN `EntityOnes` AS `e0` ON `j`.`LeftId` = `e0`.`Id`
 ) AS `s` ON `e`.`Id` = `s`.`RightId`
-ORDER BY `e`.`Id`, `s`.`LeftId`
+ORDER BY `e`.`Id`, `s`.`LeftId`, `s`.`RightId`
 """);
     }
 
@@ -609,7 +609,7 @@ LEFT JOIN (
     FROM `EntityCompositeKeyEntityTwo` AS `e3`
     INNER JOIN `EntityCompositeKeys` AS `e4` ON `e3`.`CompositeKeySkipSharedKey1` = `e4`.`Key1` AND `e3`.`CompositeKeySkipSharedKey2` = `e4`.`Key2` AND `e3`.`CompositeKeySkipSharedKey3` = `e4`.`Key3`
 ) AS `s1` ON `e`.`Id` = `s1`.`TwoSkipSharedId`
-ORDER BY `e`.`Id`, `s`.`ThreeId`, `s`.`TwoId`, `s0`.`SelfSkipSharedLeftId`, `s0`.`SelfSkipSharedRightId`, `s1`.`TwoSkipSharedId`, `s1`.`CompositeKeySkipSharedKey1`, `s1`.`CompositeKeySkipSharedKey2`
+ORDER BY `e`.`Id`, `s`.`ThreeId`, `s`.`TwoId`, `s0`.`SelfSkipSharedLeftId`, `s0`.`SelfSkipSharedRightId`, `s1`.`TwoSkipSharedId`, `s1`.`CompositeKeySkipSharedKey1`, `s1`.`CompositeKeySkipSharedKey2`, `s1`.`CompositeKeySkipSharedKey3`
 """);
     }
 
@@ -647,7 +647,7 @@ LEFT JOIN (
     FROM `EntityCompositeKeyEntityRoot` AS `e0`
     INNER JOIN `EntityRoots` AS `e1` ON `e0`.`RootSkipSharedId` = `e1`.`Id`
 ) AS `s` ON `e`.`Key1` = `s`.`CompositeKeySkipSharedKey1` AND `e`.`Key2` = `s`.`CompositeKeySkipSharedKey2` AND `e`.`Key3` = `s`.`CompositeKeySkipSharedKey3`
-ORDER BY `e`.`Key1`, `e`.`Key2`, `e`.`Key3`, `s`.`RootSkipSharedId`, `s`.`CompositeKeySkipSharedKey1`, `s`.`CompositeKeySkipSharedKey2`
+ORDER BY `e`.`Key1`, `e`.`Key2`, `e`.`Key3`, `s`.`RootSkipSharedId`, `s`.`CompositeKeySkipSharedKey1`, `s`.`CompositeKeySkipSharedKey2`, `s`.`CompositeKeySkipSharedKey3`
 """);
     }
 
@@ -665,7 +665,7 @@ LEFT JOIN (
     INNER JOIN `EntityOnes` AS `e0` ON `j`.`OneId` = `e0`.`Id`)
     LEFT JOIN `EntityTwos` AS `e1` ON `e0`.`Id` = `e1`.`ReferenceInverseId`
 ) AS `s` ON `e`.`Id` = `s`.`TwoId`
-ORDER BY `e`.`Id`, `s`.`OneId`
+ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`TwoId`
 """);
     }
 
@@ -691,7 +691,7 @@ LEFT JOIN (
         INNER JOIN `EntityOnes` AS `e2` ON `j0`.`EntityOneId` = `e2`.`Id`
     ) AS `s` ON `e1`.`Id` = `s`.`EntityBranchId`
 ) AS `s0` ON `e`.`Key1` = `s0`.`CompositeId1` AND `e`.`Key2` = `s0`.`CompositeId2` AND `e`.`Key3` = `s0`.`CompositeId3`
-ORDER BY `e`.`Key1`, `e`.`Key2`, `e`.`Key3`, `s0`.`LeafId`, `s0`.`CompositeId1`, `s0`.`CompositeId2`, `s0`.`CompositeId3`, `s0`.`EntityBranchId`
+ORDER BY `e`.`Key1`, `e`.`Key2`, `e`.`Key3`, `s0`.`LeafId`, `s0`.`CompositeId1`, `s0`.`CompositeId2`, `s0`.`CompositeId3`, `s0`.`EntityBranchId`, `s0`.`EntityOneId`
 """);
     }
 
@@ -714,7 +714,7 @@ LEFT JOIN (
         INNER JOIN `EntityOnes` AS `e2` ON `j0`.`RightId` = `e2`.`Id`
     ) AS `s` ON `e0`.`Id` = `s`.`LeftId`
 ) AS `s0` ON `e`.`Id` = `s0`.`ThreeId`
-ORDER BY `e`.`Id`, `s0`.`OneId`, `s0`.`ThreeId`, `s0`.`LeftId`
+ORDER BY `e`.`Id`, `s0`.`OneId`, `s0`.`ThreeId`, `s0`.`LeftId`, `s0`.`RightId`
 """);
     }
 
@@ -732,7 +732,7 @@ LEFT JOIN (
     FROM `EntityOneEntityTwo` AS `e1`
     INNER JOIN `EntityOnes` AS `e2` ON `e1`.`OneSkipSharedId` = `e2`.`Id`
 ) AS `s` ON `e`.`Id` = `s`.`TwoSkipSharedId`
-ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`
+ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`
 """);
     }
 
@@ -750,7 +750,7 @@ LEFT JOIN (
     INNER JOIN `EntityOnes` AS `e0` ON `j`.`OneId` = `e0`.`Id`
     WHERE `e0`.`Id` < 10
 ) AS `s` ON `e`.`Id` = `s`.`ThreeId`
-ORDER BY `e`.`Id`, `s`.`OneId`
+ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`ThreeId`
 """);
     }
 
@@ -767,7 +767,7 @@ LEFT JOIN (
     FROM `JoinTwoToThree` AS `j`
     INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
 ) AS `s` ON `e`.`Id` = `s`.`ThreeId`
-ORDER BY `e`.`Id`, `s`.`Id`, `s`.`ThreeId`
+ORDER BY `e`.`Id`, `s`.`Id`, `s`.`ThreeId`, `s`.`TwoId`
 """);
     }
 
@@ -853,7 +853,7 @@ LEFT JOIN (
         WHERE `e2`.`Id` < 10
     ) AS `s` ON `e1`.`Id` = `s`.`ThreeId`
 ) AS `s0` ON `e`.`Id` = `s0`.`RootSkipSharedId`
-ORDER BY `e`.`Id`, `s0`.`RootSkipSharedId`, `s0`.`ThreeSkipSharedId`, `s0`.`OneId`
+ORDER BY `e`.`Id`, `s0`.`RootSkipSharedId`, `s0`.`ThreeSkipSharedId`, `s0`.`OneId`, `s0`.`ThreeId`
 """);
     }
 
@@ -903,7 +903,7 @@ LEFT JOIN (
     WHERE `e0`.`Key1` < 5
 ) AS `s0` ON `e`.`Id` = `s0`.`LeafId`
 WHERE `e`.`Discriminator` = 'EntityLeaf'
-ORDER BY `e`.`Id`, `s0`.`LeafId`, `s0`.`CompositeId1`, `s0`.`CompositeId2`, `s0`.`CompositeId3`, `s0`.`TwoSkipSharedId`, `s0`.`CompositeKeySkipSharedKey1`, `s0`.`CompositeKeySkipSharedKey2`
+ORDER BY `e`.`Id`, `s0`.`LeafId`, `s0`.`CompositeId1`, `s0`.`CompositeId2`, `s0`.`CompositeId3`, `s0`.`TwoSkipSharedId`, `s0`.`CompositeKeySkipSharedKey1`, `s0`.`CompositeKeySkipSharedKey2`, `s0`.`CompositeKeySkipSharedKey3`
 """);
     }
 
@@ -979,7 +979,7 @@ LEFT JOIN (
     LEFT JOIN `EntityTwos` AS `e2` ON `e0`.`Id` = `e2`.`CollectionInverseId`
     WHERE `e0`.`Id` < 10
 ) AS `s` ON `e`.`Id` = `s`.`TwoId`
-ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`TwoId`
+ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s`.`Id1`
 """);
     }
 
@@ -1039,7 +1039,7 @@ LEFT JOIN (
     ) AS `e2` ON `e0`.`Id` = `e2`.`CollectionInverseId`
     WHERE `e0`.`Id` > 15
 ) AS `s` ON `e`.`Id` = `s`.`ThreeId`
-ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`ThreeId`
+ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`ThreeId`, `s`.`Id0`
 """);
     }
 
@@ -1062,7 +1062,7 @@ LEFT JOIN (
     ) AS `s` ON `e0`.`Id` = `s`.`TwoId`
     WHERE `e0`.`Id` > 15
 ) AS `s0` ON `e`.`Id` = `s0`.`CollectionInverseId`
-ORDER BY `e`.`Id`, `s0`.`Id`, `s0`.`ThreeId`
+ORDER BY `e`.`Id`, `s0`.`Id`, `s0`.`ThreeId`, `s0`.`TwoId`
 """);
     }
 

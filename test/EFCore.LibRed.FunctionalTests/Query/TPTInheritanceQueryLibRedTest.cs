@@ -38,14 +38,14 @@ INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
         await base.Can_filter_all_animals(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `a`.`Name` = 'Great spotted kiwi'
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -64,7 +64,7 @@ LEFT JOIN (
     LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
     LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 ) AS `s` ON `c`.`Id` = `s`.`CountryId`
-ORDER BY `c`.`Name`, `c`.`Id`
+ORDER BY `c`.`Name`, `c`.`Id`, `s`.`Id`
 """);
     }
 
@@ -88,7 +88,7 @@ LEFT JOIN (
     LEFT JOIN `Eagle` AS `e0` ON `a0`.`Id` = `e0`.`Id`)
     LEFT JOIN `Kiwi` AS `k` ON `a0`.`Id` = `k`.`Id`
 ) AS `s0` ON `s`.`Id` = `s0`.`EagleId`
-ORDER BY `s`.`Id`
+ORDER BY `s`.`Id`, `s0`.`Id`
 """);
     }
 
@@ -100,13 +100,13 @@ ORDER BY `s`.`Id`
         await base.Can_query_all_animals(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -115,13 +115,13 @@ ORDER BY `a`.`Species`
         await base.Can_query_all_birds(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -288,13 +288,13 @@ WHERE `k`.`Id` IS NOT NULL AND `a`.`CountryId` = 1
         await base.Can_use_of_type_animal(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -303,14 +303,14 @@ ORDER BY `a`.`Species`
         await base.Can_use_of_type_bird(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -335,14 +335,14 @@ ORDER BY `a`.`Species`
         await base.Can_use_of_type_bird_predicate(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `a`.`CountryId` = 1 AND (`k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL)
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -421,12 +421,12 @@ WHERE `r`.`Species` IS NOT NULL
         await base.Member_access_on_intermediate_type_works();
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Name`
 FROM (`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-ORDER BY `a`.`Name`
+ORDER BY `a`.`Name`, `a`.`Id`
 """);
     }
 

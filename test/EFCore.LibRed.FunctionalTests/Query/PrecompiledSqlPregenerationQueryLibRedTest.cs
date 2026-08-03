@@ -197,7 +197,7 @@ WHERE `b`.`Name` = @name1 OR `b`.`Name` = @name2 OR `b`.`Name` = @name3 OR `b`.`
 SELECT `b`.`Id`, `b`.`Name`, `p`.`Id`, `p`.`BlogId`, `p`.`Title`
 FROM `Blogs` AS `b`
 LEFT JOIN `Post` AS `p` ON `b`.`Id` = `p`.`BlogId`
-ORDER BY `b`.`Id`
+ORDER BY `b`.`Id`, `p`.`Id`
 """);
     }
 
@@ -228,7 +228,7 @@ ORDER BY `b`.`Id`
             """
 SELECT `b`.`Name`, `b`.`Id`
 FROM `Blogs` AS `b`
-ORDER BY `b`.`Name`
+ORDER BY `b`.`Name`, `b`.`Id`
 """);
     }
 

@@ -1747,7 +1747,7 @@ INNER JOIN (
     HAVING COUNT(*) = 1
 ) AS `i0` ON `t`.`ParcelNumber` = `i0`.`Parcel`
 WHERE `t`.`TableId` = 123
-ORDER BY `t`.`ParcelNumber`
+ORDER BY `t`.`ParcelNumber`, `i0`.`Parcel`
 """);
     }
 

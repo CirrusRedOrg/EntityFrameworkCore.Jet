@@ -18,7 +18,7 @@ public class AdHocPrecompiledQueryLibRedTest(NonSharedFixture fixture, ITestOutp
     protected override bool AlwaysPrintGeneratedSources
         => false;
 
-    [Theory(Skip = "Not supported in LibRed")]
+    [Fact(Skip = "Not supported in LibRed")]
     public override async Task Index_no_evaluatability()
     {
         await base.Index_no_evaluatability();
@@ -30,7 +30,7 @@ WHERE CAST(JSON_VALUE([j].[IntList], '$[' + CAST([j].[Id] AS nvarchar(max)) + ']
 """);
     }
 
-    [Theory(Skip = "Not supported in LibRed")]
+    [Fact(Skip = "Not supported in LibRed")]
     public override async Task Index_with_captured_variable()
     {
         await base.Index_with_captured_variable();

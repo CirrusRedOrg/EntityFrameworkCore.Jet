@@ -1440,7 +1440,7 @@ FROM (
     WHERE `c`.`CustomerID` = 'ALFKI'
 ) AS `c0`
 LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c0`.`CustomerID`
+ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
 """,
                 //
                 """
@@ -1721,15 +1721,15 @@ WHERE `c`.`CustomerID` = @customerID OR `c`.`CustomerID` = @customerId0
 
             AssertSql(
                 """
-                    SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-                    WHERE (
-                        SELECT COUNT(*)
-                        FROM `Orders` AS `o`
-                        WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
-                    ORDER BY `c`.`CustomerID`
-                    """);
+SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+""");
         }
 
         public override async Task Where_Queryable_ToList_Contains(bool async)
@@ -1746,7 +1746,7 @@ WHERE 'ALFKI' IN (
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = `c`.`CustomerID`
 )
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 """);
         }
 
@@ -1756,15 +1756,15 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-                    SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-                    WHERE (
-                        SELECT COUNT(*)
-                        FROM `Orders` AS `o`
-                        WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
-                    ORDER BY `c`.`CustomerID`
-                    """);
+SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+""");
         }
 
         public override async Task Where_Queryable_ToArray_Contains(bool async)
@@ -1781,7 +1781,7 @@ WHERE 'ALFKI' IN (
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = `c`.`CustomerID`
 )
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 """);
         }
 
@@ -1791,15 +1791,15 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-                    SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-                    WHERE (
-                        SELECT COUNT(*)
-                        FROM `Orders` AS `o`
-                        WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
-                    ORDER BY `c`.`CustomerID`
-                    """);
+SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+""");
         }
 
         public override async Task Where_Queryable_AsEnumerable_Contains(bool async)
@@ -1816,7 +1816,7 @@ WHERE 'ALFKI' IN (
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = `c`.`CustomerID`
 )
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 """);
         }
 
@@ -1838,7 +1838,7 @@ WHERE NOT (IIF('ALFKI' IN (
         FROM `Orders` AS `o`
         WHERE `o`.`CustomerID` = `c`.`CustomerID`
     )))
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 """);
         }
 
@@ -1848,15 +1848,15 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-                    SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-                    WHERE (
-                        SELECT COUNT(*)
-                        FROM `Orders` AS `o`
-                        WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
-                    ORDER BY `c`.`CustomerID`
-                    """);
+SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+""");
         }
 
         public override async Task Where_Queryable_ToArray_Length_member(bool async)
@@ -1865,15 +1865,15 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-                    SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-                    WHERE (
-                        SELECT COUNT(*)
-                        FROM `Orders` AS `o`
-                        WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
-                    ORDER BY `c`.`CustomerID`
-                    """);
+SELECT `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+""");
         }
 
         public override async Task Where_collection_navigation_ToList_Count(bool async)
@@ -1882,15 +1882,15 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-                    SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
-                    FROM `Orders` AS `o`
-                    LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
-                    WHERE `o`.`OrderID` < 10300 AND (
-                        SELECT COUNT(*)
-                        FROM `Order Details` AS `o0`
-                        WHERE `o`.`OrderID` = `o0`.`OrderID`) = 4
-                    ORDER BY `o`.`OrderID`, `o1`.`OrderID`
-                    """);
+SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+FROM `Orders` AS `o`
+LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
+WHERE `o`.`OrderID` < 10300 AND (
+    SELECT COUNT(*)
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) = 4
+ORDER BY `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`
+""");
         }
 
         public override async Task Where_collection_navigation_ToList_Contains(bool async)
@@ -1918,15 +1918,15 @@ ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 
             AssertSql(
                 """
-                    SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
-                    FROM `Orders` AS `o`
-                    LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
-                    WHERE `o`.`OrderID` < 10300 AND (
-                        SELECT COUNT(*)
-                        FROM `Order Details` AS `o0`
-                        WHERE `o`.`OrderID` = `o0`.`OrderID`) = 4
-                    ORDER BY `o`.`OrderID`, `o1`.`OrderID`
-                    """);
+SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+FROM `Orders` AS `o`
+LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
+WHERE `o`.`OrderID` < 10300 AND (
+    SELECT COUNT(*)
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) = 4
+ORDER BY `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`
+""");
         }
 
         public override async Task Where_collection_navigation_ToArray_Contains(bool async)
@@ -1954,15 +1954,15 @@ ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 
             AssertSql(
                 """
-                    SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
-                    FROM `Orders` AS `o`
-                    LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
-                    WHERE `o`.`OrderID` < 10300 AND (
-                        SELECT COUNT(*)
-                        FROM `Order Details` AS `o0`
-                        WHERE `o`.`OrderID` = `o0`.`OrderID`) = 5
-                    ORDER BY `o`.`OrderID`, `o1`.`OrderID`
-                    """);
+SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+FROM `Orders` AS `o`
+LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
+WHERE `o`.`OrderID` < 10300 AND (
+    SELECT COUNT(*)
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) = 5
+ORDER BY `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`
+""");
         }
 
         public override async Task Where_collection_navigation_AsEnumerable_Contains(bool async)
@@ -1990,15 +1990,15 @@ ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 
             AssertSql(
                 """
-                    SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
-                    FROM `Orders` AS `o`
-                    LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
-                    WHERE `o`.`OrderID` < 10300 AND (
-                        SELECT COUNT(*)
-                        FROM `Order Details` AS `o0`
-                        WHERE `o`.`OrderID` = `o0`.`OrderID`) = 3
-                    ORDER BY `o`.`OrderID`, `o1`.`OrderID`
-                    """);
+SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+FROM `Orders` AS `o`
+LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
+WHERE `o`.`OrderID` < 10300 AND (
+    SELECT COUNT(*)
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) = 3
+ORDER BY `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`
+""");
         }
 
         public override async Task Where_collection_navigation_ToArray_Length_member(bool async)
@@ -2007,15 +2007,15 @@ ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 
             AssertSql(
                 """
-                    SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
-                    FROM `Orders` AS `o`
-                    LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
-                    WHERE `o`.`OrderID` < 10300 AND (
-                        SELECT COUNT(*)
-                        FROM `Order Details` AS `o0`
-                        WHERE `o`.`OrderID` = `o0`.`OrderID`) = 3
-                    ORDER BY `o`.`OrderID`, `o1`.`OrderID`
-                    """);
+SELECT `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+FROM `Orders` AS `o`
+LEFT JOIN `Order Details` AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
+WHERE `o`.`OrderID` < 10300 AND (
+    SELECT COUNT(*)
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) = 3
+ORDER BY `o`.`OrderID`, `o1`.`OrderID`, `o1`.`ProductID`
+""");
         }
 
         public override async Task Where_list_object_contains_over_value_type(bool async)

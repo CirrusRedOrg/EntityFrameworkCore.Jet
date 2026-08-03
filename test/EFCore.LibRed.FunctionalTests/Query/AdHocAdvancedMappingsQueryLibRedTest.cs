@@ -41,7 +41,7 @@ LEFT JOIN (
     FROM `Posts` AS `p`
     WHERE `p`.`Name` LIKE '%2%'
 ) AS `p0` ON `b`.`Id` = `p0`.`BlogId`
-ORDER BY `b`.`Id`
+ORDER BY `b`.`Id`, `p0`.`Id`
 """,
             //
             """

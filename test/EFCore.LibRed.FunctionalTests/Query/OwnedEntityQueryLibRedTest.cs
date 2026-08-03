@@ -86,7 +86,7 @@ SELECT `b`.`Id`, (
     WHERE `b`.`Id` = `p`.`BlogId`), `p0`.`Title`, `p0`.`CommentsCount`, `p0`.`BlogId`, `p0`.`Id`
 FROM `Blog` AS `b`
 LEFT JOIN `Post` AS `p0` ON `b`.`Id` = `p0`.`BlogId`
-ORDER BY `b`.`Id`, `p0`.`BlogId`
+ORDER BY `b`.`Id`, `p0`.`BlogId`, `p0`.`Id`
 """);
     }
 
@@ -99,7 +99,7 @@ ORDER BY `b`.`Id`, `p0`.`BlogId`
 SELECT `w`.`WarehouseCode`, `w`.`Id`, `w0`.`CountryCode`, `w0`.`WarehouseCode`, `w0`.`Id`
 FROM `Warehouses` AS `w`
 LEFT JOIN `WarehouseDestinationCountry` AS `w0` ON `w`.`WarehouseCode` = `w0`.`WarehouseCode`
-ORDER BY `w`.`Id`, `w0`.`WarehouseCode`
+ORDER BY `w`.`Id`, `w0`.`WarehouseCode`, `w0`.`Id`
 """);
     }
 
@@ -131,7 +131,7 @@ FROM (`Companies` AS `c`
 LEFT JOIN `CustomerData` AS `c0` ON `c`.`Id` = `c0`.`CompanyId`)
 LEFT JOIN `SupplierData` AS `s` ON `c`.`Id` = `s`.`CompanyId`
 WHERE `c0`.`CompanyId` IS NOT NULL
-ORDER BY `c`.`Id`
+ORDER BY `c`.`Id`, `s`.`CompanyId`
 """);
     }
 
@@ -149,7 +149,7 @@ LEFT JOIN `IntermediateOwnedEntity` AS `i` ON `o`.`Id` = `i`.`OwnerId`)
 LEFT JOIN `IM_CustomerData` AS `i0` ON `i`.`OwnerId` = `i0`.`IntermediateOwnedEntityOwnerId`)
 LEFT JOIN `IM_SupplierData` AS `i1` ON `i`.`OwnerId` = `i1`.`IntermediateOwnedEntityOwnerId`
 WHERE `i0`.`IntermediateOwnedEntityOwnerId` IS NOT NULL
-ORDER BY `o`.`Id`
+ORDER BY `o`.`Id`, `i1`.`IntermediateOwnedEntityOwnerId`
 """);
     }
 
@@ -158,10 +158,10 @@ ORDER BY `o`.`Id`
         await base.Owned_entity_with_all_null_properties_materializes_when_not_containing_another_owned_entity(async);
 
         AssertSql(
-"""
+            """
 SELECT `r`.`Id`, `r`.`Buyer`, `r`.`Rot_ApartmentNo`, `r`.`Rot_ServiceType`, `r`.`Rut_Value`
 FROM `RotRutCases` AS `r`
-ORDER BY `r`.`Buyer`
+ORDER BY `r`.`Buyer`, `r`.`Id`
 """);
     }
 

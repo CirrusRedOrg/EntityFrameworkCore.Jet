@@ -118,7 +118,7 @@ FROM (
     ) AS `u0`
     ORDER BY `u0`.`ContactName` DESC
 ) AS `u1`
-ORDER BY `u1`.`ContactName`
+ORDER BY `u1`.`ContactName`, `u1`.`CustomerID`
 """);
         }
 
@@ -386,7 +386,7 @@ FROM (
     ORDER BY `u1`.`Foo` DESC
 ) AS `u0`
 WHERE `u0`.`Foo` = 'Berlin'
-ORDER BY `u0`.`Foo`
+ORDER BY `u0`.`Foo`, `u0`.`CustomerID`
 """);
         }
 
@@ -407,7 +407,7 @@ FROM (
     WHERE `c0`.`City` = 'London'
 ) AS `u`
 LEFT JOIN `Orders` AS `o` ON `u`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `u`.`CustomerID`
+ORDER BY `u`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -428,7 +428,7 @@ FROM (
     WHERE `c0`.`City` = 'London'
 ) AS `u`
 LEFT JOIN `Orders` AS `o` ON `u`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `u`.`CustomerID`
+ORDER BY `u`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -1162,7 +1162,7 @@ FROM (
     WHERE `c0`.`CustomerID` LIKE 'F%'
 ) AS `u`
 LEFT JOIN `Orders` AS `o` ON `u`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `u`.`CustomerID`
+ORDER BY `u`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -1202,7 +1202,7 @@ FROM (
     WHERE `o0`.`OrderID` < 10250
 ) AS `u`
 LEFT JOIN `Orders` AS `o1` ON `u`.`CustomerID` = `o1`.`CustomerID`
-ORDER BY `u`.`CustomerID`
+ORDER BY `u`.`CustomerID`, `o1`.`OrderID`
 """);
         }
 
@@ -1225,7 +1225,7 @@ FROM (
     WHERE `o0`.`OrderID` < 10250
 ) AS `u`
 LEFT JOIN `Orders` AS `o1` ON `u`.`CustomerID` = `o1`.`CustomerID`
-ORDER BY `u`.`CustomerID`, `u`.`OrderDate`
+ORDER BY `u`.`CustomerID`, `u`.`OrderDate`, `o1`.`OrderID`
 """);
         }
 

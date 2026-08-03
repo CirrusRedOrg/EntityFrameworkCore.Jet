@@ -178,7 +178,7 @@ SELECT `r0`.`Id`, `r0`.`RequiredAssociate_Id`, `r0`.`RequiredAssociate_Int`, `r0
 FROM (`RootReferencingEntity` AS `r`
 LEFT JOIN `RootEntity` AS `r0` ON `r`.`RootEntityId` = `r0`.`Id`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r1` ON `r0`.`Id` = `r1`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `r0`.`Id`, `r1`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r1`.`AssociateTypeRootEntityId`
 """);
         }
     }

@@ -30,4 +30,8 @@ public class MaterializationInterceptionJetTest(NonSharedFixture fixture) :
 
     protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
+
+    protected override DbContextOptionsBuilder AddNonSharedOptions(DbContextOptionsBuilder builder)
+        => base.AddNonSharedOptions(builder)
+            .ConfigureWarnings(w => w.Ignore(RelationalEventId.OwnedEntityMappedToJsonCollectionWarning));
 }

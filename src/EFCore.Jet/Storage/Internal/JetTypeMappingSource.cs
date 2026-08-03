@@ -250,6 +250,31 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
             var clrType = mappingInfo.ClrType;
             var storeTypeName = mappingInfo.StoreTypeName;
 
+            // A structural type (complex type or owned entity) mapped to JSON. EF asks for JsonTypePlaceholder
+            // *together with* the column's store type, and reports the column as unsupported if the answer is
+            // null. Jet stores JSON in a memo, so that store type is longchar - which is also the ordinary
+            // unbounded string mapping, whose CLR type is string. The store-type branch below would therefore
+            // find longchar, fail to match the placeholder, and answer null, so the question has to be settled
+            // before the store type gets a chance to shadow it.
+            if (clrType == typeof(JsonTypePlaceholder))
+            {
+                return mappingInfo.StoreTypeNameBase switch
+                {
+                    "longchar" => JetJsonTypeMapping.Default,
+
+                    // TEXT without a size is a synonym for LONGCHAR, as above.
+                    "text" when !mappingInfo.Size.HasValue => JetJsonTypeMapping.Default,
+
+                    // Sized, so it gets cloned outside for the right size.
+                    "varchar" or "text" => JetJsonTypeMapping.VarcharDefault,
+
+                    null => JetJsonTypeMapping.Default,
+
+                    // Anything else genuinely cannot hold JSON, and null is what tells EF to say so.
+                    _ => null
+                };
+            }
+
             if (storeTypeName != null)
             {
                 var storeTypeNameBase = mappingInfo.StoreTypeNameBase;

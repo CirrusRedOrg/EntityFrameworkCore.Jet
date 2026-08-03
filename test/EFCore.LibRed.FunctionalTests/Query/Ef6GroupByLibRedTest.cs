@@ -483,14 +483,14 @@ GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
 
         AssertSql(
             """
-SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `s`.`Id`, `s`.`CustomerId`, `s`.`OrderDate`, `s`.`Total`, `s`.`Id0`
+SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `s`.`Id`, `s`.`CustomerId`, `s`.`OrderDate`, `s`.`Total`
 FROM `CustomerForLinq` AS `c`
 LEFT JOIN (
     SELECT `o`.`Id`, `o`.`CustomerId`, `o`.`OrderDate`, `o`.`Total`, `c0`.`Id` AS `Id0`
     FROM `OrderForLinq` AS `o`
     LEFT JOIN `CustomerForLinq` AS `c0` ON `o`.`CustomerId` = `c0`.`Id`
 ) AS `s` ON `c`.`Id` = `s`.`Id0`
-ORDER BY `c`.`Id`, `s`.`Id`
+ORDER BY `c`.`Id`
 """);
     }
 
@@ -505,13 +505,10 @@ FROM (
     SELECT (
         SELECT TOP 1 `p0`.`LastName`
         FROM `Person` AS `p0`
-        WHERE `p0`.`MiddleInitial` = 'Q' AND `p0`.`Age` = 20 AND (`p`.`LastName` = `p0`.`LastName` OR (`p`.`LastName` IS NULL AND `p0`.`LastName` IS NULL))) AS `c`, IIF(LEN((
-            SELECT TOP 1 `p0`.`LastName`
-            FROM `Person` AS `p0`
-            WHERE `p0`.`MiddleInitial` = 'Q' AND `p0`.`Age` = 20 AND (`p`.`LastName` = `p0`.`LastName` OR (`p`.`LastName` IS NULL AND `p0`.`LastName` IS NULL)))) IS NULL, NULL, CLNG(LEN((
-            SELECT TOP 1 `p0`.`LastName`
-            FROM `Person` AS `p0`
-            WHERE `p0`.`MiddleInitial` = 'Q' AND `p0`.`Age` = 20 AND (`p`.`LastName` = `p0`.`LastName` OR (`p`.`LastName` IS NULL AND `p0`.`LastName` IS NULL)))))) AS `c0`, `p`.`LastName`
+        WHERE `p0`.`MiddleInitial` = 'Q' AND `p0`.`Age` = 20 AND (`p`.`LastName` = `p0`.`LastName` OR (`p`.`LastName` IS NULL AND `p0`.`LastName` IS NULL))) AS `c`, LEN((
+        SELECT TOP 1 `p0`.`LastName`
+        FROM `Person` AS `p0`
+        WHERE `p0`.`MiddleInitial` = 'Q' AND `p0`.`Age` = 20 AND (`p`.`LastName` = `p0`.`LastName` OR (`p`.`LastName` IS NULL AND `p0`.`LastName` IS NULL)))) AS `c0`, `p`.`LastName`
     FROM `Person` AS `p`
     WHERE `p`.`MiddleInitial` = 'Q' AND `p`.`Age` = 20
     GROUP BY `p`.`LastName`
@@ -862,7 +859,7 @@ GROUP BY `s`.`Style`
 
         AssertSql(
             """
-SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `s`.`Id`, `s`.`Id0`, `o0`.`Id`, `o0`.`CustomerId`, `o0`.`OrderDate`, `o0`.`Total`, IIF(`s`.`Id` IS NULL, -1, `s`.`Id`)
+SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `s`.`Id`, `o0`.`Id`, `o0`.`CustomerId`, `o0`.`OrderDate`, `o0`.`Total`, IIF(`s`.`Id` IS NULL, -1, `s`.`Id`)
 FROM (`CustomerForLinq` AS `c`
 LEFT JOIN (
     SELECT `o`.`Id`, `c0`.`Id` AS `Id0`
@@ -870,7 +867,7 @@ LEFT JOIN (
     LEFT JOIN `CustomerForLinq` AS `c0` ON `o`.`CustomerId` = `c0`.`Id`
 ) AS `s` ON `c`.`Id` = `s`.`Id0`)
 LEFT JOIN `OrderForLinq` AS `o0` ON `c`.`Id` = `o0`.`CustomerId`
-ORDER BY `c`.`Id`, `s`.`Id`, `s`.`Id0`
+ORDER BY `c`.`Id`, `s`.`Id`
 """);
     }
 

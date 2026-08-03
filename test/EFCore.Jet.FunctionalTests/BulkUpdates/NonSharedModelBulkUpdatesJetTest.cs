@@ -126,7 +126,7 @@ SET `o`.`Title` = @p
             """
 UPDATE `Owner` AS `o`
 SET `o`.`Title` = IIF((`o`.`OwnedReference_Number` & '') IS NULL, '', (`o`.`OwnedReference_Number` & '')),
-    `o`.`OwnedReference_Number` = IIF(LEN(`o`.`Title`) IS NULL, NULL, CLNG(LEN(`o`.`Title`)))
+    `o`.`OwnedReference_Number` = LEN(`o`.`Title`)
 """);
     }
 
@@ -150,7 +150,7 @@ SET `b`.`CreationTimestamp` = #2020-01-01#
 UPDATE `Blogs` AS `b`
 INNER JOIN `BlogsPart1` AS `b0` ON `b`.`Id` = `b0`.`Id`
 SET `b0`.`Title` = (`b0`.`Rating` & ''),
-    `b0`.`Rating` = IIF(LEN(`b0`.`Title`) IS NULL, NULL, CLNG(LEN(`b0`.`Title`)))
+    `b0`.`Rating` = LEN(`b0`.`Title`)
 """);
     }
 
@@ -164,7 +164,6 @@ DELETE FROM `Context30572_Principal` AS `c`
 WHERE `c`.`Id` IN (
     SELECT `c0`.`Id`
     FROM `Context30572_Principal` AS `c0`
-    LEFT JOIN `Context30572_Dependent` AS `c1` ON `c0`.`DependentId` = `c1`.`Id`
 )
 """);
     }
@@ -228,7 +227,15 @@ SET `b`.`Data` = @p
         await base.Update_complex_type_with_view_mapping(async);
 
         // #34706
-        AssertSql();
+        AssertSql(
+            """
+@complex_type_p_Prop1='3' (Nullable = true)
+@complex_type_p_Prop2='4' (Nullable = true)
+
+UPDATE `Blogs` AS `b`
+SET `b`.`ComplexThing_Prop1` = @complex_type_p_Prop1,
+    `b`.`ComplexThing_Prop2` = @complex_type_p_Prop2
+""");
     }
 
     private void AssertSql(params string[] expected)

@@ -86,7 +86,7 @@ ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`
         await base.Negate_on_column(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`Id`
 FROM `OperatorEntityInt` AS `o`
 WHERE `o`.`Id` = -`o`.`Value`
@@ -98,7 +98,7 @@ WHERE `o`.`Id` = -`o`.`Value`
         await base.Double_negate_on_column();
 
         AssertSql(
-"""
+            """
 SELECT `o`.`Id`
 FROM `OperatorEntityInt` AS `o`
 WHERE -(-`o`.`Value`) = `o`.`Value`
@@ -110,7 +110,7 @@ WHERE -(-`o`.`Value`) = `o`.`Value`
         await base.Negate_on_binary_expression(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`Id` AS `Id1`, `o0`.`Id` AS `Id2`
 FROM `OperatorEntityInt` AS `o`,
 `OperatorEntityInt` AS `o0`
@@ -123,7 +123,7 @@ WHERE -`o`.`Value` = -(`o`.`Id` + `o0`.`Value`)
         await base.Negate_on_like_expression(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`Id`
 FROM `OperatorEntityString` AS `o`
 WHERE `o`.`Value` NOT LIKE 'A%' OR `o`.`Value` IS NULL

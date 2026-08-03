@@ -1662,13 +1662,13 @@ WHERE `c`.`City` = @cities1
 
             AssertSql(
                 """
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-    FROM `Customers` AS `c`
-    WHERE (
-        SELECT TOP 1 IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
-        FROM `Orders` AS `o`
-        WHERE `o`.`CustomerID` = 'John Doe') = 0
-    """);
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE (
+    SELECT TOP 1 LEN(`o`.`CustomerID`)
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = 'John Doe') = 0
+""");
         }
 
         public override async Task Using_same_parameter_twice_in_query_generates_one_sql_parameter(bool async)

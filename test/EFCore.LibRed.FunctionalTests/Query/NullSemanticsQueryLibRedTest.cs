@@ -2644,10 +2644,10 @@ WHERE (IIF(`e`.`NullableIntA` IS NULL, `e`.`NullableIntB`, `e`.`NullableIntA`) <
             await base.Where_equal_with_conditional(async);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringB`) = `e`.`NullableStringC` OR (IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringB`) IS NULL AND `e`.`NullableStringC` IS NULL)
+WHERE IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringC`) = `e`.`NullableStringC` OR (IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringC`) IS NULL AND `e`.`NullableStringC` IS NULL)
 """);
         }
 
@@ -2656,10 +2656,10 @@ WHERE IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA
             await base.Where_not_equal_with_conditional(async);
 
             AssertSql(
-"""
+                """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableStringC` <> IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringB`) OR `e`.`NullableStringC` IS NULL OR IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringB`) IS NULL) AND (`e`.`NullableStringC` IS NOT NULL OR IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringB`) IS NOT NULL)
+WHERE (`e`.`NullableStringC` <> IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringC`) OR `e`.`NullableStringC` IS NULL OR IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringC`) IS NULL) AND (`e`.`NullableStringC` IS NOT NULL OR IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringC`) IS NOT NULL)
 """);
         }
 

@@ -146,8 +146,8 @@ SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[Cont
             await base.KeylessEntity_groupby(async);
 
             AssertSql(
-"""
-SELECT `m`.`City` AS `Key`, COUNT(*) AS `Count`, IIF(SUM(IIF(LEN(`m`.`Address`) IS NULL, NULL, CLNG(LEN(`m`.`Address`)))) IS NULL, 0, SUM(IIF(LEN(`m`.`Address`) IS NULL, NULL, CLNG(LEN(`m`.`Address`))))) AS `Sum`
+                """
+SELECT `m`.`City` AS `Key`, COUNT(*) AS `Count`, IIF(SUM(LEN(`m`.`Address`)) IS NULL, 0, SUM(LEN(`m`.`Address`))) AS `Sum`
 FROM (
     SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
 ) AS `m`

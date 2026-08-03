@@ -230,9 +230,9 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-    SELECT `c`.`CustomerID`, IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`))) + 5 AS `Expression`
-    FROM `Customers` AS `c`
-    """);
+SELECT `c`.`CustomerID`, LEN(`c`.`CustomerID`) + 5 AS `Expression`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Select_anonymous_conditional_expression(bool isAsync)
@@ -657,11 +657,11 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-    SELECT CLNG(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`))))
-    FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` = 'ALFKI'
-    ORDER BY `o`.`OrderID`
-    """);
+SELECT IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
+FROM `Orders` AS `o`
+WHERE `o`.`CustomerID` = 'ALFKI'
+ORDER BY `o`.`OrderID`
+""");
         }
 
         public override async Task Select_non_matching_value_types_from_method_call_introduces_explicit_cast(bool isAsync)
@@ -948,7 +948,7 @@ FROM `Customers` AS `c`
             AssertSql(
                 """
 SELECT (
-    SELECT TOP 1 IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
+    SELECT TOP 1 LEN(`o`.`CustomerID`)
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`
     ORDER BY `o`.`OrderID`, `o`.`OrderDate` DESC)
@@ -1219,7 +1219,7 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-SELECT `o`.`CustomerID`, `o`.`CustomerID` = 'ALFKI' AND `o`.`CustomerID` IS NOT NULL, `o`.`OrderID`, IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
+SELECT `o`.`CustomerID`, `o`.`CustomerID` = 'ALFKI' AND `o`.`CustomerID` IS NOT NULL, `o`.`OrderID`, LEN(`o`.`CustomerID`)
 FROM `Orders` AS `o`
 """);
         }
@@ -1475,9 +1475,9 @@ INNER JOIN (
             await base.Project_non_nullable_value_after_FirstOrDefault_on_empty_collection(async);
 
             AssertSql(
-"""
+                """
 SELECT (
-    SELECT TOP 1 IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
+    SELECT TOP 1 LEN(`o`.`CustomerID`)
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = 'John Doe')
 FROM `Customers` AS `c`
@@ -1570,11 +1570,11 @@ WHERE `c`.`CustomerID` = 'ALFKI'
 
             AssertSql(
                 """
-SELECT `o`.`OrderID`, `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+SELECT `o`.`OrderID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (`Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
 LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-ORDER BY `o`.`OrderID`, `c`.`CustomerID`
+ORDER BY `o`.`OrderID`
 """);
         }
 
@@ -2068,14 +2068,14 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 
             AssertSql(
                 """
-    SELECT (
-        SELECT TOP 1 IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-        ORDER BY `o`.`OrderID`)
-    FROM `Customers` AS `c`
-    ORDER BY `c`.`CustomerID`
-    """);
+SELECT (
+    SELECT TOP 1 LEN(`o`.`CustomerID`)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`OrderID`)
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Projecting_count_of_navigation_which_is_generic_list(bool async)
@@ -2651,8 +2651,8 @@ WHERE `c`.`CustomerID` LIKE 'A%'
             await base.Select_datetime_DayOfWeek_component(async);
 
             AssertSql(
-"""
-SELECT CLNG(DATEPART('w', `o`.`OrderDate`) - 1)
+                """
+SELECT DATEPART('w', `o`.`OrderDate`) - 1
 FROM `Orders` AS `o`
 """);
         }

@@ -407,7 +407,7 @@ ORDER BY `c0`.`c`
 
             AssertSql(
                 """
-SELECT `o2`.`OrderID`, `o2`.`CustomerID`, `o2`.`EmployeeID`, `o2`.`OrderDate`, `o2`.`c`, `o2`.`c0`
+SELECT `o4`.`OrderID`, `o4`.`CustomerID`, `o4`.`EmployeeID`, `o4`.`OrderDate`, `o4`.`c`, `o4`.`c0`
 FROM (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, (
         SELECT TOP 1 `o0`.`OrderID`
@@ -417,8 +417,8 @@ FROM (
         FROM `Order Details` AS `o1`
         WHERE `o`.`OrderID` = `o1`.`OrderID`) AS `c0`
     FROM `Orders` AS `o`
-) AS `o2`
-ORDER BY `o2`.`c` DESC, `o2`.`c0` DESC
+) AS `o4`
+ORDER BY `o4`.`c` DESC, `o4`.`c0` DESC
 """);
         }
 
@@ -2044,28 +2044,54 @@ WHERE (`c`.`CustomerID` LIKE 'A%') AND EXISTS (
         {
             await base.Where_Join_Exists(isAsync);
 
-            AssertSql();
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI' AND EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderDate` = #2008-10-24#)
+""");
         }
 
         public override async Task Where_Join_Exists_Inequality(bool isAsync)
         {
             await base.Where_Join_Exists_Inequality(isAsync);
 
-            AssertSql();
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI' AND EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND (`o`.`OrderDate` <> #2008-10-24# OR `o`.`OrderDate` IS NULL))
+""");
         }
 
         public override async Task Where_Join_Exists_Constant(bool isAsync)
         {
             await base.Where_Join_Exists_Constant(isAsync);
 
-            AssertSql();
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE FALSE
+""");
         }
 
         public override async Task Where_Join_Not_Exists(bool isAsync)
         {
             await base.Where_Join_Not_Exists(isAsync);
 
-            AssertSql();
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI'
+""");
         }
 
         public override async Task Join_OrderBy_Count(bool isAsync)
@@ -2977,6 +3003,7 @@ FROM `Customers` AS `c`,
                 """
 SELECT IIF((IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) + 1) IS NULL, IIF((IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) + 2) IS NULL, IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) + 3, IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) + 2), IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) + 1)
 FROM `Employees` AS `e`
+WHERE `e`.`ReportsTo` IS NOT NULL
 ORDER BY `e`.`EmployeeID`
 """);
         }
@@ -6236,7 +6263,7 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-SELECT IIF(LEN(`c`.`Region`) IS NULL, NULL, CLNG(LEN(`c`.`Region`))) AS `Length`
+SELECT LEN(`c`.`Region`) AS `Length`
 FROM `Customers` AS `c`
 """);
         }

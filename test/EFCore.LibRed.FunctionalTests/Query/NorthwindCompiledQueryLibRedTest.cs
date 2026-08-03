@@ -395,20 +395,44 @@ WHERE `c`.`CustomerID` = @s1 OR `c`.`CustomerID` = @s2 OR `c`.`CustomerID` = @s3
             base.Query_with_array_parameter();
 
             AssertSql(
-    """
-@__args='["ALFKI"]' (Size = 4000)
+                """
+@args1='ALFKI' (Size = 255)
 
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] = JSON_VALUE(@__args, '$[0]')
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = (
+    SELECT `a1`.`Value`
+    FROM (
+        SELECT TOP 1 `a0`.`Value`, `a0`.`_ord`
+        FROM (
+            SELECT TOP 0 + 1 `a`.`Value`, `a`.`_ord`
+            FROM (SELECT 0 AS `_ord`, @args1 AS `Value`
+            FROM (SELECT COUNT(*) FROM `#Dual`) AS `a_0`) AS `a`
+            ORDER BY `a`.`_ord`
+        ) AS `a0`
+        ORDER BY `a0`.`_ord` DESC
+    ) AS `a1`
+    ORDER BY `a1`.`_ord`)
 """,
-    //
-    """
-@__args='["ANATR"]' (Size = 4000)
+                //
+                """
+@args1='ANATR' (Size = 255)
 
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] = JSON_VALUE(@__args, '$[0]')
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = (
+    SELECT `a1`.`Value`
+    FROM (
+        SELECT TOP 1 `a0`.`Value`, `a0`.`_ord`
+        FROM (
+            SELECT TOP 0 + 1 `a`.`Value`, `a`.`_ord`
+            FROM (SELECT 0 AS `_ord`, @args1 AS `Value`
+            FROM (SELECT COUNT(*) FROM `#Dual`) AS `a_0`) AS `a`
+            ORDER BY `a`.`_ord`
+        ) AS `a0`
+        ORDER BY `a0`.`_ord` DESC
+    ) AS `a1`
+    ORDER BY `a1`.`_ord`)
 """);
         }
 
@@ -417,20 +441,44 @@ WHERE [c].[CustomerID] = JSON_VALUE(@__args, '$[0]')
             await base.Query_with_array_parameter_async();
 
             AssertSql(
-    """
-@__args='["ALFKI"]' (Size = 4000)
+                """
+@args1='ALFKI' (Size = 255)
 
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] = JSON_VALUE(@__args, '$[0]')
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = (
+    SELECT `a1`.`Value`
+    FROM (
+        SELECT TOP 1 `a0`.`Value`, `a0`.`_ord`
+        FROM (
+            SELECT TOP 0 + 1 `a`.`Value`, `a`.`_ord`
+            FROM (SELECT 0 AS `_ord`, @args1 AS `Value`
+            FROM (SELECT COUNT(*) FROM `#Dual`) AS `a_0`) AS `a`
+            ORDER BY `a`.`_ord`
+        ) AS `a0`
+        ORDER BY `a0`.`_ord` DESC
+    ) AS `a1`
+    ORDER BY `a1`.`_ord`)
 """,
-    //
-    """
-@__args='["ANATR"]' (Size = 4000)
+                //
+                """
+@args1='ANATR' (Size = 255)
 
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] = JSON_VALUE(@__args, '$[0]')
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = (
+    SELECT `a1`.`Value`
+    FROM (
+        SELECT TOP 1 `a0`.`Value`, `a0`.`_ord`
+        FROM (
+            SELECT TOP 0 + 1 `a`.`Value`, `a`.`_ord`
+            FROM (SELECT 0 AS `_ord`, @args1 AS `Value`
+            FROM (SELECT COUNT(*) FROM `#Dual`) AS `a_0`) AS `a`
+            ORDER BY `a`.`_ord`
+        ) AS `a0`
+        ORDER BY `a0`.`_ord` DESC
+    ) AS `a1`
+    ORDER BY `a1`.`_ord`)
 """);
         }
 

@@ -552,20 +552,6 @@ DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `Order Details` AS `o0`
-    LEFT JOIN (
-        SELECT `o4`.`OrderID`
-        FROM (
-            SELECT TOP @p1 `o3`.`OrderID`
-            FROM (
-                SELECT TOP @p + @p1 `o2`.`OrderID`
-                FROM `Orders` AS `o2`
-                WHERE `o2`.`OrderID` < 10300
-                ORDER BY `o2`.`OrderID`
-            ) AS `o3`
-            ORDER BY `o3`.`OrderID` DESC
-        ) AS `o4`
-        ORDER BY `o4`.`OrderID`
-    ) AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
     WHERE `o0`.`OrderID` < 10276 AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
@@ -580,20 +566,6 @@ DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `Order Details` AS `o0`
-    LEFT JOIN (
-        SELECT `o4`.`OrderID`
-        FROM (
-            SELECT TOP @p1 `o3`.`OrderID`
-            FROM (
-                SELECT TOP @p + @p1 `o2`.`OrderID`
-                FROM `Orders` AS `o2`
-                WHERE `o2`.`OrderID` < 10300
-                ORDER BY `o2`.`OrderID`
-            ) AS `o3`
-            ORDER BY `o3`.`OrderID` DESC
-        ) AS `o4`
-        ORDER BY `o4`.`OrderID`
-    ) AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
     WHERE `o0`.`OrderID` < 10276 AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
@@ -673,22 +645,26 @@ WHERE [o].[OrderID] < 10276
 DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
-    FROM `Order Details` AS `o0`
+    FROM (
+        SELECT `o1`.`OrderID`, `o1`.`ProductID`
+        FROM `Order Details` AS `o1`
+        WHERE `o1`.`OrderID` < 10276
+    ) AS `o0`
     RIGHT JOIN (
-        SELECT `o4`.`OrderID`
+        SELECT `o5`.`OrderID`
         FROM (
-            SELECT TOP @p1 `o3`.`OrderID`
+            SELECT TOP @p1 `o4`.`OrderID`
             FROM (
-                SELECT TOP @p + @p1 `o2`.`OrderID`
-                FROM `Orders` AS `o2`
-                WHERE `o2`.`OrderID` < 10300
-                ORDER BY `o2`.`OrderID`
-            ) AS `o3`
-            ORDER BY `o3`.`OrderID` DESC
-        ) AS `o4`
-        ORDER BY `o4`.`OrderID`
-    ) AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
-    WHERE `o0`.`OrderID` < 10276 AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
+                SELECT TOP @p + @p1 `o3`.`OrderID`
+                FROM `Orders` AS `o3`
+                WHERE `o3`.`OrderID` < 10300
+                ORDER BY `o3`.`OrderID`
+            ) AS `o4`
+            ORDER BY `o4`.`OrderID` DESC
+        ) AS `o5`
+        ORDER BY `o5`.`OrderID`
+    ) AS `o2` ON `o0`.`OrderID` = `o2`.`OrderID`
+    WHERE `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -1403,14 +1379,21 @@ WHERE `c`.`CustomerID` LIKE 'F%'
             """
 @p='2020-01-01T00:00:00.0000000Z' (Nullable = true) (DbType = DateTime)
 
-UPDATE `Orders` AS `o`
-RIGHT JOIN (
-    SELECT `c`.`CustomerID`
-    FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'F%'
-) AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
-SET `o`.`OrderDate` = CDATE(@p)
-WHERE `o`.`OrderID` < 10300
+UPDATE `Orders` AS `o1`
+INNER JOIN (
+    SELECT `o0`.`OrderID`
+    FROM (
+        SELECT `o`.`OrderID`, `o`.`CustomerID`
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` < 10300
+    ) AS `o0`
+    RIGHT JOIN (
+        SELECT `c`.`CustomerID`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` LIKE 'F%'
+    ) AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
+) AS `s` ON `o1`.`OrderID` = `s`.`OrderID`
+SET `o1`.`OrderDate` = CDATE(@p)
 """);
     }
 

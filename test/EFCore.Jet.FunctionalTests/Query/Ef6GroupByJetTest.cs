@@ -28,7 +28,7 @@ public class Ef6GroupByJetTest : Ef6GroupByTestBase<Ef6GroupByJetTest.Ef6GroupBy
         await base.GroupBy_is_optimized_when_projecting_group_key(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`FirstName`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`FirstName`
@@ -48,7 +48,7 @@ GROUP BY `a`.`FirstName`
         await base.GroupBy_is_optimized_when_projecting_group_count(async);
 
         AssertSql(
-"""
+            """
 SELECT COUNT(*)
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`FirstName`
@@ -70,7 +70,7 @@ GROUP BY `a`.`FirstName`
         await base.GroupBy_is_optimized_when_projecting_expression_containing_group_key(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id` * 2
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`Id`
@@ -87,7 +87,7 @@ GROUP BY `a`.`Id`
         await base.GroupBy_is_optimized_when_projecting_aggregate_on_the_group(async);
 
         AssertSql(
-"""
+            """
 SELECT MAX(`a`.`Id`)
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`FirstName`
@@ -109,7 +109,7 @@ GROUP BY `a`.`FirstName`
         await base.GroupBy_is_optimized_when_projecting_anonymous_type_containing_group_key_and_group_aggregate(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`FirstName` AS `Key`, MAX(`a`.`Id`) AS `Aggregate`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`FirstName`
@@ -134,7 +134,7 @@ GROUP BY `a`.`FirstName`
         await base.GroupBy_is_optimized_when_projecting_anonymous_type_containing_group_key_and_multiple_group_aggregates(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`FirstName` AS `key1`, MAX(`a`.`Id`) AS `max`, MIN(`a`.`Id` + 2) AS `min`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`FirstName`
@@ -188,7 +188,7 @@ GROUP BY `a`.`FirstName`
         await base.GroupBy_is_optimized_when_filtering_and_projecting_anonymous_type_with_group_key_and_function_aggregate(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`FirstName`, AVG(CDBL(`a`.`Id`)) AS `AverageId`
 FROM `ArubaOwner` AS `a`
 WHERE `a`.`Id` > 5
@@ -214,7 +214,7 @@ GROUP BY `a`.`FirstName`
         await base.GroupBy_is_optimized_when_projecting_function_aggregate_with_expression(async);
 
         AssertSql(
-"""
+            """
 SELECT MAX(`a`.`Id` * 2)
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`FirstName`
@@ -240,7 +240,7 @@ GROUP BY `a`.`FirstName`
         await base.GroupBy_is_optimized_when_projecting_expression_with_multiple_function_aggregates(async);
 
         AssertSql(
-"""
+            """
 SELECT MAX(`a`.`Id`) - MIN(`a`.`Id`) AS `maxMinusMin`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`FirstName`
@@ -264,7 +264,7 @@ GROUP BY `a`.`FirstName`
         await base.GroupBy_is_optimized_when_grouping_by_row_and_projecting_column_of_the_key_row(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`FirstName`
 FROM `ArubaOwner` AS `a`
 WHERE `a`.`Id` < 4
@@ -286,7 +286,7 @@ GROUP BY `a`.`FirstName`
         await base.Grouping_by_all_columns_doesnt_produce_a_groupby_statement(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
@@ -298,7 +298,7 @@ GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
         await base.Grouping_by_all_columns_with_aggregate_function_works_1(async);
 
         AssertSql(
-"""
+            """
 SELECT COUNT(*)
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`Id`, `a`.`FirstName`, `a`.`LastName`, `a`.`Alias`
@@ -318,7 +318,7 @@ GROUP BY `a`.`Id`, `a`.`FirstName`, `a`.`LastName`, `a`.`Alias`
         await base.Grouping_by_all_columns_with_aggregate_function_works_2(async);
 
         AssertSql(
-"""
+            """
 SELECT COUNT(*)
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
@@ -330,7 +330,7 @@ GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
         await base.Grouping_by_all_columns_with_aggregate_function_works_3(async);
 
         AssertSql(
-"""
+            """
 SELECT COUNT(*)
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
@@ -342,7 +342,7 @@ GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
         await base.Grouping_by_all_columns_with_aggregate_function_works_4(async);
 
         AssertSql(
-"""
+            """
 SELECT COUNT(*) AS `Count`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
@@ -354,7 +354,7 @@ GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
         await base.Grouping_by_all_columns_with_aggregate_function_works_5(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, COUNT(*) AS `Count`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
@@ -366,7 +366,7 @@ GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
         await base.Grouping_by_all_columns_with_aggregate_function_works_6(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`Alias`, COUNT(*) AS `Count`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
@@ -378,7 +378,7 @@ GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
         await base.Grouping_by_all_columns_with_aggregate_function_works_7(async);
 
         AssertSql(
-"""
+            """
 SELECT COUNT(*)
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
@@ -390,7 +390,7 @@ GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
         await base.Grouping_by_all_columns_with_aggregate_function_works_8(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, COUNT(*) AS `Count`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
@@ -402,7 +402,7 @@ GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
         await base.Grouping_by_all_columns_with_aggregate_function_works_9(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`Alias`, COUNT(*) AS `Count`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
@@ -414,7 +414,7 @@ GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
         await base.Grouping_by_all_columns_with_aggregate_function_works_10(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, IIF(SUM(`a`.`Id`) IS NULL, 0, SUM(`a`.`Id`)) AS `Sum`, COUNT(*) AS `Count`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
@@ -483,7 +483,7 @@ GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
 
         AssertSql(
             """
-SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `s`.`Id`, `s`.`CustomerId`, `s`.`OrderDate`, `s`.`Total`, `s`.`Id0`
+SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `s`.`Id`, `s`.`CustomerId`, `s`.`OrderDate`, `s`.`Total`
 FROM `CustomerForLinq` AS `c`
 LEFT JOIN (
     SELECT `o`.`Id`, `o`.`CustomerId`, `o`.`OrderDate`, `o`.`Total`, `c0`.`Id` AS `Id0`
@@ -499,18 +499,21 @@ ORDER BY `c`.`Id`, `s`.`Id`
         await base.Whats_new_2021_sample_3(async);
 
         AssertSql(
-"""
-SELECT (
-    SELECT TOP(1) [p1].[LastName]
-    FROM [Person] AS [p1]
-    WHERE [p1].[MiddleInitial] = N'Q' AND [p1].[Age] = 20 AND ([p].[LastName] = [p1].[LastName] OR (([p].[LastName] IS NULL) AND ([p1].[LastName] IS NULL))))
-FROM [Person] AS [p]
-WHERE [p].[MiddleInitial] = N'Q' AND [p].[Age] = 20
-GROUP BY [p].[LastName]
-ORDER BY CAST(LEN((
-    SELECT TOP(1) [p1].[LastName]
-    FROM [Person] AS [p1]
-    WHERE [p1].[MiddleInitial] = N'Q' AND [p1].[Age] = 20 AND ([p].[LastName] = [p1].[LastName] OR (([p].[LastName] IS NULL) AND ([p1].[LastName] IS NULL))))) AS int)
+            """
+SELECT `p2`.`c`, `p2`.`c0`, `p2`.`LastName`
+FROM (
+    SELECT (
+        SELECT TOP 1 `p0`.`LastName`
+        FROM `Person` AS `p0`
+        WHERE `p0`.`MiddleInitial` = 'Q' AND `p0`.`Age` = 20 AND (`p`.`LastName` = `p0`.`LastName` OR (`p`.`LastName` IS NULL AND `p0`.`LastName` IS NULL))) AS `c`, LEN((
+        SELECT TOP 1 `p0`.`LastName`
+        FROM `Person` AS `p0`
+        WHERE `p0`.`MiddleInitial` = 'Q' AND `p0`.`Age` = 20 AND (`p`.`LastName` = `p0`.`LastName` OR (`p`.`LastName` IS NULL AND `p0`.`LastName` IS NULL)))) AS `c0`, `p`.`LastName`
+    FROM `Person` AS `p`
+    WHERE `p`.`MiddleInitial` = 'Q' AND `p`.`Age` = 20
+    GROUP BY `p`.`LastName`
+) AS `p2`
+ORDER BY `p2`.`c0`, `p2`.`LastName`
 """);
     }
 
@@ -520,7 +523,7 @@ ORDER BY CAST(LEN((
 
         AssertSql(
             """
-SELECT `p2`.`c`
+SELECT `p2`.`c`, `p2`.`FirstName`
 FROM (
     SELECT (
         SELECT TOP 1 `p0`.`LastName`
@@ -529,7 +532,7 @@ FROM (
     FROM `Person` AS `p`
     GROUP BY `p`.`FirstName`
 ) AS `p2`
-ORDER BY `p2`.`c`
+ORDER BY `p2`.`c`, `p2`.`FirstName`
 """);
     }
 
@@ -539,7 +542,7 @@ ORDER BY `p2`.`c`
 
         AssertSql(
             """
-SELECT `p2`.`c`
+SELECT `p2`.`c`, `p2`.`Id`
 FROM (
     SELECT (
         SELECT TOP 1 `p0`.`MiddleInitial`
@@ -549,7 +552,7 @@ FROM (
     WHERE `p`.`Age` = 20
     GROUP BY `p`.`Id`
 ) AS `p2`
-ORDER BY `p2`.`c`
+ORDER BY `p2`.`c`, `p2`.`Id`
 """);
     }
 
@@ -597,7 +600,7 @@ LEFT JOIN (
         await base.Min_Grouped_from_LINQ_101(async);
 
         AssertSql(
-"""
+            """
 SELECT `p`.`Category`, MIN(`p`.`UnitPrice`) AS `CheapestPrice`
 FROM `ProductForLinq` AS `p`
 GROUP BY `p`.`Category`
@@ -609,7 +612,7 @@ GROUP BY `p`.`Category`
         await base.Average_Grouped_from_LINQ_101(async);
 
         AssertSql(
-"""
+            """
 SELECT `p`.`Category`, AVG(`p`.`UnitPrice`) AS `AveragePrice`
 FROM `ProductForLinq` AS `p`
 GROUP BY `p`.`Category`
@@ -649,7 +652,7 @@ LEFT JOIN (
     FROM `Person` AS `p0`
     LEFT JOIN `Shoes` AS `s` ON `p0`.`Id` = `s`.`PersonId`
 ) AS `s0` ON `p1`.`FirstName` = `s0`.`FirstName`
-ORDER BY `p1`.`FirstName`, `s0`.`Id`
+ORDER BY `p1`.`FirstName`, `s0`.`Id`, `s0`.`Id0`
 """);
     }
 
@@ -671,7 +674,7 @@ LEFT JOIN (
     FROM `Person` AS `p0`
     INNER JOIN `Shoes` AS `s0` ON `p0`.`Age` = `s0`.`Age`
 ) AS `s2` ON `s1`.`Id` = `s2`.`Id0` AND (`s1`.`Style` = `s2`.`Style` OR (`s1`.`Style` IS NULL AND `s2`.`Style` IS NULL)) AND `s1`.`Age` = `s2`.`Age`
-ORDER BY `s1`.`Id`, `s1`.`Style`, `s1`.`Age`, `s2`.`Id0`
+ORDER BY `s1`.`Id`, `s1`.`Style`, `s1`.`Age`, `s2`.`Id0`, `s2`.`Id`
 """);
     }
 
@@ -787,7 +790,7 @@ GROUP BY `f`.`Size`, `p0`.`LastName`
         await base.Sum_Grouped_from_LINQ_101(async);
 
         AssertSql(
-"""
+            """
 SELECT `p`.`Category`, IIF(SUM(`p`.`UnitsInStock`) IS NULL, 0, SUM(`p`.`UnitsInStock`)) AS `TotalUnitsInStock`
 FROM `ProductForLinq` AS `p`
 GROUP BY `p`.`Category`
@@ -799,7 +802,7 @@ GROUP BY `p`.`Category`
         await base.Count_Grouped_from_LINQ_101(async);
 
         AssertSql(
-"""
+            """
 SELECT `p`.`Category`, COUNT(*) AS `ProductCount`
 FROM `ProductForLinq` AS `p`
 GROUP BY `p`.`Category`
@@ -811,7 +814,7 @@ GROUP BY `p`.`Category`
         await base.Whats_new_2021_sample_9(async);
 
         AssertSql(
-"""
+            """
 SELECT `p`.`FirstName` AS `Feet`, (
     SELECT IIF(SUM(`f`.`Size`) IS NULL, 0, SUM(`f`.`Size`))
     FROM `Person` AS `p0`
@@ -827,7 +830,7 @@ GROUP BY `p`.`FirstName`
         await base.LongCount_Grouped_from_LINQ_101(async);
 
         AssertSql(
-"""
+            """
 SELECT `p`.`Category`, COUNT(*) AS `ProductLongCount`
 FROM `ProductForLinq` AS `p`
 GROUP BY `p`.`Category`
@@ -839,7 +842,7 @@ GROUP BY `p`.`Category`
         await base.Whats_new_2021_sample_4(async);
 
         AssertSql(
-"""
+            """
 SELECT `s`.`Style` AS `Key`, (
     SELECT TOP 1 `s0`.`Style`
     FROM `Person` AS `p0`
@@ -857,7 +860,7 @@ GROUP BY `s`.`Style`
 
         AssertSql(
             """
-SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `s`.`Id`, `s`.`Id0`, `o0`.`Id`, `o0`.`CustomerId`, `o0`.`OrderDate`, `o0`.`Total`, IIF(`s`.`Id` IS NULL, -1, `s`.`Id`)
+SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `s`.`Id`, `o0`.`Id`, `o0`.`CustomerId`, `o0`.`OrderDate`, `o0`.`Total`, IIF(`s`.`Id` IS NULL, -1, `s`.`Id`)
 FROM (`CustomerForLinq` AS `c`
 LEFT JOIN (
     SELECT `o`.`Id`, `c0`.`Id` AS `Id0`
@@ -865,7 +868,7 @@ LEFT JOIN (
     LEFT JOIN `CustomerForLinq` AS `c0` ON `o`.`CustomerId` = `c0`.`Id`
 ) AS `s` ON `c`.`Id` = `s`.`Id0`)
 LEFT JOIN `OrderForLinq` AS `o0` ON `c`.`Id` = `o0`.`CustomerId`
-ORDER BY `c`.`Id`, `s`.`Id`, `s`.`Id0`
+ORDER BY `c`.`Id`, `s`.`Id`
 """);
     }
 
@@ -874,7 +877,7 @@ ORDER BY `c`.`Id`, `s`.`Id`, `s`.`Id0`
         await base.Max_Grouped_from_LINQ_101(async);
 
         AssertSql(
-"""
+            """
 SELECT `p`.`Category`, MAX(`p`.`UnitPrice`) AS `MostExpensivePrice`
 FROM `ProductForLinq` AS `p`
 GROUP BY `p`.`Category`

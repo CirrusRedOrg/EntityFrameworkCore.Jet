@@ -490,7 +490,7 @@ FROM `Orders` AS `o`
                 """
 SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-ORDER BY 1
+ORDER BY 1, `e`.`EmployeeID`
 """);
         }
 
@@ -867,14 +867,14 @@ FROM `Customers` AS `c`
             await base.Sum_on_float_column_in_subquery(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, (
-                        SELECT CSNG(IIF(SUM(`o0`.`Discount`) IS NULL, 0.0, SUM(`o0`.`Discount`)))
-                        FROM `Order Details` AS `o0`
-                        WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
-                    FROM `Orders` AS `o`
-                    WHERE `o`.`OrderID` < 10300
-                    """);
+                """
+SELECT `o`.`OrderID`, (
+    SELECT CSNG(IIF(SUM(`o0`.`Discount`) IS NULL, 0.0, SUM(`o0`.`Discount`)))
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` < 10300
+""");
         }
 
         public override async Task Average_with_no_arg(bool isAsync)
@@ -1015,14 +1015,14 @@ FROM `Customers` AS `c`
             await base.Average_on_float_column_in_subquery(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, (
-                        SELECT CSNG(AVG(`o0`.`Discount`))
-                        FROM `Order Details` AS `o0`
-                        WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
-                    FROM `Orders` AS `o`
-                    WHERE `o`.`OrderID` < 10300
-                    """);
+                """
+SELECT `o`.`OrderID`, (
+    SELECT CSNG(AVG(`o0`.`Discount`))
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` < 10300
+""");
         }
 
         public override async Task Average_on_float_column_in_subquery_with_cast(bool isAsync)
@@ -1030,14 +1030,14 @@ FROM `Customers` AS `c`
             await base.Average_on_float_column_in_subquery_with_cast(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, (
-                        SELECT CSNG(AVG(`o0`.`Discount`))
-                        FROM `Order Details` AS `o0`
-                        WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
-                    FROM `Orders` AS `o`
-                    WHERE `o`.`OrderID` < 10300
-                    """);
+                """
+SELECT `o`.`OrderID`, (
+    SELECT CSNG(AVG(`o0`.`Discount`))
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` < 10300
+""");
         }
 
         public override async Task Min_with_no_arg(bool isAsync)
@@ -1285,10 +1285,10 @@ WHERE `o`.`OrderID` > 10 AND (`o`.`CustomerID` <> 'ALFKI' OR `o`.`CustomerID` IS
             await base.Distinct(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT DISTINCT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT DISTINCT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Distinct_Scalar(bool isAsync)
@@ -1296,10 +1296,10 @@ WHERE `o`.`OrderID` > 10 AND (`o`.`CustomerID` <> 'ALFKI' OR `o`.`CustomerID` IS
             await base.Distinct_Scalar(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT DISTINCT `c`.`City`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT DISTINCT `c`.`City`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task OrderBy_Distinct(bool isAsync)
@@ -1308,10 +1308,10 @@ WHERE `o`.`OrderID` > 10 AND (`o`.`CustomerID` <> 'ALFKI' OR `o`.`CustomerID` IS
 
             // Ordering not preserved by distinct when ordering columns not projected.
             AssertSql(
-                $"""
-                    SELECT DISTINCT `c`.`City`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT DISTINCT `c`.`City`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Distinct_OrderBy(bool isAsync)
@@ -1392,11 +1392,11 @@ FROM (
             await base.Single_Predicate(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT TOP 2 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` = 'ALFKI'
-                    """);
+                """
+SELECT TOP 2 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI'
+""");
         }
 
         public override async Task FirstOrDefault_inside_subquery_gets_server_evaluated(bool isAsync)
@@ -1480,14 +1480,14 @@ FROM (
             await base.First_inside_subquery_gets_client_evaluated(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` = 'ALFKI' AND (
-                        SELECT TOP 1 `o`.`CustomerID`
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`CustomerID` = 'ALFKI') = 'ALFKI'
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI' AND (
+    SELECT TOP 1 `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`CustomerID` = 'ALFKI') = 'ALFKI'
+""");
         }
 
         public override async Task Last(bool isAsync)
@@ -1684,11 +1684,11 @@ WHERE `e`.`EmployeeID` = @ids1
             await base.Contains_with_local_array_inline(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` IN ('ABCDE', 'ALFKI')
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` IN ('ABCDE', 'ALFKI')
+""");
         }
 
         public override async Task Contains_with_local_list_closure(bool isAsync)
@@ -1738,11 +1738,11 @@ WHERE FALSE
             await base.Contains_with_local_list_inline(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` IN ('ABCDE', 'ALFKI')
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` IN ('ABCDE', 'ALFKI')
+""");
         }
 
         public override async Task Contains_with_local_list_inline_closure_mix(bool isAsync)
@@ -2145,10 +2145,10 @@ WHERE FALSE
             await base.Contains_with_local_collection_empty_inline(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Contains_top_level(bool isAsync)
@@ -2316,11 +2316,11 @@ WHERE EXISTS (
             await base.List_Contains_with_constant_list(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` IN ('ALFKI', 'ANATR')
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` IN ('ALFKI', 'ANATR')
+""");
         }
 
         public override async Task List_Contains_with_parameter_list(bool isAsync)
@@ -2358,11 +2358,11 @@ WHERE `o`.`OrderID` IN (@entity_equality_orders_OrderID1, @entity_equality_order
             await base.Contains_with_constant_list_value_type_id(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                    FROM `Orders` AS `o`
-                    WHERE `o`.`OrderID` IN (10248, 10249)
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` IN (10248, 10249)
+""");
         }
 
         public override async Task IImmutableSet_Contains_with_parameter(bool async)
@@ -2602,11 +2602,11 @@ WHERE `c`.`CustomerID` IN (@ids1, @ids2, @ids3)
             await base.Where_subquery_any_equals(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` IN ('ABCDE', 'ALFKI', 'ANATR')
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` IN ('ABCDE', 'ALFKI', 'ANATR')
+""");
         }
 
         public override async Task Where_subquery_any_equals_static(bool isAsync)
@@ -2672,11 +2672,11 @@ WHERE `c`.`CustomerID` NOT IN (@ids1, @ids2, @ids3)
             await base.Where_subquery_all_not_equals(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` NOT IN ('ABCDE', 'ALFKI', 'ANATR')
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` NOT IN ('ABCDE', 'ALFKI', 'ANATR')
+""");
         }
 
         public override async Task Where_subquery_all_not_equals_static(bool isAsync)
@@ -2737,13 +2737,13 @@ WHERE `c`.`City` = 'México D.F.' AND `c`.`CustomerID` NOT IN (@ids1, @ids2, @id
             await base.Cast_before_aggregate_is_preserved(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT AVG(CDBL(`o`.`OrderID`))
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`)
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT (
+    SELECT AVG(CDBL(`o`.`OrderID`))
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task DefaultIfEmpty_selects_only_required_columns(bool isAsync)

@@ -365,7 +365,7 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `c1`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
 FROM (`Customers` AS `c`
 INNER JOIN (
     SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
@@ -374,7 +374,7 @@ INNER JOIN (
 ) AS `c1` ON `c`.`CustomerID` = `c1`.`CustomerID`)
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
-ORDER BY `c`.`CustomerID`, `c1`.`CustomerID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -601,7 +601,7 @@ INNER JOIN (
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, (
-    SELECT IIF(SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))) IS NULL, 0, SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))))
+    SELECT IIF(SUM(LEN(`o`.`CustomerID`)) IS NULL, 0, SUM(LEN(`o`.`CustomerID`)))
     FROM `Orders` AS `o`
     WHERE `c`.`City` IS NOT NULL AND `c`.`CustomerID` = `o`.`CustomerID` AND `c`.`City` = 'London') AS `Sum`
 FROM `Customers` AS `c`
@@ -615,7 +615,7 @@ FROM `Customers` AS `c`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, (
-    SELECT IIF(SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))) IS NULL, 0, SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))))
+    SELECT IIF(SUM(LEN(`o`.`CustomerID`)) IS NULL, 0, SUM(LEN(`o`.`CustomerID`)))
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID` AND 1996 = DATEPART('yyyy', `o`.`OrderDate`)) AS `Sum`
 FROM `Customers` AS `c`
@@ -629,7 +629,7 @@ FROM `Customers` AS `c`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, (
-    SELECT IIF(SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))) IS NULL, 0, SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))))
+    SELECT IIF(SUM(LEN(`o`.`CustomerID`)) IS NULL, 0, SUM(LEN(`o`.`CustomerID`)))
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Sum`
 FROM `Customers` AS `c`

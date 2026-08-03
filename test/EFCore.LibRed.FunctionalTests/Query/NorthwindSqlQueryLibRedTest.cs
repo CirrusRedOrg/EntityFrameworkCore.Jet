@@ -55,11 +55,11 @@ WHERE `o`.`OrderID` IN (
 
         AssertSql(
             """
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, IIF(`s`.`Value` IS NULL, NULL, CLNG(`s`.`Value`)) AS `p`
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `s`.`Value` AS `p`
 FROM `Orders` AS `o`
 INNER JOIN (
     SELECT `ProductID` AS `Value` FROM `Products`
-) AS `s` ON `o`.`OrderID` = IIF(`s`.`Value` IS NULL, NULL, CLNG(`s`.`Value`))
+) AS `s` ON `o`.`OrderID` = `s`.`Value`
 """);
     }
 

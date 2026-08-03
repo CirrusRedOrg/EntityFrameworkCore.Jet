@@ -33,15 +33,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Union(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`City` = 'Berlin'
-                    UNION
-                    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-                    FROM `Customers` AS `c0`
-                    WHERE `c0`.`City` = 'London'
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`City` = 'Berlin'
+UNION
+SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+FROM `Customers` AS `c0`
+WHERE `c0`.`City` = 'London'
+""");
         }
 
         public override async Task Concat(bool isAsync)
@@ -116,7 +116,7 @@ FROM (
     ) AS `u0`
     ORDER BY `u0`.`ContactName` DESC
 ) AS `u1`
-ORDER BY `u1`.`ContactName`
+ORDER BY `u1`.`ContactName`, `u1`.`CustomerID`
 """);
         }
 
@@ -173,19 +173,19 @@ WHERE `u`.`ContactName` LIKE '%Thomas%'
             await base.Union_Union(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`City` = 'Berlin'
-                    UNION
-                    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-                    FROM `Customers` AS `c0`
-                    WHERE `c0`.`City` = 'London'
-                    UNION
-                    SELECT `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
-                    FROM `Customers` AS `c1`
-                    WHERE `c1`.`City` = 'Mannheim'
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`City` = 'Berlin'
+UNION
+SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+FROM `Customers` AS `c0`
+WHERE `c0`.`City` = 'London'
+UNION
+SELECT `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
+FROM `Customers` AS `c1`
+WHERE `c1`.`City` = 'Mannheim'
+""");
         }
 
         public override async Task Union_Intersect(bool isAsync)
@@ -268,15 +268,15 @@ ORDER BY `u1`.`CustomerID`
             await base.Select_Union(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`Address`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`City` = 'Berlin'
-                    UNION
-                    SELECT `c0`.`Address`
-                    FROM `Customers` AS `c0`
-                    WHERE `c0`.`City` = 'London'
-                    """);
+                """
+SELECT `c`.`Address`
+FROM `Customers` AS `c`
+WHERE `c`.`City` = 'Berlin'
+UNION
+SELECT `c0`.`Address`
+FROM `Customers` AS `c0`
+WHERE `c0`.`City` = 'London'
+""");
         }
 
         public override async Task Union_Select(bool isAsync)
@@ -379,7 +379,7 @@ FROM (
     ORDER BY `u1`.`Foo` DESC
 ) AS `u0`
 WHERE `u0`.`Foo` = 'Berlin'
-ORDER BY `u0`.`Foo`
+ORDER BY `u0`.`Foo`, `u0`.`CustomerID`
 """);
         }
 
@@ -400,7 +400,7 @@ FROM (
     WHERE `c0`.`City` = 'London'
 ) AS `u`
 LEFT JOIN `Orders` AS `o` ON `u`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `u`.`CustomerID`
+ORDER BY `u`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -421,7 +421,7 @@ FROM (
     WHERE `c0`.`City` = 'London'
 ) AS `u`
 LEFT JOIN `Orders` AS `o` ON `u`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `u`.`CustomerID`
+ORDER BY `u`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -447,19 +447,19 @@ ORDER BY `u`.`CustomerID`
             await base.SubSelect_Union(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
-                        SELECT COUNT(*)
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Orders`
-                    FROM `Customers` AS `c`
-                    UNION
-                    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, (
-                        SELECT COUNT(*)
-                        FROM `Orders` AS `o0`
-                        WHERE `c0`.`CustomerID` = `o0`.`CustomerID`) AS `Orders`
-                    FROM `Customers` AS `c0`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Orders`
+FROM `Customers` AS `c`
+UNION
+SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o0`
+    WHERE `c0`.`CustomerID` = `o0`.`CustomerID`) AS `Orders`
+FROM `Customers` AS `c0`
+""");
         }
 
         public override async Task GroupBy_Select_Union(bool isAsync)
@@ -467,17 +467,17 @@ ORDER BY `u`.`CustomerID`
             await base.GroupBy_Select_Union(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, COUNT(*) AS `Count`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`City` = 'Berlin'
-                    GROUP BY `c`.`CustomerID`
-                    UNION
-                    SELECT `c0`.`CustomerID`, COUNT(*) AS `Count`
-                    FROM `Customers` AS `c0`
-                    WHERE `c0`.`City` = 'London'
-                    GROUP BY `c0`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`CustomerID`, COUNT(*) AS `Count`
+FROM `Customers` AS `c`
+WHERE `c`.`City` = 'Berlin'
+GROUP BY `c`.`CustomerID`
+UNION
+SELECT `c0`.`CustomerID`, COUNT(*) AS `Count`
+FROM `Customers` AS `c0`
+WHERE `c0`.`City` = 'London'
+GROUP BY `c0`.`CustomerID`
+""");
         }
 
         public override async Task Union_over_columns_with_different_nullability(bool isAsync)
@@ -499,7 +499,7 @@ ORDER BY `u`.`CustomerID`
             await base.Union_over_column_column(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`
 FROM `Orders` AS `o`
 UNION
@@ -587,7 +587,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_function_column(async);
 
             AssertSql(
-"""
+                """
 SELECT COUNT(*) AS `c`
 FROM `Orders` AS `o`
 GROUP BY `o`.`OrderID`
@@ -602,7 +602,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_function_function(async);
 
             AssertSql(
-"""
+                """
 SELECT COUNT(*) AS `c`
 FROM `Orders` AS `o`
 GROUP BY `o`.`OrderID`
@@ -618,7 +618,7 @@ GROUP BY `o0`.`OrderID`
             await base.Union_over_function_constant(async);
 
             AssertSql(
-"""
+                """
 SELECT COUNT(*) AS `c`
 FROM `Orders` AS `o`
 GROUP BY `o`.`OrderID`
@@ -633,7 +633,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_function_unary(async);
 
             AssertSql(
-"""
+                """
 SELECT COUNT(*) AS `c`
 FROM `Orders` AS `o`
 GROUP BY `o`.`OrderID`
@@ -648,7 +648,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_function_binary(async);
 
             AssertSql(
-"""
+                """
 SELECT COUNT(*) AS `c`
 FROM `Orders` AS `o`
 GROUP BY `o`.`OrderID`
@@ -663,7 +663,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_function_scalarsubquery(async);
 
             AssertSql(
-"""
+                """
 SELECT COUNT(*) AS `c`
 FROM `Orders` AS `o`
 GROUP BY `o`.`OrderID`
@@ -681,7 +681,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_constant_column(async);
 
             AssertSql(
-"""
+                """
 SELECT 8 AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -695,7 +695,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_constant_function(async);
 
             AssertSql(
-"""
+                """
 SELECT 8 AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -710,7 +710,7 @@ GROUP BY `o0`.`OrderID`
             await base.Union_over_constant_constant(async);
 
             AssertSql(
-"""
+                """
 SELECT 8 AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -724,7 +724,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_constant_unary(async);
 
             AssertSql(
-"""
+                """
 SELECT 8 AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -738,7 +738,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_constant_binary(async);
 
             AssertSql(
-"""
+                """
 SELECT 8 AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -752,7 +752,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_constant_scalarsubquery(async);
 
             AssertSql(
-"""
+                """
 SELECT 8 AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -769,7 +769,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_unary_column(async);
 
             AssertSql(
-"""
+                """
 SELECT -`o`.`OrderID` AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -783,7 +783,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_unary_function(async);
 
             AssertSql(
-"""
+                """
 SELECT -`o`.`OrderID` AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -798,7 +798,7 @@ GROUP BY `o0`.`OrderID`
             await base.Union_over_unary_constant(async);
 
             AssertSql(
-"""
+                """
 SELECT -`o`.`OrderID` AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -812,7 +812,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_unary_unary(async);
 
             AssertSql(
-"""
+                """
 SELECT -`o`.`OrderID` AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -826,7 +826,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_unary_binary(async);
 
             AssertSql(
-"""
+                """
 SELECT -`o`.`OrderID` AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -840,7 +840,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_unary_scalarsubquery(async);
 
             AssertSql(
-"""
+                """
 SELECT -`o`.`OrderID` AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -857,7 +857,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_binary_column(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID` + 1 AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -871,7 +871,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_binary_function(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID` + 1 AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -886,7 +886,7 @@ GROUP BY `o0`.`OrderID`
             await base.Union_over_binary_constant(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID` + 1 AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -900,7 +900,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_binary_unary(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID` + 1 AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -914,7 +914,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_binary_binary(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID` + 1 AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -928,7 +928,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_binary_scalarsubquery(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID` + 1 AS `c`
 FROM `Orders` AS `o`
 UNION
@@ -945,7 +945,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_scalarsubquery_column(async);
 
             AssertSql(
-"""
+                """
 SELECT (
     SELECT COUNT(*)
     FROM `Order Details` AS `o0`
@@ -962,7 +962,7 @@ FROM `Orders` AS `o1`
             await base.Union_over_scalarsubquery_function(async);
 
             AssertSql(
-"""
+                """
 SELECT (
     SELECT COUNT(*)
     FROM `Order Details` AS `o0`
@@ -980,7 +980,7 @@ GROUP BY `o1`.`OrderID`
             await base.Union_over_scalarsubquery_constant(async);
 
             AssertSql(
-"""
+                """
 SELECT (
     SELECT COUNT(*)
     FROM `Order Details` AS `o0`
@@ -997,7 +997,7 @@ FROM `Orders` AS `o1`
             await base.Union_over_scalarsubquery_unary(async);
 
             AssertSql(
-"""
+                """
 SELECT (
     SELECT COUNT(*)
     FROM `Order Details` AS `o0`
@@ -1014,7 +1014,7 @@ FROM `Orders` AS `o1`
             await base.Union_over_scalarsubquery_binary(async);
 
             AssertSql(
-"""
+                """
 SELECT (
     SELECT COUNT(*)
     FROM `Order Details` AS `o0`
@@ -1031,7 +1031,7 @@ FROM `Orders` AS `o1`
             await base.Union_over_scalarsubquery_scalarsubquery(async);
 
             AssertSql(
-"""
+                """
 SELECT (
     SELECT COUNT(*)
     FROM `Order Details` AS `o0`
@@ -1069,7 +1069,7 @@ FROM `Orders` AS `o0`
             await base.Union_over_OrderBy_without_Skip_Take1(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`
 FROM `Orders` AS `o`
 UNION
@@ -1101,7 +1101,7 @@ FROM (
             await base.Union_over_OrderBy_without_Skip_Take2(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`
 FROM `Orders` AS `o`
 UNION
@@ -1149,7 +1149,7 @@ FROM (
     WHERE `c0`.`CustomerID` LIKE 'F%'
 ) AS `u`
 LEFT JOIN `Orders` AS `o` ON `u`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `u`.`CustomerID`
+ORDER BY `u`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -1158,7 +1158,7 @@ ORDER BY `u`.`CustomerID`
             await base.Concat_with_one_side_being_GroupBy_aggregate(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderDate`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
@@ -1189,7 +1189,7 @@ FROM (
     WHERE `o0`.`OrderID` < 10250
 ) AS `u`
 LEFT JOIN `Orders` AS `o1` ON `u`.`CustomerID` = `o1`.`CustomerID`
-ORDER BY `u`.`CustomerID`
+ORDER BY `u`.`CustomerID`, `o1`.`OrderID`
 """);
         }
 
@@ -1212,7 +1212,7 @@ FROM (
     WHERE `o0`.`OrderID` < 10250
 ) AS `u`
 LEFT JOIN `Orders` AS `o1` ON `u`.`CustomerID` = `o1`.`CustomerID`
-ORDER BY `u`.`CustomerID`, `u`.`OrderDate`
+ORDER BY `u`.`CustomerID`, `u`.`OrderDate`, `o1`.`OrderID`
 """);
         }
 
@@ -1351,7 +1351,7 @@ WHERE `c1`.`City` = 'London'
             await base.Union_nested(async);
 
             AssertSql(
-"""
+                """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`ContactTitle` = 'Owner'
@@ -1371,7 +1371,7 @@ WHERE `c1`.`City` = 'London'
             await base.Union_non_entity(async);
 
             AssertSql(
-"""
+                """
 SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
 WHERE `c`.`ContactTitle` = 'Owner'
@@ -1593,7 +1593,7 @@ WHERE `c1`.`CustomerID` LIKE 'A%'
                     .Union(ss.Set<Customer>().Select(e => e.ContactName)));
 
             AssertSql(
-"""
+                """
 SELECT `c`.`CompanyName`
 FROM `Customers` AS `c`
 UNION
@@ -1613,7 +1613,7 @@ FROM `Customers` AS `c0`
                     .Union(ss.Set<Customer>().Select(e => e.ContactTitle)));
 
             AssertSql(
-"""
+                """
 SELECT `c`.`ContactName`
 FROM `Customers` AS `c`
 UNION

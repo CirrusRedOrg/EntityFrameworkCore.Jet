@@ -61,7 +61,7 @@ WHERE JSON_VALUE([j].[JsonThing], '$.StringProperty') = N'foo'
         await base.Materialize_non_public();
 
         AssertSql(
-            """"
+            """
 @p0='10' (Nullable = true)
 @p1='9' (Nullable = true)
 @p2='8' (Nullable = true)
@@ -71,12 +71,12 @@ VALUES (@p0, @p1, @p2);
 SELECT `Id`
 FROM `NonPublicEntities`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
-"""",
-//
-""""
+""",
+            //
+            """
 SELECT TOP 2 `n`.`Id`, `n`.`PrivateAutoProperty`, `n`.`PrivateProperty`, `n`.`_privateField`
 FROM `NonPublicEntities` AS `n`
-"""");
+""");
     }
 
     public override async Task Projecting_property_requiring_converter_with_closure_is_not_supported()

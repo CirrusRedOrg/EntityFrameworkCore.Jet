@@ -1319,12 +1319,11 @@ GROUP BY `c0`.`CustomerID`
             await base.GroupJoin_GroupBy_Aggregate_3(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`CustomerID` AS `Key`, AVG(CDBL(`o`.`OrderID`)) AS `Average`
-                    FROM `Orders` AS `o`
-                    LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-                    GROUP BY `o`.`CustomerID`
-                    """);
+                """
+SELECT `o`.`CustomerID` AS `Key`, AVG(CDBL(`o`.`OrderID`)) AS `Average`
+FROM `Orders` AS `o`
+GROUP BY `o`.`CustomerID`
+""");
         }
 
         public override async Task GroupJoin_GroupBy_Aggregate_4(bool isAsync)
@@ -1345,12 +1344,11 @@ GROUP BY `c0`.`CustomerID`
             await base.GroupJoin_GroupBy_Aggregate_5(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID` AS `Value`, AVG(CDBL(`o`.`OrderID`)) AS `Average`
-                    FROM `Orders` AS `o`
-                    LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-                    GROUP BY `o`.`OrderID`
-                    """);
+                """
+SELECT `o`.`OrderID` AS `Value`, AVG(CDBL(`o`.`OrderID`)) AS `Average`
+FROM `Orders` AS `o`
+GROUP BY `o`.`OrderID`
+""");
         }
 
         public override async Task GroupBy_optional_navigation_member_Aggregate(bool isAsync)
@@ -2493,7 +2491,7 @@ GROUP BY `o`.`CustomerID`
 
             AssertSql(
                 """
-SELECT `o`.`CustomerID` AS `Key`, MAX(IIF(`o`.`OrderDate` IS NOT NULL, `o`.`OrderDate`, NULL)) AS `Max`
+SELECT `o`.`CustomerID` AS `Key`, MAX(`o`.`OrderDate`) AS `Max`
 FROM `Orders` AS `o`
 GROUP BY `o`.`CustomerID`
 """);
@@ -3309,7 +3307,6 @@ ORDER BY `o`.`CustomerID`
                 """
 SELECT `o`.`OrderID` + `o`.`OrderID` AS `Value`, AVG(CDBL(`o`.`OrderID`)) AS `Average`
 FROM `Orders` AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 GROUP BY `o`.`OrderID`
 """);
         }
@@ -3320,10 +3317,10 @@ GROUP BY `o`.`OrderID`
 
             AssertSql(
                 """
-    SELECT `o`.`CustomerID` AS `Key`, IIF(SUM(`o`.`OrderID` + IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))) IS NULL, 0, SUM(`o`.`OrderID` + IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`))))) AS `Sum`
-    FROM `Orders` AS `o`
-    GROUP BY `o`.`CustomerID`
-    """);
+SELECT `o`.`CustomerID` AS `Key`, IIF(SUM(`o`.`OrderID` + LEN(`o`.`CustomerID`)) IS NULL, 0, SUM(`o`.`OrderID` + LEN(`o`.`CustomerID`))) AS `Sum`
+FROM `Orders` AS `o`
+GROUP BY `o`.`CustomerID`
+""");
         }
 
         public override async Task GroupBy_scalar_subquery(bool async)

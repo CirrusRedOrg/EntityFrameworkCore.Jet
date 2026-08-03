@@ -219,7 +219,7 @@ LEFT JOIN (
     WHERE `p0`.`Discriminator` = 'PersonKid9038'
 ) AS `s` ON `p`.`Id` = `s`.`TeacherId`
 WHERE `p`.`Discriminator` = 'PersonTeacher9038'
-ORDER BY `p`.`Id`, `s`.`Id`, `s`.`Id0`
+ORDER BY `p`.`Id`, `s`.`Id`
 """,
             //
             """
@@ -233,7 +233,7 @@ LEFT JOIN (
     WHERE `p1`.`Discriminator` = 'PersonKid9038'
 ) AS `p2` ON `p`.`Id` = `p2`.`TeacherId`
 WHERE `p`.`Discriminator` = 'PersonTeacher9038'
-ORDER BY `p`.`Id`, `f`.`Id`, `p0`.`Id`
+ORDER BY `p`.`Id`, `p0`.`Id`
 """);
     }
 
@@ -518,7 +518,7 @@ SELECT `d`.`Id`, `d`.`PrincipalId`, `p`.`Id`, `d0`.`Id`, `d0`.`PrincipalId`
 FROM (`DependentOneToMany` AS `d`
 INNER JOIN `PrincipalOneToMany` AS `p` ON `d`.`PrincipalId` = `p`.`Id`)
 LEFT JOIN `DependentOneToMany` AS `d0` ON `p`.`Id` = `d0`.`PrincipalId`
-ORDER BY `d`.`Id`, `p`.`Id`
+ORDER BY `d`.`Id`
 """,
             //
             """
@@ -575,7 +575,7 @@ LEFT JOIN (
     FROM `ManyDependent` AS `m0`
     LEFT JOIN `SingleDependent` AS `s` ON `m0`.`Id` = `s`.`ManyDependentId`
 ) AS `s0` ON `p`.`Id` = `s0`.`PrincipalId`
-ORDER BY `m`.`Id`, `p`.`Id`, `s0`.`Id`
+ORDER BY `m`.`Id`
 """);
     }
 

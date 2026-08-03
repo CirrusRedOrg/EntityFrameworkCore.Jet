@@ -1,9 +1,9 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using EntityFrameworkCore.Jet.Infrastructure;
 using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.LibRed.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -539,7 +539,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT IIF(@i IS NULL, NULL, CLNG(@i)) AS `Value`
+    FROM (SELECT @i AS `Value`
     FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`) AS `v`
     WHERE `v`.`Value` > `p`.`Id`) = 1
 """);
@@ -1796,7 +1796,9 @@ WHERE (
     protected override DbContextOptionsBuilder SetParameterizedCollectionMode(DbContextOptionsBuilder optionsBuilder,
         ParameterTranslationMode parameterizedCollectionMode)
     {
-        new JetDbContextOptionsBuilder(optionsBuilder).UseParameterizedCollectionMode(parameterizedCollectionMode);
+        // LibRed's builder, not Jet's: the two write to different options extensions, and adding Jet's to a
+        // context already configured for LibRed reads as two relational providers on one context.
+        new LibRedDbContextOptionsBuilder(optionsBuilder).UseParameterizedCollectionMode(parameterizedCollectionMode);
 
         return optionsBuilder;
     }

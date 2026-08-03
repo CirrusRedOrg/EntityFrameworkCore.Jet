@@ -466,11 +466,11 @@ WHERE EXISTS (
             base.Static_member_from_dbContext_is_inlined();
 
             AssertSql(
-                $"""
-                    SELECT `d`.`Id`, `d`.`UserId`
-                    FROM `DbContextStaticMemberFilter` AS `d`
-                    WHERE `d`.`UserId` <> 1
-                    """);
+                """
+SELECT `d`.`Id`, `d`.`UserId`
+FROM `DbContextStaticMemberFilter` AS `d`
+WHERE `d`.`UserId` <> 1
+""");
         }
 
         public override void Static_member_from_non_dbContext_is_inlined()
@@ -502,11 +502,11 @@ WHERE `l`.`IsEnabled`
             base.Method_parameter_is_inlined();
 
             AssertSql(
-                $"""
-                    SELECT `p`.`Id`, `p`.`Tenant`
-                    FROM `ParameterFilter` AS `p`
-                    WHERE `p`.`Tenant` = 0
-                    """);
+                """
+SELECT `p`.`Id`, `p`.`Tenant`
+FROM `ParameterFilter` AS `p`
+WHERE `p`.`Tenant` = 0
+""");
         }
 
         public override void Using_multiple_context_in_filter_parametrize_only_current_context()

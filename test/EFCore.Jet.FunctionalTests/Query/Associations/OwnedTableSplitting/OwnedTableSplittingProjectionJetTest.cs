@@ -91,7 +91,7 @@ FROM `RootEntity` AS `r`
 SELECT `r`.`Id`, `r`.`RequiredAssociate_Id`, `r`.`RequiredAssociate_Int`, `r`.`RequiredAssociate_Ints`, `r`.`RequiredAssociate_Name`, `r`.`RequiredAssociate_String`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`, `r`.`RequiredAssociate_OptionalNestedAssociate_Id`, `r`.`RequiredAssociate_OptionalNestedAssociate_Int`, `r`.`RequiredAssociate_OptionalNestedAssociate_Ints`, `r`.`RequiredAssociate_OptionalNestedAssociate_Name`, `r`.`RequiredAssociate_OptionalNestedAssociate_String`, `r`.`RequiredAssociate_RequiredNestedAssociate_Id`, `r`.`RequiredAssociate_RequiredNestedAssociate_Int`, `r`.`RequiredAssociate_RequiredNestedAssociate_Ints`, `r`.`RequiredAssociate_RequiredNestedAssociate_Name`, `r`.`RequiredAssociate_RequiredNestedAssociate_String`
 FROM `RootEntity` AS `r`
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r0` ON `r`.`Id` = `r0`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`
 """);
         }
     }
@@ -182,7 +182,7 @@ SELECT `r0`.`Id`, `r0`.`RequiredAssociate_Id`, `r0`.`RequiredAssociate_Int`, `r0
 FROM (`RootReferencingEntity` AS `r`
 LEFT JOIN `RootEntity` AS `r0` ON `r`.`RootEntityId` = `r0`.`Id`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r1` ON `r0`.`Id` = `r1`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `r0`.`Id`, `r1`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r1`.`AssociateTypeRootEntityId`, `r1`.`Id`
 """);
         }
     }
@@ -198,7 +198,7 @@ ORDER BY `r`.`Id`, `r0`.`Id`, `r1`.`AssociateTypeRootEntityId`
 SELECT `r`.`Id`, `r`.`RequiredAssociate_Id`, `r`.`RequiredAssociate_Int`, `r`.`RequiredAssociate_Ints`, `r`.`RequiredAssociate_Name`, `r`.`RequiredAssociate_String`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`, `r`.`RequiredAssociate_OptionalNestedAssociate_Id`, `r`.`RequiredAssociate_OptionalNestedAssociate_Int`, `r`.`RequiredAssociate_OptionalNestedAssociate_Ints`, `r`.`RequiredAssociate_OptionalNestedAssociate_Name`, `r`.`RequiredAssociate_OptionalNestedAssociate_String`, `r`.`RequiredAssociate_RequiredNestedAssociate_Id`, `r`.`RequiredAssociate_RequiredNestedAssociate_Int`, `r`.`RequiredAssociate_RequiredNestedAssociate_Ints`, `r`.`RequiredAssociate_RequiredNestedAssociate_Name`, `r`.`RequiredAssociate_RequiredNestedAssociate_String`
 FROM `RootEntity` AS `r`
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r0` ON `r`.`Id` = `r0`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`
 """);
         }
     }
@@ -233,7 +233,7 @@ LEFT JOIN (
     FROM `RelatedCollection` AS `r0`
     LEFT JOIN `RelatedCollection_NestedCollection` AS `r1` ON `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r1`.`AssociateTypeId`
 ) AS `s` ON `r`.`Id` = `s`.`RootEntityId`
-ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`
+ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`
 """);
         }
     }
@@ -249,7 +249,7 @@ ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`
 SELECT `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`
 FROM `RootEntity` AS `r`
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r0` ON `r`.`Id` = `r0`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`
 """);
         }
     }
@@ -284,7 +284,7 @@ SELECT `r0`.`RootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0
 FROM (`RootEntity` AS `r`
 INNER JOIN `RelatedCollection` AS `r0` ON `r`.`Id` = `r0`.`RootEntityId`)
 LEFT JOIN `RelatedCollection_NestedCollection` AS `r1` ON `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r1`.`AssociateTypeId`
-ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r0`.`Id`, `r1`.`AssociateTypeRootEntityId`, `r1`.`AssociateTypeId`
+ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r0`.`Id`, `r1`.`AssociateTypeRootEntityId`, `r1`.`AssociateTypeId`, `r1`.`Id`
 """);
         }
     }

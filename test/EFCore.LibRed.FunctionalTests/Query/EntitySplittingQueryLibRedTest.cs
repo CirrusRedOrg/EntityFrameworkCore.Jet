@@ -210,8 +210,8 @@ LEFT JOIN `OwnedReferenceExtras1` AS `o0` ON `e`.`Id` = `o0`.`EntityOneId`
         await base.Normal_entity_owning_a_split_reference_with_main_fragment_sharing_custom_projection(async);
 
         AssertSql(
-"""
-SELECT `e`.`Id`, IIF(`e`.`OwnedReference_Id` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue1` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue2` IS NOT NULL AND `o0`.`OwnedIntValue3` IS NOT NULL AND `o`.`OwnedIntValue4` IS NOT NULL, `o`.`OwnedIntValue4`, NULL) AS `OwnedIntValue4`, IIF(`e`.`OwnedReference_Id` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue1` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue2` IS NOT NULL AND `o0`.`OwnedIntValue3` IS NOT NULL AND `o`.`OwnedIntValue4` IS NOT NULL, `o`.`OwnedStringValue4`, NULL) AS `OwnedStringValue4`
+            """
+SELECT `e`.`Id`, IIF(`e`.`OwnedReference_Id` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue1` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue2` IS NOT NULL AND `o0`.`OwnedIntValue3` IS NOT NULL, `o`.`OwnedIntValue4`, NULL) AS `OwnedIntValue4`, IIF(`e`.`OwnedReference_Id` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue1` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue2` IS NOT NULL AND `o0`.`OwnedIntValue3` IS NOT NULL AND `o`.`OwnedIntValue4` IS NOT NULL, `o`.`OwnedStringValue4`, NULL) AS `OwnedStringValue4`
 FROM (`EntityOnes` AS `e`
 LEFT JOIN `OwnedReferenceExtras2` AS `o` ON `e`.`Id` = `o`.`EntityOneId`)
 LEFT JOIN `OwnedReferenceExtras1` AS `o0` ON `e`.`Id` = `o0`.`EntityOneId`

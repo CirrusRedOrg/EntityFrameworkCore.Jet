@@ -56,11 +56,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             Assert.Empty(results);
 
             AssertSql(
-                $"""
-                        SELECT `m`.`Int`
-                        FROM `MappedNullableDataTypes` AS `m`
-                        WHERE `m`.`TimeSpanAsTime` = TIMEVALUE('00:01:02')
-                        """);
+                """
+SELECT `m`.`Int`
+FROM `MappedNullableDataTypes` AS `m`
+WHERE `m`.`TimeSpanAsTime` = TIMEVALUE('00:01:02')
+""");
         }
 
         [Fact]

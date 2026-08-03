@@ -228,7 +228,7 @@ ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, `c62`.`Id1`, `c62`.`Id2`, `c87`.`Id1`
 SELECT `c124`.`Name`, `c`.`Id1`, `c`.`Id2`, `c124`.`Id1`, `c124`.`Id2`
 FROM `CompositeOnes` AS `c`
 INNER JOIN `CompositeTwos` AS `c124` ON `c`.`Id1` = `c124`.`OneToMany_Required_Inverse2Id1` AND `c`.`Id2` = `c124`.`OneToMany_Required_Inverse2Id2`
-ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, IIF(LEN(`c124`.`Name`) IS NULL, NULL, CLNG(LEN(`c124`.`Name`))), `c124`.`Id1`, `c124`.`Id2`
+ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, LEN(`c124`.`Name`), `c124`.`Id1`, `c124`.`Id2`
 """,
             //
             """
@@ -237,7 +237,7 @@ FROM (`CompositeOnes` AS `c`
 INNER JOIN `CompositeTwos` AS `c124` ON `c`.`Id1` = `c124`.`OneToMany_Required_Inverse2Id1` AND `c`.`Id2` = `c124`.`OneToMany_Required_Inverse2Id2`)
 LEFT JOIN `CompositeThrees` AS `c137` ON `c124`.`Id1` = `c137`.`OneToMany_Optional_Inverse3Id1` AND `c124`.`Id2` = `c137`.`OneToMany_Optional_Inverse3Id2`
 WHERE `c124`.`Id1` IS NOT NULL AND `c137`.`OneToMany_Optional_Inverse3Id1` IS NOT NULL AND `c124`.`Id2` IS NOT NULL AND `c137`.`OneToMany_Optional_Inverse3Id2` IS NOT NULL
-ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, IIF(LEN(`c124`.`Name`) IS NULL, NULL, CLNG(LEN(`c124`.`Name`))), `c124`.`Id1`, `c124`.`Id2`, `c137`.`Id1`, `c137`.`Id2`
+ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, LEN(`c124`.`Name`), `c124`.`Id1`, `c124`.`Id2`, `c137`.`Id1`, `c137`.`Id2`
 """,
             //
             """
@@ -247,7 +247,7 @@ INNER JOIN `CompositeTwos` AS `c124` ON `c`.`Id1` = `c124`.`OneToMany_Required_I
 LEFT JOIN `CompositeThrees` AS `c137` ON `c124`.`Id1` = `c137`.`OneToMany_Optional_Inverse3Id1` AND `c124`.`Id2` = `c137`.`OneToMany_Optional_Inverse3Id2`)
 LEFT JOIN `CompositeFours` AS `c140` ON `c137`.`Id1` = `c140`.`OneToMany_Required_Inverse4Id1` AND `c137`.`Id2` = `c140`.`OneToMany_Required_Inverse4Id2`
 WHERE `c124`.`Id1` IS NOT NULL AND `c137`.`OneToMany_Optional_Inverse3Id1` IS NOT NULL AND `c124`.`Id2` IS NOT NULL AND `c137`.`OneToMany_Optional_Inverse3Id2` IS NOT NULL AND `c137`.`Id1` IS NOT NULL AND `c140`.`OneToMany_Required_Inverse4Id1` IS NOT NULL AND `c137`.`Id2` IS NOT NULL AND `c140`.`OneToMany_Required_Inverse4Id2` IS NOT NULL
-ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, IIF(LEN(`c124`.`Name`) IS NULL, NULL, CLNG(LEN(`c124`.`Name`))), `c124`.`Id1`, `c124`.`Id2`, `c137`.`Id1`, `c137`.`Id2`
+ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, LEN(`c124`.`Name`), `c124`.`Id1`, `c124`.`Id2`, `c137`.`Id1`, `c137`.`Id2`
 """,
             //
             """
@@ -257,7 +257,7 @@ INNER JOIN `CompositeTwos` AS `c124` ON `c`.`Id1` = `c124`.`OneToMany_Required_I
 LEFT JOIN `CompositeThrees` AS `c137` ON `c124`.`Id1` = `c137`.`OneToMany_Optional_Inverse3Id1` AND `c124`.`Id2` = `c137`.`OneToMany_Optional_Inverse3Id2`)
 LEFT JOIN `CompositeFours` AS `c142` ON `c137`.`Id1` = `c142`.`OneToMany_Optional_Inverse4Id1` AND `c137`.`Id2` = `c142`.`OneToMany_Optional_Inverse4Id2`
 WHERE `c124`.`Id1` IS NOT NULL AND `c137`.`OneToMany_Optional_Inverse3Id1` IS NOT NULL AND `c124`.`Id2` IS NOT NULL AND `c137`.`OneToMany_Optional_Inverse3Id2` IS NOT NULL AND `c137`.`Id1` IS NOT NULL AND `c142`.`OneToMany_Optional_Inverse4Id1` IS NOT NULL AND `c137`.`Id2` IS NOT NULL AND `c142`.`OneToMany_Optional_Inverse4Id2` IS NOT NULL
-ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, IIF(LEN(`c124`.`Name`) IS NULL, NULL, CLNG(LEN(`c124`.`Name`))), `c124`.`Id1`, `c124`.`Id2`, `c137`.`Id1`, `c137`.`Id2`
+ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, LEN(`c124`.`Name`), `c124`.`Id1`, `c124`.`Id2`, `c137`.`Id1`, `c137`.`Id2`
 """,
             //
             """
@@ -266,7 +266,7 @@ FROM (`CompositeOnes` AS `c`
 INNER JOIN `CompositeTwos` AS `c124` ON `c`.`Id1` = `c124`.`OneToMany_Required_Inverse2Id1` AND `c`.`Id2` = `c124`.`OneToMany_Required_Inverse2Id2`)
 LEFT JOIN `CompositeThrees` AS `c149` ON `c124`.`Id1` = `c149`.`OneToMany_Optional_Inverse3Id1` AND `c124`.`Id2` = `c149`.`OneToMany_Optional_Inverse3Id2`
 WHERE `c124`.`Id1` IS NOT NULL AND `c149`.`OneToMany_Optional_Inverse3Id1` IS NOT NULL AND `c124`.`Id2` IS NOT NULL AND `c149`.`OneToMany_Optional_Inverse3Id2` IS NOT NULL
-ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, IIF(LEN(`c124`.`Name`) IS NULL, NULL, CLNG(LEN(`c124`.`Name`))), `c124`.`Id1`, `c124`.`Id2`, `c149`.`Id1`, `c149`.`Id2`
+ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, LEN(`c124`.`Name`), `c124`.`Id1`, `c124`.`Id2`, `c149`.`Id1`, `c149`.`Id2`
 """,
             //
             """
@@ -276,7 +276,7 @@ INNER JOIN `CompositeTwos` AS `c124` ON `c`.`Id1` = `c124`.`OneToMany_Required_I
 LEFT JOIN `CompositeThrees` AS `c149` ON `c124`.`Id1` = `c149`.`OneToMany_Optional_Inverse3Id1` AND `c124`.`Id2` = `c149`.`OneToMany_Optional_Inverse3Id2`)
 LEFT JOIN `CompositeFours` AS `c152` ON `c149`.`Id1` = `c152`.`OneToMany_Optional_Inverse4Id1` AND `c149`.`Id2` = `c152`.`OneToMany_Optional_Inverse4Id2`
 WHERE `c124`.`Id1` IS NOT NULL AND `c149`.`OneToMany_Optional_Inverse3Id1` IS NOT NULL AND `c124`.`Id2` IS NOT NULL AND `c149`.`OneToMany_Optional_Inverse3Id2` IS NOT NULL AND `c149`.`Id1` IS NOT NULL AND `c152`.`OneToMany_Optional_Inverse4Id1` IS NOT NULL AND `c149`.`Id2` IS NOT NULL AND `c152`.`OneToMany_Optional_Inverse4Id2` IS NOT NULL
-ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, IIF(LEN(`c124`.`Name`) IS NULL, NULL, CLNG(LEN(`c124`.`Name`))), `c124`.`Id1`, `c124`.`Id2`, `c149`.`Id1`, `c149`.`Id2`
+ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, LEN(`c124`.`Name`), `c124`.`Id1`, `c124`.`Id2`, `c149`.`Id1`, `c149`.`Id2`
 """,
             //
             """
@@ -286,7 +286,7 @@ INNER JOIN `CompositeTwos` AS `c124` ON `c`.`Id1` = `c124`.`OneToMany_Required_I
 LEFT JOIN `CompositeThrees` AS `c149` ON `c124`.`Id1` = `c149`.`OneToMany_Optional_Inverse3Id1` AND `c124`.`Id2` = `c149`.`OneToMany_Optional_Inverse3Id2`)
 LEFT JOIN `CompositeFours` AS `c154` ON `c149`.`Id1` = `c154`.`OneToMany_Required_Inverse4Id1` AND `c149`.`Id2` = `c154`.`OneToMany_Required_Inverse4Id2`
 WHERE `c124`.`Id1` IS NOT NULL AND `c149`.`OneToMany_Optional_Inverse3Id1` IS NOT NULL AND `c124`.`Id2` IS NOT NULL AND `c149`.`OneToMany_Optional_Inverse3Id2` IS NOT NULL AND `c149`.`Id1` IS NOT NULL AND `c154`.`OneToMany_Required_Inverse4Id1` IS NOT NULL AND `c149`.`Id2` IS NOT NULL AND `c154`.`OneToMany_Required_Inverse4Id2` IS NOT NULL
-ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, IIF(LEN(`c124`.`Name`) IS NULL, NULL, CLNG(LEN(`c124`.`Name`))), `c124`.`Id1`, `c124`.`Id2`, `c149`.`Id1`, `c149`.`Id2`, `c154`.`Id1` & (`c154`.`Id2` & '') DESC
+ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, LEN(`c124`.`Name`), `c124`.`Id1`, `c124`.`Id2`, `c149`.`Id1`, `c149`.`Id2`, `c154`.`Id1` & (`c154`.`Id2` & '') DESC
 """);
     }
 

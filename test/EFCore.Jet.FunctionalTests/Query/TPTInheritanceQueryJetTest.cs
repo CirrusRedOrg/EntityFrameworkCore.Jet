@@ -38,14 +38,14 @@ INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
         await base.Can_filter_all_animals(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `a`.`Name` = 'Great spotted kiwi'
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -64,7 +64,7 @@ LEFT JOIN (
     LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
     LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 ) AS `s` ON `c`.`Id` = `s`.`CountryId`
-ORDER BY `c`.`Name`, `c`.`Id`
+ORDER BY `c`.`Name`, `c`.`Id`, `s`.`Id`
 """);
     }
 
@@ -88,7 +88,7 @@ LEFT JOIN (
     LEFT JOIN `Eagle` AS `e0` ON `a0`.`Id` = `e0`.`Id`)
     LEFT JOIN `Kiwi` AS `k` ON `a0`.`Id` = `k`.`Id`
 ) AS `s0` ON `s`.`Id` = `s0`.`EagleId`
-ORDER BY `s`.`Id`
+ORDER BY `s`.`Id`, `s0`.`Id`
 """);
     }
 
@@ -100,13 +100,13 @@ ORDER BY `s`.`Id`
         await base.Can_query_all_animals(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -115,13 +115,13 @@ ORDER BY `a`.`Species`
         await base.Can_query_all_birds(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -131,7 +131,7 @@ ORDER BY `a`.`Species`
 
         AssertSql(
             """
-SELECT `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `r`.`HasThorns`, `d`.`AdditionalInfo_Nickname`, `d`.`AdditionalInfo_LeafStructure_AreLeavesBig`, `d`.`AdditionalInfo_LeafStructure_NumLeaves`, IIF(`r`.`Species` IS NOT NULL, 'Rose', IIF(`d`.`Species` IS NOT NULL, 'Daisy', NULL)) AS `Discriminator`
+SELECT `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `r`.`HasThorns`, IIF(`r`.`Species` IS NOT NULL, 'Rose', IIF(`d`.`Species` IS NOT NULL, 'Daisy', NULL)) AS `Discriminator`
 FROM (`Plants` AS `p`
 LEFT JOIN `Daisies` AS `d` ON `p`.`Species` = `d`.`Species`)
 LEFT JOIN `Roses` AS `r` ON `p`.`Species` = `r`.`Species`
@@ -145,8 +145,8 @@ ORDER BY `p`.`Species`
         await base.Can_query_all_types_when_shared_column(async);
 
         AssertSql(
-"""
-SELECT `d`.`Id`, `d`.`SortIndex`, `c`.`CaffeineGrams`, `c`.`CokeCO2`, `c`.`SugarGrams`, `l`.`LiltCO2`, `l`.`SugarGrams`, `t`.`CaffeineGrams`, `t`.`HasMilk`, IIF(`t`.`Id` IS NOT NULL, 'Tea', IIF(`l`.`Id` IS NOT NULL, 'Lilt', IIF(`c`.`Id` IS NOT NULL, 'Coke', NULL))) AS `Discriminator`
+            """
+SELECT `d`.`Id`, `d`.`SortIndex`, `c`.`CaffeineGrams`, `c`.`CokeCO2`, `c`.`Ints`, `c`.`SugarGrams`, `l`.`LiltCO2`, `l`.`SugarGrams`, `t`.`CaffeineGrams`, `t`.`HasMilk`, `d`.`ComplexTypeCollection`, `d`.`ParentComplexType_Int`, `d`.`ParentComplexType_UniqueInt`, `d`.`ParentComplexType_Nested_NestedInt`, `d`.`ParentComplexType_Nested_UniqueInt`, `c`.`ChildComplexType_Int`, `c`.`ChildComplexType_UniqueInt`, `c`.`ChildComplexType_Nested_NestedInt`, `c`.`ChildComplexType_Nested_UniqueInt`, `t`.`ChildComplexType_Int`, `t`.`ChildComplexType_UniqueInt`, `t`.`ChildComplexType_Nested_NestedInt`, `t`.`ChildComplexType_Nested_UniqueInt`, IIF(`t`.`Id` IS NOT NULL, 'Tea', IIF(`l`.`Id` IS NOT NULL, 'Lilt', IIF(`c`.`Id` IS NOT NULL, 'Coke', NULL))) AS `Discriminator`
 FROM ((`Drinks` AS `d`
 LEFT JOIN `Coke` AS `c` ON `d`.`Id` = `c`.`Id`)
 LEFT JOIN `Lilt` AS `l` ON `d`.`Id` = `l`.`Id`)
@@ -159,7 +159,7 @@ LEFT JOIN `Tea` AS `t` ON `d`.`Id` = `t`.`Id`
         await base.Can_query_just_kiwis(async);
 
         AssertSql(
-"""
+            """
 SELECT TOP 2 `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`
 FROM (`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
@@ -172,7 +172,7 @@ INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
         await base.Can_query_just_roses(async);
 
         AssertSql(
-"""
+            """
 SELECT TOP 2 `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `r`.`HasThorns`
 FROM (`Plants` AS `p`
 INNER JOIN `Flowers` AS `f` ON `p`.`Species` = `f`.`Species`)
@@ -185,20 +185,20 @@ INNER JOIN `Roses` AS `r` ON `p`.`Species` = `r`.`Species`
         await base.Can_query_when_shared_column(async);
 
         AssertSql(
-"""
-SELECT TOP 2 `d`.`Id`, `d`.`SortIndex`, `c`.`CaffeineGrams`, `c`.`CokeCO2`, `c`.`SugarGrams`
+            """
+SELECT TOP 2 `d`.`Id`, `d`.`SortIndex`, `c`.`CaffeineGrams`, `c`.`CokeCO2`, `c`.`Ints`, `c`.`SugarGrams`, `d`.`ComplexTypeCollection`, `d`.`ParentComplexType_Int`, `d`.`ParentComplexType_UniqueInt`, `d`.`ParentComplexType_Nested_NestedInt`, `d`.`ParentComplexType_Nested_UniqueInt`, `c`.`ChildComplexType_Int`, `c`.`ChildComplexType_UniqueInt`, `c`.`ChildComplexType_Nested_NestedInt`, `c`.`ChildComplexType_Nested_UniqueInt`
 FROM `Drinks` AS `d`
 INNER JOIN `Coke` AS `c` ON `d`.`Id` = `c`.`Id`
 """,
-//
-"""
-SELECT TOP 2 `d`.`Id`, `d`.`SortIndex`, `l`.`LiltCO2`, `l`.`SugarGrams`
+            //
+            """
+SELECT TOP 2 `d`.`Id`, `d`.`SortIndex`, `l`.`LiltCO2`, `l`.`SugarGrams`, `d`.`ComplexTypeCollection`, `d`.`ParentComplexType_Int`, `d`.`ParentComplexType_UniqueInt`, `d`.`ParentComplexType_Nested_NestedInt`, `d`.`ParentComplexType_Nested_UniqueInt`
 FROM `Drinks` AS `d`
 INNER JOIN `Lilt` AS `l` ON `d`.`Id` = `l`.`Id`
 """,
-//
-"""
-SELECT TOP 2 `d`.`Id`, `d`.`SortIndex`, `t`.`CaffeineGrams`, `t`.`HasMilk`
+            //
+            """
+SELECT TOP 2 `d`.`Id`, `d`.`SortIndex`, `t`.`CaffeineGrams`, `t`.`HasMilk`, `d`.`ComplexTypeCollection`, `d`.`ParentComplexType_Int`, `d`.`ParentComplexType_UniqueInt`, `d`.`ParentComplexType_Nested_NestedInt`, `d`.`ParentComplexType_Nested_UniqueInt`, `t`.`ChildComplexType_Int`, `t`.`ChildComplexType_UniqueInt`, `t`.`ChildComplexType_Nested_NestedInt`, `t`.`ChildComplexType_Nested_UniqueInt`
 FROM `Drinks` AS `d`
 INNER JOIN `Tea` AS `t` ON `d`.`Id` = `t`.`Id`
 """);
@@ -209,7 +209,7 @@ INNER JOIN `Tea` AS `t` ON `d`.`Id` = `t`.`Id`
         await base.Can_use_backwards_is_animal(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`
 FROM (`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
@@ -222,7 +222,7 @@ INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
         await base.Can_use_backwards_of_type_animal(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`
 FROM (`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
@@ -235,7 +235,7 @@ INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
         await base.Can_use_is_kiwi(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
@@ -274,7 +274,7 @@ LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
         await base.Can_use_is_kiwi_with_other_predicate(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
@@ -289,13 +289,13 @@ WHERE `k`.`Id` IS NOT NULL AND `a`.`CountryId` = 1
         await base.Can_use_of_type_animal(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -304,14 +304,14 @@ ORDER BY `a`.`Species`
         await base.Can_use_of_type_bird(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -336,14 +336,14 @@ ORDER BY `a`.`Species`
         await base.Can_use_of_type_bird_predicate(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `a`.`CountryId` = 1 AND (`k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL)
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -352,7 +352,7 @@ ORDER BY `a`.`Species`
         await base.Can_use_of_type_bird_with_projection(async);
 
         AssertSql(
-"""
+            """
 SELECT `b`.`EagleId`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
@@ -422,12 +422,12 @@ WHERE `r`.`Species` IS NOT NULL
         await base.Member_access_on_intermediate_type_works();
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Name`
 FROM (`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
-ORDER BY `a`.`Name`
+ORDER BY `a`.`Name`, `a`.`Id`
 """);
     }
 
@@ -450,20 +450,20 @@ ORDER BY `a`.`Name`
         await base.Setting_foreign_key_to_a_different_type_throws();
 
         AssertSql(
-"""
+            """
 SELECT TOP 2 `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`
 FROM (`Animals` AS `a`
 INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 """,
-//
-$"""
+            //
+            """
 @p0='0'
 @p1='Bald eagle' (Size = 255)
 @p2='Haliaeetus leucocephalus' (Size = 100)
 
 INSERT INTO `Animals` (`CountryId`, `Name`, `Species`)
-VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")});
+VALUES (@p0, @p1, @p2);
 SELECT `Id`
 FROM `Animals`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
@@ -622,7 +622,7 @@ INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
         await base.Using_is_operator_on_multiple_type_with_no_result(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
@@ -637,7 +637,7 @@ WHERE `k`.`Id` IS NOT NULL AND `e`.`Id` IS NOT NULL
         await base.Using_is_operator_with_of_type_on_multiple_type_with_no_result(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
@@ -689,7 +689,7 @@ WHERE FALSE
         await base.GetType_in_hierarchy_in_leaf_type_with_sibling(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
@@ -704,7 +704,7 @@ WHERE `e`.`Id` IS NOT NULL
         await base.GetType_in_hierarchy_in_leaf_type_with_sibling2(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
@@ -719,7 +719,7 @@ WHERE `k`.`Id` IS NOT NULL
         await base.GetType_in_hierarchy_in_leaf_type_with_sibling2_reverse(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
@@ -734,13 +734,34 @@ WHERE `k`.`Id` IS NOT NULL
         await base.GetType_in_hierarchy_in_leaf_type_with_sibling2_not_equal(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NULL
+""");
+    }
+
+    public override async Task Primitive_collection_on_subtype(bool async)
+    {
+        await base.Primitive_collection_on_subtype(async);
+
+        AssertSql(
+"""
+SELECT [d].[Id], [d].[SortIndex], [c].[CaffeineGrams], [c].[CokeCO2], [c].[Ints], [c].[SugarGrams], [l].[LiltCO2], [l].[SugarGrams], [t].[CaffeineGrams], [t].[HasMilk], [d].[ComplexTypeCollection], [d].[ParentComplexType_Int], [d].[ParentComplexType_UniqueInt], [d].[ParentComplexType_Nested_NestedInt], [d].[ParentComplexType_Nested_UniqueInt], [c].[ChildComplexType_Int], [c].[ChildComplexType_UniqueInt], [c].[ChildComplexType_Nested_NestedInt], [c].[ChildComplexType_Nested_UniqueInt], [t].[ChildComplexType_Int], [t].[ChildComplexType_UniqueInt], [t].[ChildComplexType_Nested_NestedInt], [t].[ChildComplexType_Nested_UniqueInt], CASE
+    WHEN [t].[Id] IS NOT NULL THEN N'Tea'
+    WHEN [l].[Id] IS NOT NULL THEN N'Lilt'
+    WHEN [c].[Id] IS NOT NULL THEN N'Coke'
+END AS [Discriminator]
+FROM [Drinks] AS [d]
+LEFT JOIN [Coke] AS [c] ON [d].[Id] = [c].[Id]
+LEFT JOIN [Lilt] AS [l] ON [d].[Id] = [l].[Id]
+LEFT JOIN [Tea] AS [t] ON [d].[Id] = [t].[Id]
+WHERE EXISTS (
+    SELECT 1
+    FROM OPENJSON([c].[Ints]) AS [i])
 """);
     }
 

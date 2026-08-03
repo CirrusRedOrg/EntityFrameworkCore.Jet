@@ -293,12 +293,12 @@ FROM `BasicTypesEntities` AS `b`
 
         AssertSql(
             """
-SELECT `b0`.`A`
+SELECT `b0`.`A`, `b0`.`Id`
 FROM (
-    SELECT FIX(`b`.`Double`) AS `A`
+    SELECT FIX(`b`.`Double`) AS `A`, `b`.`Id`
     FROM `BasicTypesEntities` AS `b`
 ) AS `b0`
-ORDER BY `b0`.`A`
+ORDER BY `b0`.`A`, `b0`.`Id`
 """);
     }
 
@@ -314,12 +314,12 @@ ORDER BY `b0`.`A`
 
         AssertSql(
             """
-SELECT `b0`.`A`
+SELECT `b0`.`A`, `b0`.`Id`
 FROM (
-    SELECT FIX(`b`.`Double`) AS `A`
+    SELECT FIX(`b`.`Double`) AS `A`, `b`.`Id`
     FROM `BasicTypesEntities` AS `b`
 ) AS `b0`
-ORDER BY `b0`.`A` DESC
+ORDER BY `b0`.`A` DESC, `b0`.`Id`
 """);
     }
 
@@ -335,12 +335,12 @@ ORDER BY `b0`.`A` DESC
 
         AssertSql(
             """
-SELECT `b0`.`A`
+SELECT `b0`.`A`, `b0`.`Id`
 FROM (
-    SELECT FIX(`b`.`Double`) AS `A`
+    SELECT FIX(`b`.`Double`) AS `A`, `b`.`Id`
     FROM `BasicTypesEntities` AS `b`
 ) AS `b0`
-ORDER BY `b0`.`A` DESC
+ORDER BY `b0`.`A` DESC, `b0`.`Id`
 """);
     }
 
@@ -476,6 +476,11 @@ WHERE `b`.`Float` > 0 AND SQR(`b`.`Float`) > 0
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
 WHERE SGN(`b`.`Double`) > 0
+""",
+            //
+            """
+SELECT SGN(`b`.`Double`)
+FROM `BasicTypesEntities` AS `b`
 """);
     }
 
@@ -488,6 +493,11 @@ WHERE SGN(`b`.`Double`) > 0
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
 WHERE SGN(`b`.`Float`) > 0
+""",
+            //
+            """
+SELECT SGN(`b`.`Float`)
+FROM `BasicTypesEntities` AS `b`
 """);
     }
 

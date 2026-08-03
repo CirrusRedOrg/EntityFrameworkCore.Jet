@@ -463,13 +463,12 @@ WHERE `p`.`Id` = @i
         AssertSql(
             """
 @i='2'
-@i='2'
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT IIF(@i IS NULL, NULL, CLNG(@i)) AS `Value`
+    FROM (SELECT @i AS `Value`
     FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`) AS `v`
     WHERE `v`.`Value` > `p`.`Id`) = 1
 """);

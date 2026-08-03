@@ -47,7 +47,7 @@ ORDER BY `v`.`Name`
             await base.Can_query_shared();
 
             AssertSql(
-"""
+                """
 SELECT `v`.`Name`, `v`.`Operator_Discriminator`, `v`.`Operator_Name`, `v`.`LicenseType`
 FROM `Vehicles` AS `v`
 """);
@@ -58,7 +58,7 @@ FROM `Vehicles` AS `v`
             await base.Can_query_shared_nonhierarchy();
 
             AssertSql(
-"""
+                """
 SELECT `v`.`Name`, `v`.`Operator_Name`
 FROM `Vehicles` AS `v`
 """);
@@ -69,7 +69,7 @@ FROM `Vehicles` AS `v`
             await base.Can_query_shared_nonhierarchy_with_nonshared_dependent();
 
             AssertSql(
-"""
+                """
 SELECT `v`.`Name`, `v`.`Operator_Name`
 FROM `Vehicles` AS `v`
 """);
@@ -80,7 +80,7 @@ FROM `Vehicles` AS `v`
             await base.Can_query_shared_derived_hierarchy();
 
             AssertSql(
-"""
+                """
 SELECT `v`.`Name`, `v`.`Capacity`, `v`.`FuelTank_Discriminator`, `v`.`FuelType`, `v`.`GrainGeometry`
 FROM `Vehicles` AS `v`
 WHERE `v`.`Capacity` IS NOT NULL AND `v`.`FuelTank_Discriminator` IS NOT NULL
@@ -92,7 +92,7 @@ WHERE `v`.`Capacity` IS NOT NULL AND `v`.`FuelTank_Discriminator` IS NOT NULL
             await base.Can_query_shared_derived_nonhierarchy();
 
             AssertSql(
-"""
+                """
 SELECT `v`.`Name`, `v`.`Capacity`, `v`.`FuelType`
 FROM `Vehicles` AS `v`
 WHERE `v`.`Capacity` IS NOT NULL
@@ -104,7 +104,7 @@ WHERE `v`.`Capacity` IS NOT NULL
             await base.Can_query_shared_derived_nonhierarchy_all_required();
 
             AssertSql(
-"""
+                """
 SELECT `v`.`Name`, `v`.`Capacity`, `v`.`FuelType`
 FROM `Vehicles` AS `v`
 WHERE `v`.`Capacity` IS NOT NULL AND `v`.`FuelType` IS NOT NULL
@@ -116,18 +116,18 @@ WHERE `v`.`Capacity` IS NOT NULL AND `v`.`FuelType` IS NOT NULL
             await base.Can_change_dependent_instance_non_derived();
 
             AssertSql(
-$"""
+                """
 @p0='LicensedOperator' (Nullable = false) (Size = 21)
 @p1='Repair' (Size = 255)
 @p2='repairman' (Size = 255)
 @p3='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 255)
 
-UPDATE `Vehicles` SET `Operator_Discriminator` = {AssertSqlHelper.Parameter("@p0")}, `LicenseType` = {AssertSqlHelper.Parameter("@p1")}, `Operator_Name` = {AssertSqlHelper.Parameter("@p2")}
-WHERE `Name` = {AssertSqlHelper.Parameter("@p3")};
+UPDATE `Vehicles` SET `Operator_Discriminator` = @p0, `LicenseType` = @p1, `Operator_Name` = @p2
+WHERE `Name` = @p3;
 SELECT @@ROWCOUNT;
 """,
-//
-"""
+                //
+                """
 SELECT TOP 2 `v`.`Name`, `v`.`Discriminator`, `v`.`SeatingCapacity`, `v`.`AttachedVehicleName`, `v0`.`Name`, `v0`.`Operator_Discriminator`, `v0`.`Operator_Name`, `v0`.`LicenseType`
 FROM `Vehicles` AS `v`
 LEFT JOIN `Vehicles` AS `v0` ON `v`.`Name` = `v0`.`Name`
@@ -140,16 +140,16 @@ WHERE `v`.`Name` = 'Trek Pro Fit Madone 6 Series'
             await base.Can_change_principal_instance_non_derived();
 
             AssertSql(
-$"""
+                """
 @p0='2'
 @p1='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 255)
 
-UPDATE `Vehicles` SET `SeatingCapacity` = {AssertSqlHelper.Parameter("@p0")}
-WHERE `Name` = {AssertSqlHelper.Parameter("@p1")};
+UPDATE `Vehicles` SET `SeatingCapacity` = @p0
+WHERE `Name` = @p1;
 SELECT @@ROWCOUNT;
 """,
-//
-"""
+                //
+                """
 SELECT TOP 2 `v`.`Name`, `v`.`Discriminator`, `v`.`SeatingCapacity`, `v`.`AttachedVehicleName`, `v0`.`Name`, `v0`.`Operator_Discriminator`, `v0`.`Operator_Name`, `v0`.`LicenseType`
 FROM `Vehicles` AS `v`
 LEFT JOIN `Vehicles` AS `v0` ON `v`.`Name` = `v0`.`Name`

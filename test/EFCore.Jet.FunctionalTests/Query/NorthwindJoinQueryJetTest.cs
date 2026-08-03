@@ -28,11 +28,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Join_customers_orders_projection(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`ContactName`, `o`.`OrderID`
-                    FROM `Customers` AS `c`
-                    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`ContactName`, `o`.`OrderID`
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+""");
         }
 
         public override async Task Join_customers_orders_entities(bool isAsync)
@@ -40,12 +40,12 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Join_customers_orders_entities(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    WHERE `c`.`CustomerID` LIKE 'F%'
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'F%'
+""");
         }
 
         public override async Task Join_select_many(bool isAsync)
@@ -74,11 +74,11 @@ WHERE `c`.`CustomerID` LIKE 'F%'
             await base.Join_customers_orders_select(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`ContactName`, `o`.`OrderID`
-                    FROM `Customers` AS `c`
-                    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`ContactName`, `o`.`OrderID`
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+""");
         }
 
         public override async Task Join_customers_orders_with_subquery(bool isAsync)
@@ -211,12 +211,12 @@ WHERE `c`.`CustomerID` = 'ALFKI'
             await base.Join_same_collection_multiple(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
-                    FROM (`Customers` AS `c`
-                    INNER JOIN `Customers` AS `c0` ON `c`.`CustomerID` = `c0`.`CustomerID`)
-                    INNER JOIN `Customers` AS `c1` ON `c`.`CustomerID` = `c1`.`CustomerID`
-                    """);
+                """
+SELECT `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
+FROM (`Customers` AS `c`
+INNER JOIN `Customers` AS `c0` ON `c`.`CustomerID` = `c0`.`CustomerID`)
+INNER JOIN `Customers` AS `c1` ON `c`.`CustomerID` = `c1`.`CustomerID`
+""");
         }
 
         public override async Task Join_same_collection_force_alias_uniquefication(bool isAsync)
@@ -224,7 +224,7 @@ WHERE `c`.`CustomerID` = 'ALFKI'
             await base.Join_same_collection_force_alias_uniquefication(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM `Orders` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`CustomerID` = `o0`.`CustomerID`
@@ -261,12 +261,12 @@ RIGHT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
             await base.GroupJoin_simple(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    WHERE `c`.`CustomerID` LIKE 'F%'
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'F%'
+""");
         }
 
         public override async Task GroupJoin_simple2(bool isAsync)
@@ -274,11 +274,11 @@ RIGHT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
             await base.GroupJoin_simple2(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+""");
         }
 
         public override async Task GroupJoin_simple3(bool isAsync)
@@ -286,11 +286,11 @@ RIGHT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
             await base.GroupJoin_simple3(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`
-                    FROM `Customers` AS `c`
-                    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    """);
+                """
+SELECT `o`.`OrderID`
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+""");
         }
 
         public override async Task GroupJoin_simple_ordering(bool isAsync)
@@ -298,13 +298,13 @@ RIGHT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
             await base.GroupJoin_simple_ordering(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    WHERE `c`.`CustomerID` LIKE 'F%'
-                    ORDER BY `c`.`City`
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'F%'
+ORDER BY `c`.`City`, `o`.`OrderID`
+""");
         }
 
         public override async Task GroupJoin_simple_subquery(bool isAsync)
@@ -333,7 +333,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -347,7 +347,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE (`c`.`CustomerID` LIKE 'F%') AND `c`.`City` = 'Lisboa'
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -357,7 +357,7 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `c1`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
 FROM (`Customers` AS `c`
 INNER JOIN (
     SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
@@ -366,7 +366,7 @@ INNER JOIN (
 ) AS `c1` ON `c`.`CustomerID` = `c1`.`CustomerID`)
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
-ORDER BY `c`.`CustomerID`, `c1`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -375,12 +375,12 @@ ORDER BY `c`.`CustomerID`, `c1`.`CustomerID`
             await base.GroupJoin_DefaultIfEmpty(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    WHERE `c`.`CustomerID` LIKE 'F%'
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'F%'
+""");
         }
 
         public override async Task GroupJoin_DefaultIfEmpty_multiple(bool isAsync)
@@ -388,13 +388,13 @@ ORDER BY `c`.`CustomerID`, `c1`.`CustomerID`
             await base.GroupJoin_DefaultIfEmpty_multiple(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-                    FROM (`Customers` AS `c`
-                    LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
-                    LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-                    WHERE `c`.`CustomerID` LIKE 'F%'
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM (`Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
+LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'F%'
+""");
         }
 
         public override async Task GroupJoin_DefaultIfEmpty2(bool isAsync)
@@ -435,12 +435,12 @@ ORDER BY `c0`.`CustomerID`
             await base.GroupJoin_Where(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    WHERE `o`.`CustomerID` = 'ALFKI'
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+WHERE `o`.`CustomerID` = 'ALFKI'
+""");
         }
 
         public override async Task GroupJoin_Where_OrderBy(bool isAsync)
@@ -448,13 +448,13 @@ ORDER BY `c0`.`CustomerID`
             await base.GroupJoin_Where_OrderBy(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    WHERE `o`.`CustomerID` = 'ALFKI' OR `c`.`CustomerID` = 'ANATR'
-                    ORDER BY `c`.`City`
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+WHERE `o`.`CustomerID` = 'ALFKI' OR `c`.`CustomerID` = 'ANATR'
+ORDER BY `c`.`City`, `o`.`OrderID`
+""");
         }
 
         public override async Task GroupJoin_DefaultIfEmpty_Where(bool isAsync)
@@ -462,7 +462,7 @@ ORDER BY `c0`.`CustomerID`
             await base.GroupJoin_DefaultIfEmpty_Where(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
@@ -475,7 +475,7 @@ WHERE `o`.`OrderID` IS NOT NULL AND `o`.`CustomerID` = 'ALFKI'
             await base.Join_GroupJoin_DefaultIfEmpty_Where(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (`Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
@@ -489,11 +489,11 @@ WHERE `o0`.`OrderID` IS NOT NULL AND `o0`.`CustomerID` = 'ALFKI'
             await base.GroupJoin_DefaultIfEmpty_Project(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    """);
+                """
+SELECT `o`.`OrderID`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+""");
         }
 
         public override async Task GroupJoin_SelectMany_subquery_with_filter(bool isAsync)
@@ -589,7 +589,7 @@ INNER JOIN (
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, (
-    SELECT IIF(SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))) IS NULL, 0, SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))))
+    SELECT IIF(SUM(LEN(`o`.`CustomerID`)) IS NULL, 0, SUM(LEN(`o`.`CustomerID`)))
     FROM `Orders` AS `o`
     WHERE `c`.`City` IS NOT NULL AND `c`.`CustomerID` = `o`.`CustomerID` AND `c`.`City` = 'London') AS `Sum`
 FROM `Customers` AS `c`
@@ -603,7 +603,7 @@ FROM `Customers` AS `c`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, (
-    SELECT IIF(SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))) IS NULL, 0, SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))))
+    SELECT IIF(SUM(LEN(`o`.`CustomerID`)) IS NULL, 0, SUM(LEN(`o`.`CustomerID`)))
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID` AND 1996 = DATEPART('yyyy', `o`.`OrderDate`)) AS `Sum`
 FROM `Customers` AS `c`
@@ -617,7 +617,7 @@ FROM `Customers` AS `c`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, (
-    SELECT IIF(SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))) IS NULL, 0, SUM(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))))
+    SELECT IIF(SUM(LEN(`o`.`CustomerID`)) IS NULL, 0, SUM(LEN(`o`.`CustomerID`)))
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Sum`
 FROM `Customers` AS `c`
@@ -746,7 +746,7 @@ LEFT JOIN (
     ) AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
 ) AS `s` ON `c`.`CustomerID` = `s`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`CustomerID`, `s`.`OrderID0`, `s`.`OrderID`
+ORDER BY `c`.`CustomerID`, `s`.`OrderID0`, `s`.`OrderID`, `s`.`ProductID`
 """);
         }
 

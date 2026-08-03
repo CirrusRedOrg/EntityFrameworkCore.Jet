@@ -31,6 +31,9 @@
 		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="18.7.0" />
 		<PackageReference Update="MSTest.TestAdapter" Version="4.2.3" />
 		<PackageReference Update="MSTest.TestFramework" Version="4.2.3" />
+		<!-- MSTest under Microsoft.Testing.Platform has no trx reporter of its own, unlike xunit v3, which
+		     carries one. The trx report option exists only once this is referenced. -->
+		<PackageReference Update="Microsoft.Testing.Extensions.TrxReport" Version="2.2.3" />
 		<PackageReference Update="coverlet.collector" Version="10.0.1" />
 		<PackageReference Update="Newtonsoft.Json" Version="13.0.4" />
 

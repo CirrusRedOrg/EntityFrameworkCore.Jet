@@ -304,13 +304,14 @@ jobs:
           # and got truncated by GitHub anyway. Nothing consumes it - the green-tests extraction parses the
           # trx, and crash detection keys off a missing trx - so it cost console I/O for a log too
           # big to read. On these sequential suites those writes sit directly on the critical path.
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --results-directory .\test\EFCore.Jet.Data.Tests\TestResults
-      - name: 'Run Tests: EFCore.Jet.Tests'
-        if: always() && env.skipTests != 'true'
-        shell: pwsh
-        run: |
-          $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --results-directory .\test\EFCore.Jet.Tests\TestResults
+          # --report-trx, not --report-xunit-trx: this is the repo's one MSTest suite, and the trx reporter
+          # there comes from Microsoft.Testing.Extensions.TrxReport rather than from xunit.
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-trx --results-directory .\test\EFCore.Jet.Data.Tests\TestResults
+      # EFCore.Jet.Tests is not run: the project compiles to an assembly with no tests in it. Its only two
+      # test files have been <Compile Remove>d since 45bae420 (the initial EF 9 update, July 2024), so the
+      # step had been reporting green over an empty run for two years - VSTest tolerated that, MTP exits 8.
+      # Much of what is in those files looks to be covered by EFCore.Jet.FunctionalTests anyway; restore the
+      # step if and when the files come back into the build.
       - name: 'Run Tests: EFCore.Jet.FunctionalTests (Shard 1 - Query Core)'
         if: always() && env.skipTests != 'true'
         shell: pwsh
@@ -447,7 +448,6 @@ jobs:
           path: |
             test\EFCore.Jet.Data.Tests\TestResults\*.trx
             test\EFCore.Jet.FunctionalTests\TestResults\**\*.trx
-            test\EFCore.Jet.Tests\TestResults\*.trx
       - name: 'Check Tests: EFCore.Jet.FunctionalTests'
         if: env.skipTests != 'true'
         shell: pwsh

@@ -196,9 +196,9 @@ internal sealed class ExpressionEvaluator(
             "DATEVALUE" => Convert1(f, v => ((DateTime)ToDate(v)).Date),
             "TIMEVALUE" => Convert1(f, v => DateTime.FromOADate(0).Add(((DateTime)ToDate(v)).TimeOfDay)),
             "ISDATE" => IsDateValue(Evaluate(f.Arguments[0])),
-            // Jet VBA math functions (double precision). SQR = sqrt, ATN = atan, SGN = sign, LOG =
-            // natural log. Acos/Asin/Atan2/Floor/Ceiling/Log10/Log-base are emitted by EF as
-            // expressions built from these plus arithmetic, so they need no dedicated cases.
+            // Jet VBA math functions (double precision). SQR = sqrt, ATN = atan, LOG = natural log.
+            // Acos/Asin/Atan2/Floor/Ceiling/Log10/Log-base are emitted by EF as expressions built from
+            // these plus arithmetic, so they need no dedicated cases.
             "SIN" => UnaryDouble(f, Math.Sin),
             "COS" => UnaryDouble(f, Math.Cos),
             "TAN" => UnaryDouble(f, Math.Tan),
@@ -206,7 +206,11 @@ internal sealed class ExpressionEvaluator(
             "EXP" => UnaryDouble(f, Math.Exp),
             "LOG" => UnaryDouble(f, Math.Log),
             "SQR" => UnaryDouble(f, Math.Sqrt),
-            "SGN" => UnaryDouble(f, d => Math.Sign(d)),
+            // SGN sits apart from the group above: it takes a double but yields an Integer, both in VBA
+            // (Sgn returns Variant/Integer) and in .NET (Math.Sign returns int). Going through UnaryDouble
+            // widened that int straight back to a double, which only showed once EF projected the value
+            // instead of comparing it - GetInt32 on a boxed Double throws.
+            "SGN" => Convert1(f, v => Math.Sign(Convert.ToDouble(v, CultureInfo.InvariantCulture))),
 
             // More VBA/Access built-ins (verified vs ACE via the function-whitelist sweep). All NULL-propagating
             // via Convert1 unless noted; positions are 1-based.

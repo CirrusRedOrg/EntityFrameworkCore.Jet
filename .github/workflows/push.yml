@@ -310,15 +310,15 @@ jobs:
           # No --verbosity detailed: it dumps every test's captured output (EF logs the compiled shaper
           # expression tree per query under the Query category), which ran to ~62,000 lines in 43s per shard
           # and got truncated by GitHub anyway. Nothing consumes it - the green-tests extraction parses the
-          # trx, and crash detection looks for Sequence_* blame dumps - so it cost console I/O for a log too
+          # trx, and crash detection keys off a missing trx - so it cost console I/O for a log too
           # big to read. On these sequential suites those writes sit directly on the critical path.
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --results-directory .\test\EFCore.Jet.Data.Tests\TestResults
       - name: 'Run Tests: EFCore.Jet.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
         run: |
           $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --results-directory .\test\EFCore.Jet.Tests\TestResults
       - name: 'Run Tests: EFCore.Jet.FunctionalTests (Shard 1 - Query Core)'
         if: always() && env.skipTests != 'true'
         shell: pwsh
@@ -331,25 +331,21 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.&FullyQualifiedName!~.FunctionalTests.Query.Associations.&FullyQualifiedName!~.FunctionalTests.Query.Translations."
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.&FullyQualifiedName!~.FunctionalTests.Query.Associations.&FullyQualifiedName!~.FunctionalTests.Query.Translations."
 
             #
             # Check for test runner crashes:
             #
 
+            # Under Microsoft.Testing.Platform there are no VSTest blame Sequence_* files to look for. The
+            # trx is written in-process at the end of the run, so a missing trx is itself the crash signal:
+            # the host died before it could report. Ordinary test failures still produce a trx and fall
+            # through to the green-tests comparison below.
             $currentTestRunTrx = Get-ChildItem $shardDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
             if ($null -eq $currentTestRunTrx) {
-                echo 'Test runner log file is missing.'
-                exit 3
-            }
-
-            $currentTestRunDir = Join-Path $shardDir $currentTestRunTrx.BaseName
-            if (Test-Path $currentTestRunDir) {
-              if ($null -ne (Get-ChildItem $currentTestRunDir -Filter 'Sequence_*' -Recurse)) {
-                # Split string because searching the log for that phrase should only show actual crashes and not this line.
-                echo ('Test runner cras' + 'hed.')
-                continue
-              }
+              # Split string because searching the log for that phrase should only show actual crashes and not this line.
+              echo ('Test runner cras' + 'hed.')
+              continue
             }
 
             echo 'Test runner ran until the end.'
@@ -376,25 +372,21 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.Associations.|FullyQualifiedName~.FunctionalTests.Query.Translations."
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.Associations.|FullyQualifiedName~.FunctionalTests.Query.Translations."
 
             #
             # Check for test runner crashes:
             #
 
+            # Under Microsoft.Testing.Platform there are no VSTest blame Sequence_* files to look for. The
+            # trx is written in-process at the end of the run, so a missing trx is itself the crash signal:
+            # the host died before it could report. Ordinary test failures still produce a trx and fall
+            # through to the green-tests comparison below.
             $currentTestRunTrx = Get-ChildItem $shardDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
             if ($null -eq $currentTestRunTrx) {
-                echo 'Test runner log file is missing.'
-                exit 3
-            }
-
-            $currentTestRunDir = Join-Path $shardDir $currentTestRunTrx.BaseName
-            if (Test-Path $currentTestRunDir) {
-              if ($null -ne (Get-ChildItem $currentTestRunDir -Filter 'Sequence_*' -Recurse)) {
-                # Split string because searching the log for that phrase should only show actual crashes and not this line.
-                echo ('Test runner cras' + 'hed.')
-                continue
-              }
+              # Split string because searching the log for that phrase should only show actual crashes and not this line.
+              echo ('Test runner cras' + 'hed.')
+              continue
             }
 
             echo 'Test runner ran until the end.'
@@ -421,25 +413,21 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName!~.FunctionalTests.Query."
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --results-directory $shardDir --filter "FullyQualifiedName!~.FunctionalTests.Query."
 
             #
             # Check for test runner crashes:
             #
 
+            # Under Microsoft.Testing.Platform there are no VSTest blame Sequence_* files to look for. The
+            # trx is written in-process at the end of the run, so a missing trx is itself the crash signal:
+            # the host died before it could report. Ordinary test failures still produce a trx and fall
+            # through to the green-tests comparison below.
             $currentTestRunTrx = Get-ChildItem $shardDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
             if ($null -eq $currentTestRunTrx) {
-                echo 'Test runner log file is missing.'
-                exit 3
-            }
-
-            $currentTestRunDir = Join-Path $shardDir $currentTestRunTrx.BaseName
-            if (Test-Path $currentTestRunDir) {
-              if ($null -ne (Get-ChildItem $currentTestRunDir -Filter 'Sequence_*' -Recurse)) {
-                # Split string because searching the log for that phrase should only show actual crashes and not this line.
-                echo ('Test runner cras' + 'hed.')
-                continue
-              }
+              # Split string because searching the log for that phrase should only show actual crashes and not this line.
+              echo ('Test runner cras' + 'hed.')
+              continue
             }
 
             echo 'Test runner ran until the end.'
@@ -552,7 +540,7 @@ jobs:
         run: dotnet --info
       - name: 'Run Tests: LibRed.Engine.Tests'
         if: env.skipTests != 'true'
-        run: dotnet test ./test/LibRed.Engine.Tests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 3m
+        run: dotnet test ./test/LibRed.Engine.Tests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }}
 
   # The rest of the LibRed suites cross-check LibRed's output against the real engine over OLE DB,
   # so unlike the job above they do need Windows with ACE installed.
@@ -598,15 +586,15 @@ jobs:
       - name: 'Run Tests: LibRed.Core.Tests'
         if: env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Core.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
+        run: dotnet test .\test\LibRed.Core.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }}
       - name: 'Run Tests: LibRed.Ado.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Ado.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
+        run: dotnet test .\test\LibRed.Ado.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }}
       - name: 'Run Tests: LibRed.EFCore.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.EFCore.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
+        run: dotnet test .\test\LibRed.EFCore.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }}
 
   LibRedFunctional:
     needs:
@@ -642,7 +630,7 @@ jobs:
       # against the real engine belong.
       - name: 'Run Tests: EFCore.LibRed.FunctionalTests'
         if: env.skipTests != 'true'
-        run: dotnet test test/EFCore.LibRed.FunctionalTests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 10m
+        run: dotnet test test/EFCore.LibRed.FunctionalTests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }}
   MergeArtifacts:
     needs: BuildAndTest
     if: always()

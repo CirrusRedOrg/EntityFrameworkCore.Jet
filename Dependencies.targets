@@ -1,4 +1,4 @@
-<Project>
+﻿<Project>
 	<PropertyGroup>
 		<DotNetVersion>[11.0.0-preview.6.26359.118]</DotNetVersion>
 		<EFCoreVersion>[11.0.0-preview.6.26359.118]</EFCoreVersion>
@@ -37,6 +37,9 @@
 		<!-- Supplies the hang dump options. MTP has no built-in per-test timeout: its own global timeout
 		     option bounds the whole run, which is not what VSTest's blame hang timeout meant. -->
 		<PackageReference Update="Microsoft.Testing.Extensions.HangDump" Version="2.2.3" />
+		<!-- A native access violation (ACE OLE DB does this) kills the test host outright, leaving an exit
+		     code and nothing else. This turns that into a dump naming the faulting frame. -->
+		<PackageReference Update="Microsoft.Testing.Extensions.CrashDump" Version="2.2.3" />
 		<PackageReference Update="coverlet.collector" Version="10.0.1" />
 		<PackageReference Update="Newtonsoft.Json" Version="13.0.4" />
 

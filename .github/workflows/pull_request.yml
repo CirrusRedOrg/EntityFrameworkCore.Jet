@@ -312,7 +312,7 @@ jobs:
           # big to read. On these sequential suites those writes sit directly on the critical path.
           # --report-trx, not --report-xunit-trx: this is the repo's one MSTest suite, and the trx reporter
           # there comes from Microsoft.Testing.Extensions.TrxReport rather than from xunit.
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-trx --hangdump --hangdump-timeout 3m --results-directory .\test\EFCore.Jet.Data.Tests\TestResults
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-trx --hangdump --hangdump-timeout 3m --crashdump --results-directory .\test\EFCore.Jet.Data.Tests\TestResults
       # EFCore.Jet.Tests is not run: the project compiles to an assembly with no tests in it. Its only two
       # test files have been <Compile Remove>d since 45bae420 (the initial EF 9 update, July 2024), so the
       # step had been reporting green over an empty run for two years - VSTest tolerated that, MTP exits 8.
@@ -330,7 +330,7 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.&FullyQualifiedName!~.FunctionalTests.Query.Associations.&FullyQualifiedName!~.FunctionalTests.Query.Translations." --show-stdout Failed --show-stderr Failed
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --crashdump --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.&FullyQualifiedName!~.FunctionalTests.Query.Associations.&FullyQualifiedName!~.FunctionalTests.Query.Translations." --show-stdout Failed --show-stderr Failed
 
             #
             # Check for test runner crashes:
@@ -371,7 +371,7 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.Associations.|FullyQualifiedName~.FunctionalTests.Query.Translations." --show-stdout Failed --show-stderr Failed
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --crashdump --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.Associations.|FullyQualifiedName~.FunctionalTests.Query.Translations." --show-stdout Failed --show-stderr Failed
 
             #
             # Check for test runner crashes:
@@ -412,7 +412,7 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName!~.FunctionalTests.Query." --show-stdout Failed --show-stderr Failed
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --crashdump --results-directory $shardDir --filter "FullyQualifiedName!~.FunctionalTests.Query." --show-stdout Failed --show-stderr Failed
 
             #
             # Check for test runner crashes:
@@ -454,6 +454,7 @@ jobs:
           path: |
             test\EFCore.Jet.Data.Tests\TestResults\*.trx
             test\EFCore.Jet.FunctionalTests\TestResults\**\*.trx
+            test\EFCore.Jet.*.Tests\**\TestResults\**\*.dmp
       - name: 'Check Tests: EFCore.Jet.FunctionalTests'
         if: env.skipTests != 'true'
         shell: pwsh
@@ -588,15 +589,62 @@ jobs:
       - name: 'Run Tests: LibRed.Core.Tests'
         if: env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Core.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m --show-stdout Failed --show-stderr Failed
+        run: |
+          # ACE OLE DB can take the whole test host down with an access violation, which under
+          # Microsoft.Testing.Platform leaves an exit code and nothing else - no results, no partial run.
+          # --crashdump turns that into a dump naming the faulting frame; the retry keeps one AV from
+          # costing the job. MTP exit codes: 0 success, 2 some tests failed, 8 no tests ran. Anything else
+          # means the host died rather than reported, and only that is retried.
+          $attempts = 3
+          for ($i = 1; $i -le $attempts; $i++) {
+            dotnet test .\test\LibRed.Core.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m --crashdump --show-stdout Failed --show-stderr Failed
+            $code = $LASTEXITCODE
+            if ($code -in 0, 2, 8) { exit $code }
+            echo "Test host died with exit code $code (attempt $i of $attempts)."
+          }
+          exit $code
       - name: 'Run Tests: LibRed.Ado.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Ado.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m --show-stdout Failed --show-stderr Failed
+        run: |
+          # ACE OLE DB can take the whole test host down with an access violation, which under
+          # Microsoft.Testing.Platform leaves an exit code and nothing else - no results, no partial run.
+          # --crashdump turns that into a dump naming the faulting frame; the retry keeps one AV from
+          # costing the job. MTP exit codes: 0 success, 2 some tests failed, 8 no tests ran. Anything else
+          # means the host died rather than reported, and only that is retried.
+          $attempts = 3
+          for ($i = 1; $i -le $attempts; $i++) {
+            dotnet test .\test\LibRed.Ado.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m --crashdump --show-stdout Failed --show-stderr Failed
+            $code = $LASTEXITCODE
+            if ($code -in 0, 2, 8) { exit $code }
+            echo "Test host died with exit code $code (attempt $i of $attempts)."
+          }
+          exit $code
       - name: 'Run Tests: LibRed.EFCore.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.EFCore.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m --show-stdout Failed --show-stderr Failed
+        run: |
+          # ACE OLE DB can take the whole test host down with an access violation, which under
+          # Microsoft.Testing.Platform leaves an exit code and nothing else - no results, no partial run.
+          # --crashdump turns that into a dump naming the faulting frame; the retry keeps one AV from
+          # costing the job. MTP exit codes: 0 success, 2 some tests failed, 8 no tests ran. Anything else
+          # means the host died rather than reported, and only that is retried.
+          $attempts = 3
+          for ($i = 1; $i -le $attempts; $i++) {
+            dotnet test .\test\LibRed.EFCore.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m --crashdump --show-stdout Failed --show-stderr Failed
+            $code = $LASTEXITCODE
+            if ($code -in 0, 2, 8) { exit $code }
+            echo "Test host died with exit code $code (attempt $i of $attempts)."
+          }
+          exit $code
+      - name: 'Upload Crash Dumps'
+        if: always() && env.skipTests != 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: crash-dumps_libred-access_${{ matrix.aceVersion }}
+          path: |
+            test/LibRed.*.Tests/bin/**/TestResults/**/*.dmp
+          if-no-files-found: ignore
 
   LibRedFunctional:
     # Backstop only - the per-test hang dump timeout should fire long before this.

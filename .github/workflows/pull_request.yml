@@ -330,7 +330,7 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.&FullyQualifiedName!~.FunctionalTests.Query.Associations.&FullyQualifiedName!~.FunctionalTests.Query.Translations."
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.&FullyQualifiedName!~.FunctionalTests.Query.Associations.&FullyQualifiedName!~.FunctionalTests.Query.Translations." --show-stdout Failed --show-stderr Failed
 
             #
             # Check for test runner crashes:
@@ -371,7 +371,7 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.Associations.|FullyQualifiedName~.FunctionalTests.Query.Translations."
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.Associations.|FullyQualifiedName~.FunctionalTests.Query.Translations." --show-stdout Failed --show-stderr Failed
 
             #
             # Check for test runner crashes:
@@ -412,7 +412,7 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName!~.FunctionalTests.Query."
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName!~.FunctionalTests.Query." --show-stdout Failed --show-stderr Failed
 
             #
             # Check for test runner crashes:
@@ -540,7 +540,7 @@ jobs:
         run: dotnet --info
       - name: 'Run Tests: LibRed.Engine.Tests'
         if: env.skipTests != 'true'
-        run: dotnet test ./test/LibRed.Engine.Tests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 3m
+        run: dotnet test ./test/LibRed.Engine.Tests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 3m --show-stdout Failed --show-stderr Failed
 
   # The rest of the LibRed suites cross-check LibRed's output against the real engine over OLE DB,
   # so unlike the job above they do need Windows with ACE installed.
@@ -588,15 +588,15 @@ jobs:
       - name: 'Run Tests: LibRed.Core.Tests'
         if: env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Core.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m
+        run: dotnet test .\test\LibRed.Core.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m --show-stdout Failed --show-stderr Failed
       - name: 'Run Tests: LibRed.Ado.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Ado.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m
+        run: dotnet test .\test\LibRed.Ado.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m --show-stdout Failed --show-stderr Failed
       - name: 'Run Tests: LibRed.EFCore.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.EFCore.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m
+        run: dotnet test .\test\LibRed.EFCore.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m --show-stdout Failed --show-stderr Failed
 
   LibRedFunctional:
     # Backstop only - the per-test hang dump timeout should fire long before this.
@@ -634,7 +634,7 @@ jobs:
       # against the real engine belong.
       - name: 'Run Tests: EFCore.LibRed.FunctionalTests'
         if: env.skipTests != 'true'
-        run: dotnet test test/EFCore.LibRed.FunctionalTests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 10m
+        run: dotnet test test/EFCore.LibRed.FunctionalTests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 10m --show-stdout Failed --show-stderr Failed
   MergeArtifacts:
     # Backstop only - the per-test hang dump timeout should fire long before this.
     timeout-minutes: 20

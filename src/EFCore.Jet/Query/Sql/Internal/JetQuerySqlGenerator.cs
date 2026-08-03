@@ -645,11 +645,65 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 Visit(caseexp);
                 return sqlBinaryExpression;
             }
+            // String concatenation propagates NULL for EF, but Access's '&' coerces a NULL operand to a
+            // zero-length string instead (see GetOperator for why '+', which does propagate, is not usable).
+            // Restore the propagation around the concat rather than in it, and only for operands that can
+            // actually be NULL - a concat of non-nullable operands generates exactly as it did before.
+            if (sqlBinaryExpression.OperatorType == ExpressionType.Add
+                && sqlBinaryExpression.Type == typeof(string)
+                && (MayBeNull(sqlBinaryExpression.Left) || MayBeNull(sqlBinaryExpression.Right)))
+            {
+                // Guard shape follows EF's own: IS NOT NULL checks ANDed together, concat in the THEN. The two
+                // operands are frequently the same expression (x + x), so check each distinct one once.
+                var checks = new List<SqlExpression>(2);
+                foreach (var operand in new[] { sqlBinaryExpression.Left, sqlBinaryExpression.Right })
+                {
+                    if (MayBeNull(operand) && !checks.Any(c => c.Equals(operand)))
+                    {
+                        checks.Add(operand);
+                    }
+                }
+
+                Sql.Append("IIF(");
+
+                for (var i = 0; i < checks.Count; i++)
+                {
+                    if (i > 0)
+                    {
+                        Sql.Append(" AND ");
+                    }
+
+                    Visit(checks[i]);
+                    Sql.Append(" IS NOT NULL");
+                }
+
+                Sql.Append(", ");
+
+                parent.Push(sqlBinaryExpression);
+                base.VisitSqlBinary(sqlBinaryExpression);
+                parent.Pop();
+
+                Sql.Append(", NULL)");
+                return sqlBinaryExpression;
+            }
+
             parent.Push(sqlBinaryExpression);
             var res = base.VisitSqlBinary(sqlBinaryExpression);
             parent.Pop();
             return res;
         }
+
+        /// <summary>
+        ///     Whether an operand of a string concatenation could evaluate to NULL, and so needs a guard.
+        ///     Conservative: anything not provably non-NULL is treated as nullable.
+        /// </summary>
+        private static bool MayBeNull(SqlExpression expression)
+            => expression switch
+            {
+                SqlConstantExpression constant => constant.Value is null,
+                ColumnExpression column => column.IsNullable,
+                _ => true,
+            };
 
         protected override void GenerateIn(InExpression inExpression, bool negated)
         {
@@ -861,6 +915,19 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         protected override string GetOperator(SqlBinaryExpression binaryExpression)
             => binaryExpression.OperatorType switch
             {
+                // '&' and not '+', despite '+' being the operator whose NULL behaviour matches EF. Access has
+                // both, and they differ twice over (all verified against ACE, IntA = 0, StringA = 'Foo'):
+                //
+                //   NULL & 'x'    -> 'x'      NULL + 'x'    -> NULL     '+' propagates NULL, '&' does not
+                //   IntA & '5'    -> '05'     IntA + '5'    -> '5'      '+' re-dispatches on operand TYPE:
+                //   IntA & 'x'    -> '0x'     IntA + 'x'    -> ''       numeric operands are ADDED, and a
+                //   IntA & StringA-> '0Foo'   IntA + StringA-> ''       non-numeric string yields '', silently
+                //
+                // The NULL propagation alone would argue for '+', but the type dispatch rules it out: the
+                // Convert visitor above emits no CAST, so a Convert(number -> string) reaches the operator as
+                // a bare numeric and '+' would quietly produce a wrong value or an empty string rather than
+                // an error. '&' always concatenates. The cost is that a NULL operand becomes a zero-length
+                // string, which is what the mixed-checks null-semantics tests see.
                 ExpressionType.Add when binaryExpression.Type == typeof(string) => " & ",
                 ExpressionType.And => " BAND ",
                 ExpressionType.Modulo => " MOD ",

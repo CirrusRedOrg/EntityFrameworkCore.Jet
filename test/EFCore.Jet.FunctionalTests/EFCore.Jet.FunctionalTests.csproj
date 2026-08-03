@@ -26,6 +26,7 @@
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Build.Tasks.Core" Version="18.7.1" />
 		<PackageReference Include="xunit.v3.core" />
+		<PackageReference Include="Microsoft.Testing.Extensions.HangDump" />
 		<PackageReference Include="xunit.v3.assert" />
 		<PackageReference Include="xunit.runner.visualstudio" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />

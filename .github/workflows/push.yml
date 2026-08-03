@@ -20,6 +20,8 @@ env:
   uploadTestResults: true
 jobs:
   Preconditions:
+    # Backstop only - the per-test hang dump timeout should fire long before this.
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     outputs:
       lastCommitIsAutoCommit: ${{ steps.GetHeadCommitInfo.outputs.lastCommitIsAutoCommit }}
@@ -59,6 +61,8 @@ jobs:
           echo "lastCommitCreatedBeforeSeconds=$lastCommitCreatedBeforeSeconds" >> $env:GITHUB_OUTPUT
           echo "lastCommitCreatedBeforeSeconds: = $lastCommitCreatedBeforeSeconds"
   Changes:
+    # Backstop only - the per-test hang dump timeout should fire long before this.
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     outputs:
       jet: ${{ steps.Decide.outputs.jet }}
@@ -137,6 +141,8 @@ jobs:
           echo "jet: $jet"
           echo "libred: $libred"
   BuildAndTest:
+    # Backstop only - the per-test hang dump timeout should fire long before this.
+    timeout-minutes: 120
     needs:
       - Preconditions
       - Changes
@@ -314,7 +320,7 @@ jobs:
           # big to read. On these sequential suites those writes sit directly on the critical path.
           # --report-trx, not --report-xunit-trx: this is the repo's one MSTest suite, and the trx reporter
           # there comes from Microsoft.Testing.Extensions.TrxReport rather than from xunit.
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-trx --results-directory .\test\EFCore.Jet.Data.Tests\TestResults
+          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-trx --hangdump --hangdump-timeout 3m --results-directory .\test\EFCore.Jet.Data.Tests\TestResults
       # EFCore.Jet.Tests is not run: the project compiles to an assembly with no tests in it. Its only two
       # test files have been <Compile Remove>d since 45bae420 (the initial EF 9 update, July 2024), so the
       # step had been reporting green over an empty run for two years - VSTest tolerated that, MTP exits 8.
@@ -332,7 +338,7 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.&FullyQualifiedName!~.FunctionalTests.Query.Associations.&FullyQualifiedName!~.FunctionalTests.Query.Translations."
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.&FullyQualifiedName!~.FunctionalTests.Query.Associations.&FullyQualifiedName!~.FunctionalTests.Query.Translations."
 
             #
             # Check for test runner crashes:
@@ -373,7 +379,7 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.Associations.|FullyQualifiedName~.FunctionalTests.Query.Translations."
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.Associations.|FullyQualifiedName~.FunctionalTests.Query.Translations."
 
             #
             # Check for test runner crashes:
@@ -414,7 +420,7 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --results-directory $shardDir --filter "FullyQualifiedName!~.FunctionalTests.Query."
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --report-xunit-trx --hangdump --hangdump-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName!~.FunctionalTests.Query."
 
             #
             # Check for test runner crashes:
@@ -514,6 +520,8 @@ jobs:
           name: green-tests_${{ env.matrixId }}
           path: ${{ env.commitGreenTestsFile }}
   LibRed:
+    # Backstop only - the per-test hang dump timeout should fire long before this.
+    timeout-minutes: 30
     needs:
       - Preconditions
       - Changes
@@ -540,11 +548,13 @@ jobs:
         run: dotnet --info
       - name: 'Run Tests: LibRed.Engine.Tests'
         if: env.skipTests != 'true'
-        run: dotnet test ./test/LibRed.Engine.Tests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }}
+        run: dotnet test ./test/LibRed.Engine.Tests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 3m
 
   # The rest of the LibRed suites cross-check LibRed's output against the real engine over OLE DB,
   # so unlike the job above they do need Windows with ACE installed.
   LibRedAccess:
+    # Backstop only - the per-test hang dump timeout should fire long before this.
+    timeout-minutes: 60
     needs:
       - Preconditions
       - Changes
@@ -586,17 +596,19 @@ jobs:
       - name: 'Run Tests: LibRed.Core.Tests'
         if: env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Core.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }}
+        run: dotnet test .\test\LibRed.Core.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m
       - name: 'Run Tests: LibRed.Ado.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Ado.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }}
+        run: dotnet test .\test\LibRed.Ado.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m
       - name: 'Run Tests: LibRed.EFCore.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.EFCore.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }}
+        run: dotnet test .\test\LibRed.EFCore.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 5m
 
   LibRedFunctional:
+    # Backstop only - the per-test hang dump timeout should fire long before this.
+    timeout-minutes: 90
     needs:
       - Preconditions
       - Changes
@@ -630,8 +642,10 @@ jobs:
       # against the real engine belong.
       - name: 'Run Tests: EFCore.LibRed.FunctionalTests'
         if: env.skipTests != 'true'
-        run: dotnet test test/EFCore.LibRed.FunctionalTests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }}
+        run: dotnet test test/EFCore.LibRed.FunctionalTests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --hangdump --hangdump-timeout 10m
   MergeArtifacts:
+    # Backstop only - the per-test hang dump timeout should fire long before this.
+    timeout-minutes: 20
     needs: BuildAndTest
     if: always()
     outputs:
@@ -694,6 +708,8 @@ jobs:
           pattern: green-tests_*
           delete-merged: true
   NuGet:
+    # Backstop only - the per-test hang dump timeout should fire long before this.
+    timeout-minutes: 30
     needs:
       - BuildAndTest
       - MergeArtifacts

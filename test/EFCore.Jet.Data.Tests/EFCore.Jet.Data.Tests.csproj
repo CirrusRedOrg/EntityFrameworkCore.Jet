@@ -5,11 +5,6 @@
 		<Platforms>AnyCPU;x86;x64</Platforms>
 		<RootNamespace>EntityFrameworkCore.Jet.Data.Tests</RootNamespace>
 		<Nullable>disable</Nullable>
-		<!-- The only MSTest suite in the repo. global.json puts dotnet test on Microsoft.Testing.Platform,
-		     and MTP requires every project in a run to be on it - MSTest reaches it through its own runner
-		     rather than the xunit one, which needs an executable entry point. -->
-		<EnableMSTestRunner>true</EnableMSTestRunner>
-		<OutputType>Exe</OutputType>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -29,11 +24,8 @@
 		<PackageReference Include="System.Data.Odbc" />
 		<PackageReference Include="System.Data.OleDb" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" />
-		<PackageReference Include="Microsoft.Testing.Extensions.HangDump" />
-		<PackageReference Include="Microsoft.Testing.Extensions.CrashDump" />
 		<PackageReference Include="MSTest.TestAdapter" />
 		<PackageReference Include="MSTest.TestFramework" />
-		<PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
 		<PackageReference Include="coverlet.collector">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

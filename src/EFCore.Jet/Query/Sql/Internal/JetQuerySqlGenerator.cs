@@ -694,16 +694,14 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         }
 
         /// <summary>
-        ///     Whether an operand of a string concatenation could evaluate to NULL, and so needs a guard.
-        ///     Conservative: anything not provably non-NULL is treated as nullable.
+        ///     Whether an operand of a string concatenation needs a NULL guard: only a bare nullable column does.
+        ///     Anything composed - a COALESCE, a CASE, a function, a parameter - is left alone, because EF has
+        ///     already expressed whatever null handling it wants there. Guarding those as well produced
+        ///     IIF(IIF(x IS NULL, '', x) IS NOT NULL, ...), a null check on an expression that cannot be null,
+        ///     with the operand duplicated three times.
         /// </summary>
         private static bool MayBeNull(SqlExpression expression)
-            => expression switch
-            {
-                SqlConstantExpression constant => constant.Value is null,
-                ColumnExpression column => column.IsNullable,
-                _ => true,
-            };
+            => expression is ColumnExpression { IsNullable: true };
 
         protected override void GenerateIn(InExpression inExpression, bool negated)
         {

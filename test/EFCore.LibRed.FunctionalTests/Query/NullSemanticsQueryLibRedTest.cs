@@ -4624,7 +4624,7 @@ FROM `Entities1` AS `e`
 
             AssertSql(
                 """
-SELECT IIF(`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL, NULL, `e`.`NullableStringA` & `e`.`NullableStringB`)
+SELECT IIF(`e`.`NullableStringA` IS NOT NULL AND `e`.`NullableStringB` IS NOT NULL, `e`.`NullableStringA` & `e`.`NullableStringB`, NULL)
 FROM `Entities1` AS `e`
 """);
         }
@@ -4635,7 +4635,7 @@ FROM `Entities1` AS `e`
 
             AssertSql(
                 """
-SELECT IIF(`e`.`BoolA`, IIF(`e`.`NullableStringA` IS NULL OR IIF(`e`.`NullableStringB` IS NULL, '', `e`.`NullableStringB`) IS NULL, NULL, `e`.`NullableStringA` & IIF(`e`.`NullableStringB` IS NULL, '', `e`.`NullableStringB`)), NULL)
+SELECT IIF(`e`.`BoolA`, IIF(`e`.`NullableStringA` IS NOT NULL, `e`.`NullableStringA` & IIF(`e`.`NullableStringB` IS NULL, '', `e`.`NullableStringB`), NULL), NULL)
 FROM `Entities1` AS `e`
 """);
         }

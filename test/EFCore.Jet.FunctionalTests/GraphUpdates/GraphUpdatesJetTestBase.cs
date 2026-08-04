@@ -235,6 +235,13 @@ public abstract class GraphUpdatesJetTestBase<TFixture> : GraphUpdatesTestBase<T
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalOverlapping2` DROP CONSTRAINT `FK_OptionalOverlapping2_RequiredComposite1_ParentId_ParentAlter~`");
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalSingleComposite2` DROP CONSTRAINT `FK_OptionalSingleComposite2_OptionalSingleAk1_BackId_ParentAlte~`");
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `SharedFkParent` DROP CONSTRAINT `FK_SharedFkParent_SharedFkDependant_RootId_DependantId`");
+
+            // Group37310 is the same optional-composite shape - Id is required, GroupOwnerId is not - but
+            // unlike the four above it is absent from the owned model, so this one is conditional.
+            if (context.Model.GetEntityTypes().Any(e => e.GetTableName() == "Group37310"))
+            {
+                await context.Database.ExecuteSqlAsync($"ALTER TABLE `Group37310` DROP CONSTRAINT `FK_Group37310_GroupMember37310_Id_GroupOwnerId`");
+            }
         }
     }
 }

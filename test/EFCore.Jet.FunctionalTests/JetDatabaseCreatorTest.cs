@@ -28,6 +28,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
     // Tests are split into classes to enable parallel execution
     // Some combinations are skipped to reduce run time
     [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
+    [SkipOnCI("Flaky on CI")]
     public class JetDatabaseCreatorExistsTest : JetDatabaseCreatorTest
     {
         [Theory]
@@ -124,6 +125,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
     }
 
     [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
+    [SkipOnCI("Flaky on CI")]
     public class JetDatabaseCreatorEnsureDeletedTest : JetDatabaseCreatorTest
     {
         [Theory]
@@ -224,6 +226,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
     }
 
     [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
+    [SkipOnCI("Flaky on CI")]
     public class JetDatabaseCreatorEnsureCreatedTest : JetDatabaseCreatorTest
     {
         [Theory]
@@ -376,6 +379,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
     }
 
     [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
+    [SkipOnCI("Flaky on CI")]
     public class JetDatabaseCreatorHasTablesTest : JetDatabaseCreatorTest
     {
         [Theory]
@@ -440,6 +444,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
     }
 
     [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
+    [SkipOnCI("Flaky on CI")]
     public class JetDatabaseCreatorDeleteTest : JetDatabaseCreatorTest
     {
         [Theory]
@@ -489,6 +494,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
     }
 
     [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
+    [SkipOnCI("Flaky on CI")]
     public class JetDatabaseCreatorCreateTablesTest : JetDatabaseCreatorTest
     {
         [Theory]
@@ -615,6 +621,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
     }
 
     [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
+    [SkipOnCI("Flaky on CI")]
     public class JetDatabaseCreatorCreateTest : JetDatabaseCreatorTest
     {
         [Theory]
@@ -672,6 +679,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
 #pragma warning disable RCS1102 // Make class static.
     [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
+    [SkipOnCI("Flaky on CI")]
     public class JetDatabaseCreatorTest
     {
         protected static IDisposable CreateTransactionScope(bool useTransaction)

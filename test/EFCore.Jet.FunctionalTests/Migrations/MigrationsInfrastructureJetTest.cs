@@ -24,7 +24,7 @@ using JetDatabaseCreator = EntityFrameworkCore.Jet.Storage.Internal.JetDatabaseC
 #nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests.Migrations
 {
-    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI))]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI)), SkipOnCI("Flaky on CI")]
     public class MigrationsInfrastructureJetTest(
         MigrationsInfrastructureJetTest.MigrationsInfrastructureJetFixture fixture)
         : MigrationsInfrastructureTestBase<MigrationsInfrastructureJetTest.MigrationsInfrastructureJetFixture>(fixture)

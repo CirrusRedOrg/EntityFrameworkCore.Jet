@@ -27,25 +27,45 @@ public class ManyToManyLoadLibRedTest : ManyToManyLoadTestBase<ManyToManyLoadLib
         await base.Load_collection(state, queryTrackingBehavior, async);
 
         AssertSql(
-            """
-@p='3'
-
-SELECT `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`Id`, `s0`.`Name`, `s0`.`OneId`, `s0`.`TwoId`
-FROM (`EntityOnes` AS `e`
-INNER JOIN (
-    SELECT `e0`.`Id`, `e0`.`CollectionInverseId`, `e0`.`ExtraId`, `e0`.`Name`, `e0`.`ReferenceInverseId`, `j`.`OneId`, `j`.`TwoId`
-    FROM `JoinOneToTwo` AS `j`
-    INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
-) AS `s` ON `e`.`Id` = `s`.`OneId`)
-LEFT JOIN (
-    SELECT `e1`.`Id`, `e1`.`Name`, `j0`.`OneId`, `j0`.`TwoId`
-    FROM `JoinOneToTwo` AS `j0`
-    INNER JOIN `EntityOnes` AS `e1` ON `j0`.`OneId` = `e1`.`Id`
-    WHERE `e1`.`Id` = @p
-) AS `s0` ON `s`.`Id` = `s0`.`TwoId`
-WHERE `e`.`Id` = @p
-ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`OneId`, `s0`.`TwoId`
-""");
+            state == EntityState.Detached
+                ? """
+                  @p='3'
+                  
+                  SELECT `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`Id`, `s0`.`Name`, `s0`.`OneId`, `s0`.`TwoId`
+                  FROM (`EntityOnes` AS `e`
+                  INNER JOIN (
+                      SELECT `e0`.`Id`, `e0`.`CollectionInverseId`, `e0`.`ExtraId`, `e0`.`Name`, `e0`.`ReferenceInverseId`, `j`.`OneId`, `j`.`TwoId`
+                      FROM `JoinOneToTwo` AS `j`
+                      INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
+                  ) AS `s` ON `e`.`Id` = `s`.`OneId`)
+                  LEFT JOIN (
+                      SELECT `e1`.`Id`, `e1`.`Name`, `j0`.`OneId`, `j0`.`TwoId`
+                      FROM `JoinOneToTwo` AS `j0`
+                      INNER JOIN `EntityOnes` AS `e1` ON `j0`.`OneId` = `e1`.`Id`
+                      WHERE `e1`.`Id` = @p
+                  ) AS `s0` ON `s`.`Id` = `s0`.`TwoId`
+                  WHERE `e`.`Id` = @p
+                  ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`OneId`, `s0`.`TwoId`
+                  """
+                : """
+                  @p='3'
+                  
+                  SELECT `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`OneId`, `s0`.`TwoId`, `s0`.`JoinOneToTwoExtraId`, `s0`.`Id`, `s0`.`Name`
+                  FROM (`EntityOnes` AS `e`
+                  INNER JOIN (
+                      SELECT `e0`.`Id`, `e0`.`CollectionInverseId`, `e0`.`ExtraId`, `e0`.`Name`, `e0`.`ReferenceInverseId`, `j`.`OneId`, `j`.`TwoId`
+                      FROM `JoinOneToTwo` AS `j`
+                      INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
+                  ) AS `s` ON `e`.`Id` = `s`.`OneId`)
+                  LEFT JOIN (
+                      SELECT `j0`.`OneId`, `j0`.`TwoId`, `j0`.`JoinOneToTwoExtraId`, `e1`.`Id`, `e1`.`Name`
+                      FROM `JoinOneToTwo` AS `j0`
+                      INNER JOIN `EntityOnes` AS `e1` ON `j0`.`OneId` = `e1`.`Id`
+                      WHERE `e1`.`Id` = @p
+                  ) AS `s0` ON `s`.`Id` = `s0`.`TwoId`
+                  WHERE `e`.`Id` = @p
+                  ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`OneId`, `s0`.`TwoId`
+                  """);
     }
 
     public override async Task Load_collection_using_Query_with_Include_for_inverse(bool async)

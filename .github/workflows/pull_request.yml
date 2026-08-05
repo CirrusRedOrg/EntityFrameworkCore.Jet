@@ -406,7 +406,7 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.&FullyQualifiedName!~.FunctionalTests.Query.Associations.&FullyQualifiedName!~.FunctionalTests.Query.Translations."
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.&FullyQualifiedName!~Northwind&FullyQualifiedName!~GearsOfWar"
 
             #
             # Check for test runner crashes:
@@ -451,7 +451,7 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.Associations.|FullyQualifiedName~.FunctionalTests.Query.Translations."
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.Northwind|FullyQualifiedName~GearsOfWar"
 
             #
             # Check for test runner crashes:

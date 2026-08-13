@@ -24,7 +24,7 @@ public class UniqueIndexEnforcementTests
     {
         var e = Fresh();
         Assert.Equal(1, e.ExecuteNonQuery("INSERT INTO T (Id, Code) VALUES (1, 10)"));
-        Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("INSERT INTO T (Id, Code) VALUES (2, 10)"));
+        Assert.Throws<ConstraintViolationException>(() => e.ExecuteNonQuery("INSERT INTO T (Id, Code) VALUES (2, 10)"));
         // NULLs are distinct — two are fine.
         Assert.Equal(1, e.ExecuteNonQuery("INSERT INTO T (Id, Code) VALUES (3, NULL)"));
         Assert.Equal(1, e.ExecuteNonQuery("INSERT INTO T (Id, Code) VALUES (4, NULL)"));
@@ -37,7 +37,7 @@ public class UniqueIndexEnforcementTests
     {
         var e = Fresh();
         Assert.Equal(1, e.ExecuteNonQuery("INSERT INTO T (Id, Code) VALUES (1, 100)"));
-        Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("INSERT INTO T (Id, Code) VALUES (1, 200)"));
+        Assert.Throws<ConstraintViolationException>(() => e.ExecuteNonQuery("INSERT INTO T (Id, Code) VALUES (1, 200)"));
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class UniqueIndexEnforcementTests
         e.ExecuteNonQuery("INSERT INTO T (Id, Code) VALUES (2, 20)");
 
         // Updating row 2's Code to 10 collides with row 1 → rejected, row unchanged.
-        Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("UPDATE T SET Code = 10 WHERE Id = 2"));
+        Assert.Throws<ConstraintViolationException>(() => e.ExecuteNonQuery("UPDATE T SET Code = 10 WHERE Id = 2"));
         Assert.Equal(20, Convert.ToInt32(e.ExecuteQuery("SELECT Code FROM T WHERE Id = 2").Rows.Single()[0]));
 
         // Updating a row's unique column to its OWN current value is fine (no self-collision), as is a free value.
@@ -79,7 +79,7 @@ public class UniqueIndexEnforcementTests
         // Once the duplicates go, the very same statement works and then enforces.
         e.ExecuteNonQuery("DELETE FROM U WHERE Id IN (2, 4)");
         e.ExecuteNonQuery("CREATE UNIQUE INDEX UX_U ON U (Code)");
-        Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("INSERT INTO U (Id, Code) VALUES (5, 10)"));
+        Assert.Throws<ConstraintViolationException>(() => e.ExecuteNonQuery("INSERT INTO U (Id, Code) VALUES (5, 10)"));
     }
 
     // Nulls are exempt from the back-fill check too, just as they are on insert.
@@ -94,7 +94,7 @@ public class UniqueIndexEnforcementTests
 
         e.ExecuteNonQuery("CREATE UNIQUE INDEX UX_V ON V (Code)");
         Assert.Equal(1, e.ExecuteNonQuery("INSERT INTO V (Id, Code) VALUES (4, NULL)"));
-        Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("INSERT INTO V (Id, Code) VALUES (5, 30)"));
+        Assert.Throws<ConstraintViolationException>(() => e.ExecuteNonQuery("INSERT INTO V (Id, Code) VALUES (5, 30)"));
     }
 
     [Fact]

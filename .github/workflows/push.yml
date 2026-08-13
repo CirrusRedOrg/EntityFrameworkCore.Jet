@@ -619,6 +619,11 @@ jobs:
           - ubuntu-latest
           - windows-latest
           - macos-latest
+          # ARM64 legs. LibRed is fully managed with no ACE dependency, so these are the ones that
+          # actually prove the cross-platform claim on a non-x64 architecture. Excludes LibRedAccess,
+          # which cross-checks against the real Access engine and so needs Windows x64 with ACE.
+          - ubuntu-24.04-arm
+          - windows-11-arm
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -706,6 +711,11 @@ jobs:
           - ubuntu-latest
           - windows-latest
           - macos-latest
+          # ARM64 legs. LibRed is fully managed with no ACE dependency, so these are the ones that
+          # actually prove the cross-platform claim on a non-x64 architecture. Excludes LibRedAccess,
+          # which cross-checks against the real Access engine and so needs Windows x64 with ACE.
+          - ubuntu-24.04-arm
+          - windows-11-arm
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout

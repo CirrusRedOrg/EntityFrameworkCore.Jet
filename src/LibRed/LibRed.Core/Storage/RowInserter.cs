@@ -339,9 +339,11 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (HasNullKey(index, values)) continue; // nulls are distinct — multiple allowed
             writer ??= new IndexWriter(_channel, _table);
             if (writer.KeyExists(index, values))
-                throw new InvalidOperationException(
+                throw new ConstraintViolationException(
                     $"Cannot insert into '{_table.Name}': a row with the same {(index.IsPrimaryKey ? "primary key" : "unique key")} " +
-                    $"already exists (index '{index.Name}').");
+                    $"already exists (index '{index.Name}').",
+                    index.Name,
+                    index.IsPrimaryKey);
         }
     }
 

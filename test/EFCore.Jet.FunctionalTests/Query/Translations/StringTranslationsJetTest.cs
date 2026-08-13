@@ -271,6 +271,21 @@ WHERE (INSTR(1, '12559', (`b`.`Int` & ''), 1) - IIF((`b`.`Int` & '') = '', 0, 1)
 """);
     }
 
+    public override async Task IndexOf_with_non_string_column_using_double_cast()
+    {
+        await base.IndexOf_with_non_string_column_using_double_cast();
+
+        AssertSql(
+            """
+@pattern='5' (Size = 255)
+@pattern='5' (Size = 255)
+
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE (INSTR(1, (`b`.`Int` & ''), @pattern, 1) - IIF(@pattern = '', 0, 1)) <> -1
+""");
+    }
+
     #endregion IndexOf
 
     #region Replace
@@ -320,6 +335,18 @@ WHERE `b`.`String` <> '' AND REPLACE(`b`.`String`, `b`.`String`, '') = ''
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
 WHERE `b`.`String` <> '' AND REPLACE(`b`.`String`, `b`.`String`, (`b`.`Int` & '')) = (`b`.`Int` & '')
+""");
+    }
+
+    public override async Task Replace_with_non_string_column_using_double_cast()
+    {
+        await base.Replace_with_non_string_column_using_double_cast();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE REPLACE((`b`.`Int` & ''), '8', '3') = '3'
 """);
     }
 

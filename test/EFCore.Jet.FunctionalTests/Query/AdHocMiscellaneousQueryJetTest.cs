@@ -15,6 +15,7 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Infrastructure;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -30,6 +31,11 @@ public class AdHocMiscellaneousQueryJetTest(NonSharedFixture fixture) : AdHocMis
 {
     protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
+
+    protected override DbContextOptionsBuilder AddNonSharedOptions(DbContextOptionsBuilder builder)
+        => base.AddNonSharedOptions(builder)
+            .ConfigureWarnings(w => w.Ignore(RelationalEventId.OwnedEntityMappedToJsonCollectionWarning));
+
     protected override DbContextOptionsBuilder SetParameterizedCollectionMode(
         DbContextOptionsBuilder optionsBuilder,
         ParameterTranslationMode parameterizedCollectionMode)
@@ -45,6 +51,21 @@ public class AdHocMiscellaneousQueryJetTest(NonSharedFixture fixture) : AdHocMis
 CREATE TABLE ZeroKey (Id int);
 INSERT ZeroKey VALUES (NULL)
 """);
+
+    protected override async Task Seed30915(Context30915 context)
+    {
+        context.Statuses.AddRange(
+            new Context30915.PickupStatus30915 { PickupStatusId = 1, Name = "Active" },
+            new Context30915.PickupStatus30915 { PickupStatusId = 2, Name = "NoRequests" },
+            new Context30915.PickupStatus30915 { PickupStatusId = 3, Name = "Busy" });
+
+        context.Requests.AddRange(
+            new Context30915.PickupRequest30915 { PickupStatusId = 1, Priority = 5 },
+            new Context30915.PickupRequest30915 { PickupStatusId = 1, Priority = null },
+            new Context30915.PickupRequest30915 { PickupStatusId = 3, Priority = 7 });
+
+        await context.SaveChangesAsync();
+    }
 
     #region 5456
 
@@ -1803,23 +1824,12 @@ ORDER BY `o2`.`Id`
 
         AssertSql(
             """
-SELECT (
-    SELECT MIN(`o`.`HourlyRate`)
-    FROM `TimeSheets` AS `t0`
-    LEFT JOIN `Order` AS `o` ON `t0`.`OrderId` = `o`.`Id`
-    WHERE `t0`.`OrderId` IS NOT NULL AND `t`.`OrderId` = `t0`.`OrderId`) AS `HourlyRate`, (
-    SELECT MIN(`c`.`Id`)
-    FROM (`TimeSheets` AS `t1`
-    INNER JOIN `Project` AS `p` ON `t1`.`ProjectId` = `p`.`Id`)
-    LEFT JOIN `Customers` AS `c` ON `p`.`CustomerId` = `c`.`Id`
-    WHERE (`t1`.`OrderId` IS NOT NULL AND `t`.`OrderId` = `t1`.`OrderId`) AND (`p`.`CustomerId` IS NOT NULL AND `c`.`Id` IS NOT NULL)) AS `CustomerId`, (
-    SELECT MIN(`c0`.`Name`)
-    FROM (`TimeSheets` AS `t2`
-    INNER JOIN `Project` AS `p0` ON `t2`.`ProjectId` = `p0`.`Id`)
-    LEFT JOIN `Customers` AS `c0` ON `p0`.`CustomerId` = `c0`.`Id`
-    WHERE (`t2`.`OrderId` IS NOT NULL AND `t`.`OrderId` = `t2`.`OrderId`) AND (`p0`.`CustomerId` IS NOT NULL AND `c0`.`Id` IS NOT NULL)) AS `CustomerName`
-FROM `TimeSheets` AS `t`
-WHERE `t`.`OrderId` IS NOT NULL
+SELECT MIN(`o`.`HourlyRate`) AS `HourlyRate`, MIN(`c`.`Id`) AS `CustomerId`, MIN(`c`.`Name`) AS `CustomerName`
+FROM ((`TimeSheets` AS `t`
+LEFT JOIN `Order` AS `o` ON `t`.`OrderId` = `o`.`Id`)
+INNER JOIN `Project` AS `p` ON `t`.`ProjectId` = `p`.`Id`)
+LEFT JOIN `Customers` AS `c` ON `p`.`CustomerId` = `c`.`Id`
+WHERE (`t`.`OrderId` IS NOT NULL) AND (`p`.`CustomerId` IS NOT NULL AND `c`.`Id` IS NOT NULL)
 GROUP BY `t`.`OrderId`
 """);
     }

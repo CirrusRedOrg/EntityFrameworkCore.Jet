@@ -42,6 +42,13 @@ public class JetParameterBasedSqlProcessor(
 
         */
 
+        // Guard row-independent projections inside LEFT JOIN subqueries. This must run AFTER base.Process: the
+        // guard is CASE WHEN <anchor> IS NULL THEN NULL ELSE <literal> END, and the anchor is non-nullable within
+        // the subquery, so SqlNullabilityProcessor proves the test false and folds the CASE straight back to its
+        // ELSE branch. Applied here it survives to SQL generation.
+        afterSearchConditionConversion = new JetOuterJoinProjectionGuardExpressionVisitor(
+            Dependencies.SqlExpressionFactory).Visit(afterSearchConditionConversion);
+
         // Run the compatibility checks as late in the query pipeline (before the actual SQL translation happens) as reasonable.
         afterSearchConditionConversion = new JetCompatibilityExpressionVisitor().Visit(afterSearchConditionConversion);
 

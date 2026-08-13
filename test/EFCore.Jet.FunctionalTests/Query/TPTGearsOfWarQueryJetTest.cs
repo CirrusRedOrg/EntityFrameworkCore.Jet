@@ -744,7 +744,7 @@ WHERE LEN(`g`.`LeaderNickname`) = 5
 
         AssertSql(
             """
-SELECT `g`.`LeaderNickname` & `g`.`LeaderNickname`
+SELECT IIF(`g`.`LeaderNickname` IS NOT NULL, `g`.`LeaderNickname` & `g`.`LeaderNickname`, NULL)
 FROM `Gears` AS `g`
 """);
     }
@@ -9790,23 +9790,10 @@ FROM `Squads` AS `s`
 
         AssertSql(
             """
-SELECT `s`.`Name`, (
-    SELECT IIF(SUM(LEN(`c`.`Location`)) IS NULL, 0, SUM(LEN(`c`.`Location`)))
-    FROM (`Gears` AS `g2`
-    INNER JOIN `Squads` AS `s0` ON `g2`.`SquadId` = `s0`.`Id`)
-    INNER JOIN `Cities` AS `c` ON `g2`.`CityOfBirthName` = `c`.`Name`
-    WHERE 'Marcus' IN (
-        SELECT `u0`.`Nickname`
-        FROM (
-            SELECT `g3`.`Nickname`
-            FROM `Gears` AS `g3`
-            UNION ALL
-            SELECT `g4`.`Nickname`
-            FROM `Gears` AS `g4`
-        ) AS `u0`
-    ) AND (`s`.`Name` = `s0`.`Name` OR (`s`.`Name` IS NULL AND `s0`.`Name` IS NULL))) AS `SumOfLengths`
-FROM `Gears` AS `g`
-INNER JOIN `Squads` AS `s` ON `g`.`SquadId` = `s`.`Id`
+SELECT `s`.`Name`, IIF(SUM(LEN(`c`.`Location`)) IS NULL, 0, SUM(LEN(`c`.`Location`))) AS `SumOfLengths`
+FROM (`Gears` AS `g`
+INNER JOIN `Squads` AS `s` ON `g`.`SquadId` = `s`.`Id`)
+INNER JOIN `Cities` AS `c` ON `g`.`CityOfBirthName` = `c`.`Name`
 WHERE 'Marcus' IN (
     SELECT `u`.`Nickname`
     FROM (

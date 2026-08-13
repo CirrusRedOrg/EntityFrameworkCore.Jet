@@ -861,7 +861,7 @@ WHERE LEN(`u`.`LeaderNickname`) = 5
         // issue #16050
         AssertSql(
             """
-SELECT `u`.`LeaderNickname` & `u`.`LeaderNickname`
+SELECT IIF(`u`.`LeaderNickname` IS NOT NULL, `u`.`LeaderNickname` & `u`.`LeaderNickname`, NULL)
 FROM (
     SELECT `g`.`LeaderNickname`
     FROM `Gears` AS `g`
@@ -12196,47 +12196,16 @@ FROM `Squads` AS `s`
 
         AssertSql(
             """
-SELECT `s`.`Name`, (
-    SELECT IIF(SUM(LEN(`c`.`Location`)) IS NULL, 0, SUM(LEN(`c`.`Location`)))
-    FROM ((
-        SELECT `g2`.`SquadId`, `g2`.`CityOfBirthName`
-        FROM `Gears` AS `g2`
-        UNION ALL
-        SELECT `o2`.`SquadId`, `o2`.`CityOfBirthName`
-        FROM `Officers` AS `o2`
-    ) AS `u3`
-    INNER JOIN `Squads` AS `s0` ON `u3`.`SquadId` = `s0`.`Id`)
-    INNER JOIN `Cities` AS `c` ON `u3`.`CityOfBirthName` = `c`.`Name`
-    WHERE 'Marcus' IN (
-        SELECT `u4`.`Nickname`
-        FROM (
-            SELECT `u5`.`Nickname`
-            FROM (
-                SELECT `g3`.`Nickname`
-                FROM `Gears` AS `g3`
-                UNION ALL
-                SELECT `o3`.`Nickname`
-                FROM `Officers` AS `o3`
-            ) AS `u5`
-            UNION ALL
-            SELECT `u6`.`Nickname`
-            FROM (
-                SELECT `g4`.`Nickname`
-                FROM `Gears` AS `g4`
-                UNION ALL
-                SELECT `o4`.`Nickname`
-                FROM `Officers` AS `o4`
-            ) AS `u6`
-        ) AS `u4`
-    ) AND (`s`.`Name` = `s0`.`Name` OR (`s`.`Name` IS NULL AND `s0`.`Name` IS NULL))) AS `SumOfLengths`
-FROM (
-    SELECT `g`.`SquadId`
+SELECT `s`.`Name`, IIF(SUM(LEN(`c`.`Location`)) IS NULL, 0, SUM(LEN(`c`.`Location`))) AS `SumOfLengths`
+FROM ((
+    SELECT `g`.`SquadId`, `g`.`CityOfBirthName`
     FROM `Gears` AS `g`
     UNION ALL
-    SELECT `o`.`SquadId`
+    SELECT `o`.`SquadId`, `o`.`CityOfBirthName`
     FROM `Officers` AS `o`
 ) AS `u`
-INNER JOIN `Squads` AS `s` ON `u`.`SquadId` = `s`.`Id`
+INNER JOIN `Squads` AS `s` ON `u`.`SquadId` = `s`.`Id`)
+INNER JOIN `Cities` AS `c` ON `u`.`CityOfBirthName` = `c`.`Name`
 WHERE 'Marcus' IN (
     SELECT `u2`.`Nickname`
     FROM (

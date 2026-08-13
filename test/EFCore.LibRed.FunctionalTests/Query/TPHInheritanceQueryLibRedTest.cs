@@ -229,6 +229,9 @@ WHERE `p`.`Genus` = 0
 """);
     }
 
+    public override async Task Can_insert_update_delete()
+        => await base.Can_insert_update_delete();
+
     public override async Task Can_query_all_animals(bool async)
     {
         await base.Can_query_all_animals(async);
@@ -404,9 +407,6 @@ FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
-
-    public override async Task Can_insert_update_delete()
-        => await base.Can_insert_update_delete();
 
     public override async Task Byte_enum_value_constant_used_in_projection(bool async)
     {
@@ -735,6 +735,20 @@ WHERE `a`.`Discriminator` = 'Kiwi'
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` <> 'Kiwi'
+""");
+    }
+
+    public override async Task Primitive_collection_on_subtype(bool async)
+    {
+        await base.Primitive_collection_on_subtype(async);
+
+        AssertSql(
+            """
+SELECT [d].[Id], [d].[Discriminator], [d].[SortIndex], [d].[CaffeineGrams], [d].[CokeCO2], [d].[Ints], [d].[SugarGrams], [d].[LiltCO2], [d].[HasMilk], [d].[ComplexTypeCollection], [d].[ParentComplexType_Int], [d].[ParentComplexType_UniqueInt], [d].[ParentComplexType_Nested_NestedInt], [d].[ParentComplexType_Nested_UniqueInt], [d].[ChildComplexType_Int], [d].[ChildComplexType_UniqueInt], [d].[ChildComplexType_Nested_NestedInt], [d].[ChildComplexType_Nested_UniqueInt], [d].[Tea_ChildComplexType_Int], [d].[Tea_ChildComplexType_UniqueInt], [d].[Tea_ChildComplexType_Nested_NestedInt], [d].[Tea_ChildComplexType_Nested_UniqueInt]
+FROM [Drinks] AS [d]
+WHERE EXISTS (
+    SELECT 1
+    FROM OPENJSON([d].[Ints]) AS [i])
 """);
     }
 

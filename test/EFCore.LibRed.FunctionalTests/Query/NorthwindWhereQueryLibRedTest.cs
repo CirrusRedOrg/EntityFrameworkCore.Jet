@@ -1876,6 +1876,114 @@ ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 """);
         }
 
+        public override async Task Where_Queryable_conditional_not_null_check_with_Contains(bool async, bool withNull)
+        {
+            await base.Where_Queryable_conditional_not_null_check_with_Contains(async, withNull);
+
+            if (withNull)
+            {
+                AssertSql(
+                    """
+    SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    WHERE 0 = 1
+    """);
+            }
+            else
+            {
+                AssertSql(
+                    """
+    SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    WHERE [c].[CustomerID] IN (
+        SELECT [c0].[CustomerID]
+        FROM [Customers] AS [c0]
+        WHERE [c0].[CustomerID] <> N'ALFKI'
+    )
+    """);
+            }
+        }
+
+        public override async Task Where_Queryable_conditional_null_check_with_Contains(bool async, bool withNull)
+        {
+            await base.Where_Queryable_conditional_null_check_with_Contains(async, withNull);
+
+            if (withNull)
+            {
+                AssertSql(
+                    """
+    SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    """);
+            }
+            else
+            {
+                AssertSql(
+                    """
+    SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    WHERE [c].[CustomerID] NOT IN (
+        SELECT [c0].[CustomerID]
+        FROM [Customers] AS [c0]
+        WHERE [c0].[CustomerID] <> N'ALFKI'
+    )
+    """);
+            }
+        }
+
+        public override async Task Where_Enumerable_conditional_not_null_check_with_Contains(bool async, bool withNull)
+        {
+            await base.Where_Enumerable_conditional_not_null_check_with_Contains(async, withNull);
+
+            if (withNull)
+            {
+                AssertSql(
+                    """
+    SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    WHERE 0 = 1
+    """);
+            }
+            else
+            {
+                AssertSql(
+                    """
+    @ids1='ALFKI' (Size = 5) (DbType = StringFixedLength)
+    @ids2='ANATR' (Size = 5) (DbType = StringFixedLength)
+
+    SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    WHERE [c].[CustomerID] IN (@ids1, @ids2)
+    """);
+            }
+        }
+
+        public override async Task Where_Enumerable_conditional_null_check_with_Contains(bool async, bool withNull)
+        {
+            await base.Where_Enumerable_conditional_null_check_with_Contains(async, withNull);
+
+            if (withNull)
+            {
+                AssertSql(
+                    """
+    SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    """);
+            }
+            else
+            {
+                AssertSql(
+                    """
+    @ids1='ALFKI' (Size = 5) (DbType = StringFixedLength)
+    @ids2='ANATR' (Size = 5) (DbType = StringFixedLength)
+
+    SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    WHERE [c].[CustomerID] NOT IN (@ids1, @ids2)
+    """);
+            }
+        }
+
         public override async Task Where_collection_navigation_ToList_Count(bool async)
         {
             await base.Where_collection_navigation_ToList_Count(async);
@@ -2395,21 +2503,6 @@ WHERE NOT EXISTS (
                     """);
         }
 
-        public override async Task Single_over_custom_projection_compared_to_null(bool async)
-        {
-            await base.Single_over_custom_projection_compared_to_null(async);
-
-            AssertSql(
-                """
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`)
-""");
-        }
-
         public override async Task ElementAt_over_custom_projection_compared_to_not_null(bool async)
         {
             await base.ElementAt_over_custom_projection_compared_to_not_null(async);
@@ -2441,6 +2534,21 @@ WHERE NOT EXISTS (
     WHERE [c].[CustomerID] = [o].[CustomerID]
     ORDER BY (SELECT 1)
     OFFSET 7 ROWS)
+""");
+        }
+
+        public override async Task Single_over_custom_projection_compared_to_null(bool async)
+        {
+            await base.Single_over_custom_projection_compared_to_null(async);
+
+            AssertSql(
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)
 """);
         }
 

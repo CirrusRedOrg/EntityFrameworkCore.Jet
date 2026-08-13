@@ -1,6 +1,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Text;
+using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Utilities;
 
@@ -32,9 +33,17 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
         public override LockReleaseBehavior LockReleaseBehavior => LockReleaseBehavior.Explicit;
 
         /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public const string DefaultLockTableName = "__EFMigrationsLock";
+
+        /// <summary>
         ///     The name of the table that will serve as a database-wide lock for migrations.
         /// </summary>
-        protected virtual string LockTableName { get; } = "__EFMigrationsLock";
+        protected virtual string LockTableName { get; } = DefaultLockTableName;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -189,7 +198,7 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
                     return dbLock;
                 }
 
-                await Task.Delay(_retryDelay, cancellationToken).ConfigureAwait(true);
+                await Task.Delay(retryDelay, cancellationToken).ConfigureAwait(false);
                 if (retryDelay < TimeSpan.FromMinutes(1))
                 {
                     retryDelay = retryDelay.Add(retryDelay);
@@ -205,13 +214,40 @@ CREATE TABLE `{LockTableName}` (
 );
 """);
 
+        /// <summary>
+        ///     Takes the migration lock, reporting 1 when this connection wrote the row and 0 when someone else
+        ///     already holds it — the contract SQLite gets from <c>INSERT OR IGNORE …; SELECT changes()</c>.
+        ///     <para>
+        ///         Jet/ACE has no <c>INSERT OR IGNORE</c> or <c>MERGE</c>, so the insert is made conditional with a
+        ///         <c>WHERE NOT EXISTS</c> guard and reports what it actually wrote via <c>@@ROWCOUNT</c>. That keeps
+        ///         losing the race on the ordinary result path instead of raising a duplicate-key error the caller has
+        ///         to recognise by message text.
+        ///     </para>
+        ///     <para>
+        ///         Jet requires a FROM, and the DUAL stand-in may be a real multi-row table (<c>MSysAccessStorage</c>,
+        ///         <c>MSysRelationships</c>), so the source is wrapped as <c>(SELECT COUNT(*) FROM …)</c> — a one-row
+        ///         derived table — exactly as <c>JetQuerySqlGenerator</c> does. Verified against ACE: the wrapped form
+        ///         inserts one row then reports 0 on a second run, while an unwrapped multi-row source fails on the
+        ///         primary key.
+        ///     </para>
+        ///     <para>
+        ///         The guard is <b>not</b> atomic — unlike SQLite's <c>OR IGNORE</c>, two connections can both evaluate
+        ///         it as true — so the caller keeps its duplicate-key catch as the backstop. The difference is that the
+        ///         exception becomes the rare racing path rather than the normal contention path.
+        ///     </para>
+        /// </summary>
         private IRelationalCommand CreateInsertLockCommand(DateTimeOffset timestamp)
         {
             var timestampLiteral = Dependencies.TypeMappingSource.GetMapping(typeof(DateTimeOffset)).GenerateSqlLiteral(timestamp);
+            var dualTableName = string.IsNullOrEmpty(JetConfiguration.CustomDualTableName)
+                ? JetConfiguration.DetectedDualTableName
+                : JetConfiguration.CustomDualTableName;
 
             return Dependencies.RawSqlCommandBuilder.Build($"""
-INSERT INTO `{LockTableName}` (`Id`, `Timestamp`) VALUES(1, {timestampLiteral});
-SELECT 1 FROM `{LockTableName}` WHERE `Id` = 1;
+INSERT INTO `{LockTableName}` (`Id`, `Timestamp`)
+SELECT 1, {timestampLiteral} FROM (SELECT COUNT(*) FROM `{dualTableName}`)
+WHERE NOT EXISTS (SELECT * FROM `{LockTableName}` WHERE `Id` = 1);
+SELECT @@ROWCOUNT;
 """);
         }
 

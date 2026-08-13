@@ -9793,35 +9793,22 @@ FROM `Squads` AS `s`
 
         AssertSql(
             """
-SELECT `s`.`Name`, (
-    SELECT IIF(SUM(LEN(`c`.`Location`)) IS NULL, 0, SUM(LEN(`c`.`Location`)))
-    FROM (`Gears` AS `g2`
-    INNER JOIN `Squads` AS `s0` ON `g2`.`SquadId` = `s0`.`Id`)
-    INNER JOIN `Cities` AS `c` ON `g2`.`CityOfBirthName` = `c`.`Name`
-    WHERE 'Marcus' IN (
-        SELECT `u0`.`Nickname`
-        FROM (
-            SELECT `g3`.`Nickname`
-            FROM `Gears` AS `g3`
-            UNION ALL
-            SELECT `g4`.`Nickname`
-            FROM `Gears` AS `g4`
-        ) AS `u0`
-    ) AND (`s`.`Name` = `s0`.`Name` OR (`s`.`Name` IS NULL AND `s0`.`Name` IS NULL))) AS `SumOfLengths`
-FROM `Gears` AS `g`
-INNER JOIN `Squads` AS `s` ON `g`.`SquadId` = `s`.`Id`
-WHERE 'Marcus' IN (
-    SELECT `u`.`Nickname`
-    FROM (
-        SELECT `g0`.`Nickname`
-        FROM `Gears` AS `g0`
-        UNION ALL
-        SELECT `g1`.`Nickname`
-        FROM `Gears` AS `g1`
-    ) AS `u`
-)
-GROUP BY `s`.`Name`
-""");
+            SELECT `s`.`Name`, IIF(SUM(LEN(`c`.`Location`)) IS NULL, 0, SUM(LEN(`c`.`Location`))) AS `SumOfLengths`
+            FROM (`Gears` AS `g`
+            INNER JOIN `Squads` AS `s` ON `g`.`SquadId` = `s`.`Id`)
+            INNER JOIN `Cities` AS `c` ON `g`.`CityOfBirthName` = `c`.`Name`
+            WHERE 'Marcus' IN (
+                SELECT `u`.`Nickname`
+                FROM (
+                    SELECT `g0`.`Nickname`
+                    FROM `Gears` AS `g0`
+                    UNION ALL
+                    SELECT `g1`.`Nickname`
+                    FROM `Gears` AS `g1`
+                ) AS `u`
+            )
+            GROUP BY `s`.`Name`
+            """);
     }
 
     public override async Task Nav_expansion_inside_Contains_argument(bool async)

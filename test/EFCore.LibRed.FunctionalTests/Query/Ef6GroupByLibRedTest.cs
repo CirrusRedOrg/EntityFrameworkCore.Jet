@@ -767,21 +767,15 @@ ORDER BY [t].[FirstName], [t0].[Id]
 
         AssertSql(
             """
-@size='11'
+            @size='11'
 
-SELECT `p0`.`LastName`, `f`.`Size`, (
-    SELECT MIN(`f1`.`Size`)
-    FROM ((`Person` AS `p1`
-    LEFT JOIN `Feet` AS `f0` ON `p1`.`Id` = `f0`.`Id`)
-    LEFT JOIN `Person` AS `p2` ON `f0`.`Id` = `p2`.`Id`)
-    LEFT JOIN `Feet` AS `f1` ON `p1`.`Id` = `f1`.`Id`
-    WHERE `f0`.`Size` = @size AND `p1`.`MiddleInitial` IS NOT NULL AND (`f0`.`Id` <> 1 OR `f0`.`Id` IS NULL) AND (`f`.`Size` = `f0`.`Size` OR (`f`.`Size` IS NULL AND `f0`.`Size` IS NULL)) AND (`p0`.`LastName` = `p2`.`LastName` OR (`p0`.`LastName` IS NULL AND `p2`.`LastName` IS NULL))) AS `Min`
-FROM (`Person` AS `p`
-LEFT JOIN `Feet` AS `f` ON `p`.`Id` = `f`.`Id`)
-LEFT JOIN `Person` AS `p0` ON `f`.`Id` = `p0`.`Id`
-WHERE `f`.`Size` = @size AND `p`.`MiddleInitial` IS NOT NULL AND (`f`.`Id` <> 1 OR `f`.`Id` IS NULL)
-GROUP BY `f`.`Size`, `p0`.`LastName`
-""");
+            SELECT `p0`.`LastName`, `f`.`Size`, MIN(`f`.`Size`) AS `Min`
+            FROM (`Person` AS `p`
+            LEFT JOIN `Feet` AS `f` ON `p`.`Id` = `f`.`Id`)
+            LEFT JOIN `Person` AS `p0` ON `f`.`Id` = `p0`.`Id`
+            WHERE `f`.`Size` = @size AND `p`.`MiddleInitial` IS NOT NULL AND (`f`.`Id` <> 1 OR `f`.`Id` IS NULL)
+            GROUP BY `f`.`Size`, `p0`.`LastName`
+            """);
     }
 
     public override async Task Sum_Grouped_from_LINQ_101(bool async)
@@ -813,15 +807,12 @@ GROUP BY `p`.`Category`
         await base.Whats_new_2021_sample_9(async);
 
         AssertSql(
-"""
-SELECT `p`.`FirstName` AS `Feet`, (
-    SELECT IIF(SUM(`f`.`Size`) IS NULL, 0, SUM(`f`.`Size`))
-    FROM `Person` AS `p0`
-    LEFT JOIN `Feet` AS `f` ON `p0`.`Id` = `f`.`Id`
-    WHERE `p`.`FirstName` = `p0`.`FirstName` OR (`p`.`FirstName` IS NULL AND `p0`.`FirstName` IS NULL)) AS `Total`
-FROM `Person` AS `p`
-GROUP BY `p`.`FirstName`
-""");
+            """
+            SELECT `p`.`FirstName` AS `Feet`, IIF(SUM(`f`.`Size`) IS NULL, 0, SUM(`f`.`Size`)) AS `Total`
+            FROM `Person` AS `p`
+            LEFT JOIN `Feet` AS `f` ON `p`.`Id` = `f`.`Id`
+            GROUP BY `p`.`FirstName`
+            """);
     }
 
     public override async Task LongCount_Grouped_from_LINQ_101(bool async)

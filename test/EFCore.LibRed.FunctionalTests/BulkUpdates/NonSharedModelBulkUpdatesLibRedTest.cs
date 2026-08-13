@@ -237,6 +237,21 @@ SET `b`.`ComplexThing_Prop1` = @complex_type_p_Prop1,
 """);
     }
 
+    public override async Task Update_complex_type_property_with_view_mapping(bool async)
+    {
+        await base.Update_complex_type_property_with_view_mapping(async);
+
+        AssertSql(
+            """
+@p='6'
+
+SET NOCOUNT OFF;
+UPDATE [b]
+SET [b].[ComplexThing_Prop1] = @p
+FROM [Blogs] AS [b]
+""");
+    }
+
     private void AssertSql(params string[] expected)
         => TestSqlLoggerFactory.AssertBaseline(expected);
 

@@ -1393,6 +1393,20 @@ internal sealed class ExpressionEvaluator(
         if (left is string || right is string)
             return CompareText(left.ToString()!, right.ToString()!);
 
+        // Dates compare by their OLE Automation serial rather than chronologically. Below the epoch
+        // (1899-12-30) the day count is negative while the time fraction stays positive, so 1899-12-29 06:00 is
+        // -1.25 and 18:00 is -1.75 — later in the day is the SMALLER serial. ACE compares and orders on that raw
+        // serial and therefore puts later pre-epoch times first (verified in
+        // LibRed.Core.Tests.AcePreEpochDateProbeTest: `06:00 < 18:00` is False, ORDER BY gives 1,3,2,4,5,6).
+        //
+        // Matching it is not only about ACE parity: IndexKeyEncoder writes this same serial as the index key,
+        // and that encoding cannot change because ACE writes those keys too. Comparing chronologically here
+        // while the index compares by serial made an index seek and a table scan return DIFFERENT rows for a
+        // pre-epoch range (see PreEpochDateOrderingTests). From the epoch onward the two orders are identical,
+        // so this only affects pre-1899 dates.
+        if (left is DateTime leftDate && right is DateTime rightDate)
+            return leftDate.ToOADate().CompareTo(rightDate.ToOADate());
+
         if (left is IComparable c && left.GetType() == right.GetType())
             return c.CompareTo(right);
 

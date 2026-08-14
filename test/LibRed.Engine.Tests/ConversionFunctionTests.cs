@@ -44,15 +44,34 @@ public class ConversionFunctionTests
         Assert.Equal(3.0d, Scalar("CDbl(3)"));
         Assert.Equal(1.25m, Scalar("CDec(1.25)"));
         Assert.Equal(1.5m.ToString(), Scalar("CCur(1.5)")!.ToString()); // currency (existing)
+
+        // A Boolean converts as VARIANT_BOOL, so True is -1 rather than .NET's 1 (verified vs ACE). CByte is
+        // the exception: a byte cannot hold -1, and ACE reports an overflow, which Convert.ToByte raises.
+        Assert.Equal((short)-1, Scalar("CInt(True)"));
+        Assert.Equal(-1, Scalar("CLng(True)"));
+        Assert.Equal(-1d, Scalar("CDbl(True)"));
+        Assert.Equal(-1f, Scalar("CSng(True)"));
+        Assert.Equal(-1m, Scalar("CCur(True)"));
+        Assert.Throws<OverflowException>(() => Scalar("CByte(True)"));
     }
 
     [Fact]
     public void String_bool_date_var_conversions()
     {
         Assert.Equal("1.5", Scalar("CStr(1.5)"));
-        Assert.Equal("True", Scalar("CStr(True)"));
+        // "-1", not "True": CStr renders a Boolean as its VARIANT_BOOL number. This is the Jet Expression
+        // Service's behaviour and differs from the VBA runtime proper — verified vs ACE in
+        // LibRed.Core.Tests.AceVbaConversionProbeTest.
+        Assert.Equal("-1", Scalar("CStr(True)"));
+        // A Double renders at 15 significant digits and a Single at 7 (the OA/VB convention), rather than
+        // .NET Core's shortest-round-trippable form, which would give "0.30000000000000004" here.
+        Assert.Equal("0.3", Scalar("CStr(0.1+0.2)"));
+        Assert.Equal("0.3333333", Scalar("CStr(CSng(1/3))"));
         Assert.Equal(false, Scalar("CBool(0)"));
         Assert.Equal(true, Scalar("CBool(5)"));
+        // CBool accepts a numeric string and a non-integral number; Convert.ToBoolean rejects the former.
+        Assert.Equal(true, Scalar("CBool('-1')"));
+        Assert.Equal(true, Scalar("CBool(0.5)"));
         Assert.Equal(new DateTime(2020, 1, 15), Scalar("CDate('2020-01-15')"));
         Assert.Equal(42, Scalar("CVar(42)")); // passthrough
     }

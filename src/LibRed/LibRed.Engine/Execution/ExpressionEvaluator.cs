@@ -149,15 +149,20 @@ internal sealed class ExpressionEvaluator(
             // VBA/Access type-conversion functions. All propagate NULL. CInt/CLng/CByte round half-to-even
             // ("banker's rounding"), which is exactly what Convert.ToInt16/Int32/Byte do. CVar is a no-op
             // passthrough (LibRed has no distinct Variant type).
-            "CCUR" => Convert1(f, v => Math.Round(Convert.ToDecimal(v, CultureInfo.InvariantCulture), 4)), // to Currency (decimal, 4 dp)
-            "CBOOL" => Convert1(f, v => v is bool b ? b : Convert.ToBoolean(v, CultureInfo.InvariantCulture)),
-            "CBYTE" => Convert1(f, v => Convert.ToByte(v, CultureInfo.InvariantCulture)),
-            "CINT" => Convert1(f, v => Convert.ToInt16(v, CultureInfo.InvariantCulture)),
-            "CLNG" => Convert1(f, v => Convert.ToInt32(v, CultureInfo.InvariantCulture)),
-            "CSNG" => Convert1(f, v => Convert.ToSingle(v, CultureInfo.InvariantCulture)),
-            "CDBL" => Convert1(f, v => Convert.ToDouble(v, CultureInfo.InvariantCulture)),
-            "CDEC" => Convert1(f, v => Convert.ToDecimal(v, CultureInfo.InvariantCulture)),
-            "CSTR" => Convert1(f, v => Convert.ToString(v, CultureInfo.InvariantCulture)),
+            // A Boolean argument goes through Numeric() first, so True converts as VARIANT_BOOL -1 rather than
+            // .NET's 1 (verified vs ACE: CInt/CLng/CDbl/CSng/CCur(True) are all -1, and CByte(True) overflows
+            // because a byte cannot hold -1 — which Convert.ToByte(-1) raises for us).
+            "CCUR" => Convert1(f, v => Math.Round(Dec(v), 4)),  // to Currency (decimal, 4 dp)
+            "CBOOL" => Convert1(f, v => VbaBool(v)),
+            "CBYTE" => Convert1(f, v => Convert.ToByte(Numeric(v), CultureInfo.InvariantCulture)),
+            "CINT" => Convert1(f, v => Convert.ToInt16(Numeric(v), CultureInfo.InvariantCulture)),
+            "CLNG" => Convert1(f, v => Int(v)),
+            "CSNG" => Convert1(f, v => Sng(v)),
+            "CDBL" => Convert1(f, v => Dbl(v)),
+            // CDec has no ACE equivalent — the Jet Expression Service has no such function — so this is a
+            // LibRed extension with no parity contract to honour. CCur is ACE's route to a decimal.
+            "CDEC" => Convert1(f, v => Dec(v)),
+            "CSTR" => Convert1(f, VbaString),
             "CDATE" => Convert1(f, ToDate),
             "CVAR" => Evaluate(f.Arguments[0]), // passthrough (no Variant type)
 
@@ -1307,6 +1312,33 @@ internal sealed class ExpressionEvaluator(
         { long a = Lng(left), b = Lng(right); return op == '%' ? a % b : a / b; }
         int x = Int(left), y = Int(right); return op == '%' ? x % y : x / y;
     }
+
+    /// <summary>VBA <c>CStr</c>. A Double renders at 15 significant digits and a Single at 7 — the OA/VB
+    /// convention, not .NET Core 3.0+'s shortest-round-trippable form, which would turn <c>0.1+0.2</c> into
+    /// "0.30000000000000004" (verified vs ACE: "0.3", and <c>CStr(CSng(1/3))</c> is "0.3333333"). A Boolean
+    /// renders as its VARIANT_BOOL number, "-1" — note that is the Jet Expression Service's behaviour and
+    /// differs from the VBA runtime proper, which renders "True".</summary>
+    private static string VbaString(object v) => v switch
+    {
+        bool b => b ? "-1" : "0",
+        double d => d.ToString("G15", CultureInfo.InvariantCulture),
+        float f => f.ToString("G7", CultureInfo.InvariantCulture),
+        _ => Convert.ToString(v, CultureInfo.InvariantCulture)!,
+    };
+
+    /// <summary>VBA <c>CBool</c>: any non-zero number is True (so 0.5 is True), and a string may hold a number
+    /// ("-1") as well as "True"/"False". <see cref="Convert.ToBoolean(object)"/> rejects the numeric-string form
+    /// with a FormatException, so ACE accepts input LibRed used to refuse (verified vs ACE).</summary>
+    private static bool VbaBool(object v) => v switch
+    {
+        bool b => b,
+        string s => bool.TryParse(s, out var parsed)
+            ? parsed
+            : double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var n)
+                ? n != 0
+                : throw new InvalidOperationException($"Type mismatch: '{s}' cannot be converted to Boolean."),
+        _ => Dbl(v) != 0,
+    };
 
     // Jet's boolean convention (true = -1, false = 0) so a bool matches the numeric column it is stored in.
     private static object Numeric(object v) => v is bool b ? (b ? -1 : 0) : v;

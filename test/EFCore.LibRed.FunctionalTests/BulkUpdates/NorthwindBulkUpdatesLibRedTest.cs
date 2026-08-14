@@ -703,10 +703,8 @@ WHERE `c`.`CustomerID` LIKE 'F%'
             """
 -- MyUpdate
 
-SET NOCOUNT OFF;
-UPDATE [c]
-SET [c].[ContactName] = NULL
-FROM [Customers] AS [c]
+UPDATE `Customers` AS `c`
+SET `c`.`ContactName` = NULL
 """);
     }
 

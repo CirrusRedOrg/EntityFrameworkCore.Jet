@@ -602,12 +602,19 @@ WHERE (
 
         AssertSql(
             """
-SELECT TOP(2) [t].[Id], [t].[Ints]
-FROM [TestEntity] AS [t]
+SELECT TOP 2 `t`.`Id`, `t`.`Ints`
+FROM `TestEntity` AS `t`
 WHERE (
     SELECT COUNT(*)
-    FROM (VALUES (CAST(1 AS int)), (2), (3)) AS [v]([Value])
-    WHERE [v].[Value] > [t].[Id]) = 1
+    FROM (SELECT CLNG(1) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT 2 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
+    UNION
+    SELECT 3 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`
+    WHERE `v`.`Value` > `t`.`Id`) = 1
 """);
     }
 
@@ -702,18 +709,18 @@ WHERE `p`.`Int` NOT IN (@ints1, @ints2)
 @ints1='10'
 @ints2='999'
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] IN (@ints1, @ints2)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (@ints1, @ints2)
 """,
             //
             """
 @ints1='10'
 @ints2='999'
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] NOT IN (@ints1, @ints2)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` NOT IN (@ints1, @ints2)
 """);
     }
 
@@ -750,18 +757,18 @@ WHERE `p`.`Int` NOT IN (@ints1, @ints2)
 @ints1='10'
 @ints2='999'
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] IN (@ints1, @ints2)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (@ints1, @ints2)
 """,
             //
             """
 @ints1='10'
 @ints2='999'
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] NOT IN (@ints1, @ints2)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` NOT IN (@ints1, @ints2)
 """);
     }
 
@@ -774,18 +781,18 @@ WHERE [p].[Int] NOT IN (@ints1, @ints2)
 @ints1='10'
 @ints2='999'
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] IN (@ints1, @ints2)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (@ints1, @ints2)
 """,
             //
             """
 @ints1='10'
 @ints2='999'
 
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] NOT IN (@ints1, @ints2)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` NOT IN (@ints1, @ints2)
 """);
     }
 
@@ -1189,12 +1196,16 @@ WHERE (
             {
                 AssertSql(
                     """
-SELECT [t].[Id]
-FROM [TestEntity] AS [t]
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
 WHERE (
     SELECT COUNT(*)
-    FROM (VALUES (CAST(2 AS int)), (999)) AS [i]([Value])
-    WHERE [i].[Value] > [t].[Id]) = 1
+    FROM (SELECT CLNG(2) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
+    UNION
+    SELECT 999 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`) AS `i`
+    WHERE `i`.`Value` > `t`.`Id`) = 1
 """);
                 break;
             }
@@ -1223,12 +1234,16 @@ WHERE [i].[value] > [t].[Id]) = 1
 @ids1='2'
 @ids2='999'
 
-SELECT [t].[Id]
-FROM [TestEntity] AS [t]
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
 WHERE (
     SELECT COUNT(*)
-    FROM (VALUES (@ids1), (@ids2)) AS [i]([Value])
-    WHERE [i].[Value] > [t].[Id]) = 1
+    FROM (SELECT @ids1 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
+    UNION
+    SELECT @ids2 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`) AS `i`
+    WHERE `i`.`Value` > `t`.`Id`) = 1
 """);
                 break;
             }
@@ -1248,9 +1263,9 @@ WHERE (
             {
                 AssertSql(
                     """
-SELECT [t].[Id]
-FROM [TestEntity] AS [t]
-WHERE [t].[Id] IN (2, 999)
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE `t`.`Id` IN (2, 999)
 """);
                 break;
             }
@@ -1259,14 +1274,12 @@ WHERE [t].[Id] IN (2, 999)
             {
                 AssertSql(
                     """
-@ints='[2,999]' (Size = 4000)
+@ints1='2'
+@ints2='999'
 
-SELECT [t].[Id]
-FROM [TestEntity] AS [t]
-WHERE [t].[Id] IN (
-SELECT [i].[value]
-FROM OPENJSON(@ints) WITH ([value] int '$') AS [i]
-)
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE `t`.`Id` IN (@ints1, @ints2)
 """);
 
                 break;
@@ -1279,9 +1292,9 @@ FROM OPENJSON(@ints) WITH ([value] int '$') AS [i]
 @ints1='2'
 @ints2='999'
 
-SELECT [t].[Id]
-FROM [TestEntity] AS [t]
-WHERE [t].[Id] IN (@ints1, @ints2)
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE `t`.`Id` IN (@ints1, @ints2)
 """);
                 break;
             }
@@ -1297,12 +1310,16 @@ WHERE [t].[Id] IN (@ints1, @ints2)
 
         AssertSql(
             """
-SELECT [t].[Id]
-FROM [TestEntity] AS [t]
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
 WHERE (
     SELECT COUNT(*)
-    FROM (VALUES (CAST(2 AS int)), (999)) AS [i]([Value])
-    WHERE [i].[Value] > [t].[Id]) = 1
+    FROM (SELECT CLNG(2) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
+    UNION
+    SELECT 999 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`) AS `i`
+    WHERE `i`.`Value` > `t`.`Id`) = 1
 """);
     }
 
@@ -1312,9 +1329,9 @@ WHERE (
 
         AssertSql(
             """
-SELECT [t].[Id]
-FROM [TestEntity] AS [t]
-WHERE [t].[Id] IN (2, 999)
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE `t`.`Id` IN (2, 999)
 """);
     }
 
@@ -1363,12 +1380,16 @@ FROM OPENJSON(@ints) WITH ([value] int '$') AS [i]
 @ids1='2'
 @ids2='999'
 
-SELECT [t].[Id]
-FROM [TestEntity] AS [t]
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
 WHERE (
     SELECT COUNT(*)
-    FROM (VALUES (@ids1), (@ids2)) AS [i]([Value])
-    WHERE [i].[Value] > [t].[Id]) = 1
+    FROM (SELECT @ids1 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
+    UNION
+    SELECT @ids2 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`) AS `i`
+    WHERE `i`.`Value` > `t`.`Id`) = 1
 """);
     }
 
@@ -1381,9 +1402,9 @@ WHERE (
 @ints1='2'
 @ints2='999'
 
-SELECT [t].[Id]
-FROM [TestEntity] AS [t]
-WHERE [t].[Id] IN (@ints1, @ints2)
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE `t`.`Id` IN (@ints1, @ints2)
 """);
     }
 
@@ -1414,9 +1435,9 @@ WHERE [t].[Id] IN (@ints1, @ints2)
 @ints19='2'
 @ints20='2'
 
-SELECT [t].[Id]
-FROM [TestEntity] AS [t]
-WHERE [t].[Id] IN (@ints1, @ints2, @ints3, @ints4, @ints5, @ints6, @ints7, @ints8, @ints9, @ints10, @ints11, @ints12, @ints13, @ints14, @ints15, @ints16, @ints17, @ints18, @ints19, @ints20)
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE `t`.`Id` IN (@ints1, @ints2, @ints3, @ints4, @ints5, @ints6, @ints7, @ints8, @ints9, @ints10, @ints11, @ints12, @ints13, @ints14, @ints15, @ints16, @ints17, @ints18, @ints19, @ints20)
 """);
     }
 
@@ -1430,12 +1451,13 @@ WHERE [t].[Id] IN (@ints1, @ints2, @ints3, @ints4, @ints5, @ints6, @ints7, @ints
             {
                 AssertSql(
                     """
-SELECT [t].[Id]
-FROM [TestEntity38008] AS [t]
+SELECT `t`.`Id`
+FROM `TestEntity38008` AS `t`
 WHERE EXISTS (
     SELECT 1
-    FROM (VALUES (CAST(2 AS int))) AS [f]([Value])
-    WHERE [f].[Value] = [t].[Status])
+    FROM (SELECT 2 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `f_0`) AS `f`
+    WHERE `f`.`Value` = `t`.`Status`)
 """);
                 break;
             }
@@ -1463,12 +1485,13 @@ WHERE [f].[value] = [t].[Status])
                     """
 @filter1='2'
 
-SELECT [t].[Id]
-FROM [TestEntity38008] AS [t]
+SELECT `t`.`Id`
+FROM `TestEntity38008` AS `t`
 WHERE EXISTS (
     SELECT 1
-    FROM (VALUES (@filter1)) AS [f]([Value])
-    WHERE [f].[Value] = [t].[Status])
+    FROM (SELECT @filter1 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `f_0`) AS `f`
+    WHERE `f`.`Value` = `t`.`Status`)
 """);
                 break;
             }
@@ -1484,15 +1507,15 @@ WHERE EXISTS (
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] IN (10, 999)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (10, 999)
 """,
             //
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] NOT IN (10, 999)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` NOT IN (10, 999)
 """);
     }
 
@@ -1502,15 +1525,15 @@ WHERE [p].[Int] NOT IN (10, 999)
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] IN (10, 999)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (10, 999)
 """,
             //
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] NOT IN (10, 999)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` NOT IN (10, 999)
 """);
     }
 
@@ -1520,15 +1543,15 @@ WHERE [p].[Int] NOT IN (10, 999)
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] IN (10, 999)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (10, 999)
 """,
             //
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] NOT IN (10, 999)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` NOT IN (10, 999)
 """);
     }
 
@@ -1602,11 +1625,11 @@ WHERE EXISTS (
 
         AssertSql(
             """
-@ints='1,2,3' (Size = 4000)
+@ints='1,2,3' (Size = 255)
 
-SELECT TOP(2) [t].[Id], [t].[Ints]
-FROM [TestEntity] AS [t]
-WHERE [t].[Ints] = @ints
+SELECT TOP 2 `t`.`Id`, `t`.`Ints`
+FROM `TestEntity` AS `t`
+WHERE `t`.`Ints` = @ints
 """);
     }
 
@@ -1643,12 +1666,16 @@ WHERE JSON_VALUE([t].[Owned], '$.Strings[1]') = N'bar'
 
         AssertSql(
             """
-SELECT TOP(2) [t].[Id], [t].[Ints], [t].[PropertyWithValueConverter]
-FROM [TestEntity] AS [t]
+SELECT TOP 2 `t`.`Id`, `t`.`Ints`, `t`.`PropertyWithValueConverter`
+FROM `TestEntity` AS `t`
 WHERE (
     SELECT COUNT(*)
-    FROM (VALUES (CAST(1 AS int)), (8)) AS [v]([Value])
-    WHERE [v].[Value] = [t].[PropertyWithValueConverter]) = 1
+    FROM (SELECT 1 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT 8 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`
+    WHERE `v`.`Value` = `t`.`PropertyWithValueConverter`) = 1
 """);
     }
 
@@ -1697,11 +1724,15 @@ WHERE `p`.`Int` IN (10, 999)
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-SELECT MIN([v].[Value])
-FROM (VALUES (CAST(30 AS int)), ([p].[Int])) AS [v]([Value])) = 30
+    SELECT MIN(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`Int` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) = 30
 """);
     }
 
@@ -1711,11 +1742,15 @@ FROM (VALUES (CAST(30 AS int)), ([p].[Int])) AS [v]([Value])) = 30
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-SELECT MAX([v].[Value])
-FROM (VALUES (CAST(30 AS int)), ([p].[Int])) AS [v]([Value])) = 30
+    SELECT MAX(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`Int` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) = 30
 """);
     }
 
@@ -1997,14 +2032,15 @@ WHERE `p`.`Ints` = '[1,10]'
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT NULL AS [Value]
-        WHERE 0 = 1
-    ) AS [i])
+        SELECT CVar(NULL) AS `Value`
+        FROM (SELECT COUNT(*) FROM `#Dual`)
+        WHERE FALSE
+    ) AS `i`)
 """);
     }
 
@@ -2157,8 +2193,8 @@ ORDER BY [p].[Id]
 
         AssertSql(
             """
-SELECT [t].[Ints]
-FROM [TestEntityWithOwned] AS [t]
+SELECT `t`.`Ints`
+FROM `TestEntityWithOwned` AS `t`
 """);
     }
 

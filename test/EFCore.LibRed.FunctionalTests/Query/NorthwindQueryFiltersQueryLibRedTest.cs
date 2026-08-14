@@ -358,20 +358,18 @@ WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
 
             AssertSql(
                 """
-    @ef_filter__TenantPrefix_startswith='B%' (Size = 40)
+@ef_filter__TenantPrefix_startswith='B%' (Size = 40)
 
-    SELECT [o].[EmployeeID] AS [Key], COUNT(CASE
-        WHEN [c0].[City] = N'London' THEN 1
-    END) AS [Londons]
-    FROM [Orders] AS [o]
-    LEFT JOIN (
-        SELECT [c].[CustomerID], [c].[City], [c].[CompanyName]
-        FROM [Customers] AS [c]
-        WHERE [c].[CompanyName] LIKE @ef_filter__TenantPrefix_startswith ESCAPE N'\'
-    ) AS [c0] ON [o].[CustomerID] = [c0].[CustomerID]
-    WHERE [c0].[CustomerID] IS NOT NULL AND [c0].[CompanyName] IS NOT NULL
-    GROUP BY [o].[EmployeeID]
-    """);
+SELECT `o`.`EmployeeID` AS `Key`, COUNT(IIF(`c0`.`City` = 'London', 1, NULL)) AS `Londons`
+FROM `Orders` AS `o`
+LEFT JOIN (
+    SELECT `c`.`CustomerID`, `c`.`City`, `c`.`CompanyName`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CompanyName` LIKE @ef_filter__TenantPrefix_startswith
+) AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
+WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
+GROUP BY `o`.`EmployeeID`
+""");
         }
 
         public override async Task GroupBy_aggregate_through_filtered_navigation_with_total(bool async)
@@ -380,20 +378,18 @@ WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
 
             AssertSql(
                 """
-    @ef_filter__TenantPrefix_startswith='B%' (Size = 40)
+@ef_filter__TenantPrefix_startswith='B%' (Size = 40)
 
-    SELECT [o].[EmployeeID] AS [Key], COUNT(*) AS [Total], COUNT(CASE
-        WHEN [c0].[City] = N'London' THEN 1
-    END) AS [Londons]
-    FROM [Orders] AS [o]
-    LEFT JOIN (
-        SELECT [c].[CustomerID], [c].[City], [c].[CompanyName]
-        FROM [Customers] AS [c]
-        WHERE [c].[CompanyName] LIKE @ef_filter__TenantPrefix_startswith ESCAPE N'\'
-    ) AS [c0] ON [o].[CustomerID] = [c0].[CustomerID]
-    WHERE [c0].[CustomerID] IS NOT NULL AND [c0].[CompanyName] IS NOT NULL
-    GROUP BY [o].[EmployeeID]
-    """);
+SELECT `o`.`EmployeeID` AS `Key`, COUNT(*) AS `Total`, COUNT(IIF(`c0`.`City` = 'London', 1, NULL)) AS `Londons`
+FROM `Orders` AS `o`
+LEFT JOIN (
+    SELECT `c`.`CustomerID`, `c`.`City`, `c`.`CompanyName`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CompanyName` LIKE @ef_filter__TenantPrefix_startswith
+) AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
+WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
+GROUP BY `o`.`EmployeeID`
+""");
         }
 
         public override async Task GroupBy_aggregate_through_filtered_navigation_ignore_query_filters(bool async)
@@ -402,13 +398,11 @@ WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
 
             AssertSql(
                 """
-    SELECT [o].[EmployeeID] AS [Key], COUNT(CASE
-        WHEN [c].[City] = N'London' THEN 1
-    END) AS [Londons]
-    FROM [Orders] AS [o]
-    LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]
-    GROUP BY [o].[EmployeeID]
-    """);
+SELECT `o`.`EmployeeID` AS `Key`, COUNT(IIF(`c`.`City` = 'London', 1, NULL)) AS `Londons`
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+GROUP BY `o`.`EmployeeID`
+""");
         }
 
         public override async Task Included_many_to_one_query2(bool async)

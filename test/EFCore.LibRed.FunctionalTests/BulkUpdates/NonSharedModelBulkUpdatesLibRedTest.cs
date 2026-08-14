@@ -245,10 +245,8 @@ SET `b`.`ComplexThing_Prop1` = @complex_type_p_Prop1,
             """
 @p='6'
 
-SET NOCOUNT OFF;
-UPDATE [b]
-SET [b].[ComplexThing_Prop1] = @p
-FROM [Blogs] AS [b]
+UPDATE `Blogs` AS `b`
+SET `b`.`ComplexThing_Prop1` = @p
 """);
     }
 

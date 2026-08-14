@@ -353,11 +353,11 @@ ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`
         {
             AssertSql(
                 """
-SELECT [r].[Id], [r].[RequiredAssociate_Id], [r].[RequiredAssociate_Int], [r].[RequiredAssociate_Ints], [r].[RequiredAssociate_Name], [r].[RequiredAssociate_String], [r0].[AssociateTypeRootEntityId], [r0].[Id], [r0].[Int], [r0].[Ints], [r0].[Name], [r0].[String], [r].[RequiredAssociate_OptionalNestedAssociate_Id], [r].[RequiredAssociate_OptionalNestedAssociate_Int], [r].[RequiredAssociate_OptionalNestedAssociate_Ints], [r].[RequiredAssociate_OptionalNestedAssociate_Name], [r].[RequiredAssociate_OptionalNestedAssociate_String], [r].[RequiredAssociate_RequiredNestedAssociate_Id], [r].[RequiredAssociate_RequiredNestedAssociate_Int], [r].[RequiredAssociate_RequiredNestedAssociate_Ints], [r].[RequiredAssociate_RequiredNestedAssociate_Name], [r].[RequiredAssociate_RequiredNestedAssociate_String], [r1].[AssociateTypeRootEntityId], [r1].[Id], [r1].[Int], [r1].[Ints], [r1].[Name], [r1].[String]
-FROM [RootEntity] AS [r]
-LEFT JOIN [RequiredRelated_NestedCollection] AS [r0] ON [r].[Id] = [r0].[AssociateTypeRootEntityId]
-LEFT JOIN [RequiredRelated_NestedCollection] AS [r1] ON [r].[Id] = [r1].[AssociateTypeRootEntityId]
-ORDER BY [r].[Id], [r0].[AssociateTypeRootEntityId], [r0].[Id], [r1].[AssociateTypeRootEntityId]
+SELECT `r`.`Id`, `r`.`RequiredAssociate_Id`, `r`.`RequiredAssociate_Int`, `r`.`RequiredAssociate_Ints`, `r`.`RequiredAssociate_Name`, `r`.`RequiredAssociate_String`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`, `r`.`RequiredAssociate_OptionalNestedAssociate_Id`, `r`.`RequiredAssociate_OptionalNestedAssociate_Int`, `r`.`RequiredAssociate_OptionalNestedAssociate_Ints`, `r`.`RequiredAssociate_OptionalNestedAssociate_Name`, `r`.`RequiredAssociate_OptionalNestedAssociate_String`, `r`.`RequiredAssociate_RequiredNestedAssociate_Id`, `r`.`RequiredAssociate_RequiredNestedAssociate_Int`, `r`.`RequiredAssociate_RequiredNestedAssociate_Ints`, `r`.`RequiredAssociate_RequiredNestedAssociate_Name`, `r`.`RequiredAssociate_RequiredNestedAssociate_String`, `r1`.`AssociateTypeRootEntityId`, `r1`.`Id`, `r1`.`Int`, `r1`.`Ints`, `r1`.`Name`, `r1`.`String`
+FROM (`RootEntity` AS `r`
+LEFT JOIN `RequiredRelated_NestedCollection` AS `r0` ON `r`.`Id` = `r0`.`AssociateTypeRootEntityId`)
+LEFT JOIN `RequiredRelated_NestedCollection` AS `r1` ON `r`.`Id` = `r1`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r1`.`AssociateTypeRootEntityId`, `r1`.`Id`
 """);
         }
     }
@@ -370,13 +370,11 @@ ORDER BY [r].[Id], [r0].[AssociateTypeRootEntityId], [r0].[Id], [r1].[AssociateT
         {
             AssertSql(
                 """
-SELECT [r].[Id], [r].[RequiredAssociate_Id], [r].[RequiredAssociate_Int], [r].[RequiredAssociate_Ints], [r].[RequiredAssociate_Name], [r].[RequiredAssociate_String], [r0].[AssociateTypeRootEntityId], [r0].[Id], [r0].[Int], [r0].[Ints], [r0].[Name], [r0].[String], [r].[RequiredAssociate_OptionalNestedAssociate_Id], [r].[RequiredAssociate_OptionalNestedAssociate_Int], [r].[RequiredAssociate_OptionalNestedAssociate_Ints], [r].[RequiredAssociate_OptionalNestedAssociate_Name], [r].[RequiredAssociate_OptionalNestedAssociate_String], [r].[RequiredAssociate_RequiredNestedAssociate_Id], [r].[RequiredAssociate_RequiredNestedAssociate_Int], [r].[RequiredAssociate_RequiredNestedAssociate_Ints], [r].[RequiredAssociate_RequiredNestedAssociate_Name], [r].[RequiredAssociate_RequiredNestedAssociate_String], [r].[OptionalAssociate_Id], [r].[OptionalAssociate_Int], [r].[OptionalAssociate_Ints], [r].[OptionalAssociate_Name], [r].[OptionalAssociate_String], [o].[AssociateTypeRootEntityId], [o].[Id], [o].[Int], [o].[Ints], [o].[Name], [o].[String], [r].[OptionalAssociate_OptionalNestedAssociate_Id], [r].[OptionalAssociate_OptionalNestedAssociate_Int], [r].[OptionalAssociate_OptionalNestedAssociate_Ints], [r].[OptionalAssociate_OptionalNestedAssociate_Name], [r].[OptionalAssociate_OptionalNestedAssociate_String], [r].[OptionalAssociate_RequiredNestedAssociate_Id], [r].[OptionalAssociate_RequiredNestedAssociate_Int], [r].[OptionalAssociate_RequiredNestedAssociate_Ints], [r].[OptionalAssociate_RequiredNestedAssociate_Name], [r].[OptionalAssociate_RequiredNestedAssociate_String]
-FROM [RootEntity] AS [r]
-LEFT JOIN [RequiredRelated_NestedCollection] AS [r0] ON [r].[Id] = [r0].[AssociateTypeRootEntityId]
-LEFT JOIN [OptionalRelated_NestedCollection] AS [o] ON CASE
-    WHEN [r].[OptionalAssociate_Id] IS NOT NULL AND [r].[OptionalAssociate_Int] IS NOT NULL AND [r].[OptionalAssociate_Ints] IS NOT NULL AND [r].[OptionalAssociate_Name] IS NOT NULL AND [r].[OptionalAssociate_String] IS NOT NULL THEN [r].[Id]
-END = [o].[AssociateTypeRootEntityId]
-ORDER BY [r].[Id], [r0].[AssociateTypeRootEntityId], [r0].[Id], [o].[AssociateTypeRootEntityId]
+SELECT `r`.`Id`, `r`.`RequiredAssociate_Id`, `r`.`RequiredAssociate_Int`, `r`.`RequiredAssociate_Ints`, `r`.`RequiredAssociate_Name`, `r`.`RequiredAssociate_String`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`, `r`.`RequiredAssociate_OptionalNestedAssociate_Id`, `r`.`RequiredAssociate_OptionalNestedAssociate_Int`, `r`.`RequiredAssociate_OptionalNestedAssociate_Ints`, `r`.`RequiredAssociate_OptionalNestedAssociate_Name`, `r`.`RequiredAssociate_OptionalNestedAssociate_String`, `r`.`RequiredAssociate_RequiredNestedAssociate_Id`, `r`.`RequiredAssociate_RequiredNestedAssociate_Int`, `r`.`RequiredAssociate_RequiredNestedAssociate_Ints`, `r`.`RequiredAssociate_RequiredNestedAssociate_Name`, `r`.`RequiredAssociate_RequiredNestedAssociate_String`, `r`.`OptionalAssociate_Id`, `r`.`OptionalAssociate_Int`, `r`.`OptionalAssociate_Ints`, `r`.`OptionalAssociate_Name`, `r`.`OptionalAssociate_String`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `o`.`Int`, `o`.`Ints`, `o`.`Name`, `o`.`String`, `r`.`OptionalAssociate_OptionalNestedAssociate_Id`, `r`.`OptionalAssociate_OptionalNestedAssociate_Int`, `r`.`OptionalAssociate_OptionalNestedAssociate_Ints`, `r`.`OptionalAssociate_OptionalNestedAssociate_Name`, `r`.`OptionalAssociate_OptionalNestedAssociate_String`, `r`.`OptionalAssociate_RequiredNestedAssociate_Id`, `r`.`OptionalAssociate_RequiredNestedAssociate_Int`, `r`.`OptionalAssociate_RequiredNestedAssociate_Ints`, `r`.`OptionalAssociate_RequiredNestedAssociate_Name`, `r`.`OptionalAssociate_RequiredNestedAssociate_String`
+FROM (`RootEntity` AS `r`
+LEFT JOIN `RequiredRelated_NestedCollection` AS `r0` ON `r`.`Id` = `r0`.`AssociateTypeRootEntityId`)
+LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`
 """);
         }
     }
@@ -389,12 +387,10 @@ ORDER BY [r].[Id], [r0].[AssociateTypeRootEntityId], [r0].[Id], [o].[AssociateTy
         {
             AssertSql(
                 """
-SELECT [r].[Id], [r].[OptionalAssociate_Id], [r].[OptionalAssociate_Int], [r].[OptionalAssociate_Ints], [r].[OptionalAssociate_Name], [r].[OptionalAssociate_String], [o].[AssociateTypeRootEntityId], [o].[Id], [o].[Int], [o].[Ints], [o].[Name], [o].[String], [r].[OptionalAssociate_OptionalNestedAssociate_Id], [r].[OptionalAssociate_OptionalNestedAssociate_Int], [r].[OptionalAssociate_OptionalNestedAssociate_Ints], [r].[OptionalAssociate_OptionalNestedAssociate_Name], [r].[OptionalAssociate_OptionalNestedAssociate_String], [r].[OptionalAssociate_RequiredNestedAssociate_Id], [r].[OptionalAssociate_RequiredNestedAssociate_Int], [r].[OptionalAssociate_RequiredNestedAssociate_Ints], [r].[OptionalAssociate_RequiredNestedAssociate_Name], [r].[OptionalAssociate_RequiredNestedAssociate_String], [r].[RequiredAssociate_Ints]
-FROM [RootEntity] AS [r]
-LEFT JOIN [OptionalRelated_NestedCollection] AS [o] ON CASE
-    WHEN [r].[OptionalAssociate_Id] IS NOT NULL AND [r].[OptionalAssociate_Int] IS NOT NULL AND [r].[OptionalAssociate_Ints] IS NOT NULL AND [r].[OptionalAssociate_Name] IS NOT NULL AND [r].[OptionalAssociate_String] IS NOT NULL THEN [r].[Id]
-END = [o].[AssociateTypeRootEntityId]
-ORDER BY [r].[Id], [o].[AssociateTypeRootEntityId]
+SELECT `r`.`Id`, `r`.`OptionalAssociate_Id`, `r`.`OptionalAssociate_Int`, `r`.`OptionalAssociate_Ints`, `r`.`OptionalAssociate_Name`, `r`.`OptionalAssociate_String`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `o`.`Int`, `o`.`Ints`, `o`.`Name`, `o`.`String`, `r`.`OptionalAssociate_OptionalNestedAssociate_Id`, `r`.`OptionalAssociate_OptionalNestedAssociate_Int`, `r`.`OptionalAssociate_OptionalNestedAssociate_Ints`, `r`.`OptionalAssociate_OptionalNestedAssociate_Name`, `r`.`OptionalAssociate_OptionalNestedAssociate_String`, `r`.`OptionalAssociate_RequiredNestedAssociate_Id`, `r`.`OptionalAssociate_RequiredNestedAssociate_Int`, `r`.`OptionalAssociate_RequiredNestedAssociate_Ints`, `r`.`OptionalAssociate_RequiredNestedAssociate_Name`, `r`.`OptionalAssociate_RequiredNestedAssociate_String`, `r`.`RequiredAssociate_Ints`
+FROM `RootEntity` AS `r`
+LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`
 """);
         }
     }
@@ -407,10 +403,10 @@ ORDER BY [r].[Id], [o].[AssociateTypeRootEntityId]
         {
             AssertSql(
                 """
-SELECT [r].[Id], [r].[RequiredAssociate_Id], [r].[RequiredAssociate_Int], [r].[RequiredAssociate_Ints], [r].[RequiredAssociate_Name], [r].[RequiredAssociate_String], [r0].[AssociateTypeRootEntityId], [r0].[Id], [r0].[Int], [r0].[Ints], [r0].[Name], [r0].[String], [r].[RequiredAssociate_OptionalNestedAssociate_Id], [r].[RequiredAssociate_OptionalNestedAssociate_Int], [r].[RequiredAssociate_OptionalNestedAssociate_Ints], [r].[RequiredAssociate_OptionalNestedAssociate_Name], [r].[RequiredAssociate_OptionalNestedAssociate_String], [r].[RequiredAssociate_RequiredNestedAssociate_Id], [r].[RequiredAssociate_RequiredNestedAssociate_Int], [r].[RequiredAssociate_RequiredNestedAssociate_Ints], [r].[RequiredAssociate_RequiredNestedAssociate_Name], [r].[RequiredAssociate_RequiredNestedAssociate_String]
-FROM [RootEntity] AS [r]
-LEFT JOIN [RequiredRelated_NestedCollection] AS [r0] ON [r].[Id] = [r0].[AssociateTypeRootEntityId]
-ORDER BY [r].[Id], [r0].[AssociateTypeRootEntityId]
+SELECT `r`.`Id`, `r`.`RequiredAssociate_Id`, `r`.`RequiredAssociate_Int`, `r`.`RequiredAssociate_Ints`, `r`.`RequiredAssociate_Name`, `r`.`RequiredAssociate_String`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`, `r`.`RequiredAssociate_OptionalNestedAssociate_Id`, `r`.`RequiredAssociate_OptionalNestedAssociate_Int`, `r`.`RequiredAssociate_OptionalNestedAssociate_Ints`, `r`.`RequiredAssociate_OptionalNestedAssociate_Name`, `r`.`RequiredAssociate_OptionalNestedAssociate_String`, `r`.`RequiredAssociate_RequiredNestedAssociate_Id`, `r`.`RequiredAssociate_RequiredNestedAssociate_Int`, `r`.`RequiredAssociate_RequiredNestedAssociate_Ints`, `r`.`RequiredAssociate_RequiredNestedAssociate_Name`, `r`.`RequiredAssociate_RequiredNestedAssociate_String`
+FROM `RootEntity` AS `r`
+LEFT JOIN `RequiredRelated_NestedCollection` AS `r0` ON `r`.`Id` = `r0`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`
 """);
         }
     }

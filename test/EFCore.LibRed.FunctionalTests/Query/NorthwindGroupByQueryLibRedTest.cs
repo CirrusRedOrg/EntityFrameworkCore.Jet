@@ -31,14 +31,14 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
 
             AssertSql(
                 """
-    SELECT [c].[CustomerID], [o0].[c] AS [Count]
-    FROM (
-        SELECT [o].[CustomerID], COUNT(*) AS [c]
-        FROM [Orders] AS [o]
-        GROUP BY [o].[CustomerID]
-    ) AS [o0]
-    INNER JOIN [Customers] AS [c] ON [o0].[CustomerID] = [c].[CustomerID]
-    """);
+SELECT `c`.`CustomerID`, `o0`.`c` AS `Count`
+FROM (
+    SELECT `o`.`CustomerID`, COUNT(*) AS `c`
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`
+) AS `o0`
+INNER JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+""");
         }
 
         public override async Task GroupBy_Select_Anonymous_Type_With_Entire_Entity(bool async)
@@ -2373,17 +2373,11 @@ GROUP BY `o`.`CustomerID`
 
             AssertSql(
                 """
-    SELECT [o].[EmployeeID] AS [Key], ISNULL(SUM(CASE
-        WHEN [c].[City] = N'London' THEN 1
-        ELSE 0
-    END), 0) AS [Londons], ISNULL(SUM(CASE
-        WHEN [c].[City] = N'Berlin' THEN 1
-        ELSE 0
-    END), 0) AS [Berlins], ISNULL(SUM([o].[OrderID]), 0) AS [Total], COUNT(*) AS [Count]
-    FROM [Orders] AS [o]
-    LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]
-    GROUP BY [o].[EmployeeID]
-    """);
+SELECT `o`.`EmployeeID` AS `Key`, IIF(SUM(IIF(`c`.`City` = 'London', 1, 0)) IS NULL, 0, SUM(IIF(`c`.`City` = 'London', 1, 0))) AS `Londons`, IIF(SUM(IIF(`c`.`City` = 'Berlin', 1, 0)) IS NULL, 0, SUM(IIF(`c`.`City` = 'Berlin', 1, 0))) AS `Berlins`, IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`)) AS `Total`, COUNT(*) AS `Count`
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+GROUP BY `o`.`EmployeeID`
+""");
         }
 
         public override async Task GroupBy_aggregate_through_two_level_navigation(bool async)
@@ -2392,15 +2386,12 @@ GROUP BY `o`.`CustomerID`
 
             AssertSql(
                 """
-    SELECT [o].[ProductID] AS [Key], ISNULL(SUM(CASE
-        WHEN [c].[City] = N'London' THEN 1
-        ELSE 0
-    END), 0) AS [Londons]
-    FROM [Order Details] AS [o]
-    INNER JOIN [Orders] AS [o0] ON [o].[OrderID] = [o0].[OrderID]
-    LEFT JOIN [Customers] AS [c] ON [o0].[CustomerID] = [c].[CustomerID]
-    GROUP BY [o].[ProductID]
-    """);
+SELECT `o`.`ProductID` AS `Key`, IIF(SUM(IIF(`c`.`City` = 'London', 1, 0)) IS NULL, 0, SUM(IIF(`c`.`City` = 'London', 1, 0))) AS `Londons`
+FROM (`Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+GROUP BY `o`.`ProductID`
+""");
         }
 
         public override async Task GroupBy_Count_with_predicate_through_navigation_property(bool async)
@@ -2409,13 +2400,11 @@ GROUP BY `o`.`CustomerID`
 
             AssertSql(
                 """
-    SELECT [o].[EmployeeID] AS [Key], COUNT(CASE
-        WHEN [c].[City] = N'London' THEN 1
-    END) AS [Londons]
-    FROM [Orders] AS [o]
-    LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]
-    GROUP BY [o].[EmployeeID]
-    """);
+SELECT `o`.`EmployeeID` AS `Key`, COUNT(IIF(`c`.`City` = 'London', 1, NULL)) AS `Londons`
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+GROUP BY `o`.`EmployeeID`
+""");
         }
 
         public override async Task GroupBy_key_and_aggregate_through_same_navigation(bool async)
@@ -2424,13 +2413,11 @@ GROUP BY `o`.`CustomerID`
 
             AssertSql(
                 """
-    SELECT [c].[City] AS [Key], COUNT(CASE
-        WHEN [c].[City] = N'London' THEN 1
-    END) AS [Londons]
-    FROM [Orders] AS [o]
-    LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]
-    GROUP BY [c].[City]
-    """);
+SELECT `c`.`City` AS `Key`, COUNT(IIF(`c`.`City` = 'London', 1, NULL)) AS `Londons`
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+GROUP BY `c`.`City`
+""");
         }
 
         public override async Task GroupBy_aggregate_through_navigation_in_intermediate_projection(bool async)
@@ -2439,14 +2426,11 @@ GROUP BY `o`.`CustomerID`
 
             AssertSql(
                 """
-    SELECT [o].[EmployeeID] AS [Key], ISNULL(SUM(CASE
-        WHEN [c].[City] = N'London' THEN 1
-        ELSE 0
-    END), 0) AS [Londons]
-    FROM [Orders] AS [o]
-    LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]
-    GROUP BY [o].[EmployeeID]
-    """);
+SELECT `o`.`EmployeeID` AS `Key`, IIF(SUM(IIF(`c`.`City` = 'London', 1, 0)) IS NULL, 0, SUM(IIF(`c`.`City` = 'London', 1, 0))) AS `Londons`
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+GROUP BY `o`.`EmployeeID`
+""");
         }
 
         public override async Task GroupBy_with_aggregate_containing_complex_where(bool async)
@@ -3190,17 +3174,17 @@ INNER JOIN `Customers` AS `c` ON `o0`.`Key` = `c`.`CustomerID`
 
             AssertSql(
                 """
-    SELECT (
-        SELECT TOP(1) [o1].[EmployeeID]
-        FROM [Orders] AS [o1]
-        WHERE [o].[OrderID] = [o1].[OrderID])
-    FROM [Orders] AS [o]
-    GROUP BY [o].[OrderID]
-    HAVING (
-        SELECT TOP(1) [o0].[OrderID]
-        FROM [Orders] AS [o0]
-        WHERE [o].[OrderID] = [o0].[OrderID]) > 10
-    """);
+SELECT (
+    SELECT TOP 1 `o1`.`EmployeeID`
+    FROM `Orders` AS `o1`
+    WHERE `o`.`OrderID` = `o1`.`OrderID`)
+FROM `Orders` AS `o`
+GROUP BY `o`.`OrderID`
+HAVING (
+    SELECT TOP 1 `o0`.`OrderID`
+    FROM `Orders` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) > 10
+""");
         }
 
         public override async Task GroupBy_Select_Entire_Entity_Select(bool async)
@@ -3209,13 +3193,13 @@ INNER JOIN `Customers` AS `c` ON `o0`.`Key` = `c`.`CustomerID`
 
             AssertSql(
                 """
-    SELECT (
-        SELECT TOP(1) [o0].[EmployeeID]
-        FROM [Orders] AS [o0]
-        WHERE [o].[OrderID] = [o0].[OrderID])
-    FROM [Orders] AS [o]
-    GROUP BY [o].[OrderID]
-    """);
+SELECT (
+    SELECT TOP 1 `o0`.`EmployeeID`
+    FROM `Orders` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Orders` AS `o`
+GROUP BY `o`.`OrderID`
+""");
         }
 
         public override async Task GroupBy_Select_Entire_Entity_FirstOrDefault_Where(bool async)
@@ -3280,20 +3264,20 @@ INNER JOIN `Customers` AS `c` ON `o0`.`Key` = `c`.`CustomerID`
 
             AssertSql(
                 """
-    SELECT [o2].[Key], COUNT(*) AS [Count]
+SELECT `o2`.`Key`, COUNT(*) AS `Count`
+FROM (
+    SELECT (
+        SELECT TOP 1 `o1`.`EmployeeID`
+        FROM `Orders` AS `o1`
+        WHERE (`o0`.`CustomerID` = `o1`.`CustomerID` OR (`o0`.`CustomerID` IS NULL AND `o1`.`CustomerID` IS NULL)) AND (`o0`.`EmployeeID` = `o1`.`EmployeeID` OR (`o0`.`EmployeeID` IS NULL AND `o1`.`EmployeeID` IS NULL))) AS `Key`
     FROM (
-        SELECT (
-            SELECT TOP(1) [o1].[EmployeeID]
-            FROM [Orders] AS [o1]
-            WHERE ([o0].[CustomerID] = [o1].[CustomerID] OR ([o0].[CustomerID] IS NULL AND [o1].[CustomerID] IS NULL)) AND ([o0].[EmployeeID] = [o1].[EmployeeID] OR ([o0].[EmployeeID] IS NULL AND [o1].[EmployeeID] IS NULL))) AS [Key]
-        FROM (
-            SELECT [o].[CustomerID], [o].[EmployeeID]
-            FROM [Orders] AS [o]
-            GROUP BY [o].[CustomerID], [o].[EmployeeID]
-        ) AS [o0]
-    ) AS [o2]
-    GROUP BY [o2].[Key]
-    """);
+        SELECT `o`.`CustomerID`, `o`.`EmployeeID`
+        FROM `Orders` AS `o`
+        GROUP BY `o`.`CustomerID`, `o`.`EmployeeID`
+    ) AS `o0`
+) AS `o2`
+GROUP BY `o2`.`Key`
+""");
         }
 
         public override async Task GroupBy_Select_Entire_Entity_composite_key_Select(bool async)
@@ -3302,13 +3286,13 @@ INNER JOIN `Customers` AS `c` ON `o0`.`Key` = `c`.`CustomerID`
 
             AssertSql(
                 """
-    SELECT (
-        SELECT TOP(1) [o0].[OrderID]
-        FROM [Orders] AS [o0]
-        WHERE ([o].[CustomerID] = [o0].[CustomerID] OR ([o].[CustomerID] IS NULL AND [o0].[CustomerID] IS NULL)) AND ([o].[EmployeeID] = [o0].[EmployeeID] OR ([o].[EmployeeID] IS NULL AND [o0].[EmployeeID] IS NULL)))
-    FROM [Orders] AS [o]
-    GROUP BY [o].[CustomerID], [o].[EmployeeID]
-    """);
+SELECT (
+    SELECT TOP 1 `o0`.`OrderID`
+    FROM `Orders` AS `o0`
+    WHERE (`o`.`CustomerID` = `o0`.`CustomerID` OR (`o`.`CustomerID` IS NULL AND `o0`.`CustomerID` IS NULL)) AND (`o`.`EmployeeID` = `o0`.`EmployeeID` OR (`o`.`EmployeeID` IS NULL AND `o0`.`EmployeeID` IS NULL)))
+FROM `Orders` AS `o`
+GROUP BY `o`.`CustomerID`, `o`.`EmployeeID`
+""");
         }
 
         public override async Task GroupBy_Select_Entire_Entity_OrderBy_navigation(bool async)

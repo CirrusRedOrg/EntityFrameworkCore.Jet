@@ -24,13 +24,13 @@ public class EntitySplittingQueryLibRedTest(NonSharedFixture fixture) : EntitySp
 
         AssertSql(
             """
-SELECT [m].[Id], [m].[EntityThreeId], [m].[IntValue1], [m].[IntValue2], [m].[IntValue3], [m].[IntValue4], [m].[StringValue1], [m].[StringValue2], [m].[StringValue3], [m].[StringValue4]
+SELECT `m`.`Id`, `m`.`EntityThreeId`, `m`.`IntValue1`, `m`.`IntValue2`, `m`.`IntValue3`, `m`.`IntValue4`, `m`.`StringValue1`, `m`.`StringValue2`, `m`.`StringValue3`, `m`.`StringValue4`
 FROM (
-    SELECT "m".*, "s"."CustomStringValue3" AS "StringValue3", "s"."StringValue4", "s"."CustomIntValue3" AS "IntValue3", "s"."IntValue4"
-                  FROM "EntityOne" AS "m"
-                  INNER JOIN "SplitEntityOnePart" AS "s" ON "m"."Id" = "s"."Id"
-) AS [m]
-ORDER BY [m].[Id]
+    SELECT `m`.*, `s`.`CustomStringValue3` AS `StringValue3`, `s`.`StringValue4`, `s`.`CustomIntValue3` AS `IntValue3`, `s`.`IntValue4`
+                  FROM `EntityOne` AS `m`
+                  INNER JOIN `SplitEntityOnePart` AS `s` ON `m`.`Id` = `s`.`Id`
+) AS `m`
+ORDER BY `m`.`Id`
 """);
     }
 

@@ -104,6 +104,35 @@ These shape much of the query pipeline complexity:
 - `GUID` support is indirect
 - No `rowversion`, no `DateTimeOffset`, no nullable `BIT`
 
+## Heritage: Jet Is Built on OLE Automation
+
+Most of the constraints above are not arbitrary Jet choices — they are **OLE Automation semantics**, inherited
+because Access is a VBA host built on OA/COM types, with DAO and ADOX as COM libraries over the top. Recognising
+this makes the behaviour predictable rather than mysterious, and it tells you *where the spec lives*: when Access
+and .NET disagree, the OA definition is usually the tiebreaker, and matching Access means matching a mid-90s COM
+contract.
+
+- **Dates** — the 1899-12-30 epoch is the OA `DATE` type: a `double`, integer part days, fraction time of day.
+  OA has no TimeSpan, hence `JetConfiguration.TimeSpanOffset`.
+- **Booleans as `-1`/`0`** — `VARIANT_BOOL`, where `VARIANT_TRUE` is `0xFFFF`. A VARIANT choice, not a storage one.
+- **Currency** — OA's `CY`: an `int64` scaled by 10,000, so exactly four decimal places.
+- **`GUID` being indirect**, and the general awkwardness of type coercion — everything funnels through VARIANT.
+- **VBA functions are OA-era Basic runtime**: `ROUND` widens Currency to Double; `Rnd` is the VB6 24-bit LCG
+  (see `SessionState.RandSeed`); `VarType`/`TypeName` return VARTYPE codes and VB type names, where `Integer`
+  is Int16 and `Long Integer` is Int32 — a 16-bit-era naming hangover that regularly confuses.
+
+> **Two kinds of OA dependency — know which you are touching.** Behaviour that is *contractually pinned* is safe:
+> what we implement ourselves (the epoch constants, CY scaling, `VARIANT_BOOL`, the `Rnd` LCG, `VarType`), and
+> BCL APIs defined against an OA type — `DateTime.FromOADate`/`ToOADate` specify the 1899-12-30 epoch and the
+> days-plus-fraction double, so they cannot drift without breaking their own contract. The risk is *unspecified
+> rounding or precision policy inside a general-purpose coercion* — `Convert.ToDecimal(double)` and friends —
+> where the OA behaviour was implementation detail rather than contract, and can therefore change
+> underneath us. It did: dotnet/runtime#130566 (.NET 11 preview 7) dropped `Convert.ToDecimal`'s 15-significant-digit
+> rounding, which came from OA's own `VarDecFromR8` and had been stable since the 1990s. That turned
+> `SUM(ROUND(UnitPrice, 2))` into `58.600000000000001421085471520`. The fix was to own it:
+> `src/EFCore.Jet.Data/JetDecimalConverter.cs`. **When a long-stable conversion suddenly misbehaves with no code
+> change on our side, suspect the runtime's OA-era compatibility behaviour before suspecting the provider.**
+
 ## LibRed — Native Managed Engine (`libred` branch)
 
 A from-scratch, **fully managed and cross-platform** reimplementation of the Jet/ACE

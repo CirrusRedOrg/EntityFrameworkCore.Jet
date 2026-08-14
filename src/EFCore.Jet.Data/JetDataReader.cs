@@ -255,6 +255,19 @@ namespace EntityFrameworkCore.Jet.Data
                 return default;
             }
 
+            // Jet widens to floating point for anything computed - ROUND is the VBA function, so
+            // SUM(ROUND(<currency>, 2)) arrives as a Double even though the column and the caller are decimal.
+            // Convert.ToDecimal expanded that Double's exact binary value from .NET 11 preview 7
+            // (https://github.com/dotnet/runtime/pull/130566), turning 58.6 into 58.600000000000001421085471520.
+            // Round at the source's real precision instead, which is what the runtime did up to .NET 10.
+            switch (value)
+            {
+                case double d:
+                    return JetDecimalConverter.FromDouble(d);
+                case float f:
+                    return JetDecimalConverter.FromSingle(f);
+            }
+
             try
             {
                 return Convert.ToDecimal(value);

@@ -1170,7 +1170,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
 
                     var column = columns.Single(c => c.Name == "A");
                     Assert.Equal("-1.1111", column.DefaultValueSql);
-                    Assert.Equal((decimal)-1.1111, column.DefaultValue);
+                    Assert.Equal(-1.1111m, column.DefaultValue);
 
                     column = columns.Single(c => c.Name == "B");
                     Assert.Equal("0.0", column.DefaultValueSql);

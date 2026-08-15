@@ -2691,10 +2691,8 @@ ORDER BY `o0`.`CustomerID`, `o1`.`OrderID`
         public override async Task
             Select_DTO_constructor_distinct_with_collection_projection_translated_to_server_with_binding_after_client_eval(bool async)
         {
-            // Allow binding of expressions after projection has turned to client eval. Issue #24478.
-            await Assert.ThrowsAsync<TrueException>(
-                () => base
-                    .Select_DTO_constructor_distinct_with_collection_projection_translated_to_server_with_binding_after_client_eval(async));
+            await base
+                .Select_DTO_constructor_distinct_with_collection_projection_translated_to_server_with_binding_after_client_eval(async);
 
             AssertSql(
                 """
@@ -2705,7 +2703,7 @@ FROM (
     WHERE `o`.`OrderID` < 10300
 ) AS `o0`
 LEFT JOIN `Orders` AS `o1` ON `o0`.`CustomerID` = `o1`.`CustomerID`
-ORDER BY `o0`.`CustomerID`
+ORDER BY `o0`.`CustomerID`, `o1`.`OrderID`
 """);
         }
 

@@ -1525,20 +1525,9 @@ WHERE 0 = 1
 """);
     }
 
-    public override async Task Column_collection_of_nullable_strings_contains_null()
-    {
-        await base.Column_collection_of_nullable_strings_contains_null();
-
-        AssertSql(
-            """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE EXISTS (
-    SELECT 1
-    FROM OPENJSON([p].[NullableStrings]) WITH ([value] nvarchar(max) '$') AS [n]
-    WHERE [n].[value] IS NULL)
-""");
-    }
+    public override Task Column_collection_of_nullable_strings_contains_null()
+        => AssertTranslationFailedWithDetails(
+            () => base.Column_collection_of_nullable_strings_contains_null(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
     public override Task Column_collection_of_bools_Contains()
         => AssertTranslationFailedWithDetails(() => base.Column_collection_of_bools_Contains(), JetStrings.QueryingIntoJsonCollectionsNotSupported());

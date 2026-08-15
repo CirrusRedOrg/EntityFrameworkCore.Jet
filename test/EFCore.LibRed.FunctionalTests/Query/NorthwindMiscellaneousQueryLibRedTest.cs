@@ -2783,9 +2783,6 @@ ORDER BY `o0`.`CustomerID`, `o1`.`OrderID`
             Select_DTO_constructor_distinct_with_collection_projection_translated_to_server_with_binding_after_client_eval(bool async)
         {
             // Allow binding of expressions after projection has turned to client eval. Issue #24478.
-            // Unlike the ACE provider (which mis-shapes the collection and fails the base assertion — hence its
-            // Assert.ThrowsAsync<TrueException> wrapper), LibRed executes and shapes this correctly, so the base
-            // test passes outright.
             await base
                 .Select_DTO_constructor_distinct_with_collection_projection_translated_to_server_with_binding_after_client_eval(async);
 

@@ -233,6 +233,9 @@ public class CompiledModelJetTest(NonSharedFixture fixture) : CompiledModelRelat
     protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
+    protected override DbContextOptionsBuilder AddNonSharedOptions(DbContextOptionsBuilder builder)
+        => base.AddNonSharedOptions(builder)
+            .ConfigureWarnings(w => w.Ignore(JetEventId.DecimalTypeDefaultWarning));
 
     protected override BuildSource AddReferences(BuildSource build, [CallerFilePath] string filePath = "")
     {

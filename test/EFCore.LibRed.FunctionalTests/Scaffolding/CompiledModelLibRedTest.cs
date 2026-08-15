@@ -233,6 +233,10 @@ public class CompiledModelLibRedTest(NonSharedFixture fixture) : CompiledModelRe
     protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
+    protected override DbContextOptionsBuilder AddNonSharedOptions(DbContextOptionsBuilder builder)
+        => base.AddNonSharedOptions(builder)
+            .ConfigureWarnings(w => w.Ignore(JetEventId.DecimalTypeDefaultWarning));
+
     protected override BuildSource AddReferences(BuildSource build, [CallerFilePath] string filePath = "")
     {
         base.AddReferences(build);

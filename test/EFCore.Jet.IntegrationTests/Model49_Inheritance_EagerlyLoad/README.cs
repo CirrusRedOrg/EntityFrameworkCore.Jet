@@ -1,4 +1,4 @@
-﻿/*
+/*
 
 This model is too complex
 

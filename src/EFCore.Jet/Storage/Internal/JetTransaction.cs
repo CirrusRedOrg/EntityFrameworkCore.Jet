@@ -1,4 +1,4 @@
-﻿namespace EntityFrameworkCore.Jet.Storage.Internal
+namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     /// <inheritdoc />
     public class JetTransaction(

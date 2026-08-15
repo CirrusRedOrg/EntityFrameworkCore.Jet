@@ -1,4 +1,4 @@
-﻿namespace LibRed.Formats
+namespace LibRed.Formats
 {
     public enum JetVersion
     {

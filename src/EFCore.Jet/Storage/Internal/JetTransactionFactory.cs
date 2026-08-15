@@ -1,4 +1,4 @@
-﻿namespace EntityFrameworkCore.Jet.Storage.Internal
+namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     /// <summary>
     ///     Initializes a new instance of the <see cref="RelationalTransactionFactory" /> class.

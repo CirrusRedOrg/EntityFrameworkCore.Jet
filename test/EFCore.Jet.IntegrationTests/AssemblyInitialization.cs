@@ -1,4 +1,4 @@
-﻿using System.Data.Common;
+using System.Data.Common;
 using EntityFrameworkCore.Jet.Data;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

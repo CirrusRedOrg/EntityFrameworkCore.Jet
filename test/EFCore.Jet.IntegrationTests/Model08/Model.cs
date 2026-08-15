@@ -1,4 +1,4 @@
-﻿namespace EntityFrameworkCore.Jet.IntegrationTests.Model08
+namespace EntityFrameworkCore.Jet.IntegrationTests.Model08
 {
     public class File
     {

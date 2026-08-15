@@ -1,4 +1,4 @@
-﻿/*
+/*
 Many to many not implemented
 */
 

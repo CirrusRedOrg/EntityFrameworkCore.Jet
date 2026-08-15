@@ -1,4 +1,4 @@
-﻿using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.Jet.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.Internal;

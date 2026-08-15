@@ -1,4 +1,4 @@
-﻿/*
+/*
 
 Migration changed the interface
 https://stackoverflow.com/questions/45780598/entity-framework-core-2-0-run-migrations-step-by-step

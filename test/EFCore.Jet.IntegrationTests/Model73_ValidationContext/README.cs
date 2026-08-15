@@ -1,4 +1,4 @@
-﻿/*
+/*
 Now validation is done using ValidationContext
 Here we should do some tests/examples
 

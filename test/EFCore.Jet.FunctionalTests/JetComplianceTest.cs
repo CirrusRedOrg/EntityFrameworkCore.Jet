@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.Associations.ComplexJson;
 using Microsoft.EntityFrameworkCore.Query.Associations.ComplexProperties;

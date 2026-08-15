@@ -1,4 +1,4 @@
-﻿/*
+/*
 Priority low test
 DB Functions not implemented yet
 */

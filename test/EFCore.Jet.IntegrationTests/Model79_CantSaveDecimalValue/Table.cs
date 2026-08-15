@@ -1,4 +1,4 @@
-﻿namespace EntityFrameworkCore.Jet.IntegrationTests.Model79_CantSaveDecimalValue
+namespace EntityFrameworkCore.Jet.IntegrationTests.Model79_CantSaveDecimalValue
 {
     public class Table
     {

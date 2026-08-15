@@ -1,4 +1,4 @@
-﻿using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query.Associations.OwnedNavigations;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 

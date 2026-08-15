@@ -11,6 +11,9 @@ indent_size = 4
 indent_style = space
 tab_width = 4
 
+# Encoding
+charset = utf-8
+
 # New line preferences
 end_of_line = crlf
 insert_final_newline = false
@@ -261,6 +264,7 @@ dotnet_style_operator_placement_when_wrapping = beginning_of_line
 tab_width = 4
 indent_size = 4
 end_of_line = crlf
+charset = utf-8
 dotnet_style_prefer_simplified_interpolation = true:suggestion
 dotnet_style_prefer_collection_expression = when_types_loosely_match:suggestion
 dotnet_style_namespace_match_folder = true:suggestion

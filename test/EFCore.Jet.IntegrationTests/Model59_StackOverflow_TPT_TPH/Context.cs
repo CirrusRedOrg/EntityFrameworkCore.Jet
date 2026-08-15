@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore;
 
 // https://stackoverflow.com/questions/44923674/ef-code-first-multi-level-inheritence-issues

@@ -1,4 +1,4 @@
-﻿/*
+/*
 Logical delete is implemented in a different way
 */
 

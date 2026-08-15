@@ -1,4 +1,4 @@
-﻿using EntityFrameworkCore.Jet.Diagnostics.Internal;
+using EntityFrameworkCore.Jet.Diagnostics.Internal;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;

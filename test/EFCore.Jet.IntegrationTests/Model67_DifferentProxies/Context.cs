@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore;
 
 namespace EFCore.Jet.Integration.Test.Model67_DifferentProxies

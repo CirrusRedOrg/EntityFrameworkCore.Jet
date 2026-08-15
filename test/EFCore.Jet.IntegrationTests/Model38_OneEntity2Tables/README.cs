@@ -1,4 +1,4 @@
-﻿/*
+/*
 Priority low test
 Stack overflow question https://stackoverflow.com/questions/45780404/one-entity-2-tables-in-ef-core-2-0
 */

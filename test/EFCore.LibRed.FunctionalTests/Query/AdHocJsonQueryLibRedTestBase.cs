@@ -1,4 +1,4 @@
-﻿using EntityFrameworkCore.LibRed.Diagnostics.Internal;
+using EntityFrameworkCore.LibRed.Diagnostics.Internal;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;

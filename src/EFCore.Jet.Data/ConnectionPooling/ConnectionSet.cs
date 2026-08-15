@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Data.Common;
 
 namespace EntityFrameworkCore.Jet.Data.ConnectionPooling

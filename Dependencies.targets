@@ -1,4 +1,4 @@
-﻿<Project>
+<Project>
 	<PropertyGroup>
 		<DotNetVersion>[11.0.0-preview.7.26381.103]</DotNetVersion>
 		<EFCoreVersion>[11.0.0-preview.7.26381.103]</EFCoreVersion>

@@ -1,4 +1,4 @@
-﻿using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;

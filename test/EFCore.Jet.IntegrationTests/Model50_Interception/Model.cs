@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace EFCore.Jet.Integration.Test.Model50_Interception

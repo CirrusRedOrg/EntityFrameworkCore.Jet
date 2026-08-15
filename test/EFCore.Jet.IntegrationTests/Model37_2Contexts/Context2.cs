@@ -1,4 +1,4 @@
-﻿using System.Data.Common;
+using System.Data.Common;
 using EntityFrameworkCore.Jet.IntegrationTests.Model37_2Contexts_2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;

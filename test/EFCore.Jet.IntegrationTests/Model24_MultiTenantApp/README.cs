@@ -1,4 +1,4 @@
-﻿/*
+/*
 Priority low test
 This test must be rewritten because multitenant apps are implemented in a different way (using filter non model builder)
 */

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Storage.Json;
+using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {

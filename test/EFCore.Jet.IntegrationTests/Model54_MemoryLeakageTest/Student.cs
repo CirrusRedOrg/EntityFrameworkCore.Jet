@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model54_MemoryLeakageTest

@@ -1,4 +1,4 @@
-﻿# asdfescape=`
+# asdfescape=`
 
 FROM mcr.microsoft.com/windows:ltsc2019-amd64
 

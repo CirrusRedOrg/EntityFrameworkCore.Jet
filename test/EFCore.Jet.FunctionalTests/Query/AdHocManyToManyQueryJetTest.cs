@@ -1,4 +1,4 @@
-﻿using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;

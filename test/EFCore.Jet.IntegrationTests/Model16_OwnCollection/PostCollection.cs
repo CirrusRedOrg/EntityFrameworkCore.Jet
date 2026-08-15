@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model16_OwnCollection
 {

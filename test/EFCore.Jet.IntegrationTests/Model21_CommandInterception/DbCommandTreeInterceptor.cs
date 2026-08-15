@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace EFCore.Jet.Integration.Test.Model21_CommandInterception
 {

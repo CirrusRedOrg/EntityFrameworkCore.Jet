@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model74_ComplexTypeContained_Github9536
 {

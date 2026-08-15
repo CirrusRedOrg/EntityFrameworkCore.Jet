@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Query.Associations.Navigations;
+using Microsoft.EntityFrameworkCore.Query.Associations.Navigations;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;

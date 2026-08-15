@@ -22,8 +22,20 @@ namespace EntityFrameworkCore.Jet.Data
     ///         rather than a <c>G15</c> string round-trip, so it reproduces the old results exactly — including
     ///         the overflow and flush-to-zero boundaries — and allocates nothing on a hot read path.
     ///     </para>
+    ///     <para>
+    ///         EF Core hit the same problem in the Cosmos provider, where JSON numbers are IEEE-754 doubles, and
+    ///         fixed it with the <c>G15</c> round-trip
+    ///         (<c>CosmosJsonDecimalReaderWriter.DoubleToDecimal</c>). Do not "simplify" this into that: the two
+    ///         are not equivalent. <c>Convert.ToDecimal(-0.9892735183189034)</c> returned
+    ///         <c>-0.989273518318904</c> on .NET 10, which this port reproduces, while the round-trip yields
+    ///         <c>-0.989273518318903</c> — the mathematically correct 15-digit answer, but not the one that
+    ///         shipped. The old algorithm scaled by a power of ten in double arithmetic before rounding, and that
+    ///         error is part of the behaviour being restored. See <c>JetDecimalConverterTest</c>, which pins the
+    ///         divergence and sweeps 20,000 values to confirm the two never differ by more than one unit in the
+    ///         15th significant digit.
+    ///     </para>
     /// </summary>
-    internal static class JetDecimalConverter
+    public static class JetDecimalConverter
     {
         private const int DecScaleMax = 28;
         private const int ScaleShift = 16;

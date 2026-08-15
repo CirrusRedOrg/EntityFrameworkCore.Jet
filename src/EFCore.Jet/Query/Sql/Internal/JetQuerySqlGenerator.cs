@@ -913,19 +913,6 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         protected override string GetOperator(SqlBinaryExpression binaryExpression)
             => binaryExpression.OperatorType switch
             {
-                // '&' and not '+', despite '+' being the operator whose NULL behaviour matches EF. Access has
-                // both, and they differ twice over (all verified against ACE, IntA = 0, StringA = 'Foo'):
-                //
-                //   NULL & 'x'    -> 'x'      NULL + 'x'    -> NULL     '+' propagates NULL, '&' does not
-                //   IntA & '5'    -> '05'     IntA + '5'    -> '5'      '+' re-dispatches on operand TYPE:
-                //   IntA & 'x'    -> '0x'     IntA + 'x'    -> ''       numeric operands are ADDED, and a
-                //   IntA & StringA-> '0Foo'   IntA + StringA-> ''       non-numeric string yields '', silently
-                //
-                // The NULL propagation alone would argue for '+', but the type dispatch rules it out: the
-                // Convert visitor above emits no CAST, so a Convert(number -> string) reaches the operator as
-                // a bare numeric and '+' would quietly produce a wrong value or an empty string rather than
-                // an error. '&' always concatenates. The cost is that a NULL operand becomes a zero-length
-                // string, which is what the mixed-checks null-semantics tests see.
                 ExpressionType.Add when binaryExpression.Type == typeof(string) => " & ",
                 ExpressionType.And => " BAND ",
                 ExpressionType.Modulo => " MOD ",

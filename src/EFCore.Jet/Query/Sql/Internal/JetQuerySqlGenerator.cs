@@ -862,31 +862,9 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 }
                 else
                 {
-                    if (convertExpression.Operand.Type == typeof(bool))
-                    {
-                        if (convertExpression.Type == typeof(bool))
-                        {
-                            // bool?bool: no flip needed, CBOOL(x) correctly returns true for any non-zero
-                            notnullsqlexp = WrapConvert(convertExpression.Operand);
-                        }
-                        else
-                        {
-                            // bool?numeric: flip inside conversion function
-                            // CBYTE/CINT/CLNG etc. need 0/1 not 0/-1
-                            var flippedOperand = new SqlBinaryExpression(
-                                ExpressionType.Multiply,
-                                convertExpression.Operand,
-                                new SqlConstantExpression(-1, IntTypeMapping.Default),
-                                convertExpression.Operand.Type,
-                                convertExpression.Operand.TypeMapping);
-
-                            notnullsqlexp = WrapConvert(flippedOperand);
-                        }
-                    }
-                    else
-                    {
-                        notnullsqlexp = WrapConvert(convertExpression.Operand);
-                    }
+                    // A bool operand arrives already flipped to 0/1 by JetSqlExpressionFactory.Convert, so
+                    // CBYTE/CINT/CLNG receive .NET's values rather than VARIANT_BOOL's 0/-1.
+                    notnullsqlexp = WrapConvert(convertExpression.Operand);
                 }
 
                 SqlConstantExpression nullcons = new(null, typeof(string), RelationalTypeMapping.NullMapping);

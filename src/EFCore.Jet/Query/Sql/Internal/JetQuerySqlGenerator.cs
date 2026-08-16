@@ -929,6 +929,56 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             return crossJoinExpression;
         }
 
+        protected override Expression VisitLeftJoin(LeftJoinExpression leftJoinExpression)
+        {
+            var equalityColumns = new HashSet<ColumnExpression>();
+            CollectEqualityColumns(leftJoinExpression.JoinPredicate, equalityColumns);
+
+            var predicate = RemoveRedundantNullChecks(leftJoinExpression.JoinPredicate, equalityColumns);
+            return base.VisitLeftJoin(predicate == leftJoinExpression.JoinPredicate
+                ? leftJoinExpression
+                : leftJoinExpression.Update(leftJoinExpression.Table, predicate!));
+
+            static SqlExpression? RemoveRedundantNullChecks(
+                SqlExpression expression,
+                HashSet<ColumnExpression> equalityColumns)
+            {
+                if (expression is SqlBinaryExpression { OperatorType: ExpressionType.AndAlso } andAlso)
+                {
+                    var left = RemoveRedundantNullChecks(andAlso.Left, equalityColumns);
+                    var right = RemoveRedundantNullChecks(andAlso.Right, equalityColumns);
+                    return left is null ? right : right is null ? left : andAlso.Update(left, right);
+                }
+
+                return expression is SqlUnaryExpression
+                {
+                    OperatorType: ExpressionType.NotEqual,
+                    Operand: ColumnExpression column
+                } && equalityColumns.Contains(column)
+                    ? null
+                    : expression;
+            }
+
+            static void CollectEqualityColumns(SqlExpression expression, HashSet<ColumnExpression> result)
+            {
+                if (expression is SqlBinaryExpression { OperatorType: ExpressionType.AndAlso } andAlso)
+                {
+                    CollectEqualityColumns(andAlso.Left, result);
+                    CollectEqualityColumns(andAlso.Right, result);
+                }
+                else if (expression is SqlBinaryExpression
+                         {
+                             OperatorType: ExpressionType.Equal,
+                             Left: ColumnExpression left,
+                             Right: ColumnExpression right
+                         })
+                {
+                    result.Add(left);
+                    result.Add(right);
+                }
+            }
+        }
+
         private Expression VisitRowValuePrivate(RowValueExpression rowValueExpression, IReadOnlyList<string> columnNames)
         {
             var values = rowValueExpression.Values;

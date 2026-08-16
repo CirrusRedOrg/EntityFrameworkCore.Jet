@@ -30,6 +30,14 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             { nameof(TimeOnly), "TIMEVALUE" },
         };
 
+        // VBA functions that raise on a NULL in a numeric argument - a length, start, count or code - instead of
+        // propagating it, with the positions that need guarding. Verified against ACE in
+        // LibRed.Core.Tests.AceNullArgumentProbeTest; add an entry as others turn up.
+        private static readonly Dictionary<string, int[]> _nullHostileArguments = new(StringComparer.OrdinalIgnoreCase)
+        {
+            { "MID", [1, 2] },
+        };
+
         private readonly ITypeMappingSource _typeMappingSource;
         private readonly IJetOptions _options;
 
@@ -703,6 +711,41 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         private static bool MayBeNull(SqlExpression expression)
             => expression is ColumnExpression { IsNullable: true };
 
+        /// <summary>The nullable columns an expression reads, so constants and parameters contribute nothing.</summary>
+        private static IEnumerable<ColumnExpression> NullableColumns(SqlExpression expression)
+        {
+            switch (expression)
+            {
+                case ColumnExpression { IsNullable: true } column:
+                    yield return column;
+                    break;
+
+                case SqlUnaryExpression unary:
+                    foreach (var column in NullableColumns(unary.Operand))
+                    {
+                        yield return column;
+                    }
+
+                    break;
+
+                case SqlBinaryExpression binary:
+                    foreach (var column in NullableColumns(binary.Left).Concat(NullableColumns(binary.Right)))
+                    {
+                        yield return column;
+                    }
+
+                    break;
+
+                case SqlFunctionExpression { Arguments: { } functionArguments }:
+                    foreach (var column in functionArguments.SelectMany(NullableColumns))
+                    {
+                        yield return column;
+                    }
+
+                    break;
+            }
+        }
+
         protected override void GenerateIn(InExpression inExpression, bool negated)
         {
             ///TODO: recheck how this works in net 8
@@ -1094,6 +1137,44 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             {
                 Sql.Append(sqlFunctionExpression.Name);
                 return sqlFunctionExpression;
+            }
+
+            // The guard has to be applied here rather than in the query tree: EF removes a CASE that merely
+            // replicates SQL's native null propagation (dotnet/efcore#34127), which is what this looks like to
+            // every dialect where these functions do propagate. IIF short-circuits, so the call is not evaluated.
+            if (_nullHostileArguments.TryGetValue(sqlFunctionExpression.Name, out var guardedPositions)
+                && sqlFunctionExpression.Arguments is { Count: > 0 } arguments)
+            {
+                // Nullability coming from the value argument itself needs no guard: ACE returns NULL for the
+                // whole call when the value is NULL, before it coerces the numeric arguments. Only a NULL
+                // arriving from somewhere else - MID(note, 1, LEN(otherTable.Name)) - reaches the coercion.
+                var valueColumns = NullableColumns(arguments[0]).ToHashSet();
+
+                var nullable = guardedPositions
+                    .Where(position => position < arguments.Count)
+                    .Where(position => NullableColumns(arguments[position]).Any(column => !valueColumns.Contains(column)))
+                    .Select(position => arguments[position])
+                    .ToList();
+
+                if (nullable.Count > 0)
+                {
+                    Sql.Append("IIF(");
+                    for (var i = 0; i < nullable.Count; i++)
+                    {
+                        if (i > 0)
+                        {
+                            Sql.Append(" OR ");
+                        }
+
+                        Visit(nullable[i]);
+                        Sql.Append(" IS NULL");
+                    }
+
+                    Sql.Append(", NULL, ");
+                    base.VisitSqlFunction(sqlFunctionExpression);
+                    Sql.Append(")");
+                    return sqlFunctionExpression;
+                }
             }
 
             if (sqlFunctionExpression.Name.Equals("POW", StringComparison.OrdinalIgnoreCase) && sqlFunctionExpression.Arguments != null)

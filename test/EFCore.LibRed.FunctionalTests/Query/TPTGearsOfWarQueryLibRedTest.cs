@@ -6427,7 +6427,7 @@ LEFT JOIN (
     FROM `Gears` AS `g`
 ) AS `s` ON `t`.`GearNickName` = `s`.`Nickname` AND `t`.`GearSquadId` = `s`.`SquadId`)
 LEFT JOIN `Squads` AS `s0` ON `s`.`SquadId` = `s0`.`Id`
-WHERE MID(`t`.`Note`, 0 + 1, LEN(`s0`.`Name`)) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s0`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
+WHERE IIF(LEN(`s0`.`Name`) IS NULL, NULL, MID(`t`.`Note`, 0 + 1, LEN(`s0`.`Name`))) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s0`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
 """);
     }
 

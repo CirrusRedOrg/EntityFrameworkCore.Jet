@@ -8045,7 +8045,7 @@ LEFT JOIN (
     FROM `Officers` AS `o`
 ) AS `u` ON `t`.`GearNickName` = `u`.`Nickname` AND `t`.`GearSquadId` = `u`.`SquadId`)
 LEFT JOIN `Squads` AS `s` ON `u`.`SquadId` = `s`.`Id`
-WHERE MID(`t`.`Note`, 0 + 1, LEN(`s`.`Name`)) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
+WHERE IIF(LEN(`s`.`Name`) IS NULL, NULL, MID(`t`.`Note`, 0 + 1, LEN(`s`.`Name`))) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
 """);
     }
 

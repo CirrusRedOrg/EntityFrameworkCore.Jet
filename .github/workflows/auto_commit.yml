@@ -8,12 +8,14 @@ on:
 jobs:
   AutoCommit:
     runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.head_commit.author.email != 'github-actions@github.com' || github.event.workflow_run.head_commit.message != '[GitHub Actions] Update green tests.')
+    # Same-repository branches only. A fork's PR could not be pushed to with GITHUB_TOKEN anyway, and
+    # checking one out here - with this repo's token and secrets - is the "pwn request" hole that
+    # actions/checkout now refuses by default.
+    if: github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.head_commit.author.email != 'github-actions@github.com' || github.event.workflow_run.head_commit.message != '[GitHub Actions] Update green tests.') && github.event.workflow_run.head_repository.full_name == github.repository
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          repository: ${{ github.event.workflow_run.head_repository.full_name }}
           ref: ${{ github.event.workflow_run.head_branch }}
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0

@@ -1000,9 +1000,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 .Where(i => i.IsUnique && i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
                 .GroupBy(i => i.RootPage).Select(g => g.First()))
                 if (!index.Columns.Any(c => values[c.Column.Index] is null) && table.HasDuplicateKey(index, values, id))
-                    throw new InvalidOperationException(
+                    throw new ConstraintViolationException(
                         $"Cannot update '{table.Name}': a row with the same " +
-                        $"{(index.IsPrimaryKey ? "primary key" : "unique key")} already exists (index '{index.Name}').");
+                        $"{(index.IsPrimaryKey ? "primary key" : "unique key")} already exists (index '{index.Name}').",
+                        index.Name,
+                        index.IsPrimaryKey);
 
             // The updated row must still satisfy every CHECK constraint (evaluated against the full new row).
             EnforceCheckConstraints(table.Definition, values);

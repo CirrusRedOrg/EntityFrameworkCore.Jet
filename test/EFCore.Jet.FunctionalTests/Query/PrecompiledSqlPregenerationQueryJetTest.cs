@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
@@ -198,7 +197,7 @@ WHERE `b`.`Name` = @name1 OR `b`.`Name` = @name2 OR `b`.`Name` = @name3 OR `b`.`
 SELECT `b`.`Id`, `b`.`Name`, `p`.`Id`, `p`.`BlogId`, `p`.`Title`
 FROM `Blogs` AS `b`
 LEFT JOIN `Post` AS `p` ON `b`.`Id` = `p`.`BlogId`
-ORDER BY `b`.`Id`
+ORDER BY `b`.`Id`, `p`.`Id`
 """);
     }
 
@@ -229,13 +228,13 @@ ORDER BY `b`.`Id`
             """
 SELECT `b`.`Name`, `b`.`Id`
 FROM `Blogs` AS `b`
-ORDER BY `b`.`Name`
+ORDER BY `b`.`Name`, `b`.`Id`
 """);
     }
 
     #endregion Tests for the different querying enumerables
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Do_not_cache_is_respected()
     {
         // The "do not cache" flag in the 2nd part of the query pipeline is turned on in provider-specific situations, so we test it
@@ -249,13 +248,13 @@ var blogs = await context.Blogs.Where(b => ((IEnumerable<string>)names).Contains
 
         AssertSql(
             """
-    @p1='foo' (Size = 255)
-    @p2='bar' (Size = 255)
-    
-    SELECT `b`.`Id`, `b`.`Name`
-    FROM `Blogs` AS `b`
-    WHERE `b`.`Name` IN (@p1, @p2)
-    """);
+@p1='foo' (Size = 255)
+@p2='bar' (Size = 255)
+
+SELECT `b`.`Id`, `b`.`Name`
+FROM `Blogs` AS `b`
+WHERE `b`.`Name` IN (@p1, @p2)
+""");
     }
 
     public class PrecompiledSqlPregenerationQueryJetFixture : PrecompiledSqlPregenerationQueryRelationalFixture

@@ -18,27 +18,27 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests;
 public class OptimisticConcurrencyLibRedTest(F1LibRedFixture fixture)
     : OptimisticConcurrencyLibRedTestBase<F1LibRedFixture, byte[]>(fixture)
 {
-    [ConditionalTheory, InlineData(true), InlineData(false)]
+    [Theory, InlineData(true), InlineData(false)]
     public Task Row_version_with_TPH_and_owned_types(bool updateOwnedFirst)
         => Row_version_with_owned_types<SuperFan, List<byte>>(updateOwnedFirst, Mapping.Tph, "BinaryVersion");
 
-    [ConditionalTheory, InlineData(true), InlineData(false)]
+    [Theory, InlineData(true), InlineData(false)]
     public Task Row_version_with_TPT_and_owned_types(bool updateOwnedFirst)
         => Row_version_with_owned_types<SuperFanTpt, List<byte>>(updateOwnedFirst, Mapping.Tpt, "BinaryVersion");
 
-    [ConditionalTheory, InlineData(true), InlineData(false)]
+    [Theory, InlineData(true), InlineData(false)]
     public Task Row_version_with_TPC_and_owned_types(bool updateOwnedFirst)
         => Row_version_with_owned_types<SuperFanTpc, List<byte>>(updateOwnedFirst, Mapping.Tpc, "BinaryVersion");
 
-    [ConditionalTheory, InlineData(true), InlineData(false)]
+    [Theory, InlineData(true), InlineData(false)]
     public Task Ulong_row_version_with_TPH_and_table_splitting(bool updateDependentFirst)
         => Row_version_with_table_splitting<StreetCircuit, City, List<byte>>(updateDependentFirst, Mapping.Tph, "BinaryVersion");
 
-    [ConditionalTheory, InlineData(true), InlineData(false)]
+    [Theory, InlineData(true), InlineData(false)]
     public Task Ulong_row_version_with_TPT_and_table_splitting(bool updateDependentFirst)
         => Row_version_with_table_splitting<StreetCircuitTpt, CityTpt, List<byte>>(updateDependentFirst, Mapping.Tpt, "BinaryVersion");
 
-    [ConditionalTheory, InlineData(true), InlineData(false)]
+    [Theory, InlineData(true), InlineData(false)]
     public Task Ulong_row_version_with_TPC_and_table_splitting(bool updateDependentFirst)
         => Row_version_with_table_splitting<StreetCircuitTpc, CityTpc, List<byte>>(updateDependentFirst, Mapping.Tpc, "BinaryVersion");
 }
@@ -274,7 +274,7 @@ public abstract class OptimisticConcurrencyLibRedTestBase<TFixture, TRowVersion>
             });
     }
 
-    [ConditionalFact]
+    [Fact]
     public async Task Modifying_concurrency_token_only_is_noop()
     {
         using var c = CreateF1Context();
@@ -304,7 +304,7 @@ public abstract class OptimisticConcurrencyLibRedTestBase<TFixture, TRowVersion>
             });
     }
 
-    [ConditionalFact]
+    [Fact]
     public async Task Database_concurrency_token_value_is_updated_for_all_sharing_entities()
     {
         using var c = CreateF1Context();
@@ -338,7 +338,7 @@ public abstract class OptimisticConcurrencyLibRedTestBase<TFixture, TRowVersion>
             });
     }
 
-    [ConditionalFact]
+    [Fact]
     public async Task Original_concurrency_token_value_is_used_when_replacing_owned_instance()
     {
         using var c = CreateF1Context();

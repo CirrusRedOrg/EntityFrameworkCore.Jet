@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
@@ -13,7 +13,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
 public class AdHocAdvancedMappingsQueryLibRedTest(NonSharedFixture fixture) : AdHocAdvancedMappingsQueryRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
     public override async Task Setting_IsUnicode_generates_unicode_literal_in_SQL()
@@ -41,7 +41,7 @@ LEFT JOIN (
     FROM `Posts` AS `p`
     WHERE `p`.`Name` LIKE '%2%'
 ) AS `p0` ON `b`.`Id` = `p0`.`BlogId`
-ORDER BY `b`.`Id`
+ORDER BY `b`.`Id`, `p0`.`Id`
 """,
             //
             """

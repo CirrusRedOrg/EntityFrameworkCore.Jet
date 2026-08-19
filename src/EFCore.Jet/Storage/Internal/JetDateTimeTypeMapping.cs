@@ -3,14 +3,14 @@
 using System.Data;
 using System.Globalization;
 using System.Text;
-using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 
 namespace EntityFrameworkCore.Jet.Storage.Internal
 {
     public class JetDateTimeTypeMapping : DateTimeTypeMapping
     {
-        private const int MaxDateTimeDoublePrecision = 10;
+        /// <summary>The lowest date Jet/ACE can represent; dates run 0100-01-01 to 9999-12-31.</summary>
+        private static readonly DateTime JetMinDate = new(100, 1, 1);
 
         public static new JetDateTimeTypeMapping Default { get; } = new JetDateTimeTypeMapping("datetime", dbType: System.Data.DbType.DateTime);
 
@@ -84,19 +84,20 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
 
         private static DateTime CheckDateTimeValue(DateTime dateTime)
         {
-            if (dateTime < new DateTime(100,1,1))
+            // default(DateTime) is below Jet's floor, but every caller has already substituted the OLE epoch for
+            // it, so anything still under the floor here is a real value the store cannot represent. Ordering
+            // comparisons against default are corrected separately, in JetDateTimeRangeConverter.
+            if (dateTime < JetMinDate)
             {
-                if (dateTime != default)
-                {
-                    throw new InvalidOperationException($"The {nameof(DateTime)} value '{dateTime}' is smaller than the minimum supported value of '{JetConfiguration.TimeSpanOffset}'.");
-                }
-
-                //dateTime = JetConfiguration.TimeSpanOffset;
+                throw new InvalidOperationException(
+                    $"The {nameof(DateTime)} value '{dateTime}' is smaller than the minimum supported value of '{JetMinDate}'.");
             }
 
             return dateTime;
         }
 
+        // Deliberately passes storeTypeNameBase in place of storeType: Jet/ACE has no scaled datetime, so a
+        // precision-carrying store type such as "datetime(3)" must collapse to the bare "datetime" it understands.
         protected override string ProcessStoreType(RelationalTypeMappingParameters parameters, string storeType, string storeTypeNameBase)
         {
             return base.ProcessStoreType(parameters, storeTypeNameBase, storeTypeNameBase);

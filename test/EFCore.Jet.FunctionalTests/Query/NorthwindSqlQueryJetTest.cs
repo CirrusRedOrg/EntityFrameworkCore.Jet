@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Data.Common;
@@ -9,7 +9,6 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
@@ -21,7 +20,7 @@ public class NorthwindSqlQueryJetTest : NorthwindSqlQueryTestBase<NorthwindQuery
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -58,11 +57,11 @@ WHERE `o`.`OrderID` IN (
 
         AssertSql(
             """
-SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, IIF(`s`.`Value` IS NULL, NULL, CLNG(`s`.`Value`)) AS `p`
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `s`.`Value` AS `p`
 FROM `Orders` AS `o`
 INNER JOIN (
     SELECT `ProductID` AS `Value` FROM `Products`
-) AS `s` ON `o`.`OrderID` = IIF(`s`.`Value` IS NULL, NULL, CLNG(`s`.`Value`))
+) AS `s` ON `o`.`OrderID` = `s`.`Value`
 """);
     }
 

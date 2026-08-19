@@ -10,6 +10,7 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_NOLOGO: true
   PIPELINE_WORKSPACE: true
+  DOTNET_CI: true
   checkoutFetchDepth: 2
   buildConfiguration: 'Debug'
   skipTests: false
@@ -249,6 +250,47 @@ jobs:
           Retry-Command {
               &([ScriptBlock]::Create((Invoke-WebRequest -UseBasicParsing 'https://dot.net/v1/dotnet-install.ps1'))) -JSonFile global.json -Architecture '${{ matrix.aceArchitecture }}' -InstallDir '${{ env.dotnetInstallDirectory }}' -Verbose
           } -Maximum 10 -ExponentialBackoff
+      # x86 hosts the tests in a 2GB user address space, and ACE is the one native component in that
+      # process. On ACE 2010 the same driver and tests get through all 23,509 of shard 3 on x64 and die
+      # partway on x86, which is the shape of address-space pressure - so lift the ceiling to 4GB by
+      # setting IMAGE_FILE_LARGE_ADDRESS_AWARE (COFF Characteristics 0x0020). Patched directly rather
+      # than via editbin so no vcvars environment is needed; signatures are invalidated, which does not
+      # matter on an ephemeral runner. (ACE 2016 dies early on BOTH architectures, so this cannot help
+      # there - its failure is the driver, not address space.)
+      #
+      # This runs BEFORE the build: MSBuild keeps worker nodes alive after a build and they hold
+      # dotnet.exe open, so patching it afterwards fails with "being used by another process".
+      - name: 'Make the x86 SDK large-address-aware'
+        if: matrix.aceArchitecture == 'x86'
+        shell: pwsh
+        run: |
+          function Set-LargeAddressAware {
+            param([string]$Path)
+
+            $bytes = [System.IO.File]::ReadAllBytes($Path)
+            $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+            if ([BitConverter]::ToUInt32($bytes, $peOffset) -ne 0x00004550) { return 'not-a-pe' }
+
+            $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+            if ($machine -ne 0x014C) { return "skipped-$('0x{0:X4}' -f $machine)" }
+
+            $charOffset = $peOffset + 22
+            $characteristics = [BitConverter]::ToUInt16($bytes, $charOffset)
+            if (($characteristics -band 0x0020) -ne 0) { return 'already' }
+
+            [BitConverter]::GetBytes([UInt16]($characteristics -bor 0x0020)).CopyTo($bytes, $charOffset)
+            [System.IO.File]::WriteAllBytes($Path, $bytes)
+
+            $verify = [System.IO.File]::ReadAllBytes($Path)
+            if (([BitConverter]::ToUInt16($verify, $charOffset) -band 0x0020) -eq 0) { return 'FAILED' }
+            return 'patched'
+          }
+          $target = '${{ env.dotnetExecutable }}'
+          if (Test-Path $target) {
+            echo ("{0,-9} {1}" -f (Set-LargeAddressAware -Path $target), $target)
+          } else {
+            echo "missing: $target"
+          }
       - name: .NET Information After SDK Install
         shell: pwsh
         run: try { & '${{ env.dotnetExecutable }}' --info } catch { echo 'No ${{ matrix.aceArchitecture }} .NET SDK installed.' }
@@ -294,6 +336,49 @@ jobs:
         shell: pwsh
         run: |
           & '${{ env.dotnetExecutable }}' build --configuration '${{ env.buildConfiguration }}'
+      # The apphosts the build emits are the other candidate for the process that ends up holding ACE,
+      # depending on whether VSTest launches the output-directory apphost or 'dotnet exec testhost.dll'.
+      # Shut the build server down first so nothing is still holding these open.
+      - name: 'Make the x86 test hosts large-address-aware'
+        if: matrix.aceArchitecture == 'x86'
+        shell: pwsh
+        run: |
+          function Set-LargeAddressAware {
+            param([string]$Path)
+
+            $bytes = [System.IO.File]::ReadAllBytes($Path)
+            $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+            if ([BitConverter]::ToUInt32($bytes, $peOffset) -ne 0x00004550) { return 'not-a-pe' }
+
+            $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+            if ($machine -ne 0x014C) { return "skipped-$('0x{0:X4}' -f $machine)" }
+
+            $charOffset = $peOffset + 22
+            $characteristics = [BitConverter]::ToUInt16($bytes, $charOffset)
+            if (($characteristics -band 0x0020) -ne 0) { return 'already' }
+
+            [BitConverter]::GetBytes([UInt16]($characteristics -bor 0x0020)).CopyTo($bytes, $charOffset)
+            [System.IO.File]::WriteAllBytes($Path, $bytes)
+
+            $verify = [System.IO.File]::ReadAllBytes($Path)
+            if (([BitConverter]::ToUInt16($verify, $charOffset) -band 0x0020) -eq 0) { return 'FAILED' }
+            return 'patched'
+          }
+          & '${{ env.dotnetExecutable }}' build-server shutdown | Out-Null
+
+          $results = @{}
+          foreach ($target in (Get-ChildItem -Path '.	est' -Recurse -Filter '*.exe' -ErrorAction SilentlyContinue |
+                               Where-Object { $_.FullName -match '\bin\' } | ForEach-Object { $_.FullName })) {
+            $state = Set-LargeAddressAware -Path $target
+            $results[$state] = 1 + ($results[$state] ?? 0)
+            if ($state -in 'patched', 'already', 'FAILED') {
+              echo ("{0,-9} {1}" -f $state, (Resolve-Path $target -Relative))
+            }
+          }
+
+          echo ''
+          echo (($results.GetEnumerator() | Sort-Object Name | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join '  ')
+          if ($results['FAILED']) { echo 'Could not set the flag on one or more binaries.'; exit 1 }
       - name: 'Run Tests: EFCore.Jet.Data.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
@@ -305,12 +390,10 @@ jobs:
           # trx, and crash detection looks for Sequence_* blame dumps - so it cost console I/O for a log too
           # big to read. On these sequential suites those writes sit directly on the critical path.
           & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Data.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m
-      - name: 'Run Tests: EFCore.Jet.Tests'
-        if: always() && env.skipTests != 'true'
-        shell: pwsh
-        run: |
-          $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-          & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m
+      # EFCore.Jet.Tests is not run: the project compiles to an assembly with no tests in it. Its only two
+      # test files have been <Compile Remove>d since 45bae420 (the initial EF 9 update, July 2024), so the
+      # step spent two years reporting green over an empty run. Much of what is in those files appears to
+      # be covered by EFCore.Jet.FunctionalTests now; restore the step if they come back into the build.
       - name: 'Run Tests: EFCore.Jet.FunctionalTests (Shard 1 - Query Core)'
         if: always() && env.skipTests != 'true'
         shell: pwsh
@@ -323,7 +406,7 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.&FullyQualifiedName!~.FunctionalTests.Query.Associations.&FullyQualifiedName!~.FunctionalTests.Query.Translations."
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.&FullyQualifiedName!~Northwind&FullyQualifiedName!~GearsOfWar"
 
             #
             # Check for test runner crashes:
@@ -368,7 +451,7 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.Associations.|FullyQualifiedName~.FunctionalTests.Query.Translations."
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~.FunctionalTests.Query.Northwind|FullyQualifiedName~GearsOfWar"
 
             #
             # Check for test runner crashes:
@@ -459,7 +542,6 @@ jobs:
           path: |
             test\EFCore.Jet.Data.Tests\TestResults\*.trx
             test\EFCore.Jet.FunctionalTests\TestResults\**\*.trx
-            test\EFCore.Jet.Tests\TestResults\*.trx
       - name: 'Check Tests: EFCore.Jet.FunctionalTests'
         if: env.skipTests != 'true'
         shell: pwsh
@@ -529,6 +611,11 @@ jobs:
           - ubuntu-latest
           - windows-latest
           - macos-latest
+          # ARM64 legs. LibRed is fully managed with no ACE dependency, so these are the ones that
+          # actually prove the cross-platform claim on a non-x64 architecture. Excludes LibRedAccess,
+          # which cross-checks against the real Access engine and so needs Windows x64 with ACE.
+          - ubuntu-24.04-arm
+          - windows-11-arm
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -616,6 +703,11 @@ jobs:
           - ubuntu-latest
           - windows-latest
           - macos-latest
+          # ARM64 legs. LibRed is fully managed with no ACE dependency, so these are the ones that
+          # actually prove the cross-platform claim on a non-x64 architecture. Excludes LibRedAccess,
+          # which cross-checks against the real Access engine and so needs Windows x64 with ACE.
+          - ubuntu-24.04-arm
+          - windows-11-arm
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout

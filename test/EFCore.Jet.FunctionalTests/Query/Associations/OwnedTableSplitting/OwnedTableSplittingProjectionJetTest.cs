@@ -1,15 +1,15 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query.Associations.OwnedTableSplitting;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query.Associations.OwnedTableSplitting;
 
 public class OwnedTableSplittingProjectionJetTest(OwnedTableSplittingJetFixture fixture, ITestOutputHelper testOutputHelper)
     : OwnedTableSplittingProjectionRelationalTestBase<OwnedTableSplittingJetFixture>(fixture, testOutputHelper)
 {
+
     public override async Task Select_root(QueryTrackingBehavior queryTrackingBehavior)
     {
         await base.Select_root(queryTrackingBehavior);
@@ -92,7 +92,7 @@ FROM `RootEntity` AS `r`
 SELECT `r`.`Id`, `r`.`RequiredAssociate_Id`, `r`.`RequiredAssociate_Int`, `r`.`RequiredAssociate_Ints`, `r`.`RequiredAssociate_Name`, `r`.`RequiredAssociate_String`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`, `r`.`RequiredAssociate_OptionalNestedAssociate_Id`, `r`.`RequiredAssociate_OptionalNestedAssociate_Int`, `r`.`RequiredAssociate_OptionalNestedAssociate_Ints`, `r`.`RequiredAssociate_OptionalNestedAssociate_Name`, `r`.`RequiredAssociate_OptionalNestedAssociate_String`, `r`.`RequiredAssociate_RequiredNestedAssociate_Id`, `r`.`RequiredAssociate_RequiredNestedAssociate_Int`, `r`.`RequiredAssociate_RequiredNestedAssociate_Ints`, `r`.`RequiredAssociate_RequiredNestedAssociate_Name`, `r`.`RequiredAssociate_RequiredNestedAssociate_String`
 FROM `RootEntity` AS `r`
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r0` ON `r`.`Id` = `r0`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`
 """);
         }
     }
@@ -183,7 +183,7 @@ SELECT `r0`.`Id`, `r0`.`RequiredAssociate_Id`, `r0`.`RequiredAssociate_Int`, `r0
 FROM (`RootReferencingEntity` AS `r`
 LEFT JOIN `RootEntity` AS `r0` ON `r`.`RootEntityId` = `r0`.`Id`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r1` ON `r0`.`Id` = `r1`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `r0`.`Id`, `r1`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r1`.`AssociateTypeRootEntityId`, `r1`.`Id`
 """);
         }
     }
@@ -199,7 +199,7 @@ ORDER BY `r`.`Id`, `r0`.`Id`, `r1`.`AssociateTypeRootEntityId`
 SELECT `r`.`Id`, `r`.`RequiredAssociate_Id`, `r`.`RequiredAssociate_Int`, `r`.`RequiredAssociate_Ints`, `r`.`RequiredAssociate_Name`, `r`.`RequiredAssociate_String`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`, `r`.`RequiredAssociate_OptionalNestedAssociate_Id`, `r`.`RequiredAssociate_OptionalNestedAssociate_Int`, `r`.`RequiredAssociate_OptionalNestedAssociate_Ints`, `r`.`RequiredAssociate_OptionalNestedAssociate_Name`, `r`.`RequiredAssociate_OptionalNestedAssociate_String`, `r`.`RequiredAssociate_RequiredNestedAssociate_Id`, `r`.`RequiredAssociate_RequiredNestedAssociate_Int`, `r`.`RequiredAssociate_RequiredNestedAssociate_Ints`, `r`.`RequiredAssociate_RequiredNestedAssociate_Name`, `r`.`RequiredAssociate_RequiredNestedAssociate_String`
 FROM `RootEntity` AS `r`
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r0` ON `r`.`Id` = `r0`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`
 """);
         }
     }
@@ -234,7 +234,7 @@ LEFT JOIN (
     FROM `RelatedCollection` AS `r0`
     LEFT JOIN `RelatedCollection_NestedCollection` AS `r1` ON `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r1`.`AssociateTypeId`
 ) AS `s` ON `r`.`Id` = `s`.`RootEntityId`
-ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`
+ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`
 """);
         }
     }
@@ -250,7 +250,7 @@ ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`
 SELECT `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`
 FROM `RootEntity` AS `r`
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r0` ON `r`.`Id` = `r0`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`
 """);
         }
     }
@@ -285,7 +285,7 @@ SELECT `r0`.`RootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0
 FROM (`RootEntity` AS `r`
 INNER JOIN `RelatedCollection` AS `r0` ON `r`.`Id` = `r0`.`RootEntityId`)
 LEFT JOIN `RelatedCollection_NestedCollection` AS `r1` ON `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r1`.`AssociateTypeId`
-ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r0`.`Id`, `r1`.`AssociateTypeRootEntityId`, `r1`.`AssociateTypeId`
+ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r0`.`Id`, `r1`.`AssociateTypeRootEntityId`, `r1`.`AssociateTypeId`, `r1`.`Id`
 """);
         }
     }
@@ -354,6 +354,76 @@ END = [o0].[AssociateTypeRootEntityId]
 LEFT JOIN [RequiredRelated_NestedCollection] AS [r5] ON [r].[Id] = [r5].[AssociateTypeRootEntityId]
 ORDER BY [r].[Id], [s].[RootEntityId], [s].[Id], [s].[AssociateTypeRootEntityId], [s].[AssociateTypeId], [s].[Id0], [o].[AssociateTypeRootEntityId], [o].[Id], [r2].[AssociateTypeRootEntityId], [r2].[Id], [s0].[RootEntityId], [s0].[Id], [s0].[AssociateTypeRootEntityId], [s0].[AssociateTypeId], [s0].[Id0], [o0].[AssociateTypeRootEntityId], [o0].[Id], [r5].[AssociateTypeRootEntityId]
 """);
+    }
+
+    public override async Task Select_required_associate_duplicated(QueryTrackingBehavior queryTrackingBehavior)
+    {
+        await base.Select_required_associate_duplicated(queryTrackingBehavior);
+
+        if (queryTrackingBehavior is not QueryTrackingBehavior.TrackAll)
+        {
+            AssertSql(
+                """
+SELECT `r`.`Id`, `r`.`RequiredAssociate_Id`, `r`.`RequiredAssociate_Int`, `r`.`RequiredAssociate_Ints`, `r`.`RequiredAssociate_Name`, `r`.`RequiredAssociate_String`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`, `r`.`RequiredAssociate_OptionalNestedAssociate_Id`, `r`.`RequiredAssociate_OptionalNestedAssociate_Int`, `r`.`RequiredAssociate_OptionalNestedAssociate_Ints`, `r`.`RequiredAssociate_OptionalNestedAssociate_Name`, `r`.`RequiredAssociate_OptionalNestedAssociate_String`, `r`.`RequiredAssociate_RequiredNestedAssociate_Id`, `r`.`RequiredAssociate_RequiredNestedAssociate_Int`, `r`.`RequiredAssociate_RequiredNestedAssociate_Ints`, `r`.`RequiredAssociate_RequiredNestedAssociate_Name`, `r`.`RequiredAssociate_RequiredNestedAssociate_String`, `r1`.`AssociateTypeRootEntityId`, `r1`.`Id`, `r1`.`Int`, `r1`.`Ints`, `r1`.`Name`, `r1`.`String`
+FROM (`RootEntity` AS `r`
+LEFT JOIN `RequiredRelated_NestedCollection` AS `r0` ON `r`.`Id` = `r0`.`AssociateTypeRootEntityId`)
+LEFT JOIN `RequiredRelated_NestedCollection` AS `r1` ON `r`.`Id` = `r1`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r1`.`AssociateTypeRootEntityId`, `r1`.`Id`
+""");
+        }
+    }
+
+    public override async Task Select_required_associate_and_optional_associate(QueryTrackingBehavior queryTrackingBehavior)
+    {
+        await base.Select_required_associate_and_optional_associate(queryTrackingBehavior);
+
+        if (queryTrackingBehavior is not QueryTrackingBehavior.TrackAll)
+        {
+            AssertSql(
+                """
+SELECT [r].[Id], [r].[RequiredAssociate_Id], [r].[RequiredAssociate_Int], [r].[RequiredAssociate_Ints], [r].[RequiredAssociate_Name], [r].[RequiredAssociate_String], [r0].[AssociateTypeRootEntityId], [r0].[Id], [r0].[Int], [r0].[Ints], [r0].[Name], [r0].[String], [r].[RequiredAssociate_OptionalNestedAssociate_Id], [r].[RequiredAssociate_OptionalNestedAssociate_Int], [r].[RequiredAssociate_OptionalNestedAssociate_Ints], [r].[RequiredAssociate_OptionalNestedAssociate_Name], [r].[RequiredAssociate_OptionalNestedAssociate_String], [r].[RequiredAssociate_RequiredNestedAssociate_Id], [r].[RequiredAssociate_RequiredNestedAssociate_Int], [r].[RequiredAssociate_RequiredNestedAssociate_Ints], [r].[RequiredAssociate_RequiredNestedAssociate_Name], [r].[RequiredAssociate_RequiredNestedAssociate_String], [r].[OptionalAssociate_Id], [r].[OptionalAssociate_Int], [r].[OptionalAssociate_Ints], [r].[OptionalAssociate_Name], [r].[OptionalAssociate_String], [o].[AssociateTypeRootEntityId], [o].[Id], [o].[Int], [o].[Ints], [o].[Name], [o].[String], [r].[OptionalAssociate_OptionalNestedAssociate_Id], [r].[OptionalAssociate_OptionalNestedAssociate_Int], [r].[OptionalAssociate_OptionalNestedAssociate_Ints], [r].[OptionalAssociate_OptionalNestedAssociate_Name], [r].[OptionalAssociate_OptionalNestedAssociate_String], [r].[OptionalAssociate_RequiredNestedAssociate_Id], [r].[OptionalAssociate_RequiredNestedAssociate_Int], [r].[OptionalAssociate_RequiredNestedAssociate_Ints], [r].[OptionalAssociate_RequiredNestedAssociate_Name], [r].[OptionalAssociate_RequiredNestedAssociate_String]
+FROM [RootEntity] AS [r]
+LEFT JOIN [RequiredRelated_NestedCollection] AS [r0] ON [r].[Id] = [r0].[AssociateTypeRootEntityId]
+LEFT JOIN [OptionalRelated_NestedCollection] AS [o] ON CASE
+    WHEN [r].[OptionalAssociate_Id] IS NOT NULL AND [r].[OptionalAssociate_Int] IS NOT NULL AND [r].[OptionalAssociate_Ints] IS NOT NULL AND [r].[OptionalAssociate_Name] IS NOT NULL AND [r].[OptionalAssociate_String] IS NOT NULL THEN [r].[Id]
+END = [o].[AssociateTypeRootEntityId]
+ORDER BY [r].[Id], [r0].[AssociateTypeRootEntityId], [r0].[Id], [o].[AssociateTypeRootEntityId]
+""");
+        }
+    }
+
+    public override async Task Select_optional_associate_and_ints(QueryTrackingBehavior queryTrackingBehavior)
+    {
+        await base.Select_optional_associate_and_ints(queryTrackingBehavior);
+
+        if (queryTrackingBehavior is not QueryTrackingBehavior.TrackAll)
+        {
+            AssertSql(
+                """
+SELECT [r].[Id], [r].[OptionalAssociate_Id], [r].[OptionalAssociate_Int], [r].[OptionalAssociate_Ints], [r].[OptionalAssociate_Name], [r].[OptionalAssociate_String], [o].[AssociateTypeRootEntityId], [o].[Id], [o].[Int], [o].[Ints], [o].[Name], [o].[String], [r].[OptionalAssociate_OptionalNestedAssociate_Id], [r].[OptionalAssociate_OptionalNestedAssociate_Int], [r].[OptionalAssociate_OptionalNestedAssociate_Ints], [r].[OptionalAssociate_OptionalNestedAssociate_Name], [r].[OptionalAssociate_OptionalNestedAssociate_String], [r].[OptionalAssociate_RequiredNestedAssociate_Id], [r].[OptionalAssociate_RequiredNestedAssociate_Int], [r].[OptionalAssociate_RequiredNestedAssociate_Ints], [r].[OptionalAssociate_RequiredNestedAssociate_Name], [r].[OptionalAssociate_RequiredNestedAssociate_String], [r].[RequiredAssociate_Ints]
+FROM [RootEntity] AS [r]
+LEFT JOIN [OptionalRelated_NestedCollection] AS [o] ON CASE
+    WHEN [r].[OptionalAssociate_Id] IS NOT NULL AND [r].[OptionalAssociate_Int] IS NOT NULL AND [r].[OptionalAssociate_Ints] IS NOT NULL AND [r].[OptionalAssociate_Name] IS NOT NULL AND [r].[OptionalAssociate_String] IS NOT NULL THEN [r].[Id]
+END = [o].[AssociateTypeRootEntityId]
+ORDER BY [r].[Id], [o].[AssociateTypeRootEntityId]
+""");
+        }
+    }
+
+    public override async Task Select_associate_and_target_to_index_based_binding_via_closure(QueryTrackingBehavior queryTrackingBehavior)
+    {
+        await base.Select_associate_and_target_to_index_based_binding_via_closure(queryTrackingBehavior);
+
+        if (queryTrackingBehavior is not QueryTrackingBehavior.TrackAll)
+        {
+            AssertSql(
+                """
+SELECT `r`.`Id`, `r`.`RequiredAssociate_Id`, `r`.`RequiredAssociate_Int`, `r`.`RequiredAssociate_Ints`, `r`.`RequiredAssociate_Name`, `r`.`RequiredAssociate_String`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`, `r`.`RequiredAssociate_OptionalNestedAssociate_Id`, `r`.`RequiredAssociate_OptionalNestedAssociate_Int`, `r`.`RequiredAssociate_OptionalNestedAssociate_Ints`, `r`.`RequiredAssociate_OptionalNestedAssociate_Name`, `r`.`RequiredAssociate_OptionalNestedAssociate_String`, `r`.`RequiredAssociate_RequiredNestedAssociate_Id`, `r`.`RequiredAssociate_RequiredNestedAssociate_Int`, `r`.`RequiredAssociate_RequiredNestedAssociate_Ints`, `r`.`RequiredAssociate_RequiredNestedAssociate_Name`, `r`.`RequiredAssociate_RequiredNestedAssociate_String`
+FROM `RootEntity` AS `r`
+LEFT JOIN `RequiredRelated_NestedCollection` AS `r0` ON `r`.`Id` = `r0`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`
+""");
+        }
     }
 
     #endregion Multiple
@@ -425,7 +495,7 @@ OUTER APPLY (
 
     #endregion Subquery
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 }

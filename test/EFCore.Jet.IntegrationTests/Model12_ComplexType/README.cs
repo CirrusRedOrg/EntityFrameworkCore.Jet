@@ -1,4 +1,4 @@
-﻿/*
+/*
 Actually complex types cannot inherit from other types
 */
 using System;

@@ -3,13 +3,13 @@
 
 using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.LibRed.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 using Xunit.Sdk;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
@@ -539,7 +539,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT IIF(@i IS NULL, NULL, CLNG(@i)) AS `Value`
+    FROM (SELECT @i AS `Value`
     FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`) AS `v`
     WHERE `v`.`Value` > `p`.`Id`) = 1
 """);
@@ -593,6 +593,40 @@ WHERE (
     SELECT COUNT(*)
     FROM OPENJSON(@__p_0) WITH ([value] int '$') AS [p0]
     WHERE [p0].[value] > [p].[Id]) = 2
+""");
+    }
+
+    public override async Task Inline_collection_in_query_filter()
+    {
+        await base.Inline_collection_in_query_filter();
+
+        AssertSql(
+            """
+SELECT TOP 2 `t`.`Id`, `t`.`Ints`
+FROM `TestEntity` AS `t`
+WHERE (
+    SELECT COUNT(*)
+    FROM (SELECT CLNG(1) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT 2 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
+    UNION
+    SELECT 3 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`
+    WHERE `v`.`Value` > `t`.`Id`) = 1
+""");
+    }
+
+    public override async Task Inline_collection_SelectMany_with_unreferenced_collection_value()
+    {
+        await base.Inline_collection_SelectMany_with_unreferenced_collection_value();
+
+        AssertSql(
+            """
+SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
+FROM [PrimitiveCollectionsEntity] AS [p]
+CROSS APPLY (VALUES (CAST(N'a' AS nvarchar(max))), (N'b')) AS [v]([Value])
 """);
     }
 
@@ -666,9 +700,81 @@ WHERE `p`.`Int` NOT IN (@ints1, @ints2)
 """);
     }
 
+    public override async Task Parameter_collection_FrozenSet_of_ints_Contains_int()
+    {
+        await base.Parameter_collection_FrozenSet_of_ints_Contains_int();
+
+        AssertSql(
+            """
+@ints1='10'
+@ints2='999'
+
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (@ints1, @ints2)
+""",
+            //
+            """
+@ints1='10'
+@ints2='999'
+
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` NOT IN (@ints1, @ints2)
+""");
+    }
+
     public override async Task Parameter_collection_ImmutableArray_of_ints_Contains_int()
     {
         await base.Parameter_collection_ImmutableArray_of_ints_Contains_int();
+
+        AssertSql(
+            """
+@ints1='10'
+@ints2='999'
+
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (@ints1, @ints2)
+""",
+            //
+            """
+@ints1='10'
+@ints2='999'
+
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` NOT IN (@ints1, @ints2)
+""");
+    }
+
+    public override async Task Parameter_collection_IReadOnlySet_of_ints_Contains_int()
+    {
+        await base.Parameter_collection_IReadOnlySet_of_ints_Contains_int();
+
+        AssertSql(
+            """
+@ints1='10'
+@ints2='999'
+
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (@ints1, @ints2)
+""",
+            //
+            """
+@ints1='10'
+@ints2='999'
+
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` NOT IN (@ints1, @ints2)
+""");
+    }
+
+    public override async Task Parameter_collection_ReadOnlyCollectionWithContains_of_ints_Contains_int()
+    {
+        await base.Parameter_collection_ReadOnlyCollectionWithContains_of_ints_Contains_int();
 
         AssertSql(
             """
@@ -999,7 +1105,7 @@ WHERE (
 """);
     }
 
-    [ConditionalFact(Skip = "Crashes - too large")]
+    [Fact(Skip = "Crashes - too large")]
     public override async Task Parameter_collection_Count_with_huge_number_of_values()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values();
@@ -1007,14 +1113,21 @@ WHERE (
         Assert.Contains("VALUES", Fixture.TestSqlLoggerFactory.SqlStatements[0], StringComparison.Ordinal);
     }
 
-    public override async Task Parameter_collection_Count_with_huge_number_of_values_over_2_operations_same_parameter_different_type_mapping()
-    {
-        await base.Parameter_collection_Count_with_huge_number_of_values_over_2_operations_same_parameter_different_type_mapping();
-    }
-
     public override async Task Parameter_collection_Count_with_huge_number_of_values_over_5_operations()
     {
         await base.Parameter_collection_Count_with_huge_number_of_values_over_5_operations();
+    }
+
+    public override async Task Parameter_collection_Count_with_huge_number_of_values_over_5_operations_same_parameter()
+    {
+        await base.Parameter_collection_Count_with_huge_number_of_values_over_5_operations_same_parameter();
+    }
+
+    public override async Task Parameter_collection_Count_with_huge_number_of_values_over_2_operations_same_parameter_different_property()
+    {
+        await base.Parameter_collection_Count_with_huge_number_of_values_over_2_operations_same_parameter_different_property();
+
+        Assert.Contains("OPENJSON(@ids) WITH ([Value] int '$')", Fixture.TestSqlLoggerFactory.SqlStatements[0], StringComparison.Ordinal);
     }
 
     public override async Task Parameter_collection_Count_with_huge_number_of_values_over_5_operations_forced_constants()
@@ -1027,9 +1140,12 @@ WHERE (
         await base.Parameter_collection_Count_with_huge_number_of_values_over_5_operations_mixed_parameters_constants();
     }
 
-    public override async Task Parameter_collection_Count_with_huge_number_of_values_over_5_operations_same_parameter()
+    public override async Task Parameter_collection_of_ints_Contains_int_with_huge_number_of_values()
     {
-        await base.Parameter_collection_Count_with_huge_number_of_values_over_5_operations_same_parameter();
+        await base.Parameter_collection_of_ints_Contains_int_with_huge_number_of_values();
+
+        Assert.DoesNotContain("OPENJSON", Fixture.TestSqlLoggerFactory.SqlStatements[0], StringComparison.Ordinal);
+        Assert.DoesNotContain("OPENJSON", Fixture.TestSqlLoggerFactory.SqlStatements[1], StringComparison.Ordinal);
     }
 
     public override async Task Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_5_operations()
@@ -1047,9 +1163,11 @@ WHERE (
         Assert.Contains("@ints2=", Fixture.TestSqlLoggerFactory.SqlStatements[1], StringComparison.Ordinal);
     }
 
-    public override async Task Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_2_operations_same_parameter_different_type_mapping()
+    public override async Task
+        Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_2_operations_same_parameter_different_property()
     {
-        await base.Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_2_operations_same_parameter_different_type_mapping();
+        await base
+            .Parameter_collection_of_ints_Contains_int_with_huge_number_of_values_over_2_operations_same_parameter_different_property();
 
         Assert.Contains("OPENJSON(@ints) WITH ([Value] int '$')", Fixture.TestSqlLoggerFactory.SqlStatements[0], StringComparison.Ordinal);
         Assert.Contains("OPENJSON(@ints) WITH ([Value] int '$')", Fixture.TestSqlLoggerFactory.SqlStatements[1], StringComparison.Ordinal);
@@ -1068,29 +1186,336 @@ WHERE (
         Assert.Contains("OPENJSON(@ints) WITH ([Value] int '$')", Fixture.TestSqlLoggerFactory.SqlStatements[1], StringComparison.Ordinal);
     }
 
-    public override async Task Parameter_collection_of_ints_Contains_int_with_huge_number_of_values()
+    public override async Task Parameter_collection_Count_with_column_predicate_with_default_mode(ParameterTranslationMode mode)
     {
-        await base.Parameter_collection_of_ints_Contains_int_with_huge_number_of_values();
+        await base.Parameter_collection_Count_with_column_predicate_with_default_mode(mode);
 
-        Assert.DoesNotContain("OPENJSON", Fixture.TestSqlLoggerFactory.SqlStatements[0], StringComparison.Ordinal);
-        Assert.DoesNotContain("OPENJSON", Fixture.TestSqlLoggerFactory.SqlStatements[1], StringComparison.Ordinal);
+        switch (mode)
+        {
+            case ParameterTranslationMode.Constant:
+            {
+                AssertSql(
+                    """
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE (
+    SELECT COUNT(*)
+    FROM (SELECT CLNG(2) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
+    UNION
+    SELECT 999 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`) AS `i`
+    WHERE `i`.`Value` > `t`.`Id`) = 1
+""");
+                break;
+            }
+
+            case ParameterTranslationMode.Parameter:
+            {
+                AssertSql(
+                    """
+@ids='[2,999]' (Size = 4000)
+
+SELECT [t].[Id]
+FROM [TestEntity] AS [t]
+WHERE (
+SELECT COUNT(*)
+FROM OPENJSON(@ids) WITH ([value] int '$') AS [i]
+WHERE [i].[value] > [t].[Id]) = 1
+""");
+
+                break;
+            }
+
+            case ParameterTranslationMode.MultipleParameters:
+            {
+                AssertSql(
+                    """
+@ids1='2'
+@ids2='999'
+
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE (
+    SELECT COUNT(*)
+    FROM (SELECT @ids1 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
+    UNION
+    SELECT @ids2 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`) AS `i`
+    WHERE `i`.`Value` > `t`.`Id`) = 1
+""");
+                break;
+            }
+
+            default:
+                throw new NotImplementedException();
+        }
     }
 
-    /*public override async Task Static_readonly_collection_List_of_ints_Contains_int()
+    public override async Task Parameter_collection_Contains_with_default_mode(ParameterTranslationMode mode)
+    {
+        await base.Parameter_collection_Contains_with_default_mode(mode);
+
+        switch (mode)
+        {
+            case ParameterTranslationMode.Constant:
+            {
+                AssertSql(
+                    """
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE `t`.`Id` IN (2, 999)
+""");
+                break;
+            }
+
+            case ParameterTranslationMode.Parameter:
+            {
+                AssertSql(
+                    """
+@ints1='2'
+@ints2='999'
+
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE `t`.`Id` IN (@ints1, @ints2)
+""");
+
+                break;
+            }
+
+            case ParameterTranslationMode.MultipleParameters:
+            {
+                AssertSql(
+                    """
+@ints1='2'
+@ints2='999'
+
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE `t`.`Id` IN (@ints1, @ints2)
+""");
+                break;
+            }
+
+            default:
+                throw new NotImplementedException();
+        }
+    }
+
+    public override async Task Parameter_collection_Count_with_column_predicate_with_default_mode_EF_Constant(ParameterTranslationMode mode)
+    {
+        await base.Parameter_collection_Count_with_column_predicate_with_default_mode_EF_Constant(mode);
+
+        AssertSql(
+            """
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE (
+    SELECT COUNT(*)
+    FROM (SELECT CLNG(2) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
+    UNION
+    SELECT 999 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`) AS `i`
+    WHERE `i`.`Value` > `t`.`Id`) = 1
+""");
+    }
+
+    public override async Task Parameter_collection_Contains_with_default_mode_EF_Constant(ParameterTranslationMode mode)
+    {
+        await base.Parameter_collection_Contains_with_default_mode_EF_Constant(mode);
+
+        AssertSql(
+            """
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE `t`.`Id` IN (2, 999)
+""");
+    }
+
+    public override async Task Parameter_collection_Count_with_column_predicate_with_default_mode_EF_Parameter(
+        ParameterTranslationMode mode)
+    {
+        await base.Parameter_collection_Count_with_column_predicate_with_default_mode_EF_Parameter(mode);
+
+        AssertSql(
+            """
+@ids='[2,999]' (Size = 4000)
+
+SELECT [t].[Id]
+FROM [TestEntity] AS [t]
+WHERE (
+SELECT COUNT(*)
+FROM OPENJSON(@ids) WITH ([value] int '$') AS [i]
+WHERE [i].[value] > [t].[Id]) = 1
+""");
+    }
+
+    public override async Task Parameter_collection_Contains_with_default_mode_EF_Parameter(ParameterTranslationMode mode)
+    {
+        await base.Parameter_collection_Contains_with_default_mode_EF_Parameter(mode);
+
+        AssertSql(
+            """
+@ints='[2,999]' (Size = 4000)
+
+SELECT [t].[Id]
+FROM [TestEntity] AS [t]
+WHERE [t].[Id] IN (
+SELECT [i].[value]
+FROM OPENJSON(@ints) WITH ([value] int '$') AS [i]
+)
+""");
+    }
+
+    public override async Task Parameter_collection_Count_with_column_predicate_with_default_mode_EF_MultipleParameters(
+        ParameterTranslationMode mode)
+    {
+        await base.Parameter_collection_Count_with_column_predicate_with_default_mode_EF_MultipleParameters(mode);
+
+        AssertSql(
+            """
+@ids1='2'
+@ids2='999'
+
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE (
+    SELECT COUNT(*)
+    FROM (SELECT @ids1 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
+    UNION
+    SELECT @ids2 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`) AS `i`
+    WHERE `i`.`Value` > `t`.`Id`) = 1
+""");
+    }
+
+    public override async Task Parameter_collection_Contains_with_default_mode_EF_MultipleParameters(ParameterTranslationMode mode)
+    {
+        await base.Parameter_collection_Contains_with_default_mode_EF_MultipleParameters(mode);
+
+        AssertSql(
+            """
+@ints1='2'
+@ints2='999'
+
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE `t`.`Id` IN (@ints1, @ints2)
+""");
+    }
+
+    public override async Task Parameter_collection_Contains_parameter_bucketization()
+    {
+        await base.Parameter_collection_Contains_parameter_bucketization();
+
+        AssertSql(
+            """
+@ints1='2'
+@ints2='999'
+@ints3='2'
+@ints4='2'
+@ints5='2'
+@ints6='2'
+@ints7='2'
+@ints8='2'
+@ints9='2'
+@ints10='2'
+@ints11='2'
+@ints12='2'
+@ints13='2'
+@ints14='2'
+@ints15='2'
+@ints16='2'
+@ints17='2'
+@ints18='2'
+@ints19='2'
+@ints20='2'
+
+SELECT `t`.`Id`
+FROM `TestEntity` AS `t`
+WHERE `t`.`Id` IN (@ints1, @ints2, @ints3, @ints4, @ints5, @ints6, @ints7, @ints8, @ints9, @ints10, @ints11, @ints12, @ints13, @ints14, @ints15, @ints16, @ints17, @ints18, @ints19, @ints20)
+""");
+    }
+
+    public override async Task Parameter_collection_of_enum_Cast_from_different_enum_type(ParameterTranslationMode mode)
+    {
+        await base.Parameter_collection_of_enum_Cast_from_different_enum_type(mode);
+
+        switch (mode)
+        {
+            case ParameterTranslationMode.Constant:
+            {
+                AssertSql(
+                    """
+SELECT `t`.`Id`
+FROM `TestEntity38008` AS `t`
+WHERE EXISTS (
+    SELECT 1
+    FROM (SELECT 2 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `f_0`) AS `f`
+    WHERE `f`.`Value` = `t`.`Status`)
+""");
+                break;
+            }
+
+            case ParameterTranslationMode.Parameter:
+            {
+                AssertSql(
+                    """
+@filter='[2]' (Size = 4000)
+
+SELECT [t].[Id]
+FROM [TestEntity38008] AS [t]
+WHERE EXISTS (
+SELECT 1
+FROM OPENJSON(@filter) WITH ([value] int '$') AS [f]
+WHERE [f].[value] = [t].[Status])
+""");
+
+                break;
+            }
+
+            case ParameterTranslationMode.MultipleParameters:
+            {
+                AssertSql(
+                    """
+@filter1='2'
+
+SELECT `t`.`Id`
+FROM `TestEntity38008` AS `t`
+WHERE EXISTS (
+    SELECT 1
+    FROM (SELECT @filter1 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `f_0`) AS `f`
+    WHERE `f`.`Value` = `t`.`Status`)
+""");
+                break;
+            }
+
+            default:
+                throw new NotImplementedException();
+        }
+    }
+
+    public override async Task Static_readonly_collection_List_of_ints_Contains_int()
     {
         await base.Static_readonly_collection_List_of_ints_Contains_int();
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] IN (10, 999)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (10, 999)
 """,
             //
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] NOT IN (10, 999)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` NOT IN (10, 999)
 """);
     }
 
@@ -1100,15 +1525,15 @@ WHERE [p].[Int] NOT IN (10, 999)
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] IN (10, 999)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (10, 999)
 """,
             //
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] NOT IN (10, 999)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` NOT IN (10, 999)
 """);
     }
 
@@ -1118,17 +1543,17 @@ WHERE [p].[Int] NOT IN (10, 999)
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] IN (10, 999)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` IN (10, 999)
 """,
             //
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-WHERE [p].[Int] NOT IN (10, 999)
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE `p`.`Int` NOT IN (10, 999)
 """);
-    }*/
+    }
 
     public override Task Column_collection_of_ints_Contains()
         => AssertTranslationFailedWithDetails(() => base.Column_collection_of_ints_Contains(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
@@ -1139,16 +1564,7 @@ WHERE [p].[Int] NOT IN (10, 999)
     public override Task Column_collection_of_nullable_ints_Contains_null()
         => AssertTranslationFailed(() => base.Column_collection_of_nullable_ints_Contains_null());
 
-    public override Task Column_collection_of_strings_contains_null()
-        => AssertTranslationFailed(() => base.Column_collection_of_strings_contains_null());
-
-    public override Task Column_collection_of_nullable_strings_contains_null()
-        => AssertTranslationFailed(() => base.Column_collection_of_strings_contains_null());
-
-    public override Task Column_collection_of_bools_Contains()
-        => AssertTranslationFailedWithDetails(() => base.Column_collection_of_bools_Contains(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
-
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Json_representation_of_bool_array()
     {
         await using var context = CreateContext();
@@ -1157,6 +1573,103 @@ WHERE [p].[Int] NOT IN (10, 999)
             "[true,false]",
             await context.Database.SqlQuery<string>($"SELECT [Bools] AS [Value] FROM [PrimitiveCollectionsEntity] WHERE [Id] = 1").SingleAsync());
     }
+
+    public override async Task Column_collection_of_strings_Contains()
+    {
+        await base.Column_collection_of_strings_Contains();
+
+        AssertSql(
+            """
+SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
+FROM [PrimitiveCollectionsEntity] AS [p]
+WHERE N'10' IN (
+SELECT [s].[value]
+FROM OPENJSON([p].[Strings]) WITH ([value] nvarchar(max) '$') AS [s]
+)
+""");
+    }
+
+    public override async Task Column_collection_of_strings_Contains_null()
+    {
+        await base.Column_collection_of_strings_Contains_null();
+
+        AssertSql(
+            """
+SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
+FROM [PrimitiveCollectionsEntity] AS [p]
+WHERE 0 = 1
+""");
+    }
+
+    public override Task Column_collection_of_nullable_strings_contains_null()
+        => AssertTranslationFailedWithDetails(
+            () => base.Column_collection_of_nullable_strings_contains_null(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
+
+    public override Task Column_collection_of_bools_Contains()
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_of_bools_Contains(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
+
+    public override async Task Column_with_custom_converter()
+    {
+        await base.Column_with_custom_converter();
+
+        AssertSql(
+            """
+@ints='1,2,3' (Size = 255)
+
+SELECT TOP 2 `t`.`Id`, `t`.`Ints`
+FROM `TestEntity` AS `t`
+WHERE `t`.`Ints` = @ints
+""");
+    }
+
+    public override async Task Column_collection_inside_json_owned_entity()
+    {
+        await base.Column_collection_inside_json_owned_entity();
+
+        AssertSql(
+            """
+SELECT TOP(2) [t].[Id], [t].[Owned]
+FROM [TestOwner] AS [t]
+WHERE (
+SELECT COUNT(*)
+FROM OPENJSON(JSON_QUERY([t].[Owned], '$.Strings')) AS [s]) = 2
+""",
+            //
+            """
+SELECT TOP(2) [t].[Id], [t].[Owned]
+FROM [TestOwner] AS [t]
+WHERE JSON_VALUE([t].[Owned], '$.Strings[1]') = N'bar'
+""");
+    }
+
+    public override async Task Parameter_with_inferred_value_converter()
+    {
+        await base.Parameter_with_inferred_value_converter();
+
+        AssertSql("");
+    }
+
+    public override async Task Constant_with_inferred_value_converter()
+    {
+        await base.Constant_with_inferred_value_converter();
+
+        AssertSql(
+            """
+SELECT TOP 2 `t`.`Id`, `t`.`Ints`, `t`.`PropertyWithValueConverter`
+FROM `TestEntity` AS `t`
+WHERE (
+    SELECT COUNT(*)
+    FROM (SELECT 1 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT 8 AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`
+    WHERE `v`.`Value` = `t`.`PropertyWithValueConverter`) = 1
+""");
+    }
+
+    public override Task Multidimensional_array_is_not_supported()
+        => base.Multidimensional_array_is_not_supported();
 
     public override async Task Contains_on_Enumerable()
     {
@@ -1194,11 +1707,48 @@ WHERE `p`.`Int` IN (10, 999)
 """);
     }
 
+    public override async Task Min_on_MemoryExtensions()
+    {
+        await base.Min_on_MemoryExtensions();
+
+        AssertSql(
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE (
+    SELECT MIN(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`Int` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) = 30
+""");
+    }
+
+    public override async Task Max_on_MemoryExtensions()
+    {
+        await base.Max_on_MemoryExtensions();
+
+        AssertSql(
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE (
+    SELECT MAX(`v`.`Value`)
+    FROM (SELECT CLNG(30) AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
+    UNION
+    SELECT `p`.`Int` AS `Value`
+    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) = 30
+""");
+    }
+
     public override Task Column_collection_Count_method()
         => AssertTranslationFailedWithDetails(() => base.Column_collection_Count_method(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
     public override Task Column_collection_Length()
         => AssertTranslationFailedWithDetails(() => base.Column_collection_Length(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
+
     public override Task Column_collection_Count_with_predicate()
         => AssertTranslationFailedWithDetails(() => base.Column_collection_Count_with_predicate(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
@@ -1458,15 +2008,33 @@ WHERE `p`.`Ints` = '[1,10]'
         AssertSql();
     }
 
-    public override Task Column_collection_in_subquery_Union_parameter_collection()
-        => AssertTranslationFailedWithDetails(() => base.Column_collection_in_subquery_Union_parameter_collection(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
-
     public override async Task Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query()
     {
         await base.Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query();
 
         AssertSql();
     }
+
+    public override async Task Compiled_query_with_uncorrelated_parameter_collection_expression()
+    {
+        await base.Compiled_query_with_uncorrelated_parameter_collection_expression();
+
+        AssertSql(
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE EXISTS (
+    SELECT 1
+    FROM (
+        SELECT CVar(NULL) AS `Value`
+        FROM (SELECT COUNT(*) FROM `#Dual`)
+        WHERE FALSE
+    ) AS `i`)
+""");
+    }
+
+    public override Task Column_collection_in_subquery_Union_parameter_collection()
+        => AssertTranslationFailedWithDetails(() => base.Column_collection_in_subquery_Union_parameter_collection(), JetStrings.QueryingIntoJsonCollectionsNotSupported());
 
     public override async Task Project_collection_of_ints_simple()
     {
@@ -1550,13 +2118,13 @@ ORDER BY `p`.`Id`
 """);
     }
 
-    public override Task Project_multiple_collections()
-        // we don't propagate error details from projection
-        => AssertTranslationFailed(() => base.Project_multiple_collections());
-
     public override Task Project_empty_collection_of_nullables_and_collection_only_containing_nulls()
         // we don't propagate error details from projection
         => AssertTranslationFailed(() => base.Project_empty_collection_of_nullables_and_collection_only_containing_nulls());
+
+    public override Task Project_multiple_collections()
+        // we don't propagate error details from projection
+        => AssertTranslationFailed(() => base.Project_multiple_collections());
 
     public override async Task Project_primitive_collections_element()
     {
@@ -1606,6 +2174,31 @@ ORDER BY [p].[Id]
         await base.Project_inline_collection_with_Concat();
 
         AssertSql();
+    }
+
+    public override async Task Project_collection_from_entity_type_with_owned()
+    {
+        await base.Project_collection_from_entity_type_with_owned();
+
+        AssertSql(
+            """
+SELECT `t`.`Ints`
+FROM `TestEntityWithOwned` AS `t`
+""");
+    }
+
+    public override async Task Subquery_over_primitive_collection_on_inheritance_derived_type()
+    {
+        await base.Subquery_over_primitive_collection_on_inheritance_derived_type();
+
+        AssertSql(
+            """
+SELECT [b].[Id], [b].[Discriminator], [b].[Ints]
+FROM [BaseType] AS [b]
+WHERE EXISTS (
+    SELECT 1
+    FROM OPENJSON([b].[Ints]) AS [i])
+""");
     }
 
     public override async Task Nested_contains_with_Lists_and_no_inferred_type_mapping()
@@ -1812,7 +2405,17 @@ WHERE (
 """);
     }
 
-    [ConditionalFact]
+    protected override DbContextOptionsBuilder SetParameterizedCollectionMode(DbContextOptionsBuilder optionsBuilder,
+        ParameterTranslationMode parameterizedCollectionMode)
+    {
+        // LibRed's builder, not Jet's: the two write to different options extensions, and adding Jet's to a
+        // context already configured for LibRed reads as two relational providers on one context.
+        new LibRedDbContextOptionsBuilder(optionsBuilder).UseParameterizedCollectionMode(parameterizedCollectionMode);
+
+        return optionsBuilder;
+    }
+
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

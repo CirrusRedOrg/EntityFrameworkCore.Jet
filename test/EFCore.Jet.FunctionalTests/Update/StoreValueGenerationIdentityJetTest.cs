@@ -11,7 +11,6 @@ using Microsoft.EntityFrameworkCore.TestModels.StoreValueGenerationModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.EntityFrameworkCore.Update;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Update;
 
@@ -457,7 +456,7 @@ SELECT @@ROWCOUNT;
 
     #region Different two operations
 
-    [ConditionalTheory]
+    [Theory]
     [MemberData(nameof(IsAsyncData))]
     public override async Task Delete_Add_with_same_entity_types(bool async)
     {

@@ -8,7 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.Logging;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests;
 
@@ -45,6 +44,6 @@ INNER JOIN `MeterReadingDetails` AS `m0` ON `m`.`Id` = `m0`.`Id`
 """);
     }
 
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 }

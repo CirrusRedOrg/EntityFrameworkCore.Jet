@@ -1,18 +1,16 @@
 <Project>
 	<PropertyGroup>
-		<DotNetVersion>[10.0.9,10.0.999]</DotNetVersion>
-		<EFCoreVersion>[10.0.9,10.0.999]</EFCoreVersion>
-		<MSLibVersion>[10.0.9,10.0.999]</MSLibVersion>
+		<DotNetVersion>[11.0.0-preview.7.26381.103]</DotNetVersion>
+		<EFCoreVersion>[11.0.0-preview.7.26381.103]</EFCoreVersion>
+		<MSLibVersion>[11.0.0-preview.7.26381.103]</MSLibVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<!-- Common -->
 		<PackageReference Update="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="$(MSLibVersion)" />
 		<PackageReference Update="Microsoft.Extensions.Configuration.Json" Version="$(MSLibVersion)" />
-		<PackageReference Update="Microsoft.Extensions.Caching.Memory" Version="8.0.0" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational" Version="$(EFCoreVersion)" />
-		<PackageReference Update="System.Diagnostics.DiagnosticSource" Version="$(MSLibVersion)" />
 		<PackageReference Update="DotNetAnalyzers.DocumentationAnalyzers" Version="1.0.0-beta.59" />
 		<PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.300" />
 
@@ -20,7 +18,6 @@
 		<PackageReference Update="Microsoft.Extensions.DependencyInjection" Version="$(MSLibVersion)" />
 		<PackageReference Update="Microsoft.Extensions.Configuration" Version="$(MSLibVersion)" />
 		<PackageReference Update="Microsoft.Extensions.Logging" Version="$(MSLibVersion)" />
-		<PackageReference Update="System.Collections.Immutable" Version="$(MSLibVersion)" />
 
 		<!-- Tests -->
 		<PackageReference Update="System.Data.Odbc" Version="$(MSLibVersion)" />
@@ -29,19 +26,23 @@
 		<PackageReference Update="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" />
 		<PackageReference Update="Microsoft.Extensions.Logging.Console" Version="$(MSLibVersion)" />
 		<PackageReference Update="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+		<!-- Centralised so the three test projects that use it cannot drift apart again; they previously
+		     carried inline 18.7.1 / 18.7.1 / 18.4.0. -->
+		<PackageReference Update="Microsoft.Build.Tasks.Core" Version="18.7.1" />
 		<PackageReference Update="MSTest.TestAdapter" Version="4.2.3" />
 		<PackageReference Update="MSTest.TestFramework" Version="4.2.3" />
 		<PackageReference Update="coverlet.collector" Version="10.0.1" />
-		<PackageReference Update="Newtonsoft.Json" Version="13.0.4" />
 
 		<!-- EFCore.Jet.FunctionalTests -->
-		<PackageReference Update="xunit.core" Version="2.9.3"/>
-		<PackageReference Update="xunit.assert" Version="2.9.3" />
+		<!-- xunit v3. Not a preference: EF 11's Relational.Specification.Tests depends on
+		     Microsoft.DotNet.XUnitV3Extensions, so inheriting from its test bases requires v3. Pinned to the
+		     same build EF resolves, so the two cannot disagree about which xunit is in the graph. -->
+		<PackageReference Update="xunit.v3.core" Version="4.0.0-pre.108" />
+		<PackageReference Update="xunit.v3.assert" Version="4.0.0-pre.108" />
+		<PackageReference Update="xunit.v3.extensibility.core" Version="4.0.0-pre.108" />
 		<PackageReference Update="xunit.runner.visualstudio" Version="3.1.5" />
-		<PackageReference Update="xunit.runner.console" Version="2.9.3" />
 		<PackageReference Update="Microsoft.Extensions.Configuration.FileExtensions" Version="$(MSLibVersion)" />
-		<PackageReference Update="NetTopologySuite" Version="2.5.0" />
-		<PackageReference Update="System.ComponentModel.TypeConverter" Version="4.3.0" />
+		<PackageReference Update="NetTopologySuite" Version="2.6.0" />
 
 		<!-- EFCore.Jet.Tests -->
 		<PackageReference Update="Microsoft.Extensions.DependencyModel" Version="$(MSLibVersion)" />

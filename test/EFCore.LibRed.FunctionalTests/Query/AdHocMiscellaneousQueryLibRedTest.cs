@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 // ReSharper disable InconsistentNaming
@@ -15,6 +15,7 @@ using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.LibRed.Infrastructure;
 using EntityFrameworkCore.LibRed.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -28,8 +29,13 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
 public class AdHocMiscellaneousQueryLibRedTest(NonSharedFixture fixture) : AdHocMiscellaneousQueryRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
+
+    protected override DbContextOptionsBuilder AddNonSharedOptions(DbContextOptionsBuilder builder)
+        => base.AddNonSharedOptions(builder)
+            .ConfigureWarnings(w => w.Ignore(RelationalEventId.OwnedEntityMappedToJsonCollectionWarning));
+
     protected override DbContextOptionsBuilder SetParameterizedCollectionMode(
         DbContextOptionsBuilder optionsBuilder,
         ParameterTranslationMode parameterizedCollectionMode)
@@ -46,19 +52,34 @@ CREATE TABLE ZeroKey (Id int);
 INSERT ZeroKey VALUES (NULL)
 """);
 
+    protected override async Task Seed30915(Context30915 context)
+    {
+        context.Statuses.AddRange(
+            new Context30915.PickupStatus30915 { PickupStatusId = 1, Name = "Active" },
+            new Context30915.PickupStatus30915 { PickupStatusId = 2, Name = "NoRequests" },
+            new Context30915.PickupStatus30915 { PickupStatusId = 3, Name = "Busy" });
+
+        context.Requests.AddRange(
+            new Context30915.PickupRequest30915 { PickupStatusId = 1, Priority = 5 },
+            new Context30915.PickupRequest30915 { PickupStatusId = 1, Priority = null },
+            new Context30915.PickupRequest30915 { PickupStatusId = 3, Priority = 7 });
+
+        await context.SaveChangesAsync();
+    }
+
     #region 5456
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Include_group_join_is_per_query_context()
     {
-        var contextFactory = await InitializeAsync<Context5456>(
+        var contextFactory = await InitializeNonSharedTest<Context5456>(
             seed: c => c.SeedAsync(),
-            createTestStore: () => LibRedTestStore.Create(StoreName));
+            createTestStore: () => LibRedTestStore.Create(NonSharedStoreName));
 
         Parallel.For(
             0, 10, i =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).ToList();
 
                 Assert.Equal(198, result.Count);
@@ -67,7 +88,7 @@ INSERT ZeroKey VALUES (NULL)
         Parallel.For(
             0, 10, i =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).Include(x => x.Comments).ToList();
 
                 Assert.Equal(198, result.Count);
@@ -76,24 +97,24 @@ INSERT ZeroKey VALUES (NULL)
         Parallel.For(
             0, 10, i =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).ThenInclude(b => b.Author).ToList();
 
                 Assert.Equal(198, result.Count);
             });
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Include_group_join_is_per_query_context_async()
     {
-        var contextFactory = await InitializeAsync<Context5456>(
+        var contextFactory = await InitializeNonSharedTest<Context5456>(
             seed: c => c.SeedAsync(),
-            createTestStore: () => LibRedTestStore.Create(StoreName));
+            createTestStore: () => LibRedTestStore.Create(NonSharedStoreName));
 
         await Parallel.ForAsync(
             0, 10, async (i, ct) =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = await ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).ToListAsync();
 
                 Assert.Equal(198, result.Count);
@@ -102,7 +123,7 @@ INSERT ZeroKey VALUES (NULL)
         await Parallel.ForAsync(
             0, 10, async (i, ct) =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = await ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).Include(x => x.Comments)
                     .ToListAsync();
 
@@ -112,7 +133,7 @@ INSERT ZeroKey VALUES (NULL)
         await Parallel.ForAsync(
             0, 10, async (i, ct) =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = await ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).ThenInclude(b => b.Author)
                     .ToListAsync();
 
@@ -169,12 +190,12 @@ INSERT ZeroKey VALUES (NULL)
 
     #region 8864
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Select_nested_projection()
     {
-        var contextFactory = await InitializeAsync<Context8864>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context8864>(seed: c => c.SeedAsync());
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var customers = context.Customers
                 .Select(c => new { Customer = c, CustomerAgain = Context8864.Get(context, c.Id) })
@@ -238,11 +259,11 @@ WHERE `c`.`Id` = @id
     
     #region 12518
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Projecting_entity_with_value_converter_and_include_works()
     {
-        var contextFactory = await InitializeAsync<Context12518>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context12518>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var result = context.Parents.Include(p => p.Child).OrderBy(e => e.Id).FirstOrDefault();
 
         AssertSql(
@@ -254,11 +275,11 @@ ORDER BY `p`.`Id`
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Projecting_column_with_value_converter_of_ulong_byte_array()
     {
-        var contextFactory = await InitializeAsync<Context12518>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context12518>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var result = context.Parents.OrderBy(e => e.Id).Select(p => (ulong?)p.Child.ULongRowVersion).FirstOrDefault();
 
         AssertSql(
@@ -316,17 +337,17 @@ ORDER BY `p`.`Id`
 
     #region 13118
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task DateTime_Contains_with_smalldatetime_generates_correct_literal()
     {
-        var contextFactory = await InitializeAsync<Context13118>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context13118>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var testDateList = new List<DateTime> { new(2018, 10, 07) };
         var findRecordsWithDateInList = context.ReproEntity
             .Where(a => testDateList.Contains(a.MyTime))
             .ToList();
 
-        Assert.Single((IEnumerable)findRecordsWithDateInList);
+        Assert.Single(findRecordsWithDateInList);
 
         AssertSql(
             """
@@ -365,14 +386,14 @@ WHERE `r`.`MyTime` = CDATE(@testDateList1)
 
     #region 14095
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Where_equals_DateTime_Now(bool async)
     {
-        var contextFactory = await InitializeAsync<Context14095>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context14095>(seed: c => c.SeedAsync());
 
-        using var context = contextFactory.CreateContext();
+        using var context = contextFactory.CreateDbContext();
         var query = context.Dates.Where(
             d => d.DateTime2_2 == DateTime.Now
                 || d.DateTime2_7 == DateTime.Now
@@ -393,25 +414,24 @@ WHERE `d`.`DateTime2_2` = NOW() OR `d`.`DateTime2_7` = NOW() OR `d`.`DateTime` =
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Where_not_equals_DateTime_Now(bool async)
     {
-        var contextFactory = await InitializeAsync<Context14095>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context14095>(seed: c => c.SeedAsync());
 
-        using var context = contextFactory.CreateContext();
-        var query = context.Dates.Where(
-            d => d.DateTime2_2 != DateTime.Now
-                && d.DateTime2_7 != DateTime.Now
-                && d.DateTime != DateTime.Now
-                && d.SmallDateTime != DateTime.Now);
+        using var context = contextFactory.CreateDbContext();
+        var query = context.Dates.Where(d => d.DateTime2_2 != DateTime.Now
+                                             && d.DateTime2_7 != DateTime.Now
+                                             && d.DateTime != DateTime.Now
+                                             && d.SmallDateTime != DateTime.Now);
 
         var results = async
             ? await query.ToListAsync()
-            : [.. query];
+            : query.ToList();
 
-        Assert.Single((IEnumerable)results);
+        Assert.Single(results);
 
         AssertSql(
             """
@@ -421,14 +441,14 @@ WHERE `d`.`DateTime2_2` <> NOW() AND `d`.`DateTime2_7` <> NOW() AND `d`.`DateTim
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Where_equals_new_DateTime(bool async)
     {
-        var contextFactory = await InitializeAsync<Context14095>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context14095>(seed: c => c.SeedAsync());
 
-        using var context = contextFactory.CreateContext();
+        using var context = contextFactory.CreateDbContext();
         var query = context.Dates.Where(
             d => d.SmallDateTime == new DateTime(1970, 9, 3, 12, 0, 0)
                 && d.DateTime == new DateTime(1971, 9, 3, 12, 0, 10, 220)
@@ -456,7 +476,7 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Where_contains_DateTime_literals(bool async)
@@ -476,9 +496,9 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
             new DateTime(1980, 9, 3, 12, 0, 10, 222)
         };
 
-        var contextFactory = await InitializeAsync<Context14095>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context14095>(seed: c => c.SeedAsync());
 
-        using var context = contextFactory.CreateContext();
+        using var context = contextFactory.CreateDbContext();
         var query = context.Dates.Where(
             d => dateTimes.Contains(d.SmallDateTime)
                 && dateTimes.Contains(d.DateTime)
@@ -573,14 +593,14 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
 
     #region 15518
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public virtual async Task Nested_queries_does_not_cause_concurrency_exception_sync(bool tracking)
     {
-        var contextFactory = await InitializeAsync<Context15518>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context15518>(seed: c => c.SeedAsync());
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Repos.OrderBy(r => r.Id).Where(r => r.Id > 0);
             query = tracking ? query.AsTracking() : query.AsNoTracking();
@@ -593,7 +613,7 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
             }
         }
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Repos.OrderBy(r => r.Id).Where(r => r.Id > 0);
             query = tracking ? query.AsTracking() : query.AsNoTracking();
@@ -674,7 +694,7 @@ ORDER BY `r`.`Id`
 
     #region 19206
 
-    /*[ConditionalFact]
+    /*[Fact]
     public virtual async Task From_sql_expression_compares_correctly()
     {
         var contextFactory = await InitializeAsync<Context19206>(seed: c => c.SeedAsync());
@@ -741,14 +761,14 @@ CROSS JOIN (
 
     #region 21666
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Thread_safety_in_relational_command_cache()
     {
-        var contextFactory = await InitializeAsync<Context21666>(
+        var contextFactory = await InitializeNonSharedTest<Context21666>(
             onConfiguring: options => ((IDbContextOptionsBuilderInfrastructure)options).AddOrUpdateExtension(
                 options.Options.FindExtension<LibRedOptionsExtension>()
                     .WithConnection(null)
-                    .WithConnectionString(LibRedTestStore.CreateConnectionString(StoreName))));
+                    .WithConnectionString(LibRedTestStore.CreateConnectionString(NonSharedStoreName))));
 
         var ids = new[] { 1, 2, 3 };
 
@@ -756,7 +776,7 @@ CROSS JOIN (
             0, 100,
             i =>
             {
-                using var context = contextFactory.CreateContext();
+                using var context = contextFactory.CreateDbContext();
                 var query = context.Lists.Where(l => !l.IsDeleted && ids.Contains(l.Id)).ToList();
             });
     }
@@ -780,7 +800,7 @@ CROSS JOIN (
 
     #region 27427
 
-    /*[ConditionalTheory]
+    /*[Theory]
     [MemberData(nameof(IsAsyncData))]
     public virtual async Task Muliple_occurrences_of_FromSql_in_group_by_aggregate(bool async)
     {
@@ -907,15 +927,16 @@ FROM `Posts` AS `p`
 
     public override async Task Enum_has_flag_applies_explicit_cast_for_constant()
     {
-        var contextFactory = await InitializeAsync<Context8538>(seed: c => c.SeedAsync());
-        //Context8538.Permission is Int64 and ontext8538.Permission.READ_WRITE is 36 bit and jet/ace cant do maths on bigint/decimal
-        /*using (var context = contextFactory.CreateContext())
+        var contextFactory = await InitializeNonSharedTest<Context8538>(seed: c => c.SeedAsync());
+        //Context8538.Permission is Int64 and Context8538.Permission.READ_WRITE is 36 bit and jet/ace cant do maths on bigint/decimal
+
+        /*using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Entities.Where(e => e.Permission.HasFlag(Context8538.Permission.READ_WRITE)).ToList();
             Assert.Single(query);
         }*/
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Entities.Where(e => e.PermissionShort.HasFlag(Context8538.PermissionShort.READ_WRITE)).ToList();
             Assert.Single(query);
@@ -931,15 +952,15 @@ WHERE (`e`.`PermissionShort` BAND CINT(4)) = CINT(4)
 
     public override async Task Enum_has_flag_does_not_apply_explicit_cast_for_non_constant()
     {
-        var contextFactory = await InitializeAsync<Context8538>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context8538>(seed: c => c.SeedAsync());
 
-        /*using (var context = contextFactory.CreateContext())
+        /*using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Entities.Where(e => e.Permission.HasFlag(e.Permission)).ToList();
             Assert.Equal(3, query.Count);
         }*/
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Entities.Where(e => e.PermissionByte.HasFlag(e.PermissionByte)).ToList();
             Assert.Equal(3, query.Count);
@@ -1578,24 +1599,13 @@ ORDER BY `o2`.`Id`
         await base.GroupBy_Aggregate_over_navigations_repeated(async);
 
         AssertSql(
-    """
-SELECT (
-    SELECT MIN(`o`.`HourlyRate`)
-    FROM `TimeSheets` AS `t0`
-    LEFT JOIN `Order` AS `o` ON `t0`.`OrderId` = `o`.`Id`
-    WHERE `t0`.`OrderId` IS NOT NULL AND `t`.`OrderId` = `t0`.`OrderId`) AS `HourlyRate`, (
-    SELECT MIN(`c`.`Id`)
-    FROM (`TimeSheets` AS `t1`
-    INNER JOIN `Project` AS `p` ON `t1`.`ProjectId` = `p`.`Id`)
-    LEFT JOIN `Customers` AS `c` ON `p`.`CustomerId` = `c`.`Id`
-    WHERE (`t1`.`OrderId` IS NOT NULL AND `t`.`OrderId` = `t1`.`OrderId`) AND (`p`.`CustomerId` IS NOT NULL AND `c`.`Id` IS NOT NULL)) AS `CustomerId`, (
-    SELECT MIN(`c0`.`Name`)
-    FROM (`TimeSheets` AS `t2`
-    INNER JOIN `Project` AS `p0` ON `t2`.`ProjectId` = `p0`.`Id`)
-    LEFT JOIN `Customers` AS `c0` ON `p0`.`CustomerId` = `c0`.`Id`
-    WHERE (`t2`.`OrderId` IS NOT NULL AND `t`.`OrderId` = `t2`.`OrderId`) AND (`p0`.`CustomerId` IS NOT NULL AND `c0`.`Id` IS NOT NULL)) AS `CustomerName`
-FROM `TimeSheets` AS `t`
-WHERE `t`.`OrderId` IS NOT NULL
+            """
+SELECT MIN(`o`.`HourlyRate`) AS `HourlyRate`, MIN(`c`.`Id`) AS `CustomerId`, MIN(`c`.`Name`) AS `CustomerName`
+FROM ((`TimeSheets` AS `t`
+LEFT JOIN `Order` AS `o` ON `t`.`OrderId` = `o`.`Id`)
+INNER JOIN `Project` AS `p` ON `t`.`ProjectId` = `p`.`Id`)
+LEFT JOIN `Customers` AS `c` ON `p`.`CustomerId` = `c`.`Id`
+WHERE (`t`.`OrderId` IS NOT NULL) AND (`p`.`CustomerId` IS NOT NULL AND `c`.`Id` IS NOT NULL)
 GROUP BY `t`.`OrderId`
 """);
     }
@@ -1747,7 +1757,7 @@ INNER JOIN (
     HAVING COUNT(*) = 1
 ) AS `i0` ON `t`.`ParcelNumber` = `i0`.`Parcel`
 WHERE `t`.`TableId` = 123
-ORDER BY `t`.`ParcelNumber`
+ORDER BY `t`.`ParcelNumber`, `i0`.`Parcel`
 """);
     }
 

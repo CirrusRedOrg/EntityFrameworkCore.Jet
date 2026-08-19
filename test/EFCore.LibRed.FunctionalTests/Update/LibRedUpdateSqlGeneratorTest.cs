@@ -26,7 +26,7 @@ public class LibRedUpdateSqlGeneratorTest : UpdateSqlGeneratorTestBase
     protected override TestHelpers TestHelpers
         => LibRedTestHelpers.Instance;
 
-    [ConditionalFact]
+    [Fact]
     public void AppendBatchHeader_should_append_SET_NOCOUNT_ON()
     {
         var sb = new StringBuilder();
@@ -93,7 +93,7 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
             stringBuilder.ToString());
 
-    [ConditionalFact]
+    [Fact]
     public void AppendBulkInsertOperation_appends_merge_if_store_generated_columns_exist()
     {
         var stringBuilder = new StringBuilder();
@@ -122,7 +122,7 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
         Assert.Equal(ResultSetMapping.NotLastInResultSet, grouping);
     }
 
-    [ConditionalFact]
+    [Fact]
     public void AppendBulkInsertOperation_appends_insert_if_no_store_generated_columns_exist()
     {
         var stringBuilder = new StringBuilder();
@@ -142,7 +142,7 @@ VALUES (@p0, @p1, @p2, @p3);
         Assert.Equal(ResultSetMapping.NoResults, grouping);
     }
 
-    [ConditionalFact]
+    [Fact]
     public void AppendBulkInsertOperation_appends_insert_if_store_generated_columns_exist_default_values_only()
     {
         var stringBuilder = new StringBuilder();
@@ -169,7 +169,7 @@ WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
         Assert.Equal(ResultSetMapping.NotLastInResultSet, grouping);
     }
 
-    [ConditionalFact]
+    [Fact]
     public void AppendBulkInsertOperation_appends_insert_if_no_store_generated_columns_exist_default_values_only()
     {
         var stringBuilder = new StringBuilder();

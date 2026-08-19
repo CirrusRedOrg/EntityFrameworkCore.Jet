@@ -8,7 +8,6 @@ using System.Data.OleDb;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 using Microsoft.EntityFrameworkCore.TestModels.ConcurrencyModel;
@@ -192,9 +191,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             using var context = CreateContext();
 
             var actual = async
-                ? await context.Database.ExecuteSqlInterpolatedAsync(
+                ? await context.Database.ExecuteSqlAsync(
                     $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}")
-                : context.Database.ExecuteSqlInterpolated(
+                : context.Database.ExecuteSql(
                     $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}");
 
             Assert.Equal(-1, actual);
@@ -241,9 +240,9 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             using var context = CreateContext();
 
             var actual = async
-                ? await context.Database.ExecuteSqlInterpolatedAsync(
+                ? await context.Database.ExecuteSqlAsync(
                     $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}")
-                : context.Database.ExecuteSqlInterpolated(
+                : context.Database.ExecuteSql(
                     $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}");
 
             Assert.Equal(-1, actual);

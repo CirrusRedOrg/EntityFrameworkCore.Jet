@@ -1,11 +1,11 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
+using Microsoft.EntityFrameworkCore.BulkUpdates.Inheritance;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
@@ -14,7 +14,7 @@ public class TPHInheritanceBulkUpdatesJetTest(
     ITestOutputHelper testOutputHelper)
     : TPHInheritanceBulkUpdatesTestBase<TPHInheritanceBulkUpdatesJetFixture>(fixture, testOutputHelper)
 {
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

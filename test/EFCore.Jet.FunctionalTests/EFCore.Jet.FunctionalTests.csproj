@@ -1,6 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
+    <OutputType>Exe</OutputType>
 		<TargetFramework>$(JetTestWindowsOnlyTargetFramework)</TargetFramework>
 		<RootNamespace>EntityFrameworkCore.Jet.FunctionalTests</RootNamespace>
 		<AssemblyName>EntityFrameworkCore.Jet.FunctionalTests</AssemblyName>
@@ -23,17 +24,14 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Build.Tasks.Core" Version="18.7.1" />
-		<PackageReference Include="MSTest.TestFramework" />
-		<PackageReference Include="xunit.core" />
-		<PackageReference Include="xunit.assert" />
-		<PackageReference Include="xunit.runner.visualstudio" />
-		<PackageReference Include="xunit.runner.console" />
+		<PackageReference Include="Microsoft.Build.Tasks.Core" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" />
+		<PackageReference Include="xunit.v3.core" />
+		<PackageReference Include="xunit.v3.assert" />
+		<PackageReference Include="xunit.runner.visualstudio" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.Json" />
-		<PackageReference Include="Newtonsoft.Json" />
 		<PackageReference Include="System.Data.Odbc" />
 		<PackageReference Include="System.Data.OleDb" />
 	</ItemGroup>
@@ -65,9 +63,7 @@
 		<Reference Include="Microsoft.EntityFrameworkCore.Specification.Tests">
 			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Specification.Tests.dll</HintPath>
 		</Reference>
-		<PackageReference Include="Microsoft.Extensions.Caching.Memory" />
 		<PackageReference Include="NetTopologySuite" />
-		<PackageReference Include="System.ComponentModel.TypeConverter" />
 		<PackageReference Include="Castle.Core" />
 	</ItemGroup>
 

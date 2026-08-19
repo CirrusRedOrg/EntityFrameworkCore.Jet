@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model33_OneToOneDeleteCascade

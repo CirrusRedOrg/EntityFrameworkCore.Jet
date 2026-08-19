@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Generic;
@@ -16,16 +16,16 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class AdHocQueryFiltersQueryJetTest(NonSharedFixture fixture) : AdHocQueryFiltersQueryRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     #region 11803
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Query_filter_with_db_set_should_not_block_other_filters()
     {
-        var contextFactory = await InitializeAsync<Context11803>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context11803>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var query = context.Factions.ToList();
 
         Assert.Empty(query);
@@ -41,11 +41,11 @@ WHERE EXISTS (
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Keyless_type_used_inside_defining_query()
     {
-        var contextFactory = await InitializeAsync<Context11803>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context11803>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var query = context.LeadersQuery.ToList();
 
         Assert.Single(query);

@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Collections.Generic;
@@ -16,16 +16,16 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class AdHocNavigationsQueryJetTest(NonSharedFixture fixture) : AdHocNavigationsQueryRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     #region 10447
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Nested_include_queries_do_not_populate_navigation_twice()
     {
-        var contextFactory = await InitializeAsync<Context10447>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context10447>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var query = context.Blogs.Include(b => b.Posts);
 
         foreach (var blog in query)
@@ -44,35 +44,35 @@ public class AdHocNavigationsQueryJetTest(NonSharedFixture fixture) : AdHocNavig
 SELECT `b`.`Id`, `p`.`Id`, `p`.`BlogId`
 FROM `Blogs` AS `b`
 LEFT JOIN `Post` AS `p` ON `b`.`Id` = `p`.`BlogId`
-ORDER BY `b`.`Id`
+ORDER BY `b`.`Id`, `p`.`Id`
 """,
             //
             """
 SELECT `b`.`Id`, `p`.`Id`, `p`.`BlogId`
 FROM `Blogs` AS `b`
 LEFT JOIN `Post` AS `p` ON `b`.`Id` = `p`.`BlogId`
-ORDER BY `b`.`Id`
+ORDER BY `b`.`Id`, `p`.`Id`
 """,
             //
             """
 SELECT `b`.`Id`, `p`.`Id`, `p`.`BlogId`
 FROM `Blogs` AS `b`
 LEFT JOIN `Post` AS `p` ON `b`.`Id` = `p`.`BlogId`
-ORDER BY `b`.`Id`
+ORDER BY `b`.`Id`, `p`.`Id`
 """,
             //
             """
 SELECT `b`.`Id`, `p`.`Id`, `p`.`BlogId`
 FROM `Blogs` AS `b`
 LEFT JOIN `Post` AS `p` ON `b`.`Id` = `p`.`BlogId`
-ORDER BY `b`.`Id`
+ORDER BY `b`.`Id`, `p`.`Id`
 """,
             //
             """
 SELECT `b`.`Id`, `p`.`Id`, `p`.`BlogId`
 FROM `Blogs` AS `b`
 LEFT JOIN `Post` AS `p` ON `b`.`Id` = `p`.`BlogId`
-ORDER BY `b`.`Id`
+ORDER BY `b`.`Id`, `p`.`Id`
 """);
     }
 
@@ -131,7 +131,7 @@ LEFT JOIN (
     FROM `Children` AS `c`
     LEFT JOIN `Children` AS `c0` ON `c`.`Id` = `c0`.`SelfReferenceBackNavigationId`
 ) AS `s` ON `p`.`Id` = `s`.`ParentBackNavigationId`
-ORDER BY `p`.`Id`, `s`.`Id`
+ORDER BY `p`.`Id`, `s`.`Id`, `s`.`Id0`
 """,
             //
             """
@@ -165,28 +165,28 @@ LEFT JOIN `Parents` AS `p` ON `c0`.`ParentBackNavigationId` = `p`.`Id`
 SELECT `c`.`Id`, `o`.`Id`, `o`.`CustomerId1`, `o`.`CustomerId2`, `o`.`CustomerId3`, `o`.`CustomerId4`, `o`.`Name`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`Id` = `o`.`CustomerId1`
-ORDER BY `c`.`Id`
+ORDER BY `c`.`Id`, `o`.`Id`
 """,
             //
             """
 SELECT `c`.`Id`, `o`.`Id`, `o`.`CustomerId1`, `o`.`CustomerId2`, `o`.`CustomerId3`, `o`.`CustomerId4`, `o`.`Name`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`Id` = `o`.`CustomerId2`
-ORDER BY `c`.`Id`
+ORDER BY `c`.`Id`, `o`.`Id`
 """,
             //
             """
 SELECT `c`.`Id`, `o`.`Id`, `o`.`CustomerId1`, `o`.`CustomerId2`, `o`.`CustomerId3`, `o`.`CustomerId4`, `o`.`Name`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`Id` = `o`.`CustomerId3`
-ORDER BY `c`.`Id`
+ORDER BY `c`.`Id`, `o`.`Id`
 """,
             //
             """
 SELECT `c`.`Id`, `o`.`Id`, `o`.`CustomerId1`, `o`.`CustomerId2`, `o`.`CustomerId3`, `o`.`CustomerId4`, `o`.`Name`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`Id` = `o`.`CustomerId4`
-ORDER BY `c`.`Id`
+ORDER BY `c`.`Id`, `o`.`Id`
 """);
     }
 
@@ -219,7 +219,7 @@ LEFT JOIN (
     WHERE `p0`.`Discriminator` = 'PersonKid9038'
 ) AS `s` ON `p`.`Id` = `s`.`TeacherId`
 WHERE `p`.`Discriminator` = 'PersonTeacher9038'
-ORDER BY `p`.`Id`, `s`.`Id`, `s`.`Id0`
+ORDER BY `p`.`Id`, `s`.`Id`, `s`.`Id1`
 """,
             //
             """
@@ -233,7 +233,7 @@ LEFT JOIN (
     WHERE `p1`.`Discriminator` = 'PersonKid9038'
 ) AS `p2` ON `p`.`Id` = `p2`.`TeacherId`
 WHERE `p`.`Discriminator` = 'PersonTeacher9038'
-ORDER BY `p`.`Id`, `f`.`Id`, `p0`.`Id`
+ORDER BY `p`.`Id`, `p0`.`Id`, `p2`.`Id`
 """);
     }
 
@@ -246,14 +246,14 @@ ORDER BY `p`.`Id`, `f`.`Id`, `p0`.`Id`
 SELECT `p`.`Id`, `p`.`Name`, `c`.`Id`, `c`.`Name`, `c`.`Parent10635Id`, `c`.`ParentId`
 FROM `Parents` AS `p`
 LEFT JOIN `Children` AS `c` ON `p`.`Id` = `c`.`Parent10635Id`
-ORDER BY `p`.`Id`
+ORDER BY `p`.`Id`, `c`.`Id`
 """,
             //
             """
 SELECT `p`.`Id`, `c`.`Id`, `c`.`Name`, `c`.`Parent10635Id`, `c`.`ParentId`
 FROM `Parents` AS `p`
 LEFT JOIN `Children` AS `c` ON `p`.`Id` = `c`.`Parent10635Id`
-ORDER BY `p`.`Id`
+ORDER BY `p`.`Id`, `c`.`Id`
 """);
     }
 
@@ -268,7 +268,7 @@ FROM ((`Blogs` AS `b`
 LEFT JOIN `Posts` AS `p` ON `b`.`Id` = `p`.`BlogId1`)
 LEFT JOIN `Posts` AS `p0` ON `b`.`Id` = `p0`.`BlogId2`)
 LEFT JOIN `Posts` AS `p1` ON `b`.`Id` = `p1`.`BlogId3`
-ORDER BY `b`.`Id`, `p`.`Id`, `p0`.`Id`
+ORDER BY `b`.`Id`, `p`.`Id`, `p0`.`Id`, `p1`.`Id`
 """,
             //
             """
@@ -307,14 +307,14 @@ FROM `Blogs` AS `b`
 SELECT `s`.`Id`, `s`.`Discriminator`, `s0`.`Id`, `s0`.`SchoolId`
 FROM `Schools` AS `s`
 LEFT JOIN `Students` AS `s0` ON `s`.`Id` = `s0`.`SchoolId`
-ORDER BY `s`.`Id`
+ORDER BY `s`.`Id`, `s0`.`Id`
 """,
             //
             """
 SELECT `s`.`Id`, `s0`.`Id`, `s0`.`SchoolId`
 FROM `Schools` AS `s`
 LEFT JOIN `Students` AS `s0` ON `s`.`Id` = `s0`.`SchoolId`
-ORDER BY `s`.`Id`
+ORDER BY `s`.`Id`, `s0`.`Id`
 """);
     }
 
@@ -368,7 +368,7 @@ INNER JOIN [ActivityType] AS [a0] ON [a].[ActivityTypeId] = [a0].[Id]
 SELECT `e`.`Id`, `e`.`Name`, `d`.`Id`, `d`.`Device`, `d`.`EmployeeId`
 FROM `Employees` AS `e`
 LEFT JOIN `Devices` AS `d` ON `e`.`Id` = `d`.`EmployeeId`
-ORDER BY `e`.`Id`
+ORDER BY `e`.`Id`, `d`.`Id`
 """,
             //
             """
@@ -379,7 +379,7 @@ LEFT JOIN (
     FROM `Devices` AS `d`
     WHERE `d`.`Device` <> 'foo' OR `d`.`Device` IS NULL
 ) AS `d0` ON `e`.`Id` = `d0`.`EmployeeId`
-ORDER BY `e`.`Id`
+ORDER BY `e`.`Id`, `d0`.`Id`
 """);
     }
 
@@ -392,7 +392,7 @@ ORDER BY `e`.`Id`
 SELECT `b`.`Name`, `c`.`Id`
 FROM `Blogs` AS `b`
 LEFT JOIN `Comments` AS `c` ON `b`.`Name` = `c`.`BlogName`
-ORDER BY `b`.`Name`
+ORDER BY `b`.`Name`, `c`.`Id`
 """);
     }
 
@@ -484,7 +484,7 @@ ORDER BY `e`.`Id`
 SELECT `e`.`Id`, `o`.`Id`, `o`.`AppEntityId`
 FROM `Entities` AS `e`
 LEFT JOIN `OtherEntity` AS `o` ON `e`.`Id` = `o`.`AppEntityId`
-ORDER BY `e`.`Id`
+ORDER BY `e`.`Id`, `o`.`Id`
 """);
         }
     }
@@ -510,7 +510,7 @@ INNER JOIN `PrincipalOneToOne` AS `p` ON `d`.`PrincipalId` = `p`.`Id`
 SELECT `p`.`Id`, `d`.`Id`, `d`.`PrincipalId`
 FROM `PrincipalOneToMany` AS `p`
 LEFT JOIN `DependentOneToMany` AS `d` ON `p`.`Id` = `d`.`PrincipalId`
-ORDER BY `p`.`Id`
+ORDER BY `p`.`Id`, `d`.`Id`
 """,
             //
             """
@@ -518,7 +518,7 @@ SELECT `d`.`Id`, `d`.`PrincipalId`, `p`.`Id`, `d0`.`Id`, `d0`.`PrincipalId`
 FROM (`DependentOneToMany` AS `d`
 INNER JOIN `PrincipalOneToMany` AS `p` ON `d`.`PrincipalId` = `p`.`Id`)
 LEFT JOIN `DependentOneToMany` AS `d0` ON `p`.`Id` = `d0`.`PrincipalId`
-ORDER BY `d`.`Id`, `p`.`Id`
+ORDER BY `d`.`Id`, `d0`.`Id`
 """,
             //
             """
@@ -575,7 +575,7 @@ LEFT JOIN (
     FROM `ManyDependent` AS `m0`
     LEFT JOIN `SingleDependent` AS `s` ON `m0`.`Id` = `s`.`ManyDependentId`
 ) AS `s0` ON `p`.`Id` = `s0`.`PrincipalId`
-ORDER BY `m`.`Id`, `p`.`Id`, `s0`.`Id`
+ORDER BY `m`.`Id`, `s0`.`Id`
 """);
     }
 

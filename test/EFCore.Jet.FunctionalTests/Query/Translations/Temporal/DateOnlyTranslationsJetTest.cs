@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.Query.Translations.Temporal;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query.Translations.Temporal;
 
@@ -223,7 +222,7 @@ WHERE (DateSerial(1990, 11, 10) + TimeSerial(DATEPART('h', `b`.`TimeOnly`), DATE
         AssertSql();
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

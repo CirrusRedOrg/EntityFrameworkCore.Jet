@@ -1,4 +1,4 @@
-﻿/*
+/*
 Priority low test
 Interceptor interface has changed hard
 */

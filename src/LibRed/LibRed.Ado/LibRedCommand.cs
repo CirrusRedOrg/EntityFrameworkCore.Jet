@@ -71,7 +71,20 @@ public sealed class LibRedCommand : DbCommand
 
         Engine.CommandResult? last = null;
         foreach (string statement in SplitStatements(CommandText))
-            last = engine.Execute(statement, parameters);
+        {
+            try
+            {
+                last = engine.Execute(statement, parameters);
+            }
+            catch (LibRed.ConstraintViolationException e)
+            {
+                // ADO.NET callers expect a DbException for a database-operation error, and provider code
+                // has to be able to recognise a duplicate key without reading the message: EF Core's
+                // migration lock treats losing the INSERT race as the normal path and retries, so an
+                // unrecognised constraint failure there turns contention into a hard failure.
+                throw new LibRedException(e.Message, LibRedException.DuplicateKey, e);
+            }
+        }
 
         return last ?? new Engine.CommandResult(Engine.Execution.ResultSet.Empty, RecordsAffected: 0);
     }

@@ -1,4 +1,4 @@
-﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -11,7 +11,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 #nullable disable
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
 {
@@ -28,7 +27,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -110,10 +109,10 @@ WHERE `o`.`OrderID` < 10300
 
             AssertSql(
                 """
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-    FROM `Customers` AS `c`
-    WHERE CDBL(IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`))))^2.0 = 25.0
-    """);
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CDBL(LEN(`c`.`CustomerID`)))^2.0 = 25.0
+""");
         }
 
        public override async Task Order_by_length_twice(bool isAsync)
@@ -122,10 +121,10 @@ WHERE `o`.`OrderID` < 10300
 
             AssertSql(
                 """
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-    FROM `Customers` AS `c`
-    ORDER BY IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`))), `c`.`CustomerID`
-    """);
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY LEN(`c`.`CustomerID`), `c`.`CustomerID`
+""");
         }
 
         public override async Task Order_by_length_twice_followed_by_projection_of_naked_collection_navigation(bool isAsync)
@@ -134,11 +133,11 @@ WHERE `o`.`OrderID` < 10300
 
             AssertSql(
                 """
-    SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-    FROM `Customers` AS `c`
-    LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-    ORDER BY IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`))), `c`.`CustomerID`
-    """);
+SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+ORDER BY LEN(`c`.`CustomerID`), `c`.`CustomerID`, `o`.`OrderID`
+""");
         }
 
         public override async Task Static_equals_nullable_datetime_compared_to_non_nullable(bool isAsync)
@@ -167,7 +166,7 @@ WHERE FALSE
 """);
         }
 
-       [ConditionalTheory]
+       [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task StandardDeviation(bool async)
         {
@@ -199,7 +198,7 @@ GROUP BY `o`.`ProductID`
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task Variance(bool async)
         {

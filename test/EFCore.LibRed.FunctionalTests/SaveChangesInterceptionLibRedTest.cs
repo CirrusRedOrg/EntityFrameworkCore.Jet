@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 
@@ -22,7 +22,7 @@ public abstract class SaveChangesInterceptionLibRedTestBase(
     SaveChangesInterceptionLibRedTestBase.InterceptionLibRedFixtureBase fixture)
     : SaveChangesInterceptionTestBase(fixture)
 {
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false, false, false)]
     [InlineData(true, false, false)]
     [InlineData(false, true, false)]

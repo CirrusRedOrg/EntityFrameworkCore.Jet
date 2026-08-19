@@ -1,14 +1,21 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Internal;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.Internal
 {
     public class JetQueryTranslationPostprocessor : RelationalQueryTranslationPostprocessor
     {
+        private static readonly FieldInfo SelectExpressionIdentifierField = typeof(SelectExpression).GetField(
+            "_identifier",
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("Could not find SelectExpression._identifier.");
+
         private readonly IRelationalTypeMappingSource _relationalTypeMappingSource;
         private readonly IJetOptions _options;
         private readonly SkipWithoutOrderByInSplitQueryVerifier _skipWithoutOrderByInSplitQueryVerifier = new();
@@ -36,6 +43,17 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             //query = _liftOrderByPostprocessor.Process(query);
             query = base.Process(query);
 
+            var identifiers = GetIdentifiers(query);
+
+            if (identifiers.Count > 0
+                && query is ShapedQueryExpression { QueryExpression: SelectExpression selectExpression }
+                && !selectExpression.Orderings.Any(
+                    ordering => ordering.Expression.Equals(identifiers[^1].Column)) && selectExpression.Orderings.Any())
+            {
+                selectExpression.AppendOrdering(
+                    new OrderingExpression(identifiers[^1].Column, ascending: true));
+            }
+
             //query = _skipTakePostprocessor.Process(query);
             if (_options.EnableMillisecondsSupport)
             {
@@ -46,6 +64,16 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             query = _liftOrderByPostprocessor.Process(query);
 
             return query;
+        }
+
+        private static IReadOnlyList<(ColumnExpression Column, ValueComparer Comparer)> GetIdentifiers(Expression query)
+        {
+            if (query is not ShapedQueryExpression { QueryExpression: SelectExpression selectExpression })
+            {
+                return [];
+            }
+
+            return (IReadOnlyList<(ColumnExpression Column, ValueComparer Comparer)>)SelectExpressionIdentifierField.GetValue(selectExpression)!;
         }
 
         private sealed class SkipWithoutOrderByInSplitQueryVerifier : ExpressionVisitor

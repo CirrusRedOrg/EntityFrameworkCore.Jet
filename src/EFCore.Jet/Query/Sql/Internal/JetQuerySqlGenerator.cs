@@ -30,6 +30,14 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             { nameof(TimeOnly), "TIMEVALUE" },
         };
 
+        // VBA functions that raise on a NULL in a numeric argument - a length, start, count or code - instead of
+        // propagating it, with the positions that need guarding. Verified against ACE in
+        // LibRed.Core.Tests.AceNullArgumentProbeTest; add an entry as others turn up.
+        private static readonly Dictionary<string, int[]> _nullHostileArguments = new(StringComparer.OrdinalIgnoreCase)
+        {
+            { "MID", [1, 2] },
+        };
+
         private readonly ITypeMappingSource _typeMappingSource;
         private readonly IJetOptions _options;
 
@@ -645,10 +653,97 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 Visit(caseexp);
                 return sqlBinaryExpression;
             }
+            // String concatenation propagates NULL for EF, but Access's '&' coerces a NULL operand to a
+            // zero-length string instead (see GetOperator for why '+', which does propagate, is not usable).
+            // Restore the propagation around the concat rather than in it, and only for operands that can
+            // actually be NULL - a concat of non-nullable operands generates exactly as it did before.
+            if (sqlBinaryExpression.OperatorType == ExpressionType.Add
+                && sqlBinaryExpression.Type == typeof(string)
+                && (MayBeNull(sqlBinaryExpression.Left) || MayBeNull(sqlBinaryExpression.Right)))
+            {
+                // Guard shape follows EF's own: IS NOT NULL checks ANDed together, concat in the THEN. The two
+                // operands are frequently the same expression (x + x), so check each distinct one once.
+                var checks = new List<SqlExpression>(2);
+                foreach (var operand in new[] { sqlBinaryExpression.Left, sqlBinaryExpression.Right })
+                {
+                    if (MayBeNull(operand) && !checks.Any(c => c.Equals(operand)))
+                    {
+                        checks.Add(operand);
+                    }
+                }
+
+                Sql.Append("IIF(");
+
+                for (var i = 0; i < checks.Count; i++)
+                {
+                    if (i > 0)
+                    {
+                        Sql.Append(" AND ");
+                    }
+
+                    Visit(checks[i]);
+                    Sql.Append(" IS NOT NULL");
+                }
+
+                Sql.Append(", ");
+
+                parent.Push(sqlBinaryExpression);
+                base.VisitSqlBinary(sqlBinaryExpression);
+                parent.Pop();
+
+                Sql.Append(", NULL)");
+                return sqlBinaryExpression;
+            }
+
             parent.Push(sqlBinaryExpression);
             var res = base.VisitSqlBinary(sqlBinaryExpression);
             parent.Pop();
             return res;
+        }
+
+        /// <summary>
+        ///     Whether an operand of a string concatenation needs a NULL guard: only a bare nullable column does.
+        ///     Anything composed - a COALESCE, a CASE, a function, a parameter - is left alone, because EF has
+        ///     already expressed whatever null handling it wants there. Guarding those as well produced
+        ///     IIF(IIF(x IS NULL, '', x) IS NOT NULL, ...), a null check on an expression that cannot be null,
+        ///     with the operand duplicated three times.
+        /// </summary>
+        private static bool MayBeNull(SqlExpression expression)
+            => expression is ColumnExpression { IsNullable: true };
+
+        /// <summary>The nullable columns an expression reads, so constants and parameters contribute nothing.</summary>
+        private static IEnumerable<ColumnExpression> NullableColumns(SqlExpression expression)
+        {
+            switch (expression)
+            {
+                case ColumnExpression { IsNullable: true } column:
+                    yield return column;
+                    break;
+
+                case SqlUnaryExpression unary:
+                    foreach (var column in NullableColumns(unary.Operand))
+                    {
+                        yield return column;
+                    }
+
+                    break;
+
+                case SqlBinaryExpression binary:
+                    foreach (var column in NullableColumns(binary.Left).Concat(NullableColumns(binary.Right)))
+                    {
+                        yield return column;
+                    }
+
+                    break;
+
+                case SqlFunctionExpression { Arguments: { } functionArguments }:
+                    foreach (var column in functionArguments.SelectMany(NullableColumns))
+                    {
+                        yield return column;
+                    }
+
+                    break;
+            }
         }
 
         protected override void GenerateIn(InExpression inExpression, bool negated)
@@ -767,31 +862,9 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 }
                 else
                 {
-                    if (convertExpression.Operand.Type == typeof(bool))
-                    {
-                        if (convertExpression.Type == typeof(bool))
-                        {
-                            // bool?bool: no flip needed, CBOOL(x) correctly returns true for any non-zero
-                            notnullsqlexp = WrapConvert(convertExpression.Operand);
-                        }
-                        else
-                        {
-                            // bool?numeric: flip inside conversion function
-                            // CBYTE/CINT/CLNG etc. need 0/1 not 0/-1
-                            var flippedOperand = new SqlBinaryExpression(
-                                ExpressionType.Multiply,
-                                convertExpression.Operand,
-                                new SqlConstantExpression(-1, IntTypeMapping.Default),
-                                convertExpression.Operand.Type,
-                                convertExpression.Operand.TypeMapping);
-
-                            notnullsqlexp = WrapConvert(flippedOperand);
-                        }
-                    }
-                    else
-                    {
-                        notnullsqlexp = WrapConvert(convertExpression.Operand);
-                    }
+                    // A bool operand arrives already flipped to 0/1 by JetSqlExpressionFactory.Convert, so
+                    // CBYTE/CINT/CLNG receive .NET's values rather than VARIANT_BOOL's 0/-1.
+                    notnullsqlexp = WrapConvert(convertExpression.Operand);
                 }
 
                 SqlConstantExpression nullcons = new(null, typeof(string), RelationalTypeMapping.NullMapping);
@@ -875,6 +948,56 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         {
             Visit(crossJoinExpression.Table);
             return crossJoinExpression;
+        }
+
+        protected override Expression VisitLeftJoin(LeftJoinExpression leftJoinExpression)
+        {
+            var equalityColumns = new HashSet<ColumnExpression>();
+            CollectEqualityColumns(leftJoinExpression.JoinPredicate, equalityColumns);
+
+            var predicate = RemoveRedundantNullChecks(leftJoinExpression.JoinPredicate, equalityColumns);
+            return base.VisitLeftJoin(predicate == leftJoinExpression.JoinPredicate
+                ? leftJoinExpression
+                : leftJoinExpression.Update(leftJoinExpression.Table, predicate!));
+
+            static SqlExpression? RemoveRedundantNullChecks(
+                SqlExpression expression,
+                HashSet<ColumnExpression> equalityColumns)
+            {
+                if (expression is SqlBinaryExpression { OperatorType: ExpressionType.AndAlso } andAlso)
+                {
+                    var left = RemoveRedundantNullChecks(andAlso.Left, equalityColumns);
+                    var right = RemoveRedundantNullChecks(andAlso.Right, equalityColumns);
+                    return left is null ? right : right is null ? left : andAlso.Update(left, right);
+                }
+
+                return expression is SqlUnaryExpression
+                {
+                    OperatorType: ExpressionType.NotEqual,
+                    Operand: ColumnExpression column
+                } && equalityColumns.Contains(column)
+                    ? null
+                    : expression;
+            }
+
+            static void CollectEqualityColumns(SqlExpression expression, HashSet<ColumnExpression> result)
+            {
+                if (expression is SqlBinaryExpression { OperatorType: ExpressionType.AndAlso } andAlso)
+                {
+                    CollectEqualityColumns(andAlso.Left, result);
+                    CollectEqualityColumns(andAlso.Right, result);
+                }
+                else if (expression is SqlBinaryExpression
+                         {
+                             OperatorType: ExpressionType.Equal,
+                             Left: ColumnExpression left,
+                             Right: ColumnExpression right
+                         })
+                {
+                    result.Add(left);
+                    result.Add(right);
+                }
+            }
         }
 
         private Expression VisitRowValuePrivate(RowValueExpression rowValueExpression, IReadOnlyList<string> columnNames)
@@ -992,6 +1115,44 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             {
                 Sql.Append(sqlFunctionExpression.Name);
                 return sqlFunctionExpression;
+            }
+
+            // The guard has to be applied here rather than in the query tree: EF removes a CASE that merely
+            // replicates SQL's native null propagation (dotnet/efcore#34127), which is what this looks like to
+            // every dialect where these functions do propagate. IIF short-circuits, so the call is not evaluated.
+            if (_nullHostileArguments.TryGetValue(sqlFunctionExpression.Name, out var guardedPositions)
+                && sqlFunctionExpression.Arguments is { Count: > 0 } arguments)
+            {
+                // Nullability coming from the value argument itself needs no guard: ACE returns NULL for the
+                // whole call when the value is NULL, before it coerces the numeric arguments. Only a NULL
+                // arriving from somewhere else - MID(note, 1, LEN(otherTable.Name)) - reaches the coercion.
+                var valueColumns = NullableColumns(arguments[0]).ToHashSet();
+
+                var nullable = guardedPositions
+                    .Where(position => position < arguments.Count)
+                    .Where(position => NullableColumns(arguments[position]).Any(column => !valueColumns.Contains(column)))
+                    .Select(position => arguments[position])
+                    .ToList();
+
+                if (nullable.Count > 0)
+                {
+                    Sql.Append("IIF(");
+                    for (var i = 0; i < nullable.Count; i++)
+                    {
+                        if (i > 0)
+                        {
+                            Sql.Append(" OR ");
+                        }
+
+                        Visit(nullable[i]);
+                        Sql.Append(" IS NULL");
+                    }
+
+                    Sql.Append(", NULL, ");
+                    base.VisitSqlFunction(sqlFunctionExpression);
+                    Sql.Append(")");
+                    return sqlFunctionExpression;
+                }
             }
 
             if (sqlFunctionExpression.Name.Equals("POW", StringComparison.OrdinalIgnoreCase) && sqlFunctionExpression.Arguments != null)

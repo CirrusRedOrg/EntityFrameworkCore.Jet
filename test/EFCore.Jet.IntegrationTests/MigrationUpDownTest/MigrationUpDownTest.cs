@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using EFCore.Jet.Integration.Test.Model02;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

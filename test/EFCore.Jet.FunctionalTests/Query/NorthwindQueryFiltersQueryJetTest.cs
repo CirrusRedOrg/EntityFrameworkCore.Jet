@@ -1,4 +1,4 @@
-﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Linq;
 using System.Threading.Tasks;
@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
@@ -21,7 +20,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -141,10 +140,10 @@ WHERE `c`.`CompanyName` LIKE @ef_filter__TenantPrefix_startswith
 @ef_filter__TenantPrefix_startswith='B%' (Size = 40)
 @ef_filter__TenantPrefix_startswith='B%' (Size = 40)
 
-SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `s`.`CustomerID0`
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN (
-    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c1`.`CustomerID` AS `CustomerID0`
+    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     LEFT JOIN (
         SELECT `c0`.`CustomerID`, `c0`.`CompanyName`
@@ -154,7 +153,7 @@ LEFT JOIN (
     WHERE `c1`.`CustomerID` IS NOT NULL AND `c1`.`CompanyName` IS NOT NULL
 ) AS `s` ON `c`.`CustomerID` = `s`.`CustomerID`
 WHERE `c`.`CompanyName` LIKE @ef_filter__TenantPrefix_startswith
-ORDER BY `c`.`CustomerID`, `s`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -163,12 +162,12 @@ ORDER BY `c`.`CustomerID`, `s`.`OrderID`
             await base.Include_query_opt_out(async);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    ORDER BY `c`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+""");
         }
 
         public override async Task Included_many_to_one_query(bool async)
@@ -257,7 +256,7 @@ WHERE ((`c`.`CompanyName` LIKE @ef_filter__TenantPrefix_startswith) AND `s1`.`Di
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void FromSql_is_composed()
         {
             using (var context = Fixture.CreateContext())
@@ -279,7 +278,7 @@ WHERE `m`.`CompanyName` LIKE @ef_filter__TenantPrefix_startswith
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void FromSql_is_composed_when_filter_has_navigation()
         {
             using (var context = Fixture.CreateContext())
@@ -354,6 +353,59 @@ WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
             await base.Client_eval(async);
 
             AssertSql();
+        }
+
+        public override async Task GroupBy_aggregate_through_filtered_navigation(bool async)
+        {
+            await base.GroupBy_aggregate_through_filtered_navigation(async);
+
+            AssertSql(
+                """
+@ef_filter__TenantPrefix_startswith='B%' (Size = 40)
+
+SELECT `o`.`EmployeeID` AS `Key`, COUNT(IIF(`c0`.`City` = 'London', 1, NULL)) AS `Londons`
+FROM `Orders` AS `o`
+LEFT JOIN (
+    SELECT `c`.`CustomerID`, `c`.`City`, `c`.`CompanyName`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CompanyName` LIKE @ef_filter__TenantPrefix_startswith
+) AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
+WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
+GROUP BY `o`.`EmployeeID`
+""");
+        }
+
+        public override async Task GroupBy_aggregate_through_filtered_navigation_with_total(bool async)
+        {
+            await base.GroupBy_aggregate_through_filtered_navigation_with_total(async);
+
+            AssertSql(
+                """
+@ef_filter__TenantPrefix_startswith='B%' (Size = 40)
+
+SELECT `o`.`EmployeeID` AS `Key`, COUNT(*) AS `Total`, COUNT(IIF(`c0`.`City` = 'London', 1, NULL)) AS `Londons`
+FROM `Orders` AS `o`
+LEFT JOIN (
+    SELECT `c`.`CustomerID`, `c`.`City`, `c`.`CompanyName`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CompanyName` LIKE @ef_filter__TenantPrefix_startswith
+) AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
+WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
+GROUP BY `o`.`EmployeeID`
+""");
+        }
+
+        public override async Task GroupBy_aggregate_through_filtered_navigation_ignore_query_filters(bool async)
+        {
+            await base.GroupBy_aggregate_through_filtered_navigation_ignore_query_filters(async);
+
+            AssertSql(
+                """
+SELECT `o`.`EmployeeID` AS `Key`, COUNT(IIF(`c`.`City` = 'London', 1, NULL)) AS `Londons`
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+GROUP BY `o`.`EmployeeID`
+""");
         }
 
         public override async Task Included_many_to_one_query2(bool async)

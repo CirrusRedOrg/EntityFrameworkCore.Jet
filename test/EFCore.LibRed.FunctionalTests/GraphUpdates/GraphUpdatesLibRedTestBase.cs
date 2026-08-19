@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
@@ -24,7 +24,7 @@ public abstract class GraphUpdatesLibRedTestBase<TFixture> : GraphUpdatesTestBas
         // exhausts the functional-test host (observed at >425 MB of live strings in a managed heap dump).
         => fixture.TestSqlLoggerFactory.Clear();
 
-    [ConditionalFact] // Issue #32638
+    [Fact] // Issue #32638
     public virtual void Key_and_index_properties_use_appropriate_comparer()
     {
         var parent = new StringKeyAndIndexParent
@@ -244,6 +244,13 @@ public abstract class GraphUpdatesLibRedTestBase<TFixture> : GraphUpdatesTestBas
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalOverlapping2` DROP CONSTRAINT `FK_OptionalOverlapping2_RequiredComposite1_ParentId_ParentAlter~`");
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `OptionalSingleComposite2` DROP CONSTRAINT `FK_OptionalSingleComposite2_OptionalSingleAk1_BackId_ParentAlte~`");
             await context.Database.ExecuteSqlAsync($"ALTER TABLE `SharedFkParent` DROP CONSTRAINT `FK_SharedFkParent_SharedFkDependant_RootId_DependantId`");
+
+            // Group37310 is the same optional-composite shape - Id is required, GroupOwnerId is not - but
+            // unlike the four above it is absent from the owned model, so this one is conditional.
+            if (context.Model.GetEntityTypes().Any(e => e.GetTableName() == "Group37310"))
+            {
+                await context.Database.ExecuteSqlAsync($"ALTER TABLE `Group37310` DROP CONSTRAINT `FK_Group37310_GroupMember37310_Id_GroupOwnerId`");
+            }
         }
     }
 }

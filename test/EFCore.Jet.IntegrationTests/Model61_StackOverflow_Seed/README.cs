@@ -1,4 +1,4 @@
-﻿/*
+/*
 Priority low test
 DbSet<>().AddOrUpdate() is not supported in EF Core
 */

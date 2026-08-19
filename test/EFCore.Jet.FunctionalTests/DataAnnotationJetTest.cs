@@ -12,7 +12,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 
@@ -37,7 +36,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
         protected override TestHelpers TestHelpers
         => JetTestHelpers.Instance;
 
-        [ConditionalFact]
+        [Fact]
         public virtual ModelBuilder Default_for_key_string_column_throws()
         {
             var modelBuilder = CreateModelBuilder();

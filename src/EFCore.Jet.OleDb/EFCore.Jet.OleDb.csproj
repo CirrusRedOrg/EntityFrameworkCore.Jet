@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<Description>Explicit OLE DB support for Jet/ACE database provider for Entity Framework Core (Microsoft Access MDB/ACCDB files).</Description>

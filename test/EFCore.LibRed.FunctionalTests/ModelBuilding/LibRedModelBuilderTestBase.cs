@@ -22,7 +22,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
     public abstract class LibRedNonRelationship(LibRedModelBuilderFixture fixture)
         : RelationalNonRelationshipTestBase(fixture), IClassFixture<LibRedModelBuilderFixture>
     {
-        [ConditionalFact]
+        [Fact]
         public virtual void Index_has_a_filter_if_nonclustered_unique_with_nullable_properties()
         {
             var modelBuilder = CreateModelBuilder();
@@ -81,7 +81,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Null(index.GetFilter());
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Indexes_can_have_same_name_across_tables()
         {
             var modelBuilder = CreateModelBuilder();
@@ -109,7 +109,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
                     StoreObjectIdentifier.Table("CustomerDetails")));
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_set_store_type_for_property_type()
         {
             var modelBuilder = CreateModelBuilder(c =>
@@ -143,7 +143,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Equal("nchar(max)", entityType.FindProperty("Bottom")!.GetColumnType());
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_set_fixed_length_for_property_type()
         {
             var modelBuilder = CreateModelBuilder(c =>
@@ -172,7 +172,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.True(entityType.FindProperty("Bottom")!.IsFixedLength());
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_set_collation_for_property_type()
         {
             var modelBuilder = CreateModelBuilder(c =>
@@ -201,7 +201,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Equal("Latin1_General_BIN", entityType.FindProperty("Bottom")!.GetCollation());
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_set_store_type_for_primitive_collection()
         {
             var modelBuilder = CreateModelBuilder();
@@ -227,7 +227,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Equal("varchar(max)", entityType.FindProperty("Bottom")!.GetColumnType());
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_set_fixed_length_for_primitive_collection()
         {
             var modelBuilder = CreateModelBuilder();
@@ -246,7 +246,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.True(entityType.FindProperty("Charm")!.IsFixedLength());
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_set_collation_for_primitive_collection()
         {
             var modelBuilder = CreateModelBuilder();
@@ -275,7 +275,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
     public abstract class LibRedInheritance(LibRedModelBuilderFixture fixture)
         : RelationalInheritanceTestBase(fixture), IClassFixture<LibRedModelBuilderFixture>
     {
-        [ConditionalFact] // #7240
+        [Fact] // #7240
         public void Can_use_shadow_FK_that_collides_with_convention_shadow_FK_on_other_derived_type()
         {
             var modelBuilder = CreateModelBuilder();
@@ -296,7 +296,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Equal("DisjointChildSubclass2_ParentId", property2.GetColumnName(StoreObjectIdentifier.Table(nameof(Child))));
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Inherited_clr_properties_are_mapped_to_the_same_column()
         {
             var modelBuilder = CreateModelBuilder();
@@ -313,7 +313,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Equal(nameof(Child.Name), property2.GetColumnName());
         }
 
-        [ConditionalFact] //Issue#10659
+        [Fact] //Issue#10659
         public void Index_convention_run_for_fk_when_derived_type_discovered_before_base_type()
         {
             var modelBuilder = CreateModelBuilder();
@@ -326,7 +326,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Equal("[CustomerId] IS NOT NULL", index.GetFilter());
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Index_convention_sets_filter_for_unique_index_when_base_type_changed()
         {
             var modelBuilder = CreateModelBuilder();
@@ -346,7 +346,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Null(index.GetFilter());
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Can_override_TPC_with_TPH()
         {
             var modelBuilder = CreateModelBuilder();
@@ -366,7 +366,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Equal(nameof(Q), model.FindEntityType(typeof(Q))!.GetDiscriminatorValue());
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void TPT_identifying_FK_is_created_only_on_declaring_table()
         {
             var modelBuilder = CreateModelBuilder();
@@ -428,7 +428,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Single(sesameBunFk.GetMappedConstraints());
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void TPC_identifying_FKs_are_created_on_all_tables()
         {
             var modelBuilder = CreateModelBuilder();
@@ -492,7 +492,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
                 ingredientIndex.GetDatabaseName(StoreObjectIdentifier.Create(bunType, StoreObjectType.Table)!.Value));
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void TPT_index_can_use_inherited_properties()
         {
             var modelBuilder = CreateModelBuilder();
@@ -519,7 +519,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.All(bunType.GetIndexes(), i => Assert.Null(i.GetFilter()));
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Can_add_check_constraints()
         {
             var modelBuilder = CreateModelBuilder();
@@ -556,7 +556,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Empty(child.GetDeclaredCheckConstraints());
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Adding_conflicting_check_constraint_to_derived_type_throws()
         {
             var modelBuilder = CreateModelBuilder();
@@ -569,7 +569,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
                     => modelBuilder.Entity<Child>().ToTable(tb => tb.HasCheckConstraint("LargeId", "Id > 1000"))).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Adding_conflicting_check_constraint_to_derived_type_before_base_throws()
         {
             var modelBuilder = CreateModelBuilder();
@@ -609,7 +609,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
     public abstract class LibRedOneToMany(LibRedModelBuilderFixture fixture)
         : RelationalOneToManyTestBase(fixture), IClassFixture<LibRedModelBuilderFixture>
     {
-        [ConditionalFact]
+        [Fact]
         public virtual void Shadow_foreign_keys_to_generic_types_have_terrible_names_that_should_not_change()
         {
             var modelBuilder = CreateModelBuilder();
@@ -669,7 +669,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
     public abstract class LibRedManyToMany(LibRedModelBuilderFixture fixture)
         : RelationalManyToManyTestBase(fixture), IClassFixture<LibRedModelBuilderFixture>
     {
-        [ConditionalFact]
+        [Fact]
         public virtual void Join_entity_type_uses_same_schema()
         {
             var modelBuilder = CreateModelBuilder();
@@ -697,7 +697,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Equal(2, productCategoryType.GetForeignKeys().Count());
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Join_entity_type_uses_default_schema_if_related_are_different()
         {
             var modelBuilder = CreateModelBuilder();
@@ -729,7 +729,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
     public abstract class LibRedOwnedTypes(LibRedModelBuilderFixture fixture)
         : RelationalOwnedTypesTestBase(fixture), IClassFixture<LibRedModelBuilderFixture>
     {
-        [ConditionalFact]
+        [Fact]
         public virtual void Owned_types_use_table_splitting_by_default()
         {
             var modelBuilder = CreateModelBuilder();
@@ -850,7 +850,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.All(bookId.PropertyMappings, m => Assert.Equal(ValueGenerated.OnUpdateSometimes, m.Property.ValueGenerated));
         }
 
-        /*[ConditionalFact]
+        /*[Fact]
         public virtual void Owned_types_can_be_mapped_to_different_tables()
         {
             var modelBuilder = CreateModelBuilder();
@@ -1025,7 +1025,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
                 ValueGenerated.Never, bookLabel2Ownership21.DeclaringEntityType.FindPrimaryKey()!.Properties.Single().ValueGenerated);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Owned_type_collections_can_be_mapped_to_different_tables()
         {
             var modelBuilder = CreateModelBuilder();
@@ -1078,7 +1078,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Null(owned.GetSchema());
         }*/
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Owned_type_collections_are_mapped_to_same_tables_by_default()
         {
             var modelBuilder = CreateModelBuilder();
@@ -1125,7 +1125,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
                 Assert.Throws<InvalidOperationException>(() => modelBuilder.FinalizeModel()).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Owned_type_collections_can_be_mapped_to_a_view()
         {
             var modelBuilder = CreateModelBuilder();
@@ -1164,7 +1164,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Equal("foo", owned.GetViewSchema());
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Owner_can_be_mapped_to_a_view()
         {
             var modelBuilder = CreateModelBuilder();
@@ -1203,7 +1203,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Null(owned.GetSchema());
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Json_entity_and_normal_owned_can_exist_side_by_side_on_same_entity()
         {
             var modelBuilder = CreateModelBuilder();
@@ -1241,7 +1241,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.True(nonJson.All(x => x.GetProperty("Enum").GetJsonPropertyName() == null));
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Json_entity_with_tph_inheritance()
         {
             var modelBuilder = CreateModelBuilder();
@@ -1277,7 +1277,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Equal("reference_on_derived", jsonColumnNames[3]);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Json_entity_with_nested_structure_same_property_names()
         {
             var modelBuilder = CreateModelBuilder();
@@ -1380,7 +1380,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.Equal(16, model.FindEntityTypes(typeof(OwnedEntity)).Count());
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Json_entity_nested_enums_have_conversions_to_int_by_default_ToJson_first()
         {
             var modelBuilder = CreateModelBuilder();
@@ -1434,7 +1434,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Json_entity_nested_enums_have_conversions_to_int_by_default_ToJson_last()
         {
             var modelBuilder = CreateModelBuilder();
@@ -1488,7 +1488,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Entity_mapped_to_json_and_unwound_afterwards_properly_cleans_up_its_state()
         {
             var modelBuilder = CreateModelBuilder();
@@ -1527,9 +1527,6 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             foreach (var outerOwnedEntity in outerOwnedEntities)
             {
                 Assert.False(outerOwnedEntity.IsMappedToJson());
-#pragma warning disable CS0618
-                Assert.Null(outerOwnedEntity.GetContainerColumnTypeMapping());
-#pragma warning restore CS0618
                 var myEnum = outerOwnedEntity.GetDeclaredProperties().Where(p => p.ClrType.IsEnum).Single();
                 var typeMapping = myEnum.FindRelationalTypeMapping()!;
 
@@ -1542,16 +1539,13 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             foreach (var ownedEntity in ownedEntities)
             {
                 Assert.False(ownedEntity.IsMappedToJson());
-#pragma warning disable CS0618
-                Assert.Null(ownedEntity.GetContainerColumnTypeMapping());
-#pragma warning restore CS0618
                 var myEnum = ownedEntity.GetDeclaredProperties().Where(p => p.ClrType.IsEnum).Single();
                 var typeMapping = myEnum.FindRelationalTypeMapping()!;
                 Assert.True(typeMapping.Converter is EnumToNumberConverter<MyJsonEnum, int>);
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Json_entity_mapped_to_view()
         {
             var modelBuilder = CreateModelBuilder();
@@ -1575,7 +1569,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.True(ownedEntities.All(x => x.GetViewName() == "MyView"));
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Json_entity_mapped_to_view_with_custom_schema()
         {
             var modelBuilder = CreateModelBuilder();
@@ -1600,7 +1594,7 @@ public class LibRedModelBuilderTestBase : RelationalModelBuilderTest
             Assert.True(ownedEntities.All(x => x.GetViewSchema() == "MySchema"));
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Json_entity_with_custom_property_names()
         {
             var modelBuilder = CreateModelBuilder();

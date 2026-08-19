@@ -1,4 +1,4 @@
-﻿using EntityFrameworkCore.Jet.Data;
+using EntityFrameworkCore.Jet.Data;
 using EntityFrameworkCore.Jet.Data.JetStoreSchemaDefinition;
 using Microsoft.EntityFrameworkCore.Migrations.Internal;
 

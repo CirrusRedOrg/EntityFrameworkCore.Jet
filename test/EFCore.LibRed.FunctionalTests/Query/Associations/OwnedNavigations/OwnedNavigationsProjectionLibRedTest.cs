@@ -1,15 +1,15 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query.Associations.OwnedNavigations;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query.Associations.OwnedNavigations;
 
 public class OwnedNavigationsProjectionLibRedTest(OwnedNavigationsLibRedFixture fixture, ITestOutputHelper testOutputHelper)
     : OwnedNavigationsProjectionRelationalTestBase<OwnedNavigationsLibRedFixture>(fixture, testOutputHelper)
 {
+
     public override async Task Select_root(QueryTrackingBehavior queryTrackingBehavior)
     {
         await base.Select_root(queryTrackingBehavior);
@@ -33,7 +33,7 @@ LEFT JOIN (
 ) AS `s` ON `r`.`Id` = `s`.`RootEntityId`)
 LEFT JOIN `OptionalRelated_NestedCollection` AS `o2` ON `o`.`RootEntityId` = `o2`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r7` ON `r0`.`RootEntityId` = `r7`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`AssociateTypeRootEntityId`, `r0`.`RootEntityId`, `r1`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeRootEntityId`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`AssociateTypeRootEntityId0`, `s`.`AssociateTypeId0`, `s`.`AssociateTypeRootEntityId1`, `s`.`AssociateTypeId1`, `s`.`Id0`, `o2`.`AssociateTypeRootEntityId`, `o2`.`Id`, `r7`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`AssociateTypeRootEntityId`, `r0`.`RootEntityId`, `r1`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeRootEntityId`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`AssociateTypeRootEntityId0`, `s`.`AssociateTypeId0`, `s`.`AssociateTypeRootEntityId1`, `s`.`AssociateTypeId1`, `s`.`Id0`, `o2`.`AssociateTypeRootEntityId`, `o2`.`Id`, `r7`.`AssociateTypeRootEntityId`, `r7`.`Id`
 """);
     }
 
@@ -105,7 +105,7 @@ LEFT JOIN `RequiredRelated` AS `r0` ON `r`.`Id` = `r0`.`RootEntityId`)
 LEFT JOIN `RequiredRelated_OptionalNested` AS `r1` ON `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_RequiredNested` AS `r2` ON `r0`.`RootEntityId` = `r2`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r3` ON `r0`.`RootEntityId` = `r3`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r1`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r1`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`, `r3`.`Id`
 """);
         }
     }
@@ -124,7 +124,7 @@ LEFT JOIN `OptionalRelated` AS `o` ON `r`.`Id` = `o`.`RootEntityId`)
 LEFT JOIN `OptionalRelated_OptionalNested` AS `o0` ON `o`.`RootEntityId` = `o0`.`AssociateTypeRootEntityId`)
 LEFT JOIN `OptionalRelated_RequiredNested` AS `o1` ON `o`.`RootEntityId` = `o1`.`AssociateTypeRootEntityId`)
 LEFT JOIN `OptionalRelated_NestedCollection` AS `o2` ON `o`.`RootEntityId` = `o2`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`AssociateTypeRootEntityId`, `o2`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`AssociateTypeRootEntityId`, `o2`.`AssociateTypeRootEntityId`, `o2`.`Id`
 """);
         }
     }
@@ -201,14 +201,14 @@ LEFT JOIN `OptionalRelated_OptionalNested` AS `o0` ON `o`.`RootEntityId` = `o0`.
         {
             AssertSql(
                 """
-SELECT `r1`.`RootEntityId`, `r1`.`Id`, `r1`.`Int`, `r1`.`Ints`, `r1`.`Name`, `r1`.`String`, `r`.`Id`, `r0`.`Id`, `r2`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`, `r4`.`AssociateTypeRootEntityId`, `r4`.`Id`, `r4`.`Int`, `r4`.`Ints`, `r4`.`Name`, `r4`.`String`, `r2`.`Id`, `r2`.`Int`, `r2`.`Ints`, `r2`.`Name`, `r2`.`String`, `r3`.`Id`, `r3`.`Int`, `r3`.`Ints`, `r3`.`Name`, `r3`.`String`
+SELECT `r1`.`RootEntityId`, `r1`.`Id`, `r1`.`Int`, `r1`.`Ints`, `r1`.`Name`, `r1`.`String`, `r`.`Id`, `r2`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`, `r4`.`AssociateTypeRootEntityId`, `r4`.`Id`, `r4`.`Int`, `r4`.`Ints`, `r4`.`Name`, `r4`.`String`, `r2`.`Id`, `r2`.`Int`, `r2`.`Ints`, `r2`.`Name`, `r2`.`String`, `r3`.`Id`, `r3`.`Int`, `r3`.`Ints`, `r3`.`Name`, `r3`.`String`
 FROM ((((`RootReferencingEntity` AS `r`
 LEFT JOIN `RootEntity` AS `r0` ON `r`.`RootEntityId` = `r0`.`Id`)
 LEFT JOIN `RequiredRelated` AS `r1` ON `r0`.`Id` = `r1`.`RootEntityId`)
 LEFT JOIN `RequiredRelated_OptionalNested` AS `r2` ON `r1`.`RootEntityId` = `r2`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_RequiredNested` AS `r3` ON `r1`.`RootEntityId` = `r3`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r4` ON `r1`.`RootEntityId` = `r4`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `r0`.`Id`, `r1`.`RootEntityId`, `r2`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`, `r4`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r1`.`RootEntityId`, `r2`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`, `r4`.`AssociateTypeRootEntityId`, `r4`.`Id`
 """);
         }
     }
@@ -227,7 +227,7 @@ LEFT JOIN `RequiredRelated` AS `r0` ON `r`.`Id` = `r0`.`RootEntityId`)
 LEFT JOIN `RequiredRelated_OptionalNested` AS `r1` ON `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_RequiredNested` AS `r2` ON `r0`.`RootEntityId` = `r2`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r3` ON `r0`.`RootEntityId` = `r3`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r1`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r1`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`, `r3`.`Id`
 """);
         }
     }
@@ -265,7 +265,7 @@ LEFT JOIN (
     LEFT JOIN `RelatedCollection_RequiredNested` AS `r2` ON `r0`.`RootEntityId` = `r2`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r2`.`AssociateTypeId`)
     LEFT JOIN `RelatedCollection_NestedCollection` AS `r3` ON `r0`.`RootEntityId` = `r3`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r3`.`AssociateTypeId`
 ) AS `s` ON `r`.`Id` = `s`.`RootEntityId`
-ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`AssociateTypeRootEntityId0`, `s`.`AssociateTypeId0`, `s`.`AssociateTypeRootEntityId1`, `s`.`AssociateTypeId1`
+ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`AssociateTypeRootEntityId0`, `s`.`AssociateTypeId0`, `s`.`AssociateTypeRootEntityId1`, `s`.`AssociateTypeId1`, `s`.`Id0`
 """);
         }
     }
@@ -282,7 +282,7 @@ SELECT `r`.`Id`, `r0`.`RootEntityId`, `r1`.`AssociateTypeRootEntityId`, `r1`.`Id
 FROM (`RootEntity` AS `r`
 LEFT JOIN `RequiredRelated` AS `r0` ON `r`.`Id` = `r0`.`RootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r1` ON `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r1`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r1`.`AssociateTypeRootEntityId`, `r1`.`Id`
 """);
         }
     }
@@ -299,7 +299,7 @@ SELECT `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o0`.`Id`
 FROM (`RootEntity` AS `r`
 LEFT JOIN `OptionalRelated` AS `o` ON `r`.`Id` = `o`.`RootEntityId`)
 LEFT JOIN `OptionalRelated_NestedCollection` AS `o0` ON `o`.`RootEntityId` = `o0`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o0`.`Id`
 """);
         }
     }
@@ -318,7 +318,7 @@ INNER JOIN `RelatedCollection` AS `r0` ON `r`.`Id` = `r0`.`RootEntityId`)
 LEFT JOIN `RelatedCollection_OptionalNested` AS `r1` ON `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r1`.`AssociateTypeId`)
 LEFT JOIN `RelatedCollection_RequiredNested` AS `r2` ON `r0`.`RootEntityId` = `r2`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r2`.`AssociateTypeId`)
 LEFT JOIN `RelatedCollection_NestedCollection` AS `r3` ON `r0`.`RootEntityId` = `r3`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r3`.`AssociateTypeId`
-ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r0`.`Id`, `r1`.`AssociateTypeRootEntityId`, `r1`.`AssociateTypeId`, `r2`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeId`, `r3`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeId`
+ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r0`.`Id`, `r1`.`AssociateTypeRootEntityId`, `r1`.`AssociateTypeId`, `r2`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeId`, `r3`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeId`, `r3`.`Id`
 """);
         }
     }
@@ -393,8 +393,90 @@ LEFT JOIN (
 ) AS `s0` ON `r`.`Id` = `s0`.`RootEntityId`)
 LEFT JOIN `OptionalRelated_NestedCollection` AS `o3` ON `o`.`RootEntityId` = `o3`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r12` ON `r0`.`RootEntityId` = `r12`.`AssociateTypeRootEntityId`
-ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`AssociateTypeRootEntityId`, `r0`.`RootEntityId`, `r1`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeRootEntityId`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`AssociateTypeRootEntityId0`, `s`.`AssociateTypeId0`, `s`.`AssociateTypeRootEntityId1`, `s`.`AssociateTypeId1`, `s`.`Id0`, `o2`.`AssociateTypeRootEntityId`, `o2`.`Id`, `r7`.`AssociateTypeRootEntityId`, `r7`.`Id`, `s0`.`RootEntityId`, `s0`.`Id`, `s0`.`AssociateTypeRootEntityId`, `s0`.`AssociateTypeId`, `s0`.`AssociateTypeRootEntityId0`, `s0`.`AssociateTypeId0`, `s0`.`AssociateTypeRootEntityId1`, `s0`.`AssociateTypeId1`, `s0`.`Id0`, `o3`.`AssociateTypeRootEntityId`, `o3`.`Id`, `r12`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`AssociateTypeRootEntityId`, `r0`.`RootEntityId`, `r1`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeRootEntityId`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`AssociateTypeRootEntityId0`, `s`.`AssociateTypeId0`, `s`.`AssociateTypeRootEntityId1`, `s`.`AssociateTypeId1`, `s`.`Id0`, `o2`.`AssociateTypeRootEntityId`, `o2`.`Id`, `r7`.`AssociateTypeRootEntityId`, `r7`.`Id`, `s0`.`RootEntityId`, `s0`.`Id`, `s0`.`AssociateTypeRootEntityId`, `s0`.`AssociateTypeId`, `s0`.`AssociateTypeRootEntityId0`, `s0`.`AssociateTypeId0`, `s0`.`AssociateTypeRootEntityId1`, `s0`.`AssociateTypeId1`, `s0`.`Id0`, `o3`.`AssociateTypeRootEntityId`, `o3`.`Id`, `r12`.`AssociateTypeRootEntityId`, `r12`.`Id`
 """);
+    }
+
+    public override async Task Select_required_associate_duplicated(QueryTrackingBehavior queryTrackingBehavior)
+    {
+        await base.Select_required_associate_duplicated(queryTrackingBehavior);
+
+        if (queryTrackingBehavior is not QueryTrackingBehavior.TrackAll)
+        {
+            AssertSql(
+                """
+SELECT `r0`.`RootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`, `r`.`Id`, `r1`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`, `r3`.`Id`, `r3`.`Int`, `r3`.`Ints`, `r3`.`Name`, `r3`.`String`, `r1`.`Id`, `r1`.`Int`, `r1`.`Ints`, `r1`.`Name`, `r1`.`String`, `r2`.`Id`, `r2`.`Int`, `r2`.`Ints`, `r2`.`Name`, `r2`.`String`, `r4`.`AssociateTypeRootEntityId`, `r4`.`Id`, `r4`.`Int`, `r4`.`Ints`, `r4`.`Name`, `r4`.`String`
+FROM ((((`RootEntity` AS `r`
+LEFT JOIN `RequiredRelated` AS `r0` ON `r`.`Id` = `r0`.`RootEntityId`)
+LEFT JOIN `RequiredRelated_OptionalNested` AS `r1` ON `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId`)
+LEFT JOIN `RequiredRelated_RequiredNested` AS `r2` ON `r0`.`RootEntityId` = `r2`.`AssociateTypeRootEntityId`)
+LEFT JOIN `RequiredRelated_NestedCollection` AS `r3` ON `r0`.`RootEntityId` = `r3`.`AssociateTypeRootEntityId`)
+LEFT JOIN `RequiredRelated_NestedCollection` AS `r4` ON `r0`.`RootEntityId` = `r4`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r1`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`, `r3`.`Id`, `r4`.`AssociateTypeRootEntityId`, `r4`.`Id`
+""");
+        }
+    }
+
+    public override async Task Select_required_associate_and_optional_associate(QueryTrackingBehavior queryTrackingBehavior)
+    {
+        await base.Select_required_associate_and_optional_associate(queryTrackingBehavior);
+
+        if (queryTrackingBehavior is not QueryTrackingBehavior.TrackAll)
+        {
+            AssertSql(
+                """
+SELECT `r0`.`RootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`, `r`.`Id`, `r1`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeRootEntityId`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`, `r3`.`Id`, `r3`.`Int`, `r3`.`Ints`, `r3`.`Name`, `r3`.`String`, `r1`.`Id`, `r1`.`Int`, `r1`.`Ints`, `r1`.`Name`, `r1`.`String`, `r2`.`Id`, `r2`.`Int`, `r2`.`Ints`, `r2`.`Name`, `r2`.`String`, `o`.`Id`, `o`.`Int`, `o`.`Ints`, `o`.`Name`, `o`.`String`, `o2`.`AssociateTypeRootEntityId`, `o2`.`Id`, `o2`.`Int`, `o2`.`Ints`, `o2`.`Name`, `o2`.`String`, `o0`.`Id`, `o0`.`Int`, `o0`.`Ints`, `o0`.`Name`, `o0`.`String`, `o1`.`Id`, `o1`.`Int`, `o1`.`Ints`, `o1`.`Name`, `o1`.`String`
+FROM (((((((`RootEntity` AS `r`
+LEFT JOIN `RequiredRelated` AS `r0` ON `r`.`Id` = `r0`.`RootEntityId`)
+LEFT JOIN `RequiredRelated_OptionalNested` AS `r1` ON `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId`)
+LEFT JOIN `RequiredRelated_RequiredNested` AS `r2` ON `r0`.`RootEntityId` = `r2`.`AssociateTypeRootEntityId`)
+LEFT JOIN `OptionalRelated` AS `o` ON `r`.`Id` = `o`.`RootEntityId`)
+LEFT JOIN `OptionalRelated_OptionalNested` AS `o0` ON `o`.`RootEntityId` = `o0`.`AssociateTypeRootEntityId`)
+LEFT JOIN `OptionalRelated_RequiredNested` AS `o1` ON `o`.`RootEntityId` = `o1`.`AssociateTypeRootEntityId`)
+LEFT JOIN `RequiredRelated_NestedCollection` AS `r3` ON `r0`.`RootEntityId` = `r3`.`AssociateTypeRootEntityId`)
+LEFT JOIN `OptionalRelated_NestedCollection` AS `o2` ON `o`.`RootEntityId` = `o2`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r1`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeRootEntityId`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`, `r3`.`Id`, `o2`.`AssociateTypeRootEntityId`, `o2`.`Id`
+""");
+        }
+    }
+
+    public override async Task Select_optional_associate_and_ints(QueryTrackingBehavior queryTrackingBehavior)
+    {
+        await base.Select_optional_associate_and_ints(queryTrackingBehavior);
+
+        if (queryTrackingBehavior is not QueryTrackingBehavior.TrackAll)
+        {
+            AssertSql(
+                """
+SELECT `o`.`RootEntityId`, `o`.`Id`, `o`.`Int`, `o`.`Ints`, `o`.`Name`, `o`.`String`, `r`.`Id`, `o0`.`AssociateTypeRootEntityId`, `o1`.`AssociateTypeRootEntityId`, `r0`.`RootEntityId`, `o2`.`AssociateTypeRootEntityId`, `o2`.`Id`, `o2`.`Int`, `o2`.`Ints`, `o2`.`Name`, `o2`.`String`, `o0`.`Id`, `o0`.`Int`, `o0`.`Ints`, `o0`.`Name`, `o0`.`String`, `o1`.`Id`, `o1`.`Int`, `o1`.`Ints`, `o1`.`Name`, `o1`.`String`, `r0`.`Ints`
+FROM ((((`RootEntity` AS `r`
+LEFT JOIN `OptionalRelated` AS `o` ON `r`.`Id` = `o`.`RootEntityId`)
+LEFT JOIN `OptionalRelated_OptionalNested` AS `o0` ON `o`.`RootEntityId` = `o0`.`AssociateTypeRootEntityId`)
+LEFT JOIN `OptionalRelated_RequiredNested` AS `o1` ON `o`.`RootEntityId` = `o1`.`AssociateTypeRootEntityId`)
+LEFT JOIN `RequiredRelated` AS `r0` ON `r`.`Id` = `r0`.`RootEntityId`)
+LEFT JOIN `OptionalRelated_NestedCollection` AS `o2` ON `o`.`RootEntityId` = `o2`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`AssociateTypeRootEntityId`, `r0`.`RootEntityId`, `o2`.`AssociateTypeRootEntityId`, `o2`.`Id`
+""");
+        }
+    }
+
+    public override async Task Select_associate_and_target_to_index_based_binding_via_closure(QueryTrackingBehavior queryTrackingBehavior)
+    {
+        await base.Select_associate_and_target_to_index_based_binding_via_closure(queryTrackingBehavior);
+
+        if (queryTrackingBehavior is not QueryTrackingBehavior.TrackAll)
+        {
+            AssertSql(
+                """
+SELECT `r`.`Id`, `r0`.`RootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`, `r1`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`, `r3`.`Id`, `r3`.`Int`, `r3`.`Ints`, `r3`.`Name`, `r3`.`String`, `r1`.`Id`, `r1`.`Int`, `r1`.`Ints`, `r1`.`Name`, `r1`.`String`, `r2`.`Id`, `r2`.`Int`, `r2`.`Ints`, `r2`.`Name`, `r2`.`String`
+FROM (((`RootEntity` AS `r`
+LEFT JOIN `RequiredRelated` AS `r0` ON `r`.`Id` = `r0`.`RootEntityId`)
+LEFT JOIN `RequiredRelated_OptionalNested` AS `r1` ON `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId`)
+LEFT JOIN `RequiredRelated_RequiredNested` AS `r2` ON `r0`.`RootEntityId` = `r2`.`AssociateTypeRootEntityId`)
+LEFT JOIN `RequiredRelated_NestedCollection` AS `r3` ON `r0`.`RootEntityId` = `r3`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `r0`.`RootEntityId`, `r1`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`, `r3`.`Id`
+""");
+        }
     }
 
     #endregion Multiple
@@ -472,7 +554,7 @@ OUTER APPLY (
 
     #endregion Subquery
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 }

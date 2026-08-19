@@ -1,11 +1,10 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
@@ -21,7 +20,7 @@ public class ComplexNavigationsCollectionsSplitQueryLibRedTest
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -926,20 +925,20 @@ ORDER BY `l`.`Id`
 
         AssertSql(
             """
-SELECT `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id0`, `s0`.`Id1`, `s0`.`Id2`, `l11`.`Id`, `l12`.`Id`, `l13`.`Id`, `l14`.`Id`, `l14`.`Name`
+SELECT `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `s`.`Id`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id2`, `l14`.`Name`
 FROM ((((((((`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Optional_Id`)
 LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`OneToMany_Required_Inverse4Id`)
 LEFT JOIN (
-    SELECT `l3`.`Id`, `l4`.`Id` AS `Id0`, `l5`.`Id` AS `Id1`, `l6`.`Id` AS `Id2`
+    SELECT `l3`.`Id`, `l6`.`Id` AS `Id2`
     FROM ((`LevelFour` AS `l3`
     INNER JOIN `LevelThree` AS `l4` ON `l3`.`Level3_Required_Id` = `l4`.`Id`)
     LEFT JOIN `LevelTwo` AS `l5` ON `l4`.`Level2_Optional_Id` = `l5`.`Id`)
     LEFT JOIN `LevelTwo` AS `l6` ON `l5`.`Id` = `l6`.`OneToMany_Required_Self_Inverse2Id`
 ) AS `s` ON `l2`.`Id` = `s`.`Id2`)
 LEFT JOIN (
-    SELECT `l7`.`Id`, `l8`.`Id` AS `Id0`, `l9`.`Id` AS `Id1`, `l10`.`Id` AS `Id2`, `l10`.`Level2_Optional_Id` AS `Level2_Optional_Id0`
+    SELECT `l7`.`Id`, `l10`.`Id` AS `Id2`, `l10`.`Level2_Optional_Id` AS `Level2_Optional_Id0`
     FROM ((`LevelFour` AS `l7`
     INNER JOIN `LevelThree` AS `l8` ON `l7`.`Level3_Required_Id` = `l8`.`Id`)
     LEFT JOIN `LevelTwo` AS `l9` ON `l8`.`Level2_Required_Id` = `l9`.`Id`)
@@ -951,24 +950,24 @@ LEFT JOIN `LevelThree` AS `l12` ON `s`.`Id2` = `l12`.`Level2_Optional_Id`)
 LEFT JOIN `LevelTwo` AS `l13` ON `s0`.`Level2_Optional_Id0` = `l13`.`Id`)
 LEFT JOIN `LevelThree` AS `l14` ON `l13`.`Id` = `l14`.`Level2_Required_Id`
 WHERE (`l11`.`Name` <> 'Foo' OR `l11`.`Name` IS NULL) AND (`l2`.`Id` IS NOT NULL AND `s`.`Id2` IS NOT NULL)
-ORDER BY `l12`.`Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id0`, `s0`.`Id1`, `s0`.`Id2`, `l11`.`Id`, `l13`.`Id`, `l14`.`Id`
+ORDER BY `l12`.`Id`, `l`.`Id`, `l2`.`Id`, `s`.`Id`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id2`
 """,
             //
             """
-SELECT `l18`.`Id`, `l18`.`Date`, `l18`.`Level1_Optional_Id`, `l18`.`Level1_Required_Id`, `l18`.`Name`, `l18`.`OneToMany_Optional_Inverse2Id`, `l18`.`OneToMany_Optional_Self_Inverse2Id`, `l18`.`OneToMany_Required_Inverse2Id`, `l18`.`OneToMany_Required_Self_Inverse2Id`, `l18`.`OneToOne_Optional_PK_Inverse2Id`, `l18`.`OneToOne_Optional_Self2Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id0`, `s0`.`Id1`, `s0`.`Id2`, `l11`.`Id`, `l12`.`Id`, `l13`.`Id`, `l14`.`Id`
-FROM (((((((((`LevelOne` AS `l`
+SELECT `l18`.`Id`, `l18`.`Date`, `l18`.`Level1_Optional_Id`, `l18`.`Level1_Required_Id`, `l18`.`Name`, `l18`.`OneToMany_Optional_Inverse2Id`, `l18`.`OneToMany_Optional_Self_Inverse2Id`, `l18`.`OneToMany_Required_Inverse2Id`, `l18`.`OneToMany_Required_Self_Inverse2Id`, `l18`.`OneToOne_Optional_PK_Inverse2Id`, `l18`.`OneToOne_Optional_Self2Id`, `l`.`Id`, `l2`.`Id`, `s`.`Id`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id2`
+FROM (((((((`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Optional_Id`)
 LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`OneToMany_Required_Inverse4Id`)
 LEFT JOIN (
-    SELECT `l3`.`Id`, `l4`.`Id` AS `Id0`, `l5`.`Id` AS `Id1`, `l6`.`Id` AS `Id2`
+    SELECT `l3`.`Id`, `l6`.`Id` AS `Id2`
     FROM ((`LevelFour` AS `l3`
     INNER JOIN `LevelThree` AS `l4` ON `l3`.`Level3_Required_Id` = `l4`.`Id`)
     LEFT JOIN `LevelTwo` AS `l5` ON `l4`.`Level2_Optional_Id` = `l5`.`Id`)
     LEFT JOIN `LevelTwo` AS `l6` ON `l5`.`Id` = `l6`.`OneToMany_Required_Self_Inverse2Id`
 ) AS `s` ON `l2`.`Id` = `s`.`Id2`)
 LEFT JOIN (
-    SELECT `l7`.`Id`, `l8`.`Id` AS `Id0`, `l9`.`Id` AS `Id1`, `l10`.`Id` AS `Id2`, `l10`.`Level2_Optional_Id` AS `Level2_Optional_Id0`
+    SELECT `l7`.`Id`, `l10`.`Id` AS `Id2`
     FROM ((`LevelFour` AS `l7`
     INNER JOIN `LevelThree` AS `l8` ON `l7`.`Level3_Required_Id` = `l8`.`Id`)
     LEFT JOIN `LevelTwo` AS `l9` ON `l8`.`Level2_Required_Id` = `l9`.`Id`)
@@ -977,15 +976,13 @@ LEFT JOIN (
 ) AS `s0` ON `s`.`Id2` = `s0`.`Id2`)
 LEFT JOIN `LevelThree` AS `l11` ON `l2`.`OneToMany_Optional_Inverse4Id` = `l11`.`Id`)
 LEFT JOIN `LevelThree` AS `l12` ON `s`.`Id2` = `l12`.`Level2_Optional_Id`)
-LEFT JOIN `LevelTwo` AS `l13` ON `s0`.`Level2_Optional_Id0` = `l13`.`Id`)
-LEFT JOIN `LevelThree` AS `l14` ON `l13`.`Id` = `l14`.`Level2_Required_Id`)
 LEFT JOIN (
     SELECT `l17`.`Id`, `l17`.`Date`, `l17`.`Level1_Optional_Id`, `l17`.`Level1_Required_Id`, `l17`.`Name`, `l17`.`OneToMany_Optional_Inverse2Id`, `l17`.`OneToMany_Optional_Self_Inverse2Id`, `l17`.`OneToMany_Required_Inverse2Id`, `l17`.`OneToMany_Required_Self_Inverse2Id`, `l17`.`OneToOne_Optional_PK_Inverse2Id`, `l17`.`OneToOne_Optional_Self2Id`
     FROM `LevelTwo` AS `l17`
     WHERE `l17`.`Id` <> 42
 ) AS `l18` ON `s`.`Id2` = `l18`.`OneToMany_Optional_Self_Inverse2Id`
 WHERE (`l11`.`Name` <> 'Foo' OR `l11`.`Name` IS NULL) AND (`l2`.`Id` IS NOT NULL AND `s`.`Id2` IS NOT NULL AND `s`.`Id2` IS NOT NULL AND `l18`.`OneToMany_Optional_Self_Inverse2Id` IS NOT NULL)
-ORDER BY `l12`.`Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id0`, `s0`.`Id1`, `s0`.`Id2`, `l11`.`Id`, `l13`.`Id`, `l14`.`Id`
+ORDER BY `l12`.`Id`, `l`.`Id`, `l2`.`Id`, `s`.`Id`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id2`
 """);
     }
 
@@ -1014,19 +1011,18 @@ ORDER BY `l`.`Id`
 
         AssertSql(
             """
-SELECT `l`.`Id`, `l0`.`Id`
+SELECT `l`.`Id`
 FROM `LevelOne` AS `l`
-LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -1064,19 +1060,18 @@ ORDER BY [l].[Id], [l0].[Id]
 
         AssertSql(
             """
-SELECT `l`.`Id`, `l0`.`Id`
+SELECT `l`.`Id`
 FROM `LevelOne` AS `l`
-LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -1086,19 +1081,18 @@ ORDER BY `l`.`Id`, `l0`.`Id`
 
         AssertSql(
             """
-SELECT `l`.`Id`, `l0`.`Id`
+SELECT `l`.`Id`
 FROM `LevelOne` AS `l`
-LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -1181,16 +1175,16 @@ ORDER BY `l`.`Id`
 SELECT `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`, `l`.`Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -1564,20 +1558,20 @@ ORDER BY [l].[Id], [t0].[Id]
 
         AssertSql(
             """
-SELECT `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id0`, `s0`.`Id1`, `s0`.`Id2`, `l11`.`Id`, `l12`.`Id`, `l13`.`Id`, `l14`.`Id`, `l14`.`Name`
+SELECT `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `s`.`Id`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id2`, `l14`.`Name`
 FROM ((((((((`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Optional_Id`)
 LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`OneToMany_Required_Inverse4Id`)
 LEFT JOIN (
-    SELECT `l3`.`Id`, `l4`.`Id` AS `Id0`, `l5`.`Id` AS `Id1`, `l6`.`Id` AS `Id2`
+    SELECT `l3`.`Id`, `l6`.`Id` AS `Id2`
     FROM ((`LevelFour` AS `l3`
     INNER JOIN `LevelThree` AS `l4` ON `l3`.`Level3_Required_Id` = `l4`.`Id`)
     LEFT JOIN `LevelTwo` AS `l5` ON `l4`.`Level2_Optional_Id` = `l5`.`Id`)
     LEFT JOIN `LevelTwo` AS `l6` ON `l5`.`Id` = `l6`.`OneToMany_Required_Self_Inverse2Id`
 ) AS `s` ON `l2`.`Id` = `s`.`Id2`)
 LEFT JOIN (
-    SELECT `l7`.`Id`, `l8`.`Id` AS `Id0`, `l9`.`Id` AS `Id1`, `l10`.`Id` AS `Id2`, `l10`.`Level2_Optional_Id` AS `Level2_Optional_Id0`
+    SELECT `l7`.`Id`, `l10`.`Id` AS `Id2`, `l10`.`Level2_Optional_Id` AS `Level2_Optional_Id0`
     FROM ((`LevelFour` AS `l7`
     INNER JOIN `LevelThree` AS `l8` ON `l7`.`Level3_Required_Id` = `l8`.`Id`)
     LEFT JOIN `LevelTwo` AS `l9` ON `l8`.`Level2_Required_Id` = `l9`.`Id`)
@@ -1589,24 +1583,24 @@ LEFT JOIN `LevelThree` AS `l12` ON `s`.`Id2` = `l12`.`Level2_Optional_Id`)
 LEFT JOIN `LevelTwo` AS `l13` ON `s0`.`Level2_Optional_Id0` = `l13`.`Id`)
 LEFT JOIN `LevelThree` AS `l14` ON `l13`.`Id` = `l14`.`Level2_Required_Id`
 WHERE (`l11`.`Name` <> 'Foo' OR `l11`.`Name` IS NULL) AND (`l2`.`Id` IS NOT NULL AND `s`.`Id2` IS NOT NULL)
-ORDER BY `l12`.`Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id0`, `s0`.`Id1`, `s0`.`Id2`, `l11`.`Id`, `l13`.`Id`, `l14`.`Id`
+ORDER BY `l12`.`Id`, `l`.`Id`, `l2`.`Id`, `s`.`Id`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id2`
 """,
             //
             """
-SELECT `l18`.`Id`, `l18`.`Date`, `l18`.`Level1_Optional_Id`, `l18`.`Level1_Required_Id`, `l18`.`Name`, `l18`.`OneToMany_Optional_Inverse2Id`, `l18`.`OneToMany_Optional_Self_Inverse2Id`, `l18`.`OneToMany_Required_Inverse2Id`, `l18`.`OneToMany_Required_Self_Inverse2Id`, `l18`.`OneToOne_Optional_PK_Inverse2Id`, `l18`.`OneToOne_Optional_Self2Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id0`, `s0`.`Id1`, `s0`.`Id2`, `l11`.`Id`, `l12`.`Id`, `l13`.`Id`, `l14`.`Id`
-FROM (((((((((`LevelOne` AS `l`
+SELECT `l18`.`Id`, `l18`.`Date`, `l18`.`Level1_Optional_Id`, `l18`.`Level1_Required_Id`, `l18`.`Name`, `l18`.`OneToMany_Optional_Inverse2Id`, `l18`.`OneToMany_Optional_Self_Inverse2Id`, `l18`.`OneToMany_Required_Inverse2Id`, `l18`.`OneToMany_Required_Self_Inverse2Id`, `l18`.`OneToOne_Optional_PK_Inverse2Id`, `l18`.`OneToOne_Optional_Self2Id`, `l`.`Id`, `l2`.`Id`, `s`.`Id`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id2`
+FROM (((((((`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Optional_Id`)
 LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`OneToMany_Required_Inverse4Id`)
 LEFT JOIN (
-    SELECT `l3`.`Id`, `l4`.`Id` AS `Id0`, `l5`.`Id` AS `Id1`, `l6`.`Id` AS `Id2`
+    SELECT `l3`.`Id`, `l6`.`Id` AS `Id2`
     FROM ((`LevelFour` AS `l3`
     INNER JOIN `LevelThree` AS `l4` ON `l3`.`Level3_Required_Id` = `l4`.`Id`)
     LEFT JOIN `LevelTwo` AS `l5` ON `l4`.`Level2_Optional_Id` = `l5`.`Id`)
     LEFT JOIN `LevelTwo` AS `l6` ON `l5`.`Id` = `l6`.`OneToMany_Required_Self_Inverse2Id`
 ) AS `s` ON `l2`.`Id` = `s`.`Id2`)
 LEFT JOIN (
-    SELECT `l7`.`Id`, `l8`.`Id` AS `Id0`, `l9`.`Id` AS `Id1`, `l10`.`Id` AS `Id2`, `l10`.`Level2_Optional_Id` AS `Level2_Optional_Id0`
+    SELECT `l7`.`Id`, `l10`.`Id` AS `Id2`
     FROM ((`LevelFour` AS `l7`
     INNER JOIN `LevelThree` AS `l8` ON `l7`.`Level3_Required_Id` = `l8`.`Id`)
     LEFT JOIN `LevelTwo` AS `l9` ON `l8`.`Level2_Required_Id` = `l9`.`Id`)
@@ -1615,15 +1609,13 @@ LEFT JOIN (
 ) AS `s0` ON `s`.`Id2` = `s0`.`Id2`)
 LEFT JOIN `LevelThree` AS `l11` ON `l2`.`OneToMany_Optional_Inverse4Id` = `l11`.`Id`)
 LEFT JOIN `LevelThree` AS `l12` ON `s`.`Id2` = `l12`.`Level2_Optional_Id`)
-LEFT JOIN `LevelTwo` AS `l13` ON `s0`.`Level2_Optional_Id0` = `l13`.`Id`)
-LEFT JOIN `LevelThree` AS `l14` ON `l13`.`Id` = `l14`.`Level2_Required_Id`)
 LEFT JOIN (
     SELECT `l17`.`Id`, `l17`.`Date`, `l17`.`Level1_Optional_Id`, `l17`.`Level1_Required_Id`, `l17`.`Name`, `l17`.`OneToMany_Optional_Inverse2Id`, `l17`.`OneToMany_Optional_Self_Inverse2Id`, `l17`.`OneToMany_Required_Inverse2Id`, `l17`.`OneToMany_Required_Self_Inverse2Id`, `l17`.`OneToOne_Optional_PK_Inverse2Id`, `l17`.`OneToOne_Optional_Self2Id`
     FROM `LevelTwo` AS `l17`
     WHERE `l17`.`Id` <> 42
 ) AS `l18` ON `s`.`Id2` = `l18`.`OneToMany_Optional_Self_Inverse2Id`
 WHERE (`l11`.`Name` <> 'Foo' OR `l11`.`Name` IS NULL) AND (`l2`.`Id` IS NOT NULL AND `s`.`Id2` IS NOT NULL AND `s`.`Id2` IS NOT NULL AND `l18`.`OneToMany_Optional_Self_Inverse2Id` IS NOT NULL)
-ORDER BY `l12`.`Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id0`, `s0`.`Id1`, `s0`.`Id2`, `l11`.`Id`, `l13`.`Id`, `l14`.`Id`
+ORDER BY `l12`.`Id`, `l`.`Id`, `l2`.`Id`, `s`.`Id`, `s`.`Id2`, `s0`.`Id`, `s0`.`Id2`
 """);
     }
 
@@ -1760,11 +1752,11 @@ LEFT JOIN (
     INNER JOIN `LevelTwo` AS `l2` ON `l1`.`OneToMany_Required_Inverse3Id` = `l2`.`Id`
 ) AS `s` ON `l0`.`Id` = `s`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `s`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`, `s`.`Id`, `s`.`Id0`
+ORDER BY `l`.`Id`, `l0`.`Id`, `s`.`Id`
 """,
             //
             """
-SELECT `l3`.`Id`, `l3`.`Level2_Optional_Id`, `l3`.`Level2_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse3Id`, `l3`.`OneToMany_Optional_Self_Inverse3Id`, `l3`.`OneToMany_Required_Inverse3Id`, `l3`.`OneToMany_Required_Self_Inverse3Id`, `l3`.`OneToOne_Optional_PK_Inverse3Id`, `l3`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`, `s`.`Id`, `s`.`Id0`
+SELECT `l3`.`Id`, `l3`.`Level2_Optional_Id`, `l3`.`Level2_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse3Id`, `l3`.`OneToMany_Optional_Self_Inverse3Id`, `l3`.`OneToMany_Required_Inverse3Id`, `l3`.`OneToMany_Required_Self_Inverse3Id`, `l3`.`OneToOne_Optional_PK_Inverse3Id`, `l3`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`, `s`.`Id`
 FROM ((`LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToMany_Optional_Inverse2Id`)
 LEFT JOIN (
@@ -1774,7 +1766,7 @@ LEFT JOIN (
 ) AS `s` ON `l0`.`Id` = `s`.`OneToMany_Optional_Inverse3Id`)
 LEFT JOIN `LevelThree` AS `l3` ON `s`.`Id0` = `l3`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `s`.`OneToMany_Optional_Inverse3Id` IS NOT NULL AND `s`.`Id0` IS NOT NULL AND `l3`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`, `s`.`Id`, `s`.`Id0`
+ORDER BY `l`.`Id`, `l0`.`Id`, `s`.`Id`
 """);
     }
 
@@ -1787,28 +1779,27 @@ ORDER BY `l`.`Id`, `l0`.`Id`, `s`.`Id`, `s`.`Id0`
 SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `s`.`Id`, `s`.`Date`, `s`.`Level1_Optional_Id`, `s`.`Level1_Required_Id`, `s`.`Name`, `s`.`OneToMany_Optional_Inverse2Id`, `s`.`OneToMany_Optional_Self_Inverse2Id`, `s`.`OneToMany_Required_Inverse2Id`, `s`.`OneToMany_Required_Self_Inverse2Id`, `s`.`OneToOne_Optional_PK_Inverse2Id`, `s`.`OneToOne_Optional_Self2Id`, `s`.`Id0`, `s`.`Level2_Optional_Id`, `s`.`Level2_Required_Id`, `s`.`Name0`, `s`.`OneToMany_Optional_Inverse3Id`, `s`.`OneToMany_Optional_Self_Inverse3Id`, `s`.`OneToMany_Required_Inverse3Id`, `s`.`OneToMany_Required_Self_Inverse3Id`, `s`.`OneToOne_Optional_PK_Inverse3Id`, `s`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
-FROM (`LevelOne` AS `l`
-LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
+SELECT `s`.`Id`, `s`.`Date`, `s`.`Level1_Optional_Id`, `s`.`Level1_Required_Id`, `s`.`Name`, `s`.`OneToMany_Optional_Inverse2Id`, `s`.`OneToMany_Optional_Self_Inverse2Id`, `s`.`OneToMany_Required_Inverse2Id`, `s`.`OneToMany_Required_Self_Inverse2Id`, `s`.`OneToOne_Optional_PK_Inverse2Id`, `s`.`OneToOne_Optional_Self2Id`, `s`.`Id0`, `s`.`Level2_Optional_Id`, `s`.`Level2_Required_Id`, `s`.`Name0`, `s`.`OneToMany_Optional_Inverse3Id`, `s`.`OneToMany_Optional_Self_Inverse3Id`, `s`.`OneToMany_Required_Inverse3Id`, `s`.`OneToMany_Required_Self_Inverse3Id`, `s`.`OneToOne_Optional_PK_Inverse3Id`, `s`.`OneToOne_Optional_Self3Id`, `l`.`Id`
+FROM `LevelOne` AS `l`
 INNER JOIN (
     SELECT `l2`.`Id`, `l2`.`Date`, `l2`.`Level1_Optional_Id`, `l2`.`Level1_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse2Id`, `l2`.`OneToMany_Optional_Self_Inverse2Id`, `l2`.`OneToMany_Required_Inverse2Id`, `l2`.`OneToMany_Required_Self_Inverse2Id`, `l2`.`OneToOne_Optional_PK_Inverse2Id`, `l2`.`OneToOne_Optional_Self2Id`, `l3`.`Id` AS `Id0`, `l3`.`Level2_Optional_Id`, `l3`.`Level2_Required_Id`, `l3`.`Name` AS `Name0`, `l3`.`OneToMany_Optional_Inverse3Id`, `l3`.`OneToMany_Optional_Self_Inverse3Id`, `l3`.`OneToMany_Required_Inverse3Id`, `l3`.`OneToMany_Required_Self_Inverse3Id`, `l3`.`OneToOne_Optional_PK_Inverse3Id`, `l3`.`OneToOne_Optional_Self3Id`
     FROM `LevelTwo` AS `l2`
     LEFT JOIN `LevelThree` AS `l3` ON `l2`.`Id` = `l3`.`Level2_Optional_Id`
 ) AS `s` ON `l`.`Id` = `s`.`OneToMany_Optional_Inverse2Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -1821,28 +1812,27 @@ ORDER BY `l`.`Id`, `l0`.`Id`
 SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Name`, `l0`.`OneToMany_Optional_Self_Inverse1Id`, `l0`.`OneToMany_Required_Self_Inverse1Id`, `l0`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelOne` AS `l0` ON `l`.`OneToOne_Optional_Self1Id` = `l0`.`Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Date`, `l1`.`Name`, `l1`.`OneToMany_Optional_Self_Inverse1Id`, `l1`.`OneToMany_Required_Self_Inverse1Id`, `l1`.`OneToOne_Optional_Self1Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Date`, `l1`.`Name`, `l1`.`OneToMany_Optional_Self_Inverse1Id`, `l1`.`OneToMany_Required_Self_Inverse1Id`, `l1`.`OneToOne_Optional_Self1Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelOne` AS `l0` ON `l`.`OneToOne_Optional_Self1Id` = `l0`.`Id`)
 LEFT JOIN `LevelOne` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Self_Inverse1Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Self_Inverse1Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `s`.`Id`, `s`.`Date`, `s`.`Name`, `s`.`OneToMany_Optional_Self_Inverse1Id`, `s`.`OneToMany_Required_Self_Inverse1Id`, `s`.`OneToOne_Optional_Self1Id`, `s`.`Id0`, `s`.`Date0`, `s`.`Name0`, `s`.`OneToMany_Optional_Self_Inverse1Id0`, `s`.`OneToMany_Required_Self_Inverse1Id0`, `s`.`OneToOne_Optional_Self1Id0`, `l`.`Id`, `l0`.`Id`
-FROM (`LevelOne` AS `l`
-LEFT JOIN `LevelOne` AS `l0` ON `l`.`OneToOne_Optional_Self1Id` = `l0`.`Id`)
+SELECT `s`.`Id`, `s`.`Date`, `s`.`Name`, `s`.`OneToMany_Optional_Self_Inverse1Id`, `s`.`OneToMany_Required_Self_Inverse1Id`, `s`.`OneToOne_Optional_Self1Id`, `s`.`Id0`, `s`.`Date0`, `s`.`Name0`, `s`.`OneToMany_Optional_Self_Inverse1Id0`, `s`.`OneToMany_Required_Self_Inverse1Id0`, `s`.`OneToOne_Optional_Self1Id0`, `l`.`Id`
+FROM `LevelOne` AS `l`
 INNER JOIN (
     SELECT `l2`.`Id`, `l2`.`Date`, `l2`.`Name`, `l2`.`OneToMany_Optional_Self_Inverse1Id`, `l2`.`OneToMany_Required_Self_Inverse1Id`, `l2`.`OneToOne_Optional_Self1Id`, `l3`.`Id` AS `Id0`, `l3`.`Date` AS `Date0`, `l3`.`Name` AS `Name0`, `l3`.`OneToMany_Optional_Self_Inverse1Id` AS `OneToMany_Optional_Self_Inverse1Id0`, `l3`.`OneToMany_Required_Self_Inverse1Id` AS `OneToMany_Required_Self_Inverse1Id0`, `l3`.`OneToOne_Optional_Self1Id` AS `OneToOne_Optional_Self1Id0`
     FROM `LevelOne` AS `l2`
     LEFT JOIN `LevelOne` AS `l3` ON `l2`.`OneToOne_Optional_Self1Id` = `l3`.`Id`
 ) AS `s` ON `l`.`Id` = `s`.`OneToMany_Optional_Self_Inverse1Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -1855,16 +1845,16 @@ ORDER BY `l`.`Id`, `l0`.`Id`
 SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l`.`Name`, `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Name`, `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Name`, `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Name`, `l`.`Id`
 """);
     }
 
@@ -1877,16 +1867,16 @@ ORDER BY `l`.`Name`, `l`.`Id`, `l0`.`Id`
 SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l`.`Name`, `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Name`, `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Name`, `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Name`, `l`.`Id`
 """);
     }
 
@@ -1941,28 +1931,27 @@ ORDER BY IIF(`l`.`Name` LIKE '%03', 1, 2), `l`.`Id`
 SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `s`.`Id`, `s`.`Date`, `s`.`Level1_Optional_Id`, `s`.`Level1_Required_Id`, `s`.`Name`, `s`.`OneToMany_Optional_Inverse2Id`, `s`.`OneToMany_Optional_Self_Inverse2Id`, `s`.`OneToMany_Required_Inverse2Id`, `s`.`OneToMany_Required_Self_Inverse2Id`, `s`.`OneToOne_Optional_PK_Inverse2Id`, `s`.`OneToOne_Optional_Self2Id`, `s`.`Id0`, `s`.`Level2_Optional_Id`, `s`.`Level2_Required_Id`, `s`.`Name0`, `s`.`OneToMany_Optional_Inverse3Id`, `s`.`OneToMany_Optional_Self_Inverse3Id`, `s`.`OneToMany_Required_Inverse3Id`, `s`.`OneToMany_Required_Self_Inverse3Id`, `s`.`OneToOne_Optional_PK_Inverse3Id`, `s`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
-FROM (`LevelOne` AS `l`
-LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
+SELECT `s`.`Id`, `s`.`Date`, `s`.`Level1_Optional_Id`, `s`.`Level1_Required_Id`, `s`.`Name`, `s`.`OneToMany_Optional_Inverse2Id`, `s`.`OneToMany_Optional_Self_Inverse2Id`, `s`.`OneToMany_Required_Inverse2Id`, `s`.`OneToMany_Required_Self_Inverse2Id`, `s`.`OneToOne_Optional_PK_Inverse2Id`, `s`.`OneToOne_Optional_Self2Id`, `s`.`Id0`, `s`.`Level2_Optional_Id`, `s`.`Level2_Required_Id`, `s`.`Name0`, `s`.`OneToMany_Optional_Inverse3Id`, `s`.`OneToMany_Optional_Self_Inverse3Id`, `s`.`OneToMany_Required_Inverse3Id`, `s`.`OneToMany_Required_Self_Inverse3Id`, `s`.`OneToOne_Optional_PK_Inverse3Id`, `s`.`OneToOne_Optional_Self3Id`, `l`.`Id`
+FROM `LevelOne` AS `l`
 INNER JOIN (
     SELECT `l2`.`Id`, `l2`.`Date`, `l2`.`Level1_Optional_Id`, `l2`.`Level1_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse2Id`, `l2`.`OneToMany_Optional_Self_Inverse2Id`, `l2`.`OneToMany_Required_Inverse2Id`, `l2`.`OneToMany_Required_Self_Inverse2Id`, `l2`.`OneToOne_Optional_PK_Inverse2Id`, `l2`.`OneToOne_Optional_Self2Id`, `l3`.`Id` AS `Id0`, `l3`.`Level2_Optional_Id`, `l3`.`Level2_Required_Id`, `l3`.`Name` AS `Name0`, `l3`.`OneToMany_Optional_Inverse3Id`, `l3`.`OneToMany_Optional_Self_Inverse3Id`, `l3`.`OneToMany_Required_Inverse3Id`, `l3`.`OneToMany_Required_Self_Inverse3Id`, `l3`.`OneToOne_Optional_PK_Inverse3Id`, `l3`.`OneToOne_Optional_Self3Id`
     FROM `LevelTwo` AS `l2`
     LEFT JOIN `LevelThree` AS `l3` ON `l2`.`Id` = `l3`.`Level2_Optional_Id`
 ) AS `s` ON `l`.`Id` = `s`.`OneToMany_Optional_Inverse2Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -1976,11 +1965,11 @@ SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
 WHERE `l0`.`Name` <> 'L2 09' OR `l0`.`Name` IS NULL
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `s`.`Id`, `s`.`Level2_Optional_Id`, `s`.`Level2_Required_Id`, `s`.`Name`, `s`.`OneToMany_Optional_Inverse3Id`, `s`.`OneToMany_Optional_Self_Inverse3Id`, `s`.`OneToMany_Required_Inverse3Id`, `s`.`OneToMany_Required_Self_Inverse3Id`, `s`.`OneToOne_Optional_PK_Inverse3Id`, `s`.`OneToOne_Optional_Self3Id`, `s`.`Id0`, `s`.`Level3_Optional_Id`, `s`.`Level3_Required_Id`, `s`.`Name0`, `s`.`OneToMany_Optional_Inverse4Id`, `s`.`OneToMany_Optional_Self_Inverse4Id`, `s`.`OneToMany_Required_Inverse4Id`, `s`.`OneToMany_Required_Self_Inverse4Id`, `s`.`OneToOne_Optional_PK_Inverse4Id`, `s`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`
+SELECT `s`.`Id`, `s`.`Level2_Optional_Id`, `s`.`Level2_Required_Id`, `s`.`Name`, `s`.`OneToMany_Optional_Inverse3Id`, `s`.`OneToMany_Optional_Self_Inverse3Id`, `s`.`OneToMany_Required_Inverse3Id`, `s`.`OneToMany_Required_Self_Inverse3Id`, `s`.`OneToOne_Optional_PK_Inverse3Id`, `s`.`OneToOne_Optional_Self3Id`, `s`.`Id0`, `s`.`Level3_Optional_Id`, `s`.`Level3_Required_Id`, `s`.`Name0`, `s`.`OneToMany_Optional_Inverse4Id`, `s`.`OneToMany_Optional_Self_Inverse4Id`, `s`.`OneToMany_Required_Inverse4Id`, `s`.`OneToMany_Required_Self_Inverse4Id`, `s`.`OneToOne_Optional_PK_Inverse4Id`, `s`.`OneToOne_Optional_Self4Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN (
@@ -1989,7 +1978,7 @@ LEFT JOIN (
     LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`Level3_Required_Id`
 ) AS `s` ON `l0`.`Id` = `s`.`OneToMany_Required_Inverse3Id`
 WHERE (`l0`.`Name` <> 'L2 09' OR `l0`.`Name` IS NULL) AND (`l0`.`Id` IS NOT NULL AND `s`.`OneToMany_Required_Inverse3Id` IS NOT NULL)
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -2013,14 +2002,14 @@ FROM (
     ORDER BY `l2`.`Name` DESC
 ) AS `l1`
 LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Required_Id`
-ORDER BY `l1`.`Name`, `l1`.`Id`, `l0`.`Id`
+ORDER BY `l1`.`Name`, `l1`.`Id`
 """,
             //
             """
 @p1='10'
 @p='0'
 
-SELECT `l2`.`Id`, `l2`.`Level2_Optional_Id`, `l2`.`Level2_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse3Id`, `l2`.`OneToMany_Optional_Self_Inverse3Id`, `l2`.`OneToMany_Required_Inverse3Id`, `l2`.`OneToMany_Required_Self_Inverse3Id`, `l2`.`OneToOne_Optional_PK_Inverse3Id`, `l2`.`OneToOne_Optional_Self3Id`, `l1`.`Id`, `l0`.`Id`
+SELECT `l2`.`Id`, `l2`.`Level2_Optional_Id`, `l2`.`Level2_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse3Id`, `l2`.`OneToMany_Optional_Self_Inverse3Id`, `l2`.`OneToMany_Required_Inverse3Id`, `l2`.`OneToMany_Required_Self_Inverse3Id`, `l2`.`OneToOne_Optional_PK_Inverse3Id`, `l2`.`OneToOne_Optional_Self3Id`, `l1`.`Id`
 FROM ((
     SELECT TOP @p1 `l4`.`Id`, `l4`.`Name`
     FROM (
@@ -2033,14 +2022,14 @@ FROM ((
 LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l2` ON `l0`.`Id` = `l2`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l2`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l1`.`Name`, `l1`.`Id`, `l0`.`Id`
+ORDER BY `l1`.`Name`, `l1`.`Id`
 """,
             //
             """
 @p1='10'
 @p='0'
 
-SELECT `l3`.`Id`, `l3`.`Level2_Optional_Id`, `l3`.`Level2_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse3Id`, `l3`.`OneToMany_Optional_Self_Inverse3Id`, `l3`.`OneToMany_Required_Inverse3Id`, `l3`.`OneToMany_Required_Self_Inverse3Id`, `l3`.`OneToOne_Optional_PK_Inverse3Id`, `l3`.`OneToOne_Optional_Self3Id`, `l1`.`Id`, `l0`.`Id`
+SELECT `l3`.`Id`, `l3`.`Level2_Optional_Id`, `l3`.`Level2_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse3Id`, `l3`.`OneToMany_Optional_Self_Inverse3Id`, `l3`.`OneToMany_Required_Inverse3Id`, `l3`.`OneToMany_Required_Self_Inverse3Id`, `l3`.`OneToOne_Optional_PK_Inverse3Id`, `l3`.`OneToOne_Optional_Self3Id`, `l1`.`Id`
 FROM ((
     SELECT TOP @p1 `l4`.`Id`, `l4`.`Name`
     FROM (
@@ -2053,7 +2042,7 @@ FROM ((
 LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l3` ON `l0`.`Id` = `l3`.`OneToMany_Required_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l3`.`OneToMany_Required_Inverse3Id` IS NOT NULL
-ORDER BY `l1`.`Name`, `l1`.`Id`, `l0`.`Id`
+ORDER BY `l1`.`Name`, `l1`.`Id`
 """);
     }
 
@@ -2078,15 +2067,15 @@ FROM ((
 ) AS `l1`
 LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelTwo` AS `l2` ON `l1`.`Id` = `l2`.`Level1_Required_Id`
-ORDER BY `l1`.`Name`, `l1`.`Id`, `l0`.`Id`, `l2`.`Id`
+ORDER BY `l1`.`Name`, `l1`.`Id`
 """,
             //
             """
 @p1='10'
 @p='0'
 
-SELECT `l3`.`Id`, `l3`.`Level2_Optional_Id`, `l3`.`Level2_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse3Id`, `l3`.`OneToMany_Optional_Self_Inverse3Id`, `l3`.`OneToMany_Required_Inverse3Id`, `l3`.`OneToMany_Required_Self_Inverse3Id`, `l3`.`OneToOne_Optional_PK_Inverse3Id`, `l3`.`OneToOne_Optional_Self3Id`, `l1`.`Id`, `l0`.`Id`, `l2`.`Id`
-FROM (((
+SELECT `l3`.`Id`, `l3`.`Level2_Optional_Id`, `l3`.`Level2_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse3Id`, `l3`.`OneToMany_Optional_Self_Inverse3Id`, `l3`.`OneToMany_Required_Inverse3Id`, `l3`.`OneToMany_Required_Self_Inverse3Id`, `l3`.`OneToOne_Optional_PK_Inverse3Id`, `l3`.`OneToOne_Optional_Self3Id`, `l1`.`Id`
+FROM ((
     SELECT TOP @p1 `l5`.`Id`, `l5`.`Name`
     FROM (
         SELECT TOP @p + @p1 `l`.`Id`, `l`.`Name`
@@ -2096,18 +2085,17 @@ FROM (((
     ORDER BY `l5`.`Name` DESC
 ) AS `l1`
 LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Optional_Id`)
-LEFT JOIN `LevelTwo` AS `l2` ON `l1`.`Id` = `l2`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l3` ON `l0`.`Id` = `l3`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l3`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l1`.`Name`, `l1`.`Id`, `l0`.`Id`, `l2`.`Id`
+ORDER BY `l1`.`Name`, `l1`.`Id`
 """,
             //
             """
 @p1='10'
 @p='0'
 
-SELECT `l4`.`Id`, `l4`.`Level2_Optional_Id`, `l4`.`Level2_Required_Id`, `l4`.`Name`, `l4`.`OneToMany_Optional_Inverse3Id`, `l4`.`OneToMany_Optional_Self_Inverse3Id`, `l4`.`OneToMany_Required_Inverse3Id`, `l4`.`OneToMany_Required_Self_Inverse3Id`, `l4`.`OneToOne_Optional_PK_Inverse3Id`, `l4`.`OneToOne_Optional_Self3Id`, `l1`.`Id`, `l0`.`Id`, `l2`.`Id`
-FROM (((
+SELECT `l4`.`Id`, `l4`.`Level2_Optional_Id`, `l4`.`Level2_Required_Id`, `l4`.`Name`, `l4`.`OneToMany_Optional_Inverse3Id`, `l4`.`OneToMany_Optional_Self_Inverse3Id`, `l4`.`OneToMany_Required_Inverse3Id`, `l4`.`OneToMany_Required_Self_Inverse3Id`, `l4`.`OneToOne_Optional_PK_Inverse3Id`, `l4`.`OneToOne_Optional_Self3Id`, `l1`.`Id`
+FROM ((
     SELECT TOP @p1 `l5`.`Id`, `l5`.`Name`
     FROM (
         SELECT TOP @p + @p1 `l`.`Id`, `l`.`Name`
@@ -2116,11 +2104,10 @@ FROM (((
     ) AS `l5`
     ORDER BY `l5`.`Name` DESC
 ) AS `l1`
-LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelTwo` AS `l2` ON `l1`.`Id` = `l2`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l4` ON `l2`.`Id` = `l4`.`OneToMany_Required_Inverse3Id`
 WHERE `l2`.`Id` IS NOT NULL AND `l4`.`OneToMany_Required_Inverse3Id` IS NOT NULL
-ORDER BY `l1`.`Name`, `l1`.`Id`, `l0`.`Id`, `l2`.`Id`
+ORDER BY `l1`.`Name`, `l1`.`Id`
 """);
     }
 
@@ -2145,14 +2132,14 @@ FROM ((
 ) AS `l1`
 LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l2` ON `l0`.`Id` = `l2`.`Level2_Required_Id`
-ORDER BY `l1`.`Name`, `l1`.`Id`, `l0`.`Id`, `l2`.`Id`
+ORDER BY `l1`.`Name`, `l1`.`Id`
 """,
             //
             """
 @p1='10'
 @p='0'
 
-SELECT `l3`.`Id`, `l3`.`Level3_Optional_Id`, `l3`.`Level3_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse4Id`, `l3`.`OneToMany_Optional_Self_Inverse4Id`, `l3`.`OneToMany_Required_Inverse4Id`, `l3`.`OneToMany_Required_Self_Inverse4Id`, `l3`.`OneToOne_Optional_PK_Inverse4Id`, `l3`.`OneToOne_Optional_Self4Id`, `l1`.`Id`, `l0`.`Id`, `l2`.`Id`
+SELECT `l3`.`Id`, `l3`.`Level3_Optional_Id`, `l3`.`Level3_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse4Id`, `l3`.`OneToMany_Optional_Self_Inverse4Id`, `l3`.`OneToMany_Required_Inverse4Id`, `l3`.`OneToMany_Required_Self_Inverse4Id`, `l3`.`OneToOne_Optional_PK_Inverse4Id`, `l3`.`OneToOne_Optional_Self4Id`, `l1`.`Id`
 FROM (((
     SELECT TOP @p1 `l4`.`Id`, `l4`.`Name`
     FROM (
@@ -2166,7 +2153,7 @@ LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l2` ON `l0`.`Id` = `l2`.`Level2_Required_Id`)
 LEFT JOIN `LevelFour` AS `l3` ON `l2`.`Id` = `l3`.`OneToMany_Optional_Inverse4Id`
 WHERE `l2`.`Id` IS NOT NULL AND `l3`.`OneToMany_Optional_Inverse4Id` IS NOT NULL
-ORDER BY `l1`.`Name`, `l1`.`Id`, `l0`.`Id`, `l2`.`Id`
+ORDER BY `l1`.`Name`, `l1`.`Id`
 """);
     }
 
@@ -2175,8 +2162,8 @@ ORDER BY `l1`.`Name`, `l1`.`Id`, `l0`.`Id`, `l2`.`Id`
         await base.Multiple_include_with_multiple_optional_navigations(async);
 
         AssertSql(
-"""
-SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`, `l1`.`Id`, `l2`.`Id`, `l3`.`Id`, `l4`.`Id`, `l2`.`Level2_Optional_Id`, `l2`.`Level2_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse3Id`, `l2`.`OneToMany_Optional_Self_Inverse3Id`, `l2`.`OneToMany_Required_Inverse3Id`, `l2`.`OneToMany_Required_Self_Inverse3Id`, `l2`.`OneToOne_Optional_PK_Inverse3Id`, `l2`.`OneToOne_Optional_Self3Id`, `l3`.`Date`, `l3`.`Level1_Optional_Id`, `l3`.`Level1_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse2Id`, `l3`.`OneToMany_Optional_Self_Inverse2Id`, `l3`.`OneToMany_Required_Inverse2Id`, `l3`.`OneToMany_Required_Self_Inverse2Id`, `l3`.`OneToOne_Optional_PK_Inverse2Id`, `l3`.`OneToOne_Optional_Self2Id`, `l4`.`Level2_Optional_Id`, `l4`.`Level2_Required_Id`, `l4`.`Name`, `l4`.`OneToMany_Optional_Inverse3Id`, `l4`.`OneToMany_Optional_Self_Inverse3Id`, `l4`.`OneToMany_Required_Inverse3Id`, `l4`.`OneToMany_Required_Self_Inverse3Id`, `l4`.`OneToOne_Optional_PK_Inverse3Id`, `l4`.`OneToOne_Optional_Self3Id`
+            """
+SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`, `l2`.`Id`, `l2`.`Level2_Optional_Id`, `l2`.`Level2_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse3Id`, `l2`.`OneToMany_Optional_Self_Inverse3Id`, `l2`.`OneToMany_Required_Inverse3Id`, `l2`.`OneToMany_Required_Self_Inverse3Id`, `l2`.`OneToOne_Optional_PK_Inverse3Id`, `l2`.`OneToOne_Optional_Self3Id`, `l3`.`Id`, `l3`.`Date`, `l3`.`Level1_Optional_Id`, `l3`.`Level1_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse2Id`, `l3`.`OneToMany_Optional_Self_Inverse2Id`, `l3`.`OneToMany_Required_Inverse2Id`, `l3`.`OneToMany_Required_Self_Inverse2Id`, `l3`.`OneToOne_Optional_PK_Inverse2Id`, `l3`.`OneToOne_Optional_Self2Id`, `l4`.`Id`, `l4`.`Level2_Optional_Id`, `l4`.`Level2_Required_Id`, `l4`.`Name`, `l4`.`OneToMany_Optional_Inverse3Id`, `l4`.`OneToMany_Optional_Self_Inverse3Id`, `l4`.`OneToMany_Required_Inverse3Id`, `l4`.`OneToMany_Required_Self_Inverse3Id`, `l4`.`OneToOne_Optional_PK_Inverse3Id`, `l4`.`OneToOne_Optional_Self3Id`
 FROM ((((`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToOne_Optional_PK_Inverse3Id`)
@@ -2184,20 +2171,17 @@ LEFT JOIN `LevelThree` AS `l2` ON `l0`.`Id` = `l2`.`Level2_Optional_Id`)
 LEFT JOIN `LevelTwo` AS `l3` ON `l`.`Id` = `l3`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l4` ON `l3`.`Id` = `l4`.`Level2_Optional_Id`
 WHERE `l1`.`Name` <> 'Foo' OR `l1`.`Name` IS NULL
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`, `l3`.`Id`, `l4`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
-"""
-SELECT `l5`.`Id`, `l5`.`Level2_Optional_Id`, `l5`.`Level2_Required_Id`, `l5`.`Name`, `l5`.`OneToMany_Optional_Inverse3Id`, `l5`.`OneToMany_Optional_Self_Inverse3Id`, `l5`.`OneToMany_Required_Inverse3Id`, `l5`.`OneToMany_Required_Self_Inverse3Id`, `l5`.`OneToOne_Optional_PK_Inverse3Id`, `l5`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`, `l3`.`Id`, `l4`.`Id`
-FROM (((((`LevelOne` AS `l`
+            """
+SELECT `l5`.`Id`, `l5`.`Level2_Optional_Id`, `l5`.`Level2_Required_Id`, `l5`.`Name`, `l5`.`OneToMany_Optional_Inverse3Id`, `l5`.`OneToMany_Optional_Self_Inverse3Id`, `l5`.`OneToMany_Required_Inverse3Id`, `l5`.`OneToMany_Required_Self_Inverse3Id`, `l5`.`OneToOne_Optional_PK_Inverse3Id`, `l5`.`OneToOne_Optional_Self3Id`, `l`.`Id`
+FROM ((`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToOne_Optional_PK_Inverse3Id`)
-LEFT JOIN `LevelThree` AS `l2` ON `l0`.`Id` = `l2`.`Level2_Optional_Id`)
-LEFT JOIN `LevelTwo` AS `l3` ON `l`.`Id` = `l3`.`Level1_Optional_Id`)
-LEFT JOIN `LevelThree` AS `l4` ON `l3`.`Id` = `l4`.`Level2_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l5` ON `l0`.`Id` = `l5`.`OneToMany_Optional_Inverse3Id`
 WHERE (`l1`.`Name` <> 'Foo' OR `l1`.`Name` IS NULL) AND (`l0`.`Id` IS NOT NULL AND `l5`.`OneToMany_Optional_Inverse3Id` IS NOT NULL)
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`, `l3`.`Id`, `l4`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -2268,17 +2252,17 @@ SELECT `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_
 FROM (`LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToMany_Optional_Inverse2Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Required_Id`
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+ORDER BY `l`.`Id`, `l0`.`Id`
 """,
             //
             """
-SELECT `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+SELECT `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`
 FROM ((`LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToMany_Optional_Inverse2Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Required_Id`)
 LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`OneToMany_Optional_Inverse4Id`
 WHERE `l1`.`Id` IS NOT NULL AND `l2`.`OneToMany_Optional_Inverse4Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+ORDER BY `l`.`Id`, `l0`.`Id`
 """);
     }
 
@@ -2287,25 +2271,24 @@ ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
         await base.Multiple_SelectMany_with_Include(async);
 
         AssertSql(
-"""
+            """
 SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`
 FROM ((`LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToMany_Optional_Inverse2Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`)
 LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`Level3_Required_Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`
+ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
 """,
-                //
-                """
-SELECT `l3`.`Id`, `l3`.`Level3_Optional_Id`, `l3`.`Level3_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse4Id`, `l3`.`OneToMany_Optional_Self_Inverse4Id`, `l3`.`OneToMany_Required_Inverse4Id`, `l3`.`OneToMany_Required_Self_Inverse4Id`, `l3`.`OneToOne_Optional_PK_Inverse4Id`, `l3`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`
-FROM (((`LevelOne` AS `l`
+            //
+            """
+SELECT `l3`.`Id`, `l3`.`Level3_Optional_Id`, `l3`.`Level3_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse4Id`, `l3`.`OneToMany_Optional_Self_Inverse4Id`, `l3`.`OneToMany_Required_Inverse4Id`, `l3`.`OneToMany_Required_Self_Inverse4Id`, `l3`.`OneToOne_Optional_PK_Inverse4Id`, `l3`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+FROM ((`LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToMany_Optional_Inverse2Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`)
-LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`Level3_Required_Id`)
 LEFT JOIN `LevelFour` AS `l3` ON `l1`.`Id` = `l3`.`OneToMany_Optional_Inverse4Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL AND `l1`.`Id` IS NOT NULL AND `l3`.`OneToMany_Optional_Inverse4Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`
+ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
 """);
     }
 
@@ -2347,11 +2330,11 @@ WHERE `l0`.`OneToMany_Required_Inverse3Id` IS NOT NULL AND `l1`.`Id` IS NOT NULL
 SELECT `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`, `l`.`Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `s`.`Id`, `s`.`Level2_Optional_Id`, `s`.`Level2_Required_Id`, `s`.`Name`, `s`.`OneToMany_Optional_Inverse3Id`, `s`.`OneToMany_Optional_Self_Inverse3Id`, `s`.`OneToMany_Required_Inverse3Id`, `s`.`OneToMany_Required_Self_Inverse3Id`, `s`.`OneToOne_Optional_PK_Inverse3Id`, `s`.`OneToOne_Optional_Self3Id`, `s`.`Id0`, `s`.`Level3_Optional_Id`, `s`.`Level3_Required_Id`, `s`.`Name0`, `s`.`OneToMany_Optional_Inverse4Id`, `s`.`OneToMany_Optional_Self_Inverse4Id`, `s`.`OneToMany_Required_Inverse4Id`, `s`.`OneToMany_Required_Self_Inverse4Id`, `s`.`OneToOne_Optional_PK_Inverse4Id`, `s`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`
+SELECT `s`.`Id`, `s`.`Level2_Optional_Id`, `s`.`Level2_Required_Id`, `s`.`Name`, `s`.`OneToMany_Optional_Inverse3Id`, `s`.`OneToMany_Optional_Self_Inverse3Id`, `s`.`OneToMany_Required_Inverse3Id`, `s`.`OneToMany_Required_Self_Inverse3Id`, `s`.`OneToOne_Optional_PK_Inverse3Id`, `s`.`OneToOne_Optional_Self3Id`, `s`.`Id0`, `s`.`Level3_Optional_Id`, `s`.`Level3_Required_Id`, `s`.`Name0`, `s`.`OneToMany_Optional_Inverse4Id`, `s`.`OneToMany_Optional_Self_Inverse4Id`, `s`.`OneToMany_Required_Inverse4Id`, `s`.`OneToMany_Required_Self_Inverse4Id`, `s`.`OneToOne_Optional_PK_Inverse4Id`, `s`.`OneToOne_Optional_Self4Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN (
@@ -2360,7 +2343,7 @@ LEFT JOIN (
     LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`Level3_Optional_Id`
 ) AS `s` ON `l0`.`Id` = `s`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `s`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -2370,21 +2353,21 @@ ORDER BY `l`.`Id`, `l0`.`Id`
 
         AssertSql(
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToOne_Optional_PK_Inverse3Id`
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+SELECT `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`, `l`.`Id`
 FROM ((`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToOne_Optional_PK_Inverse3Id`)
 LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`OneToMany_Optional_Inverse4Id`
 WHERE `l1`.`Id` IS NOT NULL AND `l2`.`OneToMany_Optional_Inverse4Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -2394,21 +2377,21 @@ ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
 
         AssertSql(
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToOne_Optional_PK_Inverse3Id`
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+SELECT `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`, `l`.`Id`
 FROM ((`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToOne_Optional_PK_Inverse3Id`)
 LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`OneToMany_Optional_Inverse4Id`
 WHERE `l1`.`Id` IS NOT NULL AND `l2`.`OneToMany_Optional_Inverse4Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -2421,16 +2404,16 @@ ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
 SELECT `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`, `l`.`Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l0`.`Name`, `l`.`Id`, `l0`.`Id`
+ORDER BY `l0`.`Name`, `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l0`.`Name`, `l`.`Id`, `l0`.`Id`
+ORDER BY `l0`.`Name`, `l`.`Id`
 """);
     }
 
@@ -2443,16 +2426,16 @@ ORDER BY `l0`.`Name`, `l`.`Id`, `l0`.`Id`
 SELECT `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`, `l`.`Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l0`.`Name`, `l`.`Id`, `l0`.`Id`
+ORDER BY `l0`.`Name`, `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l0`.`Name`, `l`.`Id`, `l0`.`Id`
+ORDER BY `l0`.`Name`, `l`.`Id`
 """);
     }
 
@@ -2816,7 +2799,7 @@ ORDER BY `l0`.`Id`, `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
@@ -2859,18 +2842,18 @@ INNER JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToMany_Required_Inverse2Id`
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`)
 LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`Level3_Required_Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`
+ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
 """,
             //
             """
-SELECT `l3`.`Id`, `l3`.`Level3_Optional_Id`, `l3`.`Level3_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse4Id`, `l3`.`OneToMany_Optional_Self_Inverse4Id`, `l3`.`OneToMany_Required_Inverse4Id`, `l3`.`OneToMany_Required_Self_Inverse4Id`, `l3`.`OneToOne_Optional_PK_Inverse4Id`, `l3`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`
+SELECT `l3`.`Id`, `l3`.`Level3_Optional_Id`, `l3`.`Level3_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse4Id`, `l3`.`OneToMany_Optional_Self_Inverse4Id`, `l3`.`OneToMany_Required_Inverse4Id`, `l3`.`OneToMany_Required_Self_Inverse4Id`, `l3`.`OneToOne_Optional_PK_Inverse4Id`, `l3`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`
 FROM (((`LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToMany_Required_Inverse2Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`)
 LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`Level3_Required_Id`)
 LEFT JOIN `LevelFour` AS `l3` ON `l2`.`Id` = `l3`.`OneToMany_Required_Self_Inverse4Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL AND `l2`.`Id` IS NOT NULL AND `l3`.`OneToMany_Required_Self_Inverse4Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`
+ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
 """);
     }
 
@@ -2880,23 +2863,23 @@ ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`
 
         AssertSql(
             """
-SELECT `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+SELECT `l2`.`Id`, `l2`.`Level3_Optional_Id`, `l2`.`Level3_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse4Id`, `l2`.`OneToMany_Optional_Self_Inverse4Id`, `l2`.`OneToMany_Required_Inverse4Id`, `l2`.`OneToMany_Required_Self_Inverse4Id`, `l2`.`OneToOne_Optional_PK_Inverse4Id`, `l2`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`
 FROM ((`LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToMany_Required_Inverse2Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Optional_Id`)
 LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`Level3_Required_Id`
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`
+ORDER BY `l`.`Id`, `l0`.`Id`
 """,
             //
             """
-SELECT `l3`.`Id`, `l3`.`Level3_Optional_Id`, `l3`.`Level3_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse4Id`, `l3`.`OneToMany_Optional_Self_Inverse4Id`, `l3`.`OneToMany_Required_Inverse4Id`, `l3`.`OneToMany_Required_Self_Inverse4Id`, `l3`.`OneToOne_Optional_PK_Inverse4Id`, `l3`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`
+SELECT `l3`.`Id`, `l3`.`Level3_Optional_Id`, `l3`.`Level3_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse4Id`, `l3`.`OneToMany_Optional_Self_Inverse4Id`, `l3`.`OneToMany_Required_Inverse4Id`, `l3`.`OneToMany_Required_Self_Inverse4Id`, `l3`.`OneToOne_Optional_PK_Inverse4Id`, `l3`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`
 FROM (((`LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToMany_Required_Inverse2Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Optional_Id`)
 LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`Level3_Required_Id`)
 LEFT JOIN `LevelFour` AS `l3` ON `l2`.`Id` = `l3`.`OneToMany_Optional_Self_Inverse4Id`
 WHERE `l2`.`Id` IS NOT NULL AND `l3`.`OneToMany_Optional_Self_Inverse4Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`, `l2`.`Id`
+ORDER BY `l`.`Id`, `l0`.`Id`
 """);
     }
 
@@ -2951,16 +2934,16 @@ ORDER BY `l`.`Id`
 SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -3075,22 +3058,20 @@ INNER JOIN (
     LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`Level3_Optional_Id`)
     LEFT JOIN `LevelThree` AS `l3` ON `l0`.`Id` = `l3`.`Level2_Optional_Id`
 ) AS `s` ON `l`.`Id` = `s`.`OneToMany_Optional_Inverse2Id`
-ORDER BY `l`.`Id`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`, `s`.`Id2`
+ORDER BY `l`.`Id`, `s`.`Id`
 """,
             //
             """
-SELECT `l4`.`Id`, `l4`.`Level3_Optional_Id`, `l4`.`Level3_Required_Id`, `l4`.`Name`, `l4`.`OneToMany_Optional_Inverse4Id`, `l4`.`OneToMany_Optional_Self_Inverse4Id`, `l4`.`OneToMany_Required_Inverse4Id`, `l4`.`OneToMany_Required_Self_Inverse4Id`, `l4`.`OneToOne_Optional_PK_Inverse4Id`, `l4`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`, `s`.`Id2`
+SELECT `l4`.`Id`, `l4`.`Level3_Optional_Id`, `l4`.`Level3_Required_Id`, `l4`.`Name`, `l4`.`OneToMany_Optional_Inverse4Id`, `l4`.`OneToMany_Optional_Self_Inverse4Id`, `l4`.`OneToMany_Required_Inverse4Id`, `l4`.`OneToMany_Required_Self_Inverse4Id`, `l4`.`OneToOne_Optional_PK_Inverse4Id`, `l4`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `s`.`Id`
 FROM (`LevelOne` AS `l`
 INNER JOIN (
-    SELECT `l0`.`Id`, `l0`.`OneToMany_Optional_Inverse2Id`, `l1`.`Id` AS `Id0`, `l2`.`Id` AS `Id1`, `l3`.`Id` AS `Id2`
-    FROM ((`LevelTwo` AS `l0`
-    LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToOne_Optional_PK_Inverse3Id`)
-    LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`Level3_Optional_Id`)
+    SELECT `l0`.`Id`, `l0`.`OneToMany_Optional_Inverse2Id`, `l3`.`Id` AS `Id2`
+    FROM `LevelTwo` AS `l0`
     LEFT JOIN `LevelThree` AS `l3` ON `l0`.`Id` = `l3`.`Level2_Optional_Id`
 ) AS `s` ON `l`.`Id` = `s`.`OneToMany_Optional_Inverse2Id`)
 LEFT JOIN `LevelFour` AS `l4` ON `s`.`Id2` = `l4`.`OneToMany_Optional_Inverse4Id`
 WHERE `s`.`Id2` IS NOT NULL AND `l4`.`OneToMany_Optional_Inverse4Id` IS NOT NULL
-ORDER BY `l`.`Id`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`, `s`.`Id2`
+ORDER BY `l`.`Id`, `s`.`Id`
 """);
     }
 
@@ -3115,22 +3096,20 @@ INNER JOIN (
     LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`Level3_Optional_Id`)
     LEFT JOIN `LevelThree` AS `l3` ON `l0`.`Id` = `l3`.`Level2_Optional_Id`
 ) AS `s` ON `l`.`Id` = `s`.`OneToMany_Optional_Inverse2Id`
-ORDER BY `l`.`Id`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`, `s`.`Id2`
+ORDER BY `l`.`Id`, `s`.`Id`
 """,
             //
             """
-SELECT `l4`.`Id`, `l4`.`Level3_Optional_Id`, `l4`.`Level3_Required_Id`, `l4`.`Name`, `l4`.`OneToMany_Optional_Inverse4Id`, `l4`.`OneToMany_Optional_Self_Inverse4Id`, `l4`.`OneToMany_Required_Inverse4Id`, `l4`.`OneToMany_Required_Self_Inverse4Id`, `l4`.`OneToOne_Optional_PK_Inverse4Id`, `l4`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`, `s`.`Id2`
+SELECT `l4`.`Id`, `l4`.`Level3_Optional_Id`, `l4`.`Level3_Required_Id`, `l4`.`Name`, `l4`.`OneToMany_Optional_Inverse4Id`, `l4`.`OneToMany_Optional_Self_Inverse4Id`, `l4`.`OneToMany_Required_Inverse4Id`, `l4`.`OneToMany_Required_Self_Inverse4Id`, `l4`.`OneToOne_Optional_PK_Inverse4Id`, `l4`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `s`.`Id`
 FROM (`LevelOne` AS `l`
 INNER JOIN (
-    SELECT `l0`.`Id`, `l0`.`OneToMany_Optional_Inverse2Id`, `l1`.`Id` AS `Id0`, `l2`.`Id` AS `Id1`, `l3`.`Id` AS `Id2`
-    FROM ((`LevelTwo` AS `l0`
-    LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToOne_Optional_PK_Inverse3Id`)
-    LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`Level3_Optional_Id`)
+    SELECT `l0`.`Id`, `l0`.`OneToMany_Optional_Inverse2Id`, `l3`.`Id` AS `Id2`
+    FROM `LevelTwo` AS `l0`
     LEFT JOIN `LevelThree` AS `l3` ON `l0`.`Id` = `l3`.`Level2_Optional_Id`
 ) AS `s` ON `l`.`Id` = `s`.`OneToMany_Optional_Inverse2Id`)
 LEFT JOIN `LevelFour` AS `l4` ON `s`.`Id2` = `l4`.`OneToMany_Optional_Inverse4Id`
 WHERE `s`.`Id2` IS NOT NULL AND `l4`.`OneToMany_Optional_Inverse4Id` IS NOT NULL
-ORDER BY `l`.`Id`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`, `s`.`Id2`
+ORDER BY `l`.`Id`, `s`.`Id`
 """);
     }
 
@@ -3236,16 +3215,14 @@ SELECT `l`.`Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Optional_Id`
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `l2`.`Id`, `l2`.`Date`, `l2`.`Level1_Optional_Id`, `l2`.`Level1_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse2Id`, `l2`.`OneToMany_Optional_Self_Inverse2Id`, `l2`.`OneToMany_Required_Inverse2Id`, `l2`.`OneToMany_Required_Self_Inverse2Id`, `l2`.`OneToOne_Optional_PK_Inverse2Id`, `l2`.`OneToOne_Optional_Self2Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`
-FROM ((`LevelOne` AS `l`
-LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
-LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Optional_Id`)
+SELECT `l2`.`Id`, `l2`.`Date`, `l2`.`Level1_Optional_Id`, `l2`.`Level1_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse2Id`, `l2`.`OneToMany_Optional_Self_Inverse2Id`, `l2`.`OneToMany_Required_Inverse2Id`, `l2`.`OneToMany_Required_Self_Inverse2Id`, `l2`.`OneToOne_Optional_PK_Inverse2Id`, `l2`.`OneToOne_Optional_Self2Id`, `l`.`Id`
+FROM `LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l2` ON `l`.`Id` = `l2`.`OneToMany_Required_Inverse2Id`
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -3258,23 +3235,23 @@ ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
 @validIds1='L1 01' (Size = 255)
 @validIds2='L1 02' (Size = 255)
 
-SELECT IIF(`l0`.`Id` IS NULL, 0, `l0`.`Id`), `l`.`Id`, `l0`.`Id`
+SELECT IIF(`l0`.`Id` IS NULL, 0, `l0`.`Id`), `l`.`Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`
 WHERE `l`.`Name` IN (@validIds1, @validIds2)
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
 @validIds3='L1 01' (Size = 255)
 @validIds4='L1 02' (Size = 255)
 
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Required_Inverse3Id`
 WHERE (`l`.`Name` IN (@validIds3, @validIds4)) AND (`l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Required_Inverse3Id` IS NOT NULL)
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -3842,16 +3819,16 @@ ORDER BY `l4`.`Date`
 
         AssertSql(
             """
-SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l1`.`Id`, `l1`.`Date`, `l1`.`Level1_Optional_Id`, `l1`.`Level1_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse2Id`, `l1`.`OneToMany_Optional_Self_Inverse2Id`, `l1`.`OneToMany_Required_Inverse2Id`, `l1`.`OneToMany_Required_Self_Inverse2Id`, `l1`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`OneToOne_Optional_Self2Id`, `l0`.`Id`
+SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l1`.`Id`, `l1`.`Date`, `l1`.`Level1_Optional_Id`, `l1`.`Level1_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse2Id`, `l1`.`OneToMany_Optional_Self_Inverse2Id`, `l1`.`OneToMany_Required_Inverse2Id`, `l1`.`OneToMany_Required_Self_Inverse2Id`, `l1`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`OneToOne_Optional_Self2Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToOne_Optional_PK_Inverse2Id`)
 LEFT JOIN `LevelTwo` AS `l1` ON `l`.`Id` = `l1`.`Level1_Optional_Id`
 WHERE `l0`.`Id` < 3 OR `l1`.`Id` > 8
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `s`.`Id`, `s`.`Level2_Optional_Id`, `s`.`Level2_Required_Id`, `s`.`Name`, `s`.`OneToMany_Optional_Inverse3Id`, `s`.`OneToMany_Optional_Self_Inverse3Id`, `s`.`OneToMany_Required_Inverse3Id`, `s`.`OneToMany_Required_Self_Inverse3Id`, `s`.`OneToOne_Optional_PK_Inverse3Id`, `s`.`OneToOne_Optional_Self3Id`, `s`.`Id0`, `s`.`Level3_Optional_Id`, `s`.`Level3_Required_Id`, `s`.`Name0`, `s`.`OneToMany_Optional_Inverse4Id`, `s`.`OneToMany_Optional_Self_Inverse4Id`, `s`.`OneToMany_Required_Inverse4Id`, `s`.`OneToMany_Required_Self_Inverse4Id`, `s`.`OneToOne_Optional_PK_Inverse4Id`, `s`.`OneToOne_Optional_Self4Id`, `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+SELECT `s`.`Id`, `s`.`Level2_Optional_Id`, `s`.`Level2_Required_Id`, `s`.`Name`, `s`.`OneToMany_Optional_Inverse3Id`, `s`.`OneToMany_Optional_Self_Inverse3Id`, `s`.`OneToMany_Required_Inverse3Id`, `s`.`OneToMany_Required_Self_Inverse3Id`, `s`.`OneToOne_Optional_PK_Inverse3Id`, `s`.`OneToOne_Optional_Self3Id`, `s`.`Id0`, `s`.`Level3_Optional_Id`, `s`.`Level3_Required_Id`, `s`.`Name0`, `s`.`OneToMany_Optional_Inverse4Id`, `s`.`OneToMany_Optional_Self_Inverse4Id`, `s`.`OneToMany_Required_Inverse4Id`, `s`.`OneToMany_Required_Self_Inverse4Id`, `s`.`OneToOne_Optional_PK_Inverse4Id`, `s`.`OneToOne_Optional_Self4Id`, `l`.`Id`
 FROM ((`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToOne_Optional_PK_Inverse2Id`)
 LEFT JOIN `LevelTwo` AS `l1` ON `l`.`Id` = `l1`.`Level1_Optional_Id`)
@@ -3861,7 +3838,7 @@ LEFT JOIN (
     LEFT JOIN `LevelFour` AS `l3` ON `l2`.`Id` = `l3`.`Level3_Optional_Id`
 ) AS `s` ON `l1`.`Id` = `s`.`OneToMany_Optional_Inverse3Id`
 WHERE (`l0`.`Id` < 3 OR `l1`.`Id` > 8) AND (`l1`.`Id` IS NOT NULL AND `s`.`OneToMany_Optional_Inverse3Id` IS NOT NULL)
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -4137,28 +4114,27 @@ ORDER BY [l].[Id], [l0].[Id], [l1].[Id]
 SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Level2_Optional_Id`, `l1`.`Level2_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse3Id`, `l1`.`OneToMany_Optional_Self_Inverse3Id`, `l1`.`OneToMany_Required_Inverse3Id`, `l1`.`OneToMany_Required_Self_Inverse3Id`, `l1`.`OneToOne_Optional_PK_Inverse3Id`, `l1`.`OneToOne_Optional_Self3Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Inverse3Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Inverse3Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `s`.`Id`, `s`.`Date`, `s`.`Level1_Optional_Id`, `s`.`Level1_Required_Id`, `s`.`Name`, `s`.`OneToMany_Optional_Inverse2Id`, `s`.`OneToMany_Optional_Self_Inverse2Id`, `s`.`OneToMany_Required_Inverse2Id`, `s`.`OneToMany_Required_Self_Inverse2Id`, `s`.`OneToOne_Optional_PK_Inverse2Id`, `s`.`OneToOne_Optional_Self2Id`, `s`.`Id0`, `s`.`Level2_Optional_Id`, `s`.`Level2_Required_Id`, `s`.`Name0`, `s`.`OneToMany_Optional_Inverse3Id`, `s`.`OneToMany_Optional_Self_Inverse3Id`, `s`.`OneToMany_Required_Inverse3Id`, `s`.`OneToMany_Required_Self_Inverse3Id`, `s`.`OneToOne_Optional_PK_Inverse3Id`, `s`.`OneToOne_Optional_Self3Id`, `l`.`Id`, `l0`.`Id`
-FROM (`LevelOne` AS `l`
-LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
+SELECT `s`.`Id`, `s`.`Date`, `s`.`Level1_Optional_Id`, `s`.`Level1_Required_Id`, `s`.`Name`, `s`.`OneToMany_Optional_Inverse2Id`, `s`.`OneToMany_Optional_Self_Inverse2Id`, `s`.`OneToMany_Required_Inverse2Id`, `s`.`OneToMany_Required_Self_Inverse2Id`, `s`.`OneToOne_Optional_PK_Inverse2Id`, `s`.`OneToOne_Optional_Self2Id`, `s`.`Id0`, `s`.`Level2_Optional_Id`, `s`.`Level2_Required_Id`, `s`.`Name0`, `s`.`OneToMany_Optional_Inverse3Id`, `s`.`OneToMany_Optional_Self_Inverse3Id`, `s`.`OneToMany_Required_Inverse3Id`, `s`.`OneToMany_Required_Self_Inverse3Id`, `s`.`OneToOne_Optional_PK_Inverse3Id`, `s`.`OneToOne_Optional_Self3Id`, `l`.`Id`
+FROM `LevelOne` AS `l`
 INNER JOIN (
     SELECT `l2`.`Id`, `l2`.`Date`, `l2`.`Level1_Optional_Id`, `l2`.`Level1_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse2Id`, `l2`.`OneToMany_Optional_Self_Inverse2Id`, `l2`.`OneToMany_Required_Inverse2Id`, `l2`.`OneToMany_Required_Self_Inverse2Id`, `l2`.`OneToOne_Optional_PK_Inverse2Id`, `l2`.`OneToOne_Optional_Self2Id`, `l3`.`Id` AS `Id0`, `l3`.`Level2_Optional_Id`, `l3`.`Level2_Required_Id`, `l3`.`Name` AS `Name0`, `l3`.`OneToMany_Optional_Inverse3Id`, `l3`.`OneToMany_Optional_Self_Inverse3Id`, `l3`.`OneToMany_Required_Inverse3Id`, `l3`.`OneToMany_Required_Self_Inverse3Id`, `l3`.`OneToOne_Optional_PK_Inverse3Id`, `l3`.`OneToOne_Optional_Self3Id`
     FROM `LevelTwo` AS `l2`
     LEFT JOIN `LevelThree` AS `l3` ON `l2`.`Id` = `l3`.`Level2_Optional_Id`
 ) AS `s` ON `l`.`Id` = `s`.`OneToMany_Optional_Inverse2Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -4171,28 +4147,27 @@ ORDER BY `l`.`Id`, `l0`.`Id`
 SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Name`, `l0`.`OneToMany_Optional_Self_Inverse1Id`, `l0`.`OneToMany_Required_Self_Inverse1Id`, `l0`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelOne` AS `l0` ON `l`.`OneToOne_Optional_Self1Id` = `l0`.`Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `l1`.`Id`, `l1`.`Date`, `l1`.`Name`, `l1`.`OneToMany_Optional_Self_Inverse1Id`, `l1`.`OneToMany_Required_Self_Inverse1Id`, `l1`.`OneToOne_Optional_Self1Id`, `l`.`Id`, `l0`.`Id`
+SELECT `l1`.`Id`, `l1`.`Date`, `l1`.`Name`, `l1`.`OneToMany_Optional_Self_Inverse1Id`, `l1`.`OneToMany_Required_Self_Inverse1Id`, `l1`.`OneToOne_Optional_Self1Id`, `l`.`Id`
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelOne` AS `l0` ON `l`.`OneToOne_Optional_Self1Id` = `l0`.`Id`)
 LEFT JOIN `LevelOne` AS `l1` ON `l0`.`Id` = `l1`.`OneToMany_Optional_Self_Inverse1Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`OneToMany_Optional_Self_Inverse1Id` IS NOT NULL
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """,
             //
             """
-SELECT `s`.`Id`, `s`.`Date`, `s`.`Name`, `s`.`OneToMany_Optional_Self_Inverse1Id`, `s`.`OneToMany_Required_Self_Inverse1Id`, `s`.`OneToOne_Optional_Self1Id`, `s`.`Id0`, `s`.`Date0`, `s`.`Name0`, `s`.`OneToMany_Optional_Self_Inverse1Id0`, `s`.`OneToMany_Required_Self_Inverse1Id0`, `s`.`OneToOne_Optional_Self1Id0`, `l`.`Id`, `l0`.`Id`
-FROM (`LevelOne` AS `l`
-LEFT JOIN `LevelOne` AS `l0` ON `l`.`OneToOne_Optional_Self1Id` = `l0`.`Id`)
+SELECT `s`.`Id`, `s`.`Date`, `s`.`Name`, `s`.`OneToMany_Optional_Self_Inverse1Id`, `s`.`OneToMany_Required_Self_Inverse1Id`, `s`.`OneToOne_Optional_Self1Id`, `s`.`Id0`, `s`.`Date0`, `s`.`Name0`, `s`.`OneToMany_Optional_Self_Inverse1Id0`, `s`.`OneToMany_Required_Self_Inverse1Id0`, `s`.`OneToOne_Optional_Self1Id0`, `l`.`Id`
+FROM `LevelOne` AS `l`
 INNER JOIN (
     SELECT `l2`.`Id`, `l2`.`Date`, `l2`.`Name`, `l2`.`OneToMany_Optional_Self_Inverse1Id`, `l2`.`OneToMany_Required_Self_Inverse1Id`, `l2`.`OneToOne_Optional_Self1Id`, `l3`.`Id` AS `Id0`, `l3`.`Date` AS `Date0`, `l3`.`Name` AS `Name0`, `l3`.`OneToMany_Optional_Self_Inverse1Id` AS `OneToMany_Optional_Self_Inverse1Id0`, `l3`.`OneToMany_Required_Self_Inverse1Id` AS `OneToMany_Required_Self_Inverse1Id0`, `l3`.`OneToOne_Optional_Self1Id` AS `OneToOne_Optional_Self1Id0`
     FROM `LevelOne` AS `l2`
     LEFT JOIN `LevelOne` AS `l3` ON `l2`.`OneToOne_Optional_Self1Id` = `l3`.`Id`
 ) AS `s` ON `l`.`Id` = `s`.`OneToMany_Optional_Self_Inverse1Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """);
     }
 
@@ -4432,15 +4407,14 @@ ORDER BY `l`.`Name`, `l`.`Id`
 SELECT `l`.`Name`, `l`.`Id`, `l`.`Date`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l`.`Name`, `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Name`, `l`.`Id`
 """,
             //
             """
-SELECT `l`.`Name`, `l1`.`Id`, `l1`.`Date`, `l1`.`Level1_Optional_Id`, `l1`.`Level1_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse2Id`, `l1`.`OneToMany_Optional_Self_Inverse2Id`, `l1`.`OneToMany_Required_Inverse2Id`, `l1`.`OneToMany_Required_Self_Inverse2Id`, `l1`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`OneToOne_Optional_Self2Id`, `l`.`Id`, `l0`.`Id`
-FROM (`LevelOne` AS `l`
-LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
+SELECT `l`.`Name`, `l1`.`Id`, `l1`.`Date`, `l1`.`Level1_Optional_Id`, `l1`.`Level1_Required_Id`, `l1`.`Name`, `l1`.`OneToMany_Optional_Inverse2Id`, `l1`.`OneToMany_Optional_Self_Inverse2Id`, `l1`.`OneToMany_Required_Inverse2Id`, `l1`.`OneToMany_Required_Self_Inverse2Id`, `l1`.`OneToOne_Optional_PK_Inverse2Id`, `l1`.`OneToOne_Optional_Self2Id`, `l`.`Id`
+FROM `LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l1` ON `l`.`Id` = `l1`.`OneToMany_Optional_Inverse2Id`
-ORDER BY `l`.`Name`, `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Name`, `l`.`Id`
 """);
     }
 
@@ -4453,7 +4427,7 @@ ORDER BY `l`.`Name`, `l`.`Id`, `l0`.`Id`
 SELECT `l`.`Name`, `l`.`Id`, `l`.`Date`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
-ORDER BY `l`.`Name`
+ORDER BY `l`.`Name`, `l`.`Id`
 """);
     }
 
@@ -4467,7 +4441,7 @@ SELECT `l`.`Name`, `l`.`Id`, `l`.`Date`, `l`.`OneToMany_Optional_Self_Inverse1Id
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelTwo` AS `l1` ON `l`.`Id` = `l1`.`Level1_Required_Id`
-ORDER BY `l`.`Name`
+ORDER BY `l`.`Name`, `l`.`Id`
 """);
     }
 

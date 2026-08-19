@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
@@ -10,6 +10,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class OperatorsProceduralJetTest(NonSharedFixture fixture) : OperatorsProceduralQueryTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 }

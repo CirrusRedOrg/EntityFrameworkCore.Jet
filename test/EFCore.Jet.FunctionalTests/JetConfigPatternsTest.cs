@@ -1,4 +1,4 @@
-﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using EntityFrameworkCore.Jet.Data;
@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
     {
         public class ImplicitServicesAndConfig
         {
-            [ConditionalFact]
+            [Fact]
             public async Task Can_query_with_implicit_services_and_OnConfiguring()
             {
                 await using (await JetTestStore.GetNorthwindStoreAsync())
@@ -51,7 +51,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public class ImplicitServicesExplicitConfig
         {
-            [ConditionalFact]
+            [Fact]
             public async Task Can_query_with_implicit_services_and_explicit_config()
             {
                 await using (await JetTestStore.GetNorthwindStoreAsync())
@@ -77,7 +77,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public class ExplicitServicesImplicitConfig
         {
-            [ConditionalFact]
+            [Fact]
             public async Task Can_query_with_explicit_services_and_OnConfiguring()
             {
                 await using var async = await JetTestStore.GetNorthwindStoreAsync();
@@ -104,7 +104,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public class ExplicitServicesAndConfig
         {
-            [ConditionalFact]
+            [Fact]
             public async Task Can_query_with_explicit_services_and_explicit_config()
             {
                 await using (await JetTestStore.GetNorthwindStoreAsync())
@@ -131,7 +131,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public class ExplicitServicesAndNoConfig
         {
-            [ConditionalFact]
+            [Fact]
             public async Task Throws_on_attempt_to_use_SQL_Server_without_providing_connection_string()
             {
                 await using (await JetTestStore.GetNorthwindStoreAsync())
@@ -162,7 +162,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public class NoServicesAndNoConfig
         {
-            [ConditionalFact]
+            [Fact]
             public async Task Throws_on_attempt_to_use_context_with_no_store()
             {
                 await using (await JetTestStore.GetNorthwindStoreAsync())
@@ -192,7 +192,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public class ImplicitConfigButNoServices
         {
-            [ConditionalFact]
+            [Fact]
             public async Task Throws_on_attempt_to_use_store_with_no_store_services()
             {
                 var serviceCollection = new ServiceCollection();
@@ -228,7 +228,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public class InjectContext
         {
-            [ConditionalFact]
+            [Fact]
             public async Task Can_register_context_with_DI_container_and_have_it_injected()
             {
                 var serviceProvider = new ServiceCollection()
@@ -280,7 +280,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public class InjectContextAndConfiguration
         {
-            [ConditionalFact]
+            [Fact]
             public async Task Can_register_context_and_configuration_with_DI_container_and_have_both_injected()
             {
                 var serviceProvider = new ServiceCollection()
@@ -330,7 +330,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public class ConstructorArgsToBuilder
         {
-            [ConditionalFact]
+            [Fact]
             public async Task Can_pass_context_options_to_constructor_and_use_in_builder()
             {
                 await using (await JetTestStore.GetNorthwindStoreAsync())
@@ -355,7 +355,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public class ConstructorArgsToOnConfiguring
         {
-            [ConditionalFact]
+            [Fact]
             public async Task Can_pass_connection_string_to_constructor_and_use_in_OnConfiguring()
             {
                 await using (await JetTestStore.GetNorthwindStoreAsync())
@@ -381,7 +381,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         public class NestedContext
         {
-            [ConditionalFact]
+            [Fact]
             public async Task Can_use_one_context_nested_inside_another_of_the_same_type()
             {
                 await using (await JetTestStore.GetNorthwindStoreAsync())

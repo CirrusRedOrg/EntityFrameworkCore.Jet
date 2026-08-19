@@ -1,12 +1,12 @@
-﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
 {
@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -30,10 +30,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Projection_when_arithmetic_expression_precedence(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID` \ (`o`.`OrderID` \ 2) AS `A`, (`o`.`OrderID` \ `o`.`OrderID`) \ 2 AS `B`
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT `o`.`OrderID` \ (`o`.`OrderID` \ 2) AS `A`, (`o`.`OrderID` \ `o`.`OrderID`) \ 2 AS `B`
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Projection_when_arithmetic_expressions(bool isAsync)
@@ -41,10 +41,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query
             await base.Projection_when_arithmetic_expressions(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`OrderID` * 2 AS `Double`, `o`.`OrderID` + 23 AS `Add`, 100000 - `o`.`OrderID` AS `Sub`, `o`.`OrderID` \ (`o`.`OrderID` \ 2) AS `Divide`, 42 AS `Literal`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`OrderID` * 2 AS `Double`, `o`.`OrderID` + 23 AS `Add`, 100000 - `o`.`OrderID` AS `Sub`, `o`.`OrderID` \ (`o`.`OrderID` \ 2) AS `Divide`, 42 AS `Literal`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Projection_when_arithmetic_mixed(bool isAsync)
@@ -64,7 +64,7 @@ FROM (
     FROM `Employees` AS `e`
     ORDER BY `e`.`EmployeeID`
 ) AS `e0`
-ORDER BY `o0`.`OrderID`
+ORDER BY `o0`.`OrderID`, `e0`.`EmployeeID`
 """);
         }
 
@@ -73,10 +73,10 @@ ORDER BY `o0`.`OrderID`
             await base.Projection_when_null_value(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`Region`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT `c`.`Region`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Projection_when_client_evald_subquery(bool isAsync)
@@ -84,12 +84,12 @@ ORDER BY `o0`.`OrderID`
             await base.Projection_when_client_evald_subquery(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `o`.`CustomerID`, `o`.`OrderID`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    ORDER BY `c`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `o`.`CustomerID`, `o`.`OrderID`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+""");
         }
 
         public override async Task Project_to_object_array(bool isAsync)
@@ -97,11 +97,11 @@ ORDER BY `o0`.`OrderID`
             await base.Project_to_object_array(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `e`.`EmployeeID`, `e`.`ReportsTo`, `e`.`Title`
-                    FROM `Employees` AS `e`
-                    WHERE `e`.`EmployeeID` = 1
-                    """);
+                """
+SELECT `e`.`EmployeeID`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+WHERE `e`.`EmployeeID` = 1
+""");
         }
 
         public override async Task Projection_of_entity_type_into_object_array(bool isAsync)
@@ -148,11 +148,11 @@ ORDER BY `o0`.`OrderID`
             await base.Project_to_int_array(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `e`.`EmployeeID`, `e`.`ReportsTo`
-                    FROM `Employees` AS `e`
-                    WHERE `e`.`EmployeeID` = 1
-                    """);
+                """
+SELECT `e`.`EmployeeID`, `e`.`ReportsTo`
+FROM `Employees` AS `e`
+WHERE `e`.`EmployeeID` = 1
+""");
         }
 
         public override async Task Select_bool_closure_with_order_parameter_with_cast_to_nullable(bool isAsync)
@@ -165,6 +165,7 @@ ORDER BY `o0`.`OrderID`
 
 SELECT CBOOL(@boolean)
 FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -173,10 +174,10 @@ FROM `Customers` AS `c`
             await base.Select_scalar(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`City`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT `c`.`City`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Select_anonymous_one(bool isAsync)
@@ -184,10 +185,10 @@ FROM `Customers` AS `c`
             await base.Select_anonymous_one(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`City`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT `c`.`City`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Select_anonymous_two(bool isAsync)
@@ -195,10 +196,10 @@ FROM `Customers` AS `c`
             await base.Select_anonymous_two(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`City`, `c`.`Phone`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT `c`.`City`, `c`.`Phone`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Select_anonymous_three(bool isAsync)
@@ -206,10 +207,10 @@ FROM `Customers` AS `c`
             await base.Select_anonymous_three(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`City`, `c`.`Phone`, `c`.`Country`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT `c`.`City`, `c`.`Phone`, `c`.`Country`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Select_anonymous_bool_constant_true(bool isAsync)
@@ -217,10 +218,10 @@ FROM `Customers` AS `c`
             await base.Select_anonymous_bool_constant_true(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, TRUE AS `ConstantTrue`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT `c`.`CustomerID`, TRUE AS `ConstantTrue`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Select_anonymous_constant_in_expression(bool isAsync)
@@ -229,9 +230,9 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-    SELECT `c`.`CustomerID`, IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`))) + 5 AS `Expression`
-    FROM `Customers` AS `c`
-    """);
+SELECT `c`.`CustomerID`, LEN(`c`.`CustomerID`) + 5 AS `Expression`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Select_anonymous_conditional_expression(bool isAsync)
@@ -250,10 +251,10 @@ FROM `Products` AS `p`
             await base.Select_constant_int(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT 0
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT 0
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Select_constant_null_string(bool isAsync)
@@ -261,10 +262,10 @@ FROM `Products` AS `p`
             await base.Select_constant_null_string(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT NULL
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT NULL
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Select_local(bool isAsync)
@@ -296,11 +297,11 @@ FROM `Employees` AS `e`
             await base.Select_project_filter(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CompanyName`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`City` = 'London'
-                    """);
+                """
+SELECT `c`.`CompanyName`
+FROM `Customers` AS `c`
+WHERE `c`.`City` = 'London'
+""");
         }
 
         public override async Task Select_project_filter2(bool isAsync)
@@ -308,11 +309,11 @@ FROM `Employees` AS `e`
             await base.Select_project_filter2(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`City`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`City` = 'London'
-                    """);
+                """
+SELECT `c`.`City`
+FROM `Customers` AS `c`
+WHERE `c`.`City` = 'London'
+""");
         }
 
         public override async Task Select_nested_collection(bool isAsync)
@@ -483,35 +484,35 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-    SELECT IIF((
-            SELECT TOP 1 IIF((
-                    SELECT TOP 1 `o0`.`ProductID`
-                    FROM `Order Details` AS `o0`
-                    WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`)))
-                    ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
-                    SELECT TOP 1 `o0`.`ProductID`
-                    FROM `Order Details` AS `o0`
-                    WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`)))
-                    ORDER BY `o0`.`OrderID`, `o0`.`ProductID`))
-            FROM `Orders` AS `o`
-            WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
-            ORDER BY `o`.`OrderID`) IS NULL, 0, (
-            SELECT TOP 1 IIF((
-                    SELECT TOP 1 `o0`.`ProductID`
-                    FROM `Order Details` AS `o0`
-                    WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`)))
-                    ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
-                    SELECT TOP 1 `o0`.`ProductID`
-                    FROM `Order Details` AS `o0`
-                    WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`)))
-                    ORDER BY `o0`.`OrderID`, `o0`.`ProductID`))
-            FROM `Orders` AS `o`
-            WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
-            ORDER BY `o`.`OrderID`)) AS `Order`
-    FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'A%'
-    ORDER BY `c`.`CustomerID`
-    """);
+SELECT IIF((
+        SELECT TOP 1 IIF((
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> LEN(`c`.`CustomerID`)
+                ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> LEN(`c`.`CustomerID`)
+                ORDER BY `o0`.`OrderID`, `o0`.`ProductID`))
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
+        ORDER BY `o`.`OrderID`) IS NULL, 0, (
+        SELECT TOP 1 IIF((
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> LEN(`c`.`CustomerID`)
+                ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> LEN(`c`.`CustomerID`)
+                ORDER BY `o0`.`OrderID`, `o0`.`ProductID`))
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
+        ORDER BY `o`.`OrderID`)) AS `Order`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` LIKE 'A%'
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Select_nested_collection_count_using_anonymous_type(bool isAsync)
@@ -519,14 +520,14 @@ ORDER BY `c`.`CustomerID`
             await base.Select_nested_collection_count_using_anonymous_type(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT COUNT(*)
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Count`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` LIKE 'A%'
-                    """);
+                """
+SELECT (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Count`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` LIKE 'A%'
+""");
         }
 
         public override async Task New_date_time_in_anonymous_type_works(bool isAsync)
@@ -534,11 +535,11 @@ ORDER BY `c`.`CustomerID`
             await base.New_date_time_in_anonymous_type_works(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT 1
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` LIKE 'A%'
-                    """);
+                """
+SELECT 1
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` LIKE 'A%'
+""");
         }
 
         public override async Task Select_non_matching_value_types_int_to_long_introduces_explicit_cast(bool isAsync)
@@ -652,11 +653,11 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-    SELECT CLNG(IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`))))
-    FROM `Orders` AS `o`
-    WHERE `o`.`CustomerID` = 'ALFKI'
-    ORDER BY `o`.`OrderID`
-    """);
+SELECT IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
+FROM `Orders` AS `o`
+WHERE `o`.`CustomerID` = 'ALFKI'
+ORDER BY `o`.`OrderID`
+""");
         }
 
         public override async Task Select_non_matching_value_types_from_method_call_introduces_explicit_cast(bool isAsync)
@@ -702,7 +703,7 @@ WHERE `o`.`CustomerID` = 'ALFKI'
             await base.Select_over_10_nested_ternary_condition(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT IIF(`c`.`CustomerID` = '1', '01', IIF(`c`.`CustomerID` = '2', '02', IIF(`c`.`CustomerID` = '3', '03', IIF(`c`.`CustomerID` = '4', '04', IIF(`c`.`CustomerID` = '5', '05', IIF(`c`.`CustomerID` = '6', '06', IIF(`c`.`CustomerID` = '7', '07', IIF(`c`.`CustomerID` = '8', '08', IIF(`c`.`CustomerID` = '9', '09', IIF(`c`.`CustomerID` = '10', '10', IIF(`c`.`CustomerID` = '11', '11', NULL)))))))))))
 FROM `Customers` AS `c`
 """);
@@ -772,14 +773,14 @@ FROM `Orders` AS `o`
             await base.Projection_containing_DateTime_subtraction(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderDate`
-                    FROM `Orders` AS `o`
-                    WHERE `o`.`OrderID` < 10300
-                    """);
+                """
+SELECT `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` < 10300
+""");
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault(isAsync);
@@ -818,7 +819,7 @@ LEFT JOIN (
 """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Skip_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Skip_and_FirstOrDefault(isAsync);
@@ -849,7 +850,7 @@ FROM `Customers` AS `c`
 """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task
             Project_single_element_from_collection_with_OrderBy_Distinct_and_FirstOrDefault_followed_by_projecting_length(bool isAsync)
         {
@@ -869,7 +870,7 @@ FROM `Customers` AS `c`
                     """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Take_and_SingleOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Take_and_SingleOrDefault(isAsync);
@@ -890,7 +891,7 @@ FROM `Customers` AS `c`
                     """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault_with_parameter(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault_with_parameter(isAsync);
@@ -912,7 +913,7 @@ FROM `Customers` AS `c`
                     """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault(isAsync);
@@ -943,7 +944,7 @@ FROM `Customers` AS `c`
             AssertSql(
                 """
 SELECT (
-    SELECT TOP 1 IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
+    SELECT TOP 1 LEN(`o`.`CustomerID`)
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`
     ORDER BY `o`.`OrderID`, `o`.`OrderDate` DESC)
@@ -951,7 +952,7 @@ FROM `Customers` AS `c`
 """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault_2(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault_2(isAsync);
@@ -971,7 +972,7 @@ FROM `Customers` AS `c`
                     """);
         }
 
-        [ConditionalTheory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
+        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by Jet.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_over_navigation_Take_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_over_navigation_Take_and_FirstOrDefault(isAsync);
@@ -1022,10 +1023,10 @@ FROM `Customers` AS `c`
             await base.Select_datetime_year_component(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT DATEPART('yyyy', `o`.`OrderDate`)
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT DATEPART('yyyy', `o`.`OrderDate`)
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Select_datetime_month_component(bool isAsync)
@@ -1033,10 +1034,10 @@ FROM `Customers` AS `c`
             await base.Select_datetime_month_component(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT DATEPART('m', `o`.`OrderDate`)
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT DATEPART('m', `o`.`OrderDate`)
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Select_datetime_day_of_year_component(bool isAsync)
@@ -1044,10 +1045,10 @@ FROM `Customers` AS `c`
             await base.Select_datetime_day_of_year_component(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT DATEPART('y', `o`.`OrderDate`)
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT DATEPART('y', `o`.`OrderDate`)
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Select_datetime_day_component(bool isAsync)
@@ -1055,10 +1056,10 @@ FROM `Customers` AS `c`
             await base.Select_datetime_day_component(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT DATEPART('d', `o`.`OrderDate`)
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT DATEPART('d', `o`.`OrderDate`)
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Select_datetime_hour_component(bool isAsync)
@@ -1066,10 +1067,10 @@ FROM `Customers` AS `c`
             await base.Select_datetime_hour_component(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT DATEPART('h', `o`.`OrderDate`)
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT DATEPART('h', `o`.`OrderDate`)
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Select_datetime_minute_component(bool isAsync)
@@ -1077,10 +1078,10 @@ FROM `Customers` AS `c`
             await base.Select_datetime_minute_component(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT DATEPART('n', `o`.`OrderDate`)
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT DATEPART('n', `o`.`OrderDate`)
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Select_datetime_second_component(bool isAsync)
@@ -1088,10 +1089,10 @@ FROM `Customers` AS `c`
             await base.Select_datetime_second_component(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT DATEPART('s', `o`.`OrderDate`)
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT DATEPART('s', `o`.`OrderDate`)
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Select_datetime_millisecond_component(bool isAsync)
@@ -1099,7 +1100,7 @@ FROM `Customers` AS `c`
             await base.Select_datetime_millisecond_component(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderDate`
 FROM `Orders` AS `o`
 """);
@@ -1132,10 +1133,10 @@ FROM `Customers` AS `c`
             await base.Select_bool_constant(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE)
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT IIF(`c`.`CustomerID` = 'ALFKI', TRUE, FALSE)
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Anonymous_projection_AsNoTracking_Selector(bool isAsync)
@@ -1143,10 +1144,10 @@ FROM `Customers` AS `c`
             await base.Anonymous_projection_AsNoTracking_Selector(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderDate`
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT `o`.`OrderDate`
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Anonymous_projection_with_repeated_property_being_ordered(bool isAsync)
@@ -1166,12 +1167,12 @@ FROM `Customers` AS `c`
             await base.Anonymous_projection_with_repeated_property_being_ordered_2(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID` AS `A`, `o`.`CustomerID` AS `B`
-                    FROM `Orders` AS `o`
-                    LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-                    ORDER BY `o`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`CustomerID` AS `A`, `o`.`CustomerID` AS `B`
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+ORDER BY `o`.`CustomerID`, `o`.`OrderID`
+""");
         }
 
         public override async Task Select_GetValueOrDefault_on_DateTime(bool isAsync)
@@ -1179,10 +1180,10 @@ FROM `Customers` AS `c`
             await base.Select_GetValueOrDefault_on_DateTime(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderDate`
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT `o`.`OrderDate`
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Select_GetValueOrDefault_on_DateTime_with_null_values(bool isAsync)
@@ -1191,10 +1192,10 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-                    SELECT `o`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    """);
+SELECT `o`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+""");
         }
 
         public override async Task Cast_on_top_level_projection_brings_explicit_Cast(bool isAsync)
@@ -1202,10 +1203,10 @@ FROM `Customers` AS `c`
             await base.Cast_on_top_level_projection_brings_explicit_Cast(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT CDBL(`o`.`OrderID`)
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT CDBL(`o`.`OrderID`)
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Projecting_nullable_struct(bool isAsync)
@@ -1214,7 +1215,7 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-SELECT `o`.`CustomerID`, `o`.`CustomerID` = 'ALFKI' AND `o`.`CustomerID` IS NOT NULL, `o`.`OrderID`, IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
+SELECT `o`.`CustomerID`, `o`.`CustomerID` = 'ALFKI' AND `o`.`CustomerID` IS NOT NULL, `o`.`OrderID`, LEN(`o`.`CustomerID`)
 FROM `Orders` AS `o`
 """);
         }
@@ -1225,12 +1226,12 @@ FROM `Orders` AS `o`
 
             AssertSql(
                 """
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-    FROM (`Customers` AS `c`
-    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
-    LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-    WHERE (CDBL(`o0`.`Discount`) >= 0.25) AND (`o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL)
-    """);
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM (`Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
+LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+WHERE (CDBL(`o0`.`Discount`) >= 0.25) AND (`o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL)
+""");
         }
 
         public override async Task SelectMany_without_result_selector_naked_collection_navigation(bool isAsync)
@@ -1238,11 +1239,11 @@ FROM `Orders` AS `o`
             await base.SelectMany_without_result_selector_naked_collection_navigation(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+""");
         }
 
         public override async Task SelectMany_without_result_selector_collection_navigation_composed(bool isAsync)
@@ -1250,11 +1251,24 @@ FROM `Orders` AS `o`
             await base.SelectMany_without_result_selector_collection_navigation_composed(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`CustomerID`
-                    FROM `Customers` AS `c`
-                    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    """);
+                """
+SELECT `o`.`CustomerID`
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+""");
+        }
+
+        public override async Task SelectMany_over_inline_array_projecting_range_variable_and_outer(bool async)
+        {
+            await base.SelectMany_over_inline_array_projecting_range_variable_and_outer(async);
+
+            AssertSql(
+                """
+    SELECT [v].[Value] AS [k], [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
+    FROM [Customers] AS [c]
+    CROSS APPLY (VALUES (CAST(N'a' AS nvarchar(max))), (N'b')) AS [v]([Value])
+    WHERE [c].[CustomerID] = N'ALFKI'
+    """);
         }
 
         public override async Task SelectMany_correlated_with_outer_1(bool isAsync)
@@ -1447,19 +1461,19 @@ INNER JOIN (
             await base.FirstOrDefault_over_empty_collection_of_value_type_returns_correct_results(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, IIF((
-                            SELECT TOP 1 `o`.`OrderID`
-                            FROM `Orders` AS `o`
-                            WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                            ORDER BY `o`.`OrderID`) IS NULL, 0, (
-                            SELECT TOP 1 `o`.`OrderID`
-                            FROM `Orders` AS `o`
-                            WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                            ORDER BY `o`.`OrderID`)) AS `OrderId`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` = 'FISSA'
-                    """);
+                """
+SELECT `c`.`CustomerID`, IIF((
+        SELECT TOP 1 `o`.`OrderID`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`
+        ORDER BY `o`.`OrderID`) IS NULL, 0, (
+        SELECT TOP 1 `o`.`OrderID`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`
+        ORDER BY `o`.`OrderID`)) AS `OrderId`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'FISSA'
+""");
         }
 
         public override async Task Project_non_nullable_value_after_FirstOrDefault_on_empty_collection(bool async)
@@ -1467,9 +1481,9 @@ INNER JOIN (
             await base.Project_non_nullable_value_after_FirstOrDefault_on_empty_collection(async);
 
             AssertSql(
-"""
+                """
 SELECT (
-    SELECT TOP 1 IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
+    SELECT TOP 1 LEN(`o`.`CustomerID`)
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = 'John Doe')
 FROM `Customers` AS `c`
@@ -1493,7 +1507,7 @@ LEFT JOIN (
     WHERE `o`.`OrderID` > 11000
 ) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 """);
         }
 
@@ -1511,7 +1525,7 @@ LEFT JOIN (
     WHERE `o`.`OrderID` > 11000
 ) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 """);
         }
 
@@ -1562,11 +1576,11 @@ WHERE `c`.`CustomerID` = 'ALFKI'
 
             AssertSql(
                 """
-SELECT `o`.`OrderID`, `c`.`CustomerID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+SELECT `o`.`OrderID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (`Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
 LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-ORDER BY `o`.`OrderID`, `c`.`CustomerID`
+ORDER BY `o`.`OrderID`, `o0`.`OrderID`
 """);
         }
 
@@ -1633,14 +1647,14 @@ FROM `Customers` AS `c`
             await base.Collection_FirstOrDefault_with_nullable_unsigned_int_column(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT TOP 1 `o`.`EmployeeID`
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                        ORDER BY `o`.`OrderID`)
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT (
+    SELECT TOP 1 `o`.`EmployeeID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`OrderID`)
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task ToList_Count_in_projection_works(bool isAsync)
@@ -1648,14 +1662,14 @@ FROM `Customers` AS `c`
             await base.ToList_Count_in_projection_works(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
-                        SELECT COUNT(*)
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Count`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` LIKE 'A%'
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Count`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` LIKE 'A%'
+""");
         }
 
         public override async Task LastOrDefault_member_access_in_projection_translates_to_server(bool isAsync)
@@ -1704,11 +1718,11 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-                    SELECT `c`.`CustomerID`, `o`.`OrderDate`, `o`.`OrderID`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    ORDER BY `c`.`CustomerID`
-                    """);
+SELECT `c`.`CustomerID`, `o`.`OrderDate`, `o`.`OrderID`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+""");
         }
 
         public override async Task Coalesce_over_nullable_uint(bool async)
@@ -1717,9 +1731,9 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-                    SELECT IIF(`o`.`EmployeeID` IS NULL, 0, `o`.`EmployeeID`)
-                    FROM `Orders` AS `o`
-                    """);
+SELECT IIF(`o`.`EmployeeID` IS NULL, 0, `o`.`EmployeeID`)
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Project_uint_through_collection_FirstOrDefault(bool async)
@@ -1845,11 +1859,11 @@ ORDER BY `e0`.`EmployeeID` DESC
             await base.Reverse_in_join_outer(async);
 
             AssertSql(
-"""
+                """
 SELECT `c`.`CustomerID`, `o`.`OrderID`
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`City`, `c`.`CustomerID` DESC
+ORDER BY `c`.`City`, `c`.`CustomerID` DESC, `o`.`OrderID`
 """);
         }
 
@@ -1875,11 +1889,11 @@ ORDER BY `c0`.`CustomerID`
             await base.Reverse_in_join_inner(async);
 
             AssertSql(
-"""
+                """
 SELECT `c`.`CustomerID`, `o`.`OrderID`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -1908,11 +1922,11 @@ ORDER BY [c].[CustomerID]
             await base.Reverse_in_SelectMany(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID` DESC
+ORDER BY `c`.`CustomerID` DESC, `o`.`OrderID`
 """);
         }
 
@@ -2005,7 +2019,7 @@ WHERE (`c`.`CustomerID` LIKE 'A%') AND (
     SELECT COUNT(*)
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = `c`.`CustomerID` AND `o`.`OrderID` < 11000) > 0
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o1`.`OrderID`
 """);
         }
 
@@ -2026,13 +2040,13 @@ ORDER BY `c`.`CustomerID`
             await base.Projecting_multiple_collection_with_same_constant_works(async);
 
             AssertSql(
-"""
+                """
 SELECT `c`.`CustomerID`, 1, `o`.`OrderID`, `o0`.`OrderID`
 FROM (`Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
 LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` = 'ALFKI'
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`, `o0`.`OrderID`
 """);
         }
 
@@ -2054,14 +2068,14 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 
             AssertSql(
                 """
-    SELECT (
-        SELECT TOP 1 IIF(LEN(`o`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`o`.`CustomerID`)))
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-        ORDER BY `o`.`OrderID`)
-    FROM `Customers` AS `c`
-    ORDER BY `c`.`CustomerID`
-    """);
+SELECT (
+    SELECT TOP 1 LEN(`o`.`CustomerID`)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`OrderID`)
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Projecting_count_of_navigation_which_is_generic_list(bool async)
@@ -2100,11 +2114,11 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 
             AssertSql(
                 """
-                    SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    ORDER BY `c`.`CustomerID`
-                    """);
+SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+""");
         }
 
         public override async Task Projection_take_projection_doesnt_project_intermittent_column(bool async)
@@ -2493,7 +2507,7 @@ FROM (
     WHERE `c`.`CustomerID` = 'ALFKI'
 ) AS `c0`
 LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c0`.`CustomerID`
+ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -2518,12 +2532,12 @@ ORDER BY `c0`.`CustomerID`
 
             AssertSql(
                 """
-                    SELECT `c`.`CustomerID`, `o`.`OrderID`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-                    WHERE `c`.`CustomerID` LIKE 'F%'
-                    ORDER BY `c`.`CustomerID`
-                    """);
+SELECT `c`.`CustomerID`, `o`.`OrderID`
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'F%'
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+""");
         }
 
         public override async Task VisitLambda_should_not_be_visited_trivially(bool async)
@@ -2577,7 +2591,7 @@ FROM (
     FROM `Employees` AS `e`
     ORDER BY `e`.`EmployeeID`
 ) AS `e0`
-ORDER BY `o0`.`OrderID`
+ORDER BY `o0`.`OrderID`, `e0`.`EmployeeID`
 """);
         }
 
@@ -2586,7 +2600,7 @@ ORDER BY `o0`.`OrderID`
             await base.Select_datetime_Ticks_component(async);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderDate`
 FROM `Orders` AS `o`
 """);
@@ -2631,8 +2645,8 @@ WHERE `c`.`CustomerID` LIKE 'A%'
             await base.Select_datetime_DayOfWeek_component(async);
 
             AssertSql(
-"""
-SELECT CLNG(DATEPART('w', `o`.`OrderDate`) - 1)
+                """
+SELECT DATEPART('w', `o`.`OrderDate`) - 1
 FROM `Orders` AS `o`
 """);
         }
@@ -2778,7 +2792,7 @@ LEFT JOIN (
     LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 ) AS `s` ON `c`.`CustomerID` = `s`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
-ORDER BY `c`.`CustomerID`, `s`.`OrderID`, `s`.`OrderID0`
+ORDER BY `c`.`CustomerID`, `s`.`OrderID`, `s`.`OrderID0`, `s`.`ProductID`
 """);
         }
 
@@ -2795,7 +2809,7 @@ FROM (
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
 LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c0`.`CustomerID`
+ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -2812,7 +2826,7 @@ FROM (
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
 LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c0`.`CustomerID`
+ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -2889,6 +2903,61 @@ OUTER APPLY (
 ) AS [u]
 ORDER BY [c0].[CustomerID]
 """);
+        }
+
+        public override async Task Multiple_members_of_correlated_single_result_subquery_lift_to_single_join(bool async, string method)
+        {
+            await base.Multiple_members_of_correlated_single_result_subquery_lift_to_single_join(async, method);
+
+            AssertSql(
+                method switch
+                {
+                    nameof(Queryable.First) or
+                        nameof(Queryable.FirstOrDefault) or
+                        nameof(Queryable.Single) or
+                        nameof(Queryable.SingleOrDefault) => """
+    SELECT [o].[OrderID], [c1].[City], [c1].[Country], [c1].[ContactName]
+    FROM [Orders] AS [o]
+    LEFT JOIN (
+        SELECT [c0].[City], [c0].[ContactName], [c0].[Country], [c0].[CustomerID0]
+        FROM (
+            SELECT [c].[City], [c].[ContactName], [c].[Country], [c].[CustomerID] AS [CustomerID0], ROW_NUMBER() OVER(PARTITION BY [c].[CustomerID] ORDER BY [c].[CustomerID]) AS [row]
+            FROM [Customers] AS [c]
+        ) AS [c0]
+        WHERE [c0].[row] <= 1
+    ) AS [c1] ON [o].[CustomerID] = [c1].[CustomerID0]
+    WHERE [o].[CustomerID] IS NOT NULL
+    """,
+                    nameof(Queryable.Last) or
+                        nameof(Queryable.LastOrDefault) => """
+    SELECT [o].[OrderID], [c1].[City], [c1].[Country], [c1].[ContactName]
+    FROM [Orders] AS [o]
+    LEFT JOIN (
+        SELECT [c0].[City], [c0].[ContactName], [c0].[Country], [c0].[CustomerID0]
+        FROM (
+            SELECT [c].[City], [c].[ContactName], [c].[Country], [c].[CustomerID] AS [CustomerID0], ROW_NUMBER() OVER(PARTITION BY [c].[CustomerID] ORDER BY [c].[CustomerID] DESC) AS [row]
+            FROM [Customers] AS [c]
+        ) AS [c0]
+        WHERE [c0].[row] <= 1
+    ) AS [c1] ON [o].[CustomerID] = [c1].[CustomerID0]
+    WHERE [o].[CustomerID] IS NOT NULL
+    """,
+                    nameof(Queryable.ElementAt) or
+                        nameof(Queryable.ElementAtOrDefault) => """
+    SELECT [o].[OrderID], [c1].[City], [c1].[Country], [c1].[ContactName]
+    FROM [Orders] AS [o]
+    LEFT JOIN (
+        SELECT [c0].[City], [c0].[ContactName], [c0].[Country], [c0].[CustomerID0]
+        FROM (
+            SELECT [c].[City], [c].[ContactName], [c].[Country], [c].[CustomerID] AS [CustomerID0], ROW_NUMBER() OVER(PARTITION BY [c].[CustomerID] ORDER BY [c].[CustomerID]) AS [row]
+            FROM [Customers] AS [c]
+        ) AS [c0]
+        WHERE 0 < [c0].[row] AND [c0].[row] <= 1
+    ) AS [c1] ON [o].[CustomerID] = [c1].[CustomerID0]
+    WHERE [o].[CustomerID] IS NOT NULL
+    """,
+                    _ => throw new InvalidOperationException(method)
+                });
         }
 
         private void AssertSql(params string[] expected)

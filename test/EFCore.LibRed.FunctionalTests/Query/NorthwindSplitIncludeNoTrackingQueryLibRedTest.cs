@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using EntityFrameworkCore.Jet.Internal;
@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
@@ -24,7 +23,7 @@ public class NorthwindSplitIncludeNoTrackingQueryLibRedTest : NorthwindSplitIncl
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -221,7 +220,7 @@ FROM (
     ORDER BY `c`.`CustomerID`
 ) AS `c1`,
 `Customers` AS `c0`
-ORDER BY `c1`.`CustomerID`
+ORDER BY `c1`.`CustomerID`, `c0`.`CustomerID`
 """);
     }
 
@@ -450,7 +449,7 @@ FROM ((
 ) AS `s`
 LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`)
 LEFT JOIN `Customers` AS `c0` ON `s`.`CustomerID0` = `c0`.`CustomerID`
-ORDER BY `s`.`CustomerID`, `s`.`OrderID`
+ORDER BY `s`.`CustomerID`, `s`.`OrderID`, `s`.`OrderID0`
 """);
     }
 
@@ -499,21 +498,20 @@ WHERE (`o`.`OrderID` MOD 23) = 13
         await base.Include_collection_and_reference(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 WHERE `o`.`CustomerID` LIKE 'F%'
-ORDER BY `o`.`OrderID`, `c`.`CustomerID`
+ORDER BY `o`.`OrderID`
 """,
-                //
-                """
-SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `o`.`OrderID`, `c`.`CustomerID`
-FROM (`Orders` AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
+            //
+            """
+SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `o`.`OrderID`
+FROM `Orders` AS `o`
 INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 WHERE `o`.`CustomerID` LIKE 'F%'
-ORDER BY `o`.`OrderID`, `c`.`CustomerID`
+ORDER BY `o`.`OrderID`
 """);
     }
 
@@ -525,27 +523,27 @@ ORDER BY `o`.`OrderID`, `c`.`CustomerID`
             """
 @p='5'
 
-SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`
+SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-ORDER BY NOT (`o`.`OrderID` > 0), IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, ''), `o`.`OrderID`, `c`.`CustomerID`
+ORDER BY NOT (`o`.`OrderID` > 0), IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, ''), `o`.`OrderID`
 """,
             //
             """
 @p='5'
 
-SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `s`.`OrderID`, `s`.`CustomerID`
+SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `s`.`OrderID`
 FROM (
-    SELECT TOP @p `s0`.`OrderID`, `s0`.`CustomerID`, `s0`.`c`, `s0`.`c0`
+    SELECT TOP @p `s0`.`OrderID`, `s0`.`c`, `s0`.`c0`
     FROM (
-        SELECT `o`.`OrderID`, `c`.`CustomerID`, `o`.`OrderID` > 0 AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, '') AS `c0`
+        SELECT `o`.`OrderID`, `o`.`OrderID` > 0 AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, '') AS `c0`
         FROM `Orders` AS `o`
         LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
     ) AS `s0`
-    ORDER BY NOT (`s0`.`c`), `s0`.`c0`, `s0`.`OrderID`, `s0`.`CustomerID`
+    ORDER BY NOT (`s0`.`c`), `s0`.`c0`, `s0`.`OrderID`
 ) AS `s`
 INNER JOIN `Order Details` AS `o0` ON `s`.`OrderID` = `o0`.`OrderID`
-ORDER BY NOT (`s`.`c`), `s`.`c0`, `s`.`OrderID`, `s`.`CustomerID`
+ORDER BY NOT (`s`.`c`), `s`.`c0`, `s`.`OrderID`
 """);
     }
 
@@ -1298,7 +1296,7 @@ FROM (
     ) AS `o2`
 ) AS `s`
 LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`
-ORDER BY `s`.`OrderID`
+ORDER BY `s`.`OrderID`, `s`.`OrderID0`
 """);
     }
 
@@ -1358,7 +1356,7 @@ FROM (
     ) AS `o2`
 ) AS `s`
 LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID0` = `c`.`CustomerID`
-ORDER BY `s`.`OrderID`
+ORDER BY `s`.`OrderID`, `s`.`OrderID0`
 """);
     }
 
@@ -1889,27 +1887,27 @@ ORDER BY `c2`.`CustomerID`, `o3`.`OrderID`
             """
 @p='2'
 
-SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`
+SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-ORDER BY NOT (`c`.`CustomerID` IS NOT NULL), IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, ''), `o`.`OrderID`, `c`.`CustomerID`
+ORDER BY NOT (`c`.`CustomerID` IS NOT NULL), IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, ''), `o`.`OrderID`
 """,
             //
             """
 @p='2'
 
-SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `s`.`OrderID`, `s`.`CustomerID`
+SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `s`.`OrderID`
 FROM (
-    SELECT TOP @p `s0`.`OrderID`, `s0`.`CustomerID`, `s0`.`c`, `s0`.`c0`
+    SELECT TOP @p `s0`.`OrderID`, `s0`.`c`, `s0`.`c0`
     FROM (
-        SELECT `o`.`OrderID`, `c`.`CustomerID`, `c`.`CustomerID` IS NOT NULL AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, '') AS `c0`
+        SELECT `o`.`OrderID`, `c`.`CustomerID` IS NOT NULL AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, '') AS `c0`
         FROM `Orders` AS `o`
         LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
     ) AS `s0`
-    ORDER BY NOT (`s0`.`c`), `s0`.`c0`, `s0`.`OrderID`, `s0`.`CustomerID`
+    ORDER BY NOT (`s0`.`c`), `s0`.`c0`, `s0`.`OrderID`
 ) AS `s`
 INNER JOIN `Order Details` AS `o0` ON `s`.`OrderID` = `o0`.`OrderID`
-ORDER BY NOT (`s`.`c`), `s`.`c0`, `s`.`OrderID`, `s`.`CustomerID`
+ORDER BY NOT (`s`.`c`), `s`.`c0`, `s`.`OrderID`
 """);
     }
 
@@ -2744,21 +2742,20 @@ ORDER BY [t].[OrderID], [t0].[OrderID], [t0].[OrderID0], [t0].[ProductID]
         await base.Include_reference_and_collection(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 WHERE `o`.`CustomerID` LIKE 'F%'
-ORDER BY `o`.`OrderID`, `c`.`CustomerID`
+ORDER BY `o`.`OrderID`
 """,
-                //
-                """
-SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `o`.`OrderID`, `c`.`CustomerID`
-FROM (`Orders` AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
+            //
+            """
+SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `o`.`OrderID`
+FROM `Orders` AS `o`
 INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 WHERE `o`.`CustomerID` LIKE 'F%'
-ORDER BY `o`.`OrderID`, `c`.`CustomerID`
+ORDER BY `o`.`OrderID`
 """);
     }
 

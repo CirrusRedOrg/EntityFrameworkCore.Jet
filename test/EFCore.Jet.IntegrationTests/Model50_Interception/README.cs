@@ -1,4 +1,4 @@
-﻿/*
+/*
 Priority low test
 Command interception
 */

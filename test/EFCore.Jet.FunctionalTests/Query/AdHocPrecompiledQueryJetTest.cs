@@ -9,7 +9,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
@@ -19,7 +18,7 @@ public class AdHocPrecompiledQueryJetTest(NonSharedFixture fixture, ITestOutputH
     protected override bool AlwaysPrintGeneratedSources
         => false;
 
-    [ConditionalTheory(Skip = "Not supported in Jet")]
+    [Fact(Skip = "Not supported in Jet")]
     public override async Task Index_no_evaluatability()
     {
         await base.Index_no_evaluatability();
@@ -31,7 +30,7 @@ WHERE CAST(JSON_VALUE([j].[IntList], '$[' + CAST([j].[Id] AS nvarchar(max)) + ']
 """);
     }
 
-    [ConditionalTheory(Skip = "Not supported in Jet")]
+    [Fact(Skip = "Not supported in Jet")]
     public override async Task Index_with_captured_variable()
     {
         await base.Index_with_captured_variable();
@@ -45,7 +44,7 @@ WHERE CAST(JSON_VALUE([j].[IntList], '$[' + CAST(@__id_0 AS nvarchar(max)) + ']'
 """);
     }
 
-    [ConditionalFact(Skip = "Not supported in Jet")]
+    [Fact(Skip = "Not supported in Jet")]
     public override async Task JsonScalar()
     {
         await base.JsonScalar();
@@ -62,7 +61,7 @@ WHERE JSON_VALUE([j].[JsonThing], '$.StringProperty') = N'foo'
         await base.Materialize_non_public();
 
         AssertSql(
-            """"
+            """
 @p0='10' (Nullable = true)
 @p1='9' (Nullable = true)
 @p2='8' (Nullable = true)
@@ -72,12 +71,12 @@ VALUES (@p0, @p1, @p2);
 SELECT `Id`
 FROM `NonPublicEntities`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
-"""",
-//
-""""
+""",
+            //
+            """
 SELECT TOP 2 `n`.`Id`, `n`.`PrivateAutoProperty`, `n`.`PrivateProperty`, `n`.`_privateField`
 FROM `NonPublicEntities` AS `n`
-"""");
+""");
     }
 
     public override async Task Projecting_property_requiring_converter_with_closure_is_not_supported()
@@ -109,23 +108,36 @@ FROM `Books` AS `b`
 """);
     }
 
-    [ConditionalFact]
+    public override async Task Invalid_identifier_json_property_name()
+    {
+        await base.Invalid_identifier_json_property_name();
+
+        AssertSql(
+            """
+SELECT `e`.`Id`, `e`.`Nested`
+FROM `Entities` AS `e`
+""");
+    }
+
+    public override async Task Invalid_identifier_shadow_property_name()
+    {
+        await base.Invalid_identifier_shadow_property_name();
+
+        AssertSql(
+            """
+SELECT [e].[Id], [e].[NOT VALID !!!1]
+FROM [Entities] AS [e]
+""");
+    }
+
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     protected override PrecompiledQueryTestHelpers PrecompiledQueryTestHelpers
         => JetPrecompiledQueryTestHelpers.Instance;
 
-    protected override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
-    {
-        builder = base.AddOptions(builder);
-
-        // TODO: Figure out if there's a nice way to continue using the retrying strategy
-        var sqlServerOptionsBuilder = new JetDbContextOptionsBuilder(builder);
-        sqlServerOptionsBuilder.ExecutionStrategy(d => new NonRetryingExecutionStrategy(d));
-        return builder;
-    }
 }

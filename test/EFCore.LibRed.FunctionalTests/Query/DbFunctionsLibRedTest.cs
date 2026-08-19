@@ -9,7 +9,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 using EF = Microsoft.EntityFrameworkCore.EF;
 
 #nullable disable
@@ -26,7 +25,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -54,7 +53,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
                     """);
         }
 
-        [ConditionalTheory(Skip = "No escape character support in LibRed")]
+        [Theory(Skip = "No escape character support in LibRed")]
         public override async Task Like_literal_with_escape(bool async)
         {
             await base.Like_literal_with_escape(async);
@@ -79,7 +78,7 @@ WHERE 'FOO' LIKE '%O%'
 """);
         }
 
-        [ConditionalTheory(Skip = "No escape character support in LibRed")]
+        [Theory(Skip = "No escape character support in LibRed")]
         public override async Task Like_all_literals_with_escape(bool async)
         {
             await base.Like_all_literals_with_escape(async);
@@ -92,7 +91,7 @@ WHERE N'%' LIKE N'!%' ESCAPE N'!'
 """);
         }
 
-        [ConditionalTheory(Skip = "No ecollate support in LibRed")]
+        [Theory(Skip = "No ecollate support in LibRed")]
         public override async Task Collate_case_insensitive(bool async)
         {
             await base.Collate_case_insensitive(async);
@@ -105,7 +104,7 @@ WHERE [c].[ContactName] COLLATE Latin1_General_CI_AI = N'maria anders'
 """);
         }
 
-        [ConditionalTheory(Skip = "No collate support in LibRed")]
+        [Theory(Skip = "No collate support in LibRed")]
         public override async Task Collate_case_sensitive(bool async)
         {
             await base.Collate_case_sensitive(async);
@@ -118,7 +117,7 @@ WHERE [c].[ContactName] COLLATE Latin1_General_CS_AS = N'maria anders'
 """);
         }
 
-        [ConditionalTheory(Skip = "No collate support in LibRed")]
+        [Theory(Skip = "No collate support in LibRed")]
         public override async Task Collate_case_sensitive_constant(bool async)
         {
             await base.Collate_case_sensitive_constant(async);
@@ -205,7 +204,7 @@ WHERE IIF(`o`.`OrderID` > 10251, `o`.`OrderID`, 10251) = 10251
             AssertSql();
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task DateDiff_Year(bool async)
         {
@@ -224,7 +223,7 @@ WHERE DATEDIFF('yyyy', `o`.`OrderDate`, NOW()) = 0
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task DateDiff_Month(bool async)
         {
@@ -244,7 +243,7 @@ WHERE DATEDIFF('m', `o`.`OrderDate`, NOW()) = 0
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task DateDiff_Day(bool async)
         {
@@ -263,7 +262,7 @@ WHERE DATEDIFF('d', `o`.`OrderDate`, NOW()) = 0
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task DateDiff_Hour(bool async)
         {
@@ -282,7 +281,7 @@ WHERE DATEDIFF('h', `o`.`OrderDate`, NOW()) = 0
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task DateDiff_Minute(bool async)
         {
@@ -301,7 +300,7 @@ WHERE DATEDIFF('n', `o`.`OrderDate`, NOW()) = 0
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task DateDiff_Second(bool async)
         {
@@ -320,7 +319,7 @@ WHERE DATEDIFF('s', `o`.`OrderDate`, NOW()) = 0
 """);
         }
 
-        /*[ConditionalTheory]
+        /*[Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task DateDiff_Millisecond(bool async)
         {
@@ -339,7 +338,7 @@ WHERE DATEDIFF(millisecond, GETDATE(), DATEADD(day, CAST(1.0E0 AS int), GETDATE(
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task DateDiff_Microsecond(bool async)
         {
@@ -358,7 +357,7 @@ WHERE DATEDIFF(microsecond, GETDATE(), DATEADD(second, CAST(1.0E0 AS int), GETDA
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task DateDiff_Nanosecond(bool async)
         {
@@ -377,7 +376,7 @@ WHERE DATEDIFF(nanosecond, GETDATE(), DATEADD(second, CAST(1.0E0 AS int), GETDAT
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void DateDiff_Week_datetime()
         {
             using var context = CreateContext();
@@ -398,7 +397,7 @@ WHERE DATEDIFF(week, [o].[OrderDate], '1998-05-06T00:00:00.000') = 5
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void DateDiff_Week_datetimeoffset()
         {
             using var context = CreateContext();
@@ -419,7 +418,7 @@ WHERE DATEDIFF(week, CAST([o].[OrderDate] AS datetimeoffset), '1998-05-06T00:00:
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void DateDiff_Week_parameters_null()
         {
             using var context = CreateContext();
@@ -440,7 +439,7 @@ WHERE DATEDIFF(week, NULL, [o].[OrderDate]) = 5
 """);
         }*/
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task IsDate_not_valid(bool async)
         {
@@ -451,13 +450,13 @@ WHERE DATEDIFF(week, NULL, [o].[OrderDate]) = 5
 
             AssertSql(
                 """
-SELECT CBOOL(ISDATE(`o`.`CustomerID`))
+SELECT ISDATE(`o`.`CustomerID`)
 FROM `Orders` AS `o`
-WHERE NOT (CBOOL(ISDATE(`o`.`CustomerID`)))
+WHERE NOT (ISDATE(`o`.`CustomerID`))
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task IsDate_valid(bool async)
         {
@@ -470,13 +469,13 @@ WHERE NOT (CBOOL(ISDATE(`o`.`CustomerID`)))
 
             AssertSql(
                 """
-SELECT CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & ''))))
+SELECT ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & '')))
 FROM `Orders` AS `o`
-WHERE CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & ''))))
+WHERE ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & '')))
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task IsDate_join_fields(bool async)
         {
@@ -491,11 +490,11 @@ WHERE CBOOL(ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & ''
                 """
 SELECT COUNT(*)
 FROM `Orders` AS `o`
-WHERE CBOOL(ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`OrderID` & '')))
+WHERE ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`OrderID` & ''))
 """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void IsDate_should_throw_on_client_eval()
         {
             var exIsDate = Assert.Throws<InvalidOperationException>(() => EF.Functions.IsDate("#ISDATE#"));

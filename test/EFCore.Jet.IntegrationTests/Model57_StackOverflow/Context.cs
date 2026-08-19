@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore;
 
 // https://stackoverflow.com/questions/44809921/duplicate-values-in-the-index-primary-key-or-relationship

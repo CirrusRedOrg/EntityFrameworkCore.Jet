@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 {
     public class ConnectionSpecificationTest
     {
-        [ConditionalFact]
+        [Fact]
         public async Task Can_specify_no_connection_string_in_OnConfiguring()
         {
             var serviceProvider
@@ -41,7 +41,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_specify_no_connection_string_in_OnConfiguring_with_default_service_provider()
         {
             await using (await LibRedTestStore.GetNorthwindStoreAsync())
@@ -54,7 +54,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Throws_if_context_used_with_no_connection_or_connection_string()
         {
             await using (await LibRedTestStore.GetNorthwindStoreAsync())
@@ -73,7 +73,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     .UseLibRed(b => b.ApplyConfiguration());
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_specify_connection_string_in_OnConfiguring()
         {
             var serviceProvider
@@ -89,7 +89,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_specify_connection_string_in_OnConfiguring_with_default_service_provider()
         {
             await using (await LibRedTestStore.GetNorthwindStoreAsync())
@@ -107,7 +107,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration());
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public async Task Can_specify_no_connection_in_OnConfiguring(bool contextOwnsConnection)
@@ -142,7 +142,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(false)]
         [InlineData(true)]
         public async Task Can_specify_no_connection_in_OnConfiguring_with_default_service_provider(bool contextOwnsConnection)
@@ -171,7 +171,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_specify_connection_in_OnConfiguring()
         {
             var serviceProvider
@@ -187,7 +187,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_specify_connection_in_OnConfiguring_with_default_service_provider()
         {
             await using (await LibRedTestStore.GetNorthwindStoreAsync())
@@ -199,7 +199,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_specify_owned_connection_in_OnConfiguring()
         {
             var serviceProvider
@@ -221,7 +221,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Assert.Throws<InvalidOperationException>(() => connection.Open()); // Disposed
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_specify_owned_connection_in_OnConfiguring_with_default_service_provider()
         {
             LibRedConnection connection;
@@ -237,7 +237,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Assert.Throws<InvalidOperationException>(() => connection.Open()); // Disposed
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_specify_then_change_connection()
         {
             var connection = new LibRedConnection(LibRedNorthwindTestStoreFactory.NorthwindConnectionString);
@@ -263,7 +263,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Cannot_change_connection_when_open_and_owned()
         {
             var connection = new LibRedConnection(LibRedNorthwindTestStoreFactory.NorthwindConnectionString);
@@ -290,7 +290,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_change_connection_when_open_and_not_owned()
         {
             var connection = new LibRedConnection(LibRedNorthwindTestStoreFactory.NorthwindConnectionString);
@@ -343,7 +343,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     .UseLibRed(_connection, contextOwnsConnection: true, b => b.ApplyConfiguration());
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Throws_if_no_connection_found_in_config_without_UseLibRed()
         {
             var serviceProvider
@@ -357,7 +357,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Customers.AnyAsync())).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Throws_if_no_config_without_UseLibRed()
         {
             var serviceProvider
@@ -377,7 +377,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 => optionsBuilder.EnableServiceProviderCaching(false);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_depend_on_DbContextOptions()
         {
             var serviceProvider
@@ -394,7 +394,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_depend_on_DbContextOptions_with_default_service_provider()
         {
             await using (await LibRedTestStore.GetNorthwindStoreAsync())
@@ -432,7 +432,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_depend_on_non_generic_options_when_only_one_context()
         {
             var serviceProvider
@@ -448,7 +448,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_depend_on_non_generic_options_when_only_one_context_with_default_service_provider()
         {
             await using (await LibRedTestStore.GetNorthwindStoreAsync())
@@ -474,7 +474,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             }
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData("MyConnectionString", "name=MyConnectionString")]
         [InlineData("ConnectionStrings:DefaultConnection", "name=ConnectionStrings:DefaultConnection")]
         [InlineData("ConnectionStrings:DefaultConnection", " NamE   =   ConnectionStrings:DefaultConnection  ")]
@@ -534,7 +534,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             // ReSharper restore UnusedMember.Local
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task Can_use_an_existing_closed_connection_test(bool openConnection)

@@ -15,21 +15,21 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         TransactionInterceptionLibRedTestBase.InterceptionLibRedFixtureBase fixture)
         : TransactionInterceptionTestBase(fixture)
     {
-        [ConditionalTheory(Skip = "LibRed does not support savepoints")]
+        [Theory(Skip = "LibRed does not support savepoints")]
         [InlineData(true)]
         [InlineData(false)]
         public override Task Intercept_CreateSavepoint(bool async)
         {
             return base.Intercept_CreateSavepoint(async);
         }
-        [ConditionalTheory(Skip = "LibRed does not support savepoints")]
+        [Theory(Skip = "LibRed does not support savepoints")]
         [InlineData(true)]
         [InlineData(false)]
         public override Task Intercept_ReleaseSavepoint(bool async)
         {
             return base.Intercept_ReleaseSavepoint(async);
         }
-        [ConditionalTheory(Skip = "LibRed does not support savepoints")]
+        [Theory(Skip = "LibRed does not support savepoints")]
         [InlineData(true)]
         [InlineData(false)]
         public override Task Intercept_RollbackToSavepoint(bool async)

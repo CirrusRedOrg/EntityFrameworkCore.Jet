@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 // ReSharper disable InconsistentNaming
@@ -15,6 +15,7 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Infrastructure;
 using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -28,8 +29,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class AdHocMiscellaneousQueryJetTest(NonSharedFixture fixture) : AdHocMiscellaneousQueryRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
+
+    protected override DbContextOptionsBuilder AddNonSharedOptions(DbContextOptionsBuilder builder)
+        => base.AddNonSharedOptions(builder)
+            .ConfigureWarnings(w => w.Ignore(RelationalEventId.OwnedEntityMappedToJsonCollectionWarning));
+
     protected override DbContextOptionsBuilder SetParameterizedCollectionMode(
         DbContextOptionsBuilder optionsBuilder,
         ParameterTranslationMode parameterizedCollectionMode)
@@ -46,19 +52,34 @@ CREATE TABLE ZeroKey (Id int);
 INSERT ZeroKey VALUES (NULL)
 """);
 
+    protected override async Task Seed30915(Context30915 context)
+    {
+        context.Statuses.AddRange(
+            new Context30915.PickupStatus30915 { PickupStatusId = 1, Name = "Active" },
+            new Context30915.PickupStatus30915 { PickupStatusId = 2, Name = "NoRequests" },
+            new Context30915.PickupStatus30915 { PickupStatusId = 3, Name = "Busy" });
+
+        context.Requests.AddRange(
+            new Context30915.PickupRequest30915 { PickupStatusId = 1, Priority = 5 },
+            new Context30915.PickupRequest30915 { PickupStatusId = 1, Priority = null },
+            new Context30915.PickupRequest30915 { PickupStatusId = 3, Priority = 7 });
+
+        await context.SaveChangesAsync();
+    }
+
     #region 5456
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Include_group_join_is_per_query_context()
     {
-        var contextFactory = await InitializeAsync<Context5456>(
+        var contextFactory = await InitializeNonSharedTest<Context5456>(
             seed: c => c.SeedAsync(),
-            createTestStore: () => JetTestStore.Create(StoreName));
+            createTestStore: () => JetTestStore.Create(NonSharedStoreName));
 
         Parallel.For(
             0, 10, i =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).ToList();
 
                 Assert.Equal(198, result.Count);
@@ -67,7 +88,7 @@ INSERT ZeroKey VALUES (NULL)
         Parallel.For(
             0, 10, i =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).Include(x => x.Comments).ToList();
 
                 Assert.Equal(198, result.Count);
@@ -76,24 +97,24 @@ INSERT ZeroKey VALUES (NULL)
         Parallel.For(
             0, 10, i =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).ThenInclude(b => b.Author).ToList();
 
                 Assert.Equal(198, result.Count);
             });
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Include_group_join_is_per_query_context_async()
     {
-        var contextFactory = await InitializeAsync<Context5456>(
+        var contextFactory = await InitializeNonSharedTest<Context5456>(
             seed: c => c.SeedAsync(),
-            createTestStore: () => JetTestStore.Create(StoreName));
+            createTestStore: () => JetTestStore.Create(NonSharedStoreName));
 
         await Parallel.ForAsync(
             0, 10, async (i, ct) =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = await ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).ToListAsync();
 
                 Assert.Equal(198, result.Count);
@@ -102,7 +123,7 @@ INSERT ZeroKey VALUES (NULL)
         await Parallel.ForAsync(
             0, 10, async (i, ct) =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = await ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).Include(x => x.Comments)
                     .ToListAsync();
 
@@ -112,7 +133,7 @@ INSERT ZeroKey VALUES (NULL)
         await Parallel.ForAsync(
             0, 10, async (i, ct) =>
             {
-                using var ctx = contextFactory.CreateContext();
+                using var ctx = contextFactory.CreateDbContext();
                 var result = await ctx.Posts.Where(x => x.Blog.Id > 1).Include(x => x.Blog).ThenInclude(b => b.Author)
                     .ToListAsync();
 
@@ -169,12 +190,12 @@ INSERT ZeroKey VALUES (NULL)
 
     #region 8864
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Select_nested_projection()
     {
-        var contextFactory = await InitializeAsync<Context8864>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context8864>(seed: c => c.SeedAsync());
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var customers = context.Customers
                 .Select(c => new { Customer = c, CustomerAgain = Context8864.Get(context, c.Id) })
@@ -238,11 +259,11 @@ WHERE `c`.`Id` = @id
 
     #region 12518
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Projecting_entity_with_value_converter_and_include_works()
     {
-        var contextFactory = await InitializeAsync<Context12518>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context12518>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var result = context.Parents.Include(p => p.Child).OrderBy(e => e.Id).FirstOrDefault();
 
         AssertSql(
@@ -254,11 +275,11 @@ ORDER BY `p`.`Id`
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Projecting_column_with_value_converter_of_ulong_byte_array()
     {
-        var contextFactory = await InitializeAsync<Context12518>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context12518>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var result = context.Parents.OrderBy(e => e.Id).Select(p => (ulong?)p.Child.ULongRowVersion).FirstOrDefault();
 
         AssertSql(
@@ -316,11 +337,11 @@ ORDER BY `p`.`Id`
 
     #region 13118
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task DateTime_Contains_with_smalldatetime_generates_correct_literal()
     {
-        var contextFactory = await InitializeAsync<Context13118>(seed: c => c.SeedAsync());
-        using var context = contextFactory.CreateContext();
+        var contextFactory = await InitializeNonSharedTest<Context13118>(seed: c => c.SeedAsync());
+        using var context = contextFactory.CreateDbContext();
         var testDateList = new List<DateTime> { new(2018, 10, 07) };
         var findRecordsWithDateInList = context.ReproEntity
             .Where(a => testDateList.Contains(a.MyTime))
@@ -365,14 +386,14 @@ WHERE `r`.`MyTime` = CDATE(@testDateList1)
 
     #region 14095
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Where_equals_DateTime_Now(bool async)
     {
-        var contextFactory = await InitializeAsync<Context14095>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context14095>(seed: c => c.SeedAsync());
 
-        using var context = contextFactory.CreateContext();
+        using var context = contextFactory.CreateDbContext();
         var query = context.Dates.Where(
             d => d.DateTime2_2 == DateTime.Now
                 || d.DateTime2_7 == DateTime.Now
@@ -393,14 +414,14 @@ WHERE `d`.`DateTime2_2` = NOW() OR `d`.`DateTime2_7` = NOW() OR `d`.`DateTime` =
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Where_not_equals_DateTime_Now(bool async)
     {
-        var contextFactory = await InitializeAsync<Context14095>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context14095>(seed: c => c.SeedAsync());
 
-        using var context = contextFactory.CreateContext();
+        using var context = contextFactory.CreateDbContext();
         var query = context.Dates.Where(
             d => d.DateTime2_2 != DateTime.Now
                 && d.DateTime2_7 != DateTime.Now
@@ -421,14 +442,14 @@ WHERE `d`.`DateTime2_2` <> NOW() AND `d`.`DateTime2_7` <> NOW() AND `d`.`DateTim
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Where_equals_new_DateTime(bool async)
     {
-        var contextFactory = await InitializeAsync<Context14095>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context14095>(seed: c => c.SeedAsync());
 
-        using var context = contextFactory.CreateContext();
+        using var context = contextFactory.CreateDbContext();
         var query = context.Dates.Where(
             d => d.SmallDateTime == new DateTime(1970, 9, 3, 12, 0, 0)
                 && d.DateTime == new DateTime(1971, 9, 3, 12, 0, 10, 220)
@@ -456,7 +477,7 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Where_contains_DateTime_literals(bool async)
@@ -476,9 +497,9 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
             new DateTime(1980, 9, 3, 12, 0, 10, 222)
         };
 
-        var contextFactory = await InitializeAsync<Context14095>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context14095>(seed: c => c.SeedAsync());
 
-        using var context = contextFactory.CreateContext();
+        using var context = contextFactory.CreateDbContext();
         var query = context.Dates.Where(
             d => dateTimes.Contains(d.SmallDateTime)
                 && dateTimes.Contains(d.DateTime)
@@ -500,10 +521,231 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
 
         AssertSql(
             """
-            SELECT `d`.`Id`, `d`.`DateTime`, `d`.`DateTime2`, `d`.`DateTime2_0`, `d`.`DateTime2_1`, `d`.`DateTime2_2`, `d`.`DateTime2_3`, `d`.`DateTime2_4`, `d`.`DateTime2_5`, `d`.`DateTime2_6`, `d`.`DateTime2_7`, `d`.`SmallDateTime`
-            FROM `Dates` AS `d`
-            WHERE `d`.`SmallDateTime` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_0` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_1` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_2` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_3` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_4` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_5` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_6` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_7` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#)
-            """);
+@dateTimes1='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes2='1971-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes3='1972-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes4='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes5='1974-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes6='1975-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes7='1976-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes8='1977-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes9='1978-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes10='1979-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes11='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes12='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes13='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes14='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes15='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes16='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes17='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes18='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes19='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes20='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes21='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes22='1971-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes23='1972-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes24='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes25='1974-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes26='1975-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes27='1976-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes28='1977-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes29='1978-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes30='1979-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes31='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes32='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes33='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes34='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes35='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes36='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes37='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes38='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes39='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes40='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes41='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes42='1971-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes43='1972-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes44='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes45='1974-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes46='1975-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes47='1976-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes48='1977-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes49='1978-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes50='1979-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes51='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes52='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes53='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes54='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes55='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes56='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes57='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes58='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes59='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes60='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes61='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes62='1971-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes63='1972-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes64='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes65='1974-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes66='1975-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes67='1976-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes68='1977-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes69='1978-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes70='1979-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes71='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes72='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes73='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes74='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes75='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes76='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes77='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes78='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes79='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes80='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes81='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes82='1971-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes83='1972-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes84='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes85='1974-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes86='1975-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes87='1976-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes88='1977-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes89='1978-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes90='1979-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes91='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes92='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes93='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes94='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes95='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes96='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes97='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes98='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes99='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes100='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes101='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes102='1971-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes103='1972-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes104='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes105='1974-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes106='1975-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes107='1976-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes108='1977-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes109='1978-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes110='1979-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes111='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes112='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes113='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes114='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes115='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes116='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes117='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes118='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes119='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes120='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes121='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes122='1971-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes123='1972-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes124='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes125='1974-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes126='1975-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes127='1976-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes128='1977-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes129='1978-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes130='1979-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes131='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes132='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes133='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes134='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes135='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes136='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes137='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes138='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes139='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes140='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes141='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes142='1971-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes143='1972-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes144='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes145='1974-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes146='1975-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes147='1976-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes148='1977-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes149='1978-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes150='1979-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes151='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes152='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes153='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes154='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes155='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes156='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes157='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes158='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes159='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes160='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes161='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes162='1971-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes163='1972-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes164='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes165='1974-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes166='1975-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes167='1976-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes168='1977-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes169='1978-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes170='1979-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes171='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes172='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes173='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes174='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes175='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes176='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes177='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes178='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes179='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes180='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes181='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes182='1971-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes183='1972-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes184='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes185='1974-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes186='1975-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes187='1976-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes188='1977-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes189='1978-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes190='1979-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes191='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes192='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes193='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes194='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes195='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes196='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes197='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes198='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes199='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes200='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes201='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes202='1971-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes203='1972-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes204='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes205='1974-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes206='1975-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes207='1976-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes208='1977-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes209='1978-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes210='1979-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes211='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes212='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes213='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes214='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes215='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes216='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes217='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes218='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes219='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes220='1980-09-03T12:00:10.0000000' (DbType = DateTime)
+
+SELECT `d`.`Id`, `d`.`DateTime`, `d`.`DateTime2`, `d`.`DateTime2_0`, `d`.`DateTime2_1`, `d`.`DateTime2_2`, `d`.`DateTime2_3`, `d`.`DateTime2_4`, `d`.`DateTime2_5`, `d`.`DateTime2_6`, `d`.`DateTime2_7`, `d`.`SmallDateTime`
+FROM `Dates` AS `d`
+WHERE `d`.`SmallDateTime` IN (CDATE(@dateTimes1), CDATE(@dateTimes2), CDATE(@dateTimes3), CDATE(@dateTimes4), CDATE(@dateTimes5), CDATE(@dateTimes6), CDATE(@dateTimes7), CDATE(@dateTimes8), CDATE(@dateTimes9), CDATE(@dateTimes10), CDATE(@dateTimes11), CDATE(@dateTimes12), CDATE(@dateTimes13), CDATE(@dateTimes14), CDATE(@dateTimes15), CDATE(@dateTimes16), CDATE(@dateTimes17), CDATE(@dateTimes18), CDATE(@dateTimes19), CDATE(@dateTimes20)) AND `d`.`DateTime` IN (CDATE(@dateTimes21), CDATE(@dateTimes22), CDATE(@dateTimes23), CDATE(@dateTimes24), CDATE(@dateTimes25), CDATE(@dateTimes26), CDATE(@dateTimes27), CDATE(@dateTimes28), CDATE(@dateTimes29), CDATE(@dateTimes30), CDATE(@dateTimes31), CDATE(@dateTimes32), CDATE(@dateTimes33), CDATE(@dateTimes34), CDATE(@dateTimes35), CDATE(@dateTimes36), CDATE(@dateTimes37), CDATE(@dateTimes38), CDATE(@dateTimes39), CDATE(@dateTimes40)) AND `d`.`DateTime2` IN (CDATE(@dateTimes41), CDATE(@dateTimes42), CDATE(@dateTimes43), CDATE(@dateTimes44), CDATE(@dateTimes45), CDATE(@dateTimes46), CDATE(@dateTimes47), CDATE(@dateTimes48), CDATE(@dateTimes49), CDATE(@dateTimes50), CDATE(@dateTimes51), CDATE(@dateTimes52), CDATE(@dateTimes53), CDATE(@dateTimes54), CDATE(@dateTimes55), CDATE(@dateTimes56), CDATE(@dateTimes57), CDATE(@dateTimes58), CDATE(@dateTimes59), CDATE(@dateTimes60)) AND `d`.`DateTime2_0` IN (CDATE(@dateTimes61), CDATE(@dateTimes62), CDATE(@dateTimes63), CDATE(@dateTimes64), CDATE(@dateTimes65), CDATE(@dateTimes66), CDATE(@dateTimes67), CDATE(@dateTimes68), CDATE(@dateTimes69), CDATE(@dateTimes70), CDATE(@dateTimes71), CDATE(@dateTimes72), CDATE(@dateTimes73), CDATE(@dateTimes74), CDATE(@dateTimes75), CDATE(@dateTimes76), CDATE(@dateTimes77), CDATE(@dateTimes78), CDATE(@dateTimes79), CDATE(@dateTimes80)) AND `d`.`DateTime2_1` IN (CDATE(@dateTimes81), CDATE(@dateTimes82), CDATE(@dateTimes83), CDATE(@dateTimes84), CDATE(@dateTimes85), CDATE(@dateTimes86), CDATE(@dateTimes87), CDATE(@dateTimes88), CDATE(@dateTimes89), CDATE(@dateTimes90), CDATE(@dateTimes91), CDATE(@dateTimes92), CDATE(@dateTimes93), CDATE(@dateTimes94), CDATE(@dateTimes95), CDATE(@dateTimes96), CDATE(@dateTimes97), CDATE(@dateTimes98), CDATE(@dateTimes99), CDATE(@dateTimes100)) AND `d`.`DateTime2_2` IN (CDATE(@dateTimes101), CDATE(@dateTimes102), CDATE(@dateTimes103), CDATE(@dateTimes104), CDATE(@dateTimes105), CDATE(@dateTimes106), CDATE(@dateTimes107), CDATE(@dateTimes108), CDATE(@dateTimes109), CDATE(@dateTimes110), CDATE(@dateTimes111), CDATE(@dateTimes112), CDATE(@dateTimes113), CDATE(@dateTimes114), CDATE(@dateTimes115), CDATE(@dateTimes116), CDATE(@dateTimes117), CDATE(@dateTimes118), CDATE(@dateTimes119), CDATE(@dateTimes120)) AND `d`.`DateTime2_3` IN (CDATE(@dateTimes121), CDATE(@dateTimes122), CDATE(@dateTimes123), CDATE(@dateTimes124), CDATE(@dateTimes125), CDATE(@dateTimes126), CDATE(@dateTimes127), CDATE(@dateTimes128), CDATE(@dateTimes129), CDATE(@dateTimes130), CDATE(@dateTimes131), CDATE(@dateTimes132), CDATE(@dateTimes133), CDATE(@dateTimes134), CDATE(@dateTimes135), CDATE(@dateTimes136), CDATE(@dateTimes137), CDATE(@dateTimes138), CDATE(@dateTimes139), CDATE(@dateTimes140)) AND `d`.`DateTime2_4` IN (CDATE(@dateTimes141), CDATE(@dateTimes142), CDATE(@dateTimes143), CDATE(@dateTimes144), CDATE(@dateTimes145), CDATE(@dateTimes146), CDATE(@dateTimes147), CDATE(@dateTimes148), CDATE(@dateTimes149), CDATE(@dateTimes150), CDATE(@dateTimes151), CDATE(@dateTimes152), CDATE(@dateTimes153), CDATE(@dateTimes154), CDATE(@dateTimes155), CDATE(@dateTimes156), CDATE(@dateTimes157), CDATE(@dateTimes158), CDATE(@dateTimes159), CDATE(@dateTimes160)) AND `d`.`DateTime2_5` IN (CDATE(@dateTimes161), CDATE(@dateTimes162), CDATE(@dateTimes163), CDATE(@dateTimes164), CDATE(@dateTimes165), CDATE(@dateTimes166), CDATE(@dateTimes167), CDATE(@dateTimes168), CDATE(@dateTimes169), CDATE(@dateTimes170), CDATE(@dateTimes171), CDATE(@dateTimes172), CDATE(@dateTimes173), CDATE(@dateTimes174), CDATE(@dateTimes175), CDATE(@dateTimes176), CDATE(@dateTimes177), CDATE(@dateTimes178), CDATE(@dateTimes179), CDATE(@dateTimes180)) AND `d`.`DateTime2_6` IN (CDATE(@dateTimes181), CDATE(@dateTimes182), CDATE(@dateTimes183), CDATE(@dateTimes184), CDATE(@dateTimes185), CDATE(@dateTimes186), CDATE(@dateTimes187), CDATE(@dateTimes188), CDATE(@dateTimes189), CDATE(@dateTimes190), CDATE(@dateTimes191), CDATE(@dateTimes192), CDATE(@dateTimes193), CDATE(@dateTimes194), CDATE(@dateTimes195), CDATE(@dateTimes196), CDATE(@dateTimes197), CDATE(@dateTimes198), CDATE(@dateTimes199), CDATE(@dateTimes200)) AND `d`.`DateTime2_7` IN (CDATE(@dateTimes201), CDATE(@dateTimes202), CDATE(@dateTimes203), CDATE(@dateTimes204), CDATE(@dateTimes205), CDATE(@dateTimes206), CDATE(@dateTimes207), CDATE(@dateTimes208), CDATE(@dateTimes209), CDATE(@dateTimes210), CDATE(@dateTimes211), CDATE(@dateTimes212), CDATE(@dateTimes213), CDATE(@dateTimes214), CDATE(@dateTimes215), CDATE(@dateTimes216), CDATE(@dateTimes217), CDATE(@dateTimes218), CDATE(@dateTimes219), CDATE(@dateTimes220))
+""");
     }
 
     protected class Context14095(DbContextOptions options) : DbContext(options)
@@ -573,14 +815,14 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
 
     #region 15518
 
-    [ConditionalTheory]
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public virtual async Task Nested_queries_does_not_cause_concurrency_exception_sync(bool tracking)
     {
-        var contextFactory = await InitializeAsync<Context15518>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context15518>(seed: c => c.SeedAsync());
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Repos.OrderBy(r => r.Id).Where(r => r.Id > 0);
             query = tracking ? query.AsTracking() : query.AsNoTracking();
@@ -593,7 +835,7 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
             }
         }
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Repos.OrderBy(r => r.Id).Where(r => r.Id > 0);
             query = tracking ? query.AsTracking() : query.AsNoTracking();
@@ -674,7 +916,7 @@ ORDER BY `r`.`Id`
 
     #region 19206
 
-    /*[ConditionalFact]
+    /*[Fact]
     public virtual async Task From_sql_expression_compares_correctly()
     {
         var contextFactory = await InitializeAsync<Context19206>(seed: c => c.SeedAsync());
@@ -741,14 +983,14 @@ CROSS JOIN (
 
     #region 21666
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Thread_safety_in_relational_command_cache()
     {
-        var contextFactory = await InitializeAsync<Context21666>(
+        var contextFactory = await InitializeNonSharedTest<Context21666>(
             onConfiguring: options => ((IDbContextOptionsBuilderInfrastructure)options).AddOrUpdateExtension(
                 options.Options.FindExtension<JetOptionsExtension>()
                     .WithConnection(null)
-                    .WithConnectionString(JetTestStore.CreateConnectionString(StoreName))));
+                    .WithConnectionString(JetTestStore.CreateConnectionString(NonSharedStoreName))));
 
         var ids = new[] { 1, 2, 3 };
 
@@ -756,7 +998,7 @@ CROSS JOIN (
             0, 100,
             i =>
             {
-                using var context = contextFactory.CreateContext();
+                using var context = contextFactory.CreateDbContext();
                 var query = context.Lists.Where(l => !l.IsDeleted && ids.Contains(l.Id)).ToList();
             });
     }
@@ -780,7 +1022,7 @@ CROSS JOIN (
 
     #region 27427
 
-    /*[ConditionalTheory]
+    /*[Theory]
     [MemberData(nameof(IsAsyncData))]
     public virtual async Task Muliple_occurrences_of_FromSql_in_group_by_aggregate(bool async)
     {
@@ -907,15 +1149,15 @@ FROM `Posts` AS `p`
 
     public override async Task Enum_has_flag_applies_explicit_cast_for_constant()
     {
-        var contextFactory = await InitializeAsync<Context8538>(seed: c => c.SeedAsync());
-        //Context8538.Permission is Int64 and ontext8538.Permission.READ_WRITE is 36 bit and jet/ace cant do maths on bigint/decimal
+        var contextFactory = await InitializeNonSharedTest<Context8538>(seed: c => c.SeedAsync());
+        //Context8538.Permission is Int64 and Context8538.Permission.READ_WRITE is 36 bit and jet/ace cant do maths on bigint/decimal
         /*using (var context = contextFactory.CreateContext())
         {
             var query = context.Entities.Where(e => e.Permission.HasFlag(Context8538.Permission.READ_WRITE)).ToList();
             Assert.Single(query);
         }*/
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Entities.Where(e => e.PermissionShort.HasFlag(Context8538.PermissionShort.READ_WRITE)).ToList();
             Assert.Single(query);
@@ -931,15 +1173,15 @@ WHERE (`e`.`PermissionShort` BAND CINT(4)) = CINT(4)
 
     public override async Task Enum_has_flag_does_not_apply_explicit_cast_for_non_constant()
     {
-        var contextFactory = await InitializeAsync<Context8538>(seed: c => c.SeedAsync());
+        var contextFactory = await InitializeNonSharedTest<Context8538>(seed: c => c.SeedAsync());
 
-        /*using (var context = contextFactory.CreateContext())
+        /*using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Entities.Where(e => e.Permission.HasFlag(e.Permission)).ToList();
             Assert.Equal(3, query.Count);
         }*/
 
-        using (var context = contextFactory.CreateContext())
+        using (var context = contextFactory.CreateDbContext())
         {
             var query = context.Entities.Where(e => e.PermissionByte.HasFlag(e.PermissionByte)).ToList();
             Assert.Equal(3, query.Count);
@@ -1581,24 +1823,13 @@ ORDER BY `o2`.`Id`
         await base.GroupBy_Aggregate_over_navigations_repeated(async);
 
         AssertSql(
-    """
-SELECT (
-    SELECT MIN(`o`.`HourlyRate`)
-    FROM `TimeSheets` AS `t0`
-    LEFT JOIN `Order` AS `o` ON `t0`.`OrderId` = `o`.`Id`
-    WHERE `t0`.`OrderId` IS NOT NULL AND `t`.`OrderId` = `t0`.`OrderId`) AS `HourlyRate`, (
-    SELECT MIN(`c`.`Id`)
-    FROM (`TimeSheets` AS `t1`
-    INNER JOIN `Project` AS `p` ON `t1`.`ProjectId` = `p`.`Id`)
-    LEFT JOIN `Customers` AS `c` ON `p`.`CustomerId` = `c`.`Id`
-    WHERE (`t1`.`OrderId` IS NOT NULL AND `t`.`OrderId` = `t1`.`OrderId`) AND (`p`.`CustomerId` IS NOT NULL AND `c`.`Id` IS NOT NULL)) AS `CustomerId`, (
-    SELECT MIN(`c0`.`Name`)
-    FROM (`TimeSheets` AS `t2`
-    INNER JOIN `Project` AS `p0` ON `t2`.`ProjectId` = `p0`.`Id`)
-    LEFT JOIN `Customers` AS `c0` ON `p0`.`CustomerId` = `c0`.`Id`
-    WHERE (`t2`.`OrderId` IS NOT NULL AND `t`.`OrderId` = `t2`.`OrderId`) AND (`p0`.`CustomerId` IS NOT NULL AND `c0`.`Id` IS NOT NULL)) AS `CustomerName`
-FROM `TimeSheets` AS `t`
-WHERE `t`.`OrderId` IS NOT NULL
+            """
+SELECT MIN(`o`.`HourlyRate`) AS `HourlyRate`, MIN(`c`.`Id`) AS `CustomerId`, MIN(`c`.`Name`) AS `CustomerName`
+FROM ((`TimeSheets` AS `t`
+LEFT JOIN `Order` AS `o` ON `t`.`OrderId` = `o`.`Id`)
+INNER JOIN `Project` AS `p` ON `t`.`ProjectId` = `p`.`Id`)
+LEFT JOIN `Customers` AS `c` ON `p`.`CustomerId` = `c`.`Id`
+WHERE (`t`.`OrderId` IS NOT NULL) AND (`p`.`CustomerId` IS NOT NULL AND `c`.`Id` IS NOT NULL)
 GROUP BY `t`.`OrderId`
 """);
     }
@@ -1655,7 +1886,7 @@ GROUP BY [t].[Value]
         await base.Subquery_first_member_compared_to_null(async);
 
         AssertSql(
-    """
+            """
 SELECT (
     SELECT TOP 1 `c1`.`SomeOtherNullableDateTime`
     FROM `Child` AS `c1`
@@ -1699,7 +1930,7 @@ WHERE [c1].[SomeOtherNullableDateTime] IS NOT NULL
         await base.Flattened_GroupJoin_on_interface_generic(async);
 
         AssertSql(
-    """
+            """
 SELECT `c`.`Id`, `c`.`ParentId`, `c`.`SomeInteger`, `c`.`SomeNullableDateTime`, `c`.`SomeOtherNullableDateTime`
 FROM `Parents` AS `p`
 LEFT JOIN `Child` AS `c` ON `p`.`Id` = `c`.`Id`
@@ -1744,7 +1975,7 @@ INNER JOIN (
     HAVING COUNT(*) = 1
 ) AS `i0` ON `t`.`ParcelNumber` = `i0`.`Parcel`
 WHERE `t`.`TableId` = 123
-ORDER BY `t`.`ParcelNumber`
+ORDER BY `t`.`ParcelNumber`, `i0`.`Parcel`
 """);
     }
 

@@ -1,4 +1,4 @@
-﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
@@ -9,7 +9,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
 {
@@ -25,7 +24,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -192,6 +191,29 @@ LEFT JOIN (
 """);
         }
 
+        public override async Task MaxBy_after_DefaultIfEmpty_does_not_throw(bool async)
+        {
+            await base.MaxBy_after_DefaultIfEmpty_does_not_throw(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `s`.`c`
+FROM (
+    SELECT IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`) AS `c`
+    FROM (
+        SELECT 1
+        FROM (SELECT COUNT(*) FROM `#Dual`)
+    ) AS `e`
+    LEFT JOIN (
+        SELECT `o`.`OrderID`
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` = 10243
+    ) AS `o0` ON TRUE
+) AS `s`
+ORDER BY `s`.`c` DESC
+""");
+        }
+
         public override async Task Min_after_DefaultIfEmpty_does_not_throw(bool async)
         {
             await base.Min_after_DefaultIfEmpty_does_not_throw(async);
@@ -208,6 +230,29 @@ LEFT JOIN (
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` = 10243
 ) AS `o0` ON TRUE
+""");
+        }
+
+        public override async Task MinBy_after_DefaultIfEmpty_does_not_throw(bool async)
+        {
+            await base.MinBy_after_DefaultIfEmpty_does_not_throw(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `s`.`c`
+FROM (
+    SELECT IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`) AS `c`
+    FROM (
+        SELECT 1
+        FROM (SELECT COUNT(*) FROM `#Dual`)
+    ) AS `e`
+    LEFT JOIN (
+        SELECT `o`.`OrderID`
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` = 10243
+    ) AS `o0` ON TRUE
+) AS `s`
+ORDER BY `s`.`c`
 """);
         }
 
@@ -296,6 +341,199 @@ FROM `Customers` AS `c`
 """);
         }
 
+        public override async Task MinBy(bool async)
+        {
+            await base.MinBy(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+ORDER BY `o`.`OrderID`
+""");
+        }
+
+        public override async Task MinBy_no_data_value_type(bool async)
+        {
+            await base.MinBy_no_data_value_type(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `o`.`OrderID`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` = -1
+ORDER BY `o`.`OrderID`
+""");
+        }
+
+        public override async Task MinBy_no_data_nullable_source(bool async)
+        {
+            await base.MinBy_no_data_nullable_source(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `p`.`SupplierID`
+FROM `Products` AS `p`
+WHERE `p`.`SupplierID` = -1
+ORDER BY IIF(`p`.`SupplierID` IS NULL, 0, `p`.`SupplierID`)
+""");
+        }
+
+        public override async Task MinBy_no_data_reference_type_source(bool async)
+        {
+            await base.MinBy_no_data_reference_type_source(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Products` AS `p`
+WHERE `p`.`SupplierID` = -1
+ORDER BY `p`.`ProductID`
+""");
+        }
+
+        public override async Task MinBy_no_data_nullable_selector(bool async)
+        {
+            await base.MinBy_no_data_nullable_selector(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `o`.`OrderID`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` = -1
+ORDER BY `o`.`OrderID`
+""");
+        }
+
+        public override async Task MinBy_no_data_subquery_reference_type(bool async)
+        {
+            await base.MinBy_no_data_subquery_reference_type(async);
+
+            AssertSql(
+                """
+    SELECT [o1].[OrderID], [o1].[CustomerID], [o1].[EmployeeID], [o1].[OrderDate]
+    FROM [Customers] AS [c]
+    LEFT JOIN (
+        SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+        FROM (
+            SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], ROW_NUMBER() OVER(PARTITION BY [o].[CustomerID] ORDER BY [o].[OrderID]) AS [row]
+            FROM [Orders] AS [o]
+            WHERE [o].[OrderID] = -1
+        ) AS [o0]
+        WHERE [o0].[row] <= 1
+    ) AS [o1] ON [c].[CustomerID] = [o1].[CustomerID]
+    """);
+        }
+
+        public override async Task MinBy_no_data_subquery_value_type(bool async)
+        {
+            await base.MinBy_no_data_subquery_value_type(async);
+
+            AssertSql(
+                """
+SELECT (
+    SELECT TOP 1 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` = -1
+    ORDER BY `o`.`OrderID`)
+FROM `Customers` AS `c`
+""");
+        }
+
+        public override async Task MinBy_with_coalesce(bool async)
+        {
+            await base.MinBy_with_coalesce(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Products` AS `p`
+WHERE `p`.`ProductID` < 40
+ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`)
+""");
+        }
+
+        public override async Task MinBy_over_subquery(bool async)
+        {
+            await base.MinBy_over_subquery(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `c0`.`c`
+FROM (
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
+        SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `c`
+    FROM `Customers` AS `c`
+) AS `c0`
+ORDER BY `c0`.`c`
+""");
+        }
+
+        public override async Task MinBy_over_nested_subquery(bool async)
+        {
+            await base.MinBy_over_nested_subquery(async);
+
+            AssertSql(
+                """
+@p='3'
+
+SELECT TOP 1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `c1`.`c`
+FROM (
+    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, (
+        SELECT TOP 1 `o1`.`OrderID`
+        FROM (
+            SELECT `o`.`OrderID`, 5 + (
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID`
+                ORDER BY `o0`.`ProductID`) AS `c`
+            FROM `Orders` AS `o`
+            WHERE `c0`.`CustomerID` = `o`.`CustomerID`
+        ) AS `o1`
+        ORDER BY `o1`.`c`) AS `c`
+    FROM (
+        SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+        FROM `Customers` AS `c`
+        ORDER BY `c`.`CustomerID`
+    ) AS `c0`
+) AS `c1`
+ORDER BY `c1`.`c`
+""");
+        }
+
+        public override async Task MinBy_over_max_subquery(bool async)
+        {
+            await base.MinBy_over_max_subquery(async);
+
+            AssertSql(
+                """
+@p='3'
+
+SELECT TOP 1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `c1`.`c`
+FROM (
+    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, (
+        SELECT TOP 1 `o1`.`OrderID`
+        FROM (
+            SELECT `o`.`OrderID`, 5 + (
+                SELECT MAX(`o0`.`ProductID`)
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `c`
+            FROM `Orders` AS `o`
+            WHERE `c0`.`CustomerID` = `o`.`CustomerID`
+        ) AS `o1`
+        ORDER BY `o1`.`c`) AS `c`
+    FROM (
+        SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+        FROM `Customers` AS `c`
+        ORDER BY `c`.`CustomerID`
+    ) AS `c0`
+) AS `c1`
+ORDER BY `c1`.`c`
+""");
+        }
+
         public override async Task Max_no_data(bool async)
         {
             await base.Max_no_data(async);
@@ -346,9 +584,202 @@ FROM `Customers` AS `c`
 """);
         }
 
+        public override async Task MaxBy_no_data_value_type(bool async)
+        {
+            await base.MaxBy_no_data_value_type(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `o`.`OrderID`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` = -1
+ORDER BY `o`.`OrderID` DESC
+""");
+        }
+
+        public override async Task MaxBy_no_data_nullable_source(bool async)
+        {
+            await base.MaxBy_no_data_nullable_source(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `p`.`SupplierID`
+FROM `Products` AS `p`
+WHERE `p`.`SupplierID` = -1
+ORDER BY IIF(`p`.`SupplierID` IS NULL, 0, `p`.`SupplierID`) DESC
+""");
+        }
+
+        public override async Task MaxBy_no_data_reference_type_source(bool async)
+        {
+            await base.MaxBy_no_data_reference_type_source(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Products` AS `p`
+WHERE `p`.`SupplierID` = -1
+ORDER BY `p`.`ProductID` DESC
+""");
+        }
+
+        public override async Task MaxBy_no_data_nullable_selector(bool async)
+        {
+            await base.MaxBy_no_data_nullable_selector(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `o`.`OrderID`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` = -1
+ORDER BY `o`.`OrderID` DESC
+""");
+        }
+
+        public override async Task MaxBy_no_data_subquery_reference_type(bool async)
+        {
+            await base.MaxBy_no_data_subquery_reference_type(async);
+
+            AssertSql(
+                """
+    SELECT [o1].[OrderID], [o1].[CustomerID], [o1].[EmployeeID], [o1].[OrderDate]
+    FROM [Customers] AS [c]
+    LEFT JOIN (
+        SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+        FROM (
+            SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], ROW_NUMBER() OVER(PARTITION BY [o].[CustomerID] ORDER BY [o].[OrderID] DESC) AS [row]
+            FROM [Orders] AS [o]
+            WHERE [o].[OrderID] = -1
+        ) AS [o0]
+        WHERE [o0].[row] <= 1
+    ) AS [o1] ON [c].[CustomerID] = [o1].[CustomerID]
+    """);
+        }
+
+        public override async Task MaxBy_no_data_subquery_value_type(bool async)
+        {
+            await base.MaxBy_no_data_subquery_value_type(async);
+
+            AssertSql(
+                """
+SELECT (
+    SELECT TOP 1 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` = -1
+    ORDER BY `o`.`OrderID` DESC)
+FROM `Customers` AS `c`
+""");
+        }
+
+        public override async Task MaxBy(bool async)
+        {
+            await base.MaxBy(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+ORDER BY `o`.`OrderID` DESC
+""");
+        }
+
+        public override async Task MaxBy_with_coalesce(bool async)
+        {
+            await base.MaxBy_with_coalesce(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Products` AS `p`
+WHERE `p`.`ProductID` < 40
+ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) DESC
+""");
+        }
+
+        public override async Task MaxBy_over_subquery(bool async)
+        {
+            await base.MaxBy_over_subquery(async);
+
+            AssertSql(
+                """
+SELECT TOP 1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `c0`.`c`
+FROM (
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
+        SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `c`
+    FROM `Customers` AS `c`
+) AS `c0`
+ORDER BY `c0`.`c` DESC
+""");
+        }
+
+        public override async Task MaxBy_over_nested_subquery(bool async)
+        {
+            await base.MaxBy_over_nested_subquery(async);
+
+            AssertSql(
+                """
+@p='3'
+
+SELECT TOP 1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `c1`.`c`
+FROM (
+    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, (
+        SELECT TOP 1 `o1`.`OrderID`
+        FROM (
+            SELECT `o`.`OrderID`, 5 + (
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID`
+                ORDER BY `o0`.`ProductID` DESC) AS `c`
+            FROM `Orders` AS `o`
+            WHERE `c0`.`CustomerID` = `o`.`CustomerID`
+        ) AS `o1`
+        ORDER BY `o1`.`c` DESC) AS `c`
+    FROM (
+        SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+        FROM `Customers` AS `c`
+        ORDER BY `c`.`CustomerID`
+    ) AS `c0`
+) AS `c1`
+ORDER BY `c1`.`c` DESC
+""");
+        }
+
+        public override async Task MaxBy_over_sum_subquery(bool async)
+        {
+            await base.MaxBy_over_sum_subquery(async);
+
+            AssertSql(
+                """
+@p='3'
+
+SELECT TOP 1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `c1`.`c`
+FROM (
+    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, (
+        SELECT TOP 1 `o1`.`OrderID`
+        FROM (
+            SELECT `o`.`OrderID`, 5 + (
+                SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `c`
+            FROM `Orders` AS `o`
+            WHERE `c0`.`CustomerID` = `o`.`CustomerID`
+        ) AS `o1`
+        ORDER BY `o1`.`c` DESC) AS `c`
+    FROM (
+        SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+        FROM `Customers` AS `c`
+        ORDER BY `c`.`CustomerID`
+    ) AS `c0`
+) AS `c1`
+ORDER BY `c1`.`c` DESC
+""");
+        }
+
         private static readonly IEnumerable<string> StaticIds = new List<string> { "ALFKI", "ANATR" };
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(nameof(IsAsyncData))]
         public virtual async Task Contains_with_static_IList(bool async)
         {
@@ -495,7 +926,7 @@ FROM `Orders` AS `o`
 
 SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-ORDER BY 1
+ORDER BY 1, `e`.`EmployeeID`
 """);
         }
 
@@ -2242,7 +2673,6 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
                     ORDER BY `o`.`OrderID`
                     """);
         }
-
 
         public override async Task Average_with_non_matching_types_in_projection_doesnt_produce_second_explicit_cast(bool isAsync)
         {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model59_StackOverflow_TPT_TPH

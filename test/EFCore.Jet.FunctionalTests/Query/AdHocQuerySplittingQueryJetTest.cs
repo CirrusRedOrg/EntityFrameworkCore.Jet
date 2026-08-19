@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Linq;
@@ -19,7 +19,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class AdHocQuerySplittingQueryJetTest(NonSharedFixture fixture) : AdHocQuerySplittingQueryTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     private static readonly FieldInfo _querySplittingBehaviorFieldInfo =
@@ -53,7 +53,7 @@ public class AdHocQuerySplittingQueryJetTest(NonSharedFixture fixture) : AdHocQu
 
     protected override TestStore CreateTestStore25225()
     {
-        var testStore = JetTestStore.Create(StoreName);
+        var testStore = JetTestStore.Create(NonSharedStoreName);
         testStore.UseConnectionString = true;
         return testStore;
     }
@@ -67,7 +67,7 @@ public class AdHocQuerySplittingQueryJetTest(NonSharedFixture fixture) : AdHocQu
 SELECT `p`.`Id`, `c`.`Id`, `c`.`ParentId`
 FROM `Parents` AS `p`
 LEFT JOIN `Child` AS `c` ON `p`.`Id` = `c`.`ParentId`
-ORDER BY `p`.`Id`
+ORDER BY `p`.`Id`, `c`.`Id`
 """,
             //
             """
@@ -88,7 +88,7 @@ SELECT `p`.`Id`, `c`.`Id`, `c`.`ParentId`, `a`.`Id`, `a`.`ParentId`
 FROM (`Parents` AS `p`
 LEFT JOIN `Child` AS `c` ON `p`.`Id` = `c`.`ParentId`)
 LEFT JOIN `AnotherChild` AS `a` ON `p`.`Id` = `a`.`ParentId`
-ORDER BY `p`.`Id`, `c`.`Id`
+ORDER BY `p`.`Id`, `c`.`Id`, `a`.`Id`
 """);
     }
 
@@ -114,7 +114,7 @@ ORDER BY `p`.`Id`
 SELECT `p`.`Id`, `c`.`Id`, `c`.`ParentId`
 FROM `Parents` AS `p`
 LEFT JOIN `Child` AS `c` ON `p`.`Id` = `c`.`ParentId`
-ORDER BY `p`.`Id`
+ORDER BY `p`.`Id`, `c`.`Id`
 """,
             //
             """
@@ -174,7 +174,7 @@ SELECT `p`.`Id`, `c`.`Id`, `c`.`ParentId`, `a`.`Id`, `a`.`ParentId`
 FROM (`Parents` AS `p`
 LEFT JOIN `Child` AS `c` ON `p`.`Id` = `c`.`ParentId`)
 LEFT JOIN `AnotherChild` AS `a` ON `p`.`Id` = `a`.`ParentId`
-ORDER BY `p`.`Id`, `c`.`Id`
+ORDER BY `p`.`Id`, `c`.`Id`, `a`.`Id`
 """);
     }
 
@@ -280,14 +280,14 @@ ORDER BY `p1`.`Id`
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual async Task Using_AsSplitQuery_without_multiple_active_result_sets_works()
     {
-        var contextFactory = await InitializeAsync<Context21355>(
+        var contextFactory = await InitializeNonSharedTest<Context21355>(
             seed: c => c.SeedAsync(),
-            createTestStore: () => JetTestStore.Create(StoreName));
+            createTestStore: () => JetTestStore.Create(NonSharedStoreName));
 
-        using var context = contextFactory.CreateContext();
+        using var context = contextFactory.CreateDbContext();
         context.Parents.Include(p => p.Children1).Include(p => p.Children2).AsSplitQuery().ToList();
 
         AssertSql(

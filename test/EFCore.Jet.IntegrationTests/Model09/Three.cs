@@ -1,4 +1,4 @@
-﻿namespace EntityFrameworkCore.Jet.IntegrationTests.Model09
+namespace EntityFrameworkCore.Jet.IntegrationTests.Model09
 {
     public class Three
     {

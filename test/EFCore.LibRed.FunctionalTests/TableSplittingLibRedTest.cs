@@ -1,17 +1,17 @@
-﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Threading.Tasks;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit.Abstractions;
 using Microsoft.EntityFrameworkCore.TestModels.TransportationModel;
+using Xunit;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests
 {
     public class TableSplittingLibRedTest(NonSharedFixture fixture,ITestOutputHelper testOutputHelper) : TableSplittingTestBase(fixture, testOutputHelper)
     {
-        protected override ITestStoreFactory TestStoreFactory => LibRedTestStoreFactory.Instance;
+        protected override ITestStoreFactory NonSharedTestStoreFactory => LibRedTestStoreFactory.Instance;
 
         public override async Task Can_use_with_redundant_relationships()
         {

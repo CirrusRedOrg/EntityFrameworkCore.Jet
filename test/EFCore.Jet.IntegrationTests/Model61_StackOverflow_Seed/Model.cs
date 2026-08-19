@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace EFCore.Jet.Integration.Test.Model61_StackOverflow_Seed

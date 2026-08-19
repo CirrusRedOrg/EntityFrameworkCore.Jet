@@ -12,7 +12,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 using System.Threading.Tasks;
 
 #nullable disable
@@ -36,7 +35,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         protected override TestHelpers TestHelpers
         => LibRedTestHelpers.Instance;
 
-        [ConditionalFact]
+        [Fact]
         public virtual ModelBuilder Default_for_key_string_column_throws()
         {
             var modelBuilder = CreateModelBuilder();

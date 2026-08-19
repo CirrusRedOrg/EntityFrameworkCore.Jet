@@ -1,4 +1,4 @@
-﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Threading.Tasks;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
@@ -6,7 +6,6 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
 {
@@ -22,11 +21,11 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
             Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
-        [ConditionalTheory]
+        [Theory]
         public override async Task KeylessEntity_simple(bool isAsync)
         {
             await base.KeylessEntity_simple(isAsync);
@@ -37,7 +36,7 @@ SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[Cont
 """);
         }
 
-        [ConditionalTheory]
+        [Theory]
         public override async Task KeylessEntity_where_simple(bool isAsync)
         {
             await base.KeylessEntity_where_simple(isAsync);
@@ -147,8 +146,8 @@ SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[Cont
             await base.KeylessEntity_groupby(async);
 
             AssertSql(
-"""
-SELECT `m`.`City` AS `Key`, COUNT(*) AS `Count`, IIF(SUM(IIF(LEN(`m`.`Address`) IS NULL, NULL, CLNG(LEN(`m`.`Address`)))) IS NULL, 0, SUM(IIF(LEN(`m`.`Address`) IS NULL, NULL, CLNG(LEN(`m`.`Address`))))) AS `Sum`
+                """
+SELECT `m`.`City` AS `Key`, COUNT(*) AS `Count`, IIF(SUM(LEN(`m`.`Address`)) IS NULL, 0, SUM(LEN(`m`.`Address`))) AS `Sum`
 FROM (
     SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
 ) AS `m`

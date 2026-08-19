@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Text;
@@ -12,7 +12,11 @@ namespace EntityFrameworkCore.Jet.Storage.Internal;
 ///     any release. You should only use it directly in your code with extreme caution and knowing that
 ///     doing so can result in application failures when updating to a new Entity Framework Core release.
 /// </summary>
-public class JetJsonTypeMapping : JsonTypeMapping
+// EF 11 renamed the base to StructuralJsonTypeMapping and reduced JsonTypeMapping to an obsolete stub that no
+// longer derives from RelationalTypeMapping — which is why the old base took GetDataReaderMethod,
+// CustomizeDataReaderExpression, GenerateNonNullSqlLiteral and the nested RelationalTypeMappingParameters out of
+// scope with it. The members themselves are unchanged.
+public class JetJsonTypeMapping : StructuralJsonTypeMapping
 {
     private static readonly MethodInfo GetStringMethod
         = typeof(DbDataReader).GetRuntimeMethod(nameof(DbDataReader.GetString), [typeof(int)])!;
@@ -33,6 +37,12 @@ public class JetJsonTypeMapping : JsonTypeMapping
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
     public static JetJsonTypeMapping Default { get; } = new("longchar");
+
+    /// <summary>
+    ///     For a JSON column the model explicitly sized, which lands in a varchar rather than a memo. Cloned
+    ///     outside for the requested size.
+    /// </summary>
+    public static JetJsonTypeMapping VarcharDefault { get; } = new("varchar");
 
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

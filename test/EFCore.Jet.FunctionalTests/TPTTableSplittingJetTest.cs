@@ -2,13 +2,13 @@ using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit.Abstractions;
+using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
 public class TPTTableSplittingJetTest(NonSharedFixture fixture, ITestOutputHelper testOutputHelper) : TPTTableSplittingTestBase(fixture, testOutputHelper)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     public override async Task Can_use_with_redundant_relationships()
@@ -145,20 +145,20 @@ WHERE ([c].[Capacity] IS NOT NULL) AND ([c].[FuelType] IS NOT NULL)
     {
         await base.Can_change_dependent_instance_non_derived();
         AssertSql(
-            $"""
+            """
 @p0='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 255)
 @p1='Repair' (Size = 255)
 
 INSERT INTO `LicensedOperators` (`VehicleName`, `LicenseType`)
-VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")});
+VALUES (@p0, @p1);
 """,
             //
-            $"""
+            """
 @p0='repairman' (Size = 255)
 @p1='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 255)
 
-UPDATE `Vehicles` SET `Operator_Name` = {AssertSqlHelper.Parameter("@p0")}
-WHERE `Name` = {AssertSqlHelper.Parameter("@p1")};
+UPDATE `Vehicles` SET `Operator_Name` = @p0
+WHERE `Name` = @p1;
 SELECT @@ROWCOUNT;
 """,
             //
@@ -181,12 +181,12 @@ WHERE `v`.`Name` = 'Trek Pro Fit Madone 6 Series'
         await base.Can_change_principal_instance_non_derived();
 
         AssertSql(
-            $"""
+            """
 @p0='2'
 @p1='Trek Pro Fit Madone 6 Series' (Nullable = false) (Size = 255)
 
-UPDATE `Vehicles` SET `SeatingCapacity` = {AssertSqlHelper.Parameter("@p0")}
-WHERE `Name` = {AssertSqlHelper.Parameter("@p1")};
+UPDATE `Vehicles` SET `SeatingCapacity` = @p0
+WHERE `Name` = @p1;
 SELECT @@ROWCOUNT;
 """,
             //

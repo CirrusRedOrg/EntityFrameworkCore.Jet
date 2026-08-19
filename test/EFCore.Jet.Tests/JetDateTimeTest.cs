@@ -1,4 +1,4 @@
-﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Linq;
@@ -10,7 +10,7 @@ namespace EntityFrameworkCore.Jet
 {
     public class JetDateTimeTest : TestBase<JetDateTimeTest.Context>
     {
-        [ConditionalFact]
+        [Fact]
         public virtual void SanityCheck()
         {
             using var context = CreateContext();
@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.Jet
             Assert.Equal(2, cookies.Count);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Where_datetime_with_HasDefaultValue()
         {
             using var context = CreateContext();
@@ -36,7 +36,7 @@ namespace EntityFrameworkCore.Jet
             Assert.True(cookies.All(c => c.BestServedBeforeDateTime == new DateTime(2021, 12, 31, 13, 42, 21)));
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Where_datetime_with_HasDefaultValue_EnableMillisecondsSupport()
         {
             using var context = CreateContext(jetOptions: builder => builder.EnableMillisecondsSupport());
@@ -50,7 +50,7 @@ namespace EntityFrameworkCore.Jet
             Assert.True(cookies.All(c => c.BestServedBeforeDateTime == new DateTime(2021, 12, 31, 13, 42, 21, 123)));
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Where_datetime_with_HasDefaultValue_precision()
         {
             using var context = CreateContext();
@@ -64,7 +64,7 @@ namespace EntityFrameworkCore.Jet
             Assert.True(cookies.All(c => c.BestServedBeforeDateTime == new DateTime(2021, 12, 31, 13, 42, 21)));
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Where_datetime_with_HasDefaultValue_precision_EnableMillisecondsSupport()
         {
             using var context = CreateContext(jetOptions: builder => builder.EnableMillisecondsSupport());
@@ -77,7 +77,7 @@ namespace EntityFrameworkCore.Jet
             Assert.Empty(cookies);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Where_datetime_with_HasDefaultValueSql()
         {
             using var context = CreateContext();
@@ -91,7 +91,7 @@ namespace EntityFrameworkCore.Jet
             Assert.True(cookies.All(c => c.BestServedAfterDateTime == new DateTime(2020, 12, 31, 13, 42, 21)));
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Where_datetime_with_HasDefaultValueSql_EnableMillisecondsSupport()
         {
             using var context = CreateContext(jetOptions: builder => builder.EnableMillisecondsSupport());
@@ -105,7 +105,7 @@ namespace EntityFrameworkCore.Jet
             Assert.True(cookies.All(c => c.BestServedAfterDateTime == new DateTime(2020, 12, 31, 13, 42, 21)));
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Where_datetime_with_fractions()
         {
             using var context = CreateContext();
@@ -119,7 +119,7 @@ namespace EntityFrameworkCore.Jet
             Assert.Equal(new DateTime(2019, 12, 31, 13, 42, 21), cookies[0].PuchasedDateTime);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Where_datetime_with_fractions_EnableMillisecondsSupport()
         {
             using var context = CreateContext(jetOptions: builder => builder.EnableMillisecondsSupport());
@@ -133,7 +133,7 @@ namespace EntityFrameworkCore.Jet
             Assert.Equal(new DateTime(2019, 12, 31, 13, 42, 21, 123), cookies[0].PuchasedDateTime);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Where_datetime_with_fractions_parameter()
         {
             using var context = CreateContext();
@@ -147,7 +147,7 @@ namespace EntityFrameworkCore.Jet
             Assert.Equal(new DateTime(2019, 12, 31, 13, 42, 21), cookies[0].PuchasedDateTime);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Where_datetime_with_fractions_parameter_EnableMillisecondsSupport()
         {
             using var context = CreateContext(jetOptions: builder => builder.EnableMillisecondsSupport());

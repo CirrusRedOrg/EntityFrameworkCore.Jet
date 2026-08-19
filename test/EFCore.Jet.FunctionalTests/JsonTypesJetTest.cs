@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 #nullable enable
@@ -16,7 +16,7 @@ using Xunit.Sdk;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 
-public class JsonTypesJetTest(NonSharedFixture fixture) : JsonTypesRelationalTestBase(fixture)
+public class JsonTypesJetTest(NonSharedFixture fixture) : JsonTypesJetTestBase(fixture)
 {
     public override async Task Can_read_write_ulong_enum_JSON_values(EnumU64 value, string json)
     {
@@ -169,14 +169,7 @@ public class JsonTypesJetTest(NonSharedFixture fixture) : JsonTypesRelationalTes
         // No built-in JSON support for spatial types in the Jet provider
         => await Assert.ThrowsAsync<InvalidOperationException>(() => base.Can_read_write_polygon_typed_as_nullable_geometry_as_GeoJson());
 
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
-    protected override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
-    {
-        builder = base.AddOptions(builder)
-            .ConfigureWarnings(w => w.Ignore(JetEventId.DecimalTypeDefaultWarning));
-        new JetDbContextOptionsBuilder(builder);
-        return builder;
-    }
 }

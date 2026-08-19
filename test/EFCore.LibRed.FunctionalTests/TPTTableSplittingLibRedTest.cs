@@ -2,13 +2,13 @@ using System.Threading.Tasks;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
-using Xunit.Abstractions;
+using Xunit;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests;
 
 public class TPTTableSplittingLibRedTest(NonSharedFixture fixture, ITestOutputHelper testOutputHelper) : TPTTableSplittingTestBase(fixture, testOutputHelper)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
     public override async Task Can_use_with_redundant_relationships()

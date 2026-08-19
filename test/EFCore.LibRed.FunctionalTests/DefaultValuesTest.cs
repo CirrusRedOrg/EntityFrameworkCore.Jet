@@ -1,4 +1,4 @@
-﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Linq;
@@ -17,7 +17,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             .AddEntityFrameworkLibRed()
             .BuildServiceProvider();
 
-        [ConditionalFact]
+        [Fact]
         public void Can_use_SQL_Server_default_values()
         {
             using (var context = new ChipsContext(_serviceProvider, TestStore.Name))
@@ -88,10 +88,10 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
         protected LibRedTestStore TestStore { get; private set; }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
             => TestStore = await LibRedTestStore.CreateInitializedAsync("DefaultValuesTest");
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
             => await TestStore.DisposeAsync();
     }
 }

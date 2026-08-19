@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System.Threading.Tasks;
@@ -6,7 +6,6 @@ using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.BulkUpdates;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.BulkUpdates;
 
@@ -14,7 +13,7 @@ public class NorthwindBulkUpdatesJetTest(
     NorthwindBulkUpdatesJetFixture<NoopModelCustomizer> fixture,
     ITestOutputHelper testOutputHelper) : NorthwindBulkUpdatesRelationalTestBase<NorthwindBulkUpdatesJetFixture<NoopModelCustomizer>>(fixture, testOutputHelper)
 {
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -553,20 +552,6 @@ DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `Order Details` AS `o0`
-    LEFT JOIN (
-        SELECT `o4`.`OrderID`
-        FROM (
-            SELECT TOP @p1 `o3`.`OrderID`
-            FROM (
-                SELECT TOP @p + @p1 `o2`.`OrderID`
-                FROM `Orders` AS `o2`
-                WHERE `o2`.`OrderID` < 10300
-                ORDER BY `o2`.`OrderID`
-            ) AS `o3`
-            ORDER BY `o3`.`OrderID` DESC
-        ) AS `o4`
-        ORDER BY `o4`.`OrderID`
-    ) AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
     WHERE `o0`.`OrderID` < 10276 AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
@@ -581,20 +566,6 @@ DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `Order Details` AS `o0`
-    LEFT JOIN (
-        SELECT `o4`.`OrderID`
-        FROM (
-            SELECT TOP @p1 `o3`.`OrderID`
-            FROM (
-                SELECT TOP @p + @p1 `o2`.`OrderID`
-                FROM `Orders` AS `o2`
-                WHERE `o2`.`OrderID` < 10300
-                ORDER BY `o2`.`OrderID`
-            ) AS `o3`
-            ORDER BY `o3`.`OrderID` DESC
-        ) AS `o4`
-        ORDER BY `o4`.`OrderID`
-    ) AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
     WHERE `o0`.`OrderID` < 10276 AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
@@ -674,22 +645,26 @@ WHERE [o].[OrderID] < 10276
 DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
-    FROM `Order Details` AS `o0`
+    FROM (
+        SELECT `o1`.`OrderID`, `o1`.`ProductID`
+        FROM `Order Details` AS `o1`
+        WHERE `o1`.`OrderID` < 10276
+    ) AS `o0`
     RIGHT JOIN (
-        SELECT `o4`.`OrderID`
+        SELECT `o5`.`OrderID`
         FROM (
-            SELECT TOP @p1 `o3`.`OrderID`
+            SELECT TOP @p1 `o4`.`OrderID`
             FROM (
-                SELECT TOP @p + @p1 `o2`.`OrderID`
-                FROM `Orders` AS `o2`
-                WHERE `o2`.`OrderID` < 10300
-                ORDER BY `o2`.`OrderID`
-            ) AS `o3`
-            ORDER BY `o3`.`OrderID` DESC
-        ) AS `o4`
-        ORDER BY `o4`.`OrderID`
-    ) AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
-    WHERE `o0`.`OrderID` < 10276 AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
+                SELECT TOP @p + @p1 `o3`.`OrderID`
+                FROM `Orders` AS `o3`
+                WHERE `o3`.`OrderID` < 10300
+                ORDER BY `o3`.`OrderID`
+            ) AS `o4`
+            ORDER BY `o4`.`OrderID` DESC
+        ) AS `o5`
+        ORDER BY `o5`.`OrderID`
+    ) AS `o2` ON `o0`.`OrderID` = `o2`.`OrderID`
+    WHERE `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -706,6 +681,19 @@ WHERE EXISTS (
 UPDATE `Customers` AS `c`
 SET `c`.`ContactName` = @p
 WHERE `c`.`CustomerID` LIKE 'F%'
+""");
+    }
+
+    public override async Task Update_set_constant_TagWith_null(bool async)
+    {
+        await base.Update_set_constant_TagWith_null(async);
+
+        AssertExecuteUpdateSql(
+            """
+-- MyUpdate
+
+UPDATE `Customers` AS `c`
+SET `c`.`ContactName` = NULL
 """);
     }
 
@@ -1404,14 +1392,21 @@ WHERE `c`.`CustomerID` LIKE 'F%'
             """
 @p='2020-01-01T00:00:00.0000000Z' (Nullable = true) (DbType = DateTime)
 
-UPDATE `Orders` AS `o`
-RIGHT JOIN (
-    SELECT `c`.`CustomerID`
-    FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'F%'
-) AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
-SET `o`.`OrderDate` = CDATE(@p)
-WHERE `o`.`OrderID` < 10300
+UPDATE `Orders` AS `o1`
+INNER JOIN (
+    SELECT `o0`.`OrderID`
+    FROM (
+        SELECT `o`.`OrderID`, `o`.`CustomerID`
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` < 10300
+    ) AS `o0`
+    RIGHT JOIN (
+        SELECT `c`.`CustomerID`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` LIKE 'F%'
+    ) AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
+) AS `s` ON `o1`.`OrderID` = `s`.`OrderID`
+SET `o1`.`OrderDate` = CDATE(@p)
 """);
     }
 
@@ -1617,7 +1612,7 @@ WHERE [c].[CustomerID] LIKE N'F%'
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [MemberData(nameof(IsAsyncData))]
     public override async Task Update_with_two_inner_joins(bool async)
     {
@@ -1636,7 +1631,7 @@ WHERE `p`.`Discontinued` AND `o0`.`OrderDate` > #1990-01-01#
 """);
     }
 
-    [ConditionalTheory, MemberData(nameof(IsAsyncData))]
+    [Theory, MemberData(nameof(IsAsyncData))]
     public override async Task Update_with_PK_pushdown_and_join_and_multiple_setters(bool async)
     {
         await base.Update_with_PK_pushdown_and_join_and_multiple_setters(async);

@@ -1,4 +1,4 @@
-﻿using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -10,7 +10,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query;
 
 public class AdHocManyToManyQueryLibRedTest(NonSharedFixture fixture) : AdHocManyToManyQueryRelationalTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
     public override async Task SelectMany_with_collection_selector_having_subquery()
@@ -69,7 +69,7 @@ LEFT JOIN (
     WHERE `m3`.`Id` = @p
 ) AS `s0` ON `s`.`Id` = `s0`.`ManyN_Id`
 WHERE `m`.`Id` = @p
-ORDER BY `m`.`Id`, `s`.`Id0`, `s`.`Id`, `s0`.`Id`
+ORDER BY `m`.`Id`, `s`.`Id0`, `s0`.`Id`
 """,
             //
             """
@@ -97,7 +97,7 @@ LEFT JOIN (
     WHERE `m3`.`Id` = @p
 ) AS `s0` ON `s`.`Id` = `s0`.`ManyM_Id`
 WHERE `m`.`Id` = @p
-ORDER BY `m`.`Id`, `s`.`Id0`, `s`.`Id`, `s0`.`Id`
+ORDER BY `m`.`Id`, `s`.`Id0`, `s0`.`Id`
 """);
     }
 }

@@ -1,9 +1,9 @@
-﻿using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Tasks;
-using Xunit.Abstractions;
+using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests;
 

@@ -26,4 +26,11 @@ public sealed class LibRedException : DbException
 
     /// <summary>The LibRed error number, used to classify transient failures.</summary>
     public int Number { get; }
+
+    /// <summary>
+    /// A write violated a unique or primary key index. Provider code keys on this rather than on the
+    /// message, whose wording differs between LibRed and ACE. The value matches SQL Server's
+    /// duplicate-key error so callers that already special-case 2627 need no extra branch.
+    /// </summary>
+    public const int DuplicateKey = 2627;
 }

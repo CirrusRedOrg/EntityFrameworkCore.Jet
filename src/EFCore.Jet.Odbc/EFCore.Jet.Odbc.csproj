@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<Description>Explicit ODBC support for Jet/ACE database provider for Entity Framework Core (Microsoft Access MDB/ACCDB files).</Description>
@@ -19,7 +19,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="System.Data.Odbc" Version="4.5.2" />
+		<PackageReference Include="System.Data.Odbc" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">

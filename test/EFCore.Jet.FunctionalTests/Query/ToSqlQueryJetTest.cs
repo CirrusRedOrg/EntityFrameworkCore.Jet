@@ -12,10 +12,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class ToSqlQueryJetTest(NonSharedFixture fixture) : ToSqlQueryTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

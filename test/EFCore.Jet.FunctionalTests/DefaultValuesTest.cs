@@ -1,4 +1,4 @@
-﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using EntityFrameworkCore.Jet.Data;
@@ -18,7 +18,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             .AddEntityFrameworkJet()
             .BuildServiceProvider();
 
-        [ConditionalFact]
+        [Fact]
         public void Can_use_SQL_Server_default_values()
         {
             using (var context = new ChipsContext(_serviceProvider, TestStore.Name))
@@ -89,10 +89,10 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         protected JetTestStore TestStore { get; private set; }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
             => TestStore = await JetTestStore.CreateInitializedAsync("DefaultValuesTest");
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
             => await TestStore.DisposeAsync();
     }
 }

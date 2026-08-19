@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Microsoft.EntityFrameworkCore.TestModels.Operators;
@@ -9,14 +9,13 @@ using System;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
-using Xunit.Abstractions;
 using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
 public class OperatorsQueryJetTest(NonSharedFixture fixture) : OperatorsQueryTestBase(fixture)
 {
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => JetTestStoreFactory.Instance;
 
     protected void AssertSql(params string[] expected)
@@ -87,7 +86,7 @@ ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`
         await base.Negate_on_column(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`Id`
 FROM `OperatorEntityInt` AS `o`
 WHERE `o`.`Id` = -`o`.`Value`
@@ -99,7 +98,7 @@ WHERE `o`.`Id` = -`o`.`Value`
         await base.Double_negate_on_column();
 
         AssertSql(
-"""
+            """
 SELECT `o`.`Id`
 FROM `OperatorEntityInt` AS `o`
 WHERE -(-`o`.`Value`) = `o`.`Value`
@@ -111,7 +110,7 @@ WHERE -(-`o`.`Value`) = `o`.`Value`
         await base.Negate_on_binary_expression(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`Id` AS `Id1`, `o0`.`Id` AS `Id2`
 FROM `OperatorEntityInt` AS `o`,
 `OperatorEntityInt` AS `o0`
@@ -124,14 +123,14 @@ WHERE -`o`.`Value` = -(`o`.`Id` + `o0`.`Value`)
         await base.Negate_on_like_expression(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`Id`
 FROM `OperatorEntityString` AS `o`
 WHERE `o`.`Value` NOT LIKE 'A%' OR `o`.`Value` IS NULL
 """);
     }
 
-    /*[ConditionalTheory]
+    /*[Theory]
     [MemberData(nameof(IsAsyncData))]
     public virtual async Task Where_AtTimeZone_datetimeoffset_constant(bool async)
     {
@@ -160,7 +159,7 @@ WHERE [o].[Value] AT TIME ZONE 'UTC' = '2000-01-01T18:00:00.0000000+00:00'
 """);
     }*/
 
-    /*[ConditionalTheory]
+    /*[Theory]
     [MemberData(nameof(IsAsyncData))]
     public virtual async Task Where_AtTimeZone_datetimeoffset_parameter(bool async)
     {
@@ -195,7 +194,7 @@ WHERE [o].[Value] AT TIME ZONE @__timeZone_1 = @__dateTime_2
 """);
     }
 
-    [ConditionalTheory]
+    [Theory]
     [MemberData(nameof(IsAsyncData))]
     public virtual async Task Where_AtTimeZone_datetimeoffset_column(bool async)
     {

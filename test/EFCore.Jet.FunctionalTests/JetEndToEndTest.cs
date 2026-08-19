@@ -37,7 +37,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             Fixture.TestSqlLoggerFactory.Clear();
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_use_string_enum_or_byte_array_as_key()
         {
             await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -73,7 +73,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_remove_multiple_byte_array_as_key()
         {
             await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -108,7 +108,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public DbSet<BNum> BNums { get; set; }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_add_table_splitting_dependent_after_principal()
         {
             await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -151,7 +151,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Throws_when_adding_table_splitting_dependent_without_principal()
         {
             await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -241,7 +241,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public string TheWalrus { get; set; }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_add_and_remove_entities_with_keys_of_different_type()
         {
             await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -293,7 +293,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public long Id2 { get; set; }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_insert_non_owner_principal_for_owned()
         {
             await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -353,7 +353,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public bool Deleted { get; set; }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_insert_TPT_dependents_with_identity()
         {
             await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -389,7 +389,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public Car Special { get; set; }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_run_linq_query_on_entity_set()
         {
             await using var testStore = await JetTestStore.GetNorthwindStoreAsync();
@@ -411,7 +411,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             Assert.Equal("030-0076545", results[3].Fax);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_run_linq_query_on_entity_set_with_value_buffer_reader()
         {
             await using var testStore = await JetTestStore.GetNorthwindStoreAsync();
@@ -433,7 +433,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             Assert.Equal("030-0076545", results[3].Fax);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_enumerate_entity_set()
         {
             await using var testStore = await JetTestStore.GetNorthwindStoreAsync();
@@ -449,7 +449,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             Assert.Equal("Alfreds Futterkiste", results[0].CompanyName);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_save_changes()
         {
             await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -522,7 +522,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_save_changes_in_tracked_entities()
         {
             await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -579,7 +579,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_track_an_entity_with_more_than_10_properties()
         {
             await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -613,7 +613,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_replace_identifying_FK_entity_with_many_to_many()
         {
             await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -648,7 +648,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             }
         }
 
-        [ConditionalTheory]
+        [Theory]
         [MemberData(
             nameof(DataGenerator.GetCombinations),
             new object[] { 0, 1, 2, 3, 4, 7 },
@@ -970,7 +970,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
                     .HasForeignKey<EntityB>(e => e.Id);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Adding_an_item_to_a_collection_marks_it_as_modified()
         {
             await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -1000,7 +1000,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             Assert.True(context.Entry(player).Collection(p => p.Items).IsModified);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_set_reference_twice()
         {
             await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -1046,7 +1046,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_include_on_loaded_entity()
         {
             await using var testDatabase = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -1280,7 +1280,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Tracking_entities_asynchronously_returns_tracked_entities_back()
         {
             await using var testStore = await JetTestStore.GetNorthwindStoreAsync();
@@ -1294,7 +1294,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             db.Customers.Remove(customer);
         }
 
-        [ConditionalFact(Skip = "Jet does not support Schema")] // Issue #931
+        [Fact(Skip = "Jet does not support Schema")] // Issue #931
         public async Task Can_save_and_query_with_schema()
         {
             await using var testStore = await JetTestStore.CreateInitializedAsync(DatabaseName);
@@ -1349,15 +1349,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             public int MyKey { get; set; }
         }
 
-        [ConditionalFact]
+        [Fact]
         public Task Can_round_trip_changes_with_snapshot_change_tracking()
             => RoundTripChanges<Blog>();
 
-        [ConditionalFact]
+        [Fact]
         public Task Can_round_trip_changes_with_full_notification_entities()
             => RoundTripChanges<ChangedChangingBlog>();
 
-        [ConditionalFact]
+        [Fact]
         public Task Can_round_trip_changes_with_changed_only_notification_entities()
             => RoundTripChanges<ChangedOnlyBlog>();
 

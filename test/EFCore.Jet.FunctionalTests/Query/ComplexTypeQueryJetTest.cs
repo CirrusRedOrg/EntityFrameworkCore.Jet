@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 using Microsoft.EntityFrameworkCore.TestModels.ComplexTypeModel;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
@@ -149,7 +148,7 @@ FROM `Customer` AS `c`
         await base.Select_nested_complex_type(async);
 
         AssertSql(
-            """
+    """
 SELECT `c`.`ShippingAddress_Country_Code`, `c`.`ShippingAddress_Country_FullName`
 FROM `Customer` AS `c`
 """);
@@ -197,7 +196,7 @@ FROM `Customer` AS `c`
             """
 SELECT `c`.`Id`, `c`.`Name`, `c`.`BillingAddress_AddressLine1`, `c`.`BillingAddress_AddressLine2`, `c`.`BillingAddress_Tags`, `c`.`BillingAddress_ZipCode`, `c`.`BillingAddress_Country_Code`, `c`.`BillingAddress_Country_FullName`, `c`.`OptionalAddress_AddressLine1`, `c`.`OptionalAddress_AddressLine2`, `c`.`OptionalAddress_Tags`, `c`.`OptionalAddress_ZipCode`, `c`.`OptionalAddress_Country_Code`, `c`.`OptionalAddress_Country_FullName`, `c`.`ShippingAddress_AddressLine1`, `c`.`ShippingAddress_AddressLine2`, `c`.`ShippingAddress_Tags`, `c`.`ShippingAddress_ZipCode`, `c`.`ShippingAddress_Country_Code`, `c`.`ShippingAddress_Country_FullName`
 FROM `Customer` AS `c`
-WHERE `c`.`ShippingAddress_AddressLine1` = `c`.`BillingAddress_AddressLine1` AND (`c`.`ShippingAddress_AddressLine2` = `c`.`BillingAddress_AddressLine2` OR (`c`.`ShippingAddress_AddressLine2` IS NULL AND `c`.`BillingAddress_AddressLine2` IS NULL)) AND `c`.`ShippingAddress_Tags` = `c`.`BillingAddress_Tags` AND `c`.`ShippingAddress_ZipCode` = `c`.`BillingAddress_ZipCode`
+WHERE `c`.`ShippingAddress_AddressLine1` = `c`.`BillingAddress_AddressLine1` AND (`c`.`ShippingAddress_AddressLine2` = `c`.`BillingAddress_AddressLine2` OR (`c`.`ShippingAddress_AddressLine2` IS NULL AND `c`.`BillingAddress_AddressLine2` IS NULL)) AND `c`.`ShippingAddress_Tags` = `c`.`BillingAddress_Tags` AND `c`.`ShippingAddress_ZipCode` = `c`.`BillingAddress_ZipCode` AND `c`.`ShippingAddress_Country_Code` = `c`.`BillingAddress_Country_Code` AND `c`.`ShippingAddress_Country_FullName` = `c`.`BillingAddress_Country_FullName`
 """);
     }
 
@@ -432,7 +431,7 @@ WHERE [t].[ShippingAddress_Country_Code] = N'DE'
         await base.Filter_on_required_property_inside_required_struct_complex_type_on_optional_navigation(async);
 
         AssertSql(
-            """
+    """
 SELECT `v`.`Id`, `v`.`OptionalCustomerId`, `v`.`RequiredCustomerId`, `v0`.`Id`, `v0`.`Name`, `v0`.`BillingAddress_AddressLine1`, `v0`.`BillingAddress_AddressLine2`, `v0`.`BillingAddress_ZipCode`, `v0`.`BillingAddress_Country_Code`, `v0`.`BillingAddress_Country_FullName`, `v0`.`ShippingAddress_AddressLine1`, `v0`.`ShippingAddress_AddressLine2`, `v0`.`ShippingAddress_ZipCode`, `v0`.`ShippingAddress_Country_Code`, `v0`.`ShippingAddress_Country_FullName`, `v1`.`Id`, `v1`.`Name`, `v1`.`BillingAddress_AddressLine1`, `v1`.`BillingAddress_AddressLine2`, `v1`.`BillingAddress_ZipCode`, `v1`.`BillingAddress_Country_Code`, `v1`.`BillingAddress_Country_FullName`, `v1`.`ShippingAddress_AddressLine1`, `v1`.`ShippingAddress_AddressLine2`, `v1`.`ShippingAddress_ZipCode`, `v1`.`ShippingAddress_Country_Code`, `v1`.`ShippingAddress_Country_FullName`
 FROM (`ValuedCustomerGroup` AS `v`
 LEFT JOIN `ValuedCustomer` AS `v0` ON `v`.`OptionalCustomerId` = `v0`.`Id`)
@@ -573,7 +572,7 @@ FROM `ValuedCustomer` AS `v`
             """
 SELECT `v`.`Id`, `v`.`Name`, `v`.`BillingAddress_AddressLine1`, `v`.`BillingAddress_AddressLine2`, `v`.`BillingAddress_ZipCode`, `v`.`BillingAddress_Country_Code`, `v`.`BillingAddress_Country_FullName`, `v`.`ShippingAddress_AddressLine1`, `v`.`ShippingAddress_AddressLine2`, `v`.`ShippingAddress_ZipCode`, `v`.`ShippingAddress_Country_Code`, `v`.`ShippingAddress_Country_FullName`
 FROM `ValuedCustomer` AS `v`
-WHERE `v`.`ShippingAddress_AddressLine1` = `v`.`BillingAddress_AddressLine1` AND (`v`.`ShippingAddress_AddressLine2` = `v`.`BillingAddress_AddressLine2` OR (`v`.`ShippingAddress_AddressLine2` IS NULL AND `v`.`BillingAddress_AddressLine2` IS NULL)) AND `v`.`ShippingAddress_ZipCode` = `v`.`BillingAddress_ZipCode`
+WHERE `v`.`ShippingAddress_AddressLine1` = `v`.`BillingAddress_AddressLine1` AND (`v`.`ShippingAddress_AddressLine2` = `v`.`BillingAddress_AddressLine2` OR (`v`.`ShippingAddress_AddressLine2` IS NULL AND `v`.`BillingAddress_AddressLine2` IS NULL)) AND `v`.`ShippingAddress_ZipCode` = `v`.`BillingAddress_ZipCode` AND `v`.`ShippingAddress_Country_Code` = `v`.`BillingAddress_Country_Code` AND `v`.`ShippingAddress_Country_FullName` = `v`.`BillingAddress_Country_FullName`
 """);
     }
 
@@ -670,7 +669,7 @@ WHERE `v0`.`Id` = 2
         await base.Union_entity_type_containing_struct_complex_property(async);
 
         AssertSql(
-            """
+    """
 SELECT `v`.`Id`, `v`.`Name`, `v`.`BillingAddress_AddressLine1`, `v`.`BillingAddress_AddressLine2`, `v`.`BillingAddress_ZipCode`, `v`.`BillingAddress_Country_Code`, `v`.`BillingAddress_Country_FullName`, `v`.`ShippingAddress_AddressLine1`, `v`.`ShippingAddress_AddressLine2`, `v`.`ShippingAddress_ZipCode`, `v`.`ShippingAddress_Country_Code`, `v`.`ShippingAddress_Country_FullName`
 FROM `ValuedCustomer` AS `v`
 WHERE `v`.`Id` = 1
@@ -739,7 +738,7 @@ FROM `ValuedCustomer` AS `v0`
         AssertSql();
     }
 
-    [ConditionalTheory]
+    [Theory]
     [MemberData(nameof(IsAsyncData))]
     public virtual Task Filter_on_property_inside_complex_type_with_FromSql(bool async)
         => AssertQuery(
@@ -753,7 +752,7 @@ WHERE [c].[ShippingAddress_ZipCode] = 7728
             ss => ss.Set<Customer>().Where(c => c.ShippingAddress.ZipCode == 07728));
 
 
-    [ConditionalTheory, MemberData(nameof(IsAsyncData))]
+    [Theory, MemberData(nameof(IsAsyncData))]
     public virtual Task Filter_on_property_inside_complex_type_after_subquery_with_FromSql(bool async)
         => AssertQuery(
             async,
@@ -774,7 +773,7 @@ WHERE [c].[ShippingAddress_ZipCode] = 7728
                 .Distinct()
                 .Where(c => c.ShippingAddress.ZipCode == 07728));
 
-    [ConditionalTheory, MemberData(nameof(IsAsyncData))]
+    [Theory, MemberData(nameof(IsAsyncData))]
     public virtual Task Load_complex_type_after_subquery_on_entity_type_with_FromSql(bool async)
         => AssertQuery(
             async,
@@ -793,7 +792,7 @@ WHERE [c].[ShippingAddress_ZipCode] = 7728
                 .Skip(1)
                 .Distinct());
 
-    [ConditionalTheory, MemberData(nameof(IsAsyncData))]
+    [Theory, MemberData(nameof(IsAsyncData))]
     public virtual Task Select_complex_type_with_FromSql(bool async)
         => AssertQuery(
             async,
@@ -804,7 +803,7 @@ WHERE [c].[ShippingAddress_ZipCode] = 7728
                 """).Select(c => c.ShippingAddress),
             ss => ss.Set<Customer>().Select(c => c.ShippingAddress));
 
-    [ConditionalTheory, MemberData(nameof(IsAsyncData))]
+    [Theory, MemberData(nameof(IsAsyncData))]
     public virtual Task Select_nested_complex_type_with_FromSql(bool async)
         => AssertQuery(
             async,
@@ -815,7 +814,7 @@ WHERE [c].[ShippingAddress_ZipCode] = 7728
                 """).Select(c => c.ShippingAddress.Country),
             ss => ss.Set<Customer>().Select(c => c.ShippingAddress.Country));
 
-    [ConditionalTheory, MemberData(nameof(IsAsyncData))]
+    [Theory, MemberData(nameof(IsAsyncData))]
     public virtual Task Select_single_property_on_nested_complex_type_with_FromSql(bool async)
         => AssertQuery(
             async,
@@ -826,7 +825,7 @@ WHERE [c].[ShippingAddress_ZipCode] = 7728
                 """).Select(c => c.ShippingAddress.Country.FullName),
             ss => ss.Set<Customer>().Select(c => c.ShippingAddress.Country.FullName));
 
-    [ConditionalTheory, MemberData(nameof(IsAsyncData))]
+    [Theory, MemberData(nameof(IsAsyncData))]
     public virtual Task Select_complex_type_Where_with_FromSql(bool async)
         => AssertQuery(
             async,
@@ -837,7 +836,7 @@ WHERE [c].[ShippingAddress_ZipCode] = 7728
                 """).Select(c => c.ShippingAddress).Where(a => a.ZipCode == 07728),
             ss => ss.Set<Customer>().Select(c => c.ShippingAddress).Where(a => a.ZipCode == 07728));
 
-    [ConditionalTheory, MemberData(nameof(IsAsyncData))]
+    [Theory, MemberData(nameof(IsAsyncData))]
     public virtual Task Select_complex_type_Distinct_with_FromSql(bool async)
         => AssertQuery(
             async,
@@ -936,7 +935,7 @@ FROM (
         await base.Project_same_struct_nested_complex_type_twice_with_pushdown(async);
 
         AssertSql(
-            """
+    """
 SELECT `s`.`BillingAddress_AddressLine1`, `s`.`BillingAddress_AddressLine2`, `s`.`BillingAddress_ZipCode`, `s`.`BillingAddress_Country_Code`, `s`.`BillingAddress_Country_FullName`, `s`.`BillingAddress_AddressLine10`, `s`.`BillingAddress_AddressLine20`, `s`.`BillingAddress_ZipCode0`, `s`.`BillingAddress_Country_Code0`, `s`.`BillingAddress_Country_FullName0`
 FROM (
     SELECT DISTINCT `v`.`BillingAddress_AddressLine1`, `v`.`BillingAddress_AddressLine2`, `v`.`BillingAddress_ZipCode`, `v`.`BillingAddress_Country_Code`, `v`.`BillingAddress_Country_FullName`, `v0`.`BillingAddress_AddressLine1` AS `BillingAddress_AddressLine10`, `v0`.`BillingAddress_AddressLine2` AS `BillingAddress_AddressLine20`, `v0`.`BillingAddress_ZipCode` AS `BillingAddress_ZipCode0`, `v0`.`BillingAddress_Country_Code` AS `BillingAddress_Country_Code0`, `v0`.`BillingAddress_Country_FullName` AS `BillingAddress_Country_FullName0`
@@ -1047,7 +1046,7 @@ FROM (
     FROM `Customer` AS `c1`,
     `Customer` AS `c2`
 ) AS `u`
-ORDER BY `u`.`BillingAddress_ZipCode`, `u`.`BillingAddress_ZipCode0`
+ORDER BY `u`.`BillingAddress_ZipCode`, `u`.`BillingAddress_ZipCode0`, `u`.`BillingAddress_Country_FullName0`
 """);
     }
 
@@ -1074,7 +1073,7 @@ FROM (
         ORDER BY `u`.`BillingAddress_ZipCode`, `u`.`BillingAddress_ZipCode0`
     ) AS `u0`
 ) AS `u1`
-ORDER BY `u1`.`BillingAddress_ZipCode`, `u1`.`BillingAddress_ZipCode0`
+ORDER BY `u1`.`BillingAddress_ZipCode`, `u1`.`BillingAddress_ZipCode0`, `u1`.`BillingAddress_Country_FullName0`
 """);
     }
 
@@ -1121,7 +1120,7 @@ GROUP BY `c`.`ShippingAddress_Country_Code`
         await base.GroupBy_over_complex_type(async);
 
         AssertSql(
-            """
+    """
 SELECT `c`.`ShippingAddress_AddressLine1`, `c`.`ShippingAddress_AddressLine2`, `c`.`ShippingAddress_Tags`, `c`.`ShippingAddress_ZipCode`, `c`.`ShippingAddress_Country_Code`, `c`.`ShippingAddress_Country_FullName`, COUNT(*) AS `Count`
 FROM `Customer` AS `c`
 GROUP BY `c`.`ShippingAddress_AddressLine1`, `c`.`ShippingAddress_AddressLine2`, `c`.`ShippingAddress_Tags`, `c`.`ShippingAddress_ZipCode`, `c`.`ShippingAddress_Country_Code`, `c`.`ShippingAddress_Country_FullName`
@@ -1205,7 +1204,7 @@ FROM (
         await base.Project_entity_with_complex_type_pushdown_and_then_left_join(async);
 
         AssertSql(
-            """
+    """
 SELECT `c3`.`BillingAddress_ZipCode` AS `Zip1`, `c4`.`ShippingAddress_ZipCode` AS `Zip2`
 FROM (
     SELECT DISTINCT `c0`.`Id`, `c0`.`Name`, `c0`.`BillingAddress_AddressLine1`, `c0`.`BillingAddress_AddressLine2`, `c0`.`BillingAddress_Tags`, `c0`.`BillingAddress_ZipCode`, `c0`.`BillingAddress_Country_Code`, `c0`.`BillingAddress_Country_FullName`, `c0`.`OptionalAddress_AddressLine1`, `c0`.`OptionalAddress_AddressLine2`, `c0`.`OptionalAddress_Tags`, `c0`.`OptionalAddress_ZipCode`, `c0`.`OptionalAddress_Country_Code`, `c0`.`OptionalAddress_Country_FullName`, `c0`.`ShippingAddress_AddressLine1`, `c0`.`ShippingAddress_AddressLine2`, `c0`.`ShippingAddress_Tags`, `c0`.`ShippingAddress_ZipCode`, `c0`.`ShippingAddress_Country_Code`, `c0`.`ShippingAddress_Country_FullName`
@@ -1226,7 +1225,7 @@ LEFT JOIN (
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

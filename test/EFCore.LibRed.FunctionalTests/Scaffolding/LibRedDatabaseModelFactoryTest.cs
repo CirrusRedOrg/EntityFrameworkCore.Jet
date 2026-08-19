@@ -36,7 +36,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
 
         #region Model
 
-        [ConditionalFact]
+        [Fact]
         public void Create_tables()
             => Test(
                 """
@@ -69,7 +69,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                     DROP TABLE `Denali`;
                     """);
 
-        [ConditionalFact]
+        [Fact]
         public void Default_database_collation_is_not_scaffolded()
             => Test(
                 @"",
@@ -82,7 +82,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
 
         #region FilteringSchemaTable
 
-        [ConditionalFact]
+        [Fact]
         public void Filter_tables()
             => Test(
                 """
@@ -109,7 +109,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                     DROP TABLE `K2`;
                     """);
 
-        [ConditionalFact]
+        [Fact]
         public void Filter_tables_with_quote_in_name()
             => Test(
                 """
@@ -136,7 +136,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                     DROP TABLE `K2'`;
                     """);
 
-        [ConditionalFact]
+        [Fact]
         public void Filter_tables_with_qualified_name()
             => Test(
                 """
@@ -167,7 +167,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
 
         #region Table
 
-        [ConditionalFact]
+        [Fact]
         public void Create_columns()
             => Test(
                 """
@@ -196,7 +196,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE `Blogs`");
 
-        [ConditionalFact]
+        [Fact]
         public void Create_view_columns()
             => Test(
                 """
@@ -227,7 +227,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP VIEW `BlogsView`;");
 
-        [ConditionalFact]
+        [Fact]
         public void Create_primary_key()
             => Test(
                 """
@@ -250,7 +250,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE PrimaryKeyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Create_unique_constraints()
             => Test(
                 """
@@ -278,7 +278,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE UniqueConstraint;");
 
-        [ConditionalFact]
+        [Fact]
         public void Create_indexes()
             => Test(
                 """
@@ -311,7 +311,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE IndexTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Create_multiple_indexes_on_same_column()
             => Test(
                 """
@@ -345,7 +345,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE IndexTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Create_foreign_keys()
             => Test(
                 """
@@ -406,7 +406,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
 
         #region ColumnFacets
 
-        [ConditionalFact]
+        [Fact]
         public void Column_with_sysname_assigns_underlying_store_type_and_nullability()
             => Test(
                 """
@@ -431,7 +431,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                     DROP TABLE TypeAlias;
                     """);
 
-        [ConditionalFact]
+        [Fact]
         public void Decimal_numeric_types_have_precision_scale()
             => Test(
                 """
@@ -464,7 +464,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE NumericColumns;");
 
-        [ConditionalFact(Skip = "Unsupported by Access/ACE: the SQL Server `(max)` size keyword is not valid ACE "
+        [Fact(Skip = "Unsupported by Access/ACE: the SQL Server `(max)` size keyword is not valid ACE "
             + "DDL. Access has no nchar/nvarchar distinction either, and unbounded columns are LONGTEXT/LONGBINARY, "
             + "not `(max)`. EF Core never emits `varchar(max)` to Access, so this is SQL-Server-only.")]
         public void Max_length_of_negative_one_translate_to_max_in_store_type()
@@ -501,7 +501,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MaxColumns;");
 
-        [ConditionalFact]
+        [Fact]
         public void Specific_max_length_are_add_to_store_type()
             => Test(
                 """
@@ -547,7 +547,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE LengthColumns;");
 
-        [ConditionalFact(Skip = "Unsupported by Access/ACE: an 8000-byte binary column exceeds Access's 510-byte "
+        [Fact(Skip = "Unsupported by Access/ACE: an 8000-byte binary column exceeds Access's 510-byte "
             + "binary limit (verified: binary(510) is accepted, binary(511) is rejected \"Size of field is too "
             + "long\") — the OLE DB provider throws \"provider is not capable\" reading the file, so this "
             + "SQL-Server-sized case can't be represented in a Jet/ACE database.")]
@@ -574,7 +574,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE DefaultRequiredLengthBinaryColumns;");
 
-        [ConditionalFact]
+        [Fact]
         public void Default_max_length_are_added_to_char_1()
             => Test(
                 """
@@ -594,7 +594,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE DefaultRequiredLengthCharColumns;");
 
-        [ConditionalFact]
+        [Fact]
         public void Default_max_length_are_added_to_char_2()
             => Test(
                 """
@@ -614,7 +614,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE DefaultRequiredLengthCharColumns;");
 
-        [ConditionalFact]
+        [Fact]
         public void Default_max_length_are_added_to_varchar()
             => Test(
                 """
@@ -638,7 +638,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE DefaultRequiredLengthVarcharColumns;");
 
-        [ConditionalFact]
+        [Fact]
         public void Default_max_length_are_added_to_nchar_1()
             => Test(
                 """
@@ -658,7 +658,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE DefaultRequiredLengthNcharColumns;");
 
-        [ConditionalFact]
+        [Fact]
         public void Default_max_length_are_added_to_nchar_2()
             => Test(
                 """
@@ -678,7 +678,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE DefaultRequiredLengthNcharColumns;");
 
-        [ConditionalFact]
+        [Fact]
         public void Default_max_length_are_added_to_nchar_3()
             => Test(
                 """
@@ -698,7 +698,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE DefaultRequiredLengthNcharColumns;");
 
-        [ConditionalFact]
+        [Fact]
         public void Default_max_length_are_added_to_nvarchar()
             => Test(
                 """
@@ -724,7 +724,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 "DROP TABLE DefaultRequiredLengthNvarcharColumns;");
 
 
-        [ConditionalFact]
+        [Fact]
         public void Types_without_a_length_use_the_max_length()
             => Test(
                 """
@@ -777,7 +777,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE OneLengthColumns;");
 
-        [ConditionalFact]
+        [Fact]
         public void Store_types_without_any_facets()
             => Test(
                 """
@@ -856,7 +856,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                     DROP TABLE RowversionType;
                     """);
 
-        [ConditionalFact]
+        [Fact]
         public void Default_and_computed_values_are_stored()
             => Test(
                 """
@@ -897,7 +897,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE DefaultComputedValues;");
 
-        [ConditionalFact(Skip = "LibRed can only understand literal defaults")]
+        [Fact(Skip = "LibRed can only understand literal defaults")]
         public void Non_literal_bool_default_values_are_passed_through()
             => Test(
                 """
@@ -924,7 +924,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Simple_int_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 """
@@ -976,7 +976,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Simple_short_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 """
@@ -1004,7 +1004,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 "DROP TABLE MyTable;");
 
         //Uses decimal as no bigint in LibRed.Use bigint if in Access 365. TODO
-        [ConditionalFact]
+        [Fact]
         public void Simple_long_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 """
@@ -1032,7 +1032,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Simple_byte_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 """
@@ -1059,7 +1059,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact(Skip = "LibRed can only understand literal defaults")]
+        [Fact(Skip = "LibRed can only understand literal defaults")]
         public void Non_literal_int_default_values_are_passed_through()
             => Test(
                 """
@@ -1086,7 +1086,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Simple_double_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 """
@@ -1118,7 +1118,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Simple_float_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 """
@@ -1150,7 +1150,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Simple_decimal_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 """
@@ -1170,7 +1170,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
 
                     var column = columns.Single(c => c.Name == "A");
                     Assert.Equal("-1.1111", column.DefaultValueSql);
-                    Assert.Equal((decimal)-1.1111, column.DefaultValue);
+                    Assert.Equal(-1.1111m, column.DefaultValue);
 
                     column = columns.Single(c => c.Name == "B");
                     Assert.Equal("0.0", column.DefaultValueSql);
@@ -1182,7 +1182,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Simple_bool_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 """
@@ -1219,7 +1219,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Simple_DateTime_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 """
@@ -1241,7 +1241,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact(Skip = "LibRed can only understand literal defaults")]
+        [Fact(Skip = "LibRed can only understand literal defaults")]
         public void Non_literal_or_non_parsable_DateTime_default_values_are_passed_through()
             => Test(
                 """
@@ -1273,7 +1273,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Simple_DateOnly_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 """
@@ -1295,7 +1295,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Simple_TimeOnly_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 """
@@ -1317,7 +1317,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Simple_DateTimeOffset_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 """
@@ -1342,7 +1342,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Simple_Guid_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 """
@@ -1364,7 +1364,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact(Skip = "LibRed can only understand literal defaults")]
+        [Fact(Skip = "LibRed can only understand literal defaults")]
         public void Non_literal_Guid_default_values_are_passed_through()
             => Test(
                 """
@@ -1391,7 +1391,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Simple_string_literals_are_parsed_for_HasDefaultValue()
             => Test(
                 """
@@ -1433,7 +1433,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void ValueGenerated_is_set_for_identity_and_computed_column()
             => Test(
                 """
@@ -1461,7 +1461,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE ValueGeneratedProperties;");
 
-        [ConditionalFact]
+        [Fact]
         public void Identity_columns_are_not_nullable()
             => Test(
                 """
@@ -1486,7 +1486,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE IdentityTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void ConcurrencyToken_is_set_for_rowVersion()
             => Test(
                 """
@@ -1508,7 +1508,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE RowVersionTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Column_nullability_is_set()
             => Test(
                 """
@@ -1534,7 +1534,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
 
         #region PrimaryKeyFacets
 
-        [ConditionalFact]
+        [Fact]
         public void Create_composite_primary_key()
             => Test(
                 """
@@ -1559,7 +1559,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE CompositePrimaryKeyTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Set_primary_key_name_from_index()
             => Test(
                 """
@@ -1588,7 +1588,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
 
         #region UniqueConstraintFacets
 
-        [ConditionalFact]
+        [Fact]
         public void Create_composite_unique_constraint()
             => Test(
                 """
@@ -1614,7 +1614,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE CompositeUniqueConstraintTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Set_unique_constraint_name_from_index()
             => Test(
                 """
@@ -1644,7 +1644,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
 
         #region IndexFacets
 
-        [ConditionalFact]
+        [Fact]
         public void Create_composite_index()
             => Test(
                 """
@@ -1671,7 +1671,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE CompositeIndexTable;");
 
-        [ConditionalFact]
+        [Fact]
         public void Set_unique_true_for_unique_index()
             => Test(
                 """
@@ -1700,7 +1700,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE UniqueIndexTable;");
 
-        [ConditionalFact(Skip = "LibRed does not support filtered index")]
+        [Fact(Skip = "LibRed does not support filtered index")]
         public void Set_filter_for_filtered_index()
             => Test(
                 """
@@ -1728,7 +1728,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE `FilteredIndexTable`;");
 
-        [ConditionalFact(Skip = "LibRed does not support include for index")]
+        [Fact(Skip = "LibRed does not support include for index")]
         public void Set_include_for_index()
             => Test(
                 """
@@ -1755,7 +1755,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
 
         #region ForeignKeyFacets
 
-        [ConditionalFact]
+        [Fact]
         public void Create_composite_foreign_key()
             => Test(
                 """
@@ -1797,7 +1797,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                     DROP TABLE PrincipalTable;
                     """);
 
-        [ConditionalFact]
+        [Fact]
         public void Create_multiple_foreign_key_in_same_table()
             => Test(
                 """
@@ -1861,7 +1861,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                     DROP TABLE PrincipalTable;
                     """);
 
-        [ConditionalFact]
+        [Fact]
         public void Create_foreign_key_referencing_unique_constraint()
             => Test(
                 """
@@ -1900,7 +1900,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                     DROP TABLE PrincipalTable;
                     """);
 
-        [ConditionalFact]
+        [Fact]
         public void Set_name_for_foreign_key()
             => Test(
                 """
@@ -1939,7 +1939,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                     DROP TABLE PrincipalTable;
                     """);
 
-        [ConditionalFact]
+        [Fact]
         public void Set_referential_action_for_foreign_key()
             => Test(
                 """
@@ -1981,7 +1981,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
 
         #region Warnings
 
-        [ConditionalFact]
+        [Fact]
         public void Warn_missing_schema()
             => Test(
                 """
@@ -2005,7 +2005,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE `Blank`;");
 
-        [ConditionalFact]
+        [Fact]
         public void Warn_missing_table()
             => Test(
                 """
@@ -2029,7 +2029,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE `Blank`;");
 
-        [ConditionalFact]
+        [Fact]
         public void Warn_missing_principal_table_for_foreign_key()
             => Test(
                 """
@@ -2061,7 +2061,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
                     DROP TABLE PrincipalTable;
                     """);
 
-        /*[ConditionalFact]
+        /*[Fact]
         public void Skip_duplicate_foreign_key()
             => Test(
                 @"CREATE TABLE PrincipalTable (
@@ -2106,7 +2106,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
     DROP TABLE PrincipalTable;
     DROP TABLE OtherPrincipalTable;");*/
 
-        /*[ConditionalFact]
+        /*[Fact]
         public void No_warning_missing_view_definition()
             => Test(
                 @"CREATE TABLE TestViewDefinition (
@@ -2194,7 +2194,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
 
             public TestOperationReporter OperationReporter { get; } = new();
 
-            public override async Task InitializeAsync()
+            public override async ValueTask InitializeAsync()
             {
                 await base.InitializeAsync();
             }

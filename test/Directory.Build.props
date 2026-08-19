@@ -6,6 +6,14 @@
     <DefaultNetCoreTargetFramework>net9.0</DefaultNetCoreTargetFramework>
     <!-- TODO: Change to "'$(FixedTestOrder)' != 'true'" once test suite is stable. -->
     <DefineConstants Condition="'$(FixedTestOrder)' != 'false'">$(DefineConstants);FIXED_TEST_ORDER</DefineConstants>
+
+    <!-- Stay on VSTest, as EF's own SQL Server functional tests do. xunit v3 pulls in
+         xunit.v3.core.mtp-v2, whose props default IsTestingPlatformApplication to true and put the whole
+         repo on Microsoft.Testing.Platform; xunit.runner.visualstudio remains the VSTest adapter for v3.
+         Both properties are needed: the first stops the SDK erroring on the VSTest target, the second
+         stops MTP replacing that target with one that silently runs nothing. -->
+    <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+    <TestingPlatformDotnetTestSupport>false</TestingPlatformDotnetTestSupport>
   </PropertyGroup>
 
 </Project>

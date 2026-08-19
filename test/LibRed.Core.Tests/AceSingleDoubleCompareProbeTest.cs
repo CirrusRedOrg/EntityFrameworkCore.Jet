@@ -1,7 +1,6 @@
 using System.Data.OleDb;
 using System.Globalization;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace LibRed.Core.Tests;
 

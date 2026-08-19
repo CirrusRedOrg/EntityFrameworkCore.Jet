@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore.Query.Associations.OwnedTableSplitting;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query.Associations.OwnedTableSplitting;
 
@@ -27,7 +26,7 @@ LEFT JOIN (
 LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r2` ON `r`.`Id` = `r2`.`AssociateTypeRootEntityId`
 WHERE FALSE
-ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`, `r2`.`Id`
 """);
     }
 
@@ -47,7 +46,7 @@ LEFT JOIN (
 LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r2` ON `r`.`Id` = `r2`.`AssociateTypeRootEntityId`
 WHERE FALSE
-ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`, `r2`.`Id`
 """);
     }
 
@@ -67,7 +66,7 @@ LEFT JOIN (
 LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r2` ON `r`.`Id` = `r2`.`AssociateTypeRootEntityId`
 WHERE FALSE
-ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`, `r2`.`Id`
 """);
     }
 
@@ -87,7 +86,7 @@ LEFT JOIN (
 LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r2` ON `r`.`Id` = `r2`.`AssociateTypeRootEntityId`
 WHERE `r`.`OptionalAssociate_Id` IS NULL OR `r`.`OptionalAssociate_Int` IS NULL OR `r`.`OptionalAssociate_Ints` IS NULL OR `r`.`OptionalAssociate_Name` IS NULL OR `r`.`OptionalAssociate_String` IS NULL
-ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`, `r2`.`Id`
 """);
     }
 
@@ -107,7 +106,7 @@ LEFT JOIN (
 LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r2` ON `r`.`Id` = `r2`.`AssociateTypeRootEntityId`
 WHERE IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) IS NULL
-ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`, `r2`.`Id`
 """);
     }
 
@@ -127,7 +126,7 @@ LEFT JOIN (
 LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r2` ON `r`.`Id` = `r2`.`AssociateTypeRootEntityId`
 WHERE `r`.`RequiredAssociate_OptionalNestedAssociate_Id` IS NULL OR `r`.`RequiredAssociate_OptionalNestedAssociate_Int` IS NULL OR `r`.`RequiredAssociate_OptionalNestedAssociate_Ints` IS NULL OR `r`.`RequiredAssociate_OptionalNestedAssociate_Name` IS NULL OR `r`.`RequiredAssociate_OptionalNestedAssociate_String` IS NULL
-ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`, `r2`.`Id`
 """);
     }
 
@@ -163,7 +162,7 @@ LEFT JOIN (
 LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r2` ON `r`.`Id` = `r2`.`AssociateTypeRootEntityId`
 WHERE FALSE
-ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`
+ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`, `r2`.`Id`
 """);
     }
 
@@ -213,7 +212,7 @@ ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`
 
     #endregion Contains
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 }

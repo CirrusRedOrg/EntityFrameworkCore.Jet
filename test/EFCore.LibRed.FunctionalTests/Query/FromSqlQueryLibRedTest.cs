@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using System;
 using Microsoft.EntityFrameworkCore.Query;
 using Xunit;
-using Xunit.Abstractions;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -538,7 +537,7 @@ FROM (
     SELECT * FROM `Customers`
 ) AS `m`
 LEFT JOIN `Orders` AS `o` ON `m`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `m`.`CustomerID`
+ORDER BY `m`.`CustomerID`, `o`.`OrderID`
 """);
     }
 
@@ -554,7 +553,7 @@ FROM (
 ) AS `m`
 LEFT JOIN `Orders` AS `o` ON `m`.`CustomerID` = `o`.`CustomerID`
 WHERE `m`.`City` = 'London'
-ORDER BY `m`.`CustomerID`
+ORDER BY `m`.`CustomerID`, `o`.`OrderID`
 """);
     }
 
@@ -663,7 +662,7 @@ FROM (
     SELECT * FROM `Customers` WHERE `CustomerID` = 'AROUT'
 ) AS `m0`
 LEFT JOIN `Orders` AS `o` ON `m0`.`CustomerID` = `o`.`CustomerID`)
-ORDER BY `m`.`CustomerID`, `m0`.`CustomerID`
+ORDER BY `m`.`CustomerID`, `m0`.`CustomerID`, `o`.`OrderID`
 """);
     }
 
@@ -681,7 +680,7 @@ INNER JOIN (
     SELECT * FROM `Orders` WHERE `OrderID` <> 1
 ) AS `m0` ON `m`.`CustomerID` = `m0`.`CustomerID`)
 LEFT JOIN `Order Details` AS `o` ON `m0`.`OrderID` = `o`.`OrderID`
-ORDER BY `m`.`CustomerID`, `m0`.`OrderID`, `o`.`OrderID`
+ORDER BY `m`.`CustomerID`, `m0`.`OrderID`, `o`.`OrderID`, `o`.`ProductID`
 """);
     }
 

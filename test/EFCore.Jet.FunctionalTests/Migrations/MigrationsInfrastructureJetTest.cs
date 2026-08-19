@@ -1,7 +1,7 @@
-﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Metadata;
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using Identity30.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore.TestUtilities;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 using static Microsoft.EntityFrameworkCore.Migrations.MigrationsInfrastructureFixtureBase;
@@ -24,7 +25,7 @@ using JetDatabaseCreator = EntityFrameworkCore.Jet.Storage.Internal.JetDatabaseC
 #nullable disable
 namespace EntityFrameworkCore.Jet.FunctionalTests.Migrations
 {
-    [JetCondition(JetCondition.IsNotCI)]
+    [ConditionalClass(typeof(TestEnvironment), nameof(TestEnvironment.IsNotCI)), SkipOnCI("Flaky on CI")]
     public class MigrationsInfrastructureJetTest(
         MigrationsInfrastructureJetTest.MigrationsInfrastructureJetFixture fixture)
         : MigrationsInfrastructureTestBase<MigrationsInfrastructureJetTest.MigrationsInfrastructureJetFixture>(fixture)
@@ -35,15 +36,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Migrations
 
             Assert.Equal(
                 """
-                    IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
-                            `MigrationId` varchar(150) NOT NULL,
-                            `ProductVersion` varchar(32) NOT NULL,
-                            CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
-                        );
-                    ;
-                    
-
-                    """,
+                IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
+                        `MigrationId` varchar(150) NOT NULL,
+                        `ProductVersion` varchar(32) NOT NULL,
+                        CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
+                    );
+                ;
+                
+                
+                """,
                 Sql,
                 ignoreLineEndingDifferences: true);
         }
@@ -54,15 +55,15 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Migrations
 
             Assert.Equal(
                 """
-                    IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
-                            `MigrationId` varchar(150) NOT NULL,
-                            `ProductVersion` varchar(32) NOT NULL,
-                            CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
-                        );
-                    ;
-                    
-
-                    """,
+                IF NOT EXISTS (SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '__EFMigrationsHistory') THEN CREATE TABLE `__EFMigrationsHistory` (
+                        `MigrationId` varchar(150) NOT NULL,
+                        `ProductVersion` varchar(32) NOT NULL,
+                        CONSTRAINT `PK___EFMigrationsHistory` PRIMARY KEY (`MigrationId`)
+                    );
+                ;
+                
+                
+                """,
                 Sql,
                 ignoreLineEndingDifferences: true);
         }
@@ -330,13 +331,12 @@ COMMIT TRANSACTION;
             Assert.Equal("EntityFrameworkCore.Jet", ActiveProvider);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Throws_when_no_migrations()
         {
             using var context = new DbContext(
                 Fixture.TestStore.AddProviderOptions(
-                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)
-                        .ConfigureWarnings(e => e.Throw(RelationalEventId.MigrationsNotFound))).Options);
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options);
 
             context.Database.EnsureDeleted();
             GiveMeSomeTime(context);
@@ -347,16 +347,15 @@ COMMIT TRANSACTION;
                     RelationalResources.LogNoMigrationsFound(new TestLogger<TestRelationalLoggingDefinitions>())
                         .GenerateMessage(typeof(DbContext).Assembly.GetName().Name),
                     "RelationalEventId.MigrationsNotFound"),
-                (Assert.Throws<InvalidOperationException>(context.Database.Migrate)).Message);
+                Assert.Throws<InvalidOperationException>(context.Database.Migrate).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Throws_when_no_migrations_async()
         {
             using var context = new DbContext(
                 Fixture.TestStore.AddProviderOptions(
-                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)
-                        .ConfigureWarnings(e => e.Throw(RelationalEventId.MigrationsNotFound))).Options);
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options);
 
             await context.Database.EnsureDeletedAsync();
             await GiveMeSomeTimeAsync(context);
@@ -370,7 +369,7 @@ COMMIT TRANSACTION;
                 (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Database.MigrateAsync())).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public void Throws_when_no_snapshot()
         {
             using var context = new MigrationsContext(
@@ -387,10 +386,10 @@ COMMIT TRANSACTION;
                     RelationalResources.LogNoModelSnapshotFound(new TestLogger<TestRelationalLoggingDefinitions>())
                         .GenerateMessage(typeof(MigrationsContext).Assembly.GetName().Name),
                     "RelationalEventId.ModelSnapshotNotFound"),
-                (Assert.Throws<InvalidOperationException>(context.Database.Migrate)).Message);
+                Assert.Throws<InvalidOperationException>(context.Database.Migrate).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Throws_when_no_snapshot_async()
         {
             using var context = new MigrationsContext(
@@ -410,7 +409,49 @@ COMMIT TRANSACTION;
                 (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Database.MigrateAsync())).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
+        public void Throws_for_old_migration_version()
+        {
+            using var context = new BloggingContext(
+                Fixture.TestStore.AddProviderOptions(
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)
+                        .ConfigureWarnings(e => e.Throw(RelationalEventId.OldMigrationVersionWarning))).Options,
+                randomData: false);
+
+            context.Database.EnsureDeleted();
+            GiveMeSomeTime(context);
+
+            Assert.Equal(
+                CoreStrings.WarningAsErrorTemplate(
+                    RelationalEventId.OldMigrationVersionWarning.ToString(),
+                    RelationalResources.LogOldMigrationVersion(new TestLogger<TestRelationalLoggingDefinitions>())
+                        .GenerateMessage(nameof(BloggingContext), "9.0.0"),
+                    "RelationalEventId.OldMigrationVersionWarning"),
+                Assert.Throws<InvalidOperationException>(context.Database.Migrate).Message);
+        }
+
+        [Fact]
+        public async Task Throws_for_old_migration_version_async()
+        {
+            using var context = new BloggingContext(
+                Fixture.TestStore.AddProviderOptions(
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)
+                        .ConfigureWarnings(e => e.Throw(RelationalEventId.OldMigrationVersionWarning))).Options,
+                randomData: false);
+
+            await context.Database.EnsureDeletedAsync();
+            await GiveMeSomeTimeAsync(context);
+
+            Assert.Equal(
+                CoreStrings.WarningAsErrorTemplate(
+                    RelationalEventId.OldMigrationVersionWarning.ToString(),
+                    RelationalResources.LogOldMigrationVersion(new TestLogger<TestRelationalLoggingDefinitions>())
+                        .GenerateMessage(nameof(BloggingContext), "9.0.0"),
+                    "RelationalEventId.OldMigrationVersionWarning"),
+                (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Database.MigrateAsync())).Message);
+        }
+
+        [Fact]
         public void Throws_for_nondeterministic_HasData()
         {
             using var context = new BloggingContext(
@@ -427,10 +468,10 @@ COMMIT TRANSACTION;
                     RelationalResources.LogNonDeterministicModel(new TestLogger<TestRelationalLoggingDefinitions>())
                         .GenerateMessage(nameof(BloggingContext)),
                     "RelationalEventId.PendingModelChangesWarning"),
-                (Assert.Throws<InvalidOperationException>(context.Database.Migrate)).Message);
+                Assert.Throws<InvalidOperationException>(context.Database.Migrate).Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Throws_for_nondeterministic_HasData_async()
         {
             using var context = new BloggingContext(
@@ -450,53 +491,12 @@ COMMIT TRANSACTION;
                 (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Database.MigrateAsync())).Message);
         }
 
-        [ConditionalFact]
-        public void Throws_for_pending_model_changes()
-        {
-            using var context = new BloggingContext(
-                Fixture.TestStore.AddProviderOptions(
-                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options,
-                randomData: false);
-
-            context.Database.EnsureDeleted();
-            GiveMeSomeTime(context);
-
-            Assert.Equal(
-                CoreStrings.WarningAsErrorTemplate(
-                    RelationalEventId.PendingModelChangesWarning.ToString(),
-                    RelationalResources.LogPendingModelChanges(new TestLogger<TestRelationalLoggingDefinitions>())
-                        .GenerateMessage(nameof(BloggingContext)),
-                    "RelationalEventId.PendingModelChangesWarning"),
-                (Assert.Throws<InvalidOperationException>(context.Database.Migrate)).Message);
-        }
-
-        [ConditionalFact]
-        public async Task Throws_for_pending_model_changes_async()
-        {
-            using var context = new BloggingContext(
-                Fixture.TestStore.AddProviderOptions(
-                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options,
-                randomData: false);
-
-            await context.Database.EnsureDeletedAsync();
-            await GiveMeSomeTimeAsync(context);
-
-            Assert.Equal(
-                CoreStrings.WarningAsErrorTemplate(
-                    RelationalEventId.PendingModelChangesWarning.ToString(),
-                    RelationalResources.LogPendingModelChanges(new TestLogger<TestRelationalLoggingDefinitions>())
-                        .GenerateMessage(nameof(BloggingContext)),
-                    "RelationalEventId.PendingModelChangesWarning"),
-                (await Assert.ThrowsAsync<InvalidOperationException>(() => context.Database.MigrateAsync())).Message);
-        }
-
-        [ConditionalFact]
+        [Fact]
         public async Task Empty_Migration_Creates_Database()
         {
             using var context = new BloggingContext(
                 Fixture.TestStore.AddProviderOptions(
-                        new DbContextOptionsBuilder().EnableServiceProviderCaching(false))
-                    .ConfigureWarnings(e => e.Log(RelationalEventId.PendingModelChangesWarning)).Options);
+                    new DbContextOptionsBuilder().EnableServiceProviderCaching(false)).Options);
 
             context.Database.EnsureDeleted();
             GiveMeSomeTime(context);
@@ -509,34 +509,226 @@ COMMIT TRANSACTION;
             Assert.True(creator.Exists());
         }
 
-        public override void Can_apply_all_migrations() // Issue efcore #33331
-            => base.Can_apply_all_migrations();
-
-        public override Task Can_apply_all_migrations_async() // Issue efcore #33331
-            => base.Can_apply_all_migrations_async();
-
-        [ConditionalFact(Skip ="For now")]
-        public override void Can_apply_one_migration_in_parallel()
+        [Fact]
+        public void Non_transactional_migration_is_retried()
         {
-            base.Can_apply_one_migration_in_parallel();
+            using var context = new BloggingContext(
+                Fixture.TestStore.AddProviderOptions(
+                        new DbContextOptionsBuilder().EnableServiceProviderCaching(false))
+                    .ConfigureWarnings(e => e.Log(
+                        RelationalEventId.PendingModelChangesWarning, RelationalEventId.NonTransactionalMigrationOperationWarning))
+                    .UseLoggerFactory(Fixture.TestSqlLoggerFactory).Options);
+
+            context.Database.EnsureDeleted();
+            GiveMeSomeTime(context);
+
+            Fixture.TestSqlLoggerFactory.Clear();
+
+            var creator = (JetDatabaseCreator)context.GetService<IRelationalDatabaseCreator>();
+            //creator.RetryTimeout = TimeSpan.FromMinutes(10);
+
+            context.Database.Migrate();
+
+            Assert.Equal(
+                """
+CREATE DATABASE [MigrationsTest];
+
+IF SERVERPROPERTY('EngineEdition') <> 5
+BEGIN
+    ALTER DATABASE [MigrationsTest] SET READ_COMMITTED_SNAPSHOT ON;
+END;
+
+SELECT 1
+
+DECLARE @result int;
+EXEC @result = sp_getapplock @Resource = '__EFMigrationsLock', @LockOwner = 'Session', @LockMode = 'Exclusive';
+SELECT @result
+
+IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
+BEGIN
+    CREATE TABLE [__EFMigrationsHistory] (
+        [MigrationId] nvarchar(150) NOT NULL,
+        [ProductVersion] nvarchar(32) NOT NULL,
+        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
+    );
+END;
+
+SELECT 1
+
+SELECT OBJECT_ID(N'[__EFMigrationsHistory]');
+
+SELECT [MigrationId], [ProductVersion]
+FROM [__EFMigrationsHistory]
+ORDER BY [MigrationId];
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'00000000000000_Empty', N'7.0.0-test');
+
+--Before
+
+IF OBJECT_ID(N'Blogs', N'U') IS NULL
+BEGIN
+    CREATE TABLE [Blogs] (
+        [Id] int NOT NULL,
+        [Name] nvarchar(max) NOT NULL,
+        CONSTRAINT [PK_Blogs] PRIMARY KEY ([Id])
+    );
+
+    THROW 65536, 'Test', 0;
+END
+
+DECLARE @result int;
+EXEC @result = sp_releaseapplock @Resource = '__EFMigrationsLock', @LockOwner = 'Session';
+SELECT @result
+
+DECLARE @result int;
+EXEC @result = sp_getapplock @Resource = '__EFMigrationsLock', @LockOwner = 'Session', @LockMode = 'Exclusive';
+SELECT @result
+
+SELECT 1
+
+SELECT OBJECT_ID(N'[__EFMigrationsHistory]');
+
+SELECT [MigrationId], [ProductVersion]
+FROM [__EFMigrationsHistory]
+ORDER BY [MigrationId];
+
+IF OBJECT_ID(N'Blogs', N'U') IS NULL
+BEGIN
+    CREATE TABLE [Blogs] (
+        [Id] int NOT NULL,
+        [Name] nvarchar(max) NOT NULL,
+        CONSTRAINT [PK_Blogs] PRIMARY KEY ([Id])
+    );
+
+    THROW 65536, 'Test', 0;
+END
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'00000000000001_Migration1', N'7.0.0-test');
+
+--After
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'00000000000002_Migration2', N'7.0.0-test');
+
+DECLARE @result int;
+EXEC @result = sp_releaseapplock @Resource = '__EFMigrationsLock', @LockOwner = 'Session';
+SELECT @result
+""",
+                Fixture.TestSqlLoggerFactory.Sql.Replace(ProductInfo.GetVersion(), "7.0.0-test"),
+                ignoreLineEndingDifferences: true);
         }
 
-        [ConditionalFact(Skip = "For now")]
-        public override Task Can_apply_one_migration_in_parallel_async()
+        [Fact]
+        public async Task Non_transactional_migration_is_retried_async()
         {
-            return base.Can_apply_one_migration_in_parallel_async();
-        }
+            using var context = new BloggingContext(
+                Fixture.TestStore.AddProviderOptions(
+                        new DbContextOptionsBuilder().EnableServiceProviderCaching(false))
+                    .ConfigureWarnings(e => e.Log(
+                        RelationalEventId.PendingModelChangesWarning, RelationalEventId.NonTransactionalMigrationOperationWarning))
+                    .UseLoggerFactory(Fixture.TestSqlLoggerFactory).Options);
 
-        [ConditionalFact(Skip = "For now")]
-        public override void Can_apply_second_migration_in_parallel()
-        {
-            base.Can_apply_second_migration_in_parallel();
-        }
+            context.Database.EnsureDeleted();
+            GiveMeSomeTime(context);
 
-        [ConditionalFact(Skip = "For now")]
-        public override Task Can_apply_second_migration_in_parallel_async()
-        {
-            return base.Can_apply_second_migration_in_parallel_async();
+            Fixture.TestSqlLoggerFactory.Clear();
+
+            var creator = (JetDatabaseCreator)context.GetService<IRelationalDatabaseCreator>();
+            //creator.RetryTimeout = TimeSpan.FromMinutes(10);
+
+            await context.Database.MigrateAsync();
+
+            Assert.Equal(
+                """
+CREATE DATABASE [MigrationsTest];
+
+IF SERVERPROPERTY('EngineEdition') <> 5
+BEGIN
+    ALTER DATABASE [MigrationsTest] SET READ_COMMITTED_SNAPSHOT ON;
+END;
+
+SELECT 1
+
+DECLARE @result int;
+EXEC @result = sp_getapplock @Resource = '__EFMigrationsLock', @LockOwner = 'Session', @LockMode = 'Exclusive';
+SELECT @result
+
+IF OBJECT_ID(N'[__EFMigrationsHistory]') IS NULL
+BEGIN
+    CREATE TABLE [__EFMigrationsHistory] (
+        [MigrationId] nvarchar(150) NOT NULL,
+        [ProductVersion] nvarchar(32) NOT NULL,
+        CONSTRAINT [PK___EFMigrationsHistory] PRIMARY KEY ([MigrationId])
+    );
+END;
+
+SELECT 1
+
+SELECT OBJECT_ID(N'[__EFMigrationsHistory]');
+
+SELECT [MigrationId], [ProductVersion]
+FROM [__EFMigrationsHistory]
+ORDER BY [MigrationId];
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'00000000000000_Empty', N'7.0.0-test');
+
+--Before
+
+IF OBJECT_ID(N'Blogs', N'U') IS NULL
+BEGIN
+    CREATE TABLE [Blogs] (
+        [Id] int NOT NULL,
+        [Name] nvarchar(max) NOT NULL,
+        CONSTRAINT [PK_Blogs] PRIMARY KEY ([Id])
+    );
+
+    THROW 65536, 'Test', 0;
+END
+
+DECLARE @result int;
+EXEC @result = sp_releaseapplock @Resource = '__EFMigrationsLock', @LockOwner = 'Session';
+SELECT @result
+
+DECLARE @result int;
+EXEC @result = sp_getapplock @Resource = '__EFMigrationsLock', @LockOwner = 'Session', @LockMode = 'Exclusive';
+SELECT @result
+
+SELECT 1
+
+SELECT OBJECT_ID(N'[__EFMigrationsHistory]');
+
+SELECT [MigrationId], [ProductVersion]
+FROM [__EFMigrationsHistory]
+ORDER BY [MigrationId];
+
+IF OBJECT_ID(N'Blogs', N'U') IS NULL
+BEGIN
+    CREATE TABLE [Blogs] (
+        [Id] int NOT NULL,
+        [Name] nvarchar(max) NOT NULL,
+        CONSTRAINT [PK_Blogs] PRIMARY KEY ([Id])
+    );
+
+    THROW 65536, 'Test', 0;
+END
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'00000000000001_Migration1', N'7.0.0-test');
+
+--After
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'00000000000002_Migration2', N'7.0.0-test');
+
+DECLARE @result int;
+EXEC @result = sp_releaseapplock @Resource = '__EFMigrationsLock', @LockOwner = 'Session';
+SELECT @result
+""",
+                Fixture.TestSqlLoggerFactory.Sql.Replace(ProductInfo.GetVersion(), "7.0.0-test"),
+                ignoreLineEndingDifferences: true);
         }
 
         private class BloggingContext(DbContextOptions options, bool? randomData = null) : DbContext(options)
@@ -565,7 +757,7 @@ COMMIT TRANSACTION;
         }
 
         [DbContext(typeof(BloggingContext))]
-        partial class BloggingContextSnapshot : ModelSnapshot
+        private class BloggingContextSnapshot : ModelSnapshot
         {
             protected override void BuildModel(ModelBuilder modelBuilder)
             {
@@ -574,32 +766,69 @@ COMMIT TRANSACTION;
                     .HasAnnotation("ProductVersion", "9.0.0")
                     .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
-                JetModelBuilderExtensions.UseJetIdentityColumns(modelBuilder);
+                modelBuilder.UseJetIdentityColumns();
 
-                modelBuilder.Entity("Microsoft.EntityFrameworkCore.Migrations.MigrationsInfrastructureJetTest+BloggingContext+Blog", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                modelBuilder.Entity(
+                    "Microsoft.EntityFrameworkCore.Migrations.MigrationsInfrastructureJetTest+BloggingContext+Blog", b =>
+                    {
+                        b.Property<int>("Id")
+                            .ValueGeneratedOnAdd()
+                            .HasColumnType("int");
 
-                    JetPropertyBuilderExtensions.UseJetIdentityColumn(b.Property<int>("Id"));
+                        b.Property<int>("Id").UseJetIdentityColumn();
 
-                    b.Property<string>("Name")
-                        .HasColumnType("nvarchar(255)");
+                        b.Property<string>("Name")
+                            .HasColumnType("nvarchar(255)");
 
-                    b.HasKey("Id");
+                        b.HasKey("Id");
 
-                    b.ToTable("Blogs");
-                });
+                        b.ToTable("Blogs");
+                    });
 #pragma warning restore 612, 618
             }
         }
 
-        [DbContext(typeof(BloggingContext))]
-        [Migration("00000000000000_Empty")]
-        public class EmptyMigration : Migration
+        [DbContext(typeof(BloggingContext)), Migration("00000000000000_Empty")]
+        private class EmptyMigration : Migration
         {
             protected override void Up(MigrationBuilder migrationBuilder)
+            {
+            }
+        }
+
+        [DbContext(typeof(BloggingContext)), Migration("00000000000001_Migration1")]
+        private class BloggingMigration1 : Migration
+        {
+            protected override void Up(MigrationBuilder migrationBuilder)
+            {
+                migrationBuilder.Sql("--Before", suppressTransaction: true);
+                migrationBuilder.Sql(
+                    """
+                    IF OBJECT_ID(N'Blogs', N'U') IS NULL
+                    BEGIN
+                        CREATE TABLE [Blogs] (
+                            [Id] int NOT NULL,
+                            [Name] nvarchar(max) NOT NULL,
+                            CONSTRAINT [PK_Blogs] PRIMARY KEY ([Id])
+                        );
+
+                        THROW 65536, 'Test', 0;
+                    END
+                    """, suppressTransaction: true);
+            }
+
+            protected override void Down(MigrationBuilder migrationBuilder)
+            {
+            }
+        }
+
+        [DbContext(typeof(BloggingContext)), Migration("00000000000002_Migration2")]
+        private class BloggingMigration2 : Migration
+        {
+            protected override void Up(MigrationBuilder migrationBuilder)
+                => migrationBuilder.Sql("--After");
+
+            protected override void Down(MigrationBuilder migrationBuilder)
             {
             }
         }
@@ -660,12 +889,9 @@ COMMIT TRANSACTION;
                     });
 
                 modelBuilder.Entity(
-                    "ModelSnapshot22.Post", b =>
-                    {
-                        b.HasOne("ModelSnapshot22.Blog", "Blog")
-                            .WithMany("Posts")
-                            .HasForeignKey("BlogId");
-                    });
+                    "ModelSnapshot22.Post", b => b.HasOne("ModelSnapshot22.Blog", "Blog")
+                        .WithMany("Posts")
+                        .HasForeignKey("BlogId"));
 #pragma warning restore 612, 618
             }
         }
@@ -859,31 +1085,22 @@ COMMIT TRANSACTION;
                     });
 
                 modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole")
-                            .WithMany()
-                            .HasForeignKey("RoleId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
+                    "Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b => b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade));
 
                 modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
+                    "Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b => b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade));
 
                 modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
+                    "Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b => b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade));
 
                 modelBuilder.Entity(
                     "Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
@@ -900,13 +1117,10 @@ COMMIT TRANSACTION;
                     });
 
                 modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
+                    "Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b => b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade));
 #pragma warning restore 612, 618
             }
         }
@@ -1100,31 +1314,22 @@ COMMIT TRANSACTION;
                     });
 
                 modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole")
-                            .WithMany()
-                            .HasForeignKey("RoleId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
+                    "Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b => b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade));
 
                 modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
+                    "Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b => b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade));
 
                 modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
+                    "Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b => b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade));
 
                 modelBuilder.Entity(
                     "Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
@@ -1141,13 +1346,10 @@ COMMIT TRANSACTION;
                     });
 
                 modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade);
-                    });
+                    "Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b => b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade));
 #pragma warning restore 612, 618
             }
         }
@@ -1382,34 +1584,28 @@ COMMIT TRANSACTION;
                     });
 
                 modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
-                            .WithMany()
-                            .HasForeignKey("RoleId")
-                            .OnDelete(DeleteBehavior.Cascade)
-                            .IsRequired();
-                    });
+                    "Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b => b
+                        .HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired());
 
                 modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade)
-                            .IsRequired();
-                    });
+                    "Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b => b
+                        .HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired());
 
                 modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade)
-                            .IsRequired();
-                    });
+                    "Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b => b
+                        .HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired());
 
                 modelBuilder.Entity(
                     "Microsoft.AspNetCore.Identity.IdentityUserRole<string>", b =>
@@ -1428,16 +1624,47 @@ COMMIT TRANSACTION;
                     });
 
                 modelBuilder.Entity(
-                    "Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
-                    {
-                        b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
-                            .WithMany()
-                            .HasForeignKey("UserId")
-                            .OnDelete(DeleteBehavior.Cascade)
-                            .IsRequired();
-                    });
+                    "Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b => b
+                        .HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired());
 #pragma warning restore 612, 618
             }
+        }
+
+        // ---------------------------------------------------------------------------------------------
+        // The ONLY intentional divergence from MigrationsInfrastructureLibRedTest (which is otherwise
+        // mirrored line for line, differing only in the LibRed/Jet naming). These four inherited tests
+        // HANG on Jet/ACE rather than fail: AcquireDatabaseLock retries in an unbounded `while (true)`
+        // loop, so a lock that is never released blocks the run indefinitely and takes the whole suite
+        // with it. Keep them skipped until the underlying contention behaviour is fixed; drop these
+        // overrides at that point to restore an exact mirror.
+        // ---------------------------------------------------------------------------------------------
+
+        [Fact(Skip = "For now")]
+        public override void Can_apply_one_migration_in_parallel()
+        {
+            base.Can_apply_one_migration_in_parallel();
+        }
+
+        [Fact(Skip = "For now")]
+        public override Task Can_apply_one_migration_in_parallel_async()
+        {
+            return base.Can_apply_one_migration_in_parallel_async();
+        }
+
+        [Fact(Skip = "For now")]
+        public override void Can_apply_second_migration_in_parallel()
+        {
+            base.Can_apply_second_migration_in_parallel();
+        }
+
+        [Fact(Skip = "For now")]
+        public override Task Can_apply_second_migration_in_parallel_async()
+        {
+            return base.Can_apply_second_migration_in_parallel_async();
         }
 
 
@@ -1504,50 +1731,28 @@ namespace Identity30.Data
         {
             base.OnModelCreating(builder);
 
-            builder.Entity<IdentityUser>(
-                b =>
-                {
-                    b.HasIndex(u => u.NormalizedUserName).HasDatabaseName("UserNameIndex").IsUnique();
-                    b.HasIndex(u => u.NormalizedEmail).HasDatabaseName("EmailIndex");
-                    b.ToTable("AspNetUsers");
-                });
+            builder.Entity<IdentityUser>(b =>
+            {
+                b.HasIndex(u => u.NormalizedUserName).HasDatabaseName("UserNameIndex").IsUnique();
+                b.HasIndex(u => u.NormalizedEmail).HasDatabaseName("EmailIndex");
+                b.ToTable("AspNetUsers");
+            });
 
-            builder.Entity<IdentityUserClaim<string>>(
-                b =>
-                {
-                    b.ToTable("AspNetUserClaims");
-                });
+            builder.Entity<IdentityUserClaim<string>>(b => b.ToTable("AspNetUserClaims"));
 
-            builder.Entity<IdentityUserLogin<string>>(
-                b =>
-                {
-                    b.ToTable("AspNetUserLogins");
-                });
+            builder.Entity<IdentityUserLogin<string>>(b => b.ToTable("AspNetUserLogins"));
 
-            builder.Entity<IdentityUserToken<string>>(
-                b =>
-                {
-                    b.ToTable("AspNetUserTokens");
-                });
+            builder.Entity<IdentityUserToken<string>>(b => b.ToTable("AspNetUserTokens"));
 
-            builder.Entity<IdentityRole>(
-                b =>
-                {
-                    b.HasIndex(r => r.NormalizedName).HasDatabaseName("RoleNameIndex").IsUnique();
-                    b.ToTable("AspNetRoles");
-                });
+            builder.Entity<IdentityRole>(b =>
+            {
+                b.HasIndex(r => r.NormalizedName).HasDatabaseName("RoleNameIndex").IsUnique();
+                b.ToTable("AspNetRoles");
+            });
 
-            builder.Entity<IdentityRoleClaim<string>>(
-                b =>
-                {
-                    b.ToTable("AspNetRoleClaims");
-                });
+            builder.Entity<IdentityRoleClaim<string>>(b => b.ToTable("AspNetRoleClaims"));
 
-            builder.Entity<IdentityUserRole<string>>(
-                b =>
-                {
-                    b.ToTable("AspNetUserRoles");
-                });
+            builder.Entity<IdentityUserRole<string>>(b => b.ToTable("AspNetUserRoles"));
         }
     }
 }

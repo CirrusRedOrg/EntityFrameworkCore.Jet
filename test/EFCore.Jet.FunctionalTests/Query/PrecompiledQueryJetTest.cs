@@ -3,15 +3,14 @@
 
 // ReSharper disable InconsistentNaming
 
-using System.Threading.Tasks;
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
 using EntityFrameworkCore.Jet.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
@@ -22,7 +21,7 @@ public class PrecompiledQueryJetTest(
         IClassFixture<PrecompiledQueryJetTest.PrecompiledQueryJetFixture>
 {
     protected override bool AlwaysPrintGeneratedSources
-        => true;
+        => false;
 
     #region Expression types
 
@@ -71,27 +70,27 @@ FROM `Blogs` AS `b`
         AssertSql();
     }
 
-     public override async Task ListInit_no_evaluatability()
-     {
-         await base.ListInit_no_evaluatability();
+    public override async Task ListInit_no_evaluatability()
+    {
+        await base.ListInit_no_evaluatability();
 
-         AssertSql(
-             """
+        AssertSql(
+            """
 SELECT `b`.`Id`, `b`.`Id` + 1
 FROM `Blogs` AS `b`
 """);
-     }
+    }
 
-     public override async Task ListInit_with_evaluatable_with_captured_variable()
-     {
-         await base.ListInit_with_evaluatable_with_captured_variable();
+    public override async Task ListInit_with_evaluatable_with_captured_variable()
+    {
+        await base.ListInit_with_evaluatable_with_captured_variable();
 
-         AssertSql(
-             """
+        AssertSql(
+            """
 SELECT `b`.`Id`
 FROM `Blogs` AS `b`
 """);
-     }
+    }
 
     public override async Task ListInit_with_evaluatable_without_captured_variable()
     {
@@ -116,17 +115,17 @@ WHERE `b`.`Id` IN (7, 8)
 """);
     }
 
-     public override async Task MethodCallExpression_no_evaluatability()
-     {
-         await base.MethodCallExpression_no_evaluatability();
+    public override async Task MethodCallExpression_no_evaluatability()
+    {
+        await base.MethodCallExpression_no_evaluatability();
 
-         AssertSql(
-             """
+        AssertSql(
+            """
 SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Name` IS NOT NULL AND LEFT(`b`.`Name`, IIF(LEN(`b`.`Name`) IS NULL, 0, LEN(`b`.`Name`))) = `b`.`Name`
 """);
-     }
+    }
 
     public override async Task MethodCallExpression_with_evaluatable_with_captured_variable()
     {
@@ -273,7 +272,155 @@ WHERE CINT(`b`.`Id`) = CINT(8)
         AssertSql();
     }
 
+    public override async Task RuntimeConstantExpression()
+    {
+        await base.RuntimeConstantExpression();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+""");
+    }
+
     #endregion Expression types
+
+    #region Regular operators
+
+    public override async Task OrderBy()
+    {
+        await base.OrderBy();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Name`, `b`.`Id`
+""");
+    }
+
+    public override async Task Skip_with_constant()
+    {
+        await base.Skip_with_constant();
+
+        AssertSql(
+            """
+@p='1'
+
+SELECT [b].[Id], [b].[Name], [b].[Json]
+FROM [Blogs] AS [b]
+ORDER BY [b].[Name]
+OFFSET @p ROWS
+""");
+    }
+
+    public override async Task Skip_with_parameter()
+    {
+        await base.Skip_with_parameter();
+
+        AssertSql(
+            """
+@p='1'
+
+SELECT [b].[Id], [b].[Name], [b].[Json]
+FROM [Blogs] AS [b]
+ORDER BY [b].[Name]
+OFFSET @p ROWS
+""");
+    }
+
+    public override async Task Take_with_constant()
+    {
+        await base.Take_with_constant();
+
+        AssertSql(
+            """
+SELECT TOP @p `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Name`, `b`.`Id`
+""");
+    }
+
+    public override async Task Take_with_parameter()
+    {
+        await base.Take_with_parameter();
+
+        AssertSql(
+            """
+SELECT TOP @p `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Name`, `b`.`Id`
+""");
+    }
+
+    public override async Task Select_changes_type()
+    {
+        await base.Select_changes_type();
+
+        AssertSql(
+            """
+SELECT `b`.`Name`
+FROM `Blogs` AS `b`
+""");
+    }
+
+    public override async Task Select_anonymous_object()
+    {
+        await base.Select_anonymous_object();
+
+        AssertSql(
+            """
+SELECT IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & 'Foo' AS `Foo`
+FROM `Blogs` AS `b`
+""");
+    }
+
+    public override async Task Include_single()
+    {
+        await base.Include_single();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`, `p`.`Id`, `p`.`BlogId`, `p`.`Title`
+FROM `Blogs` AS `b`
+LEFT JOIN `Posts` AS `p` ON `b`.`Id` = `p`.`BlogId`
+WHERE `b`.`Id` > 8
+ORDER BY `b`.`Id`, `p`.`Id`
+""");
+    }
+
+    public override async Task Include_split()
+    {
+        await base.Include_split();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Id`
+""",
+            //
+            """
+SELECT `p`.`Id`, `p`.`BlogId`, `p`.`Title`, `b`.`Id`
+FROM `Blogs` AS `b`
+INNER JOIN `Posts` AS `p` ON `b`.`Id` = `p`.`BlogId`
+ORDER BY `b`.`Id`
+""");
+    }
+
+    public override async Task Final_GroupBy()
+    {
+        await base.Final_GroupBy();
+
+        AssertSql(
+            """
+SELECT `b`.`Name`, `b`.`Id`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Name`, `b`.`Id`
+""");
+    }
+
+    #endregion Regular operators
 
     #region Terminating operators
 
@@ -328,7 +475,7 @@ WHERE `b`.`Id` > 8
         await base.Terminating_ToArray();
 
         AssertSql(
-"""
+            """
 SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 """);
@@ -706,21 +853,21 @@ WHERE `b`.`Id` > 8
 
         AssertSql(
             """
-@__p_0='1'
+@p='1'
 
-SELECT [b].[Id], [b].[Name]
+SELECT [b].[Id], [b].[Name], [b].[Json]
 FROM [Blogs] AS [b]
 ORDER BY [b].[Id]
-OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
+OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """,
             //
             """
-@__p_0='3'
+@p='3'
 
-SELECT [b].[Id], [b].[Name]
+SELECT [b].[Id], [b].[Name], [b].[Json]
 FROM [Blogs] AS [b]
 ORDER BY [b].[Id]
-OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
+OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """);
     }
 
@@ -730,21 +877,21 @@ OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
 
         AssertSql(
             """
-@__p_0='1'
+@p='1'
 
-SELECT [b].[Id], [b].[Name]
+SELECT [b].[Id], [b].[Name], [b].[Json]
 FROM [Blogs] AS [b]
 ORDER BY [b].[Id]
-OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
+OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """,
             //
             """
-@__p_0='3'
+@p='3'
 
-SELECT [b].[Id], [b].[Name]
+SELECT [b].[Id], [b].[Name], [b].[Json]
 FROM [Blogs] AS [b]
 ORDER BY [b].[Id]
-OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
+OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """);
     }
 
@@ -754,21 +901,21 @@ OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
 
         AssertSql(
             """
-@__p_0='1'
+@p='1'
 
-SELECT [b].[Id], [b].[Name]
+SELECT [b].[Id], [b].[Name], [b].[Json]
 FROM [Blogs] AS [b]
 ORDER BY [b].[Id]
-OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
+OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """,
             //
             """
-@__p_0='3'
+@p='3'
 
-SELECT [b].[Id], [b].[Name]
+SELECT [b].[Id], [b].[Name], [b].[Json]
 FROM [Blogs] AS [b]
 ORDER BY [b].[Id]
-OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
+OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """);
     }
 
@@ -778,21 +925,21 @@ OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
 
         AssertSql(
             """
-@__p_0='1'
+@p='1'
 
-SELECT [b].[Id], [b].[Name]
+SELECT [b].[Id], [b].[Name], [b].[Json]
 FROM [Blogs] AS [b]
 ORDER BY [b].[Id]
-OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
+OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """,
             //
             """
-@__p_0='3'
+@p='3'
 
-SELECT [b].[Id], [b].[Name]
+SELECT [b].[Id], [b].[Name], [b].[Json]
 FROM [Blogs] AS [b]
 ORDER BY [b].[Id]
-OFFSET @__p_0 ROWS FETCH NEXT 1 ROWS ONLY
+OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """);
     }
 
@@ -1406,16 +1553,16 @@ WHERE `b`.`Id` = 9 AND `b`.`Name` = 'Blog2Suffix'
     {
         await base.Terminating_ExecuteUpdateAsync_without_lambda();
 
-    AssertSql(
-    """
+        AssertSql(
+            """
 @newValue='NewValue' (Size = 255)
 
 UPDATE `Blogs` AS `b`
 SET `b`.`Name` = @newValue
 WHERE `b`.`Id` > 8
 """,
-    //
-    """
+            //
+            """
 SELECT COUNT(*)
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 9 AND `b`.`Name` = 'NewValue'
@@ -1426,14 +1573,14 @@ WHERE `b`.`Id` = 9 AND `b`.`Name` = 'NewValue'
     {
         await base.Terminating_with_cancellation_token();
 
-    AssertSql(
-    """
+        AssertSql(
+            """
 SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 8
 """,
-    //
-    """
+            //
+            """
 SELECT TOP 1 `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE `b`.`Id` = 7
@@ -1530,15 +1677,15 @@ ORDER BY [u].[Id]
 
         AssertSql(
             """
-SELECT [i].[Id], [i].[Name]
+SELECT [i].[Id], [i].[BlogId], [i].[Title]
 FROM (
-    SELECT [b].[Id], [b].[Name]
-    FROM [Blogs] AS [b]
-    WHERE [b].[Id] > 7
+    SELECT [p].[Id], [p].[BlogId], [p].[Title]
+    FROM [Posts] AS [p]
+    WHERE [p].[Id] > 11
     INTERSECT
-    SELECT [b0].[Id], [b0].[Name]
-    FROM [Blogs] AS [b0]
-    WHERE [b0].[Id] > 8
+    SELECT [p0].[Id], [p0].[BlogId], [p0].[Title]
+    FROM [Posts] AS [p0]
+    WHERE [p0].[Id] < 22
 ) AS [i]
 ORDER BY [i].[Id]
 """);
@@ -1570,15 +1717,15 @@ ORDER BY [i].[Id]
 
         AssertSql(
             """
-SELECT [e].[Id], [e].[Name]
+SELECT [e].[Id], [e].[BlogId], [e].[Title]
 FROM (
-    SELECT [b].[Id], [b].[Name]
-    FROM [Blogs] AS [b]
-    WHERE [b].[Id] > 7
+    SELECT [p].[Id], [p].[BlogId], [p].[Title]
+    FROM [Posts] AS [p]
+    WHERE [p].[Id] > 11
     EXCEPT
-    SELECT [b0].[Id], [b0].[Name]
-    FROM [Blogs] AS [b0]
-    WHERE [b0].[Id] > 8
+    SELECT [p0].[Id], [p0].[BlogId], [p0].[Title]
+    FROM [Posts] AS [p0]
+    WHERE [p0].[Id] > 21
 ) AS [e]
 ORDER BY [e].[Id]
 """);
@@ -1610,7 +1757,7 @@ ORDER BY [e].[Id]
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Name]
+SELECT [b].[Id], [b].[Name], [b].[Json]
 FROM [Blogs] AS [b]
 WHERE (
     SELECT COUNT(*)
@@ -1666,91 +1813,109 @@ ORDER BY `m`.`Id`
 """);
     }
 
-    // SqlServerOpenJsonExpression is covered by PrecompiledQueryRelationalTestBase.Contains_with_parameterized_collection
+    public virtual async Task JetAggregateFunctionExpression()
+    {
+        await Test(
+            """
+_ = context.Blogs
+    .GroupBy(b => b.Id)
+    .Select(g => string.Join(", ", g.OrderBy(b => b.Name).Select(b => b.Name)))
+    .ToList();
+""");
 
-//     [ConditionalFact]
-//     public virtual Task TableValuedFunctionExpression_toplevel()
-//         => Test(
-//             "_ = context.GetBlogsWithAtLeast(9).ToList();",
-//             modelSourceCode: providerOptions => $$"""
-// public class BlogContext : DbContext
-// {
-//     public DbSet<Blog> Blogs { get; set; }
-//
-//     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-//         => optionsBuilder
-//             {{providerOptions}}
-//             .ReplaceService<IQueryCompiler, Microsoft.EntityFrameworkCore.Query.NonCompilingQueryCompiler>();
-//
-//     protected override void OnModelCreating(ModelBuilder modelBuilder)
-//     {
-//         modelBuilder.HasDbFunction(typeof(BlogContext).GetMethod(nameof(GetBlogsWithAtLeast)));
-//     }
-//
-//     public IQueryable<Blog> GetBlogsWithAtLeast(int minBlogId) => FromExpression(() => GetBlogsWithAtLeast(minBlogId));
-// }
-//
-// public class Blog
-// {
-//     [DatabaseGenerated(DatabaseGeneratedOption.None)]
-//     public int Id { get; set; }
-//     public string StringProperty { get; set; }
-// }
-// """,
-//             setupSql: """
-// CREATE FUNCTION dbo.GetBlogsWithAtLeast(@minBlogId int)
-// RETURNS TABLE AS RETURN
-// (
-//     SELECT [b].[Id], [b].[Name] FROM [Blogs] AS [b] WHERE [b].[Id] >= @minBlogId
-// )
-// """,
-//             cleanupSql: "DROP FUNCTION dbo.GetBlogsWithAtLeast;");
-//
-//     [ConditionalFact]
-//     public virtual Task TableValuedFunctionExpression_non_toplevel()
-//         => Test(
-//             "_ = context.Blogs.Where(b => context.GetPosts(b.Id).Count() == 2).ToList();",
-//             modelSourceCode: providerOptions => $$"""
-// public class BlogContext : DbContext
-// {
-//     public DbSet<Blog> Blogs { get; set; }
-//
-//     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-//         => optionsBuilder
-//             {{providerOptions}}
-//             .ReplaceService<IQueryCompiler, Microsoft.EntityFrameworkCore.Query.NonCompilingQueryCompiler>();
-//
-//     protected override void OnModelCreating(ModelBuilder modelBuilder)
-//     {
-//         modelBuilder.HasDbFunction(typeof(BlogContext).GetMethod(nameof(GetPosts)));
-//     }
-//
-//     public IQueryable<Post> GetPosts(int blogId) => FromExpression(() => GetPosts(blogId));
-// }
-//
-// public class Blog
-// {
-//     public int Id { get; set; }
-//     public string StringProperty { get; set; }
-//     public List<Post> Post { get; set; }
-// }
-//
-// public class Post
-// {
-//     public int Id { get; set; }
-//     public string Title { get; set; }
-//
-//     public Blog Blog { get; set; }
-// }
-// """,
-//             setupSql: """
-// CREATE FUNCTION dbo.GetPosts(@blogId int)
-// RETURNS TABLE AS RETURN
-// (
-//     SELECT [p].[Id], [p].[Title], [p].[BlogId] FROM [Posts] AS [p] WHERE [p].[BlogId] = @blogId
-// )
-// """,
-//             cleanupSql: "DROP FUNCTION dbo.GetPosts;");
+        AssertSql(
+            """
+SELECT COALESCE(STRING_AGG(COALESCE([b].[Name], N''), N', ') WITHIN GROUP (ORDER BY [b].[Name]), N'')
+FROM [Blogs] AS [b]
+GROUP BY [b].[Id]
+""");
+    }
+
+    // JetOpenJsonExpression is covered by PrecompiledQueryRelationalTestBase.Contains_with_parameterized_collection
+
+    //     [Fact]
+    //     public virtual Task TableValuedFunctionExpression_toplevel()
+    //         => Test(
+    //             "_ = context.GetBlogsWithAtLeast(9).ToList();",
+    //             modelSourceCode: providerOptions => $$"""
+    // public class BlogContext : DbContext
+    // {
+    //     public DbSet<Blog> Blogs { get; set; }
+    //
+    //     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    //         => optionsBuilder
+    //             {{providerOptions}}
+    //             .ReplaceService<IQueryCompiler, Microsoft.EntityFrameworkCore.Query.NonCompilingQueryCompiler>();
+    //
+    //     protected override void OnModelCreating(ModelBuilder modelBuilder)
+    //     {
+    //         modelBuilder.HasDbFunction(typeof(BlogContext).GetMethod(nameof(GetBlogsWithAtLeast)));
+    //     }
+    //
+    //     public IQueryable<Blog> GetBlogsWithAtLeast(int minBlogId) => FromExpression(() => GetBlogsWithAtLeast(minBlogId));
+    // }
+    //
+    // public class Blog
+    // {
+    //     [DatabaseGenerated(DatabaseGeneratedOption.None)]
+    //     public int Id { get; set; }
+    //     public string StringProperty { get; set; }
+    // }
+    // """,
+    //             setupSql: """
+    // CREATE FUNCTION dbo.GetBlogsWithAtLeast(@minBlogId int)
+    // RETURNS TABLE AS RETURN
+    // (
+    //     SELECT [b].[Id], [b].[Name] FROM [Blogs] AS [b] WHERE [b].[Id] >= @minBlogId
+    // )
+    // """,
+    //             cleanupSql: "DROP FUNCTION dbo.GetBlogsWithAtLeast;");
+    //
+    //     [Fact]
+    //     public virtual Task TableValuedFunctionExpression_non_toplevel()
+    //         => Test(
+    //             "_ = context.Blogs.Where(b => context.GetPosts(b.Id).Count() == 2).ToList();",
+    //             modelSourceCode: providerOptions => $$"""
+    // public class BlogContext : DbContext
+    // {
+    //     public DbSet<Blog> Blogs { get; set; }
+    //
+    //     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    //         => optionsBuilder
+    //             {{providerOptions}}
+    //             .ReplaceService<IQueryCompiler, Microsoft.EntityFrameworkCore.Query.NonCompilingQueryCompiler>();
+    //
+    //     protected override void OnModelCreating(ModelBuilder modelBuilder)
+    //     {
+    //         modelBuilder.HasDbFunction(typeof(BlogContext).GetMethod(nameof(GetPosts)));
+    //     }
+    //
+    //     public IQueryable<Post> GetPosts(int blogId) => FromExpression(() => GetPosts(blogId));
+    // }
+    //
+    // public class Blog
+    // {
+    //     public int Id { get; set; }
+    //     public string StringProperty { get; set; }
+    //     public List<Post> Post { get; set; }
+    // }
+    //
+    // public class Post
+    // {
+    //     public int Id { get; set; }
+    //     public string Title { get; set; }
+    //
+    //     public Blog Blog { get; set; }
+    // }
+    // """,
+    //             setupSql: """
+    // CREATE FUNCTION dbo.GetPosts(@blogId int)
+    // RETURNS TABLE AS RETURN
+    // (
+    //     SELECT [p].[Id], [p].[Title], [p].[BlogId] FROM [Posts] AS [p] WHERE [p].[BlogId] = @blogId
+    // )
+    // """,
+    //             cleanupSql: "DROP FUNCTION dbo.GetPosts;");
 
     #endregion SQL expression quotability
 
@@ -1813,196 +1978,7 @@ FROM `Blogs` AS `b`
 
     #endregion Different query roots
 
-    #region Negative cases
-
-    public override async Task Dynamic_query_does_not_get_precompiled()
-    {
-        await base.Dynamic_query_does_not_get_precompiled();
-
-        AssertSql();
-    }
-
-    public override async Task ToList_over_objects_does_not_get_precompiled()
-    {
-        await base.ToList_over_objects_does_not_get_precompiled();
-
-        AssertSql();
-    }
-
-    public override async Task Query_compilation_failure()
-    {
-        await base.Query_compilation_failure();
-
-        AssertSql();
-    }
-
-    public override async Task EF_Constant_is_not_supported()
-    {
-        await base.EF_Constant_is_not_supported();
-
-        AssertSql();
-    }
-
-    public override async Task NotParameterizedAttribute_with_constant()
-    {
-        await base.NotParameterizedAttribute_with_constant();
-
-        AssertSql(
-            """
-SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
-FROM `Blogs` AS `b`
-WHERE `b`.`Name` = 'Blog2'
-""");
-    }
-
-    public override async Task NotParameterizedAttribute_is_not_supported_with_non_constant_argument()
-    {
-        await base.NotParameterizedAttribute_is_not_supported_with_non_constant_argument();
-
-        AssertSql();
-    }
-
-    public override async Task Query_syntax_is_not_supported()
-    {
-        await base.Query_syntax_is_not_supported();
-
-        AssertSql();
-    }
-
-    #endregion Negative cases
-    
-    public override async Task OrderBy()
-    {
-        await base.OrderBy();
-
-        AssertSql(
-            """
-SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
-FROM `Blogs` AS `b`
-ORDER BY `b`.`Name`
-""");
-    }
-
-    public override async Task Skip_with_constant()
-    {
-        await base.Skip_with_constant();
-
-        AssertSql(
-            """
-@p='1'
-
-SELECT [b].[Id], [b].[Name], [b].[Json]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Name]
-OFFSET @p ROWS
-""");
-    }
-
-    public override async Task Skip_with_parameter()
-    {
-        await base.Skip_with_parameter();
-
-        AssertSql(
-            """
-@p='1'
-
-SELECT [b].[Id], [b].[Name], [b].[Json]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Name]
-OFFSET @p ROWS
-""");
-    }
-
-    public override async Task Take_with_constant()
-    {
-        await base.Take_with_constant();
-
-        AssertSql(
-            """
-SELECT TOP @p `b`.`Id`, `b`.`Name`, `b`.`Json`
-FROM `Blogs` AS `b`
-ORDER BY `b`.`Name`
-""");
-    }
-
-    public override async Task Take_with_parameter()
-    {
-        await base.Take_with_parameter();
-
-        AssertSql(
-            """
-SELECT TOP @p `b`.`Id`, `b`.`Name`, `b`.`Json`
-FROM `Blogs` AS `b`
-ORDER BY `b`.`Name`
-""");
-    }
-
-    public override async Task Select_changes_type()
-    {
-        await base.Select_changes_type();
-
-        AssertSql(
-            """
-SELECT `b`.`Name`
-FROM `Blogs` AS `b`
-""");
-    }
-
-    public override async Task Select_anonymous_object()
-    {
-        await base.Select_anonymous_object();
-
-        AssertSql(
-            """
-SELECT IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & 'Foo' AS `Foo`
-FROM `Blogs` AS `b`
-""");
-    }
-
-    public override async Task Include_single()
-    {
-        await base.Include_single();
-
-        AssertSql(
-            """
-SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`, `p`.`Id`, `p`.`BlogId`, `p`.`Title`
-FROM `Blogs` AS `b`
-LEFT JOIN `Posts` AS `p` ON `b`.`Id` = `p`.`BlogId`
-WHERE `b`.`Id` > 8
-ORDER BY `b`.`Id`
-""");
-    }
-
-    public override async Task Include_split()
-    {
-        await base.Include_split();
-
-        AssertSql(
-            """
-SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
-FROM `Blogs` AS `b`
-ORDER BY `b`.`Id`
-""",
-            //
-            """
-SELECT `p`.`Id`, `p`.`BlogId`, `p`.`Title`, `b`.`Id`
-FROM `Blogs` AS `b`
-INNER JOIN `Posts` AS `p` ON `b`.`Id` = `p`.`BlogId`
-ORDER BY `b`.`Id`
-""");
-    }
-
-    public override async Task Final_GroupBy()
-    {
-        await base.Final_GroupBy();
-
-        AssertSql(
-            """
-SELECT `b`.`Name`, `b`.`Id`, `b`.`Json`
-FROM `Blogs` AS `b`
-ORDER BY `b`.`Name`
-""");
-    }
+    #region Captured variable handling
 
     public override async Task Two_captured_variables_in_same_lambda()
     {
@@ -2086,6 +2062,66 @@ WHERE `b`.`Id` = @id1
 """);
     }
 
+    #endregion Captured variable handling
+
+    #region Negative cases
+
+    public override async Task Dynamic_query_does_not_get_precompiled()
+    {
+        await base.Dynamic_query_does_not_get_precompiled();
+
+        AssertSql();
+    }
+
+    public override async Task ToList_over_objects_does_not_get_precompiled()
+    {
+        await base.ToList_over_objects_does_not_get_precompiled();
+
+        AssertSql();
+    }
+
+    public override async Task Query_compilation_failure()
+    {
+        await base.Query_compilation_failure();
+
+        AssertSql();
+    }
+
+    public override async Task EF_Constant_is_not_supported()
+    {
+        await base.EF_Constant_is_not_supported();
+
+        AssertSql();
+    }
+
+    public override async Task NotParameterizedAttribute_with_constant()
+    {
+        await base.NotParameterizedAttribute_with_constant();
+
+        AssertSql(
+            """
+SELECT TOP 2 `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+WHERE `b`.`Name` = 'Blog2'
+""");
+    }
+
+    public override async Task NotParameterizedAttribute_is_not_supported_with_non_constant_argument()
+    {
+        await base.NotParameterizedAttribute_is_not_supported_with_non_constant_argument();
+
+        AssertSql();
+    }
+
+    public override async Task Query_syntax_is_not_supported()
+    {
+        await base.Query_syntax_is_not_supported();
+
+        AssertSql();
+    }
+
+    #endregion Negative cases
+
     public override async Task Unsafe_accessor_gets_generated_once_for_multiple_queries()
     {
         await base.Unsafe_accessor_gets_generated_once_for_multiple_queries();
@@ -2102,7 +2138,31 @@ FROM `Blogs` AS `b`
 """);
     }
 
-    [ConditionalFact]
+    public override async Task Materialize_entity_with_primitive_collection_mapped_to_column()
+    {
+        await base.Materialize_entity_with_primitive_collection_mapped_to_column();
+
+        AssertSql(
+            """
+SELECT `e`.`Id`, `e`.`Tags`
+FROM `EntitiesWithPrimitiveCollection` AS `e`
+ORDER BY `e`.`Id`
+""");
+    }
+
+    public override async Task Project_primitive_collection_mapped_to_column()
+    {
+        await base.Project_primitive_collection_mapped_to_column();
+
+        AssertSql(
+            """
+SELECT `e`.`Tags`
+FROM `EntitiesWithPrimitiveCollection` AS `e`
+ORDER BY `e`.`Id`
+""");
+    }
+
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -2116,11 +2176,12 @@ FROM `Blogs` AS `b`
             builder = base.AddOptions(builder);
 
             // TODO: Figure out if there's a nice way to continue using the retrying strategy
-            var jetOptionsBuilder = new JetDbContextOptionsBuilder(builder);
-            jetOptionsBuilder.ExecutionStrategy(d => new NonRetryingExecutionStrategy(d));
-            return builder;
+            var JetOptionsBuilder = new JetDbContextOptionsBuilder(builder);
+            JetOptionsBuilder.ExecutionStrategy(d => new NonRetryingExecutionStrategy(d));
+            return builder.EnableDetailedErrors();
         }
 
-        public override PrecompiledQueryTestHelpers PrecompiledQueryTestHelpers => JetPrecompiledQueryTestHelpers.Instance;
+        public override PrecompiledQueryTestHelpers PrecompiledQueryTestHelpers
+            => JetPrecompiledQueryTestHelpers.Instance;
     }
 }

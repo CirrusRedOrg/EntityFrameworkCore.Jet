@@ -1,4 +1,4 @@
-﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using EntityFrameworkCore.Jet.Data;
 using System;
@@ -155,10 +155,10 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities
             return true;
         }
 
-        public override Task CleanAsync(DbContext context)
+        public override Task CleanAsync(DbContext context, bool createTables = true)
         {
             context.Database.EnsureClean();
-            return Task.CompletedTask;
+            return base.CleanAsync(context, createTables);
         }
 
         public void ExecuteScript(string script)

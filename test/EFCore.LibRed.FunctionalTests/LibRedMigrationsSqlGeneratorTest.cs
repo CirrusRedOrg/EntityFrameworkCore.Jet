@@ -27,7 +27,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 new LibRedDbContextOptionsBuilder(new DbContextOptionsBuilder()))
             .OptionsBuilder).Options)
     {
-        [ConditionalFact]
+        [Fact]
         public virtual void AddColumnOperation_identity_legacy()
         {
             Generate(
@@ -138,7 +138,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void AddColumnOperation_with_rowversion_overridden()
         {
             Generate(
@@ -159,7 +159,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void AddColumnOperation_with_rowversion_no_model()
         {
             Generate(
@@ -202,7 +202,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void AlterColumnOperation_with_identity_legacy()
         {
             Generate(
@@ -223,7 +223,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void AlterColumnOperation_with_index_no_oldColumn()
         {
             Generate(
@@ -253,7 +253,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void AlterColumnOperation_with_added_index()
         {
             Generate(
@@ -292,7 +292,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void AlterColumnOperation_with_added_index_no_oldType()
         {
             Generate(
@@ -330,7 +330,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void AlterColumnOperation_identity_legacy()
         {
             Generate(
@@ -356,7 +356,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void AlterColumnOperation_add_identity_legacy()
         {
             var ex = Assert.Throws<InvalidOperationException>(
@@ -374,7 +374,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Assert.Equal(JetStrings.AlterIdentityColumn, ex.Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void AlterColumnOperation_remove_identity_legacy()
         {
             var ex = Assert.Throws<InvalidOperationException>(
@@ -395,7 +395,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Assert.Equal(JetStrings.AlterIdentityColumn, ex.Message);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void CreateDatabaseOperation()
         {
             Generate(
@@ -408,7 +408,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        //         [ConditionalFact]
+        //         [Fact]
         //         public virtual void CreateDatabaseOperation_with_filename()
         //         {
         //             Generate(
@@ -430,7 +430,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         // ");
         //         }
 
-        //         [ConditionalFact]
+        //         [Fact]
         //         public virtual void CreateDatabaseOperation_with_filename_and_datadirectory()
         //         {
         //             var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
@@ -454,7 +454,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         // ");
         //         }
 
-        //         [ConditionalFact]
+        //         [Fact]
         //         public virtual void CreateDatabaseOperation_with_filename_and_custom_datadirectory()
         //         {
         //             var dataDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
@@ -482,7 +482,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         // ");
         //         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void DropDatabaseOperation()
         {
             Generate(
@@ -495,7 +495,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        [ConditionalFact(Skip = "LibRed does not support sequences")]
+        [Fact(Skip = "LibRed does not support sequences")]
         public virtual void MoveSequenceOperation_legacy()
         {
             Generate(
@@ -513,7 +513,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        [ConditionalFact(Skip = "LibRed does not support schema")]
+        [Fact(Skip = "LibRed does not support schema")]
         public virtual void MoveTableOperation_legacy()
         {
             Generate(
@@ -531,7 +531,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void RenameIndexOperations_throws_when_no_table()
         {
             var migrationBuilder = new MigrationBuilder("LibRed");
@@ -546,7 +546,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Assert.Equal(JetStrings.IndexTableRequired, ex.Message);
         }
 
-        [ConditionalFact(Skip = "LibRed does not support sequences")]
+        [Fact(Skip = "LibRed does not support sequences")]
         public virtual void RenameSequenceOperation_legacy()
         {
             Generate(
@@ -564,7 +564,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public override void RenameTableOperation_legacy()
         {
             base.RenameTableOperation_legacy();
@@ -925,7 +925,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             AssertSql(expectedSql);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void AddColumn_generates_exec_when_computed_and_idempotent()
         {
             Generate(
@@ -943,7 +943,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void AddCheckConstraint_generates_exec_when_idempotent()
         {
             Generate(
@@ -961,7 +961,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     """);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void CreateIndex_generates_exec_when_filter_and_idempotent()
         {
             Generate(
@@ -979,7 +979,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
                     """);
         }
-        [ConditionalTheory(Skip = "No sequences")]
+        [Theory(Skip = "No sequences")]
         public override void Sequence_restart_operation(long? startsAt)
         {
             base.Sequence_restart_operation(startsAt);
@@ -990,7 +990,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             AssertSql(expectedSql);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void AddColumnOperation_datetime_with_defaultValue_sql()
         {
             Generate(

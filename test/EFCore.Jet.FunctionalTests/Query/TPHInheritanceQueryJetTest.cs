@@ -8,7 +8,8 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestModels.InheritanceModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
+using Microsoft.EntityFrameworkCore.BulkUpdates.Inheritance;
+using Microsoft.EntityFrameworkCore.Query.Inheritance;
 #nullable disable
 // ReSharper disable InconsistentNaming
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
@@ -16,11 +17,11 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 public class TPHInheritanceQueryJetTest(TPHInheritanceQueryJetFixture fixture, ITestOutputHelper testOutputHelper)
     : TPHInheritanceQueryTestBase<TPHInheritanceQueryJetFixture>(fixture, testOutputHelper)
 {
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Common_property_shares_column()
     {
         using var context = CreateContext();
@@ -44,20 +45,20 @@ public class TPHInheritanceQueryJetTest(TPHInheritanceQueryJetFixture fixture, I
         await base.Can_query_when_shared_column(async);
 
         AssertSql(
-"""
-SELECT TOP 2 `d`.`Id`, `d`.`Discriminator`, `d`.`SortIndex`, `d`.`CaffeineGrams`, `d`.`CokeCO2`, `d`.`SugarGrams`
+            """
+SELECT TOP 2 `d`.`Id`, `d`.`Discriminator`, `d`.`SortIndex`, `d`.`CaffeineGrams`, `d`.`CokeCO2`, `d`.`Ints`, `d`.`SugarGrams`, `d`.`ComplexTypeCollection`, `d`.`ParentComplexType_Int`, `d`.`ParentComplexType_UniqueInt`, `d`.`ParentComplexType_Nested_NestedInt`, `d`.`ParentComplexType_Nested_UniqueInt`, `d`.`ChildComplexType_Int`, `d`.`ChildComplexType_UniqueInt`, `d`.`ChildComplexType_Nested_NestedInt`, `d`.`ChildComplexType_Nested_UniqueInt`
 FROM `Drinks` AS `d`
 WHERE `d`.`Discriminator` = 1
 """,
             //
-"""
-SELECT TOP 2 `d`.`Id`, `d`.`Discriminator`, `d`.`SortIndex`, `d`.`LiltCO2`, `d`.`SugarGrams`
+            """
+SELECT TOP 2 `d`.`Id`, `d`.`Discriminator`, `d`.`SortIndex`, `d`.`LiltCO2`, `d`.`SugarGrams`, `d`.`ComplexTypeCollection`, `d`.`ParentComplexType_Int`, `d`.`ParentComplexType_UniqueInt`, `d`.`ParentComplexType_Nested_NestedInt`, `d`.`ParentComplexType_Nested_UniqueInt`
 FROM `Drinks` AS `d`
 WHERE `d`.`Discriminator` = 2
 """,
             //
-"""
-SELECT TOP 2 `d`.`Id`, `d`.`Discriminator`, `d`.`SortIndex`, `d`.`CaffeineGrams`, `d`.`HasMilk`
+            """
+SELECT TOP 2 `d`.`Id`, `d`.`Discriminator`, `d`.`SortIndex`, `d`.`CaffeineGrams`, `d`.`HasMilk`, `d`.`ComplexTypeCollection`, `d`.`ParentComplexType_Int`, `d`.`ParentComplexType_UniqueInt`, `d`.`ParentComplexType_Nested_NestedInt`, `d`.`ParentComplexType_Nested_UniqueInt`, `d`.`Tea_ChildComplexType_Int`, `d`.`Tea_ChildComplexType_UniqueInt`, `d`.`Tea_ChildComplexType_Nested_NestedInt`, `d`.`Tea_ChildComplexType_Nested_UniqueInt`
 FROM `Drinks` AS `d`
 WHERE `d`.`Discriminator` = 3
 """);
@@ -68,7 +69,7 @@ WHERE `d`.`Discriminator` = 3
         base.FromSql_on_root();
 
         AssertSql(
-"""
+            """
 select * from `Animals`
 """);
     }
@@ -78,7 +79,7 @@ select * from `Animals`
         base.FromSql_on_derived();
 
         AssertSql(
-"""
+            """
 SELECT `m`.`Id`, `m`.`CountryId`, `m`.`Discriminator`, `m`.`Name`, `m`.`Species`, `m`.`EagleId`, `m`.`IsFlightless`, `m`.`Group`
 FROM (
     select * from `Animals`
@@ -92,8 +93,8 @@ WHERE `m`.`Discriminator` = 'Eagle'
         await base.Can_query_all_types_when_shared_column(async);
 
         AssertSql(
-"""
-SELECT `d`.`Id`, `d`.`Discriminator`, `d`.`SortIndex`, `d`.`CaffeineGrams`, `d`.`CokeCO2`, `d`.`SugarGrams`, `d`.`LiltCO2`, `d`.`HasMilk`
+            """
+SELECT `d`.`Id`, `d`.`Discriminator`, `d`.`SortIndex`, `d`.`CaffeineGrams`, `d`.`CokeCO2`, `d`.`Ints`, `d`.`SugarGrams`, `d`.`LiltCO2`, `d`.`HasMilk`, `d`.`ComplexTypeCollection`, `d`.`ParentComplexType_Int`, `d`.`ParentComplexType_UniqueInt`, `d`.`ParentComplexType_Nested_NestedInt`, `d`.`ParentComplexType_Nested_UniqueInt`, `d`.`ChildComplexType_Int`, `d`.`ChildComplexType_UniqueInt`, `d`.`ChildComplexType_Nested_NestedInt`, `d`.`ChildComplexType_Nested_UniqueInt`, `d`.`Tea_ChildComplexType_Int`, `d`.`Tea_ChildComplexType_UniqueInt`, `d`.`Tea_ChildComplexType_Nested_NestedInt`, `d`.`Tea_ChildComplexType_Nested_UniqueInt`
 FROM `Drinks` AS `d`
 """);
     }
@@ -103,10 +104,10 @@ FROM `Drinks` AS `d`
         await base.Can_use_of_type_animal(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -115,7 +116,7 @@ ORDER BY `a`.`Species`
         await base.Can_use_is_kiwi(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
@@ -127,7 +128,7 @@ WHERE `a`.`Discriminator` = 'Kiwi'
         await base.Can_use_is_kiwi_with_cast(async);
 
         AssertSql(
-"""
+            """
 SELECT IIF(`a`.`Discriminator` = 'Kiwi', `a`.`FoundOn`, CBYTE(0)) AS `Value`
 FROM `Animals` AS `a`
 """);
@@ -138,7 +139,7 @@ FROM `Animals` AS `a`
         await base.Can_use_is_kiwi_with_other_predicate(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`CountryId` = 1
@@ -161,10 +162,10 @@ FROM `Animals` AS `a`
         await base.Can_use_of_type_bird(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -173,11 +174,11 @@ ORDER BY `a`.`Species`
         await base.Can_use_of_type_bird_predicate(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`CountryId` = 1
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -186,7 +187,7 @@ ORDER BY `a`.`Species`
         await base.Can_use_of_type_bird_with_projection(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`EagleId`
 FROM `Animals` AS `a`
 """);
@@ -209,7 +210,7 @@ ORDER BY `a`.`Species`
         await base.Can_use_of_type_kiwi(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
@@ -221,22 +222,25 @@ WHERE `a`.`Discriminator` = 'Kiwi'
         await base.Can_use_of_type_rose(async);
 
         AssertSql(
-"""
+            """
 SELECT `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `p`.`HasThorns`
 FROM `Plants` AS `p`
 WHERE `p`.`Genus` = 0
 """);
     }
 
+    public override async Task Can_insert_update_delete()
+        => await base.Can_insert_update_delete();
+
     public override async Task Can_query_all_animals(bool async)
     {
         await base.Can_query_all_animals(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -266,23 +270,16 @@ ORDER BY `p`.`Species`
 """);
     }
 
-    public override async Task Filter_on_property_inside_complex_type_on_derived_type(bool async)
-    {
-        await base.Filter_on_property_inside_complex_type_on_derived_type(async);
-
-        AssertSql();
-    }
-
     public override async Task Can_filter_all_animals(bool async)
     {
         await base.Can_filter_all_animals(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Name` = 'Great spotted kiwi'
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -291,10 +288,10 @@ ORDER BY `a`.`Species`
         await base.Can_query_all_birds(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -303,7 +300,7 @@ ORDER BY `a`.`Species`
         await base.Can_query_just_kiwis(async);
 
         AssertSql(
-"""
+            """
 SELECT TOP 2 `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
@@ -315,7 +312,7 @@ WHERE `a`.`Discriminator` = 'Kiwi'
         await base.Can_query_just_roses(async);
 
         AssertSql(
-"""
+            """
 SELECT TOP 2 `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `p`.`HasThorns`
 FROM `Plants` AS `p`
 WHERE `p`.`Genus` = 0
@@ -335,7 +332,7 @@ FROM (
     WHERE `a`.`Discriminator` = 'Eagle'
 ) AS `a1`
 LEFT JOIN `Animals` AS `a0` ON `a1`.`Id` = `a0`.`EagleId`
-ORDER BY `a1`.`Id`
+ORDER BY `a1`.`Id`, `a0`.`Id`
 """);
     }
 
@@ -344,11 +341,11 @@ ORDER BY `a1`.`Id`
         await base.Can_include_animals(async);
 
         AssertSql(
-"""
+            """
 SELECT `c`.`Id`, `c`.`Name`, `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Countries` AS `c`
 LEFT JOIN `Animals` AS `a` ON `c`.`Id` = `a`.`CountryId`
-ORDER BY `c`.`Name`, `c`.`Id`
+ORDER BY `c`.`Name`, `c`.`Id`, `a`.`Id`
 """);
     }
 
@@ -357,7 +354,7 @@ ORDER BY `c`.`Name`, `c`.`Id`
         await base.Can_use_of_type_kiwi_where_north_on_derived_property(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`FoundOn` = CBYTE(0)
@@ -369,7 +366,7 @@ WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`FoundOn` = CBYTE(0)
         await base.Can_use_of_type_kiwi_where_south_on_derived_property(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`FoundOn` = CBYTE(1)
@@ -381,7 +378,7 @@ WHERE `a`.`Discriminator` = 'Kiwi' AND `a`.`FoundOn` = CBYTE(1)
         await base.Discriminator_used_when_projection_over_derived_type(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
@@ -393,7 +390,7 @@ WHERE `a`.`Discriminator` = 'Kiwi'
         await base.Discriminator_used_when_projection_over_derived_type2(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`IsFlightless`, `a`.`Discriminator`
 FROM `Animals` AS `a`
 """);
@@ -404,15 +401,12 @@ FROM `Animals` AS `a`
         await base.Discriminator_used_when_projection_over_of_type(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
 """);
     }
-
-    public override async Task Can_insert_update_delete()
-        => await base.Can_insert_update_delete();
 
     public override async Task Byte_enum_value_constant_used_in_projection(bool async)
     {
@@ -514,11 +508,11 @@ WHERE 0 = 1
         await base.Member_access_on_intermediate_type_works();
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Name`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
-ORDER BY `a`.`Name`
+ORDER BY `a`.`Name`, `a`.`Id`
 """);
     }
 
@@ -542,14 +536,14 @@ WHERE `a`.`Discriminator` = 'Eagle'
         await base.Is_operator_on_result_of_FirstOrDefault(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE (
     SELECT TOP 1 `a0`.`Discriminator`
     FROM `Animals` AS `a0`
     WHERE `a0`.`Name` = 'Great spotted kiwi') = 'Kiwi'
-ORDER BY `a`.`Species`
+ORDER BY `a`.`Species`, `a`.`Id`
 """);
     }
 
@@ -558,7 +552,7 @@ ORDER BY `a`.`Species`
         await base.Selecting_only_base_properties_on_base_type(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Name`
 FROM `Animals` AS `a`
 """);
@@ -569,7 +563,7 @@ FROM `Animals` AS `a`
         await base.Selecting_only_base_properties_on_derived_type(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Name`
 FROM `Animals` AS `a`
 """);
@@ -580,7 +574,7 @@ FROM `Animals` AS `a`
         await base.Can_use_backwards_of_type_animal(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
@@ -592,7 +586,7 @@ WHERE `a`.`Discriminator` = 'Kiwi'
         await base.Can_use_backwards_is_animal(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
@@ -604,7 +598,7 @@ WHERE `a`.`Discriminator` = 'Kiwi'
         await base.Discriminator_with_cast_in_shadow_property(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Name` AS `Predator`
 FROM `Animals` AS `a`
 WHERE 'Kiwi' = `a`.`Discriminator`
@@ -699,7 +693,7 @@ WHERE FALSE
         await base.GetType_in_hierarchy_in_leaf_type_with_sibling(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Eagle'
@@ -711,7 +705,7 @@ WHERE `a`.`Discriminator` = 'Eagle'
         await base.GetType_in_hierarchy_in_leaf_type_with_sibling2(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
@@ -723,7 +717,7 @@ WHERE `a`.`Discriminator` = 'Kiwi'
         await base.GetType_in_hierarchy_in_leaf_type_with_sibling2_reverse(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
@@ -735,10 +729,24 @@ WHERE `a`.`Discriminator` = 'Kiwi'
         await base.GetType_in_hierarchy_in_leaf_type_with_sibling2_not_equal(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Discriminator`, `a`.`Name`, `a`.`Species`, `a`.`EagleId`, `a`.`IsFlightless`, `a`.`Group`, `a`.`FoundOn`
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` <> 'Kiwi'
+""");
+    }
+
+    public override async Task Primitive_collection_on_subtype(bool async)
+    {
+        await base.Primitive_collection_on_subtype(async);
+
+        AssertSql(
+            """
+SELECT [d].[Id], [d].[Discriminator], [d].[SortIndex], [d].[CaffeineGrams], [d].[CokeCO2], [d].[Ints], [d].[SugarGrams], [d].[LiltCO2], [d].[HasMilk], [d].[ComplexTypeCollection], [d].[ParentComplexType_Int], [d].[ParentComplexType_UniqueInt], [d].[ParentComplexType_Nested_NestedInt], [d].[ParentComplexType_Nested_UniqueInt], [d].[ChildComplexType_Int], [d].[ChildComplexType_UniqueInt], [d].[ChildComplexType_Nested_NestedInt], [d].[ChildComplexType_Nested_UniqueInt], [d].[Tea_ChildComplexType_Int], [d].[Tea_ChildComplexType_UniqueInt], [d].[Tea_ChildComplexType_Nested_NestedInt], [d].[Tea_ChildComplexType_Nested_UniqueInt]
+FROM [Drinks] AS [d]
+WHERE EXISTS (
+    SELECT 1
+    FROM OPENJSON([d].[Ints]) AS [i])
 """);
     }
 

@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 {
     public class SequentialGuidEndToEndTest : IAsyncLifetime
     {
-        [ConditionalFact]
+        [Fact]
         public async Task Can_use_sequential_GUID_end_to_end_async()
         {
             var serviceProvider = new ServiceCollection()
@@ -52,7 +52,7 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
             }
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Can_use_explicit_values()
         {
             var serviceProvider = new ServiceCollection()
@@ -112,13 +112,13 @@ namespace EntityFrameworkCore.Jet.FunctionalTests
 
         protected JetTestStore TestStore { get; private set; }
 
-        public async Task InitializeAsync()
+        public async ValueTask InitializeAsync()
             => TestStore = await JetTestStore.CreateInitializedAsync("SequentialGuidEndToEndTest");
 
-        public async Task DisposeAsync()
+        public async ValueTask DisposeAsync()
             => await TestStore.DisposeAsync();
 
-        [ConditionalFact]
+        [Fact]
         public void CustomUuid7Test()
         {
             DateTimeOffset dtoNow = DateTimeOffset.UtcNow;

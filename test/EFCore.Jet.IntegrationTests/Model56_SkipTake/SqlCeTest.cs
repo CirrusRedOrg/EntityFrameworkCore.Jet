@@ -1,4 +1,4 @@
-﻿/*
+/*
 SQL CE Test disabled
 */
 using System;

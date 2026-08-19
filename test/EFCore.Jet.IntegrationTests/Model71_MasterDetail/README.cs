@@ -1,4 +1,4 @@
-﻿/*
+/*
 This test is based on lazy load and is not implemented in EF core 2.0
 */
 

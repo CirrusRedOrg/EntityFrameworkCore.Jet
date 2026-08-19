@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.Query.Translations;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query.Translations;
 
@@ -92,6 +91,18 @@ WHERE INSTR(1, STRCONV(`b`.`ByteArray`, 64), CHR(`b`.`Byte`), 0) > 0
 """);
     }
 
+    public override async Task Any()
+    {
+        await base.Any();
+
+        AssertSql(
+            """
+SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
+FROM [BasicTypesEntities] AS [b]
+WHERE DATALENGTH([b].[ByteArray]) > 0
+""");
+    }
+
     public override async Task SequenceEqual()
     {
         await base.SequenceEqual();
@@ -106,7 +117,7 @@ WHERE `b`.`ByteArray` = @byteArrayParam
 """);
     }
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

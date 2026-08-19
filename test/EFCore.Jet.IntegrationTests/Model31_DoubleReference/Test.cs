@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace EntityFrameworkCore.Jet.IntegrationTests.Model31_DoubleReference

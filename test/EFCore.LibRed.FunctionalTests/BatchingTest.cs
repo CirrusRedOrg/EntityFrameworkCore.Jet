@@ -25,7 +25,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
     {
         protected BatchingTestFixture Fixture { get; } = fixture;
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(true, true, true)]
         [InlineData(false, true, true)]
         [InlineData(true, false, true)]
@@ -72,7 +72,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 context => AssertDatabaseState(context, clientOrder, expectedBlogs));
         }
 
-        [ConditionalFact]
+        [Fact]
         public Task Inserts_and_updates_are_batched_correctly()
         {
             var expectedBlogs = new List<Blog>();
@@ -125,7 +125,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 context => AssertDatabaseState(context, true, expectedBlogs));
         }
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(1)]
         [InlineData(3)]
         [InlineData(4)]
@@ -161,135 +161,149 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 });
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Deadlock_on_inserts_and_deletes_with_dependents_is_handled_correctly()
         {
-            var blogs = new List<Blog>();
-
-            using (var context = CreateContext())
+            try
             {
-                var owner1 = new Owner { Name = "0" };
-                var owner2 = new Owner { Name = "1" };
-                context.Owners.Add(owner1);
-                context.Owners.Add(owner2);
+                var blogs = new List<Blog>();
 
-                blogs.Add(
-                    new Blog
-                    {
-                        Id = Guid.NewGuid(),
-                        Owner = owner1,
-                        Order = 1
-                    });
-                blogs.Add(
-                    new Blog
-                    {
-                        Id = Guid.NewGuid(),
-                        Owner = owner2,
-                        Order = 2
-                    });
-                blogs.Add(
-                    new Blog
-                    {
-                        Id = Guid.NewGuid(),
-                        Owner = owner1,
-                        Order = 3
-                    });
-                blogs.Add(
-                    new Blog
-                    {
-                        Id = Guid.NewGuid(),
-                        Owner = owner2,
-                        Order = 4
-                    });
-
-                context.AddRange(blogs);
-
-                await context.SaveChangesAsync();
-            }
-
-            var tasks = new List<Task>();
-            for (var i = 0; i < 10; i++)
-            {
-                foreach (var blog in blogs)
+                using (var context = CreateContext())
                 {
-                    tasks.Add(RemoveAndAddPosts(blog));
+                    var owner1 = new Owner { Name = "0" };
+                    var owner2 = new Owner { Name = "1" };
+                    context.Owners.Add(owner1);
+                    context.Owners.Add(owner2);
+
+                    blogs.Add(
+                        new Blog
+                        {
+                            Id = Guid.NewGuid(),
+                            Owner = owner1,
+                            Order = 1
+                        });
+                    blogs.Add(
+                        new Blog
+                        {
+                            Id = Guid.NewGuid(),
+                            Owner = owner2,
+                            Order = 2
+                        });
+                    blogs.Add(
+                        new Blog
+                        {
+                            Id = Guid.NewGuid(),
+                            Owner = owner1,
+                            Order = 3
+                        });
+                    blogs.Add(
+                        new Blog
+                        {
+                            Id = Guid.NewGuid(),
+                            Owner = owner2,
+                            Order = 4
+                        });
+
+                    context.AddRange(blogs);
+
+                    await context.SaveChangesAsync();
+                }
+
+                var tasks = new List<Task>();
+                for (var i = 0; i < 10; i++)
+                {
+                    foreach (var blog in blogs)
+                    {
+                        tasks.Add(RemoveAndAddPosts(blog));
+                    }
+                }
+
+                Task.WaitAll(tasks.ToArray());
+
+                async Task RemoveAndAddPosts(Blog blog)
+                {
+                    using var context = (BloggingContext)Fixture.CreateContext(useConnectionString: true);
+
+                    context.Attach(blog);
+                    blog.Posts.Clear();
+
+                    blog.Posts.Add(new Post { Comments = { new Comment() } });
+                    blog.Posts.Add(new Post { Comments = { new Comment() } });
+                    blog.Posts.Add(new Post { Comments = { new Comment() } });
+
+                    await context.SaveChangesAsync();
                 }
             }
-
-            Task.WaitAll(tasks.ToArray());
-
-            async Task RemoveAndAddPosts(Blog blog)
+            finally
             {
-                using var context = (BloggingContext)Fixture.CreateContext(useConnectionString: true);
-
-                context.Attach(blog);
-                blog.Posts.Clear();
-
-                blog.Posts.Add(new Post { Comments = { new Comment() } });
-                blog.Posts.Add(new Post { Comments = { new Comment() } });
-                blog.Posts.Add(new Post { Comments = { new Comment() } });
-
-                await context.SaveChangesAsync();
+                // Always reseed: this test writes outside a transaction, so a failed assertion would
+                // otherwise leave its rows behind and break whichever test runs next.
+                await Fixture.ReseedAsync();
             }
-
-            await Fixture.ReseedAsync();
         }
 
-        [ConditionalFact]
+        [Fact]
         public async Task Deadlock_on_deletes_with_dependents_is_handled_correctly()
         {
-            var owners = new[] { new Owner { Name = "0" }, new Owner { Name = "1" } };
-            using (var context = CreateContext())
+            try
             {
-                context.Owners.AddRange(owners);
-
-                for (var h = 0; h <= 40; h++)
+                var owners = new[] { new Owner { Name = "0" }, new Owner { Name = "1" } };
+                using (var context = CreateContext())
                 {
-                    var owner = owners[h % 2];
-                    var blog = new Blog
-                    {
-                        Id = Guid.NewGuid(),
-                        Owner = owner,
-                        Order = h
-                    };
+                    context.Owners.AddRange(owners);
 
-                    for (var i = 0; i <= 40; i++)
+                    for (var h = 0; h <= 40; h++)
                     {
-                        blog.Posts.Add(new Post { Comments = { new Comment() } });
+                        var owner = owners[h % 2];
+                        var blog = new Blog
+                        {
+                            Id = Guid.NewGuid(),
+                            Owner = owner,
+                            Order = h
+                        };
+
+                        for (var i = 0; i <= 40; i++)
+                        {
+                            blog.Posts.Add(new Post { Comments = { new Comment() } });
+                        }
+
+                        context.Add(blog);
                     }
 
-                    context.Add(blog);
+                    await context.SaveChangesAsync();
                 }
 
-                await context.SaveChangesAsync();
-            }
+                async Task Action(Owner owner)
+                {
+                    using var context = (BloggingContext)Fixture.CreateContext(useConnectionString: true);
 
-            async Task Action(Owner owner)
+                    context.RemoveRange(await context.Blogs.Where(b => b.OwnerId == owner.Id).ToListAsync());
+
+                    await context.SaveChangesAsync();
+                }
+
+                var tasks = new List<Task>();
+                foreach (var owner in owners)
+                {
+                    tasks.Add(Action(owner));
+                }
+
+                Task.WaitAll(tasks.ToArray());
+
+                using (var context = CreateContext())
+                {
+                    Assert.Empty(await context.Blogs.ToListAsync());
+                }
+            }
+            finally
             {
-                using var context = (BloggingContext)Fixture.CreateContext(useConnectionString: true);
-
-                context.RemoveRange(await context.Blogs.Where(b => b.OwnerId == owner.Id).ToListAsync());
-
-                await context.SaveChangesAsync();
+                // Always reseed: this test writes outside a transaction, so a failed assertion would
+                // otherwise leave its rows behind and break whichever test runs next.
+                await Fixture.ReseedAsync();
             }
-
-            var tasks = new List<Task>();
-            foreach (var owner in owners)
-            {
-                tasks.Add(Action(owner));
-            }
-
-            Task.WaitAll(tasks.ToArray());
-
-            using (var context = CreateContext())
-            {
-                Assert.Empty(await context.Blogs.ToListAsync());
-            }
-
-            await Fixture.ReseedAsync();
         }
 
-        [ConditionalFact]
+        [Fact]
         public Task Inserts_when_database_type_is_different()
             => ExecuteWithStrategyInTransactionAsync(
                 context =>
@@ -302,7 +316,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     return context.SaveChangesAsync();
                 }, async context => Assert.Equal(2, await context.Owners.CountAsync()));
 
-        [ConditionalTheory]
+        [Theory]
         [InlineData(3)]
         [InlineData(4)]
         public Task Inserts_are_batched_only_when_necessary(int minBatchSize)

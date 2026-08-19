@@ -5,7 +5,6 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query.Translations;
 
@@ -87,7 +86,7 @@ WHERE `b`.`String` = 'seattle'
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) = 7
+WHERE LEN(`b`.`String`) = 7
 """);
     }
 
@@ -204,7 +203,7 @@ WHERE (INSTR(1, `b`.`String`, @pattern, 1) - IIF(@pattern = '', 0, 1)) = 1
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) > 2 AND (INSTR(3, `b`.`String`, 'e', 1) - 1) = 6
+WHERE LEN(`b`.`String`) > 2 AND (INSTR(3, `b`.`String`, 'e', 1) - 1) = 6
 """);
     }
 
@@ -216,7 +215,7 @@ WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) > 2 AND (INS
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) > 2 AND (INSTR(3, `b`.`String`, 'e', 1) - 1) = 6
+WHERE LEN(`b`.`String`) > 2 AND (INSTR(3, `b`.`String`, 'e', 1) - 1) = 6
 """);
     }
 
@@ -230,7 +229,7 @@ WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) > 2 AND (INS
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) > 2 AND (INSTR(@start + 1, `b`.`String`, 'E', 1) - 1) = 6
+WHERE LEN(`b`.`String`) > 2 AND (INSTR(@start + 1, `b`.`String`, 'E', 1) - 1) = 6
 """);
     }
 
@@ -244,7 +243,7 @@ WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) > 2 AND (INS
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) > 2 AND (INSTR(@start + 1, `b`.`String`, 'e', 1) - 1) = 6
+WHERE LEN(`b`.`String`) > 2 AND (INSTR(@start + 1, `b`.`String`, 'e', 1) - 1) = 6
 """);
     }
 
@@ -269,6 +268,21 @@ WHERE (INSTR(1, (`b`.`Int` & ''), '55', 1) - 1) = 1
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
 WHERE (INSTR(1, '12559', (`b`.`Int` & ''), 1) - IIF((`b`.`Int` & '') = '', 0, 1)) = 1
+""");
+    }
+
+    public override async Task IndexOf_with_non_string_column_using_double_cast()
+    {
+        await base.IndexOf_with_non_string_column_using_double_cast();
+
+        AssertSql(
+            """
+@pattern='5' (Size = 255)
+@pattern='5' (Size = 255)
+
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE (INSTR(1, (`b`.`Int` & ''), @pattern, 1) - IIF(@pattern = '', 0, 1)) <> -1
 """);
     }
 
@@ -324,6 +338,18 @@ WHERE `b`.`String` <> '' AND REPLACE(`b`.`String`, `b`.`String`, (`b`.`Int` & ''
 """);
     }
 
+    public override async Task Replace_with_non_string_column_using_double_cast()
+    {
+        await base.Replace_with_non_string_column_using_double_cast();
+
+        AssertSql(
+            """
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE REPLACE((`b`.`Int` & ''), '8', '3') = '3'
+""");
+    }
+
     #endregion Replace
 
     #region Substring
@@ -333,10 +359,10 @@ WHERE `b`.`String` <> '' AND REPLACE(`b`.`String`, `b`.`String`, (`b`.`Int` & ''
         await base.Substring();
 
         AssertSql(
-            """
+    """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 3 AND MID(`b`.`String`, 1 + 1, 2) = 'ea'
+WHERE LEN(`b`.`String`) >= 3 AND MID(`b`.`String`, 1 + 1, 2) = 'ea'
 """);
     }
 
@@ -360,7 +386,7 @@ WHERE MID(`b`.`String`, 0 + 1, LEN(`b`.`String`)) = 'Seattle'
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 1 AND MID(`b`.`String`, 1 + 1, LEN(`b`.`String`)) = 'eattle'
+WHERE LEN(`b`.`String`) >= 1 AND MID(`b`.`String`, 1 + 1, LEN(`b`.`String`)) = 'eattle'
 """);
     }
 
@@ -374,7 +400,7 @@ WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 1 AND MID
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 2 AND MID(`b`.`String`, @start + 1, LEN(`b`.`String`)) = 'attle'
+WHERE LEN(`b`.`String`) >= 2 AND MID(`b`.`String`, @start + 1, LEN(`b`.`String`)) = 'attle'
 """);
     }
 
@@ -386,7 +412,7 @@ WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 2 AND MID
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 3 AND MID(`b`.`String`, 0 + 1, 3) = 'Sea'
+WHERE LEN(`b`.`String`) >= 3 AND MID(`b`.`String`, 0 + 1, 3) = 'Sea'
 """);
     }
 
@@ -398,7 +424,7 @@ WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 3 AND MID
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 2 AND MID(`b`.`String`, 2 + 1, 0) = ''
+WHERE LEN(`b`.`String`) >= 2 AND MID(`b`.`String`, 2 + 1, 0) = ''
 """);
     }
 
@@ -407,13 +433,13 @@ WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 2 AND MID
         await base.Substring_with_two_args_with_parameter();
 
         AssertSql(
-            """
+    """
 @start='2'
 @start='2'
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(LEN(`b`.`String`) IS NULL, NULL, CLNG(LEN(`b`.`String`))) >= 5 AND MID(`b`.`String`, IIF(@start = -1, 0, @start) + 1, 3) = 'att'
+WHERE LEN(`b`.`String`) >= 5 AND MID(`b`.`String`, IIF(@start = -1, 0, @start) + 1, 3) = 'att'
 """);
     }
 
@@ -455,13 +481,13 @@ FROM `NullableBasicTypesEntities` AS `n`
         await base.IsNullOrEmpty_negated();
 
         AssertSql(
-            """
+    """
 SELECT `n`.`Id`, `n`.`Bool`, `n`.`Byte`, `n`.`ByteArray`, `n`.`DateOnly`, `n`.`DateTime`, `n`.`DateTimeOffset`, `n`.`Decimal`, `n`.`Double`, `n`.`Enum`, `n`.`FlagsEnum`, `n`.`Float`, `n`.`Guid`, `n`.`Int`, `n`.`Long`, `n`.`Short`, `n`.`String`, `n`.`TimeOnly`, `n`.`TimeSpan`
 FROM `NullableBasicTypesEntities` AS `n`
 WHERE `n`.`String` IS NOT NULL AND `n`.`String` NOT LIKE ''
 """,
-            //
-            """
+    //
+    """
 SELECT `n`.`String` IS NOT NULL AND `n`.`String` NOT LIKE ''
 FROM `NullableBasicTypesEntities` AS `n`
 """);
@@ -500,7 +526,7 @@ WHERE `b`.`String` LIKE 'se%'
         await base.StartsWith_Literal_Char();
 
         AssertSql(
-            """
+    """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
 WHERE `b`.`String` LIKE 'S%'
@@ -512,7 +538,7 @@ WHERE `b`.`String` LIKE 'S%'
         await base.StartsWith_Parameter();
 
         AssertSql(
-            """
+    """
 @pattern_startswith='se%' (Size = 255)
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
@@ -540,7 +566,7 @@ WHERE `b`.`String` LIKE @pattern_startswith
         await base.StartsWith_Column();
 
         AssertSql(
-            """
+    """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
 WHERE LEFT(`b`.`String`, IIF(LEN(`b`.`String`) IS NULL, 0, LEN(`b`.`String`))) = `b`.`String`
@@ -577,7 +603,7 @@ WHERE LEFT(`b`.`String`, IIF(LEN(`b`.`String`) IS NULL, 0, LEN(`b`.`String`))) =
         await base.EndsWith_Literal();
 
         AssertSql(
-            """
+    """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
 WHERE `b`.`String` LIKE '%Le'
@@ -1302,7 +1328,7 @@ FROM (
     GROUP BY `b`.`Int`
 ) AS `b1`
 LEFT JOIN `BasicTypesEntities` AS `b0` ON `b1`.`Int` = `b0`.`Int`
-ORDER BY `b1`.`Int`
+ORDER BY `b1`.`Int`, `b0`.`Id`
 """);
     }
 
@@ -1334,7 +1360,7 @@ ORDER BY `n3`.`Key`
         await base.Join_with_predicate();
 
         AssertSql(
-            """
+    """
 SELECT `b1`.`Int`, `b2`.`String`, `b2`.`Id`
 FROM (
     SELECT `b`.`Int`
@@ -1344,9 +1370,9 @@ FROM (
 LEFT JOIN (
     SELECT `b0`.`String`, `b0`.`Id`, `b0`.`Int`
     FROM `BasicTypesEntities` AS `b0`
-    WHERE IIF(LEN(`b0`.`String`) IS NULL, NULL, CLNG(LEN(`b0`.`String`))) > 6
+    WHERE LEN(`b0`.`String`) > 6
 ) AS `b2` ON `b1`.`Int` = `b2`.`Int`
-ORDER BY `b1`.`Int`
+ORDER BY `b1`.`Int`, `b2`.`Id`
 """);
     }
 
@@ -1402,7 +1428,7 @@ WHERE (`b`.`String` & 'Boston') = 'SeattleBoston'
         await base.Concat_aggregate();
 
         AssertSql(
-            """
+    """
 SELECT `b1`.`Int`, `b0`.`String`, `b0`.`Id`
 FROM (
     SELECT `b`.`Int`
@@ -1410,7 +1436,7 @@ FROM (
     GROUP BY `b`.`Int`
 ) AS `b1`
 LEFT JOIN `BasicTypesEntities` AS `b0` ON `b1`.`Int` = `b0`.`Int`
-ORDER BY `b1`.`Int`
+ORDER BY `b1`.`Int`, `b0`.`Id`
 """);
     }
 
@@ -1618,7 +1644,7 @@ WHERE (`b`.`Int` & '') LIKE '%5%'
 
     #endregion Regex
 
-    [ConditionalFact]
+    [Fact]
     public virtual void Check_all_tests_overridden()
         => TestHelpers.AssertAllMethodsOverridden(GetType());
 

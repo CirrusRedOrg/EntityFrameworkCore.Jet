@@ -1,4 +1,4 @@
-﻿using System.Data.Odbc;
+using System.Data.Odbc;
 using System.Data.OleDb;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

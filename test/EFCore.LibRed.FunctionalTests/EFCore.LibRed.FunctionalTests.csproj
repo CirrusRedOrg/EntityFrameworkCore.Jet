@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>$(JetTargetFramework)</TargetFramework>
@@ -7,11 +7,8 @@
 		<Platforms>AnyCPU;x86;x64</Platforms>
 		<PreserveCompilationContext>true</PreserveCompilationContext>
 		<ImplicitUsings>disable</ImplicitUsings>
-		<!-- CA1416: this test project still exercises EFCore.Jet's Windows-only ODBC/OLE DB/ADOX
-		     internals (JetLoggingDefinitions, OleDbException, etc.) reused wholesale by LibRed.EFCore.
-		     Same transitional suppression as LibRed.EFCore.csproj - remove once EFCore.Jet is split
-		     into a shared cross-platform core and a Windows-only OLE DB/ADOX layer. -->
 		<NoWarn>$(NoWarn);CA1416</NoWarn>
+		<OutputType>Exe</OutputType>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -21,17 +18,14 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Build.Tasks.Core" Version="18.4.0" />
-		<PackageReference Include="MSTest.TestFramework" />
-		<PackageReference Include="xunit.core" />
-		<PackageReference Include="xunit.assert" />
-		<PackageReference Include="xunit.runner.visualstudio" />
-		<PackageReference Include="xunit.runner.console" />
+		<PackageReference Include="Microsoft.Build.Tasks.Core" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" />
+		<PackageReference Include="xunit.v3.core" />
+		<PackageReference Include="xunit.v3.assert" />
+		<PackageReference Include="xunit.runner.visualstudio" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.Json" />
-		<PackageReference Include="Newtonsoft.Json" />
 		<PackageReference Include="System.Data.Odbc" />
 		<PackageReference Include="System.Data.OleDb" />
 	</ItemGroup>
@@ -63,9 +57,7 @@
 		<Reference Include="Microsoft.EntityFrameworkCore.Specification.Tests">
 			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Specification.Tests.dll</HintPath>
 		</Reference>
-		<PackageReference Include="Microsoft.Extensions.Caching.Memory" />
 		<PackageReference Include="NetTopologySuite" />
-		<PackageReference Include="System.ComponentModel.TypeConverter" />
 		<PackageReference Include="Castle.Core" />
 	</ItemGroup>
 

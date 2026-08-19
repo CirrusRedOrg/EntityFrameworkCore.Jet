@@ -1,10 +1,9 @@
-﻿// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Data.Common;
 using System.Threading.Tasks;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
-using Xunit.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 using Microsoft.EntityFrameworkCore.TestModels.ConcurrencyModel;
@@ -188,9 +187,9 @@ SELECT COUNT(*) FROM `Customers` WHERE `City` = @city AND `ContactTitle` = @p0
             using var context = CreateContext();
 
             var actual = async
-                ? await context.Database.ExecuteSqlInterpolatedAsync(
+                ? await context.Database.ExecuteSqlAsync(
                     $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}")
-                : context.Database.ExecuteSqlInterpolated(
+                : context.Database.ExecuteSql(
                     $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}");
 
             Assert.Equal(-1, actual);
@@ -233,9 +232,9 @@ SELECT COUNT(*) FROM `Customers` WHERE `City` = @city AND `ContactTitle` = @p0
             using var context = CreateContext();
 
             var actual = async
-                ? await context.Database.ExecuteSqlInterpolatedAsync(
+                ? await context.Database.ExecuteSqlAsync(
                     $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}")
-                : context.Database.ExecuteSqlInterpolated(
+                : context.Database.ExecuteSql(
                     $@"SELECT COUNT(*) FROM `Customers` WHERE `City` = {city} AND `ContactTitle` = {contactTitle}");
 
             Assert.Equal(-1, actual);

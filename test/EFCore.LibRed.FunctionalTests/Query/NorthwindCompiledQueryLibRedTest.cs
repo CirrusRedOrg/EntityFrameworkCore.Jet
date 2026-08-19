@@ -5,7 +5,6 @@ using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
 {
@@ -18,7 +17,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
             fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
         }
 
-        [ConditionalFact]
+        [Fact]
         public virtual void Check_all_tests_overridden()
             => TestHelpers.AssertAllMethodsOverridden(GetType());
 
@@ -55,18 +54,18 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
             base.Query_ending_with_include();
 
             AssertSql(
-"""
+                """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """,
-//
-"""
+                //
+                """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -276,7 +275,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = @s1 OR `c`.`CustomerID` = @s2 OR `c`.`CustomerID` = @s3 OR `c`.`CustomerID` = @s4 OR `c`.`CustomerID` = @s5 OR `c`.`CustomerID` = @s6 OR `c`.`CustomerID` = @s7 OR `c`.`CustomerID` = @s8 OR `c`.`CustomerID` = @s9 OR `c`.`CustomerID` = @s10 OR `c`.`CustomerID` = @s11 OR `c`.`CustomerID` = @s12 OR `c`.`CustomerID` = @s13 OR `c`.`CustomerID` = @s14 OR `c`.`CustomerID` = @s15
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """,
                 //
                 """
@@ -344,7 +343,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = @s1 OR `c`.`CustomerID` = @s2 OR `c`.`CustomerID` = @s3 OR `c`.`CustomerID` = @s4 OR `c`.`CustomerID` = @s5 OR `c`.`CustomerID` = @s6 OR `c`.`CustomerID` = @s7 OR `c`.`CustomerID` = @s8 OR `c`.`CustomerID` = @s9 OR `c`.`CustomerID` = @s10 OR `c`.`CustomerID` = @s11 OR `c`.`CustomerID` = @s12 OR `c`.`CustomerID` = @s13 OR `c`.`CustomerID` = @s14 OR `c`.`CustomerID` = @s15
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """,
                 //
                 """
@@ -396,20 +395,44 @@ WHERE `c`.`CustomerID` = @s1 OR `c`.`CustomerID` = @s2 OR `c`.`CustomerID` = @s3
             base.Query_with_array_parameter();
 
             AssertSql(
-    """
-@__args='["ALFKI"]' (Size = 4000)
+                """
+@args1='ALFKI' (Size = 255)
 
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] = JSON_VALUE(@__args, '$[0]')
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = (
+    SELECT `a1`.`Value`
+    FROM (
+        SELECT TOP 1 `a0`.`Value`, `a0`.`_ord`
+        FROM (
+            SELECT TOP 0 + 1 `a`.`Value`, `a`.`_ord`
+            FROM (SELECT 0 AS `_ord`, @args1 AS `Value`
+            FROM (SELECT COUNT(*) FROM `#Dual`) AS `a_0`) AS `a`
+            ORDER BY `a`.`_ord`
+        ) AS `a0`
+        ORDER BY `a0`.`_ord` DESC
+    ) AS `a1`
+    ORDER BY `a1`.`_ord`)
 """,
-    //
-    """
-@__args='["ANATR"]' (Size = 4000)
+                //
+                """
+@args1='ANATR' (Size = 255)
 
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] = JSON_VALUE(@__args, '$[0]')
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = (
+    SELECT `a1`.`Value`
+    FROM (
+        SELECT TOP 1 `a0`.`Value`, `a0`.`_ord`
+        FROM (
+            SELECT TOP 0 + 1 `a`.`Value`, `a`.`_ord`
+            FROM (SELECT 0 AS `_ord`, @args1 AS `Value`
+            FROM (SELECT COUNT(*) FROM `#Dual`) AS `a_0`) AS `a`
+            ORDER BY `a`.`_ord`
+        ) AS `a0`
+        ORDER BY `a0`.`_ord` DESC
+    ) AS `a1`
+    ORDER BY `a1`.`_ord`)
 """);
         }
 
@@ -418,20 +441,44 @@ WHERE [c].[CustomerID] = JSON_VALUE(@__args, '$[0]')
             await base.Query_with_array_parameter_async();
 
             AssertSql(
-    """
-@__args='["ALFKI"]' (Size = 4000)
+                """
+@args1='ALFKI' (Size = 255)
 
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] = JSON_VALUE(@__args, '$[0]')
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = (
+    SELECT `a1`.`Value`
+    FROM (
+        SELECT TOP 1 `a0`.`Value`, `a0`.`_ord`
+        FROM (
+            SELECT TOP 0 + 1 `a`.`Value`, `a`.`_ord`
+            FROM (SELECT 0 AS `_ord`, @args1 AS `Value`
+            FROM (SELECT COUNT(*) FROM `#Dual`) AS `a_0`) AS `a`
+            ORDER BY `a`.`_ord`
+        ) AS `a0`
+        ORDER BY `a0`.`_ord` DESC
+    ) AS `a1`
+    ORDER BY `a1`.`_ord`)
 """,
-    //
-    """
-@__args='["ANATR"]' (Size = 4000)
+                //
+                """
+@args1='ANATR' (Size = 255)
 
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
-WHERE [c].[CustomerID] = JSON_VALUE(@__args, '$[0]')
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = (
+    SELECT `a1`.`Value`
+    FROM (
+        SELECT TOP 1 `a0`.`Value`, `a0`.`_ord`
+        FROM (
+            SELECT TOP 0 + 1 `a`.`Value`, `a`.`_ord`
+            FROM (SELECT 0 AS `_ord`, @args1 AS `Value`
+            FROM (SELECT COUNT(*) FROM `#Dual`) AS `a_0`) AS `a`
+            ORDER BY `a`.`_ord`
+        ) AS `a0`
+        ORDER BY `a0`.`_ord` DESC
+    ) AS `a1`
+    ORDER BY `a1`.`_ord`)
 """);
         }
 
@@ -747,7 +794,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = @customerID
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """,
                 //
                 """
@@ -757,9 +804,15 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = @customerID
-ORDER BY `c`.`CustomerID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """);
         }
+
+        public override void Compiled_query_with_EF_Constant_throws()
+            => base.Compiled_query_with_EF_Constant_throws();
+
+        public override void Compiled_query_with_EF_Parameter_throws()
+            => base.Compiled_query_with_EF_Parameter_throws();
 
         private void AssertSql(params string[] expected)
             => Fixture.TestSqlLoggerFactory.AssertBaseline(expected);

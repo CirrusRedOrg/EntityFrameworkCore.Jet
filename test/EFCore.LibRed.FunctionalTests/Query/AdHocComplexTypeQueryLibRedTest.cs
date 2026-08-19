@@ -38,24 +38,12 @@ FROM `EntityType` AS `e`
 """);
     }
 
-    public override async Task Complex_type_equality_with_non_default_type_mapping()
-    {
-        await base.Complex_type_equality_with_non_default_type_mapping();
-
-        AssertSql(
-            """
-SELECT COUNT(*)
-FROM `EntityType` AS `e`
-WHERE `e`.`ComplexThing_DateTime` = #2020-01-01 01:01:01#
-""");
-    }
-
-    protected TestSqlLoggerFactory TestSqlLoggerFactory
+    protected new TestSqlLoggerFactory TestSqlLoggerFactory
         => (TestSqlLoggerFactory)ListLoggerFactory;
 
-    protected void AssertSql(params string[] expected)
+    protected new void AssertSql(params string[] expected)
         => TestSqlLoggerFactory.AssertBaseline(expected);
 
-    protected override ITestStoreFactory TestStoreFactory
+    protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 }

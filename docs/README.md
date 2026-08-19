@@ -10,7 +10,8 @@
 
 | EntityFrameworkCore.Jet Version | Entity Framework Core Version | .NET | Notes |
 | ------------- | ------------- | ------------- | ------------- |
-| 10.0.x | 10.0.x | 10.0+ | Current development line |
+| 11.0.x | 11.0.x | 11.0+ | Current development line |
+| 10.0.x | 10.0.x | 10.0+ | Supported |
 | 9.0.x | 9.0.x | 9.0+ | Supported |
 | 8.0.x | 8.0.x | 8.0+ | Alpha 2 onwards is compatible with EF Core RTM |
 | 7.0.x | 7.0.x | 6.0+ |

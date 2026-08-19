@@ -15,6 +15,7 @@
     <!-- <PackageReleaseNotes>TODO</PackageReleaseNotes> -->
     <PackageTags>Entity Framework Core;Entity Framework Core;entity-framework-core;Jet;ACE;Access;MS Access;msaccess;EF;EFCore;EF Core;EntityFrameworkCore</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://github.com/CirrusRedOrg/EntityFrameworkCore.Jet</PackageProjectUrl>
     <!-- <PackageIconUrl>TODO</PackageIconUrl> -->
     <!-- <PackageIcon>packageIcon.png</PackageIcon> -->
@@ -32,6 +33,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Shown as the package description on nuget.org. Packed for every package; non-packable
+         projects simply ignore it. -->
+    <None Include="$(MSBuildThisFileDirectory)docs\README.md" Pack="true" PackagePath="\" Visible="false" />
     <EmbeddedResource Include="**\*.rd.xml" />
     <!-- <None Include="$(PackageIconFullPath)" Pack="true" PackagePath="\"/> -->
   </ItemGroup>

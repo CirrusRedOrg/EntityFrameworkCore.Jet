@@ -17,7 +17,11 @@ scope** (a column reference throws "Column not found" — a default is row-blind
 **Conventions.** All functions **propagate NULL** (a NULL argument yields NULL) unless noted; string
 positions are **1-based**; string comparisons default to **case-insensitive** (Access "Option Compare
 Database" = Text) and take an optional compare argument. Values follow VBA sign/rounding conventions
-(`CInt`/`CLng`/`CByte` use banker's rounding).
+(`CInt`/`CLng`/`CByte` use banker's rounding). **Dates compare by their OLE Automation serial**, not
+chronologically: below the 1899-12-30 epoch the day count goes negative while the time fraction stays
+positive, so 1899-12-29 06:00 is -1.25 and 18:00 is -1.75 and ACE orders the later time first. LibRed
+matches that, because `IndexKeyEncoder` writes the same serial as the index key and the two paths must
+agree (see `AcePreEpochDateProbeTest`). Date *functions* are unaffected — they work in date space.
 
 > **Two expression services — what "ACE has it" means.** Access has (1) the **Jet/ACE OLE DB Expression
 > Service (JES)**, the built-in set the ACE OLE DB provider carries **standalone**, and (2) the **Access
@@ -34,7 +38,15 @@ Database" = Text) and take an optional compare argument. Values follow VBA sign/
 ## Scalar functions
 
 **Type conversion** — `CBool` `CByte` `CInt` `CLng` `CSng` `CDbl` `CCur` `CDec` `CStr` `CDate` `CVar`
-(`CVar` is a pass-through — LibRed has no distinct Variant type; `CCur` rounds to 4 dp).
+(`CVar` is a pass-through — LibRed has no distinct Variant type; `CCur` rounds to 4 dp). A **Boolean**
+converts as VARIANT_BOOL, so True is **-1**, not 1 — `CInt`/`CLng`/`CSng`/`CDbl`/`CCur` all yield -1, and
+`CByte` overflows because a byte cannot hold it. `CStr` renders a Double at **15 significant digits** and a
+Single at **7** (the OA/VB convention, not .NET's shortest round-trippable form), and a Boolean as `"-1"` —
+note that is the Jet Expression Service's answer, where the VBA runtime proper would say `"True"`. `CBool`
+accepts a numeric string (`"-1"`) and a non-integral number. `CDec` has **no ACE equivalent** — the
+expression service has no such function — so it is a LibRed extension with no parity contract; `CCur` is
+ACE's route to a decimal. (All verified against ACE in
+`LibRed.Core.Tests.AceVbaConversionProbeTest`.)
 
 **Math** — `Abs` `Sgn` `Int` (floor, toward −∞) `Fix` (truncate, toward zero) `Round` (banker's) `Sqr`
 `Exp` `Log` (natural) `Sin` `Cos` `Tan` `Atn` `Rnd` `Timer`.

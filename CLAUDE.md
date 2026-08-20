@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 EntityFrameworkCore.Jet is an EF Core provider for Microsoft Jet/ACE databases (Microsoft Access `.mdb`/`.accdb` files). It runs **Windows only** and bridges EF Core to the Access database engine via either ODBC or OLE DB.
 
-Current version: `10.0.x` targeting EF Core 10 and `net10.0`.
+Current version: `11.0.x` targeting EF Core 11 and `net11.0`. The test projects use **xunit v3**.
 
 ## Build
 
@@ -18,7 +18,7 @@ Assemblies are **strong-name signed** using `Key.snk`. `TreatWarningsAsErrors=Tr
 
 ### Local EFCore Repository (optional)
 
-To develop against a local EF Core build instead of NuGet packages, copy `Development.props.sample` to `Development.props` and set `LocalEFCoreRepository` to your EF Core checkout. That local build must be compiled with `AssemblyVersion=10.0.0.0` to avoid binding conflicts.
+To develop against a local EF Core build instead of NuGet packages, copy `Development.props.sample` to `Development.props` and set `LocalEFCoreRepository` to your EF Core checkout. That local build must be compiled with `AssemblyVersion=11.0.0.0` to avoid binding conflicts.
 
 ## Tests
 

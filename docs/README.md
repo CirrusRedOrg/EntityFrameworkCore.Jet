@@ -111,6 +111,18 @@ Examples are:
 * `UseIdentityColumn` -> `UseJetIdentityColumn`
 * `UseIdentityColumns` -> `UseJetIdentityColumns`
 
+## LibRed - native managed engine (in development)
+
+[LibRed](https://github.com/CirrusRedOrg/EntityFrameworkCore.Jet/blob/master/src/LibRed/README.md) is a
+from-scratch, fully managed implementation of the Jet/ACE engine that lives in this repository. It reads and
+writes `MDB`/`ACCDB` files **directly** - no ODBC, OLE DB, DAO or ADOX - so it removes both the Windows-only
+requirement and the need to match your process architecture to an installed Access driver.
+
+It reads and writes real database files, runs SQL end to end, and an EF Core `DbContext` round-trips through
+it today. It is still in development and is **not published as a NuGet package**; the on-disk format it
+depends on is documented and verified in
+[`src/LibRed/docs/format/`](https://github.com/CirrusRedOrg/EntityFrameworkCore.Jet/blob/master/src/LibRed/docs/format/README.md).
+
 ## Further information
 
 More information can be found on our [Wiki](https://www.github.com/CirrusRedOrg/EntityFrameworkCore.Jet/wiki).

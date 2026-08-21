@@ -30,6 +30,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     new JetMathTranslator(sqlExpressionFactory),
                     new JetNewGuidTranslator(sqlExpressionFactory),
                     new JetObjectToStringTranslator(sqlExpressionFactory),
+                    new JetParseTranslator(sqlExpressionFactory),
                     new JetStringMethodTranslator(sqlExpressionFactory),
                     new JetRandomTranslator(sqlExpressionFactory),
                     new JetTimeOnlyMethodTranslator(sqlExpressionFactory)

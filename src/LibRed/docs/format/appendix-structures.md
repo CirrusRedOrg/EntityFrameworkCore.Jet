@@ -83,7 +83,7 @@ Variable section (`varOffsetTable`+`numVar`) omitted when the table has no varia
 | `0x08` | 4 | TDEF length (total logical bytes) |
 | `0x0C` | 4 | Constant marker `0x00000659` |
 | `0x10` | 4 | Row count |
-| `0x14` | 4 | AutoNumber high-water = last assigned id (next = `+ 0x18`); seed `= 0x14 + increment` |
+| `0x14` | 4 | AutoNumber high-water = last assigned id (next = `+ 0x18`, unchecked — **wraps** at the int32 boundary); seed `= 0x14 + increment` |
 | `0x18` | 4 | AutoNumber increment (signed int32; default 1) |
 | `0x1C` | 4 | Complex-type AutoNumber high-water |
 | `0x20` | 8 | Unknown / reserved (zero) |

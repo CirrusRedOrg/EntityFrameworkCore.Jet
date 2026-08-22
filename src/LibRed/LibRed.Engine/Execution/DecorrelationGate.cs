@@ -41,13 +41,26 @@ namespace LibRed.Engine.Execution;
 internal sealed class DecorrelationGate
 {
     /// <summary>25 ms of per-row work before the decorrelated form takes over.</summary>
-    private static readonly long Budget = Stopwatch.Frequency / 40;
+    private static readonly long DefaultBudget = Stopwatch.Frequency / 40;
 
+    private readonly long _budget;
+    private readonly Func<long> _timestamp;
     private long _spent;
 
+    internal DecorrelationGate(long? budget = null, Func<long>? timestamp = null)
+    {
+        _budget = budget ?? DefaultBudget;
+        if (_budget <= 0) throw new ArgumentOutOfRangeException(nameof(budget));
+        _timestamp = timestamp ?? Stopwatch.GetTimestamp;
+    }
+
     /// <summary>Whether enough per-row time has been spent to justify one pass over the whole body.</summary>
-    internal bool Ready => _spent >= Budget;
+    internal bool Ready => _spent >= _budget;
 
     /// <summary>Charges one per-row evaluation, given the timestamp taken just before it started.</summary>
-    internal void Charge(long startTimestamp) => _spent += Stopwatch.GetTimestamp() - startTimestamp;
+    internal void Charge(long startTimestamp)
+    {
+        long elapsed = _timestamp() - startTimestamp;
+        if (elapsed > 0) _spent += elapsed;
+    }
 }

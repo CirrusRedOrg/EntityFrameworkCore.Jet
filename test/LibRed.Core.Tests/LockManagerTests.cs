@@ -64,8 +64,7 @@ public class LockManagerTests
     [Fact]
     public void PageChannel_reads_and_writes_correctly_under_a_lock_manager()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"libred-locked-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-locked-");
         try
         {
             using var channel = PageChannel.Open(path, readOnly: false, locks: new MonitorLockManager());
@@ -80,6 +79,6 @@ public class LockManagerTests
 
             Assert.NotEqual(page[10], channel.ReadPage(1).Span[10]); // rollback restored the original
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

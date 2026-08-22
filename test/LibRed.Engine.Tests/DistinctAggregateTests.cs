@@ -8,13 +8,12 @@ namespace LibRed.Engine.Tests;
 /// The ANSI intra-aggregate DISTINCT (<c>COUNT(DISTINCT col)</c>, <c>SUM(DISTINCT col)</c>, …) aggregates over
 /// the distinct set of the argument's VALUES — distinct on the column values, NOT distinct rows (see DISTINCTROW).
 /// </summary>
-public class DistinctAggregateTests
+public class DistinctAggregateTests : TempDatabaseTest
 {
     private static QueryEngine Seeded()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"da-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "da-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T (Id LONG PRIMARY KEY, Grp TEXT(5), V LONG)");
         // Group 'a': V = 10, 10, 20, 20, 20  → distinct {10,20}; all {10,10,20,20,20}
         int id = 0;

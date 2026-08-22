@@ -9,22 +9,12 @@ namespace LibRed.Core.Tests;
 /// <summary>A database LibRed creates from scratch (no DAO/ADOX) is opened, queried, and written by real Access.</summary>
 public class AceCreatedDatabaseTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no ACE OLE DB provider available", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Real_Access_opens_and_reads_a_libred_created_database()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"libred-created-{Guid.NewGuid():N}.accdb");
+        string path = TemporaryDatabase.CreatePath("libred-created-");
         try
         {
             // Create the database, a user table, and a row entirely through LibRed — no Access, no DAO/ADOX.
@@ -52,6 +42,6 @@ public class AceCreatedDatabaseTests
             using (var sel = conn.CreateCommand())
             { sel.CommandText = "SELECT [Name] FROM [People] WHERE [Id]=2"; Assert.Equal("Alan", sel.ExecuteScalar()); }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

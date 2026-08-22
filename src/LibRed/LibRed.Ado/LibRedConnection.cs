@@ -55,6 +55,14 @@ public sealed class LibRedConnection : DbConnection
         CurrentTransaction = null;
     }
 
+    /// <summary>Keeps an ADO transaction handle honest when SQL COMMIT/ROLLBACK closes its transaction.</summary>
+    internal void ReconcileSqlTransactionControl()
+    {
+        if (_database?.TransactionDepth != 0 || CurrentTransaction is null) return;
+        CurrentTransaction.CompleteFromSql();
+        CurrentTransaction = null;
+    }
+
     /// <summary>Opens a savepoint in the connection's active transaction (called by
     /// <see cref="LibRedTransaction.Save"/>).</summary>
     internal LibRed.IO.Savepoint CreateSavepoint() =>

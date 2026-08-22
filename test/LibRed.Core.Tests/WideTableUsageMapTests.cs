@@ -34,20 +34,7 @@ public class WideTableUsageMapTests
     /// owned bitmap reaches ~3,800 bytes at 30,000 pages and no longer fits soon after.</summary>
     private const int Rows = 32_000;
 
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try
-            {
-                var connection = new OleDbConnection($"Provider={provider};Data Source={path};OLE DB Services=-4;");
-                connection.Open();
-                return connection;
-            }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider available.");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     /// <summary>The type, record length and (inline only) start page of a table's usage map.</summary>
     private static (byte Type, int Length, int StartPage) ReadMap(Table table, JetFormatBase format, int tdefPointerOffset)
@@ -89,8 +76,7 @@ public class WideTableUsageMapTests
     [Fact]
     public void The_free_pages_map_slides_a_512_page_window_instead_of_growing()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"freewin-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "freewin-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -110,7 +96,7 @@ public class WideTableUsageMapTests
             Assert.Equal(usage.MaxDataPage(), tail);
             Assert.InRange(tail, startPage, startPage + 511);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     /// <summary>
@@ -123,8 +109,7 @@ public class WideTableUsageMapTests
     [Fact]
     public void The_owned_pages_bitmap_grows_in_4_byte_steps()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"grow4-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "grow4-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -142,14 +127,13 @@ public class WideTableUsageMapTests
             int expected = 5 + (bitmapBytes + 3) / 4 * 4;
             Assert.Equal(expected, length);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void A_255_column_table_spanning_a_reference_usage_map_round_trips_through_access()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"wide255-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "wide255-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -181,6 +165,6 @@ public class WideTableUsageMapTests
             command.CommandText = "SELECT COUNT(*) FROM Wide255";
             Assert.Equal(Rows, Convert.ToInt32(command.ExecuteScalar()));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

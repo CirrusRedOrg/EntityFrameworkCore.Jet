@@ -5,13 +5,12 @@ using Xunit;
 namespace LibRed.Engine.Tests;
 
 // StrComp(a, b, [compare]) and the byte-reinterpretation StrConv modes (64/128) — verified byte-identical to ACE.
-public class StrCompStrConvTests
+public class StrCompStrConvTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"scv-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "scv-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY )");
         e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
         return e;

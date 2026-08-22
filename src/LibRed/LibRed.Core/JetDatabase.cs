@@ -68,7 +68,7 @@ public sealed class JetDatabase : IDisposable
     }
 
     /// <summary>Opens a database file (read-only by default). For a password-encrypted ACCDB, supply
-    /// <paramref name="password"/> — encrypted databases open read-only.</summary>
+    /// <paramref name="password"/>; writable opens encrypt modified pages again before publishing them.</summary>
     public static JetDatabase Open(string path, bool readOnly = true, string? password = null)
     {
         // Coordinate page access between every handle open on this file (EF holds several connections on one
@@ -94,6 +94,15 @@ public sealed class JetDatabase : IDisposable
     /// <summary>Whether a transaction is currently open.</summary>
     public bool InTransaction => _channel.InTransaction;
 
+    /// <summary>Runs a logical read without allowing a concurrent multi-page commit to publish halfway through.
+    /// Shared — reads on this file run concurrently with each other.</summary>
+    public T ReadConsistent<T>(Func<T> action) => _channel.ReadConsistent(action);
+
+    /// <summary>Runs a logical write with every other reader and writer on this file excluded, so a reader
+    /// never observes it half-published. Writing statements must use this rather than
+    /// <see cref="ReadConsistent{T}"/>: the shared scope cannot be upgraded.</summary>
+    public T WriteExclusive<T>(Func<T> action) => _channel.WriteExclusive(action);
+
     /// <summary>Begins a page-level transaction; writes are undoable until <see cref="Commit"/>.</summary>
     public void BeginTransaction() => _channel.BeginTransaction();
 
@@ -110,7 +119,7 @@ public sealed class JetDatabase : IDisposable
     {
         if (!_channel.InTransaction) return;
         _channel.RollbackTransaction();
-        Catalog.Invalidate();
+        Catalog.Invalidate(markChanged: false);
     }
 
     /// <summary>Opens a savepoint within the current transaction (used to make a single statement atomic
@@ -123,7 +132,7 @@ public sealed class JetDatabase : IDisposable
     public void RollbackToSavepoint(Savepoint savepoint)
     {
         _channel.RollbackToSavepoint(savepoint);
-        Catalog.Invalidate();
+        Catalog.Invalidate(markChanged: false);
     }
 
     /// <summary>Releases <paramref name="savepoint"/>, merging its writes into the enclosing scope.</summary>

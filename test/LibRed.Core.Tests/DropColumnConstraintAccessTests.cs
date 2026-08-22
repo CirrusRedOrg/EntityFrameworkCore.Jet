@@ -8,13 +8,7 @@ namespace LibRed.Core.Tests;
 // this: it throws for an indexed/keyed column and for a column participating in a relationship.)
 public class DropColumnConstraintAccessTests
 {
-    private static OleDbConnection Open(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        throw new InvalidOperationException("no ace");
-    }
+    private static OleDbConnection Open(string path) => AceTestDatabase.Open(path);
 
     private static void Ok(OleDbConnection c, string sql)
     { using var m = c.CreateCommand(); m.CommandText = sql; m.ExecuteNonQuery(); }
@@ -28,8 +22,7 @@ public class DropColumnConstraintAccessTests
     [Fact]
     public void Access_rejects_dropping_an_indexed_or_related_column()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"dcc-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "dcc-");
         try
         {
             using var c = Open(path);
@@ -42,6 +35,6 @@ public class DropColumnConstraintAccessTests
             Assert.Contains("relationship", Error(c, "ALTER TABLE C DROP COLUMN Pid"), StringComparison.OrdinalIgnoreCase); // FK child
             Assert.Contains("relationship", Error(c, "ALTER TABLE P DROP COLUMN Id"), StringComparison.OrdinalIgnoreCase);  // FK parent
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

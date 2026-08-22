@@ -10,13 +10,12 @@ namespace LibRed.Engine.Tests;
 /// CREATE TABLE type-name aliases, mapped to the on-disk storage ACE itself produces (audited against the
 /// ACE engine: it accepts these names and folds them onto Jet's base types, without a file-format upgrade).
 /// </summary>
-public class TypeAliasTests
+public class TypeAliasTests : TempDatabaseTest
 {
     private static ColumnDef Column(string sqlType)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"alias-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "alias-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery($"CREATE TABLE T (C {sqlType})");
         return e.Database.OpenTable("T").Definition.Columns.First(c => c.Name == "C");
     }

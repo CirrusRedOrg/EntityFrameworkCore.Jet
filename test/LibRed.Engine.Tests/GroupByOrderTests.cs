@@ -10,13 +10,12 @@ namespace LibRed.Engine.Tests;
 /// matches this — which also makes a TOP-1-over-a-GROUP-BY deterministic (e.g. a scalar subquery that picks the
 /// "first" group), as SQL Server and Access do.
 /// </summary>
-public class GroupByOrderTests
+public class GroupByOrderTests : TempDatabaseTest
 {
     private static QueryEngine Seeded()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"gbo-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "gbo-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T (Id LONG PRIMARY KEY, K TEXT(5), N LONG)");
         // Insert with keys deliberately out of order (D, A, C, B) so insertion order != sorted order.
         (string k, int n)[] rows = [("D", 1), ("A", 2), ("C", 3), ("B", 4), ("A", 5), ("C", 6)];

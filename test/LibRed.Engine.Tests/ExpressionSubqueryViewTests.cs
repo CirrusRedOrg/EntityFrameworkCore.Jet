@@ -13,8 +13,7 @@ public class ExpressionSubqueryViewTests
 {
     private static string Fresh()
     {
-        string p = Path.Combine(Path.GetTempPath(), $"expr-view-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), p);
+        string p = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "expr-view-");
         return p;
     }
 
@@ -48,6 +47,6 @@ public class ExpressionSubqueryViewTests
                     Scalar(e, "SELECT COUNT(*) FROM Shippers WHERE (SELECT COUNT(*) FROM `LondonCust`) > 0"));
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

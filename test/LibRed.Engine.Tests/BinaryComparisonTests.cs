@@ -12,8 +12,7 @@ public class BinaryComparisonTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"bin-cmp-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "bin-cmp-");
         return path;
     }
 
@@ -33,7 +32,7 @@ public class BinaryComparisonTests
             Ins(e, 4, [1, 2, 3, 4, 5]);
             act(e);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
 
         static void Ins(QueryEngine e, int id, byte[] k) =>
             e.ExecuteNonQuery("INSERT INTO B (Id, K) VALUES (@id, @k)",

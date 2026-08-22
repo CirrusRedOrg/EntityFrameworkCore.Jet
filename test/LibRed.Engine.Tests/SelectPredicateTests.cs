@@ -10,13 +10,12 @@ namespace LibRed.Engine.Tests;
 /// Row counts are the ones the ACE engine itself returns for the same queries (probed against Northwind and,
 /// for the DISTINCTROW edge case, a purpose-built table).
 /// </summary>
-public class SelectPredicateTests
+public class SelectPredicateTests : TempDatabaseTest
 {
     private static QueryEngine Northwind()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"pred-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        return new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "pred-");
+        return new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
     }
 
     private static int Count(QueryEngine e, string sql) => e.ExecuteQuery(sql).Rows.Count();

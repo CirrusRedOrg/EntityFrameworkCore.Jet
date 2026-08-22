@@ -103,12 +103,11 @@ public class LongValueCorruptionTests
 
     private sealed class Fixture : IDisposable
     {
-        private readonly string _path = Path.Combine(Path.GetTempPath(), $"lval-corrupt-{Guid.NewGuid():N}.accdb");
+        private readonly string _path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "lval-corrupt-");
         private readonly JetDatabase _database;
 
         public Fixture()
         {
-            File.Copy(TestDatabases.NorthwindAccdb, _path);
             _database = JetDatabase.Open(_path, readOnly: false);
             Table = _database.OpenTable("Categories");
             Writer = new LongValueWriter(Table.Channel);
@@ -122,7 +121,7 @@ public class LongValueCorruptionTests
         public void Dispose()
         {
             _database.Dispose();
-            File.Delete(_path);
+            TemporaryDatabase.Delete(_path);
         }
     }
 }

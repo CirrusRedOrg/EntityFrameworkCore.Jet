@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // Access Choose(index, choice-1, choice-2, …) — 1-based selection. Verified against ACE: out-of-range index → NULL,
 // NULL index → error, any value type allowed. Exercised through DEFAULT expressions (LibRed's FROM-less SELECT is
 // a separate limitation). Motivated by translating SQL Server CHOOSE/CONVERT to Jet/ACE-native Choose/CBool.
-public class ChooseFunctionTests
+public class ChooseFunctionTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"choose-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        return new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "choose-");
+        return new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
     }
 
     private static object? DefaultOf(string type, string def)

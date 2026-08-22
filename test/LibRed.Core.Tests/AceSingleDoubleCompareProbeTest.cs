@@ -9,32 +9,21 @@ namespace LibRed.Core.Tests;
 // "compare in single precision when a float is involved" rule matches ACE for the column-vs-column case, or
 // whether a column-type-aware fix is needed. Reports counts; the assertions just pin what we observed so a
 // future ACE change is noticed.
-public class AceSingleDoubleCompareProbeTest(ITestOutputHelper output)
+public class AceSingleDoubleCompareRegressionTests(ITestOutputHelper output)
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static void Exec(OleDbConnection c, string sql) { using var cmd = c.CreateCommand(); cmd.CommandText = sql; cmd.ExecuteNonQuery(); }
     private static int Count(OleDbConnection c, string sql) { using var cmd = c.CreateCommand(); cmd.CommandText = sql; return Convert.ToInt32(cmd.ExecuteScalar()); }
 
     [Fact]
-    public void Probe_single_vs_double_compare_precision()
+    public void Ace_compares_single_and_double_in_single_precision()
     {
         // 0.1 has different 4-byte (single) and 8-byte (double) approximations, so a SINGLE column and a DOUBLE
         // column both set to 0.1 hold genuinely different numbers — equal only if compared in single precision.
         string s = (0.1).ToString("R", CultureInfo.InvariantCulture);
 
-        string path = Path.Combine(Path.GetTempPath(), $"acesd-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "acesd-");
         try
         {
             using var conn = OpenOleDb(path);
@@ -57,6 +46,6 @@ public class AceSingleDoubleCompareProbeTest(ITestOutputHelper output)
             // ACE changed, or that LibRed should stop narrowing. See [[libred-single-precision-compare]].
             Assert.Equal(1, colVsCol);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

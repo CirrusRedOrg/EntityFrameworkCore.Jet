@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 /// <summary>A FROM-less SELECT (e.g. <c>SELECT 2</c>) yields exactly one row. ACE accepts this (verified via the
 /// OLE DB provider), and EF's CommandInterception scalar tests send a bare <c>SELECT 1</c>/<c>SELECT 2</c>.</summary>
-public class FromlessSelectTests
+public class FromlessSelectTests : TempDatabaseTest
 {
     private static QueryEngine Engine()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"fl-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        return new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "fl-");
+        return new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
     }
 
     [Fact]

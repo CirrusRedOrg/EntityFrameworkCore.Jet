@@ -62,8 +62,7 @@ public static class DatabaseEncryption
     public static void SetPasswordRc4(string path, string password, int keyBits = 40, StandardHash hash = StandardHash.Sha1)
     {
         ArgumentException.ThrowIfNullOrEmpty(password);
-        if (keyBits is < 40 or > 128 || keyBits % 8 != 0)
-            throw new ArgumentOutOfRangeException(nameof(keyBits), "RC4 key length must be 40–128 bits, in multiples of 8.");
+        ValidateRc4Options(keyBits, hash);
 
         byte[] file = File.ReadAllBytes(path);
         if (!DetectFormat(file).IsAccdb)
@@ -81,6 +80,10 @@ public static class DatabaseEncryption
     /// with the new one — exactly remove + set.</summary>
     public static void ChangePassword(string path, string oldPassword, string newPassword, AccessEncryption scheme)
     {
+        ArgumentException.ThrowIfNullOrEmpty(newPassword);
+        // Validate before RemovePassword decrypts, so a rejected scheme can't leave the database plaintext.
+        // Detect reads only the header, so this costs one page rather than a second copy of the whole file.
+        ValidateScheme(scheme, DetectFormatOf(path));
         RemovePassword(path, oldPassword);
         SetPassword(path, newPassword, scheme);
     }
@@ -89,8 +92,17 @@ public static class DatabaseEncryption
     /// decrypt with the old password, then <see cref="SetPasswordRc4"/>.</summary>
     public static void ChangePasswordRc4(string path, string oldPassword, string newPassword, int keyBits = 40, StandardHash hash = StandardHash.Sha1)
     {
+        ArgumentException.ThrowIfNullOrEmpty(newPassword);
+        ValidateRc4Options(keyBits, hash);
         RemovePassword(path, oldPassword);
         SetPasswordRc4(path, newPassword, keyBits, hash);
+    }
+
+    private static void ValidateRc4Options(int keyBits, StandardHash hash)
+    {
+        if (keyBits is < 40 or > 128 || keyBits % 8 != 0)
+            throw new ArgumentOutOfRangeException(nameof(keyBits), "RC4 key length must be 40–128 bits, in multiples of 8.");
+        _ = ToHashName(hash);
     }
 
     /// <summary>Sets the legacy Jet 4 (<c>.mdb</c>) database password — the "Set Database Password" feature, which is
@@ -279,6 +291,14 @@ public static class DatabaseEncryption
             default:
                 throw new ArgumentOutOfRangeException(nameof(scheme));
         }
+    }
+
+    /// <summary>Detects a file's format without loading it: <see cref="JetFormatBase.Detect"/> reads only the
+    /// header, so this is a header read rather than a full copy of a database that may be hundreds of MB.</summary>
+    private static JetFormatBase DetectFormatOf(string path)
+    {
+        using FileStream stream = File.OpenRead(path);
+        return JetFormatBase.Detect(stream);
     }
 
     private static JetFormatBase DetectFormat(byte[] file)

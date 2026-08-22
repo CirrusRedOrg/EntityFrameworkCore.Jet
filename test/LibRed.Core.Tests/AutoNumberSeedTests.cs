@@ -11,17 +11,7 @@ namespace LibRed.Core.Tests;
 // advances 0x14 monotonically and is immune — see AutoNumberSeedImmunityTests in LibRed.Engine.Tests).
 public class AutoNumberSeedTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static int HighWater(JetDatabase db, string table)
     {
@@ -32,8 +22,7 @@ public class AutoNumberSeedTests
     [Fact]
     public void Ace_seeds_the_high_water_from_the_last_inserted_value()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"anb-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "anb-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -54,7 +43,7 @@ public class AutoNumberSeedTests
             bad.CommandText = "INSERT INTO Table1 (Field2) VALUES ('G')";
             Assert.ThrowsAny<OleDbException>(() => bad.ExecuteNonQuery());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Byte-faithful: LibRed's in-place counter reseed (metadata-only 0x14/0x18 edit, no rebuild) is read
@@ -62,8 +51,7 @@ public class AutoNumberSeedTests
     [Fact]
     public void Ace_reads_a_libred_in_place_counter_reseed()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"lrr-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "lrr-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -84,7 +72,7 @@ public class AutoNumberSeedTests
             q.CommandText = "SELECT Id FROM T WHERE V = 'a'";
             Assert.Equal(100, Convert.ToInt32(q.ExecuteScalar()));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Symmetric to promotion but NOT a divergence: ACE allows demoting a counter to a plain integer. LibRed
@@ -92,8 +80,7 @@ public class AutoNumberSeedTests
     [Fact]
     public void Ace_reads_a_libred_counter_demoted_to_int()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"c2i-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "c2i-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -113,7 +100,7 @@ public class AutoNumberSeedTests
             q.CommandText = "SELECT COUNT(*) FROM T";
             Assert.Equal(3, Convert.ToInt32(q.ExecuteScalar()));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Divergence (deliberate): ACE refuses to promote an existing plain integer column to AutoNumber via
@@ -125,8 +112,7 @@ public class AutoNumberSeedTests
     public void Ace_refuses_but_libred_allows_promoting_an_int_column_to_a_counter()
     {
         // ACE: reject.
-        string acePath = Path.Combine(Path.GetTempPath(), $"i2c-ace-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, acePath);
+        string acePath = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "i2c-ace-");
         try
         {
             using var conn = OpenOleDb(acePath);
@@ -138,11 +124,10 @@ public class AutoNumberSeedTests
             var ex = Assert.ThrowsAny<OleDbException>(() => bad.ExecuteNonQuery());
             Assert.Contains("Invalid field data type", ex.Message);
         }
-        finally { try { File.Delete(acePath); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(acePath); }
 
         // LibRed: allow, and the converted counter round-trips through ACE (next auto id = seed).
-        string libPath = Path.Combine(Path.GetTempPath(), $"i2c-lib-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, libPath);
+        string libPath = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "i2c-lib-");
         try
         {
             using (var db = JetDatabase.Open(libPath, readOnly: false))
@@ -165,7 +150,7 @@ public class AutoNumberSeedTests
             q2.CommandText = "SELECT COUNT(*) FROM T";
             Assert.Equal(4, Convert.ToInt32(q2.ExecuteScalar()));
         }
-        finally { try { File.Delete(libPath); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(libPath); }
     }
 
     // Ground truth for the reseed fix (KB 884185 resolution): ALTER COLUMN c COUNTER(seed, 1) sets the next id
@@ -173,8 +158,7 @@ public class AutoNumberSeedTests
     [Fact]
     public void Ace_reseeds_the_next_id_via_alter_column_counter()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"anr-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "anr-");
         try
         {
             using var conn = OpenOleDb(path);
@@ -187,6 +171,6 @@ public class AutoNumberSeedTests
             q.CommandText = "SELECT Field1 FROM Table1 WHERE Field2 = 'G'";
             Assert.Equal(100, Convert.ToInt32(q.ExecuteScalar()));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

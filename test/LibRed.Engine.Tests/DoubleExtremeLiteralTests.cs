@@ -11,13 +11,12 @@ namespace LibRed.Engine.Tests;
 // intended. ACE instead rejects the literal outright ("Syntax error in number"), which is why those tests fail
 // on the OLE DB path — NOT because ACE mishandles E+308: ACE round-trips MaxValue/MinValue/Epsilon exactly when
 // given a correctly-rounded (17-digit) literal or a parameter.
-public class DoubleExtremeLiteralTests
+public class DoubleExtremeLiteralTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"dxl-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "dxl-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE D (Id LONG PRIMARY KEY, V DOUBLE)");
         e.ExecuteNonQuery("INSERT INTO D (Id, V) VALUES (1, 0.5)");
         return e;

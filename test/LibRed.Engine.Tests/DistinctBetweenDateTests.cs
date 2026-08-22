@@ -18,8 +18,7 @@ public class DistinctBetweenDateTests
 
     private static string Fresh()
     {
-        string p = Path.Combine(Path.GetTempPath(), $"qorders-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), p);
+        string p = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "qorders-");
         return p;
     }
 
@@ -34,7 +33,7 @@ public class DistinctBetweenDateTests
             Assert.Equal(4, rs.ColumnNames.Count);
             Assert.Equal(86, rs.Rows.Count()); // distinct customers with a 1997 order
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -50,7 +49,7 @@ public class DistinctBetweenDateTests
             Assert.True(distinct < all);   // Customers has many rows but few distinct countries
             Assert.Equal(21, distinct);    // Northwind customer countries
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -65,6 +64,6 @@ public class DistinctBetweenDateTests
             var view = e.ExecuteQuery("SELECT * FROM `Quarterly Orders`");
             Assert.Equal(direct, view.Rows.Count());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

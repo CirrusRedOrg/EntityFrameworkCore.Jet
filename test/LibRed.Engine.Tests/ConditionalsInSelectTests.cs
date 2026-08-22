@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // IIF/Choose/Switch are ordinary scalar functions — they work anywhere an expression is allowed: SELECT
 // projections, WHERE, ORDER BY. Unlike in a DEFAULT (row-blind), here they can reference the row's own columns,
 // because a query evaluates against a row scope. Same functions, different scope.
-public class ConditionalsInSelectTests
+public class ConditionalsInSelectTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"cis-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "cis-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY, N LONG )");
         e.ExecuteNonQuery("INSERT INTO T (K, N) VALUES (1, 5)");
         e.ExecuteNonQuery("INSERT INTO T (K, N) VALUES (2, 15)");

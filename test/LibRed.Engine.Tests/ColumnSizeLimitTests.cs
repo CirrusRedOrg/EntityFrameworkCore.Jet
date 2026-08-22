@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // Jet/ACE caps a char/varchar column at 255 characters and a binary/varbinary column at 510 bytes (verified
 // vs ACE: char(255)/binary(510) accepted, char(256)/binary(511) rejected "Size of field is too long"). LibRed
 // enforces the same caps at CREATE so it never writes a fixed column Access can't open.
-public class ColumnSizeLimitTests
+public class ColumnSizeLimitTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"sizelim-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        return new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "sizelim-");
+        return new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
     }
 
     [Theory]

@@ -35,8 +35,7 @@ public class UsageMapTests
     [Fact]
     public void Reference_usage_map_rejects_a_record_larger_than_the_format_shape()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"bad-usage-map-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "bad-usage-map-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -58,14 +57,13 @@ public class UsageMapTests
 
             Assert.Throws<InvalidDataException>(() => table.UsageMap.DataPages().ToList());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Exact_empty_reference_usage_map_remains_valid()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"empty-reference-map-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "empty-reference-map-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -82,14 +80,13 @@ public class UsageMapTests
 
             Assert.Empty(table.UsageMap.DataPages());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Reference_usage_map_rejects_a_pointer_to_a_non_bitmap_page()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"bad-bitmap-pointer-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "bad-bitmap-pointer-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -106,6 +103,6 @@ public class UsageMapTests
 
             Assert.Throws<InvalidDataException>(() => table.UsageMap.DataPages().ToList());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

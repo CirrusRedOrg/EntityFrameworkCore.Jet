@@ -10,8 +10,7 @@ public class ReferentialActionTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"ri-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "ri-");
         return path;
     }
 
@@ -31,7 +30,7 @@ public class ReferentialActionTests
     {
         string path = Fresh();
         try { using var db = JetDatabase.Open(path, readOnly: false); act(SetUp(db, fkClause)); }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     private static int[] ChildParents(QueryEngine e) =>
@@ -111,7 +110,7 @@ public class ReferentialActionTests
                 "CREATE TABLE C (Id long PRIMARY KEY, ParentId long, CONSTRAINT FK_C FOREIGN KEY (ParentId) REFERENCES P (Id) ON UPDATE SET NULL ON DELETE SET NULL)"));
             Assert.Contains("ON UPDATE SET NULL", ex.Message);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -126,6 +125,6 @@ public class ReferentialActionTests
             Assert.True(fk.DeleteSetNull);
             Assert.False(fk.CascadeDelete);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

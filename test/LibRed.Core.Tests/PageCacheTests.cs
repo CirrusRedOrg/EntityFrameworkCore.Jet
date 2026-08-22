@@ -13,9 +13,7 @@ public class PageCacheTests
 {
     private static string CopyNorthwind(string tag)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"pagecache-{tag}-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
-        return path;
+        return TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, $"pagecache-{tag}-");
     }
 
     [Fact]
@@ -39,7 +37,7 @@ public class PageCacheTests
             byte[] seen = reader.ReadPage(page).Span.ToArray();
             Assert.Equal(mutated, seen);
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -62,7 +60,7 @@ public class PageCacheTests
             // After rollback the pool must serve the pre-transaction bytes, not the rolled-back write.
             Assert.Equal(original, ch.ReadPage(page).Span.ToArray());
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -85,6 +83,6 @@ public class PageCacheTests
             using var reopened = PageChannel.Open(path, readOnly: true);
             Assert.Equal(mutated, reopened.ReadPage(page).Span.ToArray());
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

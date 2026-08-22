@@ -11,15 +11,7 @@ namespace LibRed.Core.Tests;
 // the whole 17-byte positive form. Verified against keys Access itself wrote.
 public class DecimalKeyEncodingTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider available.");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static readonly decimal[] Values =
     [
@@ -28,8 +20,7 @@ public class DecimalKeyEncodingTests
 
     private static void AssertKeysMatchAccess(string ddl, string indexPredicate)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"libred-deckey-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-deckey-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -75,7 +66,7 @@ public class DecimalKeyEncodingTests
 
             Assert.Equal(Values.Length, checkedKeys);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]

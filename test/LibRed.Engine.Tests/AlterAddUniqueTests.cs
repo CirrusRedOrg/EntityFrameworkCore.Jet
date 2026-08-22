@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 // ALTER TABLE ... ADD CONSTRAINT name UNIQUE (cols): adds a unique (non-primary) index, which LibRed then
 // enforces on insert (a duplicate composite key is rejected; NULLs are distinct).
-public class AlterAddUniqueTests
+public class AlterAddUniqueTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"auq-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        return new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "auq-");
+        return new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
     }
 
     [Fact]
@@ -26,8 +25,10 @@ public class AlterAddUniqueTests
         // different name → fine
         e.ExecuteNonQuery("INSERT INTO tblCustomers (CustomerID, [Last Name], [First Name]) VALUES (2, 'Smith', 'Jane')");
         // duplicate composite → rejected
-        Assert.ThrowsAny<Exception>(() =>
+        var error = Assert.Throws<ConstraintViolationException>(() =>
             e.ExecuteNonQuery("INSERT INTO tblCustomers (CustomerID, [Last Name], [First Name]) VALUES (3, 'Smith', 'John')"));
+        Assert.Equal("UQ_Name", error.ConstraintName, ignoreCase: true);
+        Assert.False(error.IsPrimaryKey);
     }
 
     [Fact]
@@ -39,7 +40,10 @@ public class AlterAddUniqueTests
         e.ExecuteNonQuery("INSERT INTO T (K, C) VALUES (2, 'b')");
         e.ExecuteNonQuery("ALTER TABLE T ADD CONSTRAINT UQ_C UNIQUE (C)");
         // the back-filled index enforces new inserts
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (K, C) VALUES (3, 'a')"));
+        var error = Assert.Throws<ConstraintViolationException>(() =>
+            e.ExecuteNonQuery("INSERT INTO T (K, C) VALUES (3, 'a')"));
+        Assert.Equal("UQ_C", error.ConstraintName, ignoreCase: true);
+        Assert.False(error.IsPrimaryKey);
         e.ExecuteNonQuery("INSERT INTO T (K, C) VALUES (4, 'c')");
     }
 }

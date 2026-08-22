@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 // Trim/LTrim/RTrim are single-argument and remove ONLY spaces (not tabs or other whitespace, and no trim-char
 // parameter) — verified vs ACE. NULL-propagating.
-public class TrimFunctionsTests
+public class TrimFunctionsTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"trim-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "trim-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY )");
         e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
         return e;

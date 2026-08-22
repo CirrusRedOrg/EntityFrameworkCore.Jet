@@ -9,8 +9,7 @@ public class WideTableTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"wide-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "wide-");
         return path;
     }
 
@@ -45,7 +44,7 @@ public class WideTableTests
                 Assert.Equal("z", row[1]);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Jet/ACE caps a table at 255 columns. LibRed rejects a 256-column table up front rather than writing
@@ -64,6 +63,6 @@ public class WideTableTests
             var ex = Assert.Throws<InvalidOperationException>(() => new QueryEngine(db).ExecuteNonQuery(ddl.ToString()));
             Assert.Contains("255", ex.Message);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

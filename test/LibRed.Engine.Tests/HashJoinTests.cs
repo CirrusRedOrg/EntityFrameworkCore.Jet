@@ -12,15 +12,14 @@ namespace LibRed.Engine.Tests;
 /// rows as a nested loop: same-value matching under Access's coercions (case-insensitive text, numeric width),
 /// null keys never matching, LEFT-join null padding, composite keys, and residual non-equi conjuncts.
 /// </summary>
-public class HashJoinTests
+public class HashJoinTests : TempDatabaseTest
 {
     // P.Id is a PK (indexed); C.Pid is deliberately NOT indexed, so P ⋈ C ON P.Id = C.Pid cannot become an
     // index-nested-loop and falls to the hash join.
     private static QueryEngine TwoTables()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"hashjoin-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "hashjoin-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE P (Id LONG PRIMARY KEY, Nm TEXT(20))");
         e.ExecuteNonQuery("CREATE TABLE C (Id LONG PRIMARY KEY, Pid LONG, Tag TEXT(10), Amt LONG)");
         for (int i = 0; i < 50; i++) e.ExecuteNonQuery($"INSERT INTO P (Id, Nm) VALUES ({i}, 'p{i}')");

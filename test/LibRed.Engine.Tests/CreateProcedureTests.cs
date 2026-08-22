@@ -8,8 +8,7 @@ public class CreateProcedureTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"proc-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "proc-");
         return path;
     }
 
@@ -28,7 +27,7 @@ public class CreateProcedureTests
                 "SELECT Orders.OrderID FROM Orders " +
                 "WHERE Orders.OrderDate BETWEEN `Beginning Date` AND `Ending Date`");
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A stored parameterized query is read back (PARAMETERS clause + body) and executed through LibRed's
@@ -61,7 +60,7 @@ public class CreateProcedureTests
                 Assert.Equal(direct, viaProc);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Read back ACE's OWN stored "Ten Most Expensive Products" (TOP 10 + ORDER BY DESC, shipped in Northwind)
@@ -81,7 +80,7 @@ public class CreateProcedureTests
             Assert.Equal(prices.OrderByDescending(p => p).ToList(), prices); // descending
             Assert.Equal(263.50m, prices[0]); // Côte de Blaye, Northwind's priciest
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Round-trip a LibRed-created TOP + ORDER BY procedure (under a non-colliding name).
@@ -106,7 +105,7 @@ public class CreateProcedureTests
                 Assert.Equal(263.50m, prices[0]);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Parenthesised @-parameter list + a nested paren-join onto a view ("Employee Sales by Country" shape).
@@ -145,7 +144,7 @@ public class CreateProcedureTests
                 Assert.Equal(direct, viaProc);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Action-query procedure bodies we support (CREATE TABLE, INSERT ... VALUES) parse and store.
@@ -160,7 +159,7 @@ public class CreateProcedureTests
             using var db = JetDatabase.Open(path, readOnly: false);
             new QueryEngine(db).ExecuteNonQuery(sql); // no throw
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Stored action queries are read back from the file and executed through LibRed's own engine by name:
@@ -196,7 +195,7 @@ public class CreateProcedureTests
                 Assert.Throws<InvalidOperationException>(() => e.ExecuteStoredActionQuery("NoSuchQuery"));
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Bodies we don't support: UPDATE/DELETE/DROP have no grammar; an INSERT without a column list can't be
@@ -211,9 +210,13 @@ public class CreateProcedureTests
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
-            Assert.ThrowsAny<Exception>(() => new QueryEngine(db).ExecuteNonQuery(sql));
+            if (sql.Contains("AddNoCols", StringComparison.Ordinal))
+                Assert.Throws<NotSupportedException>(() => new QueryEngine(db).ExecuteNonQuery(sql));
+            else
+                Assert.Throws<LibRed.Sql.Parsing.SqlParseException>(() =>
+                    new QueryEngine(db).ExecuteNonQuery(sql));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A procedure name, like a view, cannot collide with an existing table.
@@ -227,6 +230,6 @@ public class CreateProcedureTests
             Assert.Throws<InvalidOperationException>(() =>
                 new QueryEngine(db).ExecuteNonQuery("CREATE PROCEDURE `Customers` AS SELECT `CustomerID` FROM `Customers`"));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

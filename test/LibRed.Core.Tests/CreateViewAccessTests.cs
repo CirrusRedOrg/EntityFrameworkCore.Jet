@@ -9,18 +9,11 @@ public class CreateViewAccessTests
 {
     private static string CopyToTemp()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"libred-view-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-view-");
         return path;
     }
 
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            try { var c = new OleDbConnection($"Provider={provider};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider is available.");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_executes_a_libred_created_view()
@@ -59,6 +52,6 @@ public class CreateViewAccessTests
             j.CommandText = "SELECT COUNT(*) FROM CustOrders";
             Assert.True(Convert.ToInt32(j.ExecuteScalar()) > 0);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

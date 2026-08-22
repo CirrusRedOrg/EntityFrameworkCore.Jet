@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // GenGUID() is Access's GUID generator — the sibling of GenUniqueID(). Like GenUniqueID it is default-only in
 // ACE ("Undefined function 'GenGUID' in expression" inside a SELECT) but valid as a GUID column's DEFAULT,
 // yielding a fresh Guid per row. EF Core models store-generated Guid keys as HasDefaultValueSql("GenGUID()").
-public class GenGuidDefaultTests
+public class GenGuidDefaultTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"gg-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        return new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "gg-");
+        return new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
     }
 
     [Fact]

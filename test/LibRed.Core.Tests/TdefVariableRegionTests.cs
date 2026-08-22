@@ -130,6 +130,59 @@ public class TdefVariableRegionTests
             definition.Read(new PageBuffer(page.AsMemory(0, declaredLength), 99), Format));
     }
 
+    [Theory]
+    [InlineData("negative-length")]
+    [InlineData("shorter-than-header")]
+    [InlineData("longer-than-buffer")]
+    [InlineData("too-many-columns")]
+    [InlineData("variable-column-high-water-overflow")]
+    [InlineData("negative-index-count")]
+    [InlineData("too-many-indexes")]
+    [InlineData("negative-logical-index-count")]
+    [InlineData("logical-index-region-overflow")]
+    public void Malformed_header_counts_and_lengths_are_rejected_before_region_allocation(string corruption)
+    {
+        byte[] page = TdefBuilder.Build(Format, TableType.User,
+            [new("C", JetDataType.Int32, 4, IsFixedLength: true)]).Page;
+        int declaredLength = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(Format.TdefLengthOffset, 4));
+
+        switch (corruption)
+        {
+            case "negative-length":
+                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefLengthOffset, 4), -1);
+                break;
+            case "shorter-than-header":
+                BinaryPrimitives.WriteInt32LittleEndian(
+                    page.AsSpan(Format.TdefLengthOffset, 4), Format.TdefRealIndexBlockOffset - 1);
+                break;
+            case "longer-than-buffer":
+                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefLengthOffset, 4), declaredLength + 1);
+                break;
+            case "too-many-columns":
+                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.TdefColumnCountOffset, 2), 256);
+                break;
+            case "variable-column-high-water-overflow":
+                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(Format.TdefVariableColumnsOffset, 2), 256);
+                break;
+            case "negative-index-count":
+                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefIndexCountOffset, 4), -1);
+                break;
+            case "too-many-indexes":
+                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefIndexCountOffset, 4), 33);
+                break;
+            case "negative-logical-index-count":
+                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefRealIndexCountOffset, 4), -1);
+                break;
+            case "logical-index-region-overflow":
+                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefRealIndexCountOffset, 4), int.MaxValue);
+                break;
+        }
+
+        var definition = new TableDefinitionPage();
+        Assert.Throws<InvalidDataException>(() =>
+            definition.Read(new PageBuffer(page.AsMemory(0, declaredLength), 99), Format));
+    }
+
     [Fact]
     public void Valid_memo_usage_map_entry_remains_available()
     {

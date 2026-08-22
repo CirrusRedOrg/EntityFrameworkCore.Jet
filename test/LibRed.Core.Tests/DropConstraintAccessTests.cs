@@ -11,21 +11,12 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class DropConstraintAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No provider");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_opens_a_libred_file_after_dropping_a_foreign_key()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"dropc-ace-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "dropc-ace-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -56,6 +47,6 @@ public class DropConstraintAccessTests
             using (var c = conn.CreateCommand())
             { c.CommandText = "INSERT INTO Child (Id, ParentId) VALUES (2, 99)"; Assert.Equal(1, c.ExecuteNonQuery()); }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

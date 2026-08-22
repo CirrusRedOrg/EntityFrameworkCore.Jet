@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 // ON DELETE CASCADE is evaluated with an explicit worklist, not recursion: a cyclic FK graph terminates, a
 // shared child in a diamond is deleted exactly once, and a deep chain does not overflow the call stack.
-public class CascadeDeleteWorklistTests
+public class CascadeDeleteWorklistTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"cascade-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        return new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "cascade-");
+        return new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
     }
 
     [Fact]

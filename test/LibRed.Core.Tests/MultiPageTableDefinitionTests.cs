@@ -53,8 +53,7 @@ public class MultiPageTableDefinitionTests
     [InlineData("wrong-root-header")]
     public void Rejects_an_invalid_continuation_chain_before_assembly(string corruption)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"bad-tdef-chain-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.WideTableAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.WideTableAccdb, "bad-tdef-chain-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -107,6 +106,6 @@ public class MultiPageTableDefinitionTests
 
             Assert.Throws<InvalidDataException>(() => db.ReadTableDefinition(firstPage));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

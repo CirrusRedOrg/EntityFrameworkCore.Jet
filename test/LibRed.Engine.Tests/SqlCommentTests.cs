@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 
 /// <summary>SQL comments are skipped by the lexer — EF Core query tags prepend a <c>-- tag</c> line comment
 /// to the statement (and block comments can appear too).</summary>
-public class SqlCommentTests
+public class SqlCommentTests : TempDatabaseTest
 {
     private static QueryEngine Engine()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"cmt-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "cmt-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T (Id LONG PRIMARY KEY)");
         e.ExecuteNonQuery("INSERT INTO T (Id) VALUES (1)");
         return e;

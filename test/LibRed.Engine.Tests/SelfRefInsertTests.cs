@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // Repro for the ComplexNavigations seed failure: a REQUIRED self-referencing FK (LevelOne.Inverse1Id ->
 // LevelOne.Id). EF inserts parent rows before children, so immediate FK enforcement should pass. Probing
 // which order/shape our RI enforcement wrongly rejects.
-public class SelfRefInsertTests
+public class SelfRefInsertTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"selfref-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var db = JetDatabase.Open(path, readOnly: false);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "selfref-");
+        var db = TemporaryDatabase.OpenTracked(path, readOnly: false);
         var e = new QueryEngine(db);
         e.ExecuteNonQuery("CREATE TABLE L1 (Id long PRIMARY KEY, Pid long, " +
                           "CONSTRAINT FK_Self FOREIGN KEY (Pid) REFERENCES L1 (Id))");

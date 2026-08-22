@@ -15,17 +15,7 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class PrimaryKeyNameAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static string AcePrimaryKeyName(OleDbConnection conn, string table)
     {
@@ -38,8 +28,7 @@ public class PrimaryKeyNameAccessTests
     [InlineData(null, "PrimaryKey")]
     public void Access_reports_the_libred_primary_key_name(string? pkName, string expectedName)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"pkname-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "pkname-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -51,6 +40,6 @@ public class PrimaryKeyNameAccessTests
             using var conn = OpenOleDb(path);
             Assert.Equal(expectedName, AcePrimaryKeyName(conn, "T"));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

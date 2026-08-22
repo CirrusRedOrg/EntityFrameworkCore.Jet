@@ -75,6 +75,7 @@ public sealed class LibRedCommand : DbCommand
             try
             {
                 last = engine.Execute(statement, parameters);
+                Connection?.ReconcileSqlTransactionControl();
             }
             catch (LibRed.ConstraintViolationException e)
             {

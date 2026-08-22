@@ -8,13 +8,12 @@ namespace LibRed.Engine.Tests;
 // the constraint), so it round-trips back through the catalog — this is what the scaffolder reports. When no
 // name is given, LibRed picks the stable "PrimaryKey" as its own engine fallback (ACE-via-SQL instead
 // generates a random "Index_<hex>" — no fixed value to reproduce, and nothing downstream depends on it).
-public class PrimaryKeyNameTests
+public class PrimaryKeyNameTests : TempDatabaseTest
 {
     private static (QueryEngine Engine, JetDatabase Db) Setup()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"pkname-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var db = JetDatabase.Open(path, readOnly: false);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "pkname-");
+        var db = TemporaryDatabase.OpenTracked(path, readOnly: false);
         return (new QueryEngine(db), db);
     }
 

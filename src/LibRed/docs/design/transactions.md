@@ -14,7 +14,15 @@ Status: **draft / accepted direction** · Date: 2026-07-18
 > writer-serialization / reader-blocking of strict 2PL (§4) is not needed for isolation, and EF's parallel
 > shared-store tests (each mutating inside a rolled-back transaction) no longer leak into concurrent readers.
 > The exclusive page lock is now held only for the duration of an individual committed page write, not the
-> whole transaction. The undo log described below is gone. Everything else here — the lock-manager layering
+> whole transaction. Before publishing, commit compares every page's committed plaintext image with the image
+> from which that overlay page was first derived, under a per-file publish gate. Writers touching disjoint pages
+> may both commit; if another connection changed an overlapping data/index/TDEF/usage-map page, the stale commit
+> fails with a write conflict and remains open for rollback. This prevents silent lost updates without strict
+> two-phase locking. If publication itself fails after writing some pages, that prefix is restored from the
+> validated baselines (and appended tail pages are truncated), leaving the transaction open and rollbackable.
+> Schema-changing commits also advance a shared per-file catalog generation; other open
+> connections invalidate their parsed table/relationship/view caches on the next catalog access, while ordinary
+> DML does not force a catalog reload. The undo log described below is gone. Everything else here — the lock-manager layering
 > (L0), the ACE co-residency constraint (§2), commit-byte / cross-process protocol, cascade worklist — still
 > stands as the roadmap. See `TransactionIsolationTests` and [[libred-parallel-dirty-read-flakiness]].
 
@@ -216,9 +224,8 @@ Build correctness first with lock seams stubbed; drop the Jet lock manager in la
    the process-local monitor implementation.
 5. **L4 ADO enforcement.** ✅ done. Wire `LibRedTransaction`/`LibRedCommand` to L2; reject
    stale/foreign transactions; EF savepoint support (`SupportsSavepoints`).
-6. **SQL transaction-control statements (with nesting).** Add engine-native `BEGIN`/`COMMIT`/
-   `ROLLBACK [TRANSACTION|WORK]` (and Access's `BEGIN TRANS`), plus named `SAVE`/`ROLLBACK
-   TRANSACTION <name>`. Parse to AST → a new `QueryEngine.Route` branch that drives a
+6. **SQL transaction-control statements (with nesting).** ✅ done. Engine-native `BEGIN`/`COMMIT`/
+   `ROLLBACK [TRANSACTION|WORK]`. Parse to AST → a new `QueryEngine.Route` branch that drives a
    per-connection **transaction controller** (the §4 depth counter) on the *same* L2 as the
    ADO front door — so a SQL `BEGIN` and an ADO `BeginTransaction` can't open parallel
    transactions, and the controller is the single source of `InTransaction`. Two must-haves:
@@ -243,9 +250,14 @@ don't move.
 
 ## 7. Open questions
 
-- **Reader isolation while a writer commits:** do readers under shared locks see the
-  pre-commit page (blocked until release) or is a dirty-read window acceptable initially?
-  Proposed: block (strict 2PL) — simplest correct default.
+- **Reader isolation while a writer commits:** ✅ every statement holds the shared cache's publication gate for
+  its complete duration, so a reader sees either the complete pre-commit or complete post-commit page set, never
+  a torn mixture while an overlay is being published. The gate is a **reader/writer** lock, not a mutex: a
+  statement that cannot write (`SELECT`, a set operation, a system-variable select) takes it **shared**, so
+  concurrent readers on one file still run together; everything else takes it **exclusive** for the whole
+  statement, which is what makes a multi-page write atomic to readers. Anything not provably read-only takes the
+  exclusive scope — the shared scope cannot be upgraded and says so rather than deadlocking. Parsing happens
+  before the scope is taken (it touches no pages). See `ReaderWriterIsolationTests`.
 - **Implicit-txn cost:** per-statement begin/commit must be cheap for read-only statements
   (no dirty pages ⇒ commit is just lock release). Ensure a read-only statement never
   touches the commit-byte.

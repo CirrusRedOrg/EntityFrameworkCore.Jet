@@ -12,8 +12,7 @@ public class BooleanComparisonTests
     [Fact]
     public void Numeric_bool_column_compares_equal_to_a_boolean_predicate()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"boolcmp-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "boolcmp-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -31,6 +30,6 @@ public class BooleanComparisonTests
 
             Assert.Equal([1, 2], ids);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

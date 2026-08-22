@@ -16,31 +16,12 @@ public class ChainedLongValueAccessTests
     private static readonly string Big =
         string.Concat(Enumerable.Range(0, 20_000).Select(i => (char)('A' + i % 26)));
 
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-        {
-            foreach (string provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try
-                {
-                    var conn = new OleDbConnection($"Provider={provider};Data Source={path};OLE DB Services=-4;");
-                    conn.Open();
-                    return conn;
-                }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; }
-            }
-            Thread.Sleep(50);
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider opened the database.", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void A_large_memo_chains_across_lval_pages_and_round_trips()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"chained-lval-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "chained-lval-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -66,6 +47,6 @@ public class ChainedLongValueAccessTests
             cmd.CommandText = "SELECT M FROM Big WHERE Id = 1";
             Assert.Equal(Big, (string)cmd.ExecuteScalar()!);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

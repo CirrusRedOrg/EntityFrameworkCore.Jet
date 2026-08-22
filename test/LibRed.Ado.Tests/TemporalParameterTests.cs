@@ -11,8 +11,10 @@ public class TemporalParameterTests
 {
     private static LibRedConnection OpenTemp()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"tpar-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        // Tracked, so the copy is swept at process exit: this helper returns only the connection, so the
+        // caller has no path to delete in a finally.
+        string path = TemporaryDatabase.CopyPath(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "tpar-");
         var conn = new LibRedConnection($"Data Source={path}");
         conn.Open();
         return conn;

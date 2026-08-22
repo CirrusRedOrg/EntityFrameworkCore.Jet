@@ -58,7 +58,7 @@ public class TableCreatorTests
                 Assert.Equal([owned.Max()], free);
             }
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class TableCreatorTests
                 Assert.Equal(3, table.Definition.Indexes.Single(i => i.IsPrimaryKey).UniqueEntryCount);
             }
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class TableCreatorTests
                 Assert.True(ownedPages > 1, $"expected multiple data pages, got {ownedPages}");
             }
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -162,7 +162,7 @@ public class TableCreatorTests
                 Assert.Equal(8, byV["c"]);
             }
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -193,13 +193,12 @@ public class TableCreatorTests
                 Assert.Equal(5, highWater); // Access reads this to pick the next id (= 6)
             }
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     private static string CopyToTemp()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"libred-create-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-create-");
         return path;
     }
 
@@ -231,7 +230,7 @@ public class TableCreatorTests
                 Assert.Empty(db.OpenTable("Widgets").Rows()); // starts empty
             }
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -259,7 +258,7 @@ public class TableCreatorTests
                 Assert.Equal([2, "second", new DateTime(2021, 3, 4)], rows[1]);
             }
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -305,7 +304,7 @@ public class TableCreatorTests
                 Assert.Equal([int.MinValue, 0, int.MaxValue], ids);
             }
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -341,7 +340,7 @@ public class TableCreatorTests
                 Assert.Equal([1, 2, 3], ids);
             }
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -360,6 +359,6 @@ public class TableCreatorTests
                 Assert.Equal(830, db.OpenTable("Orders").Rows().Count());
             }
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // A "Random" AutoNumber — an AutoNumber column with DEFAULT GenUniqueID() (Access's "New Values = Random").
 // LibRed persists the GenUniqueID() default to the column's LvProp (byte-identical to a UI-authored one) and,
 // on insert, assigns a random Int32 per row instead of the sequential seed/increment counter.
-public class RandomAutoNumberTests
+public class RandomAutoNumberTests : TempDatabaseTest
 {
     private static (QueryEngine Engine, JetDatabase Db) Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"rand-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var db = JetDatabase.Open(path, readOnly: false);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "rand-");
+        var db = TemporaryDatabase.OpenTracked(path, readOnly: false);
         return (new QueryEngine(db), db);
     }
 

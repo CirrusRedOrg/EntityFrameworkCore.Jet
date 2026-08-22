@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // Left/Right edge cases, verified byte-identical to ACE — including where ACE errors (negative length → Invalid
 // procedure call; null length → Data type mismatch) rather than clamping. A null string propagates. Also: Split()
 // is not a scalar SQL function in ACE ("Undefined function", it returns an array), so LibRed rejects it too.
-public class LeftRightEdgeCasesTests
+public class LeftRightEdgeCasesTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"lr-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "lr-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY )");
         e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
         return e;
@@ -47,5 +46,5 @@ public class LeftRightEdgeCasesTests
 
     [Fact]
     public void Split_is_not_a_scalar_function() // matches ACE ("Undefined function 'Split'")
-        => Assert.ThrowsAny<Exception>(() => Eval("Split('a,b,c', ',')"));
+        => Assert.Throws<NotSupportedException>(() => Eval("Split('a,b,c', ',')"));
 }

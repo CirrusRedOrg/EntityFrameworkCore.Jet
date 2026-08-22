@@ -7,21 +7,12 @@ namespace LibRed.Core.Tests;
 
 public class TextPrimaryKeyInsertTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider available.");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Insert_into_text_primary_key_table_is_seekable_by_access()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"libred-textpk-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-textpk-");
         try
         {
             // Insert a new Customers row (text PK 'CustomerID') through LibRed.
@@ -53,6 +44,6 @@ public class TextPrimaryKeyInsertTests
                 Assert.Equal("ZZ Top Trading", cmd.ExecuteScalar());
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

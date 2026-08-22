@@ -8,13 +8,7 @@ namespace LibRed.Core.Tests;
 // (SQL Server's MATCH SIMPLE would skip the check when any column is null; ACE does not.)
 public class CompositeFkNullAccessTests
 {
-    private static OleDbConnection Open(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        throw new InvalidOperationException("no ace");
-    }
+    private static OleDbConnection Open(string path) => AceTestDatabase.Open(path);
     private static void Ok(OleDbConnection c, string sql) { using var m = c.CreateCommand(); m.CommandText = sql; m.ExecuteNonQuery(); }
     private static void Rejects(OleDbConnection c, string sql) =>
         Assert.ThrowsAny<OleDbException>(() => { using var m = c.CreateCommand(); m.CommandText = sql; m.ExecuteNonQuery(); });
@@ -22,8 +16,7 @@ public class CompositeFkNullAccessTests
     [Fact]
     public void Access_applies_match_full_to_a_composite_foreign_key()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"cfk-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "cfk-");
         try
         {
             using var c = Open(path);
@@ -38,6 +31,6 @@ public class CompositeFkNullAccessTests
             Rejects(c, "INSERT INTO C (Id, X, Y) VALUES (4, NULL, 2)"); // partial null → rejected
             Rejects(c, "INSERT INTO C (Id, X, Y) VALUES (5, 1, 99)");   // no matching parent → rejected
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

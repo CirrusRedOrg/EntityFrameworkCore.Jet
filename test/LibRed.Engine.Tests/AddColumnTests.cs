@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 // ALTER TABLE ... ADD COLUMN through LibRed's engine. Metadata TDEF edit: the column is appended, existing
 // rows read it as NULL, and (on an empty table) subsequent inserts include it.
-public class AddColumnTests
+public class AddColumnTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"addcol-eng-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "addcol-eng-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T (Id long PRIMARY KEY, A long)");
         return e;
     }

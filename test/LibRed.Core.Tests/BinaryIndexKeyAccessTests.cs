@@ -49,7 +49,7 @@ public class BinaryIndexKeyAccessTests
     }
 
     [Theory]
-    [InlineData(new byte[] { }, "7F 00 00 00 00 00 00 00 00 00")]                     // empty → one padded chunk, len 0
+    [InlineData(new byte[] { }, "7F")]                                                   // empty → start marker only (live ACE oracle)
     [InlineData(new byte[] { 0x01, 0x02, 0x03 }, "7F 01 02 03 00 00 00 00 00 03")]    // 3 bytes, single chunk
     [InlineData(new byte[] { 0x47, 0x75, 0x6D, 0x62, 0x61, 0x6C, 0x6C, 0x21 }, "7F 47 75 6D 62 61 6C 6C 21 08")] // full 8-byte chunk
     [InlineData(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 }, "7F 01 02 03 04 05 06 07 08 09 09 00 00 00 00 00 00 00 01")] // 9 bytes → two chunks
@@ -63,13 +63,13 @@ public class BinaryIndexKeyAccessTests
     [Fact]
     public void Encoded_binary_keys_sort_in_value_order_both_directions()
     {
-        // Lexicographic byte order of the encoded keys must match value order ascending, and reverse it
-        // descending. (Descending mirrors the ACE-verified GUID descending: invert every byte except the
-        // 0x09 continuation markers.)
+        // For non-empty values, lexicographic byte order of the encoded keys must match value order ascending,
+        // and reverse it descending. Empty Binary has a special start-only key and is covered against live ACE
+        // in IndexOrderingAccessTests rather than being forced through this ordinary chunk-prefix property.
         var col = new ColumnDef { Name = "b", Type = JetDataType.Binary, Index = 0 };
         byte[][] values =
         [
-            [], [0x00], [0x00, 0x00], [0x01], [0x01, 0x02, 0x03], [0x01, 0x02, 0x03, 0x04],
+            [0x00], [0x00, 0x00], [0x01], [0x01, 0x02, 0x03], [0x01, 0x02, 0x03, 0x04],
             [0x02], [.. Enumerable.Repeat((byte)0xAB, 9)], [0xFF], [0xFF, 0x00],
         ];
 

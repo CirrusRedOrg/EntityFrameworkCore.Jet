@@ -135,10 +135,12 @@ internal sealed class ExpressionEvaluator(
         // value in the Jet expression service — so a trailing "$" is stripped and dispatched to the base name.
         string name = f.Name.ToUpperInvariant();
         if (name.Length > 1 && name[^1] == '$') name = name[..^1];
+        ValidateArity(name, f.Arguments.Count);
 
         return name switch
         {
-            "IIF" => IsTrue(f.Arguments[0]) ? Evaluate(f.Arguments[1]) : Evaluate(f.Arguments[2]),
+            "IIF" => IsTrue(f.Arguments[0]) ? Evaluate(f.Arguments[1])
+                : f.Arguments.Count == 3 ? Evaluate(f.Arguments[2]) : null,
             "CHOOSE" => Choose(f),
             "SWITCH" => Switch(f),
             "DATEPART" => DatePart(Evaluate(f.Arguments[0]), Evaluate(f.Arguments[1])),
@@ -288,6 +290,70 @@ internal sealed class ExpressionEvaluator(
             "GENGUID" => Guid.NewGuid(),
             _ => throw new NotSupportedException($"Function {f.Name} is not supported."),
         };
+    }
+
+    /// <summary>Rejects argument counts verified against ACE. Keep this table evidence-driven: add a function
+    /// only after its minimum/maximum have been exercised through ACE, since Jet includes quirks such as IIf's
+    /// accepted two-argument form (the omitted false branch is Null).</summary>
+    internal static void ValidateArity(string name, int count)
+    {
+        (int Min, int Max)? range = name switch
+        {
+            // Conversion, unary numeric/string/date/inspection functions and single-argument aliases.
+            "CBOOL" or "CBYTE" or "CINT" or "CLNG" or "CSNG" or "CDBL" or "CCUR" or "CDEC"
+                or "CSTR" or "CDATE" or "CVAR"
+                or "ABS" or "SGN" or "INT" or "FIX" or "SQR" or "EXP" or "LOG" or "SIN" or "COS"
+                or "TAN" or "ATN"
+                or "LEN" or "LCASE" or "UCASE" or "TRIM" or "LTRIM" or "RTRIM" or "SPACE"
+                or "STRREVERSE" or "STR" or "VAL" or "CHR" or "ASC" or "HEX" or "OCT"
+                or "DATEVALUE" or "TIMEVALUE" or "YEAR" or "MONTH" or "DAY" or "HOUR" or "MINUTE"
+                or "SECOND" or "ISDATE" or "ISNULL" or "ISNUMERIC" or "ISERROR" or "TYPENAME" or "VARTYPE"
+                or "QBCOLOR" or "ASCW" or "CHRW" or "ASCB" or "LENB" => (1, 1),
+
+            "LEFT" or "RIGHT" or "STRING" or "LEFTB" or "RIGHTB" => (2, 2),
+            "MID" or "MIDB" => (2, 3),
+            "INSTR" or "INSTRREV" or "INSTRB" => (2, 4),
+            "STRCOMP" => (2, 3),
+            "STRCONV" => (2, 3),
+            "IIF" => (2, 3),
+            "CHOOSE" => (2, int.MaxValue),
+            "SWITCH" => (2, int.MaxValue),
+
+            "NOW" or "DATE" or "TIME" or "TIMER" or "GENUNIQUEID" or "GENGUID" => (0, 0),
+            "DATEADD" => (3, 3),
+            "DATEDIFF" => (3, 5),
+            "DATEPART" => (2, 4),
+            "DATESERIAL" or "TIMESERIAL" => (3, 3),
+            "WEEKDAY" or "MONTHNAME" => (1, 2),
+            "WEEKDAYNAME" => (1, 3),
+
+            "RGB" => (3, 3),
+            "ROUND" => (1, 2),
+            "RND" => (0, 1),
+            "REPLACE" => (3, 6),
+            "FORMAT" => (1, 4),
+            "FORMATCURRENCY" or "FORMATNUMBER" or "FORMATPERCENT" => (1, 5),
+            "FORMATDATETIME" => (1, 2),
+            "PARTITION" => (4, 4),
+
+            "PMT" or "FV" or "PV" or "NPER" => (3, 5),
+            "IPMT" or "PPMT" => (4, 6),
+            "RATE" => (3, 6),
+            "SLN" => (3, 3),
+            "SYD" => (4, 4),
+            "DDB" => (4, 5),
+
+            "COUNT" or "SUM" or "AVG" or "MIN" or "MAX" or "FIRST" or "LAST" or "STDEV" or "VAR"
+                or "STDEVP" or "VARP" or "STDDEV" or "STDDEVP" => (1, 1),
+            _ => null,
+        };
+        bool invalidPairs = name == "SWITCH" && count % 2 != 0;
+        if (range is { } valid && (count < valid.Min || count > valid.Max || invalidPairs))
+            throw new InvalidOperationException(
+                $"Wrong number of arguments used with function {name} (expected " +
+                (name == "SWITCH" ? "condition/value pairs" : valid.Min == valid.Max
+                    ? valid.Min.ToString(CultureInfo.InvariantCulture)
+                    : valid.Max == int.MaxValue ? $"at least {valid.Min}" : $"{valid.Min} to {valid.Max}") + ").");
     }
 
     /// <summary>Access <c>Choose(index, choice-1, choice-2, …)</c>: returns the 1-based choice at

@@ -13,17 +13,7 @@ namespace LibRed.Core.Tests;
 // relationship whose by-name references were repointed.
 public class AceRenameTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static void Exec(OleDbConnection conn, string sql)
     {
@@ -42,8 +32,7 @@ public class AceRenameTests
     [Fact]
     public void Access_reads_a_libred_renamed_table_and_column_and_still_applies_the_default()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"acerename-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "acerename-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -77,14 +66,13 @@ public class AceRenameTests
             stale.CommandText = "SELECT Title FROM DocumentArchive";
             Assert.ThrowsAny<OleDbException>(() => stale.ExecuteScalar());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_still_enforces_a_relationship_after_libred_renames_both_sides()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"acerenamefk-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "acerenamefk-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -120,6 +108,6 @@ public class AceRenameTests
             Exec(conn, "INSERT INTO C (Id, OwnerId) VALUES (1, 1)");
             Assert.Equal(1, Scalar(conn, "SELECT OwnerId FROM C WHERE Id = 1"));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

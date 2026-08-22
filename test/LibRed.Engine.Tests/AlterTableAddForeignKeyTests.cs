@@ -8,8 +8,7 @@ public class AlterTableAddForeignKeyTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"alterfk-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "alterfk-");
         return path;
     }
 
@@ -37,7 +36,7 @@ public class AlterTableAddForeignKeyTests
                 Assert.Equal("Demographics", fk.ReferencedTable, ignoreCase: true);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A self-referencing foreign key (Northwind's Employees.ReportsTo → Employees.EmployeeID).
@@ -62,6 +61,6 @@ public class AlterTableAddForeignKeyTests
                 Assert.Equal("Staff", fk.ReferencedTable, ignoreCase: true);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

@@ -11,8 +11,7 @@ public class IndexColumnLimitTests
     [Fact]
     public void Primary_key_over_more_than_ten_columns_throws()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"idxlimit-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "idxlimit-");
         try
         {
             var columns = Enumerable.Range(0, 11)
@@ -24,7 +23,7 @@ public class IndexColumnLimitTests
             var ex = Assert.Throws<NotSupportedException>(() => db.CreateTable("Wide", columns, primaryKey: keyColumns));
             Assert.Contains("10", ex.Message);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Jet/ACE caps a table at 32 indexes (keys + relationships included). A primary key plus 32 unique
@@ -32,8 +31,7 @@ public class IndexColumnLimitTests
     [Fact]
     public void More_than_thirty_two_indexes_throws()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"idxcount-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "idxcount-");
         try
         {
             var columns = Enumerable.Range(0, 33)
@@ -48,6 +46,6 @@ public class IndexColumnLimitTests
                 db.CreateTable("Many", columns, primaryKey: ["C0"], relationships: null, uniqueConstraints: uniques));
             Assert.Contains("32", ex.Message);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

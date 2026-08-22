@@ -8,13 +8,12 @@ namespace LibRed.Engine.Tests;
 // row. These pin the semantics: hoisting must never change an answer, and must NOT engage where the result does
 // depend on the outer row — including when the dependence is written as a BARE column name, which only the
 // evaluator's own resolver can settle.
-public class UncorrelatedSubqueryHoistingTests
+public class UncorrelatedSubqueryHoistingTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"hoist-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "hoist-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
 
         // Extra exists ONLY on O, so a bare `Extra` inside a subquery over P must resolve outward.
         e.ExecuteNonQuery("CREATE TABLE O ( Id LONG PRIMARY KEY, K LONG, Extra LONG )");

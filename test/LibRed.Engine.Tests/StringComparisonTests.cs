@@ -8,8 +8,7 @@ public class StringComparisonTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"strcmp-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "strcmp-");
         return path;
     }
 
@@ -24,7 +23,7 @@ public class StringComparisonTests
             e.ExecuteNonQuery("INSERT INTO One (Id) VALUES (1)");
             return e.ExecuteQuery($"SELECT IIF({expr}, 1, 0) FROM One").Rows.First()[0];
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Access text comparison is case-insensitive and ignores trailing spaces (verified vs ACE).
@@ -76,7 +75,7 @@ public class StringComparisonTests
             Assert.Equal(2, e.ExecuteQuery("SELECT DISTINCT City FROM C").Rows.Count());       // London*, Paris
             Assert.Equal(2, e.ExecuteQuery("SELECT City, COUNT(*) FROM C GROUP BY City").Rows.Count());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A real column filter is case-insensitive: matching 'london' finds the 'London' customers.
@@ -93,6 +92,6 @@ public class StringComparisonTests
             Assert.True(exact > 0);
             Assert.Equal(exact, lower);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

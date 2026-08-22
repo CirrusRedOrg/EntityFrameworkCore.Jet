@@ -61,7 +61,7 @@ public class DatabaseDefinitionPageTests
     [Fact]
     public void Rejects_non_jet_file()
     {
-        string bogus = Path.Combine(Path.GetTempPath(), $"libred_{Guid.NewGuid():N}.bin");
+        string bogus = TemporaryDatabase.CreatePath("libred_", ".bin");
         File.WriteAllBytes(bogus, new byte[4096]);
         try
         {
@@ -69,7 +69,7 @@ public class DatabaseDefinitionPageTests
         }
         finally
         {
-            File.Delete(bogus);
+            TemporaryDatabase.Delete(bogus);
         }
     }
 }

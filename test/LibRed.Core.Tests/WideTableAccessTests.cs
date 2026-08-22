@@ -11,17 +11,7 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class WideTableAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     // A wide table of TEXT columns (inline — no long-value usage maps) whose TDEF spans continuation pages:
     // Access opens it, enumerates every column, and a row round-trips including the far-end column.
@@ -29,8 +19,7 @@ public class WideTableAccessTests
     public void Access_opens_a_wide_multi_page_table()
     {
         const int n = 120;
-        string path = Path.Combine(Path.GetTempPath(), $"wide-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "wide-");
         try
         {
             var cols = new List<ColumnSpec> { new("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true) };
@@ -52,7 +41,7 @@ public class WideTableAccessTests
                 Assert.Equal("z", c.ExecuteScalar());
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A table with more memo columns than one usage-map page holds (each memo needs a used + a free map,
@@ -63,8 +52,7 @@ public class WideTableAccessTests
     public void Access_opens_a_wide_memo_table_and_round_trips_a_long_value()
     {
         const int n = 80; // 160 long-value maps: far more than fit on one usage-map page
-        string path = Path.Combine(Path.GetTempPath(), $"widemem-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "widemem-");
         string big = new('x', 8000); // forces an LVAL page — exercises the column's used-pages usage map
         try
         {
@@ -90,6 +78,6 @@ public class WideTableAccessTests
                 }
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

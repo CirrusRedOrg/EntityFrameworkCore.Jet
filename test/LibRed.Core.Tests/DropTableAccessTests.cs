@@ -9,21 +9,14 @@ namespace LibRed.Core.Tests;
 // table, reads the other tables, and reuses the freed pages when creating a new table.
 public class DropTableAccessTests
 {
-    private static OleDbConnection Open(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        throw new InvalidOperationException("no ace");
-    }
+    private static OleDbConnection Open(string path) => AceTestDatabase.Open(path);
     private static void Ace(string path, params string[] sqls)
     { using var c = Open(path); foreach (var s in sqls) { using var m = c.CreateCommand(); m.CommandText = s; m.ExecuteNonQuery(); } }
 
     [Fact]
     public void Access_reads_a_libred_table_dropped_file_and_reuses_the_pages()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"droptab-lr-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "droptab-lr-");
         try
         {
             // ACE creates the tables + rows so the catalog/pages are authentic.
@@ -60,6 +53,6 @@ public class DropTableAccessTests
             Assert.True(new FileInfo(path).Length <= pagesBeforeDrop,
                 $"file grew ({new FileInfo(path).Length} > {pagesBeforeDrop}) — freed pages were not reused");
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

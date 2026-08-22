@@ -9,23 +9,12 @@ namespace LibRed.Core.Tests;
 // length and enforces it — a value that fits the new max is accepted, one past it is rejected.
 public class AceAlterColumnTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_reads_and_enforces_a_libred_widened_text_column()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"alc-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "alc-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -48,14 +37,13 @@ public class AceAlterColumnTests
             string? v; using (var c = conn.CreateCommand()) { c.CommandText = "SELECT V FROM T WHERE K = 1"; v = (string?)c.ExecuteScalar(); }
             Assert.Equal(40, v!.Length);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_applies_a_libred_alter_column_default()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"acd-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "acd-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -72,14 +60,13 @@ public class AceAlterColumnTests
             string? v; using (var c = conn.CreateCommand()) { c.CommandText = "SELECT V FROM T WHERE K = 1"; v = (string?)c.ExecuteScalar(); }
             Assert.Equal("unknown", v);   // ACE applied the LibRed-written default
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_sees_a_libred_dropped_default_gone_but_keeps_not_null()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"add-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "add-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -102,7 +89,7 @@ public class AceAlterColumnTests
             int n; using (var c = conn.CreateCommand()) { c.CommandText = "SELECT N FROM T WHERE K = 2"; n = Convert.ToInt32(c.ExecuteScalar()); }
             Assert.Equal(8, n);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Byte-faithful: ACE recognises a LibRed-written GenGUID() default on a GUID column and applies it on its
@@ -110,8 +97,7 @@ public class AceAlterColumnTests
     [Fact]
     public void Access_applies_a_libred_written_genguid_default()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"gg-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "gg-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -138,14 +124,13 @@ public class AceAlterColumnTests
             Assert.All(guids, g => Assert.NotEqual(Guid.Empty, g));
             Assert.NotEqual(guids[0], guids[1]);   // ACE generated a fresh Guid per row
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_enforces_a_libred_alter_column_made_required()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"areq-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "areq-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -175,14 +160,13 @@ public class AceAlterColumnTests
                 c.ExecuteNonQuery();
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_enforces_the_relationship_after_a_libred_parent_side_rewrite()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"prw-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "prw-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -208,7 +192,7 @@ public class AceAlterColumnTests
                 using (var ok = conn.CreateCommand()) { ok.CommandText = "INSERT INTO C (CID, PID) VALUES (21, 1)"; ok.ExecuteNonQuery(); }
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Faithful round-trip: changing ONE column's type must not disturb another column's on-disk descriptor.
@@ -218,8 +202,7 @@ public class AceAlterColumnTests
     [Fact]
     public void Libred_type_change_preserves_an_untouched_columns_descriptor_bytes()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"pre-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "pre-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -249,14 +232,13 @@ public class AceAlterColumnTests
             q.CommandText = "SELECT C FROM T";
             Assert.Equal("hi", (string?)q.ExecuteScalar());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_reads_a_libred_full_rewrite_with_converted_values()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"rw-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "rw-");
         try
         {
             // ACE creates + populates a LONG column.
@@ -284,6 +266,6 @@ public class AceAlterColumnTests
                 Assert.Equal(new[] { 42.0, 7.0, 3.5 }, vals);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

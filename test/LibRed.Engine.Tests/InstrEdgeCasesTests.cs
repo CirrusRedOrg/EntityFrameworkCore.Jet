@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 // InStr([start,] string1, string2 [, compare]) — the documented edge cases, each verified byte-identical to ACE:
 // case-insensitive default, not-found → 0, empty/null args, start beyond length, and the compare modes.
-public class InstrEdgeCasesTests
+public class InstrEdgeCasesTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"instr-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "instr-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY )");
         e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
         return e;

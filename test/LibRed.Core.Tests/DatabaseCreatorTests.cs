@@ -31,7 +31,7 @@ public class DatabaseCreatorTests
     [Fact]
     public void Creates_an_empty_database_that_round_trips_a_user_table()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"libred_create_{Guid.NewGuid():N}.accdb");
+        string path = TemporaryDatabase.CreatePath("libred_create_");
         try
         {
             DatabaseCreator.CreateEmpty(path);
@@ -66,7 +66,7 @@ public class DatabaseCreatorTests
                 Assert.Contains("Alan", names);
             }
         }
-        finally { if (File.Exists(path)) File.Delete(path); }
+        finally { if (File.Exists(path)) TemporaryDatabase.Delete(path); }
     }
 
     [Fact]

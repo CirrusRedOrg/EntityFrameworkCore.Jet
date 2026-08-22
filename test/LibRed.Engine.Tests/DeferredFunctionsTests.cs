@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // Partition / StrConv / WeekdayName — implemented after probing their exact ACE semantics. Expected values are
 // what ACE returned, except WeekdayName's omitted first-day (OS-locale-dependent) which is asserted only with an
 // explicit first-day argument.
-public class DeferredFunctionsTests
+public class DeferredFunctionsTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"dff-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "dff-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY )");
         e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
         return e;

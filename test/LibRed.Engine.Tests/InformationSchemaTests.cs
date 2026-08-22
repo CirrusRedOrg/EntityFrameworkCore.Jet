@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 /// <summary>The Jet-flavoured INFORMATION_SCHEMA views are engine-native virtual tables over the catalog, so EF's
 /// migration existence checks (<c>SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = '…'</c>) work.</summary>
-public class InformationSchemaTests
+public class InformationSchemaTests : TempDatabaseTest
 {
     private static QueryEngine Seeded()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"is-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "is-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE Widget (Id LONG PRIMARY KEY, Name TEXT(50))");
         return e;
     }
@@ -49,9 +48,8 @@ public class IfThenStatementTests
 {
     private static QueryEngine Seeded()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"if-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "if-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE Existing (Id LONG PRIMARY KEY)");
         return e;
     }

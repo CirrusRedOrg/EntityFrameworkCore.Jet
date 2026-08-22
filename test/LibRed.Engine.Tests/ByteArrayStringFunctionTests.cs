@@ -10,13 +10,12 @@ namespace LibRed.Engine.Tests;
 /// .ToString() (which yields "System.Byte[]"). EF emits this for <c>byte[].Contains(x)</c> as
 /// <c>INSTR(1, STRCONV(arr, 64), 0xXX, 0) &gt; 0</c>.
 /// </summary>
-public class ByteArrayStringFunctionTests
+public class ByteArrayStringFunctionTests : TempDatabaseTest
 {
     private static QueryEngine Engine()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"bstr-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "bstr-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE B (Id LONG PRIMARY KEY, Arr VARBINARY(10))");
         e.ExecuteNonQuery("INSERT INTO B (Id, Arr) VALUES (1, 0x414201)"); // A B 0x01
         e.ExecuteNonQuery("INSERT INTO B (Id, Arr) VALUES (2, 0x4142)");   // A B

@@ -12,15 +12,7 @@ namespace LibRed.Core.Tests;
 // otherwise a survivor after a dropped variable column decodes the wrong slot.
 public class DropColumnAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No ACE provider");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static void Ace(string path, params string[] sqls)
     {
@@ -43,8 +35,7 @@ public class DropColumnAccessTests
     [Fact]
     public void Reads_rows_correctly_after_ace_drops_a_column()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"dropcol-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "dropcol-");
         try
         {
             Ace(path,
@@ -60,14 +51,13 @@ public class DropColumnAccessTests
             Assert.Equal(["A", "D"], ColsOfT(path));
             Assert.Equal([["1", "dee"], ["2", "doo"]], ReadT(path));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_reads_a_libred_dropped_column_table()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"dropcol-lr-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "dropcol-lr-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -95,7 +85,7 @@ public class DropColumnAccessTests
             Assert.True(reader.Read()); Assert.Equal(2, reader.GetInt32(0)); Assert.Equal("doo", reader.GetString(1));
             Assert.False(reader.Read());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -106,8 +96,7 @@ public class DropColumnAccessTests
         // the pure-ACE (drop+add) path: after dropping B (colId 1, leaving a gap), ACE's added columns get the
         // NEXT ids (4, 5), not the gap; a new variable column appends (varIdx 2) and a fixed one appends
         // (fixedOff 8); old rows read the new columns as NULL.
-        string path = Path.Combine(Path.GetTempPath(), $"dropadd-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "dropadd-");
         try
         {
             Ace(path,
@@ -133,6 +122,6 @@ public class DropColumnAccessTests
             Assert.Equal(["1", "10", "dee", "<null>", "<null>"], rows[0]);  // old row: new columns NULL
             Assert.Equal(["2", "20", "new", "eee", "99"], rows[1]);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

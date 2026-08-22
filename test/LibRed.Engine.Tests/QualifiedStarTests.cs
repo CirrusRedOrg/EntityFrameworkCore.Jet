@@ -17,8 +17,7 @@ public class QualifiedStarTests
 
     private static string Fresh()
     {
-        string p = Path.Combine(Path.GetTempPath(), $"qstar-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), p);
+        string p = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "qstar-");
         return p;
     }
 
@@ -37,7 +36,7 @@ public class QualifiedStarTests
             Assert.Equal("CategoryName", rs.ColumnNames[^1]);
             Assert.Equal(69, rs.Rows.Count()); // the not-discontinued products
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -67,6 +66,6 @@ public class QualifiedStarTests
                 Assert.Equal(69, rs.Rows.Count());
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

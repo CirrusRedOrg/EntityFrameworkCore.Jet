@@ -21,8 +21,7 @@ public class IndexSplitTests
 
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"split-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "split-");
         return path;
     }
 
@@ -62,6 +61,6 @@ public class IndexSplitTests
                 Assert.Equal("r1234", rs.Rows.Single()[0]);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

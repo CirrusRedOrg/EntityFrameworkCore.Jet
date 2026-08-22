@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // InStrRev(string1, string2, [start=-1], [compare]) — note the argument order differs from InStr (start is 3rd,
 // default -1 = end) and start bounds the search to Left(string1, start). All values verified byte-identical to
 // ACE, including its quirks (empty needle → start position; NULL → error, not NULL; start=0 → error).
-public class InstrRevEdgeCasesTests
+public class InstrRevEdgeCasesTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"irev-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "irev-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY )");
         e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
         return e;

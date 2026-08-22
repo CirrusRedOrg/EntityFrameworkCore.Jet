@@ -21,25 +21,7 @@ public class DerivedTableViewAccessTests
 
     // The ACE OLE DB provider is intermittently unstable on x64 (a spurious "Cannot open database …
     // may be corrupt"; see the ace-provider-crash-flakiness note), so retry the open a few times.
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-        {
-            foreach (string provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try
-                {
-                    var conn = new OleDbConnection($"Provider={provider};Data Source={path};OLE DB Services=-4;");
-                    conn.Open();
-                    return conn;
-                }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; }
-            }
-            Thread.Sleep(50);
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider opened the database.", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static void CreateView(string path, string name)
     {
@@ -55,8 +37,7 @@ public class DerivedTableViewAccessTests
     [Fact]
     public void Stores_the_derived_table_source_the_access_way()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"derived-view-store-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "derived-view-store-");
         try
         {
             CreateView(path, "CSbyCity2");
@@ -72,15 +53,14 @@ public class DerivedTableViewAccessTests
             Assert.Equal("u", n2[t]);
             Assert.Equal(4, attr.Count(a => a == 6));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // The long subquery Expression (> 64 bytes) is written to an LVAL page, so Access can run the view.
     [Fact]
     public void Access_runs_a_derived_table_union_view()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"derived-view-run-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "derived-view-run-");
         try
         {
             CreateView(path, "CSbyCity2");
@@ -94,7 +74,7 @@ public class DerivedTableViewAccessTests
             seek.CommandText = "SELECT Relationship FROM CSbyCity2 WHERE City = 'London'";
             Assert.NotNull(seek.ExecuteScalar()); // the view resolves and returns rows
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     private static (List<byte> Attr, List<string?> Expr, List<string?> Name1, List<string?> Name2)

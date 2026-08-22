@@ -8,8 +8,7 @@ public class DdlDmlTests
 {
     private static string CopyToTemp()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"libred-ddl-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "libred-ddl-");
         return path;
     }
 
@@ -29,7 +28,7 @@ public class DdlDmlTests
             var ex = Assert.Throws<NotSupportedException>(() => new QueryEngine(db).ExecuteNonQuery(sql));
             Assert.Contains(expectedVersionInMessage, ex.Message);
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -44,7 +43,7 @@ public class DdlDmlTests
             var ex = Assert.Throws<NotSupportedException>(() => e.ExecuteNonQuery("ALTER TABLE `T` ALTER COLUMN `V` BIGINT"));
             Assert.Contains("Access 2016", ex.Message);
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -67,7 +66,7 @@ public class DdlDmlTests
             Assert.Null(rows[1][1]);
             Assert.Equal(longText, rows[2][1]);
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -97,7 +96,7 @@ public class DdlDmlTests
             var pk = Assert.Single(db.Catalog.FindTable("Widgets")!.Indexes, i => i.IsPrimaryKey);
             Assert.Equal(["Id"], pk.Columns.Select(c => c.Column.Name));
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -118,7 +117,7 @@ public class DdlDmlTests
             Assert.Equal(1, Convert.ToInt32(rows[0][0]));
             Assert.Equal("a", rows[0][1]);
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -140,7 +139,7 @@ public class DdlDmlTests
                 .Rows.Select(r => Convert.ToInt32(r[0])).ToList();
             Assert.Equal([1, 2, 10, 11], ids);
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -170,7 +169,7 @@ public class DdlDmlTests
             Assert.Equal(9.99m, Convert.ToDecimal(rows[0][2]));
             Assert.Equal("Sprocket", rows[1][1]);
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -189,7 +188,7 @@ public class DdlDmlTests
             var only = Assert.Single(engine.ExecuteQuery("SELECT `Name` FROM `P` WHERE `Id` = 7").Rows);
             Assert.Equal("param", only[0]);
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -225,7 +224,7 @@ public class DdlDmlTests
             Assert.False((bool)rows[1][4]!);
             Assert.Equal("-checked", rows[1][5]);
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -253,7 +252,7 @@ public class DdlDmlTests
             Assert.Equal(LibRed.Catalog.JetDataType.Int16, def.FindColumn("Small")!.Type);
             Assert.Equal(LibRed.Catalog.JetDataType.Byte, def.FindColumn("Tiny")!.Type);
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -266,7 +265,7 @@ public class DdlDmlTests
             new QueryEngine(db).ExecuteNonQuery("CREATE TABLE `B` (`Id` INTEGER, `Flag` LOGICAL1)");
             Assert.Equal(LibRed.Catalog.JetDataType.Boolean, db.Catalog.FindTable("B")!.FindColumn("Flag")!.Type);
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // ANSI/SQL-Server type-name aliases EF Core's relational defaults emit that weren't handled:
@@ -286,7 +285,7 @@ public class DdlDmlTests
             new QueryEngine(db).ExecuteNonQuery($"CREATE TABLE `D` (`Id` INTEGER, `V` {typeName})");
             Assert.Equal(expected, db.Catalog.FindTable("D")!.FindColumn("V")!.Type);
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -305,6 +304,6 @@ public class DdlDmlTests
             Assert.Equal(1, Convert.ToInt32(only[0]));
             Assert.Equal("x", only[1]);
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

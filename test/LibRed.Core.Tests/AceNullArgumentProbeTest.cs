@@ -12,27 +12,16 @@ namespace LibRed.Core.Tests;
 // guard came along for free. EF 11 elides the redundant conversion, so MID now receives a NULL length directly
 // and ACE errors (the GearsOfWar Null_semantics_..._optional_navigation_complex failures). Guarding has to move
 // to the functions themselves, so this establishes which arguments actually need it.
-public class AceNullArgumentProbeTest(ITestOutputHelper output)
+public class AceNullArgumentRegressionTests(ITestOutputHelper output)
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static void Exec(OleDbConnection c, string sql) { using var cmd = c.CreateCommand(); cmd.CommandText = sql; cmd.ExecuteNonQuery(); }
 
     [Fact]
-    public void Probe_which_vba_arguments_reject_null()
+    public void Vba_numeric_arguments_reject_null_while_value_arguments_propagate_it()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"acenull-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "acenull-");
         try
         {
             using var conn = OpenOleDb(path);
@@ -116,7 +105,28 @@ public class AceNullArgumentProbeTest(ITestOutputHelper output)
 
             // The guard, and the proof that IIF short-circuits: without it the same MID raises.
             Assert.Null(Raises("IIF(`I` IS NULL, NULL, MID('abc', 1, `I`))"));
+
+            string[] propagates =
+            [
+                "MID(`S`, 1, 2)", "LEN(`S`)", "INSTR(`S`, 'a')", "INSTR('abc', `S`)",
+                "UCASE(`S`)", "TRIM(`S`)", "ABS(`I`)", "ROUND(`I`, 2)",
+                "DATEDIFF('d', `S`, #01/01/2000#)", "IIF(`S`, 1, 2)",
+                "IIF(`I` IS NULL, NULL, MID('abc', 1, `I`))",
+                "IIF(`I` IS NULL, NULL, MID('abc', 1, IIF(`I` IS NULL, 0, `I`)))",
+            ];
+            string[] rejectsNullNumericArgument =
+            [
+                "MID('abc', 1, `I`)", "MID('abc', `I`, 2)", "MID('abc', 1, LEN(`S`))",
+                "LEFT('abc', `I`)", "RIGHT('abc', `I`)", "INSTR(`I`, 'abc', 'a')",
+                "STRING(`I`, 'a')", "SPACE(`I`)", "CHR(`I`)",
+                "DATEADD('d', `I`, #01/01/2000#)",
+            ];
+
+            foreach (string expression in propagates)
+                Assert.Null(Raises(expression));
+            foreach (string expression in rejectsNullNumericArgument)
+                Assert.NotNull(Raises(expression));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

@@ -27,6 +27,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\LibRed\LibRed.Ado\LibRed.Ado.csproj" />
+    <!-- Tracked temp-database copies, so a test's .accdb is deleted rather than left in %TEMP%. -->
+    <Compile Include="..\LibRed.Shared\TemporaryDatabase.cs" Link="TemporaryDatabase.cs" />
+    <Compile Include="..\LibRed.Shared\TempDatabaseTest.cs" Link="TempDatabaseTest.cs" />
+    <Using Include="LibRed.Tests.Shared" />
   </ItemGroup>
 
   <ItemGroup>

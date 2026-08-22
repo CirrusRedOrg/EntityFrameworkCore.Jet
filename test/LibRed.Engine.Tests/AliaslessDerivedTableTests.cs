@@ -8,8 +8,7 @@ public class AliaslessDerivedTableTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"aliasless-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "aliasless-");
         return path;
     }
 
@@ -28,7 +27,7 @@ public class AliaslessDerivedTableTests
             var only = Assert.Single(rows);
             Assert.Equal(true, only[0]); // Customers is non-empty → EXISTS true
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -43,6 +42,6 @@ public class AliaslessDerivedTableTests
                 "SELECT n FROM (SELECT COUNT(*) AS n FROM Orders)").Rows.ToList();
             Assert.Equal(830, Assert.Single(rows)[0]);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

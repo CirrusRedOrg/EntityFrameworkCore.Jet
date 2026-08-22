@@ -13,8 +13,7 @@ public class ForeignKeyDdlTests
     [Fact]
     public void Foreign_key_persists_enforces_and_round_trips()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"fk-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "fk-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -30,8 +29,8 @@ public class ForeignKeyDdlTests
                 engine.ExecuteNonQuery("INSERT INTO `Child` (`Id`, `ParentId`) VALUES (2, NULL)");  // null FK: allowed
 
                 // Orphan reference is rejected.
-                Assert.ThrowsAny<Exception>(() =>
-                    engine.ExecuteNonQuery("INSERT INTO `Child` (`Id`, `ParentId`) VALUES (3, 99)"));
+                AssertForeignKeyViolation(engine,
+                    "INSERT INTO `Child` (`Id`, `ParentId`) VALUES (3, 99)", "FK_Child_Parent", "Parent");
             }
 
             using (var db = JetDatabase.Open(path))
@@ -52,7 +51,7 @@ public class ForeignKeyDdlTests
                 Assert.Equal(2, new QueryEngine(db).ExecuteQuery("SELECT `Id` FROM `Child`").Rows.Count());
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // The column-level (single-field) REFERENCES form — `Pid INTEGER CONSTRAINT fk REFERENCES P (Id)` —
@@ -60,8 +59,7 @@ public class ForeignKeyDdlTests
     [Fact]
     public void Column_level_references_builds_and_enforces_the_relationship()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"colref-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "colref-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -73,8 +71,8 @@ public class ForeignKeyDdlTests
                     "`Pid` INTEGER CONSTRAINT `FK_C_P` REFERENCES `P` (`Id`) ON DELETE CASCADE)");
                 engine.ExecuteNonQuery("INSERT INTO `P` (`Id`) VALUES (1)");
                 engine.ExecuteNonQuery("INSERT INTO `C` (`Id`, `Pid`) VALUES (1, 1)");
-                Assert.ThrowsAny<Exception>(() =>
-                    engine.ExecuteNonQuery("INSERT INTO `C` (`Id`, `Pid`) VALUES (2, 42)"));
+                AssertForeignKeyViolation(engine,
+                    "INSERT INTO `C` (`Id`, `Pid`) VALUES (2, 42)", "FK_C_P", "P");
             }
             using (var db = JetDatabase.Open(path))
             {
@@ -84,15 +82,14 @@ public class ForeignKeyDdlTests
                 Assert.True(fk.CascadeDelete);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Column-level and table-level UNIQUE constraints each create a unique (non-primary) index.
     [Fact]
     public void Unique_constraints_create_unique_indexes()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"uq-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "uq-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -109,7 +106,7 @@ public class ForeignKeyDdlTests
                     && ix.Columns.Select(c => c.Column.Name).SequenceEqual(["A", "B"]));
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A multiple-field (composite) foreign key referencing a composite primary key: persists a pair of
@@ -118,8 +115,7 @@ public class ForeignKeyDdlTests
     [Fact]
     public void Composite_foreign_key_persists_and_enforces()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"fkcomp-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "fkcomp-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -131,8 +127,8 @@ public class ForeignKeyDdlTests
                     "CONSTRAINT `FK_C_P` FOREIGN KEY (`A`, `B`) REFERENCES `P` (`A`, `B`))");
                 engine.ExecuteNonQuery("INSERT INTO `P` (`A`, `B`) VALUES (1, 2)");
                 engine.ExecuteNonQuery("INSERT INTO `C` (`Id`, `A`, `B`) VALUES (1, 1, 2)");     // matches (1,2)
-                Assert.ThrowsAny<Exception>(() =>                                                 // (1,3) has no parent
-                    engine.ExecuteNonQuery("INSERT INTO `C` (`Id`, `A`, `B`) VALUES (2, 1, 3)"));
+                AssertForeignKeyViolation(engine,                                                // (1,3) has no parent
+                    "INSERT INTO `C` (`Id`, `A`, `B`) VALUES (2, 1, 3)", "FK_C_P", "P");
             }
             using (var db = JetDatabase.Open(path))
             {
@@ -145,7 +141,7 @@ public class ForeignKeyDdlTests
                     && ix.Columns.Select(c => c.Column.Name).SequenceEqual(["A", "B"]));
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A self-referencing foreign key (as in the GearsOfWar model, a table whose FK targets itself). The
@@ -153,8 +149,7 @@ public class ForeignKeyDdlTests
     [Fact]
     public void Self_referencing_foreign_key_creates_and_enforces()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"fkself-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "fkself-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -165,8 +160,8 @@ public class ForeignKeyDdlTests
                     "CONSTRAINT `FK_Emp_Emp` FOREIGN KEY (`Mgr`) REFERENCES `Emp` (`Id`))");
                 engine.ExecuteNonQuery("INSERT INTO `Emp` (`Id`, `Mgr`) VALUES (1, NULL)"); // top of chain
                 engine.ExecuteNonQuery("INSERT INTO `Emp` (`Id`, `Mgr`) VALUES (2, 1)");    // reports to 1
-                Assert.ThrowsAny<Exception>(() =>                                            // 99 doesn't exist
-                    engine.ExecuteNonQuery("INSERT INTO `Emp` (`Id`, `Mgr`) VALUES (3, 99)"));
+                AssertForeignKeyViolation(engine,                                           // 99 doesn't exist
+                    "INSERT INTO `Emp` (`Id`, `Mgr`) VALUES (3, 99)", "FK_Emp_Emp", "Emp");
             }
             using (var db = JetDatabase.Open(path))
             {
@@ -176,7 +171,7 @@ public class ForeignKeyDdlTests
                 Assert.Equal(("Mgr", "Id"), fk.Columns.Single());
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Access documents ON UPDATE before ON DELETE; EF Core emits only ON DELETE. The grammar accepts
@@ -184,8 +179,7 @@ public class ForeignKeyDdlTests
     [Fact]
     public void On_update_and_on_delete_parse_in_access_order()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"fkord-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "fkord-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -203,6 +197,15 @@ public class ForeignKeyDdlTests
                 Assert.True(fk.CascadeDelete);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    private static void AssertForeignKeyViolation(
+        QueryEngine engine, string sql, string constraintName, string referencedTable)
+    {
+        var error = Assert.Throws<InvalidOperationException>(() => engine.ExecuteNonQuery(sql));
+        Assert.Contains(constraintName, error.Message);
+        Assert.Contains($"'{referencedTable}'", error.Message);
+        Assert.Contains("no matching row", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 }

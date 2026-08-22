@@ -21,20 +21,7 @@ public class LongValuePackingAccessTests
     private static readonly string[] Values =
         Enumerable.Range(0, N).Select(i => $"row{i}:" + new string((char)('A' + i % 26), 150)).ToArray();
 
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-        {
-            foreach (string provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={provider};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; }
-            }
-            Thread.Sleep(50);
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider opened the database.", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static List<int> MapPages(PageChannel ch, (int Row, int Page) ptr)
     {
@@ -52,8 +39,7 @@ public class LongValuePackingAccessTests
     [Fact]
     public void Small_long_values_share_lval_pages_and_round_trip()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"lval-pack-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "lval-pack-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -98,6 +84,6 @@ public class LongValuePackingAccessTests
                 Assert.Equal(Values[i - 1], (string)cmd.ExecuteScalar()!);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

@@ -10,8 +10,7 @@ public class MathFunctionTypeTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"mathfn-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "mathfn-");
         return path;
     }
 
@@ -26,7 +25,7 @@ public class MathFunctionTypeTests
             e.ExecuteNonQuery("INSERT INTO M (D, C) VALUES (3.7, 3.7)");
             return e.ExecuteQuery($"SELECT {expr} FROM M").Rows.First()[0];
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]

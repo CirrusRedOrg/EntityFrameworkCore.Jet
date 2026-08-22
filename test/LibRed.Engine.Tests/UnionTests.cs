@@ -58,7 +58,6 @@ public class UnionTests
             "INTERSECT " +
             "SELECT CustomerID, City FROM Customers WHERE City = 'London' OR City = 'Madrid'", out _);
 
-        Assert.NotEmpty(rows);
         Assert.All(rows, r => Assert.Equal("London", r[1])); // only the shared London rows survive
         Assert.Equal(6, rows.Count);
     }

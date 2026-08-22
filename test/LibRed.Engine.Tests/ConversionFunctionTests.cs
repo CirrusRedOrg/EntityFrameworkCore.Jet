@@ -8,8 +8,7 @@ public class ConversionFunctionTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"conv-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "conv-");
         return path;
     }
 
@@ -24,7 +23,7 @@ public class ConversionFunctionTests
             e.ExecuteNonQuery("INSERT INTO One (Id) VALUES (1)");
             return e.ExecuteQuery($"SELECT {expr} FROM One").Rows.First()[0];
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]

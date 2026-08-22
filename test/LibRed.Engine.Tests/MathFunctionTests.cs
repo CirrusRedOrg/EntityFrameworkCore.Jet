@@ -8,8 +8,7 @@ public class MathFunctionTests
 {
     private static double Eval(string expr)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"math-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "math-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -18,7 +17,7 @@ public class MathFunctionTests
             object? v = engine.ExecuteQuery($"SELECT {expr} AS X FROM Shippers").Rows.First()[0];
             return Convert.ToDouble(v);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Theory]

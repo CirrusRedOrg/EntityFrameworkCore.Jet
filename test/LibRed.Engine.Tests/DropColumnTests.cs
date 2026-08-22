@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 // ALTER TABLE ... DROP COLUMN through LibRed's engine: a metadata-only TDEF edit. Existing rows are not
 // rewritten, so the surviving columns must still read back correctly.
-public class DropColumnTests
+public class DropColumnTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"dropcol-eng-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "dropcol-eng-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T (Id long PRIMARY KEY, A long, B text(20), C text(20))");
         e.ExecuteNonQuery("INSERT INTO T (Id, A, B, C) VALUES (1, 10, 'bee', 'see')");
         e.ExecuteNonQuery("INSERT INTO T (Id, A, B, C) VALUES (2, 20, 'buzz', 'sizz')");

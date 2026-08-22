@@ -23,15 +23,14 @@ namespace LibRed.Engine.Tests;
 /// disagree, the same query returns different answers depending on whether the planner picks a seek or a scan.
 /// These tests pin that they agree, and record which convention the agreement follows.
 /// </summary>
-public class PreEpochDateOrderingTests
+public class PreEpochDateOrderingTests : TempDatabaseTest
 {
     /// <summary>Two tables with identical rows: <c>T</c> indexed on the date column, <c>U</c> not — so the same
     /// query exercises the index path and the scan path.</summary>
     private static QueryEngine Seeded()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"preepoch-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "preepoch-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T (Id LONG PRIMARY KEY, D DATETIME)");
         e.ExecuteNonQuery("CREATE INDEX IX_T_D ON T (D)");
         e.ExecuteNonQuery("CREATE TABLE U (Id LONG PRIMARY KEY, D DATETIME)");

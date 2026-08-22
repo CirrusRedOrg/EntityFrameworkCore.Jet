@@ -10,8 +10,7 @@ public class RowInserterTests
 {
     private static string CopyToTemp()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"libred-insert-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-insert-");
         return path;
     }
 
@@ -59,7 +58,7 @@ public class RowInserterTests
             // Original rows are intact.
             Assert.Contains((1, "Speedy Express", "(503) 555-9831"), rows);
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -92,7 +91,7 @@ public class RowInserterTests
                 Assert.Equal([1, 2, 3, 4, 5], ids); // index order, with 4 inserted in the middle
             }
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -140,26 +139,10 @@ public class RowInserterTests
         }
         finally
         {
-            File.Delete(ours);
-            File.Delete(access);
+            TemporaryDatabase.Delete(ours);
+            TemporaryDatabase.Delete(access);
         }
     }
 
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try
-            {
-                var conn = new OleDbConnection($"Provider={provider};Data Source={path}");
-                conn.Open();
-                return conn;
-            }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException)
-            {
-                // Try the next provider version.
-            }
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider (12.0/16.0) is available.");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 }

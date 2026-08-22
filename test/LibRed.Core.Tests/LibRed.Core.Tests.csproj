@@ -31,6 +31,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\LibRed\LibRed.Core\LibRed.Core.csproj" />
+    <!-- LibRed-only helpers live outside test\Shared: the EF functional test projects glob that folder
+         wholesale (..\Shared\**\*.cs) and do not all reference LibRed.Core. -->
+    <Compile Include="..\LibRed.Shared\AceTestDatabase.cs" Link="AceTestDatabase.cs" />
+    <Compile Include="..\LibRed.Shared\TemporaryDatabase.cs" Link="TemporaryDatabase.cs" />
+    <Compile Include="..\LibRed.Shared\TempDatabaseTest.cs" Link="TempDatabaseTest.cs" />
+    <Using Include="LibRed.Tests.Shared" />
   </ItemGroup>
 
   <ItemGroup>

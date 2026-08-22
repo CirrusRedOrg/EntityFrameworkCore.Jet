@@ -132,12 +132,11 @@ public class AllocatorAndLvalOwnershipTests
 
     private sealed class Fixture : IDisposable
     {
-        private readonly string _path = Path.Combine(Path.GetTempPath(), $"alloc-lval-{Guid.NewGuid():N}.accdb");
+        private readonly string _path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "alloc-lval-");
         private readonly JetDatabase _database;
 
         public Fixture()
         {
-            File.Copy(TestDatabases.NorthwindAccdb, _path);
             _database = JetDatabase.Open(_path, readOnly: false);
             Table = _database.OpenTable("Categories");
         }
@@ -148,7 +147,7 @@ public class AllocatorAndLvalOwnershipTests
         public void Dispose()
         {
             _database.Dispose();
-            File.Delete(_path);
+            TemporaryDatabase.Delete(_path);
         }
     }
 }

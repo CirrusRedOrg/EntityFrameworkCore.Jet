@@ -10,13 +10,12 @@ namespace LibRed.Engine.Tests;
 /// Server behave this way, so an ORDER BY that does not fully disambiguate (e.g. several orders per customer,
 /// ordered only by customer) must return the tied rows in scan/insertion order — a List.Sort would not.
 /// </summary>
-public class StableSortTests
+public class StableSortTests : TempDatabaseTest
 {
     private static QueryEngine Seeded()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"stable-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "stable-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T (Id LONG PRIMARY KEY, K TEXT(5), Seq LONG)");
         // Same key K='A' for several rows, inserted in a known Seq order; a stable ORDER BY K keeps that order.
         (int id, string k, int seq)[] rows =

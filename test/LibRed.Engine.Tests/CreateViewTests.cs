@@ -8,8 +8,7 @@ public class CreateViewTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"view-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "view-");
         return path;
     }
 
@@ -24,7 +23,7 @@ public class CreateViewTests
             e.ExecuteNonQuery("CREATE VIEW `LondonCust` AS SELECT `CustomerID`, `CompanyName` FROM `Customers` WHERE `City` = 'London'");
             e.ExecuteNonQuery("CREATE VIEW `CustOrders` AS SELECT `c`.`CustomerID`, `o`.`OrderID` FROM `Customers` AS `c` INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`");
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A view is read back from the file (its MSysQueries rows), reconstructed to SQL, and resolved as a
@@ -47,7 +46,7 @@ public class CreateViewTests
 
                 var viaView = e.ExecuteQuery("SELECT `CustomerID` FROM `LondonCust`").Rows.Select(r => r[0]).OrderBy(x => x).ToList();
                 var viaTable = e.ExecuteQuery("SELECT `CustomerID` FROM `Customers` WHERE `City` = 'London'").Rows.Select(r => r[0]).OrderBy(x => x).ToList();
-                Assert.NotEmpty(viaView);
+                Assert.Equal(6, viaView.Count);
                 Assert.Equal(viaTable, viaView);
 
                 // A predicate applied on top of the view.
@@ -57,10 +56,11 @@ public class CreateViewTests
                 // The join view runs and returns the same count as the underlying join.
                 int viaJoinView = e.ExecuteQuery("SELECT `CustomerID` FROM `CustOrders`").Rows.Count();
                 int viaJoin = e.ExecuteQuery("SELECT `c`.`CustomerID` FROM `Customers` AS `c` INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`").Rows.Count();
+                Assert.Equal(830, viaJoinView);
                 Assert.Equal(viaJoin, viaJoinView);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Theory]
@@ -74,7 +74,7 @@ public class CreateViewTests
             var ex = Assert.Throws<NotSupportedException>(() => new QueryEngine(db).ExecuteNonQuery(sql));
             Assert.Contains(expected, ex.Message);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class CreateViewTests
                     e.ExecuteQuery("SELECT Subtotal FROM `Subtotals` WHERE OrderID = 10248").Rows.First()[0]));
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -111,6 +111,6 @@ public class CreateViewTests
             Assert.Throws<InvalidOperationException>(() =>
                 new QueryEngine(db).ExecuteNonQuery("CREATE VIEW `Customers` AS SELECT `CustomerID` FROM `Customers`"));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

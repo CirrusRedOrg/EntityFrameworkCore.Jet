@@ -43,7 +43,7 @@ public class GlobalReferenceFreeMapTests
         WriteBitmapPage(file, 2 * pageSize, inRangeBit: 5);
         WriteBitmapPage(file, 3 * pageSize, inRangeBit: null);
 
-        string path = Path.Combine(Path.GetTempPath(), $"libred-globalref-{Guid.NewGuid():N}.accdb");
+        string path = TemporaryDatabase.CreatePath("libred-globalref-");
         File.WriteAllBytes(path, file);
         try
         {
@@ -58,7 +58,7 @@ public class GlobalReferenceFreeMapTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 

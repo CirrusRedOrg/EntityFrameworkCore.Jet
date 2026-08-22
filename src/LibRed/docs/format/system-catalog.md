@@ -260,6 +260,8 @@
   >
   > **Action-query procedure bodies** (a CREATE PROCEDURE body that is not a SELECT) are stored with a
   > different MSysObjects `Flags` and an `Attribute=0x01` row (verified vs ACE):
+  > - **Delete**: the `0x01` action row has `Flag 5`.
+  > - **Update**: the `0x01` action row has `Flag 4`.
   > - **Data-definition** (CREATE TABLE / DROP TABLE): MSysObjects `Flags=0x10000060`; one `0x01` row with
   >   `Flag 7` and `Expression` = the **whole DDL statement** verbatim (ACE prepends a single space).
   > - **Append** (INSERT): MSysObjects `Flags=0x10000040`; a `0x01` row with `Flag 3` and `Name1` = the

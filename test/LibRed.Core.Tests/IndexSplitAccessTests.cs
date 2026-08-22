@@ -15,26 +15,12 @@ public class IndexSplitAccessTests
 {
     private const int N = 1200; // well past one leaf, so the PK B-tree splits and the root grows a level
 
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try
-            {
-                var conn = new OleDbConnection($"Provider={provider};Data Source={path};OLE DB Services=-4;");
-                conn.Open();
-                return conn;
-            }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider (12.0/16.0) is available.");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_reads_a_split_index_by_seek_and_range()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"libred-splitaccess-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-splitaccess-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -74,6 +60,6 @@ public class IndexSplitAccessTests
                 Assert.Equal(Convert.ToInt64(expected), Convert.ToInt64(cmd.ExecuteScalar()));
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

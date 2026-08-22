@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // ALTER TABLE ... ALTER COLUMN ... SET/DROP DEFAULT through LibRed's engine. An LvProp edit only (no retype):
 // the default is applied on an omit-insert, DROP DEFAULT removes it (a later omit-insert reads NULL), and
 // SET DEFAULT replaces it. EF Core emits `ALTER COLUMN c DROP DEFAULT` in migrations.
-public class AlterColumnDefaultTests
+public class AlterColumnDefaultTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"altdef-eng-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "altdef-eng-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T (Id long PRIMARY KEY, V long)");
         return e;
     }

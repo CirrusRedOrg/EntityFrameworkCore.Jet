@@ -10,13 +10,7 @@ namespace LibRed.Core.Tests;
 // of the column's property block), and ACE still opens/reads the result.
 public class DropColumnLvPropAccessTests
 {
-    private static OleDbConnection Open(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        throw new InvalidOperationException("no ace");
-    }
+    private static OleDbConnection Open(string path) => AceTestDatabase.Open(path);
     private static void Ace(string path, params string[] sqls)
     { using var c = Open(path); foreach (var s in sqls) { using var m = c.CreateCommand(); m.CommandText = s; m.ExecuteNonQuery(); } }
 
@@ -34,8 +28,7 @@ public class DropColumnLvPropAccessTests
     [Fact]
     public void Libred_drop_removes_the_columns_lvprop_entries_and_access_still_reads()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"dclv-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "dclv-");
         try
         {
             // ACE creates the table so the LvProp blob is authentic (B defaulted, N required, K also defaulted).
@@ -58,6 +51,6 @@ public class DropColumnLvPropAccessTests
             cmd.CommandText = "SELECT COUNT(*) FROM T";
             Assert.Equal(0, Convert.ToInt32(cmd.ExecuteScalar()));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

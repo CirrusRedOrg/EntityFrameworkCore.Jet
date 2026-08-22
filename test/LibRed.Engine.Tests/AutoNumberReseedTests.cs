@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // ALTER TABLE t ALTER COLUMN c COUNTER(seed, increment) reseeds an AutoNumber column (the KB 884185 fix
 // syntax). LibRed accepts it and sets the next id to `seed`, including negative seeds and a negative
 // (descending) increment. Also guards the counter against being reset from a stale cached seed on a rebuild.
-public class AutoNumberReseedTests
+public class AutoNumberReseedTests : TempDatabaseTest
 {
     private static QueryEngine Fresh(out JetDatabase db)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"reseed-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        db = JetDatabase.Open(path, readOnly: false);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "reseed-");
+        db = TemporaryDatabase.OpenTracked(path, readOnly: false);
         return new QueryEngine(db);
     }
 
@@ -182,7 +181,8 @@ public class AutoNumberReseedTests
         try
         {
             e.ExecuteNonQuery("CREATE TABLE T (Id COUNTER CONSTRAINT PK PRIMARY KEY, N LONG)");
-            var ex = Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN N COUNTER(1, 1)"));
+            var ex = Assert.Throws<InvalidOperationException>(() =>
+                e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN N COUNTER(1, 1)"));
             Assert.Contains("already has one", ex.Message);
         }
         finally { db.Dispose(); }
@@ -199,7 +199,8 @@ public class AutoNumberReseedTests
             e.ExecuteNonQuery("CREATE TABLE P (Id COUNTER CONSTRAINT PK PRIMARY KEY, V TEXT(5))");
             e.ExecuteNonQuery("CREATE TABLE C (Cid COUNTER PRIMARY KEY, Pid LONG, CONSTRAINT FK FOREIGN KEY (Pid) REFERENCES P(Id))");
             e.ExecuteNonQuery("INSERT INTO P (V) VALUES ('a')");
-            var ex = Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("ALTER TABLE P ALTER COLUMN Id COUNTER(100, 1)"));
+            var ex = Assert.Throws<InvalidOperationException>(() =>
+                e.ExecuteNonQuery("ALTER TABLE P ALTER COLUMN Id COUNTER(100, 1)"));
             Assert.Contains("part of one or more relationships", ex.Message);
         }
         finally { db.Dispose(); }

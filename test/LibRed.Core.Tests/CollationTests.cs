@@ -24,8 +24,7 @@ public class CollationTests
     [Fact]
     public void A_new_database_defaults_to_general_legacy()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"coll-def-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "coll-def-");
         try
         {
             using var db = JetDatabase.Open(path);
@@ -33,14 +32,13 @@ public class CollationTests
             Assert.Equal(CollatingOrder.General, db.Collation.Order);
             Assert.Equal(0, db.Collation.Version);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Non_numeric_columns_carry_the_database_collation_and_round_trip()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"coll-rt-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "coll-rt-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -59,14 +57,13 @@ public class CollationTests
             Assert.Equal(18, price.Precision);
             Assert.Equal(2, price.Scale);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void The_written_locale_bytes_are_byte_identical_to_the_old_hardcoded_constant()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"coll-bytes-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "coll-bytes-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -85,7 +82,7 @@ public class CollationTests
             Assert.Equal(0x04, descriptor[0x0C]);
             Assert.Equal(0x00, descriptor[0x0D]);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]

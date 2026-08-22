@@ -9,13 +9,12 @@ namespace LibRed.Engine.Tests;
 //   B = byte-based (UTF-16, 2 bytes/char): LenB('abc')=6, InStrB(1,'abc','b')=3, LeftB('abc',2)='a'
 //   W = wide/Unicode code point: ChrW(233)='é'
 // Also covers base Asc(), which needed a grammar fix (ASC is a reserved keyword).
-public class FunctionVariantTests
+public class FunctionVariantTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"fv-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "fv-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY )");
         e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
         return e;

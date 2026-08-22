@@ -37,7 +37,23 @@ public sealed class QueryEngine
 
     public ResultSet ExecuteQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
+        // Parse outside the gate — it touches no pages, and holding a file-wide scope across it would
+        // serialize parsing for no isolation benefit. The parsed shape then picks the scope.
         SqlStatement parsed = _parser.ParseStatement(sql);
+        return Scoped(parsed, () => ExecuteQueryCore(parsed, parameters));
+    }
+
+    /// <summary>Runs <paramref name="action"/> in the page scope <paramref name="statement"/> needs: shared
+    /// (concurrent with other readers) for a statement that cannot write, exclusive otherwise so its pages
+    /// publish as one unit. Anything not provably read-only takes the exclusive scope — a shared scope that
+    /// then writes is rejected, not silently upgraded.</summary>
+    private T Scoped<T>(SqlStatement statement, Func<T> action) =>
+        statement is SelectStatement or SetOperationStatement or SystemVariableSelectStatement
+            ? _database.ReadConsistent(action)
+            : _database.WriteExclusive(action);
+
+    private ResultSet ExecuteQueryCore(SqlStatement parsed, IReadOnlyDictionary<string, object?>? parameters)
+    {
         if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters).Rows;
         SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog.Views, _parser);
         BoundStatement bound = _binder.Bind(ast);
@@ -78,6 +94,11 @@ public sealed class QueryEngine
     public CommandResult Execute(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
         SqlStatement parsed = _parser.ParseStatement(sql);
+        return Scoped(parsed, () => ExecuteCore(parsed, parameters));
+    }
+
+    private CommandResult ExecuteCore(SqlStatement parsed, IReadOnlyDictionary<string, object?>? parameters)
+    {
         if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters);
         SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog.Views, _parser);
         BoundStatement bound = _binder.Bind(ast);

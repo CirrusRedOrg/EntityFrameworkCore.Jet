@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // Access/Jet LIKE wildcards, including the bracket char class [ ... ] / [! ... ] and the # digit wildcard.
 // EF escapes literal special chars by bracketing them (Contains("C#") -> LIKE '%C[#]%'), so [#] must match
 // a literal '#', not the three characters "[#]".
-public class LikeTests
+public class LikeTests : TempDatabaseTest
 {
     private static QueryEngine Fresh(params string[] values)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"like-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "like-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T (Id long PRIMARY KEY, V text(50))");
         for (int i = 0; i < values.Length; i++)
             e.ExecuteNonQuery("INSERT INTO T (Id, V) VALUES (@id, @v)",

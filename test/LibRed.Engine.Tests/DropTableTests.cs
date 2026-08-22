@@ -5,13 +5,12 @@ using Xunit;
 namespace LibRed.Engine.Tests;
 
 // DROP TABLE table through LibRed's engine.
-public class DropTableTests
+public class DropTableTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"droptab-eng-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "droptab-eng-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T (Id long PRIMARY KEY, Name text(20))");
         e.ExecuteNonQuery("CREATE INDEX IX_Name ON T (Name)");
         e.ExecuteNonQuery("INSERT INTO T (Id, Name) VALUES (1, 'a')");

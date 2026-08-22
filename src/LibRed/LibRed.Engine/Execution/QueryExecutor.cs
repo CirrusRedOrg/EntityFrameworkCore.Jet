@@ -1215,6 +1215,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private object? ComputeAggregate(FunctionCall call, List<object?[]> group, IReadOnlyList<OutputColumn> columns, EvalScope? outer)
     {
         string name = call.Name.ToUpperInvariant();
+        ExpressionEvaluator.ValidateArity(name, call.Arguments.Count);
         Expression? arg = call.Arguments.Count > 0 ? call.Arguments[0] : null;
 
         // COUNT is an Access Long Integer (32-bit) — EF reads it with GetInt32, so return int, not long.

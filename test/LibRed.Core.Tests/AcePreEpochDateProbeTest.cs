@@ -17,19 +17,9 @@ namespace LibRed.Core.Tests;
 // ACE may well have inherited the same weirdness, in which case LibRed is already bug-compatible and should stay
 // that way. This probe establishes which it is. The existing DateAdd/DateDiff functional tests do not cover it:
 // they all use modern (Northwind-era) dates, where the serial is positive and the anomaly cannot appear.
-public class AcePreEpochDateProbeTest(ITestOutputHelper output)
+public class AcePreEpochDateRegressionTests(ITestOutputHelper output)
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static void Exec(OleDbConnection c, string sql) { using var cmd = c.CreateCommand(); cmd.CommandText = sql; cmd.ExecuteNonQuery(); }
 
@@ -58,10 +48,9 @@ public class AcePreEpochDateProbeTest(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Probe_pre_epoch_dates()
+    public void Ace_uses_oa_serial_comparison_and_date_space_functions_before_the_epoch()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"acepre-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "acepre-");
         try
         {
             using var conn = OpenOleDb(path);
@@ -134,6 +123,6 @@ public class AcePreEpochDateProbeTest(ITestOutputHelper output)
             Assert.Equal((short)0, Scalar(conn, "SELECT (#12/29/1899 06:00:00# < #12/29/1899 18:00:00#) FROM `P`"));
             Assert.Equal("1,3,2,4,5,6", order);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

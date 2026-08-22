@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // Mid(string, start, [length]) and Replace(string1, find, replacement, [start], [count], [compare]) edge cases,
 // all verified byte-identical to ACE — including where ACE ERRORS rather than clamping/propagating: start < 1,
 // negative length, start=0, and a null Replace argument. (Mid propagates null on the string; Replace does not.)
-public class MidReplaceEdgeCasesTests
+public class MidReplaceEdgeCasesTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"mr-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "mr-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY )");
         e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
         return e;

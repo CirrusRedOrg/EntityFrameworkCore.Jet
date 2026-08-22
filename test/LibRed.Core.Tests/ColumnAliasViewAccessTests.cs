@@ -11,26 +11,12 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class ColumnAliasViewAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-        {
-            foreach (string provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={provider};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; }
-            }
-            Thread.Sleep(50);
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider opened the database.", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_runs_a_multi_join_view_with_a_column_alias()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"colalias-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "colalias-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -65,6 +51,6 @@ public class ColumnAliasViewAccessTests
             aliased.CommandText = "SELECT COUNT(CustomerName) FROM CustLines";
             Assert.Equal(2155, Convert.ToInt32(aliased.ExecuteScalar()));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

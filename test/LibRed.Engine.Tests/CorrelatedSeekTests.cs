@@ -10,13 +10,12 @@ namespace LibRed.Engine.Tests;
 /// index seek keyed off the outer row (not a full scan re-run per outer row). These verify the results are
 /// identical to the unoptimised form — the seek must be a pure speedup — including a composite-key correlation.
 /// </summary>
-public class CorrelatedSeekTests
+public class CorrelatedSeekTests : TempDatabaseTest
 {
     private static QueryEngine Seeded()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"corr-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "corr-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE P (Id LONG PRIMARY KEY, Nm TEXT(20))");
         e.ExecuteNonQuery("CREATE TABLE C (Id LONG PRIMARY KEY, Pid LONG, Amt LONG)");
         e.ExecuteNonQuery("CREATE INDEX IX_Pid ON C (Pid)");

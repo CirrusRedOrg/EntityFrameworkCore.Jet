@@ -11,23 +11,12 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class AddIndexToPopulatedTableAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_reads_and_enforces_a_primary_key_added_after_data()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"populated-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "populated-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -65,7 +54,7 @@ public class AddIndexToPopulatedTableAccessTests
             using (var dup = conn2.CreateCommand())
             {
                 dup.CommandText = "INSERT INTO Region2 (RegionID, RegionDescription) VALUES (2, 'Dup')";
-                Assert.ThrowsAny<Exception>(() => dup.ExecuteNonQuery());
+                Assert.Throws<OleDbException>(() => dup.ExecuteNonQuery());
             }
             using (var ok = conn2.CreateCommand())
             {
@@ -78,7 +67,7 @@ public class AddIndexToPopulatedTableAccessTests
                 Assert.Equal(5, Convert.ToInt32(c.ExecuteScalar()));
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A large back-fill forces the index B-tree to split into multiple levels; Access must read every row
@@ -87,8 +76,7 @@ public class AddIndexToPopulatedTableAccessTests
     public void Access_reads_a_large_backfilled_index()
     {
         const int n = 2000;
-        string path = Path.Combine(Path.GetTempPath(), $"populated-big-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "populated-big-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -114,6 +102,6 @@ public class AddIndexToPopulatedTableAccessTests
                 Assert.Equal("row1777", c.ExecuteScalar());
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

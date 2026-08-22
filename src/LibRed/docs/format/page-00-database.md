@@ -133,7 +133,11 @@ CF 65 ED FF 07 C7 46 A1 78 16 0C ED E9 2D 62 D4   ; 0x88
     `RemoveJetPassword`): write `UTF-16LE(password)` zero-padded to 40 bytes, XOR the date mask, then the
     base header mask — the exact inverse of the read. **Verified byte-identical to Access's own output**:
     `SetJetPassword` on a copy of `2002plain.mdb` reproduces Access-set `Test1`/`Test2`/`AAAA`/`z` files
-    bit-for-bit in the `0x42` field (`LegacyJetPasswordTests`). This is password-only obfuscation — the
+    bit-for-bit in the `0x42` field (`LegacyJetPasswordTests.SetJetPassword_matches_access_output`). Those
+    fixtures are not committed, so that case **skips with a reason** unless they are present — point
+    `LIBRED_ENCTEST_DIR` at them to run it. The rest of `LegacyJetPasswordTests` builds its own Jet 4 header and
+    covers the field transformation, limits, removal, and encoding independence on every platform. This is
+    password-only obfuscation — the
     data pages stay plaintext (`0x3E` key = 0); it is a *different* feature from Jet RC4 page encryption
     (§2.4), which the "Encode/Encrypt" menu applies. The earlier "per-file SID mask = f(date,password)"
     theory was a misdiagnosis — the mask is simply `(int)creationDate`.
@@ -308,10 +312,11 @@ algorithm is used for `baseHash`, the per-block `H`, and the AES `0x36`/`0x5C` e
 - cipher: RC4 (re-keyed per page; the verifier + verifier-hash decrypt as one continuous stream) or **AES-ECB**.
 
 The applicable `(key length, RC4 pad, AES iteration count)` is decided by whichever authenticates the verifier.
-Fixture-free known-answer tests (real salt + verifier vectors, synthetic page 0) in `OfficeStandardEncryptionTests`;
-real-fixture variant sweep in `OfficeStandardVariantReadTests` covering **RC4 and AES-128/192/256 × MD5/SHA-1/
-SHA-256/SHA-384/SHA-512 × `KeySize=0`** (all Access-tool re-encryptions of `db2007-oldenc`), plus clean-rejection
-cases (3DES/DES/RC2 ciphers, MD2 hash).
+Fixture-free known-answer tests (real salt + verifier vectors, synthetic page 0) live in
+`OfficeStandardEncryptionTests`; `DatabaseEncryptionTests` exercise generated RC4 key/hash variants end-to-end,
+and `OfficeStandardVariantReadTests` mutate generated descriptors to verify clean rejection of unsupported
+ciphers and hashes. The broader **RC4 and AES-128/192/256 × MD5/SHA-1/SHA-256/SHA-384/SHA-512 ×
+`KeySize=0`** sweep was verified against Access-tool re-encryptions of `db2007-oldenc` during format research.
 
 > **LibRed reads more than Access opens.** Verified on EverythingAccess-re-encrypted `db2007-oldenc` variants:
 > **AES-128/AES-256 with MD5 or SHA-512 hashing** authenticate and decode correctly in LibRed, but **Access refuses
@@ -354,8 +359,9 @@ nonzero, parses `len` bytes of `EncryptionInfo` at `0x29B`; if **zero it treats 
 with a nonzero `0x3E` key and a valid descriptor present. Verified across `db-nonstandard`/`db2007-oldenc`/
 `db2013` (each length equals its exact blob size: 224 / 190 / 1055) and by experiment: a file with the key +
 descriptor but `len@0x299 = 0` makes Access read ciphertext as plaintext and offer to "recover"; writing the
-length makes it prompt for the password and open. LibRed's *reader* ignores this (it scans for the descriptor),
-but a *writer* must set it. The Agile XML descriptor uses the same `len@0x299` + blob-at-`0x29B` framing.
+length makes it prompt for the password and open. LibRed likewise treats the length as authoritative: binary or
+XML content outside the declared frame is ignored, and a frame extending beyond page 0 is rejected as malformed.
+The Agile XML descriptor uses the same `len@0x299` + blob-at-`0x29B` framing.
 
 > **Creating encryption from scratch (implemented — Office Standard).** `LibRed.Crypto.DatabaseEncryption`
 > (`SetPassword`/`RemovePassword`/`ChangePassword`, scheme via `AccessEncryption`) encrypts a plaintext `.accdb`

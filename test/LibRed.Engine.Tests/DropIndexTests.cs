@@ -5,13 +5,12 @@ using Xunit;
 namespace LibRed.Engine.Tests;
 
 // DROP INDEX index ON table through LibRed's engine.
-public class DropIndexTests
+public class DropIndexTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"dropix-eng-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "dropix-eng-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T (Id long PRIMARY KEY, Name text(20), Code long)");
         e.ExecuteNonQuery("CREATE INDEX IX_Name ON T (Name)");
         e.ExecuteNonQuery("CREATE UNIQUE INDEX UX_Code ON T (Code)");

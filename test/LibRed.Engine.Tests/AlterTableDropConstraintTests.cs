@@ -8,8 +8,7 @@ public class AlterTableDropConstraintTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"dropc-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "dropc-");
         return path;
     }
 
@@ -52,7 +51,7 @@ public class AlterTableDropConstraintTests
                 Assert.True(child.Indexes[0].IsPrimaryKey);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Drop then re-add the same FK: because the drop fully removes the old backing index + TDEF blocks,
@@ -78,7 +77,7 @@ public class AlterTableDropConstraintTests
             Assert.Single(db.Catalog.FindTable("Child")!.Indexes.Where(i => i.Name == "FK_Child_Parent"));
             Assert.Throws<InvalidOperationException>(() => e.ExecuteNonQuery("INSERT INTO Child (Id, ParentId) VALUES (1, 99)"));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A self-referencing FK hosts both ends (outgoing + incoming block) in one TDEF; dropping it removes
@@ -102,7 +101,7 @@ public class AlterTableDropConstraintTests
             Assert.Single(db.Catalog.FindTable("Emp")!.Indexes); // only PK_Emp
             Assert.Equal(1, e.ExecuteNonQuery("INSERT INTO Emp (Id, MgrId) VALUES (2, 99)")); // now allowed
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Dropping a name that is neither a relationship nor an index throws a clear error. (A real FK/PK/unique
@@ -120,6 +119,6 @@ public class AlterTableDropConstraintTests
                 () => e.ExecuteNonQuery("ALTER TABLE T DROP CONSTRAINT NoSuchThing"));
             Assert.Contains("NoSuchThing", ex.Message);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

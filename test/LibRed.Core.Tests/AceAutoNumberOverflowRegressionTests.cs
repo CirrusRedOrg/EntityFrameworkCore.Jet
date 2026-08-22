@@ -5,8 +5,8 @@ using Xunit;
 
 namespace LibRed.Core.Tests;
 
-// PROBE (not an assertion of desired LibRed behaviour): what do ACE and LibRed do when a sequential
-// AutoNumber (COUNTER) runs off the end of the signed Int32 range?
+// What ACE and LibRed do when a sequential AutoNumber (COUNTER) runs off the end of the signed Int32 range.
+// Grown from a probe: the ACE cases are ground truth, and the LibRed cases pin the engine to it.
 //
 // The counter's on-disk state is a single Int32 — the TDEF high-water at 0x14 — and the next id is
 // high-water + increment (0x18). Nothing in the format reserves a "counter exhausted" state, so the
@@ -17,22 +17,12 @@ namespace LibRed.Core.Tests;
 //   3. Is a descending counter (negative increment) symmetric at int.MinValue?
 //   4. Does an *explicit* insert of int.MaxValue poison a plain COUNTER the same way?
 //
-// Every probe logs what actually happened (the id assigned, or the engine's own error text) plus the
-// resulting 0x14 high-water read back through LibRed's catalog, so ACE's and LibRed's behaviour sit
-// side by side. Assertions are deliberately minimal — they pin only what has been observed.
-public class AceAutoNumberOverflowProbeTest(ITestOutputHelper output)
+// Every case logs what happened (the id assigned, or the engine's own error text) plus the resulting 0x14
+// high-water read back through LibRed's catalog, so ACE's and LibRed's behaviour sit side by side in the
+// output — and then asserts it. Nothing here is asserted that was not first observed against ACE.
+public class AceAutoNumberOverflowRegressionTests(ITestOutputHelper output)
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     /// <summary>The TDEF AutoNumber high-water (0x14) — the last id handed out. ColumnDef.Seed is the *next* id.</summary>
     private static string HighWater(string path)
@@ -48,8 +38,7 @@ public class AceAutoNumberOverflowProbeTest(ITestOutputHelper output)
 
     private static string NewDb(string tag)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"{tag}-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, tag);
         return path;
     }
 
@@ -75,7 +64,7 @@ public class AceAutoNumberOverflowProbeTest(ITestOutputHelper output)
     [InlineData("ace-max", 2147483646, 1, new[] { 2147483646, 2147483647, -2147483648, -2147483647 })]
     // Descending counter parked two above int.MinValue: mirror image — wraps to int.MaxValue.
     [InlineData("ace-min", -2147483647, -1, new[] { -2147483647, -2147483648, 2147483647, 2147483646 })]
-    public void Probe_ace_counter_at_the_int32_boundary(string tag, int seed, int increment, int[] expectedIds)
+    public void Ace_counter_wraps_at_the_int32_boundary(string tag, int seed, int increment, int[] expectedIds)
     {
         string path = NewDb(tag);
         try
@@ -90,8 +79,7 @@ public class AceAutoNumberOverflowProbeTest(ITestOutputHelper output)
             }
             catch (OleDbException ex)
             {
-                output.WriteLine($"  ACE rejected the DDL: {ex.Message.Trim()}");
-                return;
+                Assert.Fail($"ACE rejected the boundary COUNTER DDL: {ex.Message.Trim()}");
             }
 
             var ids = new List<int?>();
@@ -113,11 +101,11 @@ public class AceAutoNumberOverflowProbeTest(ITestOutputHelper output)
             Assert.Equal(expectedIds.Cast<int?>(), ids);
             Assert.Equal(expectedIds[^1].ToString(), HighWater(path));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
-    public void Probe_ace_explicit_max_value_into_a_plain_counter()
+    public void Ace_counter_wraps_after_an_explicit_max_value()
     {
         string path = NewDb("ace-explicit");
         try
@@ -129,7 +117,7 @@ public class AceAutoNumberOverflowProbeTest(ITestOutputHelper output)
             {
                 using (var conn = OpenOleDb(path))
                     try { act(conn); }
-                    catch (OleDbException ex) { output.WriteLine($"  {label} -> <error: {ex.Message.Trim()}>"); }
+                    catch (OleDbException ex) { Assert.Fail($"ACE step '{label}' failed: {ex.Message.Trim()}"); }
                 output.WriteLine($"    high-water (0x14) on disk now {HighWater(path)}");
             }
 
@@ -138,12 +126,20 @@ public class AceAutoNumberOverflowProbeTest(ITestOutputHelper output)
             Step(c => { using var x = c.CreateCommand(); x.CommandText = "INSERT INTO T (Id, V) VALUES (2147483647, 'max')"; x.ExecuteNonQuery(); output.WriteLine("  explicit 2147483647 accepted"); }, "explicit 2147483647");
             Step(c => AceInsert(c, "next"), "auto insert 'next'");
             Step(c => AceInsert(c, "next2"), "auto insert 'next2'");
+
+            using var verify = OpenOleDb(path);
+            using var query = verify.CreateCommand();
+            query.CommandText = "SELECT Id FROM T ORDER BY V";
+            using var reader = query.ExecuteReader();
+            var ids = new List<int>();
+            while (reader.Read()) ids.Add(Convert.ToInt32(reader[0]));
+            Assert.Equal([1, int.MaxValue, int.MinValue, int.MinValue + 1], ids);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
-    public void Probe_ace_seed_at_int32_max_and_a_wrapped_id_that_collides()
+    public void Ace_counter_advances_past_a_colliding_wrapped_id()
     {
         string path = NewDb("ace-collide");
         try
@@ -152,7 +148,7 @@ public class AceAutoNumberOverflowProbeTest(ITestOutputHelper output)
             using var conn = OpenOleDb(path);
             void Exec(string sql) { using var c = conn.CreateCommand(); c.CommandText = sql; c.ExecuteNonQuery(); }
             try { Exec("CREATE TABLE T (Id COUNTER(2147483647, 1) CONSTRAINT PK PRIMARY KEY, V TEXT(5))"); }
-            catch (OleDbException ex) { output.WriteLine($"  ACE rejected the DDL: {ex.Message.Trim()}"); return; }
+            catch (OleDbException ex) { Assert.Fail($"ACE rejected the collision COUNTER DDL: {ex.Message.Trim()}"); }
 
             // Park a row on the id the counter will wrap onto, so the wrap lands on an occupied key. The
             // explicit insert drops the counter onto that value (KB 884185 last-inserted rule), so reseed
@@ -184,7 +180,7 @@ public class AceAutoNumberOverflowProbeTest(ITestOutputHelper output)
             Assert.Null(b);
             Assert.Equal(int.MinValue + 1, c);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // -------------------------------------------------------------- LibRed ---------------------------------------
@@ -192,7 +188,7 @@ public class AceAutoNumberOverflowProbeTest(ITestOutputHelper output)
     [Theory]
     [InlineData("lib-max", 2147483646, 1, new[] { 2147483646, 2147483647, -2147483648, -2147483647 })]
     [InlineData("lib-min", -2147483647, -1, new[] { -2147483647, -2147483648, 2147483647, 2147483646 })]
-    public void Probe_libred_counter_at_the_int32_boundary(string tag, int seed, int increment, int[] expectedIds)
+    public void Libred_counter_matches_ace_at_the_int32_boundary(string tag, int seed, int increment, int[] expectedIds)
     {
         string path = NewDb(tag);
         try
@@ -243,11 +239,11 @@ public class AceAutoNumberOverflowProbeTest(ITestOutputHelper output)
                 Assert.Equal(unchecked(expectedIds[^1] + increment), AceInsert(conn, "e"));
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
-    public void Probe_libred_explicit_max_value_into_a_plain_counter()
+    public void Libred_counter_matches_ace_after_an_explicit_max_value()
     {
         string path = NewDb("lib-explicit");
         try
@@ -289,6 +285,6 @@ public class AceAutoNumberOverflowProbeTest(ITestOutputHelper output)
             // the wrapped continuation rather than a repeated int.MinValue.
             Assert.Equal([1, int.MaxValue, int.MinValue, int.MinValue + 1], ids);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

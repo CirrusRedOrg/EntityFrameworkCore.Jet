@@ -13,8 +13,7 @@ public class AlterTableRenameTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"rename-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "rename-");
         return path;
     }
 
@@ -75,7 +74,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 
@@ -102,7 +101,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 
@@ -128,7 +127,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 
@@ -158,7 +157,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 
@@ -215,7 +214,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 
@@ -250,7 +249,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 
@@ -276,7 +275,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 
@@ -308,7 +307,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 }

@@ -10,13 +10,12 @@ namespace LibRed.Engine.Tests;
 //   Time()           → current time on the Jet epoch 1899-12-30 (time only)
 // Bare Date / Time are NOT niladic in Jet SQL (they are reserved type keywords — ACE rejects them; they need
 // parentheses), so only Now is recognised without parentheses.
-public class DateTimeDefaultTests
+public class DateTimeDefaultTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"dtdef-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        return new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "dtdef-");
+        return new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
     }
 
     private static DateTime InsertAndRead(string def)
@@ -115,7 +114,7 @@ public class DateTimeDefaultTests
     public void A_multi_word_bare_default_is_a_syntax_error()
     {
         var e = Fresh();
-        Assert.ThrowsAny<Exception>(() =>
+        Assert.Throws<LibRed.Sql.Parsing.SqlParseException>(() =>
             e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY, V TEXT(50) DEFAULT this is the default string )"));
     }
 
@@ -130,7 +129,7 @@ public class DateTimeDefaultTests
     {
         var e = Fresh();
         e.ExecuteNonQuery($"CREATE TABLE T ( K LONG PRIMARY KEY, V LONG DEFAULT {def} )");
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)"));
+        Assert.Throws<NotSupportedException>(() => e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)"));
     }
 
     // A default cannot reference a table/query (subquery) — ACE forbids "references to queries". LibRed rejects
@@ -145,7 +144,8 @@ public class DateTimeDefaultTests
         e.ExecuteNonQuery($"CREATE TABLE T ( K LONG PRIMARY KEY, V LONG DEFAULT {def} )");
         // Rejected when the default is applied (its text is parsed lazily at insert) — a subquery is never a
         // valid default expression.
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)"));
+        Assert.Throws<LibRed.Sql.Parsing.SqlParseException>(() =>
+            e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)"));
     }
 
     [Fact]

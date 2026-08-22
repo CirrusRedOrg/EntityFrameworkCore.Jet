@@ -154,6 +154,9 @@ public static class IndexKeyEncoder
     private static void EncodeBinaryChunked(List<byte> buffer, byte[] data, bool ascending)
     {
         buffer.Add(ascending ? IndexKeyFlags.AscStart : IndexKeyFlags.DescStart);
+        // ACE represents an empty Binary value by the start flag alone.
+        if (data.Length == 0)
+            return;
 
         int offset = 0;
         do

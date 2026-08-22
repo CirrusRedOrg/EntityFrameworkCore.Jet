@@ -14,17 +14,7 @@ namespace LibRed.Core.Tests;
 //    default expression. LibRed writes such defaults to LvProp and they round-trip.
 public class AceDefaultExpressionLimitsTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     // SQL aggregates (Sum, Count) AND the domain aggregate DCount are all rejected in a default — the default
     // expression evaluator has a restricted function whitelist. Smuggled via LibRed so the expression reaches
@@ -35,8 +25,7 @@ public class AceDefaultExpressionLimitsTests
     [InlineData("DCount('*','MSysObjects')")]
     public void Access_rejects_an_aggregate_function_in_a_default(string def)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"agg-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "agg-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -52,7 +41,7 @@ public class AceDefaultExpressionLimitsTests
             Assert.Contains("Unknown function", ex.Message);
             Assert.Contains("default value", ex.Message);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // The DAO 255-char DefaultValue cap is an API limit, not an engine one: a 300-char string-literal default is
@@ -61,8 +50,7 @@ public class AceDefaultExpressionLimitsTests
     [Fact]
     public void Access_accepts_a_default_expression_longer_than_255_chars()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"len-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "len-");
         try
         {
             using var conn = OpenOleDb(path);
@@ -71,6 +59,6 @@ public class AceDefaultExpressionLimitsTests
             object? v; using (var c = conn.CreateCommand()) { c.CommandText = "SELECT V FROM T"; v = c.ExecuteScalar(); }
             Assert.Equal(300, (v as string)?.Length);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

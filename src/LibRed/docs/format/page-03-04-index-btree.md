@@ -34,8 +34,9 @@ Each entry ends with a **4-byte big-endian** trailing pointer:
 
 > **Reader/traversal guardrails.** LibRed validates every page number before I/O, requires page type
 > `0x03`/`0x04` and a consistent owning TDEF, bounds every bitmask-derived entry before reading its
-> 4-byte trailer, and requires the compressed prefix to fit the first key. Node child/tail and leaf
-> prev/next pointers must be zero where permitted or name an in-file page. Point/range seeks track every
+> 4-byte trailer, and requires the compressed prefix to fit the first key. Node child/tail, leaf
+> previous/next, and indexed-row page pointers are checked against the file's page range; optional leaf
+> links must be zero or name an in-file page. Point/range seeks track every
 > descent and leaf-chain page and reject repeats; the full index cursor uses an iterative ordered walk
 > with the same repeated-page check, avoiding recursive stack exhaustion. A followed leaf link must
 > resolve to another leaf of the same owner. Insert, delete, split propagation, and leaf-link mutation
@@ -171,10 +172,13 @@ Then the value, transformed:
   Verified against ACE (`CREATE INDEX … (K DESC)`), e.g. `00000000-…-0` → `80 FFFFFFFFFFFFFFFF 09
   FFFFFFFFFFFFFFFF F7`. No trailing `0x00` (unlike descending text keys).
 - **Binary (general):** the start flag (`0x7F` asc / `0x80` desc), then the raw bytes in **8-byte
-  chunks**. Each chunk is 8 bytes — real bytes left-aligned, **zero-padded on the right** — followed by
+  chunks**. A genuinely **zero-length Binary value** is the start flag alone (`7F` ascending / `80`
+  descending). A non-empty value—including an all-zero value—uses normal chunks. Each chunk is
+  8 bytes — real bytes left-aligned,
+  **zero-padded on the right** — followed by
   a **control byte**: `0x09` when a further chunk follows (a full 8-byte chunk with more data to come),
-  otherwise the **real-byte count of this final chunk** (`0x01…0x08`; `0x08` for a full final chunk,
-  `0x00` for empty data). The count `≤ 8 < 0x09`, so control values never collide. This is exactly the
+  otherwise the **real-byte count of this final chunk** (`0x01…0x08`; `0x08` for a full final chunk).
+  The count `≤ 8 < 0x09`, so control values never collide. This is exactly the
   GUID chunking generalised to any length: a 16-byte value is two chunks (`… 09 … 08`), and the old
   fixed 4-byte MSysQueries.Order case is the single-chunk form `7F <4B> 00000000 04`. The trailing
   length-terminator makes shorter values sort before longer ones that share a prefix (correct binary

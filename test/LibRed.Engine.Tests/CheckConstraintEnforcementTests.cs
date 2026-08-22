@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 // LibRed enforces CHECK constraints on INSERT and UPDATE: a row is rejected only when a check evaluates to
 // explicitly FALSE (NULL/unknown passes). Checks may reference the row's columns and use subqueries.
-public class CheckConstraintEnforcementTests
+public class CheckConstraintEnforcementTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"chk-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        return new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "chk-");
+        return new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
     }
 
     [Fact]
@@ -32,7 +31,9 @@ public class CheckConstraintEnforcementTests
         var e = Fresh();
         e.ExecuteNonQuery("CREATE TABLE tblInvoices ( ID LONG PRIMARY KEY, Amount DOUBLE, CONSTRAINT CheckAmount CHECK (Amount > 0) )");
         e.ExecuteNonQuery("INSERT INTO tblInvoices (ID, Amount) VALUES (1, 50)");
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("UPDATE tblInvoices SET Amount = -1 WHERE ID = 1"));
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            e.ExecuteNonQuery("UPDATE tblInvoices SET Amount = -1 WHERE ID = 1"));
+        Assert.Contains("CheckAmount", error.Message);
         e.ExecuteNonQuery("UPDATE tblInvoices SET Amount = 75 WHERE ID = 1"); // valid update succeeds
         Assert.Equal(75.0, Convert.ToDouble(e.ExecuteQuery("SELECT Amount FROM tblInvoices WHERE ID = 1").Rows.Single()[0]));
     }
@@ -62,7 +63,9 @@ public class CheckConstraintEnforcementTests
         Assert.Contains("LimitRule", ex.Message);
 
         // The docs scenario: updating above the limit fails, at/below succeeds.
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("UPDATE tblCustomers SET CustomerLimit = 200 WHERE CustomerID = 1"));
+        var updateError = Assert.Throws<InvalidOperationException>(() =>
+            e.ExecuteNonQuery("UPDATE tblCustomers SET CustomerLimit = 200 WHERE CustomerID = 1"));
+        Assert.Contains("LimitRule", updateError.Message);
         e.ExecuteNonQuery("UPDATE tblCustomers SET CustomerLimit = 100 WHERE CustomerID = 1");
     }
 

@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 // ALTER TABLE ... ADD CONSTRAINT name CHECK (expr): persists the check to LvProp; the engine then enforces it
 // on insert/update (like a CREATE TABLE check). Merges with any existing checks.
-public class AlterAddCheckTests
+public class AlterAddCheckTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"aac-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        return new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "aac-");
+        return new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
     }
 
     [Fact]
@@ -37,8 +36,8 @@ public class AlterAddCheckTests
 
         // both checks now enforced
         e.ExecuteNonQuery("INSERT INTO T (ID, A, B) VALUES (1, 5, 50)");            // both pass
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (ID, A, B) VALUES (2, -1, 50)"));  // CkA
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (ID, A, B) VALUES (3, 5, 200)"));  // CkB
+        AssertCheckViolation(e, "INSERT INTO T (ID, A, B) VALUES (2, -1, 50)", "CkA");
+        AssertCheckViolation(e, "INSERT INTO T (ID, A, B) VALUES (3, 5, 200)", "CkB");
     }
 
     [Fact]
@@ -47,7 +46,7 @@ public class AlterAddCheckTests
         var e = Fresh();
         e.ExecuteNonQuery("CREATE TABLE T ( ID LONG PRIMARY KEY, Amount LONG )");
         e.ExecuteNonQuery("ALTER TABLE T ADD CONSTRAINT CK_T_Amount CHECK (Amount > 0)");
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (ID, Amount) VALUES (1, -5)"));  // enforced
+        AssertCheckViolation(e, "INSERT INTO T (ID, Amount) VALUES (1, -5)", "CK_T_Amount");
 
         e.ExecuteNonQuery("ALTER TABLE T DROP CONSTRAINT CK_T_Amount");
         e.ExecuteNonQuery("INSERT INTO T (ID, Amount) VALUES (2, -5)");   // no longer enforced
@@ -63,7 +62,7 @@ public class AlterAddCheckTests
         e.ExecuteNonQuery("ALTER TABLE T DROP CONSTRAINT CkA");
 
         e.ExecuteNonQuery("INSERT INTO T (ID, A, B) VALUES (1, -1, 50)");   // CkA gone → A=-1 allowed
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (ID, A, B) VALUES (2, 5, 200)"));  // CkB still enforced
+        AssertCheckViolation(e, "INSERT INTO T (ID, A, B) VALUES (2, 5, 200)", "CkB");
     }
 
     [Fact]
@@ -78,8 +77,16 @@ public class AlterAddCheckTests
         e.ExecuteNonQuery("INSERT INTO tblCustomers (CustomerID, CustomerLimit) VALUES (1, 50)");
 
         // Update above the limit fails; at/below the limit succeeds.
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("UPDATE tblCustomers SET CustomerLimit = 200 WHERE CustomerID = 1"));
+        AssertCheckViolation(e,
+            "UPDATE tblCustomers SET CustomerLimit = 200 WHERE CustomerID = 1", "LimitRule");
         e.ExecuteNonQuery("UPDATE tblCustomers SET CustomerLimit = 100 WHERE CustomerID = 1");
         Assert.Equal(100.0, Convert.ToDouble(e.ExecuteQuery("SELECT CustomerLimit FROM tblCustomers WHERE CustomerID = 1").Rows.Single()[0]));
+    }
+
+    private static void AssertCheckViolation(QueryEngine engine, string sql, string constraintName)
+    {
+        var error = Assert.Throws<InvalidOperationException>(() => engine.ExecuteNonQuery(sql));
+        Assert.Contains(constraintName, error.Message);
+        Assert.Contains("validation rule", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 }

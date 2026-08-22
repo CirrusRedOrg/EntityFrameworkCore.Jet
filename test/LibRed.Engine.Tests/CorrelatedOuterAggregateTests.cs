@@ -11,8 +11,7 @@ public class CorrelatedOuterAggregateTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"corragg-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "corragg-");
         return path;
     }
 
@@ -41,7 +40,7 @@ public class CorrelatedOuterAggregateTests
             foreach (var r in rows)
                 Assert.Equal(expected[Convert.ToInt32(r[0])], Convert.ToInt32(r[1]));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // The exact Northwind shape: MAX(o.OrderID) inside the subquery WHERE, wrapped in IIF/CLNG.
@@ -59,8 +58,9 @@ public class CorrelatedOuterAggregateTests
                 "        IIF((MAX(o.OrderID) * 6) IS NULL, NULL, CLNG(MAX(o.OrderID) * 6)) " +
                 "     OR (o0.EmployeeID IS NULL AND MAX(o.OrderID) IS NULL)) AS `Max` " +
                 "FROM Orders AS o GROUP BY o.EmployeeID").Rows.ToList();
-            Assert.NotEmpty(rows); // it runs without "Function MAX is not supported"
+            Assert.Equal(Enumerable.Range(1, 9), rows.Select(r => Convert.ToInt32(r[0])).OrderBy(x => x));
+            Assert.All(rows, r => Assert.Null(r[1]));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

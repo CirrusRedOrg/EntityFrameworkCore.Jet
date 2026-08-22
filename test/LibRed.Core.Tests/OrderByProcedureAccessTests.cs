@@ -12,26 +12,12 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class OrderByProcedureAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-        {
-            foreach (string provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={provider};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; }
-            }
-            Thread.Sleep(50);
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider opened the database.", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_runs_a_top_order_by_query()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"orderby-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "orderby-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -61,6 +47,6 @@ public class OrderByProcedureAccessTests
             Assert.Equal(prices.OrderByDescending(p => p).ToList(), prices); // ORDER BY DESC
             Assert.Equal(263.50m, prices[0]);                               // Côte de Blaye
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

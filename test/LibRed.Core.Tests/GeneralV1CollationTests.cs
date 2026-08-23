@@ -131,17 +131,33 @@ public class GeneralV1CollationTests
         Assert.Equal(510, Encode("á" + new string('a', 252), Collation.General).Length);
     }
 
+    // Past the limit ACE keeps the first 508 bytes and replaces the rest with a checksum over what it
+    // dropped. These are ACE's own bytes, read back out of an index it wrote.
+    [Theory]
+    [InlineData(254, 'a', "F602")]          // 253 'a' then 'z': the key would be 511 bytes
+    [InlineData(255, 'a', "DE26")]
+    [InlineData(129, '一', "8C8D")]         // Han costs four primary bytes, so the cut comes far sooner
+    [InlineData(171, 'á', "2F70")]
+    public void A_key_past_the_limit_is_truncated_with_ACEs_checksum(int length, char unit, string checksum)
+    {
+        byte[] key = Encode(new string(unit, length - 1) + "z", Collation.General);
+        Assert.Equal(510, key.Length);
+        Assert.Equal(checksum, Hex(key)[^4..]);
+    }
+
+    // The one case that is refused rather than truncated: a discarded word-sort record cannot be verified,
+    // because the record is in the part ACE dropped and what it held is unobservable.
     [Fact]
-    public void An_index_key_past_the_maximum_length_is_refused()
+    public void A_key_past_the_limit_holding_a_word_sort_record_is_refused()
     {
         var error = Assert.Throws<NotSupportedException>(
-            () => Encode("á" + new string('a', 253), Collation.General));
-        Assert.Contains("510", error.Message);
+            () => Encode(new string('一', 200) + "-" + new string('一', 54), Collation.General));
+        Assert.Contains("apostrophe or hyphen", error.Message);
     }
 
     // The cap is on the WHOLE entry, not on each column. Two 200-character columns weigh about 404 bytes of
-    // key each — well under 510 individually — and ACE stores their combined entry truncated and hashed at
-    // 510. Checking per column would have let this through and written an 810-byte entry ACE never writes.
+    // key each — well under 510 individually — and ACE truncates their combined entry. Measuring per column
+    // would have let this through and written an 810-byte entry ACE never writes.
     [Fact]
     public void A_multi_column_key_is_measured_across_all_columns()
     {
@@ -150,9 +166,7 @@ public class GeneralV1CollationTests
         string text = new('a', 200);
 
         Assert.True(IndexKeyEncoder.Encode([(a, true)], [text]).Length < 510);
-        var error = Assert.Throws<NotSupportedException>(
-            () => IndexKeyEncoder.Encode([(a, true), (b, true)], [text, text]));
-        Assert.Contains("510", error.Message);
+        Assert.Equal(510, IndexKeyEncoder.Encode([(a, true), (b, true)], [text, text]).Length);
     }
 
     // An astral character is weighed by BOTH halves where the table has weights for both: U+10000 is the

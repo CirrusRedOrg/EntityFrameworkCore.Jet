@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using LibRed.Catalog;
 using LibRed.Formats;
 
@@ -35,9 +36,27 @@ public static class IndexKeyEncoder
     /// </summary>
     private const int MaxIndexKeyBytes = 510;
 
-    public static byte[] Encode(IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, object?[] values)
+    public static byte[] Encode(IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, object?[] values) =>
+        Encode(columns, values, enforceLengthLimit: true);
+
+    /// <summary>
+    /// The key LibRed would build if ACE had no length limit — the input the truncation works ON.
+    /// </summary>
+    /// <remarks>
+    /// Only the research that is trying to identify ACE's two-byte checksum wants this: recovering the
+    /// function means pairing what ACE stored against the full key it was derived from, and the ordinary
+    /// entry point refuses exactly those values. Not a way around the limit — a key this returns is longer
+    /// than ACE would store and must never be written to a file.
+    /// </remarks>
+    internal static byte[] EncodeWithoutLengthLimit(
+        IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, object?[] values) =>
+        Encode(columns, values, enforceLengthLimit: false);
+
+    private static byte[] Encode(
+        IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, object?[] values, bool enforceLengthLimit)
     {
         var buffer = new List<byte>();
+        bool anyWordSortRecord = false;
 
         for (int i = 0; i < columns.Count; i++)
         {
@@ -84,8 +103,10 @@ public static class IndexKeyEncoder
 
                 var ascendingKey = new List<byte> { IndexKeyFlags.AscStart };
                 bool encoded = column.Collation.Version == Collation.GeneralVersion
-                    ? JetTextCollationV1.TryEncode(text, ascendingKey)
-                    : JetTextCollation.TryEncode(text, ascendingKey, JetLocaleTailoring.For(column.Collation));
+                    ? JetTextCollationV1.TryEncode(text, ascendingKey, out bool wordSort)
+                    : JetTextCollation.TryEncode(
+                        text, ascendingKey, JetLocaleTailoring.For(column.Collation), out wordSort);
+                anyWordSortRecord |= wordSort;
                 if (!encoded)
                     throw new NotSupportedException(
                         $"Text index key '{text}' contains a character with no weight in the {column.Collation.Order} " +
@@ -164,27 +185,30 @@ public static class IndexKeyEncoder
             buffer.AddRange(raw);
         }
 
-        // Past 510 bytes ACE stops storing the key it built and stores a truncated one with a two-byte
-        // checksum in place of the tail. Reproducing that needs the checksum function, which is not known, so
-        // refuse rather than write the full-length key: it is not what ACE would have written, and a wrong
-        // index key is silent — ACE writes its own into the same index and a seek misses rows.
-        //
-        // The limit is on the WHOLE entry, not per column: two 200-character text columns weigh about 404
-        // bytes each, comfortably under the cap individually, and ACE stores their combined entry hashed.
-        //
-        // How much text this allows is therefore a limit on WEIGHTS rather than characters, and it varies:
-        // General Legacy spends one primary byte per Latin character and reaches the 255-character column
-        // limit before this one, General spends two, and a Han character costs four. So the same column
-        // indexes roughly 255, 253 or 127 characters depending on collation and script.
-        if (buffer.Count > MaxIndexKeyBytes)
-            throw new NotSupportedException(
-                $"These values need a {buffer.Count}-byte index key across {columns.Count} column(s), and ACE " +
-                $"stores at most {MaxIndexKeyBytes} bytes verbatim — beyond that it truncates the key and " +
-                $"appends a checksum LibRed cannot reproduce. Index fewer or shorter columns: the limit is on " +
-                $"collation weights, so it buys fewer characters under General than General Legacy, and fewer " +
-                $"again for scripts whose characters weigh more than two bytes.");
+        // Past 510 bytes ACE keeps the first 508 and replaces the rest with a checksum over what it dropped,
+        // which is why two long values sharing a prefix still sort apart. The limit is on the WHOLE entry,
+        // not per column: two 200-character text columns weigh about 404 bytes each, comfortably under the
+        // cap individually, and ACE stores their combined entry truncated.
+        if (!enforceLengthLimit || buffer.Count <= MaxIndexKeyBytes) return [.. buffer];
 
-        return [.. buffer];
+        // Except where the dropped bytes hold a word-sort record. That case cannot be verified even in
+        // principle — the record sits in the part ACE discarded, so what it actually contained is
+        // unobservable, and if ACE recomputes its position when truncating then the checksum's input is not
+        // what is reconstructed here. Refuse rather than write a key that might disagree, because a wrong
+        // index key is silent: ACE writes its own into the same index and a seek misses rows.
+        if (anyWordSortRecord)
+            throw new NotSupportedException(
+                $"These values need a {buffer.Count}-byte index key across {columns.Count} column(s), past the " +
+                $"{MaxIndexKeyBytes} ACE stores, and one of them contains an apostrophe or hyphen. ACE truncates " +
+                $"and appends a checksum, and for a discarded word-sort record that checksum is not verifiable, " +
+                $"so LibRed will not guess at it. Shorten the value or drop it from the index.");
+
+        byte[] truncated = new byte[MaxIndexKeyBytes];
+        buffer.CopyTo(0, truncated, 0, JetIndexKeyChecksum.KeptBytes);
+        ushort checksum = JetIndexKeyChecksum.Compute(CollectionsMarshal.AsSpan(buffer)[JetIndexKeyChecksum.KeptBytes..]);
+        truncated[JetIndexKeyChecksum.KeptBytes] = (byte)(checksum >> 8);
+        truncated[JetIndexKeyChecksum.KeptBytes + 1] = (byte)checksum;
+        return truncated;
     }
 
     /// <summary>

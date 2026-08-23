@@ -237,12 +237,43 @@ Then the value, transformed:
 ### 10.5 The 510-byte index entry limit
 
 **ACE stores an index entry of at most 510 bytes as built.** At exactly 510 it comes back byte-for-byte; a
-value that would need 511 comes back as 510 with the weights cut short and the last two bytes replaced by a
-value that varies with the string — `…0E0602` for one 254-character value, `…0EDE2A` for the 255-character
-one. That is a truncated key plus a **checksum**, which is why two long values never collide in the index.
-The checksum function is **not known**, so LibRed cannot reproduce a truncated key and **refuses the value
-instead** — writing the full-length key would put bytes in the index that ACE would never write, and a wrong
-index key is silent.
+value that would need 511 comes back as 510: the first **508** bytes kept, and the rest replaced by a
+two-byte **checksum over the bytes that were dropped**. That is why two long values sharing a 508-byte
+prefix still sort apart instead of colliding.
+
+#### The checksum
+
+Recovered by measurement. Three tails differing in one byte show the function is **affine over GF(2)** —
+`L(0xA3) = CA03`, `L(0x13) = 6980`, `L(0xB0) = A383`, and `CA03 ^ 6980 = A383` exactly — and it is
+**shift-invariant** across 173 observations, so a byte at distance *d* from the end contributes `S^(d-1)` of
+itself whatever the message length. Sweeping all 65,536 polynomials in five framings found nothing, because
+the framing is the unusual part: the standard reflected update is `crc = (crc >> 8) ^ T[(crc ^ b) & 0xFF]`,
+passing the byte **through** the table, while ACE computes
+
+```
+crc = 0
+for each dropped byte b, except the terminator:
+    crc = (crc >> 8) ^ T[crc & 0xFF] ^ b        // b injected RAW, not through T
+```
+
+with no initial value and no final XOR. The step's table, solved by Gaussian elimination over the measured
+contributions and predicting all 657 of them, is
+
+```
+T[1<<i] = 0580 0F80 1B80 3380 6380 C380 8381 0383      (i = 0..7)
+```
+
+The terminator is excluded: running it would advance every other byte one step further. It is `0x00` anyway,
+and a linear map sends zero to zero.
+
+LibRed reproduces this (`JetIndexKeyChecksum`), so a long value is truncated exactly as ACE truncates it
+rather than refused — verified against ACE at and past the boundary for Latin, accented and Han text under
+both sort orders.
+
+**One case is still refused:** where the dropped bytes contain an inline word-sort record. It cannot be
+verified even in principle, because the record sits in the part ACE discarded and what it held is
+unobservable; if ACE recomputes its position when truncating, the checksum's input is not what LibRed
+reconstructs. Guessing there would write a silently wrong key.
 
 The cap is on the **whole entry, not per column**: two 200-character text columns weigh about 404 bytes of
 key each, comfortably under the cap individually, and ACE stores their combined entry hashed at 510.

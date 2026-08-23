@@ -206,8 +206,19 @@ internal static class JetTextCollation
     /// </summary>
     /// <param name="tailoring">Per-character overrides for a locale order other than General; null for
     /// General itself. See <see cref="JetLocaleTailoring"/>.</param>
-    public static bool TryEncode(string value, List<byte> output, LocaleTailoring? tailoring = null)
+    public static bool TryEncode(string value, List<byte> output, LocaleTailoring? tailoring = null) =>
+        TryEncode(value, output, tailoring, out _);
+
+    /// <param name="hasWordSortRecord">
+    /// Whether the key carries an inline word-sort section. The caller needs this to decide whether an
+    /// over-long entry may be truncated: the checksum that replaces the dropped bytes is unverified when
+    /// those bytes hold such a record, because the record is precisely what cannot be observed.
+    /// </param>
+    /// <inheritdoc cref="TryEncode(string, List{byte}, LocaleTailoring?)"/>
+    public static bool TryEncode(
+        string value, List<byte> output, LocaleTailoring? tailoring, out bool hasWordSortRecord)
     {
+        hasWordSortRecord = false;
         ReadOnlySpan<char> s = value.AsSpan().TrimEnd(' ');
 
         // Build the primary weight bytes and a parallel secondary weight per byte (0x02 = no accent).
@@ -324,6 +335,8 @@ internal static class JetTextCollation
         int lastAccent = secondaries.FindLastIndex(w => w != DefaultSecondary);
         for (int i = 0; i <= lastAccent; i++)
             output.Add(secondaries[i]);
+
+        hasWordSortRecord = inline.Count > 0;
 
         if (kana.Count > 0) JetKanaSection.Append(output, kana, prolonged);
 

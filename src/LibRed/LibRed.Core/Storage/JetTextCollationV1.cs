@@ -54,8 +54,16 @@ internal static class JetTextCollationV1
     /// false if any character has no weight in the table (the caller reports it rather than emitting a key
     /// that would sort wrongly).
     /// </summary>
-    public static bool TryEncode(string value, List<byte> output)
+    public static bool TryEncode(string value, List<byte> output) => TryEncode(value, output, out _);
+
+    /// <param name="hasWordSortRecord">
+    /// Whether the key carries an inline word-sort section. The caller needs this to decide whether an
+    /// over-long entry may be truncated: the checksum that replaces the dropped bytes is unverified when
+    /// those bytes hold such a record, because the record is precisely what cannot be observed.
+    /// </param>
+    public static bool TryEncode(string value, List<byte> output, out bool hasWordSortRecord)
     {
+        hasWordSortRecord = false;
         WeightTable table = Table.Value;
         ReadOnlySpan<char> text = value.AsSpan().TrimEnd(' ');
 
@@ -279,6 +287,8 @@ internal static class JetTextCollationV1
         // Secondary section: emitted up to and including the last character carrying a non-default accent.
         int lastAccent = secondaries.FindLastIndex(weight => weight != DefaultSecondary);
         for (int i = 0; i <= lastAccent; i++) output.Add(secondaries[i]);
+
+        hasWordSortRecord = inline.Count > 0;
 
         if (kana.Count > 0) JetKanaSection.Append(output, kana, prolonged);
 

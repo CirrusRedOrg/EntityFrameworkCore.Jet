@@ -22,6 +22,19 @@ public static class IndexKeyEncoder
     /// <summary>Access indexes only the first 255 characters of a Memo (Long Text) value (verified vs ACE).</summary>
     private const int MemoKeyMaxChars = 255;
 
+    /// <summary>
+    /// The longest index entry ACE stores verbatim. Measured: an entry of exactly 510 bytes comes back
+    /// byte-for-byte, and one that would be 511 comes back as 510 — the weights cut short and the last two
+    /// bytes replaced by a value that varies with the string (<c>…0E0602</c> for one 254-character value,
+    /// <c>…0EDE2A</c> for the 255-character one). That is a truncated key plus a checksum, which is why two
+    /// long values never collide, and it is why LibRed cannot simply cut its own key to match.
+    /// <para>
+    /// It caps the whole entry rather than each column: two 200-character text columns are about 404 bytes
+    /// of key each and ACE stores their combined entry hashed at 510.
+    /// </para>
+    /// </summary>
+    private const int MaxIndexKeyBytes = 510;
+
     public static byte[] Encode(IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, object?[] values)
     {
         var buffer = new List<byte>();
@@ -150,6 +163,26 @@ public static class IndexKeyEncoder
                 for (int j = 0; j < raw.Length; j++) raw[j] = (byte)~raw[j];
             buffer.AddRange(raw);
         }
+
+        // Past 510 bytes ACE stops storing the key it built and stores a truncated one with a two-byte
+        // checksum in place of the tail. Reproducing that needs the checksum function, which is not known, so
+        // refuse rather than write the full-length key: it is not what ACE would have written, and a wrong
+        // index key is silent — ACE writes its own into the same index and a seek misses rows.
+        //
+        // The limit is on the WHOLE entry, not per column: two 200-character text columns weigh about 404
+        // bytes each, comfortably under the cap individually, and ACE stores their combined entry hashed.
+        //
+        // How much text this allows is therefore a limit on WEIGHTS rather than characters, and it varies:
+        // General Legacy spends one primary byte per Latin character and reaches the 255-character column
+        // limit before this one, General spends two, and a Han character costs four. So the same column
+        // indexes roughly 255, 253 or 127 characters depending on collation and script.
+        if (buffer.Count > MaxIndexKeyBytes)
+            throw new NotSupportedException(
+                $"These values need a {buffer.Count}-byte index key across {columns.Count} column(s), and ACE " +
+                $"stores at most {MaxIndexKeyBytes} bytes verbatim — beyond that it truncates the key and " +
+                $"appends a checksum LibRed cannot reproduce. Index fewer or shorter columns: the limit is on " +
+                $"collation weights, so it buys fewer characters under General than General Legacy, and fewer " +
+                $"again for scripts whose characters weigh more than two bytes.");
 
         return [.. buffer];
     }

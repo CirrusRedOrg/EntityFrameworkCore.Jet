@@ -75,6 +75,20 @@ internal static class JetTextCollationV1
 
         foreach (char character in text)
         {
+            // A surrogate the table has no weight for is IGNORABLE, not an error — which is the whole of what
+            // astral support needs here, because both halves are otherwise weighed like any other character.
+            //
+            // ACE weighs an astral character by BOTH halves where it has weights for both: U+10000 is
+            // 7F B002 B4F8 01 3F 3F 00, the high surrogate D800 weighing B002 and the low DC00 weighing B4F8.
+            // Only the high surrogates up to U+D87F carry weights, so from plane 3 upward the high half drops
+            // out and the low one stands alone — U+30000 is 7F B4F8 01 3F 00. Planes 1 and 2 are therefore
+            // fully distinguished, while planes 3 to 16 collapse onto 1,024 keys and U+30000, U+31000,
+            // U+34000 and U+40000 all share one. That is ACE's behaviour to reproduce, not to improve.
+            //
+            // Written as "skip every high surrogate" first, generalising from plane-3 samples where the high
+            // half is unweighted. That broke all 131,068 characters of planes 1 and 2, where it is not.
+            if (char.IsSurrogate(character) && !table.TryGetWeight(character, out _, out _, out _)) continue;
+
             // Kana are weighed and sectioned exactly as in v0 — same sound weights, same section, verified
             // byte-for-byte against ACE under both sort orders. Handled here rather than in Append because a
             // single kana changes the shape of the WHOLE key.

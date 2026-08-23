@@ -237,6 +237,13 @@ internal static class JetTextCollation
         {
             char c = s[position];
             char u = char.ToUpperInvariant(c);
+
+            // Astral characters are wholly ignorable in v0 — ACE stores the empty key 7F 01 00 for every one,
+            // measured across all of planes 1 and 2 and sampled across all sixteen. Not a gap in the table but
+            // the order's actual behaviour, and the opposite of v1, which weighs them by their low surrogate.
+            // Neither half contributes, so both are skipped and an astral character vanishes from the key.
+            if (char.IsSurrogate(c)) continue;
+
             // The hand-verified ignorables first, then the measured ones — 296 across the BMP, every dash and
             // quotation form, the Arabic harakat, and the CJK and fullwidth punctuation.
             if (Ignorables.TryGetValue(c, out byte code) ||

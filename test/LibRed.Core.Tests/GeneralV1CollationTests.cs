@@ -120,6 +120,88 @@ public class GeneralV1CollationTests
         Assert.Equal(Hex(Encode("ab", Collation.General)), Hex(Encode("a͸b", Collation.General)));
     }
 
+    // ACE stores an index entry of at most 510 bytes as built; past that it truncates the weights and
+    // appends a two-byte checksum, so LibRed refuses rather than write a key ACE would never have written.
+    // Both bounds are measured: 253 characters with the accent on the FIRST (so the secondary section is one
+    // byte) is exactly 510 and ACE returns it byte-for-byte, while 254 would be 512 and ACE stores a hashed
+    // 510 instead.
+    [Fact]
+    public void An_index_key_of_exactly_the_maximum_length_is_encoded()
+    {
+        Assert.Equal(510, Encode("á" + new string('a', 252), Collation.General).Length);
+    }
+
+    [Fact]
+    public void An_index_key_past_the_maximum_length_is_refused()
+    {
+        var error = Assert.Throws<NotSupportedException>(
+            () => Encode("á" + new string('a', 253), Collation.General));
+        Assert.Contains("510", error.Message);
+    }
+
+    // The cap is on the WHOLE entry, not on each column. Two 200-character columns weigh about 404 bytes of
+    // key each — well under 510 individually — and ACE stores their combined entry truncated and hashed at
+    // 510. Checking per column would have let this through and written an 810-byte entry ACE never writes.
+    [Fact]
+    public void A_multi_column_key_is_measured_across_all_columns()
+    {
+        var a = new ColumnDef { Name = "a", Type = JetDataType.Text, Index = 0, Collation = Collation.General };
+        var b = new ColumnDef { Name = "b", Type = JetDataType.Text, Index = 1, Collation = Collation.General };
+        string text = new('a', 200);
+
+        Assert.True(IndexKeyEncoder.Encode([(a, true)], [text]).Length < 510);
+        var error = Assert.Throws<NotSupportedException>(
+            () => IndexKeyEncoder.Encode([(a, true), (b, true)], [text, text]));
+        Assert.Contains("510", error.Message);
+    }
+
+    // An astral character is weighed by BOTH halves where the table has weights for both: U+10000 is the
+    // high surrogate D800 (B002) followed by the low DC00 (B4F8). Measured across all of planes 1 and 2.
+    [Theory]
+    [InlineData("\U00010000", "7FB002B4F8013F3F00")]
+    [InlineData("\U00010001", "7FB002B4F9013F3F00")]
+    [InlineData("\U00020000", "7FFE02B4F8013E3F00")]
+    public void An_astral_character_weighs_both_surrogates_where_both_are_weighted(string text, string expected)
+    {
+        Assert.Equal(expected, Hex(Encode(text, Collation.General)));
+    }
+
+    // Only the high surrogates to U+D87F carry weights. From plane 3 up the high half is ignorable and the
+    // low one stands alone — so those planes collapse onto 1,024 keys and U+30000, U+34000 and U+40000 all
+    // share one. Reproducing that is the job: a "better" answer would disagree with the engine, and
+    // disagreeing about an index key is silent.
+    [Theory]
+    [InlineData("\U00030000")]
+    [InlineData("\U00034000")]
+    [InlineData("\U00040000")]
+    public void An_astral_character_above_plane_two_weighs_by_its_low_surrogate_alone(string text)
+    {
+        Assert.Equal("7FB4F8013F00", Hex(Encode(text, Collation.General)));
+    }
+
+    // The two orders disagree completely above the BMP: v1 weighs an astral character, v0 drops it. ACE
+    // stores the empty key for every one of them under General Legacy — measured across all of planes 1 and
+    // 2 — so under v0 an astral character is invisible to the index and "𐀀" and "" sort as equals.
+    [Theory]
+    [InlineData("\U00010000")]
+    [InlineData("\U00030000")]
+    [InlineData("\U0001F600")]
+    public void An_astral_character_is_ignorable_under_general_legacy(string text)
+    {
+        Assert.Equal("7F0100", Hex(Encode(text, Collation.GeneralLegacy)));
+    }
+
+    // Plane 3 upward used to be refused outright, because its high surrogate has no table entry. An unweighted
+    // surrogate is ignorable, not an error — the narrow fix. Skipping every high surrogate instead, which the
+    // plane-3 samples alone would suggest, breaks planes 1 and 2, so these two facts are tested together.
+    [Fact]
+    public void An_unweighted_high_surrogate_is_ignorable_rather_than_refused()
+    {
+        Assert.Equal("7FB4F8013F00", Hex(Encode("\U00030000", Collation.General)));
+        Assert.NotEqual(Hex(Encode("\U00010000", Collation.General)),
+                        Hex(Encode("\U00030000", Collation.General)));
+    }
+
     [Fact]
     public void An_empty_string_encodes_to_an_empty_key()
     {

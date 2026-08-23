@@ -202,9 +202,45 @@ Then the value, transformed:
 > what ACE stores, nothing refused and nothing left unhandled (`Probe_full_bmp_coverage`, needs
 > `LIBRED_FULL_BMP`). Other locales are still refused under v1.
 >
-> **The BMP is the limit of that claim.** Nothing above `U+FFFF` has been measured. A surrogate pair reaches
-> the encoder as two chars that the table happens to weigh individually, so an astral character encodes
-> rather than being refused — whether the result is what ACE stores is unknown, and worth a sweep of its own. Tests: `GeneralV1CollationTests` (keys
+> **Above the BMP** the two orders disagree completely, measured over all of planes 1 and 2 and sampled across
+> all sixteen. **v0 ignores astral characters entirely** — every one gets the empty key `7F 01 00`, so under
+> General Legacy an astral character is invisible to the index. **v1 weighs both surrogate halves**, each
+> looked up in the table like any other character: `U+10000` is `7F B002 B4F8 01 3F 3F 00`, the high surrogate
+> `D800` weighing `B002` and the low `DC00` weighing `B4F8`.
+>
+> Only the high surrogates up to `U+D87F` carry weights. From **plane 3 upward the high half is ignorable**
+> and the low one stands alone — `U+30000` is `7F B4F8 01 3F 00`, and `U+31000`, `U+34000` and `U+40000` give
+> the same. So planes 1 and 2 are fully distinguished, while planes 3 to 16 collapse onto **1,024 keys** and
+> any two code points there congruent mod `0x400` share one.
+>
+> The only change v1 needed was to treat an **unweighted surrogate as ignorable rather than an error**. The
+> tempting reading of the plane-3 samples — "the high surrogate contributes nothing" — is wrong, and skipping
+> every high surrogate breaks all 131,068 characters of planes 1 and 2. `AstralCollationProbeTest`, needs
+> `LIBRED_ASTRAL=1` (or `LIBRED_ASTRAL_FULL=1` for a whole plane).
+
+### 10.5 The 510-byte index entry limit
+
+**ACE stores an index entry of at most 510 bytes as built.** At exactly 510 it comes back byte-for-byte; a
+value that would need 511 comes back as 510 with the weights cut short and the last two bytes replaced by a
+value that varies with the string — `…0E0602` for one 254-character value, `…0EDE2A` for the 255-character
+one. That is a truncated key plus a **checksum**, which is why two long values never collide in the index.
+The checksum function is **not known**, so LibRed cannot reproduce a truncated key and **refuses the value
+instead** — writing the full-length key would put bytes in the index that ACE would never write, and a wrong
+index key is silent.
+
+The cap is on the **whole entry, not per column**: two 200-character text columns weigh about 404 bytes of
+key each, comfortably under the cap individually, and ACE stores their combined entry hashed at 510.
+
+Because it limits **weights** rather than characters, the text it buys depends on collation and script — and
+this is the practical cost of General over General Legacy, invisible in the schema:
+
+| | bytes per character | characters indexed in full |
+|---|---|---|
+| v0, Latin | 1 primary | **255** — the column limit is reached first |
+| v0, accented / CJK | 2 | **254** |
+| v1, Latin | 2 primary | **253** |
+| v1, accented | 3 | **169** |
+| v1, Han | 4 (`FD FF AW DW`) | **127** | Tests: `GeneralV1CollationTests` (keys
 > measured from ACE) and `GeneralV1CollationAccessTests` (live oracle, plus ACE seeking an index LibRed
 > wrote in a v1 database).
 

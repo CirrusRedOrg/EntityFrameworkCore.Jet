@@ -232,10 +232,19 @@ public static class DatabaseCreator
     /// are added through the ordinary writers. Produces a LibRed-openable, round-trippable file (Access-level
     /// fidelity — the remaining system tables and the 0xE00 map — is a follow-up).
     /// </summary>
-    /// <param name="collation">The database's default text collating order, written to page 0 and inherited
-    /// by every column created in it. Defaults to General-Legacy (LCID 1033, version 0), which is what the
-    /// engine writes; pass <see cref="Collation.General"/> for the order Access 2010+ offers as "General".
-    /// Only the two General orders can have their index keys encoded — see <c>IndexKeyEncoder</c>.</param>
+    /// <param name="collation">
+    /// The database's default text collating order, written to page 0 and inherited by every column created
+    /// in it. Defaults to General-Legacy (LCID 1033, version 0), which is what the engine writes; pass
+    /// <see cref="Collation.General"/> for the order Access 2010+ offers as "General".
+    /// <para>
+    /// Any order <see cref="Collation.IsIndexKeyEncodable"/> accepts can be created — 30 configurations, the
+    /// two General orders and every locale in <c>JetLocaleTailoring</c>, each verified by having ACE build an
+    /// index in the created file and agree on the keys (<c>CreatedDatabaseCollationAccessTests</c>). It
+    /// cannot be otherwise: the system-table indexes are built here, in this order, so creating a database
+    /// REQUIRES encoding its collation. That is why a new locale is unavailable to this method until it is
+    /// implemented, and why measuring one for the first time needs DAO to author the file.
+    /// </para>
+    /// </param>
     public static void CreateEmpty(string path, byte version = 0x02, Collation? collation = null)
     {
         Collation sortOrder = collation ?? Collation.GeneralLegacy;

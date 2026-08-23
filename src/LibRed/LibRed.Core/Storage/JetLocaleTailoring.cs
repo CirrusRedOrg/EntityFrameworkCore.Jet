@@ -144,6 +144,9 @@ internal static class JetLocaleTailoring
         [new Collation(CollatingOrder.Georgian, 0, SortId: 1)] = Table([]),
         [new Collation(CollatingOrder.Indic, Collation.GeneralVersion)] = Table([]),
 
+        // --- Thai: the five leading vowels contract with the consonant they precede. Built as a rule. ---
+        [new Collation(CollatingOrder.Thai, 0)] = Thai(),
+
         // --- Bosnian, Croatian and Serbian at version 1: the same order under three LCIDs. ---
         // Each measures 289 values identical to General v1 and the same 47 departures, byte for byte, so one
         // table serves all three. These are the FIRST version-1 tailorings: their primaries are two-byte
@@ -327,6 +330,46 @@ internal static class JetLocaleTailoring
              ("Ť", [0x6E, 0x03]), ("Ů", [0x71]), ("Ű", [0x72, 0x02]), ("Ź", [0x79, 0x02]),
              ("Ż", [0x79, 0x03]), ("Ž", [0x79, 0x04])]),
     };
+
+    /// <summary>
+    /// Thai — the five leading vowels contract with the consonant they precede.
+    /// </summary>
+    /// <remarks>
+    /// Thai writes <c>เ แ โ ใ ไ</c> BEFORE the consonant they are pronounced after, and collation follows
+    /// speech. This was long recorded as needing <i>reordering</i> — a device nothing else here uses, and the
+    /// reason Thai stayed unimplemented. Measurement says otherwise: it is an ordinary CONTRACTION, the same
+    /// device Croatian's <c>lj</c> uses.
+    /// <para>
+    /// ACE gives the pair a SINGLE weight at the consonant's own primary plus a vowel offset — <c>เก</c> is
+    /// <c>7C99</c> where <c>ก</c> alone is <c>7C98</c>, <c>แก</c> is <c>7C9A</c>, and so on to <c>ไ</c> at
+    /// +5. Every consonant sits on a six-wide block: itself, then a slot for each leading vowel. And it is
+    /// genuinely a contraction rather than a swap, because the reverse order does not collide with it —
+    /// <c>กเ</c> stays two weights, <c>7C98 7C93</c>.
+    /// </para>
+    /// <para>
+    /// Built as the rule rather than as 220 transcribed entries, with each consonant's primary read from the
+    /// measured v0 table, so there is no hand-copied hex to get wrong.
+    /// </para>
+    /// </remarks>
+    private static LocaleTailoring Thai()
+    {
+        const char firstConsonant = 'ก', lastConsonant = 'ฮ', firstLeadingVowel = 'เ';
+        var table = new Dictionary<string, TailoredWeight>(StringComparer.Ordinal);
+
+        for (char consonant = firstConsonant; consonant <= lastConsonant; consonant++)
+        {
+            if (!JetTextCollationTableV0.TryGet(consonant, out TailoredWeight? weight) || weight is null) continue;
+            for (int offset = 1; offset <= 5; offset++)
+            {
+                byte[] primaries = [.. weight.Value.Primaries];
+                primaries[^1] = (byte)(primaries[^1] + offset);
+                table[$"{(char)(firstLeadingVowel + offset - 1)}{consonant}"] =
+                    new TailoredWeight(primaries, weight.Value.Secondary);
+            }
+        }
+
+        return new LocaleTailoring(table);
+    }
 
     /// <summary>
     /// Bosnian, Croatian and Serbian at sort-order version 1 — one table, three LCIDs.

@@ -57,6 +57,18 @@ public class DaoLocaleCollationProbeTest(ITestOutputHelper output)
         "א", "ב", "כ", "ך", "מ", "ם", "צ", "ץ",         // Hebrew: medial vs final forms
         "ا", "ب", "أ", "إ", "آ", "ة", "ه", "ى", "ي",    // Arabic: hamza forms, ta marbuta, alef maqsura
         "ĳ", "IJ",                                       // Dutch: the IJ ligature as well as the pair
+        // Words carrying TWO marks, per script. Everything above is a single character or a short pair, and
+        // a whole class of rule cannot be seen that way: French tailors no letter at all — it reverses the
+        // diacritic section — so a word with ONE accent encodes identically to General and only a word with
+        // two reveals it. These five orders were called inert on a set that could not have detected such a
+        // rule, which is not the same as their being inert.
+        "έάν", "άέν", "ελληνικά", "Ελληνικά", "ώρα", "ωρά",     // Greek: two tonos, in either order
+        "ёлка", "мёд", "йогурт", "майор",                        // Cyrillic: yo and short i inside words
+        "שָׁלוֹם", "בְּרֵאשִׁית",                                     // Hebrew: several niqqud in one word
+        "مُحَمَّد", "كِتَاب", "بِسْمِ",                                  // Arabic: several harakat in one word
+        "ijsvrij", "yoghurt", "bijzonder", "byzantijns",         // Dutch: ij against y inside words
+        // The same shape that exposed French, in each script that has accents to reverse.
+        "άα", "αά", "άαά", "éà", "àé", "éàé",
     ];
 
     [Fact]

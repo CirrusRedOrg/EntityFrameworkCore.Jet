@@ -9,7 +9,15 @@ namespace LibRed.Catalog;
 /// Georgian Modern, Vietnamese, Indic, French, German Phone Book, Hungarian Technical and the CJK variants,
 /// and offers none of the five marked <i>inert</i> below. Those five are still creatable through DAO and are
 /// recorded faithfully on page 0 and in column descriptors, but ACE encodes **General** keys for them
-/// regardless — verified over 31 samples in <c>DaoLocaleCollationProbeTest</c>. Treat them as metadata.
+/// regardless — verified over 82 samples in <c>DaoLocaleCollationProbeTest</c>. Treat them as metadata.
+/// <para>
+/// That sample set includes words carrying TWO marks in each script, which is the shape that matters: French
+/// tailors no letter at all and would look inert on single characters, because it reverses the diacritic
+/// section and a word with one accent encodes identically to General. The Greek triple
+/// <c>άα</c>/<c>αά</c>/<c>άαά</c> is the direct analogue of the French <c>coté</c>/<c>côte</c>/<c>côté</c>
+/// that exposed it. The probe also carries Spanish, Czech, Polish and Turkish as positive controls, so a
+/// null result means the orders are inert rather than the harness being dead.
+/// </para>
 /// </summary>
 /// <remarks>
 /// The LCID alone does not pin the on-disk key bytes: "General" (1033) has a legacy order (version 0,

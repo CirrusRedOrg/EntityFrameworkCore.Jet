@@ -37,11 +37,17 @@ internal static class JetTextCollation
     {
         ['́'] = 0x0E, // acute
         ['̀'] = 0x0F, // grave
+        ['̇'] = 0x10, // dot above
         ['̂'] = 0x12, // circumflex
         ['̈'] = 0x13, // diaeresis / umlaut
+        ['̌'] = 0x14, // caron / háček
+        ['̆'] = 0x15, // breve
+        ['̄'] = 0x17, // macron
         ['̃'] = 0x19, // tilde
         ['̊'] = 0x1A, // ring above
+        ['̨'] = 0x1B, // ogonek
         ['̧'] = 0x1C, // cedilla
+        ['̋'] = 0x1D, // double acute
     };
 
     // Atomic accented letters that have no Unicode canonical decomposition: base letter + secondary weight.
@@ -50,10 +56,35 @@ internal static class JetTextCollation
     {
         ['Ø'] = ('O', 0x21),
         ['Ð'] = ('D', 0x68),
+        // A stroke through the letter is its own diacritic weight — 0x1E on D and H, 0x1F on L.
+        ['Đ'] = ('D', 0x1E),
+        ['Ħ'] = ('H', 0x1E),
+        ['Ł'] = ('L', 0x1F),
+        ['Ŀ'] = ('L', 0x11),   // L with middle dot
+        ['ĸ'] = ('K', 0x03),   // kra; has no uppercase, so it is matched as itself
+        ['ŉ'] = ('N', 0x48),   // n preceded by apostrophe; likewise has no uppercase
         // Ordinal indicators: the base letter's primary with a distinguishing secondary, so they sort beside
         // 'a'/'o' rather than with the symbols. Harvested from ACE (7F 4A 01 03 00 / 7F 64 01 03 00).
         ['ª'] = ('A', 0x03),
         ['º'] = ('O', 0x03),
+    };
+
+    // Letters that are NOT an A–Z fold: they carry a primary of their own. Looked up by the original
+    // character, because invariant uppercasing would send them to the base letter and lose the distinction.
+    private static readonly Dictionary<char, TailoredWeight> ExtraLetters = new()
+    {
+        // U+017F LATIN SMALL LETTER LONG S. ACE gives it its own two-byte primary in the S–T gap rather
+        // than folding it onto 's' — verified against ACE in every v0 order, General included.
+        ['ſ'] = new([0x6C, 0x06], DefaultSecondary),
+        // U+0131 DOTLESS I: the letter i's primary with a secondary of its own. It has to be matched on the
+        // original character, because invariant uppercasing turns it into a plain 'I'.
+        ['ı'] = new([0x59], 0x03),
+        // U+014A ENG, in the N–O gap.
+        ['Ŋ'] = new([0x63, 0x05], DefaultSecondary),
+        // U+0166 T WITH STROKE: a two-byte primary that also carries the stroke as a secondary.
+        ['Ŧ'] = new([0x6E, 0x06], 0x1E),
+        // U+00A0 NO-BREAK SPACE: a two-byte primary rather than the ordinary space's 0x07.
+        [' '] = new([0x08, 0x02], DefaultSecondary),
     };
 
     // Letters that sort as a multi-letter expansion (each expanded letter weighs its normal primary, no
@@ -63,6 +94,8 @@ internal static class JetTextCollation
         ['Æ'] = "AE",
         ['ß'] = "SS",
         ['Þ'] = "TH",
+        ['Ĳ'] = "IJ",
+        ['Œ'] = "OE",
     };
 
     // Primary weight for 'A'..'Z' (general collation; mostly +2 with a few +1 steps).
@@ -109,7 +142,9 @@ internal static class JetTextCollation
     /// codes, and the terminator). Trailing spaces are dropped. Returns false if any character is
     /// not yet supported.
     /// </summary>
-    public static bool TryEncode(string value, List<byte> output)
+    /// <param name="tailoring">Per-character overrides for a locale order other than General; null for
+    /// General itself. See <see cref="JetLocaleTailoring"/>.</param>
+    public static bool TryEncode(string value, List<byte> output, LocaleTailoring? tailoring = null)
     {
         ReadOnlySpan<char> s = value.AsSpan().TrimEnd(' ');
 
@@ -121,14 +156,28 @@ internal static class JetTextCollation
         // multi-byte expansion like ß→SS counts as 2 — verified against ACE).
         var inline = new List<(int Position, byte Code)>();
 
-        foreach (char c in s)
+        // Indexed rather than foreach, because a tailoring entry can consume several characters: a
+        // contraction is a digraph weighing as one letter (Czech "ch", Hungarian "gy", Danish "aa").
+        for (int position = 0; position < s.Length; position++)
         {
+            char c = s[position];
             char u = char.ToUpperInvariant(c);
             if (u == '\'') { inline.Add((primaries.Count, ApostropheCode)); continue; }
             if (u == '-') { inline.Add((primaries.Count, HyphenCode)); continue; }
             if (u == '­') { inline.Add((primaries.Count, SoftHyphenCode)); continue; }   // soft hyphen
 
-            if (u is >= 'A' and <= 'Z')
+            // A locale tailoring overrides everything below it.
+            if (tailoring is not null &&
+                tailoring.TryMatch(s, position, out TailoredWeight tailored, out int consumed, out bool repeat))
+            {
+                for (int emit = repeat ? 2 : 1; emit > 0; emit--)
+                    AddWeight(tailored.Primaries, tailored.Secondary);
+                position += consumed - 1;
+            }
+            else if (ExtraLetters.TryGetValue(c, out TailoredWeight own) ||
+                     ExtraLetters.TryGetValue(u, out own))
+                AddWeight(own.Primaries, own.Secondary);
+            else if (u is >= 'A' and <= 'Z')
                 Add(Letters[u - 'A']);
             else if (u is >= '0' and <= '9')
                 Add((byte)(0x36 + 2 * (u - '0')));
@@ -136,7 +185,7 @@ internal static class JetTextCollation
             // letters, and it corrupts some symbols — char.ToUpperInvariant('µ') is GREEK CAPITAL LETTER MU,
             // which is not what ACE weighs it as (ACE gives it a symbol weight in the 0x34 group).
             else if (Symbols.TryGetValue(c, out byte[]? weights) || Symbols.TryGetValue(u, out weights))
-                foreach (byte w in weights) Add(w);
+                AddWeight(weights, DefaultSecondary);
             else if (!TryAddAccented(u, Add))
                 return false; // not handled yet
         }
@@ -170,6 +219,16 @@ internal static class JetTextCollation
         void Add(byte primary, byte secondary = DefaultSecondary)
         {
             primaries.Add(primary);
+            secondaries.Add(secondary);
+        }
+
+        // A primary WEIGHT may be one or two bytes, and the secondary section has one entry per weight —
+        // not per byte. Measured against ACE: Norwegian "ö" is 7F 79 06 01 13 00, two primary bytes and a
+        // single secondary. (The inline apostrophe/hyphen section counts differently, by primary *bytes* —
+        // hence `primaries.Count` there rather than `secondaries.Count`.)
+        void AddWeight(ReadOnlySpan<byte> weight, byte secondary)
+        {
+            foreach (byte b in weight) primaries.Add(b);
             secondaries.Add(secondary);
         }
     }

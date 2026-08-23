@@ -54,13 +54,16 @@ public static class IndexKeyEncoder
             // produces byte-for-byte the key of its 255-character prefix.
             if (column.Type is JetDataType.Text or JetDataType.Memo)
             {
-                // Weights are implemented for the two General orders (v0 legacy, v1). Refuse anything else up
-                // front — a non-English locale — rather than emit wrong bytes with an English table. The
-                // collation is read per-column from the descriptor (0x0B–0x0E).
+                // Weights are implemented for the two General orders plus the locale tailorings in
+                // JetLocaleTailoring. Refuse anything else up front rather than emit wrong bytes with the
+                // English table — a wrong key does not fail, it silently disagrees with ACE's. The collation
+                // is read per-column from the descriptor (0x0B–0x0E).
                 if (!column.Collation.IsIndexKeyEncodable)
                     throw new NotSupportedException(
                         $"Index key encoding for column '{column.Name}' uses collation {column.Collation.Order} " +
-                        $"version {column.Collation.Version}, which is not implemented yet (only General is).");
+                        $"version {column.Collation.Version}" +
+                        (column.Collation.SortId == 0 ? "" : $" sort id {column.Collation.SortId}") +
+                        ", which is not implemented yet.");
 
                 string text = (string)value;
                 if (column.Type == JetDataType.Memo && text.Length > MemoKeyMaxChars)
@@ -69,7 +72,7 @@ public static class IndexKeyEncoder
                 var ascendingKey = new List<byte> { IndexKeyFlags.AscStart };
                 bool encoded = column.Collation.Version == Collation.GeneralVersion
                     ? JetTextCollationV1.TryEncode(text, ascendingKey)
-                    : JetTextCollation.TryEncode(text, ascendingKey);
+                    : JetTextCollation.TryEncode(text, ascendingKey, JetLocaleTailoring.For(column.Collation));
                 if (!encoded)
                     throw new NotSupportedException(
                         $"Text index key '{text}' contains a character with no weight in the {column.Collation.Order} " +

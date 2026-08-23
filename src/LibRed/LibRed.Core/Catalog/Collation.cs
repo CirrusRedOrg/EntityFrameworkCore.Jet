@@ -28,22 +28,38 @@ public enum CollatingOrder
     Czech = 1029,
     NorwegianDanish = 1030,
     Greek = 1032,            // inert
+    German = 1031,           // with sort id 1 = "German Phone Book"
     General = 1033,          // English, German, French, Portuguese — the default
     Spanish = 1034,          // Spanish Traditional: "ch" and "ll" are letters (DAO's dbSortSpanish)
-    SpanishModern = 3082,    // The 1994 reform: "ch"/"ll" are letter pairs. No DAO name — it postdates the enum
+    French = 1036,
     Hebrew = 1037,           // inert
-    Hungarian = 1038,
+    Hungarian = 1038,        // with sort id 1 = "Hungarian Technical"
     Icelandic = 1039,
     Japanese = 1041,
     Korean = 1042,
     Dutch = 1043,            // inert
+    Norwegian = 1044,        // Access's "Norwegian/Danish" — note DAO's dbSortNorwDan is Danish 1030 instead
     Polish = 1045,
+    Romanian = 1048,
     Cyrillic = 1049,         // inert
+    Croatian = 1050,
+    Slovak = 1051,
     SwedishFinnish = 1053,
     Thai = 1054,
     Turkish = 1055,
+    Ukrainian = 1058,
     Slovenian = 1060,
+    Estonian = 1061,
+    Latvian = 1062,
+    Lithuanian = 1063,
+    Vietnamese = 1066,
+    Macedonian = 1071,
+    Georgian = 1079,         // with sort id 1 = "Georgian Modern"
+    Indic = 1081,
     ChineseSimplified = 2052,
+    Serbian = 2074,
+    SpanishModern = 3082,    // The 1994 reform: "ch"/"ll" are letter pairs. No DAO name — it postdates the enum
+    Bosnian = 5146,
 }
 
 /// <summary>
@@ -78,8 +94,20 @@ public readonly record struct Collation(CollatingOrder Order, byte Version, byte
     /// NLS weights directly rather than General-Legacy's compacted table; see <c>JetTextCollationV1</c>.</summary>
     public static Collation General => new(CollatingOrder.General, GeneralVersion);
 
-    /// <summary>Whether LibRed can encode index keys for this collation. Both General orders are implemented
-    /// (v0 via <c>JetTextCollation</c>, v1 via <c>JetTextCollationV1</c>); other locales are not — see the
-    /// format spec §10.4.</summary>
-    public bool IsIndexKeyEncodable => this == GeneralLegacy || this == General;
+    /// <summary>Whether LibRed can encode index keys for this collation: both General orders (v0 via
+    /// <c>JetTextCollation</c>, v1 via <c>JetTextCollationV1</c>), plus every locale with an entry in
+    /// <c>JetLocaleTailoring</c>. Anything else is refused rather than encoded with the English table — see
+    /// the format spec §10.4.</summary>
+    public bool IsIndexKeyEncodable
+    {
+        get
+        {
+            if (this == GeneralLegacy || this == General) return true;
+            var tailoring = Storage.JetLocaleTailoring.For(this);
+            if (tailoring is null) return false;
+            // The v1 encoder has no tailoring hook — its primaries are 2-byte NLS values, a different shape —
+            // so a version-1 order is encodable only where it was measured to need no tailoring at all.
+            return Version != GeneralVersion || tailoring.Entries.Count == 0;
+        }
+    }
 }

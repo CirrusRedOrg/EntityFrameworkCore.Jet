@@ -193,19 +193,43 @@ Then the value, transformed:
   > produce. Ligatures need no special handling either — NLS itself expands `ﬁ` to `f` + `i`. (Probed in
   > `SortKeyComparisonProbeTest`.)
 
+  **The long s `ſ` (U+017F) is a letter of its own**, not a fold onto `s`: it takes the two-byte primary
+  `6C 06` — the S–T gap — in **every** v0 order measured, General included (`LocaleCollationAccessTests`).
+  Uppercasing it invariantly gives `S`, so it has to be matched on the original character or the
+  distinction is lost.
+
   **A few letters expand to multiple base letters** (each expanded letter weighs its normal primary,
   no accent): `ß`→`SS`, `Þ`/`þ`→`TH`, `Æ`→`AE` — verified against ACE (`ß` = `7F 6B 6B 01 00`, same as
   `SS`). Because the ignorable-position count is by primary byte, an expansion counts as its expanded
   length (above).
+
+  **Diacritic secondary weights**, each depending only on the mark and not the base letter — derived from
+  ACE by `TailoringGeneratorProbeTest`: acute `0x0E`, grave `0x0F`, **dot above `0x10`**, circumflex `0x12`,
+  diaeresis `0x13`, **caron `0x14`**, **breve `0x15`**, **macron `0x17`**, tilde `0x19`, ring `0x1A`,
+  **ogonek `0x1B`**, cedilla `0x1C`, **double acute `0x1D`**. Atomic letters that do not decompose carry one
+  directly: `Ø`→`O`+`0x21`, `Ð`→`D`+`0x68`, **stroke** `Đ`→`D`+`0x1E`, `Ħ`→`H`+`0x1E`, `Ł`→`L`+`0x1F`,
+  `Ŀ`→`L`+`0x11`, `ĸ`→`K`+`0x03`, `ŉ`→`N`+`0x48`. **Expansions**: `Æ`→`AE`, `ß`→`SS`, `Þ`→`TH`, `Ĳ`→`IJ`,
+  `Œ`→`OE`. **Own primaries**: `ſ` `6C 06`, `ŋ` `63 05`, `ŧ` `6E 06`+`0x1E`, `ı` `59`+`0x03`, and
+  NBSP `08 02` (against the ordinary space's `0x07`).
 
   **Accented Latin-1 letters** sort with their **base letter's primary weight** and record the
   accent in a **secondary section**. Each character has a secondary weight (default `0x02`); an
   accented letter carries the weight of its diacritic instead (verified against ACE, and the weight
   depends only on the accent, not the base letter): **acute `0x0E`, grave `0x0F`, circumflex `0x12`,
   diaeresis/umlaut `0x13`, tilde `0x19`, ring `0x1A`, cedilla `0x1C`**; plus atomic `Ø`→base `O`+`0x21`,
-  `Ð`→base `D`+`0x68`, and the ligature `Æ`→primaries `A E` (no accent). The section is emitted only
-  when some character is accented: after the primary's `0x01` end marker it lists the secondary weight
-  of **every byte from the first up to and including the last accented one**, e.g. `México D.F.` →
+  `Ð`→base `D`+`0x68`, and the ligature `Æ`→primaries `A E` (no accent).
+
+  > **The secondary section has one entry per primary *weight*, not per primary *byte*.** A weight may be
+  > one byte or two, and a two-byte weight still takes a single slot — Norwegian `ö` is
+  > `7F 79 06 01 13 00`: two primary bytes, one secondary. This only becomes visible once two-byte primaries
+  > and accents appear together, which is why it surfaced with the locale tailorings
+  > (`Ångström` in Norwegian, where `å` and `ö` are both two-byte). Note the contrast with the **inline**
+  > apostrophe/hyphen section below, which counts primary **bytes** — the two sections index differently.
+  > An expansion is several *weights* (`ß`→`SS` is two one-byte weights), so it takes two slots.
+
+  The section is emitted only when some character is accented: after the primary's `0x01` end marker it
+  lists the secondary weight of **every weight from the first up to and including the last accented one**,
+  e.g. `México D.F.` →
   `7F 60 51 75 59 4D 64 07 4F 1C 53 1C 01 02 0E 00` (é = primary `0x51` = E, secondary `0x0E`), and
   `Montréal` (é at position 5) → `… 01 02 02 02 02 02 0E 00`. LibRed decomposes via Unicode NFD (base
   letter + combining mark) plus the small atomic table above; `JetTextCollation` reproduces these keys
@@ -288,8 +312,15 @@ Then the value, transformed:
   - **Tailoring is not only insertion.** Five other devices appear, all within the existing framing:
 
     - **Contraction** — two characters, one primary. The Spanish and Croatian digraphs above; Hungarian's
-      full set (`cs` `4E 05`, `gy` `56 03`, `ny` `63 06`, `sz` `6C 08`, `zs` `79 09`, `ty` `6E 06`), including
-      the doubling rule: `ggy` = `56 03 56 03` and `ccs` = `4E 05 4E 05`, each half weighing as the digraph.
+      full set (`cs` `4E 05`, `gy` `56 03`, `ny` `63 06`, `sz` `6C 08`, `zs` `79 09`, `ty` `6E 06`).
+
+      Matching is **greedy longest-first**, left to right, and does not backtrack: Hungarian `dzs` is the
+      three-character letter `50 05`, not `dz`+`s`; Spanish `lll` is `ll`+`l` (`5F 04 5E`) and `llll` is
+      `ll`+`ll`. **Only Hungarian doubles** — a doubled digraph is written by doubling its first letter, so
+      `ggy` is `gy`+`gy` (`56 03 56 03`) and `ssz` is `sz`+`sz`, while Czech `cch` is plainly `c`+`ch`
+      (`4D 58 03`) and Spanish `cch` is `c`+`ch`. Doubling has to be tested *before* the plain longest match,
+      or `ggy` degrades to `g`+`gy`. A contraction can carry a secondary of its own: Croatian `dž` is
+      `50 04` with secondary `04`, Danish `aa` is `å`'s primary with secondary `03`.
     - **Expansion** — one character, several primaries. German Phone Book: `ä` = `7F 4A 51 01 00`, primaries
       `a`+`e` (General has `a` + umlaut secondary); likewise `ö`→`o`+`e`, `ü`→`u`+`e`. Same primitive as
       `ß`→`SS` above, so it needs no new machinery.
@@ -353,9 +384,53 @@ Then the value, transformed:
     expansions above. `chico` is `7F 4E 04 59 4D 64 01 00` — five characters, four primaries. Case folds as
     usual, so `ch`, `Ch` and `CH` share a key.
 
-  LibRed **reads** these databases; `Collation.IsIndexKeyEncodable` is false for any locale other than
-  General v0/v1, so it refuses to write their index keys rather than writing wrong ones. Neither encoder
-  implements contraction.
+  **LibRed implements the tailorings whose every difference is a single character** — `JetLocaleTailoring`,
+  a per-locale `char` → primaries override consulted ahead of the General tables, looked up by the *original*
+  character before the uppercased one (which is what lets Turkish disagree with invariant casing, where `I`
+  is the dotless letter). Implemented and asserted byte-for-byte against ACE over 345 values — the whole of
+  printable ASCII, Latin-1 and Latin Extended-A, plus words (`LocaleCollationAccessTests`):
+
+  | order | tailoring |
+  |---|---|
+  | Spanish Modern | `ñ` |
+  | Spanish Traditional | `ñ`, and the digraphs `ch` `ll` |
+  | German Phone Book | `ä ö ü` as expansions |
+  | Romanian Legacy | `ă î ş ţ` |
+  | Turkish | `ç ğ ö ş ü`, `ı`/`I` dotless and `İ`/`i` dotted, and the `ĳ` ligature following that casing |
+  | Polish | `ą ć ę ł ń ó ś ź ż` |
+  | Czech | the digraph `ch`, four letters, and twelve accent retunes (the diaeresis moves `0x13`→`0x05`) |
+  | Slovak | Czech's `ch`, plus `ä ô` of its own |
+  | Croatian Legacy | the digraphs `lj nj dž`, five letters, twelve accent retunes |
+  | Slovenian | Croatian's letters at different sub-positions |
+  | Norwegian/Danish | `æ ø å`, the contraction `aa`→`å`, and `ä ö ü ő ű` riding on them |
+  | Swedish/Finnish | `å ä ö`, `w` as a variant of `v`, `ü` on `y` |
+  | Icelandic | ten letters; `þ æ ö` close the alphabet after `z` |
+  | Estonian | rewrites the base alphabet — see above |
+  | Latvian | seven letters, the widest sub-positions seen (`ķ` at `0x12`) |
+  | Lithuanian | `y` after `i`, and the ogonek retuned `0x1B`→`0x0F` |
+  | Vietnamese | nine digraphs, and `p r` shifted to make room |
+  | Hungarian | the nine digraphs, doubling, and `ö ü ő ű` |
+  | Hungarian Technical | 46 individual letters and **no digraphs at all** |
+  | Georgian Modern, Indic | *empty* — measured to be indistinguishable from General |
+
+  An **empty** tailoring is meaningful and different from none: it says the order was measured to need no
+  change, so the order can be encoded rather than refused.
+
+  > **"Technical" is not a variant of the digraph order.** Hungarian Technical tailors plain `g` to `56 03`,
+  > so its `gy` is that tailored `g` followed by an ordinary `y` — not a contraction. It is the largest
+  > single-character tailoring measured and contains no multi-character entry.
+
+  > **A single-character sweep cannot find a digraph.** Vietnamese looked like a single-character order until
+  > `Ångström` came out three weights short: `ng` and `tr` each weigh as one letter. Its set is
+  > `ch gi kh ng nh ph qu th tr` — and note `gh` and `ngh` are *not* letters, they fall out of greedy
+  > matching as `g`+`h` and `ng`+`h`, which is exactly what ACE stores.
+
+  Everything else stays refused — `Collation.IsIndexKeyEncodable` gates on it, because a wrong key is silent.
+  What remains: **Thai** needs reordering; **Bosnian, Croatian and Serbian at version 1** need the v1 encoder
+  to grow a tailoring hook (its primaries are 2-byte NLS values, a different shape); **Ukrainian and
+  Macedonian** need the **Cyrillic block in the General table first**, which v0 does not have; and **French**
+  is unclassified, its tailoring being in the secondary section where single-character samples do not
+  exercise it.
 
   *Not yet handled:* characters outside ASCII + the accented Latin-1 set above (and a key mixing an
   accent with an ignorable apostrophe/hyphen is untested); every locale other than General (above).

@@ -28,6 +28,7 @@ internal static class JetTextCollation
     private const byte InlineMid = 0x06;
     private const byte ApostropheCode = 0x80;
     private const byte HyphenCode = 0x82;
+    private const byte SoftHyphenCode = 0x83;
     private const byte DefaultSecondary = 0x02; // a character with no accent
 
     // Secondary (diacritic) weight per Unicode combining mark — depends only on the accent, not the base
@@ -49,6 +50,10 @@ internal static class JetTextCollation
     {
         ['Ø'] = ('O', 0x21),
         ['Ð'] = ('D', 0x68),
+        // Ordinal indicators: the base letter's primary with a distinguishing secondary, so they sort beside
+        // 'a'/'o' rather than with the symbols. Harvested from ACE (7F 4A 01 03 00 / 7F 64 01 03 00).
+        ['ª'] = ('A', 0x03),
+        ['º'] = ('O', 0x03),
     };
 
     // Letters that sort as a multi-letter expansion (each expanded letter weighs its normal primary, no
@@ -77,6 +82,25 @@ internal static class JetTextCollation
         ['<'] = [0x2E], ['='] = [0x30], ['>'] = [0x32],
         ['^'] = [0x2B, 0x02], ['_'] = [0x2B, 0x03], ['`'] = [0x2B, 0x07],
         ['{'] = [0x2B, 0x09], ['|'] = [0x2B, 0x0B], ['}'] = [0x2B, 0x0D], ['~'] = [0x2B, 0x0F],
+
+        // Latin-1 punctuation and symbols, harvested from ACE's own index keys (see
+        // SortKeyComparisonProbeTest). Each group mirrors the order of the corresponding Win32 NLS primaries
+        // in ACE's compacted one-byte-per-group numbering:
+        //   0x2B  continues the ^_`{|}~ group          NLS 0x0751..0x0757
+        ['¡'] = [0x2B, 0x10], ['¦'] = [0x2B, 0x11], ['¨'] = [0x2B, 0x12], ['¯'] = [0x2B, 0x13],
+        ['´'] = [0x2B, 0x14], ['¸'] = [0x2B, 0x15], ['¿'] = [0x2B, 0x16],
+        //   0x33  mathematical                          NLS 0x0817..0x081D (both skip the same slots)
+        ['±'] = [0x33, 0x04], ['«'] = [0x33, 0x05], ['»'] = [0x33, 0x07],
+        ['×'] = [0x33, 0x09], ['÷'] = [0x33, 0x0A],
+        //   0x34  currency then symbols — ACE runs two NLS groups (0x0797.. and 0x0A06..) into one
+        ['¢'] = [0x34, 0xA6], ['£'] = [0x34, 0xA7], ['¤'] = [0x34, 0xA8], ['¥'] = [0x34, 0xA9],
+        ['§'] = [0x34, 0xAA], ['©'] = [0x34, 0xAB], ['¬'] = [0x34, 0xAC], ['®'] = [0x34, 0xAD],
+        ['°'] = [0x34, 0xAE], ['µ'] = [0x34, 0xAF], ['¶'] = [0x34, 0xB0], ['·'] = [0x34, 0xB1],
+        //   0x37  fractions                             NLS 0x0D0D/0x0D11/0x0D15 (step 4 in both)
+        ['¼'] = [0x37, 0x12], ['½'] = [0x37, 0x16], ['¾'] = [0x37, 0x1A],
+        // Superscript digits take the *same* primary as their base digit and no distinguishing secondary, so
+        // ACE sorts (and compares) '¹' equal to '1'. Verified: both encode to 7F 38 01 00.
+        ['¹'] = [0x38], ['²'] = [0x3A], ['³'] = [0x3C],
     };
 
     /// <summary>
@@ -102,12 +126,16 @@ internal static class JetTextCollation
             char u = char.ToUpperInvariant(c);
             if (u == '\'') { inline.Add((primaries.Count, ApostropheCode)); continue; }
             if (u == '-') { inline.Add((primaries.Count, HyphenCode)); continue; }
+            if (u == '­') { inline.Add((primaries.Count, SoftHyphenCode)); continue; }   // soft hyphen
 
             if (u is >= 'A' and <= 'Z')
                 Add(Letters[u - 'A']);
             else if (u is >= '0' and <= '9')
                 Add((byte)(0x36 + 2 * (u - '0')));
-            else if (Symbols.TryGetValue(u, out byte[]? weights))
+            // Look the symbol up by the original character as well as the uppercased one: uppercasing is for
+            // letters, and it corrupts some symbols — char.ToUpperInvariant('µ') is GREEK CAPITAL LETTER MU,
+            // which is not what ACE weighs it as (ACE gives it a symbol weight in the 0x34 group).
+            else if (Symbols.TryGetValue(c, out byte[]? weights) || Symbols.TryGetValue(u, out weights))
                 foreach (byte w in weights) Add(w);
             else if (!TryAddAccented(u, Add))
                 return false; // not handled yet

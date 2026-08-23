@@ -131,9 +131,14 @@ LibRed-side `CHECK` enforcement, self-pointing self-references, and writing Memo
   `DateTimeExtended`/DATETIME2 (`0x14`) is **read-only** (no write codec), which also blocks indexing it.
   The **ACE-16 auto-upgrade** (using BIGINT/DATETIME2 bumps the format version) is deliberately refused
   until we probe what else the upgrade changes.
-- **Version-1 "General" text collation** (Access 2010+) — the v1 weight table needs an Access-2010+
-  fixture to reverse-engineer; the encoder gates (throws) on any non-legacy collation meanwhile. Also:
-  populate `JetDatabase.Collation` from the page-0 sort order (needs page-0 de-obfuscation).
+- **Non-English text collations** — index-key weights exist for the two General (1033) orders only:
+  General-Legacy (v0) and General (v1). Any other locale is refused by `IndexKeyEncoder` rather than encoded
+  with the English table. *(The v1 gap is closed: v1 keys are the Windows NLS weights verbatim, from the
+  Windows Server 2008 sorting weight table that ACE froze — see `docs/format/page-03-04-index-btree.md` §10.4
+  and `tools/sortkey-table/generate.ps1`. v0's ancestor table is still unidentified: its ordering matches
+  every published Windows version across the range LibRed covers, so discriminating it needs characters whose
+  weights actually moved.)*
+
 - **Computed / calculated columns** (ACE 14) — the evaluation half exists; the gap is the on-disk
   TDEF/`LvProp` storage of the expression (and persisted-vs-virtual semantics).
 - **`LvProp` properties not modelled** — `ValidationRule`/`ValidationText` (UI-authored validation,

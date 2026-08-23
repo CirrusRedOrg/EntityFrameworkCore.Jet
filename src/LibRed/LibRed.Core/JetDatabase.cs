@@ -44,12 +44,14 @@ public sealed class JetDatabase : IDisposable
     /// <summary>The database default sort-order version (0 = General Legacy, 1 = General), from page 0.</summary>
     public byte DefaultCollationVersion => DefinitionPage.DefaultCollationVersion;
 
-    /// <summary>The database's default text collating order — the source of truth for the LCID and
-    /// sort-order version written into new columns, in place of a hardcoded constant. Defaults to General
-    /// legacy (locale 1033, version 0), which is what every file LibRed currently handles uses; decoding
-    /// the actual value from the page-0 sort order (obfuscated region) is a follow-up, after which this
-    /// property would be populated from <see cref="DefinitionPage"/>.</summary>
-    public Collation Collation { get; internal set; } = Collation.GeneralLegacy;
+    /// <summary>The database's default text collating order — the LCID and sort-order version written into
+    /// new columns. Read from the page-0 sort order, so a table created in a General (v1) database gets v1
+    /// columns, as Access would create them. (This used to be hardcoded to General legacy while the page-0
+    /// decode was pending; the decode landed in <see cref="DefaultCollationLcid"/>/
+    /// <see cref="DefaultCollationVersion"/> but this was left behind, which silently gave every new column
+    /// v0 weights even in a v1 database.)</summary>
+    public Collation Collation =>
+        new((CollatingOrder)DefaultCollationLcid, DefaultCollationVersion);
 
     /// <summary>Reads and decodes the table definition (TDEF) page at <paramref name="pageNumber"/>.</summary>
     public TableDefinitionPage ReadTableDefinition(int pageNumber)

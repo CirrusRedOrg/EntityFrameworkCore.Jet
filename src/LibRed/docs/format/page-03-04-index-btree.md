@@ -115,6 +115,36 @@ Then the value, transformed:
   its 255-character prefix, so two memos differing only past character 255 share a key (fine for a
   non-unique index). Index keys are therefore encoded from the **logical** row values, before memo/OLE
   values are materialised into their `LongValueDescriptor`s.
+> **Two General orders, two weight tables.** Everything in this Text section describes **General-Legacy**
+> (sort-order version `0`). The Access-2010+ **General** order (version `1`, the byte at column `0x0E` /
+> page-0 `0x71`) uses the *same framing* — start flag, primary weights, `0x01`, secondary section, inline
+> word-sort records, `0x00` — but different weights:
+>
+> | | General-Legacy (v0) | General (v1) |
+> |---|---|---|
+> | primary | **1 byte**, a Jet-era compaction | **2 bytes**: the Windows NLS `(Script Member, Alphabetic Weight)` verbatim |
+> | secondary | the NLS Diacritic Weight | the same |
+> | inline position | counts primary **bytes** | counts primary **weights** (so `O'Brien` is `0x0B` in both, though v1 has emitted twice as many bytes) |
+> | soft hyphen | inline record, code `0x83` | wholly ignorable, no record |
+>
+> v1's table is the **Windows Server 2008** sorting weight table, frozen — identified by reconstructing
+> measured ACE v1 keys from every published Windows table (Server 2008 scores 25/25; Win7/2008R2 24/25,
+> Vista 23/25, Win8+ 22/25, NT4-2003 18/25, the discriminators being `1` = `13 25` vs `13 26`, its DW `2`
+> vs `3`, and `½` = `13 24 214` vs `13 17 2`). Access 2010 shipped with the then-current weights and froze
+> them when Windows 7/8 moved them — the "major NLS version, re-index everything" event described in
+> [MS-UCODEREF] and *Handling Sorting in Your Applications*.
+>
+> This also explains the framing generally: **script member 6 is the word-sort class**, and the apostrophe's
+> `0x80` and hyphen's `0x82` inline codes are simply their Alphabetic Weights — so the inline record is
+> `80 <pos> <SM> <AW>`, not a bespoke Access encoding. And because the NLS **Case Weight** is the tertiary
+> section this format truncates, case *and* character width fold for free (`Ａ` U+FF21 and `A` share the
+> primary `0E02` and differ only in that discarded weight).
+>
+> LibRed encodes both: `JetTextCollation` (v0, hand-built tables) and `JetTextCollationV1` (v1, from an
+> embedded copy of the Server 2008 table — see `tools/sortkey-table/generate.ps1`). Other locales are still
+> refused. Tests: `GeneralV1CollationTests` (keys measured from ACE) and `GeneralV1CollationAccessTests`
+> (live oracle, plus ACE seeking an index LibRed wrote in a v1 database).
+
 - **Text:** Jet's "General" collation. The key is the start flag, then one or two
   **primary-weight** bytes per character, then a `01 00` terminator. Weights are **case-folded**
   (lowercase weighs the same as uppercase), **trailing spaces are dropped**, and an internal
@@ -133,6 +163,37 @@ Then the value, transformed:
   hyphen — verified against ACE (e.g. `ANNE-MARIE` → `… 80 17 06 82 …`, the hyphen at position 4;
   `Aß-B` → `7F 4A 6B 6B 4C 01 01 01 01 80 13 06 82 00`, hyphen at position **3** because ß expands to
   two primary bytes `SS`).
+
+  > **Why those two characters specifically:** this is Windows' documented **word sort**, the default for
+  > the NLS sorting functions — *"all punctuation marks and other nonalphanumeric characters, except for the
+  > hyphen and the apostrophe, come before any alphanumeric character. The hyphen and the apostrophe are
+  > treated differently … to ensure that words such as 'coop' and 'co-op' stay together in a sorted list"*
+  > ([Handling Sorting in Your Applications](https://learn.microsoft.com/en-us/windows/win32/intl/handling-sorting-in-your-applications)).
+  > The alternative, `SORT_STRINGSORT`, treats both as ordinary punctuation sorting before alphanumerics —
+  > which is *not* what ACE's keys show. So the ignorable pair is the platform default rather than an Access
+  > invention. (The soft hyphen `U+00AD`, code `0x83`, is ignorable for a different reason: it carries no
+  > weight of its own. The same page notes the Arabic kashida likewise produces no sort-key value.)
+
+  **Latin-1 punctuation and symbols** weigh two bytes, in groups that mirror the Win32 NLS primary order
+  in ACE's own compacted numbering — harvested from ACE's stored keys character by character
+  (`Latin1SymbolCollationAccessTests`):
+  `¡ ¦ ¨ ¯ ´ ¸ ¿` = `2B 10`…`2B 16` (continuing the `^_\`{|}~` group);
+  `± « » × ÷` = `33 04/05/07/09/0A`; `¢ £ ¤ ¥ § © ¬ ® ° µ ¶ ·` = `34 A6`…`34 B1`;
+  `¼ ½ ¾` = `37 12/16/1A`. The **ordinal indicators** `ª`/`º` are not symbols at all: they take their base
+  letter's primary with a distinguishing **secondary** `0x03` (`ª` = `7F 4A 01 03 00`), like an accent.
+  The **superscript digits** `¹ ² ³` take the *same* primary as `1 2 3` with no distinguishing secondary, so
+  ACE sorts and compares them **equal** to the base digit (`¹` and `1` are both `7F 38 01 00`) — which makes
+  them duplicates in a unique index. The **soft hyphen** `U+00AD` is a third ignorable, code `0x83`
+  (alongside apostrophe `0x80` and hyphen `0x82`).
+
+  > **Width and case insensitivity are a consequence of the truncated key, not a normalisation pass.**
+  > A Win32 NLS sort key carries case *and* width in its **tertiary** section, which this format discards:
+  > `LCMapStringEx` gives `Ａ` (U+FF21) and `A` the identical primary `0E02`, differing only at the tertiary
+  > weight. So full-width forms, half-width katakana, and case all collapse for free. ACE does **not**
+  > pre-map with `LCMAP_HALFWIDTH`: `U+3000` (ideographic space) keeps its own key `7F 07 01 00` rather than
+  > becoming a space and being dropped by the trailing-space trim, which is what a width pre-mapping would
+  > produce. Ligatures need no special handling either — NLS itself expands `ﬁ` to `f` + `i`. (Probed in
+  > `SortKeyComparisonProbeTest`.)
 
   **A few letters expand to multiple base letters** (each expanded letter weighs its normal primary,
   no accent): `ß`→`SS`, `Þ`/`þ`→`TH`, `Æ`→`AE` — verified against ACE (`ß` = `7F 6B 6B 01 00`, same as

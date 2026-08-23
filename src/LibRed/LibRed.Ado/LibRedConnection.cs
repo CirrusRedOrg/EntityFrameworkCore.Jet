@@ -114,13 +114,16 @@ public sealed class LibRedConnection : DbConnection
     /// Produces an ACE 2007-format (<c>.accdb</c>) database that LibRed reads and writes fully; the
     /// remaining Access-compatibility system tables are still being filled in.
     /// </remarks>
-    public static void CreateDatabase(string connectionString)
+    /// <param name="collation">The database's default text collating order, written to page 0 and inherited
+    /// by every column created in it. Defaults to General-Legacy (the order the engine writes); pass
+    /// <see cref="Catalog.Collation.General"/> for the "General" order Access 2010+ offers.</param>
+    public static void CreateDatabase(string connectionString, Catalog.Collation? collation = null)
     {
         string path = ParseDataSource(connectionString);
         if (string.IsNullOrEmpty(path))
             throw new ArgumentException("The connection string is missing a Data Source.", nameof(connectionString));
 
-        Storage.DatabaseCreator.CreateEmpty(path);
+        Storage.DatabaseCreator.CreateEmpty(path, collation: collation);
         CreateDualTable(path);
     }
 

@@ -70,7 +70,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int tdefPage = _allocator.Allocate();
         int usageMapPage = _allocator.Allocate();
 
-        var longValueCols = columns.Select((c, i) => (Column: c, Id: i))
+        // Key the long-value maps by the column's *id*, not its position. The two coincide on an ordinary
+        // CREATE TABLE, but a spec can carry an explicit id — the faithful-rebuild path does, and ids are
+        // never reused after a DROP COLUMN — and the TDEF's long-value map is read back by id, so using the
+        // position there silently points a Memo/OLE column's usage maps at the wrong column.
+        var longValueCols = columns.Select((c, i) => (Column: c, Id: c.ColumnId ?? i))
             .Where(x => x.Column.Type is JetDataType.Memo or JetDataType.Ole)
             .ToList();
 

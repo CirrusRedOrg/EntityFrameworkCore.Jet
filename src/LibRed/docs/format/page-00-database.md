@@ -76,6 +76,31 @@ TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` an
 > file must **not** hand-create the `MSysAccessStorage` / `MSysNavPane*` tables — real DAO files omit them and
 > Access adds them (with the nav-pane long SID) on first open (verified across ~135 pure-DAO files).
 
+> **How the reference engine lays out a new file** (DAO-created ACE 12, 42 pages — `DaoPageLayoutProbeTest`).
+> Per table the allocation order is **TDEF → usage-map page → one page per index root**, in table-creation
+> order; both usage maps share one page (owned = row 0, free = row 1, inline), which is what every TDEF's
+> `0x37`/`0x3B` pointers show. **Data pages are allocated lazily on first insert**, so they appear out of
+> sequence and an empty table has none at all.
+>
+> | pages | contents |
+> | --- | --- |
+> | `0`, `1` | database definition; global free-pages map |
+> | `2`–`5` | the four core TDEFs — fixed, because page 0's bootstrap pointers name them |
+> | `6`, `9`, `11`, `13` | usage maps for MSysObjects / MSysACEs / MSysQueries / MSysRelationships |
+> | `7`, `8`, `10`, `12`, `14`–`16` | their index roots (2 + 1 + 1 + 3), each a leaf page |
+> | `17` | MSysObjects' first data page — the catalog rows |
+> | `18`–`22` | MSysComplexColumns: TDEF, usage map, three index roots |
+> | `23`–`40` | the nine `MSysComplexType_*` tables: TDEF, then usage map, in pairs |
+> | `41` | MSysACEs' data page — the ACL rows |
+>
+> MSysQueries and MSysRelationships are empty in a fresh database and own no data page.
+>
+> **Column descriptors are stored sorted by name, while column ids follow creation order** — the two do not
+> agree, and code that treats a column's position as its id is wrong wherever the TDEF is keyed by id (the
+> long-value usage-map block is). E.g. `MSysComplexColumns.ComplexID` is the 2nd descriptor with id 4, and
+> `MSysComplexType_Attachment.FileURL` is the last descriptor with id 0. Sorting is by name, not
+> fixed-before-variable: `ColumnName` is variable-length and still sorts first.
+
 ### 2.1 The obfuscated header (`0x18`–`0x98`)
 
 From `0x18` for **128 bytes** (Jet 4 / ACE; 126 for Jet 3), page 0 is obfuscated by XOR-ing the
@@ -144,6 +169,13 @@ CF 65 ED FF 07 C7 46 A1 78 16 0C ED E9 2D 62 D4   ; 0x88
   - **ACE `.accdb`**: real encryption — this region is an encryption **verifier**, not recoverable
     plaintext (an actual password decodes to random-looking bytes under the Jet 4 scheme). Recovering
     it is a crypto attack, not format work.
+- **Writing it:** `DatabaseCreator.CreateEmpty(path, version, collation)` (and
+  `LibRedConnection.CreateDatabase(connectionString, collation)`) set this pair, defaulting to General-Legacy.
+  The chosen collation goes into page 0 *and* into the system tables' column descriptors, and
+  `JetDatabase.Collation` reads it back so every table created later inherits it — matching Access, which
+  writes v1 descriptors on `MSys*` in a General database. LibRed is currently the only way to create a v1
+  database programmatically: DAO writes v0 whatever the application setting says, and Access honours its
+  "New database sort order" option only through its own UI.
 - **Collation sort order (`0x6E`, 4 bytes)** → `DefaultCollationLcid` (LCID at `0x6E`) +
   `DefaultCollationVersion` (the byte at `0x71`, 0 = General Legacy, 1 = General). The version here
   **matches each column descriptor's `0x0E`** — the sort version lives both database-wide (page 0)

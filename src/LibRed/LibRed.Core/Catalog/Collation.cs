@@ -58,11 +58,12 @@ public readonly record struct Collation(CollatingOrder Order, byte Version)
     /// can encode index keys for.</summary>
     public static Collation GeneralLegacy => new(CollatingOrder.General, 0);
 
-    /// <summary>The Access-2010+ default "General" order — locale 1033, version 1. LibRed reads and
-    /// distinguishes it, but does not yet encode its (different) index keys — see <see cref="IsIndexKeyEncodable"/>.</summary>
+    /// <summary>The Access-2010+ default "General" order — locale 1033, version 1. Its keys use the Windows
+    /// NLS weights directly rather than General-Legacy's compacted table; see <c>JetTextCollationV1</c>.</summary>
     public static Collation General => new(CollatingOrder.General, GeneralVersion);
 
-    /// <summary>Whether LibRed can encode index keys for this collation. Only General legacy is implemented;
-    /// see <c>JetTextCollation</c> and the format spec §10.4.</summary>
-    public bool IsIndexKeyEncodable => this == GeneralLegacy;
+    /// <summary>Whether LibRed can encode index keys for this collation. Both General orders are implemented
+    /// (v0 via <c>JetTextCollation</c>, v1 via <c>JetTextCollationV1</c>); other locales are not — see the
+    /// format spec §10.4.</summary>
+    public bool IsIndexKeyEncodable => this == GeneralLegacy || this == General;
 }

@@ -8,4 +8,11 @@
     <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
 
+
+  <ItemGroup>
+    <!-- The "General" (v1) sorting weight table, built by tools\sortkey-table\generate.ps1 from Microsoft's
+         published Windows Server 2008 table (linked from [MS-UCODEREF]). -->
+    <EmbeddedResource Include="Resources\SortKeyTableV1.bin" LogicalName="LibRed.Resources.SortKeyTableV1.bin" />
+  </ItemGroup>
+
 </Project>

@@ -165,12 +165,30 @@ Then the value, transformed:
 > table too, but the remaining 88 are weighted by NLS and dropped by Jet, which is an editorial choice of its
 > own and not something a published table would have told us.
 >
-> v1's table is the **Windows Server 2008** sorting weight table, frozen — identified by reconstructing
-> measured ACE v1 keys from every published Windows table (Server 2008 scores 25/25; Win7/2008R2 24/25,
-> Vista 23/25, Win8+ 22/25, NT4-2003 18/25, the discriminators being `1` = `13 25` vs `13 26`, its DW `2`
-> vs `3`, and `½` = `13 24 214` vs `13 17 2`). Access 2010 shipped with the then-current weights and froze
-> them when Windows 7/8 moved them — the "major NLS version, re-index everything" event described in
-> [MS-UCODEREF] and *Handling Sorting in Your Applications*.
+> v1's table is **very nearly** the Windows Server 2008 sorting weight table, frozen — identified by
+> reconstructing measured ACE v1 keys from every published Windows table (Server 2008 scores 25/25;
+> Win7/2008R2 24/25, Vista 23/25, Win8+ 22/25, NT4-2003 18/25, the discriminators being `1` = `13 25` vs
+> `13 26`, its DW `2` vs `3`, and `½` = `13 24 214` vs `13 17 2`). Access 2010 shipped with the then-current
+> weights and froze them when Windows 7/8 moved them — the "major NLS version, re-index everything" event
+> described in [MS-UCODEREF] and *Handling Sorting in Your Applications*.
+>
+> **"Very nearly" is load-bearing.** Those 25 discriminators were all Latin and symbols, and a full-BMP sweep
+> shows the published file is not what ACE carries everywhere: it is right about 57,793 characters and wrong
+> about 501, plus 5,082 that ACE treats as wholly ignorable and the published file has no entry for at all.
+> The disagreements are concentrated in scripts added or reweighted after Server 2008 — ACE gives Balinese
+> and Canadian syllabics *Latin* weights — and in the Arabic harakat and several ligature blocks. Rather
+> than guess at which NLS revision ACE really carries, the differences are **measured and embedded**
+> (`SortKeyTableV1Overrides.bin`, 2.0 KB, written by `SortKeyTableV1OverrideGeneratorTest` with
+> `LIBRED_GENERATE_V1=1`) — the same answer v0 needed, at 3% of the size, because v1 is right about the rest.
+>
+> An override records the primary and secondary bytes **raw**, not as `(SM, AW, DW)` weights, because that
+> reading assumes every primary is a two-byte pair carrying one secondary and ACE breaks it both ways: the
+> Arabic harakat have a secondary and *no primary* (`U+064C` is `7F 01 56 00`), and the Lao vowel signs take
+> a **one-byte** primary (`U+0EB0` is `7F 41 01 0A 00`). A primary byte can even *be* `0x01`: `U+0385`,
+> `U+1B3B` and `U+FC25` weigh `07 53 01`, and `U+FC33` and `U+FCC2` weigh `29 0B 01`, so the section
+> delimiter is the **last** `0x01` in a key, not the first. Splitting at the first made those five look like
+> a key with an extra section bolted on; measuring them in combination (`aX`, `Xa`, `XaX`) showed they are
+> ordinary two-weight expansions.
 >
 > This also explains the framing generally: **script member 6 is the word-sort class**, and the apostrophe's
 > `0x80` and hyphen's `0x82` inline codes are simply their Alphabetic Weights — so the inline record is
@@ -178,10 +196,17 @@ Then the value, transformed:
 > section this format truncates, case *and* character width fold for free (`Ａ` U+FF21 and `A` share the
 > primary `0E02` and differ only in that discarded weight).
 >
-> LibRed encodes both: `JetTextCollation` (v0, hand-built tables) and `JetTextCollationV1` (v1, from an
-> embedded copy of the Server 2008 table — see `tools/sortkey-table/generate.ps1`). Other locales are still
-> refused. Tests: `GeneralV1CollationTests` (keys measured from ACE) and `GeneralV1CollationAccessTests`
-> (live oracle, plus ACE seeking an index LibRed wrote in a v1 database).
+> LibRed encodes both: `JetTextCollation` (v0, a measured table) and `JetTextCollationV1` (v1, the published
+> table plus the measured overrides — see `tools/sortkey-table/generate.ps1`), sharing `JetKanaSection`.
+> **Both now cover the whole Basic Multilingual Plane**: 63,422 characters each, every key byte-for-byte
+> what ACE stores, nothing refused and nothing left unhandled (`Probe_full_bmp_coverage`, needs
+> `LIBRED_FULL_BMP`). Other locales are still refused under v1.
+>
+> **The BMP is the limit of that claim.** Nothing above `U+FFFF` has been measured. A surrogate pair reaches
+> the encoder as two chars that the table happens to weigh individually, so an astral character encodes
+> rather than being refused — whether the result is what ACE stores is unknown, and worth a sweep of its own. Tests: `GeneralV1CollationTests` (keys
+> measured from ACE) and `GeneralV1CollationAccessTests` (live oracle, plus ACE seeking an index LibRed
+> wrote in a v1 database).
 
 - **Text:** Jet's "General" collation. The key is the start flag, then one or two
   **primary-weight** bytes per character, then a `01 00` terminator. Weights are **case-folded**
@@ -263,12 +288,18 @@ Then the value, transformed:
   > **General v0 covers the whole Basic Multilingual Plane.** Every character ACE stores a key for, LibRed
   > encodes identically.
   > The weights are in an embedded resource (`SortKeyTableV0.bin`, 74 KB): 63,105 of them, 19,186 ignorable,
-  > plus 40 word-sort ignorables and 276 kana — far past anything hand-maintainable. v1's table could be
-  > embedded from a published Microsoft file; v0's cannot, since its primaries are a Jet compaction rather
-  > than the NLS weights, so **ACE itself is the source**: `SortKeyTableV0GeneratorTest` inserts every code
-  > point into an indexed text column, reads the stored keys back and writes the resource
+  > plus 40 word-sort ignorables and 276 kana — far past anything hand-maintainable. Most of v1's table can
+  > be embedded from a published Microsoft file; v0's cannot at all, since its primaries are a Jet compaction
+  > rather than the NLS weights, so **ACE itself is the source**: `SortKeyTableV0GeneratorTest` inserts every
+  > code point into an indexed text column, reads the stored keys back and writes the resource
   > (`LIBRED_GENERATE_V0=1`). Non-Latin scripts nearly all live on the same **two-byte `0x79` page** the
   > locale tailorings use for letters sorting after Z.
+  >
+  > Both generators must run with the resource they are about to replace **suppressed**
+  > (`JetTextCollationV1Overrides.Suppressed`), and v1's shows why plainly: it records where the encoder
+  > *disagrees* with ACE, so measuring an encoder that already consults it would find no disagreements and
+  > write an empty file. Suppressing from the outset also means a generator never has to be able to *read*
+  > the resource it replaces, so it bootstraps from a stale or absent one.
   >
   > Two things that only a full sweep would show. **ACE weighs every CJK ideograph and the entire private-use
   > area** — `U+5000`–`8FFF`, `B000`–`CFFF` and `E000`–`EFFF` are 4,096 for 4,096, none of it ignorable. And
@@ -312,8 +343,22 @@ Then the value, transformed:
   > So the section is `01 01 <small flags> FF <prolonged flags> 02 80 FF 80`. With no kana before it, `ー` is
   > nothing special and keeps the ordinary `FF FF` primary the table holds for it.
   >
-  > Still refused: kana under **version 1**, which has no measured equivalent. What `02 80 FF 80` denotes is
-  > not established; it never varies, so it is emitted as a literal.
+  > **Version 1 builds the kana section identically** — same sound weights, same framing, byte for byte:
+  > ACE encodes `U+304C` as `7F 7F0A 01 03 0101 FF 02 80 FF 80 00` under both orders. The two versions
+  > disagree about a great deal in the base table and about kana almost not at all, so `JetKanaSection` is
+  > shared rather than duplicated. Two differences remain, both narrow:
+  >
+  > - A **compatibility form takes its base kana's sound in v1** and its own in v0. The circled katakana are
+  >   the case: v1 weighs `㋐` as `ア` (`02`), where the v0 table holds `03` for it, and `46` and `2A` where
+  >   v1 wants `03` and `04`. The enclosure itself rides along as the secondary, `EE`.
+  > - Five kana are absent from the measured v0 table — the small hiragana ka and ke, and the katakana
+  >   phonetic extensions. v1's own table classifies them under **script member 3**, whose `(AW, DW)` are the
+  >   sound and voicing. The one fact it does not supply is the small flag, and that cannot be inferred from
+  >   reaching that path: script member 3 also collects the circled forms, which are *not* small, and the
+  >   iteration marks, the lone prolonged mark and the double hyphen, which are not kana letters at all and
+  >   which ACE gives the unweighted `FF FF` primary and no kana section.
+  >
+  > What `02 80 FF 80` denotes is still not established; it never varies, so it is emitted as a literal.
   >
   > Three categories emerged that the Latin-1 range never showed:
   > - **Ignorable** — ACE stores *nothing at all* (key `7F 01 00`): no primary, not even a secondary slot.

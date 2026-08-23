@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
 using System.Reflection;
+using System.Text;
 
 namespace LibRed.Storage;
 
@@ -31,6 +32,21 @@ internal static class JetTextCollationV1
     /// those two are special — it is the platform's rule, not an Access one.</summary>
     private const byte WordSortScriptMember = 6;
 
+    /// <summary>Script member 5 is the Han class — the CJK ideographs, their extensions, the compatibility
+    /// forms and the Kangxi radicals. ACE gives every one of them a four-byte primary <c>FD FF AW DW</c> and
+    /// no secondary, rather than the ordinary <c>(SM, AW)</c> primary with <c>DW</c> as a secondary.</summary>
+    private const byte HanScriptMember = 5;
+
+    /// <summary>Script member 4 is the Hangul jamo. Like Han they put their weights straight into the
+    /// primary — <c>(AW, DW)</c>, no secondary — but with no <c>FD FF</c> marker ahead of them. The composed
+    /// Hangul syllables are a different class and were always correct.</summary>
+    private const byte HangulJamoScriptMember = 4;
+
+    /// <summary>The script member v1's table gives kana, whose <c>(AW, DW)</c> are the sound and its voicing.
+    /// Only reached for the five the measured v0 kana table does not carry — everything else is caught by that
+    /// table first, which additionally knows the small flag and the vowel.</summary>
+    private const byte KanaScriptMember = 3;
+
     private static readonly Lazy<WeightTable> Table = new(Load, LazyThreadSafetyMode.ExecutionAndPublication);
 
     /// <summary>
@@ -50,13 +66,122 @@ internal static class JetTextCollationV1
         // apostrophe at 0x0B = 0x07 + 4x1 in both orders, though v1 has emitted twice as many bytes by then).
         var inline = new List<(int Position, byte ScriptMember, byte AlphabeticWeight)>();
 
+        // The kana small/normal and prolonged-mark flags, and the running state the prolonged mark needs.
+        var kana = new List<bool>();
+        var prolonged = new List<bool>();
+        int kanaWeight = -1;
+        byte kanaVowel = 0;
+        bool kanaSmall = false;
+
         foreach (char character in text)
         {
-            // Kana get a section of their own in v0, measured from ACE; nothing equivalent has been measured
-            // for v1, and the NLS weights alone would not produce it. Refuse rather than emit a key that
-            // silently lacks the section.
-            if (character is >= (char)0x3040 and <= (char)0x30FF or >= (char)0xFF66 and <= (char)0xFF9F)
-                return false;
+            // Kana are weighed and sectioned exactly as in v0 — same sound weights, same section, verified
+            // byte-for-byte against ACE under both sort orders. Handled here rather than in Append because a
+            // single kana changes the shape of the WHOLE key.
+            //
+            // The prolonged sound mark lengthens the preceding kana's VOWEL, so it takes that vowel's primary
+            // and inherits its small flag, while marking itself in a second packed section. With no kana ahead
+            // of it there is nothing to lengthen, and it falls through to the ordinary table weight.
+            if (character is (char)0x30FC or (char)0xFF70 && kanaVowel != 0 &&
+                kanaWeight == secondaries.Count - 1)
+            {
+                primaries.Add(JetKanaSection.KanaPage);
+                primaries.Add(kanaVowel);
+                secondaries.Add(DefaultSecondary);
+                kana.Add(kanaSmall);
+                prolonged.Add(true);
+                kanaWeight = secondaries.Count - 1;
+                continue;
+            }
+
+            // The halfwidth voicing marks are COMBINING: ACE folds them into the preceding kana's secondary
+            // rather than weighing them. Measured alone they look ignorable, which is what hides this — so a
+            // single-character sweep cannot catch it, and it has to be carried over from v0 deliberately.
+            // Both halves of the guard matter: for a lone mark kanaWeight and Count-1 are each -1, which
+            // would otherwise pass and index the list at -1.
+            if (character is (char)0xFF9E or (char)0xFF9F && kanaWeight >= 0 &&
+                kanaWeight == secondaries.Count - 1)
+            {
+                secondaries[kanaWeight] = character == (char)0xFF9E ? (byte)0x03 : (byte)0x04;
+                continue;
+            }
+
+            if (JetTextCollationTableV0.TryGetKana(
+                    character, out byte sound, out byte voicing, out bool small, out byte vowel))
+            {
+                // Where the two versions part company: v1 weighs a compatibility form by the sound of the
+                // kana it decomposes to, while v0 gives it one of its own. The circled katakana are the
+                // case — ACE v1 weighs ㋐ as ア (02), where the v0 table holds 03 for it, and 46 and 2A
+                // where v1 wants 03 and 04. Everything else about the section is shared, which is why this
+                // is a substitution here rather than a second kana path.
+                string baseForm = character.ToString().Normalize(NormalizationForm.FormKD);
+                if (baseForm.Length == 1 && baseForm[0] != character &&
+                    JetTextCollationTableV0.TryGetKana(baseForm[0], out byte baseSound, out _, out _, out _))
+                    sound = baseSound;
+
+                primaries.Add(JetKanaSection.KanaPage);
+                primaries.Add(sound);
+                secondaries.Add(voicing);
+                kana.Add(small);
+                prolonged.Add(false);
+                kanaWeight = secondaries.Count - 1;
+                kanaVowel = vowel;
+                kanaSmall = small;
+                continue;
+            }
+
+            // A measured override wins over everything below it, because it came from ACE itself. Its bytes
+            // are appended verbatim — it states the finished bytes, not a table entry to interpret through
+            // the Han, Hangul and zero-AW rules below.
+            //
+            // Ahead of the kana fallback deliberately: script member 03 also collects characters that are not
+            // kana letters at all — the iteration marks, the lone prolonged mark, the double hyphen — which
+            // ACE gives the unweighted FF FF primary and no kana section. Those are measured, so they are
+            // simply recorded, and only what no measurement covers reaches the inference below.
+            if (JetTextCollationV1Overrides.IsIgnorable(character))
+            {
+                // ACE contributes nothing for this character — it disappears from the key entirely.
+                continue;
+            }
+
+            if (JetTextCollationV1Overrides.TryGet(
+                    character, out ReadOnlySpan<byte> measuredPrimaries,
+                    out ReadOnlySpan<byte> measuredSecondaries))
+            {
+                foreach (byte b in measuredPrimaries) primaries.Add(b);
+                foreach (byte b in measuredSecondaries) secondaries.Add(b);
+                continue;
+            }
+
+            // The kana the measured v0 table does not carry: the small hiragana ka and ke, the katakana
+            // phonetic extensions, and the enclosed (circled) katakana. v1's own table classifies them under
+            // script member 03, and its DW is the voicing — the enclosure rides along there, so a circled
+            // katakana is simply its kana with secondary EE.
+            //
+            // Its AW is the sound and its DW the voicing. Only characters absent from the measured v0 kana
+            // table reach here, and every one of them is its own base, so there is no decomposition to
+            // follow — the branch above owns the compatibility forms.
+            //
+            // The small flag cannot be assumed from reaching this path — the phonetic extensions are small
+            // and the circled forms are not, and marking all of them small put a spurious A0 in 45 keys.
+            // ACE's flag agrees exactly with the Unicode names: SMALL KA and SMALL KE, and the SMALL
+            // KU..SMALL RO run. The vowel is left at zero, because nothing measured covers a prolonged mark
+            // following one of these.
+            if (table.TryGetWeight(character, out byte member, out byte tableSound, out byte tableVoicing) &&
+                member == KanaScriptMember)
+            {
+                bool isSmall = character is (char)0x3095 or (char)0x3096
+                               or >= (char)0x31F0 and <= (char)0x31FF;
+                primaries.Add(JetKanaSection.KanaPage);
+                primaries.Add(tableSound);
+                secondaries.Add(tableVoicing);
+                kana.Add(isSmall);
+                prolonged.Add(false);
+                kanaWeight = secondaries.Count - 1;
+                kanaVowel = 0;
+                kanaSmall = isSmall;
+                continue;
+            }
 
             if (table.TryExpand(character, out char[]? sequence))
             {
@@ -80,7 +205,51 @@ internal static class JetTextCollationV1
 
             if (scriptMember == WordSortScriptMember)
             {
-                inline.Add((primaries.Count / 2, scriptMember, alphabetic));
+                // secondaries.Count is the weight count: every weight contributes exactly one secondary slot,
+                // whereas primaries.Count/2 assumed each weight is two bytes — which the four-byte Han
+                // primary above breaks.
+                inline.Add((secondaries.Count, scriptMember, alphabetic));
+                return true;
+            }
+
+            // A Han character takes a FOUR-byte primary and no secondary at all: the fixed marker FD FF,
+            // then its own alphabetic and diacritic weights. Splitting it the ordinary way — (SM, AW) as the
+            // primary and DW as a secondary — is what made every CJK key wrong, some 28,200 of them.
+            //   U+4E00  ACE 7F FD FF 3C 6A 01 00, where the NLS entry is SM 05, AW 3C, DW 6A.
+            if (scriptMember == HanScriptMember)
+            {
+                primaries.Add(0xFD);
+                primaries.Add(0xFF);
+                primaries.Add(alphabetic);
+                primaries.Add(diacritic);
+                secondaries.Add(DefaultSecondary);
+                return true;
+            }
+
+            // Hangul jamo take a two-byte primary of (AW, DW) with no secondary — the same "weights straight
+            // into the primary" shape as Han above, but without the FD FF marker. U+1100 is C0 02, where the
+            // NLS entry is SM 04, AW C0, DW 02.
+            if (scriptMember == HangulJamoScriptMember)
+            {
+                primaries.Add(alphabetic);
+                primaries.Add(diacritic);
+                secondaries.Add(DefaultSecondary);
+                return true;
+            }
+
+            // A zero alphabetic weight means the character carries NO primary — only its secondary. Emitting
+            // (SM, 0) as a primary put an extra weight into every such key, which is where the last of the
+            // Greek, Cyrillic, Hebrew and Indic differences came from.
+            //   U+0483  ACE 7F 01 94 00, not 7F 01 00 01 94 00.
+            //
+            // And where something precedes it, it does not take a slot of its own either: it FOLDS into the
+            // preceding weight, adding its diacritic. That is the Hebrew and Arabic presentation forms, whose
+            // expansions are a letter followed by a point —
+            //   U+FB30  ACE 7F 28 02 01 30 00, where the parts weigh 0x02 and 0x2E and 0x02 + 0x2E = 0x30.
+            if (alphabetic == 0)
+            {
+                if (secondaries.Count == 0) secondaries.Add(diacritic);
+                else secondaries[^1] = (byte)(secondaries[^1] + diacritic);
                 return true;
             }
 
@@ -97,11 +266,23 @@ internal static class JetTextCollationV1
         int lastAccent = secondaries.FindLastIndex(weight => weight != DefaultSecondary);
         for (int i = 0; i <= lastAccent; i++) output.Add(secondaries[i]);
 
+        if (kana.Count > 0) JetKanaSection.Append(output, kana, prolonged);
+
+        // The inline introducer depends on whether a kana section came first: 01 01 01 on its own, but FF 01
+        // after one.
         if (inline.Count > 0)
         {
-            output.Add(EndPrimary);
-            output.Add(EndPrimary);
-            output.Add(EndPrimary);
+            if (kana.Count > 0)
+            {
+                output.Add(0xFF);
+                output.Add(EndPrimary);
+            }
+            else
+            {
+                output.Add(EndPrimary);
+                output.Add(EndPrimary);
+                output.Add(EndPrimary);
+            }
             foreach ((int position, byte scriptMember, byte alphabetic) in inline)
             {
                 output.Add(InlineStart);

@@ -102,13 +102,22 @@ public class GeneralV1CollationTests
         Assert.Equal(0x00, descending[^1]);
     }
 
-    // A character with no weight must fail loudly rather than produce a key that sorts wrongly. U+0378 is
-    // unassigned in Unicode and absent from the table; private-use characters (U+E000) do have weights.
+    // There is no longer a BMP character to refuse: the measured sweep covers all 63,422 ACE stores, so the
+    // test that used to assert refusal (on U+0378) now asserts what ACE actually does with it, below.
+    // Refusal is still tested for the case that keeps it — a non-English locale, further down.
+    //
+    // Astral characters are NOT covered by that claim: the sweep measured the BMP only, and a surrogate pair
+    // arrives as two chars that the table happens to weigh individually, so it encodes rather than refusing.
+    // Whether ACE agrees is unmeasured.
+
+    // U+0378 is unassigned in Unicode, and refusing it looks like the safe answer — but ACE stores an empty
+    // key for it, so refusing would reject a value ACE accepts, and weighing it would sort it wrongly.
+    // Matching the engine beats both. Measured, not assumed: it is one of the 5,082 characters the override
+    // resource records as ignorable. Private-use characters (U+E000) do have weights and are not affected.
     [Fact]
-    public void An_unweighted_character_is_refused()
+    public void An_unassigned_character_is_ignorable_as_ACE_stores_it()
     {
-        var error = Assert.Throws<NotSupportedException>(() => Encode("a͸b", Collation.General));
-        Assert.Contains("no weight", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(Hex(Encode("ab", Collation.General)), Hex(Encode("a͸b", Collation.General)));
     }
 
     [Fact]

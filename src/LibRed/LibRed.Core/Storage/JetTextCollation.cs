@@ -64,14 +64,6 @@ internal static class JetTextCollation
     };
     private const byte DefaultSecondary = 0x02; // a character with no accent
 
-    /// <summary>The page byte every kana primary starts with: a kana weighs <c>7F &lt;sound&gt;</c>.</summary>
-    private const byte KanaPage = 0x7F;
-
-    /// <summary>Closes the kana section, after the <c>FF</c> that introduces the prolonged-mark flags.
-    /// Constant across hiragana, katakana, halfwidth, small and voiced forms in every string measured, so it
-    /// is emitted literally; what it denotes is not established.</summary>
-    private static ReadOnlySpan<byte> KanaSectionTail => [0x02, 0x80, 0xFF, 0x80];
-
     // Secondary (diacritic) weight per Unicode combining mark — depends only on the accent, not the base
     // letter (verified against ACE: acute weighs 0x0E on a/e/i/o/u/y alike, etc.).
     private static readonly Dictionary<char, byte> DiacriticWeights = new()
@@ -263,7 +255,7 @@ internal static class JetTextCollation
             // lengthen, and it stays the ordinary FF FF primary the table already holds.
             if (c is (char)0x30FC or (char)0xFF70 && kanaVowel != 0 && kanaWeight == secondaries.Count - 1)
             {
-                AddWeight([KanaPage, kanaVowel], DefaultSecondary);
+                AddWeight([JetKanaSection.KanaPage,kanaVowel], DefaultSecondary);
                 kana.Add(kanaSmall);
                 prolonged.Add(true);
                 kanaWeight = secondaries.Count - 1;
@@ -273,7 +265,7 @@ internal static class JetTextCollation
             if (JetTextCollationTableV0.TryGetKana(c, out byte sound, out byte voicing, out bool small,
                                                   out byte vowel))
             {
-                AddWeight([KanaPage, sound], voicing);
+                AddWeight([JetKanaSection.KanaPage,sound], voicing);
                 kana.Add(small);
                 prolonged.Add(false);
                 kanaWeight = secondaries.Count - 1;
@@ -326,17 +318,7 @@ internal static class JetTextCollation
         for (int i = 0; i <= lastAccent; i++)
             output.Add(secondaries[i]);
 
-        // Kana section: 01 01, the packed small/normal flags, then a constant. Present whenever the string
-        // holds any kana at all, even if every one of them is a normal form.
-        if (kana.Count > 0)
-        {
-            output.Add(0x01);
-            output.Add(0x01);
-            AddKanaFlags(output, kana, marked: 0b10, unmarked: 0b11);
-            output.Add(0xFF);
-            AddKanaFlags(output, prolonged, marked: 0b11, unmarked: 0b01);
-            output.AddRange(KanaSectionTail);
-        }
+        if (kana.Count > 0) JetKanaSection.Append(output, kana, prolonged);
 
         // Apostrophe/hyphen inline (tertiary) section. Its introducer depends on whether a kana section came
         // first: 01 01 01 on its own, but FF 01 after one — measured from "あ-" and "-あ".
@@ -430,33 +412,6 @@ internal static class JetTextCollation
         {
             foreach (byte b in weight) primaries.Add(b);
             secondaries.Add(secondary);
-        }
-    }
-
-    /// <summary>Emits the primary+secondary weight(s) for an accented or special Latin-1 letter (uppercased):
-    /// a multi-letter expansion (ß=SS, Þ=TH, Æ=AE), an atomic accent (Ø, Ð), or a Unicode canonical
-    /// decomposition (base letter + combining mark). Returns false if the character is unknown.</summary>
-    /// <summary>
-    /// Packs the kana small/normal flags. Trailing normal forms are dropped — a string whose last small kana
-    /// is at index 1 encodes the same however many normal kana follow — and if none is small the section
-    /// carries no flag bytes at all. What remains goes <b>three per byte, two bits each, most significant
-    /// first</b>, under a <c>10</c> marker in the top two bits: <c>11</c> normal, <c>10</c> small,
-    /// <c>00</c> padding. So one small kana is <c>A0</c>, "normal small" is <c>B8</c>, and four kana take two
-    /// bytes, the second repeating the marker. Verified against ACE over all 30 combinations up to four kana.
-    /// </summary>
-    private static void AddKanaFlags(List<byte> output, List<bool> flags, int marked, int unmarked)
-    {
-        int last = flags.LastIndexOf(true);
-        for (int start = 0; start <= last; start += 3)
-        {
-            int packed = 0x80;
-            for (int slot = 0; slot < 3; slot++)
-            {
-                int index = start + slot;
-                int code = index > last ? 0b00 : flags[index] ? marked : unmarked;
-                packed |= code << (4 - 2 * slot);
-            }
-            output.Add((byte)packed);
         }
     }
 

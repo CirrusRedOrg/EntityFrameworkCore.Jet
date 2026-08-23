@@ -290,6 +290,52 @@ public class ContractionProbeTest(ITestOutputHelper output)
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // PROBE: the presentation forms, v1's last cluster of size.
+    //
+    // 276 of them differ, and one guess has already been wrong — that ACE prefers a direct NLS weight over
+    // an expansion, which changed nothing. Three examples were not enough to see the rule, so this dumps
+    // many, with the components alongside so the relationship is visible rather than inferred.
+    [Fact]
+    public void Probe_presentation_form_keys()
+    {
+        var samples = new List<string>();
+        for (int c = 0xFB00; c <= 0xFB4F; c++) samples.Add(((char)c).ToString());   // alphabetic forms
+        // Arabic Presentation Forms-A, the contextual isolated/initial/medial/final variants. This is where
+        // the bulk of the remaining differences live; the first pass sampled either side of it and missed it.
+        for (int c = 0xFB50; c <= 0xFB90; c++) samples.Add(((char)c).ToString());
+        for (int c = 0xFD50; c <= 0xFD60; c++) samples.Add(((char)c).ToString());
+        for (int c = 0xFE70; c <= 0xFEFC; c++) samples.Add(((char)c).ToString());   // Arabic forms-B
+        // The Hebrew letters and points the FB1x forms are built from, so a composed key can be read against
+        // its parts rather than guessed at.
+        samples.AddRange(["ו", "י", "א", "ִ", "ַ", "ּ", "ְ",
+                          "ا", "ب", "َ", "ُ", "ِ", "ّ"]);
+
+        string path = TemporaryDatabase.CreatePath("presentation-v1-");
+        DatabaseCreator.CreateEmpty(path, collation: Collation.General);
+        try
+        {
+            Dictionary<string, string> keys = AceKeys(path, [.. samples]);
+            var column = new ColumnDef
+            {
+                Name = "K", Type = JetDataType.Text, Index = 0, Collation = Collation.General,
+            };
+            foreach (string sample in samples)
+            {
+                if (!keys.TryGetValue(sample, out string? ace)) continue;
+                string ours;
+                try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [sample])); }
+                catch (NotSupportedException) { ours = "(refused)"; }
+                if (ours == ace) continue;
+                output.WriteLine($"   {Describe(sample),-10} ACE {ace,-26} ours {ours}");
+            }
+            output.WriteLine("");
+            output.WriteLine("   components:");
+            foreach (string sample in samples.Where(s => s[0] is >= (char)0x05B0 and <= (char)0x0651))
+                output.WriteLine($"   {Describe(sample),-10} ACE {keys.GetValueOrDefault(sample)}");
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     [Fact]
     public void Probe_unusual_inline_records()
     {

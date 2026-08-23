@@ -8,6 +8,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- Signed with the repo key so it can be an InternalsVisibleTo friend of the strong-named LibRed.Core
+         (the sort-key generators must read the bare weight table, bypassing the resource they rewrite). -->
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)..\..\Key.snk</AssemblyOriginatorKeyFile>
     <!-- The insert verification compares against Access's own OLE DB engine (Windows-only). -->
     <NoWarn>$(NoWarn);CA1416</NoWarn>
     <Platforms>AnyCPU;x86;x64</Platforms>

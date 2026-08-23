@@ -49,25 +49,250 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
     // whether this needs a generated binary resource like the v1 table.
     //
     // Slow by nature: every character is a real INSERT through ACE. Run it deliberately, not in a suite.
+    // DIAGNOSTIC: are v1's ~29,800 mismatches a few structural rules, or 29,800 individual weights?
+    //
+    // v1's primaries ARE the NLS (Script Member, Alphabetic Weight) pair verbatim, and the table is embedded
+    // whole — so a mismatch is much more likely to be a rule we have wrong than a weight we lack. This
+    // classifies every mismatch across the BMP and shows examples per block, which decides whether v1 needs
+    // the full measure-and-embed treatment v0 got, or a handful of fixes.
     [Fact]
-    public void Probe_full_bmp_coverage()
+    public void Probe_v1_mismatch_shapes()
     {
         Assert.SkipUnless(Environment.GetEnvironmentVariable("LIBRED_FULL_BMP") == "1",
             "set LIBRED_FULL_BMP=1 — this inserts ~63,000 rows through ACE and takes minutes");
 
+        string path = TemporaryDatabase.CreatePath("general-v1-diag-");
+        DatabaseCreator.CreateEmpty(path, collation: Collation.General);
+        var column = new ColumnDef
+        {
+            Name = "K", Type = JetDataType.Text, Index = 0, Collation = Collation.General,
+        };
+
+        var byBlock = new SortedDictionary<string, (int Correct, int AceIgnorable, int Refused, int Differ)>();
+        var examples = new SortedDictionary<string, List<string>>();
+        try
+        {
+            for (int chunk = 0x0000; chunk <= 0xF000; chunk += 0x1000)
+            {
+                string[] characters = Range(chunk, chunk + 0x0FFF);
+                if (characters.Length == 0) continue;
+                Dictionary<string, string> ace = AceKeys(path, "v1diag", characters);
+
+                foreach (string text in characters)
+                {
+                    if (!ace.TryGetValue(text, out string? key)) continue;
+                    string block = BlockOf(text[0]);
+                    (int correct, int aceIgnorable, int refused, int differ) = byBlock.GetValueOrDefault(block);
+
+                    string? ours = null;
+                    try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])); }
+                    catch (NotSupportedException) { }
+
+                    if (ours == key) correct++;
+                    else if (ours is null) refused++;
+                    else if (key == "7F0100") aceIgnorable++;
+                    else
+                    {
+                        differ++;
+                        List<string> shown = examples.TryGetValue(block, out var list) ? list : examples[block] = [];
+                        if (shown.Count < 3)
+                            shown.Add($"{Describe(text)}  ACE {key,-30} ours {ours}");
+                    }
+                    byBlock[block] = (correct, aceIgnorable, refused, differ);
+                }
+            }
+
+            output.WriteLine($"  {"block",-28} {"correct",8} {"ACE-ignorable",14} {"refused",8} {"differ",8}");
+            foreach ((string block, (int correct, int aceIgnorable, int refused, int differ)) in byBlock)
+                output.WriteLine($"  {block,-28} {correct,8} {aceIgnorable,14} {refused,8} {differ,8}");
+
+            foreach ((string block, List<string> shown) in examples)
+            {
+                output.WriteLine("");
+                output.WriteLine($"  {block}:");
+                foreach (string line in shown) output.WriteLine($"     {line}");
+            }
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // DIAGNOSTIC: group EVERY remaining v1 difference by the shape of the difference, not by block.
+    //
+    // Hunting sub-range by sub-range has hit diminishing returns and twice sampled the wrong place. A
+    // signature — how many weights each side emitted, and whether the primaries agree — clusters the whole
+    // tail by cause in one pass, so what is left is visible as N rules rather than 365 characters.
+    [Fact]
+    public void Probe_v1_difference_signatures()
+    {
+        Assert.SkipUnless(Environment.GetEnvironmentVariable("LIBRED_FULL_BMP") == "1",
+            "set LIBRED_FULL_BMP=1 — this inserts ~63,000 rows through ACE and takes minutes");
+
+        string path = TemporaryDatabase.CreatePath("general-v1-sig-");
+        DatabaseCreator.CreateEmpty(path, collation: Collation.General);
+        var column = new ColumnDef
+        {
+            Name = "K", Type = JetDataType.Text, Index = 0, Collation = Collation.General,
+        };
+
+        var counts = new SortedDictionary<string, int>();
+        var examples = new SortedDictionary<string, List<string>>();
+        try
+        {
+            for (int chunk = 0x0000; chunk <= 0xF000; chunk += 0x1000)
+            {
+                string[] characters = Range(chunk, chunk + 0x0FFF);
+                if (characters.Length == 0) continue;
+                foreach ((string text, string key) in AceKeys(path, "v1sig", characters))
+                {
+                    string ours;
+                    try { ours = Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])); }
+                    catch (NotSupportedException) { continue; }   // refusals are safe; chase wrong output
+                    if (ours == key) continue;
+
+                    string signature = Signature(key, ours);
+                    counts[signature] = counts.GetValueOrDefault(signature) + 1;
+                    List<string> shown = examples.TryGetValue(signature, out var list) ? list : examples[signature] = [];
+                    if (shown.Count < 4) shown.Add($"{Describe(text)}  ACE {key,-30} ours {ours}");
+                }
+            }
+
+            foreach ((string signature, int count) in counts.OrderByDescending(s => s.Value))
+            {
+                output.WriteLine("");
+                output.WriteLine($"  {count,5}  {signature}");
+                foreach (string line in examples[signature]) output.WriteLine($"         {line}");
+            }
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    /// <summary>A coarse description of HOW two keys differ: the weight counts on each side, and whether the
+    /// primary run is identical, a prefix, or unrelated. Keys are <c>7F primaries 01 secondaries 00</c>.</summary>
+    private static string Signature(string ace, string ours)
+    {
+        (string acePrimaries, int aceSecondaries) = Split(ace);
+        (string ourPrimaries, int ourSecondaries) = Split(ours);
+        string primaries =
+            acePrimaries == ourPrimaries ? "primaries same"
+            : ourPrimaries.StartsWith(acePrimaries, StringComparison.Ordinal) ? "ACE primaries are a prefix of ours"
+            : acePrimaries.StartsWith(ourPrimaries, StringComparison.Ordinal) ? "our primaries are a prefix of ACE's"
+            : acePrimaries.Length == ourPrimaries.Length ? "primaries same length, different bytes"
+            : $"primaries {ourPrimaries.Length / 2}b vs {acePrimaries.Length / 2}b";
+        return $"{primaries}; secondaries {ourSecondaries} vs {aceSecondaries}";
+
+        static (string Primaries, int Secondaries) Split(string key)
+        {
+            byte[] bytes = Convert.FromHexString(key);
+            int end = Array.IndexOf(bytes, (byte)0x01, 1);
+            if (end < 0) return (key, 0);
+            return (Convert.ToHexString(bytes[1..end]), Math.Max(0, bytes.Length - end - 2));
+        }
+    }
+
+    /// <summary>Coarser than the block list above — enough to see where mismatches cluster.</summary>
+    private static string BlockOf(char c) => c switch
+    {
+        <= (char)0x024F => "Latin",
+        <= (char)0x036F => "modifiers + marks",
+        <= (char)0x03FF => "Greek",
+        <= (char)0x052F => "Cyrillic",
+        <= (char)0x08FF => "Hebrew/Arabic/Syriac",
+        <= (char)0x0DFF => "Indic",
+        <= (char)0x0FFF => "Thai/Lao/Tibetan",
+        <= (char)0x1FFF => "Myanmar..Greek Ext",
+        <= (char)0x2BFF => "punctuation + symbols",
+        <= (char)0x2FFF => "CJK radicals",
+        <= (char)0x303F => "CJK punctuation",
+        <= (char)0x30FF => "kana",
+        <= (char)0x33FF => "kana ext + compat",
+        <= (char)0x4DBF => "CJK ext A",
+        <= (char)0x9FFF => "CJK unified",
+        <= (char)0xA4CF => "Yi",
+        <= (char)0xABFF => "Latin ext-D + syllabics",
+        <= (char)0xD7FF => "Hangul",
+        <= (char)0xDFFF => "surrogates",
+        <= (char)0xF8FF => "private use",
+        <= (char)0xFAFF => "CJK compat ideographs",
+        <= (char)0xFDFF => "presentation forms A",
+        <= (char)0xFEFF => "small + Arabic forms",
+        _ => "halfwidth/fullwidth",
+    };
+
+    /// <summary>
+    /// The five characters whose v1 key carries a THIRD section, measured in combination.
+    /// </summary>
+    /// <remarks>
+    /// Alone, ACE gives U+0385, U+1B3B and U+FC25 the same key — <c>7F 0753 01 01 02 0C 00</c> — although
+    /// they are Greek, Balinese and an Arabic ligature respectively, and nothing about them is related. Three
+    /// unrelated characters collapsing onto one key is the sort of coincidence worth measuring rather than
+    /// theorising about, and a single-character sweep cannot say whether that trailing <c>02 0C</c> is
+    /// positional (like the word-sort record) or fixed (like the kana tail). So: pair each with a letter on
+    /// either side, and with itself.
+    /// </remarks>
+    [Fact]
+    public void Probe_v1_third_section()
+    {
+        Assert.SkipUnless(Environment.GetEnvironmentVariable("LIBRED_FULL_BMP") == "1",
+            "set LIBRED_FULL_BMP=1 — this probe needs ACE");
+
+        string path = TemporaryDatabase.CreatePath("general-v1-third-");
+        DatabaseCreator.CreateEmpty(path, collation: Collation.General);
+        try
+        {
+            char[] subjects = [(char)0x0385, (char)0x1B3B, (char)0xFC25, (char)0xFC33, (char)0xFCC2];
+            var samples = new List<string>();
+            foreach (char subject in subjects)
+                samples.AddRange([
+                    subject.ToString(), "A" + subject, subject + "A", "AA" + subject,
+                    subject.ToString() + subject, subject + "A" + subject,
+                ]);
+
+            Dictionary<string, string> ace = AceKeys(path, "third", [.. samples]);
+            foreach (string sample in samples)
+                output.WriteLine($"  {Describe(sample),-28} {(ace.TryGetValue(sample, out string? k) ? k : "(refused)")}");
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Probe_full_bmp_coverage(byte version)
+    {
+        Assert.SkipUnless(Environment.GetEnvironmentVariable("LIBRED_FULL_BMP") == "1",
+            "set LIBRED_FULL_BMP=1 — this inserts ~63,000 rows through ACE and takes minutes");
+
+        // v1 has no fixture of its own for plain General, so LibRed makes one. That is safe here: ACE does
+        // the encoding, LibRed only supplies an empty database carrying the right sort order.
+        string source = TestDatabases.NorthwindAccdb;
+        string? created = null;
+        if (version == Collation.GeneralVersion)
+        {
+            created = TemporaryDatabase.CreatePath("general-v1-bmp-");
+            DatabaseCreator.CreateEmpty(created, collation: Collation.General);
+            source = created;
+        }
+
+        var column = new ColumnDef
+        {
+            Name = "K", Type = JetDataType.Text, Index = 0,
+            Collation = version == Collation.GeneralVersion ? Collation.General : Collation.GeneralLegacy,
+        };
+
         int totalCorrect = 0, totalToAdd = 0, totalIgnorable = 0, totalRefused = 0;
+        output.WriteLine($"General v{version}");
         output.WriteLine($"  {"range",-14} {"correct",8} {"to add",8} {"ignorable",10} {"ACE refused",12}");
         for (int chunk = 0x0000; chunk <= 0xF000; chunk += 0x1000)
         {
             string[] characters = Range(chunk, chunk + 0x0FFF);
             if (characters.Length == 0) continue;
-            Dictionary<string, string> ace = AceKeys(TestDatabases.NorthwindAccdb, "bmp", characters);
+            Dictionary<string, string> ace = AceKeys(source, "bmp", characters);
 
             int correct = 0, toAdd = 0, ignorable = 0, refused = 0;
             foreach (string text in characters)
             {
                 if (!ace.TryGetValue(text, out string? key)) { refused++; continue; }
-                if (Matches(text, key)) { correct++; continue; }
+                if (Matches(text, key, column)) { correct++; continue; }
                 if (key == "7F0100") { ignorable++; continue; }
                 toAdd++;
             }
@@ -77,8 +302,9 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
         }
 
         output.WriteLine("");
-        output.WriteLine($"  BMP total: {totalCorrect} already correct, {totalToAdd} to add, " +
+        output.WriteLine($"  BMP total (v{version}): {totalCorrect} already correct, {totalToAdd} to add, " +
                          $"{totalIgnorable} ignorable-but-unhandled, {totalRefused} ACE would not store");
+        if (created is not null) TemporaryDatabase.Delete(created);
     }
 
     // Sweeps every block against General v0 and classifies what ACE stores, so the base table can be filled
@@ -280,9 +506,9 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
     }
 
     /// <summary>Whether LibRed already encodes <paramref name="text"/> exactly as ACE did.</summary>
-    private static bool Matches(string text, string expected)
+    private static bool Matches(string text, string expected, ColumnDef? column = null)
     {
-        var column = new ColumnDef
+        column ??= new ColumnDef
         {
             Name = "K", Type = JetDataType.Text, Index = 0, Collation = Collation.GeneralLegacy,
         };

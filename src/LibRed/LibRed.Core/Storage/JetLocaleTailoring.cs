@@ -87,6 +87,18 @@ internal sealed class LocaleTailoring
         return TryLongest(text, start, out weight, out consumed);
     }
 
+    /// <summary>
+    /// The entry for one character, without the contraction matcher.
+    /// </summary>
+    /// <remarks>
+    /// For the components of an expansion, which take the locale's letters but must not re-enter the
+    /// multi-character match: expanding a ligature could otherwise trip a digraph entry that the original
+    /// text never contained.
+    /// </remarks>
+    public bool TryMatchSingle(char character, out TailoredWeight weight) =>
+        Entries.TryGetValue(character.ToString(), out weight) ||
+        Entries.TryGetValue(character.ToString().ToUpperInvariant(), out weight);
+
     private bool TryLongest(ReadOnlySpan<char> text, int start, out TailoredWeight weight, out int consumed)
     {
         for (int length = Math.Min(MaxLength, text.Length - start); length >= 1; length--)
@@ -131,6 +143,18 @@ internal static class JetLocaleTailoring
         // --- Orders measured to be indistinguishable from General; recorded on disk, but no tailoring. ---
         [new Collation(CollatingOrder.Georgian, 0, SortId: 1)] = Table([]),
         [new Collation(CollatingOrder.Indic, Collation.GeneralVersion)] = Table([]),
+
+        // --- Bosnian, Croatian and Serbian at version 1: the same order under three LCIDs. ---
+        // Each measures 289 values identical to General v1 and the same 47 departures, byte for byte, so one
+        // table serves all three. These are the FIRST version-1 tailorings: their primaries are two-byte
+        // (SM, AW) pairs rather than v0's single byte, which is the only thing that made the v1 encoder look
+        // as though it could not tailor at all.
+        //
+        // The letters land where the Croatian alphabet puts them — L 0E48, LJ 0E4A, M 0E51; D 0E1A, DŽ 0E1D,
+        // Đ 0E1E — so the three digraphs are contractions, exactly as in the v0 orders.
+        [new Collation(CollatingOrder.Croatian, Collation.GeneralVersion)] = BosnianCroatianSerbian(),
+        [new Collation(CollatingOrder.Bosnian, Collation.GeneralVersion)] = BosnianCroatianSerbian(),
+        [new Collation(CollatingOrder.Serbian, Collation.GeneralVersion)] = BosnianCroatianSerbian(),
 
         // --- French: not one tailored letter — General with the diacritic section REVERSED. ---
         // Accents are weighed from the end of the word, so coté sorts before côte where General has it the
@@ -303,6 +327,48 @@ internal static class JetLocaleTailoring
              ("Ť", [0x6E, 0x03]), ("Ů", [0x71]), ("Ű", [0x72, 0x02]), ("Ź", [0x79, 0x02]),
              ("Ż", [0x79, 0x03]), ("Ž", [0x79, 0x04])]),
     };
+
+    /// <summary>
+    /// Bosnian, Croatian and Serbian at sort-order version 1 — one table, three LCIDs.
+    /// </summary>
+    /// <remarks>
+    /// Generated from ACE rather than transcribed (<c>V1TailoringProbeTest</c>): hand-copying hex is exactly
+    /// the work that introduces a wrong byte nobody notices, because a wrong index key does not fail — it
+    /// silently disagrees with ACE.
+    /// <para>
+    /// Seven letters of their own, three of them digraphs, and thirteen secondary retunes. The retuned
+    /// letters are not in the alphabet at all: they are the caron and breve forms, which these orders weigh
+    /// <c>04</c> and <c>05</c> where General gives <c>14</c> and <c>15</c>. The same shape as Czech's
+    /// diaeresis retune in version 0.
+    /// </para>
+    /// <para>
+    /// <b>U+016D is the exception, and it is ACE's, not a mistake here.</b> Every other letter weighs the
+    /// same in both cases — including all three digraphs in all three of their forms, <c>DŽ</c> and
+    /// <c>dž</c> and <c>Dž</c>. But <c>Ŭ</c> takes the retuned <c>05</c> while lowercase <c>ŭ</c> keeps
+    /// General's <c>15</c>, identically in all three locales. It needs an entry of its own because matching
+    /// tries the original text before the uppercased text, so without one the uppercase entry would claim it.
+    /// </para>
+    /// </remarks>
+    private static LocaleTailoring BosnianCroatianSerbian() => Table(
+        [("Ć", [0x0E, 0x0C]), ("Č", [0x0E, 0x0B]), ("Đ", [0x0E, 0x1E]),
+         ("Š", [0x0E, 0x97]), ("Ž", [0x0E, 0xAD]),
+         ("LJ", [0x0E, 0x4A]), ("NJ", [0x0E, 0x73])],
+        [("DŽ", [0x0E, 0x1D], 0x04),
+         // The caron and breve retunes. Generated from the whole guarded range, not a list of letters that
+         // seemed likely: a point list produced these thirteen and missed the eight below it, which are just
+         // as much a part of the rule.
+         ("Ă", [0x0E, 0x02], 0x05), ("Ď", [0x0E, 0x1A], 0x04), ("Ĕ", [0x0E, 0x21], 0x05),
+         ("Ě", [0x0E, 0x21], 0x04), ("Ğ", [0x0E, 0x25], 0x05), ("Ĭ", [0x0E, 0x32], 0x05),
+         ("Ľ", [0x0E, 0x48], 0x04), ("Ň", [0x0E, 0x70], 0x04), ("Ŏ", [0x0E, 0x7C], 0x05),
+         ("Ř", [0x0E, 0x8A], 0x04), ("Ť", [0x0E, 0x99], 0x04), ("Ŭ", [0x0E, 0x9F], 0x05),
+         ("ŭ", [0x0E, 0x9F], 0x15),
+         ("Ǎ", [0x0E, 0x02], 0x04), ("Ǐ", [0x0E, 0x32], 0x04), ("Ǒ", [0x0E, 0x7C], 0x04),
+         ("Ǔ", [0x0E, 0x9F], 0x04), ("Ǧ", [0x0E, 0x25], 0x04), ("Ǩ", [0x0E, 0x36], 0x04),
+         // Ezh with caron carries a primary of its own (0EAA), not the base letter's — the one retune here
+         // that moves a character rather than only its accent.
+         ("Ǯ", [0x0E, 0xAA], 0x04),
+         // J with caron has no uppercase form, so it is keyed as itself.
+         ("ǰ", [0x0E, 0x35], 0x04)]);
 
     /// <summary>Builds a tailoring. <paramref name="letters"/> take the default secondary — they are letters
     /// in their own right; <paramref name="accented"/> carry one of their own, which is how a locale retunes

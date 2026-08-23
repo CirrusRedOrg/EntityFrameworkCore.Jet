@@ -30,6 +30,9 @@ public class LocaleCollationAccessTests(ITestOutputHelper output)
         "Slovak", "Vietnamese", "HungarianTechnical",
         // Cyrillic orders, encodable once General v0 carried the Cyrillic block.
         "Ukrainian", "Macedonian",
+        // Version-1 orders. The same order under three LCIDs — each measures identically against General v1 —
+        // and the first tailorings the v1 encoder carries, so they also cover the two-byte-primary path.
+        "Croatian", "Bosnian", "Serbian",
     ];
 
     [Theory]
@@ -39,11 +42,12 @@ public class LocaleCollationAccessTests(ITestOutputHelper output)
         string source = TestDatabases.Data($"{fixture}.accdb");
         Assert.SkipWhen(!File.Exists(source), $"{fixture}.accdb is not present");
 
-        // The extended blocks are measured for version-0 orders only; the version-1 encoder is a separate
-        // table with its own coverage, so a v1 fixture is asserted over the range it was verified in.
-        byte version;
-        using (var probe = JetDatabase.Open(source)) version = probe.DefaultCollationVersion;
-        string[] samples = Samples(extendedBlocks: version != Collation.GeneralVersion);
+        // Both versions are asserted over the whole measured range. The extended blocks used to be skipped
+        // for version-1 fixtures, on the grounds that the v1 encoder was "a separate table with its own
+        // coverage" — but v1 now reproduces ACE across the entire BMP and shares the kana section, so the
+        // narrowing only hid ground. It was worth removing: the one thing these three locales got wrong was
+        // a case asymmetry INSIDE the narrow range, which is a poor argument for testing less.
+        string[] samples = Samples(extendedBlocks: true);
         string path = TemporaryDatabase.CopyPath(source, $"conformance-{fixture.ToLowerInvariant()}-");
         try
         {

@@ -72,14 +72,19 @@ internal static class JetTextCollationV1
     /// false if any character has no weight in the table (the caller reports it rather than emitting a key
     /// that would sort wrongly).
     /// </summary>
-    public static bool TryEncode(string value, List<byte> output) => TryEncode(value, output, out _);
+    public static bool TryEncode(string value, List<byte> output, LocaleTailoring? tailoring = null) =>
+        TryEncode(value, output, tailoring, out _);
 
+    /// <param name="tailoring">Per-character overrides for a version-1 locale order other than General; null
+    /// for General itself. The same mechanism as version 0 uses, and the same six devices — the entries just
+    /// carry a two-byte <c>(Script Member, Alphabetic Weight)</c> primary instead of v0's single byte.</param>
     /// <param name="hasWordSortRecord">
     /// Whether the key carries an inline word-sort section. The caller needs this to decide whether an
     /// over-long entry may be truncated: the checksum that replaces the dropped bytes is unverified when
     /// those bytes hold such a record, because the record is precisely what cannot be observed.
     /// </param>
-    public static bool TryEncode(string value, List<byte> output, out bool hasWordSortRecord)
+    public static bool TryEncode(
+        string value, List<byte> output, LocaleTailoring? tailoring, out bool hasWordSortRecord)
     {
         hasWordSortRecord = false;
         WeightTable table = Table.Value;
@@ -99,8 +104,28 @@ internal static class JetTextCollationV1
         byte kanaVowel = 0;
         bool kanaSmall = false;
 
-        foreach (char character in text)
+        // Indexed rather than foreach, because a tailoring entry can consume several characters: a
+        // contraction is a digraph weighing as one letter (Croatian "dž", "lj", "nj").
+        for (int position = 0; position < text.Length; position++)
         {
+            char character = text[position];
+
+            // A locale tailoring overrides everything below it. The mechanism is v0's exactly — the entries
+            // simply carry a two-byte (SM, AW) primary here instead of one byte, which is the only reason
+            // this hook did not already exist. One entry is one WEIGHT however many bytes its primary takes,
+            // so it contributes exactly one secondary: the section counts weights, not bytes.
+            if (tailoring is not null &&
+                tailoring.TryMatch(text, position, out TailoredWeight tailored, out int consumed, out bool repeat))
+            {
+                for (int emit = repeat ? 2 : 1; emit > 0; emit--)
+                {
+                    primaries.AddRange(tailored.Primaries);
+                    secondaries.Add(tailored.Secondary);
+                }
+                position += consumed - 1;
+                continue;
+            }
+
             // A surrogate the table has no weight for is IGNORABLE, not an error — which is the whole of what
             // astral support needs here, because both halves are otherwise weighed like any other character.
             //
@@ -225,8 +250,24 @@ internal static class JetTextCollationV1
 
             if (table.TryExpand(character, out char[]? sequence))
             {
+                // An expanded component takes the LOCALE's letter, not the base table's. The precomposed
+                // digraph U+01C4 expands to D + Ž, and in these orders Ž is a letter of its own (0EAD) — so
+                // sending the components straight to the base table gives D + Z-with-caron, which is what ACE
+                // does not store. The same rule version 0 already follows.
+                //
+                // Single-character lookup only: a component must not re-enter the CONTRACTION matcher, or
+                // expanding a ligature could trip a digraph entry that the original text never contained.
                 foreach (char expanded in sequence)
+                {
+                    if (tailoring is not null &&
+                        tailoring.TryMatchSingle(expanded, out TailoredWeight component))
+                    {
+                        primaries.AddRange(component.Primaries);
+                        secondaries.Add(component.Secondary);
+                        continue;
+                    }
                     if (!Append(expanded)) return false;
+                }
             }
             else if (!Append(character))
             {

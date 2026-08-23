@@ -103,11 +103,11 @@ public readonly record struct Collation(CollatingOrder Order, byte Version, byte
         get
         {
             if (this == GeneralLegacy || this == General) return true;
-            var tailoring = Storage.JetLocaleTailoring.For(this);
-            if (tailoring is null) return false;
-            // The v1 encoder has no tailoring hook — its primaries are 2-byte NLS values, a different shape —
-            // so a version-1 order is encodable only where it was measured to need no tailoring at all.
-            return Version != GeneralVersion || tailoring.Entries.Count == 0;
+            // Both encoders tailor now. Version 1 was refused for a while on the grounds that its primaries
+            // are two-byte NLS values "a different shape" — but that was a fact about the encoder, not about
+            // the orders: Bosnian, Croatian and Serbian measure as General v1 plus twenty entries, the same
+            // six devices every version-0 locale uses.
+            return Storage.JetLocaleTailoring.For(this) is not null;
         }
     }
 }

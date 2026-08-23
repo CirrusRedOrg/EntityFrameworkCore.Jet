@@ -102,10 +102,10 @@ public static class IndexKeyEncoder
                     text = text[..MemoKeyMaxChars];
 
                 var ascendingKey = new List<byte> { IndexKeyFlags.AscStart };
+                LocaleTailoring? tailoring = JetLocaleTailoring.For(column.Collation);
                 bool encoded = column.Collation.Version == Collation.GeneralVersion
-                    ? JetTextCollationV1.TryEncode(text, ascendingKey, out bool wordSort)
-                    : JetTextCollation.TryEncode(
-                        text, ascendingKey, JetLocaleTailoring.For(column.Collation), out wordSort);
+                    ? JetTextCollationV1.TryEncode(text, ascendingKey, tailoring, out bool wordSort)
+                    : JetTextCollation.TryEncode(text, ascendingKey, tailoring, out wordSort);
                 anyWordSortRecord |= wordSort;
                 if (!encoded)
                     throw new NotSupportedException(

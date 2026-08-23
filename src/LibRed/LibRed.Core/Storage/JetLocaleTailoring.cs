@@ -166,14 +166,20 @@ internal static class JetLocaleTailoring
              ("Ċ", [0x4D], 0x04), ("Ė", [0x51], 0x04), ("Ġ", [0x55], 0x04), ("İ", [0x59], 0x04),
              ("Ŀ", [0x5E], 0x04), ("Ÿ", [0x76], 0x05), ("Ż", [0x78], 0x04)]),
 
-        // --- Croatian Legacy: three digraphs, and dž carries a real secondary of its own. ---
+        // --- Croatian Legacy: three digraphs, and dž carries a real secondary of its own. The ligature
+        //     characters Ǆ/Ǉ/Ǌ ARE encodable here, unlike in General: Croatian makes each digraph a single
+        //     letter, so the ligature is one weight rather than two. ---
         [new Collation(CollatingOrder.Croatian, 0)] = Table(
             [("LJ", [0x5F, 0x03]), ("NJ", [0x63, 0x04]), ("Ć", [0x4E, 0x03]), ("Č", [0x4E, 0x02]),
-             ("Đ", [0x50, 0x05]), ("Š", [0x6C, 0x07]), ("Ž", [0x79, 0x05])],
-            [("DŽ", [0x50, 0x04], 0x04),
+             ("Đ", [0x50, 0x05]), ("Š", [0x6C, 0x07]), ("Ž", [0x79, 0x05]),
+             ("Ǉ", [0x5F, 0x03]), ("Ǌ", [0x63, 0x04])],
+            [("DŽ", [0x50, 0x04], 0x04), ("Ǆ", [0x50, 0x04], 0x04),
              ("Ă", [0x4A], 0x05), ("Ď", [0x4F], 0x04), ("Ĕ", [0x51], 0x05), ("Ě", [0x51], 0x04),
              ("Ğ", [0x55], 0x05), ("Ĭ", [0x59], 0x05), ("Ľ", [0x5E], 0x04), ("Ň", [0x62], 0x04),
-             ("Ŏ", [0x64], 0x05), ("Ř", [0x69], 0x04), ("Ť", [0x6D], 0x04), ("Ŭ", [0x6F], 0x05)]),
+             ("Ŏ", [0x64], 0x05), ("Ř", [0x69], 0x04), ("Ť", [0x6D], 0x04), ("Ŭ", [0x6F], 0x05),
+             // Latin Extended-B caron letters, which Croatian retunes away from General's 0x14.
+             ("Ǎ", [0x4A], 0x04), ("Ǐ", [0x59], 0x04), ("Ǒ", [0x64], 0x04), ("Ǔ", [0x6F], 0x04),
+             ("Ǧ", [0x55], 0x04), ("Ǩ", [0x5C], 0x04), ("Ǯ", [0x79, 0x02], 0x04), ("ǰ", [0x5B], 0x04)]),
 
         // --- Slovenian: the same letters as Croatian, at different sub-positions. ---
         [new Collation(CollatingOrder.Slovenian, 0)] = Table(
@@ -186,20 +192,24 @@ internal static class JetLocaleTailoring
             [("Æ", [0x79, 0x04]), ("Ø", [0x79, 0x06]), ("Å", [0x79, 0x09])],
             [("AA", [0x79, 0x09], 0x03),
              ("Ä", [0x79, 0x04], 0x13), ("Ö", [0x79, 0x06], 0x13), ("Ü", [0x76], 0x7B),
-             ("Ő", [0x79, 0x06], 0x1B), ("Ű", [0x76], 0x1B)]),
+             ("Ő", [0x79, 0x06], 0x1B), ("Ű", [0x76], 0x1B),
+             ("Ǣ", [0x79, 0x04], 0x03)]),   // Æ with a macron rides on the locale's own Æ
 
         // --- Swedish/Finnish: å ä ö after z, w is a variant of v, and ü rides on y. ---
         [new Collation(CollatingOrder.SwedishFinnish, 0)] = Table(
             [("Ä", [0x79, 0x07]), ("Å", [0x79, 0x05]), ("Ö", [0x79, 0x08])],
             [("W", [0x71], 0x03), ("Ŵ", [0x71], 0x12), ("Ø", [0x79, 0x08], 0x1E),
-             ("Ü", [0x76], 0x7B), ("Ő", [0x79, 0x08], 0x1B), ("Ű", [0x76], 0x1B)]),
+             ("Ü", [0x76], 0x7B), ("Ő", [0x79, 0x08], 0x1B), ("Ű", [0x76], 0x1B),
+             // Wynn follows w onto v's primary. Keyed lowercase deliberately: its uppercase U+01F7 is
+             // ignorable in General, so folding to it would lose the weight.
+             ("ƿ", [0x71], 0x7B)]),
 
         // --- Icelandic: the accented vowels are letters, and þ æ ö close the alphabet after z. ---
         [new Collation(CollatingOrder.Icelandic, 0)] = Table(
             [("Á", [0x4B, 0x03]), ("Æ", [0x79, 0x04]), ("É", [0x52, 0x02]), ("Í", [0x5A, 0x02]),
              ("Ð", [0x50, 0x02]), ("Ó", [0x65, 0x02]), ("Ö", [0x79, 0x05]), ("Ú", [0x70, 0x02]),
              ("Ý", [0x77, 0x02]), ("Þ", [0x79, 0x03])],
-            [("Ø", [0x79, 0x05], 0x1E)]),
+            [("Ø", [0x79, 0x05], 0x1E), ("Ǣ", [0x79, 0x04], 0x16)]),
 
         // --- Estonian: the most radical of these. It rewrites the base alphabet rather than extending it —
         //     z moves between s and t, v moves down, and õ and ö take over the bare one-byte primaries
@@ -220,7 +230,9 @@ internal static class JetLocaleTailoring
         // --- Lithuanian: y follows i rather than closing the alphabet, and the ogonek letters stay
         //     secondaries but at 0x0F instead of General's 0x1B. ---
         [new Collation(CollatingOrder.Lithuanian, 0)] = Table(
-            [("Y", [0x5A, 0x02])],
+            // Fullwidth Ｙ follows the tailoring too — a locale can retailor a fullwidth form, and Estonian
+            // proves the converse by leaving fullwidth Ｖ on General's weight, so these are per-locale facts.
+            [("Y", [0x5A, 0x02]), ("Ｙ", [0x5A, 0x02])],
             [("Ą", [0x4A], 0x0F), ("Ę", [0x51], 0x0F), ("Į", [0x59], 0x0F), ("Ų", [0x6F], 0x0F)]),
 
         // --- Vietnamese: nine digraphs, and p and r shift to make room. Note "gh" and "ngh" are NOT letters
@@ -230,7 +242,15 @@ internal static class JetLocaleTailoring
              ("NH", [0x63, 0x03]), ("PH", [0x67, 0x03]), ("QU", [0x69]), ("TH", [0x6E, 0x02]),
              ("TR", [0x6E, 0x03]),
              ("P", [0x67, 0x02]), ("R", [0x6A, 0x02]), ("Â", [0x4B, 0x02]),
-             ("Ê", [0x52, 0x02]), ("Ô", [0x65, 0x02]), ("Ă", [0x4B, 0x03]), ("Đ", [0x50, 0x02])]),
+             ("Ê", [0x52, 0x02]), ("Ô", [0x65, 0x02]), ("Ă", [0x4B, 0x03]), ("Đ", [0x50, 0x02]),
+             ("Ơ", [0x66]), ("Ư", [0x70, 0x02])]),   // the horned vowels, in Latin Extended-B
+
+        // --- Ukrainian and Macedonian: Cyrillic orders, and the smallest tailorings of the lot. They were
+        //     blocked until General v0 carried the Cyrillic block at all; now they are one and two entries.
+        [new Collation(CollatingOrder.Ukrainian, 0)] = Table([
+            ("Ь", [0x79, 0x5D])]),
+        [new Collation(CollatingOrder.Macedonian, 0)] = Table([
+            ("Ѓ", [0x79, 0x34]), ("Ќ", [0x79, 0x4C])]),
 
         // --- Hungarian: the full digraph set, the only order that doubles them, plus ö and ü as letters. ---
         [new Collation(CollatingOrder.Hungarian, 0)] = Table(

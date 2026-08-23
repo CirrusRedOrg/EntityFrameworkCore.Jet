@@ -54,6 +54,80 @@ public class ContractionProbeTest(ITestOutputHelper output)
         ]),
     ];
 
+    // PROBE: the sixteen characters General v0 refuses — the DŽ/LJ/NJ/DZ ligatures and AE-with-accent.
+    //
+    // Each is known to be more than one primary weight, which is why a single table entry cannot express it.
+    // What is not established is the shape: how ACE splits them, and where an accent lands. Measured against
+    // the components on their own, and against strings that put an accented letter AFTER the ligature, since
+    // the secondary section's length is what reveals how many weights were emitted.
+    [Fact]
+    public void Probe_how_the_refused_ligatures_encode()
+    {
+        int[] ligatures =
+        [
+            0x01C4, 0x01C5, 0x01C6,   // DŽ Dž dž
+            0x01C7, 0x01C8, 0x01C9,   // LJ Lj lj
+            0x01CA, 0x01CB, 0x01CC,   // NJ Nj nj
+            0x01F1, 0x01F2, 0x01F3,   // DZ Dz dz
+            0x01E2, 0x01E3,           // Ǣ ǣ  (AE with macron)
+            0x01FC, 0x01FD,           // Ǽ ǽ  (AE with acute)
+        ];
+
+        var samples = new List<string>();
+        foreach (int c in ligatures) samples.Add(((char)c).ToString());
+        // The components, so the split can be read off rather than guessed.
+        samples.AddRange(["D", "Z", "Ž", "L", "J", "N", "A", "E", "Æ", "DZ", "DŽ", "LJ", "NJ", "AE"]);
+        // An accented letter AFTER the ligature: the secondary section then runs to that letter, and its
+        // length says how many weights the ligature contributed.
+        foreach (int c in ligatures) samples.Add((char)c + "é");
+        samples.AddRange(["DŽé", "AEé", "DZé", "LJé"]);
+
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "ligature-");
+        try
+        {
+            Dictionary<string, string> keys = AceKeys(path, [.. samples]);
+            foreach (string sample in samples)
+                output.WriteLine($"   {Describe(sample),-22} {keys.GetValueOrDefault(sample) ?? "(refused)"}");
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    private static string Describe(string s) =>
+        s.All(c => c is >= ' ' and <= '~') ? $"\"{s}\"" : string.Concat(s.Select(c => $"U+{(int)c:X4}"));
+
+    // PROBE: the inline code for each remaining word-sort ignorable.
+    //
+    // An ignorable adds no primary weight; it appends a record to the trailing inline section instead —
+    // 80 <pos> 06 <code>, with the section introduced once by 01 01 01. LibRed knows three of them
+    // (apostrophe 0x80, hyphen 0x82, soft hyphen 0x83); ACE treats fourteen more the same way. Measured
+    // alone, then inside a word, so the position arithmetic is confirmed rather than assumed.
+    [Fact]
+    public void Probe_word_sort_ignorable_codes()
+    {
+        int[] ignorables =
+        [
+            0x0027, 0x002D, 0x00AD,                                  // the three LibRed already knows
+            0x064B, 0x064C, 0x064D, 0x064E, 0x064F, 0x0650, 0x0652,  // Arabic harakat
+            0x2010, 0x2011, 0x2012, 0x2013, 0x2014, 0x2015,          // hyphens and dashes
+            0x2027, 0x2043,                                          // hyphenation point, hyphen bullet
+            0xFF07, 0xFF0D,                                          // fullwidth apostrophe and hyphen
+        ];
+
+        var samples = new List<string>();
+        foreach (int c in ignorables) samples.Add(((char)c).ToString());
+        foreach (int c in ignorables) samples.Add("AB" + (char)c + "CD");   // position = 0x07 + 4x2 = 0x0F
+        samples.Add("AB");
+
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "ignorable-");
+        try
+        {
+            Dictionary<string, string> keys = AceKeys(path, [.. samples]);
+            foreach (string sample in samples)
+                output.WriteLine($"   {Describe(sample),-26} {keys.GetValueOrDefault(sample) ?? "(refused)"}");
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     [Fact]
     public void Probe_how_contractions_encode()
     {

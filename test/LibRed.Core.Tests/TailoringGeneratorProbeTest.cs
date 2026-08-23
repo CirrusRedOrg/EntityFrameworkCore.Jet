@@ -6,29 +6,141 @@ using Xunit;
 
 namespace LibRed.Core.Tests;
 
-// PROBE: derive tailoring tables from ACE rather than transcribing them by hand.
+// PROBE: derive weight tables from ACE rather than transcribing them by hand.
 //
-// For each sort-order fixture it has ACE encode every character in a broad range, reads the stored index
-// keys back, and prints the entries needed to reproduce them — ready to paste into JetLocaleTailoring. Hand
-// transcription of hex is exactly the kind of work that introduces a wrong byte nobody notices, because a
-// wrong index key is silent.
+// It has ACE encode every character in a range, reads the stored index keys back, and prints the entries
+// needed to reproduce them — ready to paste into JetTextCollation or JetLocaleTailoring. Hand transcription
+// of hex is exactly the kind of work that introduces a wrong byte nobody notices, because a wrong index key
+// is silent: ACE simply writes its own keys into the same index and a seek misses rows.
 //
-// It also reports what GENERAL itself cannot encode. Most of those are Latin Extended-A letters that
-// decompose to a base letter plus a combining mark whose secondary weight is simply missing from
-// JetTextCollation.DiacriticWeights — so the probe derives that weight too, which fixes the base table for
-// every order at once.
+// Three reports:
+//   Generate_general_coverage                      — everything General v0 does not yet encode, per block
+//   Generate_diacritic_weights_missing_from_general — combining marks whose secondary weight is missing
+//   Generate_tailoring_for                          — one locale's overrides against General
 public class TailoringGeneratorProbeTest(ITestOutputHelper output)
 {
+    /// <summary>The blocks worth sweeping for General v0 coverage: everything a Jet/ACE text column is
+    /// likely to hold that is not CJK. Each is (name, first, last).</summary>
+    private static readonly (string Name, int First, int Last)[] Blocks =
+    [
+        ("Latin-1 + ASCII", 0x0020, 0x00FF),
+        ("Latin Extended-A", 0x0100, 0x017F),
+        ("Latin Extended-B", 0x0180, 0x024F),
+        ("Spacing modifiers", 0x02B0, 0x02FF),
+        ("Greek", 0x0370, 0x03FF),
+        ("Cyrillic", 0x0400, 0x04FF),
+        ("Cyrillic Supplement", 0x0500, 0x052F),
+        ("Hebrew", 0x0590, 0x05FF),
+        ("Arabic", 0x0600, 0x06FF),
+        ("Latin Extended Additional", 0x1E00, 0x1EFF),
+        ("General punctuation", 0x2000, 0x206F),
+        ("Currency", 0x20A0, 0x20BF),
+        ("Letterlike", 0x2100, 0x214F),
+        ("Number forms", 0x2150, 0x218F),
+        ("Fullwidth forms", 0xFF01, 0xFF65),
+    ];
+
+    // Sweeps every block against General v0 and classifies what ACE stores, so the base table can be filled
+    // in from measurement rather than a character at a time. Entries are grouped by the mechanism each needs.
+    [Fact]
+    public void Generate_general_coverage()
+    {
+        foreach ((string name, int first, int last) in Blocks)
+        {
+            string[] characters = Range(first, last);
+            Dictionary<string, string> ace = AceKeys(TestDatabases.NorthwindAccdb, "cov", characters);
+
+            var own = new List<string>();
+            var atomic = new List<string>();
+            var expansion = new List<string>();
+            var marks = new SortedDictionary<char, byte>();
+            int correct = 0, refused = 0, ignorable = 0;
+
+            foreach (string text in characters)
+            {
+                if (!ace.TryGetValue(text, out string? key)) { refused++; continue; }
+                if (Matches(text, key)) { correct++; continue; }
+                if (key.Contains("010101")) { ignorable++; continue; }   // an inline (word-sort) record
+
+                (byte[] primaries, byte secondary) = Decode(key);
+                string nfd = text.Normalize(NormalizationForm.FormD);
+                string bytes = string.Join(", ", primaries.Select(b => $"0x{b:X2}"));
+
+                if (nfd.Length == 2 && char.IsLetter(nfd[0]) && primaries.Length == 1)
+                    marks.TryAdd(nfd[1], secondary);
+                else if (primaries.Length == 1 && secondary != 0x02 && LetterFor(primaries[0]) is char b)
+                    atomic.Add($"['{Escape(text[0])}'] = ('{b}', 0x{secondary:X2}),");
+                else if (secondary == 0x02 && primaries.Length > 1 && primaries.All(p => LetterFor(p) is not null))
+                    expansion.Add($"['{Escape(text[0])}'] = \"{new string([.. primaries.Select(p => LetterFor(p)!.Value)])}\",");
+                else
+                    own.Add($"['{Escape(text[0])}'] = new([{bytes}], 0x{secondary:X2}),".PadRight(48) +
+                            $"// {key}");
+            }
+
+            output.WriteLine("");
+            output.WriteLine($"=== {name}: {correct} correct, {own.Count + atomic.Count + expansion.Count} to add, " +
+                             $"{marks.Count} new marks, {ignorable} ignorable, {refused} refused by ACE");
+            foreach ((char mark, byte weight) in marks) output.WriteLine($"    mark ['\\u{(int)mark:X4}'] = 0x{weight:X2},");
+            foreach (string line in atomic.Take(30)) output.WriteLine($"    atomic {line}");
+            foreach (string line in expansion.Take(30)) output.WriteLine($"    expand {line}");
+            foreach (string line in own.Take(400)) output.WriteLine($"    {line}");
+        }
+    }
+
+    // Emits each block as ONE compact string, in the format JetTextCollationBlocks parses: a start code
+    // point, then one token per consecutive character —
+    //     -           ignorable: ACE stores no weight at all for it (key 7F 01 00)
+    //     ?           no data: ACE refused the value, so the encoder must refuse it too
+    //     <hex>       primary bytes, default secondary
+    //     <hex>,<ss>  primary bytes and a secondary of its own
+    // 1500-odd entries as a dictionary literal would be unreadable and unreviewable; as runs of short tokens
+    // it stays diffable, and it is regenerated from ACE rather than hand-maintained.
+    [Fact]
+    public void Generate_block_tables()
+    {
+        foreach ((string name, int first, int last) in Blocks)
+        {
+            string[] characters = Range(first, last);
+            Dictionary<string, string> ace = AceKeys(TestDatabases.NorthwindAccdb, "blk", characters);
+
+            var tokens = new List<string>();
+            for (int c = first; c <= last; c++)
+            {
+                string text = ((char)c).ToString();
+                if (char.IsControl((char)c) || char.IsSurrogate((char)c) ||
+                    !ace.TryGetValue(text, out string? key)) { tokens.Add("?"); continue; }
+                if (key == "7F0100") { tokens.Add("-"); continue; }
+                if (key.Contains("010101")) { tokens.Add("?"); continue; }    // inline record; handled apart
+                (byte[] primaries, byte secondary) = Decode(key);
+                // A combining mark contributes a secondary weight and NO primary at all (key 7F 01 ss 00) —
+                // distinct from being ignorable, which contributes nothing whatsoever.
+                if (primaries.Length == 0 && secondary == 0x02) { tokens.Add("-"); continue; }
+                string hex = Convert.ToHexString(primaries);
+                tokens.Add(secondary == 0x02 ? hex : $"{hex},{secondary:X2}");
+            }
+
+            // Trim trailing no-data so a block does not carry a tail of question marks.
+            while (tokens.Count > 0 && tokens[^1] == "?") tokens.RemoveAt(tokens.Count - 1);
+
+            output.WriteLine("");
+            output.WriteLine($"// {name} — U+{first:X4}..U+{first + tokens.Count - 1:X4}");
+            output.WriteLine($"\"{first:X4}|\" +");
+            for (int i = 0; i < tokens.Count; i += 16)
+                output.WriteLine($"    \"{string.Join(" ", tokens.Skip(i).Take(16))} \" +");
+        }
+    }
+
     [Fact]
     public void Generate_diacritic_weights_missing_from_general()
     {
-        Dictionary<string, string> ace = AceKeys(TestDatabases.NorthwindAccdb, "general", Characters());
+        string[] characters = Range(0x0020, 0x017F);
+        Dictionary<string, string> ace = AceKeys(TestDatabases.NorthwindAccdb, "general", characters);
         var derived = new SortedDictionary<char, (byte Weight, string From)>();
         var unexplained = new List<string>();
 
         foreach ((string text, string key) in ace)
         {
-            if (Encodable(text, Collation.GeneralLegacy)) continue;
+            if (Matches(text, key)) continue;
             string nfd = text.Normalize(NormalizationForm.FormD);
             (byte[] primaries, byte secondary) = Decode(key);
             // A base letter plus one combining mark, weighing as that letter's primary: the difference is
@@ -67,17 +179,24 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
     [InlineData("Slovak")]
     [InlineData("Vietnamese")]
     [InlineData("HungarianTechnical")]
+    [InlineData("Ukrainian")]
+    [InlineData("Macedonian")]
+    [InlineData("French")]
+    [InlineData("Thai")]
     public void Generate_tailoring_for(string fixture)
     {
         string source = TestDatabases.Data($"{fixture}.accdb");
         Assert.SkipWhen(!File.Exists(source), $"{fixture}.accdb is not present");
 
-        string[] characters = Characters();
+        // Every block, not just Latin: the question is how far a locale departs from General across the
+        // whole range LibRed can encode, which is what decides whether the extended blocks can be shared.
+        string[] characters = [.. Blocks.SelectMany(b => Range(b.First, b.Last))];
         Dictionary<string, string> locale = AceKeys(source, fixture, characters);
         Dictionary<string, string> general = AceKeys(TestDatabases.NorthwindAccdb, "general", characters);
 
         var letters = new List<string>();
         var accented = new List<string>();
+        var extended = new List<string>();
         foreach (string text in characters)
         {
             if (!locale.TryGetValue(text, out string? key)) continue;
@@ -87,8 +206,15 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
 
             (byte[] primaries, byte secondary) = Decode(key);
             string bytes = string.Join(", ", primaries.Select(b => $"0x{b:X2}"));
-            if (secondary == 0x02) letters.Add($"(\"{text}\", [{bytes}])");
-            else accented.Add($"(\"{text}\", [{bytes}], 0x{secondary:X2})");
+            string entry = secondary == 0x02
+                ? $"(\"{text}\", [{bytes}])"
+                : $"(\"{text}\", [{bytes}], 0x{secondary:X2})";
+
+            // Beyond Latin Extended-A the General block tables already carry a weight, so only the entries
+            // where the locale DIFFERS need adding — those are what stop a locale sharing those blocks.
+            if (text[0] > (char)0x017F) extended.Add($"{entry}   // U+{(int)text[0]:X4}");
+            else if (secondary == 0x02) letters.Add(entry);
+            else accented.Add(entry);
         }
 
         output.WriteLine($"// --- {fixture} ---");
@@ -96,19 +222,48 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
         foreach (string line in Wrap(letters)) output.WriteLine($"    {line}");
         output.WriteLine($"accented ({accented.Count}):");
         foreach (string line in Wrap(accented)) output.WriteLine($"    {line}");
+        output.WriteLine($"EXTENDED ({extended.Count}) — beyond Latin Extended-A, i.e. what a locale needs on " +
+                         "top of the General block tables:");
+        foreach (string line in extended) output.WriteLine($"    {line}");
     }
 
-    /// <summary>Printable ASCII, Latin-1 and Latin Extended-A — the range these orders tailor. The C1
-    /// controls are skipped: ACE treats them as ignorables with an inline record rather than as letters,
-    /// so they are a separate topic and would otherwise fill the report.</summary>
-    private static string[] Characters()
+    /// <summary>The printable characters of a code-point range. Controls are skipped: ACE treats them as
+    /// ignorables with an inline record rather than as letters, so they are a separate topic.</summary>
+    private static string[] Range(int first, int last)
     {
         var characters = new List<string>();
-        for (char c = ' '; c <= 'ſ'; c++)
-            if (c is < '' or > '')
-                characters.Add(c.ToString());
+        for (int c = first; c <= last; c++)
+            if (!char.IsControl((char)c) && !char.IsSurrogate((char)c))
+                characters.Add(((char)c).ToString());
         return [.. characters];
     }
+
+    /// <summary>Whether LibRed already encodes <paramref name="text"/> exactly as ACE did.</summary>
+    private static bool Matches(string text, string expected)
+    {
+        var column = new ColumnDef
+        {
+            Name = "K", Type = JetDataType.Text, Index = 0, Collation = Collation.GeneralLegacy,
+        };
+        try { return Convert.ToHexString(IndexKeyEncoder.Encode([(column, true)], [text])) == expected; }
+        catch (NotSupportedException) { return false; }
+    }
+
+    /// <summary>The A–Z letter a primary weight belongs to, if any — used to recognise an atomic accent or
+    /// an expansion without hard-coding the letter table twice.</summary>
+    private static char? LetterFor(byte primary)
+    {
+        byte[] letters =
+        [
+            0x4A, 0x4C, 0x4D, 0x4F, 0x51, 0x53, 0x55, 0x57, 0x59, 0x5B, 0x5C, 0x5E, 0x60,
+            0x62, 0x64, 0x66, 0x68, 0x69, 0x6B, 0x6D, 0x6F, 0x71, 0x73, 0x75, 0x76, 0x78,
+        ];
+        int index = Array.IndexOf(letters, primary);
+        return index < 0 ? null : (char)('A' + index);
+    }
+
+    private static string Escape(char c) =>
+        c is >= ' ' and <= '~' && c != '\'' && c != '\\' ? c.ToString() : $"\\u{(int)c:X4}";
 
     /// <summary>Splits an index key into its primary bytes and its single secondary weight (the default
     /// <c>0x02</c> when the section is empty). Reads from the end: the key is
@@ -122,13 +277,6 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
         byte[] primaries = key[1..split];
         byte secondary = end - split == 1 ? (byte)0x02 : key[split + 1];
         return (primaries, secondary);
-    }
-
-    private static bool Encodable(string text, Collation collation)
-    {
-        var column = new ColumnDef { Name = "K", Type = JetDataType.Text, Index = 0, Collation = collation };
-        try { IndexKeyEncoder.Encode([(column, true)], [text]); return true; }
-        catch (NotSupportedException) { return false; }
     }
 
     private static IEnumerable<string> Wrap(List<string> entries)

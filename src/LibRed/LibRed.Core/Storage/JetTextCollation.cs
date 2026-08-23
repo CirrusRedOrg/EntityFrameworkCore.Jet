@@ -29,6 +29,39 @@ internal static class JetTextCollation
     private const byte ApostropheCode = 0x80;
     private const byte HyphenCode = 0x82;
     private const byte SoftHyphenCode = 0x83;
+
+    /// <summary>
+    /// The word-sort <b>ignorables</b> and their inline codes. These add no primary weight at all; each
+    /// appends a <c>80 &lt;pos&gt; 06 &lt;code&gt;</c> record to the trailing section instead, which is what
+    /// keeps <c>coop</c> and <c>co-op</c> together. Every dash, the Arabic harakat and the fullwidth
+    /// apostrophe and hyphen are treated the same way — the fullwidth pair share their ASCII counterparts'
+    /// codes exactly.
+    /// </summary>
+    /// <remarks>Written as code points rather than literals: several of these are invisible or are the very
+    /// characters an editor normalises, and a wrong one here is a silently wrong key.</remarks>
+    private static readonly Dictionary<char, byte> Ignorables = new()
+    {
+        [(char)0x0027] = ApostropheCode,   // '
+        [(char)0xFF07] = ApostropheCode,   // fullwidth '
+        [(char)0x002D] = HyphenCode,       // -
+        [(char)0xFF0D] = HyphenCode,       // fullwidth -
+        [(char)0x00AD] = SoftHyphenCode,   // soft hyphen
+        [(char)0x2010] = 0x84,             // hyphen
+        [(char)0x2011] = 0x85,             // non-breaking hyphen
+        [(char)0x2027] = 0x86,             // hyphenation point
+        [(char)0x2043] = 0x87,             // hyphen bullet
+        [(char)0x2012] = 0x88,             // figure dash
+        [(char)0x2013] = 0x89,             // en dash
+        [(char)0x2014] = 0x8B,             // em dash
+        [(char)0x2015] = 0x8C,             // horizontal bar
+        [(char)0x064B] = 0xA0,             // Arabic fathatan
+        [(char)0x064C] = 0xA1,             // dammatan
+        [(char)0x064D] = 0xA2,             // kasratan
+        [(char)0x064E] = 0xA3,             // fatha
+        [(char)0x064F] = 0xA4,             // damma
+        [(char)0x0650] = 0xA5,             // kasra
+        [(char)0x0652] = 0xA6,             // sukun
+    };
     private const byte DefaultSecondary = 0x02; // a character with no accent
 
     // Secondary (diacritic) weight per Unicode combining mark — depends only on the accent, not the base
@@ -137,6 +170,35 @@ internal static class JetTextCollation
     };
 
     /// <summary>
+    /// Ligature characters, which ACE weighs as their decomposition rather than as anything of their own —
+    /// <c>Ǆ</c> encodes exactly as the string <c>DŽ</c>, and <c>Ǣ</c> exactly as <c>ĀĒ</c>, so its macron
+    /// lands on both letters and the key carries two secondary slots. Keyed by the UPPERCASE form, which is
+    /// what case folding leaves; the title-case and lower-case forms encode identically.
+    /// </summary>
+    /// <remarks>Written as code points rather than literals: these are exactly the characters an editor or a
+    /// tool is liable to normalise into something else, and a wrong one here is a silently wrong key.</remarks>
+    private static readonly Dictionary<char, string> Ligatures = BuildLigatures();
+
+    private static Dictionary<char, string> BuildLigatures()
+    {
+        var ligatures = new Dictionary<char, string>();
+        void Add(int ligature, params int[] components)
+        {
+            string decomposition = new([.. components.Select(component => (char)component)]);
+            // The upper/title/lower trio all fold to the same key, so all three map to the same components.
+            for (int form = ligature; form < ligature + 3; form++) ligatures[(char)form] = decomposition;
+        }
+
+        Add(0x01C4, 0x0044, 0x017D);   // Ǆ ǅ ǆ  = D Ž
+        Add(0x01C7, 0x004C, 0x004A);   // Ǉ ǈ ǉ  = L J
+        Add(0x01CA, 0x004E, 0x004A);   // Ǌ ǋ ǌ  = N J
+        Add(0x01F1, 0x0044, 0x005A);   // Ǳ ǲ ǳ  = D Z
+        ligatures[(char)0x01E2] = new([(char)0x0100, (char)0x0112]);   // Ǣ = Ā Ē (macron on both)
+        ligatures[(char)0x01FC] = new([(char)0x00C1, (char)0x00C9]);   // Ǽ = Á É (acute on both)
+        return ligatures;
+    }
+
+    /// <summary>
     /// Appends the order-preserving collation key body for <paramref name="value"/> (everything
     /// after the start flag: primary weights, end-of-primary marker, any ignorable-char inline
     /// codes, and the terminator). Trailing spaces are dropped. Returns false if any character is
@@ -162,9 +224,11 @@ internal static class JetTextCollation
         {
             char c = s[position];
             char u = char.ToUpperInvariant(c);
-            if (u == '\'') { inline.Add((primaries.Count, ApostropheCode)); continue; }
-            if (u == '-') { inline.Add((primaries.Count, HyphenCode)); continue; }
-            if (u == '­') { inline.Add((primaries.Count, SoftHyphenCode)); continue; }   // soft hyphen
+            if (Ignorables.TryGetValue(c, out byte code))
+            {
+                inline.Add((primaries.Count, code));
+                continue;
+            }
 
             // A locale tailoring overrides everything below it.
             if (tailoring is not null &&
@@ -174,19 +238,18 @@ internal static class JetTextCollation
                     AddWeight(tailored.Primaries, tailored.Secondary);
                 position += consumed - 1;
             }
-            else if (ExtraLetters.TryGetValue(c, out TailoredWeight own) ||
-                     ExtraLetters.TryGetValue(u, out own))
-                AddWeight(own.Primaries, own.Secondary);
-            else if (u is >= 'A' and <= 'Z')
-                Add(Letters[u - 'A']);
-            else if (u is >= '0' and <= '9')
-                Add((byte)(0x36 + 2 * (u - '0')));
-            // Look the symbol up by the original character as well as the uppercased one: uppercasing is for
-            // letters, and it corrupts some symbols — char.ToUpperInvariant('µ') is GREEK CAPITAL LETTER MU,
-            // which is not what ACE weighs it as (ACE gives it a symbol weight in the 0x34 group).
-            else if (Symbols.TryGetValue(c, out byte[]? weights) || Symbols.TryGetValue(u, out weights))
-                AddWeight(weights, DefaultSecondary);
-            else if (!TryAddAccented(u, Add))
+            // A ligature character weighs as its decomposition, one component at a time — ACE stores Ǆ
+            // exactly as it stores the string "DŽ", and Ǣ exactly as "ĀĒ" (A and E each carrying the macron,
+            // hence two secondary slots). The components are weighed INDIVIDUALLY, never re-entering the
+            // contraction matcher: expand Ǳ in a Hungarian database and its "dz" digraph would otherwise
+            // fire, giving 50 03 where ACE stores 4F 78. And this sits below the tailoring, because some
+            // locales do not decompose at all — Icelandic's Ǣ is its own Æ plus a secondary.
+            else if (Ligatures.TryGetValue(u, out string? components))
+            {
+                foreach (char component in components)
+                    if (!WeighCharacter(component)) return false;
+            }
+            else if (!WeighCharacter(c))
                 return false; // not handled yet
         }
 
@@ -215,6 +278,49 @@ internal static class JetTextCollation
         }
         output.Add(EndKey);
         return true;
+
+        // One character's weights, with no contraction and no tailoring: the path a ligature's components
+        // take, and the tail of the ordinary path once a tailoring has declined the character.
+        bool WeighCharacter(char character)
+        {
+            char upper = char.ToUpperInvariant(character);
+            // The locale still applies to a single character — only the contraction matcher is bypassed.
+            // A ligature's components take the locale's letters: Slovenian's Ǆ is D plus SLOVENIAN's ž.
+            if (tailoring is not null &&
+                (tailoring.Entries.TryGetValue(character.ToString(), out TailoredWeight tailoredOne) ||
+                 tailoring.Entries.TryGetValue(upper.ToString(), out tailoredOne)))
+                AddWeight(tailoredOne.Primaries, tailoredOne.Secondary);
+            else if (ExtraLetters.TryGetValue(character, out TailoredWeight own) ||
+                     ExtraLetters.TryGetValue(upper, out own))
+                AddWeight(own.Primaries, own.Secondary);
+            else if (upper is >= 'A' and <= 'Z')
+                Add(Letters[upper - 'A']);
+            else if (upper is >= '0' and <= '9')
+                Add((byte)(0x36 + 2 * (upper - '0')));
+            // Look the symbol up by the original character as well as the uppercased one: uppercasing is for
+            // letters, and it corrupts some symbols — char.ToUpperInvariant('µ') is GREEK CAPITAL LETTER MU,
+            // which is not what ACE weighs it as (ACE gives it a symbol weight in the 0x34 group).
+            else if (Symbols.TryGetValue(character, out byte[]? weights) || Symbols.TryGetValue(upper, out weights))
+                AddWeight(weights, DefaultSecondary);
+            // The measured block tables for Greek, Cyrillic, the Latin extensions, punctuation and the rest.
+            // They cover no character the hand-verified Latin-1 / Latin Extended-A tables do, so they cannot
+            // override anything already proven — but they DO take precedence over the decomposition below,
+            // which is guesswork by comparison: a measured weight beats a derived one. A null weight means
+            // ACE stores nothing at all for the character, not even a secondary slot.
+            //
+            // Locales share them. A locale CAN reweigh a character in these blocks, but measuring all 21
+            // against General showed the departures are tiny — most add one or two entries across the whole
+            // range, Croatian eleven — and every one of them is listed in its tailoring, which is consulted
+            // first. `LocaleCollationAccessTests` asserts the whole range for every locale, so a missed
+            // departure fails rather than writing a silently wrong key.
+            else if (JetTextCollationBlocks.TryGet(character, out TailoredWeight? block))
+            {
+                if (block is { } weight) AddWeight(weight.Primaries, weight.Secondary);
+            }
+            else if (!TryAddAccented(upper, Add))
+                return false;
+            return true;
+        }
 
         void Add(byte primary, byte secondary = DefaultSecondary)
         {

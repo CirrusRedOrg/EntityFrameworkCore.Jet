@@ -28,6 +28,8 @@ public class LocaleCollationAccessTests(ITestOutputHelper output)
         // Single-character locales.
         "Estonian", "Icelandic", "Latvian", "Lithuanian", "Slovenian", "SwedishFinnish",
         "Slovak", "Vietnamese", "HungarianTechnical",
+        // Cyrillic orders, encodable once General v0 carried the Cyrillic block.
+        "Ukrainian", "Macedonian",
     ];
 
     [Theory]
@@ -37,7 +39,11 @@ public class LocaleCollationAccessTests(ITestOutputHelper output)
         string source = TestDatabases.Data($"{fixture}.accdb");
         Assert.SkipWhen(!File.Exists(source), $"{fixture}.accdb is not present");
 
-        string[] samples = Samples();
+        // The extended blocks are measured for version-0 orders only; the version-1 encoder is a separate
+        // table with its own coverage, so a v1 fixture is asserted over the range it was verified in.
+        byte version;
+        using (var probe = JetDatabase.Open(source)) version = probe.DefaultCollationVersion;
+        string[] samples = Samples(extendedBlocks: version != Collation.GeneralVersion);
         string path = TemporaryDatabase.CopyPath(source, $"conformance-{fixture.ToLowerInvariant()}-");
         try
         {
@@ -83,11 +89,25 @@ public class LocaleCollationAccessTests(ITestOutputHelper output)
 
     /// <summary>Printable ASCII, all of Latin-1 and Latin Extended-A, and a few words — so a tailoring is
     /// tested well beyond the handful of characters it actually overrides.</summary>
-    private static string[] Samples()
+    private static string[] Samples(bool extendedBlocks)
     {
         var samples = new List<string>();
         for (char c = ' '; c <= '~'; c++) samples.Add(c.ToString());
         for (char c = ' '; c <= 'ſ'; c++) samples.Add(c.ToString());
+        // Every further block JetTextCollationBlocks covers — Greek, Cyrillic, Hebrew, Arabic, the Latin
+        // extensions, punctuation, currency and the fullwidth forms — so the whole measured range stays
+        // guarded rather than only the range a tailoring happens to mention.
+        (int First, int Last)[] blocks =
+        [
+            (0x0180, 0x024F), (0x02B0, 0x02FF), (0x0370, 0x052F), (0x0590, 0x06FF),
+            (0x1E00, 0x1EFF), (0x2000, 0x206F), (0x20A0, 0x20BF), (0x2100, 0x218F), (0xFF01, 0xFF65),
+        ];
+        if (extendedBlocks)
+            foreach ((int first, int last) in blocks)
+                for (int c = first; c <= last; c++)
+                    if (!char.IsControl((char)c) && !char.IsSurrogate((char)c))
+                        samples.Add(((char)c).ToString());
+
         samples.AddRange([
             "apple", "Apple", "APPLE", "cafe", "café", "Ångström", "O'Brien", "Anne-Marie", "co-op", "coop",
             "Łódź", "Kraków", "İstanbul", "Isparta", "ırmak", "Ğğ", "München", "Grüße", "Bär", "Baer",

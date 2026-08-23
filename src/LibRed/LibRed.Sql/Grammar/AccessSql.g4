@@ -215,8 +215,13 @@ queryTerm
 setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 
 // The FROM clause is optional: ACE accepts a bare `SELECT 2` (verified) — a FROM-less SELECT yields one row.
+//
+// INTO makes it a MAKE-TABLE query: the rows go into a new table rather than back to the caller.
+//   SELECT field1[, field2[, …]] INTO newtable [IN externaldatabase] FROM source
+// The IN externaldatabase clause is deliberately absent, as it is on INSERT — creating a table in another
+// file is part of the linked-database subsystem LibRed does not have.
 selectStatement
-    : SELECT predicate=selectPredicate? topClause? selectList fromClause? whereClause? groupByClause? havingClause? orderByClause?
+    : SELECT predicate=selectPredicate? topClause? selectList (INTO into=identifier)? fromClause? whereClause? groupByClause? havingClause? orderByClause?
     ;
 
 // The optional row predicate. ALL is the default (return every row); DISTINCT dedupes on the output

@@ -48,13 +48,18 @@ public sealed class QueryEngine
     /// publish as one unit. Anything not provably read-only takes the exclusive scope — a shared scope that
     /// then writes is rejected, not silently upgraded.</summary>
     private T Scoped<T>(SqlStatement statement, Func<T> action) =>
-        statement is SelectStatement or SetOperationStatement or SystemVariableSelectStatement
+        // A SELECT with INTO is a make-table query: it looks like a read and writes a table, so it takes the
+        // exclusive scope with the other writers. The guard above caught this rather than letting it through.
+        statement is SelectStatement { Into: null } or SetOperationStatement or SystemVariableSelectStatement
             ? _database.ReadConsistent(action)
             : _database.WriteExclusive(action);
 
     private ResultSet ExecuteQueryCore(SqlStatement parsed, IReadOnlyDictionary<string, object?>? parameters)
     {
         if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters).Rows;
+        // A make-table query is an action query however it was invoked: run it and return nothing, rather
+        // than handing the caller the rows it just wrote into a table.
+        if (parsed is SelectStatement { Into: not null }) return Route(parsed, parameters).Rows;
         SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog.Views, _parser);
         BoundStatement bound = _binder.Bind(ast);
         if (bound.Statement is TransactionControlStatement txnControl)
@@ -128,6 +133,11 @@ public sealed class QueryEngine
                     new QueryExecutor(_database, parameters, _session).ExecuteSystemVariableSelect(sysSelect), -1);
             case IfThenStatement ifThen:
                 return ExecuteIfThen(ifThen, parameters);
+            // A make-table query looks like a SELECT but IS an action query: it writes a table and returns no
+            // rows, so it belongs below with the writing statements — inside the implicit transaction, so a
+            // failure part-way cannot leave a half-populated table behind.
+            case SelectStatement { Into: not null }:
+                return ExecuteWritingStatement(statement, parameters);
             case SelectStatement or SetOperationStatement:
                 return new CommandResult(
                     new QueryExecutor(_database, parameters, _session).ExecuteQuery(PlanWithIndexes(new BoundStatement(statement))), -1);

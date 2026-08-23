@@ -30,6 +30,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         DropTableStatement dropTable => DropTable(dropTable.Table),
         DropViewStatement dropView => DropQueryObject(dropView.View, "view"),
         DropProcedureStatement dropProc => DropQueryObject(dropProc.Procedure, "procedure"),
+        SelectStatement { Into: not null } makeTable => ExecuteSelectInto(makeTable),
         InsertStatement insert => ExecuteInsert(insert),
         UpdateStatement update => ExecuteUpdate(update),
         DeleteStatement delete => ExecuteDelete(delete),
@@ -617,6 +618,110 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         Parameters: null,
         OrderBy: d.OrderBy.Select(o => new ViewOrderBySpec(o.Expression, o.Descending)).ToList(),
         Top: d.Top);
+
+    /// <summary>
+    /// A make-table query: <c>SELECT … INTO newtable FROM source</c>.
+    /// </summary>
+    /// <remarks>
+    /// The new table takes the result's column names and types and NOTHING else. Measured against ACE
+    /// (<c>SelectIntoShapeProbeTest</c>): a source's PRIMARY KEY and indexes are not copied, so archiving a
+    /// keyed table gives an unkeyed copy. An expression column is typed from the expression rather than from
+    /// any source column — <c>Qty * 2</c> gives Int32, a concatenation gives Text at the 255-character
+    /// maximum, and <c>SUM</c> widens to Double. An empty result still creates the table. An existing name is
+    /// an error, which the docs call "a trappable error" and ACE reports as "Table 'X' already exists".
+    /// </remarks>
+    private int ExecuteSelectInto(SelectStatement statement)
+    {
+        string target = statement.Into!;
+        if (_database.Catalog.Tables.Any(t => string.Equals(t.Name, target, StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException($"Table '{target}' already exists.");
+
+        // Run the query first — with INTO stripped, or planning would recurse back into this method — and
+        // materialise it. The rows have to exist before the table does: the source may read a table this
+        // statement is about to change, and the row count is not known until the read completes.
+        ResultSet source = _scalarRunner.ExecuteQuery(Planning.IndexSelection.Apply(
+            Planning.QueryPlanner.PlanSelect(statement with { Into = null }), _database.Catalog));
+        var rows = source.Rows.ToList();
+
+        // A result column that IS a source column keeps that column's DEFINITION — its type and its declared
+        // width. Only a computed column is typed from its value. Measured: a source Text(30) arrives as
+        // Text(60) bytes, not the Text(510) maximum, while a concatenation does get the maximum because
+        // there is no declared width to copy.
+        var sourceColumns = SourceColumnsFor(statement);
+        var specs = source.ColumnNames
+            .Select((name, i) => sourceColumns.TryGetValue(name, out ColumnDef? column)
+                ? new ColumnSpec(name, column.Type, column.Length, column.IsFixedLength,
+                                 Precision: column.Precision, Scale: column.Scale)
+                : ColumnSpecFor(name, source.ColumnTypes[i]))
+            .ToList();
+        _database.CreateTable(target, specs);
+
+        Table table = _database.OpenTable(target);
+        foreach (object?[] row in rows)
+        {
+            var values = new object?[specs.Count];
+            Array.Copy(row, values, Math.Min(row.Length, values.Length));
+            table.Insert(values);
+        }
+
+        if (_session is not null) _session.RowCount = rows.Count;
+        return rows.Count;
+    }
+
+    /// <summary>
+    /// The source columns a make-table's output names can be copied from, by output name.
+    /// </summary>
+    /// <remarks>
+    /// Only projections that ARE a column carry a definition to copy: <c>SELECT Label</c> and
+    /// <c>SELECT Label AS L</c> do, <c>SELECT Label &amp; '!'</c> does not. <c>SELECT *</c> takes every
+    /// column of every table in the FROM. Anything not found here falls back to typing from the value.
+    /// </remarks>
+    private Dictionary<string, ColumnDef> SourceColumnsFor(SelectStatement statement)
+    {
+        var available = new Dictionary<string, ColumnDef>(StringComparer.OrdinalIgnoreCase);
+        foreach (string table in TablesIn(statement.From))
+            if (_database.Catalog.Tables.FirstOrDefault(
+                    t => string.Equals(t.Name, table, StringComparison.OrdinalIgnoreCase)) is { } def)
+                foreach (ColumnDef column in def.Columns)
+                    available.TryAdd(column.Name, column);
+
+        if (statement.IsSelectStar) return available;
+
+        var byOutputName = new Dictionary<string, ColumnDef>(StringComparer.OrdinalIgnoreCase);
+        foreach (SelectItem item in statement.Projection)
+            if (item.Value is ColumnReference reference &&
+                available.TryGetValue(reference.Column, out ColumnDef? column))
+                byOutputName.TryAdd(item.Alias ?? reference.Column, column);
+        return byOutputName;
+    }
+
+    /// <summary>The table names a FROM clause reaches, so their column definitions can be found.</summary>
+    private static IEnumerable<string> TablesIn(TableReference? from) => from switch
+    {
+        NamedTable named => [named.Name],
+        JoinTable join => [.. TablesIn(join.Left), .. TablesIn(join.Right)],
+        // A derived table has no stored column definitions to copy, so its columns fall back to being typed
+        // from their values — as a computed column does.
+        _ => [],
+    };
+
+    /// <summary>The column a COMPUTED result column becomes. Text takes the 255-character maximum, because an
+    /// expression carries no declared width — ACE gives a concatenation Text(255) rather than measuring the
+    /// values it produced.</summary>
+    private static ColumnSpec ColumnSpecFor(string name, Type clrType) => Type.GetTypeCode(clrType) switch
+    {
+        TypeCode.Boolean => new ColumnSpec(name, JetDataType.Boolean, 1, IsFixedLength: true),
+        TypeCode.Byte => new ColumnSpec(name, JetDataType.Byte, 1, IsFixedLength: true),
+        TypeCode.Int16 => new ColumnSpec(name, JetDataType.Int16, 2, IsFixedLength: true),
+        TypeCode.Int32 => new ColumnSpec(name, JetDataType.Int32, 4, IsFixedLength: true),
+        TypeCode.Single => new ColumnSpec(name, JetDataType.Single, 4, IsFixedLength: true),
+        TypeCode.Double => new ColumnSpec(name, JetDataType.Double, 8, IsFixedLength: true),
+        TypeCode.Decimal => new ColumnSpec(name, JetDataType.Currency, 8, IsFixedLength: true),
+        TypeCode.DateTime => new ColumnSpec(name, JetDataType.DateTime, 8, IsFixedLength: true),
+        _ when clrType == typeof(Guid) => new ColumnSpec(name, JetDataType.Guid, 16, IsFixedLength: true),
+        _ when clrType == typeof(byte[]) => new ColumnSpec(name, JetDataType.Binary, 255, IsFixedLength: false),
+        _ => new ColumnSpec(name, JetDataType.Text, 255 * 2, IsFixedLength: false),
+    };
 
     private int ExecuteInsert(InsertStatement statement)
     {

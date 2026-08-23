@@ -27,7 +27,18 @@ public sealed record SelectStatement(
     // DISTINCTROW: dedupe on the underlying rows of the output-contributing tables (Access-specific).
     bool DistinctRow = false,
     // TOP n PERCENT: Top is a percentage (0–100) of the row count rather than an absolute count.
-    bool TopPercent = false) : SqlStatement;
+    bool TopPercent = false,
+    /// <summary>
+    /// The <c>INTO newtable</c> of a MAKE-TABLE query: the rows are written to a new table of that name
+    /// rather than returned. Null for an ordinary SELECT.
+    /// </summary>
+    /// <remarks>
+    /// The new table takes the result's column names and types and nothing else. Measured against ACE: the
+    /// source's PRIMARY KEY and indexes are NOT copied, an expression column is typed from the expression
+    /// (<c>Qty * 2</c> gives Int32, a concatenation gives Text(255)), <c>SUM</c> widens to Double, an empty
+    /// result still creates the table, and an existing name is an error ("Table 'X' already exists").
+    /// </remarks>
+    string? Into = null) : SqlStatement;
 
 /// <summary><c>EXECUTE|EXEC procedure [arg, …]</c> — invokes a stored procedure/query by name, passing
 /// positional argument values that bind to its declared parameters (in declaration order).</summary>

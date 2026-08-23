@@ -647,7 +647,8 @@ internal sealed class AstBuilder
         return new SelectStatement(projection, star, from, where, groupBy, having, orderBy, top,
             Distinct: predicate?.DISTINCT() is not null,
             DistinctRow: predicate?.DISTINCTROW() is not null,
-            TopPercent: topPercent);
+            TopPercent: topPercent,
+            Into: ctx.into is null ? null : Identifier(ctx.into));
     }
 
     /// <summary>The TOP count expression: a single operand, or a left-associative +/- chain of them (each

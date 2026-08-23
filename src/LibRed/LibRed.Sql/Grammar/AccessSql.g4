@@ -184,12 +184,22 @@ referentialAction
     | SET DEFAULT   # SetDefaultAction
     ;
 
-// INSERT … VALUES (…), or `INSERT INTO t DEFAULT VALUES` — the latter (EF Core emits it for an all-store-
-// -generated/all-default row) inserts one row taking every column's default / AutoNumber.
+// Access's two append-query forms:
+//   single-record    INSERT INTO target [(field, …)] VALUES (value, …)
+//   multiple-record  INSERT INTO target [(field, …)] SELECT [source.]field, … FROM tableexpression
+// plus `INSERT INTO t DEFAULT VALUES` — EF Core emits that for an all-store-generated/all-default row, and
+// it inserts one row taking every column's default / AutoNumber.
+//
+// The IN externaldatabase clause both forms allow is deliberately absent: appending into another file is
+// part of the linked/external-database subsystem, which LibRed neither reads nor writes.
+//
+// The multiple-record source is a queryExpression rather than a bare selectStatement, so a UNION can feed an
+// append — the shape EF emits from a Concat — which is a superset of what Access documents.
 insertStatement
     : INSERT INTO table=identifier
       ( (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)?
-        VALUES LPAREN expression (COMMA expression)* RPAREN
+        ( VALUES LPAREN expression (COMMA expression)* RPAREN
+        | source=queryExpression )
       | DEFAULT VALUES )
     ;
 

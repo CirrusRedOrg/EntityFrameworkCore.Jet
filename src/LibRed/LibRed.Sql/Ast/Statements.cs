@@ -55,14 +55,28 @@ public sealed record SetOperationStatement(
     SetOperator Operator,
     SqlStatement Right) : SqlStatement;
 
-/// <summary>An INSERT. <paramref name="DefaultValues"/> is the <c>DEFAULT VALUES</c> form (no column or
-/// value list): a single row where every column takes its default / AutoNumber; <paramref name="Columns"/>
-/// is empty and <paramref name="Rows"/> holds one empty row.</summary>
+/// <summary>
+/// An INSERT — Access's two append-query forms.
+/// </summary>
+/// <param name="Rows">
+/// The <b>single-record</b> form's values, <c>INSERT INTO t (…) VALUES (…)</c>. Empty when
+/// <paramref name="Source"/> is set.
+/// </param>
+/// <param name="Source">
+/// The <b>multiple-record</b> form's query, <c>INSERT INTO t (…) SELECT … FROM …</c>. Null for the
+/// single-record form. Access documents the source as a SELECT; a full query expression is accepted here so
+/// a UNION can feed an append, which is the shape EF emits from a Concat.
+/// </param>
+/// <param name="DefaultValues">
+/// The <c>DEFAULT VALUES</c> form (no column or value list): a single row where every column takes its
+/// default / AutoNumber. <paramref name="Columns"/> is empty and <paramref name="Rows"/> holds one empty row.
+/// </param>
 public sealed record InsertStatement(
     string Table,
     IReadOnlyList<string> Columns,
     IReadOnlyList<IReadOnlyList<Expression>> Rows,
-    bool DefaultValues = false) : SqlStatement;
+    bool DefaultValues = false,
+    SqlStatement? Source = null) : SqlStatement;
 
 /// <summary>A column in a CREATE TABLE: its declared SQL type, optional size/scale, constraints, and the
 /// raw text of an optional DEFAULT value expression (stored as the column's DefaultValue property).</summary>

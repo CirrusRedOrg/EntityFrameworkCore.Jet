@@ -392,6 +392,9 @@ internal sealed class AstBuilder
             Rows = ins.Rows
                 .Select(r => (IReadOnlyList<Expression>)r.Select(e => LowerExpr(e, names)).ToList())
                 .ToList(),
+            // The multiple-record form's source is a query in its own right, so a declared parameter can
+            // appear in its WHERE just as it can in a VALUES list.
+            Source = ins.Source is null ? null : LowerParameters(ins.Source, names),
         },
         _ => s,
     };
@@ -552,6 +555,11 @@ internal sealed class AstBuilder
             return new InsertStatement(table, [], [(IReadOnlyList<Expression>)[]], DefaultValues: true);
 
         var columns = ctx._columns.Select(Identifier).ToList();
+
+        // The multiple-record form: the rows come from a query rather than a VALUES list.
+        if (ctx.source is not null)
+            return new InsertStatement(table, columns, [], Source: BuildQueryExpression(ctx.source));
+
         var values = ctx.expression().Select(BuildExpression).ToList();
         return new InsertStatement(table, columns, [values]);
     }

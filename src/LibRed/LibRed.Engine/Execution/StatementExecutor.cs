@@ -649,11 +649,14 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         int affected = 0;
         object? lastIdentity = null;
-        foreach (IReadOnlyList<Expression> rowExprs in statement.Rows)
+
+        // One row, given the values already in target order — the two append forms differ only in where
+        // those come from: evaluated VALUES expressions, or a row of the source query's output.
+        void InsertRow(ReadOnlySpan<object?> supplied)
         {
-            if (rowExprs.Count != targets.Count)
+            if (supplied.Length != targets.Count)
                 throw new InvalidOperationException(
-                    $"INSERT has {rowExprs.Count} values but {targets.Count} target columns.");
+                    $"INSERT has {supplied.Length} values but {targets.Count} target columns.");
 
             var values = new object?[columns.Count];
             var provided = new HashSet<int>();
@@ -661,7 +664,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             {
                 ColumnDef column = table.Definition.FindColumn(targets[i])
                     ?? throw new InvalidOperationException($"Column '{targets[i]}' does not exist in '{statement.Table}'.");
-                values[column.Index] = evaluator.Evaluate(rowExprs[i]);
+                values[column.Index] = supplied[i];
                 provided.Add(column.Index);
             }
 
@@ -677,6 +680,40 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             if (autoNumber is not null)
                 lastIdentity = values[autoNumber.Index];
             affected++;
+        }
+
+        if (statement.Source is not null)
+        {
+            // The multiple-record form. The source is MATERIALISED before a single row is written: appending
+            // a table to itself otherwise feeds its own output back into the scan and never terminates.
+            // Access's INSERT INTO t SELECT * FROM t doubles the table and stops, so the read completes
+            // before the write begins.
+            ResultSet source = _scalarRunner.ExecuteQuery(
+                Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(statement.Source), _database.Catalog));
+            var rows = source.Rows.ToList();
+
+            // With no column list the source's output NAMES choose the target columns — ACE resolves by name,
+            // not by position. Measured, because the two only disagree when they disagree silently:
+            //   INSERT INTO PDst SELECT B AS Name, A AS Id FROM PSrc
+            // stores Id=7, Name='seven' — the values routed by their aliases, not by the order they appear
+            // in. Positionally that would have put 'seven' in Id. ACE rejects a name the target lacks
+            // ("unknown field name: 'A'"), including through SELECT *, and FindColumn below does the same.
+            //
+            // An explicit column list is the other rule entirely: it names the targets and the source's
+            // values map positionally onto IT, whatever the source calls them.
+            if (statement.Columns.Count == 0)
+                targets = source.ColumnNames;
+
+            foreach (object?[] row in rows) InsertRow(row);
+        }
+        else
+        {
+            foreach (IReadOnlyList<Expression> rowExprs in statement.Rows)
+            {
+                var supplied = new object?[rowExprs.Count];
+                for (int i = 0; i < rowExprs.Count; i++) supplied[i] = evaluator.Evaluate(rowExprs[i]);
+                InsertRow(supplied);
+            }
         }
 
         // Publish @@ROWCOUNT (rows this insert affected) and @@IDENTITY (the last AutoNumber generated) so a

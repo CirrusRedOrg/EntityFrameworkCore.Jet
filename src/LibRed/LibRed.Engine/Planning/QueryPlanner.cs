@@ -15,7 +15,9 @@ public sealed class QueryPlanner
         return PlanStatement(bound.Statement);
     }
 
-    private static PlanNode PlanStatement(SqlStatement statement) => statement switch
+    /// <summary>Plans a SELECT or a set operation over SELECTs. Public because an append query's source is
+    /// either — <c>INSERT INTO t SELECT …</c>, or a UNION feeding one.</summary>
+    public static PlanNode PlanStatement(SqlStatement statement) => statement switch
     {
         SelectStatement select => PlanSelect(select),
         SetOperationStatement set => new SetOperationNode(

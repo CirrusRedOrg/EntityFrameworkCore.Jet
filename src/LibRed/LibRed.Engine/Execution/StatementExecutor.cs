@@ -634,7 +634,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         string target = statement.Into!;
         if (_database.Catalog.Tables.Any(t => string.Equals(t.Name, target, StringComparison.OrdinalIgnoreCase)))
-            throw new InvalidOperationException($"Table '{target}' already exists.");
+            throw new SchemaObjectExistsException($"Table '{target}' already exists.", target);
 
         // Run the query first — with INTO stripped, or planning would recurse back into this method — and
         // materialise it. The rows have to exist before the table does: the source may read a table this

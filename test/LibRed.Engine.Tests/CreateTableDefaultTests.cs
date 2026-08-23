@@ -177,11 +177,12 @@ public class CreateTableDefaultTests
             using var db = JetDatabase.Open(path, readOnly: false);
             var e = new QueryEngine(db);
             e.ExecuteNonQuery("CREATE TABLE `Widget` (`Id` INTEGER PRIMARY KEY)");
-            var ex = Assert.Throws<InvalidOperationException>(() =>
+            var ex = Assert.Throws<SchemaObjectExistsException>(() =>
                 e.ExecuteNonQuery("CREATE TABLE `widget` (`Id` INTEGER PRIMARY KEY)")); // different case
             Assert.Contains("already exists", ex.Message);
+            Assert.Equal("widget", ex.ObjectName);
             // An existing Northwind table is also protected.
-            Assert.Throws<InvalidOperationException>(() =>
+            Assert.Throws<SchemaObjectExistsException>(() =>
                 e.ExecuteNonQuery("CREATE TABLE `Shippers` (`Id` INTEGER PRIMARY KEY)"));
         }
         finally { TemporaryDatabase.Delete(path); }

@@ -108,7 +108,7 @@ public class CreateViewTests
         {
             using var db = JetDatabase.Open(path, readOnly: false);
             // Northwind already has a Customers table.
-            Assert.Throws<InvalidOperationException>(() =>
+            Assert.Throws<SchemaObjectExistsException>(() =>
                 new QueryEngine(db).ExecuteNonQuery("CREATE VIEW `Customers` AS SELECT `CustomerID` FROM `Customers`"));
         }
         finally { TemporaryDatabase.Delete(path); }

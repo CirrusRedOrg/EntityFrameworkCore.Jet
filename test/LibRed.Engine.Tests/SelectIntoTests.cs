@@ -96,9 +96,10 @@ public class SelectIntoTests : TempDatabaseTest
         QueryEngine engine = WithSource();
         engine.ExecuteNonQuery("SELECT Id INTO SiNew FROM SiSrc");
 
-        var error = Assert.Throws<InvalidOperationException>(
+        var error = Assert.Throws<SchemaObjectExistsException>(
             () => engine.ExecuteNonQuery("SELECT Id INTO SiNew FROM SiSrc"));
         Assert.Contains("already exists", error.Message);
+        Assert.Equal("SiNew", error.ObjectName);
     }
 
     // An expression column is typed from the expression, since there is no source column to copy.

@@ -58,7 +58,7 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         foreach (object?[] row in new Table(_channel, msysObjects).Rows())
         {
             if (string.Equals(row[nameIndex] as string, name, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException($"An object named '{name}' already exists.");
+                throw new SchemaObjectExistsException($"An object named '{name}' already exists.", name);
             if (row[idIndex] is int id && id < 0 && id >= nextId) nextId = id + 1;
         }
 

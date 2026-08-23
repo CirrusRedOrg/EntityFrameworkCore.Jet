@@ -85,6 +85,15 @@ public sealed class LibRedCommand : DbCommand
                 // unrecognised constraint failure there turns contention into a hard failure.
                 throw new LibRedException(e.Message, LibRedException.DuplicateKey, e);
             }
+            catch (LibRed.SchemaObjectExistsException e)
+            {
+                // Same contract for DDL name collisions. EF Core's migration lock creates its lock table
+                // behind an exists-then-create check that several connections can pass at once, and catches
+                // the losers' "already exists" as DbException. Left untranslated this escapes that guard and
+                // fails the migration outright — ACE raises OleDbException there, so translating is what
+                // makes LibRed behave like the engine it stands in for.
+                throw new LibRedException(e.Message, LibRedException.ObjectAlreadyExists, e);
+            }
         }
 
         return last ?? new Engine.CommandResult(Engine.Execution.ResultSet.Empty, RecordsAffected: 0);

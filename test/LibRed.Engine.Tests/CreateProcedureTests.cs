@@ -227,7 +227,7 @@ public class CreateProcedureTests
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
-            Assert.Throws<InvalidOperationException>(() =>
+            Assert.Throws<SchemaObjectExistsException>(() =>
                 new QueryEngine(db).ExecuteNonQuery("CREATE PROCEDURE `Customers` AS SELECT `CustomerID` FROM `Customers`"));
         }
         finally { TemporaryDatabase.Delete(path); }

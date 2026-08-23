@@ -212,6 +212,25 @@ Then the value, transformed:
 > a 255-character column is enough. The lesson is to measure COMBINATIONS and not only characters: a
 > per-character sweep can be exhaustive — all 63,422 of them — and still miss a whole class of bug.
 >
+> **French is the diacritic section written BACKWARDS — no tailored letter at all.** The same pseudocode has
+> an `IsReverseDW` flag whose rule is: drop the run of default diacritics from the **left** rather than the
+> right, and write what remains **right to left**. Verified against ACE byte for byte:
+>
+> | | diacritics | trimmed | stored |
+> |---|---|---|---|
+> | `coté` | `02 02 02 0E` | `0E` | `01 0E 00` |
+> | `côte` | `02 12 02 02` | `12 02 02` | `01 02 02 12 00` |
+> | `côté` | `02 12 02 0E` | `12 02 0E` | `01 0E 02 12 00` |
+>
+> So French orders by the LAST accent — `cote < côte < coté < côté`, where General gives
+> `cote < coté < côte < côté`. LibRed matches ACE across all of Latin-1 and Latin Extended-A with accents
+> doubled and tripled per string, 1,289 values, zero differences.
+>
+> It sat in the "unclassified, secondary-section tailoring" bucket for a long time, and the reason is worth
+> keeping: a word with ONE accent encodes identically under both orders, and the sample set that measured
+> every locale against General contained no two-accent word. The rule was invisible to the measurement, not
+> absent from it — the same shape of blind spot as the inline position field above.
+>
 > LibRed encodes both: `JetTextCollation` (v0, a measured table) and `JetTextCollationV1` (v1, the published
 > table plus the measured overrides — see `tools/sortkey-table/generate.ps1`), sharing `JetKanaSection`.
 > **Both now cover the whole Basic Multilingual Plane**: 63,422 characters each, every key byte-for-byte

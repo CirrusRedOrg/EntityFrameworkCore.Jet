@@ -332,9 +332,25 @@ internal static class JetTextCollation
 
         // Secondary (diacritic) section: only emitted when a character carries a non-default weight; it lists
         // the secondary weight of every byte from the first up to and including the last accented one.
-        int lastAccent = secondaries.FindLastIndex(w => w != DefaultSecondary);
-        for (int i = 0; i <= lastAccent; i++)
-            output.Add(secondaries[i]);
+        //
+        // A French-style order writes it BACKWARDS, so accents are weighed from the end of the word and coté
+        // sorts before côte. The trimming mirrors too — the run of defaults comes off the LEFT, because that
+        // is the end that becomes trailing once reversed. [MS-UCODEREF] calls the flag IsReverseDW and states
+        // both halves; verified against ACE, where côté is [02 12 02 0E] trimmed to [12 02 0E] and stored
+        // 0E 02 12.
+        if (tailoring?.ReverseDiacritics == true)
+        {
+            int firstAccent = secondaries.FindIndex(w => w != DefaultSecondary);
+            if (firstAccent >= 0)
+                for (int i = secondaries.Count - 1; i >= firstAccent; i--)
+                    output.Add(secondaries[i]);
+        }
+        else
+        {
+            int lastAccent = secondaries.FindLastIndex(w => w != DefaultSecondary);
+            for (int i = 0; i <= lastAccent; i++)
+                output.Add(secondaries[i]);
+        }
 
         hasWordSortRecord = inline.Count > 0;
 

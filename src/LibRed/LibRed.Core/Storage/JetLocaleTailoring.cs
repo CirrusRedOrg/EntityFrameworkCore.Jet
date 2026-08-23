@@ -24,16 +24,37 @@ internal readonly record struct TailoredWeight(byte[] Primaries, byte Secondary)
 /// Czech, Croatian, Spanish and Danish all take the plain greedy match (<c>cch</c> = <c>c</c>+<c>ch</c>).</param>
 internal sealed class LocaleTailoring
 {
-    public LocaleTailoring(IReadOnlyDictionary<string, TailoredWeight> entries, bool doublesDigraphs = false)
+    public LocaleTailoring(
+        IReadOnlyDictionary<string, TailoredWeight> entries,
+        bool doublesDigraphs = false,
+        bool reverseDiacritics = false)
     {
         Entries = entries;
         DoublesDigraphs = doublesDigraphs;
+        ReverseDiacritics = reverseDiacritics;
         MaxLength = entries.Count == 0 ? 0 : entries.Keys.Max(k => k.Length);
     }
 
     public IReadOnlyDictionary<string, TailoredWeight> Entries { get; }
 
     public bool DoublesDigraphs { get; }
+
+    /// <summary>
+    /// Whether the diacritic section is written from the END of the string backwards.
+    /// </summary>
+    /// <remarks>
+    /// French sorts accents from the end of the word, so <c>coté</c> comes before <c>côte</c> where General
+    /// puts them the other way round. [MS-UCODEREF] calls it <c>IsReverseDW</c> and states the whole rule:
+    /// trailing diacritics are dropped from the LEFT rather than the right, and what remains is written right
+    /// to left. Measured against ACE, byte for byte — <c>côté</c> is <c>[02 12 02 0E]</c>, trimmed to
+    /// <c>[12 02 0E]</c> and stored as <c>0E 02 12</c>.
+    /// <para>
+    /// This is the whole of French: not one tailored letter, just a reversed section. It read as
+    /// "unclassified" for a long time because a word with ONE accent encodes identically either way, and the
+    /// sample set that measured every locale against General had no two-accent word in it.
+    /// </para>
+    /// </remarks>
+    public bool ReverseDiacritics { get; }
 
     /// <summary>Longest key in <see cref="Entries"/>, bounding how far a match may look ahead. Derived in the
     /// constructor, so it cannot fall out of step with the entries it describes — as it would if this were a
@@ -110,6 +131,11 @@ internal static class JetLocaleTailoring
         // --- Orders measured to be indistinguishable from General; recorded on disk, but no tailoring. ---
         [new Collation(CollatingOrder.Georgian, 0, SortId: 1)] = Table([]),
         [new Collation(CollatingOrder.Indic, Collation.GeneralVersion)] = Table([]),
+
+        // --- French: not one tailored letter — General with the diacritic section REVERSED. ---
+        // Accents are weighed from the end of the word, so coté sorts before côte where General has it the
+        // other way round. [MS-UCODEREF] names this IsReverseDW; verified against ACE byte for byte.
+        [new Collation(CollatingOrder.French, 0)] = Table([], reverseDiacritics: true),
 
         // --- Spanish Modern: General plus ñ as a letter of its own, between n (0x62) and o (0x64). ---
         [new Collation(CollatingOrder.SpanishModern, 0)] = Table([
@@ -285,13 +311,14 @@ internal static class JetLocaleTailoring
     private static LocaleTailoring Table(
         (string Text, byte[] Primaries)[] letters,
         (string Text, byte[] Primaries, byte Secondary)[]? accented = null,
-        bool doublesDigraphs = false)
+        bool doublesDigraphs = false,
+        bool reverseDiacritics = false)
     {
         var table = new Dictionary<string, TailoredWeight>(StringComparer.Ordinal);
         foreach ((string text, byte[] primaries) in letters)
             table[text] = new TailoredWeight(primaries, DefaultSecondary);
         foreach ((string text, byte[] primaries, byte secondary) in accented ?? [])
             table[text] = new TailoredWeight(primaries, secondary);
-        return new LocaleTailoring(table, doublesDigraphs);
+        return new LocaleTailoring(table, doublesDigraphs, reverseDiacritics);
     }
 }

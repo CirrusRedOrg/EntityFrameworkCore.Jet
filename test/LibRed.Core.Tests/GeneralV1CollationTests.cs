@@ -202,6 +202,24 @@ public class GeneralV1CollationTests
                         Hex(Encode("\U00030000", Collation.General)));
     }
 
+    // The inline word-sort record stores its position as a 16-bit big-endian field with bit 15 set — it is
+    // [MS-UCODEREF]'s SpecialWeightType (Position: 16 bit integer, ScriptMember, PrimaryWeight), not a 0x80
+    // marker followed by one byte. The offset 0x07 + 4 x position passes 0xFF at position 62, and only the
+    // field reading survives that: a hyphen at character 63 is 81 03, at 250 it is 83 EF.
+    //
+    // Both readings agree below 0x100, which is why truncating the position looked right for every short
+    // value and silently produced a wrong key for every longer one.
+    [Theory]
+    [InlineData(10, "802F06")]
+    [InlineData(62, "80FF06")]      // the last position that fits in one byte
+    [InlineData(63, "810306")]      // the first that does not
+    [InlineData(250, "83EF06")]
+    public void An_inline_word_sort_record_stores_a_16_bit_position(int at, string expected)
+    {
+        string value = new string('a', at) + "-" + new string('a', 10);
+        Assert.Contains(expected, Hex(Encode(value, Collation.GeneralLegacy)));
+    }
+
     [Fact]
     public void An_empty_string_encodes_to_an_empty_key()
     {

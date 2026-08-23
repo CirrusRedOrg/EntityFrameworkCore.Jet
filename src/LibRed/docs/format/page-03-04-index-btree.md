@@ -192,9 +192,25 @@ Then the value, transformed:
 >
 > This also explains the framing generally: **script member 6 is the word-sort class**, and the apostrophe's
 > `0x80` and hyphen's `0x82` inline codes are simply their Alphabetic Weights — so the inline record is
-> `80 <pos> <SM> <AW>`, not a bespoke Access encoding. And because the NLS **Case Weight** is the tertiary
-> section this format truncates, case *and* character width fold for free (`Ａ` U+FF21 and `A` share the
-> primary `0E02` and differ only in that discarded weight).
+> `<position:16> <SM> <AW>`, not a bespoke Access encoding. And because the NLS **Case Weight** is the
+> tertiary section this format truncates, case *and* character width fold for free (`Ａ` U+FF21 and `A` share
+> the primary `0E02` and differ only in that discarded weight).
+>
+> **The position is a 16-bit field, big-endian, with bit 15 set** — `0x80` is not a marker byte.
+> [MS-UCODEREF]'s *GetWindowsSortKey* pseudocode states it: `SpecialWeightType` is `(Position: 16 bit
+> integer, ScriptMember, PrimaryWeight)`, emitted as `Byte1 = Position >> 8`, `Byte2 = Position & 0xff`, then
+> the two weights.
+>
+> The two readings agree below `0x100` and diverge above it, and the offset `0x07 + 4 x position` passes
+> `0xFF` at position 62. So a hyphen at character 63 is `81 03`, at 200 `83 27`, at 250 `83 EF` — measured
+> against ACE across positions 10 to 250 under both orders.
+>
+> Worth stating loudly, because it is invisible to the obvious tests. Every single character encodes
+> correctly, every short string encodes correctly, and the field only overflows past character 62 — so
+> reading `0x80` as a marker and truncating the position looked right everywhere anyone had looked, and
+> silently produced a wrong key for any longer value containing an apostrophe or hyphen. A hyphenated name in
+> a 255-character column is enough. The lesson is to measure COMBINATIONS and not only characters: a
+> per-character sweep can be exhaustive — all 63,422 of them — and still miss a whole class of bug.
 >
 > LibRed encodes both: `JetTextCollation` (v0, a measured table) and `JetTextCollationV1` (v1, the published
 > table plus the measured overrides — see `tools/sortkey-table/generate.ps1`), sharing `JetKanaSection`.

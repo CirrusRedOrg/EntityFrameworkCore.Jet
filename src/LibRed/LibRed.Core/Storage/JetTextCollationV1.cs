@@ -299,8 +299,14 @@ internal static class JetTextCollationV1
             }
             foreach ((int position, byte scriptMember, byte alphabetic) in inline)
             {
-                output.Add(InlineStart);
-                output.Add((byte)(0x07 + 4 * position));
+                // [MS-UCODEREF] SpecialWeightType is (Position: 16 bit integer, ScriptMember, PrimaryWeight),
+                // and its Position is emitted big-endian — "Byte1 = Position >> 8, Byte2 = Position & 0xff" —
+                // so this is ONE sixteen-bit field with bit 15 set, not a 0x80 marker followed by a byte. See
+                // JetTextCollation, which had the same bug: it only shows past character 62, where the offset
+                // first exceeds a byte, so every short value looked correct.
+                int position16 = InlineStart << 8 | (0x07 + 4 * position);
+                output.Add((byte)(position16 >> 8));
+                output.Add((byte)position16);
                 output.Add(scriptMember);
                 output.Add(alphabetic);
             }

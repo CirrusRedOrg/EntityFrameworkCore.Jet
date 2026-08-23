@@ -344,8 +344,15 @@ internal static class JetTextCollation
             }
             foreach (var (position, code) in inline)
             {
-                output.Add(InlineStart);
-                output.Add((byte)(0x07 + 4 * position));
+                // [MS-UCODEREF] SpecialWeightType is (Position: 16 bit integer, ScriptMember, PrimaryWeight),
+                // and its Position is emitted big-endian — "Byte1 = Position >> 8, Byte2 = Position & 0xff" —
+                // so this is ONE sixteen-bit field with bit 15 set, not a 0x80 marker followed by a byte.
+                // Both readings give the same bytes below 0x100 and only the field reading survives past it,
+                // which is why treating 0x80 as a marker looked right for every short value and silently
+                // produced a wrong key for anything longer. Measured: a hyphen at character 250 is 83 EF.
+                int position16 = InlineStart << 8 | (0x07 + 4 * position);
+                output.Add((byte)(position16 >> 8));
+                output.Add((byte)position16);
                 output.Add(InlineMid);
                 output.Add(code);
             }

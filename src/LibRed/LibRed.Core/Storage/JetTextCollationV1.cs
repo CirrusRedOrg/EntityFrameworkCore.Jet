@@ -26,26 +26,44 @@ internal static class JetTextCollationV1
     private const byte InlineStart = 0x80;
     private const byte DefaultSecondary = 0x02;
 
-    /// <summary>Script member 6 is Windows' "word sort" class: characters that carry no primary weight but are
-    /// recorded positionally so <c>co-op</c> stays beside <c>coop</c>. The apostrophe and hyphen live here
-    /// (their <c>0x80</c>/<c>0x82</c> inline codes are simply their Alphabetic Weights), which is why exactly
-    /// those two are special — it is the platform's rule, not an Access one.</summary>
+    // The script members below were derived by measuring ACE, and [MS-UCODEREF] "GetWindowsSortKey
+    // Pseudocode" names every one of them. Its constants are UNSORTABLE 0, NONSPACE_MARK 1, EXPANSION 2,
+    // EASTASIA_SPECIAL 3, JAMO_SPECIAL 4, EXTENSION_A 5, PUNCTUATION 6, SYMBOL_1..6 7-12, DIGIT 13, LATIN 14.
+    // Everything at or below MAX_SPECIAL_CASE (11 or 12, by Windows version) goes to its SpecialCaseHandler
+    // rather than being weighed the ordinary way — which is exactly the set of classes needing bespoke
+    // handling here, arrived at one measurement at a time.
+
+    /// <summary>[MS-UCODEREF] <c>PUNCTUATION</c>. Characters that carry no primary weight but are recorded
+    /// positionally so <c>co-op</c> stays beside <c>coop</c>. The apostrophe and hyphen live here (their
+    /// <c>0x80</c>/<c>0x82</c> inline codes are simply their Alphabetic Weights), which is why exactly those
+    /// two are special — it is the platform's rule, not an Access one.</summary>
     private const byte WordSortScriptMember = 6;
 
-    /// <summary>Script member 5 is the Han class — the CJK ideographs, their extensions, the compatibility
+    /// <summary>[MS-UCODEREF] <c>EXTENSION_A</c>. The CJK ideographs, their extensions, the compatibility
     /// forms and the Kangxi radicals. ACE gives every one of them a four-byte primary <c>FD FF AW DW</c> and
-    /// no secondary, rather than the ordinary <c>(SM, AW)</c> primary with <c>DW</c> as a secondary.</summary>
+    /// no secondary, rather than the ordinary <c>(SM, AW)</c> primary with <c>DW</c> as a secondary. The
+    /// specification's own <c>SCRIPT_MEMBER_EXT_A</c> is 254 and Extension B measures as <c>FE</c>, so the
+    /// <c>FD</c> here is a third range and stays as measured.</summary>
     private const byte HanScriptMember = 5;
 
-    /// <summary>Script member 4 is the Hangul jamo. Like Han they put their weights straight into the
+    /// <summary>[MS-UCODEREF] <c>JAMO_SPECIAL</c>. Like Han they put their weights straight into the
     /// primary — <c>(AW, DW)</c>, no secondary — but with no <c>FD FF</c> marker ahead of them. The composed
     /// Hangul syllables are a different class and were always correct.</summary>
     private const byte HangulJamoScriptMember = 4;
 
-    /// <summary>The script member v1's table gives kana, whose <c>(AW, DW)</c> are the sound and its voicing.
-    /// Only reached for the five the measured v0 kana table does not carry — everything else is caught by that
-    /// table first, which additionally knows the small flag and the vowel.</summary>
-    private const byte KanaScriptMember = 3;
+    /// <summary>
+    /// [MS-UCODEREF] <c>EASTASIA_SPECIAL</c> — not "kana", although kana is what reaches it here.
+    /// </summary>
+    /// <remarks>
+    /// The class holds the East Asian characters needing special handling, and the specification gives it two
+    /// reserved primary weights: <c>PW_REPEAT</c> 0 and <c>PW_CHO_ON</c> 1, up to <c>MAX_SPECIAL_PW</c>. That
+    /// names something measured the hard way here — the seven characters ACE gives the unweighted
+    /// <c>FF FF</c> primary are exactly those two. The iteration marks (<c>U+3005</c>, <c>U+309D</c>,
+    /// <c>U+309E</c>, <c>U+3031</c>, <c>U+3032</c>, <c>U+A015</c>) carry <c>PW_REPEAT</c>, and the lone
+    /// prolonged sound mark <c>U+FF70</c> carries <c>PW_CHO_ON</c>. They were treated as an unexplained list
+    /// of exceptions before this; they are one rule.
+    /// </remarks>
+    private const byte EastAsiaSpecialScriptMember = 3;
 
     private static readonly Lazy<WeightTable> Table = new(Load, LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -190,7 +208,7 @@ internal static class JetTextCollationV1
             // KU..SMALL RO run. The vowel is left at zero, because nothing measured covers a prolonged mark
             // following one of these.
             if (table.TryGetWeight(character, out byte member, out byte tableSound, out byte tableVoicing) &&
-                member == KanaScriptMember)
+                member == EastAsiaSpecialScriptMember)
             {
                 bool isSmall = character is (char)0x3095 or (char)0x3096
                                or >= (char)0x31F0 and <= (char)0x31FF;
@@ -292,8 +310,11 @@ internal static class JetTextCollationV1
 
         if (kana.Count > 0) JetKanaSection.Append(output, kana, prolonged);
 
-        // The inline introducer depends on whether a kana section came first: 01 01 01 on its own, but FF 01
-        // after one.
+        // Those three 0x01s are not an "introducer" but three SECTION SEPARATORS. [MS-UCODEREF] gives the key
+        // as primaries SEP diacritics SEP case SEP extra SEP specials TERM, and Access emits the same frame
+        // while leaving the case section EMPTY — which is why case and width fold, since the Case Weight is
+        // where width lives. So the run is: end of diacritics, an empty case section, an empty extra section.
+        // A kana section fills that extra section, and the run shortens accordingly.
         if (inline.Count > 0)
         {
             if (kana.Count > 0)
@@ -309,11 +330,12 @@ internal static class JetTextCollationV1
             }
             foreach ((int position, byte scriptMember, byte alphabetic) in inline)
             {
-                // [MS-UCODEREF] SpecialWeightType is (Position: 16 bit integer, ScriptMember, PrimaryWeight),
-                // and its Position is emitted big-endian — "Byte1 = Position >> 8, Byte2 = Position & 0xff" —
-                // so this is ONE sixteen-bit field with bit 15 set, not a 0x80 marker followed by a byte. See
-                // JetTextCollation, which had the same bug: it only shows past character 62, where the offset
-                // first exceeds a byte, so every short value looked correct.
+                // [MS-UCODEREF] SpecialWeightType is (Position: 16-bit, ScriptMember, PrimaryWeight), and its
+                // Position is emitted big-endian — "Byte1 = Position >> 8, Byte2 = Position & 0xff" — so this
+                // is ONE sixteen-bit field with bit 15 set, not a 0x80 marker followed by a byte. Both
+                // readings give the same bytes below 0x100 and only the field reading survives past it, which
+                // is why treating 0x80 as a marker looked right for every short value and silently produced a
+                // wrong key for anything longer. Measured against ACE: a hyphen at character 250 is 83 EF.
                 int position16 = InlineStart << 8 | (0x07 + 4 * position);
                 output.Add((byte)(position16 >> 8));
                 output.Add((byte)position16);

@@ -231,6 +231,38 @@ Then the value, transformed:
 > every locale against General contained no two-accent word. The rule was invisible to the measurement, not
 > absent from it — the same shape of blind spot as the inline position field above.
 >
+> **And the `01 01 01` before a word-sort record is three SECTION SEPARATORS, not an introducer.** The same
+> pseudocode gives the full frame as
+>
+> ```
+> primaries  01  diacritics  01  case-weights  01  extra-weights  01  special-weights  00
+> ```
+>
+> Access emits that frame with the **case-weight section empty**, which is the mechanism behind something
+> long known here empirically: case and character width fold because width lives in bit 0 of the Case Weight,
+> and Access simply never writes that section. So the run of three is end-of-diacritics, an empty case
+> section, an empty extra section — and it shortens to `FF 01` when a kana section fills the extra slot.
+> `MIN_DW = 2` in the same source is the `0x02` default secondary whose trailing run gets trimmed.
+>
+> Three more things that source settles, or usefully fails to:
+>
+> - **The contraction limit corroborates v0's provenance independently.** It supports only 2- and
+>   3-character contractions on NT4 through Server 2003, and 4- to 8-character ones from Vista. Every v0
+>   tailoring here tops out at three (Hungarian `ggy`) — arrived at by measurement, and matching the
+>   generation the weight-table comparison already identified. Two unrelated routes to the same date.
+> - **The `FD FF` Han primary is NOT the Windows 7 three-byte weight.** That feature emits `SM PW DW` —
+>   *three* bytes, with the diacritic moved into the primary and omitted from its own section — and arrived
+>   in Windows 7 / Server 2008 R2, *after* the table Access froze. Ours is four bytes and is the older
+>   extension-marker shape, alongside `SCRIPT_MEMBER_EXT_A` / `PRIMARY_WEIGHT_EXT_A`. Consistent with the
+>   freeze; the measured bytes stand.
+> - **Access PACKS the East Asia extra weights where Windows does not.** The specification gives one byte per
+>   character per group (`W6`, `W7`, trailing `0xE4` trimmed, `0xFF` between). Access instead packs the kana
+>   flags three to a byte — measured across all thirty combinations up to four kana. So the kana section is a
+>   compacted variant of the documented structure rather than the structure itself.
+>
+> **Nothing in that source covers the 510-byte cap, truncation or the checksum below.** A useful negative:
+> those are Jet/ACE inventions with no Windows counterpart, which is why they had to be measured.
+>
 > LibRed encodes both: `JetTextCollation` (v0, a measured table) and `JetTextCollationV1` (v1, the published
 > table plus the measured overrides — see `tools/sortkey-table/generate.ps1`), sharing `JetKanaSection`.
 > **Both now cover the whole Basic Multilingual Plane**: 63,422 characters each, every key byte-for-byte

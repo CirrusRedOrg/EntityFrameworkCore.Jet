@@ -72,6 +72,11 @@ public sealed class LibRedCommand : DbCommand
         Engine.CommandResult? last = null;
         foreach (string statement in SplitStatements(CommandText))
         {
+            // A fragment holding no statement (only comments) is skipped rather than run: it must not become
+            // the batch's last result, or `INSERT …; -- done` would report the comment's zero rows instead of
+            // the insert's. A batch that is entirely comments falls through to the empty result below.
+            if (engine.IsStatementless(statement)) continue;
+
             try
             {
                 last = engine.Execute(statement, parameters);

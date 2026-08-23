@@ -37,6 +37,10 @@ public sealed class QueryEngine
 
     public ResultSet ExecuteQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
+        // Text with no statement in it (blank, or only comments) has nothing to run and nothing to return.
+        // It takes no page scope at all — there is no work to isolate.
+        if (_parser.IsStatementless(sql)) return ResultSet.Empty;
+
         // Parse outside the gate — it touches no pages, and holding a file-wide scope across it would
         // serialize parsing for no isolation benefit. The parsed shape then picks the scope.
         SqlStatement parsed = _parser.ParseStatement(sql);
@@ -76,6 +80,13 @@ public sealed class QueryEngine
     public int ExecuteNonQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
         => Execute(sql, parameters).RecordsAffected;
 
+    /// <summary>
+    /// True when <paramref name="sql"/> holds no statement — blank, or nothing but comments. The ADO batch
+    /// splitter uses this to drop such a fragment instead of running it, so a trailing <c>-- comment</c> in a
+    /// batch cannot become the batch's "last statement" and mask the real one's rows-affected.
+    /// </summary>
+    public bool IsStatementless(string sql) => _parser.IsStatementless(sql);
+
     /// <summary>Executes a stored action query (a CREATE PROCEDURE body that is not a SELECT) by name — the
     /// read-back counterpart of <see cref="JetDatabase.CreateActionQuery"/>. The query is reconstructed from
     /// its catalog rows and run; a kind LibRed cannot execute (e.g. INSERT … SELECT) throws
@@ -98,6 +109,10 @@ public sealed class QueryEngine
     /// </summary>
     public CommandResult Execute(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
+        // As in ExecuteQuery: nothing to parse, nothing to run. Reported as zero rows affected rather than
+        // the -1 a query returns, since a comment is an action that did nothing, not a result set.
+        if (_parser.IsStatementless(sql)) return new CommandResult(ResultSet.Empty, RecordsAffected: 0);
+
         SqlStatement parsed = _parser.ParseStatement(sql);
         return Scoped(parsed, () => ExecuteCore(parsed, parameters));
     }

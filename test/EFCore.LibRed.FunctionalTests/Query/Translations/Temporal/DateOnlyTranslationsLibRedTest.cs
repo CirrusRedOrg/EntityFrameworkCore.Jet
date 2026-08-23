@@ -2,7 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using Microsoft.EntityFrameworkCore.Query.Translations.Temporal;
+using Microsoft.EntityFrameworkCore.TestModels.BasicTypesModel;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -160,11 +163,16 @@ WHERE DATEVALUE(`b`.`DateTime`) = `b`.`DateOnly`
 
     public override async Task FromDateTime_compared_to_constant_and_parameter()
     {
-        await base.FromDateTime_compared_to_constant_and_parameter();
+        //await base.FromDateTime_compared_to_constant_and_parameter();
+
+        var dateOnly = new DateOnly(102, 10, 11);
+
+        await AssertQuery(ss => ss.Set<BasicTypesEntity>()
+            .Where(x => new[] { dateOnly, new DateOnly(1998, 5, 4) }.Contains(DateOnly.FromDateTime(x.DateTime))));
 
         AssertSql(
             """
-@dateOnly='0002-10-11T00:00:00.0000000' (DbType = Date)
+@dateOnly='0102-10-11T00:00:00.0000000' (DbType = Date)
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`

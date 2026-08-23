@@ -46,6 +46,12 @@ internal static class IndexPageReader
             ValidatePageNumber(channel, tail, "node child-tail");
         }
 
+        // The shared prefix is measured across the WHOLE entry, trailer included — not just the key. Where
+        // many rows share a key the trailer's leading bytes are common too (consecutive rows on one data
+        // page), so ACE compresses those away and the stored remainder can be as little as two bytes. Size
+        // limits therefore apply to the reconstructed entry, never to what is stored.
+        int compressed = buffer.ReadUInt16(CompressedByteCountOffset);
+
         var ranges = new List<(int Start, int End)>();
         int start = 0;
         for (int i = EntryMaskOffset; i < EntryDataOffset; i++)
@@ -55,26 +61,34 @@ internal static class IndexPageReader
             {
                 if ((mask & (1 << bit)) == 0) continue;
                 int end = (i - EntryMaskOffset) * 8 + bit;
-                if (end - start < 4 || EntryDataOffset + end > buffer.Length)
+                if (EntryDataOffset + end > buffer.Length)
                     throw new InvalidDataException(
-                        $"Index page {pageNumber} entry [{start}, {end}) cannot contain its 4-byte trailer.");
+                        $"Index page {pageNumber} entry [{start}, {end}) runs past the end of the page.");
+                // The first entry is stored whole; every later one is the prefix plus what is stored.
+                int length = ranges.Count == 0 ? end - start : compressed + (end - start);
+                if (length < 4)
+                    throw new InvalidDataException(
+                        $"Index page {pageNumber} entry [{start}, {end}) reconstructs to {length} bytes, " +
+                        "too few for its 4-byte trailer.");
                 ranges.Add((start, end));
                 start = end;
             }
         }
 
-        int compressed = buffer.ReadUInt16(CompressedByteCountOffset);
         if (ranges.Count == 0 && compressed != 0)
             throw new InvalidDataException($"Empty index page {pageNumber} declares a compressed prefix.");
-        if (ranges.Count > 0 && compressed > ranges[0].End - ranges[0].Start - 4)
+        if (ranges.Count > 0 && compressed > ranges[0].End - ranges[0].Start)
             throw new InvalidDataException(
-                $"Index page {pageNumber} compressed prefix {compressed} exceeds its first key.");
+                $"Index page {pageNumber} compressed prefix {compressed} exceeds its first entry.");
 
+        var page = new CheckedIndexPage(buffer, type, owner, previous, next, tail, compressed, ranges);
+
+        // Node children have to be read from the RECONSTRUCTED entry, for the same reason.
         if (type == PageType.IntermediateIndexPage)
-            foreach ((_, int end) in ranges)
-                ValidatePageNumber(channel, ReadInt32BigEndian(buffer, EntryDataOffset + end - 4), "node child");
+            foreach ((_, int child) in DecodeEntries(page))
+                ValidatePageNumber(channel, child, "node child");
 
-        return new CheckedIndexPage(buffer, type, owner, previous, next, tail, compressed, ranges);
+        return page;
     }
 
     public static int ReadInt32BigEndian(PageBuffer page, int offset) =>
@@ -84,18 +98,23 @@ internal static class IndexPageReader
     /// entry is stored whole and its leading <c>CompressedByteCount</c> bytes are the prefix reapplied to every
     /// following entry. Yields the full key bytes and the 4-byte big-endian trailer (a leaf entry's row pointer
     /// or a node entry's child page). Shared by the cursor's leaf enumeration and the writer's parse so the
-    /// prefix rule lives in exactly one place.</summary>
+    /// prefix rule lives in exactly one place.
+    /// <para>
+    /// The prefix covers the entry <b>whole</b>, so it can reach into the trailer — with many equal keys the
+    /// rows are consecutive on one data page and share the trailer's leading bytes too. Both the key and the
+    /// trailer are therefore taken from the reconstructed entry, never from the stored bytes.
+    /// </para></summary>
     public static IEnumerable<(byte[] Key, int Trailer)> DecodeEntries(CheckedIndexPage page)
     {
         byte[] prefix = [];
         bool first = true;
         foreach ((int start, int end) in page.EntryRanges)
         {
-            int trailer = ReadInt32BigEndian(page.Buffer, EntryDataOffset + end - 4);
-            ReadOnlySpan<byte> stored = page.Buffer.Slice(EntryDataOffset + start, end - start - 4);
-            byte[] key = first ? stored.ToArray() : Concat(prefix, stored);
-            if (first) { prefix = key[..page.CompressedByteCount]; first = false; }
-            yield return (key, trailer);
+            ReadOnlySpan<byte> stored = page.Buffer.Slice(EntryDataOffset + start, end - start);
+            byte[] entry = first ? stored.ToArray() : Concat(prefix, stored);
+            if (first) { prefix = entry[..page.CompressedByteCount]; first = false; }
+            int trailer = BinaryPrimitives.ReadInt32BigEndian(entry.AsSpan(entry.Length - 4));
+            yield return (entry[..^4], trailer);
         }
     }
 

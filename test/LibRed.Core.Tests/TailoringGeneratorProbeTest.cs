@@ -40,6 +40,47 @@ public class TailoringGeneratorProbeTest(ITestOutputHelper output)
         ("Fullwidth forms", 0xFF01, 0xFF65),
     ];
 
+    // RECONNAISSANCE: how much of the BMP does ACE actually weigh, and how much of it do we already have?
+    //
+    // The block list above is a guess at "what a Jet text column plausibly holds", so "complete coverage" so
+    // far means complete for that guess — it leaves out Devanagari, Thai, Georgian, the presentation forms
+    // (which contain ﬁ), Greek Extended, CJK, Hangul and more. This sweeps all 65,536 code points in chunks
+    // and counts what falls where, which is what decides whether the compact per-block strings can scale or
+    // whether this needs a generated binary resource like the v1 table.
+    //
+    // Slow by nature: every character is a real INSERT through ACE. Run it deliberately, not in a suite.
+    [Fact]
+    public void Probe_full_bmp_coverage()
+    {
+        Assert.SkipUnless(Environment.GetEnvironmentVariable("LIBRED_FULL_BMP") == "1",
+            "set LIBRED_FULL_BMP=1 — this inserts ~63,000 rows through ACE and takes minutes");
+
+        int totalCorrect = 0, totalToAdd = 0, totalIgnorable = 0, totalRefused = 0;
+        output.WriteLine($"  {"range",-14} {"correct",8} {"to add",8} {"ignorable",10} {"ACE refused",12}");
+        for (int chunk = 0x0000; chunk <= 0xF000; chunk += 0x1000)
+        {
+            string[] characters = Range(chunk, chunk + 0x0FFF);
+            if (characters.Length == 0) continue;
+            Dictionary<string, string> ace = AceKeys(TestDatabases.NorthwindAccdb, "bmp", characters);
+
+            int correct = 0, toAdd = 0, ignorable = 0, refused = 0;
+            foreach (string text in characters)
+            {
+                if (!ace.TryGetValue(text, out string? key)) { refused++; continue; }
+                if (Matches(text, key)) { correct++; continue; }
+                if (key == "7F0100") { ignorable++; continue; }
+                toAdd++;
+            }
+
+            totalCorrect += correct; totalToAdd += toAdd; totalIgnorable += ignorable; totalRefused += refused;
+            output.WriteLine($"  U+{chunk:X4}..U+{chunk + 0xFFF:X4} {correct,8} {toAdd,8} {ignorable,10} {refused,12}");
+        }
+
+        output.WriteLine("");
+        output.WriteLine($"  BMP total: {totalCorrect} already correct, {totalToAdd} to add, " +
+                         $"{totalIgnorable} ignorable-but-unhandled, {totalRefused} ACE would not store");
+    }
+
     // Sweeps every block against General v0 and classifies what ACE stores, so the base table can be filled
     // in from measurement rather than a character at a time. Entries are grouped by the mechanism each needs.
     [Fact]

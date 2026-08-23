@@ -34,7 +34,8 @@ Each entry ends with a **4-byte big-endian** trailing pointer:
 
 > **Reader/traversal guardrails.** LibRed validates every page number before I/O, requires page type
 > `0x03`/`0x04` and a consistent owning TDEF, bounds every bitmask-derived entry before reading its
-> 4-byte trailer, and requires the compressed prefix to fit the first key. Node child/tail, leaf
+> 4-byte trailer *after reconstruction* (§10.3), and requires the compressed prefix to fit the first
+> entry. Node child/tail, leaf
 > previous/next, and indexed-row page pointers are checked against the file's page range; optional leaf
 > links must be zero or name an in-file page. Point/range seeks track every
 > descent and leaf-chain page and reject repeats; the full index cursor uses an iterative ordered walk
@@ -46,10 +47,29 @@ Each entry ends with a **4-byte big-endian** trailing pointer:
 
 ### 10.3 Prefix compression
 
-Entries on a page share a leading key prefix of `compressedByteCount` (`0x18`) bytes. The
-**first** entry is stored in full; its first `compressedByteCount` bytes are the shared prefix,
-which every subsequent entry omits. Reconstruct: `fullKey = prefix ++ storedKey`. (The trailing
-pointer is never compressed, so reading row pointers needs none of this.)
+Entries on a page share a leading prefix of `compressedByteCount` (`0x18`) bytes. The **first** entry is
+stored in full; its first `compressedByteCount` bytes are the shared prefix, which every subsequent entry
+omits. Reconstruct: `fullEntry = prefix ++ stored`.
+
+> **The prefix covers the entry whole — it can reach into the trailer.** An earlier revision of this section
+> claimed "the trailing pointer is never compressed, so reading row pointers needs none of this". That is
+> **wrong**, and it made LibRed reject pages ACE had written. When many rows share a key they are also
+> consecutive on one data page, so the trailer's leading bytes are common too and ACE compresses them away.
+> A leaf holding 500 rows all keyed `"same"`:
+>
+> ```
+> compressedByteCount = 9
+> entry 0 (11 bytes)   7F 6B 4A 60 51 01 00 | 00 01 62 00     key "same", then row (page 354, row 0)
+> entry 1  (2 bytes)                     62 01               → prefix ++ 62 01 = … 00 01 62 01, row 1
+> entry 2  (2 bytes)                     62 02               → row 2
+> ```
+>
+> The prefix `7F 6B 4A 60 51 01 00 00 01` is the seven-byte key **plus the first two bytes of the trailer**,
+> leaving two stored bytes per entry. So **size limits apply to the reconstructed entry, never to what is
+> stored** — a stored entry may be shorter than the 4-byte trailer, and the key may be empty. Take both the
+> key and the trailer from the reconstruction. Likewise `compressedByteCount` is bounded by the first
+> entry's **whole** length, not by its key. (`DuplicateIndexKeyProbeTest`; the old reading refused any index
+> with ~500+ equal keys, which is ordinary for a non-unique index.)
 
 > **Compression is optional on leaves.** A `compressedByteCount` of 0 (every entry stored in full)
 > is a valid *leaf* that Access reads without complaint — verified by rewriting a leaf uncompressed

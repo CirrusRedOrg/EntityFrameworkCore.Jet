@@ -453,6 +453,21 @@ internal static class JetTextCollation
         // the same way; `secondaries.Count` is the weight count for both.
         void AddWeight(ReadOnlySpan<byte> weight, byte secondary)
         {
+            // A weight with NO primary carries only its secondary, and where something precedes it that
+            // secondary FOLDS into the one before rather than taking a slot of its own. ACE encodes ไก่ as
+            // two weights with secondaries 03 06 — the tone mark's 03 added to the ก's 03 — not as three
+            // weights. Emitting a slot desynchronises the whole section from the primaries.
+            //
+            // The same rule the version-1 encoder already had. It reached version 0 only when the Thai block
+            // entered the conformance range, because it needs a combining mark AFTER a base character and a
+            // per-character sweep never places one there. It is not a Thai rule: Hebrew niqqud, the Cyrillic
+            // combining marks and three Greek ones are all in this class, in every order.
+            if (weight.IsEmpty && secondaries.Count > 0)
+            {
+                secondaries[^1] = (byte)(secondaries[^1] + secondary);
+                return;
+            }
+
             foreach (byte b in weight) primaries.Add(b);
             secondaries.Add(secondary);
         }

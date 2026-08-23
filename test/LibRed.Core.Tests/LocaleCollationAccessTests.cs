@@ -33,6 +33,8 @@ public class LocaleCollationAccessTests(ITestOutputHelper output)
         // Version-1 orders. The same order under three LCIDs — each measures identically against General v1 —
         // and the first tailorings the v1 encoder carries, so they also cover the two-byte-primary path.
         "Croatian", "Bosnian", "Serbian",
+        // Thai, whose contraction is built as a rule rather than a table of entries.
+        "Thai",
     ];
 
     [Theory]
@@ -104,6 +106,7 @@ public class LocaleCollationAccessTests(ITestOutputHelper output)
         (int First, int Last)[] blocks =
         [
             (0x0180, 0x024F), (0x02B0, 0x02FF), (0x0370, 0x052F), (0x0590, 0x06FF),
+            (0x0E01, 0x0E5B),                     // Thai: consonants, vowels, tone marks and digits
             (0x1E00, 0x1EFF), (0x2000, 0x206F), (0x20A0, 0x20BF), (0x2100, 0x218F), (0xFF01, 0xFF65),
             (0x3040, 0x30FF), (0xFF66, 0xFF9F),   // kana: hiragana, katakana, halfwidth katakana
         ];
@@ -121,6 +124,10 @@ public class LocaleCollationAccessTests(ITestOutputHelper output)
             "ch", "cch", "chh", "ll", "lll", "llll", "cs", "dz", "dzs", "gy", "ly", "ny", "sz", "ty", "zs",
             "ccs", "ddz", "ggy", "lly", "nny", "ssz", "tty", "zzs", "gyy", "hc", "dzz",
             "lj", "nj", "dž", "ddž", "llj", "nnj", "aa", "aaa", "aab", "baa", "Aa", "AA",
+            // Thai: each leading vowel before a consonant, the reverse order (which must NOT contract), the
+            // vowel with nothing to attach to, and words where the contraction meets tone marks.
+            "เก", "แก", "โก", "ใก", "ไก", "กเ", "กแ", "กโ", "กใ", "กไ", "เ", "เเ", "เ ", " เ",
+            "เกา", "เก้า", "ไก่", "ไทย", "แดง", "โกรธ", "ใหม่", "ประเทศไทย", "ภาษาไทย", "สวัสดี", "เรียน",
             // An ignorable AFTER a two-byte primary: the inline position counts weights, not bytes, and only
             // a non-Latin or symbol character ahead of it can tell those two rules apart.
             "£-", "©-", "½-", "£A-", "A£-", "Ω-", "б-", "£'", "Ω'A", "€-B",

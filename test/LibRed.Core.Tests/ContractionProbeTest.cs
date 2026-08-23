@@ -101,6 +101,220 @@ public class ContractionProbeTest(ITestOutputHelper output)
     // 80 <pos> 06 <code>, with the section introduced once by 01 01 01. LibRed knows three of them
     // (apostrophe 0x80, hyphen 0x82, soft hyphen 0x83); ACE treats fourteen more the same way. Measured
     // alone, then inside a word, so the position arithmetic is confirmed rather than assumed.
+    // PROBE: the inline records that are NOT the simple 7F 01 01 01 01 80 07 06 <code> 00 shape.
+    //
+    // Generating the v0 resource found 213 characters whose key carries an inline word-sort record, but only
+    // 40 in the shape a lone ignorable produces. The other 173 are something else, and guessing what would
+    // be exactly the way to plant a wrong key.
+    // PROBE: how kana encode.
+    //
+    // The one mechanism General v0 still refuses. A kana key is shaped unlike anything else in the format —
+    // a doubled start flag, then a section introduced by 01 01 rather than the 01 01 01 an inline record
+    // uses:
+    //
+    //     U+3042 あ    7F 7F 02 01 01 01 FF 02 80 FF 80 00
+    //     U+3041 ぁ    7F 7F 02 01 01 01 A0 FF 02 80 FF 80 00
+    //
+    // Hiragana, katakana and halfwidth katakana share a key, so what separates them must live in that
+    // trailing section. This measures the axes one at a time — vowel, consonant row, small form, voicing,
+    // script, width, the prolonged mark — and then in pairs, since only a two-character string shows how the
+    // section is positioned.
+    [Fact]
+    public void Probe_how_kana_encode()
+    {
+        (string Label, int[] CodePoints)[] groups =
+        [
+            ("hiragana vowels",   [0x3042, 0x3044, 0x3046, 0x3048, 0x304A]),
+            ("small vowels",      [0x3041, 0x3043, 0x3045, 0x3047, 0x3049]),
+            ("ka row",            [0x304B, 0x304D, 0x304F, 0x3051, 0x3053]),
+            ("ga row (voiced)",   [0x304C, 0x304E, 0x3050, 0x3052, 0x3054]),
+            ("ha/ba/pa",          [0x306F, 0x3070, 0x3071]),
+            ("katakana",          [0x30A2, 0x30A4, 0x30AB, 0x30AC]),
+            ("halfwidth",         [0xFF71, 0xFF72, 0xFF76]),
+            ("marks",             [0x3063, 0x3083, 0x3093, 0x30FC, 0xFF70, 0x309B, 0x309C]),
+        ];
+
+        var samples = new List<string>();
+        foreach ((_, int[] codePoints) in groups)
+            foreach (int c in codePoints) samples.Add(((char)c).ToString());
+        // Pairs: kana with kana, kana with Latin, and the same sound in different scripts.
+        samples.AddRange([
+            "あい", "ああ", "あア", "アあ", "あｱ",
+            "あA", "Aあ", "あぁ", "かが", "あé",
+        ]);
+
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "kana-");
+        try
+        {
+            Dictionary<string, string> keys = AceKeys(path, [.. samples]);
+            foreach ((string label, int[] codePoints) in groups)
+            {
+                output.WriteLine("");
+                output.WriteLine($"  {label}:");
+                foreach (int c in codePoints)
+                {
+                    string text = ((char)c).ToString();
+                    output.WriteLine($"     U+{c:X4}  {keys.GetValueOrDefault(text) ?? "(refused)"}");
+                }
+            }
+            output.WriteLine("");
+            output.WriteLine("  pairs:");
+            foreach (string sample in samples.Where(s => s.Length > 1))
+                output.WriteLine($"     {Describe(sample),-30} {keys.GetValueOrDefault(sample) ?? "(refused)"}");
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // PROBE: the two things Probe_how_kana_encode left open.
+    //
+    // The shape is now known: 7F <primaries> 01 <secondaries> 01 01 <kana section> 00, where a kana takes the
+    // two-byte primary 7F <sound> and voicing is an ordinary secondary (03 dakuten, 04 handakuten). What is
+    // not known is (a) how a small kana's record is positioned — A0 alone, B8 when one kana precedes it, a
+    // step of 0x18 that could be per character or 0x0C per primary byte — and (b) whether the kana section
+    // and the word-sort inline section can coexist, and in what order.
+    [Fact]
+    public void Probe_kana_positions_and_sections()
+    {
+        string[] samples =
+        [
+            "ぁ",                       // ぁ alone                        → A0
+            "あぁ",                 // あぁ, one kana ahead (2 primary bytes)
+            "Aぁ",                      // Aぁ, one LATIN letter ahead (1 primary byte) — the discriminator
+            "ぁぁ",                 // ぁぁ, two records
+            "ああぁ",           // ああぁ, two kana ahead
+            "ぁああ",           // ぁああ, record first
+            "あいう",           // あいう — is the trailer constant for three kana?
+            "あ-", "-あ", "あ'",// kana with a word-sort ignorable, both orders
+            "ーあ", "あー", // the prolonged mark, which alone is NOT kana
+        ];
+
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "kanapos-");
+        try
+        {
+            Dictionary<string, string> keys = AceKeys(path, samples);
+            foreach (string sample in samples)
+                output.WriteLine($"   {Describe(sample),-34} {keys.GetValueOrDefault(sample) ?? "(refused)"}");
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // PROBE: does an inline record's position count primary WEIGHTS or primary BYTES?
+    //
+    // The spec says bytes, and LibRed implements that with primaries.Count. Every case tested so far had
+    // one-byte weights, where the two agree — but "あ-" puts the hyphen at 0x0B = 0x07 + 4x1, and あ is a
+    // TWO-byte primary. If that generalises to any two-byte primary then the rule is weights, and LibRed is
+    // wrong for symbols, Greek, Cyrillic and everything else on the 0x79 page.
+    [Fact]
+    public void Probe_whether_inline_position_counts_weights_or_bytes()
+    {
+        // £ © ½ are two-byte symbol primaries; ß expands to two ONE-byte weights, so it is the control that
+        // cannot tell the two rules apart.
+        string[] samples =
+        [
+            "-", "A-", "AB-",
+            "£-", "©-", "½-", "£A-", "A£-",
+            "ß-", "Aß-",
+            "Ω-", "б-",
+        ];
+
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "inlinepos-");
+        try
+        {
+            Dictionary<string, string> keys = AceKeys(path, samples);
+            foreach (string sample in samples)
+                output.WriteLine($"   {Describe(sample),-24} {keys.GetValueOrDefault(sample) ?? "(refused)"}");
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // PROBE: how the small-kana record packs.
+    //
+    // It is not one record per small kana — ぁぁ produces a single byte A8, not two records. Observed so
+    // far: {0}=A0, {1}=B8, {0,1}=A8, {2}=BE, and all-normal emits no byte at all. Sweeping every
+    // small/normal combination up to four kana should show the packing.
+    [Fact]
+    public void Probe_small_kana_packing()
+    {
+        var samples = new List<string>();
+        for (int length = 1; length <= 4; length++)
+            for (int bits = 0; bits < 1 << length; bits++)
+            {
+                var text = new char[length];
+                for (int i = 0; i < length; i++)
+                    text[i] = (char)((bits & (1 << i)) != 0 ? 0x3041 : 0x3042);   // ぁ small : あ normal
+                samples.Add(new string(text));
+            }
+
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "kanapack-");
+        try
+        {
+            Dictionary<string, string> keys = AceKeys(path, [.. samples]);
+            foreach (string sample in samples)
+            {
+                string flags = string.Concat(sample.Select(c => c == (char)0x3041 ? 's' : 'n'));
+                string key = keys.GetValueOrDefault(sample) ?? "(refused)";
+                // Print just the section between the 01 01 marker and the constant FF 02 80 FF 80 trailer.
+                int marker = key.IndexOf("010101", StringComparison.Ordinal);
+                string section = marker < 0 ? "?" : key[(marker + 6)..].Replace("FF0280FF8000", "");
+                output.WriteLine($"   {flags,-6} section {section,-8} {key}");
+            }
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // PROBE: how the prolonged sound mark records its position.
+    //
+    // ー takes the PREVIOUS kana's primary — exactly what the character means, lengthen the preceding vowel —
+    // and inserts a record into the kana section: あー is 7F 7F02 7F02 … FF 9C 02 80 FF 80 00, where a plain
+    // あ has FF 02 80 FF 80. One sample cannot say whether 9C encodes position, so vary it.
+    [Fact]
+    public void Probe_prolonged_mark_records()
+    {
+        string[] samples =
+        [
+            "ー", "ーあ",                       // alone, and with nothing to lengthen
+            "あー", "あいー", "あーい",   // one mark at each position
+            "ああー", "あああー",
+            "あーー", "あーあー",         // two marks
+            "ぁー", "がー",                   // after a small kana, and after a voiced one
+            "ｱｰ", "アー",                     // halfwidth and katakana
+        ];
+
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "prolonged-");
+        try
+        {
+            Dictionary<string, string> keys = AceKeys(path, samples);
+            foreach (string sample in samples)
+                output.WriteLine($"   {Describe(sample),-34} {keys.GetValueOrDefault(sample) ?? "(refused)"}");
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    [Fact]
+    public void Probe_unusual_inline_records()
+    {
+        var samples = new List<string>();
+        foreach ((int first, int last) in new[] { (0x2000, 0x2FFF), (0x3000, 0x3FFF), (0xFB00, 0xFFFF) })
+            for (int c = first; c <= last; c++)
+                if (!char.IsControl((char)c) && !char.IsSurrogate((char)c))
+                    samples.Add(((char)c).ToString());
+
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "inline-");
+        try
+        {
+            Dictionary<string, string> keys = AceKeys(path, [.. samples]);
+            var odd = keys
+                .Where(k => k.Value.Contains("010101") && k.Value != "7F0100")
+                .Where(k => !(k.Value.Length == 20 && k.Value[10..16] == "800706"))
+                .OrderBy(k => k.Key)
+                .ToList();
+            output.WriteLine($"{odd.Count} inline records of an unexpected shape:");
+            foreach ((string text, string key) in odd.Take(30))
+                output.WriteLine($"   {Describe(text),-14} {key}");
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     [Fact]
     public void Probe_word_sort_ignorable_codes()
     {

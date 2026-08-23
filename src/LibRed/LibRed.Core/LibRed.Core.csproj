@@ -13,6 +13,10 @@
     <!-- The "General" (v1) sorting weight table, built by tools\sortkey-table\generate.ps1 from Microsoft's
          published Windows Server 2008 table (linked from [MS-UCODEREF]). -->
     <EmbeddedResource Include="Resources\SortKeyTableV1.bin" LogicalName="LibRed.Resources.SortKeyTableV1.bin" />
+    <!-- The "General legacy" (v0) weights. No published table exists for these — v0's primaries are a
+         Jet-specific compaction of the NT4-era order — so they are measured from ACE itself by
+         SortKeyTableV0GeneratorTest (LIBRED_GENERATE_V0=1). -->
+    <EmbeddedResource Include="Resources\SortKeyTableV0.bin" LogicalName="LibRed.Resources.SortKeyTableV0.bin" />
   </ItemGroup>
 
 </Project>

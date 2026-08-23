@@ -101,6 +101,7 @@ public class LocaleCollationAccessTests(ITestOutputHelper output)
         [
             (0x0180, 0x024F), (0x02B0, 0x02FF), (0x0370, 0x052F), (0x0590, 0x06FF),
             (0x1E00, 0x1EFF), (0x2000, 0x206F), (0x20A0, 0x20BF), (0x2100, 0x218F), (0xFF01, 0xFF65),
+            (0x3040, 0x30FF), (0xFF66, 0xFF9F),   // kana: hiragana, katakana, halfwidth katakana
         ];
         if (extendedBlocks)
             foreach ((int first, int last) in blocks)
@@ -116,6 +117,17 @@ public class LocaleCollationAccessTests(ITestOutputHelper output)
             "ch", "cch", "chh", "ll", "lll", "llll", "cs", "dz", "dzs", "gy", "ly", "ny", "sz", "ty", "zs",
             "ccs", "ddz", "ggy", "lly", "nny", "ssz", "tty", "zzs", "gyy", "hc", "dzz",
             "lj", "nj", "dž", "ddž", "llj", "nnj", "aa", "aaa", "aab", "baa", "Aa", "AA",
+            // An ignorable AFTER a two-byte primary: the inline position counts weights, not bytes, and only
+            // a non-Latin or symbol character ahead of it can tell those two rules apart.
+            "£-", "©-", "½-", "£A-", "A£-", "Ω-", "б-", "£'", "Ω'A", "€-B",
+            // Kana: voicing, small forms and their packing, mixed scripts, and a kana beside an ignorable —
+            // which changes the inline section's introducer.
+            "あい", "ぁ", "あぁ", "ぁぁ", "ああぁ", "ぁああ", "あいう",
+            "かが", "ぱば", "アイ", "ｱｲ", "あア", "あA", "Aあ", "あé", "あ-", "-あ", "あ'",
+            "ニホンゴ", "にほんご", "ﾆﾎﾝｺﾞ", "ちょっと", "キャッシュ",
+            // The prolonged mark: alone, with nothing to lengthen, and after every kind of kana.
+            "ー", "ーあ", "あー", "あいー", "あーい", "ああー", "あああー", "あーー", "あーあー",
+            "ぁー", "がー", "ｱｰ", "アー", "コーヒー", "ｺｰﾋｰ", "サーバー",
             "chico", "llama", "coche", "calle", "chata", "hodina", "cukr",
             "ljubav", "njegov", "džem", "meggy", "asszony", "nagy", "cukor", "csak",
         ]);

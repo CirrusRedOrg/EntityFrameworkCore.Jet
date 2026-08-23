@@ -52,6 +52,12 @@ internal static class JetTextCollationV1
 
         foreach (char character in text)
         {
+            // Kana get a section of their own in v0, measured from ACE; nothing equivalent has been measured
+            // for v1, and the NLS weights alone would not produce it. Refuse rather than emit a key that
+            // silently lacks the section.
+            if (character is >= (char)0x3040 and <= (char)0x30FF or >= (char)0xFF66 and <= (char)0xFF9F)
+                return false;
+
             if (table.TryExpand(character, out char[]? sequence))
             {
                 foreach (char expanded in sequence)

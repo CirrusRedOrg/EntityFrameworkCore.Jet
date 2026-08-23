@@ -41,8 +41,13 @@ public sealed class JetDatabase : IDisposable
     /// <summary>The database's default collation LCID (e.g. 1033 = en-US), decoded from page 0.</summary>
     public int DefaultCollationLcid => DefinitionPage.DefaultCollationLcid;
 
-    /// <summary>The database default sort-order version (0 = General Legacy, 1 = General), from page 0.</summary>
+    /// <summary>The database default sort-order version (0 = the legacy compacted table, 1 = the Access-2010
+    /// NLS order), from page 0.</summary>
     public byte DefaultCollationVersion => DefinitionPage.DefaultCollationVersion;
+
+    /// <summary>The database default collation's sort id (page-0 <c>0x70</c>) — the LCID's high word, non-zero
+    /// only for a Windows alternate sort order such as German Phone Book or Hungarian Technical.</summary>
+    public byte DefaultCollationSortId => DefinitionPage.DefaultCollationSortId;
 
     /// <summary>The database's default text collating order — the LCID and sort-order version written into
     /// new columns. Read from the page-0 sort order, so a table created in a General (v1) database gets v1
@@ -50,8 +55,7 @@ public sealed class JetDatabase : IDisposable
     /// decode was pending; the decode landed in <see cref="DefaultCollationLcid"/>/
     /// <see cref="DefaultCollationVersion"/> but this was left behind, which silently gave every new column
     /// v0 weights even in a v1 database.)</summary>
-    public Collation Collation =>
-        new((CollatingOrder)DefaultCollationLcid, DefaultCollationVersion);
+    public Collation Collation => DefinitionPage.Collation;
 
     /// <summary>Reads and decodes the table definition (TDEF) page at <paramref name="pageNumber"/>.</summary>
     public TableDefinitionPage ReadTableDefinition(int pageNumber)

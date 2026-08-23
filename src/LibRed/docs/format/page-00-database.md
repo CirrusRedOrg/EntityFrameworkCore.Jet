@@ -21,7 +21,7 @@
 | `0x3E` | 4 | **Database (encryption) key** — 0 when there is no password |
 | `0x42` | 40 | **Password** (Jet 4; Jet 3 = 20 bytes) — additionally masked by a creation-date-derived value, so an empty password does not read as zeroes |
 | `0x6A` | 4 | Fixed constant `0x000011A6` — invariant across the entire Jet 4 lineage (every version/engine/collation/language tested); likely a validation sentinel/marker (cf. the `0x0659` TDEF record marker, §3.1), exact purpose unconfirmed |
-| `0x6E` | 4 | **Default text collating sort order** — LCID (2, LE, `0x0409` = 1033 en-US) + **sort-order version** at `0x71` (0 = General Legacy, 1 = General) |
+| `0x6E` | 4 | **Default text collating sort order** — a 32-bit LCID with the version in its unused top byte: LANGID (2, LE, `0x0409` = 1033 en-US), **sort id** at `0x70`, **sort-order version** at `0x71` (0 = legacy table, 1 = the Access-2010 order). Byte-for-byte the same layout as a column descriptor's `0x0B`–`0x0E` |
 | `0x72` | 8 | **Database creation timestamp** — OLE automation `double` (days from 1899-12-30) |
 | `0x98` | 4 | **Past the masked window** (cleartext). Fixed constant `0x00000654` (1620), undecoded |
 | `0x9C` | 4 | ASCII **engine/format version string `"4.0"`** (NUL-terminated) — the Jet **4.0** version, present in both `.mdb` (Jet 4) and `.accdb` (ACE, which is Jet-4-based) |
@@ -176,10 +176,13 @@ CF 65 ED FF 07 C7 46 A1 78 16 0C ED E9 2D 62 D4   ; 0x88
   writes v1 descriptors on `MSys*` in a General database. LibRed is currently the only way to create a v1
   database programmatically: DAO writes v0 whatever the application setting says, and Access honours its
   "New database sort order" option only through its own UI.
-- **Collation sort order (`0x6E`, 4 bytes)** → `DefaultCollationLcid` (LCID at `0x6E`) +
-  `DefaultCollationVersion` (the byte at `0x71`, 0 = General Legacy, 1 = General). The version here
-  **matches each column descriptor's `0x0E`** — the sort version lives both database-wide (page 0)
-  and per column (see [page-02b-columns.md](page-02b-columns.md)).
+- **Collation sort order (`0x6E`, 4 bytes)** → `DefaultCollationLcid` (the LANGID at `0x6E`),
+  `DefaultCollationSortId` (`0x70` — the LCID's high word, non-zero only for a Windows *alternate* sort
+  order such as German Phone Book `0x00010407` or Hungarian Technical `0x0001040E`), and
+  `DefaultCollationVersion` (`0x71`, 0 = the legacy compacted table, 1 = the Access-2010 NLS order).
+  `DatabaseDefinitionPage.Collation` assembles the three. All three **match each column descriptor's
+  `0x0B`–`0x0E`** — the sort order lives both database-wide (page 0) and per column (see
+  [page-02b-columns.md](page-02b-columns.md)), and the two blocks have identical layout.
 - **Creation date (`0x72`, 8 bytes)** → `CreationDate` — an OLE `double`. Matches the earliest
   `MSysObjects.DateCreate`; on an *edited* database (e.g. Northwind) it is the **file's** creation
   instant and can differ from the first object's by minutes. **Unlike a normal Jet/ACE `DateTime`

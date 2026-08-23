@@ -18,8 +18,8 @@ public class LegacyJetPasswordTests
         string path = TemporaryDatabase.CreatePath("libred_jet4_", ".mdb");
         byte[] file = new byte[4096 * 3];
         DatabaseCreator.BuildDefinitionPage(
-            version: 0x01, isAccdb: false, codePage: 1252, collationLcid: 1033,
-            collationVersion: 0, creationDays: 45000.25).CopyTo(file, 0);
+            version: 0x01, isAccdb: false, codePage: 1252, collation: LibRed.Catalog.Collation.GeneralLegacy,
+            creationDays: 45000.25).CopyTo(file, 0);
         new Random(1701).NextBytes(file.AsSpan(4096));
         File.WriteAllBytes(path, file);
         return path;

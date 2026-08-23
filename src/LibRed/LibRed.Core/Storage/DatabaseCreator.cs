@@ -29,7 +29,7 @@ public static class DatabaseCreator
     /// as the raw double so the exact millisecond-precise bit pattern is preserved — the page-0 SID mask is bound
     /// to those exact bits (see <see cref="SeedCreationDateBits"/>).</param>
     public static byte[] BuildDefinitionPage(
-        byte version, bool isAccdb, int codePage, int collationLcid, byte collationVersion, double creationDays)
+        byte version, bool isAccdb, int codePage, Collation collation, double creationDays)
     {
         var page = new byte[4096];
 
@@ -64,9 +64,11 @@ public static class DatabaseCreator
             clear[JetFormatBase.PasswordOffset - b + i] = dateMask[i % 4];
         // 0x6A fixed sentinel constant.
         BinaryPrimitives.WriteInt32LittleEndian(clear[(0x6A - b)..], 0x000011A6);
-        // 0x6E..0x71 collating sort order: LCID + version byte at 0x71.
-        BinaryPrimitives.WriteUInt16LittleEndian(clear[(JetFormatBase.CollationSortOrderOffset - b)..], (ushort)collationLcid);
-        clear[JetFormatBase.CollationVersionOffset - b] = collationVersion;
+        // 0x6E..0x71 collating sort order: LANGID, sort id at 0x70, version at 0x71 — a 32-bit LCID carrying
+        // the sort-order version in its unused top byte. Mirrors a column descriptor's 0x0B..0x0E.
+        BinaryPrimitives.WriteUInt16LittleEndian(clear[(JetFormatBase.CollationSortOrderOffset - b)..], (ushort)collation.Order);
+        clear[JetFormatBase.CollationSortIdOffset - b] = collation.SortId;
+        clear[JetFormatBase.CollationVersionOffset - b] = collation.Version;
         // 0x72..0x79 creation date (OLE double).
         BinaryPrimitives.WriteDoubleLittleEndian(clear[(JetFormatBase.CreationDateOffset - b)..], days);
 
@@ -251,7 +253,7 @@ public static class DatabaseCreator
         const int seedPages = 10;   // page 0, page 1, 4 core TDEFs (2..5), 4 usage maps (6..9)
         byte[][] seed =
         [
-            BuildDefinitionPage(version, isAccdb: true, 1252, (int)sortOrder.Order, sortOrder.Version,
+            BuildDefinitionPage(version, isAccdb: true, 1252, sortOrder,
                 BitConverter.Int64BitsToDouble(SeedCreationDateBits)),
             BuildFreeMapPage(format, seedPages),       // page 1: global free-pages map
             objTdef, acesTdef, queriesTdef, relTdef,   // pages 2..5: core TDEFs

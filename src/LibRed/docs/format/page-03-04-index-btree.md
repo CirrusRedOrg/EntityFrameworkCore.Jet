@@ -73,15 +73,13 @@ into an index. The encoder is verified **byte-for-byte against Access**: re-enco
 decoded from Access's own stored key reproduces the exact bytes, and after a LibRed insert
 Access satisfies an indexed primary-key seek over the entry LibRed wrote.
 
-> **Text keys are the version-0 "General legacy" collation only.** The text weights below are the
-> Access 2000–2007 **General** sort order = (locale 1033, **version 0**), selected by the column
-> descriptor's sort-order version (`0x0D`, §3.4). Access 2010+ introduced a *new* default **General**
-> order = (1033, **version 1**) with different key bytes (the old one was renamed "General legacy").
-> LibRed implements version 0 only; a version-1 column/index (a database created by Access 2010+ with
-> the default order, `0x0D = 1`) would need a separate weight table for both decode and encode.
-> Before writing/seeking a text index key, a version-aware implementation should check `0x0D` and
-> refuse (or switch tables) on version 1 rather than emit version-0 bytes. Not yet handled — no
-> version-1 fixture available to reverse-engineer against.
+> **The text weights below are one specific collation: General, version 0.** A text column's collation is
+> the `(LANGID, sort id, version)` triple in its descriptor at `0x0B`–`0x0E` (§3.4) — here
+> (1033, 0, **0**), the Access 2000–2007 order Access later renamed "General legacy". The other orders use
+> the *same framing* and different weights: see **Two General orders** and **Locale-specific orders** below.
+> Encoding must **gate on the whole triple** rather than assume, which is what `IndexKeyEncoder` does — it
+> throws on anything it has no table for instead of emitting General bytes. That matters more than it
+> sounds: a wrong key does not fail, it silently disagrees with ACE's.
 
 Non-boolean columns are prefixed by a **flag byte**:
 
@@ -218,8 +216,149 @@ Then the value, transformed:
   `80 B5 FE FF 00`). The inverted start flag is `~0x7F = 0x80`, matching the descending flag of
   the fixed-type keys.
 
+  **Locale-specific orders.** A database can be created with a sort order other than General; Access exposes
+  them as the "New Database Sort Order" list. Verified against **29 Access-authored fixtures — every non-CJK
+  entry in that list**, in `Data/`, each diffed against General v0 by having ACE encode the same 193 samples
+  and reading the stored keys back (`LocaleFixtureCollationProbeTest`, plus `DaoLocaleCollationProbeTest` for
+  orders only DAO can name):
+
+  - The stored value is a **true LCID**, not a small enum — Spanish Traditional is `1034` (`0x040A`) and
+    Spanish **Modern** is `3082` (`0x0C0A`). DAO's `CollatingOrderEnum` lists only `dbSortSpanish = 1034`;
+    the Modern order postdates it and has no DAO name. Both files are **sort-order version `0`**, so the
+    version is **orthogonal to the locale** — though in practice few locales have both generations. Access's
+    "New Database Sort Order" list names a legacy order separately (`General - Legacy`, `Romanian - Legacy`,
+    `Croatian - Legacy`, `Japanese - Legacy`), and **neither Spanish order has a `- Legacy` twin**: a second
+    generation exists only where the Windows tailoring actually changed.
+
+  - **Version 1 is not a General-only thing.** Five of the fixtures stamp version `1` — Bosnian, Croatian,
+    Indic, Romanian, Serbian — and all encode with **2-byte NLS primaries** exactly as General v1 does
+    (`a` = `7F 0E 02 01 00`, `c` = `7F 0E 0A 01 00`, `d` = `7F 0E 1A 01 00`). Every one of 193 samples differs
+    from General v0, because the whole key shape changes rather than individual letters moving. Croatian and
+    Romanian are the ones Access offers in both generations, and their `- Legacy` twins are ordinary v0 files
+    with the same LANGID; Bosnian, Indic and Serbian have no legacy twin at all.
+
+  - **The whole four-byte field is one 32-bit LCID** (§3.4). Several entries in Access's list are Windows
+    *alternate sort orders*, which live in the LCID's high word and share their LANGID with the base locale:
+
+    | fixture | raw `0x6E`..`0x71` | LANGID | sort id | version | LCID |
+    |---|---|---|---|---|---|
+    | `German Phone Book` | `07 04 01 00` | 1031 | `01` | 0 | `0x00010407` |
+    | `Hungarian Technical` | `0E 04 01 00` | 1038 | `01` | 0 | `0x0001040E` |
+    | `Hungarian` | `0E 04 00 00` | 1038 | `00` | 0 | `0x0000040E` |
+    | `Georgian Modern` | `37 04 01 00` | 1079 | `01` | 0 | `0x00010437` |
+    | `Croatian` / `Croatian - Legacy` | `1A 04 00 01` / `1A 04 00 00` | 1050 | `00` | 1 / 0 | `0x0000041A` |
+
+    Hungarian and Hungarian Technical differ **only** in the sort id, so an implementation that reads the
+    LANGID alone cannot tell them apart — LibRed could not, until these fixtures.
+
+  - **German Phone Book is an expansion, not an insertion**: `ä` = `7F 4A 51 01 00`, i.e. primaries `a` + `e`
+    (General has `7F 4A 01 13 00`, `a` + umlaut secondary); likewise `ö` → `o`+`e` and `ü` → `u`+`e`. It uses
+    the same primitive as `ß`→`SS` above, so it needs no new machinery.
+  - The **framing is unchanged**: start flag, primaries, `0x01`, secondaries, `0x00`. Only the weights move.
+
+  - **A language letter takes a two-byte primary — a free value from the letter table, plus a sub-position.**
+    The General letter table steps by +2 almost everywhere (only `B→C`, `Q→R` and `X→Y` are consecutive), and
+    tailorings land in those gaps, always in the linguistically correct place:
+
+    | locale | letter | key | slot sits between |
+    |---|---|---|---|
+    | Spanish Traditional | `ch` | `7F 4E 04 01 00` | C `4D`, D `4F` |
+    | Spanish Traditional | `ll` | `7F 5F 04 01 00` | L `5E`, M `60` |
+    | Spanish (both) | `ñ` | `7F 63 04 01 00` | N `62`, O `64` — General has `7F 62 01 19 00`, `n` + tilde |
+    | Czech / Slovak | `ch` | `7F 58 03 01 00` | H `57`, I `59` — Czech sorts `ch` after `h`, not after `c` |
+    | Turkish | `ı` | `7F 58 06 01 00` | H `57`, I `59` — dotless `ı` before `i` |
+    | Lithuanian | `y` | `7F 5A 02 01 00` | I `59`, J `5B` — Lithuanian `y` follows `į` |
+    | Estonian | `z` | `7F 6C 07 01 00` | S `6B`, T `6D` — Estonian `z` sits between `s` and `t` |
+    | Croatian Legacy | `lj` / `nj` | `7F 5F 03 01 00` / `7F 63 04 01 00` | L–M, N–O |
+
+    **The second byte orders letters that share a slot.** That is settled by the locales which put several
+    into one: Hungarian Technical fits five in the A–B gap `0x4B` — `á` `02`, `â` `03`, `ä` `04`, `ă` `05`,
+    `ą` `06` — and three in `0x4E` (`ç` `02`, `ć` `03`, `č` `04`). Estonian's `0x6C` holds `š` `06`, `z` `07`,
+    `ž` `08`, in exactly Estonian alphabet order. Swedish/Finnish and Norwegian/Danish both stack their three
+    extra vowels after Z: `å` `05` / `ä` `07` / `ö` `08` for Swedish, `æ` `04` / `ø` `06` / `å` `09` for
+    Norwegian — each language's own order. (An earlier revision here said cross-locale disagreement ruled a
+    sub-position out. It does not: it only ruled out a *fixed marker*. The values are per-locale ordinals.)
+    How a specific value is chosen is still unknown — they are ordered but not dense, and Latvian uses `0x12`
+    for `ķ` and `0x0C` for `ņ`.
+
+  - **The after-Z letters use the `0x79` page**, which is where General already keeps Greek and Cyrillic:
+    Czech `ž` = `79 05`, Polish `ż` = `79 04`, Icelandic `þ` `03` / `æ` `04` / `ö` `05`. Same two-byte
+    primary + sub-position shape.
+
+  - **Tailoring is not only insertion.** Five other devices appear, all within the existing framing:
+
+    - **Contraction** — two characters, one primary. The Spanish and Croatian digraphs above; Hungarian's
+      full set (`cs` `4E 05`, `gy` `56 03`, `ny` `63 06`, `sz` `6C 08`, `zs` `79 09`, `ty` `6E 06`), including
+      the doubling rule: `ggy` = `56 03 56 03` and `ccs` = `4E 05 4E 05`, each half weighing as the digraph.
+    - **Expansion** — one character, several primaries. German Phone Book: `ä` = `7F 4A 51 01 00`, primaries
+      `a`+`e` (General has `a` + umlaut secondary); likewise `ö`→`o`+`e`, `ü`→`u`+`e`. Same primitive as
+      `ß`→`SS` above, so it needs no new machinery.
+    - **Secondary retune** — a letter stays on a base primary but changes its *secondary*. Swedish/Finnish
+      makes `w` a variant of `v` (`7F 71 01 03 00`, `v`'s primary plus secondary `03`) and `ü` a variant of
+      `y`; Estonian does the same for `w`. Danish folds `aa` onto `å` (`79 09 01 03`). Lithuanian leaves its
+      ogonek letters as secondaries but *changes the weight* from `0x1B` to `0x0F`. Slovak and Croatian Legacy
+      go the other way and **demote** letters General gives distinct diacritics.
+    - **Remapping the base table.** Estonian is the extreme: `v` moves to `70 03`, and `õ` and `ö` take over
+      the *bare* one-byte primaries `0x71` and `0x73` that General uses for `v` and `w`. So a locale can
+      rewrite the base alphabet, not merely extend it.
+    - **Reordering.** Thai is the only order here that changes a *sequence* rather than weights: `เ` and `ก`
+      each match General on their own, but the pair `เก` is `7F 7C 99 01 03 00` against General's
+      `7F 7C 93 7C 98 01 03 03 00` — the leading vowel, written before the consonant it follows
+      phonetically, is folded with it.
+
+  - Promotion is selective, and non-promoted letters keep the ordinary base-plus-secondary form: `ż` is a
+    letter in Polish (`7F 79 04 01 00`) but merely `z` + accent in Czech (`7F 78 01 04 00`). **Turkish**
+    resolves case in the tailoring rather than by folding: `ı` takes its own slot, and `İ` collapses onto
+    plain `i` (`7F 59 01 00`, no secondary at all) where General gives it a secondary `0x10`.
+
+  - **Every order is General plus a small tailoring** — including the version-1 ones. Compared against the
+    General order of **its own version** (the v1 baseline is a database LibRed creates with
+    `Collation.General`, which ACE then encodes into), no order departs in more than 47 of 193 samples, and
+    a version-1 order is *not* a wholesale reweighting — it only looked like one against a v0 baseline,
+    because the key shape changes. `LocaleFixtureCollationProbeTest` reports both.
+
+    | departure | orders |
+    |---|---|
+    | 47 | Hungarian Technical |
+    | 14–16 | Bosnian, Croatian, Croatian Legacy, Estonian, Serbian (16), Slovak (15), Czech, Hungarian (14) |
+    | 6–11 | Icelandic (11), Lithuanian, Norwegian/Danish, Polish, Vietnamese (9), Latvian, Slovenian, Swedish/Finnish (8), Romanian (7), Turkish (6) |
+    | 1–4 | Romanian Legacy (4), German Phone Book, Spanish Traditional (3), Macedonian (2), French, Spanish Modern, Thai, Ukrainian (1) |
+    | **0 — indistinguishable from General** | **Georgian Modern**, **Indic** |
+
+    Croatian, Bosnian and Serbian depart in the same 16 as Croatian Legacy — the same letter set tailored in
+    both generations, so a locale's *character list* is version-independent even though its weights are not.
+
+    Two caveats on reading this as effort. 193 samples are a sample, not an alphabet: `0 differ` means
+    *indistinguishable over these*, and a real implementation needs a fuller sweep per locale. And **French
+    is under-measured** — its one difference is in the *secondary section*, consistent with French ordering
+    accents from the end of the word, which single-character samples cannot exercise.
+
+  - **Some orders are recorded but unimplemented — including one Access itself lists.** `Arabic` (1025),
+    `Greek` (1032), `Hebrew` (1037), `Dutch` (1043) and `Cyrillic` (1049) are created happily by DAO, land on
+    page 0 with the right LCID, get stamped onto the columns ACE itself creates, and ACE opens and runs DDL
+    against them — yet the keys are **byte-identical to General across 57 samples**, chosen to include what a
+    tailoring would actually move (Greek tonos and final sigma, Cyrillic `ё`/`й`/`ь`/`ъ`, Hebrew final forms,
+    Arabic hamza forms, the `ĳ` ligature). Access's list offers none of those five. But `Georgian Modern`
+    **is** in the list, carries sort id `0x01`, and is likewise indistinguishable from General over 193
+    samples — so appearing in the UI does not imply an implementation, and the sort id can be recorded for an
+    order that does nothing.
+
+  - **DAO can author a locale order**, even though it cannot author a sort-order *version*
+    (`DaoDatabaseCreationProbeTest`). A DAO-created `LANGID=0x040A` database reproduces the Access-authored
+    `SpanishTraditional.accdb` keys byte-for-byte, so locale fixtures need no manual Access step.
+  - `ñ` is a **letter in both Spanish orders** and an accented `n` in General — so **Modern = General plus
+    that one letter**, and **Traditional = Modern plus the two digraphs**. Every other sample encodes
+    byte-identically across all three orders.
+  - Traditional's digraphs are a **contraction**: two characters producing one primary, the inverse of the
+    expansions above. `chico` is `7F 4E 04 59 4D 64 01 00` — five characters, four primaries. Case folds as
+    usual, so `ch`, `Ch` and `CH` share a key.
+
+  LibRed **reads** these databases; `Collation.IsIndexKeyEncodable` is false for any locale other than
+  General v0/v1, so it refuses to write their index keys rather than writing wrong ones. Neither encoder
+  implements contraction.
+
   *Not yet handled:* characters outside ASCII + the accented Latin-1 set above (and a key mixing an
-  accent with an ignorable apostrophe/hyphen is untested).
+  accent with an ignorable apostrophe/hyphen is untested); every locale other than General (above).
 - **GUID:** the start flag `0x7F`, then the 16 GUID bytes in **canonical string order** (i.e.
   `guid.ToString("N")` bytes — **not** the mixed-endian `.ToByteArray()` storage layout), split into two
   8-byte halves by a constant `0x09` marker, and terminated by `0x08` — a fixed **19-byte** key. Data

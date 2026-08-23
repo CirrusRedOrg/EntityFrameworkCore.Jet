@@ -68,10 +68,16 @@ public abstract class JetFormatBase
     /// creation-date-derived value, so an empty password does not read as zeroes).</summary>
     public const int PasswordOffset = 0x42;
 
-    /// <summary>Offset of the 4-byte default text collating sort order: LCID (2 bytes LE, e.g.
-    /// <c>0x0409</c> = 1033 en-US) followed by the sort-order version at <c>0x71</c> (0 = General
-    /// Legacy, 1 = General). The version here matches each column's descriptor byte <c>0x0E</c>.</summary>
+    /// <summary>Offset of the 4-byte default text collating sort order — a 32-bit Windows LCID whose
+    /// otherwise-unused top byte carries the sort-order version. Byte for byte it mirrors a column
+    /// descriptor's <c>0x0B</c>..<c>0x0E</c>: LANGID at <c>0x6E</c> (2 bytes LE, <c>0x0409</c> = 1033 en-US),
+    /// sort id at <c>0x70</c>, version at <c>0x71</c>.</summary>
     public const int CollationSortOrderOffset = 0x6E;
+
+    /// <summary>Offset of the collation's 1-byte sort id — the LCID's high word, which is what distinguishes
+    /// an alternate sort order from its base locale (German Phone Book <c>0x00010407</c> vs German
+    /// <c>0x00000407</c>; Hungarian Technical <c>0x0001040E</c> vs Hungarian <c>0x0000040E</c>).</summary>
+    public const int CollationSortIdOffset = 0x70;
 
     /// <summary>Offset of the 1-byte collation sort-order version within the sort-order field (0/1).</summary>
     public const int CollationVersionOffset = 0x71;
@@ -170,10 +176,15 @@ public abstract class JetFormatBase
     public virtual int ColumnVariableIndexOffset => 0x07; // position among variable columns (0 for fixed)
     public virtual int ColumnPrecisionOffset => 0x0B; // Decimal/Numeric columns only
     public virtual int ColumnScaleOffset => 0x0C;     // Decimal/Numeric columns only
-    // Non-numeric columns instead use 0x0B/0x0C for the text-collation LCID (a little-endian UInt16 read at
-    // 0x0B), and 0x0D for its sort-order version (0 = General legacy, 1 = the Access 2010 order).
+    // Non-numeric columns instead use 0x0B..0x0E for the text collation, and the four bytes together are a
+    // 32-bit Windows LCID with the sort-order version in its otherwise-unused top byte:
+    //   0x0B/0x0C  LANGID, little-endian (0x0409 = General/en-US)
+    //   0x0D       sort id — the high word of the LCID, which is what separates an alternate sort order from
+    //              its base locale (German Phone Book = 0x00010407, Hungarian Technical = 0x0001040E)
+    //   0x0E       sort-order version (0 = the legacy compacted table, 1 = the Access 2010 NLS order)
     public virtual int ColumnLocaleOffset => 0x0B;
-    public virtual int ColumnCollationVersionOffset => 0x0D;
+    public virtual int ColumnCollationSortIdOffset => 0x0D;
+    public virtual int ColumnCollationVersionOffset => 0x0E;
     public virtual int ColumnFlagsOffset => 0x0F;
     /// <summary>Extended column flags (0x10): bit 0x01 = compressed-Unicode capable, 0xC0 = calculated column.</summary>
     public virtual int ColumnExtendedFlagsOffset => 0x10;

@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using LibRed.Catalog;
 using LibRed.IO;
 
 namespace LibRed.Pages;
@@ -28,9 +29,19 @@ public sealed class DatabaseDefinitionPage : Page
     /// obfuscated sort-order field at <see cref="Formats.JetFormatBase.CollationSortOrderOffset"/>.</summary>
     public int DefaultCollationLcid { get; internal set; }
 
-    /// <summary>The database default sort-order version: 0 = General Legacy, 1 = General (2010+).
-    /// Matches each column descriptor's byte <c>0x0E</c>.</summary>
+    /// <summary>The database default sort-order version: 0 = the legacy compacted table, 1 = the Access-2010
+    /// NLS order. Matches each column descriptor's byte <c>0x0E</c>.</summary>
     public byte DefaultCollationVersion { get; internal set; }
+
+    /// <summary>The default collation's sort id — the LCID's high word, from <c>0x70</c>. Non-zero only for a
+    /// Windows alternate sort order (German Phone Book, Hungarian Technical), which shares its LANGID with the
+    /// base locale and is distinguishable by nothing else. Matches column descriptor byte <c>0x0D</c>.</summary>
+    public byte DefaultCollationSortId { get; internal set; }
+
+    /// <summary>The default text collating order, assembled from the three fields of the <c>0x6E</c> block.
+    /// This is what a column created in the database inherits.</summary>
+    public Collation Collation =>
+        new((CollatingOrder)DefaultCollationLcid, DefaultCollationVersion, DefaultCollationSortId);
 
     /// <summary>Page number of the <c>MSysObjects</c> TDEF (the catalog root), read from the bootstrap
     /// pointer at <see cref="Formats.JetFormatBase.CatalogRootPointerOffset"/>. 2 in every observed file.</summary>
@@ -53,6 +64,7 @@ public sealed class DatabaseDefinitionPage : Page
         CodePage = BinaryPrimitives.ReadUInt16LittleEndian(clear.Slice(Formats.JetFormatBase.CodePageOffset - b, 2));
         DatabaseKey = BinaryPrimitives.ReadInt32LittleEndian(clear.Slice(Formats.JetFormatBase.DatabaseKeyOffset - b, 4));
         DefaultCollationLcid = BinaryPrimitives.ReadUInt16LittleEndian(clear.Slice(Formats.JetFormatBase.CollationSortOrderOffset - b, 2));
+        DefaultCollationSortId = clear[Formats.JetFormatBase.CollationSortIdOffset - b];
         DefaultCollationVersion = clear[Formats.JetFormatBase.CollationVersionOffset - b];
         CatalogRootPage = BinaryPrimitives.ReadInt32LittleEndian(clear.Slice(Formats.JetFormatBase.CatalogRootPointerOffset - b, 4));
         double days = BinaryPrimitives.ReadDoubleLittleEndian(clear.Slice(Formats.JetFormatBase.CreationDateOffset - b, 8));

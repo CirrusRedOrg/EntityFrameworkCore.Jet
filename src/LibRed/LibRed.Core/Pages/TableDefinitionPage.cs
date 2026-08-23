@@ -294,11 +294,12 @@ public sealed class TableDefinitionPage : Page
                 // rows, so a survivor keeps its original variable index even though ranking would shift it.
                 buffer.ReadUInt16(entry + format.ColumnVariableIndexOffset),
                 numeric ? Collation.GeneralLegacy
+                    // 0x0B..0x0E are one 32-bit LCID with the sort-order version in the top byte: LANGID,
+                    // then the sort id at 0x0D (non-zero only for a Windows alternate sort order, e.g.
+                    // Hungarian Technical), then the version at 0x0E (0 = legacy table, 1 = Access-2010).
                     : new Collation((CollatingOrder)buffer.ReadUInt16(entry + format.ColumnLocaleOffset),
-                        // The sort-order version is the HIGH byte of the 2-byte field at 0x0D — i.e. the byte at
-                        // 0x0E (0 = General legacy, 1 = Access-2010 General). The low byte 0x0D is 0 in every file
-                        // seen; reading it alone (as LibRed used to) hid v1. Watch 0x0D — see Collation.Version.
-                        buffer.ReadByte(entry + format.ColumnCollationVersionOffset + 1)));
+                        buffer.ReadByte(entry + format.ColumnCollationVersionOffset),
+                        buffer.ReadByte(entry + format.ColumnCollationSortIdOffset)));
         }
 
         // Pass 2: column names, in the same order, immediately after the descriptor block.

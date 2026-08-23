@@ -38,7 +38,7 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | `0x3E` | 4 | Database/encryption key (`0` = not encrypted) |
 | `0x42` | 40 | Password (Jet4; Jet3 = 20) — also XOR `(int)creationDate` |
 | `0x6A` | 4 | Fixed constant `0x000011A6` |
-| `0x6E` | 4 | Collation: LCID (2, LE) + sort-order version at `0x71` (`0` Legacy, `1` General) |
+| `0x6E` | 4 | Collation, a 32-bit LCID with the version in its top byte: LANGID (2, LE), sort id at `0x70`, sort-order version at `0x71` (`0` legacy table, `1` Access-2010) |
 | `0x72` | 8 | Creation timestamp — OLE `double` (days from 1899-12-30) |
 | `0x98` | 4 | Fixed constant `0x00000654` (past the masked window) |
 | `0x9C` | 4 | Engine version string `"4.0"` (ASCII, NUL-term) |
@@ -115,7 +115,8 @@ Variable section (`varOffsetTable`+`numVar`) omitted when the table has no varia
 | `0x09` | 2 | Column number (= id, until an `ALTER COLUMN` burns a new id at `0x05`) |
 | `0x0B` | 1 | Precision (Decimal) — else locale low byte `0x09` |
 | `0x0C` | 1 | Scale (Decimal) — else locale high byte `0x04` |
-| `0x0D` | 2 | Sort-order version (0 = General legacy) |
+| `0x0D` | 1 | Collation sort id — the LCID's high word (`0x01` = an alternate sort order, e.g. Hungarian Technical) |
+| `0x0E` | 1 | Sort-order version (`0` legacy table, `1` Access-2010) |
 | `0x0F` | 1 | Flags: `0x01` fixed, `0x02` updatable, `0x04` auto-number, `0x40` auto-number GUID, `0x80` hyperlink |
 | `0x10` | 1 | Extended flags: `0x01` compressed-Unicode capable, `0xC0` calculated |
 | `0x11` | 4 | Unknown (zero) |

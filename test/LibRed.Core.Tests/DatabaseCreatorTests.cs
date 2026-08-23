@@ -19,8 +19,8 @@ public class DatabaseCreatorTests
         var dp = db.DefinitionPage;
 
         byte[] synth = DatabaseCreator.BuildDefinitionPage(
-            dp.JetVersion, isAccdb: true, dp.CodePage, dp.DefaultCollationLcid,
-            dp.DefaultCollationVersion, (dp.DatabaseCreationDate - new DateTime(1899, 12, 30)).TotalDays);
+            dp.JetVersion, isAccdb: true, dp.CodePage, dp.Collation,
+            (dp.DatabaseCreationDate - new DateTime(1899, 12, 30)).TotalDays);
 
         // The whole page-0 header (0x00–0x9F: identifier, version, the masked field block, and the
         // cleartext "4.0" tail) is reproduced byte-for-byte. (0xA0–0xDFF is zero; 0xE00+ is an
@@ -73,7 +73,8 @@ public class DatabaseCreatorTests
     public void Synthesized_page0_round_trips_through_the_reader()
     {
         var created = new DateTime(2026, 7, 14, 12, 0, 0);
-        byte[] page = DatabaseCreator.BuildDefinitionPage(0x02, isAccdb: true, 1252, 1033, 0, (created - new DateTime(1899, 12, 30)).TotalDays);
+        byte[] page = DatabaseCreator.BuildDefinitionPage(
+            0x02, isAccdb: true, 1252, Collation.GeneralLegacy, (created - new DateTime(1899, 12, 30)).TotalDays);
 
         var dp = new LibRed.Pages.DatabaseDefinitionPage();
         dp.Read(new LibRed.IO.PageBuffer(page, 0), LibRed.Formats.JetFormatBase.FromVersionByte(0x02));

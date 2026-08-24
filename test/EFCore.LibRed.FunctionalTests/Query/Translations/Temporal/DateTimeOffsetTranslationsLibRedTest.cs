@@ -143,9 +143,9 @@ WHERE DATEPART('s', `b`.`DateTimeOffset`) = 10
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE DATEPART(millisecond, [b].[DateTimeOffset]) = 123
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE DATEPART('ms', `b`.`DateTimeOffset`) = 123
 """);
     }
 
@@ -333,7 +333,7 @@ WHERE DATEDIFF('s', CDATE('1970-01-01 00:00:00'), `b`.`DateTimeOffset`) = @unixE
             """
 SELECT COUNT(*)
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`DateTimeOffset` = CDATE('1902-01-02 08:30:00')
+WHERE `b`.`DateTimeOffset` = CDATE('1902-01-02 08:30:00.123')
 """);
     }
 

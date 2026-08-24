@@ -1213,6 +1213,7 @@ internal sealed class ExpressionEvaluator(
             "h" => d.AddHours(n),
             "n" => d.AddMinutes(n),
             "s" => d.AddSeconds(n),
+            "ms" => d.AddMilliseconds(n),
             _ => throw new NotSupportedException($"DATEADD interval '{intervalV}' is not supported."),
         };
     }

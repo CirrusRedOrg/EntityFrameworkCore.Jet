@@ -590,14 +590,18 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
         protected override Expression VisitSqlParameter(SqlParameterExpression sqlParameterExpression)
         {
-            if (sqlParameterExpression.Type == typeof(DateTime) && sqlParameterExpression.TypeMapping is JetDateTimeTypeMapping or NullTypeMapping)
+            // Matched on the EF Core base mapping, not on JetDateTimeTypeMapping/JetTimeOnlyTypeMapping: a derived
+            // provider (LibRed) substitutes its own mapping off the same base, and it needs the same coercion. The
+            // CLR-type test in front is what actually narrows this - the mapping test only rules out a DateTime
+            // that some other mapping claimed.
+            if (sqlParameterExpression.Type == typeof(DateTime) && sqlParameterExpression.TypeMapping is DateTimeTypeMapping or NullTypeMapping)
             {
                 Sql.Append("CDATE(");
                 base.VisitSqlParameter(sqlParameterExpression);
                 Sql.Append(")");
                 return sqlParameterExpression;
             }
-            if (sqlParameterExpression.Type == typeof(TimeOnly) && sqlParameterExpression.TypeMapping is JetTimeOnlyTypeMapping)
+            if (sqlParameterExpression.Type == typeof(TimeOnly) && sqlParameterExpression.TypeMapping is TimeOnlyTypeMapping)
             {
                 Sql.Append("TIMEVALUE(");
                 base.VisitSqlParameter(sqlParameterExpression);

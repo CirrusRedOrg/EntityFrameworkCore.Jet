@@ -30,13 +30,13 @@ public class BasicTypesQueryLibRedFixture : BasicTypesQueryFixtureBase, ITestSql
     protected override Task SeedAsync(BasicTypesContext context)
     {
         var data = new BasicTypesData();
-        //for every data.BasicTypesEntities and data.NullableBasicTypesEntities take the DateTime and DateTimeOffset and set the milliseconds to 0
+        //for every data.BasicTypesEntities and data.NullableBasicTypesEntities rebuild the temporal values down to the millisecond and no finer - LibRed stores the OA double, which quantises there
         foreach (var entity in data.BasicTypesEntities)
         {
-            entity.DateTime = new DateTime(entity.DateTime.Year, entity.DateTime.Month, entity.DateTime.Day, entity.DateTime.Hour, entity.DateTime.Minute, entity.DateTime.Second);
-            entity.DateTimeOffset = new DateTimeOffset(entity.DateTimeOffset.Year, entity.DateTimeOffset.Month, entity.DateTimeOffset.Day, entity.DateTimeOffset.Hour, entity.DateTimeOffset.Minute, entity.DateTimeOffset.Second, entity.DateTimeOffset.Offset);
-            entity.TimeOnly = new TimeOnly(entity.TimeOnly.Hour, entity.TimeOnly.Minute, entity.TimeOnly.Second);
-            entity.TimeSpan = new TimeSpan(entity.TimeSpan.Days, entity.TimeSpan.Hours, entity.TimeSpan.Minutes, entity.TimeSpan.Seconds);
+            entity.DateTime = new DateTime(entity.DateTime.Year, entity.DateTime.Month, entity.DateTime.Day, entity.DateTime.Hour, entity.DateTime.Minute, entity.DateTime.Second, entity.DateTime.Millisecond);
+            entity.DateTimeOffset = new DateTimeOffset(entity.DateTimeOffset.Year, entity.DateTimeOffset.Month, entity.DateTimeOffset.Day, entity.DateTimeOffset.Hour, entity.DateTimeOffset.Minute, entity.DateTimeOffset.Second, entity.DateTimeOffset.Millisecond, entity.DateTimeOffset.Offset);
+            entity.TimeOnly = new TimeOnly(entity.TimeOnly.Hour, entity.TimeOnly.Minute, entity.TimeOnly.Second, entity.TimeOnly.Millisecond);
+            entity.TimeSpan = new TimeSpan(entity.TimeSpan.Days, entity.TimeSpan.Hours, entity.TimeSpan.Minutes, entity.TimeSpan.Seconds, entity.TimeSpan.Milliseconds);
             if (entity.DateOnly.Year < 100)
             {
                 entity.DateOnly = entity.DateOnly.AddYears(100); // Adjust for LibRed's handling of DateOnly
@@ -55,19 +55,19 @@ public class BasicTypesQueryLibRedFixture : BasicTypesQueryFixtureBase, ITestSql
         {
             if (entity.DateTime.HasValue)
             {
-                entity.DateTime = new DateTime(entity.DateTime.Value.Year, entity.DateTime.Value.Month, entity.DateTime.Value.Day, entity.DateTime.Value.Hour, entity.DateTime.Value.Minute, entity.DateTime.Value.Second);
+                entity.DateTime = new DateTime(entity.DateTime.Value.Year, entity.DateTime.Value.Month, entity.DateTime.Value.Day, entity.DateTime.Value.Hour, entity.DateTime.Value.Minute, entity.DateTime.Value.Second, entity.DateTime.Value.Millisecond);
             }
             if (entity.DateTimeOffset.HasValue)
             {
-                entity.DateTimeOffset = new DateTimeOffset(entity.DateTimeOffset.Value.Year, entity.DateTimeOffset.Value.Month, entity.DateTimeOffset.Value.Day, entity.DateTimeOffset.Value.Hour, entity.DateTimeOffset.Value.Minute, entity.DateTimeOffset.Value.Second, entity.DateTimeOffset.Value.Offset);
+                entity.DateTimeOffset = new DateTimeOffset(entity.DateTimeOffset.Value.Year, entity.DateTimeOffset.Value.Month, entity.DateTimeOffset.Value.Day, entity.DateTimeOffset.Value.Hour, entity.DateTimeOffset.Value.Minute, entity.DateTimeOffset.Value.Second, entity.DateTimeOffset.Value.Millisecond, entity.DateTimeOffset.Value.Offset);
             }
             if (entity.TimeOnly.HasValue)
             {
-                entity.TimeOnly = new TimeOnly(entity.TimeOnly.Value.Hour, entity.TimeOnly.Value.Minute, entity.TimeOnly.Value.Second);
+                entity.TimeOnly = new TimeOnly(entity.TimeOnly.Value.Hour, entity.TimeOnly.Value.Minute, entity.TimeOnly.Value.Second, entity.TimeOnly.Value.Millisecond);
             }
             if (entity.TimeSpan.HasValue)
             {
-                entity.TimeSpan = new TimeSpan(entity.TimeSpan.Value.Days, entity.TimeSpan.Value.Hours, entity.TimeSpan.Value.Minutes, entity.TimeSpan.Value.Seconds);
+                entity.TimeSpan = new TimeSpan(entity.TimeSpan.Value.Days, entity.TimeSpan.Value.Hours, entity.TimeSpan.Value.Minutes, entity.TimeSpan.Value.Seconds, entity.TimeSpan.Value.Milliseconds);
             }
             if (entity.DateOnly.HasValue && entity.DateOnly.Value.Year < 100)
             {
@@ -93,10 +93,10 @@ public class BasicTypesQueryLibRedFixture : BasicTypesQueryFixtureBase, ITestSql
         BasicTypesData result = (BasicTypesData)base.GetExpectedData();
         result.BasicTypesEntities.ForEach(b =>
         {
-            b.DateTime = new DateTime(b.DateTime.Year, b.DateTime.Month, b.DateTime.Day, b.DateTime.Hour, b.DateTime.Minute, b.DateTime.Second);
-            b.DateTimeOffset = new DateTimeOffset(b.DateTimeOffset.Year, b.DateTimeOffset.Month, b.DateTimeOffset.Day, b.DateTimeOffset.Hour, b.DateTimeOffset.Minute, b.DateTimeOffset.Second, b.DateTimeOffset.Offset).ToUniversalTime();
-            b.TimeOnly = new TimeOnly(b.TimeOnly.Hour, b.TimeOnly.Minute, b.TimeOnly.Second);
-            b.TimeSpan = new TimeSpan(b.TimeSpan.Days, b.TimeSpan.Hours, b.TimeSpan.Minutes, b.TimeSpan.Seconds);
+            b.DateTime = new DateTime(b.DateTime.Year, b.DateTime.Month, b.DateTime.Day, b.DateTime.Hour, b.DateTime.Minute, b.DateTime.Second, b.DateTime.Millisecond);
+            b.DateTimeOffset = new DateTimeOffset(b.DateTimeOffset.Year, b.DateTimeOffset.Month, b.DateTimeOffset.Day, b.DateTimeOffset.Hour, b.DateTimeOffset.Minute, b.DateTimeOffset.Second, b.DateTimeOffset.Millisecond, b.DateTimeOffset.Offset).ToUniversalTime();
+            b.TimeOnly = new TimeOnly(b.TimeOnly.Hour, b.TimeOnly.Minute, b.TimeOnly.Second, b.TimeOnly.Millisecond);
+            b.TimeSpan = new TimeSpan(b.TimeSpan.Days, b.TimeSpan.Hours, b.TimeSpan.Minutes, b.TimeSpan.Seconds, b.TimeSpan.Milliseconds);
             if (b.DateOnly.Year < 100)
             {
                 b.DateOnly = b.DateOnly.AddYears(100); // Adjust for LibRed's handling of DateOnly
@@ -115,19 +115,19 @@ public class BasicTypesQueryLibRedFixture : BasicTypesQueryFixtureBase, ITestSql
         {
             if (b.DateTime.HasValue)
             {
-                b.DateTime = new DateTime(b.DateTime.Value.Year, b.DateTime.Value.Month, b.DateTime.Value.Day, b.DateTime.Value.Hour, b.DateTime.Value.Minute, b.DateTime.Value.Second);
+                b.DateTime = new DateTime(b.DateTime.Value.Year, b.DateTime.Value.Month, b.DateTime.Value.Day, b.DateTime.Value.Hour, b.DateTime.Value.Minute, b.DateTime.Value.Second, b.DateTime.Value.Millisecond);
             }
             if (b.DateTimeOffset.HasValue)
             {
-                b.DateTimeOffset = new DateTimeOffset(b.DateTimeOffset.Value.Year, b.DateTimeOffset.Value.Month, b.DateTimeOffset.Value.Day, b.DateTimeOffset.Value.Hour, b.DateTimeOffset.Value.Minute, b.DateTimeOffset.Value.Second, b.DateTimeOffset.Value.Offset).ToUniversalTime();
+                b.DateTimeOffset = new DateTimeOffset(b.DateTimeOffset.Value.Year, b.DateTimeOffset.Value.Month, b.DateTimeOffset.Value.Day, b.DateTimeOffset.Value.Hour, b.DateTimeOffset.Value.Minute, b.DateTimeOffset.Value.Second, b.DateTimeOffset.Value.Millisecond, b.DateTimeOffset.Value.Offset).ToUniversalTime();
             }
             if (b.TimeOnly.HasValue)
             {
-                b.TimeOnly = new TimeOnly(b.TimeOnly.Value.Hour, b.TimeOnly.Value.Minute, b.TimeOnly.Value.Second);
+                b.TimeOnly = new TimeOnly(b.TimeOnly.Value.Hour, b.TimeOnly.Value.Minute, b.TimeOnly.Value.Second, b.TimeOnly.Value.Millisecond);
             }
             if (b.TimeSpan.HasValue)
             {
-                b.TimeSpan = new TimeSpan(b.TimeSpan.Value.Days, b.TimeSpan.Value.Hours, b.TimeSpan.Value.Minutes, b.TimeSpan.Value.Seconds);
+                b.TimeSpan = new TimeSpan(b.TimeSpan.Value.Days, b.TimeSpan.Value.Hours, b.TimeSpan.Value.Minutes, b.TimeSpan.Value.Seconds, b.TimeSpan.Value.Milliseconds);
             }
             if (b.DateOnly.HasValue && b.DateOnly.Value.Year < 100)
             {

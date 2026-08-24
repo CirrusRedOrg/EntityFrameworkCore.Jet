@@ -24,7 +24,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                 { nameof(DateTime.Minute), "n" },
                 { nameof(DateTime.Second), "s" },
                 { nameof(DateTime.DayOfWeek), "w" },
-                //{ nameof(DateTime.Millisecond), "ms" }
+                { nameof(DateTime.Millisecond), "ms" }
             };
 
         private readonly JetSqlExpressionFactory _sqlExpressionFactory = (JetSqlExpressionFactory)sqlExpressionFactory;

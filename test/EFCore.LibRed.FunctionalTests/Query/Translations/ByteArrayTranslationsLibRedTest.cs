@@ -3,6 +3,7 @@
 
 using Microsoft.EntityFrameworkCore.Query.Translations;
 using Microsoft.EntityFrameworkCore.TestUtilities;
+using System;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -17,41 +18,21 @@ public class ByteArrayTranslationsLibRedTest : ByteArrayTranslationsTestBase<Bas
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
+    // Length, Index and First all need the EXACT byte length of a byte array, which Jet cannot give: LenB
+    // reports the UTF-16 byte count and so rounds an odd length up to even. The provider refuses rather than
+    // returning a wrong number, and points at EF.Functions.ByteArrayLength, whose remarks state the one case
+    // it still gets wrong (data ending in 0x00, indistinguishable from the zero pad).
+    //
+    // The same scenarios were adapted this way in the GearsOfWar tests long ago; EF10 moved them into the
+    // BasicTypesEntities suite, and these copies arrived carrying upstream's SQL Server baselines.
     public override async Task Length()
-    {
-        await base.Length();
-
-        AssertSql(
-            """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE CAST(DATALENGTH([b].[ByteArray]) AS int) = 4
-""");
-    }
+        => await Assert.ThrowsAsync<InvalidOperationException>(() => base.Length());
 
     public override async Task Index()
-    {
-        await base.Index();
-
-        AssertSql(
-            """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE CAST(DATALENGTH([b].[ByteArray]) AS int) >= 3 AND CAST(SUBSTRING([b].[ByteArray], 2 + 1, 1) AS tinyint) = CAST(190 AS tinyint)
-""");
-    }
+        => await Assert.ThrowsAsync<InvalidOperationException>(() => base.Index());
 
     public override async Task First()
-    {
-        await base.First();
-
-        AssertSql(
-            """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE CAST(DATALENGTH([b].[ByteArray]) AS int) >= 1 AND CAST(SUBSTRING([b].[ByteArray], 1, 1) AS tinyint) = CAST(222 AS tinyint)
-""");
-    }
+        => await Assert.ThrowsAsync<InvalidOperationException>(() => base.First());
 
     public override async Task Contains_with_constant()
     {

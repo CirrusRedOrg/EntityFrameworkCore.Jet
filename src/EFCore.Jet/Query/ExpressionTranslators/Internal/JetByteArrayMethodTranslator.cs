@@ -106,6 +106,26 @@ public class JetByteArrayMethodTranslator(ISqlExpressionFactory sqlExpressionFac
                 _sqlExpressionFactory.Constant(0));
         }
 
+        // Any() over a byte[] asks only whether there are any bytes at all, which LENB answers exactly.
+        //
+        // Unlike ByteArrayLength this needs no caveat. LENB reports the UTF-16 byte count and so rounds an odd
+        // length UP to even, which is why an exact length is unobtainable — but that rounding can never move a
+        // value across zero: an empty array is 0, and every non-empty array is at least 2. The trailing-0x00
+        // ambiguity that forces ByteArrayLength's "data must never end in 0x00" warning simply cannot arise
+        // for a > 0 test.
+        if (method is { IsGenericMethod: true, Name: nameof(Enumerable.Any) } && method.GetParameters().Length == 1
+            && arguments[0].Type == typeof(byte[]))
+        {
+            return _sqlExpressionFactory.GreaterThan(
+                _sqlExpressionFactory.Function(
+                    "LENB",
+                    [arguments[0]],
+                    nullable: true,
+                    argumentsPropagateNullability: [true],
+                    typeof(int)),
+                _sqlExpressionFactory.Constant(0));
+        }
+
         if (method is { IsGenericMethod: true, Name: nameof(Enumerable.First) } && method.GetParameters().Length == 1
             && arguments[0].Type == typeof(byte[]))
         {

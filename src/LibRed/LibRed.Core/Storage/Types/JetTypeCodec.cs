@@ -171,7 +171,7 @@ public static class JetTypeCodec
             case JetDataType.Text:
                 return EncodeText(column, AsText(value, c));
             case JetDataType.Binary:
-                return EncodeBinary(column, (byte[])value);
+                return EncodeBinary(column, AsBinary(value));
             case JetDataType.FixedPoint:
                 return EncodeNumeric(Convert.ToDecimal(value, c), column.Scale);
 
@@ -181,7 +181,7 @@ public static class JetTypeCodec
             case JetDataType.Memo:
                 return EncodeInlineLongValue(Encoding.Unicode.GetBytes(AsText(value, c)));
             case JetDataType.Ole:
-                return EncodeInlineLongValue((byte[])value);
+                return EncodeInlineLongValue(AsBinary(value));
 
             default:
                 throw new NotSupportedException($"Encoding {column.Type} is not supported yet.");
@@ -224,6 +224,26 @@ public static class JetTypeCodec
         write(b);
         return b;
     }
+
+    /// <summary>
+    /// The bytes to store for a binary (BINARY/VARBINARY) or OLE column.
+    /// </summary>
+    /// <remarks>
+    /// A <b>string</b> written to a binary column stores its UTF-16LE bytes, exactly as text does — verified
+    /// against ACE for VARBINARY and LONGBINARY alike: <c>'A'</c> stores <c>4100</c>, <c>'AB'</c> stores
+    /// <c>41004200</c>, <c>'é'</c> stores <c>E900</c>. The characters are NOT parsed as hex: <c>'41'</c>
+    /// stores <c>34003100</c> — the digits '4' and '1' — not the byte <c>0x41</c>.
+    ///
+    /// The empty string therefore stores zero bytes, and that is the only way to write an empty binary as a
+    /// literal: Access has no digitless <c>0x</c> (it rejects it), which is why
+    /// <c>JetByteArrayTypeMapping</c> emits <c>''</c> for an empty array.
+    /// </remarks>
+    private static byte[] AsBinary(object value) => value switch
+    {
+        byte[] bytes => bytes,
+        string text => Encoding.Unicode.GetBytes(text),
+        _ => (byte[])value,
+    };
 
     /// <summary>The OLE-automation epoch (1899-12-30), which is also Jet's zero date and the base for
     /// storing a <see cref="TimeSpan"/> / <see cref="TimeOnly"/> as a date offset.</summary>

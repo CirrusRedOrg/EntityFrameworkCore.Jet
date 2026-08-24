@@ -78,10 +78,24 @@ namespace EntityFrameworkCore.Jet.Storage.Internal
         /// </returns>
         protected override string GenerateNonNullSqlLiteral(object value)
         {
-            var builder = new StringBuilder();
+            var bytes = (byte[])value;
+
+            // An empty array has no hex form here. SQL Server writes a bare '0x', but that is T-SQL only —
+            // ACE rejects it outright ("Syntax error in query expression '0x'"), so the SQL was invalid for
+            // this provider rather than merely unusual, and failed the same way on ACE and on LibRed.
+            //
+            // An empty STRING literal is what Access accepts, in a value position and in a DEFAULT. Verified
+            // against ACE: '' stores and reads back as a zero-length byte[], and stays distinct from NULL
+            // (IS NULL does not match it). Note 0x00 is NOT the same thing — that is a one-byte zero.
+            if (bytes.Length == 0)
+            {
+                return "''";
+            }
+
+            var builder = new StringBuilder(2 + bytes.Length * 2);
             builder.Append("0x");
 
-            foreach (var @byte in (byte[])value)
+            foreach (var @byte in bytes)
             {
                 builder.Append(@byte.ToString("X2", CultureInfo.InvariantCulture));
             }

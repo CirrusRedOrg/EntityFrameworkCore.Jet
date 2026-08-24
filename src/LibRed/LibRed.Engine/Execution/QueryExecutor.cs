@@ -791,7 +791,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         var (leftColumns, leftRows) = Execute(join.Left, outer);
         Expression? on = join.On; // null for a CROSS join (cartesian product)
-        bool leftOuter = join.Kind == JoinKind.Left;
+        // Which sides are preserved. FULL preserves both, so it is left-outer and right-outer at once. The
+        // right-preserving half costs more: a right row's fate is not settled until every left row has been
+        // tried, so those rows are tracked and emitted after the loop rather than inside it.
+        bool leftOuter = join.Kind is JoinKind.Left or JoinKind.Full;
+        bool rightOuter = join.Kind is JoinKind.Right or JoinKind.Full;
 
         // Index-nested-loop: the right side is a *correlated* index seek (keyed off the outer row). Re-execute
         // it per left row — seeking the inner index — instead of materialising and scanning the whole inner
@@ -855,16 +859,18 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         {
             var onScope = new EvalScope(columns, [], outer); // one scope/evaluator, rebound per combined row
             var onEval = new ExpressionEvaluator(onScope, this, parameters: _parameters, session: _session);
+            bool[]? rightMatched = rightOuter ? new bool[rightRows.Count] : null;
 
             foreach (object?[] left in leftRows)
             {
                 bool matched = false;
-                foreach (object?[] right in rightRows)
+                for (int r = 0; r < rightRows.Count; r++)
                 {
-                    object?[] combined = [.. left, .. right];
+                    object?[] combined = [.. left, .. rightRows[r]];
                     if (on is null || onEval.Rebind(combined).IsTrue(on))
                     {
                         matched = true;
+                        if (rightMatched is not null) rightMatched[r] = true;
                         yield return combined;
                     }
                 }
@@ -872,6 +878,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 if (leftOuter && !matched)
                     yield return [.. left, .. new object?[rightColumns.Count]];
             }
+
+            // Right-preserving tail: every right row no left row matched, null-padded on the left.
+            for (int r = 0; rightMatched is not null && r < rightMatched.Length; r++)
+                if (!rightMatched[r])
+                    yield return [.. new object?[leftColumns.Count], .. rightRows[r]];
         }
 
         return (columns, Rows());
@@ -888,8 +899,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         // INNER/LEFT build the right side and probe with the left; RIGHT builds the left and probes with the
         // right (so the preserved — outer — side is always the probe side). The emitted row is [left.., right..]
         // regardless of which side was built.
+        // FULL builds the right and probes with the left, like INNER/LEFT - but it preserves the build side too,
+        // which the others never do, so it additionally tracks which build rows were hit.
         bool buildRight = join.Kind != JoinKind.Right;
-        bool preserveProbe = join.Kind is JoinKind.Left or JoinKind.Right; // probe side is the outer/preserved side
+        bool preserveProbe = join.Kind is JoinKind.Left or JoinKind.Right or JoinKind.Full; // probe side is outer
+        bool preserveBuild = join.Kind is JoinKind.Full;
         var buildColumns = buildRight ? rightColumns : leftColumns;
         var buildKeys = buildRight ? join.RightKeys : join.LeftKeys;
         var buildRowsEnum = buildRight ? rightRowsEnum : leftRows;
@@ -904,11 +918,19 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var table = new Dictionary<object?[], List<object?[]>>(HashKeyComparer.Instance);
             var buildScope = new EvalScope(buildColumns, [], outer);
             var buildEval = new ExpressionEvaluator(buildScope, this, parameters: _parameters, session: _session);
+            // A null-key build row can never match, so it is normally dropped outright. Under FULL the build
+            // side is preserved, which makes "never matches" a reason to emit it, not to discard it - so those
+            // rows are set aside instead and joined to the unmatched tail below.
+            List<object?[]>? unhashableBuild = preserveBuild ? [] : null;
             foreach (object?[] b in buildRowsEnum)
             {
                 buildScope.Rebind(b);
                 var key = new object?[buildKeys.Count];
-                if (!EvalKey(buildEval, buildKeys, key)) continue; // null key → unmatchable
+                if (!EvalKey(buildEval, buildKeys, key)) // null key → unmatchable
+                {
+                    unhashableBuild?.Add(b);
+                    continue;
+                }
                 if (!table.TryGetValue(key, out List<object?[]>? bucket))
                     table[key] = bucket = [];
                 bucket.Add(b);
@@ -921,6 +943,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var onScope = new EvalScope(joinColumns, [], outer);
             var onEval = new ExpressionEvaluator(onScope, this, parameters: _parameters, session: _session);
             var probe = new object?[probeKeys.Count]; // reused; only used to look up, never stored
+            var matchedBuild = preserveBuild ? new HashSet<object?[]>(RowIdentityComparer.Instance) : null;
 
             foreach (object?[] p in probeRowsEnum)
             {
@@ -936,6 +959,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                         if (onEval.Rebind(combined).IsTrue(on))
                         {
                             matched = true;
+                            matchedBuild?.Add(b);
                             yield return combined;
                         }
                     }
@@ -944,6 +968,24 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     yield return buildRight
                         ? [.. p, .. new object?[rightWidth]]  // probe is the left side; right is null
                         : [.. new object?[leftWidth], .. p];  // probe is the right side; left is null
+            }
+
+            // FULL only: the build side is preserved as well, so every build row the probe never matched is
+            // emitted null-padded on the other side. This has to trail the whole probe pass - a build row is
+            // only unmatched once every probe row has failed to hit it.
+            if (preserveBuild)
+            {
+                object?[] Unmatched(object?[] b) => buildRight
+                    ? [.. new object?[leftWidth], .. b]   // build is the right side; left is null
+                    : [.. b, .. new object?[rightWidth]]; // build is the left side; right is null
+
+                foreach (List<object?[]> bucket in table.Values)
+                    foreach (object?[] b in bucket)
+                        if (!matchedBuild!.Contains(b))
+                            yield return Unmatched(b);
+
+                foreach (object?[] b in unhashableBuild!) // null-key rows: unmatchable by construction
+                    yield return Unmatched(b);
             }
         }
 
@@ -958,6 +1000,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             if ((dest[i] = eval.Evaluate(keys[i])) is null)
                 return false;
         return true;
+    }
+
+    /// <summary>Identity, not value, over a row array: a FULL join's "was this build row ever matched?" set has to
+    /// distinguish two rows that happen to hold equal values, so it keys on the reference itself.</summary>
+    private sealed class RowIdentityComparer : IEqualityComparer<object?[]>
+    {
+        public static readonly RowIdentityComparer Instance = new();
+
+        public bool Equals(object?[]? x, object?[]? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(object?[] obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
     }
 
     /// <summary>Hash/equality over a composite join key that mirrors the evaluator's <c>=</c> within a type kind

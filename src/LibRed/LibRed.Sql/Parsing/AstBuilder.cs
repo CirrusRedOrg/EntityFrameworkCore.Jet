@@ -545,6 +545,11 @@ internal sealed class AstBuilder
     {
         LeftJoinContext => ViewJoinKind.Left,
         RightJoinContext => ViewJoinKind.Right,
+        // A view is stored in Access's own query format, which has no full outer join to encode - so unlike a
+        // FULL JOIN executed directly, this one cannot be represented on disk. Refuse rather than silently
+        // storing the INNER the fall-through would otherwise pick.
+        FullJoinContext => throw new NotSupportedException(
+            "A FULL JOIN cannot be stored in a view: the Access query format has no representation for it."),
         _ => ViewJoinKind.Inner,
     };
 
@@ -710,6 +715,7 @@ internal sealed class AstBuilder
     {
         LeftJoinContext => JoinKind.Left,
         RightJoinContext => JoinKind.Right,
+        FullJoinContext => JoinKind.Full,
         _ => JoinKind.Inner,
     };
 

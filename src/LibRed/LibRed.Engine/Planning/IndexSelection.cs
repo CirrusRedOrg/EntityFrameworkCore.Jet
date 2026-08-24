@@ -169,8 +169,9 @@ internal static class IndexSelection
 
         // No index-nested-loop available: if this is an equi-join whose keys are same-kind columns, hash it
         // (O(n+m)) instead of leaving the O(n·m) nested loop. See HashJoinNode for why same-kind is required.
-        // RIGHT joins hash too (the executor builds the left and probes with the right).
-        if (j.Kind is (JoinKind.Inner or JoinKind.Left or JoinKind.Right) && j.On is { } cond
+        // RIGHT joins hash too (the executor builds the left and probes with the right), and so does FULL, which
+        // additionally emits the build rows the probe never matched.
+        if (j.Kind is (JoinKind.Inner or JoinKind.Left or JoinKind.Right or JoinKind.Full) && j.On is { } cond
             && TryHashKeys(cond, left, right, catalog) is { } keys)
             return new HashJoinNode(left, right, j.Kind, keys.Left, keys.Right, cond);
 

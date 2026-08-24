@@ -1,6 +1,6 @@
 // ANTLR4 grammar for the Jet/ACE (Microsoft Access) SQL dialect.
 //
-// Scope: SELECT with projection/aliases, multi-table FROM with INNER/LEFT/RIGHT JOIN and
+// Scope: SELECT with projection/aliases, multi-table FROM with INNER/LEFT/RIGHT/FULL JOIN and
 // derived-table subqueries, WHERE, ORDER BY, TOP. The parse tree is lowered into
 // LibRed.Sql.Ast by AstBuilder, so the rest of the engine never sees these generated types.
 //
@@ -262,10 +262,15 @@ tablePrimary
 
 joinClause : joinType JOIN tablePrimary ON expression ;
 
+// FULL [OUTER] JOIN is a LibRed extension: ACE has no full outer join at all, and no way to express one
+// (its query designer offers only the three above). FULL is therefore a keyword here that is not reserved in
+// Access, so a column actually named "Full" has to be bracketed or backticked - the same tax LEFT, RIGHT,
+// ORDER and every other keyword already charge.
 joinType
     : INNER?            # InnerJoin
     | LEFT OUTER?       # LeftJoin
     | RIGHT OUTER?      # RightJoin
+    | FULL OUTER?       # FullJoin
     ;
 
 whereClause : WHERE expression ;
@@ -360,6 +365,7 @@ MOD    : [Mm][Oo][Dd] ;
 INNER  : [Ii][Nn][Nn][Ee][Rr] ;
 LEFT   : [Ll][Ee][Ff][Tt] ;
 RIGHT  : [Rr][Ii][Gg][Hh][Tt] ;
+FULL   : [Ff][Uu][Ll][Ll] ;
 OUTER  : [Oo][Uu][Tt][Ee][Rr] ;
 JOIN   : [Jj][Oo][Ii][Nn] ;
 IN     : [Ii][Nn] ;

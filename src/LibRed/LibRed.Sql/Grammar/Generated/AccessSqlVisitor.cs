@@ -577,6 +577,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitRightJoin([NotNull] AccessSqlParser.RightJoinContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>FullJoin</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinType"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitFullJoin([NotNull] AccessSqlParser.FullJoinContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.whereClause"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

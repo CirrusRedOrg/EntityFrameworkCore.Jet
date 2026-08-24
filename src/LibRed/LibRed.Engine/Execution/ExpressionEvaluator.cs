@@ -143,6 +143,7 @@ internal sealed class ExpressionEvaluator(
                 : f.Arguments.Count == 3 ? Evaluate(f.Arguments[2]) : null,
             "CHOOSE" => Choose(f),
             "SWITCH" => Switch(f),
+            "NULLIF" => NullIf(f),
             "DATEPART" => DatePart(Evaluate(f.Arguments[0]), Evaluate(f.Arguments[1])),
             "ROUND" => Round(f),
             "FIX" => Numeric1(f, Math.Truncate, Math.Truncate),  // toward zero
@@ -319,6 +320,7 @@ internal sealed class ExpressionEvaluator(
             "STRCOMP" => (2, 3),
             "STRCONV" => (2, 3),
             "IIF" => (2, 3),
+            "NULLIF" => (2, 2),
             "CHOOSE" => (2, int.MaxValue),
             "SWITCH" => (2, int.MaxValue),
 
@@ -371,6 +373,31 @@ internal sealed class ExpressionEvaluator(
         int index = Convert.ToInt32(indexValue, CultureInfo.InvariantCulture);
         int choiceCount = f.Arguments.Count - 1;
         return index < 1 || index > choiceCount ? null : Evaluate(f.Arguments[index]);
+    }
+
+    /// <summary>
+    /// <c>NULLIF(a, b)</c>: NULL when the two are equal, otherwise <c>a</c>.
+    /// </summary>
+    /// <remarks>
+    /// A deliberate divergence from ACE, which has no such function — it answers "Undefined function 'NULLIF'
+    /// in expression" (verified). Access's own spelling of this is <c>IIF(a = b, NULL, a)</c>, and that is what
+    /// this evaluates to; the difference is only that LibRed also accepts the name EF Core emits, so a query
+    /// using it runs here rather than failing at the engine.
+    ///
+    /// Equality follows the same comparison as the <c>=</c> operator, which makes the NULL cases fall out
+    /// correctly without special-casing: comparing with a NULL is unknown rather than equal, so
+    /// <c>NULLIF(x, NULL)</c> is <c>x</c> and <c>NULLIF(NULL, y)</c> is NULL — matching the IIF form, where an
+    /// unknown condition takes the false branch.
+    ///
+    /// Unlike the IIF spelling, <c>a</c> is evaluated once.
+    /// </remarks>
+    private object? NullIf(FunctionCall f)
+    {
+        object? left = Evaluate(f.Arguments[0]);
+        if (left is null) return null;
+
+        object? right = Evaluate(f.Arguments[1]);
+        return right is not null && Compare(left, right) == 0 ? null : left;
     }
 
     /// <summary>Access <c>Switch(cond-1, value-1, cond-2, value-2, …)</c>: evaluates the conditions left to

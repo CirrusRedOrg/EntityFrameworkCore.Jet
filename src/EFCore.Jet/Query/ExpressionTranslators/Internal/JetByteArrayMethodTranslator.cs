@@ -69,77 +69,76 @@ public class JetByteArrayMethodTranslator(ISqlExpressionFactory sqlExpressionFac
                 ? _sqlExpressionFactory.Convert(dataLengthSqlFunction, typeof(int))
                 : dataLengthSqlFunction;
         }
-        if (method is { IsGenericMethod: true, Name: nameof(Enumerable.Contains) }
-            && arguments[0].Type == typeof(byte[]))
+
+        if (method.IsGenericMethod
+            && method.DeclaringType == typeof(Enumerable))
         {
-            var source = arguments[0];
-            var sourceTypeMapping = source.TypeMapping;
+            switch (method.Name)
+            {
+                case nameof(Enumerable.Contains) when arguments is [var source, var item] && source.Type == typeof(byte[]):
+                {
+                    var sourceTypeMapping = source.TypeMapping;
 
-            var value = arguments[1] is SqlConstantExpression constantValue
-                ? _sqlExpressionFactory.Constant(new[] { (byte)constantValue.Value! }, sourceTypeMapping)
-                : _sqlExpressionFactory.Function(
-                    "CHR",
-                    [arguments[1]],
-                    nullable: true,
-                    argumentsPropagateNullability: [true],
-                    typeof(string));
-
-            
-
-            return _sqlExpressionFactory.GreaterThan(
-                _sqlExpressionFactory.Function(
-                    "INSTR",
-                    [
-                        _sqlExpressionFactory.Constant(1),
-                        _sqlExpressionFactory.Function(
-                            "STRCONV",
-                            [source, _sqlExpressionFactory.Constant(64)],
+                    var value = item is SqlConstantExpression constantValue
+                        ? _sqlExpressionFactory.Constant(new[] { (byte)constantValue.Value! }, sourceTypeMapping)
+                        : _sqlExpressionFactory.Function(
+                            "CHR",
+                            [item],
                             nullable: true,
-                            argumentsPropagateNullability: [true, false],
-                            typeof(string)),
-                        value,
-                        _sqlExpressionFactory.Constant(0)
-                    ],
-                    nullable: true,
-                    argumentsPropagateNullability: [false, true, true, false],
-                    typeof(int)),
-                _sqlExpressionFactory.Constant(0));
-        }
+                            argumentsPropagateNullability: [true],
+                            typeof(string));
 
-        // Any() over a byte[] asks only whether there are any bytes at all, which LENB answers exactly.
-        //
-        // Unlike ByteArrayLength this needs no caveat. LENB reports the UTF-16 byte count and so rounds an odd
-        // length UP to even, which is why an exact length is unobtainable — but that rounding can never move a
-        // value across zero: an empty array is 0, and every non-empty array is at least 2. The trailing-0x00
-        // ambiguity that forces ByteArrayLength's "data must never end in 0x00" warning simply cannot arise
-        // for a > 0 test.
-        if (method is { IsGenericMethod: true, Name: nameof(Enumerable.Any) } && method.GetParameters().Length == 1
-            && arguments[0].Type == typeof(byte[]))
-        {
-            return _sqlExpressionFactory.GreaterThan(
-                _sqlExpressionFactory.Function(
-                    "LENB",
-                    [arguments[0]],
-                    nullable: true,
-                    argumentsPropagateNullability: [true],
-                    typeof(int)),
-                _sqlExpressionFactory.Constant(0));
-        }
+                    return _sqlExpressionFactory.GreaterThan(
+                        _sqlExpressionFactory.Function(
+                            "INSTR",
+                            [
+                                _sqlExpressionFactory.Constant(1),
+                                _sqlExpressionFactory.Function(
+                                    "STRCONV",
+                                    [source, _sqlExpressionFactory.Constant(64)],
+                                    nullable: true,
+                                    argumentsPropagateNullability: [true, false],
+                                    typeof(string)),
+                                value,
+                                _sqlExpressionFactory.Constant(0)
+                            ],
+                            nullable: true,
+                            argumentsPropagateNullability: [false, true, true, false],
+                            typeof(int)),
+                        _sqlExpressionFactory.Constant(0));
+                }
 
-        if (method is { IsGenericMethod: true, Name: nameof(Enumerable.First) } && method.GetParameters().Length == 1
-            && arguments[0].Type == typeof(byte[]))
-        {
-            return _sqlExpressionFactory.Function(
-                "ASCB",
-                [ _sqlExpressionFactory.Function(
-                    "MIDB",
-                    [arguments[0], _sqlExpressionFactory.Constant(1), _sqlExpressionFactory.Constant(1)],
-                    nullable: true,
-                    argumentsPropagateNullability: [true, true, true],
-                    typeof(byte[])) ],
-                nullable: true,
-                argumentsPropagateNullability: [true],
-                typeof(int));
+                // First without a predicate
+                case nameof(Enumerable.First) when arguments is [var source] && source.Type == typeof(byte[]):
+                    return _sqlExpressionFactory.Function(
+                        "ASCB",
+                        [
+                            _sqlExpressionFactory.Function(
+                                "MIDB",
+                                [source, _sqlExpressionFactory.Constant(1), _sqlExpressionFactory.Constant(1)],
+                                nullable: true,
+                                argumentsPropagateNullability: [true, true, true],
+                                typeof(byte[]))
+                        ],
+                        nullable: true,
+                        argumentsPropagateNullability: [true],
+                        typeof(int));
+
+                // Any without a predicate. LENB answers "are there any bytes at all" exactly, and unlike
+                // ByteArrayLength it needs no caveat: LENB reports the UTF-16 byte count and so rounds an odd
+                // length UP to even, which is why an EXACT length is unobtainable — but that rounding can
+                // never move a value across zero. An empty array is 0 and every non-empty array is at least 2,
+                // so the trailing-0x00 ambiguity behind ByteArrayLength's warning cannot arise for a > 0 test.
+                case nameof(Enumerable.Any) when arguments is [var source] && source.Type == typeof(byte[]):
+                    return _sqlExpressionFactory.GreaterThan(
+                        _sqlExpressionFactory.Function(
+                            "LENB",
+                            [source],
+                            nullable: true,
+                            argumentsPropagateNullability: [true],
+                            typeof(int)),
+                        _sqlExpressionFactory.Constant(0));
+            }
         }
 
         return null;

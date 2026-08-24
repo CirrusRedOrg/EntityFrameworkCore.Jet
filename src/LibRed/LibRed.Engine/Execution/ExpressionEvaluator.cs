@@ -170,12 +170,15 @@ internal sealed class ExpressionEvaluator(
 
             // VBA/Access string functions. All propagate NULL; positions are 1-based. Comparisons default to
             // case-insensitive (Access "Option Compare Database" = Text), overridable by a compare argument.
-            "LEN" => Convert1(f, v => v.ToString()!.Length),
-            "LCASE" => Convert1(f, v => v.ToString()!.ToLowerInvariant()),
-            "UCASE" => Convert1(f, v => v.ToString()!.ToUpperInvariant()),
-            "TRIM" => Convert1(f, v => v.ToString()!.Trim(' ')),
-            "LTRIM" => Convert1(f, v => v.ToString()!.TrimStart(' ')),
-            "RTRIM" => Convert1(f, v => v.ToString()!.TrimEnd(' ')),
+            // ToText, not ToString: a binary column's value is a UTF-16 STRING to every text function, so
+            // Len(0x4100) is 1 (one character) where LenB is 2. Calling ToString() on a byte[] yields the
+            // literal "System.Byte[]", which silently produced nonsense — Len returned 13 for every value.
+            "LEN" => Convert1(f, v => ToText(v).Length),
+            "LCASE" => Convert1(f, v => ToText(v).ToLowerInvariant()),
+            "UCASE" => Convert1(f, v => ToText(v).ToUpperInvariant()),
+            "TRIM" => Convert1(f, v => ToText(v).Trim(' ')),
+            "LTRIM" => Convert1(f, v => ToText(v).TrimStart(' ')),
+            "RTRIM" => Convert1(f, v => ToText(v).TrimEnd(' ')),
             "LEFT" => StringInt(f, static (s, n) => n <= 0 ? "" : n >= s.Length ? s : s[..n]),
             "RIGHT" => StringInt(f, static (s, n) => n <= 0 ? "" : n >= s.Length ? s : s[^n..]),
             "MID" => Mid(f),
@@ -501,6 +504,9 @@ internal sealed class ExpressionEvaluator(
         decimal => "Currency",
         DateTime => "Date",
         string => "String",
+        // A binary column reports as String, not Byte[] — ACE's expression service sees the value as a
+        // UTF-16 string (VarType 8 = VT_BSTR), so TypeName must say so even though LibRed holds a byte[].
+        byte[] => "String",
         _ => v.GetType().Name,
     };
 
@@ -1252,7 +1258,7 @@ internal sealed class ExpressionEvaluator(
         object? right = Evaluate(b.Right);
 
         if (b.Operator == BinaryOperator.Concat)
-            return (left?.ToString() ?? "") + (right?.ToString() ?? "");
+            return (left is null ? "" : ToText(left)) + (right is null ? "" : ToText(right));
 
         if (left is null || right is null)
             return null;
@@ -1265,9 +1271,12 @@ internal sealed class ExpressionEvaluator(
             BinaryOperator.LessThanOrEqual => Compare(left, right) <= 0,
             BinaryOperator.GreaterThan => Compare(left, right) > 0,
             BinaryOperator.GreaterThanOrEqual => Compare(left, right) >= 0,
-            BinaryOperator.Like => Like(left.ToString()!, right.ToString()!),
+            // LIKE reads a binary value as text, so it is CASE-INSENSITIVE over a binary column even though
+            // '=' on the same column is byte-wise and case-sensitive. Verified vs ACE: `B LIKE 'A%'` matches
+            // both 0x4100 ('A') and 0x6100 ('a'), while `B = 0x4100` matches only the first.
+            BinaryOperator.Like => Like(ToText(left), ToText(right)),
             // Access '+' concatenates when either operand is text (but, unlike '&', null already propagated above).
-            BinaryOperator.Add => left is string || right is string ? left.ToString() + right.ToString() : Arithmetic(left, right, '+'),
+            BinaryOperator.Add => left is string || right is string ? ToText(left) + ToText(right) : Arithmetic(left, right, '+'),
             BinaryOperator.Subtract => Arithmetic(left, right, '-'),
             BinaryOperator.Multiply => Arithmetic(left, right, '*'),
             BinaryOperator.Divide => Divide(left, right), // Access '/' is floating division

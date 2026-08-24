@@ -1225,7 +1225,22 @@ internal sealed class ExpressionEvaluator(
         if (d1V is null || d2V is null) return null;
         var d1 = Convert.ToDateTime(d1V, CultureInfo.InvariantCulture);
         var d2 = Convert.ToDateTime(d2V, CultureInfo.InvariantCulture);
-        return (intervalV?.ToString() ?? "").ToLowerInvariant() switch
+        string interval = (intervalV?.ToString() ?? "").ToLowerInvariant();
+
+        // "ms" is a LibRed extension — ACE's interval list stops at "s". It is available because LibRed stores
+        // the full OA double rather than truncating to whole seconds as ACE does, and it is exact: .NET's OA
+        // conversion quantises to whole milliseconds, so nothing below a millisecond survived storage anyway
+        // (measured: 12:34:56.123 round-trips with zero tick loss, .1234560 comes back as .123).
+        //
+        // Handled before the switch, and as Int64 rather than the Long Integer every other interval returns: a
+        // millisecond difference overflows Int32 after 25 days, and ToUnixTimeMilliseconds spans decades. A
+        // long arm inside the switch would widen every other interval's result type along with it.
+        if (interval == "ms")
+        {
+            return (long)(d2 - d1).TotalMilliseconds;
+        }
+
+        return interval switch
         {
             "yyyy" => d2.Year - d1.Year,
             "q" => (d2.Year - d1.Year) * 4 + (d2.Month - 1) / 3 - (d1.Month - 1) / 3,
@@ -1235,6 +1250,7 @@ internal sealed class ExpressionEvaluator(
             "h" => (int)(d2 - d1).TotalHours,
             "n" => (int)(d2 - d1).TotalMinutes,
             "s" => (int)(d2 - d1).TotalSeconds,
+            // "ms" is handled above, as Int64.
             _ => throw new NotSupportedException($"DATEDIFF interval '{intervalV}' is not supported."),
         };
     }

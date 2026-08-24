@@ -24,7 +24,7 @@ public class JetTimeOnlyMemberTranslator(ISqlExpressionFactory sqlExpressionFact
         { nameof(TimeOnly.Hour), "h" },
         { nameof(TimeOnly.Minute), "n" },
         { nameof(TimeOnly.Second), "s" },
-        { nameof(TimeOnly.Millisecond), "millisecond" }
+        { nameof(TimeOnly.Millisecond), "ms" }
     };
 
     private readonly ISqlExpressionFactory _sqlExpressionFactory = sqlExpressionFactory;

@@ -24,7 +24,7 @@ public class JetTimeSpanMemberTranslator(ISqlExpressionFactory sqlExpressionFact
         { nameof(TimeSpan.Hours), "h" },
         { nameof(TimeSpan.Minutes), "n" },
         { nameof(TimeSpan.Seconds), "s" },
-        { nameof(TimeSpan.Milliseconds), "millisecond" }
+        { nameof(TimeSpan.Milliseconds), "ms" }
     };
 
     private readonly ISqlExpressionFactory _sqlExpressionFactory = sqlExpressionFactory;

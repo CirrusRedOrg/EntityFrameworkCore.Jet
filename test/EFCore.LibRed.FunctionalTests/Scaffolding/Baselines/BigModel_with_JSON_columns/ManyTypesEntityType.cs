@@ -802,7 +802,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        dateTime.TypeMapping = JetDateTimeTypeMapping.Default;
+        dateTime.TypeMapping = LibRedDateTimeTypeMapping.Default;
 
         var dateTimeArray = runtimeEntityType.AddProperty(
             "DateTimeArray",
@@ -845,7 +845,7 @@ public partial class ManyTypesEntityType
                 JsonDateTimeReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<DateTime[], DateTime>(
                 JsonDateTimeReaderWriter.Instance),
-            elementMapping: JetDateTimeTypeMapping.Default);
+            elementMapping: LibRedDateTimeTypeMapping.Default);
         var dateTimeArrayElementType = dateTimeArray.SetElementType(typeof(DateTime));
         dateTimeArrayElementType.TypeMapping = dateTimeArray.TypeMapping.ElementTypeMapping;
 
@@ -1095,7 +1095,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        dateTimeToTicksConverterProperty.TypeMapping = JetDateTimeTypeMapping.Default;
+        dateTimeToTicksConverterProperty.TypeMapping = LibRedDateTimeTypeMapping.Default;
 
         var @decimal = runtimeEntityType.AddProperty(
             "Decimal",
@@ -5412,7 +5412,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableDateTime.TypeMapping = JetDateTimeTypeMapping.Default;
+        nullableDateTime.TypeMapping = LibRedDateTimeTypeMapping.Default;
         nullableDateTime.SetComparer(new NullableValueComparer<DateTime>(nullableDateTime.TypeMapping.Comparer));
 
         var nullableDateTimeArray = runtimeEntityType.AddProperty(
@@ -5456,7 +5456,7 @@ public partial class ManyTypesEntityType
                 JsonDateTimeReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<DateTime?[], DateTime>(
                 JsonDateTimeReaderWriter.Instance),
-            elementMapping: JetDateTimeTypeMapping.Default);
+            elementMapping: LibRedDateTimeTypeMapping.Default);
         var nullableDateTimeArrayElementType = nullableDateTimeArray.SetElementType(typeof(DateTime?),
             nullable: true);
         nullableDateTimeArrayElementType.TypeMapping = nullableDateTimeArray.TypeMapping.ElementTypeMapping;
@@ -8963,7 +8963,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableTimeOnly.TypeMapping = JetTimeOnlyTypeMapping.Default;
+        nullableTimeOnly.TypeMapping = LibRedTimeOnlyTypeMapping.Default;
         nullableTimeOnly.SetComparer(new NullableValueComparer<TimeOnly>(nullableTimeOnly.TypeMapping.Comparer));
 
         var nullableTimeOnlyArray = runtimeEntityType.AddProperty(
@@ -9007,7 +9007,7 @@ public partial class ManyTypesEntityType
                 JsonTimeOnlyReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<TimeOnly?[], TimeOnly>(
                 JsonTimeOnlyReaderWriter.Instance),
-            elementMapping: JetTimeOnlyTypeMapping.Default);
+            elementMapping: LibRedTimeOnlyTypeMapping.Default);
         var nullableTimeOnlyArrayElementType = nullableTimeOnlyArray.SetElementType(typeof(TimeOnly?),
             nullable: true);
         nullableTimeOnlyArrayElementType.TypeMapping = nullableTimeOnlyArray.TypeMapping.ElementTypeMapping;
@@ -9045,7 +9045,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableTimeSpan.TypeMapping = JetTimeSpanTypeMapping.Default;
+        nullableTimeSpan.TypeMapping = LibRedTimeSpanTypeMapping.Default;
         nullableTimeSpan.SetComparer(new NullableValueComparer<TimeSpan>(nullableTimeSpan.TypeMapping.Comparer));
 
         var nullableTimeSpanArray = runtimeEntityType.AddProperty(
@@ -9089,7 +9089,7 @@ public partial class ManyTypesEntityType
                 JsonTimeSpanReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<TimeSpan?[], TimeSpan>(
                 JsonTimeSpanReaderWriter.Instance),
-            elementMapping: JetTimeSpanTypeMapping.Default);
+            elementMapping: LibRedTimeSpanTypeMapping.Default);
         var nullableTimeSpanArrayElementType = nullableTimeSpanArray.SetElementType(typeof(TimeSpan?),
             nullable: true);
         nullableTimeSpanArrayElementType.TypeMapping = nullableTimeSpanArray.TypeMapping.ElementTypeMapping;
@@ -10098,7 +10098,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToDateTimeConverterProperty.TypeMapping = JetDateTimeTypeMapping.Default.Clone(
+        stringToDateTimeConverterProperty.TypeMapping = LibRedDateTimeTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<string>.Default,
             providerValueComparer: DefaultValueComparer<DateTime>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10140,7 +10140,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToDateTimeOffsetConverterProperty.TypeMapping = JetDateTimeOffsetTypeMapping.Default.Clone(
+        stringToDateTimeOffsetConverterProperty.TypeMapping = LibRedDateTimeOffsetTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<string>.Default,
             providerValueComparer: DefaultDateTimeOffsetValueComparer.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10384,7 +10384,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToTimeOnlyConverterProperty.TypeMapping = JetTimeOnlyTypeMapping.Default.Clone(
+        stringToTimeOnlyConverterProperty.TypeMapping = LibRedTimeOnlyTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<string>.Default,
             providerValueComparer: DefaultValueComparer<TimeOnly>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10426,7 +10426,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToTimeSpanConverterProperty.TypeMapping = JetTimeSpanTypeMapping.Default.Clone(
+        stringToTimeSpanConverterProperty.TypeMapping = LibRedTimeSpanTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<string>.Default,
             providerValueComparer: DefaultValueComparer<TimeSpan>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10510,7 +10510,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        timeOnly.TypeMapping = JetTimeOnlyTypeMapping.Default;
+        timeOnly.TypeMapping = LibRedTimeOnlyTypeMapping.Default;
 
         var timeOnlyArray = runtimeEntityType.AddProperty(
             "TimeOnlyArray",
@@ -10553,7 +10553,7 @@ public partial class ManyTypesEntityType
                 JsonTimeOnlyReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<TimeOnly[], TimeOnly>(
                 JsonTimeOnlyReaderWriter.Instance),
-            elementMapping: JetTimeOnlyTypeMapping.Default);
+            elementMapping: LibRedTimeOnlyTypeMapping.Default);
         var timeOnlyArrayElementType = timeOnlyArray.SetElementType(typeof(TimeOnly));
         timeOnlyArrayElementType.TypeMapping = timeOnlyArray.TypeMapping.ElementTypeMapping;
 
@@ -10674,7 +10674,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        timeSpan.TypeMapping = JetTimeSpanTypeMapping.Default;
+        timeSpan.TypeMapping = LibRedTimeSpanTypeMapping.Default;
 
         var timeSpanArray = runtimeEntityType.AddProperty(
             "TimeSpanArray",
@@ -10717,7 +10717,7 @@ public partial class ManyTypesEntityType
                 JsonTimeSpanReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<TimeSpan[], TimeSpan>(
                 JsonTimeSpanReaderWriter.Instance),
-            elementMapping: JetTimeSpanTypeMapping.Default);
+            elementMapping: LibRedTimeSpanTypeMapping.Default);
         var timeSpanArrayElementType = timeSpanArray.SetElementType(typeof(TimeSpan));
         timeSpanArrayElementType.TypeMapping = timeSpanArray.TypeMapping.ElementTypeMapping;
 

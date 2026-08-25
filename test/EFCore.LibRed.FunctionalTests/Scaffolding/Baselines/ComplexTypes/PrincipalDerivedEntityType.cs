@@ -689,7 +689,7 @@ public partial class PrincipalDerivedEntityType
                     JsonDateTimeReaderWriter.Instance)),
                 jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<DateTime[], DateTime>(
                     JsonDateTimeReaderWriter.Instance),
-                elementMapping: JetDateTimeTypeMapping.Default);
+                elementMapping: LibRedDateTimeTypeMapping.Default);
             var valueTypeArrayElementType = valueTypeArray.SetElementType(typeof(DateTime));
             valueTypeArrayElementType.TypeMapping = valueTypeArray.TypeMapping.ElementTypeMapping;
 
@@ -1723,7 +1723,7 @@ public partial class PrincipalDerivedEntityType
                         JsonDateTimeReaderWriter.Instance)),
                     jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<DateTime[], DateTime>(
                         JsonDateTimeReaderWriter.Instance),
-                    elementMapping: JetDateTimeTypeMapping.Default);
+                    elementMapping: LibRedDateTimeTypeMapping.Default);
                 var valueTypeArrayElementType = valueTypeArray.SetElementType(typeof(DateTime));
                 valueTypeArrayElementType.TypeMapping = valueTypeArray.TypeMapping.ElementTypeMapping;
 

@@ -6640,9 +6640,9 @@ WHERE (
 
         AssertSql(
             """
-@start='1902-01-01T08:30:00.0000000Z' (DbType = DateTime)
-@end='1902-01-03T08:30:00.0000000Z' (DbType = DateTime)
-@dates1='1902-01-02T08:30:00.0000000Z' (DbType = DateTime)
+@start='1902-01-01T08:30:00.1230000Z' (DbType = DateTime)
+@end='1902-01-03T08:30:00.1230000Z' (DbType = DateTime)
+@dates1='1902-01-02T08:30:00.1230000Z' (DbType = DateTime)
 
 SELECT `m`.`Id`, `m`.`CodeName`, `m`.`Date`, `m`.`Difficulty`, `m`.`Duration`, `m`.`Rating`, `m`.`Time`, `m`.`Timeline`
 FROM `Missions` AS `m`

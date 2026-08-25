@@ -3599,8 +3599,10 @@ WHERE `o`.`OrderDate` IS NOT NULL
             await base.Select_expression_date_add_milliseconds_large_number_divided(isAsync);
 
             AssertSql(
-"""
-SELECT `o`.`OrderDate`
+                """
+@millisecondsPerDay='86400000'
+
+SELECT DATEADD('ms', CDBL(CLNG(DATEPART('ms', `o`.`OrderDate`)) MOD @millisecondsPerDay), DATEADD('d', CDBL(CLNG(DATEPART('ms', `o`.`OrderDate`)) / @millisecondsPerDay), `o`.`OrderDate`)) AS `OrderDate`
 FROM `Orders` AS `o`
 WHERE `o`.`OrderDate` IS NOT NULL
 """);

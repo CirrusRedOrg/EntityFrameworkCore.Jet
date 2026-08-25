@@ -28,7 +28,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities
         public static DateTimeOffset GetExpectedValue(DateTimeOffset value)
         {
             var val = value.UtcDateTime;
-            return new DateTimeOffset(new DateTime(val.Year, val.Month, val.Day, val.Hour, val.Minute, val.Second), TimeSpan.Zero);
+            return new DateTimeOffset(new DateTime(val.Year, val.Month, val.Day, val.Hour, val.Minute, val.Second, val.Millisecond), TimeSpan.Zero);
         }
     }
 }

@@ -92,7 +92,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
                     mission.Date = mission.Date.AddYears(100);
                 }
                 mission.Timeline = LibRedTestHelpers.GetExpectedValue(mission.Timeline);
-                mission.Duration = new TimeSpan(mission.Duration.Days, mission.Duration.Hours, mission.Duration.Minutes, mission.Duration.Seconds);
+                mission.Duration = new TimeSpan(mission.Duration.Days, mission.Duration.Hours, mission.Duration.Minutes, mission.Duration.Seconds, mission.Duration.Milliseconds);
             }
 
             foreach (var tag in data.Tags)

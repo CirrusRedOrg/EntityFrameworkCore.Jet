@@ -1106,8 +1106,8 @@ FROM `Customers` AS `c`
             await base.Select_datetime_millisecond_component(isAsync);
 
             AssertSql(
-"""
-SELECT `o`.`OrderDate`
+                """
+SELECT DATEPART('ms', `o`.`OrderDate`)
 FROM `Orders` AS `o`
 """);
         }

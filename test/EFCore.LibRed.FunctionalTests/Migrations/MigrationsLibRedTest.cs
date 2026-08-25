@@ -361,7 +361,7 @@ ALTER TABLE `People` ADD `Name` varchar(255) NOT NULL DEFAULT 'John Doe';
 
         AssertSql(
             """
-ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT '2015-04-12 17:05:00';
+ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT #2015-04-12 17:05:00#;
 """);
     }
 
@@ -391,8 +391,8 @@ ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT '2015-04-12 17:05:
             });
 
         AssertSql(
-            $"""
-ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT '2015-04-12 17:05:00';
+            """
+ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT #2015-04-12 17:05:00.120#;
 """);
     }
 
@@ -425,8 +425,8 @@ ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT '2015-04-12 17:05:
             });
 
         AssertSql(
-            $"""
-ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT CDATE('2015-04-12 07:05:00');
+            """
+ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT CDATE('2015-04-12 07:05:00.120');
 """);
     }
 
@@ -458,7 +458,7 @@ ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT CDATE('2015-04-12 
 
         AssertSql(
             """
-ALTER TABLE `People` ADD `Age` datetime NOT NULL DEFAULT TIMEVALUE('12:34:56');
+ALTER TABLE `People` ADD `Age` datetime NOT NULL DEFAULT TIMEVALUE('12:34:56.120');
 """);
     }
 
@@ -480,7 +480,7 @@ ALTER TABLE `People` ADD `Age` datetime NOT NULL DEFAULT TIMEVALUE('12:34:56');
 
         AssertSql(
             """
-ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT '2019-01-01';
+ALTER TABLE `People` ADD `Birthday` datetime NOT NULL DEFAULT #2019-01-01#;
 """);
     }
 

@@ -19,6 +19,94 @@ public class AdHocQueryFiltersQueryLibRedTest(NonSharedFixture fixture) : AdHocQ
     protected override ITestStoreFactory NonSharedTestStoreFactory
         => LibRedTestStoreFactory.Instance;
 
+    #region 8576
+
+    public override async Task Named_query_filters()
+    {
+        await base.Named_query_filters();
+
+        AssertSql(
+            """
+SELECT `e`.`Id`, `e`.`IsDeleted`, `e`.`IsDraft`, `e`.`Name`
+FROM `Entities` AS `e`
+WHERE (`e`.`Name` LIKE 'Name%') AND NOT (`e`.`IsDeleted`) AND NOT (`e`.`IsDraft`)
+""");
+    }
+
+    public override async Task Named_query_filters_anonymous()
+    {
+        await base.Named_query_filters_anonymous();
+
+        AssertSql(
+            """
+@ef_filter___ids1='1'
+@ef_filter___ids2='7'
+
+SELECT `e`.`Id`, `e`.`IsDeleted`, `e`.`IsDraft`, `e`.`Name`
+FROM `Entities` AS `e`
+WHERE `e`.`Id` NOT IN (@ef_filter___ids1, @ef_filter___ids2)
+""");
+    }
+
+    public override async Task Named_query_filters_ignore_some()
+    {
+        await base.Named_query_filters_ignore_some();
+
+        AssertSql(
+            """
+SELECT `e`.`Id`, `e`.`IsDeleted`, `e`.`IsDraft`, `e`.`Name`
+FROM `Entities` AS `e`
+WHERE NOT (`e`.`IsDraft`)
+""");
+    }
+
+    public override async Task Named_query_filters_ignore_all()
+    {
+        await base.Named_query_filters_ignore_all();
+
+        AssertSql(
+            """
+SELECT `e`.`Id`, `e`.`IsDeleted`, `e`.`IsDraft`, `e`.`Name`
+FROM `Entities` AS `e`
+""");
+    }
+
+    public override async Task Named_query_filters_anonymous_ignore()
+    {
+        await base.Named_query_filters_anonymous_ignore();
+
+        AssertSql(
+            """
+SELECT `e`.`Id`, `e`.`IsDeleted`, `e`.`IsDraft`, `e`.`Name`
+FROM `Entities` AS `e`
+""");
+    }
+
+    public override async Task Named_query_filters_overwriting()
+    {
+        await base.Named_query_filters_overwriting();
+
+        AssertSql(
+            """
+SELECT `e`.`Id`, `e`.`IsDeleted`, `e`.`IsDraft`, `e`.`Name`
+FROM `Entities` AS `e`
+WHERE NOT (`e`.`IsDeleted`)
+""");
+    }
+
+    public override async Task Named_query_filters_removing()
+    {
+        await base.Named_query_filters_removing();
+
+        AssertSql(
+            """
+SELECT `e`.`Id`, `e`.`IsDeleted`, `e`.`IsDraft`, `e`.`Name`
+FROM `Entities` AS `e`
+""");
+    }
+
+    #endregion
+
     #region 11803
 
     [Fact]
@@ -361,4 +449,81 @@ WHERE `s`.`IsDeleted` = 0
 ORDER BY `s`.`Name`
 """);
     }
+
+    public override async Task Query_filter_with_primary_constructor_parameter()
+    {
+        await base.Query_filter_with_primary_constructor_parameter();
+
+        AssertSql(
+            """
+@ef_filter__tenantId='00000001-0000-0000-0000-000000000001'
+
+SELECT `e`.`Id`, `e`.`Name`, `e`.`TenantId`
+FROM `Entity38132` AS `e`
+WHERE `e`.`TenantId` = @ef_filter__tenantId
+""");
+    }
+
+    public override async Task Query_filter_with_context_accessor_with_constant(bool async)
+    {
+        await base.Query_filter_with_context_accessor_with_constant(async);
+
+        AssertSql(
+            """
+@ef_filter__p3='False'
+
+SELECT `f`.`Id`, `f`.`Bar`
+FROM `FooBar35111` AS `f`
+WHERE IIF(@ef_filter__p3, FALSE, FALSE)
+""");
+    }
+
+    public override async Task Named_query_filters_caching()
+    {
+        await base.Named_query_filters_caching();
+
+        AssertSql(
+            """
+SELECT `e`.`Id`, `e`.`IsDeleted`, `e`.`IsDraft`, `e`.`Name`
+FROM `Entities` AS `e`
+WHERE NOT (`e`.`IsDraft`)
+""",
+            //
+            """
+SELECT `e`.`Id`, `e`.`IsDeleted`, `e`.`IsDraft`, `e`.`Name`
+FROM `Entities` AS `e`
+WHERE NOT (`e`.`IsDraft`)
+""",
+            //
+            """
+SELECT `e`.`Id`, `e`.`IsDeleted`, `e`.`IsDraft`, `e`.`Name`
+FROM `Entities` AS `e`
+WHERE NOT (`e`.`IsDraft`)
+""");
+    }
+
+    public override async Task Named_query_filters_combined()
+    {
+        await base.Named_query_filters_combined();
+
+        AssertSql();
+    }
+
+    public override async Task Query_filter_with_EF_Constant_throws()
+    {
+        await base.Query_filter_with_EF_Constant_throws();
+
+        AssertSql();
+    }
+
+    public override async Task Query_filter_with_EF_Parameter_throws()
+    {
+        await base.Query_filter_with_EF_Parameter_throws();
+
+        AssertSql();
+    }
+
+    [Fact]
+    public virtual void Check_all_tests_overridden()
+        => TestHelpers.AssertAllMethodsOverridden(GetType());
 }

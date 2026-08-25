@@ -292,7 +292,7 @@ FROM `BasicTypesEntities` AS `b`
 
         AssertSql(
             """
-SELECT `b`.`DateTimeOffset`
+SELECT DATEADD('ms', 300.0, `b`.`DateTimeOffset`)
 FROM `BasicTypesEntities` AS `b`
 """);
     }

@@ -75,7 +75,9 @@ public class TemporalParameterTests
     public static IEnumerable<object[]> TemporalCases() =>
     [
         [new TimeSpan(10, 9, 8), new TimeSpan(10, 9, 8)],
-        [new TimeSpan(0, 10, 9, 8, 7), new TimeSpan(10, 9, 8)],           // sub-second stripped both ways
+        [new TimeSpan(0, 10, 9, 8, 7), new TimeSpan(0, 10, 9, 8, 7)],     // the millisecond survives storage
+        // Sub-millisecond is the boundary: 7.5 ms stored and 7 ms queried are the same value to the store.
+        [new TimeSpan(0, 10, 9, 8, 7) + TimeSpan.FromTicks(5000), new TimeSpan(0, 10, 9, 8, 7)],
         [new TimeOnly(12, 30, 45), new TimeOnly(12, 30, 45)],
         [new DateOnly(2020, 3, 1), new DateOnly(2020, 3, 1)],
     ];

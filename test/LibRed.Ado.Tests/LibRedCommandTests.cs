@@ -66,10 +66,11 @@ public class LibRedCommandTests
     }
 
     [Fact]
-    public void DateTime_parameter_is_truncated_to_whole_seconds()
+    public void DateTime_parameter_is_truncated_to_whole_milliseconds()
     {
-        // Jet/ACE stores a DateTime only to 1-second resolution. A parameter carrying milliseconds must be
-        // stripped as early as the command, so the stored value AND a `WHERE d = @p` comparison agree.
+        // ACE stores a DateTime to 1-second resolution; LibRed keeps the full OA double, so a millisecond
+        // survives. Nothing below one does - .NET's ToOADate/FromOADate quantise there - so the command
+        // truncates the parameter to that boundary, making the stored value AND a `WHERE d = @p` agree.
         string path = Path.Combine(Path.GetTempPath(), $"libred-dt-{Guid.NewGuid():N}.accdb");
         File.Copy(Northwind, path);
         try
@@ -81,24 +82,24 @@ public class LibRedCommandTests
             { create.CommandText = "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `D` DATETIME)"; create.ExecuteNonQuery(); }
 
             var withMs = new DateTime(2020, 1, 2, 3, 4, 5, 678);
-            var seconds = new DateTime(2020, 1, 2, 3, 4, 5);
+            var subMs = withMs.AddTicks(4567); // 678.4567 ms - finer than the store can hold
 
             using (var ins = conn.CreateCommand())
             {
                 ins.CommandText = "INSERT INTO `T` (`Id`, `D`) VALUES (1, @d)";
-                var p = ins.CreateParameter(); p.ParameterName = "@d"; p.Value = withMs; ins.Parameters.Add(p);
+                var p = ins.CreateParameter(); p.ParameterName = "@d"; p.Value = subMs; ins.Parameters.Add(p);
                 Assert.Equal(1, ins.ExecuteNonQuery());
             }
 
-            // Stored value has no milliseconds.
+            // The millisecond survives; the sub-millisecond remainder does not.
             using (var sel = conn.CreateCommand())
-            { sel.CommandText = "SELECT `D` FROM `T` WHERE `Id` = 1"; Assert.Equal(seconds, (DateTime)sel.ExecuteScalar()!); }
+            { sel.CommandText = "SELECT `D` FROM `T` WHERE `Id` = 1"; Assert.Equal(withMs, (DateTime)sel.ExecuteScalar()!); }
 
-            // A WHERE that reuses the millisecond-bearing parameter still matches the seconds-only row.
+            // A WHERE that reuses the sub-millisecond parameter still matches the truncated row.
             using (var q = conn.CreateCommand())
             {
                 q.CommandText = "SELECT `Id` FROM `T` WHERE `D` = @d";
-                var p = q.CreateParameter(); p.ParameterName = "@d"; p.Value = withMs; q.Parameters.Add(p);
+                var p = q.CreateParameter(); p.ParameterName = "@d"; p.Value = subMs; q.Parameters.Add(p);
                 Assert.Equal(1, Convert.ToInt32(q.ExecuteScalar()));
             }
         }
@@ -164,7 +165,7 @@ public class LibRedCommandTests
                 insert.CommandText = "INSERT INTO `T` (`Id`, `Dur`) VALUES (1, @d)";
                 var p = insert.CreateParameter();
                 p.ParameterName = "@d";
-                p.Value = new TimeSpan(0, 5, 30, 0, 678); // 5h30m0.678s — the milliseconds must be stripped
+                p.Value = new TimeSpan(0, 5, 30, 0, 678); // 5h30m0.678s — the milliseconds must survive
                 insert.Parameters.Add(p);
                 Assert.Equal(1, insert.ExecuteNonQuery());
             }
@@ -173,7 +174,7 @@ public class LibRedCommandTests
                 read.CommandText = "SELECT `Dur` FROM `T` WHERE `Id` = 1";
                 using var reader = read.ExecuteReader();
                 Assert.True(reader.Read());
-                Assert.Equal(new TimeSpan(5, 30, 0), reader.GetFieldValue<TimeSpan>(0)); // seconds only
+                Assert.Equal(new TimeSpan(0, 5, 30, 0, 678), reader.GetFieldValue<TimeSpan>(0)); // to the millisecond
             }
         }
         finally { try { File.Delete(path); } catch (IOException) { } }

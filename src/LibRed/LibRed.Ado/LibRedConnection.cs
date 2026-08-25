@@ -192,6 +192,7 @@ public sealed class LibRedConnection : DbConnection
         _database = JetDatabase.Open(path, readOnly: false);
         Engine = new QueryEngine(_database);
         _state = ConnectionState.Open;
+        OnStateChange(new StateChangeEventArgs(ConnectionState.Closed, ConnectionState.Open));
     }
 
     public override void Close()
@@ -208,7 +209,14 @@ public sealed class LibRedConnection : DbConnection
         _database?.Dispose();
         _database = null;
         Engine = null;
+
+        // Only a real transition raises the event. Close() is not guarded against being called on an already
+        // closed connection - and Dispose() calls it - so firing unconditionally would report a second close
+        // that never happened. EF's connection diagnostics count these.
+        if (_state == ConnectionState.Closed) return;
+
         _state = ConnectionState.Closed;
+        OnStateChange(new StateChangeEventArgs(ConnectionState.Open, ConnectionState.Closed));
     }
 
     public override void ChangeDatabase(string databaseName) =>
@@ -234,7 +242,15 @@ public sealed class LibRedConnection : DbConnection
 
     protected override void Dispose(bool disposing)
     {
+        // Clearing the connection string is what makes a disposed connection unusable, as ADO.NET requires:
+        // Open() then fails its existing "missing a Data Source" guard instead of quietly reopening the file.
+        // SqlConnection and JetConnection both do exactly this, and it is why the resulting exception is an
+        // InvalidOperationException rather than an ObjectDisposedException. Assigned to the field directly
+        // because the property setter refuses to change while the connection is still open.
+        _connectionString = string.Empty;
+
         if (disposing) Close();
+
         base.Dispose(disposing);
     }
 

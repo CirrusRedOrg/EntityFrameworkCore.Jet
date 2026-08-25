@@ -1,11 +1,12 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query
@@ -2288,22 +2289,14 @@ ORDER BY `o`.`OrderID`
 
         public override async Task Correlated_collection_after_distinct_with_complex_projection_not_containing_original_identifier(bool async)
         {
-            await base.Correlated_collection_after_distinct_with_complex_projection_not_containing_original_identifier(async);
+            // Identifier set for Distinct. Issue efcore #24440.
+            Assert.Equal(
+                RelationalStrings.InsufficientInformationToIdentifyElementOfCollectionJoin,
+                (await Assert.ThrowsAsync<InvalidOperationException>(()
+                    => base.Correlated_collection_after_distinct_with_complex_projection_not_containing_original_identifier(async)))
+                .Message);
 
-            AssertSql(
-                """
-                    SELECT `t`.`OrderDate`, `t`.`CustomerID`, `t`.`Complex`, `t0`.`Outer1`, `t0`.`Outer2`, `t0`.`Outer3`, `t0`.`Inner`, `t0`.`OrderDate`
-                    FROM (
-                        SELECT DISTINCT `o`.`OrderDate`, `o`.`CustomerID`, DATEPART(month, `o`.`OrderDate`) AS `Complex`
-                        FROM `Orders` AS `o`
-                    ) AS `t`
-                    OUTER APPLY (
-                        SELECT `t`.`OrderDate` AS `Outer1`, `t`.`CustomerID` AS `Outer2`, `t`.`Complex` AS `Outer3`, `o0`.`OrderID` AS `Inner`, `o0`.`OrderDate`
-                        FROM `Orders` AS `o0`
-                        WHERE `o0`.`OrderID` IN (10248, 10249, 10250) AND ((`t`.`CustomerID` = `o0`.`CustomerID`) OR (`t`.`CustomerID` IS NULL AND `o0`.`CustomerID` IS NULL))
-                    ) AS `t0`
-                    ORDER BY `t`.`OrderDate`, `t`.`CustomerID`, `t`.`Complex`, `t0`.`Inner`
-                    """);
+            AssertSql();
         }
 
         public override async Task Correlated_collection_after_groupby_with_complex_projection_containing_original_identifier(bool async)

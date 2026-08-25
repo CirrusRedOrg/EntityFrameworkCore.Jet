@@ -1,8 +1,10 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Linq;
 using System.Threading.Tasks;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestModels.Northwind;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 
@@ -1049,9 +1051,42 @@ FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_0`) AS `p` ON `e`.`EmployeeID` = `p`.`
 
         public override async Task Join_local_bytes_closure_is_cached_correctly(bool async)
         {
-            await base.Join_local_bytes_closure_is_cached_correctly(async);
+            var ids = new byte[] { 1, 2 };
+            await AssertQueryScalar(
+                async,
+                ss => from e in ss.Set<Employee>()
+                      join id in ids on e.EmployeeID equals id
+                      select e.EmployeeID);
 
-            AssertSql();
+            ids = [3];
+            await AssertQueryScalar(
+                async,
+                ss => from e in ss.Set<Employee>()
+                      join id in ids on e.EmployeeID equals id
+                      select e.EmployeeID);
+
+            AssertSql(
+                """
+@p1='1' (Size = 1)
+@p2='2' (Size = 1)
+
+SELECT `e`.`EmployeeID`
+FROM `Employees` AS `e`
+INNER JOIN (SELECT @p1 AS `Value`
+FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_0`
+UNION
+SELECT @p2 AS `Value`
+FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_1`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
+""",
+                //
+                """
+@p1='3' (Size = 1)
+
+SELECT `e`.`EmployeeID`
+FROM `Employees` AS `e`
+INNER JOIN (SELECT @p1 AS `Value`
+FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_0`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
+""");
         }
 
         public override async Task GroupJoin_customers_employees_shadow(bool async)

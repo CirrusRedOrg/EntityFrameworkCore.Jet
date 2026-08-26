@@ -63,8 +63,12 @@ internal static class AccessTypeMapper
                 => Fixed(column, JetDataType.Int16, 2),
             "BYTE" or "TINYINT" or "INTEGER1"
                 => Fixed(column, JetDataType.Byte, 1),
+            // Large Number. Always 8 bytes, yet ACE stores it in the row's VARIABLE region, not the fixed one
+            // — a descriptor carrying length 8 with the fixed flag clear (verified: a column ACE created reads
+            // back `length=8 fixed=False`, and the row lays it out behind the variable offset table). Declaring
+            // it fixed would put it somewhere ACE does not look for it.
             "BIGINT"
-                => Fixed(column, JetDataType.Int64, 8),
+                => new ColumnSpec(column.Name, JetDataType.Int64, 8, IsFixedLength: false),
             "REAL" or "SINGLE" or "IEEESINGLE" or "FLOAT4"
                 => Fixed(column, JetDataType.Single, 4),
             "FLOAT" or "DOUBLE" or "DOUBLE PRECISION" or "IEEEDOUBLE" or "FLOAT8" or "NUMBER"

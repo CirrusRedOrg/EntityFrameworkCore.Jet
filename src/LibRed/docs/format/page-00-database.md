@@ -73,8 +73,10 @@ DATETIME2`, `INSERT`, `SELECT` and `CREATE TABLE` with the type all work — ACE
 of its own. Guard: `AceDateTime2UpgradeTests`. ACE's DDL accepts only the bare spelling **`DATETIME2`**;
 `DATETIME2(7)`, `DATETIMEEXTENDED`, `DATE/TIME EXTENDED` and `DATETIMEOFFSET` are all syntax errors.
 
-> Only the `0x06` / `DATETIME2` route was tested. The `0x05` / **Large Number** upgrade is *assumed* to work the
-> same way — not verified.
+The `0x05` / **Large Number** route behaves the same way and is now measured too (verified 2026-08-26): a
+`CREATE TABLE … BIGINT` issued through ACE against an ACE 12 file moves `0x14` from `0x02` to **`0x05`** — not
+to `0x06`, confirming the two types really do sit at different formats. Guard:
+`BigIntKeyEncodingTests.Adding_a_bigint_column_makes_ace_raise_the_file_to_ace16`.
 
 **LibRed performs this upgrade itself**, as ACE does: DDL introducing a type the open file is too old for
 raises the version byte instead of refusing (`StatementExecutor.MapColumn` →

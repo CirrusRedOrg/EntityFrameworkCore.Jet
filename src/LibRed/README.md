@@ -127,17 +127,18 @@ LibRed-side `CHECK` enforcement, self-pointing self-references, and writing Memo
   both `CASCADE` directions work.
 - **1:1 relationships** (`dbRelationUnique` = `0x01`) — never written; a 1:1 migration would render as
   1:many in Access (the unique index still enforces uniqueness). Probe a real 1:1's `grbit` first.
-- **ACE-16 types** — `Int64`/BIGINT (`0x13`) index-key encoding is trivial but unverified.
-  `DateTimeExtended`/DATETIME2 (`0x14`) is **done**: read, write, `CREATE TABLE`, index keys (ascending and
-  descending), and native creation at the format it needs — `LibRedConnection.CreateDatabase(…, version:)`
-  takes a `JetVersion`, defaulting to ACE 12 so an ordinary database still opens in every Access from 2007.
-  Each step is verified against ACE, ending with Access's own engine reading a 100-ns value out of a file
-  LibRed synthesised from nothing (`DateTime2CreatedDatabaseAccessTests`).
-  The **format auto-upgrade** is implemented too: DDL that introduces one of these types raises the open
-  file's version byte rather than refusing, which is what Access itself does — adding a Date/Time Extended
-  column to an ACE 12 database moves it to `0x06`, and that byte is the entire upgrade
-  (`docs/format/page-00-database.md`). The raise joins the statement's transaction, so a failed CREATE/ALTER
-  takes it back down. ACE opens a file LibRed upgraded this way and reads the value that forced it. Note the
+- **ACE 16/17 types — `Int64`/BIGINT (`0x13`) and `DateTimeExtended`/DATETIME2 (`0x14`) are both done**: read,
+  write, `CREATE TABLE`, index keys (ascending and descending), and native creation at the format each needs.
+  `LibRedConnection.CreateDatabase(…, version:)` takes a `JetVersion`, defaulting to ACE 12 so an ordinary
+  database still opens in every Access from 2007. Every step is verified against ACE, ending with Access's own
+  engine reading values out of files LibRed synthesised from nothing
+  (`DateTime2CreatedDatabaseAccessTests`, `BigIntCreatedDatabaseAccessTests`).
+  Two traps worth knowing: BIGINT is stored **variable**-length despite always being 8 bytes, and the two
+  types sit at **different** formats — `0x05` for BIGINT, `0x06` for DATETIME2.
+  The **format auto-upgrade** is implemented too: DDL that introduces either type raises the open file's
+  version byte rather than refusing, which is what Access itself does (`docs/format/page-00-database.md`,
+  where both routes are now measured). The raise joins the statement's transaction, so a failed CREATE/ALTER
+  takes it back down. ACE opens a file LibRed upgraded this way and reads the value that forced it. The
   upgrade is one-way and unavoidable: an older Access cannot open the result, but neither could it read the
   column. `CreateDatabase(…, version:)` remains the way to start at a format rather than arrive at one.
 - **Non-English text collations** — index-key weights exist for the two General (1033) orders only:

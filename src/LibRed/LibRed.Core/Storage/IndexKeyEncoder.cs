@@ -265,7 +265,9 @@ public static class IndexKeyEncoder
         JetDataType.Int32 => 4,
         JetDataType.Single => 4,
         JetDataType.Double or JetDataType.DateTime => 8,
-        JetDataType.Currency => 8,
+        // Int64/BIGINT keys like Currency — both are an int64, sign bit flipped, big-endian. Its VARIABLE
+        // storage does not change that: this dispatch is on the type, not on where the row keeps it.
+        JetDataType.Currency or JetDataType.Int64 => 8,
         JetDataType.FixedPoint => 17, // sign byte + 16-byte big-endian magnitude
         _ => -1,
     };
@@ -283,6 +285,8 @@ public static class IndexKeyEncoder
                 return EncodeInteger(Convert.ToInt32(value, c), 4);
             case JetDataType.Currency:
                 return EncodeInteger((long)decimal.Round(Convert.ToDecimal(value, c) * 10000m), 8);
+            case JetDataType.Int64: // BIGINT — verified against ACE across 0, ±1, ±42 and both extremes
+                return EncodeInteger(Convert.ToInt64(value, c), 8);
             case JetDataType.Single:
                 return EncodeFloatBits(BitConverter.SingleToInt32Bits(Convert.ToSingle(value, c)), 4);
             case JetDataType.Double:

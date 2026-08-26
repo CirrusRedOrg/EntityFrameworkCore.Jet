@@ -99,6 +99,54 @@ public class DdlDmlTests
         return (byte)stream.ReadByte();
     }
 
+    // BIGINT written by LibRed rather than read from an ACE fixture, including through an index so the key
+    // encoder runs on our own writes. Both extremes and both signs: the key transform is a sign-bit flip, so
+    // positives alone would pass against almost any encoding.
+    [Fact]
+    public void Bigint_round_trips_through_libred_including_its_index()
+    {
+        long?[] values = [0L, 1L, -1L, 42L, -42L, long.MaxValue, long.MinValue, null];
+
+        string path = CopyToTemp();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var e = new QueryEngine(db);
+                e.ExecuteNonQuery("CREATE TABLE `B` (`Id` INTEGER PRIMARY KEY, `V` BIGINT NULL)");
+                e.ExecuteNonQuery("CREATE INDEX `IX_B_V` ON `B` (`V`)");
+                Assert.Equal(JetVersion.Version16_2016, db.Format.Version);
+
+                for (int i = 0; i < values.Length; i++)
+                    e.ExecuteNonQuery("INSERT INTO `B` (`Id`, `V`) VALUES (@id, @v)",
+                        new Dictionary<string, object?> { ["id"] = i, ["v"] = values[i] });
+            }
+
+            using (var db = JetDatabase.Open(path))
+            {
+                var e = new QueryEngine(db);
+
+                // ACE puts a BIGINT in the row's variable region; a column LibRed created must match, or the
+                // value goes somewhere ACE would not read it from.
+                Assert.False(db.OpenTable("B").Definition.FindColumn("V")!.IsFixedLength);
+
+                var byId = e.ExecuteQuery("SELECT `Id`, `V` FROM `B` ORDER BY `Id`").Rows
+                    .ToDictionary(r => Convert.ToInt32(r[0]), r => (long?)r[1]);
+                Assert.Equal(values.Length, byId.Count);
+                for (int i = 0; i < values.Length; i++)
+                    Assert.Equal(values[i], byId[i]);
+
+                // And the index orders them numerically rather than by raw two's-complement bytes, which is
+                // the whole point of the sign-bit flip — MinValue first, not somewhere after MaxValue.
+                Assert.Equal(
+                    values.Where(v => v is not null).OrderBy(v => v).ToArray(),
+                    e.ExecuteQuery("SELECT `V` FROM `B` WHERE `V` IS NOT NULL ORDER BY `V`")
+                        .Rows.Select(r => (long?)r[0]).ToArray());
+            }
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     // Date/Time Extended end to end through LibRed alone — CREATE, INSERT, SELECT — on an ACE 17 file.
     // The fixture is Northwind (ACE 12) with its version byte raised to 0x06, which IS the whole upgrade: ACE
     // itself asks for nothing more (AceDateTime2UpgradeTests proves the byte is sufficient against the real

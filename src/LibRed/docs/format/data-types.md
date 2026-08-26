@@ -21,7 +21,7 @@
 | `0x0F` | GUID | 16 raw bytes |
 | `0x10` | FixedPoint (Numeric/Decimal) | 17 bytes: sign byte (`0x80` = negative) + 128-bit magnitude (four 32-bit little-endian words, low word last); value = magnitude / 10^scale. Precision/scale from the column descriptor (§3.4) |
 | `0x12` | Complex (multi-value / attachment) | descriptor parsed; contents not materialized (out of scope for SQL/EF) |
-| `0x13` | Int64 — **BIGINT** (ACE 16 / Access 2016) | 8-byte little-endian signed integer. Stored as a *variable*-length column |
+| `0x13` | Int64 — **BIGINT** (ACE 16 / Access 2016) | 8-byte little-endian signed integer. Stored as a *variable*-length column (see below) |
 | `0x14` | DateTimeExtended — **DATETIME2** (ACE 17 / Access 2019+) | fixed 42-byte ASCII `<day>:<time>:<precision>` (see below) |
 
 LibRed's scalar reader requires the exact fixed widths listed above before invoking the numeric,
@@ -29,9 +29,27 @@ GUID, date, or decimal codec. Text, Binary, Memo/OLE descriptors, and Complex va
 variable-length. A width mismatch is treated as row corruption (`InvalidDataException`) rather
 than being allowed to fail incidentally inside a primitive decoder.
 
+**`BIGINT` is variable-length despite being a fixed 8 bytes.** ACE puts it behind the row's variable offset
+table rather than in the fixed region — a descriptor carrying length 8 with the fixed flag clear (verified: a
+column ACE created reads back `length=8 fixed=False`, and the row lays the value out at a variable-column
+start offset). Declaring it fixed would write the value somewhere ACE does not look for it. Its *index* key is
+unaffected — that dispatches on the column's type, not on where the row keeps the bytes — and is the same
+sign-bit-flipped big-endian int64 as Currency (§10.4).
+
+> **Writing one through ACE's OLE DB provider: not `DBTYPE_I8`.** An `OleDbType.BigInt` (20) parameter carries
+> **no** value into a Large Number column — every value fails with "data value could not be converted", zero
+> included — so the one type named for the job is the only one that cannot do it. Use **`Numeric` (131)**;
+> `Decimal` (14) and `Variant` (12) also round-trip the full range exactly. `VarNumeric` (139) is rejected
+> outright ("Type name is invalid"), and `Double` (5) is the trap: it succeeds quietly for small values and
+> overflows near ±2⁶³. Measured against both extremes. EFCore.Jet's `JetLongTypeMapping.ConfigureParameter`
+> already forces OLE DB 131 / ODBC 7 for its own `long` parameters, commented *"Using BigInt doesn't always
+> work … When running in x64 it fails to convert"* — the same defect, found from the other direction and years
+> earlier, though that mapping targets a `decimal(20,0)` column rather than a real `0x13` one.
+
 **New-type format versions — the two are NOT the same version** (verified against files authored with each
 feature enabled: enabling BigInt made the file version byte `0x05`, enabling Date/Time Extended made it
-`0x06`). **`BIGINT` (Large Number)** requires the **ACE 16 / Access 2016** format (`0x05`); **`DATETIME2`
+`0x06`; and measured again from the other direction — issuing `CREATE TABLE … BIGINT` against an ACE 12 file
+raises it to `0x05`, `DATETIME2` to `0x06`). **`BIGINT` (Large Number)** requires the **ACE 16 / Access 2016** format (`0x05`); **`DATETIME2`
 (Date/Time Extended)** requires the **ACE 17 / Access 2019+** format (`0x06`) — it arrived later (Access for
 Microsoft 365). LibRed gates each accordingly (`AccessTypeMapper`). `DATETIME2` is a fixed 42-byte ASCII string of
 three colon-separated fields: the .NET **day number**, the count of **100-ns ticks within the

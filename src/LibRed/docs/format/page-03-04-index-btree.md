@@ -829,12 +829,17 @@ The split mechanics:
 > point to revisit when validating large indexes against Access.
 
 
-> **Indexable types — coverage vs ACE (§10.4).** `IndexKeyEncoder` encodes every type ACE lets you index —
-> Boolean, Byte, Int16, Int32, Currency, Single, Double, DateTime, Text, GUID, Binary, FixedPoint, Memo
-> (its first 255 chars), and **`DateTimeExtended`/DATETIME2** (`0x14`) — all byte-verified. ACE correctly
-> **refuses** to index `OLE` (`0x0B`) and `Complex` (`0x12`). One ACE-16-only type remains unencoded:
-> **`Int64`/BIGINT** (`0x13`) — trivial (an int64 like Currency, sign-bit flipped) but unverified. See the
-> worklist in `src/LibRed/README.md`.
+> **Indexable types — coverage vs ACE (§10.4).** `IndexKeyEncoder` now encodes **every type ACE lets you
+> index**, all byte-verified: Boolean, Byte, Int16, Int32, Currency, Single, Double, DateTime, Text, GUID,
+> Binary, FixedPoint, Memo (its first 255 chars), **`Int64`/BIGINT** (`0x13`) and
+> **`DateTimeExtended`/DATETIME2** (`0x14`). ACE correctly **refuses** to index `OLE` (`0x0B`) and `Complex`
+> (`0x12`).
+>
+> `Int64`/BIGINT keys exactly as Currency does — an int64, sign bit flipped, big-endian — which had long been
+> the guess on record and is now measured across `0`, `±1`, `±42` and both extremes, ascending and descending
+> (`BigIntKeyEncodingTests`). Note its **variable-length storage does not change this**: the key dispatch is on
+> the column's type, not on where the row keeps the bytes. `IndexKeyDecoder` decodes it too, unlike DATETIME2 —
+> it is a plain fixed-width numeric key.
 >
 > `DateTimeExtended` is **not** a fixed-width numeric key. ACE runs its whole 42-byte stored value through the
 > Binary chunking above — start flag, 8 bytes, `0x09` while more follow, then the final chunk and its

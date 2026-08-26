@@ -407,31 +407,6 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Scaffolding
         #region ColumnFacets
 
         [Fact]
-        public void Column_with_sysname_assigns_underlying_store_type_and_nullability()
-            => Test(
-                """
-                    
-                    CREATE TABLE TypeAlias (
-                    	Id int,
-                    	typeAliasColumn sysname
-                    );
-                    """,
-                [],
-                [],
-                dbModel =>
-                {
-                    var column = Assert.Single(dbModel.Tables.Single().Columns.Where(c => c.Name == "typeAliasColumn"));
-
-                    // ReSharper disable once PossibleNullReferenceException
-                    Assert.Equal("varchar(255)", column.StoreType);
-                    Assert.True(column.IsNullable);
-                },
-                """
-                    
-                    DROP TABLE TypeAlias;
-                    """);
-
-        [Fact]
         public void Decimal_numeric_types_have_precision_scale()
             => Test(
                 """

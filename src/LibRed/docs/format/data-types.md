@@ -40,6 +40,20 @@ that byte order equals chronological order (an order-preserving inline encoding)
 `new DateTime(day * TicksPerDay + time)`; e.g. `…693593:…0:7` is the 1899-12-30 epoch and
 `…737590:…495300000000:7` is 2020-06-15 13:45:30. Sub-second precision (to 100 ns) is preserved.
 
+Those three fields occupy **41** characters (19 + 1 + 19 + 1 + 1); the 42nd byte is a **NUL (`0x00`), not a
+space** — verified by reading rows ACE itself wrote (`… 3A 37 00`). The distinction is not cosmetic: the whole
+42 bytes go into the index key verbatim, so a space there would put every key out of step with ACE's and make
+its seeks miss those rows.
+
+**Indexing.** ACE does permit an index on the type, and keys it through the same 8-byte chunking it uses for
+`Binary` (§10.4) — start flag, 8 bytes, `0x09` while more follow, then the final chunk and its real-byte count
+— rather than folding the value to a number the way `DateTime` folds to its OA double. It can do that because
+the stored form is already order-preserving. Verified ascending and descending in
+`DateTime2KeyEncodingTests`.
+
+The bytes on disk are correct, but **ACE's own OLE DB provider cannot read this type back** — see the
+[footnote](#footnote--reading-datetime2-through-aces-own-drivers) at the bottom of this page.
+
 
 ## 7. Compressed Unicode
 
@@ -74,3 +88,107 @@ Points verified against ACE that aren't obvious from that page:
 - The grammar parses **two-word** type names (`CHARACTER VARYING`, `BIT VARYING`); three-word
   (`NATIONAL CHARACTER VARYING`) is not parsed yet. `HYPERLINK`/`XML`/`SQL_VARIANT`/`VARIANT`/`COMP` have no
   mapping (rejected, as ACE also rejects them).
+
+
+---
+
+## Footnote — reading `DATETIME2` through ACE's own drivers
+
+*Driver behaviour, not file format. Recorded here because it is the reason LibRed cannot cross-check this one
+type against ACE the way it does every other type, and because it silently corrupts data in the wider repo.*
+
+**The bytes on disk are correct; ACE's OLE DB read path is broken in three independent ways.** Verified
+2026-08-26 against **Access / Microsoft 365 version 2608 (build 20326.20100 Click-to-Run, Current Channel,
+x64)** — i.e. the then-current shipping build, not an old redistributable. Values were inserted through ACE and
+then read back three ways — ACE OLE DB, ACE ODBC, and LibRed reading the file directly:
+
+| literal | OLE DB (`Microsoft.ACE.OLEDB.16.0`) | ODBC (`ACEODBC.DLL`) | LibRed |
+| --- | --- | --- | --- |
+| `#2021-01-15 05:06:07#` | `ArgumentOutOfRangeException` | `byte[42]` `"…737804:…183670000000:7 "` | 2021-01-15 05:06:07 |
+| `#2021-03-04 05:06:07#` | 2021-**02**-04 05:06:07 | `byte[42]` `"…737852:…183670000000:7 "` | 2021-03-04 05:06:07 |
+| `#2021-12-25 13:14:15#` | 2021-**11**-25 13:14:15 | `byte[42]` `"…738148:…476550000000:7 "` | 2021-12-25 13:14:15 |
+| `#2020-02-29 00:00:00#` | 2020-**01**-29 00:00:00 | `byte[42]` `"…737483:…0:7 "` | 2020-02-29 00:00:00 |
+
+**ODBC** does not convert at all — it hands back the raw 42 bytes, exactly as stored, so it is *uncorrupted* but
+must be decoded by the caller (the same parse LibRed does). Note `OdbcConnection.ServerVersion` reports the
+**file's** engine level, not the driver's: `12.00.0000` for an ACE 12 file, `16.00.12600` for a `0x06` one.
+
+> **Neither driver's name tells you its age.** The `Microsoft.ACE.OLEDB.16.0` ProgID and `ACEODBC.DLL` have been
+> stable since Office 2016; the binaries behind them ship with Office and follow its update channel. A `16.0` in
+> the connection string is *not* evidence of an out-of-date component.
+
+### What the provider actually does
+
+Measured with a consumer calling the OLE DB COM vtables directly — `CoCreateInstance` → `IDataInitialize` →
+`IDBInitialize` → `IDBCreateSession` → `ICommandText` → `IColumnsInfo`/`IAccessor`/`IRowset`, every buffer
+natively allocated. **No ADO, no `System.Data.OleDb`, no ODBC in the path**, so everything below is the
+provider's own behaviour with nothing in between.
+
+The column's `DBCOLUMNINFO`:
+
+```
+wType        = 135 (0x0087) = DBTYPE_DBTIMESTAMP     <- a 16-byte struct
+ulColumnSize = 42                                    <- the on-disk ASCII length
+bPrecision   = 255, bScale = 255
+```
+
+**That contradiction is the root defect** — the provider declares a 16-byte type for a 42-byte value. (Control:
+a plain `DATETIME` column in the same table reports `wType = 7 DBTYPE_DATE, ulColumnSize = 8`.)
+
+**1 — It overruns the consumer's buffer.** Given a `DBTIMESTAMP` binding with `cbMaxLen = 16`, in a buffer
+pre-filled with `0xCD` sentinels:
+
+```
++2048  E5 07 02 00 04 00 05 00 06 00 07 00 00 00 00 00   <- the 16 bytes it was allowed
++2064  38 35 32 3A 30 30 30 30 30 30 30 31 38 33 36 37   "852:000000018367"
++2080  30 30 30 30 30 30 30 3A 37 00 CD CD CD CD CD CD   "0000000:7" NUL
+```
+
+**26 bytes past the slot**, and they are exactly characters 16–40 of the 42-byte on-disk string. The provider
+copies the whole 42-byte ASCII value to `obValue`, NUL-terminates at offset 41, overwrites the first 16 bytes
+with the converted struct, then reports `cbLength = 16, DBSTATUS_S_OK`. It never consults `cbMaxLen` — a
+512-byte slot produces the identical 42-byte footprint. Bindings for narrower types fare worse still: `DBDATE`
+(6 bytes) and `DBTYPE_R8` (8 bytes) each get a 16-byte struct splatted at `obValue` regardless, then return
+`E_DATAOVERFLOW` — or, for `R8`, the flatly wrong `DBSTATUS_S_ISNULL`.
+
+This is a genuine consumer buffer overrun, and it explains the `0xC0000374` / `0xC0000409` process crashes seen
+under OLE DB reader churn: `System.Data.OleDb` places `obValue` at 16 in a 32-byte row buffer, so ACE writes 26
+bytes off the end of a managed allocation.
+
+**2 — Its `DBTIMESTAMP` conversion is one month short.** The 16 bytes it wrote for `2021-03-04 05:06:07`:
+
+```
+E5 07 | 02 00 | 04 00 | 05 00 | 06 00 | 07 00 | 00 00 00 00
+year    month   day     hour    minute  second  fraction
+2021      2       4       5       6       7        0
+```
+
+The month field literally holds `2`; every other field is right. It looks like a 0-based `tm_mon` copied into
+the 1-based `DBTIMESTAMP.month` without the `+1`. It reproduces with a 512-byte slot, so it is independent of
+the overrun, and the provider demonstrably knows better: `SELECT Month(E) FROM X` through the same raw rowset
+returns **3**, and a plain `DATETIME` column holding the same instant decodes as **3**. `System.Data.OleDb` is
+faithful here — it builds a `DateTime` straight from the struct (`ColumnBinding.Value_DBTIMESTAMP`), so January
+throws (month `0` is not representable) while every other month corrupts **silently**: 2020-02-29 becomes a
+perfectly valid 2020-01-29.
+
+**3 — The string conversions are garbage.** `DBTYPE_STR` and `DBTYPE_WSTR` both return
+`"12336-12336-12336 12336:12336:12336.926103344"`. `12336 = 0x3030 = "00"` — the string path reinterprets the
+42-byte ASCII payload *as* a `DBTIMESTAMP` struct and formats the result. `DBTYPE_BYTES` and `DBTYPE_VARIANT`
+are refused outright at `CreateAccessor` (`DB_E_ERRORSOCCURRED`, `DBBINDSTATUS_UNSUPPORTEDCONVERSION`), so
+there is no binding that returns the raw value either.
+
+**There is no binding through which the OLE DB provider returns this column correctly.** Reading the file
+directly — what LibRed does — is not merely an alternative; it is the only correct path.
+
+### Why this has gone unnoticed
+
+Server-side comparison is unaffected — a `WHERE dt2 = #…#` matches correctly, because only *materialisation*
+goes through the broken conversion. And it is live in the real provider stack, not just in a probe:
+`AdHocMiscellaneousQueryJetTest` seeds **nine** `datetime2` columns (precisions 0–7), materialises all of them
+in `Where_not_equals_DateTime_Now`, and is green — only because every seeded date is in **September**, which
+merely shifts to August, and because the test asserts `Assert.Single` rather than any value. Changing one seeded
+date to January makes it fail immediately with the `ArgumentOutOfRangeException` above (verified by doing it,
+then reverting). So: predicates are right, corruption is silent outside January, Access itself never reads
+through OLE DB, and the suites that do exercise the type check row counts rather than values.
+
+Test: `AceDateTime2UpgradeTests.LibRed_decodes_datetime2_values_that_ace_reads_back_wrongly`.

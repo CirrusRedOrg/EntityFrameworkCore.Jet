@@ -23,7 +23,7 @@ public static class JetTypeCodec
             JetDataType.Int64 or JetDataType.Double or JetDataType.DateTime or JetDataType.Currency => 8,
             JetDataType.Guid => 16,
             JetDataType.FixedPoint => 17,
-            JetDataType.DateTimeExtended => 42,
+            JetDataType.DateTimeExtended => ExtendedDateTimeLength,
             _ => -1,
         };
         if (expectedLength >= 0 && value.Length != expectedLength)
@@ -48,7 +48,7 @@ public static class JetTypeCodec
                 return BinaryPrimitives.ReadDoubleLittleEndian(value);
             case JetDataType.DateTime:
                 return DateTime.FromOADate(BinaryPrimitives.ReadDoubleLittleEndian(value));
-            case JetDataType.DateTimeExtended: // ACE 16 DATETIME2
+            case JetDataType.DateTimeExtended: // ACE 17 DATETIME2
                 return DecodeExtendedDateTime(value);
             case JetDataType.Currency:
                 return BinaryPrimitives.ReadInt64LittleEndian(value) / 10000m;
@@ -71,7 +71,7 @@ public static class JetTypeCodec
     }
 
     /// <summary>
-    /// Decodes an ACE 16 DATETIME2 value: a fixed 42-byte ASCII string
+    /// Decodes an ACE 17 DATETIME2 value: a fixed 42-byte ASCII string
     /// "&lt;day&gt;:&lt;time&gt;:&lt;precision&gt;" where <c>day</c> is the .NET day number and
     /// <c>time</c> is the count of 100-ns ticks within the day. Both are zero-padded to 19
     /// digits so that byte order equals chronological order.
@@ -89,6 +89,40 @@ public static class JetTypeCodec
 
         return new DateTime(day * TimeSpan.TicksPerDay + time);
     }
+
+    /// <summary>
+    /// Encodes an ACE 17 DATETIME2 value — the inverse of <see cref="DecodeExtendedDateTime"/>. The 42 bytes are
+    /// ASCII <c>"&lt;day&gt;:&lt;time&gt;:&lt;precision&gt;"</c>: the .NET day number and the 100-ns ticks within
+    /// that day, each zero-padded to 19 digits so byte order equals chronological order, then the fractional
+    /// precision — 41 characters, NUL-padded to the field's 42 (19 + 1 + 19 + 1 + 1 = 41).
+    /// </summary>
+    /// <remarks>
+    /// <para>The padding byte is <c>0x00</c>, not a space: verified by reading the row bytes ACE itself wrote
+    /// (<c>… 3A 37 00</c>). It matters beyond byte-faithfulness — the whole 42 bytes go into the index key
+    /// verbatim (see <c>IndexKeyEncoder</c>), so a space there would put every key we wrote out of step with
+    /// ACE's and make its seeks miss our rows.</para>
+    /// <para>The precision is always 7. ACE's DDL accepts no other form: <c>DATETIME2(7)</c> and every other
+    /// parenthesised spelling is a syntax error, so a Date/Time Extended column can only be declared bare, and
+    /// the value ACE itself writes for one carries <c>7</c> (verified against Microsoft.ACE.OLEDB.16.0). A
+    /// column's <see cref="ColumnDef.Precision"/> is not consulted: those descriptor bytes carry
+    /// precision/scale for FixedPoint columns, not this.</para>
+    /// </remarks>
+    internal static byte[] EncodeExtendedDateTime(DateTime value)
+    {
+        long day = value.Ticks / TimeSpan.TicksPerDay;
+        long time = value.Ticks % TimeSpan.TicksPerDay;
+
+        string text = string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"{day:D19}:{time:D19}:7");
+
+        byte[] bytes = new byte[ExtendedDateTimeLength];
+        Encoding.ASCII.GetBytes(text, bytes);   // the 42nd byte stays 0x00
+        return bytes;
+    }
+
+    /// <summary>The fixed on-disk width of a DATETIME2 (Date/Time Extended) value.</summary>
+    internal const int ExtendedDateTimeLength = 42;
 
     /// <summary>
     /// Decodes a Jet Decimal/Numeric value (17 bytes): a sign byte (0x80 = negative) followed
@@ -164,6 +198,8 @@ public static class JetTypeCodec
                 return Bytes(8, b => BinaryPrimitives.WriteDoubleLittleEndian(b, Convert.ToDouble(value, c)));
             case JetDataType.DateTime:
                 return Bytes(8, b => BinaryPrimitives.WriteDoubleLittleEndian(b, ToOaDate(value, c)));
+            case JetDataType.DateTimeExtended: // ACE 17 DATETIME2
+                return EncodeExtendedDateTime(Convert.ToDateTime(value, c));
             case JetDataType.Currency:
                 return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, (long)decimal.Round(Convert.ToDecimal(value, c) * 10000m)));
             case JetDataType.Guid:

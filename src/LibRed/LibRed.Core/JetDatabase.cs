@@ -97,6 +97,36 @@ public sealed class JetDatabase : IDisposable
     /// <summary>The resolved on-disk format/version of the database.</summary>
     public JetFormatBase Format => _channel.Format;
 
+    /// <summary>
+    /// Raises the database's format version to <paramref name="minimum"/> if it is below it, and reports
+    /// whether it moved. Writing nothing when the file already qualifies, so callers can call it
+    /// unconditionally.
+    /// </summary>
+    /// <remarks>
+    /// This is what lets a `BIGINT` or `DATETIME2` column be added to an older file: the type cannot be
+    /// represented below a given format, and Access's own engine responds by upgrading the file rather than
+    /// refusing the DDL — verified by having ACE add a Date/Time Extended column to an ACE 12 database and
+    /// diffing the result, which moved the version byte to 0x06 and nothing else
+    /// (docs/format/page-00-database.md).
+    /// <para>The upgrade is one-way and there is no downgrade: a raised file cannot be opened by an Access
+    /// older than the new format. That is inherent to the type, not a choice here — the alternative is a file
+    /// whose columns Access cannot read at all.</para>
+    /// <para>It joins the caller's transaction, so it commits with the statement that needed it and is undone
+    /// with a statement that fails.</para>
+    /// </remarks>
+    public bool EnsureFormatAtLeast(JetVersion minimum)
+    {
+        if (Format.Version >= minimum) return false;
+        if (!_channel.RaiseFormatVersion((byte)minimum)) return false;
+
+        RereadDefinitionPage();
+        return true;
+    }
+
+    /// <summary>Re-decodes page 0 into <see cref="DefinitionPage"/> — after the format version moves, and
+    /// after a rollback that may have put it back.</summary>
+    private void RereadDefinitionPage() => DefinitionPage.Read(_channel.ReadPage(0), _channel.Format);
+
     /// <summary>Whether a transaction is currently open.</summary>
     public bool InTransaction => _channel.InTransaction;
 
@@ -126,6 +156,7 @@ public sealed class JetDatabase : IDisposable
         if (!_channel.InTransaction) return;
         _channel.RollbackTransaction();
         Catalog.Invalidate(markChanged: false);
+        RereadDefinitionPage();   // page 0 moves too, when a rolled-back statement raised the format version
     }
 
     /// <summary>Opens a savepoint within the current transaction (used to make a single statement atomic
@@ -139,6 +170,7 @@ public sealed class JetDatabase : IDisposable
     {
         _channel.RollbackToSavepoint(savepoint);
         Catalog.Invalidate(markChanged: false);
+        RereadDefinitionPage();
     }
 
     /// <summary>Releases <paramref name="savepoint"/>, merging its writes into the enclosing scope.</summary>

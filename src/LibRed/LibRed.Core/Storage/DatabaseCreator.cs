@@ -249,6 +249,14 @@ public static class DatabaseCreator
     {
         Collation sortOrder = collation ?? Collation.GeneralLegacy;
         JetFormatBase format = JetFormatBase.FromVersionByte(version);
+
+        // Only the ACCDB versions can be created. Page 0 is stamped "Standard ACE DB" below, and pairing that
+        // identifier with a Jet-4 version byte produces exactly the mismatch JetFormatBase.Detect refuses — a
+        // file this method wrote and could not then reopen. Jet 3 is rejected by FromVersionByte already.
+        if (!format.IsAccdb)
+            throw new NotSupportedException(
+                $"Cannot create a database at version 0x{version:X2} ({format.Version}): LibRed creates ACCDB " +
+                $"formats only (0x02 ACE 12 through 0x06 ACE 17).");
         // The four core system tables live at the exact pages the page-0 bootstrap pointers name (2/3/4/5);
         // their usage maps follow at 6..9. Access uses those pointers to find the catalog.
         const int objPage = 2, acesPage = 3, queriesPage = 4, relPage = 5;
@@ -262,7 +270,7 @@ public static class DatabaseCreator
         const int seedPages = 10;   // page 0, page 1, 4 core TDEFs (2..5), 4 usage maps (6..9)
         byte[][] seed =
         [
-            BuildDefinitionPage(version, isAccdb: true, 1252, sortOrder,
+            BuildDefinitionPage(version, format.IsAccdb, 1252, sortOrder,
                 BitConverter.Int64BitsToDouble(SeedCreationDateBits)),
             BuildFreeMapPage(format, seedPages),       // page 1: global free-pages map
             objTdef, acesTdef, queriesTdef, relTdef,   // pages 2..5: core TDEFs

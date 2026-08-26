@@ -37,9 +37,31 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         _ => throw new NotSupportedException($"{statement.GetType().Name} cannot be executed as a non-query."),
     };
 
+    /// <summary>
+    /// Maps a declared column type to its storage spec, first raising the database's format version if the
+    /// type needs a newer one than the file currently is.
+    /// </summary>
+    /// <remarks>
+    /// Access does the upgrade itself rather than refusing the DDL — adding a Date/Time Extended column to an
+    /// ACE 12 database moves its version byte to 0x06, and for DATETIME2 that byte is the entire upgrade
+    /// (docs/format/page-00-database.md). Refusing instead would leave LibRed unable to do something the
+    /// engine it mirrors does routinely.
+    /// <para>The raise joins this statement's transaction, so a failed CREATE/ALTER takes its format bump
+    /// back down with it. It is still one-way in the sense that matters: once committed, an Access older than
+    /// the new format cannot open the file — unavoidable, since the column it would find is one it cannot
+    /// read either.</para>
+    /// </remarks>
+    private ColumnSpec MapColumn(ColumnDefinition column)
+    {
+        if (AccessTypeMapper.RequiredVersion(column.TypeName) is { } required)
+            _database.EnsureFormatAtLeast(required.Min);
+
+        return AccessTypeMapper.ToColumnSpec(column, _database.Format.Version);
+    }
+
     private int ExecuteCreateTable(CreateTableStatement statement)
     {
-        var columns = statement.Columns.Select(c => AccessTypeMapper.ToColumnSpec(c, _database.Format.Version)).ToList();
+        var columns = statement.Columns.Select(MapColumn).ToList();
         foreach (var (spec, def) in columns.Zip(statement.Columns))
             ValidateColumnDefault(spec, def.Default);
         IReadOnlyList<string>? primaryKey = statement.PrimaryKey.Count > 0 ? statement.PrimaryKey : null;
@@ -375,6 +397,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         // A procedure is a parameterized stored query: a view spec plus a parameter row per declared
         // parameter (name + Jet type code, resolved from the declared Access type name).
+        //
+        // Deliberately NOT MapColumn: this declares no storage, so there is no column forcing the file's
+        // hand, and a BIGINT/DATETIME2 parameter on an older format is left to fail. Upgrading a whole
+        // database for a saved query's parameter type is a bigger claim than anything measured — what ACE
+        // does with a new-type parameter in MSysQueries has not been probed, unlike the column case.
         var parameters = statement.Parameters
             .Select(p => new ViewParameterSpec(
                 p.Name,
@@ -482,7 +509,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private int AddColumn(string table, ColumnDefinition column)
     {
         // NOT NULL and DEFAULT are written to the column's LvProp properties (Required / DefaultValue).
-        ColumnSpec spec = AccessTypeMapper.ToColumnSpec(column, _database.Format.Version);
+        ColumnSpec spec = MapColumn(column);
         ValidateColumnDefault(spec, column.Default);
         if (!_database.AddColumn(table, spec, column.Default))
             throw new InvalidOperationException($"ALTER TABLE '{table}' ADD COLUMN '{column.Name}': the column already exists.");
@@ -560,7 +587,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private int AlterColumn(string table, AlterColumnAction alter)
     {
         var colDef = new ColumnDefinition(alter.Field, alter.TypeName, alter.Size, alter.Scale, NotNull: false, PrimaryKey: false);
-        _database.AlterColumn(table, alter.Field, AccessTypeMapper.ToColumnSpec(colDef, _database.Format.Version));
+        _database.AlterColumn(table, alter.Field, MapColumn(colDef));
         // Apply DEFAULT before Required so the column's property map keeps ACE's order (DefaultValue, then Required).
         if (alter.Default is not null)   // ALTER COLUMN … DEFAULT: set the column's default after the type change
             _database.SetColumnDefault(table, alter.Field, alter.Default);

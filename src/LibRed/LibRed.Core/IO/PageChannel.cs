@@ -63,7 +63,12 @@ public sealed class PageChannel : IDisposable
     /// <summary>Whether a transaction is currently open on this channel.</summary>
     public bool InTransaction => _active is not null;
 
-    public JetFormatBase Format { get; }
+    /// <summary>
+    /// The resolved on-disk format. Settable only by <see cref="RaiseFormatVersion"/> and its rollback
+    /// counterpart: a database's format version can move up in place when DDL introduces a type that needs a
+    /// newer one, which is what Access itself does.
+    /// </summary>
+    public JetFormatBase Format { get; private set; }
 
     internal long SchemaGeneration => _cache.SchemaGeneration;
 
@@ -429,6 +434,40 @@ public sealed class PageChannel : IDisposable
         _commitBaselines.Clear();
         _schemaDirty = false;
         _active = null;
+        ResyncFormatVersion();   // a discarded format raise must not stay raised in memory
+    }
+
+    /// <summary>
+    /// Raises the file's format version byte (page 0, <c>0x14</c>) to <paramref name="version"/>, in place, and
+    /// swaps <see cref="Format"/> to match. Returns false — writing nothing — when the file already meets it,
+    /// so callers can call this unconditionally.
+    /// </summary>
+    /// <remarks>
+    /// The write goes through <see cref="WritePage"/> rather than to the stream, so it joins the calling
+    /// statement's transaction overlay: the upgrade commits with the DDL that needed it, or is discarded with
+    /// it. Page 0 is never page-encrypted, so the write is byte-transparent even on an encrypted file.
+    /// Only the version byte moves. The ACE format classes above 0x02 override nothing but
+    /// <see cref="JetFormatBase.Version"/> — same page size, same offsets — so the swap changes what the
+    /// database reports about itself and nothing about how it is parsed.
+    /// </remarks>
+    internal bool RaiseFormatVersion(byte version)
+    {
+        byte[] page0 = ReadPage(0).Span.ToArray();
+        if (page0[JetFormatBase.VersionOffset] >= version) return false;
+
+        page0[JetFormatBase.VersionOffset] = version;
+        WritePage(0, page0);
+        Format = JetFormatBase.FromVersionByte(version);
+        return true;
+    }
+
+    /// <summary>Re-derives <see cref="Format"/> from the version byte now visible on page 0. Cheap, and only
+    /// on the rollback paths, so it costs nothing in the ordinary case.</summary>
+    private void ResyncFormatVersion()
+    {
+        byte onDisk = ReadPage(0).Span[JetFormatBase.VersionOffset];
+        if ((byte)Format.Version != onDisk)
+            Format = JetFormatBase.FromVersionByte(onDisk);
     }
 
     /// <summary>Opens a savepoint in the current transaction; pass the handle to
@@ -473,6 +512,7 @@ public sealed class PageChannel : IDisposable
         _txPageCount = pageCount;
         foreach (int page in _commitBaselines.Keys.Where(p => !_overlay.ContainsKey(p)).ToArray())
             _commitBaselines.Remove(page);
+        ResyncFormatVersion();   // page 0 may have been one of the restored images
     }
 
     private byte[]? ReadCommittedPageOrNull(int pageNumber)

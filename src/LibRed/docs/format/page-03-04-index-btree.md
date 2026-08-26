@@ -830,8 +830,17 @@ The split mechanics:
 
 
 > **Indexable types — coverage vs ACE (§10.4).** `IndexKeyEncoder` encodes every type ACE lets you index —
-> Boolean, Byte, Int16, Int32, Currency, Single, Double, DateTime, Text, GUID, Binary, FixedPoint, and Memo
-> (its first 255 chars) — all byte-verified. ACE correctly **refuses** to index `OLE` (`0x0B`) and `Complex`
-> (`0x12`). Two ACE-16-only types remain unencoded: **`Int64`/BIGINT** (`0x13`) — trivial (an int64 like
-> Currency, sign-bit flipped) but unverified — and **`DateTimeExtended`/DATETIME2** (`0x14`), blocked on its
-> missing write codec ([data-types](data-types.md)). See the worklist in `src/LibRed/README.md`.
+> Boolean, Byte, Int16, Int32, Currency, Single, Double, DateTime, Text, GUID, Binary, FixedPoint, Memo
+> (its first 255 chars), and **`DateTimeExtended`/DATETIME2** (`0x14`) — all byte-verified. ACE correctly
+> **refuses** to index `OLE` (`0x0B`) and `Complex` (`0x12`). One ACE-16-only type remains unencoded:
+> **`Int64`/BIGINT** (`0x13`) — trivial (an int64 like Currency, sign-bit flipped) but unverified. See the
+> worklist in `src/LibRed/README.md`.
+>
+> `DateTimeExtended` is **not** a fixed-width numeric key. ACE runs its whole 42-byte stored value through the
+> Binary chunking above — start flag, 8 bytes, `0x09` while more follow, then the final chunk and its
+> real-byte count — instead of folding it to a number the way `DateTime` folds to its OA double. That works
+> because the stored encoding is already order-preserving (both fields zero-padded to 19 digits), and it means
+> the value's trailing NUL is part of the key ([data-types](data-types.md)). Descending inverts every byte
+> except the `0x09` markers, exactly as for Binary. Verified both directions in `DateTime2KeyEncodingTests`.
+> `IndexKeyDecoder` does not decode it, for the same reason it does not decode Binary or Text: the chunked
+> form stops the in-place walk, and the caller falls back to reading the row.

@@ -61,6 +61,39 @@ A genuinely **unknown** version byte on an `.accdb` that still carries the clear
 unrecognised byte is almost certainly a newer 4KB ACE variant; the `"4.0"` guard stops a genuinely different
 future engine (e.g. a `"5.0"` string) from being mis-read as ACE.
 
+**Upgrading an existing file is that byte and nothing else** (verified 2026-08-26 against ACE over OLE DB,
+from a DAO-created ACE 12 baseline — `dbVersion120`, version `0x02`). Adding a `DATETIME2` column through ACE
+changes exactly one byte of page 0: `0x14`, `0x02` → `0x06`. A control arm adding an ordinary `DATETIME` column
+to the same baseline is what isolates it — the only other byte either arm touched was the opening user's
+commit slot at `0xE02` (§2.2), which moves for any write at all.
+
+The byte is **sufficient, not merely necessary**: writing `0x06` to `0x14` by hand upgrades an ACE 12 file in
+place. ACE then opens it, data written before the flip is still readable, and `ALTER TABLE … ADD COLUMN …
+DATETIME2`, `INSERT`, `SELECT` and `CREATE TABLE` with the type all work — ACE adding nothing further to page 0
+of its own. Guard: `AceDateTime2UpgradeTests`. ACE's DDL accepts only the bare spelling **`DATETIME2`**;
+`DATETIME2(7)`, `DATETIMEEXTENDED`, `DATE/TIME EXTENDED` and `DATETIMEOFFSET` are all syntax errors.
+
+> Only the `0x06` / `DATETIME2` route was tested. The `0x05` / **Large Number** upgrade is *assumed* to work the
+> same way — not verified.
+
+**LibRed performs this upgrade itself**, as ACE does: DDL introducing a type the open file is too old for
+raises the version byte instead of refusing (`StatementExecutor.MapColumn` →
+`JetDatabase.EnsureFormatAtLeast` → `PageChannel.RaiseFormatVersion`). Three properties are worth recording,
+because each is a place the obvious implementation goes wrong:
+
+- The write goes through `PageChannel.WritePage`, not the stream, so it **joins the statement's transaction**.
+  A `CREATE TABLE` that raises the format and then fails takes the raise back down with it.
+- The in-memory `Format` is *not* transactional on its own, so both rollback paths (`RollbackTransaction`
+  and the savepoint `RestoreOverlay`) re-derive it from the version byte then visible, and `JetDatabase`
+  re-reads `DefinitionPage` alongside. Getting only the disk half right leaves an open database claiming a
+  version its file does not have.
+- It is one-way: there is no downgrade, and an Access older than the new format can no longer open the file.
+  That is inherent — the column it would find is one it could not read either.
+
+Verified against the real engine: ACE opens a file LibRed upgraded in place and reads the value that forced
+the upgrade (`DateTime2CreatedDatabaseAccessTests`). A saved query's *parameter* type is deliberately excluded
+— it declares no storage, and what ACE does with a new-type parameter in `MSysQueries` has not been probed.
+
 **Catalog bootstrap.** Reading the database is a two-step hop from page 0: the pointer at `0x20` gives the
 `MSysObjects` TDEF page (2), and `MSysObjects` then lists every other object (each table's row `Id` is *its*
 TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` and hands it to `JetCatalog`

@@ -127,10 +127,19 @@ LibRed-side `CHECK` enforcement, self-pointing self-references, and writing Memo
   both `CASCADE` directions work.
 - **1:1 relationships** (`dbRelationUnique` = `0x01`) — never written; a 1:1 migration would render as
   1:many in Access (the unique index still enforces uniqueness). Probe a real 1:1's `grbit` first.
-- **ACE-16 types** — `Int64`/BIGINT (`0x13`) index-key encoding is trivial but unverified;
-  `DateTimeExtended`/DATETIME2 (`0x14`) is **read-only** (no write codec), which also blocks indexing it.
-  The **ACE-16 auto-upgrade** (using BIGINT/DATETIME2 bumps the format version) is deliberately refused
-  until we probe what else the upgrade changes.
+- **ACE-16 types** — `Int64`/BIGINT (`0x13`) index-key encoding is trivial but unverified.
+  `DateTimeExtended`/DATETIME2 (`0x14`) is **done**: read, write, `CREATE TABLE`, index keys (ascending and
+  descending), and native creation at the format it needs — `LibRedConnection.CreateDatabase(…, version:)`
+  takes a `JetVersion`, defaulting to ACE 12 so an ordinary database still opens in every Access from 2007.
+  Each step is verified against ACE, ending with Access's own engine reading a 100-ns value out of a file
+  LibRed synthesised from nothing (`DateTime2CreatedDatabaseAccessTests`).
+  The **format auto-upgrade** is implemented too: DDL that introduces one of these types raises the open
+  file's version byte rather than refusing, which is what Access itself does — adding a Date/Time Extended
+  column to an ACE 12 database moves it to `0x06`, and that byte is the entire upgrade
+  (`docs/format/page-00-database.md`). The raise joins the statement's transaction, so a failed CREATE/ALTER
+  takes it back down. ACE opens a file LibRed upgraded this way and reads the value that forced it. Note the
+  upgrade is one-way and unavoidable: an older Access cannot open the result, but neither could it read the
+  column. `CreateDatabase(…, version:)` remains the way to start at a format rather than arrive at one.
 - **Non-English text collations** — index-key weights exist for the two General (1033) orders only:
   General-Legacy (v0) and General (v1). Any other locale is refused by `IndexKeyEncoder` rather than encoded
   with the English table. *(The v1 gap is closed: v1 keys are the Windows NLS weights verbatim, from the

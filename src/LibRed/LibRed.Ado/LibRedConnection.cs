@@ -111,19 +111,28 @@ public sealed class LibRedConnection : DbConnection
     /// <remarks>
     /// <see cref="Storage.DatabaseCreator.CreateEmpty"/> synthesises the file from scratch (page 0,
     /// the free map, and the bootstrap system catalog), then LibRed's ordinary writers populate it.
-    /// Produces an ACE 2007-format (<c>.accdb</c>) database that LibRed reads and writes fully; the
-    /// remaining Access-compatibility system tables are still being filled in.
+    /// Produces an <c>.accdb</c> that LibRed reads and writes fully; the remaining Access-compatibility
+    /// system tables are still being filled in.
     /// </remarks>
     /// <param name="collation">The database's default text collating order, written to page 0 and inherited
     /// by every column created in it. Defaults to General-Legacy (the order the engine writes); pass
     /// <see cref="Catalog.Collation.General"/> for the "General" order Access 2010+ offers.</param>
-    public static void CreateDatabase(string connectionString, Catalog.Collation? collation = null)
+    /// <param name="version">The file format to create. Defaults to
+    /// <see cref="Formats.JetVersion.Version12_2007"/> (ACE 12), which every Access from 2007 on can open —
+    /// raise it only for a database that needs a later type, since an older Access cannot open a newer file
+    /// at all. <see cref="Formats.JetVersion.Version16_2016"/> is what <c>BIGINT</c> requires and
+    /// <see cref="Formats.JetVersion.Version17_2019"/> what <c>DATETIME2</c> requires; <c>AccessTypeMapper</c>
+    /// refuses either type below its version rather than write a file Access could not read.</param>
+    public static void CreateDatabase(
+        string connectionString,
+        Catalog.Collation? collation = null,
+        Formats.JetVersion version = Formats.JetVersion.Version12_2007)
     {
         string path = ParseDataSource(connectionString);
         if (string.IsNullOrEmpty(path))
             throw new ArgumentException("The connection string is missing a Data Source.", nameof(connectionString));
 
-        Storage.DatabaseCreator.CreateEmpty(path, collation: collation);
+        Storage.DatabaseCreator.CreateEmpty(path, (byte)version, collation);
         CreateDualTable(path);
     }
 

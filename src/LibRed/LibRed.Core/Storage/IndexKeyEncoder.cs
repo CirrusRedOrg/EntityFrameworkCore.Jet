@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using LibRed.Catalog;
 using LibRed.Formats;
+using LibRed.Storage.Types;
 
 namespace LibRed.Storage;
 
@@ -16,7 +17,8 @@ namespace LibRed.Storage;
 /// 0x80 / 0xFF descending). Fixed/numeric types use the reversible transform (sign-bit flip +
 /// big-endian for integers; an IEEE transform for floating point); descending inverts the bytes.
 /// GUID keys are encoded byte-faithfully (string-order halves split by 0x09, terminated by 0x08).
-/// Text uses Jet's collation; general Binary keys use the same 0x09-chunked layout for any length.
+/// Text uses Jet's collation; general Binary keys — and DATETIME2, whose stored form is already
+/// order-preserving — use the same 0x09-chunked layout for any length.
 /// </remarks>
 public static class IndexKeyEncoder
 {
@@ -170,6 +172,20 @@ public static class IndexKeyEncoder
             if (column.Type == JetDataType.Binary)
             {
                 EncodeBinaryChunked(buffer, (byte[])value, ascending);
+                continue;
+            }
+
+            // DATETIME2 keys the whole 42-byte stored value through that same chunking, rather than folding
+            // it to a number the way DateTime folds to its OA double — verified against ACE, which stores
+            // 7F <8B> 09 … <final> <count> over exactly the bytes on the page. It works because the encoding
+            // is already order-preserving: both numeric fields are zero-padded to 19 digits, so byte order is
+            // chronological order. Note the value's 42nd byte is a NUL (see JetTypeCodec) and lands in the key.
+            if (column.Type == JetDataType.DateTimeExtended)
+            {
+                EncodeBinaryChunked(
+                    buffer,
+                    JetTypeCodec.EncodeExtendedDateTime(Convert.ToDateTime(value, CultureInfo.InvariantCulture)),
+                    ascending);
                 continue;
             }
 

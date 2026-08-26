@@ -1,5 +1,6 @@
 using LibRed;
 using LibRed.Engine;
+using LibRed.Formats;
 using Xunit;
 
 namespace LibRed.Engine.Tests;
@@ -12,36 +13,185 @@ public class DdlDmlTests
         return path;
     }
 
-    // BIGINT (Large Number) and DATETIME2 (Date/Time Extended) were added in DIFFERENT format versions:
-    // BIGINT needs Access 2016 (ACE 16, version 0x05), DATETIME2 needs Access 2019+ (ACE 17, 0x06) — verified
-    // against files authored with each feature. On an older format (Northwind is ACE 12 / Access 2007) LibRed
-    // must refuse to create a column to either, rather than write a file the real Access engine couldn't open.
+    // BIGINT (Large Number) and DATETIME2 (Date/Time Extended) arrived in DIFFERENT format versions: BIGINT
+    // needs Access 2016 (ACE 16, version byte 0x05), DATETIME2 needs Access 2019+ (ACE 17, 0x06) — verified
+    // against files authored with each feature. Northwind is ACE 12 (0x02), so using either type forces the
+    // file's hand, and LibRed does what Access does: raise the version rather than refuse the DDL. Verified by
+    // having ACE add a Date/Time Extended column to an ACE 12 database and diffing — the version byte moved,
+    // and for DATETIME2 it is the whole upgrade (docs/format/page-00-database.md).
     [Theory]
-    [InlineData("CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `V` BIGINT)", "Access 2016")]
-    [InlineData("CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `V` DATETIME2)", "Access 2019")]
-    public void Bigint_and_datetime2_are_rejected_when_creating_on_a_pre_2016_format(string sql, string expectedVersionInMessage)
+    [InlineData("BIGINT", JetVersion.Version16_2016, 0x05)]
+    [InlineData("DATETIME2", JetVersion.Version17_2019, 0x06)]
+    public void Creating_a_column_of_a_newer_type_raises_the_file_format(
+        string typeName, JetVersion expected, byte expectedByte)
     {
         string path = CopyToTemp();
         try
         {
-            using var db = JetDatabase.Open(path, readOnly: false);
-            var ex = Assert.Throws<NotSupportedException>(() => new QueryEngine(db).ExecuteNonQuery(sql));
-            Assert.Contains(expectedVersionInMessage, ex.Message);
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                Assert.Equal(JetVersion.Version12_2007, db.Format.Version);
+
+                new QueryEngine(db).ExecuteNonQuery($"CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `V` {typeName})");
+
+                Assert.Equal(expected, db.Format.Version);
+                Assert.Equal(expectedByte, db.DefinitionPage.JetVersion);   // page 0 was re-read, not left stale
+            }
+
+            Assert.Equal(expectedByte, VersionByte(path));                  // and it reached the file
         }
         finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
-    public void Altering_a_column_to_bigint_is_rejected_on_a_pre_2016_format()
+    public void Altering_a_column_to_bigint_raises_the_file_format()
     {
         string path = CopyToTemp();
         try
         {
-            using var db = JetDatabase.Open(path, readOnly: false);
-            var e = new QueryEngine(db);
-            e.ExecuteNonQuery("CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `V` INTEGER)");
-            var ex = Assert.Throws<NotSupportedException>(() => e.ExecuteNonQuery("ALTER TABLE `T` ALTER COLUMN `V` BIGINT"));
-            Assert.Contains("Access 2016", ex.Message);
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var e = new QueryEngine(db);
+                e.ExecuteNonQuery("CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `V` INTEGER)");
+                Assert.Equal(JetVersion.Version12_2007, db.Format.Version);
+
+                e.ExecuteNonQuery("ALTER TABLE `T` ALTER COLUMN `V` BIGINT");
+                Assert.Equal(JetVersion.Version16_2016, db.Format.Version);
+            }
+
+            Assert.Equal(0x05, VersionByte(path));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // The upgrade rides in the statement's own transaction, so a CREATE that fails after the format was
+    // raised must take the raise back down with it — on disk AND in memory. Getting only the disk half right
+    // would leave the open database claiming a version its file does not have, and the next DATETIME2 column
+    // would then be written into a file that never got upgraded.
+    [Fact]
+    public void A_failed_statement_does_not_leave_the_format_raised()
+    {
+        string path = CopyToTemp();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var e = new QueryEngine(db);
+                e.ExecuteNonQuery("CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY)");
+
+                // Same statement needs the upgrade AND cannot succeed: the table already exists.
+                Assert.ThrowsAny<Exception>(() =>
+                    e.ExecuteNonQuery("CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `V` DATETIME2)"));
+
+                Assert.Equal(JetVersion.Version12_2007, db.Format.Version);
+                Assert.Equal(0x02, db.DefinitionPage.JetVersion);
+            }
+
+            Assert.Equal(0x02, VersionByte(path));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    private static byte VersionByte(string path)
+    {
+        using var stream = File.OpenRead(path);
+        stream.Seek(0x14, SeekOrigin.Begin);
+        return (byte)stream.ReadByte();
+    }
+
+    // Date/Time Extended end to end through LibRed alone — CREATE, INSERT, SELECT — on an ACE 17 file.
+    // The fixture is Northwind (ACE 12) with its version byte raised to 0x06, which IS the whole upgrade: ACE
+    // itself asks for nothing more (AceDateTime2UpgradeTests proves the byte is sufficient against the real
+    // engine). Doing it that way rather than shipping a second fixture keeps this suite free of any Access
+    // dependency, so it still runs on the Linux/macOS/ARM legs.
+    //
+    // The values are chosen for what the 42-byte encoding has to get right rather than for what an ordinary
+    // 8-byte DATETIME could already do: 100-ns sub-second ticks, which are the reason the type exists and
+    // which an OA double cannot hold; DateTime.MinValue, where both 19-digit fields pad to all zeros; the top
+    // of the range at MaxValue; and a January date — the one month ACE's own OLE DB reader cannot return at
+    // all. A NULL covers the null bitmap for a fixed-length column.
+    [Fact]
+    public void Datetime2_round_trips_through_libred_on_the_ace17_format()
+    {
+        (int Id, DateTime? Value)[] cases =
+        [
+            (1, new DateTime(2021, 3, 4, 5, 6, 7)),
+            (2, new DateTime(2021, 3, 4, 5, 6, 7).AddTicks(1234567)),
+            (3, new DateTime(2021, 1, 15, 5, 6, 7)),
+            (4, DateTime.MinValue),
+            (5, DateTime.MaxValue),
+            (6, null),
+        ];
+
+        string path = CopyToTemp();
+        try
+        {
+            SetVersionByte(path, 0x06);
+
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var e = new QueryEngine(db);
+                e.ExecuteNonQuery("CREATE TABLE `E` (`Id` INTEGER PRIMARY KEY, `V` DATETIME2 NULL)");
+                foreach ((int id, DateTime? value) in cases)
+                    e.ExecuteNonQuery("INSERT INTO `E` (`Id`, `V`) VALUES (@id, @v)",
+                        new Dictionary<string, object?> { ["id"] = id, ["v"] = value });
+            }
+
+            // Reopened, so the values are read back off the page rather than out of anything still in memory.
+            using (var db = JetDatabase.Open(path))
+            {
+                var rows = new QueryEngine(db).ExecuteQuery("SELECT `Id`, `V` FROM `E` ORDER BY `Id`").Rows
+                    .ToDictionary(r => Convert.ToInt32(r[0]), r => (DateTime?)r[1]);
+
+                Assert.Equal(cases.Length, rows.Count);
+                foreach ((int id, DateTime? value) in cases)
+                    Assert.Equal(value, rows[id]);
+            }
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    /// <summary>Raises a copied file to the ACE 17 format. Page 0 offset 0x14 is the entire upgrade — see
+    /// docs/format/page-00-database.md and AceDateTime2UpgradeTests.</summary>
+    private static void SetVersionByte(string path, byte version)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Write);
+        stream.Seek(0x14, SeekOrigin.Begin);
+        stream.WriteByte(version);
+    }
+
+    // Creating at a chosen format, rather than upgrading someone else's file. The default stays ACE 12 so an
+    // ordinary database keeps opening in every Access from 2007; asking for ACE 17 up front is how you get a
+    // DATETIME2 database without the file ever having been at an older version.
+    //
+    // Both arms end up able to hold the type — that is the point of the upgrade — but only one of them was
+    // ever ACE 12, and a caller who says Version17_2019 should not have to rely on a later DDL side effect.
+    [Theory]
+    [InlineData(JetVersion.Version12_2007, 0x02, 0x06)]
+    [InlineData(JetVersion.Version17_2019, 0x06, 0x06)]
+    public void A_natively_created_database_is_stamped_at_the_requested_format(
+        JetVersion version, byte createdByte, byte afterDatetime2)
+    {
+        var value = new DateTime(2021, 3, 4, 5, 6, 7).AddTicks(1234567);
+
+        string path = TemporaryDatabase.CreatePath("libred-create-");
+        File.Delete(path);   // CreateDatabase synthesises the file and refuses an existing one
+        try
+        {
+            LibRed.Data.LibRedConnection.CreateDatabase($"Data Source={path}", version: version);
+            Assert.Equal(createdByte, VersionByte(path));
+
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var e = new QueryEngine(db);
+                e.ExecuteNonQuery("CREATE TABLE `E` (`Id` INTEGER PRIMARY KEY, `V` DATETIME2 NULL)");
+                e.ExecuteNonQuery("INSERT INTO `E` (`Id`, `V`) VALUES (1, @v)",
+                    new Dictionary<string, object?> { ["v"] = value });
+
+                Assert.Equal(value, e.ExecuteQuery("SELECT `V` FROM `E`").Rows.Single()[0]);
+            }
+
+            Assert.Equal(afterDatetime2, VersionByte(path));
         }
         finally { TemporaryDatabase.Delete(path); }
     }

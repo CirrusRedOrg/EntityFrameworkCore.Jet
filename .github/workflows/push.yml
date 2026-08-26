@@ -686,6 +686,12 @@ jobs:
         if: env.skipTests != 'true'
         shell: pwsh
         run: dotnet test .\test\LibRed.Core.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
+      # The engine tests that cross-check against ACE. They belong here rather than in the cross-platform
+      # LibRed job above, which runs on five platforms precisely to prove LibRed needs no ACE at all.
+      - name: 'Run Tests: LibRed.Engine.AccessTests'
+        if: always() && env.skipTests != 'true'
+        shell: pwsh
+        run: dotnet test .\test\LibRed.Engine.AccessTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
       - name: 'Run Tests: LibRed.Ado.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh

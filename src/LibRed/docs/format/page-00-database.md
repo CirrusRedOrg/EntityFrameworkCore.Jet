@@ -244,10 +244,50 @@ relocated to the end of the larger 4 KB page:
 The first slot is the **exclusive-mode** commit state; the remaining 255 are shared-mode users. Each 2-byte
 value is a commit/lock status Jet uses (with the matching user lock in the `.ldb`/`.laccdb`) to coordinate
 concurrency — this table is only the per-user *overall status*; the `.ldb`/`.laccdb` holds the actual
-page-level read/write registration. Observed: an idle/unused slot reads **`00 01`**; the head slots carry
-per-file last-commit states (`01 01`, `05 01`, …). **`00 00` means "mid-write to disk"**, and `01 00` means
+page-level read/write registration. **`00 00` means "mid-write to disk"**, and `01 00` means
 "accessed a corrupted page" — either one *without a matching user lock* makes Jet declare the database
 suspect and demand a repair before it will open.
+
+#### The slot is a little-endian commit counter (verified 2026-08-26)
+
+Above those low reserved values, a slot is **one 16-bit little-endian counter of that user's committed
+writes** — not an enumerated state, which is how this file previously described it and how the note in
+[page-05](page-05-usage-maps.md) half-described it ("bumps a counter … not yet decoded"). Measured against
+`Microsoft.ACE.OLEDB.16.0` on one connection, watching `0xE02` (slot 1, the first shared user):
+
+| | slot 1 | as LE16 |
+| --- | --- | --- |
+| baseline | `D2 02` | 722 |
+| after `SELECT` | `D2 02` | 722 — **reads never move it** |
+| after `CREATE TABLE` | `D3 02` | 723 |
+| after 3 × `INSERT` | `D5 02` | 725 |
+| after `UPDATE`, after `DELETE` | `D6 02`, `D7 02` | 726, 727 |
+| after `CREATE INDEX` | `D9 02` | 729 |
+| +40 inserts | `01 03` | 769 — exactly +40 |
+| +240 more | `F1 03` | 1009 — exactly +240 |
+
+Four properties fall out, each of which the "state" reading would have got wrong:
+
+- **The two bytes are one value.** Driving the low byte past `0xFF` carries into the high byte —
+  `0x03F1` + 16 = `0x0401` — which independent bytes would not do. It also explains why a well-used file
+  shows a high byte of `02`/`03`/`04` rather than the `01` of an untouched slot: the low byte has wrapped
+  that many times.
+- **The idle `00 01` is that counter's start value**, 256 — not a magic constant. It sits just above the
+  reserved `00 00`/`01 00` status codes, and a freshly compacted file starts there (below).
+- **The on-disk value lags the last write by one.** A statement's increment is not flushed until the *next*
+  write, or until the connection closes (which lands the pending one plus its own). So a burst of *n* inserts
+  reads as *n−1* until something follows it. Measure between two mid-burst samples and the lag cancels.
+- **Every committed write costs exactly one**, DDL included. The lag makes this easy to misread: in the run
+  above `CREATE INDEX` appears to move it by 2 and the first `INSERT` by 0, but the whole seven-statement
+  sequence is 722 → 729, exactly +7. Isolating `CREATE INDEX` — the same trailing five inserts with and
+  without it — gives +5 versus +6, so it is one commit like anything else.
+
+**Reopening does not reset it; compacting does.** The counter carries straight across a close and reopen
+(`…DA` before, `…DA` after). A DAO `CompactDatabase` writes a whole new file and its slot 1 starts at **256**,
+the idle value, then counts normally from there (744 → 256 → 260 after five inserts).
+
+Tests: `CommitByteTableTests`. LibRed still does not read or maintain the table — ACE opens and queries
+LibRed-created tables with the counter untouched — so this is documentation of the format, not a dependency.
 
 This region is **undocumented by mdbtools and Jackcess** — LibRed's own decode, cross-checked three ways:
 the white paper's Jet 2.x/3.x structure, the raw bytes of real ACE files, and the Microsoft **LDBView**

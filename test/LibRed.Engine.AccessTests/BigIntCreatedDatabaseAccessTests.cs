@@ -25,6 +25,13 @@ public class BigIntCreatedDatabaseAccessTests : TempDatabaseTest
     [Fact]
     public void Ace_reads_bigint_values_libred_wrote_into_a_database_libred_upgraded()
     {
+        // ACE 16 / Access 2016 only — an older engine cannot read the column back, which would say nothing
+        // about the file LibRed wrote.
+        Assert.SkipUnless(
+            AceTestDatabase.SupportsColumnType(
+                Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "BIGINT"),
+            AceTestDatabase.UnsupportedColumnTypeReason("BIGINT"));
+
         // Both extremes and both signs: the index/storage transforms are sign-sensitive, and a positives-only
         // sample would agree with almost any encoding.
         long[] values = [0L, 1L, -1L, 42L, -42L, long.MaxValue, long.MinValue];

@@ -33,9 +33,16 @@ public class BigIntKeyEncodingTests
     // small values and overflows near ±2^63.
     private const OleDbType ParameterType = OleDbType.Numeric;
 
+    /// <summary>ACE 16 / Access 2016 only. CI has installed older redistributables, and a machine whose ACE
+    /// predates Large Number cannot create the column at all — which says nothing about LibRed.</summary>
+    private static void RequireBigInt() => Assert.SkipUnless(
+        AceTestDatabase.SupportsColumnType(TestDatabases.NorthwindAccdb, "BIGINT"),
+        AceTestDatabase.UnsupportedColumnTypeReason("BIGINT"));
+
     [Fact]
     public void Adding_a_bigint_column_makes_ace_raise_the_file_to_ace16()
     {
+        RequireBigInt();
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-bigint-ver-");
         try
         {
@@ -57,6 +64,7 @@ public class BigIntKeyEncodingTests
     [Fact]
     public void Ace_stores_a_bigint_column_as_variable_length()
     {
+        RequireBigInt();
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-bigint-shape-");
         try
         {
@@ -83,6 +91,7 @@ public class BigIntKeyEncodingTests
 
     private static void AssertKeysMatchAccess(string indexDdl)
     {
+        RequireBigInt();
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-bigintkey-");
         try
         {

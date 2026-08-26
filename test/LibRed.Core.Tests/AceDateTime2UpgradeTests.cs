@@ -123,6 +123,13 @@ public class AceDateTime2UpgradeTests(ITestOutputHelper output)
     /// creates. Returns false, having reported it, when DAO is not installed.</summary>
     private bool TryCreateAce12Database(string prefix, out string path)
     {
+        // Both tests here have ACE itself create or read a DATETIME2 column, which an ACE below 17 cannot do
+        // at all — CI installs the 2016 redistributable. Skip rather than fail: a machine without the type
+        // proves nothing either way about the upgrade.
+        Assert.SkipUnless(
+            AceTestDatabase.SupportsColumnType(TestDatabases.NorthwindAccdb, "DATETIME2"),
+            AceTestDatabase.UnsupportedColumnTypeReason("DATETIME2"));
+
         path = "";
         object? engine = null;
         foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })

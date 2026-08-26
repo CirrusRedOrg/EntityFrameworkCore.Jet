@@ -25,9 +25,17 @@ public class DateTime2CreatedDatabaseAccessTests : TempDatabaseTest
     // statement needing Date/Time Extended raises it to ACE 17 in place — which is what Access does, but doing
     // it ourselves means the file was rewritten by us rather than by them. So the question is not whether
     // LibRed can still read it (it wrote it) but whether ACE will still open it at all.
+    /// <summary>ACE 17 / Access 2019+ only — an older engine cannot read the column back at all, so a failure
+    /// there would be about the installed driver rather than about the file LibRed wrote.</summary>
+    private static void RequireDateTime2() => Assert.SkipUnless(
+        AceTestDatabase.SupportsColumnType(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "DATETIME2"),
+        AceTestDatabase.UnsupportedColumnTypeReason("DATETIME2"));
+
     [Fact]
     public void Ace_opens_a_database_libred_upgraded_in_place_and_reads_the_datetime2_it_forced()
     {
+        RequireDateTime2();
         var value = new DateTime(2021, 3, 4, 5, 6, 7).AddTicks(1234567);
 
         string path = TemporaryDatabase.CreatePath("libred-upgrade-ace-");
@@ -74,6 +82,7 @@ public class DateTime2CreatedDatabaseAccessTests : TempDatabaseTest
     [Fact]
     public void Ace_reads_a_datetime2_value_libred_wrote_into_a_database_libred_created()
     {
+        RequireDateTime2();
         // Sub-second ticks deliberately: an ordinary 8-byte DATETIME could not carry them, so a value that
         // survives to here could only have gone through the 42-byte encoding.
         var value = new DateTime(2021, 3, 4, 5, 6, 7).AddTicks(1234567);

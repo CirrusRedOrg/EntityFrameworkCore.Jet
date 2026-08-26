@@ -39,6 +39,12 @@ public class DateTime2KeyEncodingTests
 
     private static void AssertKeysMatchAccess(string indexDdl)
     {
+        // ACE 17 / Access 2019+ only. CI installs the 2016 redistributable, which cannot create the column at
+        // all — a failure there would say nothing about LibRed's encoding.
+        Assert.SkipUnless(
+            AceTestDatabase.SupportsColumnType(TestDatabases.NorthwindAccdb, "DATETIME2"),
+            AceTestDatabase.UnsupportedColumnTypeReason("DATETIME2"));
+
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-dt2key-");
         try
         {

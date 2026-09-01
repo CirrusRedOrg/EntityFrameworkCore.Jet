@@ -55,10 +55,6 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             }
 
             //query = _skipTakePostprocessor.Process(query);
-            if (_options.EnableMillisecondsSupport)
-            {
-                query = new JetDateTimeExpressionVisitor(RelationalDependencies.SqlExpressionFactory, _relationalTypeMappingSource).Visit(query);
-            }
             //query = _skipWithoutOrderByInSplitQueryVerifier.Visit(query);
             //query = _skipTakePostprocessor.Process(query);
             query = _liftOrderByPostprocessor.Process(query);

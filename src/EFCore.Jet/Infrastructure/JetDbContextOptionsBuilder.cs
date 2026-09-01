@@ -38,14 +38,6 @@ namespace EntityFrameworkCore.Jet.Infrastructure
             => WithOption(e => e.WithUseOuterSelectSkipEmulationViaDataReader(enabled));
 
         /// <summary>
-        ///     Configures the context support milliseconds in `DateTime`, `DateTimeOffset` and `TimeSpan` values when
-        ///     accessing Jet databases. Jet has no native support for milliseconds, therefore this feature is opt-in.
-        /// </summary>
-        public virtual JetDbContextOptionsBuilder EnableMillisecondsSupport(bool enabled = true)
-            => WithOption(e => e.WithEnableMillisecondsSupport(enabled));
-
-
-        /// <summary>
         ///     Set this to enabled to map the System.String CLR type to the Jet `Short Text` data type instead of the
         ///     Long Text data type. This will limit the maximum length of strings to 255 characters.
         ///     As System.String does not have a size it is normally mapped to 'lonchar' or 'memo' (SQL Server is 'nvarchar(max)'

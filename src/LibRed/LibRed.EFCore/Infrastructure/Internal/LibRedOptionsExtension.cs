@@ -34,9 +34,6 @@ public class LibRedOptionsExtension : JetOptionsExtension
     public override LibRedOptionsExtension WithUseOuterSelectSkipEmulationViaDataReader(bool enabled)
         => (LibRedOptionsExtension)base.WithUseOuterSelectSkipEmulationViaDataReader(enabled);
 
-    public override LibRedOptionsExtension WithEnableMillisecondsSupport(bool enabled)
-        => (LibRedOptionsExtension)base.WithEnableMillisecondsSupport(enabled);
-
     public override LibRedOptionsExtension WithUseShortTextForSystemString(bool enabled)
         => (LibRedOptionsExtension)base.WithUseShortTextForSystemString(enabled);
 

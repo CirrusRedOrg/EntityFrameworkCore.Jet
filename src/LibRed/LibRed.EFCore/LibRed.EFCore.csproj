@@ -5,10 +5,6 @@
     <RootNamespace>EntityFrameworkCore.LibRed</RootNamespace>
     <AssemblyName>EntityFrameworkCore.LibRed</AssemblyName>
     <Description>Entity Framework Core provider built on the LibRed ADO.NET provider and native engine.</Description>
-    <!-- EF1001: we deliberately extend EFCore.Jet's internal provider services (JetOptionsExtension,
-         JetRelationalConnection). CA1416: those are Windows-only, so this transitional provider is
-         too until the reused Jet services are reimplemented on LibRed. Both are accepted by design. -->
-    <NoWarn>$(NoWarn);EF1001;CA1416</NoWarn>
     <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
 

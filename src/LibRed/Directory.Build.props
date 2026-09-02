@@ -6,17 +6,12 @@
     [SupportedOSPlatform("windows")] is applied by each driver-bound project itself,
     so nothing here needs to opt out of it.
 
-    We bypass src/Directory.Build.props and import the repo-root props directly to
-    pick up shared metadata, versioning and analyzer settings, while setting the
-    build options below (not packable, no documentation file, own NoWarn) that the
-    src props would otherwise impose.
   -->
-  <Import Project="$(MSBuildThisFileDirectory)..\..\Directory.Build.props" />
+  <Import Project="$(MSBuildThisFileDirectory)..\Directory.Build.props" />
 
   <PropertyGroup>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <IsPackable>false</IsPackable>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>

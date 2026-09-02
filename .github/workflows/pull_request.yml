@@ -89,6 +89,7 @@ jobs:
               - *shared
               - 'src/Shared/**'
               - 'src/EFCore.Jet/**'
+              - 'src/EFCore.Jet.Common/**'
               - 'src/EFCore.Jet.Data/**'
               - 'src/EFCore.Jet.Odbc/**'
               - 'src/EFCore.Jet.OleDb/**'
@@ -106,11 +107,7 @@ jobs:
               - 'test/LibRed.Engine.Tests/**'
               - 'test/LibRed.Engine.AccessTests/**'
               - 'test/EFCore.LibRed.FunctionalTests/**'
-              # LibRed.Ado references EFCore.Jet.Data and LibRed.EFCore references EFCore.Jet, so a
-              # change on the Jet side has to re-run LibRed. The reverse is not true: nothing under
-              # src/LibRed is referenced by the Jet provider.
-              - 'src/EFCore.Jet/**'
-              - 'src/EFCore.Jet.Data/**'
+              - 'src/EFCore.Jet.Common/**'
               # Northwind.accdb lives here and every LibRed suite links to it as its fixture.
               - 'test/JetProviderExceptionTests/**'
       - name: 'Decide What To Run'

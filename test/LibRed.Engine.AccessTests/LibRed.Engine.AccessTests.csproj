@@ -1,17 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
-  <!--
-    The engine tests that cross-check against the real Access engine over OLE DB, split out of
-    LibRed.Engine.Tests.
-
-    That suite is the one CI runs on all five platforms — Linux, Windows, macOS and both ARM legs — because
-    LibRed is fully managed and those runs are what actually prove the cross-platform claim. An ACE test in
-    there fails everywhere except Windows x64, and worse, it fails for a reason that says nothing about the
-    code: the driver is simply absent. Keeping the cross-platform suite free of ACE is the point of it.
-
-    These run under the LibRedAccess job instead, beside LibRed.Core.Tests, which is where the other
-    engine-versus-ACE comparisons already live.
-  -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>$(JetTargetFramework)</TargetFramework>
@@ -46,8 +33,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\LibRed\LibRed.Engine\LibRed.Engine.csproj" />
     <ProjectReference Include="..\..\src\LibRed\LibRed.Ado\LibRed.Ado.csproj" />
-    <!-- LibRed-only helpers live outside test\Shared: the EF functional test projects glob that folder
-         wholesale (..\Shared\**\*.cs) and do not all reference LibRed.Core. -->
     <Compile Include="..\LibRed.Shared\AceTestDatabase.cs" Link="AceTestDatabase.cs" />
     <Compile Include="..\LibRed.Shared\TemporaryDatabase.cs" Link="TemporaryDatabase.cs" />
     <Compile Include="..\LibRed.Shared\TempDatabaseTest.cs" Link="TempDatabaseTest.cs" />

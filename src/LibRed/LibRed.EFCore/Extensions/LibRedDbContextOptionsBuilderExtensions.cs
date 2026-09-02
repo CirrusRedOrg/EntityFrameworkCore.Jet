@@ -76,7 +76,6 @@ public static class LibRedDbContextOptionsBuilderExtensions
 
         var extension = (LibRedOptionsExtension)GetOrCreateExtension(optionsBuilder)
             .WithConnectionString(connectionString);
-        extension = extension.WithDataAccessProviderFactory(dataAccessProviderFactory);
         ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
 
         return ApplyConfiguration(optionsBuilder, libRedOptionsAction);

@@ -1,45 +1,44 @@
-using System.Data.Common;
-using Microsoft.EntityFrameworkCore.Storage;
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-namespace EntityFrameworkCore.LibRed.Storage.Internal;
-
-public class LibRedTimeOnlyTypeMapping : TimeOnlyTypeMapping
+namespace EntityFrameworkCore.LibRed.Storage.Internal
 {
-    public static new LibRedTimeOnlyTypeMapping Default { get; } = new LibRedTimeOnlyTypeMapping("time");
-
-    public LibRedTimeOnlyTypeMapping(
-            string storeType)
-        : base(storeType)
+    public class LibRedTimeOnlyTypeMapping : TimeOnlyTypeMapping
     {
-    }
-
-    protected LibRedTimeOnlyTypeMapping(RelationalTypeMappingParameters parameters)
-        : base(parameters)
-    {
-    }
-
-    protected override void ConfigureParameter(DbParameter parameter)
-    {
-        base.ConfigureParameter(parameter);
-        if (parameter.Value is TimeOnly timeOnly)
+        public static new LibRedTimeOnlyTypeMapping Default { get; } = new LibRedTimeOnlyTypeMapping("time");
+        public LibRedTimeOnlyTypeMapping(
+                string storeType)
+            : base(storeType)
         {
-            timeOnly.Deconstruct(out int hour, out int min, out int sec, out int msec);
-            parameter.Value = new TimeSpan(0, hour, min, sec, msec);
         }
-    }
 
-    protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-        => new LibRedTimeOnlyTypeMapping(parameters);
+        protected LibRedTimeOnlyTypeMapping(RelationalTypeMappingParameters parameters)
+            : base(parameters)
+        {
+        }
 
-    protected override string GenerateNonNullSqlLiteral(object value)
-    {
-        return ((TimeOnly)value).Millisecond != 0
-            ? FormattableString.Invariant($@"TIMEVALUE('{value:HH\:mm\:ss\.fff}')")
-            : FormattableString.Invariant($@"TIMEVALUE('{value:HH\:mm\:ss}')");
-    }
+        protected override void ConfigureParameter(DbParameter parameter)
+        {
+            base.ConfigureParameter(parameter);
+            if (parameter.Value is TimeOnly timeOnly)
+            {
+                timeOnly.Deconstruct(out int hour, out int min, out int sec, out int msec);
+                parameter.Value = new TimeSpan(0, hour, min, sec, msec);
+            }
+        }
 
-    protected override string ProcessStoreType(RelationalTypeMappingParameters parameters, string storeType, string storeTypeNameBase)
-    {
-        return base.ProcessStoreType(parameters, storeTypeNameBase, storeTypeNameBase);
+        protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
+            => new LibRedTimeOnlyTypeMapping(parameters);
+
+        protected override string GenerateNonNullSqlLiteral(object value)
+        {
+            return ((TimeOnly)value).Millisecond != 0
+                ? FormattableString.Invariant($@"TIMEVALUE('{value:HH\:mm\:ss\.fff}')")
+                : FormattableString.Invariant($@"TIMEVALUE('{value:HH\:mm\:ss}')");
+        }
+
+        protected override string ProcessStoreType(RelationalTypeMappingParameters parameters, string storeType, string storeTypeNameBase)
+        {
+            return base.ProcessStoreType(parameters, storeTypeNameBase, storeTypeNameBase);
+        }
     }
 }

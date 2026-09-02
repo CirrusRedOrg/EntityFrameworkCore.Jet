@@ -20,7 +20,7 @@ public class TwoDatabasesLibRedTest(LibRedFixture fixture) : TwoDatabasesTestBas
             ? withNullConnectionString
                 ? optionsBuilder.UseLibRed((string)null)
                 : optionsBuilder.UseLibRed(DummyConnectionString)
-            : optionsBuilder.UseLibRed(LibRedTestStore.CreateConnectionString("TwoDatabasesLibRedTest"), TestEnvironment.DataAccessProviderFactory);
+            : optionsBuilder.UseLibRed(LibRedTestStore.CreateConnectionString("TwoDatabasesLibRedTest"));
 
     protected override TwoDatabasesWithDataContext CreateBackingContext(string databaseName)
         => new(Fixture.CreateOptions(LibRedTestStore.Create(databaseName)));

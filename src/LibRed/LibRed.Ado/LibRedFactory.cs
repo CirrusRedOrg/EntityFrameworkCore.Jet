@@ -24,11 +24,4 @@ public sealed class LibRedFactory : DbProviderFactory
     /// rather than sharing that generic extension surface.
     /// </summary>
     public override DbConnectionStringBuilder CreateConnectionStringBuilder() => new LibRedConnectionStringBuilder();
-
-    /// <summary>
-    /// Returns the <see cref="DbProviderFactory"/> to use for LibRed data access. LibRed has a
-    /// single native engine (no ODBC/OLE DB driver choice), so this always returns
-    /// <see cref="Instance"/>. Exists for API parity with <c>JetFactory.GetDataAccessProviderFactory</c>.
-    /// </summary>
-    public static DbProviderFactory GetDataAccessProviderFactory() => Instance;
 }

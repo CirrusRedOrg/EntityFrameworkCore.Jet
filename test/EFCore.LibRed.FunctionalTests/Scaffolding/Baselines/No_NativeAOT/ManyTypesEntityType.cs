@@ -6,7 +6,7 @@ using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Text;
 using EntityFrameworkCore.Jet.Metadata;
-using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -70,7 +70,7 @@ public partial class ManyTypesEntityType
             typeof(bool),
             propertyInfo: typeof(CompiledModelTestBase.ManyTypes).GetProperty("BoolToStringConverterProperty", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly),
             fieldInfo: typeof(CompiledModelTestBase.ManyTypes).GetField("<BoolToStringConverterProperty>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly));
-        boolToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        boolToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<bool>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(

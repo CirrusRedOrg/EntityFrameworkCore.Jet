@@ -10,10 +10,18 @@ Current version: `11.0.0-alpha.1` (`Version.props`) targeting EF Core 11 and `ne
 
 ### Which layer am I touching?
 
-- `src/EFCore.Jet*` — Windows-only, ACE driver required, `[SupportedOSPlatform("windows")]`, tests need a real Access driver.
+- `src/EFCore.Jet.Data`, `src/EFCore.Jet`, `src/EFCore.Jet.Odbc`, `src/EFCore.Jet.OleDb` — Windows-only, ACE driver
+  required, tests need a real Access driver. Each of the four applies its own `[SupportedOSPlatform("windows")]`
+  assembly attribute; nothing in `Directory.Build.props` stamps it any more.
+- `src/EFCore.Jet.Common` — the Jet-dialect services **both** providers share: the query pipeline and expression
+  translators, `JetMigrationsSqlGenerator`, conventions, annotations, value generation, `JetStrings`. Cross-platform,
+  and it must stay that way — it may **not** reference `EFCore.Jet.Data`, because LibRed depends on it.
 - `src/LibRed/*` — no ACE, no COM, runs on Linux/macOS/ARM64; its tests either need no driver at all or exist specifically to cross-check LibRed's output against the real ACE engine.
 
-Nothing under `src/LibRed` is referenced by the Jet provider; the dependency runs the other way (`LibRed.Ado` → `EFCore.Jet.Data`, `LibRed.EFCore` → `EFCore.Jet`), so a Jet-side change has to re-run the LibRed suites but not vice versa.
+Neither provider references the other, and nothing under `src/LibRed` is referenced by the Jet provider. Both sit on
+Common: `EFCore.Jet` → `EFCore.Jet.Data` + `EFCore.Jet.Common`, and `LibRed.EFCore` → `LibRed.Ado` +
+`EFCore.Jet.Common`. So a change in Common has to re-run **both** suites; a change in `EFCore.Jet` or
+`EFCore.Jet.Data` no longer affects LibRed at all.
 
 ## Build
 
@@ -87,8 +95,12 @@ matrix leg locally without installing that ACE on your own machine.
 src/
   EFCore.Jet.Data/      ADO.NET driver — JetConnection, JetCommand, JetDataReader,
                         schema management, DUAL table simulation, connection pooling
-  EFCore.Jet/           EF Core provider — query pipeline, migrations, scaffolding,
-                        type mappings, value generation, conventions
+  EFCore.Jet/           EF Core provider — the Jet-only half: options, connection,
+                        database creator, scaffolding, transactions, type mappings
+  EFCore.Jet.Common/    Jet-dialect services shared with LibRed (cross-platform, no
+                        EFCore.Jet.Data reference) — query pipeline and translators,
+                        migrations SQL generation, conventions, annotations,
+                        value generation, JetStrings
   EFCore.Jet.Odbc/      Provider factory for ODBC data access
   EFCore.Jet.OleDb/     Provider factory for OLE DB data access
   Shared/               Shared source files compiled into multiple src projects
@@ -128,10 +140,16 @@ a security/robustness audit of the LibRed production code and the fixes made fro
 **Layer 1 — `EFCore.Jet.Data`** wraps the raw ODBC/OLE DB driver:
 - `JetConnection` detects whether the connection string is ODBC or OLE DB and delegates to the appropriate inner `DbConnection`.
 - `JetCommand` rewrites SQL at runtime: handles `SELECT SKIP`, emulates `@@ROWCOUNT`, rewrites `TOP @param`, parses `IF NOT EXISTS ... THEN ...` syntax, and intercepts stored-procedure creation.
-- `JetConfiguration` holds global settings: `TimeSpanOffset` (Jet has no TimeSpan; dates are offset from 1899-12-30), `CustomDualTableName`, `IntegerNullValue`, `UseConnectionPooling`.
+- `JetConfiguration` holds global settings: `TimeSpanOffset` (Jet has no TimeSpan; dates are offset from 1899-12-30), `IntegerNullValue`, `UseConnectionPooling`. The DUAL table name is **not** here — it moved to `JetDualTable` in `EFCore.Jet.Common`, because the shared SQL generator emits it and the scaffolding factory detects it.
 - Schema operations (create/drop database, list tables) have three implementations: ADOX, DAO, and Precise, selected based on available COM libraries.
 
-**Layer 2 — `EFCore.Jet`** is the EF Core provider:
+**Layer 2 — `EFCore.Jet` + `EFCore.Jet.Common`** is the EF Core provider. The split is by *what varies per
+provider*, not by subject area: anything bound to the ODBC/OLE DB driver or to one provider's identity stays in
+`EFCore.Jet` (options, connection, database creator, transactions, execution strategy, scaffolding, type mappings,
+`AddEntityFrameworkJet`, `UseJet`), and the dialect itself lives in `EFCore.Jet.Common` so LibRed can register the
+very same services. Where LibRed needs different behaviour it owns a 1:1 copy in `LibRed.EFCore` rather than the
+shared type subclassing or branching — see `LibRedConventionSetBuilder`, `LibRedHistoryRepository`,
+`LibRedCodeGenerator`, `LibRedDesignTimeServices`. The types below are named where they live today:
 - `JetServiceCollectionExtensions.AddEntityFrameworkJet()` registers all provider services.
 - `JetQuerySqlGenerator` extends `QuerySqlGenerator` to produce Jet-compatible SQL — converts `CAST` to Jet VBA functions (`CBOOL`, `CINT`, `CLNG`, etc.), handles boolean/numeric null semantics.
 - `JetQueryTranslationPostprocessor` applies Jet-specific query rewrites in this order: skip/take transformation → base postprocessing → **append the query's last identifier column to `ORDER BY`** (deterministic tie-breaking, only when the query already orders) → optional millisecond support → ORDER BY lifting. `JetSkipTakePostprocessor` emulates `SKIP`/`OFFSET` since Jet only supports `SELECT TOP n`. Note it reaches `SelectExpression._identifier` by reflection, so an EF Core update can break it at runtime rather than at compile time.
@@ -204,9 +222,12 @@ src/LibRed/
   LibRed.Engine/    Logical Plan nodes, QueryPlanner, CatalogSchemaProvider (bridges the
                     catalog to the binder), QueryExecutor, QueryEngine facade
   LibRed.Ado/       ADO.NET surface: DbConnection/Command/DataReader/Parameter/Transaction/Factory
-  LibRed.EFCore/    EF Core provider over LibRed.Ado: AddEntityFrameworkLibRed/UseLibRed,
-                    connection, database creator, database-first scaffolding (query round-trips
-                    + scaffolding pass; IQuerySqlGeneratorFactory override still planned)
+  LibRed.EFCore/    EF Core provider over LibRed.Ado + EFCore.Jet.Common (no EFCore.Jet
+                    reference): AddEntityFrameworkLibRed/UseLibRed, its own options, type
+                    mappings, connection, database creator, transactions, convention set
+                    builder, history repository, code generator and design-time services;
+                    the query pipeline comes from Common. An extended mode with its own
+                    query SQL generator is planned; compat mode keeps using Common's.
 ```
 
 **Format version gating and auto-upgrade — LibRed already does this.** Don't grep for `JetCapabilities`;
@@ -227,9 +248,10 @@ The Jet provider (`src/EFCore.Jet*`) has **no** equivalent — it does no ACE ve
 `JetTypeMappingSource` keeps `{"bigint", …}` commented out, so `long` maps to `decimal(20,0)` regardless of the
 installed engine. That asymmetry is deliberate for now; don't "fix" one side by assuming the other behaves the same.
 
-**Build configuration:** `src/LibRed/Directory.Build.props` deliberately bypasses
-`src/Directory.Build.props` (it imports the repo-root props directly) so these assemblies
-are **not** stamped `[SupportedOSPlatform("windows")]`. Strong-naming is preserved.
+**Build configuration:** `src/LibRed/Directory.Build.props` bypasses `src/Directory.Build.props` (it imports the
+repo-root props directly) to set its own build options — not packable, no documentation file, its own `NoWarn`,
+`ImplicitUsings`/`Nullable` on. The Windows stamp is no longer a reason: each driver-bound project applies
+`[SupportedOSPlatform("windows")]` itself. Strong-naming is preserved.
 
 **SQL pipeline** (always run end-to-end, even for trivial queries, so new features add
 node types rather than rewrites):

@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -64,7 +64,7 @@ public partial class DependentDerivedEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        data.TypeMapping = JetStringTypeMapping.Default.Clone(
+        data.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "char(20)",
                 size: 20,
@@ -89,7 +89,7 @@ public partial class DependentDerivedEntityType
             shadowIndex: 3,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        money.TypeMapping = JetDecimalTypeMapping.Default.Clone(
+        money.TypeMapping = LibRedDecimalTypeMapping.Default.Clone(
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "decimal(9,3)",
                 precision: 9,

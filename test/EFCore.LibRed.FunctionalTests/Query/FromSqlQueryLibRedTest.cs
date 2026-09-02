@@ -987,7 +987,7 @@ WHERE `o`.`CustomerID` IN (
         protected override IServiceCollection AddServices(IServiceCollection serviceCollection)
             => base.AddServices(serviceCollection)
                 .AddSingleton<IRelationalTransactionFactory, TestRelationalTransactionFactory>()
-                .AddScoped<ILibRedRelationalConnection, TestLibRedConnection>()
+                .AddScoped<IRelationalConnection, TestLibRedConnection>()
                 .AddSingleton<IRelationalCommandBuilderFactory, TestRelationalCommandBuilderFactory>();
     }
 

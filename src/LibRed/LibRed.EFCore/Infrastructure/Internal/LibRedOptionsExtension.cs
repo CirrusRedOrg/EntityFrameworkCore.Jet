@@ -1,42 +1,139 @@
-using System.Data.Common;
-using EntityFrameworkCore.Jet.Infrastructure.Internal;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.Extensions.DependencyInjection;
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-namespace EntityFrameworkCore.LibRed.Infrastructure.Internal;
+using System.Globalization;
+using System.Text;
 
-/// <summary>
-/// Options extension for the LibRed provider. It reuses EFCore.Jet's options extension wholesale
-/// (so every Jet service that looks for a <see cref="JetOptionsExtension"/> still finds one) but
-/// applies the LibRed service overrides instead of the plain Jet ones.
-/// </summary>
-public class LibRedOptionsExtension : JetOptionsExtension
+namespace EntityFrameworkCore.LibRed.Infrastructure.Internal
 {
-    public LibRedOptionsExtension()
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public class LibRedOptionsExtension : RelationalOptionsExtension
     {
+        private DbContextOptionsExtensionInfo? _info;
+        private bool _useShortTextForSystemString;
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public LibRedOptionsExtension()
+        {
+        }
+
+        // NB: When adding new options, make sure to update the copy ctor below.
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        protected LibRedOptionsExtension(LibRedOptionsExtension copyFrom)
+            : base(copyFrom)
+        {
+            _useShortTextForSystemString = copyFrom._useShortTextForSystemString;
+        }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public override DbContextOptionsExtensionInfo Info
+            => _info ??= new ExtensionInfo(this);
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        protected override RelationalOptionsExtension Clone()
+            => new LibRedOptionsExtension(this);
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public virtual bool UseShortTextForSystemString => _useShortTextForSystemString;
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public virtual LibRedOptionsExtension WithUseShortTextForSystemString(bool enabled)
+        {
+            var clone = (LibRedOptionsExtension)Clone();
+
+            clone._useShortTextForSystemString = enabled;
+
+            return clone;
+        }
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public override void ApplyServices(IServiceCollection services)
+            => services.AddEntityFrameworkLibRed();
+
+        private sealed class ExtensionInfo(IDbContextOptionsExtension extension) : RelationalExtensionInfo(extension)
+        {
+            private int? _serviceProviderHash;
+            private string? _logFragment;
+
+            private new LibRedOptionsExtension Extension
+                => (LibRedOptionsExtension)base.Extension;
+
+            public override bool IsDatabaseProvider => true;
+
+            public override string LogFragment
+            {
+                get
+                {
+                    if (_logFragment == null)
+                    {
+                        var builder = new StringBuilder();
+
+                        builder.Append(base.LogFragment);
+
+                        if (Extension._useShortTextForSystemString)
+                        {
+                            builder.Append("UseShortTextForSystemString ");
+                        }
+
+                        _logFragment = builder.ToString();
+                    }
+
+                    return _logFragment;
+                }
+            }
+
+            public override int GetServiceProviderHashCode()
+            {
+                _serviceProviderHash ??= (base.GetServiceProviderHashCode() * 397) ^
+                                           (Extension._useShortTextForSystemString.GetHashCode() * 397);
+
+                return _serviceProviderHash.Value;
+            }
+
+            public override void PopulateDebugInfo(IDictionary<string, string> debugInfo)
+            {
+                debugInfo["Jet:" + nameof(LibRedDbContextOptionsBuilder.UseShortTextForSystemString)]
+                    = Extension._useShortTextForSystemString.GetHashCode().ToString(CultureInfo.InvariantCulture);
+            }
+        }
     }
-
-    protected LibRedOptionsExtension(LibRedOptionsExtension copyFrom)
-        : base(copyFrom)
-    {
-    }
-
-    public override void ApplyServices(IServiceCollection services)
-        => services.AddEntityFrameworkLibRed();
-
-    // Must preserve the derived type: WithConnectionString/WithConnection clone the extension,
-    // and a plain JetOptionsExtension clone would silently revert ApplyServices to AddEntityFrameworkJet.
-    protected override RelationalOptionsExtension Clone()
-        => new LibRedOptionsExtension(this);
-
-    // Covariant overrides: the base With...() methods clone via the (overridden) Clone() above, so the
-    // returned instance is already a LibRedOptionsExtension at runtime; this just fixes the static type.
-    public override LibRedOptionsExtension WithUseOuterSelectSkipEmulationViaDataReader(bool enabled)
-        => (LibRedOptionsExtension)base.WithUseOuterSelectSkipEmulationViaDataReader(enabled);
-
-    public override LibRedOptionsExtension WithUseShortTextForSystemString(bool enabled)
-        => (LibRedOptionsExtension)base.WithUseShortTextForSystemString(enabled);
-
-    public override LibRedOptionsExtension WithDataAccessProviderFactory(DbProviderFactory dataAccessProviderFactory)
-        => (LibRedOptionsExtension)base.WithDataAccessProviderFactory(dataAccessProviderFactory);
 }

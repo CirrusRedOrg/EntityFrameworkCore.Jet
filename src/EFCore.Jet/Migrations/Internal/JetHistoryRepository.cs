@@ -1,7 +1,5 @@
-// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
-
 using System.Text;
-using EntityFrameworkCore.Jet.Data;
+using EntityFrameworkCore.Jet.Infrastructure;
 using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Utilities;
 
@@ -307,9 +305,7 @@ CREATE TABLE `{LockTableName}` (
         private IRelationalCommand CreateInsertLockCommand(DateTimeOffset timestamp)
         {
             var timestampLiteral = Dependencies.TypeMappingSource.GetMapping(typeof(DateTimeOffset)).GenerateSqlLiteral(timestamp);
-            var dualTableName = string.IsNullOrEmpty(JetConfiguration.CustomDualTableName)
-                ? JetConfiguration.DetectedDualTableName
-                : JetConfiguration.CustomDualTableName;
+            var dualTableName = JetDualTable.Name;
 
             return Dependencies.RawSqlCommandBuilder.Build($"""
 INSERT INTO `{LockTableName}` (`Id`, `Timestamp`)

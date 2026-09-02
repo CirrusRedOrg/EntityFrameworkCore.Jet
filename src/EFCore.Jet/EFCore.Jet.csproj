@@ -1,8 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<Description>Jet/ACE database provider for Entity Framework Core (Microsoft Access MDB/ACCDB files).</Description>
-		<TargetFramework>$(JetTargetFramework)</TargetFramework>
+		<TargetFramework>net11.0</TargetFramework>
 		<RootNamespace>EntityFrameworkCore.Jet</RootNamespace>
 		<AssemblyName>EntityFrameworkCore.Jet</AssemblyName>
 		<Platforms>AnyCPU;x86;x64</Platforms>
@@ -10,6 +10,12 @@
 		<NoWarn>$(NoWarn);EF9100</NoWarn>
 		<ImplicitUsings>enable</ImplicitUsings>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatform">
+			<_Parameter1>windows</_Parameter1>
+		</AssemblyAttribute>
+	</ItemGroup>
 
 	<ItemGroup>
 		<Compile Include="..\Shared\*.cs" />
@@ -44,6 +50,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\EFCore.Jet.Common\EFCore.Jet.Common.csproj" />
 		<ProjectReference Include="..\EFCore.Jet.Data\EFCore.Jet.Data.csproj" />
 	</ItemGroup>
 

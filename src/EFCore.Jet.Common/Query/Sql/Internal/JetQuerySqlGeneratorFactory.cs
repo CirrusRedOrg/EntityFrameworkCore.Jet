@@ -1,7 +1,3 @@
-// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
-
-using EntityFrameworkCore.Jet.Infrastructure.Internal;
-
 namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 {
     /// <summary>
@@ -14,14 +10,12 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
     /// </remarks>
     public class JetQuerySqlGeneratorFactory(
         QuerySqlGeneratorDependencies dependencies,
-        ITypeMappingSource typeMappingSource,
-        IJetOptions options) : IQuerySqlGeneratorFactory
+        ITypeMappingSource typeMappingSource) : IQuerySqlGeneratorFactory
     {
         private readonly QuerySqlGeneratorDependencies _dependencies = dependencies;
         private readonly ITypeMappingSource _typeMappingSource = typeMappingSource;
-        private readonly IJetOptions _options = options;
 
         public virtual QuerySqlGenerator Create()
-            => new JetQuerySqlGenerator(_dependencies, _typeMappingSource, _options);
+            => new JetQuerySqlGenerator(_dependencies, _typeMappingSource);
     }
 }

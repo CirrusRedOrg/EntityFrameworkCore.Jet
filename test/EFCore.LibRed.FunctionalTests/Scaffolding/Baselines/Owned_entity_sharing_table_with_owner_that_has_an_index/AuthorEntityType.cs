@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
@@ -46,7 +46,7 @@ public partial class AuthorEntityType
             shadowIndex: 0,
             relationshipIndex: 0,
             storeGenerationIndex: 0);
-        postId.TypeMapping = JetIntTypeMapping.Default;
+        postId.TypeMapping = LibRedIntTypeMapping.Default;
         postId.SetCurrentValueComparer(new EntryCurrentValueComparer<int>(postId));
 
         var name = runtimeEntityType.AddProperty(
@@ -80,7 +80,7 @@ public partial class AuthorEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        name.TypeMapping = JetStringTypeMapping.Default.Clone(
+        name.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "varchar(255)",
                 size: 255));

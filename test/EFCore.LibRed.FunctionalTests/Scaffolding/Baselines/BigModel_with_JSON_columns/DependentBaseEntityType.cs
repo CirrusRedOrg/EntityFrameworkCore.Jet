@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using EntityFrameworkCore.Jet.Storage.Internal;
 using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -74,7 +73,7 @@ public partial class DependentBaseEntityType
             shadowIndex: 1,
             relationshipIndex: 1,
             storeGenerationIndex: 1);
-        principalAlternateId.TypeMapping = JetGuidTypeMapping.Default;
+        principalAlternateId.TypeMapping = LibRedGuidTypeMapping.Default;
         principalAlternateId.SetCurrentValueComparer(new EntryCurrentValueComparer<Guid>(principalAlternateId));
 
         var enumDiscriminator = runtimeEntityType.AddProperty(
@@ -93,7 +92,7 @@ public partial class DependentBaseEntityType
             shadowIndex: 2,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumDiscriminator.TypeMapping = JetIntTypeMapping.Default.Clone(
+        enumDiscriminator.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum1>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.Enum1, int>.Instance,
@@ -134,7 +133,7 @@ public partial class DependentBaseEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        id.TypeMapping = JetByteTypeMapping.Default;
+        id.TypeMapping = LibRedByteTypeMapping.Default;
         id.SetComparer(new NullableValueComparer<byte>(id.TypeMapping.Comparer));
 
         var key = runtimeEntityType.AddKey(

@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Reflection;
-using EntityFrameworkCore.Jet.Storage.Internal;
 using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
@@ -117,7 +116,7 @@ public partial class PrincipalBaseEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: 0);
-        enum1.TypeMapping = JetIntTypeMapping.Default.Clone(
+        enum1.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.AnEnum>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.AnEnum, int>.Instance,
@@ -169,7 +168,7 @@ public partial class PrincipalBaseEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum2.TypeMapping = JetIntTypeMapping.Default.Clone(
+        enum2.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.AnEnum>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.AnEnum, int>.Instance,
@@ -209,7 +208,7 @@ public partial class PrincipalBaseEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        flagsEnum1.TypeMapping = JetIntTypeMapping.Default.Clone(
+        flagsEnum1.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.AFlagsEnum>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.AFlagsEnum, int>.Instance,
@@ -249,7 +248,7 @@ public partial class PrincipalBaseEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        flagsEnum2.TypeMapping = JetIntTypeMapping.Default.Clone(
+        flagsEnum2.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.AFlagsEnum>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.AFlagsEnum, int>.Instance,
@@ -328,7 +327,7 @@ public partial class PrincipalBaseEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        refTypeArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        refTypeArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<IPAddress[], IPAddress>(ValueComparer<IPAddress>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -342,7 +341,7 @@ public partial class PrincipalBaseEntityType
                 new JsonConvertedValueReaderWriter<IPAddress, string>(
                     JsonStringReaderWriter.Instance,
                     IPAddressToStringConverter.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<IPAddress>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -387,7 +386,7 @@ public partial class PrincipalBaseEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        refTypeEnumerable.TypeMapping = JetStringTypeMapping.Default.Clone(
+        refTypeEnumerable.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<List<string>, string>(DefaultValueComparer<string>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -397,7 +396,7 @@ public partial class PrincipalBaseEntityType
                 JsonStringReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfReferencesReaderWriter<List<string>, string>(
                 JsonStringReaderWriter.Instance),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "varchar(255)",
                     size: 255)));
@@ -436,7 +435,7 @@ public partial class PrincipalBaseEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        refTypeIList.TypeMapping = JetStringTypeMapping.Default.Clone(
+        refTypeIList.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<List<string>, string>(DefaultValueComparer<string>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -446,7 +445,7 @@ public partial class PrincipalBaseEntityType
                 JsonStringReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfReferencesReaderWriter<List<string>, string>(
                 JsonStringReaderWriter.Instance),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "varchar(255)",
                     size: 255)));
@@ -485,7 +484,7 @@ public partial class PrincipalBaseEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        refTypeList.TypeMapping = JetStringTypeMapping.Default.Clone(
+        refTypeList.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<List<IPAddress>, IPAddress>(ValueComparer<IPAddress>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -499,7 +498,7 @@ public partial class PrincipalBaseEntityType
                 new JsonConvertedValueReaderWriter<IPAddress, string>(
                     JsonStringReaderWriter.Instance,
                     IPAddressToStringConverter.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<IPAddress>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -544,7 +543,7 @@ public partial class PrincipalBaseEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        valueTypeArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        valueTypeArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<DateTime[], DateTime>(DefaultValueComparer<DateTime>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -590,7 +589,7 @@ public partial class PrincipalBaseEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        valueTypeEnumerable.TypeMapping = JetStringTypeMapping.Default.Clone(
+        valueTypeEnumerable.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<byte>, byte>(DefaultValueComparer<byte>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -600,7 +599,7 @@ public partial class PrincipalBaseEntityType
                 JsonByteReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<List<byte>, byte>(
                 JsonByteReaderWriter.Instance),
-            elementMapping: JetByteTypeMapping.Default);
+            elementMapping: LibRedByteTypeMapping.Default);
         var valueTypeEnumerableElementType = valueTypeEnumerable.SetElementType(typeof(byte));
         valueTypeEnumerableElementType.TypeMapping = valueTypeEnumerable.TypeMapping.ElementTypeMapping;
 
@@ -636,7 +635,7 @@ public partial class PrincipalBaseEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        valueTypeIList.TypeMapping = JetStringTypeMapping.Default.Clone(
+        valueTypeIList.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<byte>, byte>(DefaultValueComparer<byte>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -646,7 +645,7 @@ public partial class PrincipalBaseEntityType
                 JsonByteReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<List<byte>, byte>(
                 JsonByteReaderWriter.Instance),
-            elementMapping: JetByteTypeMapping.Default);
+            elementMapping: LibRedByteTypeMapping.Default);
         var valueTypeIListElementType = valueTypeIList.SetElementType(typeof(byte));
         valueTypeIListElementType.TypeMapping = valueTypeIList.TypeMapping.ElementTypeMapping;
 
@@ -682,7 +681,7 @@ public partial class PrincipalBaseEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        valueTypeList.TypeMapping = JetStringTypeMapping.Default.Clone(
+        valueTypeList.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<short>, short>(DefaultValueComparer<short>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -692,7 +691,7 @@ public partial class PrincipalBaseEntityType
                 JsonInt16ReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<List<short>, short>(
                 JsonInt16ReaderWriter.Instance),
-            elementMapping: JetShortTypeMapping.Default);
+            elementMapping: LibRedShortTypeMapping.Default);
         var valueTypeListElementType = valueTypeList.SetElementType(typeof(short));
         valueTypeListElementType.TypeMapping = valueTypeList.TypeMapping.ElementTypeMapping;
 

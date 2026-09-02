@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using EntityFrameworkCore.Jet.Storage.Internal;
 using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -64,7 +63,7 @@ public partial class DependentBaseEntityType
             shadowIndex: -1,
             relationshipIndex: 0,
             storeGenerationIndex: -1);
-        id.TypeMapping = JetByteTypeMapping.Default;
+        id.TypeMapping = LibRedByteTypeMapping.Default;
         id.SetCurrentValueComparer(new EntryCurrentValueComparer<byte?>(id));
         id.SetComparer(new NullableValueComparer<byte>(id.TypeMapping.Comparer));
 

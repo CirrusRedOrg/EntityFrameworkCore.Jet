@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using EntityFrameworkCore.Jet.Metadata;
-using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -63,7 +63,7 @@ public partial class BlogEntityType
             shadowIndex: -1,
             relationshipIndex: 0,
             storeGenerationIndex: 0);
-        id.TypeMapping = JetIntTypeMapping.Default;
+        id.TypeMapping = LibRedIntTypeMapping.Default;
         id.SetCurrentValueComparer(new EntryCurrentValueComparer<int>(id));
         id.AddAnnotation("Jet:ValueGenerationStrategy", JetValueGenerationStrategy.IdentityColumn);
 

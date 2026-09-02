@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -61,7 +61,7 @@ public partial class DependentDerivedEntityType
             shadowIndex: -1,
             relationshipIndex: 0,
             storeGenerationIndex: -1);
-        id.TypeMapping = JetIntTypeMapping.Default;
+        id.TypeMapping = LibRedIntTypeMapping.Default;
         id.SetCurrentValueComparer(new EntryCurrentValueComparer<int>(id));
 
         var data = runtimeEntityType.AddProperty(
@@ -96,7 +96,7 @@ public partial class DependentDerivedEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        data.TypeMapping = JetStringTypeMapping.Default.Clone(
+        data.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "varchar(255)",
                 size: 255));

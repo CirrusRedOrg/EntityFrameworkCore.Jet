@@ -711,7 +711,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {
                 optionsBuilder
-                    .UseLibRed(connectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                    .UseLibRed(connectionString, b => b.ApplyConfiguration())
                     .UseInternalServiceProvider(CreateServiceProvider());
             }
 
@@ -749,9 +749,8 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
         public class TestDatabaseCreator(
             RelationalDatabaseCreatorDependencies dependencies,
-            ILibRedRelationalConnection connection,
-            IRawSqlCommandBuilder rawSqlCommandBuilder)
-            : LibRedDatabaseCreator(dependencies, connection, rawSqlCommandBuilder)
+            IRelationalConnection connection)
+            : LibRedDatabaseCreator(dependencies, connection)
         {
             public bool HasTablesBase()
                 => HasTables();

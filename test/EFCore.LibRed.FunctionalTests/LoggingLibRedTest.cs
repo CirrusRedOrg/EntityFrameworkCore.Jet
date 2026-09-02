@@ -58,11 +58,10 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             Action<RelationalDbContextOptionsBuilder<LibRedDbContextOptionsBuilder, LibRedOptionsExtension>> relationalAction)
             => new DbContextOptionsBuilder()
                 .UseInternalServiceProvider(services.AddEntityFrameworkLibRed().BuildServiceProvider(validateScopes: true))
-                .UseLibRed("Data Source=LoggingLibRedTest.db", TestEnvironment.DataAccessProviderFactory, relationalAction);
+                .UseLibRed("Data Source=LoggingLibRedTest.db", relationalAction);
 
         protected override TestLogger CreateTestLogger()
         => new TestLogger<JetLoggingDefinitions>();
-        protected override string DefaultOptions => "DataAccessProviderFactory";
         protected override string ProviderName => "EntityFrameworkCore.LibRed";
         protected override string ProviderVersion
             => typeof(LibRedOptionsExtension).Assembly

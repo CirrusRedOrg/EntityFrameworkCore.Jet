@@ -60,9 +60,9 @@ public class JetZeroLimitConverter : ExpressionVisitor
             {
                 var result = selectExpression.Update(
                     selectExpression.Tables,
-                    selectExpression.GroupBy.Count > 0 ? selectExpression.Predicate : _sqlExpressionFactory.Constant(false, JetBoolTypeMapping.Default),
+                    selectExpression.GroupBy.Count > 0 ? selectExpression.Predicate : _sqlExpressionFactory.ApplyDefaultTypeMapping(_sqlExpressionFactory.Constant(false)),
                     selectExpression.GroupBy,
-                    selectExpression.GroupBy.Count > 0 ? _sqlExpressionFactory.Constant(false, JetBoolTypeMapping.Default) : null,
+                    selectExpression.GroupBy.Count > 0 ? _sqlExpressionFactory.ApplyDefaultTypeMapping(_sqlExpressionFactory.Constant(false)) : null,
                     selectExpression.Projection,
                     [],
                     limit: null,

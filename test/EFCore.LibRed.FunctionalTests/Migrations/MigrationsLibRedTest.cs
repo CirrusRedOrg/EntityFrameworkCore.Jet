@@ -47,7 +47,7 @@ public class MigrationsLibRedTest : MigrationsTestBase<MigrationsLibRedTest.Migr
     // assembly explicitly. Remove once LibRed owns its own migrations annotation/code generators
     // (same transitional coupling as this project's CA1416 suppression).
     protected override ICollection<BuildReference> GetAdditionalReferences()
-        => [.. base.GetAdditionalReferences(), BuildReference.ByName("EntityFrameworkCore.Jet")];
+        => [.. base.GetAdditionalReferences(), BuildReference.ByName("EntityFrameworkCore.Jet.Common")];
 
     public override async Task Create_table()
     {

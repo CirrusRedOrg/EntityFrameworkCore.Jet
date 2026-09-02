@@ -854,7 +854,7 @@ namespace Microsoft.EntityFrameworkCore.Migrations
             var storeType = operation.ColumnType;
 
             if (IsIdentity(operation) &&
-                (storeType == null || Dependencies.TypeMappingSource.FindMapping(storeType) is JetIntTypeMapping or ShortTypeMapping))
+                (storeType == null || Dependencies.TypeMappingSource.FindMapping(storeType) is IntTypeMapping or ShortTypeMapping))
             {
                 // This column represents the actual identity.
                 storeType = "counter";
@@ -935,9 +935,15 @@ namespace Microsoft.EntityFrameworkCore.Migrations
                                       : null) ??
                                   Dependencies.TypeMappingSource.GetMappingForValue(defaultValue);
 
-                // All time related type mappings derive from JetDateTimeTypeMapping.
-                defaultValue = typeMapping is JetDateTimeTypeMapping dateTimeTypeMapping
-                    ? dateTimeTypeMapping.GenerateNonNullSqlLiteral(defaultValue, defaultClauseCompatible: true)
+                var defaultClauseLiteral = typeMapping.GetType().FullName == "EntityFrameworkCore.Jet.Storage.Internal.JetDateTimeTypeMapping"
+                    ? typeMapping.GetType().GetMethod(
+                        "GenerateNonNullSqlLiteral",
+                        BindingFlags.Instance | BindingFlags.Public,
+                        [typeof(object), typeof(bool)])
+                    : null;
+
+                defaultValue = defaultClauseLiteral != null
+                    ? (string)defaultClauseLiteral.Invoke(typeMapping, [defaultValue, true])!
                     : typeMapping.GenerateSqlLiteral(defaultValue);
 
                 builder

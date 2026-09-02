@@ -4,7 +4,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
@@ -93,7 +93,7 @@ public partial class PrincipalBasePrincipalDerivedDependentBasebyteEntityType
             shadowIndex: -1,
             relationshipIndex: 0,
             storeGenerationIndex: 0);
-        derivedsId.TypeMapping = JetIntTypeMapping.Default.Clone(
+        derivedsId.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<long>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: CastingConverter<long, int>.Instance,
@@ -157,7 +157,7 @@ public partial class PrincipalBasePrincipalDerivedDependentBasebyteEntityType
             shadowIndex: -1,
             relationshipIndex: 1,
             storeGenerationIndex: 1);
-        derivedsAlternateId.TypeMapping = JetGuidTypeMapping.Default;
+        derivedsAlternateId.TypeMapping = LibRedGuidTypeMapping.Default;
         derivedsAlternateId.SetCurrentValueComparer(new EntryCurrentValueComparer<Guid>(derivedsAlternateId));
 
         var principalsId = runtimeEntityType.AddProperty(
@@ -216,7 +216,7 @@ public partial class PrincipalBasePrincipalDerivedDependentBasebyteEntityType
             shadowIndex: -1,
             relationshipIndex: 2,
             storeGenerationIndex: 2);
-        principalsId.TypeMapping = JetIntTypeMapping.Default.Clone(
+        principalsId.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<long>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: CastingConverter<long, int>.Instance,
@@ -280,7 +280,7 @@ public partial class PrincipalBasePrincipalDerivedDependentBasebyteEntityType
             shadowIndex: -1,
             relationshipIndex: 3,
             storeGenerationIndex: 3);
-        principalsAlternateId.TypeMapping = JetGuidTypeMapping.Default;
+        principalsAlternateId.TypeMapping = LibRedGuidTypeMapping.Default;
         principalsAlternateId.SetCurrentValueComparer(new EntryCurrentValueComparer<Guid>(principalsAlternateId));
 
         var rowid = runtimeEntityType.AddProperty(
@@ -318,7 +318,7 @@ public partial class PrincipalBasePrincipalDerivedDependentBasebyteEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: 4);
-        rowid.TypeMapping = JetByteArrayTypeMapping.Default.Clone(
+        rowid.TypeMapping = LibRedByteArrayTypeMapping.Default.Clone(
             comparer: new ValueComparer<byte[]>(
                 bool (byte[] v1, byte[] v2) => StructuralComparisons.StructuralEqualityComparer.Equals(v1, v2),
                 int (byte[] v) => StructuralComparisons.StructuralEqualityComparer.GetHashCode(v),

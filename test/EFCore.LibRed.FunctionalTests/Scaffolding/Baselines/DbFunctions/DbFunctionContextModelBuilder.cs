@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using EntityFrameworkCore.Jet.Metadata;
-using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -66,7 +66,7 @@ public partial class DbFunctionContextModel
             typeof(Guid?),
             true,
             "uniqueidentifier");
-        id.TypeMapping = JetGuidTypeMapping.Default;
+        id.TypeMapping = LibRedGuidTypeMapping.Default;
         id.AddAnnotation("MyAnnotation", new[] { 1L });
 
         var condition = getCount.AddParameter(
@@ -74,13 +74,13 @@ public partial class DbFunctionContextModel
             typeof(string),
             false,
             "char(256)");
-        condition.TypeMapping = JetStringTypeMapping.Default.Clone(
+        condition.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "char(256)",
                 size: 256,
                 fixedLength: true));
 
-        getCount.TypeMapping = JetIntTypeMapping.Default;
+        getCount.TypeMapping = LibRedIntTypeMapping.Default;
         functions["Microsoft.EntityFrameworkCore.Scaffolding.CompiledModelRelationalTestBase+DbFunctionContext.GetCount(System.Guid?,string)"] = getCount;
 
         var getData = new RuntimeDbFunction(
@@ -114,7 +114,7 @@ public partial class DbFunctionContextModel
             typeof(int),
             false,
             "integer");
-        id0.TypeMapping = JetIntTypeMapping.Default;
+        id0.TypeMapping = LibRedIntTypeMapping.Default;
 
         functions["Microsoft.EntityFrameworkCore.Scaffolding.CompiledModelRelationalTestBase+DbFunctionContext.GetData(int)"] = getData0;
 
@@ -139,13 +139,13 @@ public partial class DbFunctionContextModel
             typeof(string),
             false,
             "char(256)");
-        date.TypeMapping = JetStringTypeMapping.Default.Clone(
+        date.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "char(256)",
                 size: 256,
                 fixedLength: true));
 
-        isDateStatic.TypeMapping = JetBoolTypeMapping.Default;
+        isDateStatic.TypeMapping = LibRedBoolTypeMapping.Default;
         isDateStatic.AddAnnotation("MyGuid", new Guid("00000000-0000-0000-0000-000000000000"));
         functions["Microsoft.EntityFrameworkCore.Scaffolding.CompiledModelRelationalTestBase+DbFunctionContext.IsDateStatic(string)"] = isDateStatic;
 

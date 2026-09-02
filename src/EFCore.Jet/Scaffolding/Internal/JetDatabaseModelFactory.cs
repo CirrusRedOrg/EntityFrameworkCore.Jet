@@ -4,6 +4,7 @@ using System.Data;
 using EntityFrameworkCore.Jet.Data;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using EntityFrameworkCore.Jet.Infrastructure;
 using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Metadata.Internal;
 using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
@@ -123,15 +124,15 @@ namespace EntityFrameworkCore.Jet.Scaffolding.Internal
                 var tableNames = databaseModel.Tables.Select(t => t.Name).ToList();
                 if (tableNames.Contains("MSysAccessStorage") || _msysNames.Contains("MSysAccessStorage"))
                 {
-                    JetConfiguration.DetectedDualTableName = "MSysAccessStorage";
+                    JetDualTable.DetectedName ="MSysAccessStorage";
                 }
                 else if (tableNames.Contains("MSysRelationships") || _msysNames.Contains("MSysRelationships"))
                 {
-                    JetConfiguration.DetectedDualTableName = "MSysRelationships";
+                    JetDualTable.DetectedName ="MSysRelationships";
                 }
                 else if (tableNames.Contains("#Dual"))
                 {
-                    JetConfiguration.DetectedDualTableName = "#Dual";
+                    JetDualTable.DetectedName ="#Dual";
                 }
 
                 return databaseModel;

@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using EntityFrameworkCore.Jet.Metadata;
-using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
@@ -66,7 +66,7 @@ public partial class PostEntityType
             shadowIndex: -1,
             relationshipIndex: 0,
             storeGenerationIndex: 0);
-        id.TypeMapping = JetIntTypeMapping.Default;
+        id.TypeMapping = LibRedIntTypeMapping.Default;
         id.SetCurrentValueComparer(new EntryCurrentValueComparer<int>(id));
         id.AddAnnotation("Jet:ValueGenerationStrategy", JetValueGenerationStrategy.IdentityColumn);
 
@@ -85,7 +85,7 @@ public partial class PostEntityType
             shadowIndex: 0,
             relationshipIndex: 1,
             storeGenerationIndex: 1);
-        blogId.TypeMapping = JetIntTypeMapping.Default;
+        blogId.TypeMapping = LibRedIntTypeMapping.Default;
         blogId.SetCurrentValueComparer(new EntryCurrentValueComparer<int>(blogId));
 
         var key = runtimeEntityType.AddKey(

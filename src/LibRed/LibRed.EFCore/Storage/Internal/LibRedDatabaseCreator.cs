@@ -15,39 +15,36 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal;
 /// </remarks>
 public class LibRedDatabaseCreator(
     RelationalDatabaseCreatorDependencies dependencies,
-    ILibRedRelationalConnection relationalConnection,
-    IRawSqlCommandBuilder rawSqlCommandBuilder)
-    : JetDatabaseCreator(dependencies, relationalConnection, rawSqlCommandBuilder)
+    IRelationalConnection relationalConnection)
+    : RelationalDatabaseCreator(dependencies)
 {
-    private readonly ILibRedRelationalConnection _connection = relationalConnection;
-
     // Jet's Create/Delete go through relationalConnection.CreateEmptyConnection() - a "masterless"
     // connection used to run a CREATE/DROP DATABASE migration command. LibRedRelationalConnection
     // doesn't support that (there's nothing to connect to before the file exists), so these bypass
     // it entirely and go straight through LibRedConnection's own bootstrap (see its CreateDatabase
     // remarks: DatabaseCreator.CreateEmpty synthesises the file from scratch - no DAO/ADOX).
     public override void Create()
-        => LibRedConnection.CreateDatabase(_connection.DbConnection.ConnectionString);
+        => LibRedConnection.CreateDatabase(relationalConnection.DbConnection.ConnectionString);
 
     public override void Delete()
     {
-        _connection.Close();
-        LibRedConnection.DropDatabase(_connection.DbConnection.ConnectionString);
+        relationalConnection.Close();
+        LibRedConnection.DropDatabase(relationalConnection.DbConnection.ConnectionString);
     }
 
     public override bool Exists()
-        => LibRedConnection.DatabaseExists(_connection.DbConnection.ConnectionString);
+        => LibRedConnection.DatabaseExists(relationalConnection.DbConnection.ConnectionString);
 
     public override bool HasTables()
     {
-        _connection.Open();
+        relationalConnection.Open();
         try
         {
-            return ((LibRedConnection)_connection.DbConnection).HasUserTables();
+            return ((LibRedConnection)relationalConnection.DbConnection).HasUserTables();
         }
         finally
         {
-            _connection.Close();
+            relationalConnection.Close();
         }
     }
 

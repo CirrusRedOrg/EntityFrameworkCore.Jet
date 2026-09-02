@@ -10,6 +10,6 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal;
 ///     No members of its own today — it exists so LibRed-specific services can depend on "the
 ///     LibRed connection" instead of the more general <see cref="IJetRelationalConnection" />.
 /// </remarks>
-public interface ILibRedRelationalConnection : IJetRelationalConnection
+public interface ILibRedRelationalConnection : IRelationalConnection
 {
 }

@@ -1,0 +1,61 @@
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using LibRed.Data;
+
+// ReSharper disable once CheckNamespace
+namespace Microsoft.EntityFrameworkCore.Metadata.Conventions
+{
+    public class LibRedConventionSetBuilder(
+        ProviderConventionSetBuilderDependencies dependencies,
+        RelationalConventionSetBuilderDependencies relationalDependencies,
+        ISqlGenerationHelper sqlGenerationHelper)
+        : RelationalConventionSetBuilder(dependencies, relationalDependencies)
+    {
+        public override ConventionSet CreateConventionSet()
+        {
+            var conventionSet = base.CreateConventionSet();
+
+            conventionSet.Add(new JetValueGenerationStrategyConvention(Dependencies, RelationalDependencies));
+            conventionSet.Add(new RelationalMaxIdentifierLengthConvention(64, Dependencies, RelationalDependencies));
+            conventionSet.Add(new JetIndexConvention(Dependencies, RelationalDependencies, sqlGenerationHelper));
+
+            conventionSet.Replace<CascadeDeleteConvention>(
+                new JetOnDeleteConvention(Dependencies, RelationalDependencies));
+            conventionSet.Replace<StoreGenerationConvention>(
+                new JetStoreGenerationConvention(Dependencies, RelationalDependencies));
+            conventionSet.Replace<ValueGenerationConvention>(
+                new JetValueGenerationConvention(Dependencies, RelationalDependencies));
+            conventionSet.Replace<SharedTableConvention>(
+                new JetSharedTableConvention(Dependencies, RelationalDependencies));
+
+            return conventionSet;
+        }
+
+        public static ConventionSet Build()
+        {
+            using var serviceScope = CreateServiceScope();
+            using var context = serviceScope.ServiceProvider.GetRequiredService<DbContext>();
+            return ConventionSet.CreateConventionSet(context);
+        }
+
+        public static ModelBuilder CreateModelBuilder()
+        {
+            using var serviceScope = CreateServiceScope();
+            using var context = serviceScope.ServiceProvider.GetRequiredService<DbContext>();
+            return new ModelBuilder(ConventionSet.CreateConventionSet(context), context.GetService<ModelDependencies>());
+        }
+
+        private static IServiceScope CreateServiceScope()
+        {
+            var serviceProvider = new ServiceCollection()
+                .AddEntityFrameworkLibRed()
+                .AddDbContext<DbContext>((p, o) => o
+                    .UseLibRed(
+                        LibRedConnection.GetConnectionString("LibRed.accdb"))
+                    .UseInternalServiceProvider(p))
+                .BuildServiceProvider();
+
+            return serviceProvider.GetRequiredService<IServiceScopeFactory>().CreateScope();
+        }
+    }
+}

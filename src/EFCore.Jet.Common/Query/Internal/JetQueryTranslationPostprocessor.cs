@@ -1,10 +1,5 @@
-// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
-
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
-using EntityFrameworkCore.Jet.Infrastructure.Internal;
 using EntityFrameworkCore.Jet.Internal;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
 namespace EntityFrameworkCore.Jet.Query.Internal
@@ -17,7 +12,6 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             ?? throw new InvalidOperationException("Could not find SelectExpression._identifier.");
 
         private readonly IRelationalTypeMappingSource _relationalTypeMappingSource;
-        private readonly IJetOptions _options;
         private readonly SkipWithoutOrderByInSplitQueryVerifier _skipWithoutOrderByInSplitQueryVerifier = new();
         private readonly JetLiftOrderByPostprocessor _liftOrderByPostprocessor;
         private readonly JetSkipTakePostprocessor _skipTakePostprocessor;
@@ -26,12 +20,10 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             QueryTranslationPostprocessorDependencies dependencies,
             RelationalQueryTranslationPostprocessorDependencies relationalDependencies,
             RelationalQueryCompilationContext queryCompilationContext,
-            IRelationalTypeMappingSource relationalTypeMappingSource,
-            IJetOptions options)
+            IRelationalTypeMappingSource relationalTypeMappingSource)
             : base(dependencies, relationalDependencies, queryCompilationContext)
         {
             _relationalTypeMappingSource = relationalTypeMappingSource;
-            _options = options;
             _liftOrderByPostprocessor = new JetLiftOrderByPostprocessor(relationalTypeMappingSource, relationalDependencies.SqlExpressionFactory, queryCompilationContext.SqlAliasManager);
             _skipTakePostprocessor = new JetSkipTakePostprocessor(relationalTypeMappingSource,
                 relationalDependencies.SqlExpressionFactory, ((RelationalQueryCompilationContext)QueryCompilationContext).QuerySplittingBehavior);

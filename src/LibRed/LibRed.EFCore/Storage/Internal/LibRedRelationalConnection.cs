@@ -11,12 +11,8 @@ namespace EntityFrameworkCore.LibRed.Storage.Internal;
 /// the EFCore.Jet provider on its own managed engine.
 /// </summary>
 public class LibRedRelationalConnection(RelationalConnectionDependencies dependencies)
-    : JetRelationalConnection(dependencies), ILibRedRelationalConnection
+    : RelationalConnection(dependencies), ILibRedRelationalConnection
 {
     protected override DbConnection CreateDbConnection()
         => new LibRedConnection { ConnectionString = ConnectionString };
-
-    public override IJetRelationalConnection CreateEmptyConnection()
-        => throw new NotSupportedException(
-            "LibRed does not support masterless (empty) connections yet — database creation/drop is not implemented.");
 }

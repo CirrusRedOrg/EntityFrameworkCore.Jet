@@ -94,7 +94,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                 => optionsBuilder
                     .UseLibRed(LibRedTestStore.CreateConnectionString(databaseName),
-                        TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                        b => b.ApplyConfiguration())
                     .UseInternalServiceProvider(serviceProvider);
         }
 

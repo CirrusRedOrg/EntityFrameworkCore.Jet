@@ -35,35 +35,6 @@ namespace EntityFrameworkCore.Jet.Data
         
         public static DataAccessProviderType DefaultDataAccessProviderType { get; set; } = DataAccessProviderType.Odbc; 
         
-        // The SQL statement
-        //
-        // (SELECT COUNT(*) FROM MSysRelationships)
-        //
-        // is a DUAL table simulation in Access databases
-        // It must be a single line table.
-        // If user cannot gain access to MSysRelationships table he can create a table with 1 record
-        // and change DUAL static property.
-        // I.e. create table dual with one and only one record
-        //
-        // CREATE TABLE Dual (id COUNTER CONSTRAINT pkey PRIMARY KEY)
-        // INSERT INTO Dual (id) VALUES (1)
-        // ALTER TABLE Dual ADD CONSTRAINT DualTableConstraint CHECK ((SELECT Count(*) FROM Dual) = 1)
-        //
-        // then change the DUAL property
-        //
-        // JetConfiguration.DUAL = "Dual";
-        //
-        // For more information see also https://en.wikipedia.org/wiki/DUAL_table
-        /// <summary>
-        /// The DUAL table or query
-        /// </summary>
-        public static string CustomDualTableName = "";
-        //MSysRelationships
-        //MSysAccessStorage
-        //#Dual
-        //(SELECT COUNT(*) FROM MSysAccessStorage)
-
-        public static string DetectedDualTableName = "#Dual";
         /// <summary>
         /// Gets or sets a value indicating whether show SQL statements.
         /// </summary>

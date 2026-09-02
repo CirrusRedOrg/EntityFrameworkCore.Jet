@@ -16,11 +16,8 @@ namespace EntityFrameworkCore.Jet.Query.Internal;
 /// </remarks>
 public class JetQueryCompilationContextFactory(
     QueryCompilationContextDependencies dependencies,
-    RelationalQueryCompilationContextDependencies relationalDependencies,
-    IJetRelationalConnection jetConnection) : IQueryCompilationContextFactory
+    RelationalQueryCompilationContextDependencies relationalDependencies) : IQueryCompilationContextFactory
 {
-    private readonly IJetRelationalConnection _jetConnection = jetConnection;
-
     /// <summary>
     ///     Dependencies for this service.
     /// </summary>

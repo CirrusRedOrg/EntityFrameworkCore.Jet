@@ -24,7 +24,6 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     new DbContextOptionsBuilder()
                         .UseLibRed(
                             TestStore.ConnectionString,
-                            TestEnvironment.DataAccessProviderFactory,
                             b => b.ApplyConfiguration().UseShortTextForSystemString().ExecutionStrategy(c => new LibRedExecutionStrategy(c))))
                 .UseInternalServiceProvider(Fixture.ServiceProvider);
 

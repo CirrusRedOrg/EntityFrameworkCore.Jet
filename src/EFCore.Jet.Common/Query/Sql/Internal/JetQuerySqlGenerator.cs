@@ -1,8 +1,4 @@
-// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
-
-using EntityFrameworkCore.Jet.Data;
-using EntityFrameworkCore.Jet.Infrastructure.Internal;
-using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.Jet.Infrastructure;
 using EntityFrameworkCore.Jet.Utilities;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage.Internal;
@@ -39,10 +35,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         };
 
         private readonly ITypeMappingSource _typeMappingSource;
-        private readonly IJetOptions _options;
-
         private readonly ISqlGenerationHelper _sqlGenerationHelper;
-        //private readonly JetSqlExpressionFactory _sqlExpressionFactory;
         private List<string> _nullNumerics = [];
         private Stack<Expression> parent = new();
         private CoreTypeMapping? _boolTypeMapping;
@@ -52,12 +45,10 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         /// </summary>
         public JetQuerySqlGenerator(
             QuerySqlGeneratorDependencies dependencies,
-            ITypeMappingSource typeMappingSource,
-            IJetOptions options)
+            ITypeMappingSource typeMappingSource)
             : base(dependencies)
         {
             _typeMappingSource = typeMappingSource;
-            _options = options;
             _sqlGenerationHelper = dependencies.SqlGenerationHelper;
             _boolTypeMapping = _typeMappingSource.FindMapping(typeof(bool));
         }
@@ -534,7 +525,7 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         protected override void GeneratePseudoFromClause()
         {
             Sql.AppendLine()
-                .Append("FROM " + "(SELECT COUNT(*) FROM `" + (string.IsNullOrEmpty(JetConfiguration.CustomDualTableName) ? JetConfiguration.DetectedDualTableName : JetConfiguration.CustomDualTableName) + "`)");
+                .Append("FROM " + "(SELECT COUNT(*) FROM `" + JetDualTable.Name + "`)");
         }
 
         private void GenerateList<T>(
@@ -560,7 +551,8 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
             // Jet uses the value -1 as True, so ordering by a boolean expression will first list the True values
             // before the False values, which is the opposite of what .NET and other DBMS do, which are using 1 as True.
 
-            if (orderingExpression.Expression.TypeMapping?.GetType() == typeof(JetBoolTypeMapping))
+            if (orderingExpression.Expression.TypeMapping is BoolTypeMapping
+                && orderingExpression.Expression.TypeMapping.GetType() == _boolTypeMapping?.GetType())
             {
                 orderingExpression = new OrderingExpression(
                     new SqlUnaryExpression(
@@ -780,7 +772,8 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
         {
             if (sqlConstantExpression.TypeMapping == RelationalTypeMapping.NullMapping && sqlConstantExpression.Value is DateTime)
             {
-                sqlConstantExpression = (SqlConstantExpression)sqlConstantExpression.ApplyTypeMapping(new JetDateTimeTypeMapping("datetime"));
+                sqlConstantExpression = (SqlConstantExpression)sqlConstantExpression.ApplyTypeMapping(
+                    (RelationalTypeMapping?)_typeMappingSource.FindMapping(typeof(DateTime)));
             }
 
             parent.TryPeek(out var exp);
@@ -792,7 +785,8 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
                 return sqlConstantExpression;
             }
 
-            if (sqlConstantExpression.TypeMapping is BoolTypeMapping and not JetBoolTypeMapping)
+            if (sqlConstantExpression.TypeMapping is BoolTypeMapping
+                && sqlConstantExpression.TypeMapping.GetType() != _boolTypeMapping?.GetType())
             {
                 Sql.Append((bool)sqlConstantExpression.Value! ? "TRUE" : "FALSE");
                 return sqlConstantExpression;
@@ -1077,17 +1071,8 @@ namespace EntityFrameworkCore.Jet.Query.Sql.Internal
 
             if (selectExpression.Offset != null)
             {
-                if (_options.UseOuterSelectSkipEmulationViaDataReader)
-                {
-                    Sql.Append("SKIP ");
-                    Visit(selectExpression.Offset);
-                    Sql.Append(" ");
-                }
-                else
-                {
-                    throw new InvalidOperationException(
-                        "Jet does not support skipping rows. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
-                }
+                throw new InvalidOperationException(
+                    "Jet does not support skipping rows. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
             }
 
             if (selectExpression.Limit != null)

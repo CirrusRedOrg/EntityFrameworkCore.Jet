@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Net;
 using System.Reflection;
 using EntityFrameworkCore.Jet.Metadata;
-using EntityFrameworkCore.Jet.Storage.Internal;
 using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -56,7 +55,7 @@ public partial class OwnedTypeEntityType
             shadowIndex: 0,
             relationshipIndex: 0,
             storeGenerationIndex: 0);
-        principalBaseId.TypeMapping = JetIntTypeMapping.Default.Clone(
+        principalBaseId.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<long>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: CastingConverter<long, int>.Instance,
@@ -97,7 +96,7 @@ public partial class OwnedTypeEntityType
             shadowIndex: 1,
             relationshipIndex: 1,
             storeGenerationIndex: 1);
-        principalBaseAlternateId.TypeMapping = JetGuidTypeMapping.Default;
+        principalBaseAlternateId.TypeMapping = LibRedGuidTypeMapping.Default;
         principalBaseAlternateId.SetCurrentValueComparer(new EntryCurrentValueComparer<Guid>(principalBaseAlternateId));
 
         var details = runtimeEntityType.AddProperty(
@@ -133,7 +132,7 @@ public partial class OwnedTypeEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        details.TypeMapping = JetStringTypeMapping.Default.Clone(
+        details.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "varchar(255)",
                 size: 255));
@@ -181,7 +180,7 @@ public partial class OwnedTypeEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        number.TypeMapping = JetIntTypeMapping.Default;
+        number.TypeMapping = LibRedIntTypeMapping.Default;
 
         var refTypeArray = runtimeEntityType.AddProperty(
             "RefTypeArray",
@@ -216,7 +215,7 @@ public partial class OwnedTypeEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        refTypeArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        refTypeArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<IPAddress[], IPAddress>(ValueComparer<IPAddress>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -230,7 +229,7 @@ public partial class OwnedTypeEntityType
                 new JsonConvertedValueReaderWriter<IPAddress, string>(
                     JsonStringReaderWriter.Instance,
                     IPAddressToStringConverter.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<IPAddress>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -276,7 +275,7 @@ public partial class OwnedTypeEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        refTypeEnumerable.TypeMapping = JetStringTypeMapping.Default.Clone(
+        refTypeEnumerable.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<List<string>, string>(DefaultValueComparer<string>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -286,7 +285,7 @@ public partial class OwnedTypeEntityType
                 JsonStringReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfReferencesReaderWriter<List<string>, string>(
                 JsonStringReaderWriter.Instance),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "varchar(255)",
                     size: 255)));
@@ -326,7 +325,7 @@ public partial class OwnedTypeEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        refTypeIList.TypeMapping = JetStringTypeMapping.Default.Clone(
+        refTypeIList.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<List<string>, string>(DefaultValueComparer<string>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -336,7 +335,7 @@ public partial class OwnedTypeEntityType
                 JsonStringReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfReferencesReaderWriter<List<string>, string>(
                 JsonStringReaderWriter.Instance),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "varchar(255)",
                     size: 255)));
@@ -376,7 +375,7 @@ public partial class OwnedTypeEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        refTypeList.TypeMapping = JetStringTypeMapping.Default.Clone(
+        refTypeList.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<List<IPAddress>, IPAddress>(ValueComparer<IPAddress>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -390,7 +389,7 @@ public partial class OwnedTypeEntityType
                 new JsonConvertedValueReaderWriter<IPAddress, string>(
                     JsonStringReaderWriter.Instance,
                     IPAddressToStringConverter.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<IPAddress>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -436,7 +435,7 @@ public partial class OwnedTypeEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        valueTypeArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        valueTypeArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<DateTime[], DateTime>(DefaultValueComparer<DateTime>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -483,7 +482,7 @@ public partial class OwnedTypeEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        valueTypeEnumerable.TypeMapping = JetStringTypeMapping.Default.Clone(
+        valueTypeEnumerable.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<byte>, byte>(DefaultValueComparer<byte>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -493,7 +492,7 @@ public partial class OwnedTypeEntityType
                 JsonByteReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<List<byte>, byte>(
                 JsonByteReaderWriter.Instance),
-            elementMapping: JetByteTypeMapping.Default);
+            elementMapping: LibRedByteTypeMapping.Default);
         var valueTypeEnumerableElementType = valueTypeEnumerable.SetElementType(typeof(byte));
         valueTypeEnumerableElementType.TypeMapping = valueTypeEnumerable.TypeMapping.ElementTypeMapping;
 
@@ -530,7 +529,7 @@ public partial class OwnedTypeEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        valueTypeIList.TypeMapping = JetStringTypeMapping.Default.Clone(
+        valueTypeIList.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<byte>, byte>(DefaultValueComparer<byte>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -540,7 +539,7 @@ public partial class OwnedTypeEntityType
                 JsonByteReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<List<byte>, byte>(
                 JsonByteReaderWriter.Instance),
-            elementMapping: JetByteTypeMapping.Default);
+            elementMapping: LibRedByteTypeMapping.Default);
         var valueTypeIListElementType = valueTypeIList.SetElementType(typeof(byte));
         valueTypeIListElementType.TypeMapping = valueTypeIList.TypeMapping.ElementTypeMapping;
 
@@ -577,7 +576,7 @@ public partial class OwnedTypeEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        valueTypeList.TypeMapping = JetStringTypeMapping.Default.Clone(
+        valueTypeList.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<short>, short>(DefaultValueComparer<short>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -587,7 +586,7 @@ public partial class OwnedTypeEntityType
                 JsonInt16ReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<List<short>, short>(
                 JsonInt16ReaderWriter.Instance),
-            elementMapping: JetShortTypeMapping.Default);
+            elementMapping: LibRedShortTypeMapping.Default);
         var valueTypeListElementType = valueTypeList.SetElementType(typeof(short));
         valueTypeListElementType.TypeMapping = valueTypeList.TypeMapping.ElementTypeMapping;
 

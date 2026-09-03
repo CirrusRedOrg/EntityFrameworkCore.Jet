@@ -1486,45 +1486,45 @@ WHERE (`a`.`Id` = @entity_equality_a_Id AND `a0`.`Id` = @entity_equality_b_Id) O
 
         AssertSql(
             """
-SELECT [a].[Id], [a].[a], [a].[a1], [a].[forkey], [b].[Id] AS [Id0], [b].[b], [b].[b1], [b].[forkey] AS [forkey0]
-FROM [As] AS [a]
-LEFT JOIN [Bs] AS [b] ON [a].[forkey] = [b].[forkey]
+SELECT `a`.`Id`, `a`.`a`, `a`.`a1`, `a`.`forkey`, `b`.`Id` AS `Id0`, `b`.`b`, `b`.`b1`, `b`.`forkey` AS `forkey0`
+FROM `As` AS `a`
+LEFT JOIN `Bs` AS `b` ON `a`.`forkey` = `b`.`forkey`
 UNION ALL
-SELECT [a0].[Id], [a0].[a], [a0].[a1], [a0].[forkey], [b0].[Id] AS [Id0], [b0].[b], [b0].[b1], [b0].[forkey] AS [forkey0]
-FROM [Bs] AS [b0]
-LEFT JOIN [As] AS [a0] ON [b0].[forkey] = [a0].[forkey]
-WHERE [a0].[Id] IS NULL
+SELECT `a0`.`Id`, `a0`.`a`, `a0`.`a1`, `a0`.`forkey`, `b0`.`Id` AS `Id0`, `b0`.`b`, `b0`.`b1`, `b0`.`forkey` AS `forkey0`
+FROM `Bs` AS `b0`
+LEFT JOIN `As` AS `a0` ON `b0`.`forkey` = `a0`.`forkey`
+WHERE `a0`.`Id` IS NULL
 """,
             //
             """
-SELECT [a].[Id], [a].[a], [a].[a1], [a].[forkey], [b].[Id] AS [Id0], [b].[b], [b].[b1], [b].[forkey] AS [forkey0]
-FROM [As] AS [a]
-LEFT JOIN [Bs] AS [b] ON [a].[forkey] = [b].[forkey]
+SELECT `a`.`Id`, `a`.`a`, `a`.`a1`, `a`.`forkey`, `b`.`Id` AS `Id0`, `b`.`b`, `b`.`b1`, `b`.`forkey` AS `forkey0`
+FROM `As` AS `a`
+LEFT JOIN `Bs` AS `b` ON `a`.`forkey` = `b`.`forkey`
 UNION
-SELECT [a0].[Id], [a0].[a], [a0].[a1], [a0].[forkey], [b0].[Id] AS [Id0], [b0].[b], [b0].[b1], [b0].[forkey] AS [forkey0]
-FROM [Bs] AS [b0]
-LEFT JOIN [As] AS [a0] ON [b0].[forkey] = [a0].[forkey]
-WHERE [a0].[Id] IS NULL
+SELECT `a0`.`Id`, `a0`.`a`, `a0`.`a1`, `a0`.`forkey`, `b0`.`Id` AS `Id0`, `b0`.`b`, `b0`.`b1`, `b0`.`forkey` AS `forkey0`
+FROM `Bs` AS `b0`
+LEFT JOIN `As` AS `a0` ON `b0`.`forkey` = `a0`.`forkey`
+WHERE `a0`.`Id` IS NULL
 """,
             //
             """
-SELECT [a].[Id], [a].[a], [a].[a1], [a].[forkey], [b].[Id] AS [Id0], [b].[b], [b].[b1], [b].[forkey] AS [forkey0]
-FROM [As] AS [a]
-LEFT JOIN [Bs] AS [b] ON [a].[forkey] = [b].[forkey]
+SELECT `a`.`Id`, `a`.`a`, `a`.`a1`, `a`.`forkey`, `b`.`Id` AS `Id0`, `b`.`b`, `b`.`b1`, `b`.`forkey` AS `forkey0`
+FROM `As` AS `a`
+LEFT JOIN `Bs` AS `b` ON `a`.`forkey` = `b`.`forkey`
 EXCEPT
-SELECT [a0].[Id], [a0].[a], [a0].[a1], [a0].[forkey], [b0].[Id] AS [Id0], [b0].[b], [b0].[b1], [b0].[forkey] AS [forkey0]
-FROM [Bs] AS [b0]
-LEFT JOIN [As] AS [a0] ON [b0].[forkey] = [a0].[forkey]
+SELECT `a0`.`Id`, `a0`.`a`, `a0`.`a1`, `a0`.`forkey`, `b0`.`Id` AS `Id0`, `b0`.`b`, `b0`.`b1`, `b0`.`forkey` AS `forkey0`
+FROM `Bs` AS `b0`
+LEFT JOIN `As` AS `a0` ON `b0`.`forkey` = `a0`.`forkey`
 """,
             //
             """
-SELECT [a].[Id], [a].[a], [a].[a1], [a].[forkey], [b].[Id] AS [Id0], [b].[b], [b].[b1], [b].[forkey] AS [forkey0]
-FROM [As] AS [a]
-LEFT JOIN [Bs] AS [b] ON [a].[forkey] = [b].[forkey]
+SELECT `a`.`Id`, `a`.`a`, `a`.`a1`, `a`.`forkey`, `b`.`Id` AS `Id0`, `b`.`b`, `b`.`b1`, `b`.`forkey` AS `forkey0`
+FROM `As` AS `a`
+LEFT JOIN `Bs` AS `b` ON `a`.`forkey` = `b`.`forkey`
 INTERSECT
-SELECT [a0].[Id], [a0].[a], [a0].[a1], [a0].[forkey], [b0].[Id] AS [Id0], [b0].[b], [b0].[b1], [b0].[forkey] AS [forkey0]
-FROM [Bs] AS [b0]
-LEFT JOIN [As] AS [a0] ON [b0].[forkey] = [a0].[forkey]
+SELECT `a0`.`Id`, `a0`.`a`, `a0`.`a1`, `a0`.`forkey`, `b0`.`Id` AS `Id0`, `b0`.`b`, `b0`.`b1`, `b0`.`forkey` AS `forkey0`
+FROM `Bs` AS `b0`
+LEFT JOIN `As` AS `a0` ON `b0`.`forkey` = `a0`.`forkey`
 """);
     }
 
@@ -2127,7 +2127,7 @@ WHERE `b0`.`Id` IN (@entity_equality_details_Id1, @entity_equality_details_Id2)
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2144,7 +2144,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2161,7 +2161,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2178,7 +2178,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2212,7 +2212,7 @@ ORDER BY `s`.`PickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`PickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
@@ -2229,7 +2229,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2246,7 +2246,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT DISTINCT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2264,7 +2264,7 @@ LEFT JOIN (
 SELECT TOP @p `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2281,7 +2281,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`MaxPriority`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, MAX(`r`.`Priority`) AS `MaxPriority`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, MAX(`r`.`Priority`) AS `MaxPriority`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2298,7 +2298,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`Name`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 'cat' AS `Name`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 'cat' AS `Name`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2315,7 +2315,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`MaxPriority`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, MAX(`r`.`Priority`) AS `MaxPriority`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, MAX(`r`.`Priority`) AS `MaxPriority`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2332,7 +2332,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`MaxPriority`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, MAX(`r`.`Priority`) AS `MaxPriority`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, MAX(`r`.`Priority`) AS `MaxPriority`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2349,7 +2349,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2366,7 +2366,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`marker`, `r0`.`marker0` AS `marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `marker`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker0`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `marker`, 1 AS `marker0`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2383,7 +2383,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2400,7 +2400,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Total`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, IIF(SUM(CDEC(`r`.`PickupStatusId`)) IS NULL, 0.0, SUM(CDEC(`r`.`PickupStatusId`))) AS `Total`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, IIF(SUM(CDEC(`r`.`PickupStatusId`)) IS NULL, 0.0, SUM(CDEC(`r`.`PickupStatusId`))) AS `Total`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2426,7 +2426,7 @@ FROM (
     SELECT DISTINCT `s`.`PickupStatusId`, `r0`.`pickupStatusId` AS `pickupStatusId0`, `r0`.`marker`, `r0`.`marker0`
     FROM `Statuses` AS `s`
     LEFT JOIN (
-        SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `marker`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker0`
+        SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `marker`, 1 AS `marker0`
         FROM `Requests` AS `r`
         GROUP BY `r`.`PickupStatusId`
     ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2463,7 +2463,7 @@ FROM (
     SELECT DISTINCT `s`.`PickupStatusId`, `r0`.`pickupStatusId` AS `pickupStatusId0`, `r0`.`Count`, `r0`.`marker`
     FROM `Statuses` AS `s`
     LEFT JOIN (
-        SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+        SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
         FROM `Requests` AS `r`
         GROUP BY `r`.`PickupStatusId`
     ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2483,7 +2483,7 @@ FROM (
     SELECT DISTINCT `s`.`PickupStatusId`, `r0`.`pickupStatusId` AS `pickupStatusId0`, `r0`.`Count`, `r0`.`marker`
     FROM `Statuses` AS `s`
     LEFT JOIN (
-        SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+        SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
         FROM `Requests` AS `r`
         GROUP BY `r`.`PickupStatusId`
     ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2509,7 +2509,7 @@ ORDER BY `s0`.`PickupStatusId`, `s1`.`pickupStatusId0`
 SELECT `s`.`PickupStatusId`, `r0`.`PickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
@@ -2526,7 +2526,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`PickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
@@ -2550,7 +2550,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`PickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
@@ -2567,7 +2567,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`PickupStatusId`, `r0`.`c`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId`, COUNT(*) AS `c`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId`, COUNT(*) AS `c`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
@@ -2584,7 +2584,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
 SELECT `s0`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM (`Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`)
@@ -2643,7 +2643,7 @@ ORDER BY `s`.`PickupStatusId`, `r`.`Id`
 SELECT `s`.`PickupStatusId`, `r0`.`PickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId`, COUNT(IIF(`r`.`Priority` > 100, 1, NULL)) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId`, COUNT(IIF(`r`.`Priority` > 100, 1, NULL)) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
@@ -2815,12 +2815,12 @@ ORDER BY [s1].[PickupStatusId]
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`, `r2`.`pickupStatusId`, `r2`.`Count`, `r2`.`marker`
 FROM (`Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`)
 LEFT JOIN (
-    SELECT `r1`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r1`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r1`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r1`
     GROUP BY `r1`.`PickupStatusId`
 ) AS `r2` ON `s`.`PickupStatusId` = `r2`.`pickupStatusId`
@@ -2837,7 +2837,7 @@ ORDER BY `s`.`PickupStatusId`, `r2`.`pickupStatusId`
 SELECT `s1`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM ((`Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`)
@@ -2857,7 +2857,7 @@ ORDER BY `s1`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT `s0`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM (`Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`)
@@ -2895,7 +2895,7 @@ FROM (
     SELECT DISTINCT `s`.`PickupStatusId`, `r0`.`pickupStatusId` AS `pickupStatusId0`, `r0`.`marker`, `r0`.`marker0`
     FROM `Statuses` AS `s`
     LEFT JOIN (
-        SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `marker`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker0`
+        SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `marker`, 1 AS `marker0`
         FROM `Requests` AS `r`
         GROUP BY `r`.`PickupStatusId`
     ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`

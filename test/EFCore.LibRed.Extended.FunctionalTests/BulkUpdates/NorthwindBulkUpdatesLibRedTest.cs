@@ -423,21 +423,20 @@ WHERE EXISTS (
         await base.Delete_Intersect(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
+            """
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice]
-        FROM [Order Details] AS [o0]
-        WHERE [o0].[OrderID] < 10250
+        SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
+        FROM `Order Details` AS `o0`
+        WHERE `o0`.`OrderID` < 10250
         INTERSECT
-        SELECT [o1].[OrderID], [o1].[ProductID], [o1].[Discount], [o1].[Quantity], [o1].[UnitPrice]
-        FROM [Order Details] AS [o1]
-        WHERE [o1].[OrderID] > 11250
-    ) AS [t]
-    WHERE [t].[OrderID] = [o].[OrderID] AND [t].[ProductID] = [o].[ProductID])
+        SELECT `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+        FROM `Order Details` AS `o1`
+        WHERE `o1`.`OrderID` > 11250
+    ) AS `i`
+    WHERE `i`.`OrderID` = `o`.`OrderID` AND `i`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -446,21 +445,20 @@ WHERE EXISTS (
         await base.Delete_Except(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
+            """
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice]
-        FROM [Order Details] AS [o0]
-        WHERE [o0].[OrderID] < 10250
+        SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
+        FROM `Order Details` AS `o0`
+        WHERE `o0`.`OrderID` < 10250
         EXCEPT
-        SELECT [o1].[OrderID], [o1].[ProductID], [o1].[Discount], [o1].[Quantity], [o1].[UnitPrice]
-        FROM [Order Details] AS [o1]
-        WHERE [o1].[OrderID] > 11250
-    ) AS [t]
-    WHERE [t].[OrderID] = [o].[OrderID] AND [t].[ProductID] = [o].[ProductID])
+        SELECT `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`
+        FROM `Order Details` AS `o1`
+        WHERE `o1`.`OrderID` > 11250
+    ) AS `e`
+    WHERE `e`.`OrderID` = `o`.`OrderID` AND `e`.`ProductID` = `o`.`ProductID`)
 """);
     }
 

@@ -1224,15 +1224,16 @@ INNER JOIN `LevelOne` AS `l2` ON `l1`.`Level1_Required_Id` = `l2`.`Id`)
             await base.Query_source_materialization_bug_4547(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `l0`.`Id`
-                    FROM `LevelThree` AS `l`
-                    INNER JOIN `LevelOne` AS `l0` ON `l`.`Id` = (
-                        SELECT TOP 1 `l2`.`Id`
-                        FROM `LevelTwo` AS `l1`
-                        LEFT JOIN `LevelThree` AS `l2` ON `l1`.`Id` = `l2`.`Level2_Optional_Id`
-                        ORDER BY `l2`.`Id`)
-                    """);
+                """
+SELECT `l0`.`Id`
+FROM `LevelThree` AS `l`
+INNER JOIN `LevelOne` AS `l0` ON `l`.`Id` = (
+    SELECT TOP 1 `l2`.`Id`
+    FROM `LevelTwo` AS `l1`
+    LEFT JOIN `LevelThree` AS `l2` ON `l1`.`Id` = `l2`.`Level2_Optional_Id`
+    WHERE `l2`.`Id` IS NOT NULL
+    ORDER BY `l2`.`Id`)
+""");
         }
 
         public override async Task SelectMany_navigation_property(bool isAsync)
@@ -3779,17 +3780,14 @@ WHERE `l1`.`Id` IS NULL
 
             AssertSql(
                 """
-SELECT `s`.`Id`, `s`.`Date`, `s`.`Name`, `s`.`OneToMany_Optional_Self_Inverse1Id`, `s`.`OneToMany_Required_Self_Inverse1Id`, `s`.`OneToOne_Optional_Self1Id`, `s`.`c`, `s`.`Name0`
-FROM (
-    SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`, (
-        SELECT COUNT(*)
-        FROM `LevelThree` AS `l2`
-        WHERE `l0`.`Id` IS NOT NULL AND `l0`.`Id` = `l2`.`OneToMany_Required_Inverse3Id`) AS `c`, `l1`.`Name` AS `Name0`
-    FROM (`LevelOne` AS `l`
-    LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
-    LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Required_Id`
-) AS `s`
-ORDER BY `s`.`c`, `s`.`Name0`, `s`.`Id`
+SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
+FROM (`LevelOne` AS `l`
+LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
+LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Required_Id`
+ORDER BY (
+    SELECT COUNT(*)
+    FROM `LevelThree` AS `l2`
+    WHERE `l0`.`Id` IS NOT NULL AND `l0`.`Id` = `l2`.`OneToMany_Required_Inverse3Id`), `l1`.`Name`, `l`.`Id`
 """);
         }
 
@@ -4081,19 +4079,16 @@ LEFT JOIN `LevelOne` AS `l1` ON `l`.`Level1_Optional_Id` = `l1`.`Id`
 
             AssertSql(
                 """
-SELECT [t0].[Key]
-FROM [LevelOne] AS [l]
+SELECT `l2`.`Key`
+FROM `LevelOne` AS `l`
 INNER JOIN (
-    SELECT [t].[Key], COALESCE(SUM([t].[Id]), 0) AS [Sum]
+    SELECT `l1`.`Key`, IIF(SUM(`l1`.`Id`) IS NULL, 0, SUM(`l1`.`Id`)) AS `Sum`
     FROM (
-        SELECT [l0].[Id], [l0].[Id] % 3 AS [Key]
-        FROM [LevelTwo] AS [l0]
-    ) AS [t]
-    GROUP BY [t].[Key]
-) AS [t0] ON [l].[Id] = [t0].[Key] AND CAST(1 AS bit) = CASE
-    WHEN [t0].[Sum] > 10 THEN CAST(1 AS bit)
-    ELSE CAST(0 AS bit)
-END
+        SELECT `l0`.`Id`, `l0`.`Id` MOD 3 AS `Key`
+        FROM `LevelTwo` AS `l0`
+    ) AS `l1`
+    GROUP BY `l1`.`Key`
+) AS `l2` ON `l`.`Id` = `l2`.`Key` AND `l2`.`Sum` > 10
 """);
         }
 

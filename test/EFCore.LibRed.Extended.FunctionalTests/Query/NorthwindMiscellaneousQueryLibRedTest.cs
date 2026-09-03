@@ -389,15 +389,12 @@ WHERE FALSE
 
             AssertSql(
                 """
-SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `c0`.`c`
-FROM (
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
-        SELECT TOP 1 `o`.`OrderID`
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `c`
-    FROM `Customers` AS `c`
-) AS `c0`
-ORDER BY `c0`.`c`, `c0`.`CustomerID`
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY (
+    SELECT TOP 1 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`), `c`.`CustomerID`
 """);
         }
 
@@ -407,18 +404,15 @@ ORDER BY `c0`.`c`, `c0`.`CustomerID`
 
             AssertSql(
                 """
-SELECT `o4`.`OrderID`, `o4`.`CustomerID`, `o4`.`EmployeeID`, `o4`.`OrderDate`, `o4`.`c`, `o4`.`c0`
-FROM (
-    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, (
-        SELECT TOP 1 `o0`.`OrderID`
-        FROM `Order Details` AS `o0`
-        WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `c`, (
-        SELECT TOP 1 `o1`.`ProductID`
-        FROM `Order Details` AS `o1`
-        WHERE `o`.`OrderID` = `o1`.`OrderID`) AS `c0`
-    FROM `Orders` AS `o`
-) AS `o4`
-ORDER BY `o4`.`c` DESC, `o4`.`c0` DESC, `o4`.`OrderID`
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+ORDER BY (
+    SELECT TOP 1 `o0`.`OrderID`
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) DESC, (
+    SELECT TOP 1 `o1`.`ProductID`
+    FROM `Order Details` AS `o1`
+    WHERE `o`.`OrderID` = `o1`.`OrderID`) DESC, `o`.`OrderID`
 """);
         }
 
@@ -1101,15 +1095,12 @@ ORDER BY NOT (`p`.`UnitsInStock` > CINT(0)), `p`.`ProductID`
 
             AssertSql(
                 """
-SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `c0`.`c`
-FROM (
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, EXISTS (
-        SELECT 1
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` > 11000) AS `c`
-    FROM `Customers` AS `c`
-) AS `c0`
-ORDER BY NOT (`c0`.`c`), `c0`.`CustomerID`
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY NOT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` > 11000), `c`.`CustomerID`
 """);
         }
 
@@ -2664,16 +2655,13 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
-SELECT `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `c1`.`c`
-FROM (
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, EXISTS (
-        SELECT 1
-        FROM `Customers` AS `c0`
-        WHERE `c0`.`CustomerID` = `c`.`CustomerID`) AS `c`
-    FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'A%'
-) AS `c1`
-ORDER BY NOT (`c1`.`c`), `c1`.`CustomerID`
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` LIKE 'A%'
+ORDER BY NOT EXISTS (
+    SELECT 1
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`CustomerID` = `c`.`CustomerID`), `c`.`CustomerID`
 """);
         }
 
@@ -2686,24 +2674,18 @@ ORDER BY NOT (`c1`.`c`), `c1`.`CustomerID`
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 WHERE `o`.`OrderID` <= 10250 AND ((
-    SELECT TOP 1 `c1`.`City`
-    FROM (
-        SELECT `c`.`City`, EXISTS (
-            SELECT 1
-            FROM `Customers` AS `c0`
-            WHERE `c0`.`CustomerID` = 'ALFKI') AS `c`
-        FROM `Customers` AS `c`
-    ) AS `c1`
-    ORDER BY NOT (`c1`.`c`)) <> 'Nowhere' OR (
-    SELECT TOP 1 `c1`.`City`
-    FROM (
-        SELECT `c`.`City`, EXISTS (
-            SELECT 1
-            FROM `Customers` AS `c0`
-            WHERE `c0`.`CustomerID` = 'ALFKI') AS `c`
-        FROM `Customers` AS `c`
-    ) AS `c1`
-    ORDER BY NOT (`c1`.`c`)) IS NULL)
+    SELECT TOP 1 `c`.`City`
+    FROM `Customers` AS `c`
+    ORDER BY NOT EXISTS (
+        SELECT 1
+        FROM `Customers` AS `c0`
+        WHERE `c0`.`CustomerID` = 'ALFKI')) <> 'Nowhere' OR (
+    SELECT TOP 1 `c`.`City`
+    FROM `Customers` AS `c`
+    ORDER BY NOT EXISTS (
+        SELECT 1
+        FROM `Customers` AS `c0`
+        WHERE `c0`.`CustomerID` = 'ALFKI')) IS NULL)
 """);
         }
 
@@ -3398,22 +3380,19 @@ WHERE `c`.`CustomerID` = @customerId
                 """
 @p='3'
 
-SELECT `o1`.`OrderId`, `o1`.`City`, `o1`.`c`
+SELECT `o0`.`OrderID` AS `OrderId`, (
+    SELECT TOP 1 `c0`.`City`
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`CustomerID` = `o0`.`CustomerID`) AS `City`
 FROM (
-    SELECT `o0`.`OrderID` AS `OrderId`, (
-        SELECT TOP 1 `c0`.`City`
-        FROM `Customers` AS `c0`
-        WHERE `c0`.`CustomerID` = `o0`.`CustomerID`) AS `City`, (
-        SELECT TOP 1 `c`.`City`
-        FROM `Customers` AS `c`
-        WHERE `c`.`CustomerID` = `o0`.`CustomerID`) AS `c`
-    FROM (
-        SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`
-        FROM `Orders` AS `o`
-        ORDER BY `o`.`OrderID`
-    ) AS `o0`
-) AS `o1`
-ORDER BY `o1`.`c`
+    SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    ORDER BY `o`.`OrderID`
+) AS `o0`
+ORDER BY (
+    SELECT TOP 1 `c`.`City`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` = `o0`.`CustomerID`)
 """);
         }
 
@@ -3425,22 +3404,19 @@ ORDER BY `o1`.`c`
                 """
 @p='3'
 
-SELECT `o1`.`OrderId`, `o1`.`City`, `o1`.`c`
+SELECT `o0`.`OrderID` AS `OrderId`, (
+    SELECT TOP 1 `c0`.`City`
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`CustomerID` = `o0`.`CustomerID`) AS `City`
 FROM (
-    SELECT `o0`.`OrderID` AS `OrderId`, (
-        SELECT TOP 1 `c0`.`City`
-        FROM `Customers` AS `c0`
-        WHERE `c0`.`CustomerID` = `o0`.`CustomerID`) AS `City`, (
-        SELECT TOP 1 `c`.`City`
-        FROM `Customers` AS `c`
-        WHERE `c`.`CustomerID` = `o0`.`CustomerID`) AS `c`
-    FROM (
-        SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`
-        FROM `Orders` AS `o`
-        ORDER BY `o`.`OrderID`
-    ) AS `o0`
-) AS `o1`
-ORDER BY `o1`.`c`
+    SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    ORDER BY `o`.`OrderID`
+) AS `o0`
+ORDER BY (
+    SELECT TOP 1 `c`.`City`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` = `o0`.`CustomerID`)
 """);
         }
 
@@ -3939,12 +3915,9 @@ FROM (
     FROM (
         SELECT TOP @p1 `p1`.`ProductID`, `p1`.`Discontinued`, `p1`.`ProductName`, `p1`.`SupplierID`, `p1`.`UnitPrice`, `p1`.`UnitsInStock`, `p1`.`c`
         FROM (
-            SELECT TOP @p + @p1 `p3`.`ProductID`, `p3`.`Discontinued`, `p3`.`ProductName`, `p3`.`SupplierID`, `p3`.`UnitPrice`, `p3`.`UnitsInStock`, `p3`.`c`
-            FROM (
-                SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) AS `c`
-                FROM `Products` AS `p`
-            ) AS `p3`
-            ORDER BY `p3`.`c`
+            SELECT TOP @p + @p1 `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) AS `c`
+            FROM `Products` AS `p`
+            ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`)
         ) AS `p1`
         ORDER BY `p1`.`c` DESC
     ) AS `p2`
@@ -3968,12 +3941,9 @@ FROM (
     FROM (
         SELECT TOP @p1 `p1`.`ProductID`, `p1`.`Discontinued`, `p1`.`ProductName`, `p1`.`SupplierID`, `p1`.`UnitPrice`, `p1`.`UnitsInStock`, `p1`.`c`
         FROM (
-            SELECT TOP @p + @p1 `p3`.`ProductID`, `p3`.`Discontinued`, `p3`.`ProductName`, `p3`.`SupplierID`, `p3`.`UnitPrice`, `p3`.`UnitsInStock`, `p3`.`c`
-            FROM (
-                SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) AS `c`
-                FROM `Products` AS `p`
-            ) AS `p3`
-            ORDER BY `p3`.`c`
+            SELECT TOP @p + @p1 `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) AS `c`
+            FROM `Products` AS `p`
+            ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`)
         ) AS `p1`
         ORDER BY `p1`.`c` DESC
     ) AS `p2`
@@ -4226,12 +4196,9 @@ FROM (
 
             AssertSql(
                 """
-SELECT `c0`.`A`, `c0`.`CustomerID`
-FROM (
-    SELECT `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `A`, `c`.`CustomerID`
-    FROM `Customers` AS `c`
-) AS `c0`
-ORDER BY `c0`.`A`, `c0`.`CustomerID`
+SELECT `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`) AS `A`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID` & IIF(`c`.`City` IS NULL, '', `c`.`City`), `c`.`CustomerID`
 """);
         }
 
@@ -4241,24 +4208,21 @@ ORDER BY `c0`.`A`, `c0`.`CustomerID`
 
             AssertSql(
                 """
-SELECT `c0`.`A`, `c0`.`c`, `c0`.`CustomerID`
-FROM (
-    SELECT (
-        SELECT TOP 1 `o1`.`OrderDate`
-        FROM `Orders` AS `o1`
-        WHERE `c`.`CustomerID` = `o1`.`CustomerID`
-        ORDER BY `o1`.`OrderID` DESC) AS `A`, (
-        SELECT TOP 1 `o0`.`OrderDate`
-        FROM `Orders` AS `o0`
-        WHERE `c`.`CustomerID` = `o0`.`CustomerID`
-        ORDER BY `o0`.`OrderID` DESC) AS `c`, `c`.`CustomerID`
-    FROM `Customers` AS `c`
-    WHERE (
-        SELECT COUNT(*)
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 1
-) AS `c0`
-ORDER BY `c0`.`c`, `c0`.`CustomerID`
+SELECT (
+    SELECT TOP 1 `o1`.`OrderDate`
+    FROM `Orders` AS `o1`
+    WHERE `c`.`CustomerID` = `o1`.`CustomerID`
+    ORDER BY `o1`.`OrderID` DESC) AS `A`
+FROM `Customers` AS `c`
+WHERE (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 1
+ORDER BY (
+    SELECT TOP 1 `o0`.`OrderDate`
+    FROM `Orders` AS `o0`
+    WHERE `c`.`CustomerID` = `o0`.`CustomerID`
+    ORDER BY `o0`.`OrderID` DESC), `c`.`CustomerID`
 """);
         }
 
@@ -4363,24 +4327,21 @@ FROM (
 
             AssertSql(
                 """
-SELECT `c0`.`Property`, `c0`.`c`, `c0`.`CustomerID`
-FROM (
-    SELECT (
-        SELECT TOP 1 `o1`.`OrderDate`
-        FROM `Orders` AS `o1`
-        WHERE `c`.`CustomerID` = `o1`.`CustomerID`
-        ORDER BY `o1`.`OrderID` DESC) AS `Property`, (
-        SELECT TOP 1 `o0`.`OrderDate`
-        FROM `Orders` AS `o0`
-        WHERE `c`.`CustomerID` = `o0`.`CustomerID`
-        ORDER BY `o0`.`OrderID` DESC) AS `c`, `c`.`CustomerID`
-    FROM `Customers` AS `c`
-    WHERE (
-        SELECT COUNT(*)
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 1
-) AS `c0`
-ORDER BY `c0`.`c`, `c0`.`CustomerID`
+SELECT (
+    SELECT TOP 1 `o1`.`OrderDate`
+    FROM `Orders` AS `o1`
+    WHERE `c`.`CustomerID` = `o1`.`CustomerID`
+    ORDER BY `o1`.`OrderID` DESC) AS `Property`
+FROM `Customers` AS `c`
+WHERE (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 1
+ORDER BY (
+    SELECT TOP 1 `o0`.`OrderDate`
+    FROM `Orders` AS `o0`
+    WHERE `c`.`CustomerID` = `o0`.`CustomerID`
+    ORDER BY `o0`.`OrderID` DESC), `c`.`CustomerID`
 """);
         }
 
@@ -7296,18 +7257,19 @@ WHERE (
 @ids1='10248'
 @ids2='10249'
 
-SELECT `o3`.`Key`, `o3`.`MaxTimestamp`
-FROM (
-    SELECT `o`.`Quantity` AS `Key`, (
-        SELECT MAX(`o1`.`OrderDate`)
-        FROM `Order Details` AS `o0`
-        INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
-        WHERE `o0`.`OrderID` IN (@ids1, @ids2) AND `o`.`Quantity` = `o0`.`Quantity`) AS `MaxTimestamp`
-    FROM `Order Details` AS `o`
-    WHERE `o`.`OrderID` IN (@ids1, @ids2)
-    GROUP BY `o`.`Quantity`
-) AS `o3`
-ORDER BY `o3`.`MaxTimestamp`, `o3`.`Key`
+SELECT `o`.`Quantity` AS `Key`, (
+    SELECT MAX(`o1`.`OrderDate`)
+    FROM `Order Details` AS `o0`
+    INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
+    WHERE `o0`.`OrderID` IN (@ids1, @ids2) AND `o`.`Quantity` = `o0`.`Quantity`) AS `MaxTimestamp`
+FROM `Order Details` AS `o`
+WHERE `o`.`OrderID` IN (@ids1, @ids2)
+GROUP BY `o`.`Quantity`
+ORDER BY (
+    SELECT MAX(`o1`.`OrderDate`)
+    FROM `Order Details` AS `o0`
+    INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
+    WHERE `o0`.`OrderID` IN (@ids1, @ids2) AND `o`.`Quantity` = `o0`.`Quantity`), `o`.`Quantity`
 """);
         }
 

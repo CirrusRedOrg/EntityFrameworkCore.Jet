@@ -4007,10 +4007,10 @@ FROM `Entities1` AS `e`
 
             AssertSql(
                 """
-SELECT [e].[Id]
-FROM [Entities1] AS [e]
-INNER JOIN [Entities1] AS [e0] ON [e].[NullableBoolA] IS NULL
-WHERE ([e].[NullableBoolA] <> [e0].[NullableBoolB] OR [e].[NullableBoolA] IS NULL OR [e0].[NullableBoolB] IS NULL) AND ([e].[NullableBoolA] IS NOT NULL OR [e0].[NullableBoolB] IS NOT NULL)
+SELECT `e`.`Id`
+FROM `Entities1` AS `e`
+INNER JOIN `Entities1` AS `e0` ON `e`.`NullableBoolA` IS NULL
+WHERE (`e`.`NullableBoolA` <> `e0`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e0`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e0`.`NullableBoolB` IS NOT NULL)
 """);
         }
 

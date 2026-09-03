@@ -117,17 +117,18 @@ WHERE (`o`.`OrderID` MOD 23) = 13
             """
 SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (
-    SELECT TOP 1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `c1`.`c`
-    FROM (
-        SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
-            SELECT TOP 1 `o`.`OrderDate`
-            FROM `Orders` AS `o`
-            WHERE `c`.`CustomerID` = `o`.`CustomerID`
-            ORDER BY `o`.`OrderDate` DESC) AS `c`
-        FROM `Customers` AS `c`
-        WHERE `c`.`CustomerID` LIKE 'W%'
-    ) AS `c1`
-    ORDER BY `c1`.`c` DESC
+    SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
+        SELECT TOP 1 `o`.`OrderDate`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`
+        ORDER BY `o`.`OrderDate` DESC) AS `c`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'W%'
+    ORDER BY (
+        SELECT TOP 1 `o`.`OrderDate`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`
+        ORDER BY `o`.`OrderDate` DESC) DESC
 ) AS `c0`
 LEFT JOIN `Orders` AS `o0` ON `c0`.`CustomerID` = `o0`.`CustomerID`
 ORDER BY `c0`.`c` DESC, `c0`.`CustomerID`, `o0`.`OrderID`
@@ -435,13 +436,10 @@ ORDER BY [t1].[CustomerID], [t1].[CustomerID0]
 
 SELECT `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
 FROM (
-    SELECT TOP @p `s0`.`OrderID`, `s0`.`CustomerID`, `s0`.`EmployeeID`, `s0`.`OrderDate`, `s0`.`c`, `s0`.`c0`
-    FROM (
-        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID` IS NOT NULL AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, '') AS `c0`
-        FROM `Orders` AS `o`
-        LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-    ) AS `s0`
-    ORDER BY NOT (`s0`.`c`), `s0`.`c0`
+    SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID` IS NOT NULL AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, '') AS `c0`
+    FROM `Orders` AS `o`
+    LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+    ORDER BY NOT (`c`.`CustomerID` IS NOT NULL), IIF(`c`.`CustomerID` IS NOT NULL, `c`.`CustomerID`, '')
 ) AS `s`
 LEFT JOIN `Order Details` AS `o0` ON `s`.`OrderID` = `o0`.`OrderID`
 ORDER BY NOT (`s`.`c`), `s`.`c0`, `s`.`OrderID`, `o0`.`OrderID`, `o0`.`ProductID`
@@ -1145,13 +1143,10 @@ ORDER BY `c`.`CustomerID`, `s`.`OrderID`, `s`.`OrderID0`, `s`.`ProductID`
 
 SELECT `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
 FROM (
-    SELECT TOP @p `s0`.`OrderID`, `s0`.`CustomerID`, `s0`.`EmployeeID`, `s0`.`OrderDate`, `s0`.`c`, `s0`.`c0`
-    FROM (
-        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o`.`OrderID` > 0 AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, '') AS `c0`
-        FROM `Orders` AS `o`
-        LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-    ) AS `s0`
-    ORDER BY NOT (`s0`.`c`), `s0`.`c0`
+    SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o`.`OrderID` > 0 AS `c`, IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, '') AS `c0`
+    FROM `Orders` AS `o`
+    LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+    ORDER BY NOT (`o`.`OrderID` > 0), IIF(`c`.`CustomerID` IS NOT NULL, `c`.`City`, '')
 ) AS `s`
 LEFT JOIN `Order Details` AS `o0` ON `s`.`OrderID` = `o0`.`OrderID`
 ORDER BY NOT (`s`.`c`), `s`.`c0`, `s`.`OrderID`, `o0`.`OrderID`, `o0`.`ProductID`
@@ -1973,17 +1968,18 @@ WHERE `o`.`CustomerID` = 'ALFKI'
             """
 SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (
-    SELECT TOP 1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `c1`.`c`
-    FROM (
-        SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
-            SELECT TOP 1 `o`.`OrderDate`
-            FROM `Orders` AS `o`
-            WHERE `c`.`CustomerID` = `o`.`CustomerID`
-            ORDER BY `o`.`EmployeeID`) AS `c`
-        FROM `Customers` AS `c`
-        WHERE `c`.`CustomerID` = 'ALFKI'
-    ) AS `c1`
-    ORDER BY `c1`.`c`
+    SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
+        SELECT TOP 1 `o`.`OrderDate`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`
+        ORDER BY `o`.`EmployeeID`) AS `c`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` = 'ALFKI'
+    ORDER BY (
+        SELECT TOP 1 `o`.`OrderDate`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`
+        ORDER BY `o`.`EmployeeID`)
 ) AS `c0`
 LEFT JOIN `Orders` AS `o0` ON `c0`.`CustomerID` = `o0`.`CustomerID`
 ORDER BY `c0`.`c`, `c0`.`CustomerID`, `o0`.`OrderID`
@@ -2013,17 +2009,18 @@ ORDER BY `o`.`OrderID`, `o0`.`OrderID`
             """
 SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `s`.`OrderID0`, `s`.`ProductID`, `s`.`Discount`, `s`.`Quantity`, `s`.`UnitPrice`
 FROM (
-    SELECT TOP 1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `c1`.`c`
-    FROM (
-        SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
-            SELECT TOP 1 `o`.`OrderDate`
-            FROM `Orders` AS `o`
-            WHERE `c`.`CustomerID` = `o`.`CustomerID`
-            ORDER BY `o`.`OrderDate` DESC) AS `c`
-        FROM `Customers` AS `c`
-        WHERE `c`.`CustomerID` LIKE 'W%'
-    ) AS `c1`
-    ORDER BY `c1`.`c` DESC
+    SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
+        SELECT TOP 1 `o`.`OrderDate`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`
+        ORDER BY `o`.`OrderDate` DESC) AS `c`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'W%'
+    ORDER BY (
+        SELECT TOP 1 `o`.`OrderDate`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`
+        ORDER BY `o`.`OrderDate` DESC) DESC
 ) AS `c0`
 LEFT JOIN (
     SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `o1`.`OrderID` AS `OrderID0`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`

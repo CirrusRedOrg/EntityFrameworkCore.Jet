@@ -1681,17 +1681,17 @@ ORDER BY [u].[Id]
 
         AssertSql(
             """
-SELECT [i].[Id], [i].[BlogId], [i].[Title]
+SELECT `i`.`Id`, `i`.`BlogId`, `i`.`Title`
 FROM (
-    SELECT [p].[Id], [p].[BlogId], [p].[Title]
-    FROM [Posts] AS [p]
-    WHERE [p].[Id] > 11
+    SELECT `p`.`Id`, `p`.`BlogId`, `p`.`Title`
+    FROM `Posts` AS `p`
+    WHERE `p`.`Id` > 11
     INTERSECT
-    SELECT [p0].[Id], [p0].[BlogId], [p0].[Title]
-    FROM [Posts] AS [p0]
-    WHERE [p0].[Id] < 22
-) AS [i]
-ORDER BY [i].[Id]
+    SELECT `p0`.`Id`, `p0`.`BlogId`, `p0`.`Title`
+    FROM `Posts` AS `p0`
+    WHERE `p0`.`Id` < 22
+) AS `i`
+ORDER BY `i`.`Id`
 """);
     }
 
@@ -1721,17 +1721,17 @@ ORDER BY [i].[Id]
 
         AssertSql(
             """
-SELECT [e].[Id], [e].[BlogId], [e].[Title]
+SELECT `e`.`Id`, `e`.`BlogId`, `e`.`Title`
 FROM (
-    SELECT [p].[Id], [p].[BlogId], [p].[Title]
-    FROM [Posts] AS [p]
-    WHERE [p].[Id] > 11
+    SELECT `p`.`Id`, `p`.`BlogId`, `p`.`Title`
+    FROM `Posts` AS `p`
+    WHERE `p`.`Id` > 11
     EXCEPT
-    SELECT [p0].[Id], [p0].[BlogId], [p0].[Title]
-    FROM [Posts] AS [p0]
-    WHERE [p0].[Id] > 21
-) AS [e]
-ORDER BY [e].[Id]
+    SELECT `p0`.`Id`, `p0`.`BlogId`, `p0`.`Title`
+    FROM `Posts` AS `p0`
+    WHERE `p0`.`Id` > 21
+) AS `e`
+ORDER BY `e`.`Id`
 """);
     }
 

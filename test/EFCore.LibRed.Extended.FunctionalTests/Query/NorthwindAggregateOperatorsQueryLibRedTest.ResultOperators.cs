@@ -197,20 +197,17 @@ LEFT JOIN (
 
             AssertSql(
                 """
-SELECT TOP 1 `s`.`c`
+SELECT TOP 1 IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`)
 FROM (
-    SELECT IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`) AS `c`
-    FROM (
-        SELECT 1
-        FROM (SELECT COUNT(*) FROM `#Dual`)
-    ) AS `e`
-    LEFT JOIN (
-        SELECT `o`.`OrderID`
-        FROM `Orders` AS `o`
-        WHERE `o`.`OrderID` = 10243
-    ) AS `o0` ON TRUE
-) AS `s`
-ORDER BY `s`.`c` DESC
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e`
+LEFT JOIN (
+    SELECT `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `o`.`OrderID` = 10243
+) AS `o0` ON TRUE
+ORDER BY IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`) DESC
 """);
         }
 
@@ -239,20 +236,17 @@ LEFT JOIN (
 
             AssertSql(
                 """
-SELECT TOP 1 `s`.`c`
+SELECT TOP 1 IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`)
 FROM (
-    SELECT IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`) AS `c`
-    FROM (
-        SELECT 1
-        FROM (SELECT COUNT(*) FROM `#Dual`)
-    ) AS `e`
-    LEFT JOIN (
-        SELECT `o`.`OrderID`
-        FROM `Orders` AS `o`
-        WHERE `o`.`OrderID` = 10243
-    ) AS `o0` ON TRUE
-) AS `s`
-ORDER BY `s`.`c`
+    SELECT 1
+    FROM (SELECT COUNT(*) FROM `#Dual`)
+) AS `e`
+LEFT JOIN (
+    SELECT `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `o`.`OrderID` = 10243
+) AS `o0` ON TRUE
+ORDER BY IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`)
 """);
         }
 
@@ -459,15 +453,12 @@ ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`)
 
             AssertSql(
                 """
-SELECT TOP 1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `c0`.`c`
-FROM (
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
-        SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `c`
-    FROM `Customers` AS `c`
-) AS `c0`
-ORDER BY `c0`.`c`
+SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY (
+    SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)
 """);
         }
 
@@ -479,27 +470,21 @@ ORDER BY `c0`.`c`
                 """
 @p='3'
 
-SELECT TOP 1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `c1`.`c`
+SELECT TOP 1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
-    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, (
-        SELECT TOP 1 `o1`.`OrderID`
-        FROM (
-            SELECT `o`.`OrderID`, 5 + (
-                SELECT TOP 1 `o0`.`ProductID`
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID`
-                ORDER BY `o0`.`ProductID`) AS `c`
-            FROM `Orders` AS `o`
-            WHERE `c0`.`CustomerID` = `o`.`CustomerID`
-        ) AS `o1`
-        ORDER BY `o1`.`c`) AS `c`
-    FROM (
-        SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-        FROM `Customers` AS `c`
-        ORDER BY `c`.`CustomerID`
-    ) AS `c0`
-) AS `c1`
-ORDER BY `c1`.`c`
+    SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+ORDER BY (
+    SELECT TOP 1 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `c0`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY 5 + (
+        SELECT TOP 1 `o0`.`ProductID`
+        FROM `Order Details` AS `o0`
+        WHERE `o`.`OrderID` = `o0`.`OrderID`
+        ORDER BY `o0`.`ProductID`))
 """);
         }
 
@@ -511,26 +496,20 @@ ORDER BY `c1`.`c`
                 """
 @p='3'
 
-SELECT TOP 1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `c1`.`c`
+SELECT TOP 1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
-    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, (
-        SELECT TOP 1 `o1`.`OrderID`
-        FROM (
-            SELECT `o`.`OrderID`, 5 + (
-                SELECT MAX(`o0`.`ProductID`)
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `c`
-            FROM `Orders` AS `o`
-            WHERE `c0`.`CustomerID` = `o`.`CustomerID`
-        ) AS `o1`
-        ORDER BY `o1`.`c`) AS `c`
-    FROM (
-        SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-        FROM `Customers` AS `c`
-        ORDER BY `c`.`CustomerID`
-    ) AS `c0`
-) AS `c1`
-ORDER BY `c1`.`c`
+    SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+ORDER BY (
+    SELECT TOP 1 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `c0`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY 5 + (
+        SELECT MAX(`o0`.`ProductID`)
+        FROM `Order Details` AS `o0`
+        WHERE `o`.`OrderID` = `o0`.`OrderID`))
 """);
         }
 
@@ -702,15 +681,12 @@ ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) DESC
 
             AssertSql(
                 """
-SELECT TOP 1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `c0`.`c`
-FROM (
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
-        SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `c`
-    FROM `Customers` AS `c`
-) AS `c0`
-ORDER BY `c0`.`c` DESC
+SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY (
+    SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) DESC
 """);
         }
 
@@ -722,27 +698,21 @@ ORDER BY `c0`.`c` DESC
                 """
 @p='3'
 
-SELECT TOP 1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `c1`.`c`
+SELECT TOP 1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
-    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, (
-        SELECT TOP 1 `o1`.`OrderID`
-        FROM (
-            SELECT `o`.`OrderID`, 5 + (
-                SELECT TOP 1 `o0`.`ProductID`
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID`
-                ORDER BY `o0`.`ProductID` DESC) AS `c`
-            FROM `Orders` AS `o`
-            WHERE `c0`.`CustomerID` = `o`.`CustomerID`
-        ) AS `o1`
-        ORDER BY `o1`.`c` DESC) AS `c`
-    FROM (
-        SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-        FROM `Customers` AS `c`
-        ORDER BY `c`.`CustomerID`
-    ) AS `c0`
-) AS `c1`
-ORDER BY `c1`.`c` DESC
+    SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+ORDER BY (
+    SELECT TOP 1 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `c0`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY 5 + (
+        SELECT TOP 1 `o0`.`ProductID`
+        FROM `Order Details` AS `o0`
+        WHERE `o`.`OrderID` = `o0`.`OrderID`
+        ORDER BY `o0`.`ProductID` DESC) DESC) DESC
 """);
         }
 
@@ -754,26 +724,20 @@ ORDER BY `c1`.`c` DESC
                 """
 @p='3'
 
-SELECT TOP 1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `c1`.`c`
+SELECT TOP 1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
-    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, (
-        SELECT TOP 1 `o1`.`OrderID`
-        FROM (
-            SELECT `o`.`OrderID`, 5 + (
-                SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `c`
-            FROM `Orders` AS `o`
-            WHERE `c0`.`CustomerID` = `o`.`CustomerID`
-        ) AS `o1`
-        ORDER BY `o1`.`c` DESC) AS `c`
-    FROM (
-        SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-        FROM `Customers` AS `c`
-        ORDER BY `c`.`CustomerID`
-    ) AS `c0`
-) AS `c1`
-ORDER BY `c1`.`c` DESC
+    SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+ORDER BY (
+    SELECT TOP 1 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `c0`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY 5 + (
+        SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
+        FROM `Order Details` AS `o0`
+        WHERE `o`.`OrderID` = `o0`.`OrderID`) DESC) DESC
 """);
         }
 

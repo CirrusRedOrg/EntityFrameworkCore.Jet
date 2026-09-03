@@ -196,12 +196,12 @@ namespace EntityFrameworkCore.LibRed.Extended.FunctionalTests
 
             AssertSql(
                 """
-@__blogId_0='1'
+@blogId='1'
 
-SELECT [b].[Url]
-FROM [Blog] AS [b]
-INNER JOIN [Post] AS [p] ON [b].[BlogId] = [p].[BlogId] AND [b].[IsVisible] = N'Y' AND [b].[BlogId] = @__blogId_0
-WHERE [b].[IsVisible] = N'Y'
+SELECT `b`.`Url`
+FROM `Blog` AS `b`
+INNER JOIN `Post` AS `p` ON `b`.`BlogId` = `p`.`BlogId` AND `b`.`IsVisible` = 'Y' AND `b`.`BlogId` = @blogId
+WHERE `b`.`IsVisible` = 'Y'
 """);
         }
 
@@ -212,12 +212,12 @@ WHERE [b].[IsVisible] = N'Y'
 
             AssertSql(
                 """
-@__blogId_0='1'
+@blogId='1'
 
-SELECT [b].[Url]
-FROM [Blog] AS [b]
-LEFT JOIN [Post] AS [p] ON [b].[BlogId] = [p].[BlogId] AND [b].[IsVisible] = N'Y' AND [b].[BlogId] = @__blogId_0
-WHERE [b].[IsVisible] = N'Y'
+SELECT `b`.`Url`
+FROM `Blog` AS `b`
+LEFT JOIN `Post` AS `p` ON `b`.`BlogId` = `p`.`BlogId` AND `b`.`IsVisible` = 'Y' AND `b`.`BlogId` = @blogId
+WHERE `b`.`IsVisible` = 'Y'
 """);
         }
 

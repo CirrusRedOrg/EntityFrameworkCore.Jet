@@ -648,15 +648,12 @@ WHERE NOT EXISTS (
 
             AssertSql(
                 """
-SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `c0`.`c`
-FROM (
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, (
-        SELECT COUNT(*)
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `c`
-    FROM `Customers` AS `c`
-) AS `c0`
-ORDER BY `c0`.`c`, `c0`.`CustomerID`
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY (
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`), `c`.`CustomerID`
 """);
         }
 
@@ -1004,16 +1001,17 @@ ORDER BY `o0`.`OrderID`
             await base.GroupJoin_with_complex_subquery_and_LOJ_gets_flattened(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN (
-                        SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID` AS `OrderID0`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c0`.`CustomerID` AS `CustomerID0`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-                        FROM `Order Details` AS `o`
-                        INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = 10260
-                        INNER JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
-                    ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID0`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+LEFT JOIN (
+    SELECT `c0`.`CustomerID` AS `CustomerID0`
+    FROM (`Order Details` AS `o`
+    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = 10260)
+    LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
+    WHERE `o0`.`CustomerID` IS NOT NULL AND `c0`.`CustomerID` IS NOT NULL
+) AS `s` ON `c`.`CustomerID` = `s`.`CustomerID0`
+""");
         }
 
         public override async Task GroupJoin_with_complex_subquery_and_LOJ_gets_flattened2(bool isAsync)
@@ -1021,16 +1019,17 @@ ORDER BY `o0`.`OrderID`
             await base.GroupJoin_with_complex_subquery_and_LOJ_gets_flattened2(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN (
-                        SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID` AS `OrderID0`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c0`.`CustomerID` AS `CustomerID0`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-                        FROM `Order Details` AS `o`
-                        INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = 10260
-                        INNER JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
-                    ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID0`
-                    """);
+                """
+SELECT `c`.`CustomerID`
+FROM `Customers` AS `c`
+LEFT JOIN (
+    SELECT `c0`.`CustomerID` AS `CustomerID0`
+    FROM (`Order Details` AS `o`
+    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = 10260)
+    LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
+    WHERE `o0`.`CustomerID` IS NOT NULL AND `c0`.`CustomerID` IS NOT NULL
+) AS `s` ON `c`.`CustomerID` = `s`.`CustomerID0`
+""");
         }
 
         public override async Task Navigation_with_collection_with_nullable_type_key(bool isAsync)

@@ -1107,30 +1107,6 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
                 return sqlFunctionExpression;
             }
 
-            // Jet/ACE has no NULLIF - "Undefined function 'NULLIF' in expression" (verified against ACE). EF
-            // produces it in SqlExpressionFactory.Case, which collapses `a == b ? null : a` into
-            // Function("NULLIF", [a, b]), so there is no translator to override upstream: by the time the tree
-            // reaches a provider it is already a function call.
-            //
-            // The SQL standard defines NULLIF(a, b) as shorthand for CASE WHEN a = b THEN NULL ELSE a END, so
-            // rebuild exactly that and let VisitCase render it - which for Jet means IIF(a = b, NULL, a).
-            // Emitting the CASE rather than the text reuses the existing operator and NULL-literal rendering,
-            // and mirrors how binary Coalesce is handled above.
-            //
-            // 'a' is written twice, which the standard's own definition also implies; Jet has no way to say it
-            // once.
-            if (sqlFunctionExpression.Name.Equals("NULLIF", StringComparison.OrdinalIgnoreCase)
-                && sqlFunctionExpression.Arguments is [var nullIfLeft, var nullIfRight])
-            {
-                var equal = new SqlBinaryExpression(
-                    ExpressionType.Equal, nullIfLeft, nullIfRight, typeof(bool), null);
-                var nullResult = new SqlConstantExpression(
-                    null, sqlFunctionExpression.Type, sqlFunctionExpression.TypeMapping);
-
-                Visit(new CaseExpression([new CaseWhenClause(equal, nullResult)], nullIfLeft));
-                return sqlFunctionExpression;
-            }
-
             // The guard has to be applied here rather than in the query tree: EF removes a CASE that merely
             // replicates SQL's native null propagation (dotnet/efcore#34127), which is what this looks like to
             // every dialect where these functions do propagate. IIF short-circuits, so the call is not evaluated.

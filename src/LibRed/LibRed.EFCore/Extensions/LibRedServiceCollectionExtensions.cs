@@ -60,7 +60,7 @@ public static class LibRedServiceCollectionExtensions
             .TryAdd<IQueryTranslationPreprocessorFactory, JetQueryTranslationPreprocessorFactory>()
             .TryAdd<IQueryTranslationPostprocessorFactory, LibRedQueryTranslationPostprocessorFactory>()
             .TryAdd<IRelationalTransactionFactory, LibRedTransactionFactory>()
-            .TryAdd<IRelationalParameterBasedSqlProcessorFactory, JetParameterBasedSqlProcessorFactory>()
+            .TryAdd<IRelationalParameterBasedSqlProcessorFactory, LibRedParameterBasedSqlProcessorFactory>()
             .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory, JetQueryableMethodTranslatingExpressionVisitorFactory>()
             .TryAddProviderSpecificServices(
                 b => b

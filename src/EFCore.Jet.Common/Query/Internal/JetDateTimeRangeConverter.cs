@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal;
 ///         alone: <c>d == default</c> must keep matching the epoch a default was stored as.
 ///     </para>
 ///     <para>
-///         This has to run in <see cref="JetParameterBasedSqlProcessor" /> rather than in the compile-time
+///         This has to run in <c>JetParameterBasedSqlProcessor</c> rather than in the compile-time
 ///         <c>JetDateTimeExpressionVisitor</c>, because the value normally arrives as a parameter and query
 ///         compilation is cached across invocations, so no value is available there. Nor can it be deferred to
 ///         a value-independent clamp in the emitted SQL: by then the DateTime type mapping has already replaced

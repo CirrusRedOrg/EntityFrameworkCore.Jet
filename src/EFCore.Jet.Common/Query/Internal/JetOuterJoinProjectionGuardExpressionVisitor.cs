@@ -48,7 +48,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
     ///         guard's test, <c>anchor IS NULL</c>, is provably false — the anchor is non-nullable within the
     ///         subquery — so <c>SqlNullabilityProcessor</c> folds the whole <c>CASE</c> straight back to its
     ///         <c>ELSE</c> branch, restoring the bare literal. Applied in
-    ///         <see cref="JetParameterBasedSqlProcessor" /> <em>after</em> <c>base.Process</c>, it runs past that
+    ///         <c>JetParameterBasedSqlProcessor</c> <em>after</em> <c>base.Process</c>, it runs past that
     ///         optimization and survives to SQL generation. Moving it earlier silently reverts it: the tree looks
     ///         correct on the way out and the generator still receives the original literal.
     ///     </para>

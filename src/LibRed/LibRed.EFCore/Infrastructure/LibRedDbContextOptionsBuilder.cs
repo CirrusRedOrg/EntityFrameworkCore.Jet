@@ -30,6 +30,15 @@ namespace EntityFrameworkCore.LibRed.Infrastructure
             => WithOption(e => e.WithUseShortTextForSystemString(enabled));
 
         /// <summary>
+        ///     Selects the SQL dialect the provider generates. <see cref="LibRedSqlMode.Compatible" /> generates SQL
+        ///     that the Jet/ACE engine also accepts, using the same SQL generator as the EntityFrameworkCore.Jet
+        ///     provider; <see cref="LibRedSqlMode.Extended" /> uses LibRed's own SQL generator, which is free of the
+        ///     Jet dialect's limitations and is the default.
+        /// </summary>
+        public virtual LibRedDbContextOptionsBuilder UseSqlMode(LibRedSqlMode sqlMode = LibRedSqlMode.Compatible)
+            => WithOption(e => e.WithSqlMode(sqlMode));
+
+        /// <summary>
         ///     Configures the context to use the default retrying <see cref="IExecutionStrategy" />.
         /// </summary>
         public virtual LibRedDbContextOptionsBuilder EnableRetryOnFailure()

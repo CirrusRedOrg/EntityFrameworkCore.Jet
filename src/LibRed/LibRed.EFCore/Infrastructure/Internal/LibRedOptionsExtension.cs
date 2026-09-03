@@ -15,6 +15,7 @@ namespace EntityFrameworkCore.LibRed.Infrastructure.Internal
     {
         private DbContextOptionsExtensionInfo? _info;
         private bool _useShortTextForSystemString;
+        private LibRedSqlMode _sqlMode;
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -38,6 +39,7 @@ namespace EntityFrameworkCore.LibRed.Infrastructure.Internal
             : base(copyFrom)
         {
             _useShortTextForSystemString = copyFrom._useShortTextForSystemString;
+            _sqlMode = copyFrom._sqlMode;
         }
 
         /// <summary>
@@ -80,6 +82,30 @@ namespace EntityFrameworkCore.LibRed.Infrastructure.Internal
 
             return clone;
         }
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public virtual LibRedSqlMode SqlMode => _sqlMode;
+
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public virtual LibRedOptionsExtension WithSqlMode(LibRedSqlMode sqlMode)
+        {
+            var clone = (LibRedOptionsExtension)Clone();
+
+            clone._sqlMode = sqlMode;
+
+            return clone;
+        }
+
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
         ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
@@ -123,8 +149,9 @@ namespace EntityFrameworkCore.LibRed.Infrastructure.Internal
 
             public override int GetServiceProviderHashCode()
             {
-                _serviceProviderHash ??= (base.GetServiceProviderHashCode() * 397) ^
-                                           (Extension._useShortTextForSystemString.GetHashCode() * 397);
+                _serviceProviderHash ??= ((base.GetServiceProviderHashCode() * 397) ^
+                                           (Extension._useShortTextForSystemString.GetHashCode() * 397)) ^
+                                           (Extension._sqlMode.GetHashCode() * 397);
 
                 return _serviceProviderHash.Value;
             }
@@ -133,6 +160,8 @@ namespace EntityFrameworkCore.LibRed.Infrastructure.Internal
             {
                 debugInfo["Jet:" + nameof(LibRedDbContextOptionsBuilder.UseShortTextForSystemString)]
                     = Extension._useShortTextForSystemString.GetHashCode().ToString(CultureInfo.InvariantCulture);
+                debugInfo["Jet:" + nameof(LibRedDbContextOptionsBuilder.UseSqlMode)]
+                    = Extension._sqlMode.GetHashCode().ToString(CultureInfo.InvariantCulture);
             }
         }
     }

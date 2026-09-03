@@ -32,6 +32,32 @@ public static class LibRedDbContextOptionsBuilderExtensions
     }
 
     /// <summary>
+    ///     Configures the context to connect to a Jet/ACE database via the native LibRed engine, but without
+    ///     initially setting any <see cref="DbConnection" /> or connection string.
+    /// </summary>
+    /// <param name="optionsBuilder">The builder being used to configure the context.</param>
+    /// <param name="sqlMode">
+    ///     <see cref="LibRedSqlMode.Compatible" /> generates SQL that the Jet/ACE engine also accepts, using the
+    ///     same SQL generator as the EntityFrameworkCore.Jet provider. <see cref="LibRedSqlMode.Extended" /> uses
+    ///     LibRed's own SQL generator, which is free of the Jet dialect's limitations.
+    /// </param>
+    /// <param name="libRedOptionsAction">An optional action to allow additional LibRed specific configuration.</param>
+    /// <returns>The options builder so that further configuration can be chained.</returns>
+    public static DbContextOptionsBuilder UseLibRed(
+        this DbContextOptionsBuilder optionsBuilder,
+        LibRedSqlMode sqlMode,
+        Action<LibRedDbContextOptionsBuilder>? libRedOptionsAction = null)
+    {
+        ArgumentNullException.ThrowIfNull(optionsBuilder);
+
+        var extension = GetOrCreateExtension(optionsBuilder)
+            .WithSqlMode(sqlMode);
+        ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
+
+        return ApplyConfiguration(optionsBuilder, libRedOptionsAction);
+    }
+
+    /// <summary>
     ///     Configures the context to use the native LibRed engine against a Jet/ACE file. The
     ///     connection string takes the form <c>Data Source=path\to\file.accdb</c> (a bare file path
     ///     is also accepted).
@@ -61,21 +87,24 @@ public static class LibRedDbContextOptionsBuilderExtensions
     /// </summary>
     /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
     /// <param name="connectionString"> The file name or connection string of the database to connect to. </param>
-    /// <param name="dataAccessProviderFactory">The <see cref="DbProviderFactory" /> to be used for all
-    /// data access operations by the LibRed connection.</param>
+    /// <param name="sqlMode">
+    ///     <see cref="LibRedSqlMode.Compatible" /> generates SQL that the Jet/ACE engine also accepts, using the
+    ///     same SQL generator as the EntityFrameworkCore.Jet provider. <see cref="LibRedSqlMode.Extended" /> uses
+    ///     LibRed's own SQL generator, which is free of the Jet dialect's limitations.
+    /// </param>
     /// <param name="libRedOptionsAction">An optional action to allow additional LibRed specific configuration.</param>
     /// <returns> The options builder so that further configuration can be chained. </returns>
     public static DbContextOptionsBuilder UseLibRed(
         this DbContextOptionsBuilder optionsBuilder,
         string? connectionString,
-        DbProviderFactory dataAccessProviderFactory,
+        LibRedSqlMode sqlMode,
         Action<LibRedDbContextOptionsBuilder>? libRedOptionsAction = null)
     {
         ArgumentNullException.ThrowIfNull(optionsBuilder);
-        ArgumentNullException.ThrowIfNull(dataAccessProviderFactory);
 
-        var extension = (LibRedOptionsExtension)GetOrCreateExtension(optionsBuilder)
-            .WithConnectionString(connectionString);
+        var extension = ((LibRedOptionsExtension)GetOrCreateExtension(optionsBuilder)
+                .WithConnectionString(connectionString))
+            .WithSqlMode(sqlMode);
         ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
 
         return ApplyConfiguration(optionsBuilder, libRedOptionsAction);
@@ -98,6 +127,30 @@ public static class LibRedDbContextOptionsBuilderExtensions
         DbConnection connection,
         Action<LibRedDbContextOptionsBuilder>? libRedOptionsAction = null)
         => UseLibRed(optionsBuilder, connection, false, libRedOptionsAction);
+
+    // Note: Decision made to use DbConnection not SqlConnection: Issue #772
+    /// <summary>
+    ///     Configures the context to use the native LibRed engine.
+    /// </summary>
+    /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
+    /// <param name="connection">
+    ///     An existing <see cref="LibRedConnection" /> to be used to connect to the database. If the connection is
+    ///     in the open state then EF will not open or close the connection. If the connection is in the closed
+    ///     state then EF will open and close the connection as needed.
+    /// </param>
+    /// <param name="sqlMode">
+    ///     <see cref="LibRedSqlMode.Compatible" /> generates SQL that the Jet/ACE engine also accepts, using the
+    ///     same SQL generator as the EntityFrameworkCore.Jet provider. <see cref="LibRedSqlMode.Extended" /> uses
+    ///     LibRed's own SQL generator, which is free of the Jet dialect's limitations.
+    /// </param>
+    /// <param name="libRedOptionsAction">An optional action to allow additional LibRed specific configuration.</param>
+    /// <returns> The options builder so that further configuration can be chained. </returns>
+    public static DbContextOptionsBuilder UseLibRed(
+        this DbContextOptionsBuilder optionsBuilder,
+        DbConnection connection,
+        LibRedSqlMode sqlMode,
+        Action<LibRedDbContextOptionsBuilder>? libRedOptionsAction = null)
+        => UseLibRed(optionsBuilder, connection, false, sqlMode, libRedOptionsAction);
 
     // Note: Decision made to use DbConnection not SqlConnection: Issue #772
     /// <summary>
@@ -137,6 +190,51 @@ public static class LibRedDbContextOptionsBuilderExtensions
         return ApplyConfiguration(optionsBuilder, libRedOptionsAction);
     }
 
+    // Note: Decision made to use DbConnection not SqlConnection: Issue #772
+    /// <summary>
+    ///     Configures the context to use the native LibRed engine.
+    /// </summary>
+    /// <param name="optionsBuilder">The builder being used to configure the context.</param>
+    /// <param name="connection">
+    ///     An existing <see cref="LibRedConnection" /> to be used to connect to the database. If the connection is
+    ///     in the open state then EF will not open or close the connection. If the connection is in the closed
+    ///     state then EF will open and close the connection as needed.
+    /// </param>
+    /// <param name="contextOwnsConnection">
+    ///     If <see langword="true" />, then EF will take ownership of the connection and will
+    ///     dispose it in the same way it would dispose a connection created by EF. If <see langword="false" />, then the caller still
+    ///     owns the connection and is responsible for its disposal.
+    /// </param>
+    /// <param name="sqlMode">
+    ///     <see cref="LibRedSqlMode.Compatible" /> generates SQL that the Jet/ACE engine also accepts, using the
+    ///     same SQL generator as the EntityFrameworkCore.Jet provider. <see cref="LibRedSqlMode.Extended" /> uses
+    ///     LibRed's own SQL generator, which is free of the Jet dialect's limitations.
+    /// </param>
+    /// <param name="libRedOptionsAction">An optional action to allow additional LibRed specific configuration.</param>
+    /// <returns>The options builder so that further configuration can be chained.</returns>
+    public static DbContextOptionsBuilder UseLibRed(
+        this DbContextOptionsBuilder optionsBuilder,
+        DbConnection connection,
+        bool contextOwnsConnection,
+        LibRedSqlMode sqlMode,
+        Action<LibRedDbContextOptionsBuilder>? libRedOptionsAction = null)
+    {
+        ArgumentNullException.ThrowIfNull(optionsBuilder);
+        ArgumentNullException.ThrowIfNull(connection);
+
+        if (connection is not LibRedConnection)
+        {
+            throw new ArgumentException($"The {nameof(connection)} parameter must be of type {nameof(LibRedConnection)}.");
+        }
+
+        var extension = ((LibRedOptionsExtension)GetOrCreateExtension(optionsBuilder)
+                .WithConnection(connection, contextOwnsConnection))
+            .WithSqlMode(sqlMode);
+        ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(extension);
+
+        return ApplyConfiguration(optionsBuilder, libRedOptionsAction);
+    }
+
     /// <summary>
     ///     Configures the context to connect to a Jet/ACE database via the native LibRed engine, but without
     ///     initially setting any <see cref="DbConnection" /> or connection string.
@@ -150,6 +248,26 @@ public static class LibRedDbContextOptionsBuilderExtensions
         where TContext : DbContext
         => (DbContextOptionsBuilder<TContext>)UseLibRed(
             (DbContextOptionsBuilder)optionsBuilder, libRedOptionsAction);
+
+    /// <summary>
+    ///     Configures the context to connect to a Jet/ACE database via the native LibRed engine, but without
+    ///     initially setting any <see cref="DbConnection" /> or connection string.
+    /// </summary>
+    /// <param name="optionsBuilder">The builder being used to configure the context.</param>
+    /// <param name="sqlMode">
+    ///     <see cref="LibRedSqlMode.Compatible" /> generates SQL that the Jet/ACE engine also accepts, using the
+    ///     same SQL generator as the EntityFrameworkCore.Jet provider. <see cref="LibRedSqlMode.Extended" /> uses
+    ///     LibRed's own SQL generator, which is free of the Jet dialect's limitations.
+    /// </param>
+    /// <param name="libRedOptionsAction">An optional action to allow additional LibRed specific configuration.</param>
+    /// <returns>The options builder so that further configuration can be chained.</returns>
+    public static DbContextOptionsBuilder<TContext> UseLibRed<TContext>(
+        this DbContextOptionsBuilder<TContext> optionsBuilder,
+        LibRedSqlMode sqlMode,
+        Action<LibRedDbContextOptionsBuilder>? libRedOptionsAction = null)
+        where TContext : DbContext
+        => (DbContextOptionsBuilder<TContext>)UseLibRed(
+            (DbContextOptionsBuilder)optionsBuilder, sqlMode, libRedOptionsAction);
 
     /// <summary>
     ///     Configures the context to use the native LibRed engine against a Jet/ACE file. The
@@ -175,18 +293,21 @@ public static class LibRedDbContextOptionsBuilderExtensions
     /// </summary>
     /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
     /// <param name="connectionString"> The file name or connection string of the database to connect to. </param>
-    /// <param name="dataAccessProviderFactory">The <see cref="DbProviderFactory" /> to be used for all
-    /// data access operations by the LibRed connection.</param>
+    /// <param name="sqlMode">
+    ///     <see cref="LibRedSqlMode.Compatible" /> generates SQL that the Jet/ACE engine also accepts, using the
+    ///     same SQL generator as the EntityFrameworkCore.Jet provider. <see cref="LibRedSqlMode.Extended" /> uses
+    ///     LibRed's own SQL generator, which is free of the Jet dialect's limitations.
+    /// </param>
     /// <param name="libRedOptionsAction">An optional action to allow additional LibRed specific configuration.</param>
     /// <returns> The options builder so that further configuration can be chained. </returns>
     public static DbContextOptionsBuilder<TContext> UseLibRed<TContext>(
         this DbContextOptionsBuilder<TContext> optionsBuilder,
         string? connectionString,
-        DbProviderFactory dataAccessProviderFactory,
+        LibRedSqlMode sqlMode,
         Action<LibRedDbContextOptionsBuilder>? libRedOptionsAction = null)
         where TContext : DbContext
         => (DbContextOptionsBuilder<TContext>)UseLibRed(
-            (DbContextOptionsBuilder)optionsBuilder, connectionString, dataAccessProviderFactory, libRedOptionsAction);
+            (DbContextOptionsBuilder)optionsBuilder, connectionString, sqlMode, libRedOptionsAction);
 
     // Note: Decision made to use DbConnection not SqlConnection: Issue #772
     /// <summary>
@@ -208,6 +329,33 @@ public static class LibRedDbContextOptionsBuilderExtensions
         where TContext : DbContext
         => (DbContextOptionsBuilder<TContext>)UseLibRed(
             (DbContextOptionsBuilder)optionsBuilder, connection, libRedOptionsAction);
+
+    // Note: Decision made to use DbConnection not SqlConnection: Issue #772
+    /// <summary>
+    ///     Configures the context to use the native LibRed engine.
+    /// </summary>
+    /// <typeparam name="TContext"> The type of context to be configured. </typeparam>
+    /// <param name="optionsBuilder"> The builder being used to configure the context. </param>
+    /// <param name="connection">
+    ///     An existing <see cref="LibRedConnection" /> to be used to connect to the database. If the connection is
+    ///     in the open state then EF will not open or close the connection. If the connection is in the closed
+    ///     state then EF will open and close the connection as needed.
+    /// </param>
+    /// <param name="sqlMode">
+    ///     <see cref="LibRedSqlMode.Compatible" /> generates SQL that the Jet/ACE engine also accepts, using the
+    ///     same SQL generator as the EntityFrameworkCore.Jet provider. <see cref="LibRedSqlMode.Extended" /> uses
+    ///     LibRed's own SQL generator, which is free of the Jet dialect's limitations.
+    /// </param>
+    /// <param name="libRedOptionsAction">An optional action to allow additional LibRed specific configuration.</param>
+    /// <returns> The options builder so that further configuration can be chained. </returns>
+    public static DbContextOptionsBuilder<TContext> UseLibRed<TContext>(
+        this DbContextOptionsBuilder<TContext> optionsBuilder,
+        DbConnection connection,
+        LibRedSqlMode sqlMode,
+        Action<LibRedDbContextOptionsBuilder>? libRedOptionsAction = null)
+        where TContext : DbContext
+        => (DbContextOptionsBuilder<TContext>)UseLibRed(
+            (DbContextOptionsBuilder)optionsBuilder, connection, sqlMode, libRedOptionsAction);
 
     // Note: Decision made to use DbConnection not SqlConnection: Issue #772
     /// <summary>
@@ -235,6 +383,39 @@ public static class LibRedDbContextOptionsBuilderExtensions
         where TContext : DbContext
         => (DbContextOptionsBuilder<TContext>)UseLibRed(
             (DbContextOptionsBuilder)optionsBuilder, connection, contextOwnsConnection, libRedOptionsAction);
+
+    // Note: Decision made to use DbConnection not SqlConnection: Issue #772
+    /// <summary>
+    ///     Configures the context to use the native LibRed engine.
+    /// </summary>
+    /// <typeparam name="TContext">The type of context to be configured.</typeparam>
+    /// <param name="optionsBuilder">The builder being used to configure the context.</param>
+    /// <param name="connection">
+    ///     An existing <see cref="LibRedConnection" /> to be used to connect to the database. If the connection is
+    ///     in the open state then EF will not open or close the connection. If the connection is in the closed
+    ///     state then EF will open and close the connection as needed.
+    /// </param>
+    /// <param name="contextOwnsConnection">
+    ///     If <see langword="true" />, then EF will take ownership of the connection and will
+    ///     dispose it in the same way it would dispose a connection created by EF. If <see langword="false" />, then the caller still
+    ///     owns the connection and is responsible for its disposal.
+    /// </param>
+    /// <param name="sqlMode">
+    ///     <see cref="LibRedSqlMode.Compatible" /> generates SQL that the Jet/ACE engine also accepts, using the
+    ///     same SQL generator as the EntityFrameworkCore.Jet provider. <see cref="LibRedSqlMode.Extended" /> uses
+    ///     LibRed's own SQL generator, which is free of the Jet dialect's limitations.
+    /// </param>
+    /// <param name="libRedOptionsAction">An optional action to allow additional LibRed specific configuration.</param>
+    /// <returns>The options builder so that further configuration can be chained.</returns>
+    public static DbContextOptionsBuilder<TContext> UseLibRed<TContext>(
+        this DbContextOptionsBuilder<TContext> optionsBuilder,
+        DbConnection connection,
+        bool contextOwnsConnection,
+        LibRedSqlMode sqlMode,
+        Action<LibRedDbContextOptionsBuilder>? libRedOptionsAction = null)
+        where TContext : DbContext
+        => (DbContextOptionsBuilder<TContext>)UseLibRed(
+            (DbContextOptionsBuilder)optionsBuilder, connection, contextOwnsConnection, sqlMode, libRedOptionsAction);
 
     private static LibRedOptionsExtension GetOrCreateExtension(DbContextOptionsBuilder optionsBuilder)
         => optionsBuilder.Options.FindExtension<LibRedOptionsExtension>()

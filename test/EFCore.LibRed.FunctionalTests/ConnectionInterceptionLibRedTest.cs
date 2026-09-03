@@ -29,10 +29,10 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 => base.InjectInterceptors(serviceCollection.AddEntityFrameworkLibRed(), injectedInterceptors);
         }
         protected override DbContextOptionsBuilder ConfigureProvider(DbContextOptionsBuilder optionsBuilder)
-        => optionsBuilder.UseLibRed();
+        => optionsBuilder.UseLibRed(b => b.UseSqlMode());
 
         protected override BadUniverseContext CreateBadUniverse(DbContextOptionsBuilder optionsBuilder)
-            => new(optionsBuilder.UseLibRed(new FakeDbConnection()).Options);
+            => new(optionsBuilder.UseLibRed(new FakeDbConnection(), b => b.UseSqlMode()).Options);
 
         public class FakeDbConnection : DbConnection
         {

@@ -1453,7 +1453,7 @@ namespace ModelSnapshot22
     public class BloggingContext : DbContext
     {
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            => optionsBuilder.UseLibRed(@"Server=(localdb)\mssqllocaldb;Database=Test;ConnectRetryCount=0");
+            => optionsBuilder.UseLibRed(@"Server=(localdb)\mssqllocaldb;Database=Test;ConnectRetryCount=0", b => b.UseSqlMode());
 
         public DbSet<Blog> Blogs { get; set; }
 
@@ -1470,7 +1470,7 @@ namespace Identity30.Data
     public class ApplicationDbContext : IdentityDbContext
     {
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            => optionsBuilder.UseLibRed(@"Server=(localdb)\mssqllocaldb;Database=Test;ConnectRetryCount=0");
+            => optionsBuilder.UseLibRed(@"Server=(localdb)\mssqllocaldb;Database=Test;ConnectRetryCount=0", b => b.UseSqlMode());
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

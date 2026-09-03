@@ -488,7 +488,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 = new ServiceCollection()
                     .AddSingleton<IConfiguration>(configBuilder.Build())
                     .AddDbContext<UseConfigurationContext>(
-                        b => b.UseLibRed(connectionString).EnableServiceProviderCaching(false))
+                        b => b.UseLibRed(connectionString, o => o.UseSqlMode()).EnableServiceProviderCaching(false))
                     .BuildServiceProvider(validateScopes: true);
 
             await using (await LibRedTestStore.GetNorthwindStoreAsync())

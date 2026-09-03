@@ -18,9 +18,9 @@ public class TwoDatabasesLibRedTest(LibRedFixture fixture) : TwoDatabasesTestBas
         bool withNullConnectionString = false)
         => withConnectionString
             ? withNullConnectionString
-                ? optionsBuilder.UseLibRed((string)null)
-                : optionsBuilder.UseLibRed(DummyConnectionString)
-            : optionsBuilder.UseLibRed(LibRedTestStore.CreateConnectionString("TwoDatabasesLibRedTest"));
+                ? optionsBuilder.UseLibRed((string)null, b => b.UseSqlMode())
+                : optionsBuilder.UseLibRed(DummyConnectionString, b => b.UseSqlMode())
+            : optionsBuilder.UseLibRed(LibRedTestStore.CreateConnectionString("TwoDatabasesLibRedTest"), b => b.UseSqlMode());
 
     protected override TwoDatabasesWithDataContext CreateBackingContext(string databaseName)
         => new(Fixture.CreateOptions(LibRedTestStore.Create(databaseName)));

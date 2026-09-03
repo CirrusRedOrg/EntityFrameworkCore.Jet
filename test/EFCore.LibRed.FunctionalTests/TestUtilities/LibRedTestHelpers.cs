@@ -21,7 +21,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities
             => services.AddEntityFrameworkLibRed();
 
         public override DbContextOptionsBuilder UseProviderOptions(DbContextOptionsBuilder optionsBuilder)
-            => optionsBuilder.UseLibRed(new LibRedConnection("Database=DummyDatabase"));
+            => optionsBuilder.UseLibRed(new LibRedConnection("Database=DummyDatabase"), b => b.UseSqlMode());
 
         public override LoggingDefinitions LoggingDefinitions { get; } = new JetLoggingDefinitions();
 

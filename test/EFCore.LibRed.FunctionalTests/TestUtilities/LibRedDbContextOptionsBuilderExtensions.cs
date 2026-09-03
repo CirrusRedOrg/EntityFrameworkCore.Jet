@@ -16,6 +16,8 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities
                 optionsBuilder.MaxBatchSize(maxBatch.Value);
             }
 
+            optionsBuilder.UseSqlMode();
+
             optionsBuilder.UseQuerySplittingBehavior(QuerySplittingBehavior.SingleQuery);
 
             optionsBuilder.ExecutionStrategy(d => new TestLibRedRetryingExecutionStrategy(d));

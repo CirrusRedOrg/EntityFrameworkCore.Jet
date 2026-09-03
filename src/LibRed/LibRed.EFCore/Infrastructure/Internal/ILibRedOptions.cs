@@ -9,5 +9,6 @@ namespace EntityFrameworkCore.LibRed.Infrastructure.Internal
     {
         string? ConnectionString { get; }
         bool UseShortTextForSystemString { get; }
+        LibRedSqlMode SqlMode { get; }
     }
 }

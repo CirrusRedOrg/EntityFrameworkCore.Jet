@@ -496,11 +496,26 @@ internal sealed class AstBuilder
         CollectPrimary(ts.tablePrimary(), tables, joins);
         foreach (JoinClauseContext jc in ts.joinClause())
         {
-            CollectPrimary(jc.tablePrimary(), tables, joins);
-            // Access records the join by the two tables named in its condition (Name1/Name2), not the
-            // structural left/right (which for a nested group is a whole subtree).
-            (string left, string right) = JoinSides(jc.expression());
-            joins.Add(new ViewJoin(ViewJoinKindOf(jc.joinType()), OriginalText(jc.expression()), left, right));
+            switch (jc)
+            {
+                case ConditionalJoinContext c:
+                    CollectPrimary(c.tablePrimary(), tables, joins);
+                    // Access records the join by the two tables named in its condition (Name1/Name2), not the
+                    // structural left/right (which for a nested group is a whole subtree).
+                    (string left, string right) = JoinSides(c.expression());
+                    joins.Add(new ViewJoin(ViewJoinKindOf(c.joinType()), OriginalText(c.expression()), left, right));
+                    break;
+
+                // A CROSS JOIN contributes a source and no join: Access has no CROSS JOIN keyword and records
+                // joins by their condition, so a cartesian product is stored exactly as the comma form is —
+                // another table with nothing joining it. The two spellings decompose identically.
+                case CrossJoinContext x:
+                    CollectPrimary(x.tablePrimary(), tables, joins);
+                    break;
+
+                default:
+                    throw new SqlParseException($"Unsupported join in a view: {jc.GetText()}");
+            }
         }
     }
 
@@ -770,8 +785,16 @@ internal sealed class AstBuilder
         TableReference table = BuildTablePrimary(ctx.tablePrimary());
         foreach (JoinClauseContext join in ctx.joinClause())
         {
-            TableReference right = BuildTablePrimary(join.tablePrimary());
-            table = new JoinTable(table, right, JoinKindOf(join.joinType()), BuildExpression(join.expression()));
+            // A CROSS JOIN carries no ON, so it builds the same node the comma form does: kind Cross with a
+            // null condition. Everything downstream already understands that shape.
+            table = join switch
+            {
+                ConditionalJoinContext c => new JoinTable(
+                    table, BuildTablePrimary(c.tablePrimary()), JoinKindOf(c.joinType()), BuildExpression(c.expression())),
+                CrossJoinContext x => new JoinTable(
+                    table, BuildTablePrimary(x.tablePrimary()), JoinKind.Cross, null),
+                _ => throw new SqlParseException($"Unsupported join: {join.GetText()}"),
+            };
         }
         return table;
     }

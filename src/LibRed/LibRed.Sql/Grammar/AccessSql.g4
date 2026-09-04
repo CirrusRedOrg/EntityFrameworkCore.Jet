@@ -292,7 +292,15 @@ tablePrimary
     | LPAREN tableSource RPAREN                                 # ParenJoinPrimary
     ;
 
-joinClause : joinType JOIN tablePrimary ON expression ;
+// An ON condition is required for the conditional join types and forbidden for CROSS JOIN, which pairs every
+// row with every row and so has nothing to condition on. Access has no CROSS JOIN keyword — a cartesian
+// product is written there as comma-separated sources in the FROM clause, which `fromClause` still accepts
+// and which builds the identical tree. EF Core's base generator emits the explicit form, so LibRed takes
+// both spellings for the same thing.
+joinClause
+    : joinType JOIN tablePrimary ON expression   # ConditionalJoin
+    | CROSS JOIN tablePrimary                    # CrossJoin
+    ;
 
 // FULL [OUTER] JOIN is a LibRed extension: ACE has no full outer join at all, and no way to express one
 // (its query designer offers only the three above). FULL is therefore a keyword here that is not reserved in
@@ -430,6 +438,7 @@ THEN   : [Tt][Hh][Ee][Nn] ;
 DISTINCTROW : [Dd][Ii][Ss][Tt][Ii][Nn][Cc][Tt][Rr][Oo][Ww] ;
 DISTINCT : [Dd][Ii][Ss][Tt][Ii][Nn][Cc][Tt] ;
 PERCENT  : [Pp][Ee][Rr][Cc][Ee][Nn][Tt] ;
+CROSS    : [Cc][Rr][Oo][Ss][Ss] ;
 CASE     : [Cc][Aa][Ss][Ee] ;
 WHEN     : [Ww][Hh][Ee][Nn] ;
 ELSE     : [Ee][Ll][Ss][Ee] ;

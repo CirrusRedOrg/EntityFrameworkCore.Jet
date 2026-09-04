@@ -581,11 +581,19 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitParenJoinPrimary([NotNull] AccessSqlParser.ParenJoinPrimaryContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AccessSqlParser.joinClause"/>.
+	/// Visit a parse tree produced by the <c>ConditionalJoin</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinClause"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitJoinClause([NotNull] AccessSqlParser.JoinClauseContext context);
+	Result VisitConditionalJoin([NotNull] AccessSqlParser.ConditionalJoinContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>CrossJoin</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinClause"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCrossJoin([NotNull] AccessSqlParser.CrossJoinContext context);
 	/// <summary>
 	/// Visit a parse tree produced by the <c>InnerJoin</c>
 	/// labeled alternative in <see cref="AccessSqlParser.joinType"/>.

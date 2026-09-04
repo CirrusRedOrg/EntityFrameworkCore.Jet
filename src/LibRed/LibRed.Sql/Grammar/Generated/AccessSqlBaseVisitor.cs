@@ -920,7 +920,8 @@ public partial class AccessSqlBaseVisitor<Result> : AbstractParseTreeVisitor<Res
 	/// <return>The visitor result.</return>
 	public virtual Result VisitParenJoinPrimary([NotNull] AccessSqlParser.ParenJoinPrimaryContext context) { return VisitChildren(context); }
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AccessSqlParser.joinClause"/>.
+	/// Visit a parse tree produced by the <c>ConditionalJoin</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinClause"/>.
 	/// <para>
 	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
 	/// on <paramref name="context"/>.
@@ -928,7 +929,18 @@ public partial class AccessSqlBaseVisitor<Result> : AbstractParseTreeVisitor<Res
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	public virtual Result VisitJoinClause([NotNull] AccessSqlParser.JoinClauseContext context) { return VisitChildren(context); }
+	public virtual Result VisitConditionalJoin([NotNull] AccessSqlParser.ConditionalJoinContext context) { return VisitChildren(context); }
+	/// <summary>
+	/// Visit a parse tree produced by the <c>CrossJoin</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinClause"/>.
+	/// <para>
+	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
+	/// on <paramref name="context"/>.
+	/// </para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	public virtual Result VisitCrossJoin([NotNull] AccessSqlParser.CrossJoinContext context) { return VisitChildren(context); }
 	/// <summary>
 	/// Visit a parse tree produced by the <c>InnerJoin</c>
 	/// labeled alternative in <see cref="AccessSqlParser.joinType"/>.

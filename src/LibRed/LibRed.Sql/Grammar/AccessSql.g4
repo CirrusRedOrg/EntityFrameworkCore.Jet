@@ -373,7 +373,14 @@ caseWhen : WHEN condition=expression THEN result=expression ;
 
 // An optional DISTINCT before the argument applies to aggregates (COUNT/SUM/AVG/…): the aggregate operates
 // on the distinct set of the argument's VALUES (COUNT(DISTINCT col)), not on distinct rows — see DISTINCTROW.
-functionCall : name=functionName LPAREN (star=STAR | (distinct=DISTINCT? expression (COMMA expression)*))? RPAREN ;
+// The OVER clause hangs off the call itself rather than off a list of window-function names. That is what makes
+// a new window function cost NO grammar at all: ROW_NUMBER, RANK, NTILE and friends already lex as IDENTIFIER
+// and reach here through `functionName`, and `SUM(x) OVER (…)` — an aggregate over a window — parses for free
+// as the same shape. Access has no window functions; this is a LibRed extension for extended mode.
+functionCall
+    : name=functionName LPAREN (star=STAR | (distinct=DISTINCT? expression (COMMA expression)*))? RPAREN
+      (OVER windowSpecification)?
+    ;
 // A function name is an identifier, or the LEFT/RIGHT/ASC keywords used as the Left()/Right()/Asc() functions —
 // unambiguous with LEFT/RIGHT JOIN and ORDER BY ... ASC because a function call is always followed by '(' and
 // never appears in the FROM/ORDER BY clause.
@@ -381,7 +388,10 @@ functionCall : name=functionName LPAREN (star=STAR | (distinct=DISTINCT? express
 // call stops parsing: Left/Right/Asc, and FIRST — which `offsetFetchClause` needs as a keyword for
 // `FETCH FIRST`, but which is also the Access aggregate First(). (LAST is not listed because nothing else
 // claims it as a keyword.)
-functionName : identifier | LEFT | RIGHT | ASC | FIRST ;
+// PARTITION is readmitted for the same reason: `PARTITION BY` makes it a keyword, but Access has a real VBA
+// Partition(number, start, stop, interval) function that LibRed implements and tests. A function call is always
+// followed by '(' and `PARTITION BY` never is, so the two never collide.
+functionName : identifier | LEFT | RIGHT | ASC | FIRST | PARTITION ;
 
 columnRef : (qualifier=identifier DOT)? name=identifier ;
 
@@ -412,6 +422,16 @@ transactionStatement
 // EOF prevents a valid prefix from silently weakening the stored expression's intended meaning.
 // Kept after the existing parser rules so adding it does not renumber their generated rule ids.
 standaloneExpression : expression EOF ;
+
+// A window function's OVER (…). Both parts are optional here even though EF Core always emits both and the
+// standard's defaults differ (no PARTITION BY = one partition over the whole input; no ORDER BY = every row a
+// peer), because rejecting them in the grammar would report a parse error where a semantic one is clearer.
+// A frame clause (ROWS/RANGE BETWEEN …) goes before the RPAREN when something needs one — nothing emits one
+// today, and admitting it now would reserve five more keywords (RANGE, PRECEDING, FOLLOWING, UNBOUNDED,
+// CURRENT) to buy nothing. Kept after the existing parser rules so adding it does not renumber their ids.
+windowSpecification
+    : LPAREN (PARTITION BY partition+=expression (COMMA partition+=expression)*)? orderByClause? RPAREN
+    ;
 
 // ---- Lexer ----
 
@@ -450,6 +470,8 @@ DISTINCT : [Dd][Ii][Ss][Tt][Ii][Nn][Cc][Tt] ;
 PERCENT  : [Pp][Ee][Rr][Cc][Ee][Nn][Tt] ;
 CROSS    : [Cc][Rr][Oo][Ss][Ss] ;
 APPLY    : [Aa][Pp][Pp][Ll][Yy] ;
+OVER     : [Oo][Vv][Ee][Rr] ;
+PARTITION : [Pp][Aa][Rr][Tt][Ii][Tt][Ii][Oo][Nn] ;
 CASE     : [Cc][Aa][Ss][Ee] ;
 WHEN     : [Ww][Hh][Ee][Nn] ;
 ELSE     : [Ee][Ll][Ss][Ee] ;

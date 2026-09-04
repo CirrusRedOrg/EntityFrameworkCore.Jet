@@ -444,6 +444,17 @@ internal sealed class AstBuilder
         BinaryExpression b => b with { Left = LowerExpr(b.Left, names), Right = LowerExpr(b.Right, names) },
         UnaryExpression u => u with { Operand = LowerExpr(u.Operand, names) },
         FunctionCall f => f with { Arguments = f.Arguments.Select(a => LowerExpr(a, names)).ToList() },
+        // A window function lowers like any other call — arguments AND the OVER clause, since a PARAMETERS name
+        // can appear in a PARTITION BY or ORDER BY expression just as readily as in an argument.
+        WindowFunction w => w with
+        {
+            Arguments = w.Arguments.Select(a => LowerExpr(a, names)).ToList(),
+            Over = w.Over with
+            {
+                PartitionBy = w.Over.PartitionBy.Select(p => LowerExpr(p, names)).ToList(),
+                OrderBy = w.Over.OrderBy.Select(o => o with { Value = LowerExpr(o.Value, names) }).ToList(),
+            },
+        },
         ScalarSubquery s => new ScalarSubquery(LowerSelect(s.Query, names)),
         ExistsExpression x => new ExistsExpression(LowerSelect(x.Query, names)),
         InSubqueryExpression i => i with { Value = LowerExpr(i.Value, names), Query = LowerSelect(i.Query, names) },
@@ -887,8 +898,16 @@ internal sealed class AstBuilder
         IReadOnlyList<Expression> args = ctx.star is not null
             ? [new StarExpression()]
             : ctx.expression().Select(BuildExpression).ToList();
-        return new FunctionCall(FunctionName(ctx.name), args, Distinct: ctx.distinct is not null);
+        // An OVER clause turns the same call into a window function, which is a different kind of node rather
+        // than a FunctionCall carrying a spec — see WindowFunction for why the distinction has to be in the type.
+        return ctx.windowSpecification() is { } over
+            ? new WindowFunction(FunctionName(ctx.name), args, BuildWindowSpec(over))
+            : new FunctionCall(FunctionName(ctx.name), args, Distinct: ctx.distinct is not null);
     }
+
+    private static WindowSpec BuildWindowSpec(WindowSpecificationContext ctx) =>
+        new(ctx._partition.Select(BuildExpression).ToList(),
+            ctx.orderByClause() is { } o ? o.orderByItem().Select(BuildOrderByItem).ToList() : []);
 
     /// <summary>A function name: an identifier, or the LEFT/RIGHT keyword tokens as Left()/Right().</summary>
     private static string FunctionName(FunctionNameContext ctx) =>

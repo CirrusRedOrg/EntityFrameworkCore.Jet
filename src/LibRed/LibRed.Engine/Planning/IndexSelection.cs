@@ -35,6 +35,11 @@ internal static class IndexSelection
             LimitNode l => l with { Input = Apply(l.Input, catalog, outer) },
             AggregateNode a => a with { Input = Apply(a.Input, catalog, outer) },
             DerivedTableNode dt => dt with { Input = Apply(dt.Input, catalog, outer) },
+            // Must be here, not left to the `_` arm below: that arm does not merely decline to rewrite this
+            // node, it stops DESCENDING, so the whole subtree loses index selection. A WindowNode sits directly
+            // above the Filter-over-Scan that RewriteFilterOverScan turns into a seek, so omitting this would
+            // silently make every windowed query a full scan — correct results, catastrophic plans.
+            WindowNode w => w with { Input = Apply(w.Input, catalog, outer) },
             SetOperationNode so => so with { Left = Apply(so.Left, catalog, outer), Right = Apply(so.Right, catalog, outer) },
             _ => node,
         };
@@ -339,6 +344,9 @@ internal static class IndexSelection
         // t.Id = …)`), so it must never be used as a seek key/bound — treat it as referencing a column. (A
         // seek bound is evaluated once, with no row scope; a correlated subquery would fail to resolve there.)
         ScalarSubquery or ExistsExpression or InSubqueryExpression => true,
+        // Same reasoning, and the same reason to be explicit: this switch's default means "no column reference"
+        // — i.e. usable as a seek bound — so an unlisted node fails towards a WRONG seek, not a missed one.
+        WindowFunction => true,
         BinaryExpression b => HasColumnRef(b.Left) || HasColumnRef(b.Right),
         UnaryExpression u => HasColumnRef(u.Operand),
         FunctionCall f => f.Arguments.Any(HasColumnRef),

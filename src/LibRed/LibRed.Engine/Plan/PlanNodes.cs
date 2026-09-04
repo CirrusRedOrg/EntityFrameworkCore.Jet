@@ -89,6 +89,26 @@ public sealed record AggregateNode(
     public override IReadOnlyList<PlanNode> Children => [Input];
 }
 
+/// <summary>One window function and the name of the column <see cref="WindowNode"/> publishes its value under.
+/// The planner mints the name and rewrites the call in the projection into a reference to it.</summary>
+public sealed record WindowOutput(string Name, WindowFunction Function);
+
+/// <summary>
+/// Computes window functions over its input, appending one column per <see cref="WindowOutput"/> and passing
+/// every input row through unchanged and <b>in input order</b>. Order preservation is load-bearing: the sort
+/// sits above this node, so emitting rows in partition order would silently reorder any query that both uses a
+/// window and has its own ORDER BY.
+/// </summary>
+/// <remarks>
+/// A window value depends on the other rows of its partition, and partitions are only known once the input is
+/// exhausted, so this node materialises its input — as <see cref="AggregateNode"/> does. Its schema, however, is
+/// derived from the input schema alone, so it is still resolved without reading a row.
+/// </remarks>
+public sealed record WindowNode(PlanNode Input, IReadOnlyList<WindowOutput> Outputs) : PlanNode
+{
+    public override IReadOnlyList<PlanNode> Children => [Input];
+}
+
 /// <summary>Orders rows.</summary>
 /// <param name="Limit">
 /// When set, only this many rows are needed from the ordering, so the sort keeps the smallest n as it goes instead

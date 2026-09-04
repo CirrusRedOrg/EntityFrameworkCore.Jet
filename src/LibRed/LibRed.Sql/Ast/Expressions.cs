@@ -44,6 +44,30 @@ public sealed record UnaryExpression(UnaryOperator Operator, Expression Operand)
 /// runs over the distinct set of the argument's values (not distinct rows).</summary>
 public sealed record FunctionCall(string Name, IReadOnlyList<Expression> Arguments, bool Distinct = false) : Expression;
 
+/// <summary>The <c>OVER (…)</c> of a window function: how the input is cut into partitions and how rows are
+/// ordered within one. An empty <paramref name="PartitionBy"/> means a single partition over the whole input;
+/// an empty <paramref name="OrderBy"/> means every row of a partition is a peer. A frame clause belongs here
+/// when one is needed — adding it is a new optional property on this record and nothing else.</summary>
+public sealed record WindowSpec(
+    IReadOnlyList<Expression> PartitionBy,
+    IReadOnlyList<OrderByItem> OrderBy) : SqlNode;
+
+/// <summary>
+/// A window function call: <c>ROW_NUMBER() OVER (PARTITION BY … ORDER BY …)</c>. Access has none of these —
+/// this is a LibRed extension, emitted by EF Core's base SQL generator in extended mode.
+/// </summary>
+/// <remarks>
+/// Deliberately NOT a subtype of <see cref="FunctionCall"/>, and that is load-bearing rather than tidiness:
+/// <c>QueryPlanner.HasAggregate</c> matches any <see cref="FunctionCall"/> whose name is an aggregate, so a
+/// windowed aggregate (<c>SUM(x) OVER (…)</c>) would make the query look grouped and build a bogus
+/// AggregateNode. As a sibling record it falls through to "not an aggregate", which is correct — a window
+/// function returns one value per ROW, not per group, whatever its name.
+/// </remarks>
+public sealed record WindowFunction(
+    string Name,
+    IReadOnlyList<Expression> Arguments,
+    WindowSpec Over) : Expression;
+
 /// <summary>A subquery used as a scalar value: <c>(SELECT … )</c>. May correlate to the outer query.</summary>
 public sealed record ScalarSubquery(SelectStatement Query) : Expression;
 

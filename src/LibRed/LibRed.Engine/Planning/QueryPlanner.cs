@@ -37,8 +37,28 @@ public sealed class QueryPlanner
         if (select.Where is not null)
             node = PushPredicates(node, select.Where);
 
+        // Window functions see the post-WHERE rows and are computed before ORDER BY, which may sort by one — so
+        // the node goes here. Each call is lifted out of the projection into a reference to the column the node
+        // publishes for it, which is what leaves everything above (declared types, sorting, DISTINCT, LIMIT)
+        // looking at an ordinary column and needing no changes at all.
+        var windows = new List<WindowOutput>();
+        select = ExtractWindows(select, windows);
+
         bool aggregate = select.GroupBy.Count > 0 || select.Having is not null
             || select.Projection.Any(i => HasAggregate(i.Value));
+
+        if (windows.Count > 0)
+        {
+            if (aggregate)
+                // AggregateNode owns the projection, HAVING and ORDER BY and collapses rows, so a window over
+                // grouped output would need its projection split across the two nodes. EF Core always puts such
+                // a window in its own derived table, so nothing needs this yet — refuse loudly rather than hand
+                // the call to AggregateNode, whose per-group evaluation swallows the resulting error.
+                throw new NotSupportedException(
+                    "A window function over a grouped query (GROUP BY / HAVING / an aggregate projection) is not supported.");
+            node = new WindowNode(node, windows);
+        }
+
         if (aggregate)
             // The aggregate node owns ORDER BY: its keys are evaluated in the group scope (so they can
             // reference grouping expressions / aggregates), not over the already-projected output.
@@ -156,6 +176,77 @@ public sealed class QueryPlanner
         _ => false,
     };
 
+    /// <summary>
+    /// Replaces every window function in the projection and ORDER BY with a reference to the column a
+    /// <see cref="WindowNode"/> will publish for it, appending one <see cref="WindowOutput"/> per call.
+    /// Returns the statement unchanged when there are none.
+    /// </summary>
+    /// <remarks>
+    /// Identical calls are not shared. EF Core never repeats one, and comparing two specs for equality to
+    /// dedupe would cost more than the extra column it saves. A subquery is opaque here — its own
+    /// <see cref="PlanSelect"/> handles any window inside it, in its own scope.
+    /// </remarks>
+    private static SelectStatement ExtractWindows(SelectStatement select, List<WindowOutput> windows)
+    {
+        // WHERE and HAVING cannot contain a window function (its value is not defined until they have run), so
+        // only these two clauses are walked.
+        if (!select.Projection.Any(i => HasWindow(i.Value)) && !select.OrderBy.Any(k => HasWindow(k.Value)))
+            return select;
+
+        return select with
+        {
+            Projection = select.Projection.Select(i => i with { Value = LiftWindows(i.Value, windows) }).ToList(),
+            OrderBy = select.OrderBy.Select(k => k with { Value = LiftWindows(k.Value, windows) }).ToList(),
+        };
+    }
+
+    private static bool HasWindow(Expression e) => e switch
+    {
+        WindowFunction => true,
+        FunctionCall f => f.Arguments.Any(HasWindow),
+        BinaryExpression b => HasWindow(b.Left) || HasWindow(b.Right),
+        UnaryExpression u => HasWindow(u.Operand),
+        CaseExpression c => c.WhenClauses.Any(w => HasWindow(w.Condition) || HasWindow(w.Result))
+            || (c.ElseResult is not null && HasWindow(c.ElseResult)),
+        InListExpression il => HasWindow(il.Value) || il.Items.Any(HasWindow),
+        _ => false,
+    };
+
+    private static Expression LiftWindows(Expression e, List<WindowOutput> windows)
+    {
+        switch (e)
+        {
+            case WindowFunction w:
+                // A name no identifier can spell: IDENTIFIER allows '$' only as a trailing character, so this
+                // cannot collide with a real column and be silently shadowed.
+                string name = $"$window{windows.Count}";
+                windows.Add(new WindowOutput(name, w));
+                return new ColumnReference(null, name);
+            case FunctionCall f:
+                return f with { Arguments = f.Arguments.Select(a => LiftWindows(a, windows)).ToList() };
+            case BinaryExpression b:
+                return b with { Left = LiftWindows(b.Left, windows), Right = LiftWindows(b.Right, windows) };
+            case UnaryExpression u:
+                return u with { Operand = LiftWindows(u.Operand, windows) };
+            case CaseExpression c:
+                return c with
+                {
+                    WhenClauses = c.WhenClauses
+                        .Select(w => w with { Condition = LiftWindows(w.Condition, windows), Result = LiftWindows(w.Result, windows) })
+                        .ToList(),
+                    ElseResult = c.ElseResult is null ? null : LiftWindows(c.ElseResult, windows),
+                };
+            case InListExpression il:
+                return il with
+                {
+                    Value = LiftWindows(il.Value, windows),
+                    Items = il.Items.Select(i => LiftWindows(i, windows)).ToList(),
+                };
+            default:
+                return e;
+        }
+    }
+
     private static PlanNode PlanFrom(TableReference? from) => from switch
     {
         null => new SingleRowNode(), // FROM-less SELECT (e.g. `SELECT 2`) — one row, no columns
@@ -245,6 +336,9 @@ public sealed class QueryPlanner
         // "which aliases does this query introduce?" (ExistsSemiJoin declined every subquery because of it).
         // A DerivedTableNode is deliberately NOT pass-through: above it only its own alias is visible.
         ProjectNode p => SubtreeAliases(p.Input),
+        // A window appends a column without renaming a source, so it passes its input's aliases through — the
+        // same reasoning as ProjectNode above, and the same bug if omitted.
+        WindowNode w => SubtreeAliases(w.Input),
         SortNode s => SubtreeAliases(s.Input),
         LimitNode l => SubtreeAliases(l.Input),
         DistinctNode d => SubtreeAliases(d.Input),

@@ -479,6 +479,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case HashJoinNode hashJoin:
                 return ExecuteHashJoin(hashJoin, outer);
 
+            case WindowNode window:
+                return ExecuteWindow(window, outer);
+
             case AggregateNode aggregate:
                 return ExecuteAggregate(aggregate, outer);
 
@@ -1322,6 +1325,115 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     private ExpressionEvaluator Eval(IReadOnlyList<OutputColumn> columns, object?[] row, EvalScope? outer) =>
         new(new EvalScope(columns, row, outer), this, parameters: _parameters, session: _session);
+
+    /// <summary>
+    ///     Window functions: one value per input row, computed from the other rows of that row's partition.
+    ///     Every input row passes through, in input order, with one column appended per function.
+    /// </summary>
+    /// <remarks>
+    ///     The schema is resolved eagerly from the input's schema alone; the rows — and the materialisation a
+    ///     window needs — stay inside the iterator, so a caller that only wants the columns (an APPLY probing
+    ///     its right side for them) reads nothing.
+    /// </remarks>
+    private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteWindow(WindowNode node, EvalScope? outer)
+    {
+        var (inColumns, inRowsEnum) = Execute(node.Input, outer);
+
+        var columns = inColumns.Concat(node.Outputs.Select(o => new OutputColumn(
+            null,
+            o.Name,
+            WindowFunctions.Lookup(o.Function.Name).ResultType(
+                o.Function.Arguments.Count > 0 ? DeclaredType(o.Function.Arguments[0], inColumns) : null)))).ToList();
+
+        IEnumerable<object?[]> Rows()
+        {
+            var rows = inRowsEnum.ToList();
+            var values = new object?[rows.Count][];
+            for (int i = 0; i < rows.Count; i++)
+                values[i] = new object?[node.Outputs.Count];
+
+            for (int slot = 0; slot < node.Outputs.Count; slot++)
+                ComputeWindow(node.Outputs[slot].Function, rows, inColumns, outer, values, slot);
+
+            for (int i = 0; i < rows.Count; i++)
+                yield return [.. rows[i], .. values[i]];
+        }
+
+        return (columns, Rows());
+    }
+
+    /// <summary>Computes one window function into <paramref name="slot"/> of every row's value array.</summary>
+    private void ComputeWindow(
+        WindowFunction fn, List<object?[]> rows, IReadOnlyList<OutputColumn> columns, EvalScope? outer,
+        object?[][] values, int slot)
+    {
+        WindowFunctionDef def = WindowFunctions.Lookup(fn.Name);
+        if (fn.Arguments.Count < def.MinArguments || fn.Arguments.Count > def.MaxArguments)
+            throw new InvalidOperationException(
+                $"{fn.Name} takes {(def.MinArguments == def.MaxArguments ? $"{def.MinArguments}" : $"{def.MinArguments} to {def.MaxArguments}")} argument(s).");
+
+        // One scope/evaluator rebound per row, as the joins do: partition keys, sort keys and arguments are all
+        // evaluated once per row and a fresh pair each time is the dominant cost otherwise.
+        var scope = new EvalScope(columns, [], outer);
+        var eval = new ExpressionEvaluator(scope, this, parameters: _parameters, session: _session);
+
+        // Partition, preserving input order within each. A null partition key groups with other nulls exactly as
+        // GROUP BY does, because this is the same key type.
+        var partitions = new Dictionary<GroupKey, List<int>>();
+        var sortKeys = new object?[rows.Count][];
+        var arguments = new object?[rows.Count][];
+        for (int i = 0; i < rows.Count; i++)
+        {
+            scope.Rebind(rows[i]);
+            var key = new object?[fn.Over.PartitionBy.Count];
+            for (int k = 0; k < key.Length; k++)
+                key[k] = eval.Evaluate(fn.Over.PartitionBy[k]);
+
+            var groupKey = new GroupKey(key);
+            if (!partitions.TryGetValue(groupKey, out List<int>? members))
+                partitions[groupKey] = members = [];
+            members.Add(i);
+
+            sortKeys[i] = new object?[fn.Over.OrderBy.Count];
+            for (int k = 0; k < sortKeys[i].Length; k++)
+                sortKeys[i][k] = eval.Evaluate(fn.Over.OrderBy[k].Value);
+
+            arguments[i] = fn.Arguments.Count == 0 ? [] : new object?[fn.Arguments.Count];
+            for (int k = 0; k < fn.Arguments.Count; k++)
+                arguments[i][k] = eval.Evaluate(fn.Arguments[k]);
+        }
+
+        foreach (List<int> members in partitions.Values)
+        {
+            // Ties break on the original position, so the window order is stable and a window with no ORDER BY
+            // (every row a peer) still numbers rows in input order rather than arbitrarily.
+            if (fn.Over.OrderBy.Count > 0)
+                members.Sort((a, b) =>
+                {
+                    int c = CompareEvaluatedKeys(fn.Over.OrderBy, sortKeys[a], sortKeys[b]);
+                    return c != 0 ? c : a.CompareTo(b);
+                });
+
+            var peerStart = new int[members.Count];
+            var peerOrdinal = new int[members.Count];
+            for (int i = 1; i < members.Count; i++)
+            {
+                // With no ORDER BY every row of the partition is a peer of every other.
+                bool samePeer = fn.Over.OrderBy.Count == 0
+                    || CompareEvaluatedKeys(fn.Over.OrderBy, sortKeys[members[i - 1]], sortKeys[members[i]]) == 0;
+                peerStart[i] = samePeer ? peerStart[i - 1] : i;
+                peerOrdinal[i] = samePeer ? peerOrdinal[i - 1] : peerOrdinal[i - 1] + 1;
+            }
+
+            var output = new object?[members.Count];
+            def.Evaluate(
+                new WindowPartition(peerStart, peerOrdinal, members.Select(m => arguments[m]).ToList()), output);
+
+            // Scatter back to the input positions: the node emits rows in input order, not window order.
+            for (int i = 0; i < members.Count; i++)
+                values[members[i]][slot] = output[i];
+        }
+    }
 
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteAggregate(AggregateNode node, EvalScope? outer)
     {

@@ -79,4 +79,18 @@ public class NullIfTests : TempDatabaseTest
     [InlineData("NULLIF(`A`, `B`, 1)")]
     public void Wrong_argument_count_is_rejected(string projection)
         => Assert.ThrowsAny<Exception>(() => Eval(Seeded(), projection, 1));
+
+    // "Returns the same type as the first expression" — NULLIF yields either that expression or a NULL of its
+    // type, so unlike COALESCE it does not unify across both arguments. The second one only ever takes part in
+    // the comparison, and a differing type there must not change what the column declares.
+    private static Type ColumnType(QueryEngine engine, string projection)
+        => engine.ExecuteQuery($"SELECT {projection} FROM `NI` WHERE `Id` = 1").ColumnTypes[0];
+
+    [Fact]
+    public void Declares_the_type_of_its_first_argument()
+        => Assert.Equal(typeof(int), ColumnType(Seeded(), "NULLIF(`A`, `B`)"));
+
+    [Fact]
+    public void Declares_the_first_argument_type_even_when_the_second_differs()
+        => Assert.Equal(typeof(string), ColumnType(Seeded(), "NULLIF(`S`, 1)"));
 }

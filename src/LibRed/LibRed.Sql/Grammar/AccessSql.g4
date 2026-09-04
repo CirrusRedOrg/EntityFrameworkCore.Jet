@@ -198,10 +198,22 @@ referentialAction
 insertStatement
     : INSERT INTO table=identifier
       ( (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)?
-        ( VALUES LPAREN expression (COMMA expression)* RPAREN
+        ( VALUES rowValues (COMMA rowValues)*
         | source=queryExpression )
       | DEFAULT VALUES )
     ;
+
+// One parenthesised row of a table value constructor. Access documents only a single row after VALUES, but
+// the standard's constructor takes a comma-separated list of them and EF Core batches inserts that way, so
+// LibRed accepts the list — a superset of Access, like the UNION source above. Every row must supply the same
+// number of values as there are target columns, which the executor checks per row. SQL Server caps an
+// INSERT ... VALUES at 1,000 rows; nothing here needs that limit, so none is imposed.
+rowValues : LPAREN rowValue (COMMA rowValue)* RPAREN ;
+
+// A row value is DEFAULT, NULL, or any expression. NULL needs no alternative of its own — it is already a
+// literal. DEFAULT takes the column's declared default (or NULL when it has none), and the standard permits
+// it only inside an INSERT, which falls out of `rowValue` appearing nowhere else in the grammar.
+rowValue : DEFAULT | expression ;
 
 // Set operations over SELECTs (left-associative). UNION dedupes; UNION ALL keeps
 // duplicates; INTERSECT/EXCEPT dedupe. (Access has no INTERSECT/EXCEPT — LibRed owns the dialect.)
@@ -211,6 +223,12 @@ queryExpression : queryTerm (setOperator queryTerm)* ;
 queryTerm
     : selectStatement                 # SelectTerm
     | LPAREN queryExpression RPAREN    # ParenTerm
+    // A table value constructor standing in for a query — the standard's other use for it, beside the
+    // INSERT clause. EF Core emits it for an inline collection, e.g.
+    //   SELECT MAX(`v`.`Value`) FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`)) AS `v`
+    // where the row values may reference outer columns, so this is evaluated per outer row. Column names come
+    // from the leading query of the set operation, per SQL, which is why no column alias list is needed here.
+    | VALUES rowValues (COMMA rowValues)*  # ValuesTerm
     ;
 setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 
@@ -221,7 +239,7 @@ setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 // The IN externaldatabase clause is deliberately absent, as it is on INSERT — creating a table in another
 // file is part of the linked-database subsystem LibRed does not have.
 selectStatement
-    : SELECT predicate=selectPredicate? topClause? selectList (INTO into=identifier)? fromClause? whereClause? groupByClause? havingClause? orderByClause?
+    : SELECT predicate=selectPredicate? topClause? selectList (INTO into=identifier)? fromClause? whereClause? groupByClause? havingClause? orderByClause? offsetFetchClause?
     ;
 
 // The optional row predicate. ALL is the default (return every row); DISTINCT dedupes on the output
@@ -238,6 +256,20 @@ havingClause : HAVING expression ;
 // A trailing PERCENT returns that percentage of rows (ceil) instead of a fixed count.
 topClause : TOP topOperand ((PLUS | MINUS) topOperand)* percent=PERCENT? ;
 topOperand : INTEGER_LITERAL | PARAM | LPAREN expression RPAREN ;
+
+// ANSI SQL:2008 paging, which EF Core's base QuerySqlGenerator.GenerateLimitOffset emits whenever the
+// provider does not rewrite Skip/Take into something dialect-specific. Three shapes:
+//   Skip(n)          OFFSET n ROWS
+//   Skip(n).Take(m)  OFFSET n ROWS FETCH NEXT m ROWS ONLY
+//   Take(m)          FETCH FIRST m ROWS ONLY
+// FIRST and NEXT are interchangeable in the standard, as are ROW and ROWS, so both spellings are accepted
+// either side. Operands reuse topOperand, so a parameter is allowed where Access would demand a literal —
+// EF passes the page size as @p, which is exactly what Jet's TOP cannot take.
+offsetFetchClause
+    : OFFSET offset=topOperand rowKeyword (FETCH (NEXT | FIRST) limit=topOperand rowKeyword ONLY)?
+    | FETCH (FIRST | NEXT) limit=topOperand rowKeyword ONLY
+    ;
+rowKeyword : ROW | ROWS ;
 
 selectList
     : STAR
@@ -299,6 +331,7 @@ expression
 
 primary
     : literal                          # LiteralPrimary
+    | caseExpression                   # CasePrimary
     | functionCall                     # FunctionCallPrimary
     | columnRef                        # ColumnPrimary
     | PARAM                            # ParamPrimary
@@ -308,13 +341,29 @@ primary
     | LPAREN expression RPAREN         # ParenPrimary
     ;
 
+// Standard SQL CASE, in both ANSI forms. Access/ACE has neither — it only has the IIF() function, which is
+// why the Jet SQL generator rewrites a CASE into nested IIFs and LibRed's extended mode does not.
+//   searched: CASE WHEN cond THEN result [WHEN …] [ELSE result] END
+//   simple:   CASE operand WHEN value THEN result [WHEN …] [ELSE result] END
+// EF Core emits both; its CaseExpression carries an optional Operand that selects between the two. The
+// simple form compares operand = value, so it is sugar for the searched one and is folded into it here
+// rather than kept as a separate node.
+caseExpression
+    : CASE operand=expression? caseWhen+ (ELSE elseResult=expression)? END
+    ;
+caseWhen : WHEN condition=expression THEN result=expression ;
+
 // An optional DISTINCT before the argument applies to aggregates (COUNT/SUM/AVG/…): the aggregate operates
 // on the distinct set of the argument's VALUES (COUNT(DISTINCT col)), not on distinct rows — see DISTINCTROW.
 functionCall : name=functionName LPAREN (star=STAR | (distinct=DISTINCT? expression (COMMA expression)*))? RPAREN ;
 // A function name is an identifier, or the LEFT/RIGHT/ASC keywords used as the Left()/Right()/Asc() functions —
 // unambiguous with LEFT/RIGHT JOIN and ORDER BY ... ASC because a function call is always followed by '(' and
 // never appears in the FROM/ORDER BY clause.
-functionName : identifier | LEFT | RIGHT | ASC ;
+// Keywords that are also function names have to be readmitted here or the lexer's keyword token wins and the
+// call stops parsing: Left/Right/Asc, and FIRST — which `offsetFetchClause` needs as a keyword for
+// `FETCH FIRST`, but which is also the Access aggregate First(). (LAST is not listed because nothing else
+// claims it as a keyword.)
+functionName : identifier | LEFT | RIGHT | ASC | FIRST ;
 
 columnRef : (qualifier=identifier DOT)? name=identifier ;
 
@@ -381,6 +430,17 @@ THEN   : [Tt][Hh][Ee][Nn] ;
 DISTINCTROW : [Dd][Ii][Ss][Tt][Ii][Nn][Cc][Tt][Rr][Oo][Ww] ;
 DISTINCT : [Dd][Ii][Ss][Tt][Ii][Nn][Cc][Tt] ;
 PERCENT  : [Pp][Ee][Rr][Cc][Ee][Nn][Tt] ;
+CASE     : [Cc][Aa][Ss][Ee] ;
+WHEN     : [Ww][Hh][Ee][Nn] ;
+ELSE     : [Ee][Ll][Ss][Ee] ;
+END      : [Ee][Nn][Dd] ;
+OFFSET   : [Oo][Ff][Ff][Ss][Ee][Tt] ;
+FETCH    : [Ff][Ee][Tt][Cc][Hh] ;
+NEXT     : [Nn][Ee][Xx][Tt] ;
+FIRST    : [Ff][Ii][Rr][Ss][Tt] ;
+ROWS     : [Rr][Oo][Ww][Ss] ;
+ROW      : [Rr][Oo][Ww] ;
+ONLY     : [Oo][Nn][Ll][Yy] ;
 BETWEEN  : [Bb][Ee][Tt][Ww][Ee][Ee][Nn] ;
 UNION     : [Uu][Nn][Ii][Oo][Nn] ;
 ALL       : [Aa][Ll][Ll] ;

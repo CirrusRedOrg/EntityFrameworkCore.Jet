@@ -35,6 +35,7 @@ internal sealed class ExpressionEvaluator(
         ExistsExpression e => subqueries.ExecuteExists(e.Query, scope),
         InSubqueryExpression i => EvaluateInSubquery(i),
         InListExpression i => EvaluateInList(i),
+        CaseExpression c => EvaluateCase(c),
         FunctionCall f => EvaluateFunction(f),
         UnaryExpression u => EvaluateUnary(u),
         BinaryExpression b => EvaluateBinary(b),
@@ -124,6 +125,22 @@ internal sealed class ExpressionEvaluator(
         return inl.Negated ? (result is null ? null : !result) : result;
     }
 
+    /// <summary>Standard SQL <c>CASE</c>. Arms are tested in order and the first whose condition is true wins;
+    /// an arm is skipped when its condition is false <em>or</em> NULL, since only true selects. Evaluation
+    /// short-circuits — later conditions and every unselected result go unevaluated, which matters because a
+    /// result can divide by zero or otherwise throw in a branch the condition exists to avoid. With nothing
+    /// matched and no ELSE, the answer is NULL rather than an error, per the standard.</summary>
+    private object? EvaluateCase(CaseExpression c)
+    {
+        foreach (CaseWhen arm in c.WhenClauses)
+        {
+            if (IsTrue(arm.Condition))
+                return Evaluate(arm.Result);
+        }
+
+        return c.ElseResult is null ? null : Evaluate(c.ElseResult);
+    }
+
     private object? EvaluateFunction(FunctionCall f)
     {
         // Aggregate calls are precomputed per group and resolved by reference — including an outer
@@ -144,6 +161,7 @@ internal sealed class ExpressionEvaluator(
             "CHOOSE" => Choose(f),
             "SWITCH" => Switch(f),
             "NULLIF" => NullIf(f),
+            "COALESCE" => Coalesce(f),
             "DATEPART" => DatePart(Evaluate(f.Arguments[0]), Evaluate(f.Arguments[1])),
             "ROUND" => Round(f),
             "FIX" => Numeric1(f, Math.Truncate, Math.Truncate),  // toward zero
@@ -323,6 +341,9 @@ internal sealed class ExpressionEvaluator(
             "NULLIF" => (2, 2),
             "CHOOSE" => (2, int.MaxValue),
             "SWITCH" => (2, int.MaxValue),
+            // COALESCE(expression [, ...n]). SQL Server insists on two, but one is harmless and the standard's
+            // own grammar allows it, so only an empty list is rejected.
+            "COALESCE" => (1, int.MaxValue),
 
             "NOW" or "DATE" or "TIME" or "TIMER" or "GENUNIQUEID" or "GENGUID" => (0, 0),
             "DATEADD" => (3, 3),
@@ -398,6 +419,31 @@ internal sealed class ExpressionEvaluator(
 
         object? right = Evaluate(f.Arguments[1]);
         return right is not null && Compare(left, right) == 0 ? null : left;
+    }
+
+    /// <summary>
+    /// <c>COALESCE(a, b, …)</c> — the arguments in order, and the value of the first that is not NULL; NULL
+    /// when every one of them is. Access/ACE has no COALESCE (its nearest equivalent is <c>Nz</c>, which takes
+    /// only two), so this is reachable from LibRed's extended SQL mode and from hand-written SQL.
+    /// </summary>
+    /// <remarks>
+    /// The standard defines COALESCE as shorthand for
+    /// <c>CASE WHEN a IS NOT NULL THEN a WHEN b IS NOT NULL THEN b … END</c>, and SQL Server implements it by
+    /// literally rewriting to that — which is why its docs warn that arguments are evaluated more than once
+    /// and a subquery argument can yield different values between evaluations. Evaluating each argument once
+    /// here gives the same answer with none of that, so the shorthand is honoured without inheriting the
+    /// rewrite's cost or its instability.
+    /// </remarks>
+    private object? Coalesce(FunctionCall f)
+    {
+        foreach (Expression argument in f.Arguments)
+        {
+            object? value = Evaluate(argument);
+            if (value is not null)
+                return value;
+        }
+
+        return null;
     }
 
     /// <summary>Access <c>Switch(cond-1, value-1, cond-2, value-2, …)</c>: evaluates the conditions left to

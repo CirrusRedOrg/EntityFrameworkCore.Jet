@@ -379,6 +379,27 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 // FROM-less SELECT: one row, no columns — the projection above evaluates its constants once.
                 return ([], [new object?[0]]);
 
+            case ValuesNode values:
+            {
+                // A table value constructor as a query. The row expressions can reference outer columns — EF
+                // emits VALUES (`p`.`Int`) inside a correlated subquery — so they are evaluated against the
+                // outer scope here, on every run of the node, rather than folded once at planning time.
+                var evaluator = new ExpressionEvaluator(
+                    new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
+
+                var valueColumns = values.Rows.Count == 0
+                    ? []
+                    : values.Rows[0]
+                        .Select((expr, i) => new OutputColumn(null, $"Expr{i + 1}", DeclaredType(expr, [])))
+                        .ToList();
+
+                var valueRows = values.Rows
+                    .Select(row => row.Select(evaluator.Evaluate).ToArray())
+                    .ToList();
+
+                return (valueColumns, valueRows);
+            }
+
             case ScanNode scan when Schema.InformationSchema.IsInformationSchema(scan.Table):
             {
                 // Virtual INFORMATION_SCHEMA.<view> table: materialise rows from the catalog.
@@ -495,9 +516,25 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case LimitNode limit:
             {
                 var (columns, rows) = Execute(limit.Input, outer);
-                // The count is literal/parameter/arithmetic (no column refs), so an empty row scope suffices.
-                object? countValue = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session)
-                    .Evaluate(limit.Count);
+                // Counts are literal/parameter/arithmetic (no column refs), so an empty row scope suffices.
+                var limitEval = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
+
+                // OFFSET n ROWS. Applied before the take, so `OFFSET 10 FETCH NEXT 5` gives rows 11-15. A
+                // negative or zero skip is a no-op rather than an error, matching how a zero TOP is handled
+                // below; Skip is lazy, so nothing is buffered to discard.
+                if (limit.Offset is { } offsetExpr)
+                {
+                    int skip = Convert.ToInt32(
+                        limitEval.Evaluate(offsetExpr), System.Globalization.CultureInfo.InvariantCulture);
+                    if (skip > 0)
+                        rows = rows.Skip(skip);
+                }
+
+                // `OFFSET n ROWS` with no FETCH: skip, then return everything left.
+                if (limit.Count is null)
+                    return (columns, rows);
+
+                object? countValue = limitEval.Evaluate(limit.Count);
                 int n = Convert.ToInt32(countValue, System.Globalization.CultureInfo.InvariantCulture);
 
                 // Nothing can be returned, so don't read the input at all. This matters for the PERCENT branch
@@ -666,10 +703,78 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return DeclaredBinaryType(binary.Operator, left, right);
             case FunctionCall function:
                 return DeclaredFunctionType(function, columns);
+            case CaseExpression @case:
+                return DeclaredCaseType(@case, columns);
             default:
                 return null;
         }
     }
+
+    /// <summary>
+    /// The declared type of a CASE — the standard's "highest precedence type from the set of types in
+    /// result_expressions and the optional else_result_expression". A branch whose own type is unknown
+    /// contributes nothing rather than poisoning the answer, which is what makes a bare <c>NULL</c> arm
+    /// harmless: a NULL literal has no type and the standard ignores it for precedence too. Numeric branches
+    /// widen along the same ladder as arithmetic, so <c>THEN 1 ELSE 2.5</c> declares decimal. A genuine mix
+    /// (a string branch and a numeric one) declares nothing rather than guessing, leaving the column untyped
+    /// exactly as it was before CASE was understood at all.
+    /// </summary>
+    private Type? DeclaredCaseType(CaseExpression @case, IReadOnlyList<OutputColumn> columns)
+        => UnifiedType(CaseResults(@case), columns);
+
+    private static IEnumerable<Expression> CaseResults(CaseExpression c)
+    {
+        foreach (CaseWhen arm in c.WhenClauses)
+            yield return arm.Result;
+        if (c.ElseResult is not null)
+            yield return c.ElseResult;
+    }
+
+    /// <summary>The single type a set of alternative expressions declares — shared by CASE and COALESCE,
+    /// which the standard defines in terms of CASE and gives the same precedence rule.</summary>
+    private Type? UnifiedType(IEnumerable<Expression> alternatives, IReadOnlyList<OutputColumn> columns)
+    {
+        Type? result = null;
+
+        foreach (Expression alternative in alternatives)
+        {
+            Type? branchType = DeclaredType(alternative, columns);
+            if (branchType is null)
+                continue;
+
+            if (result is null)
+            {
+                result = branchType;
+                continue;
+            }
+
+            if (result == branchType)
+                continue;
+
+            result = WidenNumeric(result, branchType);
+            if (result is null)
+                return null;
+        }
+
+        return result;
+    }
+
+    /// <summary>The wider of two numeric types, on the same ladder <see cref="DeclaredBinaryType"/> uses for
+    /// arithmetic. Null when either side is not numeric, meaning the two cannot be reconciled.</summary>
+    private static Type? WidenNumeric(Type left, Type right)
+    {
+        if (!IsNumeric(left) || !IsNumeric(right)) return null;
+        if (left == typeof(decimal) || right == typeof(decimal)) return typeof(decimal);
+        if (left == typeof(double) || right == typeof(double)) return typeof(double);
+        if (left == typeof(float) || right == typeof(float)) return typeof(float);
+        if (IsInt64(left) || IsInt64(right)) return typeof(long);
+        return typeof(int);
+    }
+
+    private static bool IsNumeric(Type type)
+        => type == typeof(byte) || type == typeof(sbyte) || type == typeof(short) || type == typeof(ushort)
+            || type == typeof(int) || type == typeof(uint) || IsInt64(type)
+            || type == typeof(float) || type == typeof(double) || type == typeof(decimal);
 
     private static Type? DeclaredColumnType(ColumnReference reference, IReadOnlyList<OutputColumn> columns)
     {
@@ -716,6 +821,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 or "PMT" or "FV" or "PV" or "NPER" or "IPMT" or "PPMT" or "DDB" or "RATE" => typeof(double),
             "IIF" when function.Arguments.Count == 3 => SameType(
                 DeclaredType(function.Arguments[1], columns), DeclaredType(function.Arguments[2], columns)),
+            // The standard makes COALESCE shorthand for a CASE over its arguments, so it takes the same rule:
+            // the highest-precedence type among them. Unified the same way, which also means a bare NULL
+            // argument contributes no type rather than erasing the others.
+            "COALESCE" => UnifiedType(function.Arguments, columns),
+            // NULLIF returns its first expression, or a NULL of that expression's type — so unlike COALESCE
+            // it takes the first argument's type outright rather than unifying across both. The second
+            // argument only ever participates in the comparison.
+            "NULLIF" => argument,
             _ => null,
         };
     }
@@ -1371,6 +1484,16 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 break;
             case InListExpression i:
                 foreach (FunctionCall a in Aggregates(i.Value).Concat(i.Items.SelectMany(Aggregates))) yield return a;
+                break;
+            // Both halves of every arm, and the ELSE. An aggregate in a CASE is computed for the group up
+            // front and handed to the evaluator by reference — the standard specifies the same order, that
+            // aggregates in a WHEN are evaluated before the CASE rather than by it. Conditions matter as much
+            // as results: `HAVING CASE WHEN COUNT(*) > 1 THEN …` carries the aggregate in the condition.
+            case CaseExpression c:
+                foreach (FunctionCall a in c.WhenClauses
+                    .SelectMany(w => Aggregates(w.Condition).Concat(Aggregates(w.Result)))
+                    .Concat(c.ElseResult is { } e2 ? Aggregates(e2) : []))
+                    yield return a;
                 break;
         }
     }

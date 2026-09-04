@@ -38,7 +38,14 @@ public sealed record SelectStatement(
     /// (<c>Qty * 2</c> gives Int32, a concatenation gives Text(255)), <c>SUM</c> widens to Double, an empty
     /// result still creates the table, and an existing name is an error ("Table 'X' already exists").
     /// </remarks>
-    string? Into = null) : SqlStatement;
+    string? Into = null,
+    /// <summary>
+    /// Rows to skip, from ANSI <c>OFFSET n ROWS</c>. The take half of <c>OFFSET … FETCH NEXT m</c>, and a
+    /// standalone <c>FETCH FIRST m ROWS ONLY</c>, both land in <see cref="Top"/> instead — they mean exactly
+    /// <c>TOP m</c> and so reuse the path that already exists for it. <see cref="TopPercent"/> is never set
+    /// from a FETCH, which has no PERCENT form.
+    /// </summary>
+    Expression? Offset = null) : SqlStatement;
 
 /// <summary><c>EXECUTE|EXEC procedure [arg, …]</c> — invokes a stored procedure/query by name, passing
 /// positional argument values that bind to its declared parameters (in declaration order).</summary>
@@ -65,6 +72,20 @@ public sealed record SetOperationStatement(
     SqlStatement Left,
     SetOperator Operator,
     SqlStatement Right) : SqlStatement;
+
+/// <summary>
+/// A table value constructor used as a query rather than as an INSERT's VALUES clause —
+/// <c>VALUES (1), (2)</c> — yielding one row per list. EF Core emits it as an operand of a set operation for
+/// an inline collection.
+/// </summary>
+/// <remarks>
+/// The rows carry no column names of their own. In the set operation that always encloses one today, names
+/// come from the leading query per SQL, so none are needed; naming them would require the column alias list
+/// (<c>AS t(a, b)</c>) that derived tables do not yet support. Row values may reference outer columns, so the
+/// expressions are evaluated per outer row rather than once. <c>DEFAULT</c> is rejected here — the standard
+/// permits it only inside an INSERT.
+/// </remarks>
+public sealed record ValuesStatement(IReadOnlyList<IReadOnlyList<Expression>> Rows) : SqlStatement;
 
 /// <summary>
 /// An INSERT — Access's two append-query forms.

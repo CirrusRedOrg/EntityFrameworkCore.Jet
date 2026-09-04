@@ -750,6 +750,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         _ => new ColumnSpec(name, JetDataType.Text, 255 * 2, IsFixedLength: false),
     };
 
+    /// <summary>Sentinel standing for an explicit <c>DEFAULT</c> row value. Reference identity is what marks
+    /// it, so it can never collide with a real value — including a genuine NULL, which DEFAULT is distinct
+    /// from: NULL stores NULL, DEFAULT takes whatever the column declares.</summary>
+    private static readonly object DefaultRowValue = new();
+
     private int ExecuteInsert(InsertStatement statement)
     {
         Table table = _database.OpenTable(statement.Table);
@@ -796,6 +801,15 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             {
                 ColumnDef column = table.Definition.FindColumn(targets[i])
                     ?? throw new InvalidOperationException($"Column '{targets[i]}' does not exist in '{statement.Table}'.");
+
+                // An explicit DEFAULT is not a value: leaving the column out of `provided` routes it through
+                // the default-filling loop below, so it takes its declared default, or stays NULL when it has
+                // none — which is what the standard specifies. A NOT NULL column with no default then fails
+                // EnforceRequired, as it should. An AutoNumber column takes its generated id, the same as it
+                // would from INSERT INTO t DEFAULT VALUES.
+                if (ReferenceEquals(supplied[i], DefaultRowValue))
+                    continue;
+
                 values[column.Index] = supplied[i];
                 provided.Add(column.Index);
             }
@@ -843,7 +857,12 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             foreach (IReadOnlyList<Expression> rowExprs in statement.Rows)
             {
                 var supplied = new object?[rowExprs.Count];
-                for (int i = 0; i < rowExprs.Count; i++) supplied[i] = evaluator.Evaluate(rowExprs[i]);
+                for (int i = 0; i < rowExprs.Count; i++)
+                    // DEFAULT is a marker, not something to evaluate — it is carried through as a sentinel so
+                    // InsertRow can tell "take the column's default" apart from any value, NULL included.
+                    supplied[i] = rowExprs[i] is DefaultValueExpression
+                        ? DefaultRowValue
+                        : evaluator.Evaluate(rowExprs[i]);
                 InsertRow(supplied);
             }
         }

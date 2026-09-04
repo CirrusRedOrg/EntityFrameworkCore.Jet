@@ -350,7 +350,23 @@ internal sealed class AstBuilder
     private static SqlStatement BuildAppendProcedure(string name, InsertStatementContext insert)
     {
         var columns = insert._columns;
-        var values = insert.expression();
+
+        // A stored append query keeps its columns and values as text pairs, which has room for exactly one
+        // row — so a multi-row table value constructor cannot be stored as a procedure even though it is
+        // perfectly valid in a plain INSERT.
+        var rows = insert.rowValues();
+        if (rows.Length != 1)
+            throw new NotSupportedException(
+                "An INSERT procedure body must supply exactly one VALUES row.");
+
+        // Each value is stored as its original text, so an explicit DEFAULT has nothing to store — it is a
+        // marker rather than an expression. Rejected here for the same reason a multi-row constructor is.
+        var rowValues = rows[0].rowValue();
+        if (rowValues.Any(v => v.DEFAULT() is not null))
+            throw new NotSupportedException(
+                "An INSERT procedure body cannot use DEFAULT as a value.");
+
+        var values = rowValues.Select(v => v.expression()).ToArray();
         if (columns.Count == 0)
             throw new NotSupportedException("An INSERT procedure body must list its target columns.");
         if (columns.Count != values.Length)
@@ -565,9 +581,18 @@ internal sealed class AstBuilder
         if (ctx.source is not null)
             return new InsertStatement(table, columns, [], Source: BuildQueryExpression(ctx.source));
 
-        var values = ctx.expression().Select(BuildExpression).ToList();
-        return new InsertStatement(table, columns, [values]);
+        // A table value constructor: one or more parenthesised rows. The AST and executor were already
+        // row-list shaped, so a multi-row insert needs nothing beyond handing them every row.
+        var rows = ctx.rowValues()
+            .Select(r => (IReadOnlyList<Expression>)r.rowValue().Select(BuildRowValue).ToList())
+            .ToList();
+        return new InsertStatement(table, columns, rows);
     }
+
+    /// <summary>One row value of a table value constructor: the <c>DEFAULT</c> keyword, or any expression
+    /// (which covers the NULL the standard lists separately, since NULL is already a literal).</summary>
+    private static Expression BuildRowValue(RowValueContext ctx)
+        => ctx.DEFAULT() is not null ? new DefaultValueExpression() : BuildExpression(ctx.expression());
 
     private static SqlStatement BuildQueryExpression(QueryExpressionContext ctx)
     {
@@ -618,8 +643,35 @@ internal sealed class AstBuilder
     {
         SelectTermContext s => BuildSelect(s.selectStatement()),
         ParenTermContext p => BuildQueryExpression(p.queryExpression()),
+        ValuesTermContext v => BuildValuesQuery(v),
         _ => throw new SqlParseException($"Unsupported query term: {ctx.GetText()}"),
     };
+
+    /// <summary>A table value constructor used as a query. Every row must be the same width, and DEFAULT is
+    /// rejected: it means "the column's default", which only has a meaning when there is a target column —
+    /// so the standard allows it in an INSERT alone.</summary>
+    private static SqlStatement BuildValuesQuery(ValuesTermContext ctx)
+    {
+        var rows = new List<IReadOnlyList<Expression>>();
+        foreach (RowValuesContext row in ctx.rowValues())
+        {
+            var values = new List<Expression>();
+            foreach (RowValueContext value in row.rowValue())
+            {
+                if (value.DEFAULT() is not null)
+                    throw new SqlParseException("DEFAULT is only allowed in an INSERT's VALUES clause.");
+                values.Add(BuildExpression(value.expression()));
+            }
+
+            if (rows.Count > 0 && values.Count != rows[0].Count)
+                throw new SqlParseException(
+                    $"VALUES rows must all have the same number of values ({rows[0].Count} then {values.Count}).");
+
+            rows.Add(values);
+        }
+
+        return new ValuesStatement(rows);
+    }
 
     private static SetOperator SetOperatorOf(SetOperatorContext ctx)
     {
@@ -647,13 +699,26 @@ internal sealed class AstBuilder
             : (IReadOnlyList<OrderByItem>)[];
         Expression? top = ctx.topClause() is { } t ? BuildTop(t) : null;
         bool topPercent = ctx.topClause()?.percent is not null;
+
+        // ANSI OFFSET/FETCH. The FETCH count means the same as TOP n, so it feeds `top` and reuses the whole
+        // existing limit path; only the skip is genuinely new. TOP and FETCH together is not something EF ever
+        // emits and the two would contradict each other, so an explicit TOP wins and the FETCH is ignored.
+        Expression? offset = null;
+        if (ctx.offsetFetchClause() is { } paging)
+        {
+            offset = paging.offset is { } off ? PagingOperand(off) : null;
+            if (paging.limit is { } lim && top is null)
+                top = PagingOperand(lim);
+        }
+
         var predicate = ctx.predicate;
 
         return new SelectStatement(projection, star, from, where, groupBy, having, orderBy, top,
             Distinct: predicate?.DISTINCT() is not null,
             DistinctRow: predicate?.DISTINCTROW() is not null,
             TopPercent: topPercent,
-            Into: ctx.into is null ? null : Identifier(ctx.into));
+            Into: ctx.into is null ? null : Identifier(ctx.into),
+            Offset: offset);
     }
 
     /// <summary>The TOP count expression: a single operand, or a left-associative +/- chain of them (each
@@ -675,6 +740,14 @@ internal sealed class AstBuilder
                 result, Operand(operands[i]));
         return result;
     }
+
+    /// <summary>A single operand of a paging clause: a literal, a parameter, or a parenthesised expression.
+    /// Shared with TOP, which is why <c>OFFSET @p ROWS</c> is accepted where Access would insist on a
+    /// literal.</summary>
+    private static Expression PagingOperand(TopOperandContext o) =>
+        o.INTEGER_LITERAL() is { } lit ? new LiteralExpression(ParseInteger(lit.GetText()))
+        : o.PARAM() is { } p ? new ParameterExpression(p.GetText())
+        : BuildExpression(o.expression());
 
     private static SelectItem BuildSelectItem(SelectItemContext ctx) => ctx switch
     {
@@ -756,9 +829,29 @@ internal sealed class AstBuilder
         FunctionCallPrimaryContext f => BuildFunctionCall(f.functionCall()),
         ScalarSubqueryPrimaryContext s => new ScalarSubquery(BuildSelect(s.selectStatement())),
         ExistsPrimaryContext e => new ExistsExpression(BuildSelect(e.selectStatement())),
+        CasePrimaryContext c => BuildCase(c.caseExpression()),
         ParenPrimaryContext p => BuildExpression(p.expression()),
         _ => throw new SqlParseException($"Unsupported primary: {ctx.GetText()}"),
     };
+
+    /// <summary>A CASE expression. The simple form (<c>CASE operand WHEN value THEN …</c>) is folded into the
+    /// searched form here by turning each arm into <c>operand = value</c>, so evaluation only ever sees one
+    /// shape. The operand is re-emitted per arm, which is what the standard's own definition implies and
+    /// matches how the Jet generator expands a CASE into IIFs.</summary>
+    private static Expression BuildCase(CaseExpressionContext ctx)
+    {
+        Expression? operand = ctx.operand is null ? null : BuildExpression(ctx.operand);
+
+        var arms = ctx.caseWhen().Select(w =>
+        {
+            Expression condition = BuildExpression(w.condition);
+            if (operand is not null)
+                condition = new BinaryExpression(BinaryOperator.Equal, operand, condition);
+            return new CaseWhen(condition, BuildExpression(w.result));
+        }).ToList();
+
+        return new CaseExpression(arms, ctx.elseResult is null ? null : BuildExpression(ctx.elseResult));
+    }
 
     private static Expression BuildFunctionCall(FunctionCallContext ctx)
     {

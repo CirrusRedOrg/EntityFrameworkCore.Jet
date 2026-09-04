@@ -59,3 +59,27 @@ public sealed record InSubqueryExpression(Expression Value, SelectStatement Quer
 /// of constants — evaluates iteratively instead of recursing once per item and overflowing the stack. Same SQL
 /// three-valued semantics as <see cref="InSubqueryExpression"/>.</summary>
 public sealed record InListExpression(Expression Value, IReadOnlyList<Expression> Items, bool Negated) : Expression;
+
+/// <summary>
+/// The <c>DEFAULT</c> keyword used as a row value in an INSERT's table value constructor:
+/// <c>VALUES ('Advertisement', DEFAULT)</c>. It is a marker rather than a value — the column takes its
+/// declared default, or NULL when it has none — so it never reaches the expression evaluator, and the
+/// grammar admits it only inside an INSERT, which is the one place the standard allows it.
+/// </summary>
+public sealed record DefaultValueExpression : Expression;
+
+/// <summary>One <c>WHEN condition THEN result</c> arm of a <see cref="CaseExpression"/>.</summary>
+public sealed record CaseWhen(Expression Condition, Expression Result) : SqlNode;
+
+/// <summary>
+/// Standard SQL <c>CASE</c>. Access/ACE has no CASE at all — only the <c>IIF()</c> function — so this is
+/// reachable from LibRed's extended SQL mode and from hand-written SQL, never from the Jet-compatible
+/// generator, which rewrites a CASE into nested IIFs instead.
+/// </summary>
+/// <remarks>
+/// The simple form <c>CASE operand WHEN value THEN …</c> is folded into the searched form at parse time by
+/// rewriting each arm's condition to <c>operand = value</c>, so only one shape reaches evaluation. Arms are
+/// tested in order and the first true one wins; an unmatched CASE with no <paramref name="ElseResult"/>
+/// yields NULL, per the standard.
+/// </remarks>
+public sealed record CaseExpression(IReadOnlyList<CaseWhen> WhenClauses, Expression? ElseResult) : Expression;

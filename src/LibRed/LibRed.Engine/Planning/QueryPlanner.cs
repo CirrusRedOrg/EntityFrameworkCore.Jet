@@ -22,6 +22,7 @@ public sealed class QueryPlanner
         SelectStatement select => PlanSelect(select),
         SetOperationStatement set => new SetOperationNode(
             PlanStatement(set.Left), PlanStatement(set.Right), set.Operator),
+        ValuesStatement values => new ValuesNode(values.Rows),
         _ => throw new NotImplementedException(
             $"Planning for {statement.GetType().Name} is not yet implemented."),
     };
@@ -57,17 +58,23 @@ public sealed class QueryPlanner
         if (select.Distinct)
             node = new DistinctNode(node);
 
-        if (select.Top is { } top)
+        if (select.Top is { } top || select.Offset is not null)
         {
             // `TOP n ... ORDER BY k` only needs the n smallest rows by k, so tell the sort the bound and let it
             // discard rows that can't survive rather than ordering everything. Only sound when nothing between the
             // sort and the limit changes the row count: a projection is 1:1, but DISTINCT/DISTINCTROW collapse
             // rows, so the n rows reaching the limit are not the n the sort would have kept. PERCENT is excluded
             // because it needs the full input count to work out the take at all.
-            if (!select.TopPercent && !select.Distinct && !select.DistinctRow)
-                node = BoundSort(node, top);
+            //
+            // With an OFFSET the sort must keep skip + take rows, not take: the ones it would otherwise discard
+            // are exactly the ones the skip consumes. A bare OFFSET has no bound at all - every row can survive
+            // it - so the sort orders its whole input, as it did before paging existed.
+            if (!select.TopPercent && !select.Distinct && !select.DistinctRow && select.Top is not null)
+                node = BoundSort(node, select.Offset is { } skip
+                    ? new BinaryExpression(BinaryOperator.Add, skip, select.Top)
+                    : select.Top);
 
-            node = new LimitNode(node, top, select.TopPercent);
+            node = new LimitNode(node, select.Top, select.TopPercent, select.Offset);
         }
 
         return node;
@@ -140,6 +147,12 @@ public sealed class QueryPlanner
         FunctionCall f => f.Arguments.Any(HasAggregate),
         BinaryExpression b => HasAggregate(b.Left) || HasAggregate(b.Right),
         UnaryExpression u => HasAggregate(u.Operand),
+        // An aggregate inside a CASE has to be found here so it is computed per group and handed to the
+        // evaluator, rather than being reached during evaluation when no group scope can resolve it. The
+        // standard says the same: aggregates in a WHEN are evaluated before the CASE, not by it. Conditions
+        // count as well as results — HAVING CASE WHEN COUNT(*) > 1 … puts the aggregate in the condition.
+        CaseExpression c => c.WhenClauses.Any(w => HasAggregate(w.Condition) || HasAggregate(w.Result))
+            || (c.ElseResult is not null && HasAggregate(c.ElseResult)),
         _ => false,
     };
 

@@ -69,7 +69,7 @@ public class OffsetFetchTests
     {
         // The point of the whole exercise: EF passes the page bounds as parameters, and Access's TOP takes a
         // literal only - which is why EFCore.Jet has to rewrite `TOP @param` down in JetCommand. LibRed reads
-        // them directly, reusing the operand rule TOP already uses.
+        // them directly.
         var engine = Northwind();
         var result = engine.ExecuteQuery(
             "SELECT EmployeeID FROM Employees ORDER BY EmployeeID OFFSET @skip ROWS FETCH NEXT @take ROWS ONLY",
@@ -77,6 +77,37 @@ public class OffsetFetchTests
 
         Assert.Equal([6, 7, 8], result.Rows.Select(r => Convert.ToInt32(r[0])).ToArray());
     }
+
+    [Fact]
+    public void An_offset_may_be_a_correlated_column()
+    {
+        // EF emits this for `ElementAt(<column>)`: the skip differs per outer row. It is why the paging
+        // operands are full expressions rather than the literal-or-parameter rule TOP uses — TOP has to stay
+        // restricted because it sits before the select list, where an expression would swallow the star of
+        // `SELECT TOP 5 * FROM t`; here the ROWS keyword closes the operand, so there is nothing to swallow.
+        // Employee 1 has no reports above it, so skipping by EmployeeID walks a different distance per row.
+        var rows = Northwind().ExecuteQuery(
+            """
+            SELECT `e`.`EmployeeID`, (
+                SELECT `e2`.`EmployeeID`
+                FROM `Employees` AS `e2`
+                ORDER BY `e2`.`EmployeeID`
+                OFFSET `e`.`EmployeeID` ROWS FETCH NEXT 1 ROWS ONLY) AS `Skipped`
+            FROM `Employees` AS `e`
+            WHERE `e`.`EmployeeID` <= 3
+            ORDER BY `e`.`EmployeeID`
+            """).Rows.Select(r => $"{r[0]}->{r[1]}").ToArray();
+
+        // Skipping n of 1..9 and taking one gives n+1.
+        Assert.Equal(["1->2", "2->3", "3->4"], rows);
+    }
+
+    [Fact]
+    public void A_fetch_count_may_be_an_expression()
+        // The same rule applies to the FETCH side, and an arithmetic operand is the cheap way to show it is a
+        // general expression rather than a widened literal.
+        => Assert.Equal([1, 2, 3], Ids(Northwind(),
+            "SELECT EmployeeID FROM Employees ORDER BY EmployeeID FETCH FIRST 1 + 2 ROWS ONLY"));
 
     [Fact]
     public void Paging_applies_after_ordering_not_before()

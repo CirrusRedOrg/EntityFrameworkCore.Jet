@@ -275,11 +275,24 @@ topOperand : INTEGER_LITERAL | PARAM | LPAREN expression RPAREN ;
 //   Skip(n).Take(m)  OFFSET n ROWS FETCH NEXT m ROWS ONLY
 //   Take(m)          FETCH FIRST m ROWS ONLY
 // FIRST and NEXT are interchangeable in the standard, as are ROW and ROWS, so both spellings are accepted
-// either side. Operands reuse topOperand, so a parameter is allowed where Access would demand a literal —
-// EF passes the page size as @p, which is exactly what Jet's TOP cannot take.
+// either side.
+//
+// The counts are full expressions, unlike topClause's — and deliberately NOT the same rule. TOP's operand has
+// to stay restricted because TOP sits immediately before the select list, where an unrestricted expression
+// would swallow the star of `SELECT TOP 5 * FROM t`. Here the operand is closed by the ROW/ROWS keyword that
+// must follow it, so there is nothing to swallow. That matters because EF emits a correlated COLUMN for
+// `ElementAt(<column>)` — `OFFSET `s`.`Id` ROWS` — which no literal-or-parameter rule can express.
+//
+// Deliberately wider than what is written down, so don't narrow it back to the documentation. The standard's
+// <offset row count> is a <simple value specification> (literal, parameter, variable), and SQL Server documents
+// offset_row_count_expression as a variable, parameter or constant scalar subquery — a correlated column is
+// none of those. But SQL Server *accepts* one: EF Core's own SQL Server baseline for
+// `Where_subquery_with_ElementAt_using_column_as_index` carries `OFFSET [s].[Id] ROWS`, and that baseline only
+// exists because the test passed against a real server. So this matches the engine's behaviour; it is the
+// documentation that is incomplete.
 offsetFetchClause
-    : OFFSET offset=topOperand rowKeyword (FETCH (NEXT | FIRST) limit=topOperand rowKeyword ONLY)?
-    | FETCH (FIRST | NEXT) limit=topOperand rowKeyword ONLY
+    : OFFSET offset=expression rowKeyword (FETCH (NEXT | FIRST) limit=expression rowKeyword ONLY)?
+    | FETCH (FIRST | NEXT) limit=expression rowKeyword ONLY
     ;
 rowKeyword : ROW | ROWS ;
 

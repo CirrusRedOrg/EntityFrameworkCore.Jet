@@ -636,8 +636,8 @@ internal sealed class AstBuilder
         Expression? top = null, offset = null;
         if (ctx.offsetFetchClause() is { } paging)
         {
-            offset = paging.offset is { } off ? PagingOperand(off) : null;
-            top = paging.limit is { } lim ? PagingOperand(lim) : null;
+            offset = paging.offset is { } off ? BuildExpression(off) : null;
+            top = paging.limit is { } lim ? BuildExpression(lim) : null;
         }
         bool ordered = orderBy.Count > 0 || top is not null || offset is not null;
 
@@ -786,14 +786,6 @@ internal sealed class AstBuilder
                 result, Operand(operands[i]));
         return result;
     }
-
-    /// <summary>A single operand of a paging clause: a literal, a parameter, or a parenthesised expression.
-    /// Shared with TOP, which is why <c>OFFSET @p ROWS</c> is accepted where Access would insist on a
-    /// literal.</summary>
-    private static Expression PagingOperand(TopOperandContext o) =>
-        o.INTEGER_LITERAL() is { } lit ? new LiteralExpression(ParseInteger(lit.GetText()))
-        : o.PARAM() is { } p ? new ParameterExpression(p.GetText())
-        : BuildExpression(o.expression());
 
     private static SelectItem BuildSelectItem(SelectItemContext ctx) => ctx switch
     {

@@ -4945,8 +4945,8 @@ public partial class AccessSqlParser : Parser {
 	}
 
 	public partial class OffsetFetchClauseContext : ParserRuleContext {
-		public TopOperandContext offset;
-		public TopOperandContext limit;
+		public ExpressionContext offset;
+		public ExpressionContext limit;
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode OFFSET() { return GetToken(AccessSqlParser.OFFSET, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public RowKeywordContext[] rowKeyword() {
 			return GetRuleContexts<RowKeywordContext>();
@@ -4954,11 +4954,11 @@ public partial class AccessSqlParser : Parser {
 		[System.Diagnostics.DebuggerNonUserCode] public RowKeywordContext rowKeyword(int i) {
 			return GetRuleContext<RowKeywordContext>(i);
 		}
-		[System.Diagnostics.DebuggerNonUserCode] public TopOperandContext[] topOperand() {
-			return GetRuleContexts<TopOperandContext>();
+		[System.Diagnostics.DebuggerNonUserCode] public ExpressionContext[] expression() {
+			return GetRuleContexts<ExpressionContext>();
 		}
-		[System.Diagnostics.DebuggerNonUserCode] public TopOperandContext topOperand(int i) {
-			return GetRuleContext<TopOperandContext>(i);
+		[System.Diagnostics.DebuggerNonUserCode] public ExpressionContext expression(int i) {
+			return GetRuleContext<ExpressionContext>(i);
 		}
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode FETCH() { return GetToken(AccessSqlParser.FETCH, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode ONLY() { return GetToken(AccessSqlParser.ONLY, 0); }
@@ -4992,7 +4992,7 @@ public partial class AccessSqlParser : Parser {
 				State = 793;
 				Match(OFFSET);
 				State = 794;
-				_localctx.offset = topOperand();
+				_localctx.offset = expression(0);
 				State = 795;
 				rowKeyword();
 				State = 802;
@@ -5012,7 +5012,7 @@ public partial class AccessSqlParser : Parser {
 					    Consume();
 					}
 					State = 798;
-					_localctx.limit = topOperand();
+					_localctx.limit = expression(0);
 					State = 799;
 					rowKeyword();
 					State = 800;
@@ -5037,7 +5037,7 @@ public partial class AccessSqlParser : Parser {
 				    Consume();
 				}
 				State = 806;
-				_localctx.limit = topOperand();
+				_localctx.limit = expression(0);
 				State = 807;
 				rowKeyword();
 				State = 808;
@@ -8301,12 +8301,12 @@ public partial class AccessSqlParser : Parser {
 		781,779,1,0,0,0,782,784,5,33,0,0,783,782,1,0,0,0,783,784,1,0,0,0,784,83,
 		1,0,0,0,785,792,5,123,0,0,786,792,5,121,0,0,787,788,5,115,0,0,788,789,
 		3,110,55,0,789,790,5,116,0,0,790,792,1,0,0,0,791,785,1,0,0,0,791,786,1,
-		0,0,0,791,787,1,0,0,0,792,85,1,0,0,0,793,794,5,42,0,0,794,795,3,84,42,
-		0,795,802,3,88,44,0,796,797,5,43,0,0,797,798,7,6,0,0,798,799,3,84,42,0,
-		799,800,3,88,44,0,800,801,5,48,0,0,801,803,1,0,0,0,802,796,1,0,0,0,802,
+		0,0,0,791,787,1,0,0,0,792,85,1,0,0,0,793,794,5,42,0,0,794,795,3,110,55,
+		0,795,802,3,88,44,0,796,797,5,43,0,0,797,798,7,6,0,0,798,799,3,110,55,
+		0,799,800,3,88,44,0,800,801,5,48,0,0,801,803,1,0,0,0,802,796,1,0,0,0,802,
 		803,1,0,0,0,803,811,1,0,0,0,804,805,5,43,0,0,805,806,7,6,0,0,806,807,3,
-		84,42,0,807,808,3,88,44,0,808,809,5,48,0,0,809,811,1,0,0,0,810,793,1,0,
-		0,0,810,804,1,0,0,0,811,87,1,0,0,0,812,813,7,7,0,0,813,89,1,0,0,0,814,
+		110,55,0,807,808,3,88,44,0,808,809,5,48,0,0,809,811,1,0,0,0,810,793,1,
+		0,0,0,810,804,1,0,0,0,811,87,1,0,0,0,812,813,7,7,0,0,813,89,1,0,0,0,814,
 		824,5,102,0,0,815,820,3,92,46,0,816,817,5,117,0,0,817,819,3,92,46,0,818,
 		816,1,0,0,0,819,822,1,0,0,0,820,818,1,0,0,0,820,821,1,0,0,0,821,824,1,
 		0,0,0,822,820,1,0,0,0,823,814,1,0,0,0,823,815,1,0,0,0,824,91,1,0,0,0,825,

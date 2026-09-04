@@ -165,7 +165,14 @@ internal static class IndexSelection
             }
         }
 
-        PlanNode right = Apply(j.Right, catalog, outer);
+        // A lateral (APPLY) right side is re-executed per left row with the left row in scope, so its own
+        // index selection may treat the left side's columns as seekable constants — exactly as it does for a
+        // correlated subquery. Without this the right side rescans a base table for every left row, which is
+        // the one shape where that cost is paid over and over.
+        HashSet<string> rightOuter = j.Kind is JoinKind.CrossApply or JoinKind.OuterApply
+            ? QueryPlanner.SubtreeAliases(left).Union(outer).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : outer;
+        PlanNode right = Apply(j.Right, catalog, rightOuter);
 
         // No index-nested-loop available: if this is an equi-join whose keys are same-kind columns, hash it
         // (O(n+m)) instead of leaving the O(n·m) nested loop. See HashJoinNode for why same-kind is required.

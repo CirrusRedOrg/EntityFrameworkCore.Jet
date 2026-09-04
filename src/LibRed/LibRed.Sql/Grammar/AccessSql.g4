@@ -297,9 +297,19 @@ tablePrimary
 // product is written there as comma-separated sources in the FROM clause, which `fromClause` still accepts
 // and which builds the identical tree. EF Core's base generator emits the explicit form, so LibRed takes
 // both spellings for the same thing.
+//
+// CROSS/OUTER APPLY are lateral joins and a LibRed extension - ACE has neither. The right side is evaluated
+// once per left row with that row's columns in scope, so it may correlate to the left, which an ordinary
+// join's right side may not. CROSS APPLY drops a left row whose right side came back empty; OUTER APPLY
+// keeps it, null-padded, the way a LEFT JOIN does. Neither takes an ON: the correlation inside the right
+// side is the condition. The position here follows T-SQL, which lists
+// `left_table_source { CROSS | OUTER } APPLY right_table_source` as a <joined_table> alternative next to the
+// conditional joins and CROSS JOIN.
 joinClause
     : joinType JOIN tablePrimary ON expression   # ConditionalJoin
     | CROSS JOIN tablePrimary                    # CrossJoin
+    | CROSS APPLY tablePrimary                   # CrossApply
+    | OUTER APPLY tablePrimary                   # OuterApply
     ;
 
 // FULL [OUTER] JOIN is a LibRed extension: ACE has no full outer join at all, and no way to express one
@@ -439,6 +449,7 @@ DISTINCTROW : [Dd][Ii][Ss][Tt][Ii][Nn][Cc][Tt][Rr][Oo][Ww] ;
 DISTINCT : [Dd][Ii][Ss][Tt][Ii][Nn][Cc][Tt] ;
 PERCENT  : [Pp][Ee][Rr][Cc][Ee][Nn][Tt] ;
 CROSS    : [Cc][Rr][Oo][Ss][Ss] ;
+APPLY    : [Aa][Pp][Pp][Ll][Yy] ;
 CASE     : [Cc][Aa][Ss][Ee] ;
 WHEN     : [Ww][Hh][Ee][Nn] ;
 ELSE     : [Ee][Ll][Ss][Ee] ;

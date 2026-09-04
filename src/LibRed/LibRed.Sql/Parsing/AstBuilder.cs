@@ -786,13 +786,19 @@ internal sealed class AstBuilder
         foreach (JoinClauseContext join in ctx.joinClause())
         {
             // A CROSS JOIN carries no ON, so it builds the same node the comma form does: kind Cross with a
-            // null condition. Everything downstream already understands that shape.
+            // null condition. Everything downstream already understands that shape. The two APPLY kinds share
+            // that shape too - what makes them lateral is the kind, which is all the executor needs to know to
+            // re-run the right side per left row.
             table = join switch
             {
                 ConditionalJoinContext c => new JoinTable(
                     table, BuildTablePrimary(c.tablePrimary()), JoinKindOf(c.joinType()), BuildExpression(c.expression())),
                 CrossJoinContext x => new JoinTable(
                     table, BuildTablePrimary(x.tablePrimary()), JoinKind.Cross, null),
+                CrossApplyContext a => new JoinTable(
+                    table, BuildTablePrimary(a.tablePrimary()), JoinKind.CrossApply, null),
+                OuterApplyContext a => new JoinTable(
+                    table, BuildTablePrimary(a.tablePrimary()), JoinKind.OuterApply, null),
                 _ => throw new SqlParseException($"Unsupported join: {join.GetText()}"),
             };
         }

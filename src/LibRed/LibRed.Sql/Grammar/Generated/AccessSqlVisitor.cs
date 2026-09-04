@@ -595,6 +595,20 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitCrossJoin([NotNull] AccessSqlParser.CrossJoinContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>CrossApply</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinClause"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCrossApply([NotNull] AccessSqlParser.CrossApplyContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>OuterApply</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinClause"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitOuterApply([NotNull] AccessSqlParser.OuterApplyContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>InnerJoin</c>
 	/// labeled alternative in <see cref="AccessSqlParser.joinType"/>.
 	/// </summary>

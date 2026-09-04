@@ -468,6 +468,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return (columns, rows.Where(row => Eval(columns, row, outer).IsTrue(filter.Predicate)));
             }
 
+            // A lateral join re-runs its right side per left row, so it cannot go through ExecuteJoin (which
+            // materialises the right side once, against the enclosing scope).
+            case JoinNode { Kind: JoinKind.CrossApply or JoinKind.OuterApply } apply:
+                return ExecuteApply(apply, outer);
+
             case JoinNode join:
                 return ExecuteJoin(join, outer);
 
@@ -899,6 +904,49 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         InListExpression il => ColumnRefs(il.Value).Concat(il.Items.SelectMany(ColumnRefs)),
         _ => [],
     };
+
+    /// <summary>
+    ///     CROSS/OUTER APPLY: a lateral join. The right side is a table expression that may correlate to the
+    ///     left, so it is re-executed once per left row with that row pushed onto the scope chain - the same
+    ///     mechanism a correlated subquery uses, only producing rows rather than one value. CROSS APPLY emits
+    ///     nothing for a left row whose right side came back empty; OUTER APPLY emits it null-padded.
+    /// </summary>
+    private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteApply(JoinNode apply, EvalScope? outer)
+    {
+        var (leftColumns, leftRows) = Execute(apply.Left, outer);
+        bool preserveLeft = apply.Kind is JoinKind.OuterApply;
+
+        // The right side's rows vary per left row but its schema does not, and the caller needs the joined
+        // schema before a single left row is read (a left side with no rows still has one). So run the right
+        // side once here against an all-null left row purely to learn its columns, and drop the rows unread:
+        // Execute resolves columns eagerly and rows lazily, so for almost every node this reads nothing at all.
+        var probeScope = new EvalScope(leftColumns, new object?[leftColumns.Count], outer);
+        var (rightColumns, _) = Execute(apply.Right, probeScope);
+        var columns = leftColumns.Concat(rightColumns).ToList();
+
+        IEnumerable<object?[]> Rows()
+        {
+            foreach (object?[] left in leftRows)
+            {
+                // A fresh scope per left row rather than a rebound one (as the joins use): the right side's
+                // row enumerable captures the scope it was built with, and re-planning happens inside Execute
+                // anyway, so there is nothing here that a shared scope would save.
+                var (_, rightRows) = Execute(apply.Right, new EvalScope(leftColumns, left, outer));
+
+                bool any = false;
+                foreach (object?[] right in rightRows)
+                {
+                    any = true;
+                    yield return [.. left, .. right];
+                }
+
+                if (!any && preserveLeft)
+                    yield return [.. left, .. new object?[rightColumns.Count]];
+            }
+        }
+
+        return (columns, Rows());
+    }
 
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteJoin(JoinNode join, EvalScope? outer)
     {

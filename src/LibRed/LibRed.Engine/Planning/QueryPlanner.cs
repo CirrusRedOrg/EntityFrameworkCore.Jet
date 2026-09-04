@@ -176,29 +176,52 @@ public sealed class QueryPlanner
     {
         var conjuncts = new List<Expression>();
         SplitAnd(where, conjuncts);
-        (PlanNode node, List<Expression> unplaced) = Place(joinTree, conjuncts);
+        // The aliases this FROM clause introduces. Any other qualifier belongs to an enclosing query — this is
+        // a correlated subquery's WHERE — and an outer column is readable at every depth of this tree, so it
+        // must not be the thing that stops a conjunct from sinking. That mattered little before APPLY, because
+        // a correlated subquery's predicate still landed as a Filter directly over its own scan, which index
+        // selection recognises. Over a lateral join it lands above the join instead, and the difference is
+        // seeking the inner table once per outer row versus rescanning all of it.
+        HashSet<string> introduced = SubtreeAliases(joinTree);
+        (PlanNode node, List<Expression> unplaced) = Place(joinTree, conjuncts, introduced);
         return unplaced.Count == 0 ? node : new FilterNode(node, CombineAnd(unplaced));
     }
 
     /// <summary>Pushes each conjunct that lies entirely within <paramref name="node"/>'s subtree as deep as it
-    /// fits; returns the rewritten node and the conjuncts that reference tables outside it (to bubble up).</summary>
-    private static (PlanNode Node, List<Expression> Unplaced) Place(PlanNode node, List<Expression> conjuncts)
+    /// fits; returns the rewritten node and the conjuncts that reference tables outside it (to bubble up).
+    /// <paramref name="introduced"/> is the alias set of the whole tree — qualifiers outside it are the
+    /// enclosing query's and are ignored when deciding where a conjunct fits.</summary>
+    private static (PlanNode Node, List<Expression> Unplaced) Place(
+        PlanNode node, List<Expression> conjuncts, HashSet<string> introduced)
     {
         HashSet<string> aliases = SubtreeAliases(node);
         var candidates = new List<Expression>();
         var outside = new List<Expression>();
         foreach (Expression c in conjuncts)
-            (Qualifiers(c) is { } q && q.Count > 0 && q.IsSubsetOf(aliases) ? candidates : outside).Add(c);
+            (Qualifiers(c) is { } q && q.Count > 0 && q.Where(introduced.Contains).All(aliases.Contains)
+                ? candidates : outside).Add(c);
 
         // Only CROSS/INNER joins are safe to push below (an outer join's null-supplying side changes meaning).
         if (node is JoinNode { Kind: JoinKind.Cross or JoinKind.Inner } j)
         {
-            (PlanNode left, List<Expression> afterLeft) = Place(j.Left, candidates);
-            (PlanNode right, List<Expression> both) = Place(j.Right, afterLeft);
+            (PlanNode left, List<Expression> afterLeft) = Place(j.Left, candidates, introduced);
+            (PlanNode right, List<Expression> both) = Place(j.Right, afterLeft, introduced);
             // `both` reference columns from each side → this is the lowest join that sees them: fold into ON.
             Expression? on = j.On;
             foreach (Expression c in both) on = on is null ? c : new BinaryExpression(BinaryOperator.And, on, c);
             return (new JoinNode(left, right, j.Kind, on), outside);
+        }
+
+        // Both APPLY kinds preserve their left side, so a conjunct confined to it can be pushed there: dropping
+        // a left row before the lateral runs removes exactly the output rows the WHERE would have removed
+        // after, and saves re-running the whole right side for it. Nothing is pushed into the RIGHT side —
+        // under OUTER APPLY a filter there can empty an otherwise non-empty result and so manufacture the very
+        // null-padded row the WHERE was there to drop.
+        if (node is JoinNode { Kind: JoinKind.CrossApply or JoinKind.OuterApply } a)
+        {
+            (PlanNode left, List<Expression> rest) = Place(a.Left, candidates, introduced);
+            PlanNode lateral = a with { Left = left };
+            return (rest.Count > 0 ? new FilterNode(lateral, CombineAnd(rest)) : lateral, outside);
         }
 
         PlanNode placed = candidates.Count > 0 ? new FilterNode(node, CombineAnd(candidates)) : node;

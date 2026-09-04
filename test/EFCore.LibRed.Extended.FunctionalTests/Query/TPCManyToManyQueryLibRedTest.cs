@@ -222,7 +222,7 @@ INNER JOIN (
 
         AssertSql(
             """
-SELECT IIF(SUM(`s`.`Key1`) IS NULL, 0, SUM(`s`.`Key1`))
+SELECT COALESCE(SUM(`s`.`Key1`), 0)
 FROM (
     SELECT `r`.`Id`
     FROM `Roots` AS `r`
@@ -294,9 +294,9 @@ FROM `EntityThrees` AS `e`
         await base.Skip_navigation_select_subquery_sum(async);
 
         AssertSql(
-"""
+            """
 SELECT (
-    SELECT IIF(SUM(`e1`.`Id`) IS NULL, 0, SUM(`e1`.`Id`))
+    SELECT COALESCE(SUM(`e1`.`Id`), 0)
     FROM `EntityOneEntityTwo` AS `e0`
     INNER JOIN `EntityOnes` AS `e1` ON `e0`.`OneSkipSharedId` = `e1`.`Id`
     WHERE `e`.`Id` = `e0`.`TwoSkipSharedId`)

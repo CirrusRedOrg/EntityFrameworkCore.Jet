@@ -85,8 +85,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT CLNG(2) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`) AS `v`
+    FROM (SELECT CLNG(2) AS `Value`) AS `v`
     WHERE `v`.`Value` > `p`.`Id`) = 1
 """);
     }
@@ -101,11 +100,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT CLNG(2) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT 999 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`
+    FROM (SELECT CLNG(2) AS `Value` UNION ALL VALUES (999)) AS `v`
     WHERE `v`.`Value` > `p`.`Id`) = 1
 """);
     }
@@ -120,14 +115,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT CLNG(2) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT 999 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
-    UNION
-    SELECT 1000 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`
+    FROM (SELECT CLNG(2) AS `Value` UNION ALL VALUES (999), (1000)) AS `v`
     WHERE `v`.`Value` > `p`.`Id`) = 2
 """);
     }
@@ -271,11 +259,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT MIN(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `p`.`Int` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) = 30
+    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`)) AS `v`) = 30
 """);
     }
 
@@ -289,11 +273,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT MIN(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `p`.`Int` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) = 30
+    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`)) AS `v`) = 30
 """);
     }
 
@@ -307,11 +287,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT MAX(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `p`.`Int` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) = 30
+    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`)) AS `v`) = 30
 """);
     }
 
@@ -325,11 +301,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT MAX(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `p`.`Int` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) = 30
+    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`)) AS `v`) = 30
 """);
     }
 
@@ -345,14 +317,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT MIN(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `p`.`Int` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
-    UNION
-    SELECT @i AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 25
+    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`), (@i)) AS `v`) = 25
 """);
     }
 
@@ -368,14 +333,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT MIN(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `p`.`Int` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
-    UNION
-    SELECT @i AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 25
+    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`), (@i)) AS `v`) = 25
 """);
     }
 
@@ -391,14 +349,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT MAX(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `p`.`Int` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
-    UNION
-    SELECT @i AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 35
+    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`), (@i)) AS `v`) = 35
 """);
     }
 
@@ -414,14 +365,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT MAX(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `p`.`Int` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
-    UNION
-    SELECT @i AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 35
+    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`), (@i)) AS `v`) = 35
 """);
     }
 
@@ -437,14 +381,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT MIN(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `p`.`Int` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
-    UNION
-    SELECT @i AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 25
+    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`), (@i)) AS `v`) = 25
 """);
     }
 
@@ -460,14 +397,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT MAX(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `p`.`Int` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
-    UNION
-    SELECT @i AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 35
+    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`), (@i)) AS `v`) = 35
 """);
     }
 
@@ -481,14 +411,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT MIN(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `p`.`NullableInt` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
-    UNION
-    SELECT NULL AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 30
+    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`NullableInt`), (NULL)) AS `v`) = 30
 """);
     }
 
@@ -502,14 +425,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT MAX(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `p`.`NullableInt` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
-    UNION
-    SELECT NULL AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`) = 30
+    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`NullableInt`), (NULL)) AS `v`) = 30
 """);
     }
 
@@ -539,8 +455,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT @i AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`) AS `v`
+    FROM (SELECT @i AS `Value`) AS `v`
     WHERE `v`.`Value` > `p`.`Id`) = 1
 """);
     }
@@ -606,14 +521,7 @@ SELECT TOP 2 `t`.`Id`, `t`.`Ints`
 FROM `TestEntity` AS `t`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT CLNG(1) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT 2 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
-    UNION
-    SELECT 3 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`) AS `v`
+    FROM (SELECT CLNG(1) AS `Value` UNION ALL VALUES (2), (3)) AS `v`
     WHERE `v`.`Value` > `t`.`Id`) = 1
 """);
     }
@@ -643,11 +551,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT @ids1 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
-    UNION
-    SELECT @ids2 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`) AS `i`
+    FROM (SELECT @ids1 AS `Value` UNION ALL VALUES (@ids2)) AS `i`
     WHERE `i`.`Value` > `p`.`Id`) = 1
 """);
     }
@@ -976,7 +880,7 @@ WHERE `p`.`NullableString` IS NOT NULL AND `p`.`NullableString` <> @strings1
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE `p`.`DateTime` IN (CDATE(@dateTimes1), CDATE(@dateTimes2))
+WHERE `p`.`DateTime` IN (@dateTimes1, @dateTimes2)
 """);
     }
 
@@ -1043,7 +947,6 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 INNER JOIN (
     SELECT CVar(NULL) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`)
     WHERE FALSE
 ) AS `p0` ON `p`.`Id` = IIF(`p0`.`Value` IS NULL, NULL, CLNG(`p0`.`Value`))
 """);
@@ -1071,14 +974,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE EXISTS (
     SELECT 1
-    FROM (SELECT CLNG(2) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
-    UNION
-    SELECT 999 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`
-    UNION
-    SELECT 1000 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_2`) AS `i`
+    FROM (SELECT CLNG(2) AS `Value` UNION ALL VALUES (999), (1000)) AS `i`
     WHERE `i`.`Value` > 0)
 """);
     }
@@ -1093,14 +989,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT CLNG(2) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
-    UNION
-    SELECT 999 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`
-    UNION
-    SELECT 1000 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_2`) AS `i`
+    FROM (SELECT CLNG(2) AS `Value` UNION ALL VALUES (999), (1000)) AS `i`
     WHERE `i`.`Value` > `p`.`Id`) = 2
 """);
     }
@@ -1200,11 +1089,7 @@ SELECT `t`.`Id`
 FROM `TestEntity` AS `t`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT CLNG(2) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
-    UNION
-    SELECT 999 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`) AS `i`
+    FROM (SELECT CLNG(2) AS `Value` UNION ALL VALUES (999)) AS `i`
     WHERE `i`.`Value` > `t`.`Id`) = 1
 """);
                 break;
@@ -1238,11 +1123,7 @@ SELECT `t`.`Id`
 FROM `TestEntity` AS `t`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT @ids1 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
-    UNION
-    SELECT @ids2 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`) AS `i`
+    FROM (SELECT @ids1 AS `Value` UNION ALL VALUES (@ids2)) AS `i`
     WHERE `i`.`Value` > `t`.`Id`) = 1
 """);
                 break;
@@ -1314,11 +1195,7 @@ SELECT `t`.`Id`
 FROM `TestEntity` AS `t`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT CLNG(2) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
-    UNION
-    SELECT 999 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`) AS `i`
+    FROM (SELECT CLNG(2) AS `Value` UNION ALL VALUES (999)) AS `i`
     WHERE `i`.`Value` > `t`.`Id`) = 1
 """);
     }
@@ -1384,11 +1261,7 @@ SELECT `t`.`Id`
 FROM `TestEntity` AS `t`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT @ids1 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
-    UNION
-    SELECT @ids2 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`) AS `i`
+    FROM (SELECT @ids1 AS `Value` UNION ALL VALUES (@ids2)) AS `i`
     WHERE `i`.`Value` > `t`.`Id`) = 1
 """);
     }
@@ -1455,8 +1328,7 @@ SELECT `t`.`Id`
 FROM `TestEntity38008` AS `t`
 WHERE EXISTS (
     SELECT 1
-    FROM (SELECT 2 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `f_0`) AS `f`
+    FROM (SELECT 2 AS `Value`) AS `f`
     WHERE `f`.`Value` = `t`.`Status`)
 """);
                 break;
@@ -1489,8 +1361,7 @@ SELECT `t`.`Id`
 FROM `TestEntity38008` AS `t`
 WHERE EXISTS (
     SELECT 1
-    FROM (SELECT @filter1 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `f_0`) AS `f`
+    FROM (SELECT @filter1 AS `Value`) AS `f`
     WHERE `f`.`Value` = `t`.`Status`)
 """);
                 break;
@@ -1659,11 +1530,7 @@ SELECT TOP 2 `t`.`Id`, `t`.`Ints`, `t`.`PropertyWithValueConverter`
 FROM `TestEntity` AS `t`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT 1 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT 8 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`
+    FROM (SELECT 1 AS `Value` UNION ALL VALUES (8)) AS `v`
     WHERE `v`.`Value` = `t`.`PropertyWithValueConverter`) = 1
 """);
     }
@@ -1717,11 +1584,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT MIN(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `p`.`Int` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) = 30
+    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`)) AS `v`) = 30
 """);
     }
 
@@ -1735,11 +1598,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT MAX(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `p`.`Int` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`) = 30
+    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`)) AS `v`) = 30
 """);
     }
 
@@ -2005,7 +1864,23 @@ WHERE `p`.`Ints` = '[1,10]'
     {
         await base.Parameter_collection_in_subquery_Count_as_compiled_query();
 
-        AssertSql();
+        AssertSql(
+            """
+@ints1='10'
+@ints2='111'
+
+SELECT COUNT(*)
+FROM `PrimitiveCollectionsEntity` AS `p`
+WHERE (
+    SELECT COUNT(*)
+    FROM (
+        SELECT `i`.`Value` AS `Value0`
+        FROM (SELECT 0 AS `_ord`, @ints1 AS `Value` UNION ALL VALUES (1, @ints2)) AS `i`
+        ORDER BY `i`.`_ord`
+        OFFSET 1 ROWS
+    ) AS `i0`
+    WHERE `i0`.`Value0` > `p`.`Id`) = 1
+""");
     }
 
     public override async Task Parameter_collection_in_subquery_Union_another_parameter_collection_as_compiled_query()
@@ -2027,7 +1902,6 @@ WHERE EXISTS (
     SELECT 1
     FROM (
         SELECT CVar(NULL) AS `Value`
-        FROM (SELECT COUNT(*) FROM `#Dual`)
         WHERE FALSE
     ) AS `i`)
 """);
@@ -2216,7 +2090,10 @@ WHERE EXISTS (
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE IIF(`p`.`Int` IN (@ints1, @ints2, @ints3), 'one', 'two') IN (@strings1, @strings2, @strings3)
+WHERE CASE
+    WHEN `p`.`Int` IN (@ints1, @ints2, @ints3) THEN 'one'
+    ELSE 'two'
+END IN (@strings1, @strings2, @strings3)
 """);
     }
 
@@ -2235,7 +2112,10 @@ WHERE IIF(`p`.`Int` IN (@ints1, @ints2, @ints3), 'one', 'two') IN (@strings1, @s
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE IIF(`p`.`Int` IN (@ints1, @ints2, @ints3), 'one', 'two') IN (@strings1, @strings2, @strings3)
+WHERE CASE
+    WHEN `p`.`Int` IN (@ints1, @ints2, @ints3) THEN 'one'
+    ELSE 'two'
+END IN (@strings1, @strings2, @strings3)
 """);
     }
 
@@ -2390,17 +2270,7 @@ SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`
 FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT CLNG(0) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT 1 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`
-    UNION
-    SELECT 2 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_2`
-    UNION
-    SELECT 3 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_3`) AS `v`
+    FROM (SELECT CLNG(0) AS `Value` UNION ALL VALUES (1), (2), (3)) AS `v`
     WHERE `v`.`Value` = `p`.`Int`) > 0
 """);
     }

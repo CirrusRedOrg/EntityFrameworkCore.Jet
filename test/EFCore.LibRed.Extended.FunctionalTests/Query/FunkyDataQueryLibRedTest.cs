@@ -329,7 +329,7 @@ WHERE `f`.`FirstName` LIKE @prm3_startswith
                 """
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`
 FROM `FunkyCustomers` AS `f`
-WHERE `f`.`FirstName` IS NOT NULL AND `f`.`LastName` IS NOT NULL AND LEFT(`f`.`FirstName`, IIF(LEN(`f`.`LastName`) IS NULL, 0, LEN(`f`.`LastName`))) = `f`.`LastName`
+WHERE `f`.`FirstName` IS NOT NULL AND `f`.`LastName` IS NOT NULL AND LEFT(`f`.`FirstName`, COALESCE(LEN(`f`.`LastName`), 0)) = `f`.`LastName`
 """);
         }
 
@@ -342,7 +342,7 @@ WHERE `f`.`FirstName` IS NOT NULL AND `f`.`LastName` IS NOT NULL AND LEFT(`f`.`F
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND LEFT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) = `f0`.`LastName`
+WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND LEFT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) = `f0`.`LastName`
 """);
         }
 
@@ -355,7 +355,7 @@ WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND LEFT(`f`.`
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE `f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR LEFT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) <> `f0`.`LastName`
+WHERE `f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR LEFT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) <> `f0`.`LastName`
 """);
         }
 
@@ -486,7 +486,7 @@ FROM `FunkyCustomers` AS `f`
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) = `f0`.`LastName`
+WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) = `f0`.`LastName`
 """);
         }
 
@@ -499,7 +499,7 @@ WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE `f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR RIGHT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) <> `f0`.`LastName`
+WHERE `f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR RIGHT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) <> `f0`.`LastName`
 """);
         }
 
@@ -512,7 +512,10 @@ WHERE `f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR RIGHT(`f`.`FirstName
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE IIF(`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) = `f0`.`LastName`, TRUE, FALSE)
+WHERE CASE
+    WHEN `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) = `f0`.`LastName` THEN TRUE
+    ELSE FALSE
+END
 """);
         }
 
@@ -525,7 +528,10 @@ WHERE IIF(`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE IIF(`f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR RIGHT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) <> `f0`.`LastName`, TRUE, FALSE)
+WHERE CASE
+    WHEN `f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR RIGHT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) <> `f0`.`LastName` THEN TRUE
+    ELSE FALSE
+END
 """);
         }
 
@@ -538,7 +544,7 @@ WHERE IIF(`f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR RIGHT(`f`.`First
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`, `f0`.`Id`, `f0`.`FirstName`, `f0`.`LastName`, `f0`.`NullableBool`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE (`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) = `f0`.`LastName`) = `f`.`NullableBool`
+WHERE (`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) = `f0`.`LastName`) = `f`.`NullableBool`
 """);
         }
 
@@ -551,7 +557,7 @@ WHERE (`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`, `f0`.`Id`, `f0`.`FirstName`, `f0`.`LastName`, `f0`.`NullableBool`
 FROM `FunkyCustomers` AS `f`,
 `FunkyCustomers` AS `f0`
-WHERE (`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, IIF(LEN(`f0`.`LastName`) IS NULL, 0, LEN(`f0`.`LastName`))) = `f0`.`LastName`) <> `f`.`NullableBool` OR `f`.`NullableBool` IS NULL
+WHERE (`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) = `f0`.`LastName`) <> `f`.`NullableBool` OR `f`.`NullableBool` IS NULL
 """);
         }
 

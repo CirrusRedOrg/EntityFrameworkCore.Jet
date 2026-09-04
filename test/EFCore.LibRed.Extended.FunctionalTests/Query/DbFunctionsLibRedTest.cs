@@ -150,7 +150,10 @@ WHERE `c`.`Region` IS NULL
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE IIF(`o`.`OrderID` < 10251, `o`.`OrderID`, 10251) = 10251
+WHERE CASE
+    WHEN `o`.`OrderID` < 10251 THEN `o`.`OrderID`
+    ELSE 10251
+END = 10251
 """);
         }
 
@@ -162,7 +165,10 @@ WHERE IIF(`o`.`OrderID` < 10251, `o`.`OrderID`, 10251) = 10251
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE IIF(`o`.`OrderID` > 10251, `o`.`OrderID`, 10251) = 10251
+WHERE CASE
+    WHEN `o`.`OrderID` > 10251 THEN `o`.`OrderID`
+    ELSE 10251
+END = 10251
 """);
         }
 
@@ -174,7 +180,10 @@ WHERE IIF(`o`.`OrderID` > 10251, `o`.`OrderID`, 10251) = 10251
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE IIF(`o`.`OrderID` < 10251, `o`.`OrderID`, 10251) = 10251
+WHERE CASE
+    WHEN `o`.`OrderID` < 10251 THEN `o`.`OrderID`
+    ELSE 10251
+END = 10251
 """);
         }
 
@@ -186,7 +195,10 @@ WHERE IIF(`o`.`OrderID` < 10251, `o`.`OrderID`, 10251) = 10251
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
-WHERE IIF(`o`.`OrderID` > 10251, `o`.`OrderID`, 10251) = 10251
+WHERE CASE
+    WHEN `o`.`OrderID` > 10251 THEN `o`.`OrderID`
+    ELSE 10251
+END = 10251
 """);
         }
 
@@ -469,9 +481,9 @@ WHERE NOT (ISDATE(`o`.`CustomerID`))
 
             AssertSql(
                 """
-SELECT ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & '')))
+SELECT ISDATE(COALESCE((`o`.`OrderDate` & ''), ''))
 FROM `Orders` AS `o`
-WHERE ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & '')))
+WHERE ISDATE(COALESCE((`o`.`OrderDate` & ''), ''))
 """);
         }
 
@@ -490,7 +502,7 @@ WHERE ISDATE(IIF((`o`.`OrderDate` & '') IS NULL, '', (`o`.`OrderDate` & '')))
                 """
 SELECT COUNT(*)
 FROM `Orders` AS `o`
-WHERE ISDATE(IIF(`o`.`CustomerID` IS NULL, '', `o`.`CustomerID`) & (`o`.`OrderID` & ''))
+WHERE ISDATE(COALESCE(`o`.`CustomerID`, '') & (`o`.`OrderID` & ''))
 """);
         }
 

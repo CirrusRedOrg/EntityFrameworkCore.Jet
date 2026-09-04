@@ -26,7 +26,6 @@ FROM `Users` AS `u`,
     SELECT `o1`.`Id`
     FROM (
         SELECT 1
-        FROM (SELECT COUNT(*) FROM `#Dual`)
     ) AS `e`
     LEFT JOIN (
         SELECT `o`.`Id`

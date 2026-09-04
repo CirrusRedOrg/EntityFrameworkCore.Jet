@@ -748,7 +748,7 @@ WHERE `b`.`Int` <= @orderId
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`DateTime` = CDATE(@dateTime)
+WHERE `b`.`DateTime` = @dateTime
 """,
             //
             """
@@ -756,7 +756,7 @@ WHERE `b`.`DateTime` = CDATE(@dateTime)
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`DateTime` <> CDATE(@dateTime)
+WHERE `b`.`DateTime` <> @dateTime
 """,
             //
             """
@@ -764,7 +764,7 @@ WHERE `b`.`DateTime` <> CDATE(@dateTime)
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`DateTime` > CDATE(@dateTime)
+WHERE `b`.`DateTime` > @dateTime
 """,
             //
             """
@@ -772,7 +772,7 @@ WHERE `b`.`DateTime` > CDATE(@dateTime)
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`DateTime` <= CDATE(@dateTime)
+WHERE `b`.`DateTime` <= @dateTime
 """,
             //
             """
@@ -780,7 +780,7 @@ WHERE `b`.`DateTime` <= CDATE(@dateTime)
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`DateTime` > CDATE(@dateTime)
+WHERE `b`.`DateTime` > @dateTime
 """,
             //
             """
@@ -788,7 +788,7 @@ WHERE `b`.`DateTime` > CDATE(@dateTime)
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`DateTime` <= CDATE(@dateTime)
+WHERE `b`.`DateTime` <= @dateTime
 """);
     }
 
@@ -858,7 +858,7 @@ WHERE `b`.`TimeSpan` <= @timeSpan
 
         AssertSql(
             """
-SELECT IIF(SUM(CLNG(`b`.`Bool` * -1)) IS NULL, 0, SUM(CLNG(`b`.`Bool` * -1)))
+SELECT COALESCE(SUM(CLNG(`b`.`Bool` * -1)), 0)
 FROM `BasicTypesEntities` AS `b`
 """);
     }
@@ -872,7 +872,10 @@ FROM `BasicTypesEntities` AS `b`
 
         AssertSql(
             """
-SELECT IIF(SUM(IIF(`b`.`Bool`, 1, 0)) IS NULL, 0, SUM(IIF(`b`.`Bool`, 1, 0)))
+SELECT COALESCE(SUM(CASE
+    WHEN `b`.`Bool` THEN 1
+    ELSE 0
+END), 0)
 FROM `BasicTypesEntities` AS `b`
 """);
     }

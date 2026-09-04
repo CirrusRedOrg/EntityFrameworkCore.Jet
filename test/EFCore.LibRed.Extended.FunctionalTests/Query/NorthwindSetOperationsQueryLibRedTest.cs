@@ -100,25 +100,18 @@ WHERE `c0`.`ContactName` LIKE '%Thomas%'
                 """
 @p='1'
 
-SELECT `u1`.`CustomerID`, `u1`.`Address`, `u1`.`City`, `u1`.`CompanyName`, `u1`.`ContactName`, `u1`.`ContactTitle`, `u1`.`Country`, `u1`.`Fax`, `u1`.`Phone`, `u1`.`PostalCode`, `u1`.`Region`
+SELECT `u`.`CustomerID`, `u`.`Address`, `u`.`City`, `u`.`CompanyName`, `u`.`ContactName`, `u`.`ContactTitle`, `u`.`Country`, `u`.`Fax`, `u`.`Phone`, `u`.`PostalCode`, `u`.`Region`
 FROM (
-    SELECT TOP @p `u0`.`CustomerID`, `u0`.`Address`, `u0`.`City`, `u0`.`CompanyName`, `u0`.`ContactName`, `u0`.`ContactTitle`, `u0`.`Country`, `u0`.`Fax`, `u0`.`Phone`, `u0`.`PostalCode`, `u0`.`Region`
-    FROM (
-        SELECT TOP @p + @p `u`.`CustomerID`, `u`.`Address`, `u`.`City`, `u`.`CompanyName`, `u`.`ContactName`, `u`.`ContactTitle`, `u`.`Country`, `u`.`Fax`, `u`.`Phone`, `u`.`PostalCode`, `u`.`Region`
-        FROM (
-            SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-            FROM `Customers` AS `c`
-            WHERE `c`.`City` = 'Berlin'
-            UNION
-            SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-            FROM `Customers` AS `c0`
-            WHERE `c0`.`City` = 'London'
-        ) AS `u`
-        ORDER BY `u`.`ContactName`
-    ) AS `u0`
-    ORDER BY `u0`.`ContactName` DESC
-) AS `u1`
-ORDER BY `u1`.`ContactName`, `u1`.`CustomerID`
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    WHERE `c`.`City` = 'Berlin'
+    UNION
+    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`City` = 'London'
+) AS `u`
+ORDER BY `u`.`ContactName`, `u`.`CustomerID`
+OFFSET @p ROWS FETCH NEXT @p ROWS ONLY
 """);
         }
 
@@ -147,27 +140,27 @@ WHERE `u`.`ContactName` LIKE '%Thomas%'
             await base.Union_Skip_Take_OrderBy_ThenBy_Where(isAsync);
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='0'")}
-                    
-                    SELECT `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
-                    FROM (
-                        SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
-                        FROM (
-                            SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                            FROM `Customers` AS `c`
-                            WHERE `c`.`City` = 'Berlin'
-                            UNION
-                            SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-                            FROM `Customers` AS `c0`
-                            WHERE `c0`.`City` = 'London'
-                        ) AS `t`
-                        ORDER BY `t`.`Region`, `t`.`City`
-                        SKIP {AssertSqlHelper.Parameter("@__p_0")}
-                    ) AS `t0`
-                    WHERE CHARINDEX('Thomas', `t0`.`ContactName`) > 0
-                    ORDER BY `t0`.`Region`, `t0`.`City`
-                    """);
+                """
+@p='0'
+
+SELECT `u0`.`CustomerID`, `u0`.`Address`, `u0`.`City`, `u0`.`CompanyName`, `u0`.`ContactName`, `u0`.`ContactTitle`, `u0`.`Country`, `u0`.`Fax`, `u0`.`Phone`, `u0`.`PostalCode`, `u0`.`Region`
+FROM (
+    SELECT `u`.`CustomerID`, `u`.`Address`, `u`.`City`, `u`.`CompanyName`, `u`.`ContactName`, `u`.`ContactTitle`, `u`.`Country`, `u`.`Fax`, `u`.`Phone`, `u`.`PostalCode`, `u`.`Region`
+    FROM (
+        SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+        FROM `Customers` AS `c`
+        WHERE `c`.`City` = 'Berlin'
+        UNION
+        SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+        FROM `Customers` AS `c0`
+        WHERE `c0`.`City` = 'London'
+    ) AS `u`
+    ORDER BY `u`.`Region`, `u`.`City`
+    OFFSET @p ROWS
+) AS `u0`
+WHERE `u0`.`ContactName` LIKE '%Thomas%'
+ORDER BY `u0`.`Region`, `u0`.`City`, `u0`.`CustomerID`
+""");
         }
 
         public override async Task Union_Union(bool isAsync)
@@ -364,26 +357,23 @@ ORDER BY `u`.`CompanyName`
 
             AssertSql(
                 """
-@p1='10'
 @p='1'
+@p1='10'
 
 SELECT `u0`.`Foo`, `u0`.`CustomerID`, `u0`.`Address`, `u0`.`City`, `u0`.`CompanyName`, `u0`.`ContactName`, `u0`.`ContactTitle`, `u0`.`Country`, `u0`.`Fax`, `u0`.`Phone`, `u0`.`PostalCode`, `u0`.`Region`
 FROM (
-    SELECT TOP @p1 `u1`.`Foo`, `u1`.`CustomerID`, `u1`.`Address`, `u1`.`City`, `u1`.`CompanyName`, `u1`.`ContactName`, `u1`.`ContactTitle`, `u1`.`Country`, `u1`.`Fax`, `u1`.`Phone`, `u1`.`PostalCode`, `u1`.`Region`
+    SELECT `u`.`Foo`, `u`.`CustomerID`, `u`.`Address`, `u`.`City`, `u`.`CompanyName`, `u`.`ContactName`, `u`.`ContactTitle`, `u`.`Country`, `u`.`Fax`, `u`.`Phone`, `u`.`PostalCode`, `u`.`Region`
     FROM (
-        SELECT TOP @p + @p1 `u`.`Foo`, `u`.`CustomerID`, `u`.`Address`, `u`.`City`, `u`.`CompanyName`, `u`.`ContactName`, `u`.`ContactTitle`, `u`.`Country`, `u`.`Fax`, `u`.`Phone`, `u`.`PostalCode`, `u`.`Region`
-        FROM (
-            SELECT `c`.`City` AS `Foo`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-            FROM `Customers` AS `c`
-            WHERE `c`.`City` = 'Berlin'
-            UNION
-            SELECT `c0`.`Region` AS `Foo`, `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-            FROM `Customers` AS `c0`
-            WHERE `c0`.`City` = 'London'
-        ) AS `u`
-        ORDER BY `u`.`Foo`
-    ) AS `u1`
-    ORDER BY `u1`.`Foo` DESC
+        SELECT `c`.`City` AS `Foo`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+        FROM `Customers` AS `c`
+        WHERE `c`.`City` = 'Berlin'
+        UNION
+        SELECT `c0`.`Region` AS `Foo`, `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+        FROM `Customers` AS `c0`
+        WHERE `c0`.`City` = 'London'
+    ) AS `u`
+    ORDER BY `u`.`Foo`
+    OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 ) AS `u0`
 WHERE `u0`.`Foo` = 'Berlin'
 ORDER BY `u0`.`Foo`, `u0`.`CustomerID`

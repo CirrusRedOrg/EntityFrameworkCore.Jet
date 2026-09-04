@@ -23,7 +23,9 @@ LEFT JOIN (
     FROM `RelatedCollection` AS `r0`
     LEFT JOIN `RelatedCollection_NestedCollection` AS `r1` ON `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r1`.`AssociateTypeId`
 ) AS `s` ON `r`.`Id` = `s`.`RootEntityId`)
-LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`)
+LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON CASE
+    WHEN `r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL THEN `r`.`Id`
+END = `o`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r2` ON `r`.`Id` = `r2`.`AssociateTypeRootEntityId`
 ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`, `r2`.`Id`
 """);
@@ -105,7 +107,9 @@ ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`
                 """
 SELECT `r`.`Id`, `r`.`OptionalAssociate_Id`, `r`.`OptionalAssociate_Int`, `r`.`OptionalAssociate_Ints`, `r`.`OptionalAssociate_Name`, `r`.`OptionalAssociate_String`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `o`.`Int`, `o`.`Ints`, `o`.`Name`, `o`.`String`, `r`.`OptionalAssociate_OptionalNestedAssociate_Id`, `r`.`OptionalAssociate_OptionalNestedAssociate_Int`, `r`.`OptionalAssociate_OptionalNestedAssociate_Ints`, `r`.`OptionalAssociate_OptionalNestedAssociate_Name`, `r`.`OptionalAssociate_OptionalNestedAssociate_String`, `r`.`OptionalAssociate_RequiredNestedAssociate_Id`, `r`.`OptionalAssociate_RequiredNestedAssociate_Int`, `r`.`OptionalAssociate_RequiredNestedAssociate_Ints`, `r`.`OptionalAssociate_RequiredNestedAssociate_Name`, `r`.`OptionalAssociate_RequiredNestedAssociate_String`
 FROM `RootEntity` AS `r`
-LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`
+LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON CASE
+    WHEN `r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL THEN `r`.`Id`
+END = `o`.`AssociateTypeRootEntityId`
 ORDER BY `r`.`Id`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`
 """);
         }
@@ -261,7 +265,9 @@ ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`
                 """
 SELECT `r`.`Id`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `o`.`Int`, `o`.`Ints`, `o`.`Name`, `o`.`String`
 FROM `RootEntity` AS `r`
-LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`
+LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON CASE
+    WHEN `r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL THEN `r`.`Id`
+END = `o`.`AssociateTypeRootEntityId`
 ORDER BY `r`.`Id`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`
 """);
         }
@@ -309,7 +315,9 @@ INNER JOIN `RequiredRelated_NestedCollection` AS `r0` ON `r`.`Id` = `r0`.`Associ
                 """
 SELECT `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `o`.`Int`, `o`.`Ints`, `o`.`Name`, `o`.`String`
 FROM `RootEntity` AS `r`
-LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`
+LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON CASE
+    WHEN `r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL THEN `r`.`Id`
+END = `o`.`AssociateTypeRootEntityId`
 WHERE `o`.`AssociateTypeRootEntityId` IS NOT NULL
 """);
         }
@@ -332,14 +340,18 @@ LEFT JOIN (
     FROM `RelatedCollection` AS `r0`
     LEFT JOIN `RelatedCollection_NestedCollection` AS `r1` ON `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r1`.`AssociateTypeId`
 ) AS `s` ON `r`.`Id` = `s`.`RootEntityId`)
-LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`)
+LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON CASE
+    WHEN `r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL THEN `r`.`Id`
+END = `o`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r2` ON `r`.`Id` = `r2`.`AssociateTypeRootEntityId`)
 LEFT JOIN (
     SELECT `r3`.`RootEntityId`, `r3`.`Id`, `r3`.`Int`, `r3`.`Ints`, `r3`.`Name`, `r3`.`String`, `r4`.`AssociateTypeRootEntityId`, `r4`.`AssociateTypeId`, `r4`.`Id` AS `Id0`, `r4`.`Int` AS `Int0`, `r4`.`Ints` AS `Ints0`, `r4`.`Name` AS `Name0`, `r4`.`String` AS `String0`, `r3`.`OptionalNestedAssociate_Id`, `r3`.`OptionalNestedAssociate_Int`, `r3`.`OptionalNestedAssociate_Ints`, `r3`.`OptionalNestedAssociate_Name`, `r3`.`OptionalNestedAssociate_String`, `r3`.`RequiredNestedAssociate_Id`, `r3`.`RequiredNestedAssociate_Int`, `r3`.`RequiredNestedAssociate_Ints`, `r3`.`RequiredNestedAssociate_Name`, `r3`.`RequiredNestedAssociate_String`
     FROM `RelatedCollection` AS `r3`
     LEFT JOIN `RelatedCollection_NestedCollection` AS `r4` ON `r3`.`RootEntityId` = `r4`.`AssociateTypeRootEntityId` AND `r3`.`Id` = `r4`.`AssociateTypeId`
 ) AS `s0` ON `r`.`Id` = `s0`.`RootEntityId`)
-LEFT JOIN `OptionalRelated_NestedCollection` AS `o0` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o0`.`AssociateTypeRootEntityId`)
+LEFT JOIN `OptionalRelated_NestedCollection` AS `o0` ON CASE
+    WHEN `r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL THEN `r`.`Id`
+END = `o0`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r5` ON `r`.`Id` = `r5`.`AssociateTypeRootEntityId`
 ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `r2`.`AssociateTypeRootEntityId`, `r2`.`Id`, `s0`.`RootEntityId`, `s0`.`Id`, `s0`.`AssociateTypeRootEntityId`, `s0`.`AssociateTypeId`, `s0`.`Id0`, `o0`.`AssociateTypeRootEntityId`, `o0`.`Id`, `r5`.`AssociateTypeRootEntityId`, `r5`.`Id`
 """);
@@ -373,7 +385,9 @@ ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r1`.`AssociateT
 SELECT `r`.`Id`, `r`.`RequiredAssociate_Id`, `r`.`RequiredAssociate_Int`, `r`.`RequiredAssociate_Ints`, `r`.`RequiredAssociate_Name`, `r`.`RequiredAssociate_String`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`, `r`.`RequiredAssociate_OptionalNestedAssociate_Id`, `r`.`RequiredAssociate_OptionalNestedAssociate_Int`, `r`.`RequiredAssociate_OptionalNestedAssociate_Ints`, `r`.`RequiredAssociate_OptionalNestedAssociate_Name`, `r`.`RequiredAssociate_OptionalNestedAssociate_String`, `r`.`RequiredAssociate_RequiredNestedAssociate_Id`, `r`.`RequiredAssociate_RequiredNestedAssociate_Int`, `r`.`RequiredAssociate_RequiredNestedAssociate_Ints`, `r`.`RequiredAssociate_RequiredNestedAssociate_Name`, `r`.`RequiredAssociate_RequiredNestedAssociate_String`, `r`.`OptionalAssociate_Id`, `r`.`OptionalAssociate_Int`, `r`.`OptionalAssociate_Ints`, `r`.`OptionalAssociate_Name`, `r`.`OptionalAssociate_String`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `o`.`Int`, `o`.`Ints`, `o`.`Name`, `o`.`String`, `r`.`OptionalAssociate_OptionalNestedAssociate_Id`, `r`.`OptionalAssociate_OptionalNestedAssociate_Int`, `r`.`OptionalAssociate_OptionalNestedAssociate_Ints`, `r`.`OptionalAssociate_OptionalNestedAssociate_Name`, `r`.`OptionalAssociate_OptionalNestedAssociate_String`, `r`.`OptionalAssociate_RequiredNestedAssociate_Id`, `r`.`OptionalAssociate_RequiredNestedAssociate_Int`, `r`.`OptionalAssociate_RequiredNestedAssociate_Ints`, `r`.`OptionalAssociate_RequiredNestedAssociate_Name`, `r`.`OptionalAssociate_RequiredNestedAssociate_String`
 FROM (`RootEntity` AS `r`
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r0` ON `r`.`Id` = `r0`.`AssociateTypeRootEntityId`)
-LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`
+LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON CASE
+    WHEN `r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL THEN `r`.`Id`
+END = `o`.`AssociateTypeRootEntityId`
 ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`
 """);
         }
@@ -389,7 +403,9 @@ ORDER BY `r`.`Id`, `r0`.`AssociateTypeRootEntityId`, `r0`.`Id`, `o`.`AssociateTy
                 """
 SELECT `r`.`Id`, `r`.`OptionalAssociate_Id`, `r`.`OptionalAssociate_Int`, `r`.`OptionalAssociate_Ints`, `r`.`OptionalAssociate_Name`, `r`.`OptionalAssociate_String`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`, `o`.`Int`, `o`.`Ints`, `o`.`Name`, `o`.`String`, `r`.`OptionalAssociate_OptionalNestedAssociate_Id`, `r`.`OptionalAssociate_OptionalNestedAssociate_Int`, `r`.`OptionalAssociate_OptionalNestedAssociate_Ints`, `r`.`OptionalAssociate_OptionalNestedAssociate_Name`, `r`.`OptionalAssociate_OptionalNestedAssociate_String`, `r`.`OptionalAssociate_RequiredNestedAssociate_Id`, `r`.`OptionalAssociate_RequiredNestedAssociate_Int`, `r`.`OptionalAssociate_RequiredNestedAssociate_Ints`, `r`.`OptionalAssociate_RequiredNestedAssociate_Name`, `r`.`OptionalAssociate_RequiredNestedAssociate_String`, `r`.`RequiredAssociate_Ints`
 FROM `RootEntity` AS `r`
-LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON IIF(`r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL, `r`.`Id`, NULL) = `o`.`AssociateTypeRootEntityId`
+LEFT JOIN `OptionalRelated_NestedCollection` AS `o` ON CASE
+    WHEN `r`.`OptionalAssociate_Id` IS NOT NULL AND `r`.`OptionalAssociate_Int` IS NOT NULL AND `r`.`OptionalAssociate_Ints` IS NOT NULL AND `r`.`OptionalAssociate_Name` IS NOT NULL AND `r`.`OptionalAssociate_String` IS NOT NULL THEN `r`.`Id`
+END = `o`.`AssociateTypeRootEntityId`
 ORDER BY `r`.`Id`, `o`.`AssociateTypeRootEntityId`, `o`.`Id`
 """);
         }

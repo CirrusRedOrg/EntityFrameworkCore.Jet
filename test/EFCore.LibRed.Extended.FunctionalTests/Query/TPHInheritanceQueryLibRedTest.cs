@@ -128,8 +128,11 @@ WHERE `a`.`Discriminator` = 'Kiwi'
         await base.Can_use_is_kiwi_with_cast(async);
 
         AssertSql(
-"""
-SELECT IIF(`a`.`Discriminator` = 'Kiwi', `a`.`FoundOn`, CBYTE(0)) AS `Value`
+            """
+SELECT CASE
+    WHEN `a`.`Discriminator` = 'Kiwi' THEN `a`.`FoundOn`
+    ELSE CBYTE(0)
+END AS `Value`
 FROM `Animals` AS `a`
 """);
     }
@@ -414,7 +417,10 @@ WHERE `a`.`Discriminator` = 'Kiwi'
 
         AssertSql(
             """
-SELECT IIF(`a`.`IsFlightless`, CBYTE(0), CBYTE(1))
+SELECT CASE
+    WHEN `a`.`IsFlightless` THEN CBYTE(0)
+    ELSE CBYTE(1)
+END
 FROM `Animals` AS `a`
 WHERE `a`.`Discriminator` = 'Kiwi'
 """);

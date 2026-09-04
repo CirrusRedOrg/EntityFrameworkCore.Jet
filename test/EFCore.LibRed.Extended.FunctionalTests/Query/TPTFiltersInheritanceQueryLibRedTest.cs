@@ -32,7 +32,10 @@ public class TPTFiltersInheritanceQueryLibRedTest : TPTFiltersInheritanceQueryTe
 
         AssertSql(
             """
-SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, CASE
+    WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
+    WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
+END AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
@@ -47,8 +50,11 @@ ORDER BY `a`.`Species`, `a`.`Id`
         await base.Can_use_is_kiwi(async);
 
         AssertSql(
-"""
-SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
+            """
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, CASE
+    WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
+    WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
+END AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
@@ -62,8 +68,11 @@ WHERE `a`.`CountryId` = 1 AND `k`.`Id` IS NOT NULL
         await base.Can_use_is_kiwi_with_other_predicate(async);
 
         AssertSql(
-"""
-SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
+            """
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, CASE
+    WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
+    WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
+END AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
@@ -91,7 +100,10 @@ WHERE `a`.`CountryId` = 1
 
         AssertSql(
             """
-SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, CASE
+    WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
+    WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
+END AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
@@ -107,7 +119,10 @@ ORDER BY `a`.`Species`, `a`.`Id`
 
         AssertSql(
             """
-SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, CASE
+    WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
+    WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
+END AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
@@ -136,8 +151,11 @@ WHERE `a`.`CountryId` = 1 AND (`k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL)
         await base.Can_use_of_type_bird_first(async);
 
         AssertSql(
-"""
-SELECT TOP 1 `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', IIF(`e`.`Id` IS NOT NULL, 'Eagle', NULL)) AS `Discriminator`
+            """
+SELECT TOP 1 `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, `k`.`FoundOn`, CASE
+    WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
+    WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
+END AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
@@ -152,8 +170,10 @@ ORDER BY `a`.`Species`
         await base.Can_use_of_type_kiwi(async);
 
         AssertSql(
-"""
-SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`, IIF(`k`.`Id` IS NOT NULL, 'Kiwi', NULL) AS `Discriminator`
+            """
+SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`, CASE
+    WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
+END AS `Discriminator`
 FROM (`Animals` AS `a`
 LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`

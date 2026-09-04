@@ -36,15 +36,14 @@ DELETE FROM `Owner` AS `o`
 
         AssertSql(
             """
-@__p_0='1'
+@p='1'
 
-DELETE FROM [o]
-FROM [Owner] AS [o]
-WHERE [o].[Id] IN (
-    SELECT [o0].[Id]
-    FROM [Owner] AS [o0]
-    ORDER BY [o0].[Title]
-    OFFSET @__p_0 ROWS
+DELETE FROM `Owner` AS `o`
+WHERE `o`.`Id` IN (
+    SELECT `o0`.`Id`
+    FROM `Owner` AS `o0`
+    ORDER BY `o0`.`Title`
+    OFFSET @p ROWS
 )
 """);
     }
@@ -98,9 +97,9 @@ SET `o`.`Title` = @p
         await base.Update_non_owned_property_on_entity_with_owned2(async);
 
         AssertSql(
-"""
+            """
 UPDATE `Owner` AS `o`
-SET `o`.`Title` = IIF(`o`.`Title` IS NULL, '', `o`.`Title`) & '_Suffix'
+SET `o`.`Title` = COALESCE(`o`.`Title`, '') & '_Suffix'
 """);
     }
 
@@ -125,7 +124,7 @@ SET `o`.`Title` = @p
         AssertSql(
             """
 UPDATE `Owner` AS `o`
-SET `o`.`Title` = IIF((`o`.`OwnedReference_Number` & '') IS NULL, '', (`o`.`OwnedReference_Number` & '')),
+SET `o`.`Title` = COALESCE((`o`.`OwnedReference_Number` & ''), ''),
     `o`.`OwnedReference_Number` = LEN(`o`.`Title`)
 """);
     }
@@ -192,7 +191,7 @@ WHERE `p`.`Id` IN (
             """
 UPDATE `Orders` AS `o`
 SET `o`.`Total` = (
-    SELECT IIF(SUM(`o0`.`Amount`) IS NULL, 0, SUM(`o0`.`Amount`))
+    SELECT COALESCE(SUM(`o0`.`Amount`), 0)
     FROM `OrderProduct` AS `o0`
     WHERE `o`.`Id` = `o0`.`OrderId`)
 WHERE `o`.`Id` = 1

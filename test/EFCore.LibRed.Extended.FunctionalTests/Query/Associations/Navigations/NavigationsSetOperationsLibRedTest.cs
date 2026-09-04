@@ -63,13 +63,10 @@ ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`, `n6`.`Id`
         AssertSql(
             """
 SELECT (
-    SELECT IIF(SUM((
-            SELECT IIF(SUM(`n`.`Int`) IS NULL, 0, SUM(`n`.`Int`))
-            FROM `NestedAssociateType` AS `n`
-            WHERE `u`.`Id` = `n`.`CollectionAssociateId`)) IS NULL, 0, SUM((
-            SELECT IIF(SUM(`n`.`Int`) IS NULL, 0, SUM(`n`.`Int`))
-            FROM `NestedAssociateType` AS `n`
-            WHERE `u`.`Id` = `n`.`CollectionAssociateId`)))
+    SELECT COALESCE(SUM((
+        SELECT COALESCE(SUM(`n`.`Int`), 0)
+        FROM `NestedAssociateType` AS `n`
+        WHERE `u`.`Id` = `n`.`CollectionAssociateId`)), 0)
     FROM (
         SELECT `a`.`Id`
         FROM `AssociateType` AS `a`

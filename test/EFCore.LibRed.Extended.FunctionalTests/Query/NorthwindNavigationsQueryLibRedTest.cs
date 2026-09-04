@@ -329,16 +329,16 @@ WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR `c`.`Phone` I
             await base.Select_count_plus_sum(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT IIF(SUM(CLNG(`o0`.`Quantity`)) IS NULL, 0, SUM(CLNG(`o0`.`Quantity`)))
-                        FROM `Order Details` AS `o0`
-                        WHERE `o`.`OrderID` = `o0`.`OrderID`) + (
-                        SELECT COUNT(*)
-                        FROM `Order Details` AS `o1`
-                        WHERE `o`.`OrderID` = `o1`.`OrderID`) AS `Total`
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT (
+    SELECT COALESCE(SUM(CLNG(`o0`.`Quantity`)), 0)
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) + (
+    SELECT COUNT(*)
+    FROM `Order Details` AS `o1`
+    WHERE `o`.`OrderID` = `o1`.`OrderID`) AS `Total`
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Singleton_Navigation_With_Member_Access(bool isAsync)
@@ -683,7 +683,10 @@ SELECT (
     WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `collection1`, `o`.`OrderDate` AS `scalar1`, EXISTS (
     SELECT 1
     FROM `Order Details` AS `o1`
-    WHERE `o`.`OrderID` = `o1`.`OrderID` AND `o1`.`UnitPrice` > 10.0) AS `any`, IIF(`o`.`CustomerID` = 'ALFKI', '50', '10') AS `conditional`, `o`.`OrderID` AS `scalar2`, NOT EXISTS (
+    WHERE `o`.`OrderID` = `o1`.`OrderID` AND `o1`.`UnitPrice` > 10.0) AS `any`, CASE
+    WHEN `o`.`CustomerID` = 'ALFKI' THEN '50'
+    ELSE '10'
+END AS `conditional`, `o`.`OrderID` AS `scalar2`, NOT EXISTS (
     SELECT 1
     FROM `Order Details` AS `o2`
     WHERE `o`.`OrderID` = `o2`.`OrderID` AND `o2`.`OrderID` <> 42) AS `all`, (
@@ -700,13 +703,13 @@ WHERE `o`.`CustomerID` LIKE 'A%'
             await base.Collection_select_nav_prop_sum(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Sum`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT (
+    SELECT COALESCE(SUM(`o`.`OrderID`), 0)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Sum`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Collection_select_nav_prop_sum_plus_one(bool isAsync)
@@ -714,13 +717,13 @@ WHERE `o`.`CustomerID` LIKE 'A%'
             await base.Collection_select_nav_prop_sum_plus_one(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`) + 1 AS `Sum`
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT (
+    SELECT COALESCE(SUM(`o`.`OrderID`), 0)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) + 1 AS `Sum`
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Collection_where_nav_prop_sum(bool isAsync)
@@ -728,14 +731,14 @@ WHERE `o`.`CustomerID` LIKE 'A%'
             await base.Collection_where_nav_prop_sum(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`
-                    WHERE (
-                        SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 1000
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+WHERE (
+    SELECT COALESCE(SUM(`o`.`OrderID`), 0)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`) > 1000
+""");
         }
 
         public override async Task Collection_select_nav_prop_first_or_default(bool isAsync)
@@ -977,15 +980,11 @@ WHERE (
                 """
 @p='3'
 
-SELECT `o0`.`OrderID`, IIF((
-        SELECT TOP 1 `o1`.`OrderID`
-        FROM `Order Details` AS `o1`
-        WHERE `o0`.`OrderID` = `o1`.`OrderID`
-        ORDER BY `o1`.`OrderID`, `o1`.`ProductID`) IS NULL, 0, (
-        SELECT TOP 1 `o1`.`OrderID`
-        FROM `Order Details` AS `o1`
-        WHERE `o0`.`OrderID` = `o1`.`OrderID`
-        ORDER BY `o1`.`OrderID`, `o1`.`ProductID`)) AS `OrderDetail`, `c`.`City`
+SELECT `o0`.`OrderID`, COALESCE((
+    SELECT TOP 1 `o1`.`OrderID`
+    FROM `Order Details` AS `o1`
+    WHERE `o0`.`OrderID` = `o1`.`OrderID`
+    ORDER BY `o1`.`OrderID`, `o1`.`ProductID`), 0) AS `OrderDetail`, `c`.`City`
 FROM (
     SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`

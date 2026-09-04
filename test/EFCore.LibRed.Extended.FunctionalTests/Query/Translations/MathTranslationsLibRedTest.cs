@@ -61,7 +61,10 @@ WHERE ABS(`b`.`Double`) = 9.5
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(ABS(`b`.`Float`) IS NULL, NULL, CDBL(ABS(`b`.`Float`))) = 9.5
+WHERE CASE
+    WHEN ABS(`b`.`Float`) IS NULL THEN NULL
+    ELSE CDBL(ABS(`b`.`Float`))
+END = 9.5
 """);
     }
 
@@ -73,7 +76,10 @@ WHERE IIF(ABS(`b`.`Float`) IS NULL, NULL, CDBL(ABS(`b`.`Float`))) = 9.5
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(FIX(`b`.`Double`) = `b`.`Double`, FIX(`b`.`Double`), FIX(`b`.`Double`) + 1.0) = 9.0
+WHERE CASE
+    WHEN FIX(`b`.`Double`) = `b`.`Double` THEN FIX(`b`.`Double`)
+    ELSE FIX(`b`.`Double`) + 1.0
+END = 9.0
 """);
     }
 
@@ -85,7 +91,10 @@ WHERE IIF(FIX(`b`.`Double`) = `b`.`Double`, FIX(`b`.`Double`), FIX(`b`.`Double`)
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(FIX(`b`.`Float`) = `b`.`Float`, FIX(`b`.`Float`), FIX(`b`.`Float`) + 1) = 9
+WHERE CASE
+    WHEN FIX(`b`.`Float`) = `b`.`Float` THEN FIX(`b`.`Float`)
+    ELSE FIX(`b`.`Float`) + 1
+END = 9
 """);
     }
 
@@ -278,11 +287,17 @@ FROM `BasicTypesEntities` AS `b`
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(FIX(`b`.`Float`) IS NULL, NULL, CSNG(FIX(`b`.`Float`))) = 8
+WHERE CASE
+    WHEN FIX(`b`.`Float`) IS NULL THEN NULL
+    ELSE CSNG(FIX(`b`.`Float`))
+END = 8
 """,
             //
             """
-SELECT IIF(FIX(`b`.`Float`) IS NULL, NULL, CSNG(FIX(`b`.`Float`)))
+SELECT CASE
+    WHEN FIX(`b`.`Float`) IS NULL THEN NULL
+    ELSE CSNG(FIX(`b`.`Float`))
+END
 FROM `BasicTypesEntities` AS `b`
 """);
     }
@@ -534,7 +549,10 @@ FROM `BasicTypesEntities` AS `b`
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(`b`.`Int` > (`b`.`Short` - CINT(3)), `b`.`Int`, `b`.`Short` - CINT(3)) = `b`.`Int`
+WHERE CASE
+    WHEN `b`.`Int` > (`b`.`Short` - CINT(3)) THEN `b`.`Int`
+    ELSE `b`.`Short` - CINT(3)
+END = `b`.`Int`
 """);
     }
 
@@ -546,7 +564,16 @@ WHERE IIF(`b`.`Int` > (`b`.`Short` - CINT(3)), `b`.`Int`, `b`.`Short` - CINT(3))
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(IIF((`b`.`Short` - CINT(3)) > `b`.`Int`, `b`.`Short` - CINT(3), `b`.`Int`) > 1, IIF((`b`.`Short` - CINT(3)) > `b`.`Int`, `b`.`Short` - CINT(3), `b`.`Int`), 1) = `b`.`Int`
+WHERE CASE
+    WHEN CASE
+        WHEN (`b`.`Short` - CINT(3)) > `b`.`Int` THEN `b`.`Short` - CINT(3)
+        ELSE `b`.`Int`
+    END > 1 THEN CASE
+        WHEN (`b`.`Short` - CINT(3)) > `b`.`Int` THEN `b`.`Short` - CINT(3)
+        ELSE `b`.`Int`
+    END
+    ELSE 1
+END = `b`.`Int`
 """);
     }
 
@@ -558,7 +585,28 @@ WHERE IIF(IIF((`b`.`Short` - CINT(3)) > `b`.`Int`, `b`.`Short` - CINT(3), `b`.`I
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(IIF(IIF(1 > `b`.`Int`, 1, `b`.`Int`) > 2, IIF(1 > `b`.`Int`, 1, `b`.`Int`), 2) > (`b`.`Short` - CINT(3)), IIF(IIF(1 > `b`.`Int`, 1, `b`.`Int`) > 2, IIF(1 > `b`.`Int`, 1, `b`.`Int`), 2), `b`.`Short` - CINT(3)) = `b`.`Int`
+WHERE CASE
+    WHEN CASE
+        WHEN CASE
+            WHEN 1 > `b`.`Int` THEN 1
+            ELSE `b`.`Int`
+        END > 2 THEN CASE
+            WHEN 1 > `b`.`Int` THEN 1
+            ELSE `b`.`Int`
+        END
+        ELSE 2
+    END > (`b`.`Short` - CINT(3)) THEN CASE
+        WHEN CASE
+            WHEN 1 > `b`.`Int` THEN 1
+            ELSE `b`.`Int`
+        END > 2 THEN CASE
+            WHEN 1 > `b`.`Int` THEN 1
+            ELSE `b`.`Int`
+        END
+        ELSE 2
+    END
+    ELSE `b`.`Short` - CINT(3)
+END = `b`.`Int`
 """);
     }
 
@@ -570,7 +618,10 @@ WHERE IIF(IIF(IIF(1 > `b`.`Int`, 1, `b`.`Int`) > 2, IIF(1 > `b`.`Int`, 1, `b`.`I
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(`b`.`Int` < (`b`.`Short` + CINT(3)), `b`.`Int`, `b`.`Short` + CINT(3)) = `b`.`Int`
+WHERE CASE
+    WHEN `b`.`Int` < (`b`.`Short` + CINT(3)) THEN `b`.`Int`
+    ELSE `b`.`Short` + CINT(3)
+END = `b`.`Int`
 """);
     }
 
@@ -582,7 +633,16 @@ WHERE IIF(`b`.`Int` < (`b`.`Short` + CINT(3)), `b`.`Int`, `b`.`Short` + CINT(3))
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(IIF((`b`.`Short` + CINT(3)) < `b`.`Int`, `b`.`Short` + CINT(3), `b`.`Int`) < 99999, IIF((`b`.`Short` + CINT(3)) < `b`.`Int`, `b`.`Short` + CINT(3), `b`.`Int`), 99999) = `b`.`Int`
+WHERE CASE
+    WHEN CASE
+        WHEN (`b`.`Short` + CINT(3)) < `b`.`Int` THEN `b`.`Short` + CINT(3)
+        ELSE `b`.`Int`
+    END < 99999 THEN CASE
+        WHEN (`b`.`Short` + CINT(3)) < `b`.`Int` THEN `b`.`Short` + CINT(3)
+        ELSE `b`.`Int`
+    END
+    ELSE 99999
+END = `b`.`Int`
 """);
     }
 
@@ -594,7 +654,28 @@ WHERE IIF(IIF((`b`.`Short` + CINT(3)) < `b`.`Int`, `b`.`Short` + CINT(3), `b`.`I
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(IIF(IIF(99999 < `b`.`Int`, 99999, `b`.`Int`) < 99998, IIF(99999 < `b`.`Int`, 99999, `b`.`Int`), 99998) < (`b`.`Short` + CINT(3)), IIF(IIF(99999 < `b`.`Int`, 99999, `b`.`Int`) < 99998, IIF(99999 < `b`.`Int`, 99999, `b`.`Int`), 99998), `b`.`Short` + CINT(3)) = `b`.`Int`
+WHERE CASE
+    WHEN CASE
+        WHEN CASE
+            WHEN 99999 < `b`.`Int` THEN 99999
+            ELSE `b`.`Int`
+        END < 99998 THEN CASE
+            WHEN 99999 < `b`.`Int` THEN 99999
+            ELSE `b`.`Int`
+        END
+        ELSE 99998
+    END < (`b`.`Short` + CINT(3)) THEN CASE
+        WHEN CASE
+            WHEN 99999 < `b`.`Int` THEN 99999
+            ELSE `b`.`Int`
+        END < 99998 THEN CASE
+            WHEN 99999 < `b`.`Int` THEN 99999
+            ELSE `b`.`Int`
+        END
+        ELSE 99998
+    END
+    ELSE `b`.`Short` + CINT(3)
+END = `b`.`Int`
 """);
     }
 
@@ -695,7 +776,10 @@ WHERE `b`.`Double` >= -1.0 AND `b`.`Double` <= 1.0 AND ATN(`b`.`Double` / SQR(-(
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`Float` >= -1 AND `b`.`Float` <= 1 AND IIF(ATN(`b`.`Float` / SQR(-(`b`.`Float` * `b`.`Float`) + 1)) IS NULL, NULL, CDBL(ATN(`b`.`Float` / SQR(-(`b`.`Float` * `b`.`Float`) + 1)))) > -1.7976931348623157E+308
+WHERE `b`.`Float` >= -1 AND `b`.`Float` <= 1 AND CASE
+    WHEN ATN(`b`.`Float` / SQR(-(`b`.`Float` * `b`.`Float`) + 1)) IS NULL THEN NULL
+    ELSE CDBL(ATN(`b`.`Float` / SQR(-(`b`.`Float` * `b`.`Float`) + 1)))
+END > -1.7976931348623157E+308
 """);
     }
 

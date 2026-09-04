@@ -95,18 +95,11 @@ LEFT JOIN (
 LEFT JOIN `NestedAssociateType` AS `n6` ON `a0`.`Id` = `n6`.`CollectionAssociateId`)
 LEFT JOIN `NestedAssociateType` AS `n7` ON `a1`.`Id` = `n7`.`CollectionAssociateId`
 WHERE ((
-    SELECT `a4`.`Int`
-    FROM (
-        SELECT TOP 1 `a3`.`Int`, `a3`.`Id`
-        FROM (
-            SELECT TOP 0 + 1 `a`.`Int`, `a`.`Id`
-            FROM `AssociateType` AS `a`
-            WHERE `r`.`Id` = `a`.`CollectionRootId`
-            ORDER BY `a`.`Id`
-        ) AS `a3`
-        ORDER BY `a3`.`Id` DESC
-    ) AS `a4`
-    ORDER BY `a4`.`Id`) = 8) AND (`a1`.`RequiredNestedAssociateId` IS NOT NULL AND `n2`.`Id` IS NOT NULL)
+    SELECT `a`.`Int`
+    FROM `AssociateType` AS `a`
+    WHERE `r`.`Id` = `a`.`CollectionRootId`
+    ORDER BY `a`.`Id`
+    OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY) = 8) AND (`a1`.`RequiredNestedAssociateId` IS NOT NULL AND `n2`.`Id` IS NOT NULL)
 ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`, `n6`.`Id`, `n7`.`Id`
 """);
     }
@@ -252,7 +245,7 @@ LEFT JOIN (
 LEFT JOIN `NestedAssociateType` AS `n6` ON `a0`.`Id` = `n6`.`CollectionAssociateId`)
 LEFT JOIN `NestedAssociateType` AS `n7` ON `a1`.`Id` = `n7`.`CollectionAssociateId`
 WHERE (16 IN (
-    SELECT IIF(SUM(`a`.`Int`) IS NULL, 0, SUM(`a`.`Int`))
+    SELECT COALESCE(SUM(`a`.`Int`), 0)
     FROM `AssociateType` AS `a`
     WHERE `r`.`Id` = `a`.`CollectionRootId`
     GROUP BY `a`.`String`
@@ -270,13 +263,10 @@ ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`, `n6`.`Id`, `n7`.`Id`
         AssertSql(
             """
 SELECT (
-    SELECT IIF(SUM((
-            SELECT MAX(`n`.`Int`)
-            FROM `NestedAssociateType` AS `n`
-            WHERE `a`.`Id` = `n`.`CollectionAssociateId`)) IS NULL, 0, SUM((
-            SELECT MAX(`n`.`Int`)
-            FROM `NestedAssociateType` AS `n`
-            WHERE `a`.`Id` = `n`.`CollectionAssociateId`)))
+    SELECT COALESCE(SUM((
+        SELECT MAX(`n`.`Int`)
+        FROM `NestedAssociateType` AS `n`
+        WHERE `a`.`Id` = `n`.`CollectionAssociateId`)), 0)
     FROM `AssociateType` AS `a`
     WHERE `r`.`Id` = `a`.`CollectionRootId`)
 FROM `RootEntity` AS `r`

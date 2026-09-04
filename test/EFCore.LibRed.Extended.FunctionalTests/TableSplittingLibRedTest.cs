@@ -27,7 +27,9 @@ LEFT JOIN (
     SELECT `v1`.`Name`, `v1`.`Active`, `v1`.`Type`
     FROM `Vehicles` AS `v1`
     WHERE `v1`.`Active` IS NOT NULL
-) AS `v2` ON `v0`.`Name` = IIF(`v2`.`Active` IS NOT NULL, `v2`.`Name`, NULL))
+) AS `v2` ON `v0`.`Name` = CASE
+    WHEN `v2`.`Active` IS NOT NULL THEN `v2`.`Name`
+END)
 LEFT JOIN (
     SELECT `v3`.`Name`, `v3`.`Computed`, `v3`.`Description`, `v3`.`Engine_Discriminator`
     FROM `Vehicles` AS `v3`
@@ -170,7 +172,9 @@ LEFT JOIN (
     SELECT `v1`.`Name`, `v1`.`Active`, `v1`.`Type`
     FROM `Vehicles` AS `v1`
     WHERE `v1`.`Active` IS NOT NULL
-) AS `v2` ON `v0`.`Name` = IIF(`v2`.`Active` IS NOT NULL, `v2`.`Name`, NULL)
+) AS `v2` ON `v0`.`Name` = CASE
+    WHEN `v2`.`Active` IS NOT NULL THEN `v2`.`Name`
+END
 WHERE `v`.`Name` = 'AIM-9M Sidewinder'
 ORDER BY `v`.`Name`
 """);
@@ -193,7 +197,6 @@ SELECT NOT EXISTS (
     SELECT 1
     FROM `Vehicles` AS `v`
     WHERE `v`.`SeatingCapacity` <> 1)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
 

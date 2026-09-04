@@ -78,21 +78,20 @@ WHERE EXISTS (
         await base.Delete_Where_OrderBy_Skip(async);
 
         AssertSql(
-"""
-@__p_0='100'
+            """
+@p='100'
 
-DELETE FROM [o]
-FROM [Order Details] AS [o]
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice]
-        FROM [Order Details] AS [o0]
-        WHERE [o0].[OrderID] < 10300
-        ORDER BY [o0].[OrderID]
-        OFFSET @__p_0 ROWS
-    ) AS [t]
-    WHERE [t].[OrderID] = [o].[OrderID] AND [t].[ProductID] = [o].[ProductID])
+        SELECT `o0`.`OrderID`, `o0`.`ProductID`
+        FROM `Order Details` AS `o0`
+        WHERE `o0`.`OrderID` < 10300
+        ORDER BY `o0`.`OrderID`
+        OFFSET @p ROWS
+    ) AS `o1`
+    WHERE `o1`.`OrderID` = `o`.`OrderID` AND `o1`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -122,21 +121,20 @@ WHERE EXISTS (
         await base.Delete_Where_OrderBy_Skip_Take(async);
 
         AssertSql(
-"""
-@__p_0='100'
+            """
+@p='100'
 
-DELETE FROM [o]
-FROM [Order Details] AS [o]
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice]
-        FROM [Order Details] AS [o0]
-        WHERE [o0].[OrderID] < 10300
-        ORDER BY [o0].[OrderID]
-        OFFSET @__p_0 ROWS FETCH NEXT @__p_0 ROWS ONLY
-    ) AS [t]
-    WHERE [t].[OrderID] = [o].[OrderID] AND [t].[ProductID] = [o].[ProductID])
+        SELECT `o0`.`OrderID`, `o0`.`ProductID`
+        FROM `Order Details` AS `o0`
+        WHERE `o0`.`OrderID` < 10300
+        ORDER BY `o0`.`OrderID`
+        OFFSET @p ROWS FETCH NEXT @p ROWS ONLY
+    ) AS `o1`
+    WHERE `o1`.`OrderID` = `o`.`OrderID` AND `o1`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -145,21 +143,19 @@ WHERE EXISTS (
         await base.Delete_Where_Skip(async);
 
         AssertSql(
-"""
-@__p_0='100'
+            """
+@p='100'
 
-DELETE FROM [o]
-FROM [Order Details] AS [o]
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice]
-        FROM [Order Details] AS [o0]
-        WHERE [o0].[OrderID] < 10300
-        ORDER BY (SELECT 1)
-        OFFSET @__p_0 ROWS
-    ) AS [t]
-    WHERE [t].[OrderID] = [o].[OrderID] AND [t].[ProductID] = [o].[ProductID])
+        SELECT `o0`.`OrderID`, `o0`.`ProductID`
+        FROM `Order Details` AS `o0`
+        WHERE `o0`.`OrderID` < 10300
+        OFFSET @p ROWS
+    ) AS `o1`
+    WHERE `o1`.`OrderID` = `o`.`OrderID` AND `o1`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -188,21 +184,19 @@ WHERE EXISTS (
         await base.Delete_Where_Skip_Take(async);
 
         AssertSql(
-"""
-@__p_0='100'
+            """
+@p='100'
 
-DELETE FROM [o]
-FROM [Order Details] AS [o]
+DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT [o0].[OrderID], [o0].[ProductID], [o0].[Discount], [o0].[Quantity], [o0].[UnitPrice]
-        FROM [Order Details] AS [o0]
-        WHERE [o0].[OrderID] < 10300
-        ORDER BY (SELECT 1)
-        OFFSET @__p_0 ROWS FETCH NEXT @__p_0 ROWS ONLY
-    ) AS [t]
-    WHERE [t].[OrderID] = [o].[OrderID] AND [t].[ProductID] = [o].[ProductID])
+        SELECT `o0`.`OrderID`, `o0`.`ProductID`
+        FROM `Order Details` AS `o0`
+        WHERE `o0`.`OrderID` < 10300
+        OFFSET @p ROWS FETCH NEXT @p ROWS ONLY
+    ) AS `o1`
+    WHERE `o1`.`OrderID` = `o`.`OrderID` AND `o1`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -267,32 +261,22 @@ WHERE EXISTS (
 
         AssertSql(
             """
-@p3='5'
-@p2='20'
 @p='100'
+@p2='20'
+@p3='5'
 
 DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT `o4`.`OrderID`, `o4`.`ProductID`
+        SELECT `o0`.`OrderID`, `o0`.`ProductID`
         FROM (
-            SELECT TOP @p3 `o3`.`OrderID`, `o3`.`ProductID`
-            FROM (
-                SELECT TOP @p2 + @p3 `o0`.`OrderID`, `o0`.`ProductID`
-                FROM (
-                    SELECT `o6`.`OrderID`, `o6`.`ProductID`
-                    FROM (
-                        SELECT TOP @p `o5`.`OrderID`, `o5`.`ProductID`
-                        FROM (
-                            SELECT TOP @p + @p `o1`.`OrderID`, `o1`.`ProductID`
-                            FROM `Order Details` AS `o1`
-                            WHERE `o1`.`OrderID` < 10300
-                        ) AS `o5`
-                    ) AS `o6`
-                ) AS `o0`
-            ) AS `o3`
-        ) AS `o4`
+            SELECT `o1`.`OrderID`, `o1`.`ProductID`
+            FROM `Order Details` AS `o1`
+            WHERE `o1`.`OrderID` < 10300
+            OFFSET @p ROWS FETCH NEXT @p ROWS ONLY
+        ) AS `o0`
+        OFFSET @p2 ROWS FETCH NEXT @p3 ROWS ONLY
     ) AS `o2`
     WHERE `o2`.`OrderID` = `o`.`OrderID` AND `o2`.`ProductID` = `o`.`ProductID`)
 """);
@@ -523,26 +507,19 @@ WHERE EXISTS (
 
         AssertSql(
             """
-@p1='100'
 @p='0'
+@p1='100'
 
 DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
     SELECT 1
     FROM `Order Details` AS `o0`
     INNER JOIN (
-        SELECT `o4`.`OrderID`
-        FROM (
-            SELECT TOP @p1 `o3`.`OrderID`
-            FROM (
-                SELECT TOP @p + @p1 `o2`.`OrderID`
-                FROM `Orders` AS `o2`
-                WHERE `o2`.`OrderID` < 10300
-                ORDER BY `o2`.`OrderID`
-            ) AS `o3`
-            ORDER BY `o3`.`OrderID` DESC
-        ) AS `o4`
-        ORDER BY `o4`.`OrderID`
+        SELECT `o2`.`OrderID`
+        FROM `Orders` AS `o2`
+        WHERE `o2`.`OrderID` < 10300
+        ORDER BY `o2`.`OrderID`
+        OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
     ) AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
     WHERE `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
@@ -588,17 +565,10 @@ WHERE EXISTS (
     FROM `Order Details` AS `o0`,
     (
         SELECT 1
-        FROM (
-            SELECT TOP 100 `o3`.`OrderID`
-            FROM (
-                SELECT TOP 0 + 100 `o2`.`OrderID`
-                FROM `Orders` AS `o2`
-                WHERE `o2`.`OrderID` < 10300
-                ORDER BY `o2`.`OrderID`
-            ) AS `o3`
-            ORDER BY `o3`.`OrderID` DESC
-        ) AS `o4`
-        ORDER BY `o4`.`OrderID`
+        FROM `Orders` AS `o2`
+        WHERE `o2`.`OrderID` < 10300
+        ORDER BY `o2`.`OrderID`
+        OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY
     ) AS `o1`
     WHERE `o0`.`OrderID` < 10276 AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
@@ -648,8 +618,8 @@ WHERE [o].[OrderID] < 10276
 
         AssertSql(
             """
-@p1='100'
 @p='0'
+@p1='100'
 
 DELETE FROM `Order Details` AS `o`
 WHERE EXISTS (
@@ -660,18 +630,11 @@ WHERE EXISTS (
         WHERE `o1`.`OrderID` < 10276
     ) AS `o0`
     RIGHT JOIN (
-        SELECT `o5`.`OrderID`
-        FROM (
-            SELECT TOP @p1 `o4`.`OrderID`
-            FROM (
-                SELECT TOP @p + @p1 `o3`.`OrderID`
-                FROM `Orders` AS `o3`
-                WHERE `o3`.`OrderID` < 10300
-                ORDER BY `o3`.`OrderID`
-            ) AS `o4`
-            ORDER BY `o4`.`OrderID` DESC
-        ) AS `o5`
-        ORDER BY `o5`.`OrderID`
+        SELECT `o3`.`OrderID`
+        FROM `Orders` AS `o3`
+        WHERE `o3`.`OrderID` < 10300
+        ORDER BY `o3`.`OrderID`
+        OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
     ) AS `o2` ON `o0`.`OrderID` = `o2`.`OrderID`
     WHERE `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
@@ -842,19 +805,18 @@ WHERE `c`.`CustomerID` LIKE 'F%'
         await base.Update_Where_Skip_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-@__p_0='4'
+            """
+@p='4'
+@p1='Updated' (Size = 30)
 
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
+UPDATE `Customers` AS `c0`
 INNER JOIN (
-    SELECT [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region]
-    FROM [Customers] AS [c0]
-    WHERE [c0].[CustomerID] LIKE N'F%'
-    ORDER BY (SELECT 1)
-    OFFSET @__p_0 ROWS
-) AS [t] ON [c].[CustomerID] = [t].[CustomerID]
+    SELECT `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
+    OFFSET @p ROWS
+) AS `c1` ON `c0`.`CustomerID` = `c1`.`CustomerID`
+SET `c0`.`ContactName` = @p1
 """);
     }
 
@@ -883,21 +845,16 @@ SET `c0`.`ContactName` = @p1
 
         AssertExecuteUpdateSql(
             """
-@p1='4'
 @p='2'
+@p1='4'
 @p2='Updated' (Size = 30)
 
 UPDATE `Customers` AS `c0`
 INNER JOIN (
-    SELECT `c3`.`CustomerID`
-    FROM (
-        SELECT TOP @p1 `c2`.`CustomerID`
-        FROM (
-            SELECT TOP @p + @p1 `c`.`CustomerID`
-            FROM `Customers` AS `c`
-            WHERE `c`.`CustomerID` LIKE 'F%'
-        ) AS `c2`
-    ) AS `c3`
+    SELECT `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
+    OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 ) AS `c1` ON `c0`.`CustomerID` = `c1`.`CustomerID`
 SET `c0`.`ContactName` = @p2
 """);
@@ -926,19 +883,19 @@ SET `c0`.`ContactName` = @p
         await base.Update_Where_OrderBy_Skip_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-@__p_0='4'
+            """
+@p='4'
+@p1='Updated' (Size = 30)
 
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
+UPDATE `Customers` AS `c0`
 INNER JOIN (
-    SELECT [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region]
-    FROM [Customers] AS [c0]
-    WHERE [c0].[CustomerID] LIKE N'F%'
-    ORDER BY [c0].[City]
-    OFFSET @__p_0 ROWS
-) AS [t] ON [c].[CustomerID] = [t].[CustomerID]
+    SELECT `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
+    ORDER BY `c`.`City`
+    OFFSET @p ROWS
+) AS `c1` ON `c0`.`CustomerID` = `c1`.`CustomerID`
+SET `c0`.`ContactName` = @p1
 """);
     }
 
@@ -968,24 +925,17 @@ SET `c0`.`ContactName` = @p1
 
         AssertExecuteUpdateSql(
             """
-@p1='4'
 @p='2'
+@p1='4'
 @p2='Updated' (Size = 30)
 
 UPDATE `Customers` AS `c0`
 INNER JOIN (
-    SELECT `c3`.`CustomerID`
-    FROM (
-        SELECT TOP @p1 `c2`.`CustomerID`, `c2`.`City`
-        FROM (
-            SELECT TOP @p + @p1 `c`.`CustomerID`, `c`.`City`
-            FROM `Customers` AS `c`
-            WHERE `c`.`CustomerID` LIKE 'F%'
-            ORDER BY `c`.`City`
-        ) AS `c2`
-        ORDER BY `c2`.`City` DESC
-    ) AS `c3`
-    ORDER BY `c3`.`City`
+    SELECT `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
+    ORDER BY `c`.`City`
+    OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 ) AS `c1` ON `c0`.`CustomerID` = `c1`.`CustomerID`
 SET `c0`.`ContactName` = @p2
 """);
@@ -1003,26 +953,16 @@ SET `c0`.`ContactName` = @p2
 
 UPDATE `Customers` AS `c1`
 INNER JOIN (
-    SELECT `c4`.`CustomerID`
+    SELECT `c0`.`CustomerID`
     FROM (
-        SELECT TOP @p `c3`.`CustomerID`, `c3`.`City`
-        FROM (
-            SELECT TOP @p + @p `c0`.`CustomerID`, `c0`.`City`
-            FROM (
-                SELECT TOP @p1 `c5`.`CustomerID`, `c5`.`City`
-                FROM (
-                    SELECT TOP @p + @p1 `c`.`CustomerID`, `c`.`City`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` LIKE 'F%'
-                    ORDER BY `c`.`City`
-                ) AS `c5`
-                ORDER BY `c5`.`City` DESC
-            ) AS `c0`
-            ORDER BY `c0`.`City`
-        ) AS `c3`
-        ORDER BY `c3`.`City` DESC
-    ) AS `c4`
-    ORDER BY `c4`.`City`
+        SELECT `c`.`CustomerID`, `c`.`City`
+        FROM `Customers` AS `c`
+        WHERE `c`.`CustomerID` LIKE 'F%'
+        ORDER BY `c`.`City`
+        OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
+    ) AS `c0`
+    ORDER BY `c0`.`City`
+    OFFSET @p ROWS FETCH NEXT @p ROWS ONLY
 ) AS `c2` ON `c1`.`CustomerID` = `c2`.`CustomerID`
 SET `c1`.`ContactName` = @p4
 """);
@@ -1139,7 +1079,10 @@ WHERE `c`.`City` = 'Seattle'
 UPDATE (`Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
-SET `o`.`Quantity` = IIF(@p IS NULL, NULL, CINT(@p))
+SET `o`.`Quantity` = CASE
+    WHEN @p IS NULL THEN NULL
+    ELSE CINT(@p)
+END
 WHERE `c`.`City` = 'Seattle'
 """);
     }
@@ -1164,7 +1107,7 @@ WHERE `c`.`CustomerID` LIKE 'F%'
         AssertExecuteUpdateSql(
             """
 UPDATE `Customers` AS `c`
-SET `c`.`ContactName` = IIF(`c`.`ContactName` IS NULL, '', `c`.`ContactName`) & 'Abc'
+SET `c`.`ContactName` = COALESCE(`c`.`ContactName`, '') & 'Abc'
 WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
@@ -1178,7 +1121,7 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 @value='Abc' (Size = 255)
 
 UPDATE `Customers` AS `c`
-SET `c`.`ContactName` = IIF(`c`.`ContactName` IS NULL, '', `c`.`ContactName`) & @value
+SET `c`.`ContactName` = COALESCE(`c`.`ContactName`, '') & @value
 WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
@@ -1190,7 +1133,7 @@ WHERE `c`.`CustomerID` LIKE 'F%'
         AssertExecuteUpdateSql(
             """
 UPDATE `Customers` AS `c`
-SET `c`.`ContactName` = IIF(`c`.`ContactName` IS NULL, '', `c`.`ContactName`) & `c`.`CustomerID`
+SET `c`.`ContactName` = COALESCE(`c`.`ContactName`, '') & `c`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
@@ -1428,7 +1371,7 @@ INNER JOIN (
         WHERE `c`.`CustomerID` LIKE 'F%'
     ) AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
 ) AS `s` ON `o1`.`OrderID` = `s`.`OrderID`
-SET `o1`.`OrderDate` = CDATE(@p)
+SET `o1`.`OrderDate` = @p
 """);
     }
 
@@ -1649,7 +1592,10 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 UPDATE (`Order Details` AS `o`
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-SET `o`.`Quantity` = IIF(@p IS NULL, NULL, CINT(@p))
+SET `o`.`Quantity` = CASE
+    WHEN @p IS NULL THEN NULL
+    ELSE CINT(@p)
+END
 WHERE `p`.`Discontinued` AND `o0`.`OrderDate` > #1990-01-01#
 """);
     }
@@ -1662,23 +1608,25 @@ WHERE `p`.`Discontinued` AND `o0`.`OrderDate` > #1990-01-01#
         AssertExecuteUpdateSql(
             """
 @p='1'
-@p2='10' (DbType = Currency)
+@p2='10' (Precision = 2) (DbType = Currency)
 
-UPDATE [o2]
-SET [o2].[Quantity] = CAST(@p AS smallint),
-    [o2].[UnitPrice] = @p2
-FROM [Order Details] AS [o2]
+UPDATE `Order Details` AS `o2`
 INNER JOIN (
-    SELECT [o1].[OrderID], [o1].[ProductID]
+    SELECT `o1`.`OrderID`, `o1`.`ProductID`
     FROM (
-        SELECT [o].[OrderID], [o].[ProductID]
-        FROM [Order Details] AS [o]
-        ORDER BY [o].[OrderID]
+        SELECT `o`.`OrderID`, `o`.`ProductID`
+        FROM `Order Details` AS `o`
+        ORDER BY `o`.`OrderID`
         OFFSET @p ROWS
-    ) AS [o1]
-    INNER JOIN [Orders] AS [o0] ON [o1].[OrderID] = [o0].[OrderID]
-    WHERE [o0].[CustomerID] = N'ALFKI'
-) AS [s] ON [o2].[OrderID] = [s].[OrderID] AND [o2].[ProductID] = [s].[ProductID]
+    ) AS `o1`
+    INNER JOIN `Orders` AS `o0` ON `o1`.`OrderID` = `o0`.`OrderID`
+    WHERE `o0`.`CustomerID` = 'ALFKI'
+) AS `s` ON `o2`.`OrderID` = `s`.`OrderID` AND `o2`.`ProductID` = `s`.`ProductID`
+SET `o2`.`Quantity` = CASE
+    WHEN @p IS NULL THEN NULL
+    ELSE CINT(@p)
+END,
+    `o2`.`UnitPrice` = @p2
 """);
     }
 

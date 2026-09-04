@@ -28,7 +28,7 @@ public class DateTimeTranslationsLibRedTest : DateTimeTranslationsTestBase<Basic
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE NOW() <> CDATE(@myDatetime)
+WHERE NOW() <> @myDatetime
 """);
     }
 
@@ -42,7 +42,7 @@ WHERE NOW() <> CDATE(@myDatetime)
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE DATEADD('n', -480.0, NOW()) <> CDATE(@myDatetime)
+WHERE DATEADD('n', -480.0, NOW()) <> @myDatetime
 """);
     }
 
@@ -68,7 +68,7 @@ WHERE `b`.`DateTime` = DATEVALUE(DATE())
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE DATEVALUE(`b`.`DateTime`) = CDATE(@myDatetime)
+WHERE DATEVALUE(`b`.`DateTime`) = @myDatetime
 """);
     }
 
@@ -218,7 +218,7 @@ WHERE `b`.`DateTime` = #1998-05-04 15:30:10#
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`DateTime` = CDATE(@Parse)
+WHERE `b`.`DateTime` = @Parse
 """);
     }
 
@@ -244,7 +244,7 @@ WHERE `b`.`DateTime` = #1998-05-04 15:30:10#
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`DateTime` = CDATE(@p)
+WHERE `b`.`DateTime` = @p
 """);
     }
 

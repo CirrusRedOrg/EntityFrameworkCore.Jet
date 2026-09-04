@@ -61,7 +61,13 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT `p`.`Id`, `p`.`Name`, IIF(`c`.`Id` IS NULL, 'Other', `c`.`Name`) AS `CategoryName`, IIF(`c`.`Id` IS NULL, 'Active', `c`.`Status`) AS `CategoryStatus`
+SELECT `p`.`Id`, `p`.`Name`, CASE
+    WHEN `c`.`Id` IS NULL THEN 'Other'
+    ELSE `c`.`Name`
+END AS `CategoryName`, CASE
+    WHEN `c`.`Id` IS NULL THEN 'Active'
+    ELSE `c`.`Status`
+END AS `CategoryStatus`
 FROM `Products` AS `p`
 LEFT JOIN `Categories` AS `c` ON `p`.`CategoryId` = `c`.`Id`
 """);
@@ -157,7 +163,7 @@ FROM `Businesses` AS `b`
 
 SELECT TOP 1 `e`.`DateTime`
 FROM `Entities` AS `e`
-WHERE `e`.`DateTime` = CDATE(@parameter)
+WHERE `e`.`DateTime` = @parameter
 """);
     }
 
@@ -207,7 +213,10 @@ WHERE `a`.`Discriminator` IN ('Cat', 'Dog') AND (`a`.`Species` LIKE 'F%')
 
         AssertSql(
             """
-SELECT `a`.`Id`, `a`.`Species`, `p`.`Name`, `c`.`EdcuationLevel`, `d`.`FavoriteToy`, IIF(`d`.`Id` IS NOT NULL, 'Dog', IIF(`c`.`Id` IS NOT NULL, 'Cat', NULL)) AS `Discriminator`
+SELECT `a`.`Id`, `a`.`Species`, `p`.`Name`, `c`.`EdcuationLevel`, `d`.`FavoriteToy`, CASE
+    WHEN `d`.`Id` IS NOT NULL THEN 'Dog'
+    WHEN `c`.`Id` IS NOT NULL THEN 'Cat'
+END AS `Discriminator`
 FROM ((`Animals` AS `a`
 LEFT JOIN `Pets` AS `p` ON `a`.`Id` = `p`.`Id`)
 LEFT JOIN `Cats` AS `c` ON `a`.`Id` = `c`.`Id`)

@@ -273,7 +273,6 @@ SELECT EXISTS (
     SELECT 1
     FROM `Definitions` AS `d`
     WHERE `d`.`ChangeInfo_RemovedPoint_Timestamp` IS NULL)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -474,7 +473,10 @@ WHERE `e`.`TenantId` = @ef_filter__tenantId
 
 SELECT `f`.`Id`, `f`.`Bar`
 FROM `FooBar35111` AS `f`
-WHERE IIF(@ef_filter__p3, FALSE, FALSE)
+WHERE CASE
+    WHEN @ef_filter__p3 THEN FALSE
+    ELSE FALSE
+END
 """);
     }
 

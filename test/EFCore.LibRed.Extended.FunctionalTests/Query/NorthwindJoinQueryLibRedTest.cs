@@ -658,7 +658,7 @@ INNER JOIN (
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, (
-    SELECT IIF(SUM(LEN(`o`.`CustomerID`)) IS NULL, 0, SUM(LEN(`o`.`CustomerID`)))
+    SELECT COALESCE(SUM(LEN(`o`.`CustomerID`)), 0)
     FROM `Orders` AS `o`
     WHERE `c`.`City` IS NOT NULL AND `c`.`CustomerID` = `o`.`CustomerID` AND `c`.`City` = 'London') AS `Sum`
 FROM `Customers` AS `c`
@@ -672,7 +672,7 @@ FROM `Customers` AS `c`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, (
-    SELECT IIF(SUM(LEN(`o`.`CustomerID`)) IS NULL, 0, SUM(LEN(`o`.`CustomerID`)))
+    SELECT COALESCE(SUM(LEN(`o`.`CustomerID`)), 0)
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID` AND 1996 = DATEPART('yyyy', `o`.`OrderDate`)) AS `Sum`
 FROM `Customers` AS `c`
@@ -686,7 +686,7 @@ FROM `Customers` AS `c`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, (
-    SELECT IIF(SUM(LEN(`o`.`CustomerID`)) IS NULL, 0, SUM(LEN(`o`.`CustomerID`)))
+    SELECT COALESCE(SUM(LEN(`o`.`CustomerID`)), 0)
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`) AS `Sum`
 FROM `Customers` AS `c`
@@ -995,7 +995,10 @@ ORDER BY [t].[CustomerID], [t0].[OrderDate], [t0].[OrderID]
 
             AssertSql(
                 """
-SELECT IIF(`o`.`OrderID` IS NOT NULL, `o`.`OrderID`, -1) AS `a`
+SELECT CASE
+    WHEN `o`.`OrderID` IS NOT NULL THEN `o`.`OrderID`
+    ELSE -1
+END AS `a`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
@@ -1025,11 +1028,7 @@ INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 
 SELECT `e`.`EmployeeID`
 FROM `Employees` AS `e`
-INNER JOIN (SELECT @p1 AS `Value`
-FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_0`
-UNION
-SELECT @p2 AS `Value`
-FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_1`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
+INNER JOIN (SELECT @p1 AS `Value` UNION ALL VALUES (@p2)) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
 """,
                 //
                 """
@@ -1037,8 +1036,7 @@ FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_1`) AS `p` ON `e`.`EmployeeID` = `p`.`
 
 SELECT `e`.`EmployeeID`
 FROM `Employees` AS `e`
-INNER JOIN (SELECT @p1 AS `Value`
-FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_0`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
+INNER JOIN (SELECT @p1 AS `Value`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
 """);
         }
 
@@ -1072,11 +1070,7 @@ FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_0`) AS `p` ON `e`.`EmployeeID` = `p`.`
 
 SELECT `e`.`EmployeeID`
 FROM `Employees` AS `e`
-INNER JOIN (SELECT @p1 AS `Value`
-FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_0`
-UNION
-SELECT @p2 AS `Value`
-FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_1`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
+INNER JOIN (SELECT @p1 AS `Value` UNION ALL VALUES (@p2)) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
 """,
                 //
                 """
@@ -1084,8 +1078,7 @@ FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_1`) AS `p` ON `e`.`EmployeeID` = `p`.`
 
 SELECT `e`.`EmployeeID`
 FROM `Employees` AS `e`
-INNER JOIN (SELECT @p1 AS `Value`
-FROM (SELECT COUNT(*) FROM `#Dual`) AS `p_0`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
+INNER JOIN (SELECT @p1 AS `Value`) AS `p` ON `e`.`EmployeeID` = `p`.`Value`
 """);
         }
 

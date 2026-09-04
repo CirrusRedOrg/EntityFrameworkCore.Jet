@@ -45,7 +45,10 @@ WHERE `b`.`Id` > @id
 
         AssertSql(
             """
-SELECT IIF(`b`.`Id` = 2, 'yes', 'no')
+SELECT CASE
+    WHEN `b`.`Id` = 2 THEN 'yes'
+    ELSE 'no'
+END
 FROM `Blogs` AS `b`
 """);
     }
@@ -58,7 +61,10 @@ FROM `Blogs` AS `b`
             """
 @yes='yes' (Size = 255)
 
-SELECT IIF(`b`.`Id` = 2, @yes, 'no')
+SELECT CASE
+    WHEN `b`.`Id` = 2 THEN @yes
+    ELSE 'no'
+END
 FROM `Blogs` AS `b`
 """);
     }
@@ -213,7 +219,7 @@ FROM `Blogs` AS `b`
             """
 @id='8'
 
-SELECT CLNG(@id) AS `Id`, `b`.`Name`
+SELECT @id AS `Id`, `b`.`Name`
 FROM `Blogs` AS `b`
 """);
     }
@@ -374,7 +380,7 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & 'Foo' AS `Foo`
+SELECT COALESCE(`b`.`Name`, '') & 'Foo' AS `Foo`
 FROM `Blogs` AS `b`
 """);
     }
@@ -623,7 +629,6 @@ SELECT NOT EXISTS (
     SELECT 1
     FROM `Blogs` AS `b`
     WHERE `b`.`Id` <= 7)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
@@ -631,7 +636,6 @@ SELECT NOT EXISTS (
     SELECT 1
     FROM `Blogs` AS `b`
     WHERE `b`.`Id` <= 8)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -645,7 +649,6 @@ SELECT NOT EXISTS (
     SELECT 1
     FROM `Blogs` AS `b`
     WHERE `b`.`Id` <= 7)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
@@ -653,7 +656,6 @@ SELECT NOT EXISTS (
     SELECT 1
     FROM `Blogs` AS `b`
     WHERE `b`.`Id` <= 8)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -667,7 +669,6 @@ SELECT EXISTS (
     SELECT 1
     FROM `Blogs` AS `b`
     WHERE `b`.`Id` > 7)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
@@ -675,7 +676,6 @@ SELECT EXISTS (
     SELECT 1
     FROM `Blogs` AS `b`
     WHERE `b`.`Id` < 7)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
@@ -683,7 +683,6 @@ SELECT EXISTS (
     SELECT 1
     FROM `Blogs` AS `b`
     WHERE `b`.`Id` > 7)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
@@ -691,7 +690,6 @@ SELECT EXISTS (
     SELECT 1
     FROM `Blogs` AS `b`
     WHERE `b`.`Id` < 7)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -705,7 +703,6 @@ SELECT EXISTS (
     SELECT 1
     FROM `Blogs` AS `b`
     WHERE `b`.`Id` > 7)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
@@ -713,7 +710,6 @@ SELECT EXISTS (
     SELECT 1
     FROM `Blogs` AS `b`
     WHERE `b`.`Id` < 7)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
@@ -721,7 +717,6 @@ SELECT EXISTS (
     SELECT 1
     FROM `Blogs` AS `b`
     WHERE `b`.`Id` > 7)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
@@ -729,7 +724,6 @@ SELECT EXISTS (
     SELECT 1
     FROM `Blogs` AS `b`
     WHERE `b`.`Id` < 7)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -777,7 +771,6 @@ SELECT @p IN (
     SELECT `b`.`Id`
     FROM `Blogs` AS `b`
 )
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
@@ -787,7 +780,6 @@ SELECT @p IN (
     SELECT `b`.`Id`
     FROM `Blogs` AS `b`
 )
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -803,7 +795,6 @@ SELECT @p IN (
     SELECT `b`.`Id`
     FROM `Blogs` AS `b`
 )
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """,
             //
             """
@@ -813,7 +804,6 @@ SELECT @p IN (
     SELECT `b`.`Id`
     FROM `Blogs` AS `b`
 )
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
     }
 
@@ -1435,12 +1425,12 @@ WHERE `b`.`Id` = 7
 
         AssertSql(
             """
-SELECT IIF(SUM(`b`.`Id`) IS NULL, 0, SUM(`b`.`Id`))
+SELECT COALESCE(SUM(`b`.`Id`), 0)
 FROM `Blogs` AS `b`
 """,
             //
             """
-SELECT IIF(SUM(`b`.`Id`) IS NULL, 0, SUM(`b`.`Id`))
+SELECT COALESCE(SUM(`b`.`Id`), 0)
 FROM `Blogs` AS `b`
 """);
     }
@@ -1451,12 +1441,12 @@ FROM `Blogs` AS `b`
 
         AssertSql(
             """
-SELECT IIF(SUM(`b`.`Id`) IS NULL, 0, SUM(`b`.`Id`))
+SELECT COALESCE(SUM(`b`.`Id`), 0)
 FROM `Blogs` AS `b`
 """,
             //
             """
-SELECT IIF(SUM(`b`.`Id`) IS NULL, 0, SUM(`b`.`Id`))
+SELECT COALESCE(SUM(`b`.`Id`), 0)
 FROM `Blogs` AS `b`
 """);
     }
@@ -1502,7 +1492,7 @@ FROM `Blogs` AS `b`
 @suffix='Suffix' (Size = 255)
 
 UPDATE `Blogs` AS `b`
-SET `b`.`Name` = IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & @suffix
+SET `b`.`Name` = COALESCE(`b`.`Name`, '') & @suffix
 WHERE `b`.`Id` > 8
 """,
             //
@@ -1542,7 +1532,7 @@ WHERE `b`.`Id` = 9 AND `b`.`Name` = 'NewValue'
 @suffix='Suffix' (Size = 255)
 
 UPDATE `Blogs` AS `b`
-SET `b`.`Name` = IIF(`b`.`Name` IS NULL, '', `b`.`Name`) & @suffix
+SET `b`.`Name` = COALESCE(`b`.`Name`, '') & @suffix
 WHERE `b`.`Id` > 8
 """,
             //
@@ -1997,7 +1987,10 @@ FROM `Blogs` AS `b`
 @yes='yes' (Size = 255)
 @no='no' (Size = 255)
 
-SELECT IIF(`b`.`Id` = 3, @yes, @no)
+SELECT CASE
+    WHEN `b`.`Id` = 3 THEN @yes
+    ELSE @no
+END
 FROM `Blogs` AS `b`
 """);
     }

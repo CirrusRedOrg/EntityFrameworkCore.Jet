@@ -396,43 +396,27 @@ WHERE `c`.`CustomerID` = @s1 OR `c`.`CustomerID` = @s2 OR `c`.`CustomerID` = @s3
 
             AssertSql(
                 """
-@args1='ALFKI' (Size = 255)
+@args1='ALFKI' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = (
-    SELECT `a1`.`Value`
-    FROM (
-        SELECT TOP 1 `a0`.`Value`, `a0`.`_ord`
-        FROM (
-            SELECT TOP 0 + 1 `a`.`Value`, `a`.`_ord`
-            FROM (SELECT 0 AS `_ord`, @args1 AS `Value`
-            FROM (SELECT COUNT(*) FROM `#Dual`) AS `a_0`) AS `a`
-            ORDER BY `a`.`_ord`
-        ) AS `a0`
-        ORDER BY `a0`.`_ord` DESC
-    ) AS `a1`
-    ORDER BY `a1`.`_ord`)
+    SELECT `a`.`Value`
+    FROM (SELECT 0 AS `_ord`, @args1 AS `Value`) AS `a`
+    ORDER BY `a`.`_ord`
+    OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY)
 """,
                 //
                 """
-@args1='ANATR' (Size = 255)
+@args1='ANATR' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = (
-    SELECT `a1`.`Value`
-    FROM (
-        SELECT TOP 1 `a0`.`Value`, `a0`.`_ord`
-        FROM (
-            SELECT TOP 0 + 1 `a`.`Value`, `a`.`_ord`
-            FROM (SELECT 0 AS `_ord`, @args1 AS `Value`
-            FROM (SELECT COUNT(*) FROM `#Dual`) AS `a_0`) AS `a`
-            ORDER BY `a`.`_ord`
-        ) AS `a0`
-        ORDER BY `a0`.`_ord` DESC
-    ) AS `a1`
-    ORDER BY `a1`.`_ord`)
+    SELECT `a`.`Value`
+    FROM (SELECT 0 AS `_ord`, @args1 AS `Value`) AS `a`
+    ORDER BY `a`.`_ord`
+    OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY)
 """);
         }
 
@@ -442,43 +426,27 @@ WHERE `c`.`CustomerID` = (
 
             AssertSql(
                 """
-@args1='ALFKI' (Size = 255)
+@args1='ALFKI' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = (
-    SELECT `a1`.`Value`
-    FROM (
-        SELECT TOP 1 `a0`.`Value`, `a0`.`_ord`
-        FROM (
-            SELECT TOP 0 + 1 `a`.`Value`, `a`.`_ord`
-            FROM (SELECT 0 AS `_ord`, @args1 AS `Value`
-            FROM (SELECT COUNT(*) FROM `#Dual`) AS `a_0`) AS `a`
-            ORDER BY `a`.`_ord`
-        ) AS `a0`
-        ORDER BY `a0`.`_ord` DESC
-    ) AS `a1`
-    ORDER BY `a1`.`_ord`)
+    SELECT `a`.`Value`
+    FROM (SELECT 0 AS `_ord`, @args1 AS `Value`) AS `a`
+    ORDER BY `a`.`_ord`
+    OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY)
 """,
                 //
                 """
-@args1='ANATR' (Size = 255)
+@args1='ANATR' (Size = 5)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` = (
-    SELECT `a1`.`Value`
-    FROM (
-        SELECT TOP 1 `a0`.`Value`, `a0`.`_ord`
-        FROM (
-            SELECT TOP 0 + 1 `a`.`Value`, `a`.`_ord`
-            FROM (SELECT 0 AS `_ord`, @args1 AS `Value`
-            FROM (SELECT COUNT(*) FROM `#Dual`) AS `a_0`) AS `a`
-            ORDER BY `a`.`_ord`
-        ) AS `a0`
-        ORDER BY `a0`.`_ord` DESC
-    ) AS `a1`
-    ORDER BY `a1`.`_ord`)
+    SELECT `a`.`Value`
+    FROM (SELECT 0 AS `_ord`, @args1 AS `Value`) AS `a`
+    ORDER BY `a`.`_ord`
+    OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY)
 """);
         }
 

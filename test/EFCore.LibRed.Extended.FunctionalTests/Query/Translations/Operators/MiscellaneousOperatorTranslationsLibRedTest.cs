@@ -25,7 +25,10 @@ public class MiscellaneousOperatorTranslationsLibRedTest : MiscellaneousOperator
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(`b`.`Int` = 8, `b`.`String`, 'Foo') = 'Seattle'
+WHERE CASE
+    WHEN `b`.`Int` = 8 THEN `b`.`String`
+    ELSE 'Foo'
+END = 'Seattle'
 """);
     }
 
@@ -121,7 +124,7 @@ WHERE NULLIF(`b`.`String`, 'Seattle') = 'London'
             """
 SELECT `n`.`Id`, `n`.`Bool`, `n`.`Byte`, `n`.`ByteArray`, `n`.`DateOnly`, `n`.`DateTime`, `n`.`DateTimeOffset`, `n`.`Decimal`, `n`.`Double`, `n`.`Enum`, `n`.`FlagsEnum`, `n`.`Float`, `n`.`Guid`, `n`.`Int`, `n`.`Long`, `n`.`Short`, `n`.`String`, `n`.`TimeOnly`, `n`.`TimeSpan`
 FROM `NullableBasicTypesEntities` AS `n`
-WHERE IIF(`n`.`String` IS NULL, 'Unknown', `n`.`String`) = 'Seattle'
+WHERE COALESCE(`n`.`String`, 'Unknown') = 'Seattle'
 """);
     }
 

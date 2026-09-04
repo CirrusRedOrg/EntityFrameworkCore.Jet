@@ -173,7 +173,10 @@ FROM `BasicTypesEntities` AS `b`
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (INSTR(1, `b`.`String`, @pattern, 1) - IIF(@pattern = '', 0, 1)) = 1
+WHERE (INSTR(1, `b`.`String`, @pattern, 1) - CASE
+    WHEN @pattern = '' THEN 0
+    ELSE 1
+END) = 1
 """);
 
     }
@@ -188,7 +191,10 @@ WHERE (INSTR(1, `b`.`String`, @pattern, 1) - IIF(@pattern = '', 0, 1)) = 1
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (INSTR(1, `b`.`String`, @pattern, 1) - IIF(@pattern = '', 0, 1)) = 1
+WHERE (INSTR(1, `b`.`String`, @pattern, 1) - CASE
+    WHEN @pattern = '' THEN 0
+    ELSE 1
+END) = 1
 """);
 
     }
@@ -265,7 +271,10 @@ WHERE (INSTR(1, (`b`.`Int` & ''), '55', 1) - 1) = 1
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (INSTR(1, '12559', (`b`.`Int` & ''), 1) - IIF((`b`.`Int` & '') = '', 0, 1)) = 1
+WHERE (INSTR(1, '12559', (`b`.`Int` & ''), 1) - CASE
+    WHEN (`b`.`Int` & '') = '' THEN 0
+    ELSE 1
+END) = 1
 """);
     }
 
@@ -279,7 +288,10 @@ WHERE (INSTR(1, '12559', (`b`.`Int` & ''), 1) - IIF((`b`.`Int` & '') = '', 0, 1)
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (INSTR(1, (`b`.`Int` & ''), @pattern, 1) - IIF(@pattern = '', 0, 1)) <> -1
+WHERE (INSTR(1, (`b`.`Int` & ''), @pattern, 1) - CASE
+    WHEN @pattern = '' THEN 0
+    ELSE 1
+END) <> -1
 """);
     }
 
@@ -435,7 +447,10 @@ WHERE LEN(`b`.`String`) >= 2 AND MID(`b`.`String`, 2 + 1, 0) = ''
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE LEN(`b`.`String`) >= 5 AND MID(`b`.`String`, IIF(@start = -1, 0, @start) + 1, 3) = 'att'
+WHERE LEN(`b`.`String`) >= 5 AND MID(`b`.`String`, CASE
+    WHEN @start = -1 THEN 0
+    ELSE @start
+END + 1, 3) = 'att'
 """);
     }
 
@@ -447,7 +462,10 @@ WHERE LEN(`b`.`String`) >= 5 AND MID(`b`.`String`, IIF(@start = -1, 0, @start) +
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (`b`.`String` LIKE '%a%') AND MID(`b`.`String`, IIF((INSTR(1, `b`.`String`, 'a', 1) - 1) = -1, 0, INSTR(1, `b`.`String`, 'a', 1) - 1) + 1, 3) = 'att'
+WHERE (`b`.`String` LIKE '%a%') AND MID(`b`.`String`, CASE
+    WHEN (INSTR(1, `b`.`String`, 'a', 1) - 1) = -1 THEN 0
+    ELSE INSTR(1, `b`.`String`, 'a', 1) - 1
+END + 1, 3) = 'att'
 """);
     }
 
@@ -565,7 +583,7 @@ WHERE `b`.`String` LIKE @pattern_startswith
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE LEFT(`b`.`String`, IIF(LEN(`b`.`String`) IS NULL, 0, LEN(`b`.`String`))) = `b`.`String`
+WHERE LEFT(`b`.`String`, COALESCE(LEN(`b`.`String`), 0)) = `b`.`String`
 """);
     }
 
@@ -656,7 +674,7 @@ WHERE `b`.`String` LIKE @pattern_endswith
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`String` = 'Seattle' AND RIGHT(`b`.`String`, IIF(LEN(`b`.`String`) IS NULL, 0, LEN(`b`.`String`))) = `b`.`String`
+WHERE `b`.`String` = 'Seattle' AND RIGHT(`b`.`String`, COALESCE(LEN(`b`.`String`), 0)) = `b`.`String`
 """);
     }
 
@@ -1021,19 +1039,31 @@ WHERE `b`.`String` >= @basicTypeEntity_String
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(`b`.`String` = 'Seattle', 0, IIF(`b`.`String` > 'Seattle', 1, IIF(`b`.`String` < 'Seattle', -1, NULL))) = 42
+WHERE CASE
+    WHEN `b`.`String` = 'Seattle' THEN 0
+    WHEN `b`.`String` > 'Seattle' THEN 1
+    WHEN `b`.`String` < 'Seattle' THEN -1
+END = 42
 """,
             //
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(`b`.`String` = 'Seattle', 0, IIF(`b`.`String` > 'Seattle', 1, IIF(`b`.`String` < 'Seattle', -1, NULL))) > 42
+WHERE CASE
+    WHEN `b`.`String` = 'Seattle' THEN 0
+    WHEN `b`.`String` > 'Seattle' THEN 1
+    WHEN `b`.`String` < 'Seattle' THEN -1
+END > 42
 """,
             //
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE 42 > IIF(`b`.`String` = 'Seattle', 0, IIF(`b`.`String` > 'Seattle', 1, IIF(`b`.`String` < 'Seattle', -1, NULL)))
+WHERE 42 > CASE
+    WHEN `b`.`String` = 'Seattle' THEN 0
+    WHEN `b`.`String` > 'Seattle' THEN 1
+    WHEN `b`.`String` < 'Seattle' THEN -1
+END
 """);
     }
 
@@ -1237,19 +1267,31 @@ WHERE `b`.`String` >= @basicTypesEntity_String
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(`b`.`String` = 'Seattle', 0, IIF(`b`.`String` > 'Seattle', 1, IIF(`b`.`String` < 'Seattle', -1, NULL))) = 42
+WHERE CASE
+    WHEN `b`.`String` = 'Seattle' THEN 0
+    WHEN `b`.`String` > 'Seattle' THEN 1
+    WHEN `b`.`String` < 'Seattle' THEN -1
+END = 42
 """,
             //
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(`b`.`String` = 'Seattle', 0, IIF(`b`.`String` > 'Seattle', 1, IIF(`b`.`String` < 'Seattle', -1, NULL))) > 42
+WHERE CASE
+    WHEN `b`.`String` = 'Seattle' THEN 0
+    WHEN `b`.`String` > 'Seattle' THEN 1
+    WHEN `b`.`String` < 'Seattle' THEN -1
+END > 42
 """,
             //
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE 42 > IIF(`b`.`String` = 'Seattle', 0, IIF(`b`.`String` > 'Seattle', 1, IIF(`b`.`String` < 'Seattle', -1, NULL)))
+WHERE 42 > CASE
+    WHEN `b`.`String` = 'Seattle' THEN 0
+    WHEN `b`.`String` > 'Seattle' THEN 1
+    WHEN `b`.`String` < 'Seattle' THEN -1
+END
 """);
     }
 
@@ -1338,13 +1380,13 @@ SELECT `n3`.`Key`, `n1`.`String`, `n1`.`Id`
 FROM (
     SELECT `n0`.`Key`
     FROM (
-        SELECT IIF(`n`.`Int` IS NULL, 0, `n`.`Int`) AS `Key`
+        SELECT COALESCE(`n`.`Int`, 0) AS `Key`
         FROM `NullableBasicTypesEntities` AS `n`
     ) AS `n0`
     GROUP BY `n0`.`Key`
 ) AS `n3`
 LEFT JOIN (
-    SELECT `n2`.`Id`, `n2`.`String`, IIF(`n2`.`Int` IS NULL, 0, `n2`.`Int`) AS `Key`
+    SELECT `n2`.`Id`, `n2`.`String`, COALESCE(`n2`.`Int`, 0) AS `Key`
     FROM `NullableBasicTypesEntities` AS `n2`
 ) AS `n1` ON `n3`.`Key` = `n1`.`Key`
 ORDER BY `n3`.`Key`
@@ -1572,7 +1614,10 @@ WHERE MID(`b`.`String`, 1, 1) = 'S'
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE MID(`b`.`String`, IIF(LEN(`b`.`String`) = 0, 1, LEN(`b`.`String`)), 1) = 'e'
+WHERE MID(`b`.`String`, CASE
+    WHEN LEN(`b`.`String`) = 0 THEN 1
+    ELSE LEN(`b`.`String`)
+END, 1) = 'e'
 """);
     }
 

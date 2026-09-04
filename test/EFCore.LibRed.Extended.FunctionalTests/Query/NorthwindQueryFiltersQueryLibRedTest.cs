@@ -360,7 +360,9 @@ WHERE `c0`.`CustomerID` IS NOT NULL AND `c0`.`CompanyName` IS NOT NULL
                 """
 @ef_filter__TenantPrefix_startswith='B%' (Size = 40)
 
-SELECT `o`.`EmployeeID` AS `Key`, COUNT(IIF(`c0`.`City` = 'London', 1, NULL)) AS `Londons`
+SELECT `o`.`EmployeeID` AS `Key`, COUNT(CASE
+    WHEN `c0`.`City` = 'London' THEN 1
+END) AS `Londons`
 FROM `Orders` AS `o`
 LEFT JOIN (
     SELECT `c`.`CustomerID`, `c`.`City`, `c`.`CompanyName`
@@ -380,7 +382,9 @@ GROUP BY `o`.`EmployeeID`
                 """
 @ef_filter__TenantPrefix_startswith='B%' (Size = 40)
 
-SELECT `o`.`EmployeeID` AS `Key`, COUNT(*) AS `Total`, COUNT(IIF(`c0`.`City` = 'London', 1, NULL)) AS `Londons`
+SELECT `o`.`EmployeeID` AS `Key`, COUNT(*) AS `Total`, COUNT(CASE
+    WHEN `c0`.`City` = 'London' THEN 1
+END) AS `Londons`
 FROM `Orders` AS `o`
 LEFT JOIN (
     SELECT `c`.`CustomerID`, `c`.`City`, `c`.`CompanyName`
@@ -398,7 +402,9 @@ GROUP BY `o`.`EmployeeID`
 
             AssertSql(
                 """
-SELECT `o`.`EmployeeID` AS `Key`, COUNT(IIF(`c`.`City` = 'London', 1, NULL)) AS `Londons`
+SELECT `o`.`EmployeeID` AS `Key`, COUNT(CASE
+    WHEN `c`.`City` = 'London' THEN 1
+END) AS `Londons`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 GROUP BY `o`.`EmployeeID`

@@ -60,13 +60,10 @@ ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`A
         AssertSql(
             """
 SELECT (
-    SELECT IIF(SUM((
-            SELECT IIF(SUM(`r2`.`Int`) IS NULL, 0, SUM(`r2`.`Int`))
-            FROM `RelatedCollection_NestedCollection` AS `r2`
-            WHERE `u`.`RootEntityId` = `r2`.`AssociateTypeRootEntityId` AND `u`.`Id` = `r2`.`AssociateTypeId`)) IS NULL, 0, SUM((
-            SELECT IIF(SUM(`r2`.`Int`) IS NULL, 0, SUM(`r2`.`Int`))
-            FROM `RelatedCollection_NestedCollection` AS `r2`
-            WHERE `u`.`RootEntityId` = `r2`.`AssociateTypeRootEntityId` AND `u`.`Id` = `r2`.`AssociateTypeId`)))
+    SELECT COALESCE(SUM((
+        SELECT COALESCE(SUM(`r2`.`Int`), 0)
+        FROM `RelatedCollection_NestedCollection` AS `r2`
+        WHERE `u`.`RootEntityId` = `r2`.`AssociateTypeRootEntityId` AND `u`.`Id` = `r2`.`AssociateTypeId`)), 0)
     FROM (
         SELECT `r0`.`RootEntityId`, `r0`.`Id`
         FROM `RelatedCollection` AS `r0`

@@ -50,7 +50,7 @@ WHERE `o`.`UnitPrice` < 7.0 AND 10 < `o`.`ProductID`
             AssertSql(
                 """
 SELECT `o`.`OrderID`, (
-    SELECT IIF(SUM(ROUND(`o0`.`UnitPrice`, 2)) IS NULL, 0.0, SUM(ROUND(`o0`.`UnitPrice`, 2)))
+    SELECT COALESCE(SUM(ROUND(`o0`.`UnitPrice`, 2)), 0.0)
     FROM `Order Details` AS `o0`
     WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
 FROM `Orders` AS `o`
@@ -65,7 +65,7 @@ WHERE `o`.`OrderID` < 10300
             AssertSql(
                 """
 SELECT `o`.`OrderID`, (
-    SELECT IIF(SUM(ROUND(`o0`.`UnitPrice` * `o0`.`UnitPrice`, 2)) IS NULL, 0.0, SUM(ROUND(`o0`.`UnitPrice` * `o0`.`UnitPrice`, 2)))
+    SELECT COALESCE(SUM(ROUND(`o0`.`UnitPrice` * `o0`.`UnitPrice`, 2)), 0.0)
     FROM `Order Details` AS `o0`
     WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
 FROM `Orders` AS `o`
@@ -80,7 +80,7 @@ WHERE `o`.`OrderID` < 10300
             AssertSql(
                 """
 SELECT `o`.`OrderID`, (
-    SELECT IIF(SUM(FIX(`o0`.`UnitPrice`)) IS NULL, 0.0, SUM(FIX(`o0`.`UnitPrice`)))
+    SELECT COALESCE(SUM(FIX(`o0`.`UnitPrice`)), 0.0)
     FROM `Order Details` AS `o0`
     WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
 FROM `Orders` AS `o`
@@ -95,7 +95,7 @@ WHERE `o`.`OrderID` < 10300
             AssertSql(
                 """
 SELECT `o`.`OrderID`, (
-    SELECT IIF(SUM(FIX(`o0`.`UnitPrice` * `o0`.`UnitPrice`)) IS NULL, 0.0, SUM(FIX(`o0`.`UnitPrice` * `o0`.`UnitPrice`)))
+    SELECT COALESCE(SUM(FIX(`o0`.`UnitPrice` * `o0`.`UnitPrice`)), 0.0)
     FROM `Order Details` AS `o0`
     WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
 FROM `Orders` AS `o`
@@ -111,7 +111,10 @@ WHERE `o`.`OrderID` < 10300
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CDBL(LEN(`c`.`CustomerID`)))^2.0 = 25.0
+WHERE CASE
+    WHEN LEN(`c`.`CustomerID`) IS NULL THEN NULL
+    ELSE CDBL(LEN(`c`.`CustomerID`))
+END^2.0 = 25.0
 """);
         }
 
@@ -150,7 +153,7 @@ ORDER BY LEN(`c`.`CustomerID`), `c`.`CustomerID`, `o`.`OrderID`
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-WHERE `o`.`OrderDate` = CDATE(@arg)
+WHERE `o`.`OrderDate` = @arg
 """);
         }
 

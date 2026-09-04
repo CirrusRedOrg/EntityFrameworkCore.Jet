@@ -81,7 +81,7 @@ ORDER BY `s`.`Id`, `s`.`Id0`, `s`.`Id1`
         AssertSql(
             """
 SELECT `b`.`Id`, (
-    SELECT IIF(SUM(`p`.`CommentsCount`) IS NULL, 0, SUM(`p`.`CommentsCount`))
+    SELECT COALESCE(SUM(`p`.`CommentsCount`), 0)
     FROM `Post` AS `p`
     WHERE `b`.`Id` = `p`.`BlogId`), `p0`.`Title`, `p0`.`CommentsCount`, `p0`.`BlogId`, `p0`.`Id`
 FROM `Blog` AS `b`

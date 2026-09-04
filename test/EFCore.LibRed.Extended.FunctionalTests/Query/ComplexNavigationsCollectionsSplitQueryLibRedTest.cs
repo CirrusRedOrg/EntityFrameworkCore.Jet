@@ -1908,17 +1908,23 @@ ORDER BY `l`.`Id`
         await base.Include_collection_with_conditional_order_by(async);
 
         AssertSql(
-"""
+            """
 SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
 FROM `LevelOne` AS `l`
-ORDER BY IIF(`l`.`Name` LIKE '%03', 1, 2), `l`.`Id`
+ORDER BY CASE
+    WHEN `l`.`Name` LIKE '%03' THEN 1
+    ELSE 2
+END, `l`.`Id`
 """,
-                //
-                """
+            //
+            """
 SELECT `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`, `l`.`Id`
 FROM `LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToMany_Optional_Inverse2Id`
-ORDER BY IIF(`l`.`Name` LIKE '%03', 1, 2), `l`.`Id`
+ORDER BY CASE
+    WHEN `l`.`Name` LIKE '%03' THEN 1
+    ELSE 2
+END, `l`.`Id`
 """);
     }
 
@@ -1988,36 +1994,30 @@ ORDER BY `l`.`Id`
 
         AssertSql(
             """
-@p1='10'
 @p='0'
+@p1='10'
 
 SELECT `l1`.`Id`, `l1`.`Date`, `l1`.`Name`, `l1`.`OneToMany_Optional_Self_Inverse1Id`, `l1`.`OneToMany_Required_Self_Inverse1Id`, `l1`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`
 FROM (
-    SELECT TOP @p1 `l2`.`Id`, `l2`.`Date`, `l2`.`Name`, `l2`.`OneToMany_Optional_Self_Inverse1Id`, `l2`.`OneToMany_Required_Self_Inverse1Id`, `l2`.`OneToOne_Optional_Self1Id`
-    FROM (
-        SELECT TOP @p + @p1 `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
-        FROM `LevelOne` AS `l`
-        ORDER BY `l`.`Name`
-    ) AS `l2`
-    ORDER BY `l2`.`Name` DESC
+    SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
+    FROM `LevelOne` AS `l`
+    ORDER BY `l`.`Name`
+    OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 ) AS `l1`
 LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Required_Id`
 ORDER BY `l1`.`Name`, `l1`.`Id`
 """,
             //
             """
-@p1='10'
 @p='0'
+@p1='10'
 
 SELECT `l2`.`Id`, `l2`.`Level2_Optional_Id`, `l2`.`Level2_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse3Id`, `l2`.`OneToMany_Optional_Self_Inverse3Id`, `l2`.`OneToMany_Required_Inverse3Id`, `l2`.`OneToMany_Required_Self_Inverse3Id`, `l2`.`OneToOne_Optional_PK_Inverse3Id`, `l2`.`OneToOne_Optional_Self3Id`, `l1`.`Id`
 FROM ((
-    SELECT TOP @p1 `l4`.`Id`, `l4`.`Name`
-    FROM (
-        SELECT TOP @p + @p1 `l`.`Id`, `l`.`Name`
-        FROM `LevelOne` AS `l`
-        ORDER BY `l`.`Name`
-    ) AS `l4`
-    ORDER BY `l4`.`Name` DESC
+    SELECT `l`.`Id`, `l`.`Name`
+    FROM `LevelOne` AS `l`
+    ORDER BY `l`.`Name`
+    OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 ) AS `l1`
 LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l2` ON `l0`.`Id` = `l2`.`OneToMany_Optional_Inverse3Id`
@@ -2026,18 +2026,15 @@ ORDER BY `l1`.`Name`, `l1`.`Id`
 """,
             //
             """
-@p1='10'
 @p='0'
+@p1='10'
 
 SELECT `l3`.`Id`, `l3`.`Level2_Optional_Id`, `l3`.`Level2_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse3Id`, `l3`.`OneToMany_Optional_Self_Inverse3Id`, `l3`.`OneToMany_Required_Inverse3Id`, `l3`.`OneToMany_Required_Self_Inverse3Id`, `l3`.`OneToOne_Optional_PK_Inverse3Id`, `l3`.`OneToOne_Optional_Self3Id`, `l1`.`Id`
 FROM ((
-    SELECT TOP @p1 `l4`.`Id`, `l4`.`Name`
-    FROM (
-        SELECT TOP @p + @p1 `l`.`Id`, `l`.`Name`
-        FROM `LevelOne` AS `l`
-        ORDER BY `l`.`Name`
-    ) AS `l4`
-    ORDER BY `l4`.`Name` DESC
+    SELECT `l`.`Id`, `l`.`Name`
+    FROM `LevelOne` AS `l`
+    ORDER BY `l`.`Name`
+    OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 ) AS `l1`
 LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l3` ON `l0`.`Id` = `l3`.`OneToMany_Required_Inverse3Id`
@@ -2052,18 +2049,15 @@ ORDER BY `l1`.`Name`, `l1`.`Id`
 
         AssertSql(
             """
-@p1='10'
 @p='0'
+@p1='10'
 
 SELECT `l1`.`Id`, `l1`.`Date`, `l1`.`Name`, `l1`.`OneToMany_Optional_Self_Inverse1Id`, `l1`.`OneToMany_Required_Self_Inverse1Id`, `l1`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`, `l2`.`Id`, `l2`.`Date`, `l2`.`Level1_Optional_Id`, `l2`.`Level1_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse2Id`, `l2`.`OneToMany_Optional_Self_Inverse2Id`, `l2`.`OneToMany_Required_Inverse2Id`, `l2`.`OneToMany_Required_Self_Inverse2Id`, `l2`.`OneToOne_Optional_PK_Inverse2Id`, `l2`.`OneToOne_Optional_Self2Id`
 FROM ((
-    SELECT TOP @p1 `l3`.`Id`, `l3`.`Date`, `l3`.`Name`, `l3`.`OneToMany_Optional_Self_Inverse1Id`, `l3`.`OneToMany_Required_Self_Inverse1Id`, `l3`.`OneToOne_Optional_Self1Id`
-    FROM (
-        SELECT TOP @p + @p1 `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
-        FROM `LevelOne` AS `l`
-        ORDER BY `l`.`Name`
-    ) AS `l3`
-    ORDER BY `l3`.`Name` DESC
+    SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
+    FROM `LevelOne` AS `l`
+    ORDER BY `l`.`Name`
+    OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 ) AS `l1`
 LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelTwo` AS `l2` ON `l1`.`Id` = `l2`.`Level1_Required_Id`
@@ -2071,18 +2065,15 @@ ORDER BY `l1`.`Name`, `l1`.`Id`
 """,
             //
             """
-@p1='10'
 @p='0'
+@p1='10'
 
 SELECT `l3`.`Id`, `l3`.`Level2_Optional_Id`, `l3`.`Level2_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse3Id`, `l3`.`OneToMany_Optional_Self_Inverse3Id`, `l3`.`OneToMany_Required_Inverse3Id`, `l3`.`OneToMany_Required_Self_Inverse3Id`, `l3`.`OneToOne_Optional_PK_Inverse3Id`, `l3`.`OneToOne_Optional_Self3Id`, `l1`.`Id`
 FROM ((
-    SELECT TOP @p1 `l5`.`Id`, `l5`.`Name`
-    FROM (
-        SELECT TOP @p + @p1 `l`.`Id`, `l`.`Name`
-        FROM `LevelOne` AS `l`
-        ORDER BY `l`.`Name`
-    ) AS `l5`
-    ORDER BY `l5`.`Name` DESC
+    SELECT `l`.`Id`, `l`.`Name`
+    FROM `LevelOne` AS `l`
+    ORDER BY `l`.`Name`
+    OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 ) AS `l1`
 LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l3` ON `l0`.`Id` = `l3`.`OneToMany_Optional_Inverse3Id`
@@ -2091,18 +2082,15 @@ ORDER BY `l1`.`Name`, `l1`.`Id`
 """,
             //
             """
-@p1='10'
 @p='0'
+@p1='10'
 
 SELECT `l4`.`Id`, `l4`.`Level2_Optional_Id`, `l4`.`Level2_Required_Id`, `l4`.`Name`, `l4`.`OneToMany_Optional_Inverse3Id`, `l4`.`OneToMany_Optional_Self_Inverse3Id`, `l4`.`OneToMany_Required_Inverse3Id`, `l4`.`OneToMany_Required_Self_Inverse3Id`, `l4`.`OneToOne_Optional_PK_Inverse3Id`, `l4`.`OneToOne_Optional_Self3Id`, `l1`.`Id`
 FROM ((
-    SELECT TOP @p1 `l5`.`Id`, `l5`.`Name`
-    FROM (
-        SELECT TOP @p + @p1 `l`.`Id`, `l`.`Name`
-        FROM `LevelOne` AS `l`
-        ORDER BY `l`.`Name`
-    ) AS `l5`
-    ORDER BY `l5`.`Name` DESC
+    SELECT `l`.`Id`, `l`.`Name`
+    FROM `LevelOne` AS `l`
+    ORDER BY `l`.`Name`
+    OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 ) AS `l1`
 LEFT JOIN `LevelTwo` AS `l2` ON `l1`.`Id` = `l2`.`Level1_Required_Id`)
 LEFT JOIN `LevelThree` AS `l4` ON `l2`.`Id` = `l4`.`OneToMany_Required_Inverse3Id`
@@ -2117,18 +2105,15 @@ ORDER BY `l1`.`Name`, `l1`.`Id`
 
         AssertSql(
             """
-@p1='10'
 @p='0'
+@p1='10'
 
 SELECT `l1`.`Id`, `l1`.`Date`, `l1`.`Name`, `l1`.`OneToMany_Optional_Self_Inverse1Id`, `l1`.`OneToMany_Required_Self_Inverse1Id`, `l1`.`OneToOne_Optional_Self1Id`, `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`, `l2`.`Id`, `l2`.`Level2_Optional_Id`, `l2`.`Level2_Required_Id`, `l2`.`Name`, `l2`.`OneToMany_Optional_Inverse3Id`, `l2`.`OneToMany_Optional_Self_Inverse3Id`, `l2`.`OneToMany_Required_Inverse3Id`, `l2`.`OneToMany_Required_Self_Inverse3Id`, `l2`.`OneToOne_Optional_PK_Inverse3Id`, `l2`.`OneToOne_Optional_Self3Id`
 FROM ((
-    SELECT TOP @p1 `l3`.`Id`, `l3`.`Date`, `l3`.`Name`, `l3`.`OneToMany_Optional_Self_Inverse1Id`, `l3`.`OneToMany_Required_Self_Inverse1Id`, `l3`.`OneToOne_Optional_Self1Id`
-    FROM (
-        SELECT TOP @p + @p1 `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
-        FROM `LevelOne` AS `l`
-        ORDER BY `l`.`Name`
-    ) AS `l3`
-    ORDER BY `l3`.`Name` DESC
+    SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id`, `l`.`OneToMany_Required_Self_Inverse1Id`, `l`.`OneToOne_Optional_Self1Id`
+    FROM `LevelOne` AS `l`
+    ORDER BY `l`.`Name`
+    OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 ) AS `l1`
 LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l2` ON `l0`.`Id` = `l2`.`Level2_Required_Id`
@@ -2136,18 +2121,15 @@ ORDER BY `l1`.`Name`, `l1`.`Id`
 """,
             //
             """
-@p1='10'
 @p='0'
+@p1='10'
 
 SELECT `l3`.`Id`, `l3`.`Level3_Optional_Id`, `l3`.`Level3_Required_Id`, `l3`.`Name`, `l3`.`OneToMany_Optional_Inverse4Id`, `l3`.`OneToMany_Optional_Self_Inverse4Id`, `l3`.`OneToMany_Required_Inverse4Id`, `l3`.`OneToMany_Required_Self_Inverse4Id`, `l3`.`OneToOne_Optional_PK_Inverse4Id`, `l3`.`OneToOne_Optional_Self4Id`, `l1`.`Id`
 FROM (((
-    SELECT TOP @p1 `l4`.`Id`, `l4`.`Name`
-    FROM (
-        SELECT TOP @p + @p1 `l`.`Id`, `l`.`Name`
-        FROM `LevelOne` AS `l`
-        ORDER BY `l`.`Name`
-    ) AS `l4`
-    ORDER BY `l4`.`Name` DESC
+    SELECT `l`.`Id`, `l`.`Name`
+    FROM `LevelOne` AS `l`
+    ORDER BY `l`.`Name`
+    OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 ) AS `l1`
 LEFT JOIN `LevelTwo` AS `l0` ON `l1`.`Id` = `l0`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l2` ON `l0`.`Id` = `l2`.`Level2_Required_Id`)
@@ -3235,7 +3217,10 @@ ORDER BY `l`.`Id`
 @validIds1='L1 01' (Size = 255)
 @validIds2='L1 02' (Size = 255)
 
-SELECT IIF(`l0`.`Id` IS NULL, 0, `l0`.`Id`), `l`.`Id`
+SELECT CASE
+    WHEN `l0`.`Id` IS NULL THEN 0
+    ELSE `l0`.`Id`
+END, `l`.`Id`
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`
 WHERE `l`.`Name` IN (@validIds1, @validIds2)
@@ -4451,9 +4436,17 @@ ORDER BY `l`.`Name`, `l`.`Id`
 
         AssertSql(
             """
-SELECT `l`.`Id`, IIF(`l`.`Id` = 1, '01', IIF(`l`.`Id` = 2, '02', IIF(`l`.`Id` = 3, '03', NULL)))
+SELECT `l`.`Id`, CASE
+    WHEN `l`.`Id` = 1 THEN '01'
+    WHEN `l`.`Id` = 2 THEN '02'
+    WHEN `l`.`Id` = 3 THEN '03'
+END
 FROM `LevelOne` AS `l`
-WHERE IIF(`l`.`Id` = 1, '01', IIF(`l`.`Id` = 2, '02', IIF(`l`.`Id` = 3, '03', NULL))) = '02'
+WHERE CASE
+    WHEN `l`.`Id` = 1 THEN '01'
+    WHEN `l`.`Id` = 2 THEN '02'
+    WHEN `l`.`Id` = 3 THEN '03'
+END = '02'
 ORDER BY `l`.`Id`
 """,
             //
@@ -4461,7 +4454,11 @@ ORDER BY `l`.`Id`
 SELECT `l2`.`Name`, `l`.`Id`
 FROM `LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l2` ON `l`.`Id` = `l2`.`OneToMany_Optional_Inverse2Id`
-WHERE IIF(`l`.`Id` = 1, '01', IIF(`l`.`Id` = 2, '02', IIF(`l`.`Id` = 3, '03', NULL))) = '02'
+WHERE CASE
+    WHEN `l`.`Id` = 1 THEN '01'
+    WHEN `l`.`Id` = 2 THEN '02'
+    WHEN `l`.`Id` = 3 THEN '03'
+END = '02'
 ORDER BY `l`.`Id`, `l2`.`Id`
 """);
     }

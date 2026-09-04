@@ -161,7 +161,7 @@ WHERE TIMEVALUE(`b`.`DateTime`) = `b`.`TimeOnly`
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE TIMEVALUE(`b`.`DateTime`) = TIMEVALUE(@time)
+WHERE TIMEVALUE(`b`.`DateTime`) = @time
 """);
     }
 
@@ -199,7 +199,7 @@ WHERE TIMEVALUE(`b`.`TimeSpan`) < `b`.`TimeOnly`
 
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE TIMEVALUE(`b`.`TimeSpan`) = TIMEVALUE(@time)
+WHERE TIMEVALUE(`b`.`TimeSpan`) = @time
 """);
     }
 

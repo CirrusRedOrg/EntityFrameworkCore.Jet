@@ -95,19 +95,12 @@ LEFT JOIN (
 LEFT JOIN `OptionalRelated_NestedCollection` AS `o2` ON `o`.`RootEntityId` = `o2`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r8` ON `r1`.`RootEntityId` = `r8`.`AssociateTypeRootEntityId`
 WHERE (
-    SELECT `r10`.`Int`
-    FROM (
-        SELECT TOP 1 `r9`.`Int`, `r9`.`Id`
-        FROM (
-            SELECT TOP 0 + 1 `r0`.`Int`, `r0`.`Id`
-            FROM `RelatedCollection` AS `r0`
-            WHERE `r`.`Id` = `r0`.`RootEntityId`
-            ORDER BY `r0`.`Id`
-        ) AS `r9`
-        ORDER BY `r9`.`Id` DESC
-    ) AS `r10`
-    ORDER BY `r10`.`Id`) = 8
-ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`AssociateTypeRootEntityId`, `r1`.`RootEntityId`, `r2`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`AssociateTypeRootEntityId0`, `s`.`AssociateTypeId0`, `s`.`AssociateTypeRootEntityId1`, `s`.`AssociateTypeId1`, `s`.`Id0`, `o2`.`AssociateTypeRootEntityId`, `o2`.`Id`, `r8`.`AssociateTypeRootEntityId`
+    SELECT `r0`.`Int`
+    FROM `RelatedCollection` AS `r0`
+    WHERE `r`.`Id` = `r0`.`RootEntityId`
+    ORDER BY `r0`.`Id`
+    OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY) = 8
+ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`AssociateTypeRootEntityId`, `r1`.`RootEntityId`, `r2`.`AssociateTypeRootEntityId`, `r3`.`AssociateTypeRootEntityId`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`AssociateTypeRootEntityId0`, `s`.`AssociateTypeId0`, `s`.`AssociateTypeRootEntityId1`, `s`.`AssociateTypeId1`, `s`.`Id0`, `o2`.`AssociateTypeRootEntityId`, `o2`.`Id`, `r8`.`AssociateTypeRootEntityId`, `r8`.`Id`
 """);
     }
 
@@ -255,7 +248,7 @@ LEFT JOIN (
 LEFT JOIN `OptionalRelated_NestedCollection` AS `o2` ON `o`.`RootEntityId` = `o2`.`AssociateTypeRootEntityId`)
 LEFT JOIN `RequiredRelated_NestedCollection` AS `r8` ON `r1`.`RootEntityId` = `r8`.`AssociateTypeRootEntityId`
 WHERE 16 IN (
-    SELECT IIF(SUM(`r0`.`Int`) IS NULL, 0, SUM(`r0`.`Int`))
+    SELECT COALESCE(SUM(`r0`.`Int`), 0)
     FROM `RelatedCollection` AS `r0`
     WHERE `r`.`Id` = `r0`.`RootEntityId`
     GROUP BY `r0`.`String`
@@ -273,13 +266,10 @@ ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`A
         AssertSql(
             """
 SELECT (
-    SELECT IIF(SUM((
-            SELECT MAX(`r1`.`Int`)
-            FROM `RelatedCollection_NestedCollection` AS `r1`
-            WHERE `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r1`.`AssociateTypeId`)) IS NULL, 0, SUM((
-            SELECT MAX(`r1`.`Int`)
-            FROM `RelatedCollection_NestedCollection` AS `r1`
-            WHERE `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r1`.`AssociateTypeId`)))
+    SELECT COALESCE(SUM((
+        SELECT MAX(`r1`.`Int`)
+        FROM `RelatedCollection_NestedCollection` AS `r1`
+        WHERE `r0`.`RootEntityId` = `r1`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r1`.`AssociateTypeId`)), 0)
     FROM `RelatedCollection` AS `r0`
     WHERE `r`.`Id` = `r0`.`RootEntityId`)
 FROM `RootEntity` AS `r`

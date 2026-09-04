@@ -166,7 +166,10 @@ GROUP BY `a`.`FirstName`
 
         AssertSql(
             """
-SELECT IIF(`a`.`FirstName` IS NULL, 'is null', 'not null') AS `keyIsNull`, FALSE AS `logicExpression`
+SELECT CASE
+    WHEN `a`.`FirstName` IS NULL THEN 'is null'
+    ELSE 'not null'
+END AS `keyIsNull`, FALSE AS `logicExpression`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`FirstName`
 """);
@@ -414,8 +417,8 @@ GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
         await base.Grouping_by_all_columns_with_aggregate_function_works_10(async);
 
         AssertSql(
-"""
-SELECT `a`.`Id`, IIF(SUM(`a`.`Id`) IS NULL, 0, SUM(`a`.`Id`)) AS `Sum`, COUNT(*) AS `Count`
+            """
+SELECT `a`.`Id`, COALESCE(SUM(`a`.`Id`), 0) AS `Sum`, COUNT(*) AS `Count`
 FROM `ArubaOwner` AS `a`
 GROUP BY `a`.`Id`, `a`.`Alias`, `a`.`FirstName`, `a`.`LastName`
 """);
@@ -780,8 +783,8 @@ ORDER BY [t].[FirstName], [t0].[Id]
         await base.Sum_Grouped_from_LINQ_101(async);
 
         AssertSql(
-"""
-SELECT `p`.`Category`, IIF(SUM(`p`.`UnitsInStock`) IS NULL, 0, SUM(`p`.`UnitsInStock`)) AS `TotalUnitsInStock`
+            """
+SELECT `p`.`Category`, COALESCE(SUM(`p`.`UnitsInStock`), 0) AS `TotalUnitsInStock`
 FROM `ProductForLinq` AS `p`
 GROUP BY `p`.`Category`
 """);
@@ -805,11 +808,11 @@ GROUP BY `p`.`Category`
 
         AssertSql(
             """
-            SELECT `p`.`FirstName` AS `Feet`, IIF(SUM(`f`.`Size`) IS NULL, 0, SUM(`f`.`Size`)) AS `Total`
-            FROM `Person` AS `p`
-            LEFT JOIN `Feet` AS `f` ON `p`.`Id` = `f`.`Id`
-            GROUP BY `p`.`FirstName`
-            """);
+SELECT `p`.`FirstName` AS `Feet`, COALESCE(SUM(`f`.`Size`), 0) AS `Total`
+FROM `Person` AS `p`
+LEFT JOIN `Feet` AS `f` ON `p`.`Id` = `f`.`Id`
+GROUP BY `p`.`FirstName`
+""");
     }
 
     public override async Task LongCount_Grouped_from_LINQ_101(bool async)
@@ -847,7 +850,10 @@ GROUP BY `s`.`Style`
 
         AssertSql(
             """
-SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `s`.`Id`, `o0`.`Id`, `o0`.`CustomerId`, `o0`.`OrderDate`, `o0`.`Total`, IIF(`s`.`Id` IS NULL, -1, `s`.`Id`)
+SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `s`.`Id`, `o0`.`Id`, `o0`.`CustomerId`, `o0`.`OrderDate`, `o0`.`Total`, CASE
+    WHEN `s`.`Id` IS NULL THEN -1
+    ELSE `s`.`Id`
+END
 FROM (`CustomerForLinq` AS `c`
 LEFT JOIN (
     SELECT `o`.`Id`, `c0`.`Id` AS `Id0`

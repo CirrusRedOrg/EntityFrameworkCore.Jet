@@ -18,26 +18,26 @@ public class EntitySplittingLibRedTest(NonSharedFixture fixture, ITestOutputHelp
         await base.Can_roundtrip();
 
         AssertSql(
-$"""
+            """
 @p0='2' (Nullable = true)
 
 INSERT INTO `MeterReadings` (`ReadingStatus`)
-VALUES ({AssertSqlHelper.Parameter("@p0")});
+VALUES (@p0);
 SELECT `Id`
 FROM `MeterReadings`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
 """,
-//
-$"""
+            //
+            """
 @p1='1'
 @p2='100' (Size = 255)
 @p3=NULL (Size = 255)
 
 INSERT INTO `MeterReadingDetails` (`Id`, `CurrentRead`, `PreviousRead`)
-VALUES ({AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")}, {AssertSqlHelper.Parameter("@p3")});
+VALUES (@p1, @p2, @p3);
 """,
-//
-"""
+            //
+            """
 SELECT TOP 2 `m`.`Id`, `m0`.`CurrentRead`, `m0`.`PreviousRead`, `m`.`ReadingStatus`
 FROM `MeterReadings` AS `m`
 INNER JOIN `MeterReadingDetails` AS `m0` ON `m`.`Id` = `m0`.`Id`

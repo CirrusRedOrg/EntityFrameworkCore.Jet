@@ -211,7 +211,7 @@ INNER JOIN (
 
         AssertSql(
             """
-SELECT IIF(SUM(`s`.`Key1`) IS NULL, 0, SUM(`s`.`Key1`))
+SELECT COALESCE(SUM(`s`.`Key1`), 0)
 FROM `Roots` AS `r`
 INNER JOIN (
     SELECT `e0`.`Key1`, `e`.`RootSkipSharedId`
@@ -273,9 +273,9 @@ FROM `EntityThrees` AS `e`
         await base.Skip_navigation_select_subquery_sum(async);
 
         AssertSql(
-"""
+            """
 SELECT (
-    SELECT IIF(SUM(`e1`.`Id`) IS NULL, 0, SUM(`e1`.`Id`))
+    SELECT COALESCE(SUM(`e1`.`Id`), 0)
     FROM `EntityOneEntityTwo` AS `e0`
     INNER JOIN `EntityOnes` AS `e1` ON `e0`.`OneSkipSharedId` = `e1`.`Id`
     WHERE `e`.`Id` = `e0`.`TwoSkipSharedId`)
@@ -400,7 +400,11 @@ LEFT JOIN (
     SELECT `s`.`Id`, `s`.`Name`, `s`.`Number`, `s`.`IsGreen`, `s`.`Discriminator`, `e0`.`RootSkipSharedId`, `e0`.`CompositeKeySkipSharedKey1`, `e0`.`CompositeKeySkipSharedKey2`, `e0`.`CompositeKeySkipSharedKey3`
     FROM `EntityCompositeKeyEntityRoot` AS `e0`
     INNER JOIN (
-        SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `l`.`IsGreen`, IIF(`l0`.`Id` IS NOT NULL, 'EntityLeaf2', IIF(`l`.`Id` IS NOT NULL, 'EntityLeaf', IIF(`b`.`Id` IS NOT NULL, 'EntityBranch', NULL))) AS `Discriminator`
+        SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `l`.`IsGreen`, CASE
+            WHEN `l0`.`Id` IS NOT NULL THEN 'EntityLeaf2'
+            WHEN `l`.`Id` IS NOT NULL THEN 'EntityLeaf'
+            WHEN `b`.`Id` IS NOT NULL THEN 'EntityBranch'
+        END AS `Discriminator`
         FROM ((`Roots` AS `r`
         LEFT JOIN `Branches` AS `b` ON `r`.`Id` = `b`.`Id`)
         LEFT JOIN `Leaves` AS `l` ON `r`.`Id` = `l`.`Id`)
@@ -556,7 +560,11 @@ INNER JOIN (
     SELECT `s`.`Id`, `s`.`Name`, `s`.`Number`, `s`.`IsGreen`, `s`.`Discriminator`, `e0`.`ThreeSkipSharedId`
     FROM `EntityRootEntityThree` AS `e0`
     INNER JOIN (
-        SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `l`.`IsGreen`, IIF(`l0`.`Id` IS NOT NULL, 'EntityLeaf2', IIF(`l`.`Id` IS NOT NULL, 'EntityLeaf', IIF(`b`.`Id` IS NOT NULL, 'EntityBranch', NULL))) AS `Discriminator`
+        SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `l`.`IsGreen`, CASE
+            WHEN `l0`.`Id` IS NOT NULL THEN 'EntityLeaf2'
+            WHEN `l`.`Id` IS NOT NULL THEN 'EntityLeaf'
+            WHEN `b`.`Id` IS NOT NULL THEN 'EntityBranch'
+        END AS `Discriminator`
         FROM ((`Roots` AS `r`
         LEFT JOIN `Branches` AS `b` ON `r`.`Id` = `b`.`Id`)
         LEFT JOIN `Leaves` AS `l` ON `r`.`Id` = `l`.`Id`)
@@ -579,7 +587,9 @@ INNER JOIN (
     SELECT `s`.`Id`, `s`.`Name`, `s`.`Number`, `s`.`IsGreen`, `s`.`Discriminator`, `j`.`EntityOneId`
     FROM `JoinOneToBranch` AS `j`
     INNER JOIN (
-        SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `l`.`IsGreen`, IIF(`l`.`Id` IS NOT NULL, 'EntityLeaf', NULL) AS `Discriminator`
+        SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `l`.`IsGreen`, CASE
+            WHEN `l`.`Id` IS NOT NULL THEN 'EntityLeaf'
+        END AS `Discriminator`
         FROM (`Roots` AS `r`
         INNER JOIN `Branches` AS `b` ON `r`.`Id` = `b`.`Id`)
         LEFT JOIN `Leaves` AS `l` ON `r`.`Id` = `l`.`Id`
@@ -665,7 +675,11 @@ LEFT JOIN (
     SELECT `e0`.`RootSkipSharedId`, `e0`.`CompositeKeySkipSharedKey1`, `e0`.`CompositeKeySkipSharedKey2`, `e0`.`CompositeKeySkipSharedKey3`, `s`.`Id`, `s`.`Name`, `s`.`Number`, `s`.`Slumber`, `s`.`IsGreen`, `s`.`IsBrown`, `s`.`Discriminator`
     FROM `EntityCompositeKeyEntityRoot` AS `e0`
     INNER JOIN (
-        SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `b0`.`Slumber`, `l`.`IsGreen`, `l0`.`IsBrown`, IIF(`l0`.`Id` IS NOT NULL, 'EntityLeaf2', IIF(`l`.`Id` IS NOT NULL, 'EntityLeaf', IIF(`b`.`Id` IS NOT NULL, 'EntityBranch', NULL))) AS `Discriminator`
+        SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `b0`.`Slumber`, `l`.`IsGreen`, `l0`.`IsBrown`, CASE
+            WHEN `l0`.`Id` IS NOT NULL THEN 'EntityLeaf2'
+            WHEN `l`.`Id` IS NOT NULL THEN 'EntityLeaf'
+            WHEN `b`.`Id` IS NOT NULL THEN 'EntityBranch'
+        END AS `Discriminator`
         FROM (((`Roots` AS `r`
         LEFT JOIN `Branches` AS `b` ON `r`.`Id` = `b`.`Id`)
         LEFT JOIN `Branch2s` AS `b0` ON `r`.`Id` = `b0`.`Id`)
@@ -867,7 +881,11 @@ ORDER BY [e].[Key1], [e].[Key2], [e].[Key3], [t0].[CompositeId1], [t0].[Composit
 
         AssertSql(
             """
-SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `b0`.`Slumber`, `l`.`IsGreen`, `l0`.`IsBrown`, IIF(`l0`.`Id` IS NOT NULL, 'EntityLeaf2', IIF(`l`.`Id` IS NOT NULL, 'EntityLeaf', IIF(`b`.`Id` IS NOT NULL, 'EntityBranch', NULL))) AS `Discriminator`, `s0`.`RootSkipSharedId`, `s0`.`ThreeSkipSharedId`, `s0`.`Id`, `s0`.`CollectionInverseId`, `s0`.`Name`, `s0`.`ReferenceInverseId`, `s0`.`OneId`, `s0`.`ThreeId`, `s0`.`Payload`, `s0`.`Id0`, `s0`.`Name0`
+SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `b0`.`Slumber`, `l`.`IsGreen`, `l0`.`IsBrown`, CASE
+    WHEN `l0`.`Id` IS NOT NULL THEN 'EntityLeaf2'
+    WHEN `l`.`Id` IS NOT NULL THEN 'EntityLeaf'
+    WHEN `b`.`Id` IS NOT NULL THEN 'EntityBranch'
+END AS `Discriminator`, `s0`.`RootSkipSharedId`, `s0`.`ThreeSkipSharedId`, `s0`.`Id`, `s0`.`CollectionInverseId`, `s0`.`Name`, `s0`.`ReferenceInverseId`, `s0`.`OneId`, `s0`.`ThreeId`, `s0`.`Payload`, `s0`.`Id0`, `s0`.`Name0`
 FROM ((((`Roots` AS `r`
 LEFT JOIN `Branches` AS `b` ON `r`.`Id` = `b`.`Id`)
 LEFT JOIN `Branch2s` AS `b0` ON `r`.`Id` = `b0`.`Id`)
@@ -1164,7 +1182,11 @@ INNER JOIN (
     SELECT `e0`.`RootSkipSharedId`, `e0`.`CompositeKeySkipSharedKey1`, `e0`.`CompositeKeySkipSharedKey2`, `e0`.`CompositeKeySkipSharedKey3`, `s`.`Id`, `s`.`Name`, `s`.`Number`, `s`.`Slumber`, `s`.`IsGreen`, `s`.`IsBrown`, `s`.`Discriminator`
     FROM `EntityCompositeKeyEntityRoot` AS `e0`
     INNER JOIN (
-        SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `b0`.`Slumber`, `l`.`IsGreen`, `l0`.`IsBrown`, IIF(`l0`.`Id` IS NOT NULL, 'EntityLeaf2', IIF(`l`.`Id` IS NOT NULL, 'EntityLeaf', IIF(`b`.`Id` IS NOT NULL, 'EntityBranch', NULL))) AS `Discriminator`
+        SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `b0`.`Slumber`, `l`.`IsGreen`, `l0`.`IsBrown`, CASE
+            WHEN `l0`.`Id` IS NOT NULL THEN 'EntityLeaf2'
+            WHEN `l`.`Id` IS NOT NULL THEN 'EntityLeaf'
+            WHEN `b`.`Id` IS NOT NULL THEN 'EntityBranch'
+        END AS `Discriminator`
         FROM (((`Roots` AS `r`
         LEFT JOIN `Branches` AS `b` ON `r`.`Id` = `b`.`Id`)
         LEFT JOIN `Branch2s` AS `b0` ON `r`.`Id` = `b0`.`Id`)
@@ -1449,7 +1471,11 @@ ORDER BY [e].[Key1], [e].[Key2], [e].[Key3], [t0].[CompositeId1], [t0].[Composit
 
         AssertSql(
             """
-SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `b0`.`Slumber`, `l`.`IsGreen`, `l0`.`IsBrown`, IIF(`l0`.`Id` IS NOT NULL, 'EntityLeaf2', IIF(`l`.`Id` IS NOT NULL, 'EntityLeaf', IIF(`b`.`Id` IS NOT NULL, 'EntityBranch', NULL))) AS `Discriminator`
+SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `b0`.`Slumber`, `l`.`IsGreen`, `l0`.`IsBrown`, CASE
+    WHEN `l0`.`Id` IS NOT NULL THEN 'EntityLeaf2'
+    WHEN `l`.`Id` IS NOT NULL THEN 'EntityLeaf'
+    WHEN `b`.`Id` IS NOT NULL THEN 'EntityBranch'
+END AS `Discriminator`
 FROM (((`Roots` AS `r`
 LEFT JOIN `Branches` AS `b` ON `r`.`Id` = `b`.`Id`)
 LEFT JOIN `Branch2s` AS `b0` ON `r`.`Id` = `b0`.`Id`)
@@ -1963,8 +1989,12 @@ WHERE EXISTS (
         await base.GetType_in_hierarchy_in_base_type(async);
 
         AssertSql(
-"""
-SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `b0`.`Slumber`, `l`.`IsGreen`, `l0`.`IsBrown`, IIF(`l0`.`Id` IS NOT NULL, 'EntityLeaf2', IIF(`l`.`Id` IS NOT NULL, 'EntityLeaf', IIF(`b`.`Id` IS NOT NULL, 'EntityBranch', NULL))) AS `Discriminator`
+            """
+SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `b0`.`Slumber`, `l`.`IsGreen`, `l0`.`IsBrown`, CASE
+    WHEN `l0`.`Id` IS NOT NULL THEN 'EntityLeaf2'
+    WHEN `l`.`Id` IS NOT NULL THEN 'EntityLeaf'
+    WHEN `b`.`Id` IS NOT NULL THEN 'EntityBranch'
+END AS `Discriminator`
 FROM (((`Roots` AS `r`
 LEFT JOIN `Branches` AS `b` ON `r`.`Id` = `b`.`Id`)
 LEFT JOIN `Branch2s` AS `b0` ON `r`.`Id` = `b0`.`Id`)
@@ -1979,8 +2009,12 @@ WHERE `l0`.`Id` IS NULL AND `l`.`Id` IS NULL AND `b`.`Id` IS NULL
         await base.GetType_in_hierarchy_in_intermediate_type(async);
 
         AssertSql(
-"""
-SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `b0`.`Slumber`, `l`.`IsGreen`, `l0`.`IsBrown`, IIF(`l0`.`Id` IS NOT NULL, 'EntityLeaf2', IIF(`l`.`Id` IS NOT NULL, 'EntityLeaf', IIF(`b`.`Id` IS NOT NULL, 'EntityBranch', NULL))) AS `Discriminator`
+            """
+SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `b0`.`Slumber`, `l`.`IsGreen`, `l0`.`IsBrown`, CASE
+    WHEN `l0`.`Id` IS NOT NULL THEN 'EntityLeaf2'
+    WHEN `l`.`Id` IS NOT NULL THEN 'EntityLeaf'
+    WHEN `b`.`Id` IS NOT NULL THEN 'EntityBranch'
+END AS `Discriminator`
 FROM (((`Roots` AS `r`
 LEFT JOIN `Branches` AS `b` ON `r`.`Id` = `b`.`Id`)
 LEFT JOIN `Branch2s` AS `b0` ON `r`.`Id` = `b0`.`Id`)
@@ -1995,8 +2029,12 @@ WHERE `l`.`Id` IS NULL AND `b`.`Id` IS NOT NULL
         await base.GetType_in_hierarchy_in_leaf_type(async);
 
         AssertSql(
-"""
-SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `b0`.`Slumber`, `l`.`IsGreen`, `l0`.`IsBrown`, IIF(`l0`.`Id` IS NOT NULL, 'EntityLeaf2', IIF(`l`.`Id` IS NOT NULL, 'EntityLeaf', IIF(`b`.`Id` IS NOT NULL, 'EntityBranch', NULL))) AS `Discriminator`
+            """
+SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `b0`.`Slumber`, `l`.`IsGreen`, `l0`.`IsBrown`, CASE
+    WHEN `l0`.`Id` IS NOT NULL THEN 'EntityLeaf2'
+    WHEN `l`.`Id` IS NOT NULL THEN 'EntityLeaf'
+    WHEN `b`.`Id` IS NOT NULL THEN 'EntityBranch'
+END AS `Discriminator`
 FROM (((`Roots` AS `r`
 LEFT JOIN `Branches` AS `b` ON `r`.`Id` = `b`.`Id`)
 LEFT JOIN `Branch2s` AS `b0` ON `r`.`Id` = `b0`.`Id`)
@@ -2012,7 +2050,9 @@ WHERE `l`.`Id` IS NOT NULL
 
         AssertSql(
             """
-SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `l`.`IsGreen`, IIF(`l`.`Id` IS NOT NULL, 'EntityLeaf', NULL) AS `Discriminator`
+SELECT `r`.`Id`, `r`.`Name`, `b`.`Number`, `l`.`IsGreen`, CASE
+    WHEN `l`.`Id` IS NOT NULL THEN 'EntityLeaf'
+END AS `Discriminator`
 FROM (`Roots` AS `r`
 INNER JOIN `Branches` AS `b` ON `r`.`Id` = `b`.`Id`)
 LEFT JOIN `Leaves` AS `l` ON `r`.`Id` = `l`.`Id`
@@ -2203,7 +2243,10 @@ LEFT JOIN (
     SELECT `s`.`Id`, `s`.`Name`, `s`.`Number`, `s`.`IsGreen`, `s`.`Discriminator`, `u0`.`RootSkipSharedId`, `u0`.`UnidirectionalEntityCompositeKeyKey1`, `u0`.`UnidirectionalEntityCompositeKeyKey2`, `u0`.`UnidirectionalEntityCompositeKeyKey3`
     FROM `UnidirectionalEntityCompositeKeyUnidirectionalEntityRoot` AS `u0`
     INNER JOIN (
-        SELECT `u1`.`Id`, `u1`.`Name`, `u2`.`Number`, `u3`.`IsGreen`, IIF(`u3`.`Id` IS NOT NULL, 'UnidirectionalEntityLeaf', IIF(`u2`.`Id` IS NOT NULL, 'UnidirectionalEntityBranch', NULL)) AS `Discriminator`
+        SELECT `u1`.`Id`, `u1`.`Name`, `u2`.`Number`, `u3`.`IsGreen`, CASE
+            WHEN `u3`.`Id` IS NOT NULL THEN 'UnidirectionalEntityLeaf'
+            WHEN `u2`.`Id` IS NOT NULL THEN 'UnidirectionalEntityBranch'
+        END AS `Discriminator`
         FROM (`UnidirectionalRoots` AS `u1`
         LEFT JOIN `UnidirectionalBranches` AS `u2` ON `u1`.`Id` = `u2`.`Id`)
         LEFT JOIN `UnidirectionalLeaves` AS `u3` ON `u1`.`Id` = `u3`.`Id`
@@ -2338,7 +2381,9 @@ INNER JOIN (
     SELECT `s`.`Id`, `s`.`Name`, `s`.`Number`, `s`.`IsGreen`, `s`.`Discriminator`, `u0`.`UnidirectionalEntityOneId`
     FROM `UnidirectionalJoinOneToBranch` AS `u0`
     INNER JOIN (
-        SELECT `u1`.`Id`, `u1`.`Name`, `u2`.`Number`, `u3`.`IsGreen`, IIF(`u3`.`Id` IS NOT NULL, 'UnidirectionalEntityLeaf', NULL) AS `Discriminator`
+        SELECT `u1`.`Id`, `u1`.`Name`, `u2`.`Number`, `u3`.`IsGreen`, CASE
+            WHEN `u3`.`Id` IS NOT NULL THEN 'UnidirectionalEntityLeaf'
+        END AS `Discriminator`
         FROM (`UnidirectionalRoots` AS `u1`
         INNER JOIN `UnidirectionalBranches` AS `u2` ON `u1`.`Id` = `u2`.`Id`)
         LEFT JOIN `UnidirectionalLeaves` AS `u3` ON `u1`.`Id` = `u3`.`Id`
@@ -2376,7 +2421,10 @@ LEFT JOIN (
     SELECT `u0`.`RootSkipSharedId`, `u0`.`UnidirectionalEntityCompositeKeyKey1`, `u0`.`UnidirectionalEntityCompositeKeyKey2`, `u0`.`UnidirectionalEntityCompositeKeyKey3`, `s`.`Id`, `s`.`Name`, `s`.`Number`, `s`.`IsGreen`, `s`.`Discriminator`
     FROM `UnidirectionalEntityCompositeKeyUnidirectionalEntityRoot` AS `u0`
     INNER JOIN (
-        SELECT `u1`.`Id`, `u1`.`Name`, `u2`.`Number`, `u3`.`IsGreen`, IIF(`u3`.`Id` IS NOT NULL, 'UnidirectionalEntityLeaf', IIF(`u2`.`Id` IS NOT NULL, 'UnidirectionalEntityBranch', NULL)) AS `Discriminator`
+        SELECT `u1`.`Id`, `u1`.`Name`, `u2`.`Number`, `u3`.`IsGreen`, CASE
+            WHEN `u3`.`Id` IS NOT NULL THEN 'UnidirectionalEntityLeaf'
+            WHEN `u2`.`Id` IS NOT NULL THEN 'UnidirectionalEntityBranch'
+        END AS `Discriminator`
         FROM (`UnidirectionalRoots` AS `u1`
         LEFT JOIN `UnidirectionalBranches` AS `u2` ON `u1`.`Id` = `u2`.`Id`)
         LEFT JOIN `UnidirectionalLeaves` AS `u3` ON `u1`.`Id` = `u3`.`Id`
@@ -2689,8 +2737,11 @@ WHERE EXISTS (
         await base.GetType_in_hierarchy_in_base_type_unidirectional(async);
 
         AssertSql(
-"""
-SELECT `u`.`Id`, `u`.`Name`, `u0`.`Number`, `u1`.`IsGreen`, IIF(`u1`.`Id` IS NOT NULL, 'UnidirectionalEntityLeaf', IIF(`u0`.`Id` IS NOT NULL, 'UnidirectionalEntityBranch', NULL)) AS `Discriminator`
+            """
+SELECT `u`.`Id`, `u`.`Name`, `u0`.`Number`, `u1`.`IsGreen`, CASE
+    WHEN `u1`.`Id` IS NOT NULL THEN 'UnidirectionalEntityLeaf'
+    WHEN `u0`.`Id` IS NOT NULL THEN 'UnidirectionalEntityBranch'
+END AS `Discriminator`
 FROM (`UnidirectionalRoots` AS `u`
 LEFT JOIN `UnidirectionalBranches` AS `u0` ON `u`.`Id` = `u0`.`Id`)
 LEFT JOIN `UnidirectionalLeaves` AS `u1` ON `u`.`Id` = `u1`.`Id`
@@ -2703,8 +2754,11 @@ WHERE `u1`.`Id` IS NULL AND `u0`.`Id` IS NULL
         await base.GetType_in_hierarchy_in_intermediate_type_unidirectional(async);
 
         AssertSql(
-"""
-SELECT `u`.`Id`, `u`.`Name`, `u0`.`Number`, `u1`.`IsGreen`, IIF(`u1`.`Id` IS NOT NULL, 'UnidirectionalEntityLeaf', IIF(`u0`.`Id` IS NOT NULL, 'UnidirectionalEntityBranch', NULL)) AS `Discriminator`
+            """
+SELECT `u`.`Id`, `u`.`Name`, `u0`.`Number`, `u1`.`IsGreen`, CASE
+    WHEN `u1`.`Id` IS NOT NULL THEN 'UnidirectionalEntityLeaf'
+    WHEN `u0`.`Id` IS NOT NULL THEN 'UnidirectionalEntityBranch'
+END AS `Discriminator`
 FROM (`UnidirectionalRoots` AS `u`
 LEFT JOIN `UnidirectionalBranches` AS `u0` ON `u`.`Id` = `u0`.`Id`)
 LEFT JOIN `UnidirectionalLeaves` AS `u1` ON `u`.`Id` = `u1`.`Id`
@@ -2717,8 +2771,11 @@ WHERE `u1`.`Id` IS NULL AND `u0`.`Id` IS NOT NULL
         await base.GetType_in_hierarchy_in_leaf_type_unidirectional(async);
 
         AssertSql(
-"""
-SELECT `u`.`Id`, `u`.`Name`, `u0`.`Number`, `u1`.`IsGreen`, IIF(`u1`.`Id` IS NOT NULL, 'UnidirectionalEntityLeaf', IIF(`u0`.`Id` IS NOT NULL, 'UnidirectionalEntityBranch', NULL)) AS `Discriminator`
+            """
+SELECT `u`.`Id`, `u`.`Name`, `u0`.`Number`, `u1`.`IsGreen`, CASE
+    WHEN `u1`.`Id` IS NOT NULL THEN 'UnidirectionalEntityLeaf'
+    WHEN `u0`.`Id` IS NOT NULL THEN 'UnidirectionalEntityBranch'
+END AS `Discriminator`
 FROM (`UnidirectionalRoots` AS `u`
 LEFT JOIN `UnidirectionalBranches` AS `u0` ON `u`.`Id` = `u0`.`Id`)
 LEFT JOIN `UnidirectionalLeaves` AS `u1` ON `u`.`Id` = `u1`.`Id`
@@ -2732,7 +2789,9 @@ WHERE `u1`.`Id` IS NOT NULL
 
         AssertSql(
             """
-SELECT `u`.`Id`, `u`.`Name`, `u0`.`Number`, `u1`.`IsGreen`, IIF(`u1`.`Id` IS NOT NULL, 'UnidirectionalEntityLeaf', NULL) AS `Discriminator`
+SELECT `u`.`Id`, `u`.`Name`, `u0`.`Number`, `u1`.`IsGreen`, CASE
+    WHEN `u1`.`Id` IS NOT NULL THEN 'UnidirectionalEntityLeaf'
+END AS `Discriminator`
 FROM (`UnidirectionalRoots` AS `u`
 INNER JOIN `UnidirectionalBranches` AS `u0` ON `u`.`Id` = `u0`.`Id`)
 LEFT JOIN `UnidirectionalLeaves` AS `u1` ON `u`.`Id` = `u1`.`Id`

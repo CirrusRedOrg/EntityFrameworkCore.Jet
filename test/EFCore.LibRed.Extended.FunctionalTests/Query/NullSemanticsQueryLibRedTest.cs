@@ -2509,7 +2509,7 @@ WHERE `e`.`NullableStringB` IS NOT NULL AND (`e`.`NullableStringA` <> 'Foo' OR `
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableBoolA` IS NULL, TRUE, `e`.`NullableBoolA`)
+WHERE COALESCE(`e`.`NullableBoolA`, TRUE)
 """);
         }
 
@@ -2533,7 +2533,7 @@ WHERE `e`.`BoolA` OR `e`.`BoolB`
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableBoolA` IS NULL, `e`.`BoolA` OR `e`.`BoolB`, `e`.`NullableBoolA`)
+WHERE COALESCE(`e`.`NullableBoolA`, `e`.`BoolA` OR `e`.`BoolB`)
 """);
         }
 
@@ -2569,7 +2569,7 @@ WHERE `e`.`NullableStringA` IS NOT NULL
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableStringA` IS NULL, `e`.`NullableStringB`, `e`.`NullableStringA`) = `e`.`NullableStringC` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL AND `e`.`NullableStringC` IS NULL)
+WHERE COALESCE(`e`.`NullableStringA`, `e`.`NullableStringB`) = `e`.`NullableStringC` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL AND `e`.`NullableStringC` IS NULL)
 """);
         }
 
@@ -2581,7 +2581,7 @@ WHERE IIF(`e`.`NullableStringA` IS NULL, `e`.`NullableStringB`, `e`.`NullableStr
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (IIF(`e`.`NullableStringA` IS NULL, `e`.`NullableStringB`, `e`.`NullableStringA`) <> `e`.`NullableStringC` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL) OR `e`.`NullableStringC` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL OR `e`.`NullableStringC` IS NOT NULL)
+WHERE (COALESCE(`e`.`NullableStringA`, `e`.`NullableStringB`) <> `e`.`NullableStringC` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL) OR `e`.`NullableStringC` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL OR `e`.`NullableStringC` IS NOT NULL)
 """);
         }
 
@@ -2593,7 +2593,7 @@ WHERE (IIF(`e`.`NullableStringA` IS NULL, `e`.`NullableStringB`, `e`.`NullableSt
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableStringA` IS NULL, `e`.`NullableStringB`, `e`.`NullableStringA`) = IIF(`e`.`NullableStringC` IS NULL, `e`.`StringA`, `e`.`NullableStringC`)
+WHERE COALESCE(`e`.`NullableStringA`, `e`.`NullableStringB`) = COALESCE(`e`.`NullableStringC`, `e`.`StringA`)
 """);
         }
 
@@ -2605,7 +2605,7 @@ WHERE IIF(`e`.`NullableStringA` IS NULL, `e`.`NullableStringB`, `e`.`NullableStr
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (IIF(`e`.`NullableIntA` IS NULL, `e`.`NullableIntB`, `e`.`NullableIntA`) <> IIF(`e`.`NullableIntC` IS NULL, `e`.`NullableIntB`, `e`.`NullableIntC`) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL) OR (`e`.`NullableIntC` IS NULL AND `e`.`NullableIntB` IS NULL)) AND (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL OR `e`.`NullableIntC` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL)
+WHERE (COALESCE(`e`.`NullableIntA`, `e`.`NullableIntB`) <> COALESCE(`e`.`NullableIntC`, `e`.`NullableIntB`) OR (`e`.`NullableIntA` IS NULL AND `e`.`NullableIntB` IS NULL) OR (`e`.`NullableIntC` IS NULL AND `e`.`NullableIntB` IS NULL)) AND (`e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL OR `e`.`NullableIntC` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL)
 """);
         }
 
@@ -2617,7 +2617,13 @@ WHERE (IIF(`e`.`NullableIntA` IS NULL, `e`.`NullableIntB`, `e`.`NullableIntA`) <
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringC`) = `e`.`NullableStringC` OR (IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringC`) IS NULL AND `e`.`NullableStringC` IS NULL)
+WHERE CASE
+    WHEN `e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL) THEN `e`.`NullableStringA`
+    ELSE `e`.`NullableStringC`
+END = `e`.`NullableStringC` OR (CASE
+    WHEN `e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL) THEN `e`.`NullableStringA`
+    ELSE `e`.`NullableStringC`
+END IS NULL AND `e`.`NullableStringC` IS NULL)
 """);
         }
 
@@ -2629,7 +2635,16 @@ WHERE IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (`e`.`NullableStringC` <> IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringC`) OR `e`.`NullableStringC` IS NULL OR IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringC`) IS NULL) AND (`e`.`NullableStringC` IS NOT NULL OR IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`NullableStringA`, `e`.`NullableStringC`) IS NOT NULL)
+WHERE (`e`.`NullableStringC` <> CASE
+    WHEN `e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL) THEN `e`.`NullableStringA`
+    ELSE `e`.`NullableStringC`
+END OR `e`.`NullableStringC` IS NULL OR CASE
+    WHEN `e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL) THEN `e`.`NullableStringA`
+    ELSE `e`.`NullableStringC`
+END IS NULL) AND (`e`.`NullableStringC` IS NOT NULL OR CASE
+    WHEN `e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL) THEN `e`.`NullableStringA`
+    ELSE `e`.`NullableStringC`
+END IS NOT NULL)
 """);
         }
 
@@ -2641,7 +2656,10 @@ WHERE (`e`.`NullableStringC` <> IIF(`e`.`NullableStringA` = `e`.`NullableStringB
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableStringC` <> IIF(`e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), `e`.`StringA`, `e`.`StringB`) OR `e`.`NullableStringC` IS NULL
+WHERE `e`.`NullableStringC` <> CASE
+    WHEN `e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL) THEN `e`.`StringA`
+    ELSE `e`.`StringB`
+END OR `e`.`NullableStringC` IS NULL
 """);
         }
 
@@ -3029,7 +3047,7 @@ WHERE `m`.`StringA` = `m`.`StringB`
 
             AssertSql(
                 """
-SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` IS NULL, FALSE, `e`.`NullableBoolA`) AS `Coalesce`
+SELECT `e`.`Id`, COALESCE(`e`.`NullableBoolA`, FALSE) AS `Coalesce`
 FROM `Entities1` AS `e`
 """);
         }
@@ -3040,12 +3058,12 @@ FROM `Entities1` AS `e`
 
             AssertSql(
                 """
-SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` IS NULL, IIF(`e`.`NullableBoolB` IS NULL, FALSE, `e`.`NullableBoolB`), `e`.`NullableBoolA`) AS `Coalesce`
+SELECT `e`.`Id`, COALESCE(`e`.`NullableBoolA`, `e`.`NullableBoolB`, FALSE) AS `Coalesce`
 FROM `Entities1` AS `e`
 """,
                 //
                 """
-SELECT `e`.`Id`, IIF(`e`.`NullableBoolA` IS NULL, IIF(`e`.`NullableBoolB` IS NULL, FALSE, `e`.`NullableBoolB`), `e`.`NullableBoolA`) AS `Coalesce`
+SELECT `e`.`Id`, COALESCE(`e`.`NullableBoolA`, `e`.`NullableBoolB`, FALSE) AS `Coalesce`
 FROM `Entities1` AS `e`
 """);
         }
@@ -3082,7 +3100,11 @@ WHERE ((INSTR(1, `e`.`NullableStringA`, 'oo', 1) - 1) <> `e`.`NullableIntB` OR `
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableStringA` IS NOT NULL, 0, NULL) = `e`.`NullableIntA` OR (IIF(`e`.`NullableStringA` IS NOT NULL, 0, NULL) IS NULL AND `e`.`NullableIntA` IS NULL)
+WHERE CASE
+    WHEN `e`.`NullableStringA` IS NOT NULL THEN 0
+END = `e`.`NullableIntA` OR (CASE
+    WHEN `e`.`NullableStringA` IS NOT NULL THEN 0
+END IS NULL AND `e`.`NullableIntA` IS NULL)
 """);
         }
 
@@ -3148,25 +3170,25 @@ WHERE (IIF(`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL OR `e`
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` = IIF(`e`.`NullableBoolB` IS NULL, `e`.`BoolC`, `e`.`NullableBoolB`)
+WHERE `e`.`NullableBoolA` = COALESCE(`e`.`NullableBoolB`, `e`.`BoolC`)
 """,
                 //
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` = IIF(`e`.`NullableBoolB` IS NULL, `e`.`NullableBoolC`, `e`.`NullableBoolB`) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL)
+WHERE `e`.`NullableBoolA` = COALESCE(`e`.`NullableBoolB`, `e`.`NullableBoolC`) OR (`e`.`NullableBoolA` IS NULL AND `e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL)
 """,
                 //
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableBoolB` IS NULL, `e`.`BoolC`, `e`.`NullableBoolB`) <> `e`.`NullableBoolA` OR `e`.`NullableBoolA` IS NULL
+WHERE COALESCE(`e`.`NullableBoolB`, `e`.`BoolC`) <> `e`.`NullableBoolA` OR `e`.`NullableBoolA` IS NULL
 """,
                 //
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE (IIF(`e`.`NullableBoolB` IS NULL, `e`.`NullableBoolC`, `e`.`NullableBoolB`) <> `e`.`NullableBoolA` OR (`e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL) OR `e`.`NullableBoolA` IS NULL) AND (`e`.`NullableBoolB` IS NOT NULL OR `e`.`NullableBoolC` IS NOT NULL OR `e`.`NullableBoolA` IS NOT NULL)
+WHERE (COALESCE(`e`.`NullableBoolB`, `e`.`NullableBoolC`) <> `e`.`NullableBoolA` OR (`e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL) OR `e`.`NullableBoolA` IS NULL) AND (`e`.`NullableBoolB` IS NOT NULL OR `e`.`NullableBoolC` IS NOT NULL OR `e`.`NullableBoolA` IS NOT NULL)
 """);
         }
 
@@ -3178,30 +3200,51 @@ WHERE (IIF(`e`.`NullableBoolB` IS NULL, `e`.`NullableBoolC`, `e`.`NullableBoolB`
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE `e`.`BoolA` = IIF(`e`.`BoolB`, `e`.`NullableBoolB`, `e`.`NullableBoolC`)
+WHERE `e`.`BoolA` = CASE
+    WHEN `e`.`BoolB` THEN `e`.`NullableBoolB`
+    ELSE `e`.`NullableBoolC`
+END
 """,
                 //
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF((`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), `e`.`BoolB`, `e`.`BoolC`) = `e`.`BoolA`
+WHERE CASE
+    WHEN (`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL) THEN `e`.`BoolB`
+    ELSE `e`.`BoolC`
+END = `e`.`BoolA`
 """,
                 //
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(IIF(`e`.`BoolA`, (`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL), `e`.`BoolC`) <> `e`.`BoolB`, `e`.`BoolA`, `e`.`NullableBoolB` = `e`.`NullableBoolC` OR (`e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL))
+WHERE CASE
+    WHEN CASE
+        WHEN `e`.`BoolA` THEN (`e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolB` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolB` IS NOT NULL)
+        ELSE `e`.`BoolC`
+    END <> `e`.`BoolB` THEN `e`.`BoolA`
+    ELSE `e`.`NullableBoolB` = `e`.`NullableBoolC` OR (`e`.`NullableBoolB` IS NULL AND `e`.`NullableBoolC` IS NULL)
+END
 """,
                 //
                 """
-SELECT IIF(IIF(`e`.`BoolA`, `e`.`NullableIntA`, `e`.`IntB`) > `e`.`IntC`, TRUE, FALSE)
+SELECT CASE
+    WHEN CASE
+        WHEN `e`.`BoolA` THEN `e`.`NullableIntA`
+        ELSE `e`.`IntB`
+    END > `e`.`IntC` THEN TRUE
+    ELSE FALSE
+END
 FROM `Entities1` AS `e`
 """,
                 //
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`BoolA`, `e`.`NullableBoolB`, NOT (`e`.`NullableBoolC`)) IS NULL
+WHERE CASE
+    WHEN `e`.`BoolA` THEN `e`.`NullableBoolB`
+    ELSE NOT (`e`.`NullableBoolC`)
+END IS NULL
 """);
         }
 
@@ -3225,7 +3268,7 @@ WHERE (MID(`e`.`NullableStringA`, 0 + 1, `e`.`IntA`) <> `e`.`NullableStringB` OR
                 """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`, `e0`.`Id`, `e0`.`BoolA`, `e0`.`BoolB`, `e0`.`BoolC`, `e0`.`IntA`, `e0`.`IntB`, `e0`.`IntC`, `e0`.`NullableBoolA`, `e0`.`NullableBoolB`, `e0`.`NullableBoolC`, `e0`.`NullableIntA`, `e0`.`NullableIntB`, `e0`.`NullableIntC`, `e0`.`NullableStringA`, `e0`.`NullableStringB`, `e0`.`NullableStringC`, `e0`.`StringA`, `e0`.`StringB`, `e0`.`StringC`
 FROM `Entities1` AS `e`
-INNER JOIN `Entities2` AS `e0` ON (`e`.`NullableStringA` = `e0`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e0`.`NullableStringB` IS NULL)) AND ((`e`.`NullableStringB` <> `e`.`NullableStringC` OR `e`.`NullableStringB` IS NULL OR `e`.`NullableStringC` IS NULL) AND (`e`.`NullableStringB` IS NOT NULL OR `e`.`NullableStringC` IS NOT NULL)) = IIF(`e0`.`NullableBoolA` IS NULL, `e0`.`BoolC`, `e0`.`NullableBoolA`)
+INNER JOIN `Entities2` AS `e0` ON (`e`.`NullableStringA` = `e0`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e0`.`NullableStringB` IS NULL)) AND ((`e`.`NullableStringB` <> `e`.`NullableStringC` OR `e`.`NullableStringB` IS NULL OR `e`.`NullableStringC` IS NULL) AND (`e`.`NullableStringB` IS NOT NULL OR `e`.`NullableStringC` IS NOT NULL)) = COALESCE(`e0`.`NullableBoolA`, `e0`.`BoolC`)
 """);
         }
 
@@ -3412,13 +3455,10 @@ WHERE `e`.`StringA` IN (
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE NOT (IIF(`e`.`StringA` IN (
-        SELECT `e0`.`NullableStringA`
-        FROM `Entities2` AS `e0`
-    ) IS NULL, FALSE, `e`.`StringA` IN (
-        SELECT `e0`.`NullableStringA`
-        FROM `Entities2` AS `e0`
-    )))
+WHERE NOT (COALESCE(`e`.`StringA` IN (
+    SELECT `e0`.`NullableStringA`
+    FROM `Entities2` AS `e0`
+), FALSE))
 """);
         }
 
@@ -3857,7 +3897,7 @@ WHERE `e`.`NullableIntA` IS NOT NULL OR `e`.`NullableIntB` IS NOT NULL
                 """
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableIntA` IS NULL, 0, `e`.`NullableIntA`) <> 0
+WHERE COALESCE(`e`.`NullableIntA`, 0) <> 0
 """);
         }
 
@@ -3909,7 +3949,10 @@ WHERE `e`.`IntA` > @i
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableIntA` > @i, FALSE, TRUE)
+WHERE CASE
+    WHEN `e`.`NullableIntA` > @i THEN FALSE
+    ELSE TRUE
+END
 """,
                 //
                 """
@@ -3917,7 +3960,10 @@ WHERE IIF(`e`.`NullableIntA` > @i, FALSE, TRUE)
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableIntA` >= @i, FALSE, TRUE)
+WHERE CASE
+    WHEN `e`.`NullableIntA` >= @i THEN FALSE
+    ELSE TRUE
+END
 """,
                 //
                 """
@@ -3925,7 +3971,10 @@ WHERE IIF(`e`.`NullableIntA` >= @i, FALSE, TRUE)
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableIntA` < @i, FALSE, TRUE)
+WHERE CASE
+    WHEN `e`.`NullableIntA` < @i THEN FALSE
+    ELSE TRUE
+END
 """,
                 //
                 """
@@ -3933,7 +3982,10 @@ WHERE IIF(`e`.`NullableIntA` < @i, FALSE, TRUE)
 
 SELECT `e`.`Id`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableIntA` <= @i, FALSE, TRUE)
+WHERE CASE
+    WHEN `e`.`NullableIntA` <= @i THEN FALSE
+    ELSE TRUE
+END
 """);
         }
 
@@ -3985,7 +4037,10 @@ WHERE ((`e`.`NullableStringA` IS NOT NULL AND `e`.`NullableStringB` IS NOT NULL)
 
             AssertSql(
                 """
-SELECT IIF(`e`.`NullableStringA` IS NOT NULL, `e`.`NullableStringA` <> `e`.`StringA`, `e`.`BoolA`)
+SELECT CASE
+    WHEN `e`.`NullableStringA` IS NOT NULL THEN `e`.`NullableStringA` <> `e`.`StringA`
+    ELSE `e`.`BoolA`
+END
 FROM `Entities1` AS `e`
 """);
         }
@@ -4057,7 +4112,10 @@ FROM `Entities1` AS `e`
                 """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE MID(`e`.`NullableStringA`, 1, 1) = MID(`e`.`NullableStringB`, IIF(IIF(LEN(`e`.`NullableStringB`) = 0, 1, LEN(`e`.`NullableStringB`)) IS NULL, 0, IIF(LEN(`e`.`NullableStringB`) = 0, 1, LEN(`e`.`NullableStringB`))), 1) OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL)
+WHERE MID(`e`.`NullableStringA`, 1, 1) = MID(`e`.`NullableStringB`, COALESCE(CASE
+    WHEN LEN(`e`.`NullableStringB`) = 0 THEN 1
+    ELSE LEN(`e`.`NullableStringB`)
+END, 0), 1) OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL)
 """);
         }
 
@@ -4141,7 +4199,11 @@ WHERE `e`.`NullableStringA` IS NULL
                 """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`StringA` = 'Foo', 3, IIF(`e`.`StringB` = 'Foo', 2, IIF(`e`.`StringC` = 'Foo', 3, NULL))) = 2
+WHERE CASE
+    WHEN `e`.`StringA` = 'Foo' THEN 3
+    WHEN `e`.`StringB` = 'Foo' THEN 2
+    WHEN `e`.`StringC` = 'Foo' THEN 3
+END = 2
 """);
         }
 
@@ -4153,7 +4215,11 @@ WHERE IIF(`e`.`StringA` = 'Foo', 3, IIF(`e`.`StringB` = 'Foo', 2, IIF(`e`.`Strin
                 """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`StringA` = 'Foo', 3, IIF(`e`.`StringB` = 'Foo', 2, IIF(`e`.`StringC` = 'Foo', 3, NULL))) = 3
+WHERE CASE
+    WHEN `e`.`StringA` = 'Foo' THEN 3
+    WHEN `e`.`StringB` = 'Foo' THEN 2
+    WHEN `e`.`StringC` = 'Foo' THEN 3
+END = 3
 """);
         }
 
@@ -4163,7 +4229,15 @@ WHERE IIF(`e`.`StringA` = 'Foo', 3, IIF(`e`.`StringB` = 'Foo', 2, IIF(`e`.`Strin
 
             AssertSql(
                 """
-SELECT IIF(`e`.`StringA` = 'Foo', 3, IIF(`e`.`StringB` = 'Foo', 2, IIF(`e`.`StringC` = 'Foo', 3, NULL))) = 2 AND IIF(`e`.`StringA` = 'Foo', 3, IIF(`e`.`StringB` = 'Foo', 2, IIF(`e`.`StringC` = 'Foo', 3, NULL))) IS NOT NULL
+SELECT CASE
+    WHEN `e`.`StringA` = 'Foo' THEN 3
+    WHEN `e`.`StringB` = 'Foo' THEN 2
+    WHEN `e`.`StringC` = 'Foo' THEN 3
+END = 2 AND CASE
+    WHEN `e`.`StringA` = 'Foo' THEN 3
+    WHEN `e`.`StringB` = 'Foo' THEN 2
+    WHEN `e`.`StringC` = 'Foo' THEN 3
+END IS NOT NULL
 FROM `Entities1` AS `e`
 ORDER BY `e`.`Id`
 """);
@@ -4175,7 +4249,15 @@ ORDER BY `e`.`Id`
 
             AssertSql(
                 """
-SELECT IIF(`e`.`StringA` = 'Foo', 3, IIF(`e`.`StringB` = 'Foo', 2, IIF(`e`.`StringC` = 'Foo', 3, NULL))) = 3 AND IIF(`e`.`StringA` = 'Foo', 3, IIF(`e`.`StringB` = 'Foo', 2, IIF(`e`.`StringC` = 'Foo', 3, NULL))) IS NOT NULL
+SELECT CASE
+    WHEN `e`.`StringA` = 'Foo' THEN 3
+    WHEN `e`.`StringB` = 'Foo' THEN 2
+    WHEN `e`.`StringC` = 'Foo' THEN 3
+END = 3 AND CASE
+    WHEN `e`.`StringA` = 'Foo' THEN 3
+    WHEN `e`.`StringB` = 'Foo' THEN 2
+    WHEN `e`.`StringC` = 'Foo' THEN 3
+END IS NOT NULL
 FROM `Entities1` AS `e`
 ORDER BY `e`.`Id`
 """);
@@ -4187,7 +4269,10 @@ ORDER BY `e`.`Id`
 
             AssertSql(
                 """
-SELECT IIF(`e`.`StringA` = 'Foo' = TRUE, 3, IIF(`e`.`StringA` = 'Foo' = FALSE, 2, NULL))
+SELECT CASE `e`.`StringA` = 'Foo'
+    WHEN TRUE THEN 3
+    WHEN FALSE THEN 2
+END
 FROM `Entities1` AS `e`
 ORDER BY `e`.`Id`
 """);
@@ -4201,7 +4286,10 @@ ORDER BY `e`.`Id`
                 """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`StringA` = 'Foo' = TRUE, 3, IIF(`e`.`StringA` = 'Foo' = FALSE, 2, NULL)) = 2
+WHERE CASE `e`.`StringA` = 'Foo'
+    WHEN TRUE THEN 3
+    WHEN FALSE THEN 2
+END = 2
 """);
         }
 
@@ -4530,7 +4618,10 @@ WHERE (`e`.`NullableStringA` IS NULL AND (`e`.`StringA` = 'Foo' OR `e`.`Nullable
                 """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableStringA` IS NULL, (`e`.`NullableStringA` <> `e`.`NullableStringB` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL), (`e`.`NullableStringA` <> `e`.`NullableStringC` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringC` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringC` IS NOT NULL))
+WHERE CASE
+    WHEN `e`.`NullableStringA` IS NULL THEN (`e`.`NullableStringA` <> `e`.`NullableStringB` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL)
+    ELSE (`e`.`NullableStringA` <> `e`.`NullableStringC` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringC` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringC` IS NOT NULL)
+END
 """);
         }
 
@@ -4543,7 +4634,10 @@ WHERE IIF(`e`.`NullableStringA` IS NULL, (`e`.`NullableStringA` <> `e`.`Nullable
                 """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL, `e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), (`e`.`NullableStringA` <> `e`.`NullableStringB` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL))
+WHERE CASE
+    WHEN `e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL THEN `e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL)
+    ELSE (`e`.`NullableStringA` <> `e`.`NullableStringB` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL)
+END
 """);
         }
 
@@ -4555,7 +4649,10 @@ WHERE IIF(`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL, `e`.`N
                 """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE IIF((`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND `e`.`NullableBoolC` IS NULL, `e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL), (`e`.`NullableStringA` <> `e`.`NullableStringB` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL))
+WHERE CASE
+    WHEN (`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND `e`.`NullableBoolC` IS NULL THEN `e`.`NullableStringA` = `e`.`NullableStringB` OR (`e`.`NullableStringA` IS NULL AND `e`.`NullableStringB` IS NULL)
+    ELSE (`e`.`NullableStringA` <> `e`.`NullableStringB` OR `e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND (`e`.`NullableStringA` IS NOT NULL OR `e`.`NullableStringB` IS NOT NULL)
+END
 """);
         }
 
@@ -4568,7 +4665,10 @@ WHERE IIF((`e`.`NullableStringA` IS NULL OR `e`.`NullableStringB` IS NULL) AND `
                 """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE `e`.`NullableBoolA` IS NULL OR IIF(`e`.`NullableBoolB` IS NULL, `e`.`NullableBoolB` <> `e`.`NullableBoolA` OR `e`.`NullableBoolB` IS NULL, `e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL)
+WHERE `e`.`NullableBoolA` IS NULL OR CASE
+    WHEN `e`.`NullableBoolB` IS NULL THEN `e`.`NullableBoolB` <> `e`.`NullableBoolA` OR `e`.`NullableBoolB` IS NULL
+    ELSE `e`.`NullableBoolA` <> `e`.`NullableBoolB` OR `e`.`NullableBoolB` IS NULL
+END
 """);
         }
 
@@ -4581,7 +4681,11 @@ WHERE `e`.`NullableBoolA` IS NULL OR IIF(`e`.`NullableBoolB` IS NULL, `e`.`Nulla
                 """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableBoolA` IS NULL, `e`.`BoolA` = `e`.`BoolB`, IIF(`e`.`NullableBoolC` IS NULL, (`e`.`NullableBoolA` <> `e`.`NullableBoolC` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolC` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolC` IS NOT NULL), (`e`.`NullableBoolC` <> `e`.`NullableBoolA` OR `e`.`NullableBoolC` IS NULL OR `e`.`NullableBoolA` IS NULL) AND (`e`.`NullableBoolC` IS NOT NULL OR `e`.`NullableBoolA` IS NOT NULL)))
+WHERE CASE
+    WHEN `e`.`NullableBoolA` IS NULL THEN `e`.`BoolA` = `e`.`BoolB`
+    WHEN `e`.`NullableBoolC` IS NULL THEN (`e`.`NullableBoolA` <> `e`.`NullableBoolC` OR `e`.`NullableBoolA` IS NULL OR `e`.`NullableBoolC` IS NULL) AND (`e`.`NullableBoolA` IS NOT NULL OR `e`.`NullableBoolC` IS NOT NULL)
+    ELSE (`e`.`NullableBoolC` <> `e`.`NullableBoolA` OR `e`.`NullableBoolC` IS NULL OR `e`.`NullableBoolA` IS NULL) AND (`e`.`NullableBoolC` IS NOT NULL OR `e`.`NullableBoolA` IS NOT NULL)
+END
 """);
         }
 
@@ -4635,7 +4739,9 @@ FROM `Entities1` AS `e`
 
             AssertSql(
                 """
-SELECT IIF(`e`.`BoolA`, IIF(`e`.`NullableStringA` IS NOT NULL, `e`.`NullableStringA` & IIF(`e`.`NullableStringB` IS NULL, '', `e`.`NullableStringB`), NULL), NULL)
+SELECT CASE
+    WHEN `e`.`BoolA` THEN IIF(`e`.`NullableStringA` IS NOT NULL, `e`.`NullableStringA` & COALESCE(`e`.`NullableStringB`, ''), NULL)
+END
 FROM `Entities1` AS `e`
 """);
         }
@@ -4646,7 +4752,7 @@ FROM `Entities1` AS `e`
 
             AssertSql(
                 """
-SELECT `e`.`NullableIntA` AS `Key`, IIF(SUM(`e`.`IntA`) IS NULL, 0, SUM(`e`.`IntA`)) <> `e`.`NullableIntA` OR `e`.`NullableIntA` IS NULL AS `Sum`
+SELECT `e`.`NullableIntA` AS `Key`, COALESCE(SUM(`e`.`IntA`), 0) <> `e`.`NullableIntA` OR `e`.`NullableIntA` IS NULL AS `Sum`
 FROM `Entities1` AS `e`
 GROUP BY `e`.`NullableIntA`
 """);
@@ -4660,7 +4766,7 @@ GROUP BY `e`.`NullableIntA`
                 """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-WHERE IIF(`e`.`NullableIntA` IS NULL, IIF(`e`.`NullableIntB` IS NULL, `e`.`IntC`, `e`.`NullableIntB`), `e`.`NullableIntA`) <> `e`.`NullableIntC` OR `e`.`NullableIntC` IS NULL
+WHERE COALESCE(`e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`IntC`) <> `e`.`NullableIntC` OR `e`.`NullableIntC` IS NULL
 """);
         }
 
@@ -4699,7 +4805,7 @@ FROM `Entities1` AS `e`
 
             AssertSql(
                 """
-SELECT IIF(`e`.`NullableIntA` IS NULL, IIF(`e`.`NullableIntB` IS NULL, IIF(`e0`.`NullableIntC` IS NULL, IIF(`e0`.`NullableIntB` IS NULL, IIF(`e`.`NullableIntC` IS NULL, `e0`.`NullableIntA`, `e`.`NullableIntC`), `e0`.`NullableIntB`), `e0`.`NullableIntC`), `e`.`NullableIntB`), `e`.`NullableIntA`)
+SELECT COALESCE(`e`.`NullableIntA`, `e`.`NullableIntB`, `e0`.`NullableIntC`, `e0`.`NullableIntB`, `e`.`NullableIntC`, `e0`.`NullableIntA`)
 FROM `Entities1` AS `e`
 INNER JOIN `Entities2` AS `e0` ON `e`.`Id` = `e0`.`Id`
 """);

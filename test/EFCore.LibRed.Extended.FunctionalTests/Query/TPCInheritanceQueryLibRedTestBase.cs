@@ -24,7 +24,10 @@ public abstract class TPCInheritanceQueryLibRedTestBase<TFixture>(TFixture fixtu
 
         AssertSql(
             """
-SELECT IIF(`k`.`IsFlightless`, CBYTE(0), CBYTE(1))
+SELECT CASE
+    WHEN `k`.`IsFlightless` THEN CBYTE(0)
+    ELSE CBYTE(1)
+END
 FROM `Kiwi` AS `k`
 """);
     }
@@ -251,7 +254,10 @@ FROM `Kiwi` AS `k`
 
         AssertSql(
             """
-SELECT IIF(`u`.`Discriminator` = 'Kiwi', `u`.`FoundOn`, CBYTE(0)) AS `Value`
+SELECT CASE
+    WHEN `u`.`Discriminator` = 'Kiwi' THEN `u`.`FoundOn`
+    ELSE CBYTE(0)
+END AS `Value`
 FROM (
     SELECT CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`

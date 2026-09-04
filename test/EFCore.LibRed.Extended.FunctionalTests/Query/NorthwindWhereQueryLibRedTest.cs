@@ -170,7 +170,10 @@ WHERE `c`.`City` = @city
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @p
+WHERE CASE
+    WHEN `e`.`ReportsTo` IS NULL THEN NULL
+    ELSE CLNG(`e`.`ReportsTo`)
+END = @p
 """,
                 //
                 """
@@ -178,7 +181,10 @@ WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @p
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @p
+WHERE CASE
+    WHEN `e`.`ReportsTo` IS NULL THEN NULL
+    ELSE CLNG(`e`.`ReportsTo`)
+END = @p
 """);
         }
 
@@ -412,7 +418,10 @@ WHERE `c`.`City` = @InstanceFieldValue
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @p
+WHERE CASE
+    WHEN `e`.`ReportsTo` IS NULL THEN NULL
+    ELSE CLNG(`e`.`ReportsTo`)
+END = @p
 """,
                 //
                 """
@@ -420,7 +429,10 @@ WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @p
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @p
+WHERE CASE
+    WHEN `e`.`ReportsTo` IS NULL THEN NULL
+    ELSE CLNG(`e`.`ReportsTo`)
+END = @p
 """,
                 //
                 """
@@ -446,7 +458,10 @@ WHERE `e`.`ReportsTo` IS NULL
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @p
+WHERE CASE
+    WHEN `e`.`ReportsTo` IS NULL THEN NULL
+    ELSE CLNG(`e`.`ReportsTo`)
+END = @p
 """,
                 //
                 """
@@ -454,7 +469,10 @@ WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @p
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE IIF(`e`.`ReportsTo` IS NULL, NULL, CLNG(`e`.`ReportsTo`)) = @p
+WHERE CASE
+    WHEN `e`.`ReportsTo` IS NULL THEN NULL
+    ELSE CLNG(`e`.`ReportsTo`)
+END = @p
 """);
         }
 
@@ -1292,7 +1310,10 @@ WHERE FALSE
                 """
 SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE IIF(`p`.`UnitsInStock` >= CINT(20), TRUE, FALSE)
+WHERE CASE
+    WHEN `p`.`UnitsInStock` >= CINT(20) THEN TRUE
+    ELSE FALSE
+END
 """);
         }
 
@@ -1829,15 +1850,11 @@ ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 SELECT `c`.`CustomerID`, `o0`.`CustomerID`, `o0`.`OrderID`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-WHERE NOT (IIF('ALFKI' IN (
-        SELECT `o`.`CustomerID`
-        FROM `Orders` AS `o`
-        WHERE `o`.`CustomerID` = `c`.`CustomerID`
-    ) IS NULL, FALSE, 'ALFKI' IN (
-        SELECT `o`.`CustomerID`
-        FROM `Orders` AS `o`
-        WHERE `o`.`CustomerID` = `c`.`CustomerID`
-    )))
+WHERE NOT (COALESCE('ALFKI' IN (
+    SELECT `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = `c`.`CustomerID`
+), FALSE))
 ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 """);
         }
@@ -2509,13 +2526,12 @@ WHERE NOT EXISTS (
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
 WHERE EXISTS (
     SELECT 1
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-    ORDER BY (SELECT 1)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
     OFFSET 3 ROWS)
 """);
         }
@@ -2526,13 +2542,12 @@ WHERE EXISTS (
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-FROM [Customers] AS [c]
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
 WHERE NOT EXISTS (
     SELECT 1
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-    ORDER BY (SELECT 1)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
     OFFSET 7 ROWS)
 """);
         }
@@ -2682,7 +2697,10 @@ FROM `Customers` AS `c`
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-WHERE IIF(`c`.`Region` IS NULL, 'OR', `c`.`Region`) = 'OR'
+WHERE CASE
+    WHEN `c`.`Region` IS NULL THEN 'OR'
+    ELSE `c`.`Region`
+END = 'OR'
 """);
         }
 
@@ -2834,7 +2852,10 @@ WHERE `e`.`Title` = 'Sales Representative'
                 """
 SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE IIF(`p`.`UnitPrice` IS NULL, NULL, CDBL(`p`.`UnitPrice`)) > 100.0
+WHERE CASE
+    WHEN `p`.`UnitPrice` IS NULL THEN NULL
+    ELSE CDBL(`p`.`UnitPrice`)
+END > 100.0
 """);
         }
 
@@ -3115,17 +3136,17 @@ ORDER BY `e0`.`EmployeeID`
 
             AssertSql(
                 """
-@__p_0='3'
+@p='3'
 
-SELECT [e0].[EmployeeID], [e0].[City], [e0].[Country], [e0].[FirstName], [e0].[ReportsTo], [e0].[Title]
+SELECT `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
 FROM (
-    SELECT [e].[EmployeeID], [e].[City], [e].[Country], [e].[FirstName], [e].[ReportsTo], [e].[Title]
-    FROM [Employees] AS [e]
-    ORDER BY [e].[EmployeeID]
-    OFFSET @__p_0 ROWS
-) AS [e0]
-WHERE [e0].[EmployeeID] % 2 = 0
-ORDER BY [e0].[EmployeeID]
+    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+    FROM `Employees` AS `e`
+    ORDER BY `e`.`EmployeeID`
+    OFFSET @p ROWS
+) AS `e0`
+WHERE (`e0`.`EmployeeID` MOD 2) = 0
+ORDER BY `e0`.`EmployeeID`
 """);
         }
 

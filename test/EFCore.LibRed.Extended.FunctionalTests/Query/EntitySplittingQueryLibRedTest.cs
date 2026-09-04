@@ -227,7 +227,11 @@ LEFT JOIN `OwnedReferenceExtras1` AS `o0` ON `e`.`Id` = `o0`.`EntityOneId`
 
         AssertSql(
             """
-SELECT `e`.`Id`, IIF(`e`.`OwnedReference_Id` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue1` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue2` IS NOT NULL AND `o0`.`OwnedIntValue3` IS NOT NULL, `o`.`OwnedIntValue4`, NULL) AS `OwnedIntValue4`, IIF(`e`.`OwnedReference_Id` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue1` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue2` IS NOT NULL AND `o0`.`OwnedIntValue3` IS NOT NULL AND `o`.`OwnedIntValue4` IS NOT NULL, `o`.`OwnedStringValue4`, NULL) AS `OwnedStringValue4`
+SELECT `e`.`Id`, CASE
+    WHEN `e`.`OwnedReference_Id` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue1` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue2` IS NOT NULL AND `o0`.`OwnedIntValue3` IS NOT NULL THEN `o`.`OwnedIntValue4`
+END AS `OwnedIntValue4`, CASE
+    WHEN `e`.`OwnedReference_Id` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue1` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue2` IS NOT NULL AND `o0`.`OwnedIntValue3` IS NOT NULL AND `o`.`OwnedIntValue4` IS NOT NULL THEN `o`.`OwnedStringValue4`
+END AS `OwnedStringValue4`
 FROM (`EntityOnes` AS `e`
 LEFT JOIN `OwnedReferenceExtras2` AS `o` ON `e`.`Id` = `o`.`EntityOneId`)
 LEFT JOIN `OwnedReferenceExtras1` AS `o0` ON `e`.`Id` = `o0`.`EntityOneId`
@@ -377,8 +381,12 @@ LEFT JOIN `OwnedReferencePart3` AS `o0` ON `b`.`Id` = `o0`.`BaseEntityId`
         await base.Tpt_entity_owning_a_split_reference_on_base_with_table_sharing(async);
 
         AssertSql(
-"""
-SELECT `b`.`Id`, `b`.`BaseValue`, `m`.`MiddleValue`, `s`.`SiblingValue`, `l`.`LeafValue`, IIF(`l`.`Id` IS NOT NULL, 'LeafEntity', IIF(`s`.`Id` IS NOT NULL, 'SiblingEntity', IIF(`m`.`Id` IS NOT NULL, 'MiddleEntity', NULL))) AS `Discriminator`, `b`.`OwnedReference_Id`, `b`.`OwnedReference_OwnedIntValue1`, `b`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `b`.`OwnedReference_OwnedStringValue1`, `b`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
+            """
+SELECT `b`.`Id`, `b`.`BaseValue`, `m`.`MiddleValue`, `s`.`SiblingValue`, `l`.`LeafValue`, CASE
+    WHEN `l`.`Id` IS NOT NULL THEN 'LeafEntity'
+    WHEN `s`.`Id` IS NOT NULL THEN 'SiblingEntity'
+    WHEN `m`.`Id` IS NOT NULL THEN 'MiddleEntity'
+END AS `Discriminator`, `b`.`OwnedReference_Id`, `b`.`OwnedReference_OwnedIntValue1`, `b`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `b`.`OwnedReference_OwnedStringValue1`, `b`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
 FROM ((((`BaseEntity` AS `b`
 LEFT JOIN `MiddleEntity` AS `m` ON `b`.`Id` = `m`.`Id`)
 LEFT JOIN `SiblingEntity` AS `s` ON `b`.`Id` = `s`.`Id`)
@@ -406,8 +414,12 @@ LEFT JOIN `OwnedReferencePart3` AS `o0` ON `b`.`Id` = `o0`.`MiddleEntityId`
         await base.Tpt_entity_owning_a_split_reference_on_middle_with_table_sharing(async);
 
         AssertSql(
-"""
-SELECT `b`.`Id`, `b`.`BaseValue`, `m`.`MiddleValue`, `s`.`SiblingValue`, `l`.`LeafValue`, IIF(`l`.`Id` IS NOT NULL, 'LeafEntity', IIF(`s`.`Id` IS NOT NULL, 'SiblingEntity', IIF(`m`.`Id` IS NOT NULL, 'MiddleEntity', NULL))) AS `Discriminator`, `m`.`Id`, `m`.`OwnedReference_Id`, `m`.`OwnedReference_OwnedIntValue1`, `m`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `m`.`OwnedReference_OwnedStringValue1`, `m`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
+            """
+SELECT `b`.`Id`, `b`.`BaseValue`, `m`.`MiddleValue`, `s`.`SiblingValue`, `l`.`LeafValue`, CASE
+    WHEN `l`.`Id` IS NOT NULL THEN 'LeafEntity'
+    WHEN `s`.`Id` IS NOT NULL THEN 'SiblingEntity'
+    WHEN `m`.`Id` IS NOT NULL THEN 'MiddleEntity'
+END AS `Discriminator`, `m`.`Id`, `m`.`OwnedReference_Id`, `m`.`OwnedReference_OwnedIntValue1`, `m`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `m`.`OwnedReference_OwnedStringValue1`, `m`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
 FROM ((((`BaseEntity` AS `b`
 LEFT JOIN `MiddleEntity` AS `m` ON `b`.`Id` = `m`.`Id`)
 LEFT JOIN `SiblingEntity` AS `s` ON `b`.`Id` = `s`.`Id`)
@@ -435,8 +447,12 @@ LEFT JOIN `OwnedReferencePart3` AS `o0` ON `b`.`Id` = `o0`.`LeafEntityId`
         await base.Tpt_entity_owning_a_split_reference_on_leaf_with_table_sharing(async);
 
         AssertSql(
-"""
-SELECT `b`.`Id`, `b`.`BaseValue`, `m`.`MiddleValue`, `s`.`SiblingValue`, `l`.`LeafValue`, IIF(`l`.`Id` IS NOT NULL, 'LeafEntity', IIF(`s`.`Id` IS NOT NULL, 'SiblingEntity', IIF(`m`.`Id` IS NOT NULL, 'MiddleEntity', NULL))) AS `Discriminator`, `l`.`Id`, `l`.`OwnedReference_Id`, `l`.`OwnedReference_OwnedIntValue1`, `l`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `l`.`OwnedReference_OwnedStringValue1`, `l`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
+            """
+SELECT `b`.`Id`, `b`.`BaseValue`, `m`.`MiddleValue`, `s`.`SiblingValue`, `l`.`LeafValue`, CASE
+    WHEN `l`.`Id` IS NOT NULL THEN 'LeafEntity'
+    WHEN `s`.`Id` IS NOT NULL THEN 'SiblingEntity'
+    WHEN `m`.`Id` IS NOT NULL THEN 'MiddleEntity'
+END AS `Discriminator`, `l`.`Id`, `l`.`OwnedReference_Id`, `l`.`OwnedReference_OwnedIntValue1`, `l`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `l`.`OwnedReference_OwnedStringValue1`, `l`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
 FROM ((((`BaseEntity` AS `b`
 LEFT JOIN `MiddleEntity` AS `m` ON `b`.`Id` = `m`.`Id`)
 LEFT JOIN `SiblingEntity` AS `s` ON `b`.`Id` = `s`.`Id`)

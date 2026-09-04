@@ -86,17 +86,10 @@ ORDER BY `e`.`EmployeeID`
                 """
 @p='1'
 
-SELECT `e1`.`EmployeeID`, `e1`.`City`, `e1`.`Country`, `e1`.`FirstName`, `e1`.`ReportsTo`, `e1`.`Title`
-FROM (
-    SELECT TOP @p `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
-    FROM (
-        SELECT TOP @p + @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-        FROM `Employees` AS `e`
-        ORDER BY `e`.`EmployeeID`
-    ) AS `e0`
-    ORDER BY `e0`.`EmployeeID` DESC
-) AS `e1`
-ORDER BY `e1`.`EmployeeID`
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+ORDER BY `e`.`EmployeeID`
+OFFSET @p ROWS FETCH NEXT @p ROWS ONLY
 """,
                 //
                 """
@@ -124,24 +117,17 @@ ORDER BY `c0`.`CustomerID`
 """,
                 //
                 """
-@p1='1'
 @p='2'
+@p1='1'
 
-SELECT `c2`.`CustomerID`, `c2`.`Address`, `c2`.`City`, `c2`.`CompanyName`, `c2`.`ContactName`, `c2`.`ContactTitle`, `c2`.`Country`, `c2`.`Fax`, `c2`.`Phone`, `c2`.`PostalCode`, `c2`.`Region`
+SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
-    SELECT TOP 1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
-    FROM (
-        SELECT TOP @p1 + 1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-        FROM (
-            SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-            FROM `Customers` AS `c`
-            ORDER BY `c`.`CustomerID`
-        ) AS `c0`
-        ORDER BY `c0`.`CustomerID`
-    ) AS `c1`
-    ORDER BY `c1`.`CustomerID` DESC
-) AS `c2`
-ORDER BY `c2`.`CustomerID`
+    SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+ORDER BY `c0`.`CustomerID`
+OFFSET @p1 ROWS FETCH NEXT 1 ROWS ONLY
 """,
                 //
                 """
@@ -211,24 +197,17 @@ ORDER BY `c0`.`CustomerID`
 """,
                 //
                 """
-@p1='1'
 @p='2'
+@p1='1'
 
-SELECT `c2`.`CustomerID`, `c2`.`Address`, `c2`.`City`, `c2`.`CompanyName`, `c2`.`ContactName`, `c2`.`ContactTitle`, `c2`.`Country`, `c2`.`Fax`, `c2`.`Phone`, `c2`.`PostalCode`, `c2`.`Region`
+SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
 FROM (
-    SELECT TOP 1 `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`
-    FROM (
-        SELECT TOP @p1 + 1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-        FROM (
-            SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-            FROM `Customers` AS `c`
-            ORDER BY `c`.`CustomerID`
-        ) AS `c0`
-        ORDER BY `c0`.`CustomerID`
-    ) AS `c1`
-    ORDER BY `c1`.`CustomerID` DESC
-) AS `c2`
-ORDER BY `c2`.`CustomerID`
+    SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+ORDER BY `c0`.`CustomerID`
+OFFSET @p1 ROWS FETCH NEXT 1 ROWS ONLY
 """,
                 //
                 """
@@ -280,17 +259,10 @@ ORDER BY `e`.`EmployeeID`
                 """
 @p='1'
 
-SELECT `e1`.`EmployeeID`, `e1`.`City`, `e1`.`Country`, `e1`.`FirstName`, `e1`.`ReportsTo`, `e1`.`Title`
-FROM (
-    SELECT TOP @p `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`
-    FROM (
-        SELECT TOP @p + @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-        FROM `Employees` AS `e`
-        ORDER BY `e`.`EmployeeID`
-    ) AS `e0`
-    ORDER BY `e0`.`EmployeeID` DESC
-) AS `e1`
-ORDER BY `e1`.`EmployeeID`
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+ORDER BY `e`.`EmployeeID`
+OFFSET @p ROWS FETCH NEXT @p ROWS ONLY
 """);
         }
 

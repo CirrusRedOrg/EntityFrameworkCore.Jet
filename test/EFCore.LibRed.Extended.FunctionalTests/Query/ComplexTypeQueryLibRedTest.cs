@@ -30,16 +30,16 @@ public class ComplexTypeQueryLibRedTest : ComplexTypeQueryRelationalTestBase<
 
         AssertSql(
             """
-@__p_0='1'
+@p='1'
 
-SELECT DISTINCT [t].[Id], [t].[Name], [t].[BillingAddress_AddressLine1], [t].[BillingAddress_AddressLine2], [t].[BillingAddress_ZipCode], [t].[BillingAddress_Country_Code], [t].[BillingAddress_Country_FullName], [t].[ShippingAddress_AddressLine1], [t].[ShippingAddress_AddressLine2], [t].[ShippingAddress_ZipCode], [t].[ShippingAddress_Country_Code], [t].[ShippingAddress_Country_FullName]
+SELECT DISTINCT `c0`.`Id`, `c0`.`Name`, `c0`.`BillingAddress_AddressLine1`, `c0`.`BillingAddress_AddressLine2`, `c0`.`BillingAddress_Tags`, `c0`.`BillingAddress_ZipCode`, `c0`.`BillingAddress_Country_Code`, `c0`.`BillingAddress_Country_FullName`, `c0`.`OptionalAddress_AddressLine1`, `c0`.`OptionalAddress_AddressLine2`, `c0`.`OptionalAddress_Tags`, `c0`.`OptionalAddress_ZipCode`, `c0`.`OptionalAddress_Country_Code`, `c0`.`OptionalAddress_Country_FullName`, `c0`.`ShippingAddress_AddressLine1`, `c0`.`ShippingAddress_AddressLine2`, `c0`.`ShippingAddress_Tags`, `c0`.`ShippingAddress_ZipCode`, `c0`.`ShippingAddress_Country_Code`, `c0`.`ShippingAddress_Country_FullName`
 FROM (
-    SELECT [c].[Id], [c].[Name], [c].[BillingAddress_AddressLine1], [c].[BillingAddress_AddressLine2], [c].[BillingAddress_ZipCode], [c].[BillingAddress_Country_Code], [c].[BillingAddress_Country_FullName], [c].[ShippingAddress_AddressLine1], [c].[ShippingAddress_AddressLine2], [c].[ShippingAddress_ZipCode], [c].[ShippingAddress_Country_Code], [c].[ShippingAddress_Country_FullName]
-    FROM [Customer] AS [c]
-    ORDER BY [c].[Id]
-    OFFSET @__p_0 ROWS
-) AS [t]
-WHERE [t].[ShippingAddress_ZipCode] = 7728
+    SELECT `c`.`Id`, `c`.`Name`, `c`.`BillingAddress_AddressLine1`, `c`.`BillingAddress_AddressLine2`, `c`.`BillingAddress_Tags`, `c`.`BillingAddress_ZipCode`, `c`.`BillingAddress_Country_Code`, `c`.`BillingAddress_Country_FullName`, `c`.`OptionalAddress_AddressLine1`, `c`.`OptionalAddress_AddressLine2`, `c`.`OptionalAddress_Tags`, `c`.`OptionalAddress_ZipCode`, `c`.`OptionalAddress_Country_Code`, `c`.`OptionalAddress_Country_FullName`, `c`.`ShippingAddress_AddressLine1`, `c`.`ShippingAddress_AddressLine2`, `c`.`ShippingAddress_Tags`, `c`.`ShippingAddress_ZipCode`, `c`.`ShippingAddress_Country_Code`, `c`.`ShippingAddress_Country_FullName`
+    FROM `Customer` AS `c`
+    ORDER BY `c`.`Id`
+    OFFSET @p ROWS
+) AS `c0`
+WHERE `c0`.`ShippingAddress_ZipCode` = 7728
 """);
     }
 
@@ -49,16 +49,16 @@ WHERE [t].[ShippingAddress_ZipCode] = 7728
 
         AssertSql(
             """
-@__p_0='1'
+@p='1'
 
-SELECT DISTINCT [t].[Id], [t].[Name], [t].[BillingAddress_AddressLine1], [t].[BillingAddress_AddressLine2], [t].[BillingAddress_ZipCode], [t].[BillingAddress_Country_Code], [t].[BillingAddress_Country_FullName], [t].[ShippingAddress_AddressLine1], [t].[ShippingAddress_AddressLine2], [t].[ShippingAddress_ZipCode], [t].[ShippingAddress_Country_Code], [t].[ShippingAddress_Country_FullName]
+SELECT DISTINCT `c0`.`Id`, `c0`.`Name`, `c0`.`BillingAddress_AddressLine1`, `c0`.`BillingAddress_AddressLine2`, `c0`.`BillingAddress_Tags`, `c0`.`BillingAddress_ZipCode`, `c0`.`BillingAddress_Country_Code`, `c0`.`BillingAddress_Country_FullName`, `c0`.`OptionalAddress_AddressLine1`, `c0`.`OptionalAddress_AddressLine2`, `c0`.`OptionalAddress_Tags`, `c0`.`OptionalAddress_ZipCode`, `c0`.`OptionalAddress_Country_Code`, `c0`.`OptionalAddress_Country_FullName`, `c0`.`ShippingAddress_AddressLine1`, `c0`.`ShippingAddress_AddressLine2`, `c0`.`ShippingAddress_Tags`, `c0`.`ShippingAddress_ZipCode`, `c0`.`ShippingAddress_Country_Code`, `c0`.`ShippingAddress_Country_FullName`
 FROM (
-    SELECT [c].[Id], [c].[Name], [c].[BillingAddress_AddressLine1], [c].[BillingAddress_AddressLine2], [c].[BillingAddress_ZipCode], [c].[BillingAddress_Country_Code], [c].[BillingAddress_Country_FullName], [c].[ShippingAddress_AddressLine1], [c].[ShippingAddress_AddressLine2], [c].[ShippingAddress_ZipCode], [c].[ShippingAddress_Country_Code], [c].[ShippingAddress_Country_FullName]
-    FROM [Customer] AS [c]
-    ORDER BY [c].[Id]
-    OFFSET @__p_0 ROWS
-) AS [t]
-WHERE [t].[ShippingAddress_Country_Code] = N'DE'
+    SELECT `c`.`Id`, `c`.`Name`, `c`.`BillingAddress_AddressLine1`, `c`.`BillingAddress_AddressLine2`, `c`.`BillingAddress_Tags`, `c`.`BillingAddress_ZipCode`, `c`.`BillingAddress_Country_Code`, `c`.`BillingAddress_Country_FullName`, `c`.`OptionalAddress_AddressLine1`, `c`.`OptionalAddress_AddressLine2`, `c`.`OptionalAddress_Tags`, `c`.`OptionalAddress_ZipCode`, `c`.`OptionalAddress_Country_Code`, `c`.`OptionalAddress_Country_FullName`, `c`.`ShippingAddress_AddressLine1`, `c`.`ShippingAddress_AddressLine2`, `c`.`ShippingAddress_Tags`, `c`.`ShippingAddress_ZipCode`, `c`.`ShippingAddress_Country_Code`, `c`.`ShippingAddress_Country_FullName`
+    FROM `Customer` AS `c`
+    ORDER BY `c`.`Id`
+    OFFSET @p ROWS
+) AS `c0`
+WHERE `c0`.`ShippingAddress_Country_Code` = 'DE'
 """);
     }
 
@@ -120,15 +120,15 @@ INNER JOIN `Customer` AS `c0` ON `c`.`RequiredCustomerId` = `c0`.`Id`
 
         AssertSql(
             """
-@__p_0='1'
+@p='1'
 
-SELECT DISTINCT [t].[Id], [t].[Name], [t].[BillingAddress_AddressLine1], [t].[BillingAddress_AddressLine2], [t].[BillingAddress_ZipCode], [t].[BillingAddress_Country_Code], [t].[BillingAddress_Country_FullName], [t].[ShippingAddress_AddressLine1], [t].[ShippingAddress_AddressLine2], [t].[ShippingAddress_ZipCode], [t].[ShippingAddress_Country_Code], [t].[ShippingAddress_Country_FullName]
+SELECT DISTINCT `c0`.`Id`, `c0`.`Name`, `c0`.`BillingAddress_AddressLine1`, `c0`.`BillingAddress_AddressLine2`, `c0`.`BillingAddress_Tags`, `c0`.`BillingAddress_ZipCode`, `c0`.`BillingAddress_Country_Code`, `c0`.`BillingAddress_Country_FullName`, `c0`.`OptionalAddress_AddressLine1`, `c0`.`OptionalAddress_AddressLine2`, `c0`.`OptionalAddress_Tags`, `c0`.`OptionalAddress_ZipCode`, `c0`.`OptionalAddress_Country_Code`, `c0`.`OptionalAddress_Country_FullName`, `c0`.`ShippingAddress_AddressLine1`, `c0`.`ShippingAddress_AddressLine2`, `c0`.`ShippingAddress_Tags`, `c0`.`ShippingAddress_ZipCode`, `c0`.`ShippingAddress_Country_Code`, `c0`.`ShippingAddress_Country_FullName`
 FROM (
-    SELECT [c].[Id], [c].[Name], [c].[BillingAddress_AddressLine1], [c].[BillingAddress_AddressLine2], [c].[BillingAddress_ZipCode], [c].[BillingAddress_Country_Code], [c].[BillingAddress_Country_FullName], [c].[ShippingAddress_AddressLine1], [c].[ShippingAddress_AddressLine2], [c].[ShippingAddress_ZipCode], [c].[ShippingAddress_Country_Code], [c].[ShippingAddress_Country_FullName]
-    FROM [Customer] AS [c]
-    ORDER BY [c].[Id]
-    OFFSET @__p_0 ROWS
-) AS [t]
+    SELECT `c`.`Id`, `c`.`Name`, `c`.`BillingAddress_AddressLine1`, `c`.`BillingAddress_AddressLine2`, `c`.`BillingAddress_Tags`, `c`.`BillingAddress_ZipCode`, `c`.`BillingAddress_Country_Code`, `c`.`BillingAddress_Country_FullName`, `c`.`OptionalAddress_AddressLine1`, `c`.`OptionalAddress_AddressLine2`, `c`.`OptionalAddress_Tags`, `c`.`OptionalAddress_ZipCode`, `c`.`OptionalAddress_Country_Code`, `c`.`OptionalAddress_Country_FullName`, `c`.`ShippingAddress_AddressLine1`, `c`.`ShippingAddress_AddressLine2`, `c`.`ShippingAddress_Tags`, `c`.`ShippingAddress_ZipCode`, `c`.`ShippingAddress_Country_Code`, `c`.`ShippingAddress_Country_FullName`
+    FROM `Customer` AS `c`
+    ORDER BY `c`.`Id`
+    OFFSET @p ROWS
+) AS `c0`
 """);
     }
 
@@ -393,17 +393,17 @@ WHERE `v`.`ShippingAddress_Country_Code` = 'DE'
         await base.Filter_on_property_inside_struct_complex_type_after_subquery(async);
 
         AssertSql(
-"""
-@__p_0='1'
+            """
+@p='1'
 
-SELECT DISTINCT [t].[Id], [t].[Name], [t].[BillingAddress_AddressLine1], [t].[BillingAddress_AddressLine2], [t].[BillingAddress_ZipCode], [t].[BillingAddress_Country_Code], [t].[BillingAddress_Country_FullName], [t].[ShippingAddress_AddressLine1], [t].[ShippingAddress_AddressLine2], [t].[ShippingAddress_ZipCode], [t].[ShippingAddress_Country_Code], [t].[ShippingAddress_Country_FullName]
+SELECT DISTINCT `v0`.`Id`, `v0`.`Name`, `v0`.`BillingAddress_AddressLine1`, `v0`.`BillingAddress_AddressLine2`, `v0`.`BillingAddress_ZipCode`, `v0`.`BillingAddress_Country_Code`, `v0`.`BillingAddress_Country_FullName`, `v0`.`ShippingAddress_AddressLine1`, `v0`.`ShippingAddress_AddressLine2`, `v0`.`ShippingAddress_ZipCode`, `v0`.`ShippingAddress_Country_Code`, `v0`.`ShippingAddress_Country_FullName`
 FROM (
-    SELECT [v].[Id], [v].[Name], [v].[BillingAddress_AddressLine1], [v].[BillingAddress_AddressLine2], [v].[BillingAddress_ZipCode], [v].[BillingAddress_Country_Code], [v].[BillingAddress_Country_FullName], [v].[ShippingAddress_AddressLine1], [v].[ShippingAddress_AddressLine2], [v].[ShippingAddress_ZipCode], [v].[ShippingAddress_Country_Code], [v].[ShippingAddress_Country_FullName]
-    FROM [ValuedCustomer] AS [v]
-    ORDER BY [v].[Id]
-    OFFSET @__p_0 ROWS
-) AS [t]
-WHERE [t].[ShippingAddress_ZipCode] = 7728
+    SELECT `v`.`Id`, `v`.`Name`, `v`.`BillingAddress_AddressLine1`, `v`.`BillingAddress_AddressLine2`, `v`.`BillingAddress_ZipCode`, `v`.`BillingAddress_Country_Code`, `v`.`BillingAddress_Country_FullName`, `v`.`ShippingAddress_AddressLine1`, `v`.`ShippingAddress_AddressLine2`, `v`.`ShippingAddress_ZipCode`, `v`.`ShippingAddress_Country_Code`, `v`.`ShippingAddress_Country_FullName`
+    FROM `ValuedCustomer` AS `v`
+    ORDER BY `v`.`Id`
+    OFFSET @p ROWS
+) AS `v0`
+WHERE `v0`.`ShippingAddress_ZipCode` = 7728
 """);
     }
 
@@ -412,17 +412,17 @@ WHERE [t].[ShippingAddress_ZipCode] = 7728
         await base.Filter_on_property_inside_nested_struct_complex_type_after_subquery(async);
 
         AssertSql(
-"""
-@__p_0='1'
+            """
+@p='1'
 
-SELECT DISTINCT [t].[Id], [t].[Name], [t].[BillingAddress_AddressLine1], [t].[BillingAddress_AddressLine2], [t].[BillingAddress_ZipCode], [t].[BillingAddress_Country_Code], [t].[BillingAddress_Country_FullName], [t].[ShippingAddress_AddressLine1], [t].[ShippingAddress_AddressLine2], [t].[ShippingAddress_ZipCode], [t].[ShippingAddress_Country_Code], [t].[ShippingAddress_Country_FullName]
+SELECT DISTINCT `v0`.`Id`, `v0`.`Name`, `v0`.`BillingAddress_AddressLine1`, `v0`.`BillingAddress_AddressLine2`, `v0`.`BillingAddress_ZipCode`, `v0`.`BillingAddress_Country_Code`, `v0`.`BillingAddress_Country_FullName`, `v0`.`ShippingAddress_AddressLine1`, `v0`.`ShippingAddress_AddressLine2`, `v0`.`ShippingAddress_ZipCode`, `v0`.`ShippingAddress_Country_Code`, `v0`.`ShippingAddress_Country_FullName`
 FROM (
-    SELECT [v].[Id], [v].[Name], [v].[BillingAddress_AddressLine1], [v].[BillingAddress_AddressLine2], [v].[BillingAddress_ZipCode], [v].[BillingAddress_Country_Code], [v].[BillingAddress_Country_FullName], [v].[ShippingAddress_AddressLine1], [v].[ShippingAddress_AddressLine2], [v].[ShippingAddress_ZipCode], [v].[ShippingAddress_Country_Code], [v].[ShippingAddress_Country_FullName]
-    FROM [ValuedCustomer] AS [v]
-    ORDER BY [v].[Id]
-    OFFSET @__p_0 ROWS
-) AS [t]
-WHERE [t].[ShippingAddress_Country_Code] = N'DE'
+    SELECT `v`.`Id`, `v`.`Name`, `v`.`BillingAddress_AddressLine1`, `v`.`BillingAddress_AddressLine2`, `v`.`BillingAddress_ZipCode`, `v`.`BillingAddress_Country_Code`, `v`.`BillingAddress_Country_FullName`, `v`.`ShippingAddress_AddressLine1`, `v`.`ShippingAddress_AddressLine2`, `v`.`ShippingAddress_ZipCode`, `v`.`ShippingAddress_Country_Code`, `v`.`ShippingAddress_Country_FullName`
+    FROM `ValuedCustomer` AS `v`
+    ORDER BY `v`.`Id`
+    OFFSET @p ROWS
+) AS `v0`
+WHERE `v0`.`ShippingAddress_Country_Code` = 'DE'
 """);
     }
 
@@ -495,16 +495,16 @@ INNER JOIN `ValuedCustomer` AS `v0` ON `v`.`RequiredCustomerId` = `v0`.`Id`
         await base.Load_struct_complex_type_after_subquery_on_entity_type(async);
 
         AssertSql(
-"""
-@__p_0='1'
+            """
+@p='1'
 
-SELECT DISTINCT [t].[Id], [t].[Name], [t].[BillingAddress_AddressLine1], [t].[BillingAddress_AddressLine2], [t].[BillingAddress_ZipCode], [t].[BillingAddress_Country_Code], [t].[BillingAddress_Country_FullName], [t].[ShippingAddress_AddressLine1], [t].[ShippingAddress_AddressLine2], [t].[ShippingAddress_ZipCode], [t].[ShippingAddress_Country_Code], [t].[ShippingAddress_Country_FullName]
+SELECT DISTINCT `v0`.`Id`, `v0`.`Name`, `v0`.`BillingAddress_AddressLine1`, `v0`.`BillingAddress_AddressLine2`, `v0`.`BillingAddress_ZipCode`, `v0`.`BillingAddress_Country_Code`, `v0`.`BillingAddress_Country_FullName`, `v0`.`ShippingAddress_AddressLine1`, `v0`.`ShippingAddress_AddressLine2`, `v0`.`ShippingAddress_ZipCode`, `v0`.`ShippingAddress_Country_Code`, `v0`.`ShippingAddress_Country_FullName`
 FROM (
-    SELECT [v].[Id], [v].[Name], [v].[BillingAddress_AddressLine1], [v].[BillingAddress_AddressLine2], [v].[BillingAddress_ZipCode], [v].[BillingAddress_Country_Code], [v].[BillingAddress_Country_FullName], [v].[ShippingAddress_AddressLine1], [v].[ShippingAddress_AddressLine2], [v].[ShippingAddress_ZipCode], [v].[ShippingAddress_Country_Code], [v].[ShippingAddress_Country_FullName]
-    FROM [ValuedCustomer] AS [v]
-    ORDER BY [v].[Id]
-    OFFSET @__p_0 ROWS
-) AS [t]
+    SELECT `v`.`Id`, `v`.`Name`, `v`.`BillingAddress_AddressLine1`, `v`.`BillingAddress_AddressLine2`, `v`.`BillingAddress_ZipCode`, `v`.`BillingAddress_Country_Code`, `v`.`BillingAddress_Country_FullName`, `v`.`ShippingAddress_AddressLine1`, `v`.`ShippingAddress_AddressLine2`, `v`.`ShippingAddress_ZipCode`, `v`.`ShippingAddress_Country_Code`, `v`.`ShippingAddress_Country_FullName`
+    FROM `ValuedCustomer` AS `v`
+    ORDER BY `v`.`Id`
+    OFFSET @p ROWS
+) AS `v0`
 """);
     }
 

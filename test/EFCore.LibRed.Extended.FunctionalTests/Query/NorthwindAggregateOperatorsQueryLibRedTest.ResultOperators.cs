@@ -111,7 +111,7 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+SELECT COALESCE(SUM(`o`.`OrderID`), 0)
 FROM `Orders` AS `o`
 WHERE `o`.`OrderID` = 42
 """);
@@ -159,10 +159,9 @@ WHERE `o`.`OrderID` = 10248
 
             AssertSql(
                 """
-SELECT AVG(CDBL(IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`)))
+SELECT AVG(CDBL(COALESCE(`o0`.`OrderID`, 0)))
 FROM (
     SELECT 1
-    FROM (SELECT COUNT(*) FROM `#Dual`)
 ) AS `e`
 LEFT JOIN (
     SELECT `o`.`OrderID`
@@ -178,10 +177,9 @@ LEFT JOIN (
 
             AssertSql(
                 """
-SELECT MAX(IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`))
+SELECT MAX(COALESCE(`o0`.`OrderID`, 0))
 FROM (
     SELECT 1
-    FROM (SELECT COUNT(*) FROM `#Dual`)
 ) AS `e`
 LEFT JOIN (
     SELECT `o`.`OrderID`
@@ -197,17 +195,16 @@ LEFT JOIN (
 
             AssertSql(
                 """
-SELECT TOP 1 IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`)
+SELECT TOP 1 COALESCE(`o0`.`OrderID`, 0)
 FROM (
     SELECT 1
-    FROM (SELECT COUNT(*) FROM `#Dual`)
 ) AS `e`
 LEFT JOIN (
     SELECT `o`.`OrderID`
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` = 10243
 ) AS `o0` ON TRUE
-ORDER BY IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`) DESC
+ORDER BY COALESCE(`o0`.`OrderID`, 0) DESC
 """);
         }
 
@@ -217,10 +214,9 @@ ORDER BY IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`) DESC
 
             AssertSql(
                 """
-SELECT MIN(IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`))
+SELECT MIN(COALESCE(`o0`.`OrderID`, 0))
 FROM (
     SELECT 1
-    FROM (SELECT COUNT(*) FROM `#Dual`)
 ) AS `e`
 LEFT JOIN (
     SELECT `o`.`OrderID`
@@ -236,17 +232,16 @@ LEFT JOIN (
 
             AssertSql(
                 """
-SELECT TOP 1 IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`)
+SELECT TOP 1 COALESCE(`o0`.`OrderID`, 0)
 FROM (
     SELECT 1
-    FROM (SELECT COUNT(*) FROM `#Dual`)
 ) AS `e`
 LEFT JOIN (
     SELECT `o`.`OrderID`
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` = 10243
 ) AS `o0` ON TRUE
-ORDER BY IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`)
+ORDER BY COALESCE(`o0`.`OrderID`, 0)
 """);
         }
 
@@ -256,7 +251,7 @@ ORDER BY IIF(`o0`.`OrderID` IS NULL, 0, `o0`.`OrderID`)
 
             AssertSql(
                 """
-SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+SELECT COALESCE(SUM(`o`.`OrderID`), 0)
 FROM `Orders` AS `o`
 WHERE `o`.`OrderID` < 0
 """);
@@ -268,7 +263,7 @@ WHERE `o`.`OrderID` < 0
 
             AssertSql(
                 """
-SELECT IIF(SUM(`p`.`SupplierID`) IS NULL, 0, SUM(`p`.`SupplierID`))
+SELECT COALESCE(SUM(`p`.`SupplierID`), 0)
 FROM `Products` AS `p`
 """);
         }
@@ -279,7 +274,7 @@ FROM `Products` AS `p`
 
             AssertSql(
                 """
-SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+SELECT COALESCE(SUM(`o`.`OrderID`), 0)
 FROM `Orders` AS `o`
 WHERE `o`.`OrderID` = 42
 """);
@@ -369,7 +364,7 @@ ORDER BY `o`.`OrderID`
 SELECT TOP 1 `p`.`SupplierID`
 FROM `Products` AS `p`
 WHERE `p`.`SupplierID` = -1
-ORDER BY IIF(`p`.`SupplierID` IS NULL, 0, `p`.`SupplierID`)
+ORDER BY COALESCE(`p`.`SupplierID`, 0)
 """);
         }
 
@@ -443,7 +438,7 @@ FROM `Customers` AS `c`
 SELECT TOP 1 `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
 WHERE `p`.`ProductID` < 40
-ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`)
+ORDER BY COALESCE(`p`.`UnitPrice`, 0.0)
 """);
         }
 
@@ -456,7 +451,7 @@ ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`)
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 ORDER BY (
-    SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+    SELECT COALESCE(SUM(`o`.`OrderID`), 0)
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`)
 """);
@@ -585,7 +580,7 @@ ORDER BY `o`.`OrderID` DESC
 SELECT TOP 1 `p`.`SupplierID`
 FROM `Products` AS `p`
 WHERE `p`.`SupplierID` = -1
-ORDER BY IIF(`p`.`SupplierID` IS NULL, 0, `p`.`SupplierID`) DESC
+ORDER BY COALESCE(`p`.`SupplierID`, 0) DESC
 """);
         }
 
@@ -671,7 +666,7 @@ ORDER BY `o`.`OrderID` DESC
 SELECT TOP 1 `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
 WHERE `p`.`ProductID` < 40
-ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) DESC
+ORDER BY COALESCE(`p`.`UnitPrice`, 0.0) DESC
 """);
         }
 
@@ -684,7 +679,7 @@ ORDER BY IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`) DESC
 SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
 ORDER BY (
-    SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+    SELECT COALESCE(SUM(`o`.`OrderID`), 0)
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`) DESC
 """);
@@ -735,7 +730,7 @@ ORDER BY (
     FROM `Orders` AS `o`
     WHERE `c0`.`CustomerID` = `o`.`CustomerID`
     ORDER BY 5 + (
-        SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
+        SELECT COALESCE(SUM(`o0`.`ProductID`), 0)
         FROM `Order Details` AS `o0`
         WHERE `o`.`OrderID` = `o0`.`OrderID`) DESC) DESC
 """);
@@ -777,7 +772,10 @@ WHERE `o`.`OrderID` = -1
 
             AssertSql(
                 """
-SELECT AVG(IIF(`p`.`SupplierID` IS NULL, NULL, CDBL(`p`.`SupplierID`)))
+SELECT AVG(CASE
+    WHEN `p`.`SupplierID` IS NULL THEN NULL
+    ELSE CDBL(`p`.`SupplierID`)
+END)
 FROM `Products` AS `p`
 WHERE `p`.`SupplierID` = -1
 """);
@@ -1038,7 +1036,6 @@ SELECT NOT EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` <> 'ALFKI' OR `o`.`CustomerID` IS NULL)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
 
@@ -1048,7 +1045,7 @@ FROM (SELECT COUNT(*) FROM `#Dual`)
 
             AssertSql(
                 """
-SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+SELECT COALESCE(SUM(`o`.`OrderID`), 0)
 FROM `Orders` AS `o`
 """);
         }
@@ -1059,7 +1056,7 @@ FROM `Orders` AS `o`
 
             AssertSql(
                 """
-SELECT IIF(SUM(`o`.`OrderID` * 2) IS NULL, 0, SUM(`o`.`OrderID` * 2))
+SELECT COALESCE(SUM(`o`.`OrderID` * 2), 0)
 FROM `Orders` AS `o`
 """);
         }
@@ -1069,10 +1066,10 @@ FROM `Orders` AS `o`
             await base.Sum_with_arg(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT COALESCE(SUM(`o`.`OrderID`), 0)
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Sum_with_arg_expression(bool isAsync)
@@ -1080,10 +1077,10 @@ FROM `Orders` AS `o`
             await base.Sum_with_arg_expression(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT IIF(SUM(`o`.`OrderID` + `o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID` + `o`.`OrderID`))
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT COALESCE(SUM(`o`.`OrderID` + `o`.`OrderID`), 0)
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Sum_with_division_on_decimal(bool isAsync)
@@ -1092,7 +1089,7 @@ FROM `Orders` AS `o`
 
             AssertSql(
                 """
-SELECT IIF(SUM(CDEC(`o`.`Quantity`) / 2.09) IS NULL, 0.0, SUM(CDEC(`o`.`Quantity`) / 2.09))
+SELECT COALESCE(SUM(CDEC(`o`.`Quantity`) / 2.09), 0.0)
 FROM `Order Details` AS `o`
 """);
         }
@@ -1103,7 +1100,7 @@ FROM `Order Details` AS `o`
 
             AssertSql(
                 """
-SELECT IIF(SUM(CDEC(`o`.`Quantity`) / 2.0) IS NULL, 0.0, SUM(CDEC(`o`.`Quantity`) / 2.0))
+SELECT COALESCE(SUM(CDEC(`o`.`Quantity`) / 2.0), 0.0)
 FROM `Order Details` AS `o`
 """);
         }
@@ -1113,11 +1110,11 @@ FROM `Order Details` AS `o`
             await base.Sum_with_coalesce(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT IIF(SUM(IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`)) IS NULL, 0.0, SUM(IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`)))
-                    FROM `Products` AS `p`
-                    WHERE `p`.`ProductID` < 40
-                    """);
+                """
+SELECT COALESCE(SUM(COALESCE(`p`.`UnitPrice`, 0.0)), 0.0)
+FROM `Products` AS `p`
+WHERE `p`.`ProductID` < 40
+""");
         }
 
         public override async Task Sum_over_subquery(bool isAsync)
@@ -1125,14 +1122,11 @@ FROM `Order Details` AS `o`
             await base.Sum_over_subquery(isAsync);
 
             AssertSql(
-"""
-SELECT IIF(SUM((
-        SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`)) IS NULL, 0, SUM((
-        SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`)))
+                """
+SELECT COALESCE(SUM((
+    SELECT COALESCE(SUM(`o`.`OrderID`), 0)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)), 0)
 FROM `Customers` AS `c`
 """);
         }
@@ -1141,26 +1135,14 @@ FROM `Customers` AS `c`
         {
             await base.Sum_over_nested_subquery(isAsync);
             AssertSql(
-"""
-SELECT IIF(SUM((
-        SELECT IIF(SUM(5 + (
-                SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID`)) IS NULL, 0, SUM(5 + (
-                SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID`)))
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`)) IS NULL, 0, SUM((
-        SELECT IIF(SUM(5 + (
-                SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID`)) IS NULL, 0, SUM(5 + (
-                SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID`)))
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`)))
+                """
+SELECT COALESCE(SUM((
+    SELECT COALESCE(SUM(5 + (
+        SELECT COALESCE(SUM(`o0`.`ProductID`), 0)
+        FROM `Order Details` AS `o0`
+        WHERE `o`.`OrderID` = `o0`.`OrderID`)), 0)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)), 0)
 FROM `Customers` AS `c`
 """);
         }
@@ -1169,26 +1151,14 @@ FROM `Customers` AS `c`
         {
             await base.Sum_over_min_subquery(isAsync);
             AssertSql(
-"""
-SELECT IIF(SUM((
-        SELECT IIF(SUM(5 + (
-                SELECT MIN(`o0`.`ProductID`)
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID`)) IS NULL, 0, SUM(5 + (
-                SELECT MIN(`o0`.`ProductID`)
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID`)))
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`)) IS NULL, 0, SUM((
-        SELECT IIF(SUM(5 + (
-                SELECT MIN(`o0`.`ProductID`)
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID`)) IS NULL, 0, SUM(5 + (
-                SELECT MIN(`o0`.`ProductID`)
-                FROM `Order Details` AS `o0`
-                WHERE `o`.`OrderID` = `o0`.`OrderID`)))
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`)))
+                """
+SELECT COALESCE(SUM((
+    SELECT COALESCE(SUM(5 + (
+        SELECT MIN(`o0`.`ProductID`)
+        FROM `Order Details` AS `o0`
+        WHERE `o`.`OrderID` = `o0`.`OrderID`)), 0)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)), 0)
 FROM `Customers` AS `c`
 """);
         }
@@ -1199,13 +1169,10 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-SELECT IIF(SUM((
-        SELECT TOP 1 `o`.`OrderID`
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`)) IS NULL, 0, SUM((
-        SELECT TOP 1 `o`.`OrderID`
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`)))
+SELECT COALESCE(SUM((
+    SELECT TOP 1 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)), 0)
 FROM `Customers` AS `c`
 """);
         }
@@ -1216,19 +1183,16 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-SELECT IIF(SUM(IIF(EXISTS (
-            SELECT 1
-            FROM `Orders` AS `o`
-            WHERE `c`.`CustomerID` = `o`.`CustomerID`), (
-            SELECT TOP 1 `o0`.`OrderID`
-            FROM `Orders` AS `o0`
-            WHERE `c`.`CustomerID` = `o0`.`CustomerID`), 0)) IS NULL, 0, SUM(IIF(EXISTS (
-            SELECT 1
-            FROM `Orders` AS `o`
-            WHERE `c`.`CustomerID` = `o`.`CustomerID`), (
-            SELECT TOP 1 `o0`.`OrderID`
-            FROM `Orders` AS `o0`
-            WHERE `c`.`CustomerID` = `o0`.`CustomerID`), 0)))
+SELECT COALESCE(SUM(CASE
+    WHEN EXISTS (
+        SELECT 1
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`) THEN (
+        SELECT TOP 1 `o0`.`OrderID`
+        FROM `Orders` AS `o0`
+        WHERE `c`.`CustomerID` = `o0`.`CustomerID`)
+    ELSE 0
+END), 0)
 FROM `Customers` AS `c`
 """);
         }
@@ -1239,13 +1203,10 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-SELECT IIF(SUM((
-        SELECT COUNT(*)
-        FROM `Orders` AS `o`
-        WHERE `o`.`OrderID` > 10300)) IS NULL, 0, SUM((
-        SELECT COUNT(*)
-        FROM `Orders` AS `o`
-        WHERE `o`.`OrderID` > 10300)))
+SELECT COALESCE(SUM((
+    SELECT COUNT(*)
+    FROM `Orders` AS `o`
+    WHERE `o`.`OrderID` > 10300)), 0)
 FROM `Customers` AS `c`
 """);
         }
@@ -1255,11 +1216,11 @@ FROM `Customers` AS `c`
             await base.Sum_on_float_column(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT CSNG(IIF(SUM(`o`.`Discount`) IS NULL, 0.0, SUM(`o`.`Discount`)))
-                    FROM `Order Details` AS `o`
-                    WHERE `o`.`ProductID` = 1
-                    """);
+                """
+SELECT CSNG(COALESCE(SUM(`o`.`Discount`), 0.0))
+FROM `Order Details` AS `o`
+WHERE `o`.`ProductID` = 1
+""");
         }
 
         public override async Task Sum_on_float_column_in_subquery(bool isAsync)
@@ -1267,14 +1228,14 @@ FROM `Customers` AS `c`
             await base.Sum_on_float_column_in_subquery(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, (
-                        SELECT CSNG(IIF(SUM(`o0`.`Discount`) IS NULL, 0.0, SUM(`o0`.`Discount`)))
-                        FROM `Order Details` AS `o0`
-                        WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
-                    FROM `Orders` AS `o`
-                    WHERE `o`.`OrderID` < 10300
-                    """);
+                """
+SELECT `o`.`OrderID`, (
+    SELECT CSNG(COALESCE(SUM(`o0`.`Discount`), 0.0))
+    FROM `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = `o0`.`OrderID`) AS `Sum`
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` < 10300
+""");
         }
 
         public override async Task Average_with_no_arg(bool isAsync)
@@ -1348,11 +1309,11 @@ FROM `Order Details` AS `o`
             await base.Average_with_coalesce(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT AVG(IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`))
-                    FROM `Products` AS `p`
-                    WHERE `p`.`ProductID` < 40
-                    """);
+                """
+SELECT AVG(COALESCE(`p`.`UnitPrice`, 0.0))
+FROM `Products` AS `p`
+WHERE `p`.`ProductID` < 40
+""");
         }
 
         public override async Task Average_over_subquery(bool isAsync)
@@ -1361,15 +1322,18 @@ FROM `Order Details` AS `o`
 
             AssertSql(
                 """
-    SELECT AVG(IIF((
-            SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
-            FROM `Orders` AS `o`
-            WHERE `c`.`CustomerID` = `o`.`CustomerID`) IS NULL, NULL, CDBL((
-            SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
-            FROM `Orders` AS `o`
-            WHERE `c`.`CustomerID` = `o`.`CustomerID`))))
-    FROM `Customers` AS `c`
-    """);
+SELECT AVG(CASE
+    WHEN (
+        SELECT COALESCE(SUM(`o`.`OrderID`), 0)
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`) IS NULL THEN NULL
+    ELSE CDBL((
+        SELECT COALESCE(SUM(`o`.`OrderID`), 0)
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`))
+END)
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Average_over_nested_subquery(bool isAsync)
@@ -1379,19 +1343,22 @@ FROM `Order Details` AS `o`
                 """
 @p='3'
 
-SELECT AVG(IIF((
+SELECT AVG(CASE
+    WHEN (
         SELECT AVG(5.0 + (
             SELECT AVG(CDBL(`o0`.`ProductID`))
             FROM `Order Details` AS `o0`
             WHERE `o`.`OrderID` = `o0`.`OrderID`))
         FROM `Orders` AS `o`
-        WHERE `c0`.`CustomerID` = `o`.`CustomerID`) IS NULL, NULL, CDEC((
+        WHERE `c0`.`CustomerID` = `o`.`CustomerID`) IS NULL THEN NULL
+    ELSE CDEC((
         SELECT AVG(5.0 + (
             SELECT AVG(CDBL(`o0`.`ProductID`))
             FROM `Order Details` AS `o0`
             WHERE `o`.`OrderID` = `o0`.`OrderID`))
         FROM `Orders` AS `o`
-        WHERE `c0`.`CustomerID` = `o`.`CustomerID`))))
+        WHERE `c0`.`CustomerID` = `o`.`CustomerID`))
+END)
 FROM (
     SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`
@@ -1407,19 +1374,22 @@ FROM (
                 """
 @p='3'
 
-SELECT AVG(IIF((
+SELECT AVG(CASE
+    WHEN (
         SELECT AVG(CDBL(5 + (
             SELECT MAX(`o0`.`ProductID`)
             FROM `Order Details` AS `o0`
             WHERE `o`.`OrderID` = `o0`.`OrderID`)))
         FROM `Orders` AS `o`
-        WHERE `c0`.`CustomerID` = `o`.`CustomerID`) IS NULL, NULL, CDEC((
+        WHERE `c0`.`CustomerID` = `o`.`CustomerID`) IS NULL THEN NULL
+    ELSE CDEC((
         SELECT AVG(CDBL(5 + (
             SELECT MAX(`o0`.`ProductID`)
             FROM `Order Details` AS `o0`
             WHERE `o`.`OrderID` = `o0`.`OrderID`)))
         FROM `Orders` AS `o`
-        WHERE `c0`.`CustomerID` = `o`.`CustomerID`))))
+        WHERE `c0`.`CustomerID` = `o`.`CustomerID`))
+END)
 FROM (
     SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`
@@ -1497,11 +1467,11 @@ FROM (
             await base.Min_with_coalesce(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT MIN(IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`))
-                    FROM `Products` AS `p`
-                    WHERE `p`.`ProductID` < 40
-                    """);
+                """
+SELECT MIN(COALESCE(`p`.`UnitPrice`, 0.0))
+FROM `Products` AS `p`
+WHERE `p`.`ProductID` < 40
+""");
         }
 
         public override async Task Min_over_subquery(bool isAsync)
@@ -1509,9 +1479,9 @@ FROM (
             await base.Min_over_subquery(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT MIN((
-    SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+    SELECT COALESCE(SUM(`o`.`OrderID`), 0)
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`))
 FROM `Customers` AS `c`
@@ -1591,11 +1561,11 @@ FROM (
             await base.Max_with_coalesce(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT MAX(IIF(`p`.`UnitPrice` IS NULL, 0.0, `p`.`UnitPrice`))
-                    FROM `Products` AS `p`
-                    WHERE `p`.`ProductID` < 40
-                    """);
+                """
+SELECT MAX(COALESCE(`p`.`UnitPrice`, 0.0))
+FROM `Products` AS `p`
+WHERE `p`.`ProductID` < 40
+""");
         }
 
         public override async Task Max_over_subquery(bool isAsync)
@@ -1603,9 +1573,9 @@ FROM (
             await base.Max_over_subquery(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT MAX((
-    SELECT IIF(SUM(`o`.`OrderID`) IS NULL, 0, SUM(`o`.`OrderID`))
+    SELECT COALESCE(SUM(`o`.`OrderID`), 0)
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`))
 FROM `Customers` AS `c`
@@ -1645,7 +1615,7 @@ FROM (
 
 SELECT MAX((
     SELECT MAX(5 + (
-        SELECT IIF(SUM(`o0`.`ProductID`) IS NULL, 0, SUM(`o0`.`ProductID`))
+        SELECT COALESCE(SUM(`o0`.`ProductID`), 0)
         FROM `Order Details` AS `o0`
         WHERE `o`.`OrderID` = `o0`.`OrderID`))
     FROM `Orders` AS `o`
@@ -2601,7 +2571,6 @@ SELECT @p IN (
     SELECT `c`.`CustomerID`
     FROM `Customers` AS `c`
 )
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
 
@@ -2697,18 +2666,18 @@ ORDER BY `c0`.`CustomerID` DESC
             await base.OrderBy_Skip_Last_gives_correct_result(isAsync);
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='20'")}
-                    
-                    SELECT TOP 1 `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`
-                    FROM (
-                        SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                        FROM `Customers` AS `c`
-                        ORDER BY `c`.`CustomerID`
-                        SKIP {AssertSqlHelper.Parameter("@__p_0")}
-                    ) AS `t`
-                    ORDER BY `t`.`CustomerID` DESC
-                    """);
+                """
+@p='20'
+
+SELECT TOP 1 `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+FROM (
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+    OFFSET @p ROWS
+) AS `c0`
+ORDER BY `c0`.`CustomerID` DESC
+""");
         }
 
         public override async Task Contains_over_entityType_should_rewrite_to_identity_equality(bool async)
@@ -2729,7 +2698,6 @@ SELECT EXISTS (
     SELECT 1
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = 'VINET' AND `o`.`OrderID` = @entity_equality_p_OrderID)
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
 
@@ -2867,7 +2835,6 @@ WHERE `c`.`CustomerID` = @ids1
             AssertSql(
                 """
 SELECT FALSE
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
 
@@ -3014,10 +2981,10 @@ FROM `Customers` AS `c`
             await base.Project_constant_Sum(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT IIF(SUM(1) IS NULL, 0, SUM(1))
-                    FROM `Employees` AS `e`
-                    """);
+                """
+SELECT COALESCE(SUM(1), 0)
+FROM `Employees` AS `e`
+""");
         }
 
         public override async Task Where_subquery_any_equals_operator(bool isAsync)
@@ -3194,7 +3161,6 @@ WHERE `c`.`City` = 'México D.F.' AND `c`.`CustomerID` NOT IN (@ids1, @ids2, @id
 SELECT `p`.`ProductName`
 FROM (
     SELECT 1
-    FROM (SELECT COUNT(*) FROM `#Dual`)
 ) AS `e`
 LEFT JOIN `Products` AS `p` ON TRUE
 """);
@@ -3237,10 +3203,10 @@ WHERE (`c`.`CustomerID` LIKE 'F%') AND (
             await base.Sum_over_explicit_cast_over_column(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT IIF(SUM(CLNG(`o`.`OrderID`)) IS NULL, 0, SUM(CLNG(`o`.`OrderID`)))
-                    FROM `Orders` AS `o`
-                    """);
+                """
+SELECT COALESCE(SUM(CLNG(`o`.`OrderID`)), 0)
+FROM `Orders` AS `o`
+""");
         }
 
         public override async Task Count_on_projection_with_client_eval(bool isAsync)
@@ -3302,7 +3268,6 @@ FROM (
             AssertSql(
                 """
 SELECT TRUE
-FROM (SELECT COUNT(*) FROM `#Dual`)
 """);
         }
 
@@ -3326,7 +3291,9 @@ FROM `Customers` AS `c`
 @cities1='London' (Size = 15)
 @cities2='Berlin' (Size = 15)
 
-SELECT COUNT(IIF(`c`.`City` IN (@cities1, @cities2), 1, NULL))
+SELECT COUNT(CASE
+    WHEN `c`.`City` IN (@cities1, @cities2) THEN 1
+END)
 FROM `Customers` AS `c`
 GROUP BY `c`.`Country`
 """);
@@ -3341,7 +3308,10 @@ GROUP BY `c`.`Country`
 @cities1='London' (Size = 15)
 @cities2='Berlin' (Size = 15)
 
-SELECT AVG(IIF(`c`.`City` IN (@cities1, @cities2), 1.0, 0.0))
+SELECT AVG(CASE
+    WHEN `c`.`City` IN (@cities1, @cities2) THEN 1.0
+    ELSE 0.0
+END)
 FROM `Customers` AS `c`
 """);
         }
@@ -3355,7 +3325,10 @@ FROM `Customers` AS `c`
 @cities1='London' (Size = 15)
 @cities2='Berlin' (Size = 15)
 
-SELECT IIF(SUM(IIF(`c`.`City` IN (@cities1, @cities2), 1, 0)) IS NULL, 0, SUM(IIF(`c`.`City` IN (@cities1, @cities2), 1, 0)))
+SELECT COALESCE(SUM(CASE
+    WHEN `c`.`City` IN (@cities1, @cities2) THEN 1
+    ELSE 0
+END), 0)
 FROM `Customers` AS `c`
 """);
         }
@@ -3399,7 +3372,10 @@ WHERE `c`.`City` IN (@cities1, @cities2)
 @cities1='London' (Size = 15)
 @cities2='Berlin' (Size = 15)
 
-SELECT MAX(IIF(`c`.`City` IN (@cities1, @cities2), 1, 0))
+SELECT MAX(CASE
+    WHEN `c`.`City` IN (@cities1, @cities2) THEN 1
+    ELSE 0
+END)
 FROM `Customers` AS `c`
 """);
         }
@@ -3413,7 +3389,10 @@ FROM `Customers` AS `c`
 @cities1='London' (Size = 15)
 @cities2='Berlin' (Size = 15)
 
-SELECT MIN(IIF(`c`.`City` IN (@cities1, @cities2), 1, 0))
+SELECT MIN(CASE
+    WHEN `c`.`City` IN (@cities1, @cities2) THEN 1
+    ELSE 0
+END)
 FROM `Customers` AS `c`
 """);
         }
@@ -3468,7 +3447,7 @@ ORDER BY `c`.`CustomerID` DESC
 
             AssertSql(
                 """
-SELECT IIF(SUM(CDEC(`o`.`Discount`)) IS NULL, 0.0, SUM(CDEC(`o`.`Discount`)))
+SELECT COALESCE(SUM(CDEC(`o`.`Discount`)), 0.0)
 FROM `Order Details` AS `o`
 """);
         }

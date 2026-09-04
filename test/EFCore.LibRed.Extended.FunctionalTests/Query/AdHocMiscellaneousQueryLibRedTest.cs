@@ -355,7 +355,7 @@ ORDER BY `p`.`Id`
 
 SELECT `r`.`Id`, `r`.`MyTime`
 FROM `ReproEntity` AS `r`
-WHERE `r`.`MyTime` = CDATE(@testDateList1)
+WHERE `r`.`MyTime` = @testDateList1
 """);
     }
 
@@ -743,7 +743,7 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
 
 SELECT `d`.`Id`, `d`.`DateTime`, `d`.`DateTime2`, `d`.`DateTime2_0`, `d`.`DateTime2_1`, `d`.`DateTime2_2`, `d`.`DateTime2_3`, `d`.`DateTime2_4`, `d`.`DateTime2_5`, `d`.`DateTime2_6`, `d`.`DateTime2_7`, `d`.`SmallDateTime`
 FROM `Dates` AS `d`
-WHERE `d`.`SmallDateTime` IN (CDATE(@dateTimes1), CDATE(@dateTimes2), CDATE(@dateTimes3), CDATE(@dateTimes4), CDATE(@dateTimes5), CDATE(@dateTimes6), CDATE(@dateTimes7), CDATE(@dateTimes8), CDATE(@dateTimes9), CDATE(@dateTimes10), CDATE(@dateTimes11), CDATE(@dateTimes12), CDATE(@dateTimes13), CDATE(@dateTimes14), CDATE(@dateTimes15), CDATE(@dateTimes16), CDATE(@dateTimes17), CDATE(@dateTimes18), CDATE(@dateTimes19), CDATE(@dateTimes20)) AND `d`.`DateTime` IN (CDATE(@dateTimes21), CDATE(@dateTimes22), CDATE(@dateTimes23), CDATE(@dateTimes24), CDATE(@dateTimes25), CDATE(@dateTimes26), CDATE(@dateTimes27), CDATE(@dateTimes28), CDATE(@dateTimes29), CDATE(@dateTimes30), CDATE(@dateTimes31), CDATE(@dateTimes32), CDATE(@dateTimes33), CDATE(@dateTimes34), CDATE(@dateTimes35), CDATE(@dateTimes36), CDATE(@dateTimes37), CDATE(@dateTimes38), CDATE(@dateTimes39), CDATE(@dateTimes40)) AND `d`.`DateTime2` IN (CDATE(@dateTimes41), CDATE(@dateTimes42), CDATE(@dateTimes43), CDATE(@dateTimes44), CDATE(@dateTimes45), CDATE(@dateTimes46), CDATE(@dateTimes47), CDATE(@dateTimes48), CDATE(@dateTimes49), CDATE(@dateTimes50), CDATE(@dateTimes51), CDATE(@dateTimes52), CDATE(@dateTimes53), CDATE(@dateTimes54), CDATE(@dateTimes55), CDATE(@dateTimes56), CDATE(@dateTimes57), CDATE(@dateTimes58), CDATE(@dateTimes59), CDATE(@dateTimes60)) AND `d`.`DateTime2_0` IN (CDATE(@dateTimes61), CDATE(@dateTimes62), CDATE(@dateTimes63), CDATE(@dateTimes64), CDATE(@dateTimes65), CDATE(@dateTimes66), CDATE(@dateTimes67), CDATE(@dateTimes68), CDATE(@dateTimes69), CDATE(@dateTimes70), CDATE(@dateTimes71), CDATE(@dateTimes72), CDATE(@dateTimes73), CDATE(@dateTimes74), CDATE(@dateTimes75), CDATE(@dateTimes76), CDATE(@dateTimes77), CDATE(@dateTimes78), CDATE(@dateTimes79), CDATE(@dateTimes80)) AND `d`.`DateTime2_1` IN (CDATE(@dateTimes81), CDATE(@dateTimes82), CDATE(@dateTimes83), CDATE(@dateTimes84), CDATE(@dateTimes85), CDATE(@dateTimes86), CDATE(@dateTimes87), CDATE(@dateTimes88), CDATE(@dateTimes89), CDATE(@dateTimes90), CDATE(@dateTimes91), CDATE(@dateTimes92), CDATE(@dateTimes93), CDATE(@dateTimes94), CDATE(@dateTimes95), CDATE(@dateTimes96), CDATE(@dateTimes97), CDATE(@dateTimes98), CDATE(@dateTimes99), CDATE(@dateTimes100)) AND `d`.`DateTime2_2` IN (CDATE(@dateTimes101), CDATE(@dateTimes102), CDATE(@dateTimes103), CDATE(@dateTimes104), CDATE(@dateTimes105), CDATE(@dateTimes106), CDATE(@dateTimes107), CDATE(@dateTimes108), CDATE(@dateTimes109), CDATE(@dateTimes110), CDATE(@dateTimes111), CDATE(@dateTimes112), CDATE(@dateTimes113), CDATE(@dateTimes114), CDATE(@dateTimes115), CDATE(@dateTimes116), CDATE(@dateTimes117), CDATE(@dateTimes118), CDATE(@dateTimes119), CDATE(@dateTimes120)) AND `d`.`DateTime2_3` IN (CDATE(@dateTimes121), CDATE(@dateTimes122), CDATE(@dateTimes123), CDATE(@dateTimes124), CDATE(@dateTimes125), CDATE(@dateTimes126), CDATE(@dateTimes127), CDATE(@dateTimes128), CDATE(@dateTimes129), CDATE(@dateTimes130), CDATE(@dateTimes131), CDATE(@dateTimes132), CDATE(@dateTimes133), CDATE(@dateTimes134), CDATE(@dateTimes135), CDATE(@dateTimes136), CDATE(@dateTimes137), CDATE(@dateTimes138), CDATE(@dateTimes139), CDATE(@dateTimes140)) AND `d`.`DateTime2_4` IN (CDATE(@dateTimes141), CDATE(@dateTimes142), CDATE(@dateTimes143), CDATE(@dateTimes144), CDATE(@dateTimes145), CDATE(@dateTimes146), CDATE(@dateTimes147), CDATE(@dateTimes148), CDATE(@dateTimes149), CDATE(@dateTimes150), CDATE(@dateTimes151), CDATE(@dateTimes152), CDATE(@dateTimes153), CDATE(@dateTimes154), CDATE(@dateTimes155), CDATE(@dateTimes156), CDATE(@dateTimes157), CDATE(@dateTimes158), CDATE(@dateTimes159), CDATE(@dateTimes160)) AND `d`.`DateTime2_5` IN (CDATE(@dateTimes161), CDATE(@dateTimes162), CDATE(@dateTimes163), CDATE(@dateTimes164), CDATE(@dateTimes165), CDATE(@dateTimes166), CDATE(@dateTimes167), CDATE(@dateTimes168), CDATE(@dateTimes169), CDATE(@dateTimes170), CDATE(@dateTimes171), CDATE(@dateTimes172), CDATE(@dateTimes173), CDATE(@dateTimes174), CDATE(@dateTimes175), CDATE(@dateTimes176), CDATE(@dateTimes177), CDATE(@dateTimes178), CDATE(@dateTimes179), CDATE(@dateTimes180)) AND `d`.`DateTime2_6` IN (CDATE(@dateTimes181), CDATE(@dateTimes182), CDATE(@dateTimes183), CDATE(@dateTimes184), CDATE(@dateTimes185), CDATE(@dateTimes186), CDATE(@dateTimes187), CDATE(@dateTimes188), CDATE(@dateTimes189), CDATE(@dateTimes190), CDATE(@dateTimes191), CDATE(@dateTimes192), CDATE(@dateTimes193), CDATE(@dateTimes194), CDATE(@dateTimes195), CDATE(@dateTimes196), CDATE(@dateTimes197), CDATE(@dateTimes198), CDATE(@dateTimes199), CDATE(@dateTimes200)) AND `d`.`DateTime2_7` IN (CDATE(@dateTimes201), CDATE(@dateTimes202), CDATE(@dateTimes203), CDATE(@dateTimes204), CDATE(@dateTimes205), CDATE(@dateTimes206), CDATE(@dateTimes207), CDATE(@dateTimes208), CDATE(@dateTimes209), CDATE(@dateTimes210), CDATE(@dateTimes211), CDATE(@dateTimes212), CDATE(@dateTimes213), CDATE(@dateTimes214), CDATE(@dateTimes215), CDATE(@dateTimes216), CDATE(@dateTimes217), CDATE(@dateTimes218), CDATE(@dateTimes219), CDATE(@dateTimes220))
+WHERE `d`.`SmallDateTime` IN (@dateTimes1, @dateTimes2, @dateTimes3, @dateTimes4, @dateTimes5, @dateTimes6, @dateTimes7, @dateTimes8, @dateTimes9, @dateTimes10, @dateTimes11, @dateTimes12, @dateTimes13, @dateTimes14, @dateTimes15, @dateTimes16, @dateTimes17, @dateTimes18, @dateTimes19, @dateTimes20) AND `d`.`DateTime` IN (@dateTimes21, @dateTimes22, @dateTimes23, @dateTimes24, @dateTimes25, @dateTimes26, @dateTimes27, @dateTimes28, @dateTimes29, @dateTimes30, @dateTimes31, @dateTimes32, @dateTimes33, @dateTimes34, @dateTimes35, @dateTimes36, @dateTimes37, @dateTimes38, @dateTimes39, @dateTimes40) AND `d`.`DateTime2` IN (@dateTimes41, @dateTimes42, @dateTimes43, @dateTimes44, @dateTimes45, @dateTimes46, @dateTimes47, @dateTimes48, @dateTimes49, @dateTimes50, @dateTimes51, @dateTimes52, @dateTimes53, @dateTimes54, @dateTimes55, @dateTimes56, @dateTimes57, @dateTimes58, @dateTimes59, @dateTimes60) AND `d`.`DateTime2_0` IN (@dateTimes61, @dateTimes62, @dateTimes63, @dateTimes64, @dateTimes65, @dateTimes66, @dateTimes67, @dateTimes68, @dateTimes69, @dateTimes70, @dateTimes71, @dateTimes72, @dateTimes73, @dateTimes74, @dateTimes75, @dateTimes76, @dateTimes77, @dateTimes78, @dateTimes79, @dateTimes80) AND `d`.`DateTime2_1` IN (@dateTimes81, @dateTimes82, @dateTimes83, @dateTimes84, @dateTimes85, @dateTimes86, @dateTimes87, @dateTimes88, @dateTimes89, @dateTimes90, @dateTimes91, @dateTimes92, @dateTimes93, @dateTimes94, @dateTimes95, @dateTimes96, @dateTimes97, @dateTimes98, @dateTimes99, @dateTimes100) AND `d`.`DateTime2_2` IN (@dateTimes101, @dateTimes102, @dateTimes103, @dateTimes104, @dateTimes105, @dateTimes106, @dateTimes107, @dateTimes108, @dateTimes109, @dateTimes110, @dateTimes111, @dateTimes112, @dateTimes113, @dateTimes114, @dateTimes115, @dateTimes116, @dateTimes117, @dateTimes118, @dateTimes119, @dateTimes120) AND `d`.`DateTime2_3` IN (@dateTimes121, @dateTimes122, @dateTimes123, @dateTimes124, @dateTimes125, @dateTimes126, @dateTimes127, @dateTimes128, @dateTimes129, @dateTimes130, @dateTimes131, @dateTimes132, @dateTimes133, @dateTimes134, @dateTimes135, @dateTimes136, @dateTimes137, @dateTimes138, @dateTimes139, @dateTimes140) AND `d`.`DateTime2_4` IN (@dateTimes141, @dateTimes142, @dateTimes143, @dateTimes144, @dateTimes145, @dateTimes146, @dateTimes147, @dateTimes148, @dateTimes149, @dateTimes150, @dateTimes151, @dateTimes152, @dateTimes153, @dateTimes154, @dateTimes155, @dateTimes156, @dateTimes157, @dateTimes158, @dateTimes159, @dateTimes160) AND `d`.`DateTime2_5` IN (@dateTimes161, @dateTimes162, @dateTimes163, @dateTimes164, @dateTimes165, @dateTimes166, @dateTimes167, @dateTimes168, @dateTimes169, @dateTimes170, @dateTimes171, @dateTimes172, @dateTimes173, @dateTimes174, @dateTimes175, @dateTimes176, @dateTimes177, @dateTimes178, @dateTimes179, @dateTimes180) AND `d`.`DateTime2_6` IN (@dateTimes181, @dateTimes182, @dateTimes183, @dateTimes184, @dateTimes185, @dateTimes186, @dateTimes187, @dateTimes188, @dateTimes189, @dateTimes190, @dateTimes191, @dateTimes192, @dateTimes193, @dateTimes194, @dateTimes195, @dateTimes196, @dateTimes197, @dateTimes198, @dateTimes199, @dateTimes200) AND `d`.`DateTime2_7` IN (@dateTimes201, @dateTimes202, @dateTimes203, @dateTimes204, @dateTimes205, @dateTimes206, @dateTimes207, @dateTimes208, @dateTimes209, @dateTimes210, @dateTimes211, @dateTimes212, @dateTimes213, @dateTimes214, @dateTimes215, @dateTimes216, @dateTimes217, @dateTimes218, @dateTimes219, @dateTimes220)
 """);
     }
 
@@ -1302,7 +1302,9 @@ WHERE `e`.`Id` = 1
 
         AssertSql(
             """
-SELECT IIF(`c0`.`Id` IS NOT NULL, NOT (`c0`.`Processed`), NULL) AS `Processing`
+SELECT CASE
+    WHEN `c0`.`Id` IS NOT NULL THEN NOT (`c0`.`Processed`)
+END AS `Processing`
 FROM `Carts` AS `c`
 LEFT JOIN `Configuration` AS `c0` ON `c`.`ConfigurationId` = `c0`.`Id`
 """);
@@ -1340,7 +1342,10 @@ FROM `Prices` AS `p`
 """,
             //
             """
-SELECT AVG(IIF(`p`.`NullableIntColumn` IS NULL, NULL, CDBL(`p`.`NullableIntColumn`)))
+SELECT AVG(CASE
+    WHEN `p`.`NullableIntColumn` IS NULL THEN NULL
+    ELSE CDBL(`p`.`NullableIntColumn`)
+END)
 FROM `Prices` AS `p`
 """,
             //
@@ -1350,7 +1355,10 @@ FROM `Prices` AS `p`
 """,
             //
             """
-SELECT AVG(IIF(`p`.`NullableLongColumn` IS NULL, NULL, CDBL(`p`.`NullableLongColumn`)))
+SELECT AVG(CASE
+    WHEN `p`.`NullableLongColumn` IS NULL THEN NULL
+    ELSE CDBL(`p`.`NullableLongColumn`)
+END)
 FROM `Prices` AS `p`
 """,
             //
@@ -1575,7 +1583,9 @@ LEFT JOIN (
     SELECT `t0`.`Id`, `t0`.`Exists`, `t0`.`AnotherEntity11818_Name`
     FROM `Table` AS `t0`
     WHERE `t0`.`Exists` IS NOT NULL
-) AS `t1` ON `t`.`Id` = IIF(`t1`.`Exists` IS NOT NULL, `t1`.`Id`, NULL)
+) AS `t1` ON `t`.`Id` = CASE
+    WHEN `t1`.`Exists` IS NOT NULL THEN `t1`.`Id`
+END
 GROUP BY `t1`.`AnotherEntity11818_Name`
 """,
             //
@@ -1586,12 +1596,16 @@ LEFT JOIN (
     SELECT `t0`.`Id`, `t0`.`Exists`, `t0`.`AnotherEntity11818_Name`
     FROM `Table` AS `t0`
     WHERE `t0`.`Exists` IS NOT NULL
-) AS `t1` ON `t`.`Id` = IIF(`t1`.`Exists` IS NOT NULL, `t1`.`Id`, NULL))
+) AS `t1` ON `t`.`Id` = CASE
+    WHEN `t1`.`Exists` IS NOT NULL THEN `t1`.`Id`
+END)
 LEFT JOIN (
     SELECT `t2`.`Id`, `t2`.`MaumarEntity11818_Exists`, `t2`.`MaumarEntity11818_Name`
     FROM `Table` AS `t2`
     WHERE `t2`.`MaumarEntity11818_Exists` IS NOT NULL
-) AS `t3` ON `t`.`Id` = IIF(`t3`.`MaumarEntity11818_Exists` IS NOT NULL, `t3`.`Id`, NULL)
+) AS `t3` ON `t`.`Id` = CASE
+    WHEN `t3`.`MaumarEntity11818_Exists` IS NOT NULL THEN `t3`.`Id`
+END
 GROUP BY `t1`.`AnotherEntity11818_Name`, `t3`.`MaumarEntity11818_Name`
 """,
             //
@@ -1602,12 +1616,16 @@ LEFT JOIN (
     SELECT `t0`.`Id`, `t0`.`Exists`, `t0`.`AnotherEntity11818_Name`
     FROM `Table` AS `t0`
     WHERE `t0`.`Exists` IS NOT NULL
-) AS `t1` ON `t`.`Id` = IIF(`t1`.`Exists` IS NOT NULL, `t1`.`Id`, NULL))
+) AS `t1` ON `t`.`Id` = CASE
+    WHEN `t1`.`Exists` IS NOT NULL THEN `t1`.`Id`
+END)
 LEFT JOIN (
     SELECT `t2`.`Id`, `t2`.`MaumarEntity11818_Exists`, `t2`.`MaumarEntity11818_Name`
     FROM `Table` AS `t2`
     WHERE `t2`.`MaumarEntity11818_Exists` IS NOT NULL
-) AS `t3` ON `t`.`Id` = IIF(`t3`.`MaumarEntity11818_Exists` IS NOT NULL, `t3`.`Id`, NULL)
+) AS `t3` ON `t`.`Id` = CASE
+    WHEN `t3`.`MaumarEntity11818_Exists` IS NOT NULL THEN `t3`.`Id`
+END
 GROUP BY `t1`.`AnotherEntity11818_Name`, `t3`.`MaumarEntity11818_Name`
 """);
     }
@@ -1618,7 +1636,13 @@ GROUP BY `t1`.`AnotherEntity11818_Name`, `t3`.`MaumarEntity11818_Name`
 
         AssertSql(
             """
-SELECT `c`.`CustomerID`, `c`.`CustomerName`, IIF(`p`.`PostcodeID` IS NULL, '', `p`.`TownName`) AS `TownName`, IIF(`p`.`PostcodeID` IS NULL, '', `p`.`PostcodeValue`) AS `PostcodeValue`
+SELECT `c`.`CustomerID`, `c`.`CustomerName`, CASE
+    WHEN `p`.`PostcodeID` IS NULL THEN ''
+    ELSE `p`.`TownName`
+END AS `TownName`, CASE
+    WHEN `p`.`PostcodeID` IS NULL THEN ''
+    ELSE `p`.`PostcodeValue`
+END AS `PostcodeValue`
 FROM `Customers` AS `c`
 LEFT JOIN `Postcodes` AS `p` ON `c`.`PostcodeID` = `p`.`PostcodeID`
 """);
@@ -1806,13 +1830,10 @@ ORDER BY `o`.`OrderId`
 @orderItemType='MyType1' (Nullable = false) (Size = 255)
 @p='1'
 
-SELECT `o1`.`Id`, IIF((
-        SELECT TOP 1 `o3`.`Price`
-        FROM `OrderItems` AS `o3`
-        WHERE `o1`.`Id` = `o3`.`OrderId` AND `o3`.`Type` = @orderItemType) IS NULL, 0.0, (
-        SELECT TOP 1 `o3`.`Price`
-        FROM `OrderItems` AS `o3`
-        WHERE `o1`.`Id` = `o3`.`OrderId` AND `o3`.`Type` = @orderItemType)) AS `SpecialSum`
+SELECT `o1`.`Id`, COALESCE((
+    SELECT TOP 1 `o3`.`Price`
+    FROM `OrderItems` AS `o3`
+    WHERE `o1`.`Id` = `o3`.`OrderId` AND `o3`.`Type` = @orderItemType), 0.0) AS `SpecialSum`
 FROM (
     SELECT TOP @p `o`.`Id`
     FROM `Orders` AS `o`
@@ -1880,15 +1901,11 @@ GROUP BY `t`.`Value`
 
         AssertSql(
             """
-SELECT `t`.`Value` AS `A`, IIF(SUM(`t`.`Id`) IS NULL, 0, SUM(`t`.`Id`)) AS `B`, IIF((
-        SELECT TOP 1 IIF(SUM(`t`.`Id`) IS NULL, 0, SUM(`t`.`Id`)) + IIF(SUM(`t0`.`Id`) IS NULL, 0, SUM(`t0`.`Id`))
-        FROM `Tables` AS `t0`
-        GROUP BY `t0`.`Value`
-        ORDER BY 1) IS NULL, 0, (
-        SELECT TOP 1 IIF(SUM(`t`.`Id`) IS NULL, 0, SUM(`t`.`Id`)) + IIF(SUM(`t0`.`Id`) IS NULL, 0, SUM(`t0`.`Id`))
-        FROM `Tables` AS `t0`
-        GROUP BY `t0`.`Value`
-        ORDER BY 1)) AS `C`
+SELECT `t`.`Value` AS `A`, COALESCE(SUM(`t`.`Id`), 0) AS `B`, COALESCE((
+    SELECT TOP 1 COALESCE(SUM(`t`.`Id`), 0) + COALESCE(SUM(`t0`.`Id`), 0)
+    FROM `Tables` AS `t0`
+    GROUP BY `t0`.`Value`
+    ORDER BY 1), 0) AS `C`
 FROM `Tables` AS `t`
 GROUP BY `t`.`Value`
 """);
@@ -1960,7 +1977,7 @@ LEFT JOIN `Child` AS `c` ON `p`.`Id` = `c`.`Id`
 
 SELECT `m`.`Id`, `m`.`SomeDate`
 FROM `MyEntities` AS `m`
-WHERE `m`.`SomeDate` = CDATE(@date)
+WHERE `m`.`SomeDate` = @date
 """,
             //
             """
@@ -1968,7 +1985,7 @@ WHERE `m`.`SomeDate` = CDATE(@date)
 
 SELECT `m`.`Id`, `m`.`SomeDate`
 FROM `MyEntities` AS `m`
-WHERE `dbo`.`ModifyDate`(`m`.`SomeDate`) = CDATE(@date)
+WHERE `dbo`.`ModifyDate`(`m`.`SomeDate`) = @date
 """);
     }
 
@@ -2004,7 +2021,9 @@ SELECT `c`.`Id`, `c`.`CompanyId`, `c0`.`Id` IS NOT NULL, `c0`.`Id`, `c0`.`Compan
 FROM (`Customers` AS `c`
 LEFT JOIN `Companies` AS `c0` ON `c`.`CompanyId` = `c0`.`Id`)
 LEFT JOIN `Countries` AS `c1` ON `c0`.`CountryId` = `c1`.`Id`
-WHERE IIF(`c0`.`Id` IS NOT NULL, `c1`.`CountryName`, NULL) = 'COUNTRY'
+WHERE CASE
+    WHEN `c0`.`Id` IS NOT NULL THEN `c1`.`CountryName`
+END = 'COUNTRY'
 """);
     }
 
@@ -2026,14 +2045,7 @@ SELECT `t`.`Id`, `t`.`Name`
 FROM `TestEntities` AS `t`
 WHERE EXISTS (
     SELECT 1
-    FROM (SELECT CLNG(?) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
-    UNION
-    SELECT ? AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`
-    UNION
-    SELECT ? AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_2`) AS `i`
+    FROM (SELECT CLNG(?) AS `Value` UNION ALL VALUES (?), (?)) AS `i`
     WHERE `i`.`Value` = `t`.`Id`)
 """,
                 //
@@ -2057,14 +2069,7 @@ SELECT `t`.`Id`, `t`.`Name`
 FROM `TestEntities` AS `t`
 WHERE EXISTS (
     SELECT 1
-    FROM (SELECT CLNG(1) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_0`
-    UNION
-    SELECT 2 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_1`
-    UNION
-    SELECT 3 AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `i_2`) AS `i`
+    FROM (SELECT CLNG(1) AS `Value` UNION ALL VALUES (2), (3)) AS `i`
     WHERE `i`.`Value` = `t`.`Id`)
 """,
                 //
@@ -2082,7 +2087,10 @@ WHERE 1 = `t`.`Id`
 
         AssertSql(
             """
-SELECT `d`.`Id`, IIF(IIF(`d`.`Foo` IS NULL, CINT(99), `d`.`Foo`) = CINT(10), 'A', 'B') AS `Foo`
+SELECT `d`.`Id`, CASE
+    WHEN COALESCE(`d`.`Foo`, CINT(99)) = CINT(10) THEN 'A'
+    ELSE 'B'
+END AS `Foo`
 FROM `Data` AS `d`
 ORDER BY `d`.`Id`
 """);
@@ -2400,7 +2408,7 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Total`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, IIF(SUM(CDEC(`r`.`PickupStatusId`)) IS NULL, 0.0, SUM(CDEC(`r`.`PickupStatusId`))) AS `Total`, 1 AS `marker`
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COALESCE(SUM(CDEC(`r`.`PickupStatusId`)), 0.0) AS `Total`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
@@ -2643,7 +2651,9 @@ ORDER BY `s`.`PickupStatusId`, `r`.`Id`
 SELECT `s`.`PickupStatusId`, `r0`.`PickupStatusId`, `r0`.`Count`, `r0`.`marker`
 FROM `Statuses` AS `s`
 LEFT JOIN (
-    SELECT `r`.`PickupStatusId`, COUNT(IIF(`r`.`Priority` > 100, 1, NULL)) AS `Count`, 1 AS `marker`
+    SELECT `r`.`PickupStatusId`, COUNT(CASE
+        WHEN `r`.`Priority` > 100 THEN 1
+    END) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`

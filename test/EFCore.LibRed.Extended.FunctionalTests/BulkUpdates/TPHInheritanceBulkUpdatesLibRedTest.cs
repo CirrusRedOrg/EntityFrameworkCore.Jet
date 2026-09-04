@@ -114,23 +114,16 @@ WHERE `a`.`Id` IN (
 
         AssertSql(
             """
-@p1='3'
 @p='0'
+@p1='3'
 
 DELETE FROM `Animals` AS `a`
 WHERE `a`.`Id` IN (
-    SELECT `a2`.`Id`
-    FROM (
-        SELECT TOP @p1 `a1`.`Id`, `a1`.`Name`
-        FROM (
-            SELECT TOP @p + @p1 `a0`.`Id`, `a0`.`Name`
-            FROM `Animals` AS `a0`
-            WHERE `a0`.`Name` = 'Great spotted kiwi'
-            ORDER BY `a0`.`Name`
-        ) AS `a1`
-        ORDER BY `a1`.`Name` DESC
-    ) AS `a2`
-    ORDER BY `a2`.`Name`
+    SELECT `a0`.`Id`
+    FROM `Animals` AS `a0`
+    WHERE `a0`.`Name` = 'Great spotted kiwi'
+    ORDER BY `a0`.`Name`
+    OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 )
 """);
     }

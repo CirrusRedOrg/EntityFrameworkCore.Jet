@@ -37,8 +37,6 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
 
         private readonly ITypeMappingSource _typeMappingSource;
         private readonly ISqlGenerationHelper _sqlGenerationHelper;
-        private List<string> _nullNumerics = [];
-        private Stack<Expression> parent = new();
         private CoreTypeMapping? _boolTypeMapping;
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
@@ -55,16 +53,8 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
         }
 
         protected override bool TryGenerateWithoutWrappingSelect(SelectExpression selectExpression)
-        {
-            parent.TryPeek(out var exp);
-            if (exp is InExpression)
-            {
-                return false;
-            }
-            return base.TryGenerateWithoutWrappingSelect(selectExpression);
-        }
-
-        
+            => selectExpression.Tables is not [ValuesExpression]
+               && base.TryGenerateWithoutWrappingSelect(selectExpression);
 
         private void VisitJetTables(IReadOnlyList<TableExpressionBase> tables, bool addFromSql, out List<ColumnExpression> colexp)
         {
@@ -314,49 +304,6 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
             return result;
         }
 
-        protected override Expression VisitProjection(ProjectionExpression projectionExpression)
-        {
-            if (projectionExpression.Expression is SqlConstantExpression { Value: null } constantExpression && (constantExpression.Type == typeof(int) || constantExpression.Type == typeof(double) || constantExpression.Type == typeof(float) || constantExpression.Type == typeof(decimal) || constantExpression.Type == typeof(short)))
-            {
-                _nullNumerics.Add(projectionExpression.Alias);
-            }
-            parent.Push(projectionExpression);
-            var result = base.VisitProjection(projectionExpression);
-            parent.Pop();
-            return result;
-        }
-
-        protected override Expression VisitColumn(ColumnExpression columnExpression)
-        {
-            if (columnExpression.IsNullable && _nullNumerics.Contains(columnExpression.Name) && _convertMappings.TryGetValue(columnExpression.Type.Name, out var function))
-            {
-
-                bool useValCStrCol = false;//columnExpression.Type.Name is nameof(Decimal) or nameof(Int64);
-                if (parent.TryPeek(out var exp) && exp is SqlBinaryExpression)
-                {
-                    Sql.Append("IIF(");
-                    base.VisitColumn(columnExpression);
-                    Sql.Append(" IS NULL, NULL, ");
-                    if (useValCStrCol)
-                    {
-                        Sql.Append("Val(CStr(");
-                        base.VisitColumn(columnExpression);
-                        Sql.Append("))");
-                    }
-                    else
-                    {
-                        Sql.Append(function);
-                        Sql.Append("(");
-                        base.VisitColumn(columnExpression);
-                        Sql.Append(")");
-                    }
-                    Sql.Append(")");
-                    return columnExpression;
-                }
-            }
-            return base.VisitColumn(columnExpression);
-        }
-
         private void GenerateList<T>(
             IReadOnlyList<T> items,
             Action<T> generationAction,
@@ -447,17 +394,13 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
 
                 Sql.Append(", ");
 
-                parent.Push(sqlBinaryExpression);
                 base.VisitSqlBinary(sqlBinaryExpression);
-                parent.Pop();
 
                 Sql.Append(", NULL)");
                 return sqlBinaryExpression;
             }
 
-            parent.Push(sqlBinaryExpression);
             var res = base.VisitSqlBinary(sqlBinaryExpression);
-            parent.Pop();
             return res;
         }
 
@@ -506,16 +449,9 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
             }
         }
 
-        protected override void GenerateIn(InExpression inExpression, bool negated)
-        {
-            parent.Push(inExpression);
-            base.GenerateIn(inExpression, negated);
-            parent.Pop();
-        }
-
         protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
         {
-            if (sqlConstantExpression.TypeMapping == RelationalTypeMapping.NullMapping && sqlConstantExpression.Value is DateTime)
+            /*if (sqlConstantExpression.TypeMapping == RelationalTypeMapping.NullMapping && sqlConstantExpression.Value is DateTime)
             {
                 sqlConstantExpression = (SqlConstantExpression)sqlConstantExpression.ApplyTypeMapping(
                     (RelationalTypeMapping?)_typeMappingSource.FindMapping(typeof(DateTime)));
@@ -528,7 +464,7 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
                 Sql.Append(sqlConstantExpression.TypeMapping!.GenerateSqlLiteral(sqlConstantExpression.Value));
                 Sql.Append(")");
                 return sqlConstantExpression;
-            }
+            }*/
 
             if (sqlConstantExpression.TypeMapping is BoolTypeMapping
                 && sqlConstantExpression.TypeMapping.GetType() != _boolTypeMapping?.GetType())
@@ -861,9 +797,7 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
                     return sqlFunctionExpression;
                 }
             }
-            parent.Push(sqlFunctionExpression);
             var result = base.VisitSqlFunction(sqlFunctionExpression);
-            parent.Pop();
             return result;
         }
 

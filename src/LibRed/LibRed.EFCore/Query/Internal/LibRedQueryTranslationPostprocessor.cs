@@ -36,7 +36,10 @@ namespace EntityFrameworkCore.LibRed.Query.Internal
 
         public override Expression Process(Expression query)
         {
-            query = _skipTakePostprocessor.Process(query);
+            if (_sqlMode == LibRedSqlMode.Compatible)
+            {
+                query = _skipTakePostprocessor.Process(query);
+            }
             //query = _liftOrderByPostprocessor.Process(query);
             query = base.Process(query);
 

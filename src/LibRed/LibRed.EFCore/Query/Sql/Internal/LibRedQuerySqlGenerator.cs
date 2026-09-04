@@ -497,38 +497,6 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
             return base.VisitColumn(columnExpression);
         }
 
-        protected override Expression VisitJsonScalar(JsonScalarExpression jsonScalarExpression)
-        {
-            var path = jsonScalarExpression.Path;
-            if (path.Count == 0)
-            {
-                Visit(jsonScalarExpression.Json);
-                return jsonScalarExpression;
-            }
-
-            throw new UnreachableException();
-        }
-
-        private bool IsNonComposedSetOperation(SelectExpression selectExpression)
-            => selectExpression.Offset == null
-                && selectExpression.Limit == null
-                && selectExpression is { IsDistinct: false, Predicate: null, Having: null, Orderings.Count: 0, GroupBy.Count: 0, Tables: [SetOperationBase setOperation] }
-                && selectExpression.Projection.Count == setOperation.Source1.Projection.Count
-                && selectExpression.Projection.Select(
-                        (pe, index) => pe.Expression is ColumnExpression column
-                            && string.Equals(column.TableAlias, setOperation.Alias,
-                                StringComparison.OrdinalIgnoreCase)
-                            && string.Equals(
-                                column.Name, setOperation.Source1.Projection[index]
-                                    .Alias, StringComparison.OrdinalIgnoreCase))
-                    .All(e => e);
-
-        protected override void GeneratePseudoFromClause()
-        {
-            Sql.AppendLine()
-                .Append("FROM " + "(SELECT COUNT(*) FROM `" + JetDualTable.Name + "`)");
-        }
-
         private void GenerateList<T>(
             IReadOnlyList<T> items,
             Action<T> generationAction,
@@ -581,75 +549,10 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
             return orderingExpression;
         }
 
-        protected override Expression VisitSqlParameter(SqlParameterExpression sqlParameterExpression)
-        {
-            // Matched on the EF Core base mapping, not on JetDateTimeTypeMapping/JetTimeOnlyTypeMapping: a derived
-            // provider (LibRed) substitutes its own mapping off the same base, and it needs the same coercion. The
-            // CLR-type test in front is what actually narrows this - the mapping test only rules out a DateTime
-            // that some other mapping claimed.
-            if (sqlParameterExpression.Type == typeof(DateTime) && sqlParameterExpression.TypeMapping is DateTimeTypeMapping or NullTypeMapping)
-            {
-                Sql.Append("CDATE(");
-                base.VisitSqlParameter(sqlParameterExpression);
-                Sql.Append(")");
-                return sqlParameterExpression;
-            }
-            if (sqlParameterExpression.Type == typeof(TimeOnly) && sqlParameterExpression.TypeMapping is TimeOnlyTypeMapping)
-            {
-                Sql.Append("TIMEVALUE(");
-                base.VisitSqlParameter(sqlParameterExpression);
-                Sql.Append(")");
-                return sqlParameterExpression;
-            }
-
-
-            //GroupBy_param_Select_Sum_Min_Key_Max_Avg
-            //Subquery has parameter as a projection with alias
-            //Parent query references that alias in the GroupBy and in the outer projection
-            //Query returns a variant object of value NULL instead of the expected type (in this case integer)
-            //Nullable object must have a value
-            //Specifically converting the parameter to its type fixes the problem
-            //This does do it for all cases which changes the SQL
-            //Don't have the required info in this function to detect the specific prerequisites for this problem
-            //TODO: Optimize elsewhere if possible - Expression Visitor?
-            if (parent.TryPeek(out var parentexp))
-            {
-                if (parentexp is ProjectionExpression { Alias: not null })
-                {
-                    if (_convertMappings.TryGetValue(sqlParameterExpression.Type.Name, out var conv))
-                    {
-                        /*if (sqlParameterExpression.Type.Name is nameof(Decimal) or nameof(Int64))
-                        {
-                            Sql.Append("Val(CStr(");
-                            base.VisitSqlParameter(sqlParameterExpression);
-                            Sql.Append("))");
-                        }
-                        else*/
-                        {
-                            Sql.Append($"{conv}(");
-                            base.VisitSqlParameter(sqlParameterExpression);
-                            Sql.Append(")");
-                        }
-                        return sqlParameterExpression;
-                    }
-                }
-            }
-            return base.VisitSqlParameter(sqlParameterExpression);
-        }
-
         protected override Expression VisitSqlBinary(SqlBinaryExpression sqlBinaryExpression)
         {
             Check.NotNull(sqlBinaryExpression, nameof(sqlBinaryExpression));
 
-            if (sqlBinaryExpression.OperatorType == ExpressionType.Coalesce)
-            {
-                SqlConstantExpression nullcons = new(null, typeof(string), RelationalTypeMapping.NullMapping);
-                SqlUnaryExpression isnullexp = new(ExpressionType.Equal, sqlBinaryExpression.Left, typeof(bool), null);
-                List<CaseWhenClause> whenclause = [new CaseWhenClause(isnullexp, sqlBinaryExpression.Right)];
-                CaseExpression caseexp = new(whenclause, sqlBinaryExpression.Left);
-                Visit(caseexp);
-                return sqlBinaryExpression;
-            }
             // String concatenation propagates NULL for EF, but Access's '&' coerces a NULL operand to a
             // zero-length string instead (see GetOperator for why '+', which does propagate, is not usable).
             // Restore the propagation around the concat rather than in it, and only for operands that can
@@ -745,25 +648,6 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
 
         protected override void GenerateIn(InExpression inExpression, bool negated)
         {
-            ///TODO: recheck how this works in net 8
-            /*var valuesConstant = (SqlConstantExpression?)inExpression.Values;
-            if (valuesConstant != null)
-            {
-                var isdt = (IEnumerable<object>)valuesConstant?.Value!;
-                var enumerable = isdt.ToList();
-                if (enumerable.Any())
-                {
-                    var dtf = enumerable.FirstOrDefault();
-                    //Need to use a specific Jet DateTime format - when used in an IN section the mapping isn't automatic so set it up explicitly
-                    if (dtf is DateTime)
-                    {
-                        var newexp = new InExpression(inExpression.Item,
-                            valuesConstant!.ApplyTypeMapping(new JetDateTimeTypeMapping("datetime", _options)),
-                            new JetDateTimeTypeMapping("datetime", _options));
-                        base.GenerateIn(newexp, negated);
-                    }
-                }
-            }*/
             parent.Push(inExpression);
             base.GenerateIn(inExpression, negated);
             parent.Pop();
@@ -999,90 +883,18 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
             }
         }
 
-        private Expression VisitRowValuePrivate(RowValueExpression rowValueExpression, IReadOnlyList<string> columnNames)
-        {
-            var values = rowValueExpression.Values;
-            var count = values.Count;
-            for (var i = 0; i < count; i++)
-            {
-                if (i > 0)
-                {
-                    Sql.Append(", ");
-                }
-
-                Visit(values[i]);
-                Sql.Append(" AS ");
-                Sql.Append(_sqlGenerationHelper.DelimitIdentifier(columnNames[i]));
-            }
-
-            return rowValueExpression;
-        }
-
         /// <summary>
-        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-        ///     any release. You should only use it directly in your code with extreme caution and knowing that
-        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-        /// </summary>
-        protected override Expression VisitValues(ValuesExpression valuesExpression)
-        {
-            base.VisitValues(valuesExpression);
-
-            return valuesExpression;
-        }
-
-        /// <summary>
-        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-        ///     any release. You should only use it directly in your code with extreme caution and knowing that
-        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-        /// </summary>
-        protected override void GenerateValues(ValuesExpression valuesExpression)
-        {
-            if (valuesExpression.RowValues is null || valuesExpression.RowValues.Count == 0)
-            {
-                throw new InvalidOperationException(RelationalStrings.EmptyCollectionNotSupportedAsInlineQueryRoot);
-            }
-
-            var rowValues = valuesExpression.RowValues;
-
-            for (var i = 0; i < rowValues.Count; i++)
-            {
-                Sql.Append("SELECT ");
-
-                VisitRowValuePrivate(valuesExpression.RowValues[i], valuesExpression.ColumnNames);
-                GeneratePseudoFromClause();
-                var alias = valuesExpression.Alias;
-                Sql.Append(" AS ");
-                Sql.Append(_sqlGenerationHelper.DelimitIdentifier(alias + "_" + i));
-                if (i != rowValues.Count - 1)
-                {
-                    Sql.AppendLine();
-                    Sql.AppendLine("UNION");
-                }
-            }
-        }
-
-
         /// <summary>Generates the TOP part of the SELECT statement,</summary>
         /// <param name="selectExpression"> The select expression. </param>
         protected override void GenerateTop(SelectExpression selectExpression)
         {
             Check.NotNull(selectExpression, nameof(selectExpression));
 
-            if (selectExpression.Offset != null)
-            {
-                throw new InvalidOperationException(
-                    "Jet does not support skipping rows. Switch to client evaluation explicitly by inserting a call to either AsEnumerable(), AsAsyncEnumerable(), ToList(), or ToListAsync() if needed.");
-            }
-
-            if (selectExpression.Limit != null)
+            if (selectExpression is { Limit: not null, Offset: null })
             {
                 Sql.Append("TOP ");
-                parent.Push(selectExpression);
                 Visit(selectExpression.Limit);
                 Sql.Append(" ");
-                parent.Pop();
             }
         }
 
@@ -1092,9 +904,25 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
         /// </summary>
         protected override void GenerateLimitOffset(SelectExpression selectExpression)
         {
-            // This has already been applied by GenerateTop().
-        }
+            if (selectExpression.Offset != null)
+            {
+                Sql.AppendLine()
+                    .Append("OFFSET ");
 
+                Visit(selectExpression.Offset);
+
+                Sql.Append(" ROWS");
+
+                if (selectExpression.Limit != null)
+                {
+                    Sql.Append(" FETCH NEXT ");
+
+                    Visit(selectExpression.Limit);
+
+                    Sql.Append(" ROWS ONLY");
+                }
+            }
+        }
         /// <summary>
         ///     This API supports the Entity Framework Core infrastructure and is not intended to be used
         ///     directly from your code. This API may change or be removed in future releases.
@@ -1150,25 +978,6 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
                 Visit(sqlFunctionExpression.Arguments[0]);
                 Sql.Append("^");
                 Visit(sqlFunctionExpression.Arguments[1]);
-                return sqlFunctionExpression;
-            }
-
-            if (sqlFunctionExpression.Name.Equals("COALESCE", StringComparison.OrdinalIgnoreCase) && sqlFunctionExpression.Arguments is
-                {
-                    Count: > 1
-                })
-            {
-                int start = sqlFunctionExpression.Arguments.Count - 1;
-                CaseExpression? lastcaseexp = null;
-                for (int A = start; A >= 1; A--)
-                {
-                    SqlUnaryExpression isnullexp = new(ExpressionType.Equal, sqlFunctionExpression.Arguments[A - 1], typeof(bool), null);
-                    List<CaseWhenClause> whenclause =
-                        [new CaseWhenClause(isnullexp, lastcaseexp ?? sqlFunctionExpression.Arguments[A])];
-                    lastcaseexp = new CaseExpression(whenclause, sqlFunctionExpression.Arguments[A - 1]);
-                }
-
-                Visit(lastcaseexp);
                 return sqlFunctionExpression;
             }
 
@@ -1265,49 +1074,6 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
             parent.Pop();
             return result;
         }
-
-        protected override Expression VisitCase(CaseExpression caseExpression)
-        {
-            using (Sql.Indent())
-            {
-                parent.Push(caseExpression);
-                foreach (var whenClause in caseExpression.WhenClauses)
-                {
-                    Sql.Append("IIF(");
-
-                    if (caseExpression.Operand != null)
-                    {
-                        Visit(caseExpression.Operand);
-                        Sql.Append(" = ");
-                    }
-
-                    Visit(whenClause.Test);
-
-                    Sql.Append(", ");
-
-                    Visit(whenClause.Result);
-
-                    Sql.Append(", ");
-                }
-
-                if (caseExpression.ElseResult != null)
-                {
-                    Visit(caseExpression.ElseResult);
-                }
-                else
-                {
-                    Sql.Append("NULL");
-                }
-
-                Sql.Append(new string(')', caseExpression.WhenClauses.Count));
-                parent.Pop();
-            }
-
-            return caseExpression;
-        }
-
-        protected override Expression VisitRowNumber(RowNumberExpression rowNumberExpression)
-            => throw new UnreachableException();
 
         /// <summary>
         ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to

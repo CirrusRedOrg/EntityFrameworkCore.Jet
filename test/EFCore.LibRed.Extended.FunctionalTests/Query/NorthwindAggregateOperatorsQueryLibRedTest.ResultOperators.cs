@@ -400,18 +400,18 @@ ORDER BY `o`.`OrderID`
 
             AssertSql(
                 """
-    SELECT [o1].[OrderID], [o1].[CustomerID], [o1].[EmployeeID], [o1].[OrderDate]
-    FROM [Customers] AS [c]
-    LEFT JOIN (
-        SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
-        FROM (
-            SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], ROW_NUMBER() OVER(PARTITION BY [o].[CustomerID] ORDER BY [o].[OrderID]) AS [row]
-            FROM [Orders] AS [o]
-            WHERE [o].[OrderID] = -1
-        ) AS [o0]
-        WHERE [o0].[row] <= 1
-    ) AS [o1] ON [c].[CustomerID] = [o1].[CustomerID]
-    """);
+SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN (
+    SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+    FROM (
+        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` = -1
+    ) AS `o0`
+    WHERE `o0`.`row` <= 1
+) AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+""");
         }
 
         public override async Task MinBy_no_data_subquery_value_type(bool async)
@@ -616,18 +616,18 @@ ORDER BY `o`.`OrderID` DESC
 
             AssertSql(
                 """
-    SELECT [o1].[OrderID], [o1].[CustomerID], [o1].[EmployeeID], [o1].[OrderDate]
-    FROM [Customers] AS [c]
-    LEFT JOIN (
-        SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
-        FROM (
-            SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], ROW_NUMBER() OVER(PARTITION BY [o].[CustomerID] ORDER BY [o].[OrderID] DESC) AS [row]
-            FROM [Orders] AS [o]
-            WHERE [o].[OrderID] = -1
-        ) AS [o0]
-        WHERE [o0].[row] <= 1
-    ) AS [o1] ON [c].[CustomerID] = [o1].[CustomerID]
-    """);
+SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN (
+    SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+    FROM (
+        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID` DESC) AS `row`
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` = -1
+    ) AS `o0`
+    WHERE `o0`.`row` <= 1
+) AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+""");
         }
 
         public override async Task MaxBy_no_data_subquery_value_type(bool async)

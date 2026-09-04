@@ -345,19 +345,19 @@ ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [t0].[Date], [t0].[OrderID]
-FROM [Customers] AS [c]
+SELECT `c`.`CustomerID`, `o1`.`Date`, `o1`.`OrderID`
+FROM `Customers` AS `c`
 LEFT JOIN (
-    SELECT [t].[Date], [t].[OrderID], [t].[CustomerID]
+    SELECT `o0`.`Date`, `o0`.`OrderID`, `o0`.`CustomerID`
     FROM (
-        SELECT [o].[OrderDate] AS [Date], [o].[OrderID], [o].[CustomerID], ROW_NUMBER() OVER(PARTITION BY [o].[CustomerID] ORDER BY [o].[OrderID]) AS [row]
-        FROM [Orders] AS [o]
-        WHERE [o].[OrderID] < 10500
-    ) AS [t]
-    WHERE [t].[row] <= 3
-) AS [t0] ON [c].[CustomerID] = [t0].[CustomerID]
-WHERE [c].[CustomerID] LIKE N'A%'
-ORDER BY [c].[CustomerID], [t0].[CustomerID], [t0].[OrderID]
+        SELECT `o`.`OrderDate` AS `Date`, `o`.`OrderID`, `o`.`CustomerID`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
+        FROM `Orders` AS `o`
+        WHERE `o`.`OrderID` < 10500
+    ) AS `o0`
+    WHERE `o0`.`row` <= 3
+) AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'A%'
+ORDER BY `c`.`CustomerID`, `o1`.`CustomerID`, `o1`.`OrderID`
 """);
         }
 
@@ -842,16 +842,16 @@ OFFSET @p ROWS
 
             AssertSql(
                 """
-SELECT [o1].[OrderID], [o1].[CustomerID], [o1].[EmployeeID], [o1].[OrderDate]
-FROM [Customers] AS [c]
+SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+FROM `Customers` AS `c`
 LEFT JOIN (
-    SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+    SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
     FROM (
-        SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], ROW_NUMBER() OVER(PARTITION BY [o].[CustomerID] ORDER BY [o].[OrderID]) AS [row]
-        FROM [Orders] AS [o]
-    ) AS [o0]
-    WHERE [o0].[row] <= 1
-) AS [o1] ON [c].[CustomerID] = [o1].[CustomerID]
+        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
+        FROM `Orders` AS `o`
+    ) AS `o0`
+    WHERE `o0`.`row` <= 1
+) AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
 """);
         }
 
@@ -1036,22 +1036,20 @@ FROM `Customers` AS `c`
             await base.Project_single_element_from_collection_with_OrderBy_over_navigation_Take_and_FirstOrDefault_2(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `t0`.`OrderID`, `t0`.`ProductID`, `t0`.`Discount`, `t0`.`Quantity`, `t0`.`UnitPrice`
-                    FROM `Orders` AS `o`
-                    OUTER APPLY (
-                        SELECT TOP 1 `t`.`OrderID`, `t`.`ProductID`, `t`.`Discount`, `t`.`Quantity`, `t`.`UnitPrice`, `t`.`ProductID0`, `t`.`ProductName`
-                        FROM (
-                            SELECT TOP 1 `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `p`.`ProductID` AS `ProductID0`, `p`.`ProductName`
-                            FROM `Order Details` AS `o0`
-                            INNER JOIN `Products` AS `p` ON `o0`.`ProductID` = `p`.`ProductID`
-                            WHERE `o`.`OrderID` = `o0`.`OrderID`
-                            ORDER BY `p`.`ProductName`
-                        ) AS `t`
-                        ORDER BY `t`.`ProductName`
-                    ) AS `t0`
-                    WHERE `o`.`OrderID` < 10250
-                    """);
+                """
+SELECT `s0`.`OrderID`, `s0`.`ProductID`, `s0`.`Discount`, `s0`.`Quantity`, `s0`.`UnitPrice`
+FROM `Orders` AS `o`
+LEFT JOIN (
+    SELECT `s`.`OrderID`, `s`.`ProductID`, `s`.`Discount`, `s`.`Quantity`, `s`.`UnitPrice`
+    FROM (
+        SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, ROW_NUMBER() OVER(PARTITION BY `o0`.`OrderID` ORDER BY `p`.`ProductName`) AS `row`
+        FROM `Order Details` AS `o0`
+        INNER JOIN `Products` AS `p` ON `o0`.`ProductID` = `p`.`ProductID`
+    ) AS `s`
+    WHERE `s`.`row` <= 1
+) AS `s0` ON `o`.`OrderID` = `s0`.`OrderID`
+WHERE `o`.`OrderID` < 10250
+""");
         }
 
         public override async Task Select_datetime_year_component(bool isAsync)
@@ -1438,16 +1436,16 @@ OUTER APPLY (
 
             AssertSql(
                 """
-SELECT [o1].[OrderID], [o1].[CustomerID], [o1].[EmployeeID], [o1].[OrderDate]
-FROM [Customers] AS [c]
+SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+FROM `Customers` AS `c`
 INNER JOIN (
-    SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
+    SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
     FROM (
-        SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate], ROW_NUMBER() OVER(PARTITION BY [o].[CustomerID] ORDER BY [o].[OrderID]) AS [row]
-        FROM [Orders] AS [o]
-    ) AS [o0]
-    WHERE [o0].[row] <= 3
-) AS [o1] ON [c].[CustomerID] = [o1].[CustomerID]
+        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
+        FROM `Orders` AS `o`
+    ) AS `o0`
+    WHERE `o0`.`row` <= 3
+) AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
 """);
         }
 
@@ -1803,19 +1801,19 @@ FROM `Orders` AS `o`
 
             AssertSql(
                 """
-                    SELECT `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN (
-                        SELECT `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`
-                        FROM (
-                            SELECT `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, ROW_NUMBER() OVER(PARTITION BY `m`.`CompanyName` ORDER BY (SELECT 1)) AS `row`
-                            FROM (
-                                SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region` FROM `Customers` AS `c`
-                            ) AS `m`
-                        ) AS `t`
-                        WHERE `t`.`row` <= 1
-                    ) AS `t0` ON `c`.`CompanyName` = `t0`.`CompanyName`
-                    """);
+SELECT `m1`.`Address`, `m1`.`City`, `m1`.`CompanyName`, `m1`.`ContactName`, `m1`.`ContactTitle`
+FROM `Customers` AS `c`
+LEFT JOIN (
+    SELECT `m0`.`Address`, `m0`.`City`, `m0`.`CompanyName`, `m0`.`ContactName`, `m0`.`ContactTitle`
+    FROM (
+        SELECT `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, ROW_NUMBER() OVER(PARTITION BY `m`.`CompanyName` ORDER BY (SELECT 1)) AS `row`
+        FROM (
+            SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region] FROM [Customers] AS [c]
+        ) AS `m`
+    ) AS `m0`
+    WHERE `m0`.`row` <= 1
+) AS `m1` ON `c`.`CompanyName` = `m1`.`CompanyName`
+""");
         }
 
         public override async Task Reverse_changes_asc_order_to_desc(bool async)
@@ -2238,32 +2236,32 @@ ORDER BY `c0`.`CustomerID`
 
             AssertSql(
                 """
-                    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `t`.`OrderID`, `t`.`ProductID`, `t`.`Discount`, `t`.`Quantity`, `t`.`UnitPrice`, `t`.`ProductID0`, `t`.`Discontinued`, `t`.`ProductName`, `t`.`SupplierID`, `t`.`UnitPrice0`, `t`.`UnitsInStock`, `t0`.`OrderID`, `t0`.`ProductID`, `t0`.`ProductID0`, `t2`.`OrderID`, `t2`.`ProductID`, `t2`.`Discount`, `t2`.`Quantity`, `t2`.`UnitPrice`, `t2`.`ProductID0`, `t2`.`Discontinued`, `t2`.`ProductName`, `t2`.`SupplierID`, `t2`.`UnitPrice0`, `t2`.`UnitsInStock`, `t0`.`Discount`, `t0`.`Quantity`, `t0`.`UnitPrice`, `t0`.`Discontinued`, `t0`.`ProductName`, `t0`.`SupplierID`, `t0`.`UnitPrice0`, `t0`.`UnitsInStock`
-                    FROM `Orders` AS `o`
-                    LEFT JOIN (
-                        SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `p`.`ProductID` AS `ProductID0`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice` AS `UnitPrice0`, `p`.`UnitsInStock`
-                        FROM `Order Details` AS `o0`
-                        INNER JOIN `Products` AS `p` ON `o0`.`ProductID` = `p`.`ProductID`
-                    ) AS `t` ON `o`.`OrderID` = `t`.`OrderID`
-                    LEFT JOIN (
-                        SELECT `t1`.`OrderID`, `t1`.`ProductID`, `t1`.`Discount`, `t1`.`Quantity`, `t1`.`UnitPrice`, `t1`.`ProductID0`, `t1`.`Discontinued`, `t1`.`ProductName`, `t1`.`SupplierID`, `t1`.`UnitPrice0`, `t1`.`UnitsInStock`
-                        FROM (
-                            SELECT `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`, `p0`.`ProductID` AS `ProductID0`, `p0`.`Discontinued`, `p0`.`ProductName`, `p0`.`SupplierID`, `p0`.`UnitPrice` AS `UnitPrice0`, `p0`.`UnitsInStock`, ROW_NUMBER() OVER(PARTITION BY `o1`.`OrderID` ORDER BY `o1`.`OrderID`, `o1`.`ProductID`, `p0`.`ProductID`) AS `row`
-                            FROM `Order Details` AS `o1`
-                            INNER JOIN `Products` AS `p0` ON `o1`.`ProductID` = `p0`.`ProductID`
-                            WHERE `o1`.`UnitPrice` > 10.0
-                        ) AS `t1`
-                        WHERE `t1`.`row` <= 1
-                    ) AS `t0` ON `o`.`OrderID` = `t0`.`OrderID`
-                    LEFT JOIN (
-                        SELECT `o2`.`OrderID`, `o2`.`ProductID`, `o2`.`Discount`, `o2`.`Quantity`, `o2`.`UnitPrice`, `p1`.`ProductID` AS `ProductID0`, `p1`.`Discontinued`, `p1`.`ProductName`, `p1`.`SupplierID`, `p1`.`UnitPrice` AS `UnitPrice0`, `p1`.`UnitsInStock`
-                        FROM `Order Details` AS `o2`
-                        INNER JOIN `Products` AS `p1` ON `o2`.`ProductID` = `p1`.`ProductID`
-                        WHERE `o2`.`UnitPrice` < 10.0
-                    ) AS `t2` ON `o`.`OrderID` = `t2`.`OrderID`
-                    WHERE `o`.`OrderID` < 10350
-                    ORDER BY `o`.`OrderID`, `t`.`OrderID`, `t`.`ProductID`, `t`.`ProductID0`, `t0`.`OrderID`, `t0`.`ProductID`, `t0`.`ProductID0`, `t2`.`OrderID`, `t2`.`ProductID`
-                    """);
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `s`.`OrderID`, `s`.`ProductID`, `s`.`Discount`, `s`.`Quantity`, `s`.`UnitPrice`, `s`.`ProductID0`, `s`.`Discontinued`, `s`.`ProductName`, `s`.`SupplierID`, `s`.`UnitPrice0`, `s`.`UnitsInStock`, `s2`.`OrderID`, `s2`.`ProductID`, `s2`.`Discount`, `s2`.`Quantity`, `s2`.`UnitPrice`, `s2`.`ProductID0`, `s2`.`Discontinued`, `s2`.`ProductName`, `s2`.`SupplierID`, `s2`.`UnitPrice0`, `s2`.`UnitsInStock`, `s1`.`OrderID`, `s1`.`ProductID`, `s1`.`Discount`, `s1`.`Quantity`, `s1`.`UnitPrice`, `s1`.`ProductID0`, `s1`.`Discontinued`, `s1`.`ProductName`, `s1`.`SupplierID`, `s1`.`UnitPrice0`, `s1`.`UnitsInStock`
+FROM `Orders` AS `o`
+LEFT JOIN (
+    SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `p`.`ProductID` AS `ProductID0`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice` AS `UnitPrice0`, `p`.`UnitsInStock`
+    FROM `Order Details` AS `o0`
+    INNER JOIN `Products` AS `p` ON `o0`.`ProductID` = `p`.`ProductID`
+) AS `s` ON `o`.`OrderID` = `s`.`OrderID`
+LEFT JOIN (
+    SELECT `s0`.`OrderID`, `s0`.`ProductID`, `s0`.`Discount`, `s0`.`Quantity`, `s0`.`UnitPrice`, `s0`.`ProductID0`, `s0`.`Discontinued`, `s0`.`ProductName`, `s0`.`SupplierID`, `s0`.`UnitPrice0`, `s0`.`UnitsInStock`
+    FROM (
+        SELECT `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`, `p0`.`ProductID` AS `ProductID0`, `p0`.`Discontinued`, `p0`.`ProductName`, `p0`.`SupplierID`, `p0`.`UnitPrice` AS `UnitPrice0`, `p0`.`UnitsInStock`, ROW_NUMBER() OVER(PARTITION BY `o1`.`OrderID` ORDER BY `o1`.`OrderID`, `o1`.`ProductID`) AS `row`
+        FROM `Order Details` AS `o1`
+        INNER JOIN `Products` AS `p0` ON `o1`.`ProductID` = `p0`.`ProductID`
+        WHERE `o1`.`UnitPrice` > 10.0
+    ) AS `s0`
+    WHERE `s0`.`row` <= 1
+) AS `s1` ON `o`.`OrderID` = `s1`.`OrderID`
+LEFT JOIN (
+    SELECT `o2`.`OrderID`, `o2`.`ProductID`, `o2`.`Discount`, `o2`.`Quantity`, `o2`.`UnitPrice`, `p1`.`ProductID` AS `ProductID0`, `p1`.`Discontinued`, `p1`.`ProductName`, `p1`.`SupplierID`, `p1`.`UnitPrice` AS `UnitPrice0`, `p1`.`UnitsInStock`
+    FROM `Order Details` AS `o2`
+    INNER JOIN `Products` AS `p1` ON `o2`.`ProductID` = `p1`.`ProductID`
+    WHERE `o2`.`UnitPrice` < 10.0
+) AS `s2` ON `o`.`OrderID` = `s2`.`OrderID`
+WHERE `o`.`OrderID` < 10350
+ORDER BY `o`.`OrderID`, `s`.`OrderID`, `s`.`ProductID`, `s2`.`OrderID`, `s2`.`ProductID`
+""");
         }
 
         public override async Task Ternary_in_client_eval_assigns_correct_types(bool async)
@@ -2450,25 +2448,25 @@ ORDER BY `c0`.`City`, `s`.`OrderID`, `s`.`OrderID00`
 
             AssertSql(
                 """
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`, `t`.`OrderID0`, `t`.`ProductID`, `t`.`Discount`, `t`.`Quantity`, `t`.`UnitPrice`, `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`, `o2`.`OrderID`, `o2`.`ProductID`, `o2`.`Discount`, `o2`.`Quantity`, `o2`.`UnitPrice`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN (
-                        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID` AS `OrderID0`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
-                        FROM `Orders` AS `o`
-                        LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-                    ) AS `t` ON `c`.`CustomerID` = `t`.`CustomerID`
-                    LEFT JOIN (
-                        SELECT `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`
-                        FROM (
-                            SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o1`.`CustomerID` ORDER BY `o1`.`OrderDate`) AS `row`
-                            FROM `Orders` AS `o1`
-                        ) AS `t1`
-                        WHERE `t1`.`row` <= 1
-                    ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID`
-                    LEFT JOIN `Order Details` AS `o2` ON `t0`.`OrderID` = `o2`.`OrderID`
-                    WHERE `c`.`CustomerID` LIKE 'F' & '%'
-                    ORDER BY `c`.`CustomerID`, `t`.`OrderID`, `t`.`OrderID0`, `t`.`ProductID`, `t0`.`OrderID`, `o2`.`OrderID`
-                    """);
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `s`.`OrderID0`, `s`.`ProductID`, `s`.`Discount`, `s`.`Quantity`, `s`.`UnitPrice`, `o4`.`OrderID`, `o4`.`CustomerID`, `o4`.`EmployeeID`, `o4`.`OrderDate`, `o2`.`OrderID`, `o2`.`ProductID`, `o2`.`Discount`, `o2`.`Quantity`, `o2`.`UnitPrice`
+FROM `Customers` AS `c`
+LEFT JOIN (
+    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID` AS `OrderID0`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
+    FROM `Orders` AS `o`
+    LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+) AS `s` ON `c`.`CustomerID` = `s`.`CustomerID`
+LEFT JOIN (
+    SELECT `o3`.`OrderID`, `o3`.`CustomerID`, `o3`.`EmployeeID`, `o3`.`OrderDate`
+    FROM (
+        SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o1`.`CustomerID` ORDER BY `o1`.`OrderDate`) AS `row`
+        FROM `Orders` AS `o1`
+    ) AS `o3`
+    WHERE `o3`.`row` <= 1
+) AS `o4` ON `c`.`CustomerID` = `o4`.`CustomerID`
+LEFT JOIN `Order Details` AS `o2` ON `o4`.`OrderID` = `o2`.`OrderID`
+WHERE `c`.`CustomerID` LIKE 'F%'
+ORDER BY `c`.`CustomerID`, `s`.`OrderID`, `s`.`OrderID0`, `s`.`ProductID`, `o2`.`OrderID`, `o2`.`ProductID`
+""");
         }
 
         public override async Task Collection_projection_selecting_outer_element_followed_by_take(bool async)
@@ -2906,23 +2904,23 @@ ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
 
             AssertSql(
                 """
-                    SELECT `t`.`CustomerID`, `t0`.`OrderID`, `o0`.`ProductID`, `o0`.`OrderID`, `t0`.`c`
-                    FROM (
-                        SELECT TOP 1 `c`.`CustomerID`
-                        FROM `Customers` AS `c`
-                        ORDER BY `c`.`CustomerID`
-                    ) AS `t`
-                    LEFT JOIN (
-                        SELECT `t1`.`c`, `t1`.`OrderID`, `t1`.`CustomerID`
-                        FROM (
-                            SELECT 1 AS `c`, `o`.`OrderID`, `o`.`CustomerID`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderDate`) AS `row`
-                            FROM `Orders` AS `o`
-                        ) AS `t1`
-                        WHERE `t1`.`row` <= 1
-                    ) AS `t0` ON `t`.`CustomerID` = `t0`.`CustomerID`
-                    LEFT JOIN `Order Details` AS `o0` ON `t0`.`OrderID` = `o0`.`OrderID`
-                    ORDER BY `t`.`CustomerID`, `t0`.`OrderID`, `o0`.`OrderID`
-                    """);
+SELECT `c0`.`CustomerID`, `o0`.`ProductID`, `o0`.`OrderID`, `o2`.`c`
+FROM (
+    SELECT TOP 1 `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+LEFT JOIN (
+    SELECT `o1`.`c`, `o1`.`OrderID`, `o1`.`CustomerID`
+    FROM (
+        SELECT 1 AS `c`, `o`.`OrderID`, `o`.`CustomerID`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderDate`) AS `row`
+        FROM `Orders` AS `o`
+    ) AS `o1`
+    WHERE `o1`.`row` <= 1
+) AS `o2` ON `c0`.`CustomerID` = `o2`.`CustomerID`
+LEFT JOIN `Order Details` AS `o0` ON `o2`.`OrderID` = `o0`.`OrderID`
+ORDER BY `c0`.`CustomerID`, `o0`.`OrderID`, `o0`.`ProductID`
+""");
         }
 
         public override async Task Using_enumerable_parameter_in_projection(bool async)
@@ -2986,45 +2984,45 @@ ORDER BY `c0`.`CustomerID`, `u`.`OrderID`
                         nameof(Queryable.FirstOrDefault) or
                         nameof(Queryable.Single) or
                         nameof(Queryable.SingleOrDefault) => """
-    SELECT [o].[OrderID], [c1].[City], [c1].[Country], [c1].[ContactName]
-    FROM [Orders] AS [o]
+    SELECT `o`.`OrderID`, `c1`.`City`, `c1`.`Country`, `c1`.`ContactName`
+    FROM `Orders` AS `o`
     LEFT JOIN (
-        SELECT [c0].[City], [c0].[ContactName], [c0].[Country], [c0].[CustomerID0]
+        SELECT `c0`.`City`, `c0`.`ContactName`, `c0`.`Country`, `c0`.`CustomerID0`
         FROM (
-            SELECT [c].[City], [c].[ContactName], [c].[Country], [c].[CustomerID] AS [CustomerID0], ROW_NUMBER() OVER(PARTITION BY [c].[CustomerID] ORDER BY [c].[CustomerID]) AS [row]
-            FROM [Customers] AS [c]
-        ) AS [c0]
-        WHERE [c0].[row] <= 1
-    ) AS [c1] ON [o].[CustomerID] = [c1].[CustomerID0]
-    WHERE [o].[CustomerID] IS NOT NULL
+            SELECT `c`.`City`, `c`.`ContactName`, `c`.`Country`, `c`.`CustomerID` AS `CustomerID0`, ROW_NUMBER() OVER(PARTITION BY `c`.`CustomerID` ORDER BY `c`.`CustomerID`) AS `row`
+            FROM `Customers` AS `c`
+        ) AS `c0`
+        WHERE `c0`.`row` <= 1
+    ) AS `c1` ON `o`.`CustomerID` = `c1`.`CustomerID0`
+    WHERE `o`.`CustomerID` IS NOT NULL
     """,
                     nameof(Queryable.Last) or
                         nameof(Queryable.LastOrDefault) => """
-    SELECT [o].[OrderID], [c1].[City], [c1].[Country], [c1].[ContactName]
-    FROM [Orders] AS [o]
+    SELECT `o`.`OrderID`, `c1`.`City`, `c1`.`Country`, `c1`.`ContactName`
+    FROM `Orders` AS `o`
     LEFT JOIN (
-        SELECT [c0].[City], [c0].[ContactName], [c0].[Country], [c0].[CustomerID0]
+        SELECT `c0`.`City`, `c0`.`ContactName`, `c0`.`Country`, `c0`.`CustomerID0`
         FROM (
-            SELECT [c].[City], [c].[ContactName], [c].[Country], [c].[CustomerID] AS [CustomerID0], ROW_NUMBER() OVER(PARTITION BY [c].[CustomerID] ORDER BY [c].[CustomerID] DESC) AS [row]
-            FROM [Customers] AS [c]
-        ) AS [c0]
-        WHERE [c0].[row] <= 1
-    ) AS [c1] ON [o].[CustomerID] = [c1].[CustomerID0]
-    WHERE [o].[CustomerID] IS NOT NULL
+            SELECT `c`.`City`, `c`.`ContactName`, `c`.`Country`, `c`.`CustomerID` AS `CustomerID0`, ROW_NUMBER() OVER(PARTITION BY `c`.`CustomerID` ORDER BY `c`.`CustomerID` DESC) AS `row`
+            FROM `Customers` AS `c`
+        ) AS `c0`
+        WHERE `c0`.`row` <= 1
+    ) AS `c1` ON `o`.`CustomerID` = `c1`.`CustomerID0`
+    WHERE `o`.`CustomerID` IS NOT NULL
     """,
                     nameof(Queryable.ElementAt) or
                         nameof(Queryable.ElementAtOrDefault) => """
-    SELECT [o].[OrderID], [c1].[City], [c1].[Country], [c1].[ContactName]
-    FROM [Orders] AS [o]
+    SELECT `o`.`OrderID`, `c1`.`City`, `c1`.`Country`, `c1`.`ContactName`
+    FROM `Orders` AS `o`
     LEFT JOIN (
-        SELECT [c0].[City], [c0].[ContactName], [c0].[Country], [c0].[CustomerID0]
+        SELECT `c0`.`City`, `c0`.`ContactName`, `c0`.`Country`, `c0`.`CustomerID0`
         FROM (
-            SELECT [c].[City], [c].[ContactName], [c].[Country], [c].[CustomerID] AS [CustomerID0], ROW_NUMBER() OVER(PARTITION BY [c].[CustomerID] ORDER BY [c].[CustomerID]) AS [row]
-            FROM [Customers] AS [c]
-        ) AS [c0]
-        WHERE 0 < [c0].[row] AND [c0].[row] <= 1
-    ) AS [c1] ON [o].[CustomerID] = [c1].[CustomerID0]
-    WHERE [o].[CustomerID] IS NOT NULL
+            SELECT `c`.`City`, `c`.`ContactName`, `c`.`Country`, `c`.`CustomerID` AS `CustomerID0`, ROW_NUMBER() OVER(PARTITION BY `c`.`CustomerID` ORDER BY `c`.`CustomerID`) AS `row`
+            FROM `Customers` AS `c`
+        ) AS `c0`
+        WHERE 0 < `c0`.`row` AND `c0`.`row` <= 1
+    ) AS `c1` ON `o`.`CustomerID` = `c1`.`CustomerID0`
+    WHERE `o`.`CustomerID` IS NOT NULL
     """,
                     _ => throw new InvalidOperationException(method)
                 });

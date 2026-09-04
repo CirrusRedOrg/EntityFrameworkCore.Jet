@@ -568,23 +568,23 @@ ORDER BY (
         await base.Whats_new_2021_sample_15(async);
 
         AssertSql(
-"""
-SELECT [t0].[Id], [t0].[Age], [t0].[FirstName], [t0].[LastName], [t0].[MiddleInitial]
+            """
+SELECT `s1`.`Id`, `s1`.`Age`, `s1`.`FirstName`, `s1`.`LastName`, `s1`.`MiddleInitial`
 FROM (
-    SELECT [f].[Id], [f].[Size]
-    FROM [Person] AS [p]
-    LEFT JOIN [Feet] AS [f] ON [p].[Id] = [f].[Id]
-    GROUP BY [f].[Id], [f].[Size]
-) AS [t]
+    SELECT `f`.`Id`, `f`.`Size`
+    FROM `Person` AS `p`
+    LEFT JOIN `Feet` AS `f` ON `p`.`Id` = `f`.`Id`
+    GROUP BY `f`.`Id`, `f`.`Size`
+) AS `s`
 LEFT JOIN (
-    SELECT [t1].[Id], [t1].[Age], [t1].[FirstName], [t1].[LastName], [t1].[MiddleInitial], [t1].[Id0], [t1].[Size]
+    SELECT `s0`.`Id`, `s0`.`Age`, `s0`.`FirstName`, `s0`.`LastName`, `s0`.`MiddleInitial`, `s0`.`Id0`, `s0`.`Size`
     FROM (
-        SELECT [p0].[Id], [p0].[Age], [p0].[FirstName], [p0].[LastName], [p0].[MiddleInitial], [f0].[Id] AS [Id0], [f0].[Size], ROW_NUMBER() OVER(PARTITION BY [f0].[Id], [f0].[Size] ORDER BY [p0].[Id] DESC) AS [row]
-        FROM [Person] AS [p0]
-        LEFT JOIN [Feet] AS [f0] ON [p0].[Id] = [f0].[Id]
-    ) AS [t1]
-    WHERE [t1].[row] <= 1
-) AS [t0] ON ([t].[Id] = [t0].[Id0] OR (([t].[Id] IS NULL) AND ([t0].[Id0] IS NULL))) AND ([t].[Size] = [t0].[Size] OR (([t].[Size] IS NULL) AND ([t0].[Size] IS NULL)))
+        SELECT `p0`.`Id`, `p0`.`Age`, `p0`.`FirstName`, `p0`.`LastName`, `p0`.`MiddleInitial`, `f0`.`Id` AS `Id0`, `f0`.`Size`, ROW_NUMBER() OVER(PARTITION BY `f0`.`Id`, `f0`.`Size` ORDER BY `p0`.`Id` DESC) AS `row`
+        FROM `Person` AS `p0`
+        LEFT JOIN `Feet` AS `f0` ON `p0`.`Id` = `f0`.`Id`
+    ) AS `s0`
+    WHERE `s0`.`row` <= 1
+) AS `s1` ON (`s`.`Id` = `s1`.`Id0` OR (`s`.`Id` IS NULL AND `s1`.`Id0` IS NULL)) AND (`s`.`Size` = `s1`.`Size` OR (`s`.`Size` IS NULL AND `s1`.`Size` IS NULL))
 """);
     }
 
@@ -716,23 +716,23 @@ INNER JOIN (
         await base.Whats_new_2021_sample_2(async);
 
         AssertSql(
-"""
-SELECT [t0].[FirstName], [t0].[FullName], [t0].[c]
+            """
+SELECT `p3`.`FirstName`, `p3`.`FullName`, `p3`.`c`
 FROM (
-    SELECT TOP(1) [p].[FirstName]
-    FROM [Person] AS [p]
-    GROUP BY [p].[FirstName]
-    ORDER BY [p].[FirstName]
-) AS [t]
+    SELECT TOP 1 `p`.`FirstName`
+    FROM `Person` AS `p`
+    GROUP BY `p`.`FirstName`
+    ORDER BY `p`.`FirstName`
+) AS `p1`
 LEFT JOIN (
-    SELECT [t1].[FirstName], [t1].[FullName], [t1].[c]
+    SELECT `p2`.`FirstName`, `p2`.`FullName`, `p2`.`c`
     FROM (
-        SELECT [p0].[FirstName], (((COALESCE([p0].[FirstName], N'') + N' ') + COALESCE([p0].[MiddleInitial], N'')) + N' ') + COALESCE([p0].[LastName], N'') AS [FullName], 1 AS [c], ROW_NUMBER() OVER(PARTITION BY [p0].[FirstName] ORDER BY [p0].[Id]) AS [row]
-        FROM [Person] AS [p0]
-    ) AS [t1]
-    WHERE [t1].[row] <= 1
-) AS [t0] ON [t].[FirstName] = [t0].[FirstName]
-ORDER BY [t].[FirstName]
+        SELECT `p0`.`FirstName`, (((COALESCE(`p0`.`FirstName`, '') & ' ') & COALESCE(`p0`.`MiddleInitial`, '')) & ' ') & COALESCE(`p0`.`LastName`, '') AS `FullName`, 1 AS `c`, ROW_NUMBER() OVER(PARTITION BY `p0`.`FirstName` ORDER BY `p0`.`Id`) AS `row`
+        FROM `Person` AS `p0`
+    ) AS `p2`
+    WHERE `p2`.`row` <= 1
+) AS `p3` ON `p1`.`FirstName` = `p3`.`FirstName`
+ORDER BY `p1`.`FirstName`
 """);
     }
 
@@ -741,23 +741,23 @@ ORDER BY [t].[FirstName]
         await base.Whats_new_2021_sample_1(async);
 
         AssertSql(
-"""
-SELECT [t0].[Id], [t0].[Age], [t0].[FirstName], [t0].[LastName], [t0].[MiddleInitial], [t].[FirstName], [s].[Id], [s].[Age], [s].[PersonId], [s].[Style]
+            """
+SELECT `p3`.`Id`, `p3`.`Age`, `p3`.`FirstName`, `p3`.`LastName`, `p3`.`MiddleInitial`, `p1`.`FirstName`, `s`.`Id`, `s`.`Age`, `s`.`PersonId`, `s`.`Style`
 FROM (
-    SELECT [p].[FirstName]
-    FROM [Person] AS [p]
-    GROUP BY [p].[FirstName]
-) AS [t]
+    SELECT `p`.`FirstName`
+    FROM `Person` AS `p`
+    GROUP BY `p`.`FirstName`
+) AS `p1`
 LEFT JOIN (
-    SELECT [t1].[Id], [t1].[Age], [t1].[FirstName], [t1].[LastName], [t1].[MiddleInitial]
+    SELECT `p2`.`Id`, `p2`.`Age`, `p2`.`FirstName`, `p2`.`LastName`, `p2`.`MiddleInitial`
     FROM (
-        SELECT [p0].[Id], [p0].[Age], [p0].[FirstName], [p0].[LastName], [p0].[MiddleInitial], ROW_NUMBER() OVER(PARTITION BY [p0].[FirstName] ORDER BY [p0].[FirstName], [p0].[LastName]) AS [row]
-        FROM [Person] AS [p0]
-    ) AS [t1]
-    WHERE [t1].[row] <= 1
-) AS [t0] ON [t].[FirstName] = [t0].[FirstName]
-LEFT JOIN [Shoes] AS [s] ON [t0].[Id] = [s].[PersonId]
-ORDER BY [t].[FirstName], [t0].[Id]
+        SELECT `p0`.`Id`, `p0`.`Age`, `p0`.`FirstName`, `p0`.`LastName`, `p0`.`MiddleInitial`, ROW_NUMBER() OVER(PARTITION BY `p0`.`FirstName` ORDER BY `p0`.`FirstName`, `p0`.`LastName`) AS `row`
+        FROM `Person` AS `p0`
+    ) AS `p2`
+    WHERE `p2`.`row` <= 1
+) AS `p3` ON `p1`.`FirstName` = `p3`.`FirstName`
+LEFT JOIN `Shoes` AS `s` ON `p3`.`Id` = `s`.`PersonId`
+ORDER BY `p1`.`FirstName`, `s`.`Id`
 """);
     }
 
@@ -882,30 +882,30 @@ GROUP BY `p`.`Category`
         await base.Whats_new_2021_sample_11(async);
 
         AssertSql(
-"""
-SELECT [t].[LastName], [t].[c], [t0].[Id], [t2].[Id], [t2].[Age], [t2].[FirstName], [t2].[LastName], [t2].[MiddleInitial], [t0].[Age], [t0].[FirstName], [t0].[LastName], [t0].[MiddleInitial]
+            """
+SELECT `p2`.`LastName`, `p2`.`c`, `p6`.`Id`, `p6`.`Age`, `p6`.`FirstName`, `p6`.`LastName`, `p6`.`MiddleInitial`, `p4`.`Id`, `p4`.`Age`, `p4`.`FirstName`, `p4`.`LastName`, `p4`.`MiddleInitial`
 FROM (
-    SELECT [p].[LastName], COUNT(*) AS [c]
-    FROM [Person] AS [p]
-    GROUP BY [p].[LastName]
-) AS [t]
+    SELECT `p`.`LastName`, COUNT(*) AS `c`
+    FROM `Person` AS `p`
+    GROUP BY `p`.`LastName`
+) AS `p2`
 LEFT JOIN (
-    SELECT [t1].[Id], [t1].[Age], [t1].[FirstName], [t1].[LastName], [t1].[MiddleInitial]
+    SELECT `p3`.`Id`, `p3`.`Age`, `p3`.`FirstName`, `p3`.`LastName`, `p3`.`MiddleInitial`
     FROM (
-        SELECT [p0].[Id], [p0].[Age], [p0].[FirstName], [p0].[LastName], [p0].[MiddleInitial], ROW_NUMBER() OVER(PARTITION BY [p0].[LastName] ORDER BY [p0].[Id]) AS [row]
-        FROM [Person] AS [p0]
-    ) AS [t1]
-    WHERE [t1].[row] <= 1
-) AS [t0] ON [t].[LastName] = [t0].[LastName]
+        SELECT `p0`.`Id`, `p0`.`Age`, `p0`.`FirstName`, `p0`.`LastName`, `p0`.`MiddleInitial`, ROW_NUMBER() OVER(PARTITION BY `p0`.`LastName` ORDER BY `p0`.`Id`) AS `row`
+        FROM `Person` AS `p0`
+    ) AS `p3`
+    WHERE `p3`.`row` <= 1
+) AS `p4` ON `p2`.`LastName` = `p4`.`LastName`
 LEFT JOIN (
-    SELECT [t3].[Id], [t3].[Age], [t3].[FirstName], [t3].[LastName], [t3].[MiddleInitial]
+    SELECT `p5`.`Id`, `p5`.`Age`, `p5`.`FirstName`, `p5`.`LastName`, `p5`.`MiddleInitial`
     FROM (
-        SELECT [p1].[Id], [p1].[Age], [p1].[FirstName], [p1].[LastName], [p1].[MiddleInitial], ROW_NUMBER() OVER(PARTITION BY [p1].[LastName] ORDER BY [p1].[Id]) AS [row]
-        FROM [Person] AS [p1]
-    ) AS [t3]
-    WHERE [t3].[row] <= 2
-) AS [t2] ON [t].[LastName] = [t2].[LastName]
-ORDER BY [t].[LastName] DESC, [t0].[Id], [t2].[LastName], [t2].[Id]
+        SELECT `p1`.`Id`, `p1`.`Age`, `p1`.`FirstName`, `p1`.`LastName`, `p1`.`MiddleInitial`, ROW_NUMBER() OVER(PARTITION BY `p1`.`LastName` ORDER BY `p1`.`Id`) AS `row`
+        FROM `Person` AS `p1`
+    ) AS `p5`
+    WHERE `p5`.`row` <= 2
+) AS `p6` ON `p2`.`LastName` = `p6`.`LastName`
+ORDER BY `p2`.`LastName` DESC, `p6`.`LastName`, `p6`.`Id`
 """);
     }
 

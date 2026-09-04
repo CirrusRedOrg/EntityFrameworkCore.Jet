@@ -1940,18 +1940,18 @@ WHERE EXISTS (
 
         AssertSql(
             """
-SELECT [c1].[SomeNullableDateTime]
-FROM [Parents] AS [p]
+SELECT `c1`.`SomeNullableDateTime`
+FROM `Parents` AS `p`
 INNER JOIN (
-    SELECT [c0].[ParentId], [c0].[SomeNullableDateTime], [c0].[SomeOtherNullableDateTime]
+    SELECT `c0`.`ParentId`, `c0`.`SomeNullableDateTime`, `c0`.`SomeOtherNullableDateTime`
     FROM (
-        SELECT [c].[ParentId], [c].[SomeNullableDateTime], [c].[SomeOtherNullableDateTime], ROW_NUMBER() OVER(PARTITION BY [c].[ParentId] ORDER BY [c].[SomeInteger]) AS [row]
-        FROM [Child] AS [c]
-        WHERE [c].[SomeNullableDateTime] IS NULL
-    ) AS [c0]
-    WHERE [c0].[row] <= 1
-) AS [c1] ON [p].[Id] = [c1].[ParentId]
-WHERE [c1].[SomeOtherNullableDateTime] IS NOT NULL
+        SELECT `c`.`ParentId`, `c`.`SomeNullableDateTime`, `c`.`SomeOtherNullableDateTime`, ROW_NUMBER() OVER(PARTITION BY `c`.`ParentId` ORDER BY `c`.`SomeInteger`) AS `row`
+        FROM `Child` AS `c`
+        WHERE `c`.`SomeNullableDateTime` IS NULL
+    ) AS `c0`
+    WHERE `c0`.`row` <= 1
+) AS `c1` ON `p`.`Id` = `c1`.`ParentId`
+WHERE `c1`.`SomeOtherNullableDateTime` IS NOT NULL
 """);
     }
 
@@ -2684,31 +2684,31 @@ ORDER BY `s`.`PickupStatusId`
 
         AssertSql(
             """
-SELECT [s1].[PickupStatusId], [s3].[pickupStatusId], [s3].[Count], [s3].[marker], [s3].[c]
+SELECT `s1`.`PickupStatusId`, `s3`.`pickupStatusId`, `s3`.`Count`, `s3`.`marker`, `s3`.`c`
 FROM (
-    SELECT [s].[PickupStatusId]
-    FROM [Statuses] AS [s]
+    SELECT `s`.`PickupStatusId`
+    FROM `Statuses` AS `s`
     LEFT JOIN (
-        SELECT [r].[PickupStatusId] AS [pickupStatusId]
-        FROM [Requests] AS [r]
-        GROUP BY [r].[PickupStatusId]
-    ) AS [r0] ON [s].[PickupStatusId] = [r0].[pickupStatusId]
-    GROUP BY [s].[PickupStatusId]
-) AS [s1]
+        SELECT `r`.`PickupStatusId` AS `pickupStatusId`
+        FROM `Requests` AS `r`
+        GROUP BY `r`.`PickupStatusId`
+    ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+    GROUP BY `s`.`PickupStatusId`
+) AS `s1`
 LEFT JOIN (
-    SELECT [s2].[pickupStatusId], [s2].[Count], [s2].[marker], [s2].[c], [s2].[PickupStatusId0]
+    SELECT `s2`.`pickupStatusId`, `s2`.`Count`, `s2`.`marker`, `s2`.`c`, `s2`.`PickupStatusId0`
     FROM (
-        SELECT [r1].[pickupStatusId], [r1].[Count], [r1].[marker], 1 AS [c], [s0].[PickupStatusId] AS [PickupStatusId0], ROW_NUMBER() OVER(PARTITION BY [s0].[PickupStatusId] ORDER BY [s0].[PickupStatusId], [r1].[pickupStatusId]) AS [row]
-        FROM [Statuses] AS [s0]
+        SELECT `r1`.`pickupStatusId`, `r1`.`Count`, `r1`.`marker`, 1 AS `c`, `s0`.`PickupStatusId` AS `PickupStatusId0`, ROW_NUMBER() OVER(PARTITION BY `s0`.`PickupStatusId` ORDER BY `s0`.`PickupStatusId`, `r1`.`pickupStatusId`) AS `row`
+        FROM `Statuses` AS `s0`
         LEFT JOIN (
-            SELECT [r2].[PickupStatusId] AS [pickupStatusId], COUNT(*) AS [Count], 1 AS [marker]
-            FROM [Requests] AS [r2]
-            GROUP BY [r2].[PickupStatusId]
-        ) AS [r1] ON [s0].[PickupStatusId] = [r1].[pickupStatusId]
-    ) AS [s2]
-    WHERE [s2].[row] <= 1
-) AS [s3] ON [s1].[PickupStatusId] = [s3].[PickupStatusId0]
-ORDER BY [s1].[PickupStatusId]
+            SELECT `r2`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
+            FROM `Requests` AS `r2`
+            GROUP BY `r2`.`PickupStatusId`
+        ) AS `r1` ON `s0`.`PickupStatusId` = `r1`.`pickupStatusId`
+    ) AS `s2`
+    WHERE `s2`.`row` <= 1
+) AS `s3` ON `s1`.`PickupStatusId` = `s3`.`PickupStatusId0`
+ORDER BY `s1`.`PickupStatusId`
 """);
     }
 
@@ -2720,31 +2720,31 @@ ORDER BY [s1].[PickupStatusId]
         // client-side-only nesting, so it changes no SQL. This test exists to exercise the nested-node rekey path.
         AssertSql(
             """
-SELECT [s1].[PickupStatusId], [s3].[pickupStatusId], [s3].[Count], [s3].[marker], [s3].[c]
+SELECT `s1`.`PickupStatusId`, `s3`.`pickupStatusId`, `s3`.`Count`, `s3`.`marker`, `s3`.`c`
 FROM (
-    SELECT [s].[PickupStatusId]
-    FROM [Statuses] AS [s]
+    SELECT `s`.`PickupStatusId`
+    FROM `Statuses` AS `s`
     LEFT JOIN (
-        SELECT [r].[PickupStatusId] AS [pickupStatusId]
-        FROM [Requests] AS [r]
-        GROUP BY [r].[PickupStatusId]
-    ) AS [r0] ON [s].[PickupStatusId] = [r0].[pickupStatusId]
-    GROUP BY [s].[PickupStatusId]
-) AS [s1]
+        SELECT `r`.`PickupStatusId` AS `pickupStatusId`
+        FROM `Requests` AS `r`
+        GROUP BY `r`.`PickupStatusId`
+    ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+    GROUP BY `s`.`PickupStatusId`
+) AS `s1`
 LEFT JOIN (
-    SELECT [s2].[pickupStatusId], [s2].[Count], [s2].[marker], [s2].[c], [s2].[PickupStatusId0]
+    SELECT `s2`.`pickupStatusId`, `s2`.`Count`, `s2`.`marker`, `s2`.`c`, `s2`.`PickupStatusId0`
     FROM (
-        SELECT [r1].[pickupStatusId], [r1].[Count], [r1].[marker], 1 AS [c], [s0].[PickupStatusId] AS [PickupStatusId0], ROW_NUMBER() OVER(PARTITION BY [s0].[PickupStatusId] ORDER BY [s0].[PickupStatusId], [r1].[pickupStatusId]) AS [row]
-        FROM [Statuses] AS [s0]
+        SELECT `r1`.`pickupStatusId`, `r1`.`Count`, `r1`.`marker`, 1 AS `c`, `s0`.`PickupStatusId` AS `PickupStatusId0`, ROW_NUMBER() OVER(PARTITION BY `s0`.`PickupStatusId` ORDER BY `s0`.`PickupStatusId`, `r1`.`pickupStatusId`) AS `row`
+        FROM `Statuses` AS `s0`
         LEFT JOIN (
-            SELECT [r2].[PickupStatusId] AS [pickupStatusId], COUNT(*) AS [Count], 1 AS [marker]
-            FROM [Requests] AS [r2]
-            GROUP BY [r2].[PickupStatusId]
-        ) AS [r1] ON [s0].[PickupStatusId] = [r1].[pickupStatusId]
-    ) AS [s2]
-    WHERE [s2].[row] <= 1
-) AS [s3] ON [s1].[PickupStatusId] = [s3].[PickupStatusId0]
-ORDER BY [s1].[PickupStatusId]
+            SELECT `r2`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
+            FROM `Requests` AS `r2`
+            GROUP BY `r2`.`PickupStatusId`
+        ) AS `r1` ON `s0`.`PickupStatusId` = `r1`.`pickupStatusId`
+    ) AS `s2`
+    WHERE `s2`.`row` <= 1
+) AS `s3` ON `s1`.`PickupStatusId` = `s3`.`PickupStatusId0`
+ORDER BY `s1`.`PickupStatusId`
 """);
     }
 
@@ -2754,31 +2754,31 @@ ORDER BY [s1].[PickupStatusId]
 
         AssertSql(
             """
-SELECT [s1].[PickupStatusId], [s3].[PickupStatusId], [s3].[Count], [s3].[marker], [s3].[c]
+SELECT `s1`.`PickupStatusId`, `s3`.`PickupStatusId`, `s3`.`Count`, `s3`.`marker`, `s3`.`c`
 FROM (
-    SELECT [s].[PickupStatusId]
-    FROM [Statuses] AS [s]
+    SELECT `s`.`PickupStatusId`
+    FROM `Statuses` AS `s`
     LEFT JOIN (
-        SELECT [r].[PickupStatusId]
-        FROM [Requests] AS [r]
-        GROUP BY [r].[PickupStatusId]
-    ) AS [r0] ON [s].[PickupStatusId] = [r0].[PickupStatusId]
-    GROUP BY [s].[PickupStatusId]
-) AS [s1]
+        SELECT `r`.`PickupStatusId`
+        FROM `Requests` AS `r`
+        GROUP BY `r`.`PickupStatusId`
+    ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
+    GROUP BY `s`.`PickupStatusId`
+) AS `s1`
 LEFT JOIN (
-    SELECT [s2].[PickupStatusId], [s2].[Count], [s2].[marker], [s2].[c], [s2].[PickupStatusId0]
+    SELECT `s2`.`PickupStatusId`, `s2`.`Count`, `s2`.`marker`, `s2`.`c`, `s2`.`PickupStatusId0`
     FROM (
-        SELECT [r1].[PickupStatusId], [r1].[Count], [r1].[marker], 1 AS [c], [s0].[PickupStatusId] AS [PickupStatusId0], ROW_NUMBER() OVER(PARTITION BY [s0].[PickupStatusId] ORDER BY [s0].[PickupStatusId], [r1].[PickupStatusId]) AS [row]
-        FROM [Statuses] AS [s0]
+        SELECT `r1`.`PickupStatusId`, `r1`.`Count`, `r1`.`marker`, 1 AS `c`, `s0`.`PickupStatusId` AS `PickupStatusId0`, ROW_NUMBER() OVER(PARTITION BY `s0`.`PickupStatusId` ORDER BY `s0`.`PickupStatusId`, `r1`.`PickupStatusId`) AS `row`
+        FROM `Statuses` AS `s0`
         LEFT JOIN (
-            SELECT [r2].[PickupStatusId], COUNT(*) AS [Count], 1 AS [marker]
-            FROM [Requests] AS [r2]
-            GROUP BY [r2].[PickupStatusId]
-        ) AS [r1] ON [s0].[PickupStatusId] = [r1].[PickupStatusId]
-    ) AS [s2]
-    WHERE [s2].[row] <= 1
-) AS [s3] ON [s1].[PickupStatusId] = [s3].[PickupStatusId0]
-ORDER BY [s1].[PickupStatusId]
+            SELECT `r2`.`PickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
+            FROM `Requests` AS `r2`
+            GROUP BY `r2`.`PickupStatusId`
+        ) AS `r1` ON `s0`.`PickupStatusId` = `r1`.`PickupStatusId`
+    ) AS `s2`
+    WHERE `s2`.`row` <= 1
+) AS `s3` ON `s1`.`PickupStatusId` = `s3`.`PickupStatusId0`
+ORDER BY `s1`.`PickupStatusId`
 """);
     }
 
@@ -2788,31 +2788,31 @@ ORDER BY [s1].[PickupStatusId]
 
         AssertSql(
             """
-SELECT [s1].[PickupStatusId], [s3].[PickupStatusId], [s3].[Count], [s3].[marker], [s3].[c]
+SELECT `s1`.`PickupStatusId`, `s3`.`PickupStatusId`, `s3`.`Count`, `s3`.`marker`, `s3`.`c`
 FROM (
-    SELECT [s].[PickupStatusId]
-    FROM [Statuses] AS [s]
+    SELECT `s`.`PickupStatusId`
+    FROM `Statuses` AS `s`
     LEFT JOIN (
-        SELECT [r].[PickupStatusId]
-        FROM [Requests] AS [r]
-        GROUP BY [r].[PickupStatusId]
-    ) AS [r0] ON [s].[PickupStatusId] = [r0].[PickupStatusId]
-    GROUP BY [s].[PickupStatusId]
-) AS [s1]
+        SELECT `r`.`PickupStatusId`
+        FROM `Requests` AS `r`
+        GROUP BY `r`.`PickupStatusId`
+    ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
+    GROUP BY `s`.`PickupStatusId`
+) AS `s1`
 LEFT JOIN (
-    SELECT [s2].[PickupStatusId], [s2].[Count], [s2].[marker], [s2].[c], [s2].[PickupStatusId0]
+    SELECT `s2`.`PickupStatusId`, `s2`.`Count`, `s2`.`marker`, `s2`.`c`, `s2`.`PickupStatusId0`
     FROM (
-        SELECT [r1].[PickupStatusId], [r1].[Count], [r1].[marker], 1 AS [c], [s0].[PickupStatusId] AS [PickupStatusId0], ROW_NUMBER() OVER(PARTITION BY [s0].[PickupStatusId] ORDER BY [s0].[PickupStatusId], [r1].[PickupStatusId]) AS [row]
-        FROM [Statuses] AS [s0]
+        SELECT `r1`.`PickupStatusId`, `r1`.`Count`, `r1`.`marker`, 1 AS `c`, `s0`.`PickupStatusId` AS `PickupStatusId0`, ROW_NUMBER() OVER(PARTITION BY `s0`.`PickupStatusId` ORDER BY `s0`.`PickupStatusId`, `r1`.`PickupStatusId`) AS `row`
+        FROM `Statuses` AS `s0`
         LEFT JOIN (
-            SELECT [r2].[PickupStatusId], COUNT(*) AS [Count], 1 AS [marker]
-            FROM [Requests] AS [r2]
-            GROUP BY [r2].[PickupStatusId]
-        ) AS [r1] ON [s0].[PickupStatusId] = [r1].[PickupStatusId]
-    ) AS [s2]
-    WHERE [s2].[row] <= 1
-) AS [s3] ON [s1].[PickupStatusId] = [s3].[PickupStatusId0]
-ORDER BY [s1].[PickupStatusId]
+            SELECT `r2`.`PickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
+            FROM `Requests` AS `r2`
+            GROUP BY `r2`.`PickupStatusId`
+        ) AS `r1` ON `s0`.`PickupStatusId` = `r1`.`PickupStatusId`
+    ) AS `s2`
+    WHERE `s2`.`row` <= 1
+) AS `s3` ON `s1`.`PickupStatusId` = `s3`.`PickupStatusId0`
+ORDER BY `s1`.`PickupStatusId`
 """);
     }
 

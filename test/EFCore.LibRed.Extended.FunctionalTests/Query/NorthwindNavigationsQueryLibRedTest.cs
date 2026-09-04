@@ -70,25 +70,25 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
             await base.Take_Select_Navigation(isAsync);
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='2'")}
-                    
-                    SELECT `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`
-                    FROM (
-                        SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                        FROM `Customers` AS `c`
-                        ORDER BY `c`.`CustomerID`
-                    ) AS `t`
-                    LEFT JOIN (
-                        SELECT `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`
-                        FROM (
-                            SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
-                            FROM `Orders` AS `o`
-                        ) AS `t0`
-                        WHERE `t0`.`row` <= 1
-                    ) AS `t1` ON `t`.`CustomerID` = `t1`.`CustomerID`
-                    ORDER BY `t`.`CustomerID`
-                    """);
+                """
+@p='2'
+
+SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+FROM (
+    SELECT TOP @p `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+LEFT JOIN (
+    SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+    FROM (
+        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
+        FROM `Orders` AS `o`
+    ) AS `o0`
+    WHERE `o0`.`row` <= 1
+) AS `o1` ON `c0`.`CustomerID` = `o1`.`CustomerID`
+ORDER BY `c0`.`CustomerID`
+""");
         }
 
         public override async Task Select_collection_FirstOrDefault_project_single_column1(bool isAsync)
@@ -132,26 +132,26 @@ ORDER BY `c`.`CustomerID`
             await base.Select_collection_FirstOrDefault_project_anonymous_type(isAsync);
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='2'")}
-                    
-                    SELECT `t1`.`CustomerID`, `t1`.`OrderID`, `t1`.`c`
-                    FROM (
-                        SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                        FROM `Customers` AS `c`
-                        WHERE `c`.`CustomerID` LIKE 'F' & '%'
-                        ORDER BY `c`.`CustomerID`
-                    ) AS `t`
-                    LEFT JOIN (
-                        SELECT `t0`.`CustomerID`, `t0`.`OrderID`, `t0`.`c`
-                        FROM (
-                            SELECT `o`.`CustomerID`, `o`.`OrderID`, 1 AS `c`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
-                            FROM `Orders` AS `o`
-                        ) AS `t0`
-                        WHERE `t0`.`row` <= 1
-                    ) AS `t1` ON `t`.`CustomerID` = `t1`.`CustomerID`
-                    ORDER BY `t`.`CustomerID`
-                    """);
+                """
+@p='2'
+
+SELECT `o1`.`CustomerID`, `o1`.`OrderID`, `o1`.`c`
+FROM (
+    SELECT TOP @p `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+LEFT JOIN (
+    SELECT `o0`.`CustomerID`, `o0`.`OrderID`, `o0`.`c`
+    FROM (
+        SELECT `o`.`CustomerID`, `o`.`OrderID`, 1 AS `c`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
+        FROM `Orders` AS `o`
+    ) AS `o0`
+    WHERE `o0`.`row` <= 1
+) AS `o1` ON `c0`.`CustomerID` = `o1`.`CustomerID`
+ORDER BY `c0`.`CustomerID`
+""");
         }
 
         public override async Task Select_collection_FirstOrDefault_project_anonymous_type_client_eval(bool isAsync)
@@ -159,26 +159,26 @@ ORDER BY `c`.`CustomerID`
             await base.Select_collection_FirstOrDefault_project_anonymous_type_client_eval(isAsync);
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='2'")}
-                    
-                    SELECT `t1`.`CustomerID`, `t1`.`OrderID`, `t1`.`c`
-                    FROM (
-                        SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                        FROM `Customers` AS `c`
-                        WHERE `c`.`CustomerID` LIKE 'F' & '%'
-                        ORDER BY `c`.`CustomerID`
-                    ) AS `t`
-                    LEFT JOIN (
-                        SELECT `t0`.`CustomerID`, `t0`.`OrderID`, `t0`.`c`
-                        FROM (
-                            SELECT `o`.`CustomerID`, `o`.`OrderID`, 1 AS `c`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
-                            FROM `Orders` AS `o`
-                        ) AS `t0`
-                        WHERE `t0`.`row` <= 1
-                    ) AS `t1` ON `t`.`CustomerID` = `t1`.`CustomerID`
-                    ORDER BY `t`.`CustomerID`
-                    """);
+                """
+@p='2'
+
+SELECT `o1`.`CustomerID`, `o1`.`OrderID`, `o1`.`c`
+FROM (
+    SELECT TOP @p `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+LEFT JOIN (
+    SELECT `o0`.`CustomerID`, `o0`.`OrderID`, `o0`.`c`
+    FROM (
+        SELECT `o`.`CustomerID`, `o`.`OrderID`, 1 AS `c`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
+        FROM `Orders` AS `o`
+    ) AS `o0`
+    WHERE `o0`.`row` <= 1
+) AS `o1` ON `c0`.`CustomerID` = `o1`.`CustomerID`
+ORDER BY `c0`.`CustomerID`
+""");
         }
 
         public override async Task Select_collection_FirstOrDefault_project_entity(bool isAsync)
@@ -186,25 +186,25 @@ ORDER BY `c`.`CustomerID`
             await base.Select_collection_FirstOrDefault_project_entity(isAsync);
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='2'")}
-                    
-                    SELECT `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`
-                    FROM (
-                        SELECT TOP {AssertSqlHelper.Parameter("@__p_0")} `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                        FROM `Customers` AS `c`
-                        ORDER BY `c`.`CustomerID`
-                    ) AS `t`
-                    LEFT JOIN (
-                        SELECT `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`
-                        FROM (
-                            SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
-                            FROM `Orders` AS `o`
-                        ) AS `t0`
-                        WHERE `t0`.`row` <= 1
-                    ) AS `t1` ON `t`.`CustomerID` = `t1`.`CustomerID`
-                    ORDER BY `t`.`CustomerID`
-                    """);
+                """
+@p='2'
+
+SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+FROM (
+    SELECT TOP @p `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+LEFT JOIN (
+    SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+    FROM (
+        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
+        FROM `Orders` AS `o`
+    ) AS `o0`
+    WHERE `o0`.`row` <= 1
+) AS `o1` ON `c0`.`CustomerID` = `o1`.`CustomerID`
+ORDER BY `c0`.`CustomerID`
+""");
         }
 
         public override async Task Skip_Select_Navigation(bool isAsync)
@@ -212,26 +212,26 @@ ORDER BY `c`.`CustomerID`
             await base.Skip_Select_Navigation(isAsync);
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__p_0='20'")}
-                    
-                    SELECT `t1`.`OrderID`, `t1`.`CustomerID`, `t1`.`EmployeeID`, `t1`.`OrderDate`
-                    FROM (
-                        SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                        FROM `Customers` AS `c`
-                        ORDER BY `c`.`CustomerID`
-                        SKIP {AssertSqlHelper.Parameter("@__p_0")}
-                    ) AS `t`
-                    LEFT JOIN (
-                        SELECT `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`
-                        FROM (
-                            SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
-                            FROM `Orders` AS `o`
-                        ) AS `t0`
-                        WHERE `t0`.`row` <= 1
-                    ) AS `t1` ON `t`.`CustomerID` = `t1`.`CustomerID`
-                    ORDER BY `t`.`CustomerID`
-                    """);
+                """
+@p='20'
+
+SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+FROM (
+    SELECT `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+    OFFSET @p ROWS
+) AS `c0`
+LEFT JOIN (
+    SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+    FROM (
+        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
+        FROM `Orders` AS `o`
+    ) AS `o0`
+    WHERE `o0`.`row` <= 1
+) AS `o1` ON `c0`.`CustomerID` = `o1`.`CustomerID`
+ORDER BY `c0`.`CustomerID`
+""");
         }
 
         public override async Task Select_Where_Navigation_Included(bool isAsync)
@@ -746,19 +746,19 @@ WHERE (
             await base.Collection_select_nav_prop_first_or_default(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN (
-                        SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
-                        FROM (
-                            SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
-                            FROM `Orders` AS `o`
-                        ) AS `t`
-                        WHERE `t`.`row` <= 1
-                    ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID`
-                    ORDER BY `c`.`CustomerID`
-                    """);
+                """
+SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN (
+    SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+    FROM (
+        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
+        FROM `Orders` AS `o`
+    ) AS `o0`
+    WHERE `o0`.`row` <= 1
+) AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Collection_select_nav_prop_first_or_default_then_nav_prop(bool isAsync)
@@ -766,22 +766,33 @@ WHERE (
             await base.Collection_select_nav_prop_first_or_default_then_nav_prop(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN (
-                        SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `t`.`OrderID`, `t`.`CustomerID0`
-                        FROM (
-                            SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `o`.`OrderID`, `o`.`CustomerID` AS `CustomerID0`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
-                            FROM `Orders` AS `o`
-                            LEFT JOIN `Customers` AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
-                            WHERE `o`.`OrderID` IN (10643, 10692, 10702, 10835, 10952, 11011)
-                        ) AS `t`
-                        WHERE `t`.`row` <= 1
-                    ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID0`
-                    WHERE `c`.`CustomerID` LIKE 'A' & '%'
-                    ORDER BY `c`.`CustomerID`
-                    """);
+                """
+@orderIds1='10643'
+@orderIds2='10692'
+@orderIds3='10702'
+@orderIds4='10835'
+@orderIds5='10952'
+@orderIds6='11011'
+@orderIds7='11011'
+@orderIds8='11011'
+@orderIds9='11011'
+@orderIds10='11011'
+
+SELECT `s0`.`CustomerID`, `s0`.`Address`, `s0`.`City`, `s0`.`CompanyName`, `s0`.`ContactName`, `s0`.`ContactTitle`, `s0`.`Country`, `s0`.`Fax`, `s0`.`Phone`, `s0`.`PostalCode`, `s0`.`Region`
+FROM `Customers` AS `c`
+LEFT JOIN (
+    SELECT `s`.`CustomerID`, `s`.`Address`, `s`.`City`, `s`.`CompanyName`, `s`.`ContactName`, `s`.`ContactTitle`, `s`.`Country`, `s`.`Fax`, `s`.`Phone`, `s`.`PostalCode`, `s`.`Region`, `s`.`CustomerID0`
+    FROM (
+        SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `o`.`CustomerID` AS `CustomerID0`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
+        FROM `Orders` AS `o`
+        LEFT JOIN `Customers` AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
+        WHERE `o`.`OrderID` IN (@orderIds1, @orderIds2, @orderIds3, @orderIds4, @orderIds5, @orderIds6, @orderIds7, @orderIds8, @orderIds9, @orderIds10)
+    ) AS `s`
+    WHERE `s`.`row` <= 1
+) AS `s0` ON `c`.`CustomerID` = `s0`.`CustomerID0`
+WHERE `c`.`CustomerID` LIKE 'A%'
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Collection_select_nav_prop_first_or_default_then_nav_prop_nested(bool isAsync)
@@ -956,20 +967,20 @@ WHERE (
             await base.Project_single_entity_value_subquery_works(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `t0`.`OrderID`, `t0`.`CustomerID`, `t0`.`EmployeeID`, `t0`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    LEFT JOIN (
-                        SELECT `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
-                        FROM (
-                            SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
-                            FROM `Orders` AS `o`
-                        ) AS `t`
-                        WHERE `t`.`row` <= 1
-                    ) AS `t0` ON `c`.`CustomerID` = `t0`.`CustomerID`
-                    WHERE `c`.`CustomerID` LIKE 'A' & '%'
-                    ORDER BY `c`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+FROM `Customers` AS `c`
+LEFT JOIN (
+    SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+    FROM (
+        SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, ROW_NUMBER() OVER(PARTITION BY `o`.`CustomerID` ORDER BY `o`.`OrderID`) AS `row`
+        FROM `Orders` AS `o`
+    ) AS `o0`
+    WHERE `o0`.`row` <= 1
+) AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'A%'
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Project_single_scalar_value_subquery_in_query_with_optional_navigation_works(bool isAsync)

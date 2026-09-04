@@ -30,8 +30,8 @@ SELECT CASE
     WHEN `b`.`IsFlightless` THEN CBYTE(0)
     ELSE CBYTE(1)
 END
-FROM (`Animals` AS `a`
-INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+FROM `Animals` AS `a`
+INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 """);
     }
@@ -46,9 +46,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `a`.`Name` = 'Great spotted kiwi'
 ORDER BY `a`.`Species`, `a`.`Id`
@@ -68,9 +68,9 @@ LEFT JOIN (
         WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
         WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
     END AS `Discriminator`
-    FROM ((`Animals` AS `a`
-    LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-    LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+    FROM `Animals` AS `a`
+    LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+    LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
     LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 ) AS `s` ON `c`.`Id` = `s`.`CountryId`
 ORDER BY `c`.`Name`, `c`.`Id`, `s`.`Id`
@@ -86,8 +86,8 @@ ORDER BY `c`.`Name`, `c`.`Id`, `s`.`Id`
 SELECT `s`.`Id`, `s`.`CountryId`, `s`.`Name`, `s`.`Species`, `s`.`EagleId`, `s`.`IsFlightless`, `s`.`Group`, `s0`.`Id`, `s0`.`CountryId`, `s0`.`Name`, `s0`.`Species`, `s0`.`EagleId`, `s0`.`IsFlightless`, `s0`.`Group`, `s0`.`FoundOn`, `s0`.`Discriminator`
 FROM (
     SELECT TOP 2 `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`
-    FROM (`Animals` AS `a`
-    INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+    FROM `Animals` AS `a`
+    INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
     INNER JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 ) AS `s`
 LEFT JOIN (
@@ -95,9 +95,9 @@ LEFT JOIN (
         WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
         WHEN `e0`.`Id` IS NOT NULL THEN 'Eagle'
     END AS `Discriminator`
-    FROM ((`Animals` AS `a0`
-    INNER JOIN `Birds` AS `b0` ON `a0`.`Id` = `b0`.`Id`)
-    LEFT JOIN `Eagle` AS `e0` ON `a0`.`Id` = `e0`.`Id`)
+    FROM `Animals` AS `a0`
+    INNER JOIN `Birds` AS `b0` ON `a0`.`Id` = `b0`.`Id`
+    LEFT JOIN `Eagle` AS `e0` ON `a0`.`Id` = `e0`.`Id`
     LEFT JOIN `Kiwi` AS `k` ON `a0`.`Id` = `k`.`Id`
 ) AS `s0` ON `s`.`Id` = `s0`.`EagleId`
 ORDER BY `s`.`Id`, `s0`.`Id`
@@ -117,9 +117,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 ORDER BY `a`.`Species`, `a`.`Id`
 """);
@@ -135,9 +135,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 ORDER BY `a`.`Species`, `a`.`Id`
 """);
@@ -153,8 +153,8 @@ SELECT `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `r`.`HasThorns`,
     WHEN `r`.`Species` IS NOT NULL THEN 'Rose'
     WHEN `d`.`Species` IS NOT NULL THEN 'Daisy'
 END AS `Discriminator`
-FROM (`Plants` AS `p`
-LEFT JOIN `Daisies` AS `d` ON `p`.`Species` = `d`.`Species`)
+FROM `Plants` AS `p`
+LEFT JOIN `Daisies` AS `d` ON `p`.`Species` = `d`.`Species`
 LEFT JOIN `Roses` AS `r` ON `p`.`Species` = `r`.`Species`
 ORDER BY `p`.`Species`
 """);
@@ -179,10 +179,10 @@ LEFT JOIN `Tea` AS `t` ON `d`.`Id` = `t`.`Id`
         await base.Can_query_just_kiwis(async);
 
         AssertSql(
-"""
+            """
 SELECT TOP 2 `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`
-FROM (`Animals` AS `a`
-INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+FROM `Animals` AS `a`
+INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 """);
     }
@@ -192,10 +192,10 @@ INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
         await base.Can_query_just_roses(async);
 
         AssertSql(
-"""
+            """
 SELECT TOP 2 `p`.`Species`, `p`.`CountryId`, `p`.`Genus`, `p`.`Name`, `r`.`HasThorns`
-FROM (`Plants` AS `p`
-INNER JOIN `Flowers` AS `f` ON `p`.`Species` = `f`.`Species`)
+FROM `Plants` AS `p`
+INNER JOIN `Flowers` AS `f` ON `p`.`Species` = `f`.`Species`
 INNER JOIN `Roses` AS `r` ON `p`.`Species` = `r`.`Species`
 """);
     }
@@ -229,10 +229,10 @@ INNER JOIN `Tea` AS `t` ON `d`.`Id` = `t`.`Id`
         await base.Can_use_backwards_is_animal(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`
-FROM (`Animals` AS `a`
-INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+FROM `Animals` AS `a`
+INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 """);
     }
@@ -242,10 +242,10 @@ INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
         await base.Can_use_backwards_of_type_animal(async);
 
         AssertSql(
-"""
+            """
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`
-FROM (`Animals` AS `a`
-INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+FROM `Animals` AS `a`
+INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 """);
     }
@@ -260,9 +260,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NOT NULL
 """);
@@ -305,9 +305,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NOT NULL AND `a`.`CountryId` = 1
 """);
@@ -323,9 +323,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 ORDER BY `a`.`Species`, `a`.`Id`
 """);
@@ -341,9 +341,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL
 ORDER BY `a`.`Species`, `a`.`Id`
@@ -360,9 +360,9 @@ SELECT TOP 1 `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL
 ORDER BY `a`.`Species`
@@ -379,9 +379,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `a`.`CountryId` = 1 AND (`k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL)
 ORDER BY `a`.`Species`, `a`.`Id`
@@ -393,11 +393,11 @@ ORDER BY `a`.`Species`, `a`.`Id`
         await base.Can_use_of_type_bird_with_projection(async);
 
         AssertSql(
-"""
+            """
 SELECT `b`.`EagleId`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL
 """);
@@ -412,8 +412,8 @@ WHERE `k`.`Id` IS NOT NULL OR `e`.`Id` IS NOT NULL
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`, CASE
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
 END AS `Discriminator`
-FROM (`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NOT NULL
 """);
@@ -428,8 +428,8 @@ WHERE `k`.`Id` IS NOT NULL
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`, CASE
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
 END AS `Discriminator`
-FROM (`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NOT NULL AND `k`.`FoundOn` = CBYTE(0)
 """);
@@ -444,8 +444,8 @@ WHERE `k`.`Id` IS NOT NULL AND `k`.`FoundOn` = CBYTE(0)
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`, CASE
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
 END AS `Discriminator`
-FROM (`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NOT NULL AND `k`.`FoundOn` = CBYTE(1)
 """);
@@ -473,8 +473,8 @@ WHERE `r`.`Species` IS NOT NULL
         AssertSql(
             """
 SELECT `a`.`Name`
-FROM (`Animals` AS `a`
-INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+FROM `Animals` AS `a`
+INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 ORDER BY `a`.`Name`, `a`.`Id`
 """);
@@ -499,20 +499,20 @@ ORDER BY `a`.`Name`, `a`.`Id`
         await base.Setting_foreign_key_to_a_different_type_throws();
 
         AssertSql(
-"""
+            """
 SELECT TOP 2 `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `k`.`FoundOn`
-FROM (`Animals` AS `a`
-INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+FROM `Animals` AS `a`
+INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 """,
-//
-$"""
+            //
+            """
 @p0='0'
 @p1='Bald eagle' (Size = 255)
 @p2='Haliaeetus leucocephalus' (Size = 100)
 
 INSERT INTO `Animals` (`CountryId`, `Name`, `Species`)
-VALUES ({AssertSqlHelper.Parameter("@p0")}, {AssertSqlHelper.Parameter("@p1")}, {AssertSqlHelper.Parameter("@p2")});
+VALUES (@p0, @p1, @p2);
 SELECT `Id`
 FROM `Animals`
 WHERE @@ROWCOUNT = 1 AND `Id` = @@identity;
@@ -533,9 +533,9 @@ FROM (
         WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
         WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
     END AS `Discriminator`
-    FROM ((`Animals` AS `a`
-    INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-    LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+    FROM `Animals` AS `a`
+    INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+    LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
     LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
     ORDER BY `a`.`Species`
 ) AS `s`
@@ -592,9 +592,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE EXISTS (
     SELECT 1
@@ -684,9 +684,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NOT NULL AND `e`.`Id` IS NOT NULL
 """);
@@ -701,9 +701,9 @@ WHERE `k`.`Id` IS NOT NULL AND `e`.`Id` IS NOT NULL
 SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.`IsFlightless`, `e`.`Group`, CASE
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NOT NULL AND `e`.`Id` IS NOT NULL
 """);
@@ -726,9 +726,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE FALSE
 """);
@@ -744,9 +744,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE FALSE
 """);
@@ -762,9 +762,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `e`.`Id` IS NOT NULL
 """);
@@ -780,9 +780,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NOT NULL
 """);
@@ -798,9 +798,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NOT NULL
 """);
@@ -816,9 +816,9 @@ SELECT `a`.`Id`, `a`.`CountryId`, `a`.`Name`, `a`.`Species`, `b`.`EagleId`, `b`.
     WHEN `k`.`Id` IS NOT NULL THEN 'Kiwi'
     WHEN `e`.`Id` IS NOT NULL THEN 'Eagle'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
-LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
+LEFT JOIN `Eagle` AS `e` ON `a`.`Id` = `e`.`Id`
 LEFT JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 WHERE `k`.`Id` IS NULL
 """);

@@ -78,8 +78,8 @@ FROM `Customers` AS `c`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Customers` AS `c`,
-`Orders` AS `o`
+FROM `Customers` AS `c`
+CROSS JOIN `Orders` AS `o`
 WHERE `c`.`CustomerID` = `o`.`CustomerID`
 """);
         }
@@ -91,8 +91,8 @@ WHERE `c`.`CustomerID` = `o`.`CustomerID`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-FROM `Employees` AS `e`,
-`Customers` AS `c`
+FROM `Employees` AS `e`
+CROSS JOIN `Customers` AS `c`
 """);
         }
 
@@ -116,8 +116,8 @@ WHERE `c`.`City` <> 'London' OR `c`.`City` IS NULL
             AssertSql(
                 """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
-FROM (`Orders` AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 ORDER BY `o`.`OrderID`, `o0`.`OrderID`, `o0`.`ProductID`
 """);

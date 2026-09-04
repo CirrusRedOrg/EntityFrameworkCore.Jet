@@ -79,8 +79,8 @@ INNER JOIN (
         SELECT TOP @p `c`.`CustomerID`
         FROM `Customers` AS `c`
         ORDER BY `c`.`CustomerID`
-    ) AS `c1`,
-    `Customers` AS `c0`
+    ) AS `c1`
+    CROSS JOIN `Customers` AS `c0`
 ) AS `s` ON `o`.`CustomerID` = `s`.`CustomerID`
 ORDER BY `s`.`CustomerID`
 """);
@@ -102,8 +102,8 @@ INNER JOIN (
         SELECT TOP @p `c`.`CustomerID`
         FROM `Customers` AS `c`
         ORDER BY `c`.`CustomerID`
-    ) AS `c1`,
-    `Customers` AS `c0`
+    ) AS `c1`
+    CROSS JOIN `Customers` AS `c0`
 ) AS `s` ON `o`.`CustomerID` = `s`.`CustomerID`
 ORDER BY `s`.`CustomerID`
 """);
@@ -441,15 +441,15 @@ LEFT JOIN (
             AssertSql(
                 """
 SELECT `e1`.`EmployeeID`, `e1`.`City`, `e1`.`Country`, `e1`.`FirstName`, `e1`.`ReportsTo`, `e1`.`Title`
-FROM ((
+FROM (
     SELECT 1
 ) AS `e0`
 LEFT JOIN (
     SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
     FROM `Employees` AS `e`
     WHERE `e`.`EmployeeID` = -1
-) AS `e1` ON TRUE)
-LEFT JOIN (
+) AS `e1` ON TRUE
+INNER JOIN (
     SELECT `e4`.`EmployeeID`
     FROM (
         SELECT 1
@@ -460,7 +460,6 @@ LEFT JOIN (
         WHERE `e2`.`EmployeeID` = -1
     ) AS `e4` ON TRUE
 ) AS `s` ON `e1`.`EmployeeID` = `s`.`EmployeeID`
-WHERE `e1`.`EmployeeID` IS NOT NULL AND `s`.`EmployeeID` IS NOT NULL
 """);
         }
 
@@ -967,8 +966,8 @@ FROM (
     SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
     FROM `Employees` AS `e`
     ORDER BY `e`.`EmployeeID`
-) AS `e0`,
-(
+) AS `e0`
+CROSS JOIN (
     SELECT TOP 5 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
@@ -991,13 +990,13 @@ FROM (
     SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
     FROM `Employees` AS `e`
     ORDER BY `e`.`EmployeeID`
-) AS `e0`,
-(
+) AS `e0`
+CROSS JOIN (
     SELECT TOP 5 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
-) AS `o0`,
-(
+) AS `o0`
+CROSS JOIN (
     SELECT TOP 2 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
@@ -1014,8 +1013,8 @@ ORDER BY `e0`.`EmployeeID`, `c0`.`CustomerID`
             AssertSql(
                 """
 SELECT `c`.`ContactName`, `o0`.`OrderID`
-FROM `Customers` AS `c`,
-(
+FROM `Customers` AS `c`
+CROSS JOIN (
     SELECT TOP 3 `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
@@ -1215,8 +1214,8 @@ OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 @p1='5'
 
 SELECT `o`.`OrderID`, `c`.`CustomerID` AS `CustomerIDA`, `c0`.`CustomerID` AS `CustomerIDB`, `c`.`ContactName` AS `ContactNameA`, `c0`.`ContactName` AS `ContactNameB`
-FROM (`Orders` AS `o`
-INNER JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
+FROM `Orders` AS `o`
+INNER JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 INNER JOIN `Customers` AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
 ORDER BY `o`.`OrderID`
 OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
@@ -1761,12 +1760,12 @@ SELECT NOT EXISTS (
             await base.Where_select_many_or(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-                    FROM `Customers` AS `c`,
-                    `Employees` AS `e`
-                    WHERE `c`.`City` = 'London' OR `e`.`City` = 'London'
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Customers` AS `c`
+CROSS JOIN `Employees` AS `e`
+WHERE `c`.`City` = 'London' OR `e`.`City` = 'London'
+""");
         }
 
         public override async Task Where_select_many_or2(bool isAsync)
@@ -1774,12 +1773,12 @@ SELECT NOT EXISTS (
             await base.Where_select_many_or2(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-                    FROM `Customers` AS `c`,
-                    `Employees` AS `e`
-                    WHERE `c`.`City` IN ('London', 'Berlin')
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Customers` AS `c`
+CROSS JOIN `Employees` AS `e`
+WHERE `c`.`City` IN ('London', 'Berlin')
+""");
         }
 
         public override async Task Where_select_many_or3(bool isAsync)
@@ -1787,12 +1786,12 @@ SELECT NOT EXISTS (
             await base.Where_select_many_or3(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-                    FROM `Customers` AS `c`,
-                    `Employees` AS `e`
-                    WHERE `c`.`City` IN ('London', 'Berlin', 'Seattle')
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Customers` AS `c`
+CROSS JOIN `Employees` AS `e`
+WHERE `c`.`City` IN ('London', 'Berlin', 'Seattle')
+""");
         }
 
         public override async Task Where_select_many_or4(bool isAsync)
@@ -1800,12 +1799,12 @@ SELECT NOT EXISTS (
             await base.Where_select_many_or4(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-                    FROM `Customers` AS `c`,
-                    `Employees` AS `e`
-                    WHERE `c`.`City` IN ('London', 'Berlin', 'Seattle', 'Lisboa')
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Customers` AS `c`
+CROSS JOIN `Employees` AS `e`
+WHERE `c`.`City` IN ('London', 'Berlin', 'Seattle', 'Lisboa')
+""");
         }
 
         public override async Task Where_select_many_or_with_parameter(bool isAsync)
@@ -1818,8 +1817,8 @@ SELECT NOT EXISTS (
 @lisboa='Lisboa' (Size = 15)
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-FROM `Customers` AS `c`,
-`Employees` AS `e`
+FROM `Customers` AS `c`
+CROSS JOIN `Employees` AS `e`
 WHERE `c`.`City` = @london OR `c`.`City` = 'Berlin' OR `c`.`City` = 'Seattle' OR `c`.`City` = @lisboa
 """);
         }
@@ -1836,8 +1835,8 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM (
     SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
     FROM `Employees` AS `e`
-) AS `e0`,
-`Customers` AS `c`
+) AS `e0`
+CROSS JOIN `Customers` AS `c`
 """);
         }
 
@@ -1846,11 +1845,11 @@ FROM (
             await base.SelectMany_simple1(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-                    FROM `Employees` AS `e`,
-                    `Customers` AS `c`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+CROSS JOIN `Customers` AS `c`
+""");
         }
 
         public override async Task SelectMany_simple2(bool isAsync)
@@ -1858,12 +1857,12 @@ FROM (
             await base.SelectMany_simple2(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e0`.`FirstName`
-                    FROM `Employees` AS `e`,
-                    `Customers` AS `c`,
-                    `Employees` AS `e0`
-                    """);
+                """
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e0`.`FirstName`
+FROM `Employees` AS `e`
+CROSS JOIN `Customers` AS `c`
+CROSS JOIN `Employees` AS `e0`
+""");
         }
 
         public override async Task SelectMany_entity_deep(bool isAsync)
@@ -1871,13 +1870,13 @@ FROM (
             await base.SelectMany_entity_deep(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`, `e1`.`EmployeeID`, `e1`.`City`, `e1`.`Country`, `e1`.`FirstName`, `e1`.`ReportsTo`, `e1`.`Title`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `e2`.`EmployeeID`, `e2`.`City`, `e2`.`Country`, `e2`.`FirstName`, `e2`.`ReportsTo`, `e2`.`Title`
-                    FROM `Employees` AS `e`,
-                    `Employees` AS `e0`,
-                    `Employees` AS `e1`,
-                    `Employees` AS `e2`
-                    """);
+                """
+SELECT `e0`.`EmployeeID`, `e0`.`City`, `e0`.`Country`, `e0`.`FirstName`, `e0`.`ReportsTo`, `e0`.`Title`, `e1`.`EmployeeID`, `e1`.`City`, `e1`.`Country`, `e1`.`FirstName`, `e1`.`ReportsTo`, `e1`.`Title`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `e2`.`EmployeeID`, `e2`.`City`, `e2`.`Country`, `e2`.`FirstName`, `e2`.`ReportsTo`, `e2`.`Title`
+FROM `Employees` AS `e`
+CROSS JOIN `Employees` AS `e0`
+CROSS JOIN `Employees` AS `e1`
+CROSS JOIN `Employees` AS `e2`
+""");
         }
 
         public override async Task SelectMany_projection1(bool isAsync)
@@ -1885,11 +1884,11 @@ FROM (
             await base.SelectMany_projection1(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `e`.`City`, `e0`.`Country`
-                    FROM `Employees` AS `e`,
-                    `Employees` AS `e0`
-                    """);
+                """
+SELECT `e`.`City`, `e0`.`Country`
+FROM `Employees` AS `e`
+CROSS JOIN `Employees` AS `e0`
+""");
         }
 
         public override async Task SelectMany_projection2(bool isAsync)
@@ -1897,12 +1896,12 @@ FROM (
             await base.SelectMany_projection2(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `e`.`City`, `e0`.`Country`, `e1`.`FirstName`
-                    FROM `Employees` AS `e`,
-                    `Employees` AS `e0`,
-                    `Employees` AS `e1`
-                    """);
+                """
+SELECT `e`.`City`, `e0`.`Country`, `e1`.`FirstName`
+FROM `Employees` AS `e`
+CROSS JOIN `Employees` AS `e0`
+CROSS JOIN `Employees` AS `e1`
+""");
         }
 
         public override async Task SelectMany_Count(bool isAsync)
@@ -1910,11 +1909,11 @@ FROM (
             await base.SelectMany_Count(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT COUNT(*)
-                    FROM `Customers` AS `c`,
-                    `Orders` AS `o`
-                    """);
+                """
+SELECT COUNT(*)
+FROM `Customers` AS `c`
+CROSS JOIN `Orders` AS `o`
+""");
         }
 
         public override async Task SelectMany_LongCount(bool isAsync)
@@ -1922,11 +1921,11 @@ FROM (
             await base.SelectMany_LongCount(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT COUNT(*)
-                    FROM `Customers` AS `c`,
-                    `Orders` AS `o`
-                    """);
+                """
+SELECT COUNT(*)
+FROM `Customers` AS `c`
+CROSS JOIN `Orders` AS `o`
+""");
         }
 
         public override async Task SelectMany_OrderBy_ThenBy_Any(bool isAsync)
@@ -1937,8 +1936,8 @@ FROM (
                 """
 SELECT EXISTS (
     SELECT 1
-    FROM `Customers` AS `c`,
-    `Orders` AS `o`)
+    FROM `Customers` AS `c`
+    CROSS JOIN `Orders` AS `o`)
 """);
         }
 
@@ -2044,10 +2043,10 @@ WHERE `c`.`CustomerID` = 'ALFKI'
                 """
 SELECT EXISTS (
     SELECT 1
-    FROM (`Customers` AS `c`
-    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
-    LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-    WHERE (`c`.`City` = 'London') AND (`o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL))
+    FROM `Customers` AS `c`
+    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+    INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+    WHERE `c`.`City` = 'London')
 """);
         }
 
@@ -2085,10 +2084,10 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM (`Customers` AS `c`
-INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
-LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-WHERE (`c`.`CustomerID` <> 'ALFKI') AND (`o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL)
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+WHERE `c`.`CustomerID` <> 'ALFKI'
 ORDER BY `c`.`CustomerID`, `o0`.`ProductID`
 """);
         }
@@ -2098,12 +2097,12 @@ ORDER BY `c`.`CustomerID`, `o0`.`ProductID`
             await base.Where_select_many(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`,
-                    `Orders` AS `o`
-                    WHERE `c`.`CustomerID` = 'ALFKI'
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+CROSS JOIN `Orders` AS `o`
+WHERE `c`.`CustomerID` = 'ALFKI'
+""");
         }
 
         public override async Task Where_orderby_select_many(bool isAsync)
@@ -2113,8 +2112,8 @@ ORDER BY `c`.`CustomerID`, `o0`.`ProductID`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM `Customers` AS `c`,
-`Orders` AS `o`
+FROM `Customers` AS `c`
+CROSS JOIN `Orders` AS `o`
 WHERE `c`.`CustomerID` = 'ALFKI'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """);
@@ -2127,8 +2126,8 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`City`
-FROM `Customers` AS `c`,
-`Employees` AS `e`
+FROM `Customers` AS `c`
+CROSS JOIN `Employees` AS `e`
 WHERE `c`.`City` = `e`.`City` OR (`c`.`City` IS NULL AND `e`.`City` IS NULL)
 ORDER BY `e`.`City`, `c`.`CustomerID` DESC, `e`.`EmployeeID`
 """);
@@ -2225,8 +2224,8 @@ ORDER BY `c0`.`CustomerID`
 SELECT TOP 2 `s`.`CustomerID`, `s`.`Address`, `s`.`City`, `s`.`CompanyName`, `s`.`ContactName`, `s`.`ContactTitle`, `s`.`Country`, `s`.`Fax`, `s`.`Phone`, `s`.`PostalCode`, `s`.`Region`, `s`.`OrderID`, `s`.`CustomerID0`, `s`.`EmployeeID`, `s`.`OrderDate`
 FROM (
     SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID` AS `CustomerID0`, `o`.`EmployeeID`, `o`.`OrderDate`
-    FROM `Customers` AS `c`,
-    `Orders` AS `o`
+    FROM `Customers` AS `c`
+    CROSS JOIN `Orders` AS `o`
     ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 ) AS `s`
 ORDER BY `s`.`CustomerID`, `s`.`OrderID`
@@ -2834,8 +2833,8 @@ WHERE CINT(5) IN (
             AssertSql(
                 """
 SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-FROM `Customers` AS `c`,
-`Customers` AS `c0`
+FROM `Customers` AS `c`
+CROSS JOIN `Customers` AS `c0`
 """);
         }
 
@@ -3192,13 +3191,13 @@ LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
             await base.Handle_materialization_properly_when_more_than_two_query_sources_are_involved(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM `Customers` AS `c`,
-                    `Orders` AS `o`,
-                    `Employees` AS `e`
-                    ORDER BY `c`.`CustomerID`
-                    """);
+                """
+SELECT TOP 1 `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+CROSS JOIN `Orders` AS `o`
+CROSS JOIN `Employees` AS `e`
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Parameter_extraction_short_circuits_1(bool isAsync)
@@ -3555,8 +3554,8 @@ WHERE `c0`.`CustomerID` IS NOT NULL
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `s`.`OrderID`
-FROM `Customers` AS `c`,
-(
+FROM `Customers` AS `c`
+CROSS JOIN (
     SELECT `o0`.`OrderID`
     FROM (
         SELECT 1
@@ -3577,9 +3576,8 @@ FROM `Customers` AS `c`,
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `s`.`OrderID`, `o1`.`OrderDate`
-FROM (`Customers` AS `c`
-LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`),
-(
+FROM `Customers` AS `c`
+CROSS JOIN (
     SELECT `o0`.`OrderID`
     FROM (
         SELECT 1
@@ -3590,6 +3588,7 @@ LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`),
         WHERE `o`.`OrderID` > 11050
     ) AS `o0` ON TRUE
 ) AS `s`
+LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
 WHERE `c`.`City` = 'Seattle' AND `s`.`OrderID` IS NOT NULL AND `o1`.`OrderID` IS NOT NULL
 ORDER BY `s`.`OrderID`, `o1`.`OrderDate`
 """);
@@ -4648,8 +4647,8 @@ WHERE `c`.`CustomerID` LIKE @prefix_startswith
             AssertSql(
                 """
 SELECT `c`.`CustomerID` AS `Id1`, `c0`.`CustomerID` AS `Id2`
-FROM `Customers` AS `c`,
-`Customers` AS `c0`
+FROM `Customers` AS `c`
+CROSS JOIN `Customers` AS `c0`
 WHERE (`c`.`CustomerID` LIKE 'ALFKI%') AND `c`.`CustomerID` = `c0`.`CustomerID`
 ORDER BY `c`.`CustomerID`, `c0`.`CustomerID`
 """);
@@ -4662,8 +4661,8 @@ ORDER BY `c`.`CustomerID`, `c0`.`CustomerID`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`
-FROM `Customers` AS `c`,
-`Orders` AS `o`
+FROM `Customers` AS `c`
+CROSS JOIN `Orders` AS `o`
 WHERE FALSE
 """);
         }
@@ -4705,13 +4704,13 @@ WHERE FALSE
             AssertSql(
                 """
 SELECT `s`.`OrderID` AS `Id1`, `s`.`OrderID0` AS `Id2`
-FROM ((
+FROM (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o0`.`OrderID` AS `OrderID0`, `o0`.`CustomerID` AS `CustomerID0`
-    FROM `Orders` AS `o`,
-    `Orders` AS `o0`
+    FROM `Orders` AS `o`
+    CROSS JOIN `Orders` AS `o0`
     WHERE `o`.`CustomerID` LIKE 'A%'
 ) AS `s`
-LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Customers` AS `c0` ON `s`.`CustomerID0` = `c0`.`CustomerID`
 WHERE `c`.`CustomerID` = `c0`.`CustomerID` OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL)
 ORDER BY `s`.`OrderID`, `s`.`OrderID0`
@@ -4725,8 +4724,8 @@ ORDER BY `s`.`OrderID`, `s`.`OrderID0`
             AssertSql(
                 """
 SELECT `c`.`CustomerID` AS `Id1`, `o`.`OrderID` AS `Id2`
-FROM `Customers` AS `c`,
-`Orders` AS `o`
+FROM `Customers` AS `c`
+CROSS JOIN `Orders` AS `o`
 WHERE FALSE
 """);
         }
@@ -4738,8 +4737,8 @@ WHERE FALSE
             AssertSql(
                 """
 SELECT `c`.`CustomerID` AS `Id1`, `o`.`OrderID` AS `Id2`
-FROM `Customers` AS `c`,
-`Orders` AS `o`
+FROM `Customers` AS `c`
+CROSS JOIN `Orders` AS `o`
 WHERE FALSE
 """);
         }
@@ -4760,10 +4759,10 @@ WHERE FALSE
             await base.Comparing_collection_navigation_to_null_complex(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`ProductID`, `o`.`OrderID`
-FROM (`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE `o`.`OrderID` < 10250 AND `c`.`CustomerID` IS NOT NULL
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
@@ -4787,12 +4786,12 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
             await base.Compare_two_collection_navigations_with_different_query_sources(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID` AS `Id1`, `c0`.`CustomerID` AS `Id2`
-                    FROM `Customers` AS `c`,
-                    `Customers` AS `c0`
-                    WHERE `c`.`CustomerID` = 'ALFKI' AND `c0`.`CustomerID` = 'ALFKI' AND `c`.`CustomerID` = `c0`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`CustomerID` AS `Id1`, `c0`.`CustomerID` AS `Id2`
+FROM `Customers` AS `c`
+CROSS JOIN `Customers` AS `c0`
+WHERE `c`.`CustomerID` = 'ALFKI' AND `c0`.`CustomerID` = 'ALFKI' AND `c`.`CustomerID` = `c0`.`CustomerID`
+""");
         }
 
         public override async Task Compare_two_collection_navigations_using_equals(bool isAsync)
@@ -4800,12 +4799,12 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
             await base.Compare_two_collection_navigations_using_equals(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID` AS `Id1`, `c0`.`CustomerID` AS `Id2`
-                    FROM `Customers` AS `c`,
-                    `Customers` AS `c0`
-                    WHERE `c`.`CustomerID` = 'ALFKI' AND `c0`.`CustomerID` = 'ALFKI' AND `c`.`CustomerID` = `c0`.`CustomerID`
-                    """);
+                """
+SELECT `c`.`CustomerID` AS `Id1`, `c0`.`CustomerID` AS `Id2`
+FROM `Customers` AS `c`
+CROSS JOIN `Customers` AS `c0`
+WHERE `c`.`CustomerID` = 'ALFKI' AND `c0`.`CustomerID` = 'ALFKI' AND `c`.`CustomerID` = `c0`.`CustomerID`
+""");
         }
 
         public override async Task Compare_two_collection_navigations_with_different_property_chains(bool isAsync)
@@ -5555,10 +5554,10 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
                 //
                 """
 SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `c`.`CustomerID`, `o`.`OrderID`
-FROM (`Customers` AS `c`
-INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
-LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-WHERE (`c`.`CustomerID` LIKE 'F%') AND (`o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL)
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """);
         }
@@ -6025,8 +6024,8 @@ SELECT EXISTS (
 @Any='True'
 
 SELECT @Any
-FROM `Employees` AS `e`,
-`Employees` AS `e0`
+FROM `Employees` AS `e`
+CROSS JOIN `Employees` AS `e0`
 """);
         }
 
@@ -6260,8 +6259,8 @@ WHERE `e`.`FirstName` = @value
             AssertSql(
                 """
 SELECT `c`.`ContactName`, `o`.`OrderID`
-FROM `Customers` AS `c`,
-`Orders` AS `o`
+FROM `Customers` AS `c`
+CROSS JOIN `Orders` AS `o`
 WHERE `c`.`CustomerID` = `o`.`CustomerID`
 """);
         }
@@ -6400,12 +6399,12 @@ WHERE `e`.`Title` = @value
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-FROM (`Customers` AS `c`
+FROM `Customers` AS `c`
 INNER JOIN (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     WHERE `o`.`OrderID` < 10500
-) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`)
+) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A%'
 """);
@@ -6465,8 +6464,8 @@ FROM `Customers` AS `c`
             AssertSql(
                 """
 SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-FROM `Customers` AS `c`,
-`Customers` AS `c0`
+FROM `Customers` AS `c`
+CROSS JOIN `Customers` AS `c0`
 ORDER BY `c0`.`CustomerID`
 """);
         }
@@ -6597,8 +6596,8 @@ ORDER BY [e].[EmployeeID], [t].[EmployeeID], [t].[EmployeeID0]
             AssertSql(
                 """
 SELECT `e0`.`EmployeeID`
-FROM `Employees` AS `e`,
-`Employees` AS `e0`
+FROM `Employees` AS `e`
+CROSS JOIN `Employees` AS `e0`
 """);
         }
 
@@ -6638,14 +6637,14 @@ ORDER BY `c`.`CustomerID`, `c`.`Country`
             AssertSql(
                 """
 SELECT `c0`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM ((
+FROM (
     SELECT 1
 ) AS `e`
 LEFT JOIN (
     SELECT `c`.`CustomerID`
     FROM `Customers` AS `c`
     WHERE `c`.`City` = 'Seattle'
-) AS `c0` ON TRUE)
+) AS `c0` ON TRUE
 LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
 ORDER BY `c0`.`CustomerID`
 """);
@@ -6658,8 +6657,8 @@ ORDER BY `c0`.`CustomerID`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-FROM `Customers` AS `c`,
-`Employees` AS `e`
+FROM `Customers` AS `c`
+CROSS JOIN `Employees` AS `e`
 WHERE `c`.`City` = `e`.`City` OR (`c`.`City` IS NULL AND `e`.`City` IS NULL)
 ORDER BY `c`.`CustomerID`, `e`.`EmployeeID`
 """);

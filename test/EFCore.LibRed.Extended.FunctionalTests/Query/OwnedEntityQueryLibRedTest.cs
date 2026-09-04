@@ -52,8 +52,8 @@ LEFT JOIN (
         AssertSql(
             """
 SELECT TOP 2 `r`.`Id`, `m`.`Id`, `m`.`Enabled`, `m`.`RootId`, `m0`.`Id`, `m0`.`RootId`
-FROM (`Root` AS `r`
-LEFT JOIN `MiddleB` AS `m` ON `r`.`Id` = `m`.`RootId`)
+FROM `Root` AS `r`
+LEFT JOIN `MiddleB` AS `m` ON `r`.`Id` = `m`.`RootId`
 LEFT JOIN `ModdleA` AS `m0` ON `r`.`Id` = `m0`.`RootId`
 WHERE `r`.`Id` = 3
 ORDER BY `r`.`Id`, `m`.`Id`, `m0`.`Id`
@@ -63,8 +63,8 @@ ORDER BY `r`.`Id`, `m`.`Id`, `m0`.`Id`
 SELECT `l0`.`ModdleAId`, `l0`.`UnitThreshold`, `s`.`Id`, `s`.`Id0`, `s`.`Id1`
 FROM (
     SELECT TOP 1 `r`.`Id`, `m`.`Id` AS `Id0`, `m0`.`Id` AS `Id1`
-    FROM (`Root` AS `r`
-    LEFT JOIN `MiddleB` AS `m` ON `r`.`Id` = `m`.`RootId`)
+    FROM `Root` AS `r`
+    LEFT JOIN `MiddleB` AS `m` ON `r`.`Id` = `m`.`RootId`
     LEFT JOIN `ModdleA` AS `m0` ON `r`.`Id` = `m0`.`RootId`
     WHERE `r`.`Id` = 3
     ORDER BY `r`.`Id`, `m`.`Id`, `m0`.`Id`
@@ -127,8 +127,8 @@ ORDER BY `l`.`Id`
 @p='10'
 
 SELECT TOP @p `c`.`Id`, `c`.`Name`, `c0`.`CompanyId`, `c0`.`AdditionalCustomerData`, `c0`.`Id`, `s`.`CompanyId`, `s`.`AdditionalSupplierData`, `s`.`Id`
-FROM (`Companies` AS `c`
-LEFT JOIN `CustomerData` AS `c0` ON `c`.`Id` = `c0`.`CompanyId`)
+FROM `Companies` AS `c`
+LEFT JOIN `CustomerData` AS `c0` ON `c`.`Id` = `c0`.`CompanyId`
 LEFT JOIN `SupplierData` AS `s` ON `c`.`Id` = `s`.`CompanyId`
 WHERE `c0`.`CompanyId` IS NOT NULL
 ORDER BY `c`.`Id`, `s`.`CompanyId`
@@ -144,9 +144,9 @@ ORDER BY `c`.`Id`, `s`.`CompanyId`
 @p='10'
 
 SELECT TOP @p `o`.`Id`, `o`.`Name`, `i`.`OwnerId`, `i`.`Id`, `i`.`Name`, `i0`.`IntermediateOwnedEntityOwnerId`, `i0`.`AdditionalCustomerData`, `i0`.`Id`, `i1`.`IntermediateOwnedEntityOwnerId`, `i1`.`AdditionalSupplierData`, `i1`.`Id`
-FROM ((`Owners` AS `o`
-LEFT JOIN `IntermediateOwnedEntity` AS `i` ON `o`.`Id` = `i`.`OwnerId`)
-LEFT JOIN `IM_CustomerData` AS `i0` ON `i`.`OwnerId` = `i0`.`IntermediateOwnedEntityOwnerId`)
+FROM `Owners` AS `o`
+LEFT JOIN `IntermediateOwnedEntity` AS `i` ON `o`.`Id` = `i`.`OwnerId`
+LEFT JOIN `IM_CustomerData` AS `i0` ON `i`.`OwnerId` = `i0`.`IntermediateOwnedEntityOwnerId`
 LEFT JOIN `IM_SupplierData` AS `i1` ON `i`.`OwnerId` = `i1`.`IntermediateOwnedEntityOwnerId`
 WHERE `i0`.`IntermediateOwnedEntityOwnerId` IS NOT NULL
 ORDER BY `o`.`Id`, `i1`.`IntermediateOwnedEntityOwnerId`

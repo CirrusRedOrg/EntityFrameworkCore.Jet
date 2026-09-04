@@ -21,20 +21,20 @@ namespace EntityFrameworkCore.LibRed.Extended.FunctionalTests
             AssertSql(
                 """
 SELECT `v`.`Name`, `v`.`Discriminator`, `v`.`SeatingCapacity`, `v`.`AttachedVehicleName`, `v0`.`Name`, `v0`.`Operator_Discriminator`, `v0`.`Operator_Name`, `v0`.`LicenseType`, `v2`.`Name`, `v2`.`Active`, `v2`.`Type`, `v4`.`Name`, `v4`.`Computed`, `v4`.`Description`, `v4`.`Engine_Discriminator`, `v6`.`Name`, `v6`.`Capacity`, `v6`.`FuelTank_Discriminator`, `v6`.`FuelType`, `v6`.`GrainGeometry`
-FROM (((`Vehicles` AS `v`
-LEFT JOIN `Vehicles` AS `v0` ON `v`.`Name` = `v0`.`Name`)
+FROM `Vehicles` AS `v`
+LEFT JOIN `Vehicles` AS `v0` ON `v`.`Name` = `v0`.`Name`
 LEFT JOIN (
     SELECT `v1`.`Name`, `v1`.`Active`, `v1`.`Type`
     FROM `Vehicles` AS `v1`
     WHERE `v1`.`Active` IS NOT NULL
 ) AS `v2` ON `v0`.`Name` = CASE
     WHEN `v2`.`Active` IS NOT NULL THEN `v2`.`Name`
-END)
+END
 LEFT JOIN (
     SELECT `v3`.`Name`, `v3`.`Computed`, `v3`.`Description`, `v3`.`Engine_Discriminator`
     FROM `Vehicles` AS `v3`
     WHERE `v3`.`Computed` IS NOT NULL AND `v3`.`Engine_Discriminator` IS NOT NULL
-) AS `v4` ON `v`.`Name` = `v4`.`Name`)
+) AS `v4` ON `v`.`Name` = `v4`.`Name`
 LEFT JOIN (
     SELECT `v5`.`Name`, `v5`.`Capacity`, `v5`.`FuelTank_Discriminator`, `v5`.`FuelType`, `v5`.`GrainGeometry`
     FROM `Vehicles` AS `v5`
@@ -166,8 +166,8 @@ WHERE `v`.`Name` = 'Trek Pro Fit Madone 6 Series'
             AssertSql(
                 """
 SELECT TOP 1 `v`.`Name`, `v`.`Discriminator`, `v`.`SeatingCapacity`, `v`.`AttachedVehicleName`, `v0`.`Name`, `v0`.`Operator_Discriminator`, `v0`.`Operator_Name`, `v0`.`LicenseType`, `v2`.`Name`, `v2`.`Active`, `v2`.`Type`
-FROM (`Vehicles` AS `v`
-LEFT JOIN `Vehicles` AS `v0` ON `v`.`Name` = `v0`.`Name`)
+FROM `Vehicles` AS `v`
+LEFT JOIN `Vehicles` AS `v0` ON `v`.`Name` = `v0`.`Name`
 LEFT JOIN (
     SELECT `v1`.`Name`, `v1`.`Active`, `v1`.`Type`
     FROM `Vehicles` AS `v1`

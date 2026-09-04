@@ -28,9 +28,9 @@ public class OperatorsQueryLibRedTest(NonSharedFixture fixture) : OperatorsQuery
         AssertSql(
             """
 SELECT `o`.`Value` AS `Value1`, `o0`.`Value` AS `Value2`, `o1`.`Value` AS `Value3`
-FROM `OperatorEntityString` AS `o`,
-`OperatorEntityString` AS `o0`,
-`OperatorEntityBool` AS `o1`
+FROM `OperatorEntityString` AS `o`
+CROSS JOIN `OperatorEntityString` AS `o0`
+CROSS JOIN `OperatorEntityBool` AS `o1`
 WHERE (((`o0`.`Value` LIKE 'B') AND `o0`.`Value` IS NOT NULL) OR `o1`.`Value`) AND `o`.`Value` IS NOT NULL
 ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`
 """);
@@ -43,10 +43,10 @@ ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`
         AssertSql(
             """
 SELECT `o`.`Value` AS `Value0`, `o0`.`Value` AS `Value1`, `o1`.`Value` AS `Value2`, `o2`.`Value` AS `Value3`
-FROM `OperatorEntityLong` AS `o`,
-`OperatorEntityLong` AS `o0`,
-`OperatorEntityLong` AS `o1`,
-`OperatorEntityLong` AS `o2`
+FROM `OperatorEntityLong` AS `o`
+CROSS JOIN `OperatorEntityLong` AS `o0`
+CROSS JOIN `OperatorEntityLong` AS `o1`
+CROSS JOIN `OperatorEntityLong` AS `o2`
 WHERE (((`o0`.`Value` MOD 2) / `o`.`Value`) BAND (((`o2`.`Value` BOR `o1`.`Value`) - `o`.`Value`) - (`o1`.`Value` * `o1`.`Value`))) >= (((`o0`.`Value` /  (BNOT`o2`.`Value`)) MOD 2) MOD ( (BNOT`o`.`Value`) + 1))
 ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`, `o2`.`Id`
 """);
@@ -59,9 +59,9 @@ ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`, `o2`.`Id`
         AssertSql(
             """
 SELECT `o`.`Value` AS `Value0`, `o0`.`Value` AS `Value1`, `o1`.`Value` AS `Value2`
-FROM `OperatorEntityInt` AS `o`,
-`OperatorEntityInt` AS `o0`,
-`OperatorEntityBool` AS `o1`
+FROM `OperatorEntityInt` AS `o`
+CROSS JOIN `OperatorEntityInt` AS `o0`
+CROSS JOIN `OperatorEntityBool` AS `o1`
 WHERE (((`o0`.`Value` BAND (`o`.`Value` + `o`.`Value`)) BAND `o`.`Value`) \ 1) > (`o0`.`Value` BAND 10) AND `o1`.`Value`
 ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`
 """);
@@ -74,9 +74,9 @@ ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`
         AssertSql(
             """
 SELECT  (BNOT-(-((`o1`.`Value` + `o`.`Value`) + 2))) MOD (-(`o0`.`Value` + `o0`.`Value`) - `o`.`Value`)
-FROM `OperatorEntityLong` AS `o`,
-`OperatorEntityLong` AS `o0`,
-`OperatorEntityLong` AS `o1`
+FROM `OperatorEntityLong` AS `o`
+CROSS JOIN `OperatorEntityLong` AS `o0`
+CROSS JOIN `OperatorEntityLong` AS `o1`
 ORDER BY `o`.`Id`, `o0`.`Id`, `o1`.`Id`
 """);
     }
@@ -110,10 +110,10 @@ WHERE -(-`o`.`Value`) = `o`.`Value`
         await base.Negate_on_binary_expression(async);
 
         AssertSql(
-"""
+            """
 SELECT `o`.`Id` AS `Id1`, `o0`.`Id` AS `Id2`
-FROM `OperatorEntityInt` AS `o`,
-`OperatorEntityInt` AS `o0`
+FROM `OperatorEntityInt` AS `o`
+CROSS JOIN `OperatorEntityInt` AS `o0`
 WHERE -`o`.`Value` = -(`o`.`Id` + `o0`.`Value`)
 """);
     }

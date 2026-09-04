@@ -1481,8 +1481,8 @@ WHERE `a`.`Id` = @p
 @entity_equality_b_Id='2' (Nullable = true)
 
 SELECT `e`.`Id`, `e`.`AnotherAutoId`, `e`.`AutoId`
-FROM (`EqualAutos` AS `e`
-LEFT JOIN `Autos` AS `a` ON `e`.`AutoId` = `a`.`Id`)
+FROM `EqualAutos` AS `e`
+LEFT JOIN `Autos` AS `a` ON `e`.`AutoId` = `a`.`Id`
 LEFT JOIN `Autos` AS `a0` ON `e`.`AnotherAutoId` = `a0`.`Id`
 WHERE (`a`.`Id` = @entity_equality_a_Id AND `a0`.`Id` = @entity_equality_b_Id) OR (`a`.`Id` = @entity_equality_b_Id AND `a0`.`Id` = @entity_equality_a_Id)
 """);
@@ -1591,14 +1591,14 @@ GROUP BY `t1`.`AnotherEntity11818_Name`
             //
             """
 SELECT `t1`.`AnotherEntity11818_Name` AS `MyKey`, COUNT(*) + 5 AS `cnt`
-FROM (`Table` AS `t`
+FROM `Table` AS `t`
 LEFT JOIN (
     SELECT `t0`.`Id`, `t0`.`Exists`, `t0`.`AnotherEntity11818_Name`
     FROM `Table` AS `t0`
     WHERE `t0`.`Exists` IS NOT NULL
 ) AS `t1` ON `t`.`Id` = CASE
     WHEN `t1`.`Exists` IS NOT NULL THEN `t1`.`Id`
-END)
+END
 LEFT JOIN (
     SELECT `t2`.`Id`, `t2`.`MaumarEntity11818_Exists`, `t2`.`MaumarEntity11818_Name`
     FROM `Table` AS `t2`
@@ -1611,14 +1611,14 @@ GROUP BY `t1`.`AnotherEntity11818_Name`, `t3`.`MaumarEntity11818_Name`
             //
             """
 SELECT TOP 1 `t1`.`AnotherEntity11818_Name` AS `MyKey`, `t3`.`MaumarEntity11818_Name` AS `cnt`
-FROM (`Table` AS `t`
+FROM `Table` AS `t`
 LEFT JOIN (
     SELECT `t0`.`Id`, `t0`.`Exists`, `t0`.`AnotherEntity11818_Name`
     FROM `Table` AS `t0`
     WHERE `t0`.`Exists` IS NOT NULL
 ) AS `t1` ON `t`.`Id` = CASE
     WHEN `t1`.`Exists` IS NOT NULL THEN `t1`.`Id`
-END)
+END
 LEFT JOIN (
     SELECT `t2`.`Id`, `t2`.`MaumarEntity11818_Exists`, `t2`.`MaumarEntity11818_Name`
     FROM `Table` AS `t2`
@@ -1765,8 +1765,8 @@ FROM `Users` AS `u`
 
 SELECT `u`.`Id` IN (
     SELECT `u0`.`Id`
-    FROM (`Memberships` AS `m`
-    INNER JOIN `Groups` AS `g` ON `m`.`GroupId` = `g`.`Id`)
+    FROM `Memberships` AS `m`
+    INNER JOIN `Groups` AS `g` ON `m`.`GroupId` = `g`.`Id`
     INNER JOIN `Users` AS `u0` ON `m`.`UserId` = `u0`.`Id`
     WHERE `g`.`Id` IN (
         SELECT `g0`.`Id`
@@ -1855,11 +1855,11 @@ ORDER BY `o2`.`Id`
         AssertSql(
             """
 SELECT MIN(`o`.`HourlyRate`) AS `HourlyRate`, MIN(`c`.`Id`) AS `CustomerId`, MIN(`c`.`Name`) AS `CustomerName`
-FROM ((`TimeSheets` AS `t`
-LEFT JOIN `Order` AS `o` ON `t`.`OrderId` = `o`.`Id`)
-INNER JOIN `Project` AS `p` ON `t`.`ProjectId` = `p`.`Id`)
-LEFT JOIN `Customers` AS `c` ON `p`.`CustomerId` = `c`.`Id`
-WHERE (`t`.`OrderId` IS NOT NULL) AND (`p`.`CustomerId` IS NOT NULL AND `c`.`Id` IS NOT NULL)
+FROM `TimeSheets` AS `t`
+LEFT JOIN `Order` AS `o` ON `t`.`OrderId` = `o`.`Id`
+INNER JOIN `Project` AS `p` ON `t`.`ProjectId` = `p`.`Id`
+INNER JOIN `Customers` AS `c` ON `p`.`CustomerId` = `c`.`Id`
+WHERE `t`.`OrderId` IS NOT NULL
 GROUP BY `t`.`OrderId`
 """);
     }
@@ -2018,8 +2018,8 @@ ORDER BY `t`.`ParcelNumber`, `i0`.`Parcel`
         AssertSql(
             """
 SELECT `c`.`Id`, `c`.`CompanyId`, `c0`.`Id` IS NOT NULL, `c0`.`Id`, `c0`.`CompanyName`, `c0`.`CountryId`, `c1`.`Id`, `c1`.`CountryName`
-FROM (`Customers` AS `c`
-LEFT JOIN `Companies` AS `c0` ON `c`.`CompanyId` = `c0`.`Id`)
+FROM `Customers` AS `c`
+LEFT JOIN `Companies` AS `c0` ON `c`.`CompanyId` = `c0`.`Id`
 LEFT JOIN `Countries` AS `c1` ON `c0`.`CountryId` = `c1`.`Id`
 WHERE CASE
     WHEN `c0`.`Id` IS NOT NULL THEN `c1`.`CountryName`
@@ -2590,12 +2590,12 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
         AssertSql(
             """
 SELECT `s0`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
-FROM (`Statuses` AS `s`
+FROM `Statuses` AS `s`
 LEFT JOIN (
     SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
-) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`)
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
 INNER JOIN `Statuses` AS `s0` ON `s`.`PickupStatusId` = `s0`.`PickupStatusId`
 ORDER BY `s0`.`PickupStatusId`, `r0`.`pickupStatusId`
 """);
@@ -2823,12 +2823,12 @@ ORDER BY [s1].[PickupStatusId]
         AssertSql(
             """
 SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`, `r2`.`pickupStatusId`, `r2`.`Count`, `r2`.`marker`
-FROM (`Statuses` AS `s`
+FROM `Statuses` AS `s`
 LEFT JOIN (
     SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
-) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`)
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
 LEFT JOIN (
     SELECT `r1`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r1`
@@ -2845,15 +2845,14 @@ ORDER BY `s`.`PickupStatusId`, `r2`.`pickupStatusId`
         AssertSql(
             """
 SELECT `s1`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
-FROM ((`Statuses` AS `s`
+FROM `Statuses` AS `s`
 LEFT JOIN (
     SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
-) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`)
-INNER JOIN `Statuses` AS `s0` ON `s`.`PickupStatusId` = `s0`.`PickupStatusId`)
-LEFT JOIN `Statuses` AS `s1` ON `s0`.`PickupStatusId` = `s1`.`PickupStatusId`
-WHERE `s0`.`PickupStatusId` IS NOT NULL AND `s1`.`PickupStatusId` IS NOT NULL
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+INNER JOIN `Statuses` AS `s0` ON `s`.`PickupStatusId` = `s0`.`PickupStatusId`
+INNER JOIN `Statuses` AS `s1` ON `s0`.`PickupStatusId` = `s1`.`PickupStatusId`
 ORDER BY `s1`.`PickupStatusId`, `r0`.`pickupStatusId`
 """);
     }
@@ -2865,12 +2864,12 @@ ORDER BY `s1`.`PickupStatusId`, `r0`.`pickupStatusId`
         AssertSql(
             """
 SELECT `s0`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
-FROM (`Statuses` AS `s`
+FROM `Statuses` AS `s`
 LEFT JOIN (
     SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
-) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`)
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
 INNER JOIN `Statuses` AS `s0` ON `s`.`PickupStatusId` = `s0`.`PickupStatusId`
 ORDER BY `s0`.`PickupStatusId`, `r0`.`pickupStatusId`
 """);

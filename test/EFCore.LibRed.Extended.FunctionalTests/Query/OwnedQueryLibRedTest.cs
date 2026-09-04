@@ -24,17 +24,17 @@ namespace EntityFrameworkCore.LibRed.Extended.FunctionalTests.Query
             AssertSql(
                 """
 SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `o1`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
-FROM (`OwnedPerson` AS `o`
-LEFT JOIN (
-    SELECT `o2`.`ClientId`, `o2`.`Id`, `o2`.`OrderDate`, `o3`.`OrderClientId`, `o3`.`OrderId`, `o3`.`Id` AS `Id0`, `o3`.`Detail`
-    FROM `Order` AS `o2`
-    LEFT JOIN `OrderDetail` AS `o3` ON `o2`.`ClientId` = `o3`.`OrderClientId` AND `o2`.`Id` = `o3`.`OrderId`
-) AS `s` ON `o`.`Id` = `s`.`ClientId`),
-(
+FROM `OwnedPerson` AS `o`
+CROSS JOIN (
     SELECT `o0`.`Id`
     FROM `OwnedPerson` AS `o0`
     WHERE `o0`.`Discriminator` = 'LeafB'
 ) AS `o1`
+LEFT JOIN (
+    SELECT `o2`.`ClientId`, `o2`.`Id`, `o2`.`OrderDate`, `o3`.`OrderClientId`, `o3`.`OrderId`, `o3`.`Id` AS `Id0`, `o3`.`Detail`
+    FROM `Order` AS `o2`
+    LEFT JOIN `OrderDetail` AS `o3` ON `o2`.`ClientId` = `o3`.`OrderClientId` AND `o2`.`Id` = `o3`.`OrderId`
+) AS `s` ON `o`.`Id` = `s`.`ClientId`
 WHERE FALSE
 ORDER BY `o`.`Id`, `o1`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`
 """);
@@ -238,8 +238,8 @@ ORDER BY `o`.`Id`
             AssertSql(
                 """
 SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o`.`Id`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id`, `o1`.`Detail`
-FROM (`OwnedPerson` AS `o`
-INNER JOIN `Order` AS `o0` ON `o`.`Id` = `o0`.`ClientId`)
+FROM `OwnedPerson` AS `o`
+INNER JOIN `Order` AS `o0` ON `o`.`Id` = `o0`.`ClientId`
 LEFT JOIN `OrderDetail` AS `o1` ON `o0`.`ClientId` = `o1`.`OrderClientId` AND `o0`.`Id` = `o1`.`OrderId`
 ORDER BY `o`.`Id`, `o0`.`ClientId`, `o0`.`Id`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id`
 """);
@@ -264,8 +264,8 @@ LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
             AssertSql(
                 """
 SELECT `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`
-FROM (`OwnedPerson` AS `o`
-LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
+FROM `OwnedPerson` AS `o`
+LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
 LEFT JOIN (
     SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
     FROM `Order` AS `o0`
@@ -283,8 +283,8 @@ ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`,
             AssertSql(
                 """
 SELECT `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `p`.`Id`, `p`.`Name`, `p`.`StarId`
-FROM (`OwnedPerson` AS `o`
-LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
+FROM `OwnedPerson` AS `o`
+LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
 LEFT JOIN (
     SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
     FROM `Order` AS `o0`
@@ -299,12 +299,12 @@ ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`,
             await base.Project_multiple_owned_navigations_with_expansion_on_owned_collections(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT (
     SELECT COUNT(*)
-    FROM ((`Order` AS `o0`
-    LEFT JOIN `OwnedPerson` AS `o1` ON `o0`.`ClientId` = `o1`.`Id`)
-    LEFT JOIN `Planet` AS `p0` ON `o1`.`PersonAddress_Country_PlanetId` = `p0`.`Id`)
+    FROM `Order` AS `o0`
+    LEFT JOIN `OwnedPerson` AS `o1` ON `o0`.`ClientId` = `o1`.`Id`
+    LEFT JOIN `Planet` AS `p0` ON `o1`.`PersonAddress_Country_PlanetId` = `p0`.`Id`
     LEFT JOIN `Star` AS `s` ON `p0`.`StarId` = `s`.`Id`
     WHERE `o`.`Id` = `o0`.`ClientId` AND (`s`.`Id` <> 42 OR `s`.`Id` IS NULL)) AS `Count`, `p`.`Id`, `p`.`Name`, `p`.`StarId`
 FROM `OwnedPerson` AS `o`
@@ -320,8 +320,8 @@ ORDER BY `o`.`Id`
             AssertSql(
                 """
 SELECT `o`.`Id`, `o`.`Discriminator`, `o`.`Name`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderDate`, `s`.`OrderClientId`, `s`.`OrderId`, `s`.`Id0`, `s`.`Detail`, `o`.`PersonAddress_AddressLine`, `o`.`PersonAddress_PlaceType`, `o`.`PersonAddress_ZipCode`, `o`.`PersonAddress_Country_Name`, `o`.`PersonAddress_Country_PlanetId`, `o`.`BranchAddress_BranchName`, `o`.`BranchAddress_PlaceType`, `o`.`BranchAddress_Country_Name`, `o`.`BranchAddress_Country_PlanetId`, `o`.`LeafBAddress_LeafBType`, `o`.`LeafBAddress_PlaceType`, `o`.`LeafBAddress_Country_Name`, `o`.`LeafBAddress_Country_PlanetId`, `o`.`LeafAAddress_LeafType`, `o`.`LeafAAddress_PlaceType`, `o`.`LeafAAddress_Country_Name`, `o`.`LeafAAddress_Country_PlanetId`
-FROM (`OwnedPerson` AS `o`
-LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
+FROM `OwnedPerson` AS `o`
+LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
 LEFT JOIN (
     SELECT `o0`.`ClientId`, `o0`.`Id`, `o0`.`OrderDate`, `o1`.`OrderClientId`, `o1`.`OrderId`, `o1`.`Id` AS `Id0`, `o1`.`Detail`
     FROM `Order` AS `o0`
@@ -351,8 +351,8 @@ ORDER BY `o`.`Id`, `s`.`ClientId`, `s`.`Id`, `s`.`OrderClientId`, `s`.`OrderId`,
             AssertSql(
                 """
 SELECT `o`.`Id`, `m`.`Id`, `m`.`Diameter`, `m`.`PlanetId`
-FROM (`OwnedPerson` AS `o`
-LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
+FROM `OwnedPerson` AS `o`
+LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
 LEFT JOIN `Moon` AS `m` ON `p`.`Id` = `m`.`PlanetId`
 ORDER BY `o`.`Id`, `m`.`Id`
 """);
@@ -365,10 +365,9 @@ ORDER BY `o`.`Id`, `m`.`Id`
             AssertSql(
                 """
 SELECT `m`.`Id`, `m`.`Diameter`, `m`.`PlanetId`
-FROM (`OwnedPerson` AS `o`
-LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
-LEFT JOIN `Moon` AS `m` ON `p`.`Id` = `m`.`PlanetId`
-WHERE `p`.`Id` IS NOT NULL AND `m`.`PlanetId` IS NOT NULL
+FROM `OwnedPerson` AS `o`
+LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
+INNER JOIN `Moon` AS `m` ON `p`.`Id` = `m`.`PlanetId`
 """);
         }
 
@@ -379,11 +378,10 @@ WHERE `p`.`Id` IS NOT NULL AND `m`.`PlanetId` IS NOT NULL
             AssertSql(
                 """
 SELECT `e`.`Id`, `e`.`Name`, `e`.`StarId`
-FROM ((`OwnedPerson` AS `o`
-LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
-LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`)
-LEFT JOIN `Element` AS `e` ON `s`.`Id` = `e`.`StarId`
-WHERE `s`.`Id` IS NOT NULL AND `e`.`StarId` IS NOT NULL
+FROM `OwnedPerson` AS `o`
+LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
+LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`
+INNER JOIN `Element` AS `e` ON `s`.`Id` = `e`.`StarId`
 """);
         }
 
@@ -394,9 +392,9 @@ WHERE `s`.`Id` IS NOT NULL AND `e`.`StarId` IS NOT NULL
             AssertSql(
                 """
 SELECT `s`.`Id`, `s`.`Name`, `o`.`Id`, `e`.`Id`, `e`.`Name`, `e`.`StarId`
-FROM ((`OwnedPerson` AS `o`
-LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
-LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`)
+FROM `OwnedPerson` AS `o`
+LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
+LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`
 LEFT JOIN `Element` AS `e` ON `s`.`Id` = `e`.`StarId`
 ORDER BY `o`.`Id`, `e`.`Id`
 """);
@@ -409,11 +407,11 @@ ORDER BY `o`.`Id`, `e`.`Id`
 
             AssertSql(
                 """
-                    SELECT `s`.`Name`
-                    FROM (`OwnedPerson` AS `o`
-                    LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
-                    LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`
-                    """);
+SELECT `s`.`Name`
+FROM `OwnedPerson` AS `o`
+LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
+LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`
+""");
         }
 
         public override async Task
@@ -425,9 +423,9 @@ ORDER BY `o`.`Id`, `e`.`Id`
             AssertSql(
                 """
 SELECT `s`.`Id`, `s`.`Name`, `o`.`Id`, `e`.`Id`, `e`.`Name`, `e`.`StarId`
-FROM ((`OwnedPerson` AS `o`
-LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
-LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`)
+FROM `OwnedPerson` AS `o`
+LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`
+LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`
 LEFT JOIN `Element` AS `e` ON `s`.`Id` = `e`.`StarId`
 WHERE `s`.`Name` = 'Sol'
 ORDER BY `o`.`Id`, `e`.`Id`

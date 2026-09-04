@@ -845,12 +845,12 @@ WHERE `c`.`City` = `c`.`City` OR `c`.`City` IS NULL
             await base.Where_in_optimization_multiple(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-                    FROM `Customers` AS `c`,
-                    `Employees` AS `e`
-                    WHERE `c`.`City` IN ('London', 'Berlin') OR `c`.`CustomerID` = 'ALFKI' OR `c`.`CustomerID` = 'ABCDE'
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Customers` AS `c`
+CROSS JOIN `Employees` AS `e`
+WHERE `c`.`City` IN ('London', 'Berlin') OR `c`.`CustomerID` = 'ALFKI' OR `c`.`CustomerID` = 'ABCDE'
+""");
         }
 
         public override async Task Where_not_in_optimization1(bool isAsync)
@@ -860,8 +860,8 @@ WHERE `c`.`City` = `c`.`City` OR `c`.`City` IS NULL
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-FROM `Customers` AS `c`,
-`Employees` AS `e`
+FROM `Customers` AS `c`
+CROSS JOIN `Employees` AS `e`
 WHERE (`c`.`City` <> 'London' OR `c`.`City` IS NULL) AND (`e`.`City` <> 'London' OR `e`.`City` IS NULL)
 """);
         }
@@ -873,8 +873,8 @@ WHERE (`c`.`City` <> 'London' OR `c`.`City` IS NULL) AND (`e`.`City` <> 'London'
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-FROM `Customers` AS `c`,
-`Employees` AS `e`
+FROM `Customers` AS `c`
+CROSS JOIN `Employees` AS `e`
 WHERE `c`.`City` NOT IN ('London', 'Berlin') OR `c`.`City` IS NULL
 """);
         }
@@ -886,8 +886,8 @@ WHERE `c`.`City` NOT IN ('London', 'Berlin') OR `c`.`City` IS NULL
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-FROM `Customers` AS `c`,
-`Employees` AS `e`
+FROM `Customers` AS `c`
+CROSS JOIN `Employees` AS `e`
 WHERE `c`.`City` NOT IN ('London', 'Berlin', 'Seattle') OR `c`.`City` IS NULL
 """);
         }
@@ -899,8 +899,8 @@ WHERE `c`.`City` NOT IN ('London', 'Berlin', 'Seattle') OR `c`.`City` IS NULL
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-FROM `Customers` AS `c`,
-`Employees` AS `e`
+FROM `Customers` AS `c`
+CROSS JOIN `Employees` AS `e`
 WHERE `c`.`City` NOT IN ('London', 'Berlin', 'Seattle', 'Lisboa') OR `c`.`City` IS NULL
 """);
         }
@@ -910,12 +910,12 @@ WHERE `c`.`City` NOT IN ('London', 'Berlin', 'Seattle', 'Lisboa') OR `c`.`City` 
             await base.Where_select_many_and(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-                    FROM `Customers` AS `c`,
-                    `Employees` AS `e`
-                    WHERE `c`.`City` = 'London' AND `c`.`Country` = 'UK' AND `e`.`City` = 'London' AND `e`.`Country` = 'UK'
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Customers` AS `c`
+CROSS JOIN `Employees` AS `e`
+WHERE `c`.`City` = 'London' AND `c`.`Country` = 'UK' AND `e`.`City` = 'London' AND `e`.`Country` = 'UK'
+""");
         }
 
         public override async Task Where_primitive(bool isAsync)

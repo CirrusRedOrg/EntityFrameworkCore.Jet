@@ -21,37 +21,37 @@ SELECT `v`.`Name`, `v`.`SeatingCapacity`, `c`.`AttachedVehicleName`, CASE
     WHEN `c`.`Name` IS NOT NULL THEN 'CompositeVehicle'
     WHEN `p`.`Name` IS NOT NULL THEN 'PoweredVehicle'
 END AS `Discriminator`, `s`.`Name`, `s`.`Operator_Name`, `s`.`LicenseType`, `s`.`Discriminator`, `v2`.`Name`, `v2`.`Active`, `v2`.`Type`, `s1`.`Name`, `s1`.`Computed`, `s1`.`Description`, `s1`.`Discriminator`, `s3`.`VehicleName`, `s3`.`Capacity`, `s3`.`FuelType`, `s3`.`GrainGeometry`, `s3`.`Discriminator`
-FROM (((((`Vehicles` AS `v`
-LEFT JOIN `PoweredVehicles` AS `p` ON `v`.`Name` = `p`.`Name`)
-LEFT JOIN `CompositeVehicles` AS `c` ON `v`.`Name` = `c`.`Name`)
+FROM `Vehicles` AS `v`
+LEFT JOIN `PoweredVehicles` AS `p` ON `v`.`Name` = `p`.`Name`
+LEFT JOIN `CompositeVehicles` AS `c` ON `v`.`Name` = `c`.`Name`
 LEFT JOIN (
     SELECT `v0`.`Name`, `v0`.`Operator_Name`, `l`.`LicenseType`, CASE
         WHEN `l`.`VehicleName` IS NOT NULL THEN 'LicensedOperator'
     END AS `Discriminator`
     FROM `Vehicles` AS `v0`
     LEFT JOIN `LicensedOperators` AS `l` ON `v0`.`Name` = `l`.`VehicleName`
-) AS `s` ON `v`.`Name` = `s`.`Name`)
+) AS `s` ON `v`.`Name` = `s`.`Name`
 LEFT JOIN (
     SELECT `v1`.`Name`, `v1`.`Active`, `v1`.`Type`
     FROM `Vehicles` AS `v1`
     WHERE `v1`.`Active` IS NOT NULL
 ) AS `v2` ON `s`.`Name` = CASE
     WHEN `v2`.`Active` IS NOT NULL THEN `v2`.`Name`
-END)
+END
 LEFT JOIN (
     SELECT `p0`.`Name`, `p0`.`Computed`, `p0`.`Description`, CASE
         WHEN `s0`.`VehicleName` IS NOT NULL THEN 'SolidRocket'
         WHEN `i`.`VehicleName` IS NOT NULL THEN 'IntermittentCombustionEngine'
         WHEN `c0`.`VehicleName` IS NOT NULL THEN 'ContinuousCombustionEngine'
     END AS `Discriminator`
-    FROM ((`PoweredVehicles` AS `p0`
-    LEFT JOIN `ContinuousCombustionEngines` AS `c0` ON `p0`.`Name` = `c0`.`VehicleName`)
-    LEFT JOIN `IntermittentCombustionEngines` AS `i` ON `p0`.`Name` = `i`.`VehicleName`)
+    FROM `PoweredVehicles` AS `p0`
+    LEFT JOIN `ContinuousCombustionEngines` AS `c0` ON `p0`.`Name` = `c0`.`VehicleName`
+    LEFT JOIN `IntermittentCombustionEngines` AS `i` ON `p0`.`Name` = `i`.`VehicleName`
     LEFT JOIN `SolidRockets` AS `s0` ON `p0`.`Name` = `s0`.`VehicleName`
     WHERE `p0`.`Computed` IS NOT NULL
 ) AS `s1` ON `v`.`Name` = CASE
     WHEN `s1`.`Computed` IS NOT NULL THEN `s1`.`Name`
-END)
+END
 LEFT JOIN (
     SELECT `c1`.`VehicleName`, `c1`.`Capacity`, `c1`.`FuelType`, `s2`.`GrainGeometry`, CASE
         WHEN `s2`.`VehicleName` IS NOT NULL THEN 'SolidFuelTank'
@@ -167,9 +167,9 @@ SELECT TOP 2 `v`.`Name`, `v`.`SeatingCapacity`, `c`.`AttachedVehicleName`, CASE
     WHEN `c`.`Name` IS NOT NULL THEN 'CompositeVehicle'
     WHEN `p`.`Name` IS NOT NULL THEN 'PoweredVehicle'
 END AS `Discriminator`, `s`.`Name`, `s`.`Operator_Name`, `s`.`LicenseType`, `s`.`Discriminator`
-FROM ((`Vehicles` AS `v`
-LEFT JOIN `PoweredVehicles` AS `p` ON `v`.`Name` = `p`.`Name`)
-LEFT JOIN `CompositeVehicles` AS `c` ON `v`.`Name` = `c`.`Name`)
+FROM `Vehicles` AS `v`
+LEFT JOIN `PoweredVehicles` AS `p` ON `v`.`Name` = `p`.`Name`
+LEFT JOIN `CompositeVehicles` AS `c` ON `v`.`Name` = `c`.`Name`
 LEFT JOIN (
     SELECT `v0`.`Name`, `v0`.`Operator_Name`, `l`.`LicenseType`, CASE
         WHEN `l`.`VehicleName` IS NOT NULL THEN 'LicensedOperator'
@@ -200,9 +200,9 @@ SELECT TOP 2 `v`.`Name`, `v`.`SeatingCapacity`, `c`.`AttachedVehicleName`, CASE
     WHEN `c`.`Name` IS NOT NULL THEN 'CompositeVehicle'
     WHEN `p`.`Name` IS NOT NULL THEN 'PoweredVehicle'
 END AS `Discriminator`, `s`.`Name`, `s`.`Operator_Name`, `s`.`LicenseType`, `s`.`Discriminator`
-FROM ((`Vehicles` AS `v`
-LEFT JOIN `PoweredVehicles` AS `p` ON `v`.`Name` = `p`.`Name`)
-LEFT JOIN `CompositeVehicles` AS `c` ON `v`.`Name` = `c`.`Name`)
+FROM `Vehicles` AS `v`
+LEFT JOIN `PoweredVehicles` AS `p` ON `v`.`Name` = `p`.`Name`
+LEFT JOIN `CompositeVehicles` AS `c` ON `v`.`Name` = `c`.`Name`
 LEFT JOIN (
     SELECT `v0`.`Name`, `v0`.`Operator_Name`, `l`.`LicenseType`, CASE
         WHEN `l`.`VehicleName` IS NOT NULL THEN 'LicensedOperator'
@@ -224,16 +224,16 @@ SELECT TOP 1 `v`.`Name`, `v`.`SeatingCapacity`, `c`.`AttachedVehicleName`, CASE
     WHEN `c`.`Name` IS NOT NULL THEN 'CompositeVehicle'
     WHEN `p`.`Name` IS NOT NULL THEN 'PoweredVehicle'
 END AS `Discriminator`, `s`.`Name`, `s`.`Operator_Name`, `s`.`LicenseType`, `s`.`Discriminator`, `v2`.`Name`, `v2`.`Active`, `v2`.`Type`
-FROM (((`Vehicles` AS `v`
-LEFT JOIN `PoweredVehicles` AS `p` ON `v`.`Name` = `p`.`Name`)
-LEFT JOIN `CompositeVehicles` AS `c` ON `v`.`Name` = `c`.`Name`)
+FROM `Vehicles` AS `v`
+LEFT JOIN `PoweredVehicles` AS `p` ON `v`.`Name` = `p`.`Name`
+LEFT JOIN `CompositeVehicles` AS `c` ON `v`.`Name` = `c`.`Name`
 LEFT JOIN (
     SELECT `v0`.`Name`, `v0`.`Operator_Name`, `l`.`LicenseType`, CASE
         WHEN `l`.`VehicleName` IS NOT NULL THEN 'LicensedOperator'
     END AS `Discriminator`
     FROM `Vehicles` AS `v0`
     LEFT JOIN `LicensedOperators` AS `l` ON `v0`.`Name` = `l`.`VehicleName`
-) AS `s` ON `v`.`Name` = `s`.`Name`)
+) AS `s` ON `v`.`Name` = `s`.`Name`
 LEFT JOIN (
     SELECT `v1`.`Name`, `v1`.`Active`, `v1`.`Type`
     FROM `Vehicles` AS `v1`

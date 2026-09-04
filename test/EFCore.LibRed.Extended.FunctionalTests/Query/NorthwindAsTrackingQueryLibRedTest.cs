@@ -60,10 +60,10 @@ WHERE `c`.`CustomerID` = 'ALFKI'
             base.Applied_to_multiple_body_clauses();
 
             AssertSql(
-"""
+                """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-FROM `Customers` AS `c`,
-`Orders` AS `o`
+FROM `Customers` AS `c`
+CROSS JOIN `Orders` AS `o`
 WHERE `c`.`CustomerID` = `o`.`CustomerID`
 """);
         }

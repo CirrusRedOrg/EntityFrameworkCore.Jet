@@ -62,10 +62,10 @@ FROM `EntityOne` AS `e`
         await base.Can_query_entity_which_is_split_in_three(async);
 
         AssertSql(
-"""
+            """
 SELECT `e`.`Id`, `e`.`EntityThreeId`, `e`.`IntValue1`, `e`.`IntValue2`, `s0`.`IntValue3`, `s`.`IntValue4`, `e`.`StringValue1`, `e`.`StringValue2`, `s0`.`StringValue3`, `s`.`StringValue4`
-FROM (`EntityOne` AS `e`
-INNER JOIN `SplitEntityOnePart3` AS `s` ON `e`.`Id` = `s`.`Id`)
+FROM `EntityOne` AS `e`
+INNER JOIN `SplitEntityOnePart3` AS `s` ON `e`.`Id` = `s`.`Id`
 INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e`.`Id` = `s0`.`Id`
 """);
     }
@@ -104,8 +104,8 @@ SELECT `e`.`Id`, `e`.`EntityOneId`, `e`.`Name`, `s1`.`Id`, `s1`.`EntityThreeId`,
 FROM `EntityTwo` AS `e`
 LEFT JOIN (
     SELECT `e0`.`Id`, `e0`.`EntityThreeId`, `e0`.`IntValue1`, `e0`.`IntValue2`, `s0`.`IntValue3`, `s`.`IntValue4`, `e0`.`StringValue1`, `e0`.`StringValue2`, `s0`.`StringValue3`, `s`.`StringValue4`
-    FROM (`EntityOne` AS `e0`
-    INNER JOIN `SplitEntityOnePart3` AS `s` ON `e0`.`Id` = `s`.`Id`)
+    FROM `EntityOne` AS `e0`
+    INNER JOIN `SplitEntityOnePart3` AS `s` ON `e0`.`Id` = `s`.`Id`
     INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e0`.`Id` = `s0`.`Id`
 ) AS `s1` ON `e`.`EntityOneId` = `s1`.`Id`
 """);
@@ -121,8 +121,8 @@ SELECT `e`.`Id`, `e`.`Name`, `s1`.`Id`, `s1`.`EntityThreeId`, `s1`.`IntValue1`, 
 FROM `EntityThree` AS `e`
 LEFT JOIN (
     SELECT `e0`.`Id`, `e0`.`EntityThreeId`, `e0`.`IntValue1`, `e0`.`IntValue2`, `s0`.`IntValue3`, `s`.`IntValue4`, `e0`.`StringValue1`, `e0`.`StringValue2`, `s0`.`StringValue3`, `s`.`StringValue4`
-    FROM (`EntityOne` AS `e0`
-    INNER JOIN `SplitEntityOnePart3` AS `s` ON `e0`.`Id` = `s`.`Id`)
+    FROM `EntityOne` AS `e0`
+    INNER JOIN `SplitEntityOnePart3` AS `s` ON `e0`.`Id` = `s`.`Id`
     INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e0`.`Id` = `s0`.`Id`
 ) AS `s1` ON `e`.`Id` = `s1`.`EntityThreeId`
 ORDER BY `e`.`Id`, `s1`.`Id`
@@ -136,13 +136,13 @@ ORDER BY `e`.`Id`, `s1`.`Id`
         AssertSql(
             """
 SELECT `e`.`Id`, `e`.`EntityOneId`, `e`.`Name`, `s1`.`Id`, `s1`.`EntityThreeId`, `s1`.`IntValue1`, `s1`.`IntValue2`, `s1`.`IntValue3`, `s1`.`IntValue4`, `s1`.`StringValue1`, `s1`.`StringValue2`, `s1`.`StringValue3`, `s1`.`StringValue4`, `e1`.`Id`, `e1`.`Name`
-FROM (`EntityTwo` AS `e`
+FROM `EntityTwo` AS `e`
 LEFT JOIN (
     SELECT `e0`.`Id`, `e0`.`EntityThreeId`, `e0`.`IntValue1`, `e0`.`IntValue2`, `s0`.`IntValue3`, `s`.`IntValue4`, `e0`.`StringValue1`, `e0`.`StringValue2`, `s0`.`StringValue3`, `s`.`StringValue4`
-    FROM (`EntityOne` AS `e0`
-    INNER JOIN `SplitEntityOnePart3` AS `s` ON `e0`.`Id` = `s`.`Id`)
+    FROM `EntityOne` AS `e0`
+    INNER JOIN `SplitEntityOnePart3` AS `s` ON `e0`.`Id` = `s`.`Id`
     INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e0`.`Id` = `s0`.`Id`
-) AS `s1` ON `e`.`EntityOneId` = `s1`.`Id`)
+) AS `s1` ON `e`.`EntityOneId` = `s1`.`Id`
 LEFT JOIN `EntityThree` AS `e1` ON `s1`.`EntityThreeId` = `e1`.`Id`
 """);
     }
@@ -157,9 +157,9 @@ SELECT `e`.`Id`, `e`.`Name`, `s1`.`Id`, `s1`.`EntityThreeId`, `s1`.`IntValue1`, 
 FROM `EntityThree` AS `e`
 LEFT JOIN (
     SELECT `e0`.`Id`, `e0`.`EntityThreeId`, `e0`.`IntValue1`, `e0`.`IntValue2`, `s0`.`IntValue3`, `s`.`IntValue4`, `e0`.`StringValue1`, `e0`.`StringValue2`, `s0`.`StringValue3`, `s`.`StringValue4`, `e1`.`Id` AS `Id0`, `e1`.`EntityOneId`, `e1`.`Name`
-    FROM ((`EntityOne` AS `e0`
-    INNER JOIN `SplitEntityOnePart3` AS `s` ON `e0`.`Id` = `s`.`Id`)
-    INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e0`.`Id` = `s0`.`Id`)
+    FROM `EntityOne` AS `e0`
+    INNER JOIN `SplitEntityOnePart3` AS `s` ON `e0`.`Id` = `s`.`Id`
+    INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e0`.`Id` = `s0`.`Id`
     LEFT JOIN `EntityTwo` AS `e1` ON `e0`.`Id` = `e1`.`EntityOneId`
 ) AS `s1` ON `e`.`Id` = `s1`.`EntityThreeId`
 ORDER BY `e`.`Id`, `s1`.`Id`, `s1`.`Id0`
@@ -171,11 +171,11 @@ ORDER BY `e`.`Id`, `s1`.`Id`, `s1`.`Id0`
         await base.Include_reference_on_split_entity(async);
 
         AssertSql(
-"""
+            """
 SELECT `e`.`Id`, `e`.`EntityThreeId`, `e`.`IntValue1`, `e`.`IntValue2`, `s0`.`IntValue3`, `s`.`IntValue4`, `e`.`StringValue1`, `e`.`StringValue2`, `s0`.`StringValue3`, `s`.`StringValue4`, `e0`.`Id`, `e0`.`Name`
-FROM ((`EntityOne` AS `e`
-INNER JOIN `SplitEntityOnePart3` AS `s` ON `e`.`Id` = `s`.`Id`)
-INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e`.`Id` = `s0`.`Id`)
+FROM `EntityOne` AS `e`
+INNER JOIN `SplitEntityOnePart3` AS `s` ON `e`.`Id` = `s`.`Id`
+INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e`.`Id` = `s0`.`Id`
 LEFT JOIN `EntityThree` AS `e0` ON `e`.`EntityThreeId` = `e0`.`Id`
 """);
     }
@@ -187,9 +187,9 @@ LEFT JOIN `EntityThree` AS `e0` ON `e`.`EntityThreeId` = `e0`.`Id`
         AssertSql(
             """
 SELECT `e`.`Id`, `e`.`EntityThreeId`, `e`.`IntValue1`, `e`.`IntValue2`, `s0`.`IntValue3`, `s`.`IntValue4`, `e`.`StringValue1`, `e`.`StringValue2`, `s0`.`StringValue3`, `s`.`StringValue4`, `e0`.`Id`, `e0`.`EntityOneId`, `e0`.`Name`
-FROM ((`EntityOne` AS `e`
-INNER JOIN `SplitEntityOnePart3` AS `s` ON `e`.`Id` = `s`.`Id`)
-INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e`.`Id` = `s0`.`Id`)
+FROM `EntityOne` AS `e`
+INNER JOIN `SplitEntityOnePart3` AS `s` ON `e`.`Id` = `s`.`Id`
+INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e`.`Id` = `s0`.`Id`
 LEFT JOIN `EntityTwo` AS `e0` ON `e`.`Id` = `e0`.`EntityOneId`
 ORDER BY `e`.`Id`, `e0`.`Id`
 """);
@@ -202,8 +202,8 @@ ORDER BY `e`.`Id`, `e0`.`Id`
         AssertSql(
             """
 SELECT `e`.`IntValue1`, `s`.`IntValue3`, `e0`.`Id`, `e0`.`Name`
-FROM (`EntityOne` AS `e`
-INNER JOIN `SplitEntityOnePart2` AS `s` ON `e`.`Id` = `s`.`Id`)
+FROM `EntityOne` AS `e`
+INNER JOIN `SplitEntityOnePart2` AS `s` ON `e`.`Id` = `s`.`Id`
 LEFT JOIN `EntityThree` AS `e0` ON `e`.`EntityThreeId` = `e0`.`Id`
 """);
     }
@@ -213,10 +213,10 @@ LEFT JOIN `EntityThree` AS `e0` ON `e`.`EntityThreeId` = `e0`.`Id`
         await base.Normal_entity_owning_a_split_reference_with_main_fragment_sharing(async);
 
         AssertSql(
-"""
+            """
 SELECT `e`.`Id`, `e`.`EntityThreeId`, `e`.`IntValue1`, `e`.`IntValue2`, `e`.`IntValue3`, `e`.`IntValue4`, `e`.`StringValue1`, `e`.`StringValue2`, `e`.`StringValue3`, `e`.`StringValue4`, `e`.`OwnedReference_Id`, `e`.`OwnedReference_OwnedIntValue1`, `e`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `e`.`OwnedReference_OwnedStringValue1`, `e`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
-FROM (`EntityOne` AS `e`
-LEFT JOIN `OwnedReferenceExtras2` AS `o` ON `e`.`Id` = `o`.`EntityOneId`)
+FROM `EntityOne` AS `e`
+LEFT JOIN `OwnedReferenceExtras2` AS `o` ON `e`.`Id` = `o`.`EntityOneId`
 LEFT JOIN `OwnedReferenceExtras1` AS `o0` ON `e`.`Id` = `o0`.`EntityOneId`
 """);
     }
@@ -232,8 +232,8 @@ SELECT `e`.`Id`, CASE
 END AS `OwnedIntValue4`, CASE
     WHEN `e`.`OwnedReference_Id` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue1` IS NOT NULL AND `e`.`OwnedReference_OwnedIntValue2` IS NOT NULL AND `o0`.`OwnedIntValue3` IS NOT NULL AND `o`.`OwnedIntValue4` IS NOT NULL THEN `o`.`OwnedStringValue4`
 END AS `OwnedStringValue4`
-FROM (`EntityOnes` AS `e`
-LEFT JOIN `OwnedReferenceExtras2` AS `o` ON `e`.`Id` = `o`.`EntityOneId`)
+FROM `EntityOnes` AS `e`
+LEFT JOIN `OwnedReferenceExtras2` AS `o` ON `e`.`Id` = `o`.`EntityOneId`
 LEFT JOIN `OwnedReferenceExtras1` AS `o0` ON `e`.`Id` = `o0`.`EntityOneId`
 """);
     }
@@ -267,12 +267,12 @@ LEFT JOIN `OwnedReferenceExtras1` AS `o0` ON `e`.`Id` = `o0`.`EntityOneId`
         await base.Normal_entity_owning_a_split_reference_with_main_fragment_sharing_multiple_level(async);
 
         AssertSql(
-"""
+            """
 SELECT `e`.`Id`, `e`.`EntityThreeId`, `e`.`IntValue1`, `e`.`IntValue2`, `e`.`IntValue3`, `e`.`IntValue4`, `e`.`StringValue1`, `e`.`StringValue2`, `e`.`StringValue3`, `e`.`StringValue4`, `e`.`OwnedReference_Id`, `e`.`OwnedReference_OwnedIntValue1`, `e`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `e`.`OwnedReference_OwnedStringValue1`, `e`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`, `e`.`OwnedReference_OwnedNestedReference_Id`, `e`.`OwnedReference_OwnedNestedReference_OwnedNestedIntValue1`, `e`.`OwnedReference_OwnedNestedReference_OwnedNestedIntValue2`, `o2`.`OwnedNestedIntValue3`, `o1`.`OwnedNestedIntValue4`, `e`.`OwnedReference_OwnedNestedReference_OwnedNestedStringValue1`, `e`.`OwnedReference_OwnedNestedReference_OwnedNestedStringValue2`, `o2`.`OwnedNestedStringValue3`, `o1`.`OwnedNestedStringValue4`
-FROM (((`EntityOnes` AS `e`
-LEFT JOIN `OwnedReferenceExtras2` AS `o` ON `e`.`Id` = `o`.`EntityOneId`)
-LEFT JOIN `OwnedReferenceExtras1` AS `o0` ON `e`.`Id` = `o0`.`EntityOneId`)
-LEFT JOIN `OwnedNestedReferenceExtras2` AS `o1` ON `e`.`Id` = `o1`.`OwnedReferenceEntityOneId`)
+FROM `EntityOnes` AS `e`
+LEFT JOIN `OwnedReferenceExtras2` AS `o` ON `e`.`Id` = `o`.`EntityOneId`
+LEFT JOIN `OwnedReferenceExtras1` AS `o0` ON `e`.`Id` = `o0`.`EntityOneId`
+LEFT JOIN `OwnedNestedReferenceExtras2` AS `o1` ON `e`.`Id` = `o1`.`OwnedReferenceEntityOneId`
 LEFT JOIN `OwnedNestedReferenceExtras1` AS `o2` ON `e`.`Id` = `o2`.`OwnedReferenceEntityOneId`
 """);
     }
@@ -282,10 +282,10 @@ LEFT JOIN `OwnedNestedReferenceExtras1` AS `o2` ON `e`.`Id` = `o2`.`OwnedReferen
         await base.Split_entity_owning_a_reference(async);
 
         AssertSql(
-"""
+            """
 SELECT `e`.`Id`, `e`.`EntityThreeId`, `e`.`IntValue1`, `e`.`IntValue2`, `s0`.`IntValue3`, `s`.`IntValue4`, `e`.`StringValue1`, `e`.`StringValue2`, `s0`.`StringValue3`, `s`.`StringValue4`, `e`.`OwnedReference_Id`, `e`.`OwnedReference_OwnedIntValue1`, `e`.`OwnedReference_OwnedIntValue2`, `e`.`OwnedReference_OwnedIntValue3`, `e`.`OwnedReference_OwnedIntValue4`, `e`.`OwnedReference_OwnedStringValue1`, `e`.`OwnedReference_OwnedStringValue2`, `e`.`OwnedReference_OwnedStringValue3`, `e`.`OwnedReference_OwnedStringValue4`
-FROM (`EntityOne` AS `e`
-INNER JOIN `SplitEntityOnePart3` AS `s` ON `e`.`Id` = `s`.`Id`)
+FROM `EntityOne` AS `e`
+INNER JOIN `SplitEntityOnePart3` AS `s` ON `e`.`Id` = `s`.`Id`
 INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e`.`Id` = `s0`.`Id`
 """);
     }
@@ -297,9 +297,9 @@ INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e`.`Id` = `s0`.`Id`
         AssertSql(
             """
 SELECT `e`.`Id`, `e`.`EntityThreeId`, `e`.`IntValue1`, `e`.`IntValue2`, `s0`.`IntValue3`, `s`.`IntValue4`, `e`.`StringValue1`, `e`.`StringValue2`, `s0`.`StringValue3`, `s`.`StringValue4`, `o`.`EntityOneId`, `o`.`Id`, `o`.`OwnedIntValue1`, `o`.`OwnedIntValue2`, `o`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `o`.`OwnedStringValue1`, `o`.`OwnedStringValue2`, `o`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
-FROM ((`EntityOne` AS `e`
-INNER JOIN `SplitEntityOnePart3` AS `s` ON `e`.`Id` = `s`.`Id`)
-INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e`.`Id` = `s0`.`Id`)
+FROM `EntityOne` AS `e`
+INNER JOIN `SplitEntityOnePart3` AS `s` ON `e`.`Id` = `s`.`Id`
+INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e`.`Id` = `s0`.`Id`
 LEFT JOIN `OwnedCollection` AS `o` ON `e`.`Id` = `o`.`EntityOneId`
 ORDER BY `e`.`Id`, `o`.`EntityOneId`, `o`.`Id`
 """);
@@ -326,10 +326,10 @@ ORDER BY `e`.`Id`, `o`.`EntityOneId`, `o`.`Id`
         await base.Split_entity_owning_a_split_reference_with_table_sharing_1(async);
 
         AssertSql(
-"""
+            """
 SELECT `s`.`Id`, `s`.`EntityThreeId`, `s`.`IntValue1`, `s`.`IntValue2`, `s1`.`IntValue3`, `s0`.`IntValue4`, `s`.`StringValue1`, `s`.`StringValue2`, `s1`.`StringValue3`, `s0`.`StringValue4`, `s`.`OwnedReference_Id`, `s`.`OwnedReference_OwnedIntValue1`, `s`.`OwnedReference_OwnedIntValue2`, `s1`.`OwnedReference_OwnedIntValue3`, `s0`.`OwnedReference_OwnedIntValue4`, `s`.`OwnedReference_OwnedStringValue1`, `s`.`OwnedReference_OwnedStringValue2`, `s1`.`OwnedReference_OwnedStringValue3`, `s0`.`OwnedReference_OwnedStringValue4`
-FROM (`SplitEntityOnePart1` AS `s`
-INNER JOIN `SplitEntityOnePart3` AS `s0` ON `s`.`Id` = `s0`.`Id`)
+FROM `SplitEntityOnePart1` AS `s`
+INNER JOIN `SplitEntityOnePart3` AS `s0` ON `s`.`Id` = `s0`.`Id`
 INNER JOIN `SplitEntityOnePart2` AS `s1` ON `s`.`Id` = `s1`.`Id`
 """);
     }
@@ -339,11 +339,11 @@ INNER JOIN `SplitEntityOnePart2` AS `s1` ON `s`.`Id` = `s1`.`Id`
         await base.Split_entity_owning_a_split_reference_with_table_sharing_4(async);
 
         AssertSql(
-"""
+            """
 SELECT `s`.`Id`, `s`.`EntityThreeId`, `s`.`IntValue1`, `s`.`IntValue2`, `s1`.`IntValue3`, `s0`.`IntValue4`, `s`.`StringValue1`, `s`.`StringValue2`, `s1`.`StringValue3`, `s0`.`StringValue4`, `s`.`OwnedReference_Id`, `s`.`OwnedReference_OwnedIntValue1`, `s`.`OwnedReference_OwnedIntValue2`, `s1`.`OwnedReference_OwnedIntValue3`, `o`.`OwnedIntValue4`, `s`.`OwnedReference_OwnedStringValue1`, `s`.`OwnedReference_OwnedStringValue2`, `s1`.`OwnedReference_OwnedStringValue3`, `o`.`OwnedStringValue4`
-FROM ((`SplitEntityOnePart1` AS `s`
-INNER JOIN `SplitEntityOnePart3` AS `s0` ON `s`.`Id` = `s0`.`Id`)
-INNER JOIN `SplitEntityOnePart2` AS `s1` ON `s`.`Id` = `s1`.`Id`)
+FROM `SplitEntityOnePart1` AS `s`
+INNER JOIN `SplitEntityOnePart3` AS `s0` ON `s`.`Id` = `s0`.`Id`
+INNER JOIN `SplitEntityOnePart2` AS `s1` ON `s`.`Id` = `s1`.`Id`
 LEFT JOIN `OwnedReferencePart3` AS `o` ON `s`.`Id` = `o`.`EntityOneId`
 """);
     }
@@ -353,12 +353,12 @@ LEFT JOIN `OwnedReferencePart3` AS `o` ON `s`.`Id` = `o`.`EntityOneId`
         await base.Split_entity_owning_a_split_reference_with_table_sharing_6(async);
 
         AssertSql(
-"""
+            """
 SELECT `s`.`Id`, `s`.`EntityThreeId`, `s`.`IntValue1`, `s`.`IntValue2`, `s1`.`IntValue3`, `s0`.`IntValue4`, `s`.`StringValue1`, `s`.`StringValue2`, `s1`.`StringValue3`, `s0`.`StringValue4`, `s1`.`Id`, `s1`.`OwnedReference_Id`, `s1`.`OwnedReference_OwnedIntValue1`, `s1`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `s1`.`OwnedReference_OwnedStringValue1`, `s1`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
-FROM (((`SplitEntityOnePart1` AS `s`
-INNER JOIN `SplitEntityOnePart3` AS `s0` ON `s`.`Id` = `s0`.`Id`)
-INNER JOIN `SplitEntityOnePart2` AS `s1` ON `s`.`Id` = `s1`.`Id`)
-LEFT JOIN `OwnedReferencePart3` AS `o` ON `s1`.`Id` = `o`.`EntityOneId`)
+FROM `SplitEntityOnePart1` AS `s`
+INNER JOIN `SplitEntityOnePart3` AS `s0` ON `s`.`Id` = `s0`.`Id`
+INNER JOIN `SplitEntityOnePart2` AS `s1` ON `s`.`Id` = `s1`.`Id`
+LEFT JOIN `OwnedReferencePart3` AS `o` ON `s1`.`Id` = `o`.`EntityOneId`
 LEFT JOIN `OwnedReferencePart2` AS `o0` ON `s1`.`Id` = `o0`.`EntityOneId`
 """);
     }
@@ -368,10 +368,10 @@ LEFT JOIN `OwnedReferencePart2` AS `o0` ON `s1`.`Id` = `o0`.`EntityOneId`
         await base.Tph_entity_owning_a_split_reference_on_base_with_table_sharing(async);
 
         AssertSql(
-"""
+            """
 SELECT `b`.`Id`, `b`.`BaseValue`, `b`.`Discriminator`, `b`.`MiddleValue`, `b`.`SiblingValue`, `b`.`LeafValue`, `b`.`OwnedReference_Id`, `b`.`OwnedReference_OwnedIntValue1`, `b`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `b`.`OwnedReference_OwnedStringValue1`, `b`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
-FROM (`BaseEntity` AS `b`
-LEFT JOIN `OwnedReferencePart4` AS `o` ON `b`.`Id` = `o`.`BaseEntityId`)
+FROM `BaseEntity` AS `b`
+LEFT JOIN `OwnedReferencePart4` AS `o` ON `b`.`Id` = `o`.`BaseEntityId`
 LEFT JOIN `OwnedReferencePart3` AS `o0` ON `b`.`Id` = `o0`.`BaseEntityId`
 """);
     }
@@ -387,11 +387,11 @@ SELECT `b`.`Id`, `b`.`BaseValue`, `m`.`MiddleValue`, `s`.`SiblingValue`, `l`.`Le
     WHEN `s`.`Id` IS NOT NULL THEN 'SiblingEntity'
     WHEN `m`.`Id` IS NOT NULL THEN 'MiddleEntity'
 END AS `Discriminator`, `b`.`OwnedReference_Id`, `b`.`OwnedReference_OwnedIntValue1`, `b`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `b`.`OwnedReference_OwnedStringValue1`, `b`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
-FROM ((((`BaseEntity` AS `b`
-LEFT JOIN `MiddleEntity` AS `m` ON `b`.`Id` = `m`.`Id`)
-LEFT JOIN `SiblingEntity` AS `s` ON `b`.`Id` = `s`.`Id`)
-LEFT JOIN `LeafEntity` AS `l` ON `b`.`Id` = `l`.`Id`)
-LEFT JOIN `OwnedReferencePart4` AS `o` ON `b`.`Id` = `o`.`BaseEntityId`)
+FROM `BaseEntity` AS `b`
+LEFT JOIN `MiddleEntity` AS `m` ON `b`.`Id` = `m`.`Id`
+LEFT JOIN `SiblingEntity` AS `s` ON `b`.`Id` = `s`.`Id`
+LEFT JOIN `LeafEntity` AS `l` ON `b`.`Id` = `l`.`Id`
+LEFT JOIN `OwnedReferencePart4` AS `o` ON `b`.`Id` = `o`.`BaseEntityId`
 LEFT JOIN `OwnedReferencePart3` AS `o0` ON `b`.`Id` = `o0`.`BaseEntityId`
 """);
     }
@@ -401,10 +401,10 @@ LEFT JOIN `OwnedReferencePart3` AS `o0` ON `b`.`Id` = `o0`.`BaseEntityId`
         await base.Tph_entity_owning_a_split_reference_on_middle_with_table_sharing(async);
 
         AssertSql(
-"""
+            """
 SELECT `b`.`Id`, `b`.`BaseValue`, `b`.`Discriminator`, `b`.`MiddleValue`, `b`.`SiblingValue`, `b`.`LeafValue`, `b`.`OwnedReference_Id`, `b`.`OwnedReference_OwnedIntValue1`, `b`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `b`.`OwnedReference_OwnedStringValue1`, `b`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
-FROM (`BaseEntity` AS `b`
-LEFT JOIN `OwnedReferencePart4` AS `o` ON `b`.`Id` = `o`.`MiddleEntityId`)
+FROM `BaseEntity` AS `b`
+LEFT JOIN `OwnedReferencePart4` AS `o` ON `b`.`Id` = `o`.`MiddleEntityId`
 LEFT JOIN `OwnedReferencePart3` AS `o0` ON `b`.`Id` = `o0`.`MiddleEntityId`
 """);
     }
@@ -420,11 +420,11 @@ SELECT `b`.`Id`, `b`.`BaseValue`, `m`.`MiddleValue`, `s`.`SiblingValue`, `l`.`Le
     WHEN `s`.`Id` IS NOT NULL THEN 'SiblingEntity'
     WHEN `m`.`Id` IS NOT NULL THEN 'MiddleEntity'
 END AS `Discriminator`, `m`.`Id`, `m`.`OwnedReference_Id`, `m`.`OwnedReference_OwnedIntValue1`, `m`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `m`.`OwnedReference_OwnedStringValue1`, `m`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
-FROM ((((`BaseEntity` AS `b`
-LEFT JOIN `MiddleEntity` AS `m` ON `b`.`Id` = `m`.`Id`)
-LEFT JOIN `SiblingEntity` AS `s` ON `b`.`Id` = `s`.`Id`)
-LEFT JOIN `LeafEntity` AS `l` ON `b`.`Id` = `l`.`Id`)
-LEFT JOIN `OwnedReferencePart4` AS `o` ON `m`.`Id` = `o`.`MiddleEntityId`)
+FROM `BaseEntity` AS `b`
+LEFT JOIN `MiddleEntity` AS `m` ON `b`.`Id` = `m`.`Id`
+LEFT JOIN `SiblingEntity` AS `s` ON `b`.`Id` = `s`.`Id`
+LEFT JOIN `LeafEntity` AS `l` ON `b`.`Id` = `l`.`Id`
+LEFT JOIN `OwnedReferencePart4` AS `o` ON `m`.`Id` = `o`.`MiddleEntityId`
 LEFT JOIN `OwnedReferencePart3` AS `o0` ON `m`.`Id` = `o0`.`MiddleEntityId`
 """);
     }
@@ -434,10 +434,10 @@ LEFT JOIN `OwnedReferencePart3` AS `o0` ON `m`.`Id` = `o0`.`MiddleEntityId`
         await base.Tph_entity_owning_a_split_reference_on_leaf_with_table_sharing(async);
 
         AssertSql(
-"""
+            """
 SELECT `b`.`Id`, `b`.`BaseValue`, `b`.`Discriminator`, `b`.`MiddleValue`, `b`.`SiblingValue`, `b`.`LeafValue`, `b`.`OwnedReference_Id`, `b`.`OwnedReference_OwnedIntValue1`, `b`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `b`.`OwnedReference_OwnedStringValue1`, `b`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
-FROM (`BaseEntity` AS `b`
-LEFT JOIN `OwnedReferencePart4` AS `o` ON `b`.`Id` = `o`.`LeafEntityId`)
+FROM `BaseEntity` AS `b`
+LEFT JOIN `OwnedReferencePart4` AS `o` ON `b`.`Id` = `o`.`LeafEntityId`
 LEFT JOIN `OwnedReferencePart3` AS `o0` ON `b`.`Id` = `o0`.`LeafEntityId`
 """);
     }
@@ -453,11 +453,11 @@ SELECT `b`.`Id`, `b`.`BaseValue`, `m`.`MiddleValue`, `s`.`SiblingValue`, `l`.`Le
     WHEN `s`.`Id` IS NOT NULL THEN 'SiblingEntity'
     WHEN `m`.`Id` IS NOT NULL THEN 'MiddleEntity'
 END AS `Discriminator`, `l`.`Id`, `l`.`OwnedReference_Id`, `l`.`OwnedReference_OwnedIntValue1`, `l`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `l`.`OwnedReference_OwnedStringValue1`, `l`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
-FROM ((((`BaseEntity` AS `b`
-LEFT JOIN `MiddleEntity` AS `m` ON `b`.`Id` = `m`.`Id`)
-LEFT JOIN `SiblingEntity` AS `s` ON `b`.`Id` = `s`.`Id`)
-LEFT JOIN `LeafEntity` AS `l` ON `b`.`Id` = `l`.`Id`)
-LEFT JOIN `OwnedReferencePart4` AS `o` ON `l`.`Id` = `o`.`LeafEntityId`)
+FROM `BaseEntity` AS `b`
+LEFT JOIN `MiddleEntity` AS `m` ON `b`.`Id` = `m`.`Id`
+LEFT JOIN `SiblingEntity` AS `s` ON `b`.`Id` = `s`.`Id`
+LEFT JOIN `LeafEntity` AS `l` ON `b`.`Id` = `l`.`Id`
+LEFT JOIN `OwnedReferencePart4` AS `o` ON `l`.`Id` = `o`.`LeafEntityId`
 LEFT JOIN `OwnedReferencePart3` AS `o0` ON `l`.`Id` = `o0`.`LeafEntityId`
 """);
     }
@@ -469,7 +469,7 @@ LEFT JOIN `OwnedReferencePart3` AS `o0` ON `l`.`Id` = `o0`.`LeafEntityId`
         AssertSql(
             """
 SELECT `u`.`Id`, `u`.`BaseValue`, `u`.`MiddleValue`, `u`.`SiblingValue`, `u`.`LeafValue`, `u`.`Discriminator`, `l0`.`Id`, `l0`.`OwnedReference_Id`, `l0`.`OwnedReference_OwnedIntValue1`, `l0`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `l0`.`OwnedReference_OwnedStringValue1`, `l0`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
-FROM (((
+FROM (
     SELECT `b`.`Id`, `b`.`BaseValue`, CVar(NULL) AS `MiddleValue`, CVar(NULL) AS `SiblingValue`, CVar(NULL) AS `LeafValue`, 'BaseEntity' AS `Discriminator`
     FROM `BaseEntity` AS `b`
     UNION ALL
@@ -482,8 +482,8 @@ FROM (((
     SELECT `l`.`Id`, `l`.`BaseValue`, `l`.`MiddleValue`, CVar(NULL) AS `SiblingValue`, `l`.`LeafValue`, 'LeafEntity' AS `Discriminator`
     FROM `LeafEntity` AS `l`
 ) AS `u`
-LEFT JOIN `LeafEntity` AS `l0` ON `u`.`Id` = `l0`.`Id`)
-LEFT JOIN `OwnedReferencePart4` AS `o` ON `l0`.`Id` = `o`.`LeafEntityId`)
+LEFT JOIN `LeafEntity` AS `l0` ON `u`.`Id` = `l0`.`Id`
+LEFT JOIN `OwnedReferencePart4` AS `o` ON `l0`.`Id` = `o`.`LeafEntityId`
 LEFT JOIN `OwnedReferencePart3` AS `o0` ON `l0`.`Id` = `o0`.`LeafEntityId`
 """);
     }
@@ -493,10 +493,10 @@ LEFT JOIN `OwnedReferencePart3` AS `o0` ON `l0`.`Id` = `o0`.`LeafEntityId`
         await base.Tph_entity_owning_a_split_reference_on_base_with_table_sharing_querying_sibling(async);
 
         AssertSql(
-"""
+            """
 SELECT `b`.`Id`, `b`.`BaseValue`, `b`.`Discriminator`, `b`.`SiblingValue`, `b`.`OwnedReference_Id`, `b`.`OwnedReference_OwnedIntValue1`, `b`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `b`.`OwnedReference_OwnedStringValue1`, `b`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
-FROM (`BaseEntity` AS `b`
-LEFT JOIN `OwnedReferencePart4` AS `o` ON `b`.`Id` = `o`.`BaseEntityId`)
+FROM `BaseEntity` AS `b`
+LEFT JOIN `OwnedReferencePart4` AS `o` ON `b`.`Id` = `o`.`BaseEntityId`
 LEFT JOIN `OwnedReferencePart3` AS `o0` ON `b`.`Id` = `o0`.`BaseEntityId`
 WHERE `b`.`Discriminator` = 'SiblingEntity'
 """);
@@ -507,11 +507,11 @@ WHERE `b`.`Discriminator` = 'SiblingEntity'
         await base.Tpt_entity_owning_a_split_reference_on_base_with_table_sharing_querying_sibling(async);
 
         AssertSql(
-"""
+            """
 SELECT `b`.`Id`, `b`.`BaseValue`, `s`.`SiblingValue`, `b`.`OwnedReference_Id`, `b`.`OwnedReference_OwnedIntValue1`, `b`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `b`.`OwnedReference_OwnedStringValue1`, `b`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
-FROM ((`BaseEntity` AS `b`
-INNER JOIN `SiblingEntity` AS `s` ON `b`.`Id` = `s`.`Id`)
-LEFT JOIN `OwnedReferencePart4` AS `o` ON `b`.`Id` = `o`.`BaseEntityId`)
+FROM `BaseEntity` AS `b`
+INNER JOIN `SiblingEntity` AS `s` ON `b`.`Id` = `s`.`Id`
+LEFT JOIN `OwnedReferencePart4` AS `o` ON `b`.`Id` = `o`.`BaseEntityId`
 LEFT JOIN `OwnedReferencePart3` AS `o0` ON `b`.`Id` = `o0`.`BaseEntityId`
 """);
     }
@@ -598,7 +598,7 @@ FROM `SiblingEntity` AS `s`
         AssertSql(
             """
 SELECT `u`.`Id`, `u`.`BaseValue`, `u`.`MiddleValue`, `u`.`SiblingValue`, `u`.`LeafValue`, `u`.`Discriminator`, `o`.`BaseEntityId`, `o`.`Id`, `o`.`OwnedIntValue1`, `o`.`OwnedIntValue2`, `o1`.`OwnedIntValue3`, `o0`.`OwnedIntValue4`, `o`.`OwnedStringValue1`, `o`.`OwnedStringValue2`, `o1`.`OwnedStringValue3`, `o0`.`OwnedStringValue4`
-FROM (((
+FROM (
     SELECT `b`.`Id`, `b`.`BaseValue`, CVar(NULL) AS `MiddleValue`, CVar(NULL) AS `SiblingValue`, CVar(NULL) AS `LeafValue`, 'BaseEntity' AS `Discriminator`
     FROM `BaseEntity` AS `b`
     UNION ALL
@@ -611,8 +611,8 @@ FROM (((
     SELECT `l`.`Id`, `l`.`BaseValue`, `l`.`MiddleValue`, CVar(NULL) AS `SiblingValue`, `l`.`LeafValue`, 'LeafEntity' AS `Discriminator`
     FROM `LeafEntity` AS `l`
 ) AS `u`
-LEFT JOIN `OwnedReferencePart1` AS `o` ON `u`.`Id` = `o`.`BaseEntityId`)
-LEFT JOIN `OwnedReferencePart4` AS `o0` ON `o`.`BaseEntityId` = `o0`.`BaseEntityId`)
+LEFT JOIN `OwnedReferencePart1` AS `o` ON `u`.`Id` = `o`.`BaseEntityId`
+LEFT JOIN `OwnedReferencePart4` AS `o0` ON `o`.`BaseEntityId` = `o0`.`BaseEntityId`
 LEFT JOIN `OwnedReferencePart3` AS `o1` ON `o`.`BaseEntityId` = `o1`.`BaseEntityId`
 """);
     }
@@ -640,7 +640,7 @@ LEFT JOIN `OwnedReferencePart3` AS `o1` ON `o`.`BaseEntityId` = `o1`.`BaseEntity
         AssertSql(
             """
 SELECT `u`.`Id`, `u`.`BaseValue`, `u`.`MiddleValue`, `u`.`SiblingValue`, `u`.`LeafValue`, `u`.`Discriminator`, `o`.`MiddleEntityId`, `o`.`Id`, `o`.`OwnedIntValue1`, `o`.`OwnedIntValue2`, `o1`.`OwnedIntValue3`, `o0`.`OwnedIntValue4`, `o`.`OwnedStringValue1`, `o`.`OwnedStringValue2`, `o1`.`OwnedStringValue3`, `o0`.`OwnedStringValue4`
-FROM (((
+FROM (
     SELECT `b`.`Id`, `b`.`BaseValue`, CVar(NULL) AS `MiddleValue`, CVar(NULL) AS `SiblingValue`, CVar(NULL) AS `LeafValue`, 'BaseEntity' AS `Discriminator`
     FROM `BaseEntity` AS `b`
     UNION ALL
@@ -653,8 +653,8 @@ FROM (((
     SELECT `l`.`Id`, `l`.`BaseValue`, `l`.`MiddleValue`, CVar(NULL) AS `SiblingValue`, `l`.`LeafValue`, 'LeafEntity' AS `Discriminator`
     FROM `LeafEntity` AS `l`
 ) AS `u`
-LEFT JOIN `OwnedReferencePart1` AS `o` ON `u`.`Id` = `o`.`MiddleEntityId`)
-LEFT JOIN `OwnedReferencePart4` AS `o0` ON `o`.`MiddleEntityId` = `o0`.`MiddleEntityId`)
+LEFT JOIN `OwnedReferencePart1` AS `o` ON `u`.`Id` = `o`.`MiddleEntityId`
+LEFT JOIN `OwnedReferencePart4` AS `o0` ON `o`.`MiddleEntityId` = `o0`.`MiddleEntityId`
 LEFT JOIN `OwnedReferencePart3` AS `o1` ON `o`.`MiddleEntityId` = `o1`.`MiddleEntityId`
 """);
     }
@@ -721,8 +721,8 @@ FROM (
 ) AS `u`
 LEFT JOIN (
     SELECT `o`.`BaseEntityId`, `o`.`Id`, `o`.`OwnedIntValue1`, `o`.`OwnedIntValue2`, `o1`.`OwnedIntValue3`, `o0`.`OwnedIntValue4`, `o`.`OwnedStringValue1`, `o`.`OwnedStringValue2`, `o1`.`OwnedStringValue3`, `o0`.`OwnedStringValue4`
-    FROM (`OwnedReferencePart1` AS `o`
-    INNER JOIN `OwnedReferencePart4` AS `o0` ON `o`.`BaseEntityId` = `o0`.`BaseEntityId` AND `o`.`Id` = `o0`.`Id`)
+    FROM `OwnedReferencePart1` AS `o`
+    INNER JOIN `OwnedReferencePart4` AS `o0` ON `o`.`BaseEntityId` = `o0`.`BaseEntityId` AND `o`.`Id` = `o0`.`Id`
     INNER JOIN `OwnedReferencePart3` AS `o1` ON `o`.`BaseEntityId` = `o1`.`BaseEntityId` AND `o`.`Id` = `o1`.`Id`
 ) AS `s0` ON `u`.`Id` = `s0`.`BaseEntityId`
 ORDER BY `u`.`Id`, `s0`.`BaseEntityId`
@@ -767,8 +767,8 @@ FROM (
 ) AS `u`
 LEFT JOIN (
     SELECT `o`.`MiddleEntityId`, `o`.`Id`, `o`.`OwnedIntValue1`, `o`.`OwnedIntValue2`, `o1`.`OwnedIntValue3`, `o0`.`OwnedIntValue4`, `o`.`OwnedStringValue1`, `o`.`OwnedStringValue2`, `o1`.`OwnedStringValue3`, `o0`.`OwnedStringValue4`
-    FROM (`OwnedReferencePart1` AS `o`
-    INNER JOIN `OwnedReferencePart4` AS `o0` ON `o`.`MiddleEntityId` = `o0`.`MiddleEntityId` AND `o`.`Id` = `o0`.`Id`)
+    FROM `OwnedReferencePart1` AS `o`
+    INNER JOIN `OwnedReferencePart4` AS `o0` ON `o`.`MiddleEntityId` = `o0`.`MiddleEntityId` AND `o`.`Id` = `o0`.`Id`
     INNER JOIN `OwnedReferencePart3` AS `o1` ON `o`.`MiddleEntityId` = `o1`.`MiddleEntityId` AND `o`.`Id` = `o1`.`Id`
 ) AS `s0` ON `u`.`Id` = `s0`.`MiddleEntityId`
 ORDER BY `u`.`Id`, `s0`.`MiddleEntityId`

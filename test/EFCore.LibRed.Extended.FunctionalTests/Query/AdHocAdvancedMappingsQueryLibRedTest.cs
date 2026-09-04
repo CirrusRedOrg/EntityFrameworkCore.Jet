@@ -217,9 +217,9 @@ SELECT `a`.`Id`, `a`.`Species`, `p`.`Name`, `c`.`EdcuationLevel`, `d`.`FavoriteT
     WHEN `d`.`Id` IS NOT NULL THEN 'Dog'
     WHEN `c`.`Id` IS NOT NULL THEN 'Cat'
 END AS `Discriminator`
-FROM ((`Animals` AS `a`
-LEFT JOIN `Pets` AS `p` ON `a`.`Id` = `p`.`Id`)
-LEFT JOIN `Cats` AS `c` ON `a`.`Id` = `c`.`Id`)
+FROM `Animals` AS `a`
+LEFT JOIN `Pets` AS `p` ON `a`.`Id` = `p`.`Id`
+LEFT JOIN `Cats` AS `c` ON `a`.`Id` = `c`.`Id`
 LEFT JOIN `Dogs` AS `d` ON `a`.`Id` = `d`.`Id`
 WHERE (`d`.`Id` IS NOT NULL OR `c`.`Id` IS NOT NULL) AND (`a`.`Species` LIKE 'F%')
 """);

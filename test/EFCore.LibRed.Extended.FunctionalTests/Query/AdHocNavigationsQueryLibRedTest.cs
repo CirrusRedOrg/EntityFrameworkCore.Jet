@@ -136,22 +136,22 @@ ORDER BY `p`.`Id`, `s`.`Id`, `s`.`Id0`
             //
             """
 SELECT `c0`.`Id`, `c0`.`ParentBackNavigationId`, `c0`.`SelfReferenceBackNavigationId`, `p`.`Id`
-FROM (`Children` AS `c`
-LEFT JOIN `Children` AS `c0` ON `c`.`SelfReferenceBackNavigationId` = `c0`.`Id`)
+FROM `Children` AS `c`
+LEFT JOIN `Children` AS `c0` ON `c`.`SelfReferenceBackNavigationId` = `c0`.`Id`
 LEFT JOIN `Parents` AS `p` ON `c0`.`ParentBackNavigationId` = `p`.`Id`
 """,
             //
             """
 SELECT `c0`.`Id`, `c0`.`ParentBackNavigationId`, `c0`.`SelfReferenceBackNavigationId`, `p`.`Id`
-FROM (`Children` AS `c`
-LEFT JOIN `Children` AS `c0` ON `c`.`SelfReferenceBackNavigationId` = `c0`.`Id`)
+FROM `Children` AS `c`
+LEFT JOIN `Children` AS `c0` ON `c`.`SelfReferenceBackNavigationId` = `c0`.`Id`
 LEFT JOIN `Parents` AS `p` ON `c0`.`ParentBackNavigationId` = `p`.`Id`
 """,
             //
             """
 SELECT `c`.`Id`, `c`.`ParentBackNavigationId`, `c`.`SelfReferenceBackNavigationId`, `c0`.`Id`, `c0`.`ParentBackNavigationId`, `c0`.`SelfReferenceBackNavigationId`, `p`.`Id`
-FROM (`Children` AS `c`
-LEFT JOIN `Children` AS `c0` ON `c`.`SelfReferenceBackNavigationId` = `c0`.`Id`)
+FROM `Children` AS `c`
+LEFT JOIN `Children` AS `c0` ON `c`.`SelfReferenceBackNavigationId` = `c0`.`Id`
 LEFT JOIN `Parents` AS `p` ON `c0`.`ParentBackNavigationId` = `p`.`Id`
 """);
     }
@@ -213,8 +213,8 @@ SELECT `p`.`Id`, `p`.`Discriminator`, `p`.`FamilyId`, `p`.`Name`, `p`.`TeacherId
 FROM `People` AS `p`
 LEFT JOIN (
     SELECT `p0`.`Id`, `p0`.`Discriminator`, `p0`.`FamilyId`, `p0`.`Name`, `p0`.`TeacherId`, `p0`.`Grade`, `f`.`Id` AS `Id0`, `f`.`LastName`, `p1`.`Id` AS `Id1`, `p1`.`Discriminator` AS `Discriminator0`, `p1`.`FamilyId` AS `FamilyId0`, `p1`.`Name` AS `Name0`, `p1`.`TeacherId` AS `TeacherId0`, `p1`.`Grade` AS `Grade0`
-    FROM (`People` AS `p0`
-    LEFT JOIN `Families` AS `f` ON `p0`.`FamilyId` = `f`.`Id`)
+    FROM `People` AS `p0`
+    LEFT JOIN `Families` AS `f` ON `p0`.`FamilyId` = `f`.`Id`
     LEFT JOIN `People` AS `p1` ON `f`.`Id` = `p1`.`FamilyId`
     WHERE `p0`.`Discriminator` = 'PersonKid9038'
 ) AS `s` ON `p`.`Id` = `s`.`TeacherId`
@@ -224,9 +224,9 @@ ORDER BY `p`.`Id`, `s`.`Id`, `s`.`Id1`
             //
             """
 SELECT `p`.`Id`, `p`.`Discriminator`, `p`.`FamilyId`, `p`.`Name`, `p`.`TeacherId`, `f`.`Id`, `f`.`LastName`, `p0`.`Id`, `p0`.`Discriminator`, `p0`.`FamilyId`, `p0`.`Name`, `p0`.`TeacherId`, `p0`.`Grade`, `p2`.`Id`, `p2`.`Discriminator`, `p2`.`FamilyId`, `p2`.`Name`, `p2`.`TeacherId`, `p2`.`Grade`
-FROM ((`People` AS `p`
-LEFT JOIN `Families` AS `f` ON `p`.`FamilyId` = `f`.`Id`)
-LEFT JOIN `People` AS `p0` ON `f`.`Id` = `p0`.`FamilyId`)
+FROM `People` AS `p`
+LEFT JOIN `Families` AS `f` ON `p`.`FamilyId` = `f`.`Id`
+LEFT JOIN `People` AS `p0` ON `f`.`Id` = `p0`.`FamilyId`
 LEFT JOIN (
     SELECT `p1`.`Id`, `p1`.`Discriminator`, `p1`.`FamilyId`, `p1`.`Name`, `p1`.`TeacherId`, `p1`.`Grade`
     FROM `People` AS `p1`
@@ -264,9 +264,9 @@ ORDER BY `p`.`Id`, `c`.`Id`
         AssertSql(
             """
 SELECT `b`.`Id`, `p`.`Id`, `p`.`BlogId1`, `p`.`BlogId2`, `p`.`BlogId3`, `p`.`Name`, `p0`.`Id`, `p0`.`BlogId1`, `p0`.`BlogId2`, `p0`.`BlogId3`, `p0`.`Name`, `p1`.`Id`, `p1`.`BlogId1`, `p1`.`BlogId2`, `p1`.`BlogId3`, `p1`.`Name`
-FROM ((`Blogs` AS `b`
-LEFT JOIN `Posts` AS `p` ON `b`.`Id` = `p`.`BlogId1`)
-LEFT JOIN `Posts` AS `p0` ON `b`.`Id` = `p0`.`BlogId2`)
+FROM `Blogs` AS `b`
+LEFT JOIN `Posts` AS `p` ON `b`.`Id` = `p`.`BlogId1`
+LEFT JOIN `Posts` AS `p0` ON `b`.`Id` = `p0`.`BlogId2`
 LEFT JOIN `Posts` AS `p1` ON `b`.`Id` = `p1`.`BlogId3`
 ORDER BY `b`.`Id`, `p`.`Id`, `p0`.`Id`, `p1`.`Id`
 """,
@@ -564,8 +564,8 @@ ORDER BY `p`.`Id`, `d`.`Id`
             //
             """
 SELECT `d`.`Id`, `d`.`PrincipalId`, `p`.`Id`, `d0`.`Id`, `d0`.`PrincipalId`
-FROM (`DependentOneToMany` AS `d`
-INNER JOIN `PrincipalOneToMany` AS `p` ON `d`.`PrincipalId` = `p`.`Id`)
+FROM `DependentOneToMany` AS `d`
+INNER JOIN `PrincipalOneToMany` AS `p` ON `d`.`PrincipalId` = `p`.`Id`
 LEFT JOIN `DependentOneToMany` AS `d0` ON `p`.`Id` = `d0`.`PrincipalId`
 ORDER BY `d`.`Id`, `d0`.`Id`
 """,
@@ -617,8 +617,8 @@ FROM `CycleC` AS `c`
         AssertSql(
             """
 SELECT `m`.`Id`, `m`.`PrincipalId`, `p`.`Id`, `s0`.`Id`, `s0`.`PrincipalId`, `s0`.`Id0`, `s0`.`ManyDependentId`, `s0`.`PrincipalId0`
-FROM (`ManyDependent` AS `m`
-LEFT JOIN `Principal` AS `p` ON `m`.`PrincipalId` = `p`.`Id`)
+FROM `ManyDependent` AS `m`
+LEFT JOIN `Principal` AS `p` ON `m`.`PrincipalId` = `p`.`Id`
 LEFT JOIN (
     SELECT `m0`.`Id`, `m0`.`PrincipalId`, `s`.`Id` AS `Id0`, `s`.`ManyDependentId`, `s`.`PrincipalId` AS `PrincipalId0`
     FROM `ManyDependent` AS `m0`
@@ -688,9 +688,9 @@ FROM `Authors` AS `a`
         AssertSql(
             """
 SELECT `p`.`Name`, `p`.`PersonId`, `p0`.`Name`, `p0`.`PersonId`
-FROM (`People` AS `p`
-LEFT JOIN `Employers` AS `e` ON `p`.`EmployerId` = `e`.`EmployerId`)
-LEFT JOIN `People` AS `p0` ON `e`.`EmployerId` = `p0`.`EmployerId` AND `p`.`PersonId` <> `p0`.`PersonId`
+FROM `People` AS `p`
+LEFT JOIN `Employers` AS `e` ON `p`.`EmployerId` = `e`.`EmployerId`
+LEFT JOIN `People` AS `p0` ON `e`.`EmployerId` IS NOT NULL AND `e`.`EmployerId` = `p0`.`EmployerId` AND `p`.`PersonId` <> `p0`.`PersonId`
 ORDER BY `p`.`PersonId`, `p0`.`PersonId`
 """);
     }

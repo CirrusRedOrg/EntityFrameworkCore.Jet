@@ -32,12 +32,12 @@ public class ManyToManyLoadLibRedTest : ManyToManyLoadTestBase<ManyToManyLoadLib
                   @p='3'
                   
                   SELECT `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`Id`, `s0`.`Name`, `s0`.`OneId`, `s0`.`TwoId`
-                  FROM (`EntityOnes` AS `e`
+                  FROM `EntityOnes` AS `e`
                   INNER JOIN (
                       SELECT `e0`.`Id`, `e0`.`CollectionInverseId`, `e0`.`ExtraId`, `e0`.`Name`, `e0`.`ReferenceInverseId`, `j`.`OneId`, `j`.`TwoId`
                       FROM `JoinOneToTwo` AS `j`
                       INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
-                  ) AS `s` ON `e`.`Id` = `s`.`OneId`)
+                  ) AS `s` ON `e`.`Id` = `s`.`OneId`
                   LEFT JOIN (
                       SELECT `e1`.`Id`, `e1`.`Name`, `j0`.`OneId`, `j0`.`TwoId`
                       FROM `JoinOneToTwo` AS `j0`
@@ -51,12 +51,12 @@ public class ManyToManyLoadLibRedTest : ManyToManyLoadTestBase<ManyToManyLoadLib
                   @p='3'
                   
                   SELECT `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`OneId`, `s0`.`TwoId`, `s0`.`JoinOneToTwoExtraId`, `s0`.`Id`, `s0`.`Name`
-                  FROM (`EntityOnes` AS `e`
+                  FROM `EntityOnes` AS `e`
                   INNER JOIN (
                       SELECT `e0`.`Id`, `e0`.`CollectionInverseId`, `e0`.`ExtraId`, `e0`.`Name`, `e0`.`ReferenceInverseId`, `j`.`OneId`, `j`.`TwoId`
                       FROM `JoinOneToTwo` AS `j`
                       INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
-                  ) AS `s` ON `e`.`Id` = `s`.`OneId`)
+                  ) AS `s` ON `e`.`Id` = `s`.`OneId`
                   LEFT JOIN (
                       SELECT `j0`.`OneId`, `j0`.`TwoId`, `j0`.`JoinOneToTwoExtraId`, `e1`.`Id`, `e1`.`Name`
                       FROM `JoinOneToTwo` AS `j0`
@@ -77,12 +77,12 @@ public class ManyToManyLoadLibRedTest : ManyToManyLoadTestBase<ManyToManyLoadLib
 @p='3'
 
 SELECT `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`, `s0`.`Id`, `s0`.`Name`
-FROM (`EntityOnes` AS `e`
+FROM `EntityOnes` AS `e`
 INNER JOIN (
     SELECT `e1`.`Id`, `e1`.`CollectionInverseId`, `e1`.`ExtraId`, `e1`.`Name`, `e1`.`ReferenceInverseId`, `e0`.`OneSkipSharedId`, `e0`.`TwoSkipSharedId`
     FROM `EntityOneEntityTwo` AS `e0`
     INNER JOIN `EntityTwos` AS `e1` ON `e0`.`TwoSkipSharedId` = `e1`.`Id`
-) AS `s` ON `e`.`Id` = `s`.`OneSkipSharedId`)
+) AS `s` ON `e`.`Id` = `s`.`OneSkipSharedId`
 LEFT JOIN (
     SELECT `e2`.`OneSkipSharedId`, `e2`.`TwoSkipSharedId`, `e3`.`Id`, `e3`.`Name`
     FROM `EntityOneEntityTwo` AS `e2`
@@ -103,16 +103,16 @@ ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSh
 @p='3'
 
 SELECT `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s1`.`OneSkipSharedId`, `s1`.`TwoSkipSharedId`, `s1`.`Id`, `s1`.`Name`, `s1`.`OneSkipSharedId0`, `s1`.`TwoSkipSharedId0`, `s1`.`Id0`, `s1`.`CollectionInverseId`, `s1`.`ExtraId`, `s1`.`Name0`, `s1`.`ReferenceInverseId`
-FROM (`EntityOnes` AS `e`
+FROM `EntityOnes` AS `e`
 INNER JOIN (
     SELECT `e1`.`Id`, `e1`.`CollectionInverseId`, `e1`.`ExtraId`, `e1`.`Name`, `e1`.`ReferenceInverseId`, `e0`.`OneSkipSharedId`, `e0`.`TwoSkipSharedId`
     FROM `EntityOneEntityTwo` AS `e0`
     INNER JOIN `EntityTwos` AS `e1` ON `e0`.`TwoSkipSharedId` = `e1`.`Id`
-) AS `s` ON `e`.`Id` = `s`.`OneSkipSharedId`)
+) AS `s` ON `e`.`Id` = `s`.`OneSkipSharedId`
 LEFT JOIN (
     SELECT `e2`.`OneSkipSharedId`, `e2`.`TwoSkipSharedId`, `e3`.`Id`, `e3`.`Name`, `s0`.`OneSkipSharedId` AS `OneSkipSharedId0`, `s0`.`TwoSkipSharedId` AS `TwoSkipSharedId0`, `s0`.`Id` AS `Id0`, `s0`.`CollectionInverseId`, `s0`.`ExtraId`, `s0`.`Name` AS `Name0`, `s0`.`ReferenceInverseId`
-    FROM (`EntityOneEntityTwo` AS `e2`
-    INNER JOIN `EntityOnes` AS `e3` ON `e2`.`OneSkipSharedId` = `e3`.`Id`)
+    FROM `EntityOneEntityTwo` AS `e2`
+    INNER JOIN `EntityOnes` AS `e3` ON `e2`.`OneSkipSharedId` = `e3`.`Id`
     LEFT JOIN (
         SELECT `e4`.`OneSkipSharedId`, `e4`.`TwoSkipSharedId`, `e5`.`Id`, `e5`.`CollectionInverseId`, `e5`.`ExtraId`, `e5`.`Name`, `e5`.`ReferenceInverseId`
         FROM `EntityOneEntityTwo` AS `e4`
@@ -134,18 +134,18 @@ ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s1`.`OneSkipSh
 @p='3'
 
 SELECT `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`, `s0`.`Id`, `s0`.`Name`, `s1`.`ThreeId`, `s1`.`TwoId`, `s1`.`Id`, `s1`.`CollectionInverseId`, `s1`.`Name`, `s1`.`ReferenceInverseId`
-FROM ((`EntityOnes` AS `e`
+FROM `EntityOnes` AS `e`
 INNER JOIN (
     SELECT `e1`.`Id`, `e1`.`CollectionInverseId`, `e1`.`ExtraId`, `e1`.`Name`, `e1`.`ReferenceInverseId`, `e0`.`OneSkipSharedId`, `e0`.`TwoSkipSharedId`
     FROM `EntityOneEntityTwo` AS `e0`
     INNER JOIN `EntityTwos` AS `e1` ON `e0`.`TwoSkipSharedId` = `e1`.`Id`
-) AS `s` ON `e`.`Id` = `s`.`OneSkipSharedId`)
+) AS `s` ON `e`.`Id` = `s`.`OneSkipSharedId`
 LEFT JOIN (
     SELECT `e2`.`OneSkipSharedId`, `e2`.`TwoSkipSharedId`, `e3`.`Id`, `e3`.`Name`
     FROM `EntityOneEntityTwo` AS `e2`
     INNER JOIN `EntityOnes` AS `e3` ON `e2`.`OneSkipSharedId` = `e3`.`Id`
     WHERE `e3`.`Id` = @p
-) AS `s0` ON `s`.`Id` = `s0`.`TwoSkipSharedId`)
+) AS `s0` ON `s`.`Id` = `s0`.`TwoSkipSharedId`
 LEFT JOIN (
     SELECT `j`.`ThreeId`, `j`.`TwoId`, `e4`.`Id`, `e4`.`CollectionInverseId`, `e4`.`Name`, `e4`.`ReferenceInverseId`
     FROM `JoinTwoToThree` AS `j`
@@ -165,18 +165,18 @@ ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSh
 @p='3'
 
 SELECT `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`, `s0`.`Id`, `s0`.`Name`, `s1`.`ThreeId`, `s1`.`TwoId`, `s1`.`Id`, `s1`.`CollectionInverseId`, `s1`.`Name`, `s1`.`ReferenceInverseId`
-FROM ((`EntityOnes` AS `e`
+FROM `EntityOnes` AS `e`
 INNER JOIN (
     SELECT `e1`.`Id`, `e1`.`CollectionInverseId`, `e1`.`ExtraId`, `e1`.`Name`, `e1`.`ReferenceInverseId`, `e0`.`OneSkipSharedId`, `e0`.`TwoSkipSharedId`
     FROM `EntityOneEntityTwo` AS `e0`
     INNER JOIN `EntityTwos` AS `e1` ON `e0`.`TwoSkipSharedId` = `e1`.`Id`
-) AS `s` ON `e`.`Id` = `s`.`OneSkipSharedId`)
+) AS `s` ON `e`.`Id` = `s`.`OneSkipSharedId`
 LEFT JOIN (
     SELECT `e2`.`OneSkipSharedId`, `e2`.`TwoSkipSharedId`, `e3`.`Id`, `e3`.`Name`
     FROM `EntityOneEntityTwo` AS `e2`
     INNER JOIN `EntityOnes` AS `e3` ON `e2`.`OneSkipSharedId` = `e3`.`Id`
     WHERE `e3`.`Id` = @p
-) AS `s0` ON `s`.`Id` = `s0`.`TwoSkipSharedId`)
+) AS `s0` ON `s`.`Id` = `s0`.`TwoSkipSharedId`
 LEFT JOIN (
     SELECT `j`.`ThreeId`, `j`.`TwoId`, `e4`.`Id`, `e4`.`CollectionInverseId`, `e4`.`Name`, `e4`.`ReferenceInverseId`
     FROM `JoinTwoToThree` AS `j`
@@ -223,13 +223,13 @@ ORDER BY `s`.`Id`
 @p='3'
 
 SELECT `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s1`.`Id`, `s1`.`OneSkipSharedId`, `s1`.`TwoSkipSharedId`, `s2`.`OneSkipSharedId`, `s2`.`TwoSkipSharedId`, `s2`.`Id`, `s2`.`Name`, `s1`.`Id0`, `s1`.`CollectionInverseId`, `s1`.`ExtraId`, `s1`.`Name0`, `s1`.`ReferenceInverseId`
-FROM ((`EntityOnes` AS `e`
+FROM `EntityOnes` AS `e`
 INNER JOIN (
     SELECT `e1`.`Id`, `e1`.`CollectionInverseId`, `e1`.`ExtraId`, `e1`.`Name`, `e1`.`ReferenceInverseId`, `e0`.`OneSkipSharedId`, `e0`.`TwoSkipSharedId`
     FROM `EntityOneEntityTwo` AS `e0`
     INNER JOIN `EntityTwos` AS `e1` ON `e0`.`TwoSkipSharedId` = `e1`.`Id`
-) AS `s` ON `e`.`Id` = `s`.`OneSkipSharedId`)
-LEFT JOIN (
+) AS `s` ON `e`.`Id` = `s`.`OneSkipSharedId`
+INNER JOIN (
     SELECT `e2`.`Id`, `s0`.`Id` AS `Id0`, `s0`.`CollectionInverseId`, `s0`.`ExtraId`, `s0`.`Name` AS `Name0`, `s0`.`ReferenceInverseId`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`
     FROM `EntityOnes` AS `e2`
     INNER JOIN (
@@ -237,14 +237,14 @@ LEFT JOIN (
         FROM `EntityOneEntityTwo` AS `e3`
         INNER JOIN `EntityTwos` AS `e4` ON `e3`.`TwoSkipSharedId` = `e4`.`Id`
     ) AS `s0` ON `e2`.`Id` = `s0`.`OneSkipSharedId`
-) AS `s1` ON `s`.`Id` = `s1`.`Id0`)
+) AS `s1` ON `s`.`Id` = `s1`.`Id0`
 LEFT JOIN (
     SELECT `e5`.`OneSkipSharedId`, `e5`.`TwoSkipSharedId`, `e6`.`Id`, `e6`.`Name`
     FROM `EntityOneEntityTwo` AS `e5`
     INNER JOIN `EntityOnes` AS `e6` ON `e5`.`OneSkipSharedId` = `e6`.`Id`
     WHERE `e6`.`Id` = @p
 ) AS `s2` ON `s`.`Id` = `s2`.`TwoSkipSharedId`
-WHERE (`e`.`Id` = @p) AND (`s`.`Id` IS NOT NULL AND `s1`.`Id0` IS NOT NULL)
+WHERE `e`.`Id` = @p
 ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s1`.`Id`, `s1`.`OneSkipSharedId`, `s1`.`TwoSkipSharedId`, `s2`.`OneSkipSharedId`
 """);
     }

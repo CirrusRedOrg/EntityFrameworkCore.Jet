@@ -767,15 +767,15 @@ ORDER BY [t].[FirstName], [t0].[Id]
 
         AssertSql(
             """
-            @size='11'
+@size='11'
 
-            SELECT `p0`.`LastName`, `f`.`Size`, MIN(`f`.`Size`) AS `Min`
-            FROM (`Person` AS `p`
-            LEFT JOIN `Feet` AS `f` ON `p`.`Id` = `f`.`Id`)
-            LEFT JOIN `Person` AS `p0` ON `f`.`Id` = `p0`.`Id`
-            WHERE `f`.`Size` = @size AND `p`.`MiddleInitial` IS NOT NULL AND (`f`.`Id` <> 1 OR `f`.`Id` IS NULL)
-            GROUP BY `f`.`Size`, `p0`.`LastName`
-            """);
+SELECT `p0`.`LastName`, `f`.`Size`, MIN(`f`.`Size`) AS `Min`
+FROM `Person` AS `p`
+LEFT JOIN `Feet` AS `f` ON `p`.`Id` = `f`.`Id`
+LEFT JOIN `Person` AS `p0` ON `f`.`Id` = `p0`.`Id`
+WHERE `f`.`Size` = @size AND `p`.`MiddleInitial` IS NOT NULL AND (`f`.`Id` <> 1 OR `f`.`Id` IS NULL)
+GROUP BY `f`.`Size`, `p0`.`LastName`
+""");
     }
 
     public override async Task Sum_Grouped_from_LINQ_101(bool async)
@@ -854,12 +854,12 @@ SELECT `c`.`Id`, `c`.`CompanyName`, `c`.`Region`, `s`.`Id`, `o0`.`Id`, `o0`.`Cus
     WHEN `s`.`Id` IS NULL THEN -1
     ELSE `s`.`Id`
 END
-FROM (`CustomerForLinq` AS `c`
+FROM `CustomerForLinq` AS `c`
 LEFT JOIN (
     SELECT `o`.`Id`, `c0`.`Id` AS `Id0`
     FROM `OrderForLinq` AS `o`
     LEFT JOIN `CustomerForLinq` AS `c0` ON `o`.`CustomerId` = `c0`.`Id`
-) AS `s` ON `c`.`Id` = `s`.`Id0`)
+) AS `s` ON `c`.`Id` = `s`.`Id0`
 LEFT JOIN `OrderForLinq` AS `o0` ON `c`.`Id` = `o0`.`CustomerId`
 ORDER BY `c`.`Id`, `s`.`Id`
 """);

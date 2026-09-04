@@ -223,7 +223,7 @@ WHERE `o`.`Quantity` > @ef_filter___quantity
 @ef_filter___quantity='50'
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM (`Customers` AS `c`
+FROM `Customers` AS `c`
 INNER JOIN (
     SELECT `o`.`OrderID`, `o`.`CustomerID`
     FROM `Orders` AS `o`
@@ -233,8 +233,8 @@ INNER JOIN (
         WHERE `c0`.`CompanyName` LIKE @ef_filter__TenantPrefix_startswith
     ) AS `c1` ON `o`.`CustomerID` = `c1`.`CustomerID`
     WHERE `c1`.`CustomerID` IS NOT NULL AND `c1`.`CompanyName` IS NOT NULL
-) AS `s` ON `c`.`CustomerID` = `s`.`CustomerID`)
-LEFT JOIN (
+) AS `s` ON `c`.`CustomerID` = `s`.`CustomerID`
+INNER JOIN (
     SELECT `o0`.`OrderID`, `o0`.`Discount`
     FROM `Order Details` AS `o0`
     INNER JOIN (
@@ -249,7 +249,7 @@ LEFT JOIN (
     ) AS `s0` ON `o0`.`OrderID` = `s0`.`OrderID`
     WHERE `o0`.`Quantity` > @ef_filter___quantity
 ) AS `s1` ON `s`.`OrderID` = `s1`.`OrderID`
-WHERE ((`c`.`CompanyName` LIKE @ef_filter__TenantPrefix_startswith) AND `s1`.`Discount` < 10) AND (`s`.`OrderID` IS NOT NULL AND `s1`.`OrderID` IS NOT NULL)
+WHERE (`c`.`CompanyName` LIKE @ef_filter__TenantPrefix_startswith) AND `s1`.`Discount` < 10
 """);
         }
 

@@ -61,8 +61,8 @@ FROM (
     SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
-) AS `o0`,
-(
+) AS `o0`
+CROSS JOIN (
     SELECT TOP 5 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
     FROM `Employees` AS `e`
     ORDER BY `e`.`EmployeeID`
@@ -1271,12 +1271,12 @@ FROM `Orders` AS `o`
 
             AssertSql(
                 """
-    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-    FROM (`Customers` AS `c`
-    INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
-    LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-    WHERE (CDBL(`o0`.`Discount`) >= 0.25) AND (`o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL)
-    """);
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+WHERE CDBL(`o0`.`Discount`) >= 0.25
+""");
         }
 
         public override async Task SelectMany_without_result_selector_naked_collection_navigation(bool isAsync)
@@ -1623,8 +1623,8 @@ WHERE `c`.`CustomerID` = 'ALFKI'
             AssertSql(
                 """
 SELECT `o`.`OrderID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-FROM (`Orders` AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 ORDER BY `o`.`OrderID`, `o0`.`OrderID`
 """);
@@ -2091,8 +2091,8 @@ ORDER BY `c`.`CustomerID`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, 1, `o`.`OrderID`, `o0`.`OrderID`
-FROM (`Customers` AS `c`
-LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` = 'ALFKI'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`, `o0`.`OrderID`
@@ -2633,8 +2633,8 @@ FROM (
     SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
-) AS `o0`,
-(
+) AS `o0`
+CROSS JOIN (
     SELECT TOP 2 `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`, `e`.`EmployeeID` BXOR 2 AS `Square`
     FROM `Employees` AS `e`
     ORDER BY `e`.`EmployeeID`

@@ -142,8 +142,8 @@ FROM `FunkyCustomers` AS `f`
             AssertSql(
                 """
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
-FROM `FunkyCustomers` AS `f`,
-`FunkyCustomers` AS `f0`
+FROM `FunkyCustomers` AS `f`
+CROSS JOIN `FunkyCustomers` AS `f0`
 WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND (INSTR(1, `f`.`FirstName`, `f0`.`LastName`, 1) > 0 OR (`f0`.`LastName` LIKE ''))
 """);
         }
@@ -155,8 +155,8 @@ WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND (INSTR(1, 
             AssertSql(
                 """
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
-FROM `FunkyCustomers` AS `f`,
-`FunkyCustomers` AS `f0`
+FROM `FunkyCustomers` AS `f`
+CROSS JOIN `FunkyCustomers` AS `f0`
 WHERE `f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR (INSTR(1, `f`.`FirstName`, `f0`.`LastName`, 1) <= 0 AND `f0`.`LastName` NOT LIKE '')
 """);
         }
@@ -340,8 +340,8 @@ WHERE `f`.`FirstName` IS NOT NULL AND `f`.`LastName` IS NOT NULL AND LEFT(`f`.`F
             AssertSql(
                 """
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
-FROM `FunkyCustomers` AS `f`,
-`FunkyCustomers` AS `f0`
+FROM `FunkyCustomers` AS `f`
+CROSS JOIN `FunkyCustomers` AS `f0`
 WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND LEFT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) = `f0`.`LastName`
 """);
         }
@@ -353,8 +353,8 @@ WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND LEFT(`f`.`
             AssertSql(
                 """
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
-FROM `FunkyCustomers` AS `f`,
-`FunkyCustomers` AS `f0`
+FROM `FunkyCustomers` AS `f`
+CROSS JOIN `FunkyCustomers` AS `f0`
 WHERE `f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR LEFT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) <> `f0`.`LastName`
 """);
         }
@@ -484,8 +484,8 @@ FROM `FunkyCustomers` AS `f`
             AssertSql(
                 """
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
-FROM `FunkyCustomers` AS `f`,
-`FunkyCustomers` AS `f0`
+FROM `FunkyCustomers` AS `f`
+CROSS JOIN `FunkyCustomers` AS `f0`
 WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) = `f0`.`LastName`
 """);
         }
@@ -497,8 +497,8 @@ WHERE `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.
             AssertSql(
                 """
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
-FROM `FunkyCustomers` AS `f`,
-`FunkyCustomers` AS `f0`
+FROM `FunkyCustomers` AS `f`
+CROSS JOIN `FunkyCustomers` AS `f0`
 WHERE `f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR RIGHT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) <> `f0`.`LastName`
 """);
         }
@@ -510,8 +510,8 @@ WHERE `f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR RIGHT(`f`.`FirstName
             AssertSql(
                 """
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
-FROM `FunkyCustomers` AS `f`,
-`FunkyCustomers` AS `f0`
+FROM `FunkyCustomers` AS `f`
+CROSS JOIN `FunkyCustomers` AS `f0`
 WHERE CASE
     WHEN `f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) = `f0`.`LastName` THEN TRUE
     ELSE FALSE
@@ -526,8 +526,8 @@ END
             AssertSql(
                 """
 SELECT `f`.`FirstName` AS `fn`, `f0`.`LastName` AS `ln`
-FROM `FunkyCustomers` AS `f`,
-`FunkyCustomers` AS `f0`
+FROM `FunkyCustomers` AS `f`
+CROSS JOIN `FunkyCustomers` AS `f0`
 WHERE CASE
     WHEN `f`.`FirstName` IS NULL OR `f0`.`LastName` IS NULL OR RIGHT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) <> `f0`.`LastName` THEN TRUE
     ELSE FALSE
@@ -542,8 +542,8 @@ END
             AssertSql(
                 """
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`, `f0`.`Id`, `f0`.`FirstName`, `f0`.`LastName`, `f0`.`NullableBool`
-FROM `FunkyCustomers` AS `f`,
-`FunkyCustomers` AS `f0`
+FROM `FunkyCustomers` AS `f`
+CROSS JOIN `FunkyCustomers` AS `f0`
 WHERE (`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) = `f0`.`LastName`) = `f`.`NullableBool`
 """);
         }
@@ -555,8 +555,8 @@ WHERE (`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`
             AssertSql(
                 """
 SELECT `f`.`Id`, `f`.`FirstName`, `f`.`LastName`, `f`.`NullableBool`, `f0`.`Id`, `f0`.`FirstName`, `f0`.`LastName`, `f0`.`NullableBool`
-FROM `FunkyCustomers` AS `f`,
-`FunkyCustomers` AS `f0`
+FROM `FunkyCustomers` AS `f`
+CROSS JOIN `FunkyCustomers` AS `f0`
 WHERE (`f`.`FirstName` IS NOT NULL AND `f0`.`LastName` IS NOT NULL AND RIGHT(`f`.`FirstName`, COALESCE(LEN(`f0`.`LastName`), 0)) = `f0`.`LastName`) <> `f`.`NullableBool` OR `f`.`NullableBool` IS NULL
 """);
         }

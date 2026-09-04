@@ -21,8 +21,8 @@ public class AdHocManyToManyQueryLibRedTest(NonSharedFixture fixture) : AdHocMan
         AssertSql(
             """
 SELECT `u`.`Id` AS `UserId`, `s`.`Id` AS `OrgId`
-FROM `Users` AS `u`,
-(
+FROM `Users` AS `u`
+CROSS JOIN (
     SELECT `o1`.`Id`
     FROM (
         SELECT 1
@@ -56,12 +56,12 @@ WHERE `m`.`Id` = @p
 @p='1'
 
 SELECT `s`.`Id`, `m`.`Id`, `s`.`Id0`, `s0`.`Id`, `s0`.`ManyM_Id`, `s0`.`ManyN_Id`, `s0`.`Id0`
-FROM (`ManyM_DB` AS `m`
+FROM `ManyM_DB` AS `m`
 INNER JOIN (
     SELECT `m1`.`Id`, `m0`.`Id` AS `Id0`, `m0`.`ManyM_Id`
     FROM `ManyMN_DB` AS `m0`
     LEFT JOIN `ManyN_DB` AS `m1` ON `m0`.`ManyN_Id` = `m1`.`Id`
-) AS `s` ON `m`.`Id` = `s`.`ManyM_Id`)
+) AS `s` ON `m`.`Id` = `s`.`ManyM_Id`
 LEFT JOIN (
     SELECT `m2`.`Id`, `m2`.`ManyM_Id`, `m2`.`ManyN_Id`, `m3`.`Id` AS `Id0`
     FROM `ManyMN_DB` AS `m2`
@@ -84,12 +84,12 @@ WHERE `m`.`Id` = @p
 @p='1'
 
 SELECT `s`.`Id`, `m`.`Id`, `s`.`Id0`, `s0`.`Id`, `s0`.`ManyM_Id`, `s0`.`ManyN_Id`, `s0`.`Id0`
-FROM (`ManyN_DB` AS `m`
+FROM `ManyN_DB` AS `m`
 INNER JOIN (
     SELECT `m1`.`Id`, `m0`.`Id` AS `Id0`, `m0`.`ManyN_Id`
     FROM `ManyMN_DB` AS `m0`
     INNER JOIN `ManyM_DB` AS `m1` ON `m0`.`ManyM_Id` = `m1`.`Id`
-) AS `s` ON `m`.`Id` = `s`.`ManyN_Id`)
+) AS `s` ON `m`.`Id` = `s`.`ManyN_Id`
 LEFT JOIN (
     SELECT `m2`.`Id`, `m2`.`ManyM_Id`, `m2`.`ManyN_Id`, `m3`.`Id` AS `Id0`
     FROM `ManyMN_DB` AS `m2`

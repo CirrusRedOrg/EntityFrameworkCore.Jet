@@ -57,8 +57,8 @@ namespace EntityFrameworkCore.LibRed.Extended.FunctionalTests.Query
 @p='1'
 
 SELECT TOP @p `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-FROM (`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE `c`.`City` = 'Seattle'
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
@@ -252,13 +252,13 @@ ORDER BY `c`.`CustomerID`
             await base.Include_with_multiple_optional_navigations(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                    FROM (`Order Details` AS `o`
-                    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-                    LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
-                    WHERE `c`.`City` = 'London'
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+WHERE `c`.`City` = 'London'
+""");
         }
 
         public override async Task Select_Navigation(bool isAsync)
@@ -361,17 +361,17 @@ WHERE `c`.`City` = 'Seattle' AND (`c`.`Phone` <> '555 555 5555' OR `c`.`Phone` I
             AssertSql(
                 """
 SELECT `s`.`CustomerID`, `s`.`CustomerID0` AS `C2`
-FROM ((
+FROM (
     SELECT `o`.`CustomerID`, `o1`.`CustomerID` AS `CustomerID0`
-    FROM `Orders` AS `o`,
-    (
+    FROM `Orders` AS `o`
+    CROSS JOIN (
         SELECT `o0`.`CustomerID`
         FROM `Orders` AS `o0`
         WHERE `o0`.`OrderID` < 10400
     ) AS `o1`
     WHERE `o`.`OrderID` < 10300
 ) AS `s`
-LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Customers` AS `c0` ON `s`.`CustomerID0` = `c0`.`CustomerID`
 WHERE `c`.`City` = `c0`.`City` OR (`c`.`City` IS NULL AND `c0`.`City` IS NULL)
 """);
@@ -384,13 +384,13 @@ WHERE `c`.`City` = `c0`.`City` OR (`c`.`City` IS NULL AND `c0`.`City` IS NULL)
             AssertSql(
                 """
 SELECT `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `s`.`OrderID0`, `s`.`CustomerID0`, `s`.`EmployeeID0`, `s`.`OrderDate0`
-FROM ((
+FROM (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o0`.`OrderID` AS `OrderID0`, `o0`.`CustomerID` AS `CustomerID0`, `o0`.`EmployeeID` AS `EmployeeID0`, `o0`.`OrderDate` AS `OrderDate0`
-    FROM `Orders` AS `o`,
-    `Orders` AS `o0`
+    FROM `Orders` AS `o`
+    CROSS JOIN `Orders` AS `o0`
     WHERE (`o`.`CustomerID` LIKE 'A%') AND (`o0`.`CustomerID` LIKE 'A%')
 ) AS `s`
-LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Customers` AS `c0` ON `s`.`CustomerID0` = `c0`.`CustomerID`
 WHERE `c`.`CustomerID` = `c0`.`CustomerID` OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL)
 """);
@@ -414,13 +414,13 @@ WHERE `c`.`CustomerID` = `c0`.`CustomerID` OR (`c`.`CustomerID` IS NULL AND `c0`
             await base.Select_Where_Navigation_Null_Deep(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
-                    FROM (`Employees` AS `e`
-                    LEFT JOIN `Employees` AS `e0` ON `e`.`ReportsTo` = `e0`.`EmployeeID`)
-                    LEFT JOIN `Employees` AS `e1` ON `e0`.`ReportsTo` = `e1`.`EmployeeID`
-                    WHERE `e1`.`EmployeeID` IS NULL
-                    """);
+                """
+SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
+FROM `Employees` AS `e`
+LEFT JOIN `Employees` AS `e0` ON `e`.`ReportsTo` = `e0`.`EmployeeID`
+LEFT JOIN `Employees` AS `e1` ON `e0`.`ReportsTo` = `e1`.`EmployeeID`
+WHERE `e1`.`EmployeeID` IS NULL
+""");
         }
 
         public override async Task Select_Where_Navigation_Null_Reverse(bool isAsync)
@@ -487,8 +487,8 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
             AssertSql(
                 """
 SELECT `o`.`OrderID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-FROM (`Orders` AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `o`.`CustomerID` = 'ALFKI'
 ORDER BY `o`.`OrderID`, `o0`.`OrderID`
@@ -502,9 +502,9 @@ ORDER BY `o`.`OrderID`, `o0`.`OrderID`
             AssertSql(
                 """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
 WHERE `o0`.`CustomerID` IN ('ALFKI', 'ANTON')
 ORDER BY `o`.`OrderID`, `o`.`ProductID`, `o1`.`OrderID`
@@ -880,13 +880,13 @@ WHERE `c`.`CustomerID` LIKE 'A%'
             await base.Navigation_inside_contains_nested(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-                    FROM (`Order Details` AS `o`
-                    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-                    LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
-                    WHERE `c`.`City` IN ('Novigrad', 'Seattle')
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+WHERE `c`.`City` IN ('Novigrad', 'Seattle')
+""");
         }
 
         public override async Task Navigation_from_join_clause_inside_contains(bool isAsync)
@@ -894,13 +894,13 @@ WHERE `c`.`CustomerID` LIKE 'A%'
             await base.Navigation_from_join_clause_inside_contains(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
-                    FROM (`Order Details` AS `o`
-                    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-                    LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
-                    WHERE `c`.`Country` IN ('USA', 'Redania')
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+WHERE `c`.`Country` IN ('USA', 'Redania')
+""");
         }
 
         public override async Task Where_subquery_on_navigation(bool isAsync)
@@ -1005,10 +1005,9 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 LEFT JOIN (
     SELECT `c0`.`CustomerID` AS `CustomerID0`
-    FROM (`Order Details` AS `o`
-    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = 10260)
-    LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
-    WHERE `o0`.`CustomerID` IS NOT NULL AND `c0`.`CustomerID` IS NOT NULL
+    FROM `Order Details` AS `o`
+    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = 10260
+    INNER JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
 ) AS `s` ON `c`.`CustomerID` = `s`.`CustomerID0`
 """);
         }
@@ -1023,10 +1022,9 @@ SELECT `c`.`CustomerID`
 FROM `Customers` AS `c`
 LEFT JOIN (
     SELECT `c0`.`CustomerID` AS `CustomerID0`
-    FROM (`Order Details` AS `o`
-    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = 10260)
-    LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
-    WHERE `o0`.`CustomerID` IS NOT NULL AND `c0`.`CustomerID` IS NOT NULL
+    FROM `Order Details` AS `o`
+    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = 10260
+    INNER JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
 ) AS `s` ON `c`.`CustomerID` = `s`.`CustomerID0`
 """);
         }
@@ -1052,14 +1050,14 @@ WHERE (
             await base.Multiple_include_with_multiple_optional_navigations(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-                    FROM ((`Order Details` AS `o`
-                    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-                    LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
-                    INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
-                    WHERE `c`.`City` = 'London'
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
+WHERE `c`.`City` = 'London'
+""");
         }
 
         public override async Task Navigation_in_subquery_referencing_outer_query_with_client_side_result_operator_and_count(bool async)
@@ -1075,8 +1073,8 @@ WHERE `o`.`OrderID` IN (10643, 10692) AND (
     SELECT COUNT(*)
     FROM (
         SELECT DISTINCT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`
-        FROM (`Order Details` AS `o0`
-        INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`)
+        FROM `Order Details` AS `o0`
+        INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
         LEFT JOIN `Customers` AS `c0` ON `o1`.`CustomerID` = `c0`.`CustomerID`
         WHERE `c`.`Country` = `c0`.`Country` OR (`c`.`Country` IS NULL AND `c0`.`Country` IS NULL)
     ) AS `s`) > 0
@@ -1090,17 +1088,17 @@ WHERE `o`.`OrderID` IN (10643, 10692) AND (
             AssertSql(
                 """
 SELECT `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `s`.`OrderID0`, `s`.`CustomerID0`, `s`.`EmployeeID0`, `s`.`OrderDate0`
-FROM ((
+FROM (
     SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `o1`.`OrderID` AS `OrderID0`, `o1`.`CustomerID` AS `CustomerID0`, `o1`.`EmployeeID` AS `EmployeeID0`, `o1`.`OrderDate` AS `OrderDate0`
-    FROM `Orders` AS `o`,
-    (
+    FROM `Orders` AS `o`
+    CROSS JOIN (
         SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
         FROM `Orders` AS `o0`
         WHERE `o0`.`OrderID` < 10400
     ) AS `o1`
     WHERE `o`.`OrderID` < 10300
 ) AS `s`
-LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Customers` AS `c0` ON `s`.`CustomerID0` = `c0`.`CustomerID`
 WHERE `c`.`City` = `c0`.`City` OR (`c`.`City` IS NULL AND `c0`.`City` IS NULL)
 """);

@@ -1522,13 +1522,13 @@ GROUP BY `o0`.`CustomerID`
             await base.GroupBy_multi_navigation_members_Aggregate(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o0`.`CustomerID`, `p`.`ProductName`, COUNT(*) AS `Count`
-                    FROM (`Order Details` AS `o`
-                    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-                    INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
-                    GROUP BY `o0`.`CustomerID`, `p`.`ProductName`
-                    """);
+                """
+SELECT `o0`.`CustomerID`, `p`.`ProductName`, COUNT(*) AS `Count`
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
+GROUP BY `o0`.`CustomerID`, `p`.`ProductName`
+""");
         }
 
         public override async Task Union_simple_groupby(bool isAsync)
@@ -1844,13 +1844,13 @@ ORDER BY COUNT(*), `o`.`CustomerID`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
-FROM ((
+FROM (
     SELECT `o`.`CustomerID`, MAX(`o`.`OrderID`) AS `LastOrderID`
     FROM `Orders` AS `o`
     GROUP BY `o`.`CustomerID`
     HAVING COUNT(*) > 5
 ) AS `o0`
-INNER JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
+INNER JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 INNER JOIN `Orders` AS `o1` ON `o0`.`LastOrderID` = `o1`.`OrderID`
 """);
         }
@@ -1896,15 +1896,14 @@ LEFT JOIN (
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
-FROM (`Customers` AS `c`
+FROM `Customers` AS `c`
 INNER JOIN (
     SELECT `o`.`CustomerID`, MAX(`o`.`OrderID`) AS `LastOrderID`
     FROM `Orders` AS `o`
     GROUP BY `o`.`CustomerID`
     HAVING COUNT(*) > 5
-) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`)
-LEFT JOIN `Orders` AS `o1` ON `o0`.`LastOrderID` = `o1`.`OrderID`
-WHERE `o0`.`LastOrderID` IS NOT NULL AND `o1`.`OrderID` IS NOT NULL
+) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+INNER JOIN `Orders` AS `o1` ON `o0`.`LastOrderID` = `o1`.`OrderID`
 """);
         }
 
@@ -1932,13 +1931,13 @@ INNER JOIN (
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`LastOrderID`, `o1`.`OrderID`
-FROM (`Customers` AS `c`
+FROM `Customers` AS `c`
 INNER JOIN (
     SELECT `o`.`CustomerID`, MAX(`o`.`OrderID`) AS `LastOrderID`
     FROM `Orders` AS `o`
     GROUP BY `o`.`CustomerID`
     HAVING COUNT(*) > 5
-) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`)
+) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 INNER JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
 """);
         }
@@ -2441,8 +2440,8 @@ SELECT `o`.`ProductID` AS `Key`, COALESCE(SUM(CASE
     WHEN `c`.`City` = 'London' THEN 1
     ELSE 0
 END), 0) AS `Londons`
-FROM (`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 GROUP BY `o`.`ProductID`
 """);
@@ -3025,8 +3024,8 @@ GROUP BY `o0`.`CustomerID`
             AssertSql(
                 """
 SELECT `c`.`Country` AS `Key`, COALESCE(SUM(`o`.`OrderID`), 0) AS `Aggregate`
-FROM (`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 GROUP BY `c`.`Country`
 """);
@@ -3052,8 +3051,8 @@ GROUP BY `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
             AssertSql(
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, COALESCE(SUM(`o`.`OrderID`), 0) AS `Aggregate`
-FROM (`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 GROUP BY `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 """);
@@ -3644,8 +3643,8 @@ FROM (
     SELECT MIN(`o`.`OrderID`) AS `c`
     FROM `Orders` AS `o`
     GROUP BY `o`.`CustomerID`
-) AS `o1`,
-`Orders` AS `o0`
+) AS `o1`
+CROSS JOIN `Orders` AS `o0`
 WHERE `o0`.`OrderID` = `o1`.`c`
 """);
         }

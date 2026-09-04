@@ -210,8 +210,8 @@ ORDER BY `o`.`OrderID`
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM (`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE (`o`.`OrderID` MOD 23) = 13
 """);
@@ -224,9 +224,9 @@ WHERE (`o`.`OrderID` MOD 23) = 13
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
 WHERE (`o`.`OrderID` MOD 23) = 13
 """);
@@ -239,9 +239,9 @@ WHERE (`o`.`OrderID` MOD 23) = 13
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE (`o`.`OrderID` MOD 23) = 13
 """);
@@ -254,8 +254,8 @@ WHERE (`o`.`OrderID` MOD 23) = 13
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM (`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE (`o`.`OrderID` MOD 23) = 13 AND `o`.`UnitPrice` < 10.0
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
@@ -263,11 +263,11 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
             //
             """
 SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, `o`.`OrderID`, `o`.`ProductID`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
-LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
-WHERE ((`o`.`OrderID` MOD 23) = 13 AND `o`.`UnitPrice` < 10.0) AND (`c`.`CustomerID` IS NOT NULL AND `o1`.`CustomerID` IS NOT NULL)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+INNER JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+WHERE (`o`.`OrderID` MOD 23) = 13 AND `o`.`UnitPrice` < 10.0
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
 """);
     }
@@ -641,10 +641,10 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
             //
             """
 SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `c`.`CustomerID`, `o`.`OrderID`
-FROM (`Customers` AS `c`
-INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
-LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-WHERE (`c`.`CustomerID` LIKE 'F%') AND (`o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL)
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """);
     }
@@ -671,14 +671,14 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
             //
             """
 SELECT `s`.`OrderID`, `s`.`ProductID`, `s`.`Discount`, `s`.`Quantity`, `s`.`UnitPrice`, `s`.`ProductID0`, `s`.`Discontinued`, `s`.`ProductName`, `s`.`SupplierID`, `s`.`UnitPrice0`, `s`.`UnitsInStock`, `c`.`CustomerID`, `o`.`OrderID`
-FROM (`Customers` AS `c`
-INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
-LEFT JOIN (
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+INNER JOIN (
     SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `p`.`ProductID` AS `ProductID0`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice` AS `UnitPrice0`, `p`.`UnitsInStock`
     FROM `Order Details` AS `o0`
     INNER JOIN `Products` AS `p` ON `o0`.`ProductID` = `p`.`ProductID`
 ) AS `s` ON `o`.`OrderID` = `s`.`OrderID`
-WHERE (`c`.`CustomerID` LIKE 'F%') AND (`o`.`OrderID` IS NOT NULL AND `s`.`OrderID` IS NOT NULL)
+WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """);
     }
@@ -699,18 +699,18 @@ FROM `Customers` AS `c`
         await base.Include_collection_with_join_clause_with_filter(async);
 
         AssertSql(
-"""
+            """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """,
-//
-"""
+            //
+            """
 SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `o`.`OrderID`
-FROM (`Customers` AS `c`
-INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 INNER JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`
@@ -722,18 +722,18 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
         await base.Include_collection_with_left_join_clause_with_filter(async);
 
         AssertSql(
-"""
+            """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """,
-//
-"""
+            //
+            """
 SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `o`.`OrderID`
-FROM (`Customers` AS `c`
-LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 INNER JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`
@@ -755,8 +755,8 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
             //
             """
 SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `o`.`OrderID`
-FROM (`Customers` AS `c`
-RIGHT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
+FROM `Customers` AS `c`
+RIGHT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 INNER JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`
@@ -770,8 +770,8 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
         AssertSql(
             """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`
-FROM `Customers` AS `c`,
-(
+FROM `Customers` AS `c`
+CROSS JOIN (
     SELECT TOP 5 `o`.`OrderID`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
@@ -782,13 +782,13 @@ ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
             //
             """
 SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, `c`.`CustomerID`, `o0`.`OrderID`
-FROM (`Customers` AS `c`
-INNER JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`),
-(
+FROM `Customers` AS `c`
+CROSS JOIN (
     SELECT TOP 5 `o`.`OrderID`
     FROM `Orders` AS `o`
     ORDER BY `o`.`OrderID`
 ) AS `o0`
+INNER JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
 ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 """);
@@ -867,8 +867,8 @@ ORDER BY [c].[CustomerID], [t].[OrderID]
         AssertSql(
             """
 SELECT `c1`.`CustomerID`, `c1`.`Address`, `c1`.`City`, `c1`.`CompanyName`, `c1`.`ContactName`, `c1`.`ContactTitle`, `c1`.`Country`, `c1`.`Fax`, `c1`.`Phone`, `c1`.`PostalCode`, `c1`.`Region`, `c`.`CustomerID`
-FROM `Customers` AS `c`,
-(
+FROM `Customers` AS `c`
+CROSS JOIN (
     SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
     FROM `Customers` AS `c0`
     WHERE `c0`.`CustomerID` = 'ALFKI'
@@ -878,13 +878,13 @@ ORDER BY `c`.`CustomerID`, `c1`.`CustomerID`
             //
             """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`CustomerID`, `c1`.`CustomerID`
-FROM `Customers` AS `c`,
-((
+FROM `Customers` AS `c`
+CROSS JOIN (
     SELECT `c0`.`CustomerID`
     FROM `Customers` AS `c0`
     WHERE `c0`.`CustomerID` = 'ALFKI'
 ) AS `c1`
-INNER JOIN `Orders` AS `o` ON `c1`.`CustomerID` = `o`.`CustomerID`)
+INNER JOIN `Orders` AS `o` ON `c1`.`CustomerID` = `o`.`CustomerID`
 ORDER BY `c`.`CustomerID`, `c1`.`CustomerID`
 """);
     }
@@ -902,8 +902,8 @@ FROM (
     SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `c1`,
-(
+) AS `c1`
+CROSS JOIN (
     SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
     FROM `Customers` AS `c0`
     WHERE `c0`.`CustomerID` LIKE 'F%'
@@ -919,13 +919,13 @@ FROM (
     SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `c1`,
-((
+) AS `c1`
+CROSS JOIN (
     SELECT `c0`.`CustomerID`
     FROM `Customers` AS `c0`
     WHERE `c0`.`CustomerID` LIKE 'F%'
 ) AS `c2`
-INNER JOIN `Orders` AS `o` ON `c2`.`CustomerID` = `o`.`CustomerID`)
+INNER JOIN `Orders` AS `o` ON `c2`.`CustomerID` = `o`.`CustomerID`
 ORDER BY `c1`.`CustomerID`, `c2`.`CustomerID`
 """);
     }
@@ -943,8 +943,8 @@ FROM (
     SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `c1`,
-(
+) AS `c1`
+CROSS JOIN (
     SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
     FROM `Customers` AS `c0`
     ORDER BY `c0`.`CustomerID`
@@ -957,18 +957,18 @@ ORDER BY `c1`.`CustomerID`, `c2`.`CustomerID`
 @p='2'
 
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c1`.`CustomerID`, `c2`.`CustomerID`
-FROM ((
+FROM (
     SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
 ) AS `c1`
-INNER JOIN `Orders` AS `o` ON `c1`.`CustomerID` = `o`.`CustomerID`),
-(
+CROSS JOIN (
     SELECT `c0`.`CustomerID`
     FROM `Customers` AS `c0`
     ORDER BY `c0`.`CustomerID`
     OFFSET 2 ROWS FETCH NEXT 2 ROWS ONLY
 ) AS `c2`
+INNER JOIN `Orders` AS `o` ON `c1`.`CustomerID` = `o`.`CustomerID`
 ORDER BY `c1`.`CustomerID`, `c2`.`CustomerID`
 """,
             //
@@ -980,14 +980,14 @@ FROM (
     SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `c1`,
-((
+) AS `c1`
+CROSS JOIN (
     SELECT `c0`.`CustomerID`
     FROM `Customers` AS `c0`
     ORDER BY `c0`.`CustomerID`
     OFFSET 2 ROWS FETCH NEXT 2 ROWS ONLY
 ) AS `c2`
-INNER JOIN `Orders` AS `o0` ON `c2`.`CustomerID` = `o0`.`CustomerID`)
+INNER JOIN `Orders` AS `o0` ON `c2`.`CustomerID` = `o0`.`CustomerID`
 ORDER BY `c1`.`CustomerID`, `c2`.`CustomerID`
 """);
     }
@@ -1006,8 +1006,8 @@ FROM (
     SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `c1`,
-(
+) AS `c1`
+CROSS JOIN (
     SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
     FROM `Customers` AS `c0`
     ORDER BY `c0`.`CustomerID`
@@ -1027,8 +1027,8 @@ FROM (
         SELECT TOP @p `c`.`CustomerID`
         FROM `Customers` AS `c`
         ORDER BY `c`.`CustomerID`
-    ) AS `c1`,
-    (
+    ) AS `c1`
+    CROSS JOIN (
         SELECT `c0`.`CustomerID`
         FROM `Customers` AS `c0`
         ORDER BY `c0`.`CustomerID`
@@ -1051,8 +1051,8 @@ FROM (
         SELECT TOP @p `c`.`CustomerID`
         FROM `Customers` AS `c`
         ORDER BY `c`.`CustomerID`
-    ) AS `c1`,
-    (
+    ) AS `c1`
+    CROSS JOIN (
         SELECT `c0`.`CustomerID`
         FROM `Customers` AS `c0`
         ORDER BY `c0`.`CustomerID`
@@ -1070,18 +1070,18 @@ ORDER BY `s0`.`CustomerID`, `s0`.`CustomerID0`
         await base.Include_collection_on_join_clause_with_order_by_and_filter(async);
 
         AssertSql(
-"""
+            """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = 'ALFKI'
 ORDER BY `c`.`City`, `c`.`CustomerID`, `o`.`OrderID`
 """,
-//
-"""
+            //
+            """
 SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `o`.`OrderID`
-FROM (`Customers` AS `c`
-INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
+FROM `Customers` AS `c`
+INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 INNER JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` = 'ALFKI'
 ORDER BY `c`.`City`, `c`.`CustomerID`, `o`.`OrderID`
@@ -1134,8 +1134,8 @@ FROM (
     SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `c1`,
-`Customers` AS `c0`
+) AS `c1`
+CROSS JOIN `Customers` AS `c0`
 ORDER BY `c1`.`CustomerID`, `c0`.`CustomerID`
 """);
     }
@@ -1176,8 +1176,8 @@ FROM (
     SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
     ORDER BY `c`.`CustomerID`
-) AS `c1`,
-(
+) AS `c1`
+CROSS JOIN (
     SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
     FROM `Customers` AS `c0`
     ORDER BY `c0`.`CustomerID`
@@ -1197,8 +1197,8 @@ FROM (
         SELECT TOP @p `c`.`CustomerID`
         FROM `Customers` AS `c`
         ORDER BY `c`.`CustomerID`
-    ) AS `c1`,
-    (
+    ) AS `c1`
+    CROSS JOIN (
         SELECT `c0`.`CustomerID`
         FROM `Customers` AS `c0`
         ORDER BY `c0`.`CustomerID`
@@ -1218,8 +1218,8 @@ ORDER BY `s`.`CustomerID`, `s`.`CustomerID0`
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-FROM (`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
 WHERE (`o`.`OrderID` MOD 23) = 13
 """);
@@ -1247,21 +1247,21 @@ WHERE (`o`.`OrderID` MOD 23) = 13
 @p='2'
 
 SELECT `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `s`.`OrderID0`, `s`.`CustomerID0`, `s`.`EmployeeID0`, `s`.`OrderDate0`, `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
-FROM ((
+FROM (
     SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, `o2`.`OrderID` AS `OrderID0`, `o2`.`CustomerID` AS `CustomerID0`, `o2`.`EmployeeID` AS `EmployeeID0`, `o2`.`OrderDate` AS `OrderDate0`
     FROM (
         SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
         FROM `Orders` AS `o`
         ORDER BY `o`.`CustomerID`, `o`.`OrderID`
-    ) AS `o1`,
-    (
+    ) AS `o1`
+    CROSS JOIN (
         SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
         FROM `Orders` AS `o0`
         ORDER BY `o0`.`CustomerID`, `o0`.`OrderID`
         OFFSET 2 ROWS FETCH NEXT 2 ROWS ONLY
     ) AS `o2`
 ) AS `s`
-LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Customers` AS `c0` ON `s`.`CustomerID0` = `c0`.`CustomerID`
 ORDER BY `s`.`CustomerID`, `s`.`OrderID`, `s`.`OrderID0`
 """);
@@ -1282,8 +1282,8 @@ FROM (
         SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
         FROM `Orders` AS `o`
         ORDER BY `o`.`OrderID`
-    ) AS `o1`,
-    (
+    ) AS `o1`
+    CROSS JOIN (
         SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
         FROM `Orders` AS `o0`
         ORDER BY `o0`.`OrderID`
@@ -1310,8 +1310,8 @@ FROM (
         SELECT TOP @p `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
         FROM `Orders` AS `o`
         ORDER BY `o`.`OrderID`
-    ) AS `o1`,
-    (
+    ) AS `o1`
+    CROSS JOIN (
         SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
         FROM `Orders` AS `o0`
         ORDER BY `o0`.`OrderID`
@@ -1573,7 +1573,7 @@ ORDER BY `c0`.`c` DESC, `c0`.`CustomerID`, `o0`.`OrderID`
             //
             """
 SELECT `o1`.`OrderID`, `o1`.`ProductID`, `o1`.`Discount`, `o1`.`Quantity`, `o1`.`UnitPrice`, `c0`.`CustomerID`, `o0`.`OrderID`
-FROM ((
+FROM (
     SELECT TOP 1 `c`.`CustomerID`, (
         SELECT TOP 1 `o`.`OrderDate`
         FROM `Orders` AS `o`
@@ -1587,9 +1587,8 @@ FROM ((
         WHERE `c`.`CustomerID` = `o`.`CustomerID`
         ORDER BY `o`.`OrderDate` DESC) DESC, `c`.`CustomerID`
 ) AS `c0`
-INNER JOIN `Orders` AS `o0` ON `c0`.`CustomerID` = `o0`.`CustomerID`)
-LEFT JOIN `Order Details` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
-WHERE `o0`.`OrderID` IS NOT NULL AND `o1`.`OrderID` IS NOT NULL
+INNER JOIN `Orders` AS `o0` ON `c0`.`CustomerID` = `o0`.`CustomerID`
+INNER JOIN `Order Details` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
 ORDER BY `c0`.`c` DESC, `c0`.`CustomerID`, `o0`.`OrderID`
 """);
     }
@@ -2236,16 +2235,15 @@ ORDER BY `c0`.`CustomerID`, `o3`.`OrderID`
 @p='1'
 
 SELECT `o4`.`OrderID`, `o4`.`ProductID`, `o4`.`Discount`, `o4`.`Quantity`, `o4`.`UnitPrice`, `c0`.`CustomerID`, `o3`.`OrderID`
-FROM ((
+FROM (
     SELECT `c`.`CustomerID`
     FROM `Customers` AS `c`
     WHERE `c`.`CustomerID` LIKE 'A%'
     ORDER BY `c`.`CustomerID`
     OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 ) AS `c0`
-INNER JOIN `Orders` AS `o3` ON `c0`.`CustomerID` = `o3`.`CustomerID`)
-LEFT JOIN `Order Details` AS `o4` ON `o3`.`OrderID` = `o4`.`OrderID`
-WHERE `o3`.`OrderID` IS NOT NULL AND `o4`.`OrderID` IS NOT NULL
+INNER JOIN `Orders` AS `o3` ON `c0`.`CustomerID` = `o3`.`CustomerID`
+INNER JOIN `Order Details` AS `o4` ON `o3`.`OrderID` = `o4`.`OrderID`
 ORDER BY `c0`.`CustomerID`, `o3`.`OrderID`
 """);
     }
@@ -2290,7 +2288,7 @@ ORDER BY `c1`.`CustomerID`, `o3`.`OrderID`
 @p='1'
 
 SELECT `o4`.`OrderID`, `o4`.`ProductID`, `o4`.`Discount`, `o4`.`Quantity`, `o4`.`UnitPrice`, `c1`.`CustomerID`, `o3`.`OrderID`
-FROM ((
+FROM (
     SELECT TOP 1 `c0`.`CustomerID`
     FROM (
         SELECT TOP @p `c`.`CustomerID`
@@ -2300,9 +2298,8 @@ FROM ((
     ) AS `c0`
     ORDER BY `c0`.`CustomerID`
 ) AS `c1`
-INNER JOIN `Orders` AS `o3` ON `c1`.`CustomerID` = `o3`.`CustomerID`)
-LEFT JOIN `Order Details` AS `o4` ON `o3`.`OrderID` = `o4`.`OrderID`
-WHERE `o3`.`OrderID` IS NOT NULL AND `o4`.`OrderID` IS NOT NULL
+INNER JOIN `Orders` AS `o3` ON `c1`.`CustomerID` = `o3`.`CustomerID`
+INNER JOIN `Order Details` AS `o4` ON `o3`.`OrderID` = `o4`.`OrderID`
 ORDER BY `c1`.`CustomerID`, `o3`.`OrderID`
 """);
     }
@@ -2349,7 +2346,7 @@ ORDER BY `c1`.`CustomerID`, `o3`.`OrderID`
 @p='1'
 
 SELECT `o4`.`OrderID`, `o4`.`ProductID`, `o4`.`Discount`, `o4`.`Quantity`, `o4`.`UnitPrice`, `c1`.`CustomerID`, `o3`.`OrderID`
-FROM ((
+FROM (
     SELECT TOP 1 `c0`.`CustomerID`
     FROM (
         SELECT `c`.`CustomerID`
@@ -2360,9 +2357,8 @@ FROM ((
     ) AS `c0`
     ORDER BY `c0`.`CustomerID`
 ) AS `c1`
-INNER JOIN `Orders` AS `o3` ON `c1`.`CustomerID` = `o3`.`CustomerID`)
-LEFT JOIN `Order Details` AS `o4` ON `o3`.`OrderID` = `o4`.`OrderID`
-WHERE `o3`.`OrderID` IS NOT NULL AND `o4`.`OrderID` IS NOT NULL
+INNER JOIN `Orders` AS `o3` ON `c1`.`CustomerID` = `o3`.`CustomerID`
+INNER JOIN `Order Details` AS `o4` ON `o3`.`OrderID` = `o4`.`OrderID`
 ORDER BY `c1`.`CustomerID`, `o3`.`OrderID`
 """);
     }
@@ -2409,10 +2405,10 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
             //
             """
 SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `c`.`CustomerID`, `o`.`OrderID`
-FROM (`Customers` AS `c`
-LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
-LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-WHERE (`c`.`City` = 'Seattle') AND (`o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL)
+FROM `Customers` AS `c`
+LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
+INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+WHERE `c`.`City` = 'Seattle'
 ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """);
     }
@@ -2461,9 +2457,9 @@ ORDER BY [c].[CustomerID], [t0].[OrderID]
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE (`o`.`OrderID` MOD 23) = 13
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
@@ -2471,11 +2467,11 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
             //
             """
 SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, `o`.`OrderID`, `o`.`ProductID`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
-LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
-WHERE ((`o`.`OrderID` MOD 23) = 13) AND (`c`.`CustomerID` IS NOT NULL AND `o1`.`CustomerID` IS NOT NULL)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+INNER JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+WHERE (`o`.`OrderID` MOD 23) = 13
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
 """);
     }
@@ -2516,10 +2512,10 @@ ORDER BY `o`.`OrderID`
             //
             """
 SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `o`.`OrderID`
-FROM (`Orders` AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
-LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-WHERE (`o`.`OrderID` < 10800) AND (`c`.`CustomerID` IS NOT NULL AND `o0`.`CustomerID` IS NOT NULL)
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+INNER JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE `o`.`OrderID` < 10800
 ORDER BY `o`.`OrderID`
 """);
     }
@@ -2597,9 +2593,9 @@ ORDER BY `p`.`ProductID`
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
 WHERE (`o`.`OrderID` MOD 23) = 13
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
@@ -2607,12 +2603,12 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
             //
             """
 SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, `o`.`OrderID`, `o`.`ProductID`
-FROM (((`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
-INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)
-LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
-WHERE ((`o`.`OrderID` MOD 23) = 13) AND (`c`.`CustomerID` IS NOT NULL AND `o1`.`CustomerID` IS NOT NULL)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
+INNER JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+WHERE (`o`.`OrderID` MOD 23) = 13
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
 """);
     }
@@ -2651,8 +2647,8 @@ ORDER BY `c0`.`CustomerID`
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM (`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE `o`.`OrderID` = 10248
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
@@ -2660,11 +2656,11 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
             //
             """
 SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, `o`.`OrderID`, `o`.`ProductID`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
-LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
-WHERE (`o`.`OrderID` = 10248) AND (`c`.`CustomerID` IS NOT NULL AND `o1`.`CustomerID` IS NOT NULL)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+INNER JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+WHERE `o`.`OrderID` = 10248
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
 """);
     }
@@ -2676,8 +2672,8 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM (`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE `o`.`OrderID` = 10248
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
@@ -2685,11 +2681,11 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
             //
             """
 SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, `o`.`OrderID`, `o`.`ProductID`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
-LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
-WHERE (`o`.`OrderID` = 10248) AND (`c`.`CustomerID` IS NOT NULL AND `o1`.`CustomerID` IS NOT NULL)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+INNER JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+WHERE `o`.`OrderID` = 10248
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
 """);
     }
@@ -2701,9 +2697,9 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
 WHERE (`o`.`OrderID` MOD 23) = 13
 """);
@@ -2737,10 +2733,10 @@ ORDER BY `o`.`OrderID`
             //
             """
 SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `o`.`OrderID`
-FROM (`Orders` AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
-LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-WHERE (`o`.`CustomerID` LIKE 'F%') AND (`c`.`CustomerID` IS NOT NULL AND `o0`.`CustomerID` IS NOT NULL)
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+INNER JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE `o`.`CustomerID` LIKE 'F%'
 ORDER BY `o`.`OrderID`
 """);
     }
@@ -2752,9 +2748,9 @@ ORDER BY `o`.`OrderID`
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE (`o`.`OrderID` MOD 23) = 13
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
@@ -2762,11 +2758,11 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
             //
             """
 SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, `o`.`OrderID`, `o`.`ProductID`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
-LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
-WHERE ((`o`.`OrderID` MOD 23) = 13) AND (`c`.`CustomerID` IS NOT NULL AND `o1`.`CustomerID` IS NOT NULL)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+INNER JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+WHERE (`o`.`OrderID` MOD 23) = 13
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
 """);
     }
@@ -2778,8 +2774,8 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM (`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE (`o`.`ProductID` MOD 23) = 17 AND `o`.`Quantity` < CINT(10)
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
@@ -2787,11 +2783,11 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
             //
             """
 SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, `o`.`OrderID`, `o`.`ProductID`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
-LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
-WHERE ((`o`.`ProductID` MOD 23) = 17 AND `o`.`Quantity` < CINT(10)) AND (`c`.`CustomerID` IS NOT NULL AND `o1`.`CustomerID` IS NOT NULL)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+INNER JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+WHERE (`o`.`ProductID` MOD 23) = 17 AND `o`.`Quantity` < CINT(10)
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
 """);
     }
@@ -2844,15 +2840,14 @@ ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
             //
             """
 SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`Discount`, `o0`.`Quantity`, `o0`.`UnitPrice`, `c0`.`CustomerID`, `o`.`OrderID`
-FROM ((
+FROM (
     SELECT TOP 1 `c`.`CustomerID`
     FROM `Customers` AS `c`
     WHERE `c`.`CustomerID` = 'ALFKI'
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
-INNER JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`)
-LEFT JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-WHERE `o`.`OrderID` IS NOT NULL AND `o0`.`OrderID` IS NOT NULL
+INNER JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
+INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
 """);
     }
@@ -2864,8 +2859,8 @@ ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM (`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE (`o`.`OrderID` MOD 23) = 13
 """);
@@ -2886,10 +2881,10 @@ ORDER BY `o`.`OrderID`
             //
             """
 SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `o`.`OrderID`
-FROM (`Orders` AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
-LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-WHERE (`o`.`OrderID` < 10800) AND (`c`.`CustomerID` IS NOT NULL AND `o0`.`CustomerID` IS NOT NULL)
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+INNER JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE `o`.`OrderID` < 10800
 ORDER BY `o`.`OrderID`
 """);
     }
@@ -2909,10 +2904,10 @@ ORDER BY `o`.`OrderID`
             //
             """
 SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `o`.`OrderID`
-FROM (`Orders` AS `o`
-LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
-LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-WHERE (`o`.`CustomerID` LIKE 'F%') AND (`c`.`CustomerID` IS NOT NULL AND `o0`.`CustomerID` IS NOT NULL)
+FROM `Orders` AS `o`
+LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+INNER JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
+WHERE `o`.`CustomerID` LIKE 'F%'
 ORDER BY `o`.`OrderID`
 """);
     }
@@ -2937,9 +2932,9 @@ ORDER BY `c`.`CustomerID`
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 WHERE (`o`.`OrderID` MOD 23) = 13
 """);
@@ -2952,9 +2947,9 @@ WHERE (`o`.`OrderID` MOD 23) = 13
         AssertSql(
             """
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
-FROM ((`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
 WHERE (`o`.`OrderID` MOD 23) = 13
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
@@ -2962,12 +2957,12 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
             //
             """
 SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`, `o`.`OrderID`, `o`.`ProductID`
-FROM (((`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
-LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`)
-INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)
-LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
-WHERE ((`o`.`OrderID` MOD 23) = 13) AND (`c`.`CustomerID` IS NOT NULL AND `o1`.`CustomerID` IS NOT NULL)
+FROM `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
+INNER JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+WHERE (`o`.`OrderID` MOD 23) = 13
 ORDER BY `o`.`OrderID`, `o`.`ProductID`
 """);
     }

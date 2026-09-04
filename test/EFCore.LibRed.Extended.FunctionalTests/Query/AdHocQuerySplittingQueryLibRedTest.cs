@@ -85,8 +85,8 @@ ORDER BY `p`.`Id`
             //
             """
 SELECT `p`.`Id`, `c`.`Id`, `c`.`ParentId`, `a`.`Id`, `a`.`ParentId`
-FROM (`Parents` AS `p`
-LEFT JOIN `Child` AS `c` ON `p`.`Id` = `c`.`ParentId`)
+FROM `Parents` AS `p`
+LEFT JOIN `Child` AS `c` ON `p`.`Id` = `c`.`ParentId`
 LEFT JOIN `AnotherChild` AS `a` ON `p`.`Id` = `a`.`ParentId`
 ORDER BY `p`.`Id`, `c`.`Id`, `a`.`Id`
 """);
@@ -171,8 +171,8 @@ ORDER BY `p`.`Id`
         AssertSql(
             """
 SELECT `p`.`Id`, `c`.`Id`, `c`.`ParentId`, `a`.`Id`, `a`.`ParentId`
-FROM (`Parents` AS `p`
-LEFT JOIN `Child` AS `c` ON `p`.`Id` = `c`.`ParentId`)
+FROM `Parents` AS `p`
+LEFT JOIN `Child` AS `c` ON `p`.`Id` = `c`.`ParentId`
 LEFT JOIN `AnotherChild` AS `a` ON `p`.`Id` = `a`.`ParentId`
 ORDER BY `p`.`Id`, `c`.`Id`, `a`.`Id`
 """);

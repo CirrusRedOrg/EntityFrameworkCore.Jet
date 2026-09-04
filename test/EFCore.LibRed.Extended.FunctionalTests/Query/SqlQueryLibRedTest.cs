@@ -167,12 +167,12 @@ WHERE `m`.`CustomerID` IN (
         await base.SqlQueryRaw_queryable_multiple_composed(async);
 
         AssertSql(
-"""
+            """
 SELECT `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`CustomerID`, `m`.`Fax`, `m`.`Phone`, `m`.`Region`, `m`.`PostalCode`, `m0`.`CustomerID`, `m0`.`EmployeeID`, `m0`.`Freight`, `m0`.`OrderDate`, `m0`.`OrderID`, `m0`.`RequiredDate`, `m0`.`ShipAddress`, `m0`.`ShipCity`, `m0`.`ShipCountry`, `m0`.`ShipName`, `m0`.`ShipPostalCode`, `m0`.`ShipRegion`, `m0`.`ShipVia`, `m0`.`ShippedDate`
 FROM (
     SELECT * FROM `Customers`
-) AS `m`,
-(
+) AS `m`
+CROSS JOIN (
     SELECT * FROM `Orders`
 ) AS `m0`
 WHERE `m`.`CustomerID` = `m0`.`CustomerID`
@@ -184,16 +184,16 @@ WHERE `m`.`CustomerID` = `m0`.`CustomerID`
         await base.SqlQueryRaw_queryable_multiple_composed_with_closure_parameters(async);
 
         AssertSql(
-$"""
+            """
 p0='1997-01-01T00:00:00.0000000' (DbType = DateTime)
 p1='1998-01-01T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`CustomerID`, `m`.`Fax`, `m`.`Phone`, `m`.`Region`, `m`.`PostalCode`, `m0`.`CustomerID`, `m0`.`EmployeeID`, `m0`.`Freight`, `m0`.`OrderDate`, `m0`.`OrderID`, `m0`.`RequiredDate`, `m0`.`ShipAddress`, `m0`.`ShipCity`, `m0`.`ShipCountry`, `m0`.`ShipName`, `m0`.`ShipPostalCode`, `m0`.`ShipRegion`, `m0`.`ShipVia`, `m0`.`ShippedDate`
 FROM (
     SELECT * FROM `Customers`
-) AS `m`,
-(
-    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN {AssertSqlHelper.Parameter("@p0")} AND {AssertSqlHelper.Parameter("@p1")}
+) AS `m`
+CROSS JOIN (
+    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN @p0 AND @p1
 ) AS `m0`
 WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 """);
@@ -204,32 +204,32 @@ WHERE `m`.`CustomerID` = `m0`.`CustomerID`
         await base.SqlQueryRaw_queryable_multiple_composed_with_parameters_and_closure_parameters(async);
 
         AssertSql(
-$"""
+            """
 p0='London' (Size = 255)
 p1='1997-01-01T00:00:00.0000000' (DbType = DateTime)
 p2='1998-01-01T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`CustomerID`, `m`.`Fax`, `m`.`Phone`, `m`.`Region`, `m`.`PostalCode`, `m0`.`CustomerID`, `m0`.`EmployeeID`, `m0`.`Freight`, `m0`.`OrderDate`, `m0`.`OrderID`, `m0`.`RequiredDate`, `m0`.`ShipAddress`, `m0`.`ShipCity`, `m0`.`ShipCountry`, `m0`.`ShipName`, `m0`.`ShipPostalCode`, `m0`.`ShipRegion`, `m0`.`ShipVia`, `m0`.`ShippedDate`
 FROM (
-    SELECT * FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@p0")}
-) AS `m`,
-(
-    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN {AssertSqlHelper.Parameter("@p1")} AND {AssertSqlHelper.Parameter("@p2")}
+    SELECT * FROM `Customers` WHERE `City` = @p0
+) AS `m`
+CROSS JOIN (
+    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN @p1 AND @p2
 ) AS `m0`
 WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 """,
-//
-$"""
+            //
+            """
 p0='Berlin' (Size = 255)
 p1='1998-04-01T00:00:00.0000000' (DbType = DateTime)
 p2='1998-05-01T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`CustomerID`, `m`.`Fax`, `m`.`Phone`, `m`.`Region`, `m`.`PostalCode`, `m0`.`CustomerID`, `m0`.`EmployeeID`, `m0`.`Freight`, `m0`.`OrderDate`, `m0`.`OrderID`, `m0`.`RequiredDate`, `m0`.`ShipAddress`, `m0`.`ShipCity`, `m0`.`ShipCountry`, `m0`.`ShipName`, `m0`.`ShipPostalCode`, `m0`.`ShipRegion`, `m0`.`ShipVia`, `m0`.`ShippedDate`
 FROM (
-    SELECT * FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@p0")}
-) AS `m`,
-(
-    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN {AssertSqlHelper.Parameter("@p1")} AND {AssertSqlHelper.Parameter("@p2")}
+    SELECT * FROM `Customers` WHERE `City` = @p0
+) AS `m`
+CROSS JOIN (
+    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN @p1 AND @p2
 ) AS `m0`
 WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 """);
@@ -320,32 +320,32 @@ SELECT * FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@p0")} AND 
         await base.SqlQuery_queryable_multiple_composed_with_parameters_and_closure_parameters_interpolated(async);
 
         AssertSql(
-$"""
+            """
 p0='London' (Size = 255)
 p1='1997-01-01T00:00:00.0000000' (DbType = DateTime)
 p2='1998-01-01T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`CustomerID`, `m`.`Fax`, `m`.`Phone`, `m`.`Region`, `m`.`PostalCode`, `m0`.`CustomerID`, `m0`.`EmployeeID`, `m0`.`Freight`, `m0`.`OrderDate`, `m0`.`OrderID`, `m0`.`RequiredDate`, `m0`.`ShipAddress`, `m0`.`ShipCity`, `m0`.`ShipCountry`, `m0`.`ShipName`, `m0`.`ShipPostalCode`, `m0`.`ShipRegion`, `m0`.`ShipVia`, `m0`.`ShippedDate`
 FROM (
-    SELECT * FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@p0")}
-) AS `m`,
-(
-    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN {AssertSqlHelper.Parameter("@p1")} AND {AssertSqlHelper.Parameter("@p2")}
+    SELECT * FROM `Customers` WHERE `City` = @p0
+) AS `m`
+CROSS JOIN (
+    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN @p1 AND @p2
 ) AS `m0`
 WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 """,
-//
-$"""
+            //
+            """
 p0='Berlin' (Size = 255)
 p1='1998-04-01T00:00:00.0000000' (DbType = DateTime)
 p2='1998-05-01T00:00:00.0000000' (DbType = DateTime)
 
 SELECT `m`.`Address`, `m`.`City`, `m`.`CompanyName`, `m`.`ContactName`, `m`.`ContactTitle`, `m`.`Country`, `m`.`CustomerID`, `m`.`Fax`, `m`.`Phone`, `m`.`Region`, `m`.`PostalCode`, `m0`.`CustomerID`, `m0`.`EmployeeID`, `m0`.`Freight`, `m0`.`OrderDate`, `m0`.`OrderID`, `m0`.`RequiredDate`, `m0`.`ShipAddress`, `m0`.`ShipCity`, `m0`.`ShipCountry`, `m0`.`ShipName`, `m0`.`ShipPostalCode`, `m0`.`ShipRegion`, `m0`.`ShipVia`, `m0`.`ShippedDate`
 FROM (
-    SELECT * FROM `Customers` WHERE `City` = {AssertSqlHelper.Parameter("@p0")}
-) AS `m`,
-(
-    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN {AssertSqlHelper.Parameter("@p1")} AND {AssertSqlHelper.Parameter("@p2")}
+    SELECT * FROM `Customers` WHERE `City` = @p0
+) AS `m`
+CROSS JOIN (
+    SELECT * FROM `Orders` WHERE `OrderDate` BETWEEN @p1 AND @p2
 ) AS `m0`
 WHERE `m`.`CustomerID` = `m0`.`CustomerID`
 """);

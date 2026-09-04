@@ -64,147 +64,7 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
             return base.TryGenerateWithoutWrappingSelect(selectExpression);
         }
 
-        protected override Expression VisitSelect(SelectExpression selectExpression)
-        {
-            // Copy & pasted from `QuerySqlGenerator` to implement Jet's non-standard JOIN syntax and DUAL table
-            // workaround.
-            // Should be kept in sync with the base class.
-
-            IDisposable? subQueryIndent = null;
-
-            if (selectExpression.Alias != null)
-            {
-                Sql.AppendLine("(");
-                subQueryIndent = Sql.Indent();
-            }
-
-            if (!TryGenerateWithoutWrappingSelect(selectExpression))
-            {
-
-                Sql.Append("SELECT ");
-
-                if (selectExpression.IsDistinct)
-                {
-                    Sql.Append("DISTINCT ");
-                }
-
-                GenerateTop(selectExpression);
-
-                if (selectExpression.Projection.Any())
-                {
-                    GenerateList(selectExpression.Projection, e => Visit(e));
-                }
-                else
-                {
-                    if (selectExpression.Predicate == null)
-                    {
-                        Sql.Append("1");
-                    }
-                    else
-                    {
-                        //The WHERE clause can only refer to columns in the projection
-                        List<ColumnExpression> cols = [];
-                        if (selectExpression.Predicate is SqlBinaryExpression binaryExpression)
-                        {
-                            cols = ExtractColumnExpressions(binaryExpression);
-                        }
-                        else if (selectExpression.Predicate is SqlUnaryExpression unaryExpression)
-                        {
-                            cols = ExtractColumnExpressions(unaryExpression);
-                        }
-
-                        var collist = cols.Where(c =>
-                            selectExpression.Tables.Select(d => d.Alias).Contains(c.TableAlias)).ToList();
-                        parent.TryPeek(out var parentExpression);
-                        if (selectExpression.Tables.Count > 1 && selectExpression.Tables.Any(c => c is InnerJoinExpression) && collist.Count > 0 && parentExpression is SqlUnaryExpression or SqlBinaryExpression)
-                        {
-                            Visit(collist[0]);
-                        }
-                        else
-                        {
-                            Sql.Append("1");
-                        }
-                    }
-                }
-
-                VisitJetTables(selectExpression.Tables, true, out var colexp);
-
-                if (selectExpression.Predicate != null || colexp.Count > 0)
-                {
-                    Sql.AppendLine()
-                        .Append("WHERE ");
-
-                    if (selectExpression.Predicate != null)
-                    {
-                        if (colexp.Count > 0) Sql.Append("(");
-                        parent.Push(selectExpression.Predicate);
-                        Visit(selectExpression.Predicate);
-                        parent.Pop();
-                        if (colexp.Count > 0) Sql.Append(")");
-                    }
-
-                    if (selectExpression.Predicate != null && colexp.Count > 0)
-                    {
-                        Sql.Append(" AND (");
-                    }
-
-                    if (colexp.Count > 0)
-                    {
-                        int ct = 0;
-                        foreach (var exp in colexp)
-                        {
-                            if (!string.IsNullOrEmpty(exp.TableAlias))
-                            {
-                                Sql.Append($"`{exp.TableAlias}`.");
-                            }
-
-                            Sql.Append($"`{exp.Name}` IS NOT NULL");
-                            // Fix: check then append, don't mix increment into the block
-                            if (ct < colexp.Count - 1)
-                                Sql.Append(" AND ");
-                            ct++;
-                        }
-                    }
-
-                    if (selectExpression.Predicate != null && colexp.Count > 0)
-                    {
-                        Sql.Append(")");
-                    }
-                }
-
-                if (selectExpression.GroupBy.Count > 0)
-                {
-                    Sql.AppendLine()
-                        .Append("GROUP BY ");
-
-                    GenerateList(selectExpression.GroupBy, e => Visit(e));
-                }
-
-                if (selectExpression.Having != null)
-                {
-                    Sql.AppendLine()
-                        .Append("HAVING ");
-
-                    Visit(selectExpression.Having);
-                }
-
-                GenerateOrderings(selectExpression);
-                GenerateLimitOffset(selectExpression);
-
-            }
-
-            if (selectExpression.Alias != null)
-            {
-                subQueryIndent!.Dispose();
-
-                Sql.AppendLine()
-                    .Append(")")
-                    .Append(AliasSeparator)
-                    .Append(_sqlGenerationHelper.DelimitIdentifier(selectExpression.Alias));
-            }
-
-            return selectExpression;
-        }
+        
 
         private void VisitJetTables(IReadOnlyList<TableExpressionBase> tables, bool addFromSql, out List<ColumnExpression> colexp)
         {
@@ -724,20 +584,8 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
                 SqlExpression checksqlexp = convertExpression.Operand;
                 SqlExpression? notnullsqlexp = null;
 
-                bool useValCStr = false;//convertExpression.Type.Name is nameof(Decimal) or nameof(Int64);
-
-                /*SqlFunctionExpression WrapConvert(SqlExpression inner) =>
-                    useValCStr
-                        ? new SqlFunctionExpression("Val",
-                            [new SqlFunctionExpression("CStr", [inner], false, [false], typeof(string), null)],
-                            false, [false], typeMapping.ClrType, null)
-                        : new SqlFunctionExpression(function, [inner], false, [false], typeMapping.ClrType, null);*/
-
                 SqlFunctionExpression WrapConvert(SqlExpression inner) =>
-                    useValCStr
-                        ? new SqlFunctionExpression("CVar", [inner],
-                            false, [false], typeMapping.ClrType, null)
-                        : new SqlFunctionExpression(function, [inner], false, [false], typeMapping.ClrType, null);
+                    new SqlFunctionExpression(function, [inner], false, [false], typeMapping.ClrType, null);
 
                 if (convertExpression.TypeMapping is ByteArrayTypeMapping)
                 {
@@ -826,62 +674,6 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
                 ExpressionType.Divide when binaryExpression.Type == typeof(int) => " \\ ",
                 _ => base.GetOperator(binaryExpression),
             };
-
-        protected override Expression VisitCrossJoin(CrossJoinExpression crossJoinExpression)
-        {
-            Visit(crossJoinExpression.Table);
-            return crossJoinExpression;
-        }
-
-        protected override Expression VisitLeftJoin(LeftJoinExpression leftJoinExpression)
-        {
-            var equalityColumns = new HashSet<ColumnExpression>();
-            CollectEqualityColumns(leftJoinExpression.JoinPredicate, equalityColumns);
-
-            var predicate = RemoveRedundantNullChecks(leftJoinExpression.JoinPredicate, equalityColumns);
-            return base.VisitLeftJoin(predicate == leftJoinExpression.JoinPredicate
-                ? leftJoinExpression
-                : leftJoinExpression.Update(leftJoinExpression.Table, predicate!));
-
-            static SqlExpression? RemoveRedundantNullChecks(
-                SqlExpression expression,
-                HashSet<ColumnExpression> equalityColumns)
-            {
-                if (expression is SqlBinaryExpression { OperatorType: ExpressionType.AndAlso } andAlso)
-                {
-                    var left = RemoveRedundantNullChecks(andAlso.Left, equalityColumns);
-                    var right = RemoveRedundantNullChecks(andAlso.Right, equalityColumns);
-                    return left is null ? right : right is null ? left : andAlso.Update(left, right);
-                }
-
-                return expression is SqlUnaryExpression
-                {
-                    OperatorType: ExpressionType.NotEqual,
-                    Operand: ColumnExpression column
-                } && equalityColumns.Contains(column)
-                    ? null
-                    : expression;
-            }
-
-            static void CollectEqualityColumns(SqlExpression expression, HashSet<ColumnExpression> result)
-            {
-                if (expression is SqlBinaryExpression { OperatorType: ExpressionType.AndAlso } andAlso)
-                {
-                    CollectEqualityColumns(andAlso.Left, result);
-                    CollectEqualityColumns(andAlso.Right, result);
-                }
-                else if (expression is SqlBinaryExpression
-                         {
-                             OperatorType: ExpressionType.Equal,
-                             Left: ColumnExpression left,
-                             Right: ColumnExpression right
-                         })
-                {
-                    result.Add(left);
-                    result.Add(right);
-                }
-            }
-        }
 
         /// <summary>
         /// <summary>Generates the TOP part of the SELECT statement,</summary>

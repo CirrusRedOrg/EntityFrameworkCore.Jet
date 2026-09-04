@@ -470,16 +470,16 @@ LEFT JOIN `OwnedReferencePart3` AS `o0` ON `l`.`Id` = `o0`.`LeafEntityId`
             """
 SELECT `u`.`Id`, `u`.`BaseValue`, `u`.`MiddleValue`, `u`.`SiblingValue`, `u`.`LeafValue`, `u`.`Discriminator`, `l0`.`Id`, `l0`.`OwnedReference_Id`, `l0`.`OwnedReference_OwnedIntValue1`, `l0`.`OwnedReference_OwnedIntValue2`, `o0`.`OwnedIntValue3`, `o`.`OwnedIntValue4`, `l0`.`OwnedReference_OwnedStringValue1`, `l0`.`OwnedReference_OwnedStringValue2`, `o0`.`OwnedStringValue3`, `o`.`OwnedStringValue4`
 FROM (
-    SELECT `b`.`Id`, `b`.`BaseValue`, CVar(NULL) AS `MiddleValue`, CVar(NULL) AS `SiblingValue`, CVar(NULL) AS `LeafValue`, 'BaseEntity' AS `Discriminator`
+    SELECT `b`.`Id`, `b`.`BaseValue`, NULL AS `MiddleValue`, NULL AS `SiblingValue`, NULL AS `LeafValue`, 'BaseEntity' AS `Discriminator`
     FROM `BaseEntity` AS `b`
     UNION ALL
-    SELECT `m`.`Id`, `m`.`BaseValue`, `m`.`MiddleValue`, CVar(NULL) AS `SiblingValue`, CVar(NULL) AS `LeafValue`, 'MiddleEntity' AS `Discriminator`
+    SELECT `m`.`Id`, `m`.`BaseValue`, `m`.`MiddleValue`, NULL AS `SiblingValue`, NULL AS `LeafValue`, 'MiddleEntity' AS `Discriminator`
     FROM `MiddleEntity` AS `m`
     UNION ALL
-    SELECT `s`.`Id`, `s`.`BaseValue`, CVar(NULL) AS `MiddleValue`, `s`.`SiblingValue`, CVar(NULL) AS `LeafValue`, 'SiblingEntity' AS `Discriminator`
+    SELECT `s`.`Id`, `s`.`BaseValue`, NULL AS `MiddleValue`, `s`.`SiblingValue`, NULL AS `LeafValue`, 'SiblingEntity' AS `Discriminator`
     FROM `SiblingEntity` AS `s`
     UNION ALL
-    SELECT `l`.`Id`, `l`.`BaseValue`, `l`.`MiddleValue`, CVar(NULL) AS `SiblingValue`, `l`.`LeafValue`, 'LeafEntity' AS `Discriminator`
+    SELECT `l`.`Id`, `l`.`BaseValue`, `l`.`MiddleValue`, NULL AS `SiblingValue`, `l`.`LeafValue`, 'LeafEntity' AS `Discriminator`
     FROM `LeafEntity` AS `l`
 ) AS `u`
 LEFT JOIN `LeafEntity` AS `l0` ON `u`.`Id` = `l0`.`Id`
@@ -599,16 +599,16 @@ FROM `SiblingEntity` AS `s`
             """
 SELECT `u`.`Id`, `u`.`BaseValue`, `u`.`MiddleValue`, `u`.`SiblingValue`, `u`.`LeafValue`, `u`.`Discriminator`, `o`.`BaseEntityId`, `o`.`Id`, `o`.`OwnedIntValue1`, `o`.`OwnedIntValue2`, `o1`.`OwnedIntValue3`, `o0`.`OwnedIntValue4`, `o`.`OwnedStringValue1`, `o`.`OwnedStringValue2`, `o1`.`OwnedStringValue3`, `o0`.`OwnedStringValue4`
 FROM (
-    SELECT `b`.`Id`, `b`.`BaseValue`, CVar(NULL) AS `MiddleValue`, CVar(NULL) AS `SiblingValue`, CVar(NULL) AS `LeafValue`, 'BaseEntity' AS `Discriminator`
+    SELECT `b`.`Id`, `b`.`BaseValue`, NULL AS `MiddleValue`, NULL AS `SiblingValue`, NULL AS `LeafValue`, 'BaseEntity' AS `Discriminator`
     FROM `BaseEntity` AS `b`
     UNION ALL
-    SELECT `m`.`Id`, `m`.`BaseValue`, `m`.`MiddleValue`, CVar(NULL) AS `SiblingValue`, CVar(NULL) AS `LeafValue`, 'MiddleEntity' AS `Discriminator`
+    SELECT `m`.`Id`, `m`.`BaseValue`, `m`.`MiddleValue`, NULL AS `SiblingValue`, NULL AS `LeafValue`, 'MiddleEntity' AS `Discriminator`
     FROM `MiddleEntity` AS `m`
     UNION ALL
-    SELECT `s`.`Id`, `s`.`BaseValue`, CVar(NULL) AS `MiddleValue`, `s`.`SiblingValue`, CVar(NULL) AS `LeafValue`, 'SiblingEntity' AS `Discriminator`
+    SELECT `s`.`Id`, `s`.`BaseValue`, NULL AS `MiddleValue`, `s`.`SiblingValue`, NULL AS `LeafValue`, 'SiblingEntity' AS `Discriminator`
     FROM `SiblingEntity` AS `s`
     UNION ALL
-    SELECT `l`.`Id`, `l`.`BaseValue`, `l`.`MiddleValue`, CVar(NULL) AS `SiblingValue`, `l`.`LeafValue`, 'LeafEntity' AS `Discriminator`
+    SELECT `l`.`Id`, `l`.`BaseValue`, `l`.`MiddleValue`, NULL AS `SiblingValue`, `l`.`LeafValue`, 'LeafEntity' AS `Discriminator`
     FROM `LeafEntity` AS `l`
 ) AS `u`
 LEFT JOIN `OwnedReferencePart1` AS `o` ON `u`.`Id` = `o`.`BaseEntityId`
@@ -641,16 +641,16 @@ LEFT JOIN `OwnedReferencePart3` AS `o1` ON `o`.`BaseEntityId` = `o1`.`BaseEntity
             """
 SELECT `u`.`Id`, `u`.`BaseValue`, `u`.`MiddleValue`, `u`.`SiblingValue`, `u`.`LeafValue`, `u`.`Discriminator`, `o`.`MiddleEntityId`, `o`.`Id`, `o`.`OwnedIntValue1`, `o`.`OwnedIntValue2`, `o1`.`OwnedIntValue3`, `o0`.`OwnedIntValue4`, `o`.`OwnedStringValue1`, `o`.`OwnedStringValue2`, `o1`.`OwnedStringValue3`, `o0`.`OwnedStringValue4`
 FROM (
-    SELECT `b`.`Id`, `b`.`BaseValue`, CVar(NULL) AS `MiddleValue`, CVar(NULL) AS `SiblingValue`, CVar(NULL) AS `LeafValue`, 'BaseEntity' AS `Discriminator`
+    SELECT `b`.`Id`, `b`.`BaseValue`, NULL AS `MiddleValue`, NULL AS `SiblingValue`, NULL AS `LeafValue`, 'BaseEntity' AS `Discriminator`
     FROM `BaseEntity` AS `b`
     UNION ALL
-    SELECT `m`.`Id`, `m`.`BaseValue`, `m`.`MiddleValue`, CVar(NULL) AS `SiblingValue`, CVar(NULL) AS `LeafValue`, 'MiddleEntity' AS `Discriminator`
+    SELECT `m`.`Id`, `m`.`BaseValue`, `m`.`MiddleValue`, NULL AS `SiblingValue`, NULL AS `LeafValue`, 'MiddleEntity' AS `Discriminator`
     FROM `MiddleEntity` AS `m`
     UNION ALL
-    SELECT `s`.`Id`, `s`.`BaseValue`, CVar(NULL) AS `MiddleValue`, `s`.`SiblingValue`, CVar(NULL) AS `LeafValue`, 'SiblingEntity' AS `Discriminator`
+    SELECT `s`.`Id`, `s`.`BaseValue`, NULL AS `MiddleValue`, `s`.`SiblingValue`, NULL AS `LeafValue`, 'SiblingEntity' AS `Discriminator`
     FROM `SiblingEntity` AS `s`
     UNION ALL
-    SELECT `l`.`Id`, `l`.`BaseValue`, `l`.`MiddleValue`, CVar(NULL) AS `SiblingValue`, `l`.`LeafValue`, 'LeafEntity' AS `Discriminator`
+    SELECT `l`.`Id`, `l`.`BaseValue`, `l`.`MiddleValue`, NULL AS `SiblingValue`, `l`.`LeafValue`, 'LeafEntity' AS `Discriminator`
     FROM `LeafEntity` AS `l`
 ) AS `u`
 LEFT JOIN `OwnedReferencePart1` AS `o` ON `u`.`Id` = `o`.`MiddleEntityId`
@@ -707,16 +707,16 @@ LEFT JOIN `OwnedReferencePart3` AS `o1` ON `o`.`MiddleEntityId` = `o1`.`MiddleEn
             """
 SELECT `u`.`Id`, `u`.`BaseValue`, `u`.`MiddleValue`, `u`.`SiblingValue`, `u`.`LeafValue`, `u`.`Discriminator`, `s0`.`BaseEntityId`, `s0`.`Id`, `s0`.`OwnedIntValue1`, `s0`.`OwnedIntValue2`, `s0`.`OwnedIntValue3`, `s0`.`OwnedIntValue4`, `s0`.`OwnedStringValue1`, `s0`.`OwnedStringValue2`, `s0`.`OwnedStringValue3`, `s0`.`OwnedStringValue4`
 FROM (
-    SELECT `b`.`Id`, `b`.`BaseValue`, CVar(NULL) AS `MiddleValue`, CVar(NULL) AS `SiblingValue`, CVar(NULL) AS `LeafValue`, 'BaseEntity' AS `Discriminator`
+    SELECT `b`.`Id`, `b`.`BaseValue`, NULL AS `MiddleValue`, NULL AS `SiblingValue`, NULL AS `LeafValue`, 'BaseEntity' AS `Discriminator`
     FROM `BaseEntity` AS `b`
     UNION ALL
-    SELECT `m`.`Id`, `m`.`BaseValue`, `m`.`MiddleValue`, CVar(NULL) AS `SiblingValue`, CVar(NULL) AS `LeafValue`, 'MiddleEntity' AS `Discriminator`
+    SELECT `m`.`Id`, `m`.`BaseValue`, `m`.`MiddleValue`, NULL AS `SiblingValue`, NULL AS `LeafValue`, 'MiddleEntity' AS `Discriminator`
     FROM `MiddleEntity` AS `m`
     UNION ALL
-    SELECT `s`.`Id`, `s`.`BaseValue`, CVar(NULL) AS `MiddleValue`, `s`.`SiblingValue`, CVar(NULL) AS `LeafValue`, 'SiblingEntity' AS `Discriminator`
+    SELECT `s`.`Id`, `s`.`BaseValue`, NULL AS `MiddleValue`, `s`.`SiblingValue`, NULL AS `LeafValue`, 'SiblingEntity' AS `Discriminator`
     FROM `SiblingEntity` AS `s`
     UNION ALL
-    SELECT `l`.`Id`, `l`.`BaseValue`, `l`.`MiddleValue`, CVar(NULL) AS `SiblingValue`, `l`.`LeafValue`, 'LeafEntity' AS `Discriminator`
+    SELECT `l`.`Id`, `l`.`BaseValue`, `l`.`MiddleValue`, NULL AS `SiblingValue`, `l`.`LeafValue`, 'LeafEntity' AS `Discriminator`
     FROM `LeafEntity` AS `l`
 ) AS `u`
 LEFT JOIN (
@@ -753,16 +753,16 @@ ORDER BY `u`.`Id`, `s0`.`BaseEntityId`
             """
 SELECT `u`.`Id`, `u`.`BaseValue`, `u`.`MiddleValue`, `u`.`SiblingValue`, `u`.`LeafValue`, `u`.`Discriminator`, `s0`.`MiddleEntityId`, `s0`.`Id`, `s0`.`OwnedIntValue1`, `s0`.`OwnedIntValue2`, `s0`.`OwnedIntValue3`, `s0`.`OwnedIntValue4`, `s0`.`OwnedStringValue1`, `s0`.`OwnedStringValue2`, `s0`.`OwnedStringValue3`, `s0`.`OwnedStringValue4`
 FROM (
-    SELECT `b`.`Id`, `b`.`BaseValue`, CVar(NULL) AS `MiddleValue`, CVar(NULL) AS `SiblingValue`, CVar(NULL) AS `LeafValue`, 'BaseEntity' AS `Discriminator`
+    SELECT `b`.`Id`, `b`.`BaseValue`, NULL AS `MiddleValue`, NULL AS `SiblingValue`, NULL AS `LeafValue`, 'BaseEntity' AS `Discriminator`
     FROM `BaseEntity` AS `b`
     UNION ALL
-    SELECT `m`.`Id`, `m`.`BaseValue`, `m`.`MiddleValue`, CVar(NULL) AS `SiblingValue`, CVar(NULL) AS `LeafValue`, 'MiddleEntity' AS `Discriminator`
+    SELECT `m`.`Id`, `m`.`BaseValue`, `m`.`MiddleValue`, NULL AS `SiblingValue`, NULL AS `LeafValue`, 'MiddleEntity' AS `Discriminator`
     FROM `MiddleEntity` AS `m`
     UNION ALL
-    SELECT `s`.`Id`, `s`.`BaseValue`, CVar(NULL) AS `MiddleValue`, `s`.`SiblingValue`, CVar(NULL) AS `LeafValue`, 'SiblingEntity' AS `Discriminator`
+    SELECT `s`.`Id`, `s`.`BaseValue`, NULL AS `MiddleValue`, `s`.`SiblingValue`, NULL AS `LeafValue`, 'SiblingEntity' AS `Discriminator`
     FROM `SiblingEntity` AS `s`
     UNION ALL
-    SELECT `l`.`Id`, `l`.`BaseValue`, `l`.`MiddleValue`, CVar(NULL) AS `SiblingValue`, `l`.`LeafValue`, 'LeafEntity' AS `Discriminator`
+    SELECT `l`.`Id`, `l`.`BaseValue`, `l`.`MiddleValue`, NULL AS `SiblingValue`, `l`.`LeafValue`, 'LeafEntity' AS `Discriminator`
     FROM `LeafEntity` AS `l`
 ) AS `u`
 LEFT JOIN (

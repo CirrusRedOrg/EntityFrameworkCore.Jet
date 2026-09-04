@@ -40,10 +40,10 @@ FROM `Kiwi` AS `k`
             """
 SELECT `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`FoundOn`, `u`.`Discriminator`
 FROM (
-    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
     UNION ALL
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
 WHERE `u`.`Name` = 'Great spotted kiwi'
@@ -60,10 +60,10 @@ ORDER BY `u`.`Species`
 SELECT `c`.`Id`, `c`.`Name`, `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`FoundOn`, `u`.`Discriminator`
 FROM `Countries` AS `c`
 LEFT JOIN (
-    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
     UNION ALL
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u` ON `c`.`Id` = `u`.`CountryId`
 ORDER BY `c`.`Name`, `c`.`Id`
@@ -82,10 +82,10 @@ FROM (
     FROM `Eagle` AS `e`
 ) AS `e1`
 LEFT JOIN (
-    SELECT `e0`.`Id`, `e0`.`CountryId`, `e0`.`Name`, `e0`.`Species`, `e0`.`EagleId`, `e0`.`IsFlightless`, `e0`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT `e0`.`Id`, `e0`.`CountryId`, `e0`.`Name`, `e0`.`Species`, `e0`.`EagleId`, `e0`.`IsFlightless`, `e0`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e0`
     UNION ALL
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u` ON `e1`.`Id` = `u`.`EagleId`
 ORDER BY `e1`.`Id`
@@ -103,10 +103,10 @@ ORDER BY `e1`.`Id`
             """
 SELECT `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`FoundOn`, `u`.`Discriminator`
 FROM (
-    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
     UNION ALL
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
 ORDER BY `u`.`Species`
@@ -121,10 +121,10 @@ ORDER BY `u`.`Species`
             """
 SELECT `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`FoundOn`, `u`.`Discriminator`
 FROM (
-    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
     UNION ALL
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
 ORDER BY `u`.`Species`
@@ -139,7 +139,7 @@ ORDER BY `u`.`Species`
             """
 SELECT `u`.`Species`, `u`.`CountryId`, `u`.`Genus`, `u`.`Name`, `u`.`HasThorns`, `u`.`Discriminator`
 FROM (
-    SELECT `d`.`Species`, `d`.`CountryId`, `d`.`Genus`, `d`.`Name`, CVar(NULL) AS `HasThorns`, 'Daisy' AS `Discriminator`
+    SELECT `d`.`Species`, `d`.`CountryId`, `d`.`Genus`, `d`.`Name`, NULL AS `HasThorns`, 'Daisy' AS `Discriminator`
     FROM `Daisies` AS `d`
     UNION ALL
     SELECT `r`.`Species`, `r`.`CountryId`, `r`.`Genus`, `r`.`Name`, `r`.`HasThorns`, 'Rose' AS `Discriminator`
@@ -243,7 +243,7 @@ FROM `Kiwi` AS `k`
 
         AssertSql(
             """
-SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
 FROM `Kiwi` AS `k`
 """);
     }
@@ -259,7 +259,7 @@ SELECT CASE
     ELSE CBYTE(0)
 END AS `Value`
 FROM (
-    SELECT CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
     UNION ALL
     SELECT `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
@@ -293,10 +293,10 @@ FROM (
             """
 SELECT `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`FoundOn`, `u`.`Discriminator`
 FROM (
-    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
     UNION ALL
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
 WHERE `u`.`Discriminator` = 'Kiwi' AND `u`.`CountryId` = 1
@@ -311,10 +311,10 @@ WHERE `u`.`Discriminator` = 'Kiwi' AND `u`.`CountryId` = 1
             """
 SELECT `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`FoundOn`, `u`.`Discriminator`
 FROM (
-    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
     UNION ALL
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
 ORDER BY `u`.`Species`
@@ -329,10 +329,10 @@ ORDER BY `u`.`Species`
             """
 SELECT `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`FoundOn`, `u`.`Discriminator`
 FROM (
-    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
     UNION ALL
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
 ORDER BY `u`.`Species`
@@ -347,10 +347,10 @@ ORDER BY `u`.`Species`
             """
 SELECT TOP 1 `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`FoundOn`, `u`.`Discriminator`
 FROM (
-    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
     UNION ALL
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
 ORDER BY `u`.`Species`
@@ -365,10 +365,10 @@ ORDER BY `u`.`Species`
             """
 SELECT `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`FoundOn`, `u`.`Discriminator`
 FROM (
-    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
     UNION ALL
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
 WHERE `u`.`CountryId` = 1
@@ -483,7 +483,7 @@ SELECT DISTINCT `u0`.`Id`, `u0`.`CountryId`, `u0`.`Name`, `u0`.`Species`, `u0`.`
 FROM (
     SELECT TOP @p `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`FoundOn`, `u`.`Discriminator`
     FROM (
-        SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+        SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
         FROM `Eagle` AS `e`
         UNION ALL
         SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
@@ -517,10 +517,10 @@ WHERE `u0`.`Discriminator` = 'Kiwi'
             """
 SELECT `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`FoundOn`, `u`.`Discriminator`
 FROM (
-    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
     UNION ALL
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
 WHERE EXISTS (
@@ -619,7 +619,7 @@ FROM `Kiwi` AS `k`
             """
 SELECT `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`FoundOn`, `u`.`Discriminator`
 FROM (
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
 WHERE `u`.`Discriminator` = 'Eagle'
@@ -634,7 +634,7 @@ WHERE `u`.`Discriminator` = 'Eagle'
             """
 SELECT `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`Discriminator`
 FROM (
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
 WHERE `u`.`Discriminator` = 'Eagle'
@@ -656,10 +656,10 @@ WHERE `u`.`Discriminator` = 'Eagle'
             """
 SELECT `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`FoundOn`, `u`.`Discriminator`
 FROM (
-    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
     UNION ALL
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
 WHERE FALSE
@@ -674,10 +674,10 @@ WHERE FALSE
             """
 SELECT `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`FoundOn`, `u`.`Discriminator`
 FROM (
-    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
     UNION ALL
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
 WHERE FALSE
@@ -690,7 +690,7 @@ WHERE FALSE
 
         AssertSql(
             """
-SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
 FROM `Eagle` AS `e`
 """);
     }
@@ -701,7 +701,7 @@ FROM `Eagle` AS `e`
 
         AssertSql(
             """
-SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
 FROM `Kiwi` AS `k`
 """);
     }
@@ -712,7 +712,7 @@ FROM `Kiwi` AS `k`
 
         AssertSql(
             """
-SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
 FROM `Kiwi` AS `k`
 """);
     }
@@ -725,10 +725,10 @@ FROM `Kiwi` AS `k`
             """
 SELECT `u`.`Id`, `u`.`CountryId`, `u`.`Name`, `u`.`Species`, `u`.`EagleId`, `u`.`IsFlightless`, `u`.`Group`, `u`.`FoundOn`, `u`.`Discriminator`
 FROM (
-    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, CVar(NULL) AS `FoundOn`, 'Eagle' AS `Discriminator`
+    SELECT `e`.`Id`, `e`.`CountryId`, `e`.`Name`, `e`.`Species`, `e`.`EagleId`, `e`.`IsFlightless`, `e`.`Group`, NULL AS `FoundOn`, 'Eagle' AS `Discriminator`
     FROM `Eagle` AS `e`
     UNION ALL
-    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, CVar(NULL) AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
+    SELECT `k`.`Id`, `k`.`CountryId`, `k`.`Name`, `k`.`Species`, `k`.`EagleId`, `k`.`IsFlightless`, NULL AS `Group`, `k`.`FoundOn`, 'Kiwi' AS `Discriminator`
     FROM `Kiwi` AS `k`
 ) AS `u`
 WHERE `u`.`Discriminator` <> 'Kiwi'

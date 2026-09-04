@@ -478,7 +478,7 @@ FROM `Weapons` AS `w`
 """,
                 //
                 """
-SELECT `w`.`Id`, CVar(NULL) AS `AmmoType`
+SELECT `w`.`Id`, NULL AS `AmmoType`
 FROM `Weapons` AS `w`
 """,
                 //
@@ -490,7 +490,7 @@ FROM `Weapons` AS `w`
 """,
                 //
                 """
-SELECT `w`.`Id`, CVar(NULL) AS `AmmoType`
+SELECT `w`.`Id`, NULL AS `AmmoType`
 FROM `Weapons` AS `w`
 """);
         }

@@ -362,7 +362,7 @@ FROM (
     SELECT `r`.`Id`, `r`.`Value`, NULL AS `Value1`, 'ReproEntity<int>' AS `Discriminator`
     FROM `ReproEntity<int>` AS `r`
     UNION ALL
-    SELECT `r0`.`Id`, CVar(NULL) AS `Value`, `r0`.`Value` AS `Value1`, 'ReproEntity<string>' AS `Discriminator`
+    SELECT `r0`.`Id`, NULL AS `Value`, `r0`.`Value` AS `Value1`, 'ReproEntity<string>' AS `Discriminator`
     FROM `ReproEntity<string>` AS `r0`
 ) AS `u`
 ORDER BY `u`.`Id`

@@ -946,9 +946,9 @@ WHERE FALSE
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
 INNER JOIN (
-    SELECT CVar(NULL) AS `Value`
+    SELECT NULL AS `Value`
     WHERE FALSE
-) AS `p0` ON `p`.`Id` = IIF(`p0`.`Value` IS NULL, NULL, CLNG(`p0`.`Value`))
+) AS `p0` ON `p`.`Id` = `p0`.`Value`
 """);
     }
 
@@ -1901,7 +1901,7 @@ FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE EXISTS (
     SELECT 1
     FROM (
-        SELECT CVar(NULL) AS `Value`
+        SELECT NULL AS `Value`
         WHERE FALSE
     ) AS `i`)
 """);
@@ -2033,7 +2033,8 @@ FROM `PrimitiveCollectionsEntity` AS `p`
 SELECT `p`.`Id`, `u`.`Value`
 FROM `PrimitiveCollectionsEntity` AS `p`
 OUTER APPLY (
-    SELECT `p`.`String` AS `Value`
+    SELECT `v`.`Value`
+    FROM (SELECT `p`.`String` AS `Value`) AS `v`
     UNION
     SELECT `p0`.`String` AS `Value`
     FROM `PrimitiveCollectionsEntity` AS `p0`

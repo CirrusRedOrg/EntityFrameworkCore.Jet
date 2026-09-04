@@ -1191,7 +1191,7 @@ GROUP BY `o`.`OrderID`
                 """
 SELECT `o0`.`OrderMonth`, `o0`.`CustomerID` AS `Customer`, COUNT(*) AS `Count`
 FROM (
-    SELECT `o`.`CustomerID`, CVar(NULL) AS `OrderMonth`
+    SELECT `o`.`CustomerID`, NULL AS `OrderMonth`
     FROM `Orders` AS `o`
 ) AS `o0`
 GROUP BY `o0`.`OrderMonth`, `o0`.`CustomerID`

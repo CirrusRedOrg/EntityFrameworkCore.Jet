@@ -421,16 +421,16 @@ LEFT JOIN (
     SELECT `u`.`Id`, `u`.`Name`, `u`.`Number`, `u`.`IsGreen`, `u`.`Discriminator`, `e0`.`RootSkipSharedId`, `e0`.`CompositeKeySkipSharedKey1`, `e0`.`CompositeKeySkipSharedKey2`, `e0`.`CompositeKeySkipSharedKey3`
     FROM `EntityCompositeKeyEntityRoot` AS `e0`
     INNER JOIN (
-        SELECT `r`.`Id`, `r`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, 'EntityRoot' AS `Discriminator`
+        SELECT `r`.`Id`, `r`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, 'EntityRoot' AS `Discriminator`
         FROM `Roots` AS `r`
         UNION ALL
-        SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, CVar(NULL) AS `IsGreen`, 'EntityBranch' AS `Discriminator`
+        SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, NULL AS `IsGreen`, 'EntityBranch' AS `Discriminator`
         FROM `Branches` AS `b`
         UNION ALL
         SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, `l`.`IsGreen`, 'EntityLeaf' AS `Discriminator`
         FROM `Leaves` AS `l`
         UNION ALL
-        SELECT `l0`.`Id`, `l0`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, 'EntityLeaf2' AS `Discriminator`
+        SELECT `l0`.`Id`, `l0`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, 'EntityLeaf2' AS `Discriminator`
         FROM `Leaf2s` AS `l0`
     ) AS `u` ON `e0`.`RootSkipSharedId` = `u`.`Id`
     WHERE `u`.`Discriminator` = 'EntityLeaf'
@@ -595,16 +595,16 @@ INNER JOIN (
     SELECT `u`.`Id`, `u`.`Name`, `u`.`Number`, `u`.`IsGreen`, `u`.`Discriminator`, `e0`.`ThreeSkipSharedId`
     FROM `EntityRootEntityThree` AS `e0`
     INNER JOIN (
-        SELECT `r`.`Id`, `r`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, 'EntityRoot' AS `Discriminator`
+        SELECT `r`.`Id`, `r`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, 'EntityRoot' AS `Discriminator`
         FROM `Roots` AS `r`
         UNION ALL
-        SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, CVar(NULL) AS `IsGreen`, 'EntityBranch' AS `Discriminator`
+        SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, NULL AS `IsGreen`, 'EntityBranch' AS `Discriminator`
         FROM `Branches` AS `b`
         UNION ALL
         SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, `l`.`IsGreen`, 'EntityLeaf' AS `Discriminator`
         FROM `Leaves` AS `l`
         UNION ALL
-        SELECT `l0`.`Id`, `l0`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, 'EntityLeaf2' AS `Discriminator`
+        SELECT `l0`.`Id`, `l0`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, 'EntityLeaf2' AS `Discriminator`
         FROM `Leaf2s` AS `l0`
     ) AS `u` ON `e0`.`RootSkipSharedId` = `u`.`Id`
     WHERE `u`.`Discriminator` IN ('EntityBranch', 'EntityLeaf')
@@ -624,7 +624,7 @@ INNER JOIN (
     SELECT `u`.`Id`, `u`.`Name`, `u`.`Number`, `u`.`IsGreen`, `u`.`Discriminator`, `j`.`EntityOneId`
     FROM `JoinOneToBranch` AS `j`
     INNER JOIN (
-        SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, CVar(NULL) AS `IsGreen`, 'EntityBranch' AS `Discriminator`
+        SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, NULL AS `IsGreen`, 'EntityBranch' AS `Discriminator`
         FROM `Branches` AS `b`
         UNION ALL
         SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, `l`.`IsGreen`, 'EntityLeaf' AS `Discriminator`
@@ -711,16 +711,16 @@ LEFT JOIN (
     SELECT `e0`.`RootSkipSharedId`, `e0`.`CompositeKeySkipSharedKey1`, `e0`.`CompositeKeySkipSharedKey2`, `e0`.`CompositeKeySkipSharedKey3`, `u`.`Id`, `u`.`Name`, `u`.`Number`, `u`.`Slumber`, `u`.`IsGreen`, `u`.`IsBrown`, `u`.`Discriminator`
     FROM `EntityCompositeKeyEntityRoot` AS `e0`
     INNER JOIN (
-        SELECT `r`.`Id`, `r`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, CVar(NULL) AS `Slumber`, CVar(NULL) AS `IsBrown`, 'EntityRoot' AS `Discriminator`
+        SELECT `r`.`Id`, `r`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, NULL AS `Slumber`, NULL AS `IsBrown`, 'EntityRoot' AS `Discriminator`
         FROM `Roots` AS `r`
         UNION ALL
-        SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, CVar(NULL) AS `IsGreen`, CVar(NULL) AS `Slumber`, CVar(NULL) AS `IsBrown`, 'EntityBranch' AS `Discriminator`
+        SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, NULL AS `IsGreen`, NULL AS `Slumber`, NULL AS `IsBrown`, 'EntityBranch' AS `Discriminator`
         FROM `Branches` AS `b`
         UNION ALL
-        SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, `l`.`IsGreen`, CVar(NULL) AS `Slumber`, CVar(NULL) AS `IsBrown`, 'EntityLeaf' AS `Discriminator`
+        SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, `l`.`IsGreen`, NULL AS `Slumber`, NULL AS `IsBrown`, 'EntityLeaf' AS `Discriminator`
         FROM `Leaves` AS `l`
         UNION ALL
-        SELECT `l0`.`Id`, `l0`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, `l0`.`Slumber`, `l0`.`IsBrown`, 'EntityLeaf2' AS `Discriminator`
+        SELECT `l0`.`Id`, `l0`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, `l0`.`Slumber`, `l0`.`IsBrown`, 'EntityLeaf2' AS `Discriminator`
         FROM `Leaf2s` AS `l0`
     ) AS `u` ON `e0`.`RootSkipSharedId` = `u`.`Id`
 ) AS `s` ON `e`.`Key1` = `s`.`CompositeKeySkipSharedKey1` AND `e`.`Key2` = `s`.`CompositeKeySkipSharedKey2` AND `e`.`Key3` = `s`.`CompositeKeySkipSharedKey3`
@@ -915,16 +915,16 @@ ORDER BY [e].[Key1], [e].[Key2], [e].[Key3], [t0].[CompositeId1], [t0].[Composit
             """
 SELECT `u`.`Id`, `u`.`Name`, `u`.`Number`, `u`.`Slumber`, `u`.`IsGreen`, `u`.`IsBrown`, `u`.`Discriminator`, `s0`.`RootSkipSharedId`, `s0`.`ThreeSkipSharedId`, `s0`.`Id`, `s0`.`CollectionInverseId`, `s0`.`Name`, `s0`.`ReferenceInverseId`, `s0`.`OneId`, `s0`.`ThreeId`, `s0`.`Payload`, `s0`.`Id0`, `s0`.`Name0`
 FROM (
-    SELECT `r`.`Id`, `r`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, CVar(NULL) AS `Slumber`, CVar(NULL) AS `IsBrown`, 'EntityRoot' AS `Discriminator`
+    SELECT `r`.`Id`, `r`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, NULL AS `Slumber`, NULL AS `IsBrown`, 'EntityRoot' AS `Discriminator`
     FROM `Roots` AS `r`
     UNION ALL
-    SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, CVar(NULL) AS `IsGreen`, CVar(NULL) AS `Slumber`, CVar(NULL) AS `IsBrown`, 'EntityBranch' AS `Discriminator`
+    SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, NULL AS `IsGreen`, NULL AS `Slumber`, NULL AS `IsBrown`, 'EntityBranch' AS `Discriminator`
     FROM `Branches` AS `b`
     UNION ALL
-    SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, `l`.`IsGreen`, CVar(NULL) AS `Slumber`, CVar(NULL) AS `IsBrown`, 'EntityLeaf' AS `Discriminator`
+    SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, `l`.`IsGreen`, NULL AS `Slumber`, NULL AS `IsBrown`, 'EntityLeaf' AS `Discriminator`
     FROM `Leaves` AS `l`
     UNION ALL
-    SELECT `l0`.`Id`, `l0`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, `l0`.`Slumber`, `l0`.`IsBrown`, 'EntityLeaf2' AS `Discriminator`
+    SELECT `l0`.`Id`, `l0`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, `l0`.`Slumber`, `l0`.`IsBrown`, 'EntityLeaf2' AS `Discriminator`
     FROM `Leaf2s` AS `l0`
 ) AS `u`
 LEFT JOIN (
@@ -1196,16 +1196,16 @@ INNER JOIN (
     SELECT `e0`.`RootSkipSharedId`, `e0`.`CompositeKeySkipSharedKey1`, `e0`.`CompositeKeySkipSharedKey2`, `e0`.`CompositeKeySkipSharedKey3`, `u`.`Id`, `u`.`Name`, `u`.`Number`, `u`.`Slumber`, `u`.`IsGreen`, `u`.`IsBrown`, `u`.`Discriminator`
     FROM `EntityCompositeKeyEntityRoot` AS `e0`
     INNER JOIN (
-        SELECT `r`.`Id`, `r`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, CVar(NULL) AS `Slumber`, CVar(NULL) AS `IsBrown`, 'EntityRoot' AS `Discriminator`
+        SELECT `r`.`Id`, `r`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, NULL AS `Slumber`, NULL AS `IsBrown`, 'EntityRoot' AS `Discriminator`
         FROM `Roots` AS `r`
         UNION ALL
-        SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, CVar(NULL) AS `IsGreen`, CVar(NULL) AS `Slumber`, CVar(NULL) AS `IsBrown`, 'EntityBranch' AS `Discriminator`
+        SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, NULL AS `IsGreen`, NULL AS `Slumber`, NULL AS `IsBrown`, 'EntityBranch' AS `Discriminator`
         FROM `Branches` AS `b`
         UNION ALL
-        SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, `l`.`IsGreen`, CVar(NULL) AS `Slumber`, CVar(NULL) AS `IsBrown`, 'EntityLeaf' AS `Discriminator`
+        SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, `l`.`IsGreen`, NULL AS `Slumber`, NULL AS `IsBrown`, 'EntityLeaf' AS `Discriminator`
         FROM `Leaves` AS `l`
         UNION ALL
-        SELECT `l0`.`Id`, `l0`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, `l0`.`Slumber`, `l0`.`IsBrown`, 'EntityLeaf2' AS `Discriminator`
+        SELECT `l0`.`Id`, `l0`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, `l0`.`Slumber`, `l0`.`IsBrown`, 'EntityLeaf2' AS `Discriminator`
         FROM `Leaf2s` AS `l0`
     ) AS `u` ON `e0`.`RootSkipSharedId` = `u`.`Id`
 ) AS `s` ON `e`.`Key1` = `s`.`CompositeKeySkipSharedKey1` AND `e`.`Key2` = `s`.`CompositeKeySkipSharedKey2` AND `e`.`Key3` = `s`.`CompositeKeySkipSharedKey3`
@@ -1476,16 +1476,16 @@ ORDER BY [e].[Key1], [e].[Key2], [e].[Key3], [t0].[CompositeId1], [t0].[Composit
             """
 SELECT `u`.`Id`, `u`.`Name`, `u`.`Number`, `u`.`Slumber`, `u`.`IsGreen`, `u`.`IsBrown`, `u`.`Discriminator`
 FROM (
-    SELECT `r`.`Id`, `r`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, CVar(NULL) AS `Slumber`, CVar(NULL) AS `IsBrown`, 'EntityRoot' AS `Discriminator`
+    SELECT `r`.`Id`, `r`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, NULL AS `Slumber`, NULL AS `IsBrown`, 'EntityRoot' AS `Discriminator`
     FROM `Roots` AS `r`
     UNION ALL
-    SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, CVar(NULL) AS `IsGreen`, CVar(NULL) AS `Slumber`, CVar(NULL) AS `IsBrown`, 'EntityBranch' AS `Discriminator`
+    SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, NULL AS `IsGreen`, NULL AS `Slumber`, NULL AS `IsBrown`, 'EntityBranch' AS `Discriminator`
     FROM `Branches` AS `b`
     UNION ALL
-    SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, `l`.`IsGreen`, CVar(NULL) AS `Slumber`, CVar(NULL) AS `IsBrown`, 'EntityLeaf' AS `Discriminator`
+    SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, `l`.`IsGreen`, NULL AS `Slumber`, NULL AS `IsBrown`, 'EntityLeaf' AS `Discriminator`
     FROM `Leaves` AS `l`
     UNION ALL
-    SELECT `l0`.`Id`, `l0`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, `l0`.`Slumber`, `l0`.`IsBrown`, 'EntityLeaf2' AS `Discriminator`
+    SELECT `l0`.`Id`, `l0`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, `l0`.`Slumber`, `l0`.`IsBrown`, 'EntityLeaf2' AS `Discriminator`
     FROM `Leaf2s` AS `l0`
 ) AS `u`
 ORDER BY `u`.`Id`
@@ -2028,7 +2028,7 @@ WHERE EXISTS (
 
         AssertSql(
             """
-SELECT `r`.`Id`, `r`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `Slumber`, CVar(NULL) AS `IsGreen`, CVar(NULL) AS `IsBrown`, 'EntityRoot' AS `Discriminator`
+SELECT `r`.`Id`, `r`.`Name`, NULL AS `Number`, NULL AS `Slumber`, NULL AS `IsGreen`, NULL AS `IsBrown`, 'EntityRoot' AS `Discriminator`
 FROM `Roots` AS `r`
 """);
     }
@@ -2039,7 +2039,7 @@ FROM `Roots` AS `r`
 
         AssertSql(
             """
-SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, CVar(NULL) AS `Slumber`, CVar(NULL) AS `IsGreen`, CVar(NULL) AS `IsBrown`, 'EntityBranch' AS `Discriminator`
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, NULL AS `Slumber`, NULL AS `IsGreen`, NULL AS `IsBrown`, 'EntityBranch' AS `Discriminator`
 FROM `Branches` AS `b`
 """);
     }
@@ -2050,7 +2050,7 @@ FROM `Branches` AS `b`
 
         AssertSql(
             """
-SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, CVar(NULL) AS `Slumber`, `l`.`IsGreen`, CVar(NULL) AS `IsBrown`, 'EntityLeaf' AS `Discriminator`
+SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, NULL AS `Slumber`, `l`.`IsGreen`, NULL AS `IsBrown`, 'EntityLeaf' AS `Discriminator`
 FROM `Leaves` AS `l`
 """);
     }
@@ -2063,7 +2063,7 @@ FROM `Leaves` AS `l`
             """
 SELECT `u`.`Id`, `u`.`Name`, `u`.`Number`, `u`.`IsGreen`, `u`.`Discriminator`
 FROM (
-    SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, CVar(NULL) AS `IsGreen`, 'EntityBranch' AS `Discriminator`
+    SELECT `b`.`Id`, `b`.`Name`, `b`.`Number`, NULL AS `IsGreen`, 'EntityBranch' AS `Discriminator`
     FROM `Branches` AS `b`
     UNION ALL
     SELECT `l`.`Id`, `l`.`Name`, `l`.`Number`, `l`.`IsGreen`, 'EntityLeaf' AS `Discriminator`
@@ -2256,10 +2256,10 @@ LEFT JOIN (
     SELECT `u1`.`Id`, `u1`.`Name`, `u1`.`Number`, `u1`.`IsGreen`, `u1`.`Discriminator`, `u0`.`RootSkipSharedId`, `u0`.`UnidirectionalEntityCompositeKeyKey1`, `u0`.`UnidirectionalEntityCompositeKeyKey2`, `u0`.`UnidirectionalEntityCompositeKeyKey3`
     FROM `UnidirectionalEntityCompositeKeyUnidirectionalEntityRoot` AS `u0`
     INNER JOIN (
-        SELECT `u2`.`Id`, `u2`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, 'UnidirectionalEntityRoot' AS `Discriminator`
+        SELECT `u2`.`Id`, `u2`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, 'UnidirectionalEntityRoot' AS `Discriminator`
         FROM `UnidirectionalRoots` AS `u2`
         UNION ALL
-        SELECT `u3`.`Id`, `u3`.`Name`, `u3`.`Number`, CVar(NULL) AS `IsGreen`, 'UnidirectionalEntityBranch' AS `Discriminator`
+        SELECT `u3`.`Id`, `u3`.`Name`, `u3`.`Number`, NULL AS `IsGreen`, 'UnidirectionalEntityBranch' AS `Discriminator`
         FROM `UnidirectionalBranches` AS `u3`
         UNION ALL
         SELECT `u4`.`Id`, `u4`.`Name`, `u4`.`Number`, `u4`.`IsGreen`, 'UnidirectionalEntityLeaf' AS `Discriminator`
@@ -2404,7 +2404,7 @@ INNER JOIN (
     SELECT `u1`.`Id`, `u1`.`Name`, `u1`.`Number`, `u1`.`IsGreen`, `u1`.`Discriminator`, `u0`.`UnidirectionalEntityOneId`
     FROM `UnidirectionalJoinOneToBranch` AS `u0`
     INNER JOIN (
-        SELECT `u2`.`Id`, `u2`.`Name`, `u2`.`Number`, CVar(NULL) AS `IsGreen`, 'UnidirectionalEntityBranch' AS `Discriminator`
+        SELECT `u2`.`Id`, `u2`.`Name`, `u2`.`Number`, NULL AS `IsGreen`, 'UnidirectionalEntityBranch' AS `Discriminator`
         FROM `UnidirectionalBranches` AS `u2`
         UNION ALL
         SELECT `u3`.`Id`, `u3`.`Name`, `u3`.`Number`, `u3`.`IsGreen`, 'UnidirectionalEntityLeaf' AS `Discriminator`
@@ -2442,10 +2442,10 @@ LEFT JOIN (
     SELECT `u0`.`RootSkipSharedId`, `u0`.`UnidirectionalEntityCompositeKeyKey1`, `u0`.`UnidirectionalEntityCompositeKeyKey2`, `u0`.`UnidirectionalEntityCompositeKeyKey3`, `u1`.`Id`, `u1`.`Name`, `u1`.`Number`, `u1`.`IsGreen`, `u1`.`Discriminator`
     FROM `UnidirectionalEntityCompositeKeyUnidirectionalEntityRoot` AS `u0`
     INNER JOIN (
-        SELECT `u2`.`Id`, `u2`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, 'UnidirectionalEntityRoot' AS `Discriminator`
+        SELECT `u2`.`Id`, `u2`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, 'UnidirectionalEntityRoot' AS `Discriminator`
         FROM `UnidirectionalRoots` AS `u2`
         UNION ALL
-        SELECT `u3`.`Id`, `u3`.`Name`, `u3`.`Number`, CVar(NULL) AS `IsGreen`, 'UnidirectionalEntityBranch' AS `Discriminator`
+        SELECT `u3`.`Id`, `u3`.`Name`, `u3`.`Number`, NULL AS `IsGreen`, 'UnidirectionalEntityBranch' AS `Discriminator`
         FROM `UnidirectionalBranches` AS `u3`
         UNION ALL
         SELECT `u4`.`Id`, `u4`.`Name`, `u4`.`Number`, `u4`.`IsGreen`, 'UnidirectionalEntityLeaf' AS `Discriminator`
@@ -2769,7 +2769,7 @@ WHERE EXISTS (
 
         AssertSql(
             """
-SELECT `u`.`Id`, `u`.`Name`, CVar(NULL) AS `Number`, CVar(NULL) AS `IsGreen`, 'UnidirectionalEntityRoot' AS `Discriminator`
+SELECT `u`.`Id`, `u`.`Name`, NULL AS `Number`, NULL AS `IsGreen`, 'UnidirectionalEntityRoot' AS `Discriminator`
 FROM `UnidirectionalRoots` AS `u`
 """);
     }
@@ -2779,7 +2779,7 @@ FROM `UnidirectionalRoots` AS `u`
         await base.GetType_in_hierarchy_in_intermediate_type_unidirectional(async);
         AssertSql(
             """
-SELECT `u`.`Id`, `u`.`Name`, `u`.`Number`, CVar(NULL) AS `IsGreen`, 'UnidirectionalEntityBranch' AS `Discriminator`
+SELECT `u`.`Id`, `u`.`Name`, `u`.`Number`, NULL AS `IsGreen`, 'UnidirectionalEntityBranch' AS `Discriminator`
 FROM `UnidirectionalBranches` AS `u`
 """);
     }
@@ -2803,7 +2803,7 @@ FROM `UnidirectionalLeaves` AS `u`
             """
 SELECT `u`.`Id`, `u`.`Name`, `u`.`Number`, `u`.`IsGreen`, `u`.`Discriminator`
 FROM (
-    SELECT `u0`.`Id`, `u0`.`Name`, `u0`.`Number`, CVar(NULL) AS `IsGreen`, 'UnidirectionalEntityBranch' AS `Discriminator`
+    SELECT `u0`.`Id`, `u0`.`Name`, `u0`.`Number`, NULL AS `IsGreen`, 'UnidirectionalEntityBranch' AS `Discriminator`
     FROM `UnidirectionalBranches` AS `u0`
     UNION ALL
     SELECT `u1`.`Id`, `u1`.`Name`, `u1`.`Number`, `u1`.`IsGreen`, 'UnidirectionalEntityLeaf' AS `Discriminator`

@@ -148,20 +148,20 @@ ORDER BY `r`.`Id`, `o`.`RootEntityId`, `o0`.`AssociateTypeRootEntityId`, `o1`.`A
         {
             AssertSql(
                 """
-SELECT [r].[Id], [s].[RootEntityId], [s].[Id], [s].[Int], [s].[Ints], [s].[Name], [s].[String], [s].[AssociateTypeRootEntityId], [s].[AssociateTypeId], [s].[Id0], [s].[Int0], [s].[Ints0], [s].[Name0], [s].[String0], [s].[AssociateTypeRootEntityId0], [s].[AssociateTypeId0], [s].[Id00], [s].[Int00], [s].[Ints00], [s].[Name00], [s].[String00], [s].[AssociateTypeRootEntityId00], [s].[AssociateTypeId00], [s].[Id1], [s].[Int1], [s].[Ints1], [s].[Name1], [s].[String1]
-FROM [RootEntity] AS [r]
+SELECT `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`Int`, `s`.`Ints`, `s`.`Name`, `s`.`String`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`, `s`.`Int0`, `s`.`Ints0`, `s`.`Name0`, `s`.`String0`, `s`.`AssociateTypeRootEntityId0`, `s`.`AssociateTypeId0`, `s`.`Id00`, `s`.`Int00`, `s`.`Ints00`, `s`.`Name00`, `s`.`String00`, `s`.`AssociateTypeRootEntityId00`, `s`.`AssociateTypeId00`, `s`.`Id1`, `s`.`Int1`, `s`.`Ints1`, `s`.`Name1`, `s`.`String1`
+FROM `RootEntity` AS `r`
 OUTER APPLY (
-    SELECT [r1].[RootEntityId], [r1].[Id], [r1].[Int], [r1].[Ints], [r1].[Name], [r1].[String], [r4].[AssociateTypeRootEntityId], [r4].[AssociateTypeId], [r4].[Id] AS [Id0], [r4].[Int] AS [Int0], [r4].[Ints] AS [Ints0], [r4].[Name] AS [Name0], [r4].[String] AS [String0], [r1].[AssociateTypeRootEntityId] AS [AssociateTypeRootEntityId0], [r1].[AssociateTypeId] AS [AssociateTypeId0], [r1].[Id0] AS [Id00], [r1].[Int0] AS [Int00], [r1].[Ints0] AS [Ints00], [r1].[Name0] AS [Name00], [r1].[String0] AS [String00], [r1].[AssociateTypeRootEntityId0] AS [AssociateTypeRootEntityId00], [r1].[AssociateTypeId0] AS [AssociateTypeId00], [r1].[Id1], [r1].[Int1], [r1].[Ints1], [r1].[Name1], [r1].[String1]
+    SELECT `r1`.`RootEntityId`, `r1`.`Id`, `r1`.`Int`, `r1`.`Ints`, `r1`.`Name`, `r1`.`String`, `r4`.`AssociateTypeRootEntityId`, `r4`.`AssociateTypeId`, `r4`.`Id` AS `Id0`, `r4`.`Int` AS `Int0`, `r4`.`Ints` AS `Ints0`, `r4`.`Name` AS `Name0`, `r4`.`String` AS `String0`, `r1`.`AssociateTypeRootEntityId` AS `AssociateTypeRootEntityId0`, `r1`.`AssociateTypeId` AS `AssociateTypeId0`, `r1`.`Id0` AS `Id00`, `r1`.`Int0` AS `Int00`, `r1`.`Ints0` AS `Ints00`, `r1`.`Name0` AS `Name00`, `r1`.`String0` AS `String00`, `r1`.`AssociateTypeRootEntityId0` AS `AssociateTypeRootEntityId00`, `r1`.`AssociateTypeId0` AS `AssociateTypeId00`, `r1`.`Id1`, `r1`.`Int1`, `r1`.`Ints1`, `r1`.`Name1`, `r1`.`String1`
     FROM (
-        SELECT DISTINCT [r0].[RootEntityId], [r0].[Id], [r0].[Int], [r0].[Ints], [r0].[Name], [r0].[String], [r2].[AssociateTypeRootEntityId], [r2].[AssociateTypeId], [r2].[Id] AS [Id0], [r2].[Int] AS [Int0], [r2].[Ints] AS [Ints0], [r2].[Name] AS [Name0], [r2].[String] AS [String0], [r3].[AssociateTypeRootEntityId] AS [AssociateTypeRootEntityId0], [r3].[AssociateTypeId] AS [AssociateTypeId0], [r3].[Id] AS [Id1], [r3].[Int] AS [Int1], [r3].[Ints] AS [Ints1], [r3].[Name] AS [Name1], [r3].[String] AS [String1]
-        FROM [RelatedCollection] AS [r0]
-        LEFT JOIN [RelatedCollection_OptionalNested] AS [r2] ON [r0].[RootEntityId] = [r2].[AssociateTypeRootEntityId] AND [r0].[Id] = [r2].[AssociateTypeId]
-        LEFT JOIN [RelatedCollection_RequiredNested] AS [r3] ON [r0].[RootEntityId] = [r3].[AssociateTypeRootEntityId] AND [r0].[Id] = [r3].[AssociateTypeId]
-        WHERE [r].[Id] = [r0].[RootEntityId]
-    ) AS [r1]
-    LEFT JOIN [RelatedCollection_NestedCollection] AS [r4] ON [r1].[RootEntityId] = [r4].[AssociateTypeRootEntityId] AND [r1].[Id] = [r4].[AssociateTypeId]
-) AS [s]
-ORDER BY [r].[Id], [s].[RootEntityId], [s].[Id], [s].[AssociateTypeRootEntityId], [s].[AssociateTypeId]
+        SELECT DISTINCT `r0`.`RootEntityId`, `r0`.`Id`, `r0`.`Int`, `r0`.`Ints`, `r0`.`Name`, `r0`.`String`, `r2`.`AssociateTypeRootEntityId`, `r2`.`AssociateTypeId`, `r2`.`Id` AS `Id0`, `r2`.`Int` AS `Int0`, `r2`.`Ints` AS `Ints0`, `r2`.`Name` AS `Name0`, `r2`.`String` AS `String0`, `r3`.`AssociateTypeRootEntityId` AS `AssociateTypeRootEntityId0`, `r3`.`AssociateTypeId` AS `AssociateTypeId0`, `r3`.`Id` AS `Id1`, `r3`.`Int` AS `Int1`, `r3`.`Ints` AS `Ints1`, `r3`.`Name` AS `Name1`, `r3`.`String` AS `String1`
+        FROM `RelatedCollection` AS `r0`
+        LEFT JOIN `RelatedCollection_OptionalNested` AS `r2` ON `r0`.`RootEntityId` = `r2`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r2`.`AssociateTypeId`
+        LEFT JOIN `RelatedCollection_RequiredNested` AS `r3` ON `r0`.`RootEntityId` = `r3`.`AssociateTypeRootEntityId` AND `r0`.`Id` = `r3`.`AssociateTypeId`
+        WHERE `r`.`Id` = `r0`.`RootEntityId`
+    ) AS `r1`
+    LEFT JOIN `RelatedCollection_NestedCollection` AS `r4` ON `r1`.`RootEntityId` = `r4`.`AssociateTypeRootEntityId` AND `r1`.`Id` = `r4`.`AssociateTypeId`
+) AS `s`
+ORDER BY `r`.`Id`, `s`.`RootEntityId`, `s`.`Id`, `s`.`AssociateTypeRootEntityId`, `s`.`AssociateTypeId`, `s`.`Id0`
 """);
         }
     }

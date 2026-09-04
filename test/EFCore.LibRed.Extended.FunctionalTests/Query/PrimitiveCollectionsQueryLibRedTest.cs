@@ -532,9 +532,9 @@ WHERE (
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
-CROSS APPLY (VALUES (CAST(N'a' AS nvarchar(max))), (N'b')) AS [v]([Value])
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
+CROSS APPLY (SELECT ('a' & '') AS `Value` UNION ALL VALUES ('b')) AS `v`
 """);
     }
 
@@ -2030,16 +2030,15 @@ FROM `PrimitiveCollectionsEntity` AS `p`
 
         AssertSql(
             """
-SELECT [p].[Id], [u].[Value]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `u`.`Value`
+FROM `PrimitiveCollectionsEntity` AS `p`
 OUTER APPLY (
-    SELECT [v].[Value]
-    FROM (VALUES ([p].[String])) AS [v]([Value])
+    SELECT `p`.`String` AS `Value`
     UNION
-    SELECT [p0].[String] AS [Value]
-    FROM [PrimitiveCollectionsEntity] AS [p0]
-) AS [u]
-ORDER BY [p].[Id]
+    SELECT `p0`.`String` AS `Value`
+    FROM `PrimitiveCollectionsEntity` AS `p0`
+) AS `u`
+ORDER BY `p`.`Id`
 """);
     }
 

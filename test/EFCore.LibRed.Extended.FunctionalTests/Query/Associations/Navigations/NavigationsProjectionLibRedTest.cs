@@ -433,21 +433,21 @@ ORDER BY `r`.`Id`, `n1`.`Id`
 
         AssertSql(
             """
-SELECT [r].[Id], [r1].[Id], [s].[Id], [s].[CollectionRootId], [s].[Int], [s].[Ints], [s].[Name], [s].[OptionalNestedAssociateId], [s].[RequiredNestedAssociateId], [s].[String], [s].[Id0], [s].[Id1], [s].[Id2], [s].[CollectionAssociateId], [s].[Int0], [s].[Ints0], [s].[Name0], [s].[String0], [s].[CollectionAssociateId0], [s].[Int1], [s].[Ints1], [s].[Name1], [s].[String1], [s].[CollectionAssociateId1], [s].[Int2], [s].[Ints2], [s].[Name2], [s].[String2], [r1].[c]
-FROM [RootEntity] AS [r]
+SELECT `r`.`Id`, `s`.`Id`, `s`.`CollectionRootId`, `s`.`Int`, `s`.`Ints`, `s`.`Name`, `s`.`OptionalNestedAssociateId`, `s`.`RequiredNestedAssociateId`, `s`.`String`, `s`.`Id0`, `s`.`CollectionAssociateId`, `s`.`Int0`, `s`.`Ints0`, `s`.`Name0`, `s`.`String0`, `s`.`Id1`, `s`.`CollectionAssociateId0`, `s`.`Int1`, `s`.`Ints1`, `s`.`Name1`, `s`.`String1`, `s`.`Id2`, `s`.`CollectionAssociateId1`, `s`.`Int2`, `s`.`Ints2`, `s`.`Name2`, `s`.`String2`, `r1`.`c`
+FROM `RootEntity` AS `r`
 OUTER APPLY (
-    SELECT TOP(1) 1 AS [c], [r0].[Id]
-    FROM [RootEntity] AS [r0]
-    ORDER BY [r0].[Id]
-) AS [r1]
+    SELECT TOP 1 1 AS `c`, `r0`.`Id`
+    FROM `RootEntity` AS `r0`
+    ORDER BY `r0`.`Id`
+) AS `r1`
 LEFT JOIN (
-    SELECT [a].[Id], [a].[CollectionRootId], [a].[Int], [a].[Ints], [a].[Name], [a].[OptionalNestedAssociateId], [a].[RequiredNestedAssociateId], [a].[String], [n].[Id] AS [Id0], [n0].[Id] AS [Id1], [n1].[Id] AS [Id2], [n1].[CollectionAssociateId], [n1].[Int] AS [Int0], [n1].[Ints] AS [Ints0], [n1].[Name] AS [Name0], [n1].[String] AS [String0], [n].[CollectionAssociateId] AS [CollectionAssociateId0], [n].[Int] AS [Int1], [n].[Ints] AS [Ints1], [n].[Name] AS [Name1], [n].[String] AS [String1], [n0].[CollectionAssociateId] AS [CollectionAssociateId1], [n0].[Int] AS [Int2], [n0].[Ints] AS [Ints2], [n0].[Name] AS [Name2], [n0].[String] AS [String2]
-    FROM [AssociateType] AS [a]
-    LEFT JOIN [NestedAssociateType] AS [n] ON [a].[OptionalNestedAssociateId] = [n].[Id]
-    INNER JOIN [NestedAssociateType] AS [n0] ON [a].[RequiredNestedAssociateId] = [n0].[Id]
-    LEFT JOIN [NestedAssociateType] AS [n1] ON [a].[Id] = [n1].[CollectionAssociateId]
-) AS [s] ON [r1].[Id] = [s].[CollectionRootId]
-ORDER BY [r].[Id], [r1].[Id], [s].[Id], [s].[Id0], [s].[Id1]
+    SELECT `a`.`Id`, `a`.`CollectionRootId`, `a`.`Int`, `a`.`Ints`, `a`.`Name`, `a`.`OptionalNestedAssociateId`, `a`.`RequiredNestedAssociateId`, `a`.`String`, `n1`.`Id` AS `Id0`, `n1`.`CollectionAssociateId`, `n1`.`Int` AS `Int0`, `n1`.`Ints` AS `Ints0`, `n1`.`Name` AS `Name0`, `n1`.`String` AS `String0`, `n`.`Id` AS `Id1`, `n`.`CollectionAssociateId` AS `CollectionAssociateId0`, `n`.`Int` AS `Int1`, `n`.`Ints` AS `Ints1`, `n`.`Name` AS `Name1`, `n`.`String` AS `String1`, `n0`.`Id` AS `Id2`, `n0`.`CollectionAssociateId` AS `CollectionAssociateId1`, `n0`.`Int` AS `Int2`, `n0`.`Ints` AS `Ints2`, `n0`.`Name` AS `Name2`, `n0`.`String` AS `String2`
+    FROM `AssociateType` AS `a`
+    LEFT JOIN `NestedAssociateType` AS `n` ON `a`.`OptionalNestedAssociateId` = `n`.`Id`
+    INNER JOIN `NestedAssociateType` AS `n0` ON `a`.`RequiredNestedAssociateId` = `n0`.`Id`
+    LEFT JOIN `NestedAssociateType` AS `n1` ON `a`.`Id` = `n1`.`CollectionAssociateId`
+) AS `s` ON `r1`.`Id` = `s`.`CollectionRootId`
+ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`
 """);
     }
 
@@ -457,15 +457,15 @@ ORDER BY [r].[Id], [r1].[Id], [s].[Id], [s].[Id0], [s].[Id1]
 
         AssertSql(
             """
-SELECT [s].[Id], [s].[CollectionAssociateId], [s].[Int], [s].[Ints], [s].[Name], [s].[String]
-FROM [RootEntity] AS [r]
+SELECT `s`.`Id`, `s`.`CollectionAssociateId`, `s`.`Int`, `s`.`Ints`, `s`.`Name`, `s`.`String`
+FROM `RootEntity` AS `r`
 OUTER APPLY (
-    SELECT TOP(1) [n].[Id], [n].[CollectionAssociateId], [n].[Int], [n].[Ints], [n].[Name], [n].[String]
-    FROM [RootEntity] AS [r0]
-    INNER JOIN [AssociateType] AS [a] ON [r0].[RequiredAssociateId] = [a].[Id]
-    INNER JOIN [NestedAssociateType] AS [n] ON [a].[RequiredNestedAssociateId] = [n].[Id]
-    ORDER BY [r0].[Id]
-) AS [s]
+    SELECT TOP 1 `n`.`Id`, `n`.`CollectionAssociateId`, `n`.`Int`, `n`.`Ints`, `n`.`Name`, `n`.`String`
+    FROM `RootEntity` AS `r0`
+    INNER JOIN `AssociateType` AS `a` ON `r0`.`RequiredAssociateId` = `a`.`Id`
+    INNER JOIN `NestedAssociateType` AS `n` ON `a`.`RequiredNestedAssociateId` = `n`.`Id`
+    ORDER BY `r0`.`Id`
+) AS `s`
 """);
     }
 
@@ -475,15 +475,15 @@ OUTER APPLY (
 
         AssertSql(
             """
-SELECT [s].[Id], [s].[CollectionAssociateId], [s].[Int], [s].[Ints], [s].[Name], [s].[String]
-FROM [RootEntity] AS [r]
+SELECT `s`.`Id`, `s`.`CollectionAssociateId`, `s`.`Int`, `s`.`Ints`, `s`.`Name`, `s`.`String`
+FROM `RootEntity` AS `r`
 OUTER APPLY (
-    SELECT TOP(1) [n].[Id], [n].[CollectionAssociateId], [n].[Int], [n].[Ints], [n].[Name], [n].[String]
-    FROM [RootEntity] AS [r0]
-    LEFT JOIN [AssociateType] AS [a] ON [r0].[OptionalAssociateId] = [a].[Id]
-    LEFT JOIN [NestedAssociateType] AS [n] ON [a].[RequiredNestedAssociateId] = [n].[Id]
-    ORDER BY [r0].[Id]
-) AS [s]
+    SELECT TOP 1 `n`.`Id`, `n`.`CollectionAssociateId`, `n`.`Int`, `n`.`Ints`, `n`.`Name`, `n`.`String`
+    FROM `RootEntity` AS `r0`
+    LEFT JOIN `AssociateType` AS `a` ON `r0`.`OptionalAssociateId` = `a`.`Id`
+    LEFT JOIN `NestedAssociateType` AS `n` ON `a`.`RequiredNestedAssociateId` = `n`.`Id`
+    ORDER BY `r0`.`Id`
+) AS `s`
 """);
     }
 

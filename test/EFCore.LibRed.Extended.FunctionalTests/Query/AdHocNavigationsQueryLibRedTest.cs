@@ -325,37 +325,37 @@ ORDER BY `s`.`Id`, `s0`.`Id`
         AssertSql(
             """
 SELECT (
-    SELECT TOP(1) [c].[Id]
-    FROM [CompetitionSeasons] AS [c]
-    WHERE [c].[StartDate] <= [a].[DateTime] AND [a].[DateTime] < [c].[EndDate]), [a].[Id], [a0].[Id], [s].[Id], [s].[ActivityTypeId], [s].[CompetitionSeasonId], [s].[Points], [s].[Id0]
-FROM [Activities] AS [a]
-INNER JOIN [ActivityType] AS [a0] ON [a].[ActivityTypeId] = [a0].[Id]
+    SELECT TOP 1 `c`.`Id`
+    FROM `CompetitionSeasons` AS `c`
+    WHERE `c`.`StartDate` <= `a`.`DateTime` AND `a`.`DateTime` < `c`.`EndDate`), `a`.`Id`, `s`.`Id`, `s`.`ActivityTypeId`, `s`.`CompetitionSeasonId`, `s`.`Points`
+FROM `Activities` AS `a`
+INNER JOIN `ActivityType` AS `a0` ON `a`.`ActivityTypeId` = `a0`.`Id`
 OUTER APPLY (
-    SELECT [a1].[Id], [a1].[ActivityTypeId], [a1].[CompetitionSeasonId], [a1].[Points], [c0].[Id] AS [Id0]
-    FROM [ActivityTypePoints] AS [a1]
-    INNER JOIN [CompetitionSeasons] AS [c0] ON [a1].[CompetitionSeasonId] = [c0].[Id]
-    WHERE [a0].[Id] = [a1].[ActivityTypeId] AND [c0].[Id] = (
-        SELECT TOP(1) [c1].[Id]
-        FROM [CompetitionSeasons] AS [c1]
-        WHERE [c1].[StartDate] <= [a].[DateTime] AND [a].[DateTime] < [c1].[EndDate])
-) AS [s]
-ORDER BY [a].[Id], [a0].[Id], [s].[Id]
+    SELECT `a1`.`Id`, `a1`.`ActivityTypeId`, `a1`.`CompetitionSeasonId`, `a1`.`Points`
+    FROM `ActivityTypePoints` AS `a1`
+    INNER JOIN `CompetitionSeasons` AS `c0` ON `a1`.`CompetitionSeasonId` = `c0`.`Id`
+    WHERE `a0`.`Id` = `a1`.`ActivityTypeId` AND `c0`.`Id` = (
+        SELECT TOP 1 `c1`.`Id`
+        FROM `CompetitionSeasons` AS `c1`
+        WHERE `c1`.`StartDate` <= `a`.`DateTime` AND `a`.`DateTime` < `c1`.`EndDate`)
+) AS `s`
+ORDER BY `a`.`Id`, `s`.`Id`
 """,
             //
             """
-SELECT [a].[Id], [a].[ActivityTypeId], [a].[DateTime], [a].[Points], (
-    SELECT TOP(1) [c].[Id]
-    FROM [CompetitionSeasons] AS [c]
-    WHERE [c].[StartDate] <= [a].[DateTime] AND [a].[DateTime] < [c].[EndDate]) AS [CompetitionSeasonId], COALESCE([a].[Points], (
-    SELECT TOP(1) [a1].[Points]
-    FROM [ActivityTypePoints] AS [a1]
-    INNER JOIN [CompetitionSeasons] AS [c0] ON [a1].[CompetitionSeasonId] = [c0].[Id]
-    WHERE [a0].[Id] = [a1].[ActivityTypeId] AND [c0].[Id] = (
-        SELECT TOP(1) [c1].[Id]
-        FROM [CompetitionSeasons] AS [c1]
-        WHERE [c1].[StartDate] <= [a].[DateTime] AND [a].[DateTime] < [c1].[EndDate])), 0) AS [Points]
-FROM [Activities] AS [a]
-INNER JOIN [ActivityType] AS [a0] ON [a].[ActivityTypeId] = [a0].[Id]
+SELECT `a`.`Id`, `a`.`ActivityTypeId`, `a`.`DateTime`, `a`.`Points`, (
+    SELECT TOP 1 `c`.`Id`
+    FROM `CompetitionSeasons` AS `c`
+    WHERE `c`.`StartDate` <= `a`.`DateTime` AND `a`.`DateTime` < `c`.`EndDate`) AS `CompetitionSeasonId`, COALESCE(`a`.`Points`, (
+    SELECT TOP 1 `a1`.`Points`
+    FROM `ActivityTypePoints` AS `a1`
+    INNER JOIN `CompetitionSeasons` AS `c0` ON `a1`.`CompetitionSeasonId` = `c0`.`Id`
+    WHERE `a0`.`Id` = `a1`.`ActivityTypeId` AND `c0`.`Id` = (
+        SELECT TOP 1 `c1`.`Id`
+        FROM `CompetitionSeasons` AS `c1`
+        WHERE `c1`.`StartDate` <= `a`.`DateTime` AND `a`.`DateTime` < `c1`.`EndDate`)), 0) AS `Points`
+FROM `Activities` AS `a`
+INNER JOIN `ActivityType` AS `a0` ON `a`.`ActivityTypeId` = `a0`.`Id`
 """);
     }
 
@@ -414,27 +414,27 @@ WHERE `b`.`Discriminator` = 'ClassA'
 
         AssertSql(
             """
-@__referenceId_0='a' (Size = 4000)
-@__customerId_1='1115c816-6c4c-4016-94df-d8b60a22ffa1'
+@referenceId='a' (Size = 255)
+@customerId='1115c816-6c4c-4016-94df-d8b60a22ffa1'
 
-SELECT [o0].[Id], [s0].[Id], [s0].[Image], [s0].[Id0], [s0].[Id00]
+SELECT `o0`.`Id`, `s0`.`Id`, `s0`.`Image`, `s0`.`Id0`, `s0`.`Id00`
 FROM (
-    SELECT TOP(2) [o].[Id]
-    FROM [Orders] AS [o]
-    WHERE [o].[ExternalReferenceId] = @__referenceId_0 AND [o].[CustomerId] = @__customerId_1
-) AS [o0]
+    SELECT TOP 2 `o`.`Id`
+    FROM `Orders` AS `o`
+    WHERE `o`.`ExternalReferenceId` = @referenceId AND `o`.`CustomerId` = @customerId
+) AS `o0`
 OUTER APPLY (
-    SELECT [i].[Id], [s].[Image], [s].[Id] AS [Id0], [s].[Id0] AS [Id00]
-    FROM [IdentityDocument] AS [i]
+    SELECT `i`.`Id`, `s`.`Image`, `s`.`Id` AS `Id0`, `s`.`Id0` AS `Id00`
+    FROM `IdentityDocument` AS `i`
     OUTER APPLY (
-        SELECT [i1].[Image], [i0].[Id], [i1].[Id] AS [Id0]
-        FROM [IdentityDocument] AS [i0]
-        INNER JOIN [IdentityDocumentImage] AS [i1] ON [i0].[Id] = [i1].[IdentityDocumentId]
-        WHERE [o0].[Id] = [i0].[OrderId]
-    ) AS [s]
-    WHERE [o0].[Id] = [i].[OrderId]
-) AS [s0]
-ORDER BY [o0].[Id], [s0].[Id], [s0].[Id0]
+        SELECT `i1`.`Image`, `i0`.`Id`, `i1`.`Id` AS `Id0`
+        FROM `IdentityDocument` AS `i0`
+        INNER JOIN `IdentityDocumentImage` AS `i1` ON `i0`.`Id` = `i1`.`IdentityDocumentId`
+        WHERE `o0`.`Id` = `i0`.`OrderId`
+    ) AS `s`
+    WHERE `o0`.`Id` = `i`.`OrderId`
+) AS `s0`
+ORDER BY `o0`.`Id`, `s0`.`Id`, `s0`.`Id0`, `s0`.`Id00`
 """);
     }
 
@@ -641,29 +641,29 @@ ORDER BY `m`.`Id`, `s0`.`Id`
 
         AssertSql(
             """
-@__id_0='1'
+@id='1'
 
-SELECT [s].[Id], [s].[Name], [s].[Surname], [s].[Birthday], [s].[Hometown], [s].[Bio], [s].[AvatarUrl], [s].[Id0], [s].[Id1], [p0].[Id], [p0].[ImageUrl], [p0].[Height], [p0].[Width], [u].[Id], [u].[Name], [u].[PosterUrl], [u].[Rating]
+SELECT `s`.`Id`, `s`.`Name`, `s`.`Surname`, `s`.`Birthday`, `s`.`Hometown`, `s`.`Bio`, `s`.`AvatarUrl`, `p0`.`Id`, `p0`.`ImageUrl`, `p0`.`Height`, `p0`.`Width`, `u`.`Id`, `u`.`Name`, `u`.`PosterUrl`, `u`.`Rating`
 FROM (
-    SELECT TOP(1) [p].[Id], [p].[Name], [p].[Surname], [p].[Birthday], [p].[Hometown], [p].[Bio], [p].[AvatarUrl], [a].[Id] AS [Id0], [d].[Id] AS [Id1]
-    FROM [Persons] AS [p]
-    LEFT JOIN [ActorEntity] AS [a] ON [p].[Id] = [a].[PersonId]
-    LEFT JOIN [DirectorEntity] AS [d] ON [p].[Id] = [d].[PersonId]
-    WHERE [p].[Id] = @__id_0
-) AS [s]
-LEFT JOIN [PersonImageEntity] AS [p0] ON [s].[Id] = [p0].[PersonId]
+    SELECT TOP 1 `p`.`Id`, `p`.`Name`, `p`.`Surname`, `p`.`Birthday`, `p`.`Hometown`, `p`.`Bio`, `p`.`AvatarUrl`, `a`.`Id` AS `Id0`, `d`.`Id` AS `Id1`
+    FROM `Persons` AS `p`
+    LEFT JOIN `ActorEntity` AS `a` ON `p`.`Id` = `a`.`PersonId`
+    LEFT JOIN `DirectorEntity` AS `d` ON `p`.`Id` = `d`.`PersonId`
+    WHERE `p`.`Id` = @id
+) AS `s`
+LEFT JOIN `PersonImageEntity` AS `p0` ON `s`.`Id` = `p0`.`PersonId`
 OUTER APPLY (
-    SELECT [m0].[Id], [m0].[Budget], [m0].[Description], [m0].[DurationInMins], [m0].[Name], [m0].[PosterUrl], [m0].[Rating], [m0].[ReleaseDate], [m0].[Revenue]
-    FROM [MovieActorEntity] AS [m]
-    INNER JOIN [MovieEntity] AS [m0] ON [m].[MovieId] = [m0].[Id]
-    WHERE [s].[Id0] IS NOT NULL AND [s].[Id0] = [m].[ActorId]
+    SELECT `m0`.`Id`, `m0`.`Budget`, `m0`.`Description`, `m0`.`DurationInMins`, `m0`.`Name`, `m0`.`PosterUrl`, `m0`.`Rating`, `m0`.`ReleaseDate`, `m0`.`Revenue`
+    FROM `MovieActorEntity` AS `m`
+    INNER JOIN `MovieEntity` AS `m0` ON `m`.`MovieId` = `m0`.`Id`
+    WHERE `s`.`Id0` IS NOT NULL AND `s`.`Id0` = `m`.`ActorId`
     UNION
-    SELECT [m2].[Id], [m2].[Budget], [m2].[Description], [m2].[DurationInMins], [m2].[Name], [m2].[PosterUrl], [m2].[Rating], [m2].[ReleaseDate], [m2].[Revenue]
-    FROM [MovieDirectorEntity] AS [m1]
-    INNER JOIN [MovieEntity] AS [m2] ON [m1].[MovieId] = [m2].[Id]
-    WHERE [s].[Id1] IS NOT NULL AND [s].[Id1] = [m1].[DirectorId]
-) AS [u]
-ORDER BY [s].[Id], [s].[Id0], [s].[Id1], [p0].[Id]
+    SELECT `m2`.`Id`, `m2`.`Budget`, `m2`.`Description`, `m2`.`DurationInMins`, `m2`.`Name`, `m2`.`PosterUrl`, `m2`.`Rating`, `m2`.`ReleaseDate`, `m2`.`Revenue`
+    FROM `MovieDirectorEntity` AS `m1`
+    INNER JOIN `MovieEntity` AS `m2` ON `m1`.`MovieId` = `m2`.`Id`
+    WHERE `s`.`Id1` IS NOT NULL AND `s`.`Id1` = `m1`.`DirectorId`
+) AS `u`
+ORDER BY `s`.`Id`, `p0`.`Id`, `u`.`Id`
 """);
     }
 

@@ -970,27 +970,27 @@ ORDER BY `r`.`Id`, `s0`.`LeafId`, `s0`.`CompositeId1`, `s0`.`CompositeId2`, `s0`
         await base.Filtered_include_skip_navigation_order_by_skip_take_then_include_skip_navigation_where(async);
 
         AssertSql(
-"""
-SELECT [e].[Id], [e].[Name], [t1].[OneId], [t1].[TwoId], [t1].[JoinOneToTwoExtraId], [t1].[Id], [t1].[CollectionInverseId], [t1].[ExtraId], [t1].[Name], [t1].[ReferenceInverseId], [t1].[ThreeId], [t1].[TwoId0], [t1].[Id0], [t1].[CollectionInverseId0], [t1].[Name0], [t1].[ReferenceInverseId0]
-FROM [EntityOnes] AS [e]
+            """
+SELECT `e`.`Id`, `e`.`Name`, `s1`.`OneId`, `s1`.`TwoId`, `s1`.`JoinOneToTwoExtraId`, `s1`.`Id`, `s1`.`CollectionInverseId`, `s1`.`ExtraId`, `s1`.`Name`, `s1`.`ReferenceInverseId`, `s1`.`ThreeId`, `s1`.`TwoId0`, `s1`.`Id0`, `s1`.`CollectionInverseId0`, `s1`.`Name0`, `s1`.`ReferenceInverseId0`
+FROM `EntityOnes` AS `e`
 OUTER APPLY (
-    SELECT [t].[OneId], [t].[TwoId], [t].[JoinOneToTwoExtraId], [t].[Id], [t].[CollectionInverseId], [t].[ExtraId], [t].[Name], [t].[ReferenceInverseId], [t0].[ThreeId], [t0].[TwoId] AS [TwoId0], [t0].[Id] AS [Id0], [t0].[CollectionInverseId] AS [CollectionInverseId0], [t0].[Name] AS [Name0], [t0].[ReferenceInverseId] AS [ReferenceInverseId0]
+    SELECT `s`.`OneId`, `s`.`TwoId`, `s`.`JoinOneToTwoExtraId`, `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `s0`.`ThreeId`, `s0`.`TwoId` AS `TwoId0`, `s0`.`Id` AS `Id0`, `s0`.`CollectionInverseId` AS `CollectionInverseId0`, `s0`.`Name` AS `Name0`, `s0`.`ReferenceInverseId` AS `ReferenceInverseId0`
     FROM (
-        SELECT [j].[OneId], [j].[TwoId], [j].[JoinOneToTwoExtraId], [e0].[Id], [e0].[CollectionInverseId], [e0].[ExtraId], [e0].[Name], [e0].[ReferenceInverseId]
-        FROM [JoinOneToTwo] AS [j]
-        INNER JOIN [EntityTwos] AS [e0] ON [j].[TwoId] = [e0].[Id]
-        WHERE [e].[Id] = [j].[OneId]
-        ORDER BY [e0].[Id]
+        SELECT `j`.`OneId`, `j`.`TwoId`, `j`.`JoinOneToTwoExtraId`, `e0`.`Id`, `e0`.`CollectionInverseId`, `e0`.`ExtraId`, `e0`.`Name`, `e0`.`ReferenceInverseId`
+        FROM `JoinOneToTwo` AS `j`
+        INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
+        WHERE `e`.`Id` = `j`.`OneId`
+        ORDER BY `e0`.`Id`
         OFFSET 1 ROWS FETCH NEXT 2 ROWS ONLY
-    ) AS [t]
+    ) AS `s`
     LEFT JOIN (
-        SELECT [j0].[ThreeId], [j0].[TwoId], [e1].[Id], [e1].[CollectionInverseId], [e1].[Name], [e1].[ReferenceInverseId]
-        FROM [JoinTwoToThree] AS [j0]
-        INNER JOIN [EntityThrees] AS [e1] ON [j0].[ThreeId] = [e1].[Id]
-        WHERE [e1].[Id] < 10
-    ) AS [t0] ON [t].[Id] = [t0].[TwoId]
-) AS [t1]
-ORDER BY [e].[Id], [t1].[Id], [t1].[OneId], [t1].[TwoId], [t1].[ThreeId], [t1].[TwoId0]
+        SELECT `j0`.`ThreeId`, `j0`.`TwoId`, `e1`.`Id`, `e1`.`CollectionInverseId`, `e1`.`Name`, `e1`.`ReferenceInverseId`
+        FROM `JoinTwoToThree` AS `j0`
+        INNER JOIN `EntityThrees` AS `e1` ON `j0`.`ThreeId` = `e1`.`Id`
+        WHERE `e1`.`Id` < 10
+    ) AS `s0` ON `s`.`Id` = `s0`.`TwoId`
+) AS `s1`
+ORDER BY `e`.`Id`, `s1`.`Id`, `s1`.`OneId`, `s1`.`TwoId`, `s1`.`ThreeId`, `s1`.`TwoId0`
 """);
     }
 
@@ -2080,27 +2080,27 @@ ORDER BY [e].[Key1], [e].[Key2], [e].[Key3], [t0].[CompositeKeySkipSharedKey1], 
         await base.Filtered_include_skip_navigation_order_by_skip_take_then_include_skip_navigation_where_EF_Property(async);
 
         AssertSql(
-"""
-SELECT [e].[Id], [e].[Name], [t1].[OneId], [t1].[TwoId], [t1].[JoinOneToTwoExtraId], [t1].[Id], [t1].[CollectionInverseId], [t1].[ExtraId], [t1].[Name], [t1].[ReferenceInverseId], [t1].[ThreeId], [t1].[TwoId0], [t1].[Id0], [t1].[CollectionInverseId0], [t1].[Name0], [t1].[ReferenceInverseId0]
-FROM [EntityOnes] AS [e]
+            """
+SELECT `e`.`Id`, `e`.`Name`, `s1`.`OneId`, `s1`.`TwoId`, `s1`.`JoinOneToTwoExtraId`, `s1`.`Id`, `s1`.`CollectionInverseId`, `s1`.`ExtraId`, `s1`.`Name`, `s1`.`ReferenceInverseId`, `s1`.`ThreeId`, `s1`.`TwoId0`, `s1`.`Id0`, `s1`.`CollectionInverseId0`, `s1`.`Name0`, `s1`.`ReferenceInverseId0`
+FROM `EntityOnes` AS `e`
 OUTER APPLY (
-    SELECT [t].[OneId], [t].[TwoId], [t].[JoinOneToTwoExtraId], [t].[Id], [t].[CollectionInverseId], [t].[ExtraId], [t].[Name], [t].[ReferenceInverseId], [t0].[ThreeId], [t0].[TwoId] AS [TwoId0], [t0].[Id] AS [Id0], [t0].[CollectionInverseId] AS [CollectionInverseId0], [t0].[Name] AS [Name0], [t0].[ReferenceInverseId] AS [ReferenceInverseId0]
+    SELECT `s`.`OneId`, `s`.`TwoId`, `s`.`JoinOneToTwoExtraId`, `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `s0`.`ThreeId`, `s0`.`TwoId` AS `TwoId0`, `s0`.`Id` AS `Id0`, `s0`.`CollectionInverseId` AS `CollectionInverseId0`, `s0`.`Name` AS `Name0`, `s0`.`ReferenceInverseId` AS `ReferenceInverseId0`
     FROM (
-        SELECT [j].[OneId], [j].[TwoId], [j].[JoinOneToTwoExtraId], [e0].[Id], [e0].[CollectionInverseId], [e0].[ExtraId], [e0].[Name], [e0].[ReferenceInverseId]
-        FROM [JoinOneToTwo] AS [j]
-        INNER JOIN [EntityTwos] AS [e0] ON [j].[TwoId] = [e0].[Id]
-        WHERE [e].[Id] = [j].[OneId]
-        ORDER BY [e0].[Id]
+        SELECT `j`.`OneId`, `j`.`TwoId`, `j`.`JoinOneToTwoExtraId`, `e0`.`Id`, `e0`.`CollectionInverseId`, `e0`.`ExtraId`, `e0`.`Name`, `e0`.`ReferenceInverseId`
+        FROM `JoinOneToTwo` AS `j`
+        INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
+        WHERE `e`.`Id` = `j`.`OneId`
+        ORDER BY `e0`.`Id`
         OFFSET 1 ROWS FETCH NEXT 2 ROWS ONLY
-    ) AS [t]
+    ) AS `s`
     LEFT JOIN (
-        SELECT [j0].[ThreeId], [j0].[TwoId], [e1].[Id], [e1].[CollectionInverseId], [e1].[Name], [e1].[ReferenceInverseId]
-        FROM [JoinTwoToThree] AS [j0]
-        INNER JOIN [EntityThrees] AS [e1] ON [j0].[ThreeId] = [e1].[Id]
-        WHERE [e1].[Id] < 10
-    ) AS [t0] ON [t].[Id] = [t0].[TwoId]
-) AS [t1]
-ORDER BY [e].[Id], [t1].[Id], [t1].[OneId], [t1].[TwoId], [t1].[ThreeId], [t1].[TwoId0]
+        SELECT `j0`.`ThreeId`, `j0`.`TwoId`, `e1`.`Id`, `e1`.`CollectionInverseId`, `e1`.`Name`, `e1`.`ReferenceInverseId`
+        FROM `JoinTwoToThree` AS `j0`
+        INNER JOIN `EntityThrees` AS `e1` ON `j0`.`ThreeId` = `e1`.`Id`
+        WHERE `e1`.`Id` < 10
+    ) AS `s0` ON `s`.`Id` = `s0`.`TwoId`
+) AS `s1`
+ORDER BY `e`.`Id`, `s1`.`Id`, `s1`.`OneId`, `s1`.`TwoId`, `s1`.`ThreeId`, `s1`.`TwoId0`
 """);
     }
 

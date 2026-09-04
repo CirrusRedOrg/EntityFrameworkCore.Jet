@@ -467,18 +467,18 @@ ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
         await base.Include_collection_with_cross_apply_with_filter(async);
 
         AssertSql(
-"""
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [t].[OrderID], [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
-FROM [Customers] AS [c]
+            """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+FROM `Customers` AS `c`
 CROSS APPLY (
-    SELECT TOP(5) [o].[OrderID]
-    FROM [Orders] AS [o]
-    WHERE [o].[CustomerID] = [c].[CustomerID]
-    ORDER BY [c].[CustomerID]
-) AS [t]
-LEFT JOIN [Orders] AS [o0] ON [c].[CustomerID] = [o0].[CustomerID]
-WHERE [c].[CustomerID] LIKE N'F%'
-ORDER BY [c].[CustomerID], [t].[OrderID]
+    SELECT TOP 5 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = `c`.`CustomerID`
+    ORDER BY `c`.`CustomerID`
+) AS `o0`
+LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'F%'
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 """);
     }
 
@@ -843,18 +843,18 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`
         await base.Include_collection_with_outer_apply_with_filter(async);
 
         AssertSql(
-"""
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [t].[OrderID], [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
-FROM [Customers] AS [c]
+            """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+FROM `Customers` AS `c`
 OUTER APPLY (
-    SELECT TOP(5) [o].[OrderID]
-    FROM [Orders] AS [o]
-    WHERE [o].[CustomerID] = [c].[CustomerID]
-    ORDER BY [c].[CustomerID]
-) AS [t]
-LEFT JOIN [Orders] AS [o0] ON [c].[CustomerID] = [o0].[CustomerID]
-WHERE [c].[CustomerID] LIKE N'F%'
-ORDER BY [c].[CustomerID], [t].[OrderID]
+    SELECT TOP 5 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = `c`.`CustomerID`
+    ORDER BY `c`.`CustomerID`
+) AS `o0`
+LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'F%'
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 """);
     }
 
@@ -1025,18 +1025,18 @@ ORDER BY `o`.`OrderID`, `o0`.`OrderID`, `o0`.`ProductID`
         await base.Include_collection_with_outer_apply_with_filter_non_equality(async);
 
         AssertSql(
-"""
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [t].[OrderID], [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
-FROM [Customers] AS [c]
+            """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+FROM `Customers` AS `c`
 OUTER APPLY (
-    SELECT TOP(5) [o].[OrderID]
-    FROM [Orders] AS [o]
-    WHERE [o].[CustomerID] <> [c].[CustomerID] OR ([o].[CustomerID] IS NULL)
-    ORDER BY [c].[CustomerID]
-) AS [t]
-LEFT JOIN [Orders] AS [o0] ON [c].[CustomerID] = [o0].[CustomerID]
-WHERE [c].[CustomerID] LIKE N'F%'
-ORDER BY [c].[CustomerID], [t].[OrderID]
+    SELECT TOP 5 `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` <> `c`.`CustomerID` OR `o`.`CustomerID` IS NULL
+    ORDER BY `c`.`CustomerID`
+) AS `o0`
+LEFT JOIN `Orders` AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
+WHERE `c`.`CustomerID` LIKE 'F%'
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 """);
     }
 
@@ -1234,26 +1234,26 @@ FROM `Customers` AS `c`
         await base.Include_reference_SelectMany_GroupBy_Select(async);
 
         AssertSql(
-"""
-SELECT [t0].[OrderID], [t0].[CustomerID], [t0].[EmployeeID], [t0].[OrderDate], [t0].[CustomerID0], [t0].[Address], [t0].[City], [t0].[CompanyName], [t0].[ContactName], [t0].[ContactTitle], [t0].[Country], [t0].[Fax], [t0].[Phone], [t0].[PostalCode], [t0].[Region]
+            """
+SELECT `s1`.`OrderID`, `s1`.`CustomerID`, `s1`.`EmployeeID`, `s1`.`OrderDate`, `s1`.`CustomerID0`, `s1`.`Address`, `s1`.`City`, `s1`.`CompanyName`, `s1`.`ContactName`, `s1`.`ContactTitle`, `s1`.`Country`, `s1`.`Fax`, `s1`.`Phone`, `s1`.`PostalCode`, `s1`.`Region`
 FROM (
-    SELECT [o].[OrderID]
-    FROM [Orders] AS [o]
-    CROSS JOIN [Order Details] AS [o0]
-    WHERE [o].[OrderID] = 10248
-    GROUP BY [o].[OrderID]
-) AS [t]
-LEFT JOIN (
-    SELECT [t1].[OrderID], [t1].[CustomerID], [t1].[EmployeeID], [t1].[OrderDate], [t1].[CustomerID0], [t1].[Address], [t1].[City], [t1].[CompanyName], [t1].[ContactName], [t1].[ContactTitle], [t1].[Country], [t1].[Fax], [t1].[Phone], [t1].[PostalCode], [t1].[Region]
+    SELECT `o`.`OrderID`
+    FROM `Orders` AS `o`
+    CROSS JOIN `Order Details` AS `o0`
+    WHERE `o`.`OrderID` = 10248
+    GROUP BY `o`.`OrderID`
+) AS `s0`
+OUTER APPLY (
+    SELECT TOP 1 `s`.`OrderID`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `c`.`CustomerID` AS `CustomerID0`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM (
-        SELECT [o1].[OrderID], [o1].[CustomerID], [o1].[EmployeeID], [o1].[OrderDate], [c].[CustomerID] AS [CustomerID0], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], ROW_NUMBER() OVER(PARTITION BY [o1].[OrderID] ORDER BY [o1].[OrderID]) AS [row]
-        FROM [Orders] AS [o1]
-        CROSS JOIN [Order Details] AS [o2]
-        LEFT JOIN [Customers] AS [c] ON [o1].[CustomerID] = [c].[CustomerID]
-        WHERE [o1].[OrderID] = 10248
-    ) AS [t1]
-    WHERE [t1].[row] <= 1
-) AS [t0] ON [t].[OrderID] = [t0].[OrderID]
+        SELECT `o1`.`OrderID`, `o1`.`CustomerID`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+        FROM `Orders` AS `o1`
+        CROSS JOIN `Order Details` AS `o2`
+        WHERE `o1`.`OrderID` = 10248 AND `s0`.`OrderID` = `o1`.`OrderID`
+    ) AS `s`
+    LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`
+    ORDER BY `s`.`OrderID`
+) AS `s1`
 """);
     }
 
@@ -1294,26 +1294,26 @@ ORDER BY `c`.`CustomerID`, `o`.`OrderID`, `o0`.`OrderID`, `o0`.`ProductID`
         await base.SelectMany_Include_reference_GroupBy_Select(async);
 
         AssertSql(
-"""
-SELECT [t0].[OrderID], [t0].[CustomerID], [t0].[EmployeeID], [t0].[OrderDate], [t0].[CustomerID0], [t0].[Address], [t0].[City], [t0].[CompanyName], [t0].[ContactName], [t0].[ContactTitle], [t0].[Country], [t0].[Fax], [t0].[Phone], [t0].[PostalCode], [t0].[Region]
+            """
+SELECT `s1`.`OrderID0`, `s1`.`CustomerID`, `s1`.`EmployeeID`, `s1`.`OrderDate`, `s1`.`CustomerID0`, `s1`.`Address`, `s1`.`City`, `s1`.`CompanyName`, `s1`.`ContactName`, `s1`.`ContactTitle`, `s1`.`Country`, `s1`.`Fax`, `s1`.`Phone`, `s1`.`PostalCode`, `s1`.`Region`
 FROM (
-    SELECT [o0].[OrderID]
-    FROM [Order Details] AS [o]
-    CROSS JOIN [Orders] AS [o0]
-    WHERE [o].[OrderID] = 10248
-    GROUP BY [o0].[OrderID]
-) AS [t]
-LEFT JOIN (
-    SELECT [t1].[OrderID], [t1].[CustomerID], [t1].[EmployeeID], [t1].[OrderDate], [t1].[CustomerID0], [t1].[Address], [t1].[City], [t1].[CompanyName], [t1].[ContactName], [t1].[ContactTitle], [t1].[Country], [t1].[Fax], [t1].[Phone], [t1].[PostalCode], [t1].[Region]
+    SELECT `o0`.`OrderID`
+    FROM `Order Details` AS `o`
+    CROSS JOIN `Orders` AS `o0`
+    WHERE `o`.`OrderID` = 10248
+    GROUP BY `o0`.`OrderID`
+) AS `s0`
+OUTER APPLY (
+    SELECT TOP 1 `s`.`OrderID0`, `s`.`CustomerID`, `s`.`EmployeeID`, `s`.`OrderDate`, `c`.`CustomerID` AS `CustomerID0`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM (
-        SELECT [o2].[OrderID], [o2].[CustomerID], [o2].[EmployeeID], [o2].[OrderDate], [c].[CustomerID] AS [CustomerID0], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], ROW_NUMBER() OVER(PARTITION BY [o2].[OrderID] ORDER BY [o2].[OrderID]) AS [row]
-        FROM [Order Details] AS [o1]
-        CROSS JOIN [Orders] AS [o2]
-        LEFT JOIN [Customers] AS [c] ON [o2].[CustomerID] = [c].[CustomerID]
-        WHERE [o1].[OrderID] = 10248
-    ) AS [t1]
-    WHERE [t1].[row] <= 1
-) AS [t0] ON [t].[OrderID] = [t0].[OrderID]
+        SELECT `o2`.`OrderID` AS `OrderID0`, `o2`.`CustomerID`, `o2`.`EmployeeID`, `o2`.`OrderDate`
+        FROM `Order Details` AS `o1`
+        CROSS JOIN `Orders` AS `o2`
+        WHERE `o1`.`OrderID` = 10248 AND `s0`.`OrderID` = `o2`.`OrderID`
+    ) AS `s`
+    LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`
+    ORDER BY `s`.`OrderID0`
+) AS `s1`
 """);
     }
 

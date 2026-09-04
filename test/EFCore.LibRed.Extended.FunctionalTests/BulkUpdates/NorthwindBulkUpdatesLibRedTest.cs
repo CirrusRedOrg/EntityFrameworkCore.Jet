@@ -579,17 +579,19 @@ WHERE EXISTS (
         await base.Delete_with_cross_apply(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
-CROSS APPLY (
-    SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
-    FROM [Orders] AS [o0]
-    WHERE [o0].[OrderID] < [o].[OrderID]
-    ORDER BY [o0].[OrderID]
-    OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY
-) AS [t]
-WHERE [o].[OrderID] < 10276
+            """
+DELETE FROM `Order Details` AS `o`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Order Details` AS `o0`
+    CROSS APPLY (
+        SELECT 1
+        FROM `Orders` AS `o2`
+        WHERE `o2`.`OrderID` < `o0`.`OrderID`
+        ORDER BY `o2`.`OrderID`
+        OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY
+    ) AS `o1`
+    WHERE `o0`.`OrderID` < 10276 AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 
@@ -598,17 +600,19 @@ WHERE [o].[OrderID] < 10276
         await base.Delete_with_outer_apply(async);
 
         AssertSql(
-"""
-DELETE FROM [o]
-FROM [Order Details] AS [o]
-OUTER APPLY (
-    SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate]
-    FROM [Orders] AS [o0]
-    WHERE [o0].[OrderID] < [o].[OrderID]
-    ORDER BY [o0].[OrderID]
-    OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY
-) AS [t]
-WHERE [o].[OrderID] < 10276
+            """
+DELETE FROM `Order Details` AS `o`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Order Details` AS `o0`
+    OUTER APPLY (
+        SELECT 1
+        FROM `Orders` AS `o2`
+        WHERE `o2`.`OrderID` < `o0`.`OrderID`
+        ORDER BY `o2`.`OrderID`
+        OFFSET 0 ROWS FETCH NEXT 100 ROWS ONLY
+    ) AS `o1`
+    WHERE `o0`.`OrderID` < 10276 AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
 """);
     }
 

@@ -2076,55 +2076,21 @@ ORDER BY `o0`.`CustomerID`
             await base.Select_nested_collection_with_groupby(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT CASE
-                            WHEN EXISTS (
-                                SELECT 1
-                                FROM `Orders` AS `o0`
-                                WHERE `c`.`CustomerID` = `o0`.`CustomerID`)
-                            THEN True ELSE False
-                        END
-                    ), `c`.`CustomerID`
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` LIKE 'A' & '%'
-                    """,
-                //
-                $"""
-                    {AssertSqlHelper.Declaration("@_outer_CustomerID='ALFKI' (Size = 5)")}
-                    
-                    SELECT `o1`.`OrderID`
-                    FROM `Orders` AS `o1`
-                    WHERE {AssertSqlHelper.Parameter("@_outer_CustomerID")} = `o1`.`CustomerID`
-                    ORDER BY `o1`.`OrderID`
-                    """,
-                //
-                $"""
-                    {AssertSqlHelper.Declaration("@_outer_CustomerID='ANATR' (Size = 5)")}
-                    
-                    SELECT `o1`.`OrderID`
-                    FROM `Orders` AS `o1`
-                    WHERE {AssertSqlHelper.Parameter("@_outer_CustomerID")} = `o1`.`CustomerID`
-                    ORDER BY `o1`.`OrderID`
-                    """,
-                //
-                $"""
-                    {AssertSqlHelper.Declaration("@_outer_CustomerID='ANTON' (Size = 5)")}
-                    
-                    SELECT `o1`.`OrderID`
-                    FROM `Orders` AS `o1`
-                    WHERE {AssertSqlHelper.Parameter("@_outer_CustomerID")} = `o1`.`CustomerID`
-                    ORDER BY `o1`.`OrderID`
-                    """,
-                //
-                $"""
-                    {AssertSqlHelper.Declaration("@_outer_CustomerID='AROUT' (Size = 5)")}
-                    
-                    SELECT `o1`.`OrderID`
-                    FROM `Orders` AS `o1`
-                    WHERE {AssertSqlHelper.Parameter("@_outer_CustomerID")} = `o1`.`CustomerID`
-                    ORDER BY `o1`.`OrderID`
-                    """);
+                """
+SELECT EXISTS (
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`), `c`.`CustomerID`, `o1`.`OrderID`
+FROM `Customers` AS `c`
+OUTER APPLY (
+    SELECT `o0`.`OrderID`
+    FROM `Orders` AS `o0`
+    WHERE `c`.`CustomerID` = `o0`.`CustomerID`
+    GROUP BY `o0`.`OrderID`
+) AS `o1`
+WHERE `c`.`CustomerID` LIKE 'F%'
+ORDER BY `c`.`CustomerID`, `o1`.`OrderID`
+""");
         }
 
         public override async Task Select_uncorrelated_collection_with_groupby_works(bool async)
@@ -2133,15 +2099,15 @@ ORDER BY `o0`.`CustomerID`
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [t].[OrderID]
-FROM [Customers] AS [c]
+SELECT `c`.`CustomerID`, `o0`.`OrderID`
+FROM `Customers` AS `c`
 OUTER APPLY (
-    SELECT [o].[OrderID]
-    FROM [Orders] AS [o]
-    GROUP BY [o].[OrderID]
-) AS [t]
-WHERE [c].[CustomerID] LIKE N'A%'
-ORDER BY [c].[CustomerID]
+    SELECT `o`.`OrderID`
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`OrderID`
+) AS `o0`
+WHERE `c`.`CustomerID` LIKE 'A%'
+ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
 """);
         }
 
@@ -2151,20 +2117,20 @@ ORDER BY [c].[CustomerID]
 
             AssertSql(
                 """
-SELECT [o].[OrderID], [t].[ProductID], [t0].[c], [t0].[ProductID]
-FROM [Orders] AS [o]
+SELECT `o`.`OrderID`, `p1`.`ProductID`, `p2`.`c`, `p2`.`ProductID`
+FROM `Orders` AS `o`
 OUTER APPLY (
-    SELECT [p].[ProductID]
-    FROM [Products] AS [p]
-    GROUP BY [p].[ProductID]
-) AS [t]
+    SELECT `p`.`ProductID`
+    FROM `Products` AS `p`
+    GROUP BY `p`.`ProductID`
+) AS `p1`
 OUTER APPLY (
-    SELECT COUNT(*) AS [c], [p0].[ProductID]
-    FROM [Products] AS [p0]
-    GROUP BY [p0].[ProductID]
-) AS [t0]
-WHERE [o].[CustomerID] LIKE N'A%'
-ORDER BY [o].[OrderID], [t].[ProductID]
+    SELECT COUNT(*) AS `c`, `p0`.`ProductID`
+    FROM `Products` AS `p0`
+    GROUP BY `p0`.`ProductID`
+) AS `p2`
+WHERE `o`.`CustomerID` LIKE 'A%'
+ORDER BY `o`.`OrderID`, `p1`.`ProductID`, `p2`.`ProductID`
 """);
         }
 
@@ -3731,15 +3697,15 @@ GROUP BY `o`.`CustomerID`
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [t].[Sum], [t].[CustomerID]
-FROM [Customers] AS [c]
+SELECT `c`.`CustomerID`, `o0`.`Sum`, `o0`.`CustomerID`
+FROM `Customers` AS `c`
 OUTER APPLY (
-    SELECT COALESCE(SUM([o].[OrderID]), 0) AS [Sum], [o].[CustomerID]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-    GROUP BY [o].[CustomerID]
-) AS [t]
-ORDER BY [c].[CustomerID]
+    SELECT COALESCE(SUM(`o`.`OrderID`), 0) AS `Sum`, `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    GROUP BY `o`.`CustomerID`
+) AS `o0`
+ORDER BY `c`.`CustomerID`, `o0`.`CustomerID`
 """);
         }
 
@@ -3749,15 +3715,15 @@ ORDER BY [c].[CustomerID]
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [t].[Max], [t].[Sum], [t].[CustomerID]
-FROM [Customers] AS [c]
+SELECT `c`.`CustomerID`, `o0`.`Max`, `o0`.`Sum`, `o0`.`CustomerID`
+FROM `Customers` AS `c`
 OUTER APPLY (
-    SELECT MAX(CAST(LEN([o].[CustomerID]) AS int)) AS [Max], COALESCE(SUM([o].[OrderID]), 0) AS [Sum], [o].[CustomerID]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] = [o].[CustomerID]
-    GROUP BY [o].[CustomerID]
-) AS [t]
-ORDER BY [c].[CustomerID]
+    SELECT MAX(LEN(`o`.`CustomerID`)) AS `Max`, COALESCE(SUM(`o`.`OrderID`), 0) AS `Sum`, `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    GROUP BY `o`.`CustomerID`
+) AS `o0`
+ORDER BY `c`.`CustomerID`, `o0`.`CustomerID`
 """);
         }
 
@@ -3767,14 +3733,14 @@ ORDER BY [c].[CustomerID]
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [t].[Max], [t].[Sum], [t].[CustomerID]
-FROM [Customers] AS [c]
+SELECT `c`.`CustomerID`, `o0`.`Max`, `o0`.`Sum`, `o0`.`CustomerID`
+FROM `Customers` AS `c`
 OUTER APPLY (
-    SELECT MAX(CAST(LEN([o].[CustomerID]) AS int)) AS [Max], COALESCE(SUM([o].[OrderID]), 0) AS [Sum], [o].[CustomerID]
-    FROM [Orders] AS [o]
-    GROUP BY [o].[CustomerID]
-) AS [t]
-ORDER BY [c].[CustomerID]
+    SELECT MAX(LEN(`o`.`CustomerID`)) AS `Max`, COALESCE(SUM(`o`.`OrderID`), 0) AS `Sum`, `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    GROUP BY `o`.`CustomerID`
+) AS `o0`
+ORDER BY `c`.`CustomerID`, `o0`.`CustomerID`
 """);
         }
 
@@ -3982,24 +3948,24 @@ GROUP BY `o`.`CustomerID`
 
             AssertSql(
                 """
-SELECT [t].[City], [t0].[ProductID], [t1].[c], [t1].[ProductID]
+SELECT `s`.`City`, `p1`.`ProductID`, `p2`.`c`, `p2`.`ProductID`
 FROM (
-    SELECT DISTINCT [c].[City]
-    FROM [Orders] AS [o]
-    LEFT JOIN [Customers] AS [c] ON [o].[CustomerID] = [c].[CustomerID]
-    WHERE [o].[CustomerID] LIKE N'A%'
-) AS [t]
+    SELECT DISTINCT `c`.`City`
+    FROM `Orders` AS `o`
+    LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+    WHERE `o`.`CustomerID` LIKE 'A%'
+) AS `s`
 OUTER APPLY (
-    SELECT [p].[ProductID]
-    FROM [Products] AS [p]
-    GROUP BY [p].[ProductID]
-) AS [t0]
+    SELECT `p`.`ProductID`
+    FROM `Products` AS `p`
+    GROUP BY `p`.`ProductID`
+) AS `p1`
 OUTER APPLY (
-    SELECT COUNT(*) AS [c], [p0].[ProductID]
-    FROM [Products] AS [p0]
-    GROUP BY [p0].[ProductID]
-) AS [t1]
-ORDER BY [t].[City], [t0].[ProductID]
+    SELECT COUNT(*) AS `c`, `p0`.`ProductID`
+    FROM `Products` AS `p0`
+    GROUP BY `p0`.`ProductID`
+) AS `p2`
+ORDER BY `s`.`City`, `p1`.`ProductID`, `p2`.`ProductID`
 """);
         }
 
@@ -4049,21 +4015,21 @@ ORDER BY `o1`.`CustomerID`, `o0`.`OrderID`
 
             AssertSql(
                 """
-SELECT [t].[c], [t].[ProductID], [t0].[CustomerID], [t0].[City]
+SELECT `s`.`c`, `s`.`ProductID`, `c1`.`CustomerID`, `c1`.`City`
 FROM (
-    SELECT COALESCE(SUM([o].[ProductID] + [o].[OrderID] * 1000), 0) AS [c], [o].[ProductID], MIN([o].[OrderID] / 100) AS [c0]
-    FROM [Order Details] AS [o]
-    INNER JOIN [Orders] AS [o0] ON [o].[OrderID] = [o0].[OrderID]
-    LEFT JOIN [Customers] AS [c] ON [o0].[CustomerID] = [c].[CustomerID]
-    WHERE [c].[CustomerID] = N'ALFKI'
-    GROUP BY [o].[ProductID]
-) AS [t]
+    SELECT COALESCE(SUM(`o`.`ProductID` + (`o`.`OrderID` * 1000)), 0) AS `c`, `o`.`ProductID`, MIN(`o`.`OrderID` \ 100) AS `c0`
+    FROM `Order Details` AS `o`
+    INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
+    LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
+    WHERE `c`.`CustomerID` = 'ALFKI'
+    GROUP BY `o`.`ProductID`
+) AS `s`
 OUTER APPLY (
-    SELECT [c0].[CustomerID], [c0].[City]
-    FROM [Customers] AS [c0]
-    WHERE CAST(LEN([c0].[CustomerID]) AS int) < [t].[c0]
-) AS [t0]
-ORDER BY [t].[ProductID], [t0].[CustomerID]
+    SELECT `c0`.`CustomerID`, `c0`.`City`
+    FROM `Customers` AS `c0`
+    WHERE LEN(`c0`.`CustomerID`) < `s`.`c0`
+) AS `c1`
+ORDER BY `s`.`ProductID`, `c1`.`CustomerID`
 """);
         }
 
@@ -4073,28 +4039,21 @@ ORDER BY [t].[ProductID], [t0].[CustomerID]
 
             AssertSql(
                 """
-SELECT [c].[CustomerID], [t1].[Sum], [t1].[Count], [t1].[Key]
-FROM [Customers] AS [c]
+SELECT `c`.`CustomerID`, `s0`.`Sum`, `s0`.`Count`, `s0`.`Key`
+FROM `Customers` AS `c`
 OUTER APPLY (
-    SELECT COALESCE(SUM([t].[OrderID]), 0) AS [Sum], (
-        SELECT COUNT(*)
-        FROM (
-            SELECT [o0].[OrderID], [o0].[CustomerID], [o0].[EmployeeID], [o0].[OrderDate], [c1].[CustomerID] AS [CustomerID0], [c1].[Address], [c1].[City], [c1].[CompanyName], [c1].[ContactName], [c1].[ContactTitle], [c1].[Country], [c1].[Fax], [c1].[Phone], [c1].[PostalCode], [c1].[Region], COALESCE([c1].[City], N'') + COALESCE([o0].[CustomerID], N'') AS [Key]
-            FROM [Orders] AS [o0]
-            LEFT JOIN [Customers] AS [c1] ON [o0].[CustomerID] = [c1].[CustomerID]
-            WHERE [c].[CustomerID] = [o0].[CustomerID]
-        ) AS [t0]
-        LEFT JOIN [Customers] AS [c0] ON [t0].[CustomerID] = [c0].[CustomerID]
-        WHERE ([t].[Key] = [t0].[Key] OR ([t].[Key] IS NULL AND [t0].[Key] IS NULL)) AND COALESCE([c0].[City], N'') + COALESCE([t0].[CustomerID], N'') LIKE N'Lon%') AS [Count], [t].[Key]
+    SELECT COALESCE(SUM(`s`.`OrderID`), 0) AS `Sum`, COUNT(CASE
+        WHEN COALESCE(`s`.`City`, '') & COALESCE(`s`.`CustomerID`, '') LIKE 'Lon%' THEN 1
+    END) AS `Count`, `s`.`Key`
     FROM (
-        SELECT [o].[OrderID], COALESCE([c2].[City], N'') + COALESCE([o].[CustomerID], N'') AS [Key]
-        FROM [Orders] AS [o]
-        LEFT JOIN [Customers] AS [c2] ON [o].[CustomerID] = [c2].[CustomerID]
-        WHERE [c].[CustomerID] = [o].[CustomerID]
-    ) AS [t]
-    GROUP BY [t].[Key]
-) AS [t1]
-ORDER BY [c].[CustomerID]
+        SELECT `o`.`OrderID`, `o`.`CustomerID`, `c0`.`City`, COALESCE(`c0`.`City`, '') & COALESCE(`o`.`CustomerID`, '') AS `Key`
+        FROM `Orders` AS `o`
+        LEFT JOIN `Customers` AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ) AS `s`
+    GROUP BY `s`.`Key`
+) AS `s0`
+ORDER BY `c`.`CustomerID`
 """);
         }
 

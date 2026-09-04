@@ -1309,11 +1309,11 @@ WHERE CDBL(`o0`.`Discount`) >= 0.25
 
             AssertSql(
                 """
-    SELECT [v].[Value] AS [k], [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region]
-    FROM [Customers] AS [c]
-    CROSS APPLY (VALUES (CAST(N'a' AS nvarchar(max))), (N'b')) AS [v]([Value])
-    WHERE [c].[CustomerID] = N'ALFKI'
-    """);
+SELECT `v`.`Value` AS `k`, `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+CROSS APPLY (SELECT ('a' & '') AS `Value` UNION ALL VALUES ('b')) AS `v`
+WHERE `c`.`CustomerID` = 'ALFKI'
+""");
         }
 
         public override async Task SelectMany_correlated_with_outer_1(bool isAsync)
@@ -1321,15 +1321,15 @@ WHERE CDBL(`o0`.`Discount`) >= 0.25
             await base.SelectMany_correlated_with_outer_1(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`City` AS `o`
-                    FROM `Customers` AS `c`
-                    CROSS APPLY (
-                        SELECT `c`.`City`, `o`.`OrderID`, `o`.`CustomerID`
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                    ) AS `t`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`City` AS `o`
+FROM `Customers` AS `c`
+CROSS APPLY (
+    SELECT `c`.`City`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+) AS `o0`
+""");
         }
 
         public override async Task SelectMany_correlated_with_outer_2(bool isAsync)
@@ -1337,16 +1337,16 @@ WHERE CDBL(`o0`.`Discount`) >= 0.25
             await base.SelectMany_correlated_with_outer_2(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    CROSS APPLY (
-                        SELECT TOP 2 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`City`
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                        ORDER BY `c`.`City`, `o`.`OrderID`
-                    ) AS `t`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
+CROSS APPLY (
+    SELECT TOP 2 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `c`.`City`, `o`.`OrderID`
+) AS `o0`
+""");
         }
 
         public override async Task SelectMany_correlated_with_outer_3(bool isAsync)
@@ -1354,15 +1354,15 @@ WHERE CDBL(`o0`.`Discount`) >= 0.25
             await base.SelectMany_correlated_with_outer_3(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`City` AS `o`
-                    FROM `Customers` AS `c`
-                    OUTER APPLY (
-                        SELECT `c`.`City`, `o`.`OrderID`, `o`.`CustomerID`
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                    ) AS `t`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`City` AS `o`
+FROM `Customers` AS `c`
+OUTER APPLY (
+    SELECT `c`.`City`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+) AS `o0`
+""");
         }
 
         public override async Task SelectMany_correlated_with_outer_4(bool isAsync)
@@ -1370,16 +1370,16 @@ WHERE CDBL(`o0`.`Discount`) >= 0.25
             await base.SelectMany_correlated_with_outer_4(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `t`.`OrderID`, `t`.`CustomerID`, `t`.`EmployeeID`, `t`.`OrderDate`
-                    FROM `Customers` AS `c`
-                    OUTER APPLY (
-                        SELECT TOP 2 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c`.`City`
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                        ORDER BY `c`.`City`, `o`.`OrderID`
-                    ) AS `t`
-                    """);
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
+OUTER APPLY (
+    SELECT TOP 2 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `c`.`City`, `o`.`OrderID`
+) AS `o0`
+""");
         }
 
         public override async Task SelectMany_correlated_with_outer_5(bool async)
@@ -1387,14 +1387,14 @@ WHERE CDBL(`o0`.`Discount`) >= 0.25
             await base.SelectMany_correlated_with_outer_5(async);
 
             AssertSql(
-    """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [t].[City] AS [o]
-FROM [Customers] AS [c]
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`City` AS `o`
+FROM `Customers` AS `c`
 OUTER APPLY (
-    SELECT [c].[City]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] <> [o].[CustomerID] OR [o].[CustomerID] IS NULL
-) AS [t]
+    SELECT `c`.`City`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` <> `o`.`CustomerID` OR `o`.`CustomerID` IS NULL
+) AS `o0`
 """);
         }
 
@@ -1403,15 +1403,15 @@ OUTER APPLY (
             await base.SelectMany_correlated_with_outer_6(async);
 
             AssertSql(
-    """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate]
-FROM [Customers] AS [c]
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
 OUTER APPLY (
-    SELECT TOP(2) [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-    FROM [Orders] AS [o]
-    WHERE [c].[CustomerID] <> [o].[CustomerID] OR [o].[CustomerID] IS NULL
-    ORDER BY [c].[City], [o].[OrderID]
-) AS [t]
+    SELECT TOP 2 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` <> `o`.`CustomerID` OR `o`.`CustomerID` IS NULL
+    ORDER BY `c`.`City`, `o`.`OrderID`
+) AS `o0`
 """);
         }
 
@@ -1420,15 +1420,15 @@ OUTER APPLY (
             await base.SelectMany_correlated_with_outer_7(async);
 
             AssertSql(
-    """
-SELECT [c].[CustomerID], [c].[Address], [c].[City], [c].[CompanyName], [c].[ContactName], [c].[ContactTitle], [c].[Country], [c].[Fax], [c].[Phone], [c].[PostalCode], [c].[Region], [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate]
-FROM [Customers] AS [c]
+                """
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
 OUTER APPLY (
-    SELECT TOP(2) [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-    FROM [Orders] AS [o]
-    WHERE CAST(LEN([c].[CustomerID]) AS int) >= CAST(LEN([o].[CustomerID]) AS int)
-    ORDER BY [c].[City], [o].[OrderID]
-) AS [t]
+    SELECT TOP 2 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    WHERE LEN(`c`.`CustomerID`) >= LEN(`o`.`CustomerID`)
+    ORDER BY `c`.`City`, `o`.`OrderID`
+) AS `o0`
 """);
         }
 
@@ -1579,15 +1579,15 @@ ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
             await base.SelectMany_with_collection_being_correlated_subquery_which_references_inner_and_outer_entity(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `t`.`CustomerID` AS `OrderProperty`, `t`.`CustomerID0` AS `CustomerProperty`
-                    FROM `Customers` AS `c`
-                    CROSS APPLY (
-                        SELECT `o`.`CustomerID`, `c`.`CustomerID` AS `CustomerID0`, `o`.`OrderID`
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                    ) AS `t`
-                    """);
+                """
+SELECT `o0`.`OrderProperty`, `o0`.`CustomerProperty`
+FROM `Customers` AS `c`
+CROSS APPLY (
+    SELECT `o`.`CustomerID` AS `OrderProperty`, `c`.`CustomerID` AS `CustomerProperty`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+) AS `o0`
+""");
         }
 
         public override async Task
@@ -1660,15 +1660,15 @@ WHERE `o`.`OrderID` = 10250
             await base.SelectMany_whose_selector_references_outer_source(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `t`.`OrderDate`, `t`.`City` AS `CustomerCity`
-                    FROM `Customers` AS `c`
-                    CROSS APPLY (
-                        SELECT `o`.`OrderDate`, `c`.`City`, `o`.`OrderID`, `o`.`CustomerID`
-                        FROM `Orders` AS `o`
-                        WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                    ) AS `t`
-                    """);
+                """
+SELECT `o0`.`OrderDate`, `o0`.`CustomerCity`
+FROM `Customers` AS `c`
+CROSS APPLY (
+    SELECT `o`.`OrderDate`, `c`.`City` AS `CustomerCity`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+) AS `o0`
+""");
         }
 
         public override async Task Collection_FirstOrDefault_with_entity_equality_check_in_projection(bool isAsync)
@@ -1987,22 +1987,22 @@ ORDER BY `c`.`CustomerID` DESC, `o`.`OrderID`
             await base.Reverse_in_SelectMany_with_Take(async);
 
             AssertSql(
-    """
-@__p_0='20'
+                """
+@p='20'
 
-SELECT [t0].[OrderID], [t0].[CustomerID], [t0].[EmployeeID], [t0].[OrderDate]
+SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
 FROM (
-    SELECT TOP(@__p_0) [c].[CustomerID]
-    FROM [Customers] AS [c]
-    ORDER BY [c].[CustomerID] DESC
-) AS [t]
+    SELECT TOP @p `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID` DESC
+) AS `c0`
 CROSS APPLY (
-    SELECT TOP(30) [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-    FROM [Orders] AS [o]
-    WHERE [t].[CustomerID] = [o].[CustomerID]
-    ORDER BY [o].[OrderID] DESC
-) AS [t0]
-ORDER BY [t].[CustomerID] DESC
+    SELECT TOP 30 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    WHERE `c0`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`OrderID` DESC
+) AS `o0`
+ORDER BY `c0`.`CustomerID` DESC
 """);
         }
 
@@ -2011,11 +2011,11 @@ ORDER BY [t].[CustomerID] DESC
             await base.Reverse_in_projection_subquery(async);
 
             AssertSql(
-    """
-SELECT [c].[CustomerID], [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-FROM [Customers] AS [c]
-OUTER APPLY [Orders] AS [o]
-ORDER BY [c].[CustomerID], [o].[OrderDate] DESC, [o].[OrderID]
+                """
+SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Customers` AS `c`
+OUTER APPLY `Orders` AS `o`
+ORDER BY `c`.`CustomerID`, `o`.`OrderDate` DESC, `o`.`OrderID`
 """);
         }
 
@@ -2024,15 +2024,15 @@ ORDER BY [c].[CustomerID], [o].[OrderDate] DESC, [o].[OrderID]
             await base.Reverse_in_projection_subquery_single_result(async);
 
             AssertSql(
-    """
-SELECT [t].[OrderID], [t].[CustomerID], [t].[EmployeeID], [t].[OrderDate]
-FROM [Customers] AS [c]
+                """
+SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+FROM `Customers` AS `c`
 OUTER APPLY (
-    SELECT TOP(1) [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-    FROM [Orders] AS [o]
-    ORDER BY [o].[OrderDate] DESC, [o].[OrderID]
-) AS [t]
-ORDER BY [c].[CustomerID]
+    SELECT TOP 1 `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    ORDER BY `o`.`OrderDate` DESC, `o`.`OrderID`
+) AS `o0`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -2285,19 +2285,23 @@ ORDER BY `o`.`OrderID`
 
             AssertSql(
                 """
-                    SELECT `t`.`CustomerID`, `t0`.`CustomerID`, `t0`.`OrderID`, `t0`.`OrderDate`
-                    FROM (
-                        SELECT DISTINCT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                        FROM `Orders` AS `o`
-                        LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-                    ) AS `t`
-                    OUTER APPLY (
-                        SELECT `t`.`CustomerID`, `o0`.`OrderID`, `o0`.`OrderDate`
-                        FROM `Orders` AS `o0`
-                        WHERE ((`t`.`CustomerID` IS NOT NULL) AND (`t`.`CustomerID` = `o0`.`CustomerID`)) AND `o0`.`OrderID` IN (10248, 10249, 10250)
-                    ) AS `t0`
-                    ORDER BY `t`.`CustomerID`, `t0`.`OrderID`
-                    """);
+@filteredOrderIds1='10248'
+@filteredOrderIds2='10249'
+@filteredOrderIds3='10250'
+
+SELECT `s`.`CustomerID`, `o1`.`CustomerID`, `o1`.`OrderID`, `o1`.`OrderDate`
+FROM (
+    SELECT DISTINCT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Orders` AS `o`
+    LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
+) AS `s`
+OUTER APPLY (
+    SELECT `s`.`CustomerID`, `o0`.`OrderID`, `o0`.`OrderDate`
+    FROM `Orders` AS `o0`
+    WHERE `s`.`CustomerID` IS NOT NULL AND `s`.`CustomerID` = `o0`.`CustomerID` AND `o0`.`OrderID` IN (@filteredOrderIds1, @filteredOrderIds2, @filteredOrderIds3)
+) AS `o1`
+ORDER BY `s`.`CustomerID`, `o1`.`OrderID`
+""");
         }
 
         public override async Task Correlated_collection_after_distinct_with_complex_projection_containing_original_identifier(bool async)
@@ -2306,18 +2310,22 @@ ORDER BY `o`.`OrderID`
 
             AssertSql(
                 """
-                    SELECT `t`.`OrderID`, `t`.`Complex`, `t0`.`Outer`, `t0`.`Inner`, `t0`.`OrderDate`
-                    FROM (
-                        SELECT DISTINCT `o`.`OrderID`, DATEPART(month, `o`.`OrderDate`) AS `Complex`
-                        FROM `Orders` AS `o`
-                    ) AS `t`
-                    OUTER APPLY (
-                        SELECT `t`.`OrderID` AS `Outer`, `o0`.`OrderID` AS `Inner`, `o0`.`OrderDate`
-                        FROM `Orders` AS `o0`
-                        WHERE (`o0`.`OrderID` = `t`.`OrderID`) AND `o0`.`OrderID` IN (10248, 10249, 10250)
-                    ) AS `t0`
-                    ORDER BY `t`.`OrderID`
-                    """);
+@filteredOrderIds1='10248'
+@filteredOrderIds2='10249'
+@filteredOrderIds3='10250'
+
+SELECT `o0`.`OrderID`, `o0`.`Complex`, `o2`.`Outer`, `o2`.`Inner`, `o2`.`OrderDate`
+FROM (
+    SELECT DISTINCT `o`.`OrderID`, DATEPART('m', `o`.`OrderDate`) AS `Complex`
+    FROM `Orders` AS `o`
+) AS `o0`
+OUTER APPLY (
+    SELECT `o0`.`OrderID` AS `Outer`, `o1`.`OrderID` AS `Inner`, `o1`.`OrderDate`
+    FROM `Orders` AS `o1`
+    WHERE `o1`.`OrderID` = `o0`.`OrderID` AND `o1`.`OrderID` IN (@filteredOrderIds1, @filteredOrderIds2, @filteredOrderIds3)
+) AS `o2`
+ORDER BY `o0`.`OrderID`, `o2`.`Inner`
+""");
         }
 
         public override async Task Correlated_collection_after_distinct_not_containing_original_identifier(bool async)
@@ -2326,18 +2334,22 @@ ORDER BY `o`.`OrderID`
 
             AssertSql(
                 """
-                    SELECT `t`.`OrderDate`, `t`.`CustomerID`, `t0`.`Outer1`, `t0`.`Outer2`, `t0`.`Inner`, `t0`.`OrderDate`
-                    FROM (
-                        SELECT DISTINCT `o`.`OrderDate`, `o`.`CustomerID`
-                        FROM `Orders` AS `o`
-                    ) AS `t`
-                    OUTER APPLY (
-                        SELECT `t`.`OrderDate` AS `Outer1`, `t`.`CustomerID` AS `Outer2`, `o0`.`OrderID` AS `Inner`, `o0`.`OrderDate`
-                        FROM `Orders` AS `o0`
-                        WHERE ((`o0`.`CustomerID` = `t`.`CustomerID`) OR ((`o0`.`CustomerID` IS NULL) AND (`t`.`CustomerID` IS NULL))) AND `o0`.`OrderID` IN (10248, 10249, 10250)
-                    ) AS `t0`
-                    ORDER BY `t`.`OrderDate`, `t`.`CustomerID`
-                    """);
+@filteredOrderIds1='10248'
+@filteredOrderIds2='10249'
+@filteredOrderIds3='10250'
+
+SELECT `o0`.`OrderDate`, `o0`.`CustomerID`, `o2`.`Outer1`, `o2`.`Outer2`, `o2`.`Inner`, `o2`.`OrderDate`
+FROM (
+    SELECT DISTINCT `o`.`OrderDate`, `o`.`CustomerID`
+    FROM `Orders` AS `o`
+) AS `o0`
+OUTER APPLY (
+    SELECT `o0`.`OrderDate` AS `Outer1`, `o0`.`CustomerID` AS `Outer2`, `o1`.`OrderID` AS `Inner`, `o1`.`OrderDate`
+    FROM `Orders` AS `o1`
+    WHERE (`o1`.`CustomerID` = `o0`.`CustomerID` OR (`o1`.`CustomerID` IS NULL AND `o0`.`CustomerID` IS NULL)) AND `o1`.`OrderID` IN (@filteredOrderIds1, @filteredOrderIds2, @filteredOrderIds3)
+) AS `o2`
+ORDER BY `o0`.`OrderDate`, `o0`.`CustomerID`, `o2`.`Inner`
+""");
         }
 
         public override async Task Correlated_collection_after_distinct_with_complex_projection_not_containing_original_identifier(bool async)
@@ -2358,19 +2370,26 @@ ORDER BY `o`.`OrderID`
 
             AssertSql(
                 """
-                    SELECT `t`.`OrderID`, `t`.`c`, `t0`.`Outer`, `t0`.`Inner`, `t0`.`OrderDate`
-                    FROM (
-                        SELECT `o`.`OrderID`, DATEPART(month, `o`.`OrderDate`) AS `c`
-                        FROM `Orders` AS `o`
-                        GROUP BY `o`.`OrderID`, DATEPART(month, `o`.`OrderDate`)
-                    ) AS `t`
-                    OUTER APPLY (
-                        SELECT `t`.`OrderID` AS `Outer`, `o0`.`OrderID` AS `Inner`, `o0`.`OrderDate`
-                        FROM `Orders` AS `o0`
-                        WHERE (`o0`.`OrderID` = `t`.`OrderID`) AND `o0`.`OrderID` IN (10248, 10249, 10250)
-                    ) AS `t0`
-                    ORDER BY `t`.`OrderID`
-                    """);
+@filteredOrderIds1='10248'
+@filteredOrderIds2='10249'
+@filteredOrderIds3='10250'
+
+SELECT `o2`.`OrderID`, `o2`.`Complex`, `o3`.`Outer`, `o3`.`Inner`, `o3`.`OrderDate`
+FROM (
+    SELECT `o0`.`OrderID`, `o0`.`Complex`
+    FROM (
+        SELECT `o`.`OrderID`, DATEPART('m', `o`.`OrderDate`) AS `Complex`
+        FROM `Orders` AS `o`
+    ) AS `o0`
+    GROUP BY `o0`.`OrderID`, `o0`.`Complex`
+) AS `o2`
+OUTER APPLY (
+    SELECT `o2`.`OrderID` AS `Outer`, `o1`.`OrderID` AS `Inner`, `o1`.`OrderDate`
+    FROM `Orders` AS `o1`
+    WHERE `o1`.`OrderID` = `o2`.`OrderID` AND `o1`.`OrderID` IN (@filteredOrderIds1, @filteredOrderIds2, @filteredOrderIds3)
+) AS `o3`
+ORDER BY `o2`.`OrderID`
+""");
         }
 
         public override async Task Select_nested_collection_deep(bool async)
@@ -2379,21 +2398,21 @@ ORDER BY `o`.`OrderID`
 
             AssertSql(
                 """
-                    SELECT `c`.`CustomerID`, `t0`.`OrderID`, `t0`.`OrderID0`, `t0`.`OrderID00`
-                    FROM `Customers` AS `c`
-                    OUTER APPLY (
-                        SELECT `o`.`OrderID`, `t`.`OrderID` AS `OrderID0`, `t`.`OrderID0` AS `OrderID00`
-                        FROM `Orders` AS `o`
-                        OUTER APPLY (
-                            SELECT `o`.`OrderID`, `o0`.`OrderID` AS `OrderID0`
-                            FROM `Orders` AS `o0`
-                            WHERE `o`.`CustomerID` = `c`.`CustomerID`
-                        ) AS `t`
-                        WHERE (`o`.`CustomerID` = `c`.`CustomerID`) AND (DATEPART(year, `o`.`OrderDate`) = 1997)
-                    ) AS `t0`
-                    WHERE `c`.`City` = 'London'
-                    ORDER BY `c`.`CustomerID`, `t0`.`OrderID`, `t0`.`OrderID00`
-                    """);
+SELECT `c`.`CustomerID`, `s`.`OrderID`, `s`.`OrderID0`, `s`.`OrderID00`
+FROM `Customers` AS `c`
+OUTER APPLY (
+    SELECT `o`.`OrderID`, `o1`.`OrderID` AS `OrderID0`, `o1`.`OrderID0` AS `OrderID00`
+    FROM `Orders` AS `o`
+    OUTER APPLY (
+        SELECT `o`.`OrderID`, `o0`.`OrderID` AS `OrderID0`
+        FROM `Orders` AS `o0`
+        WHERE `o`.`CustomerID` = `c`.`CustomerID`
+    ) AS `o1`
+    WHERE `o`.`CustomerID` = `c`.`CustomerID` AND DATEPART('yyyy', `o`.`OrderDate`) = 1997
+) AS `s`
+WHERE `c`.`City` = 'London'
+ORDER BY `c`.`CustomerID`, `s`.`OrderID`, `s`.`OrderID00`
+""");
         }
 
         public override async Task Select_nested_collection_deep_distinct_no_identifiers(bool async)
@@ -2402,27 +2421,27 @@ ORDER BY `o`.`OrderID`
 
             AssertSql(
                 """
-                    SELECT `t`.`City`, `t1`.`OrderID`, `t1`.`OrderID0`, `t1`.`OrderID00`
-                    FROM (
-                        SELECT DISTINCT `c`.`City`
-                        FROM `Customers` AS `c`
-                        WHERE `c`.`City` = 'London'
-                    ) AS `t`
-                    OUTER APPLY (
-                        SELECT `t0`.`OrderID`, `t2`.`OrderID` AS `OrderID0`, `t2`.`OrderID0` AS `OrderID00`
-                        FROM (
-                            SELECT DISTINCT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                            FROM `Orders` AS `o`
-                            WHERE ((`o`.`CustomerID` = `t`.`City`) OR ((`o`.`CustomerID` IS NULL) AND (`t`.`City` IS NULL))) AND (DATEPART(year, `o`.`OrderDate`) = 1997)
-                        ) AS `t0`
-                        OUTER APPLY (
-                            SELECT `t0`.`OrderID`, `o0`.`OrderID` AS `OrderID0`
-                            FROM `Orders` AS `o0`
-                            WHERE (`t0`.`CustomerID` = `t`.`City`) OR ((`t0`.`CustomerID` IS NULL) AND (`t`.`City` IS NULL))
-                        ) AS `t2`
-                    ) AS `t1`
-                    ORDER BY `t`.`City`, `t1`.`OrderID`, `t1`.`OrderID00`
-                    """);
+SELECT `c0`.`City`, `s`.`OrderID`, `s`.`OrderID0`, `s`.`OrderID00`
+FROM (
+    SELECT DISTINCT `c`.`City`
+    FROM `Customers` AS `c`
+    WHERE `c`.`City` = 'London'
+) AS `c0`
+OUTER APPLY (
+    SELECT `o0`.`OrderID`, `o2`.`OrderID` AS `OrderID0`, `o2`.`OrderID0` AS `OrderID00`
+    FROM (
+        SELECT DISTINCT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+        FROM `Orders` AS `o`
+        WHERE (`o`.`CustomerID` = `c0`.`City` OR (`o`.`CustomerID` IS NULL AND `c0`.`City` IS NULL)) AND DATEPART('yyyy', `o`.`OrderDate`) = 1997
+    ) AS `o0`
+    OUTER APPLY (
+        SELECT `o0`.`OrderID`, `o1`.`OrderID` AS `OrderID0`
+        FROM `Orders` AS `o1`
+        WHERE `o0`.`CustomerID` = `c0`.`City` OR (`o0`.`CustomerID` IS NULL AND `c0`.`City` IS NULL)
+    ) AS `o2`
+) AS `s`
+ORDER BY `c0`.`City`, `s`.`OrderID`, `s`.`OrderID00`
+""");
         }
 
         public override async Task Collection_include_over_result_of_single_non_scalar(bool async)
@@ -2458,26 +2477,27 @@ ORDER BY `o`.`OrderID`
 
             AssertSql(
                 """
-                    @__p_0='10'
-                    SELECT `t`.`CustomerID`, `t0`.`CustomerID`, `t0`.`Address`, `t0`.`City`, `t0`.`CompanyName`, `t0`.`ContactName`, `t0`.`ContactTitle`, `t0`.`Country`, `t0`.`Fax`, `t0`.`Phone`, `t0`.`PostalCode`, `t0`.`Region`, `t0`.`OrderID`, `t0`.`OrderID0`, `t0`.`CustomerID0`, `t0`.`EmployeeID`, `t0`.`OrderDate`
-                    FROM (
-                        SELECT TOP(@__p_0) `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
-                        FROM `Customers` AS `c`
-                        WHERE `c`.`CustomerID` LIKE 'F' & '%'
-                        ORDER BY `c`.`CustomerID`
-                    ) AS `t`
-                    OUTER APPLY (
-                        SELECT `t`.`CustomerID`, `t`.`Address`, `t`.`City`, `t`.`CompanyName`, `t`.`ContactName`, `t`.`ContactTitle`, `t`.`Country`, `t`.`Fax`, `t`.`Phone`, `t`.`PostalCode`, `t`.`Region`, `o`.`OrderID`, `t1`.`OrderID` AS `OrderID0`, `t1`.`CustomerID` AS `CustomerID0`, `t1`.`EmployeeID`, `t1`.`OrderDate`
-                        FROM `Orders` AS `o`
-                        OUTER APPLY (
-                            SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
-                            FROM `Orders` AS `o0`
-                            WHERE `t`.`CustomerID` = `o0`.`CustomerID`
-                        ) AS `t1`
-                        WHERE `t`.`CustomerID` = `o`.`CustomerID`
-                    ) AS `t0`
-                    ORDER BY `t`.`CustomerID`, `t0`.`OrderID`
-                    """);
+@p='10'
+
+SELECT `c0`.`CustomerID`, `s`.`CustomerID`, `s`.`Address`, `s`.`City`, `s`.`CompanyName`, `s`.`ContactName`, `s`.`ContactTitle`, `s`.`Country`, `s`.`Fax`, `s`.`Phone`, `s`.`PostalCode`, `s`.`Region`, `s`.`OrderID`, `s`.`OrderID0`, `s`.`CustomerID0`, `s`.`EmployeeID`, `s`.`OrderDate`
+FROM (
+    SELECT TOP @p `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
+OUTER APPLY (
+    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`, `o`.`OrderID`, `o1`.`OrderID` AS `OrderID0`, `o1`.`CustomerID` AS `CustomerID0`, `o1`.`EmployeeID`, `o1`.`OrderDate`
+    FROM `Orders` AS `o`
+    OUTER APPLY (
+        SELECT `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`.`OrderDate`
+        FROM `Orders` AS `o0`
+        WHERE `c0`.`CustomerID` = `o0`.`CustomerID`
+    ) AS `o1`
+    WHERE `c0`.`CustomerID` = `o`.`CustomerID`
+) AS `s`
+ORDER BY `c0`.`CustomerID`, `s`.`OrderID`, `s`.`OrderID0`
+""");
         }
 
         public override async Task Take_on_top_level_and_on_collection_projection_with_outer_apply(bool async)
@@ -2486,25 +2506,25 @@ ORDER BY `o`.`OrderID`
 
             AssertSql(
                 """
-                    SELECT `t`.`OrderID`, `t`.`OrderDate`, `t0`.`OrderID`, `t0`.`ProductID`, `t0`.`Discontinued`, `t0`.`ProductName`, `t0`.`SupplierID`, `t0`.`UnitPrice`, `t0`.`UnitsInStock`, `t0`.`UnitPrice0`, `t0`.`ProductID0`
-                    FROM (
-                        SELECT TOP 1 `o`.`OrderID`, `o`.`OrderDate`
-                        FROM `Orders` AS `o`
-                        WHERE (`o`.`CustomerID` IS NOT NULL) AND (`o`.`CustomerID` LIKE 'F' & '%')
-                    ) AS `t`
-                    OUTER APPLY (
-                        SELECT `t1`.`OrderID`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `t1`.`UnitPrice` AS `UnitPrice0`, `t1`.`ProductID` AS `ProductID0`
-                        FROM (
-                            SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`UnitPrice`
-                            FROM `Order Details` AS `o0`
-                            WHERE `t`.`OrderID` = `o0`.`OrderID`
-                            ORDER BY `o0`.`OrderID` DESC
-                            OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY
-                        ) AS `t1`
-                        INNER JOIN `Products` AS `p` ON `t1`.`ProductID` = `p`.`ProductID`
-                    ) AS `t0`
-                    ORDER BY `t`.`OrderID`, `t0`.`OrderID` DESC, `t0`.`ProductID0`
-                    """);
+SELECT `o2`.`OrderID`, `o2`.`OrderDate`, `s`.`OrderID`, `s`.`ProductID`, `s`.`Discontinued`, `s`.`ProductName`, `s`.`SupplierID`, `s`.`UnitPrice`, `s`.`UnitsInStock`, `s`.`UnitPrice0`, `s`.`ProductID0`
+FROM (
+    SELECT TOP 1 `o`.`OrderID`, `o`.`OrderDate`
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` LIKE 'F%'
+) AS `o2`
+OUTER APPLY (
+    SELECT `o1`.`OrderID`, `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`, `o1`.`UnitPrice` AS `UnitPrice0`, `o1`.`ProductID` AS `ProductID0`
+    FROM (
+        SELECT `o0`.`OrderID`, `o0`.`ProductID`, `o0`.`UnitPrice`
+        FROM `Order Details` AS `o0`
+        WHERE `o2`.`OrderID` = `o0`.`OrderID`
+        ORDER BY `o0`.`OrderID` DESC
+        OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY
+    ) AS `o1`
+    INNER JOIN `Products` AS `p` ON `o1`.`ProductID` = `p`.`ProductID`
+) AS `s`
+ORDER BY `o2`.`OrderID`, `s`.`OrderID` DESC
+""");
         }
 
         public override async Task Take_on_correlated_collection_in_first(bool async)
@@ -2513,28 +2533,28 @@ ORDER BY `o`.`OrderID`
 
             AssertSql(
                 """
-                    SELECT `t`.`CustomerID`, `t0`.`Title`, `t0`.`OrderID`, `t0`.`CustomerID`
-                    FROM (
-                        SELECT TOP 1 `c`.`CustomerID`
-                        FROM `Customers` AS `c`
-                        WHERE `c`.`CustomerID` LIKE 'F' & '%'
-                        ORDER BY `c`.`CustomerID`
-                    ) AS `t`
-                    OUTER APPLY (
-                        SELECT CASE
-                            WHEN (`t1`.`CustomerID` = `c0`.`CustomerID`) OR ((`t1`.`CustomerID` IS NULL) AND (`c0`.`CustomerID` IS NULL)) THEN 'A'
-                            ELSE 'B'
-                        END AS `Title`, `t1`.`OrderID`, `c0`.`CustomerID`, `t1`.`OrderDate`
-                        FROM (
-                            SELECT TOP 1 `o`.`OrderID`, `o`.`CustomerID`, `o`.`OrderDate`
-                            FROM `Orders` AS `o`
-                            WHERE `t`.`CustomerID` = `o`.`CustomerID`
-                            ORDER BY `o`.`OrderDate`
-                        ) AS `t1`
-                        LEFT JOIN `Customers` AS `c0` ON `t1`.`CustomerID` = `c0`.`CustomerID`
-                    ) AS `t0`
-                    ORDER BY `t`.`CustomerID`, `t0`.`OrderDate`, `t0`.`OrderID`
-                    """);
+SELECT `c1`.`CustomerID`, `s`.`Title`, `s`.`OrderID`
+FROM (
+    SELECT TOP 1 `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
+    ORDER BY `c`.`CustomerID`
+) AS `c1`
+OUTER APPLY (
+    SELECT CASE
+        WHEN `o0`.`CustomerID` = `c0`.`CustomerID` OR (`o0`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL) THEN 'A'
+        ELSE 'B'
+    END AS `Title`, `o0`.`OrderID`, `o0`.`OrderDate`
+    FROM (
+        SELECT TOP 1 `o`.`OrderID`, `o`.`CustomerID`, `o`.`OrderDate`
+        FROM `Orders` AS `o`
+        WHERE `c1`.`CustomerID` = `o`.`CustomerID`
+        ORDER BY `o`.`OrderDate`
+    ) AS `o0`
+    LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
+) AS `s`
+ORDER BY `c1`.`CustomerID`, `s`.`OrderDate`
+""");
         }
 
         public override async Task Client_projection_via_ctor_arguments(bool async)
@@ -2791,27 +2811,26 @@ FROM `Customers` AS `c`
             await base.Correlated_collection_after_groupby_with_complex_projection_not_containing_original_identifier(async);
 
             AssertSql(
-    """
-@__filteredOrderIds_0='[10248,10249,10250]' (Size = 4000)
+                """
+@filteredOrderIds1='10248'
+@filteredOrderIds2='10249'
+@filteredOrderIds3='10250'
 
-SELECT [t0].[CustomerID], [t0].[Complex], [t1].[Outer], [t1].[Inner], [t1].[OrderDate]
+SELECT `o2`.`CustomerID`, `o2`.`Complex`, `o3`.`Outer`, `o3`.`Inner`, `o3`.`OrderDate`
 FROM (
-    SELECT [t].[CustomerID], [t].[Complex]
+    SELECT `o0`.`CustomerID`, `o0`.`Complex`
     FROM (
-        SELECT [o].[CustomerID], DATEPART(month, [o].[OrderDate]) AS [Complex]
-        FROM [Orders] AS [o]
-    ) AS [t]
-    GROUP BY [t].[CustomerID], [t].[Complex]
-) AS [t0]
+        SELECT `o`.`CustomerID`, DATEPART('m', `o`.`OrderDate`) AS `Complex`
+        FROM `Orders` AS `o`
+    ) AS `o0`
+    GROUP BY `o0`.`CustomerID`, `o0`.`Complex`
+) AS `o2`
 OUTER APPLY (
-    SELECT [t0].[CustomerID] AS [Outer], [o0].[OrderID] AS [Inner], [o0].[OrderDate]
-    FROM [Orders] AS [o0]
-    WHERE ([o0].[CustomerID] = [t0].[CustomerID] OR ([o0].[CustomerID] IS NULL AND [t0].[CustomerID] IS NULL)) AND [o0].[OrderID] IN (
-        SELECT [f].[value]
-        FROM OPENJSON(@__filteredOrderIds_0) WITH ([value] int '$') AS [f]
-    )
-) AS [t1]
-ORDER BY [t0].[CustomerID], [t0].[Complex]
+    SELECT `o2`.`CustomerID` AS `Outer`, `o1`.`OrderID` AS `Inner`, `o1`.`OrderDate`
+    FROM `Orders` AS `o1`
+    WHERE (`o1`.`CustomerID` = `o2`.`CustomerID` OR (`o1`.`CustomerID` IS NULL AND `o2`.`CustomerID` IS NULL)) AND `o1`.`OrderID` IN (@filteredOrderIds1, @filteredOrderIds2, @filteredOrderIds3)
+) AS `o3`
+ORDER BY `o2`.`CustomerID`, `o2`.`Complex`
 """);
         }
 
@@ -2935,24 +2954,24 @@ FROM `Customers` AS `c`
 
             AssertSql(
                 """
-@__p_0='5'
+@p='5'
 
-SELECT [c0].[CustomerID], [u].[OrderID]
+SELECT `c0`.`CustomerID`, `u`.`OrderID`
 FROM (
-    SELECT TOP(@__p_0) [c].[CustomerID]
-    FROM [Customers] AS [c]
-    ORDER BY [c].[CustomerID]
-) AS [c0]
+    SELECT TOP @p `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+) AS `c0`
 OUTER APPLY (
-    SELECT [o].[OrderID]
-    FROM [Orders] AS [o]
-    WHERE [o].[CustomerID] = [c0].[CustomerID]
+    SELECT `o`.`OrderID`
+    FROM `Orders` AS `o`
+    WHERE `o`.`CustomerID` = `c0`.`CustomerID`
     UNION
-    SELECT [o0].[OrderID]
-    FROM [Orders] AS [o0]
-    WHERE [o0].[CustomerID] = [c0].[CustomerID]
-) AS [u]
-ORDER BY [c0].[CustomerID]
+    SELECT `o0`.`OrderID`
+    FROM `Orders` AS `o0`
+    WHERE `o0`.`CustomerID` = `c0`.`CustomerID`
+) AS `u`
+ORDER BY `c0`.`CustomerID`, `u`.`OrderID`
 """);
         }
 

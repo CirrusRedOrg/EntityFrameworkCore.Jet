@@ -1827,39 +1827,26 @@ FROM (
             await base.Multiple_collection_navigation_with_FirstOrDefault_chained(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `c`.`CustomerID`
-                    FROM `Customers` AS `c`
-                    ORDER BY `c`.`CustomerID`
-                    """,
-                //
-                $"""
-                    {AssertSqlHelper.Declaration("@_outer_CustomerID='ALFKI' (Size = 5)")}
-                    
-                    SELECT TOP 1 `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
-                    FROM `Order Details` AS `od`
-                    WHERE `od`.`OrderID` = COALESCE((
-                        SELECT TOP 1 `o`.`OrderID`
-                        FROM `Orders` AS `o`
-                        WHERE {AssertSqlHelper.Parameter("@_outer_CustomerID")} = `o`.`CustomerID`
-                        ORDER BY `o`.`OrderID`
-                    ), 0)
-                    ORDER BY `od`.`ProductID`
-                    """,
-                //
-                $"""
-                    {AssertSqlHelper.Declaration("@_outer_CustomerID='ANATR' (Size = 5)")}
-                    
-                    SELECT TOP 1 `od`.`OrderID`, `od`.`ProductID`, `od`.`Discount`, `od`.`Quantity`, `od`.`UnitPrice`
-                    FROM `Order Details` AS `od`
-                    WHERE `od`.`OrderID` = COALESCE((
-                        SELECT TOP 1 `o`.`OrderID`
-                        FROM `Orders` AS `o`
-                        WHERE {AssertSqlHelper.Parameter("@_outer_CustomerID")} = `o`.`CustomerID`
-                        ORDER BY `o`.`OrderID`
-                    ), 0)
-                    ORDER BY `od`.`ProductID`
-                    """);
+                """
+SELECT `o2`.`OrderID`, `o2`.`ProductID`, `o2`.`Discount`, `o2`.`Quantity`, `o2`.`UnitPrice`
+FROM `Customers` AS `c`
+OUTER APPLY (
+    SELECT TOP 1 `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
+    FROM `Order Details` AS `o`
+    WHERE (
+        SELECT TOP 1 `o0`.`OrderID`
+        FROM `Orders` AS `o0`
+        WHERE `c`.`CustomerID` = `o0`.`CustomerID`
+        ORDER BY `o0`.`OrderID`) IS NOT NULL AND (
+        SELECT TOP 1 `o1`.`OrderID`
+        FROM `Orders` AS `o1`
+        WHERE `c`.`CustomerID` = `o1`.`CustomerID`
+        ORDER BY `o1`.`OrderID`) = `o`.`OrderID`
+    ORDER BY `o`.`ProductID`
+) AS `o2`
+WHERE `c`.`CustomerID` LIKE 'F%'
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Multiple_collection_navigation_with_FirstOrDefault_chained_projecting_scalar(bool isAsync)

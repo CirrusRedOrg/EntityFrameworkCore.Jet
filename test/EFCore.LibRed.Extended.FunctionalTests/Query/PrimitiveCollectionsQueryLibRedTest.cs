@@ -1637,14 +1637,14 @@ WHERE (
         await base.Inline_collection_index_Column();
 
         AssertSql(
-"""
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+            """
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT [v].[Value]
-    FROM (VALUES (0, CAST(1 AS int)), (1, 2), (2, 3)) AS [v]([_ord], [Value])
-    ORDER BY [v].[_ord]
-    OFFSET [p].[Int] ROWS FETCH NEXT 1 ROWS ONLY) = 1
+    SELECT `v`.`Value`
+    FROM (SELECT 0 AS `_ord`, CLNG(1) AS `Value` UNION ALL VALUES (1, 2), (2, 3)) AS `v`
+    ORDER BY `v`.`_ord`
+    OFFSET `p`.`Int` ROWS FETCH NEXT 1 ROWS ONLY) = 1
 """);
     }
 
@@ -1654,13 +1654,13 @@ WHERE (
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[NullableWrappedId], [p].[NullableWrappedIdWithNullableComparer], [p].[String], [p].[Strings], [p].[WrappedId]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT [i].[Value]
-    FROM (VALUES (0, CAST(1 AS int)), (1, 2), (2, 3)) AS [i]([_ord], [Value])
-    ORDER BY [i].[_ord]
-    OFFSET [p].[Int] ROWS FETCH NEXT 1 ROWS ONLY) = 1
+    SELECT `i`.`Value`
+    FROM (SELECT 0 AS `_ord`, CLNG(1) AS `Value` UNION ALL VALUES (1, 2), (2, 3)) AS `i`
+    ORDER BY `i`.`_ord`
+    OFFSET `p`.`Int` ROWS FETCH NEXT 1 ROWS ONLY) = 1
 """);
     }
 
@@ -1670,13 +1670,13 @@ WHERE (
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT [v].[Value]
-    FROM (VALUES (0, CAST(1 AS int)), (1, [p].[Int]), (2, 3)) AS [v]([_ord], [Value])
-    ORDER BY [v].[_ord]
-    OFFSET [p].[Int] ROWS FETCH NEXT 1 ROWS ONLY) = 1
+    SELECT `v`.`Value`
+    FROM (SELECT 0 AS `_ord`, CLNG(1) AS `Value` UNION ALL VALUES (1, `p`.`Int`), (2, 3)) AS `v`
+    ORDER BY `v`.`_ord`
+    OFFSET `p`.`Int` ROWS FETCH NEXT 1 ROWS ONLY) = 1
 """);
     }
 
@@ -1686,13 +1686,13 @@ WHERE (
 
         AssertSql(
             """
-SELECT [p].[Id], [p].[Bool], [p].[Bools], [p].[DateTime], [p].[DateTimes], [p].[Enum], [p].[Enums], [p].[Int], [p].[Ints], [p].[NullableInt], [p].[NullableInts], [p].[NullableString], [p].[NullableStrings], [p].[String], [p].[Strings]
-FROM [PrimitiveCollectionsEntity] AS [p]
+SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
+FROM `PrimitiveCollectionsEntity` AS `p`
 WHERE (
-    SELECT [v].[Value]
-    FROM (VALUES (0, CAST(1 AS int)), (1, [p].[Int]), (2, 3)) AS [v]([_ord], [Value])
-    ORDER BY [v].[_ord]
-    OFFSET [p].[Int] ROWS FETCH NEXT 1 ROWS ONLY) = 1
+    SELECT `v`.`Value`
+    FROM (SELECT 0 AS `_ord`, CLNG(1) AS `Value` UNION ALL VALUES (1, `p`.`Int`), (2, 3)) AS `v`
+    ORDER BY `v`.`_ord`
+    OFFSET `p`.`Int` ROWS FETCH NEXT 1 ROWS ONLY) = 1
 """);
     }
 

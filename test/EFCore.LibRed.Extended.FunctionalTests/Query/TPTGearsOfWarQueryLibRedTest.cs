@@ -10273,16 +10273,15 @@ WHERE NOT EXISTS (
         await base.Where_subquery_with_ElementAt_using_column_as_index(async);
 
         AssertSql(
-"""
-SELECT [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name]
-FROM [Squads] AS [s]
+            """
+SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
+FROM `Squads` AS `s`
 WHERE (
-    SELECT [g].[Nickname]
-    FROM [Gears] AS [g]
-    LEFT JOIN [Officers] AS [o] ON [g].[Nickname] = [o].[Nickname] AND [g].[SquadId] = [o].[SquadId]
-    WHERE [s].[Id] = [g].[SquadId]
-    ORDER BY [g].[Nickname]
-    OFFSET [s].[Id] ROWS FETCH NEXT 1 ROWS ONLY) = N'Cole Train'
+    SELECT `g`.`Nickname`
+    FROM `Gears` AS `g`
+    WHERE `s`.`Id` = `g`.`SquadId`
+    ORDER BY `g`.`Nickname`
+    OFFSET `s`.`Id` ROWS FETCH NEXT 1 ROWS ONLY) = 'Cole Train'
 """);
     }
 
@@ -10308,14 +10307,11 @@ FROM `Gears` AS `g`
 INNER JOIN `Squads` AS `s` ON `g`.`SquadId` = `s`.`Id`
 INNER JOIN `Cities` AS `c` ON `g`.`CityOfBirthName` = `c`.`Name`
 WHERE 'Marcus' IN (
-    SELECT `u`.`Nickname`
-    FROM (
-        SELECT `g0`.`Nickname`
-        FROM `Gears` AS `g0`
-        UNION ALL
-        SELECT `g1`.`Nickname`
-        FROM `Gears` AS `g1`
-    ) AS `u`
+    SELECT `g0`.`Nickname`
+    FROM `Gears` AS `g0`
+    UNION ALL
+    SELECT `g1`.`Nickname`
+    FROM `Gears` AS `g1`
 )
 GROUP BY `s`.`Name`
 """);

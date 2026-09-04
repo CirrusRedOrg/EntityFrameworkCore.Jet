@@ -3050,14 +3050,11 @@ LEFT JOIN (
     FROM `Officers` AS `o`
 ) AS `u` ON `t`.`GearNickName` = `u`.`Nickname` AND `t`.`GearSquadId` = `u`.`SquadId`
 WHERE (`t`.`Note` <> 'K.I.A.' OR `t`.`Note` IS NULL) AND `u`.`SquadId` IN (
-    SELECT `u0`.`SquadId`
-    FROM (
-        SELECT `g0`.`SquadId`
-        FROM `Gears` AS `g0`
-        UNION ALL
-        SELECT `o0`.`SquadId`
-        FROM `Officers` AS `o0`
-    ) AS `u0`
+    SELECT `g0`.`SquadId`
+    FROM `Gears` AS `g0`
+    UNION ALL
+    SELECT `o0`.`SquadId`
+    FROM `Officers` AS `o0`
 )
 """);
     }
@@ -9692,21 +9689,18 @@ WHERE CLNG(`u`.`ThreatLevel`) <= (5 + CLNG(`u`.`ThreatLevel`))
             """
 SELECT `u`.`Name`, `u`.`LocustHordeId`, `u`.`ThreatLevel`, `u`.`ThreatLevelByte`, `u`.`ThreatLevelNullableByte`, `u`.`DefeatedByNickname`, `u`.`DefeatedBySquadId`, `u`.`HighCommandId`, `u`.`Discriminator`
 FROM (
-    SELECT `l`.`Name`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, NULL AS `DefeatedByNickname`, CVar(NULL) AS `DefeatedBySquadId`, CVar(NULL) AS `HighCommandId`, 'LocustLeader' AS `Discriminator`
+    SELECT `l`.`Name`, `l`.`LocustHordeId`, `l`.`ThreatLevel`, `l`.`ThreatLevelByte`, `l`.`ThreatLevelNullableByte`, NULL AS `DefeatedByNickname`, NULL AS `DefeatedBySquadId`, NULL AS `HighCommandId`, 'LocustLeader' AS `Discriminator`
     FROM `LocustLeaders` AS `l`
     UNION ALL
     SELECT `l0`.`Name`, `l0`.`LocustHordeId`, `l0`.`ThreatLevel`, `l0`.`ThreatLevelByte`, `l0`.`ThreatLevelNullableByte`, `l0`.`DefeatedByNickname`, `l0`.`DefeatedBySquadId`, `l0`.`HighCommandId`, 'LocustCommander' AS `Discriminator`
     FROM `LocustCommanders` AS `l0`
 ) AS `u`
 WHERE `u`.`ThreatLevelByte` IN (
-    SELECT `u0`.`ThreatLevelByte`
-    FROM (
-        SELECT `l1`.`ThreatLevelByte`
-        FROM `LocustLeaders` AS `l1`
-        UNION ALL
-        SELECT `l2`.`ThreatLevelByte`
-        FROM `LocustCommanders` AS `l2`
-    ) AS `u0`
+    SELECT `l1`.`ThreatLevelByte`
+    FROM `LocustLeaders` AS `l1`
+    UNION ALL
+    SELECT `l2`.`ThreatLevelByte`
+    FROM `LocustCommanders` AS `l2`
 )
 """);
     }
@@ -9817,14 +9811,11 @@ CROSS APPLY (
         FROM `Officers` AS `o`
     ) AS `u0`
     WHERE `u`.`ThreatLevelByte` IN (
-        SELECT `u1`.`ThreatLevelByte`
-        FROM (
-            SELECT `l1`.`ThreatLevelByte`
-            FROM `LocustLeaders` AS `l1`
-            UNION ALL
-            SELECT `l2`.`ThreatLevelByte`
-            FROM `LocustCommanders` AS `l2`
-        ) AS `u1`
+        SELECT `l1`.`ThreatLevelByte`
+        FROM `LocustLeaders` AS `l1`
+        UNION ALL
+        SELECT `l2`.`ThreatLevelByte`
+        FROM `LocustCommanders` AS `l2`
     )
 ) AS `u2`
 """);
@@ -9855,14 +9846,11 @@ CROSS APPLY (
         FROM `Officers` AS `o`
     ) AS `u0`
     WHERE `u`.`ThreatLevelByte` NOT IN (
-        SELECT `u1`.`ThreatLevelByte`
-        FROM (
-            SELECT `l1`.`ThreatLevelByte`
-            FROM `LocustLeaders` AS `l1`
-            UNION ALL
-            SELECT `l2`.`ThreatLevelByte`
-            FROM `LocustCommanders` AS `l2`
-        ) AS `u1`
+        SELECT `l1`.`ThreatLevelByte`
+        FROM `LocustLeaders` AS `l1`
+        UNION ALL
+        SELECT `l2`.`ThreatLevelByte`
+        FROM `LocustCommanders` AS `l2`
     )
 ) AS `u2`
 """);
@@ -12148,20 +12136,20 @@ WHERE NOT EXISTS (
 
         AssertSql(
             """
-SELECT [s].[Id], [s].[Banner], [s].[Banner5], [s].[InternalNumber], [s].[Name]
-FROM [Squads] AS [s]
+SELECT `s`.`Id`, `s`.`Banner`, `s`.`Banner5`, `s`.`InternalNumber`, `s`.`Name`
+FROM `Squads` AS `s`
 WHERE (
-    SELECT [t].[Nickname]
+    SELECT `u`.`Nickname`
     FROM (
-        SELECT [g].[Nickname], [g].[SquadId], [g].[AssignedCityName], [g].[CityOfBirthName], [g].[FullName], [g].[HasSoulPatch], [g].[LeaderNickname], [g].[LeaderSquadId], [g].[Rank], N'Gear' AS [Discriminator]
-        FROM [Gears] AS [g]
+        SELECT `g`.`Nickname`, `g`.`SquadId`
+        FROM `Gears` AS `g`
         UNION ALL
-        SELECT [o].[Nickname], [o].[SquadId], [o].[AssignedCityName], [o].[CityOfBirthName], [o].[FullName], [o].[HasSoulPatch], [o].[LeaderNickname], [o].[LeaderSquadId], [o].[Rank], N'Officer' AS [Discriminator]
-        FROM [Officers] AS [o]
-    ) AS [t]
-    WHERE [s].[Id] = [t].[SquadId]
-    ORDER BY [t].[Nickname]
-    OFFSET [s].[Id] ROWS FETCH NEXT 1 ROWS ONLY) = N'Cole Train'
+        SELECT `o`.`Nickname`, `o`.`SquadId`
+        FROM `Officers` AS `o`
+    ) AS `u`
+    WHERE `s`.`Id` = `u`.`SquadId`
+    ORDER BY `u`.`Nickname`
+    OFFSET `s`.`Id` ROWS FETCH NEXT 1 ROWS ONLY) = 'Cole Train'
 """);
     }
 
@@ -12193,26 +12181,17 @@ FROM (
 INNER JOIN `Squads` AS `s` ON `u`.`SquadId` = `s`.`Id`
 INNER JOIN `Cities` AS `c` ON `u`.`CityOfBirthName` = `c`.`Name`
 WHERE 'Marcus' IN (
-    SELECT `u2`.`Nickname`
-    FROM (
-        SELECT `u0`.`Nickname`
-        FROM (
-            SELECT `g0`.`Nickname`
-            FROM `Gears` AS `g0`
-            UNION ALL
-            SELECT `o0`.`Nickname`
-            FROM `Officers` AS `o0`
-        ) AS `u0`
-        UNION ALL
-        SELECT `u1`.`Nickname`
-        FROM (
-            SELECT `g1`.`Nickname`
-            FROM `Gears` AS `g1`
-            UNION ALL
-            SELECT `o1`.`Nickname`
-            FROM `Officers` AS `o1`
-        ) AS `u1`
-    ) AS `u2`
+    SELECT `g0`.`Nickname`
+    FROM `Gears` AS `g0`
+    UNION ALL
+    SELECT `o0`.`Nickname`
+    FROM `Officers` AS `o0`
+    UNION ALL
+    SELECT `g1`.`Nickname`
+    FROM `Gears` AS `g1`
+    UNION ALL
+    SELECT `o1`.`Nickname`
+    FROM `Officers` AS `o1`
 )
 GROUP BY `s`.`Name`
 """);

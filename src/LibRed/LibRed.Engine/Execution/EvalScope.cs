@@ -91,13 +91,13 @@ internal sealed class EvalScope(
 /// <summary>Executes a subquery, correlating it to <paramref name="outerScope"/>.</summary>
 internal interface IScalarSubqueryRunner
 {
-    object? ExecuteScalar(SelectStatement query, EvalScope outerScope);
+    object? ExecuteScalar(SqlStatement query, EvalScope outerScope);
 
     /// <summary>True when the (possibly correlated) subquery returns at least one row.</summary>
-    bool ExecuteExists(SelectStatement query, EvalScope outerScope);
+    bool ExecuteExists(SqlStatement query, EvalScope outerScope);
 
     /// <summary>The values of the first column of the (possibly correlated) subquery — for <c>IN (subquery)</c>.</summary>
-    IEnumerable<object?> ExecuteColumn(SelectStatement query, EvalScope outerScope);
+    IEnumerable<object?> ExecuteColumn(SqlStatement query, EvalScope outerScope);
 
     /// <summary>
     ///     Membership of <paramref name="value" /> in a correlated subquery's column, answered from a hash rather
@@ -105,5 +105,5 @@ internal interface IScalarSubqueryRunner
     ///     <c>IN</c> reports as UNKNOWN, not as no-match). Null when the subquery has no such form and the caller
     ///     should fall back to <see cref="ExecuteColumn" />.
     /// </summary>
-    (bool Found, bool HasNull)? ExecuteInSubquery(SelectStatement query, Expression value, object? evaluated, EvalScope outerScope);
+    (bool Found, bool HasNull)? ExecuteInSubquery(SqlStatement query, Expression value, object? evaluated, EvalScope outerScope);
 }

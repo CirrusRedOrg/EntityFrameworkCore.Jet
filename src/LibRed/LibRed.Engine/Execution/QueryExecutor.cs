@@ -21,7 +21,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     // Optimised plans for subqueries, keyed by their AST node (reference identity). A correlated subquery is
     // executed once per outer row, so planning + index selection must be done ONCE, not on every evaluation.
-    private readonly Dictionary<SelectStatement, PlanNode> _subqueryPlans = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, PlanNode> _subqueryPlans = new(ReferenceEqualityComparer.Instance);
 
     // Flattened projection schema (output columns + per-item source), keyed by the ProjectNode. Depends only on
     // the node and its input column structure — both invariant across outer rows — so, like the subquery plans,
@@ -31,32 +31,32 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     // Decorrelated EXISTS subqueries, keyed by AST node. A present-but-null value records "analysed, not
     // decorrelatable", so an unsound-to-rewrite subquery isn't re-analysed on every outer row.
-    private readonly Dictionary<SelectStatement, ExistsSemiJoin?> _semiJoins = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, ExistsSemiJoin?> _semiJoins = new(ReferenceEqualityComparer.Instance);
 
     // The same for `x IN (subquery)`, kept separate because the plan there carries the IN value as an extra key
     // column — the same SelectStatement node reached as an EXISTS body would need a different one.
-    private readonly Dictionary<SelectStatement, ExistsSemiJoin?> _inSemiJoins = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, ExistsSemiJoin?> _inSemiJoins = new(ReferenceEqualityComparer.Instance);
 
     // And for a correlated scalar aggregate, which maps each key to one value rather than testing membership.
-    private readonly Dictionary<SelectStatement, ScalarAggregateSemiJoin?> _scalarSemiJoins = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, ScalarAggregateSemiJoin?> _scalarSemiJoins = new(ReferenceEqualityComparer.Instance);
 
     // Results of subqueries that turned out not to depend on the outer row: same answer every time, so they are
     // evaluated once per statement. Keyed by AST node; the boxed value may legitimately be null (SQL NULL), hence
     // separate dictionaries rather than a null-means-absent convention.
-    private readonly Dictionary<SelectStatement, object?> _hoistedScalar = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<SelectStatement, List<object?>> _hoistedColumn = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<SelectStatement, bool> _hoistedExists = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, object?> _hoistedScalar = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, List<object?>> _hoistedColumn = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, bool> _hoistedExists = new(ReferenceEqualityComparer.Instance);
 
     // Subqueries proven to depend on the outer row. Recorded so a correlated subquery pays ONE failed hoist
     // attempt per statement rather than one per row.
-    private readonly HashSet<SelectStatement> _correlated = new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<SqlStatement> _correlated = new(ReferenceEqualityComparer.Instance);
 
     // Per-row time spent on each decorrelatable subquery, which is what decides when to switch over. See
     // DecorrelationGate: the rewrite is sound from the first probe but not always cheaper, and the outer row count
     // that would settle it isn't known until the outer scan has finished.
-    private readonly Dictionary<SelectStatement, DecorrelationGate> _gates = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, DecorrelationGate> _gates = new(ReferenceEqualityComparer.Instance);
 
-    private DecorrelationGate Gate(SelectStatement query)
+    private DecorrelationGate Gate(SqlStatement query)
         => _gates.TryGetValue(query, out DecorrelationGate? gate) ? gate : _gates[query] = new DecorrelationGate();
 
     public QueryExecutor(JetDatabase database, IReadOnlyDictionary<string, object?>? parameters = null, SessionState? session = null)
@@ -93,7 +93,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             .Select(item => DeclaredType(item.Value, []) ?? typeof(object)).ToList());
     }
 
-    object? IScalarSubqueryRunner.ExecuteScalar(SelectStatement query, EvalScope outerScope)
+    object? IScalarSubqueryRunner.ExecuteScalar(SqlStatement query, EvalScope outerScope)
     {
         if (_hoistedScalar.TryGetValue(query, out object? hoisted))
             return hoisted;
@@ -104,9 +104,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         // A correlated aggregate is one grouped pass over the body rather than one aggregate per outer row.
         if (!_scalarSemiJoins.TryGetValue(query, out ScalarAggregateSemiJoin? semi))
         {
-            _scalarSemiJoins[query] = semi = ScalarAggregateSemiJoin.TryBuild(
-                query, outerScope.AllColumns(), outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase),
-                _database.Catalog);
+            // Only a plain SELECT is analysable: the rewrite reads the body's projection, FROM and WHERE, none of
+            // which a set operation or a table value constructor has. Declining costs speed, never correctness —
+            // the per-row path below runs the body as written.
+            _scalarSemiJoins[query] = semi = query is SelectStatement scalarBody
+                ? ScalarAggregateSemiJoin.TryBuild(
+                    scalarBody, outerScope.AllColumns(),
+                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog)
+                : null;
         }
 
         if (semi is null)
@@ -130,7 +135,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
     }
 
-    bool IScalarSubqueryRunner.ExecuteExists(SelectStatement query, EvalScope outerScope)
+    bool IScalarSubqueryRunner.ExecuteExists(SqlStatement query, EvalScope outerScope)
     {
         // An EXISTS that doesn't depend on the outer row at all has one answer for the whole statement.
         if (_hoistedExists.TryGetValue(query, out bool hoisted))
@@ -143,9 +148,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         // executed once for the whole statement instead of once per row. See ExistsSemiJoin for the measurements.
         if (!_semiJoins.TryGetValue(query, out ExistsSemiJoin? semi))
         {
-            _semiJoins[query] = semi = ExistsSemiJoin.TryBuild(
-                query, outerScope.AllColumns(), outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase),
-                _database.Catalog);
+            // As in ExecuteScalar: only a plain SELECT can be decorrelated, and declining is the safe direction.
+            _semiJoins[query] = semi = query is SelectStatement existsBody
+                ? ExistsSemiJoin.TryBuild(
+                    existsBody, outerScope.AllColumns(),
+                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog)
+                : null;
         }
 
         if (semi is null)
@@ -183,7 +191,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     ///     recorded as correlated and re-run per row, which raises the same error the caller would have seen
     ///     anyway. A subquery is a SELECT, so the abandoned attempt has no side effects.
     /// </remarks>
-    private bool TryHoist<T>(SelectStatement query, EvalScope outerScope, Func<EvalScope?, T> run, out T result)
+    private bool TryHoist<T>(SqlStatement query, EvalScope outerScope, Func<EvalScope?, T> run, out T result)
     {
         result = default!;
         if (_correlated.Contains(query)
@@ -315,15 +323,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     }
 
     (bool Found, bool HasNull)? IScalarSubqueryRunner.ExecuteInSubquery(
-        SelectStatement query, Expression value, object? evaluated, EvalScope outerScope)
+        SqlStatement query, Expression value, object? evaluated, EvalScope outerScope)
     {
         // An uncorrelated IN needs nothing from here: ExecuteColumn hoists it, so the body already runs once and
         // the caller's loop walks a cached list. TryBuildForIn declines it too (there are no correlation keys).
         if (!_inSemiJoins.TryGetValue(query, out ExistsSemiJoin? semi))
         {
-            _inSemiJoins[query] = semi = ExistsSemiJoin.TryBuildForIn(
-                query, value, outerScope.AllColumns(),
-                outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog);
+            _inSemiJoins[query] = semi = query is SelectStatement inBody
+                ? ExistsSemiJoin.TryBuildForIn(
+                    inBody, value, outerScope.AllColumns(),
+                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog)
+                : null;
         }
 
         // Not ready yet: decline, and the caller's loop runs the body through ExecuteColumn, which charges the gate.
@@ -332,7 +342,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             : null;
     }
 
-    IEnumerable<object?> IScalarSubqueryRunner.ExecuteColumn(SelectStatement query, EvalScope outerScope)
+    IEnumerable<object?> IScalarSubqueryRunner.ExecuteColumn(SqlStatement query, EvalScope outerScope)
     {
         if (_hoistedColumn.TryGetValue(query, out List<object?>? hoisted))
             return hoisted;
@@ -360,13 +370,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// predicate (<c>inner.col = outer.col</c>) becomes an index seek keyed off the outer row — a correlated
     /// subquery runs per outer row, so an unoptimised plan re-run thousands of times is what made correlated
     /// EXISTS/scalar pathological.</summary>
-    private PlanNode SubqueryPlan(SelectStatement query, EvalScope outerScope)
+    private PlanNode SubqueryPlan(SqlStatement query, EvalScope outerScope)
     {
         if (!_subqueryPlans.TryGetValue(query, out PlanNode? plan))
         {
             var outerAliases = outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase);
             _subqueryPlans[query] = plan =
-                Planning.IndexSelection.Apply(QueryPlanner.PlanSelect(query), _database.Catalog, outerAliases);
+                Planning.IndexSelection.Apply(QueryPlanner.PlanStatement(query), _database.Catalog, outerAliases);
         }
         return plan;
     }
@@ -1660,12 +1670,21 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     /// <summary>All aggregate calls anywhere in a subquery's clauses (projection, WHERE, HAVING, GROUP BY,
     /// ORDER BY) — used to surface outer aggregates that a correlated subquery references.</summary>
-    private static IEnumerable<FunctionCall> AggregatesInSelect(SelectStatement s) =>
-        s.Projection.SelectMany(i => Aggregates(i.Value))
+    /// <summary>The aggregate calls anywhere in a subquery. A set operation is walked into on both sides rather
+    /// than skipped: an aggregate over an OUTER column can sit in either arm, and missing one leaves it
+    /// uncomputed for the group — the evaluator would then fail to resolve it, so declining is not safe here the
+    /// way it is for the decorrelation rewrites.</summary>
+    private static IEnumerable<FunctionCall> AggregatesInSelect(SqlStatement statement) => statement switch
+    {
+        SelectStatement s => s.Projection.SelectMany(i => Aggregates(i.Value))
             .Concat(s.Where is { } w ? Aggregates(w) : [])
             .Concat(s.Having is { } h ? Aggregates(h) : [])
             .Concat(s.GroupBy.SelectMany(Aggregates))
-            .Concat(s.OrderBy.SelectMany(o => Aggregates(o.Value)));
+            .Concat(s.OrderBy.SelectMany(o => Aggregates(o.Value))),
+        SetOperationStatement so => AggregatesInSelect(so.Left).Concat(AggregatesInSelect(so.Right)),
+        ValuesStatement v => v.Rows.SelectMany(r => r.SelectMany(Aggregates)),
+        _ => [],
+    };
 
     /// <summary>Groups by structural equality of the key value tuple.</summary>
     // DISTINCT / GROUP BY / INTERSECT / EXCEPT key. String keys use Access text semantics — case-insensitive

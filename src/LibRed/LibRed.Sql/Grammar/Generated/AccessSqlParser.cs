@@ -6248,15 +6248,15 @@ public partial class AccessSqlParser : Parser {
 	public partial class InSubqueryExprContext : ExpressionContext {
 		public ExpressionContext val;
 		public IToken not;
-		public SelectStatementContext sub;
+		public QueryExpressionContext sub;
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode IN() { return GetToken(AccessSqlParser.IN, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode LPAREN() { return GetToken(AccessSqlParser.LPAREN, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode RPAREN() { return GetToken(AccessSqlParser.RPAREN, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public ExpressionContext expression() {
 			return GetRuleContext<ExpressionContext>(0);
 		}
-		[System.Diagnostics.DebuggerNonUserCode] public SelectStatementContext selectStatement() {
-			return GetRuleContext<SelectStatementContext>(0);
+		[System.Diagnostics.DebuggerNonUserCode] public QueryExpressionContext queryExpression() {
+			return GetRuleContext<QueryExpressionContext>(0);
 		}
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode NOT() { return GetToken(AccessSqlParser.NOT, 0); }
 		public InSubqueryExprContext(ExpressionContext context) { CopyFrom(context); }
@@ -6679,7 +6679,7 @@ public partial class AccessSqlParser : Parser {
 						State = 978;
 						Match(LPAREN);
 						State = 979;
-						((InSubqueryExprContext)_localctx).sub = selectStatement();
+						((InSubqueryExprContext)_localctx).sub = queryExpression();
 						State = 980;
 						Match(RPAREN);
 						}
@@ -6809,8 +6809,8 @@ public partial class AccessSqlParser : Parser {
 	public partial class ExistsPrimaryContext : PrimaryContext {
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode EXISTS() { return GetToken(AccessSqlParser.EXISTS, 0); }
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode LPAREN() { return GetToken(AccessSqlParser.LPAREN, 0); }
-		[System.Diagnostics.DebuggerNonUserCode] public SelectStatementContext selectStatement() {
-			return GetRuleContext<SelectStatementContext>(0);
+		[System.Diagnostics.DebuggerNonUserCode] public QueryExpressionContext queryExpression() {
+			return GetRuleContext<QueryExpressionContext>(0);
 		}
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode RPAREN() { return GetToken(AccessSqlParser.RPAREN, 0); }
 		public ExistsPrimaryContext(PrimaryContext context) { CopyFrom(context); }
@@ -6823,8 +6823,8 @@ public partial class AccessSqlParser : Parser {
 	}
 	public partial class ScalarSubqueryPrimaryContext : PrimaryContext {
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode LPAREN() { return GetToken(AccessSqlParser.LPAREN, 0); }
-		[System.Diagnostics.DebuggerNonUserCode] public SelectStatementContext selectStatement() {
-			return GetRuleContext<SelectStatementContext>(0);
+		[System.Diagnostics.DebuggerNonUserCode] public QueryExpressionContext queryExpression() {
+			return GetRuleContext<QueryExpressionContext>(0);
 		}
 		[System.Diagnostics.DebuggerNonUserCode] public ITerminalNode RPAREN() { return GetToken(AccessSqlParser.RPAREN, 0); }
 		public ScalarSubqueryPrimaryContext(PrimaryContext context) { CopyFrom(context); }
@@ -6961,7 +6961,7 @@ public partial class AccessSqlParser : Parser {
 				State = 1016;
 				Match(LPAREN);
 				State = 1017;
-				selectStatement();
+				queryExpression();
 				State = 1018;
 				Match(RPAREN);
 				}
@@ -6973,7 +6973,7 @@ public partial class AccessSqlParser : Parser {
 				State = 1020;
 				Match(LPAREN);
 				State = 1021;
-				selectStatement();
+				queryExpression();
 				State = 1022;
 				Match(RPAREN);
 				}
@@ -8353,7 +8353,7 @@ public partial class AccessSqlParser : Parser {
 		0,966,1005,3,110,55,5,967,968,10,3,0,0,968,969,5,6,0,0,969,1005,3,110,
 		55,4,970,971,10,2,0,0,971,972,5,7,0,0,972,1005,3,110,55,3,973,975,10,7,
 		0,0,974,976,5,8,0,0,975,974,1,0,0,0,975,976,1,0,0,0,976,977,1,0,0,0,977,
-		978,5,21,0,0,978,979,5,115,0,0,979,980,3,74,37,0,980,981,5,116,0,0,981,
+		978,5,21,0,0,978,979,5,115,0,0,979,980,3,68,34,0,980,981,5,116,0,0,981,
 		1005,1,0,0,0,982,984,10,6,0,0,983,985,5,8,0,0,984,983,1,0,0,0,984,985,
 		1,0,0,0,985,986,1,0,0,0,986,987,5,21,0,0,987,988,5,115,0,0,988,993,3,110,
 		55,0,989,990,5,117,0,0,990,992,3,110,55,0,991,989,1,0,0,0,992,995,1,0,
@@ -8366,8 +8366,8 @@ public partial class AccessSqlParser : Parser {
 		0,0,0,1005,1008,1,0,0,0,1006,1004,1,0,0,0,1006,1007,1,0,0,0,1007,111,1,
 		0,0,0,1008,1006,1,0,0,0,1009,1029,3,126,63,0,1010,1029,3,114,57,0,1011,
 		1029,3,118,59,0,1012,1029,3,122,61,0,1013,1029,5,121,0,0,1014,1029,5,120,
-		0,0,1015,1016,5,28,0,0,1016,1017,5,115,0,0,1017,1018,3,74,37,0,1018,1019,
-		5,116,0,0,1019,1029,1,0,0,0,1020,1021,5,115,0,0,1021,1022,3,74,37,0,1022,
+		0,0,1015,1016,5,28,0,0,1016,1017,5,115,0,0,1017,1018,3,68,34,0,1018,1019,
+		5,116,0,0,1019,1029,1,0,0,0,1020,1021,5,115,0,0,1021,1022,3,68,34,0,1022,
 		1023,5,116,0,0,1023,1029,1,0,0,0,1024,1025,5,115,0,0,1025,1026,3,110,55,
 		0,1026,1027,5,116,0,0,1027,1029,1,0,0,0,1028,1009,1,0,0,0,1028,1010,1,
 		0,0,0,1028,1011,1,0,0,0,1028,1012,1,0,0,0,1028,1013,1,0,0,0,1028,1014,

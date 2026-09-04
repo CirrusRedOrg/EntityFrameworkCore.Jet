@@ -69,14 +69,23 @@ public sealed record WindowFunction(
     WindowSpec Over) : Expression;
 
 /// <summary>A subquery used as a scalar value: <c>(SELECT … )</c>. May correlate to the outer query.</summary>
-public sealed record ScalarSubquery(SelectStatement Query) : Expression;
+/// <remarks>
+/// The query is any <see cref="SqlStatement"/> query — a <see cref="SelectStatement"/>, a
+/// <see cref="SetOperationStatement"/> (a UNION and friends) or a <see cref="ValuesStatement"/> — because the
+/// standard reaches a subquery through the same <c>&lt;query expression&gt;</c> nonterminal as a derived table,
+/// where <see cref="SubqueryTable"/> has always been typed this way. Consumers that inspect a subquery's shape
+/// (the decorrelation rewrites) must therefore decline anything that is not a plain SELECT rather than assume.
+/// </remarks>
+public sealed record ScalarSubquery(SqlStatement Query) : Expression;
 
-/// <summary><c>EXISTS (SELECT … )</c>: true when the (possibly correlated) subquery returns any row.</summary>
-public sealed record ExistsExpression(SelectStatement Query) : Expression;
+/// <summary><c>EXISTS (SELECT … )</c>: true when the (possibly correlated) subquery returns any row.
+/// The query is any query statement — see <see cref="ScalarSubquery"/>.</summary>
+public sealed record ExistsExpression(SqlStatement Query) : Expression;
 
 /// <summary><c>x [NOT] IN (SELECT … )</c>: membership of <paramref name="Value"/> in the first column of a
-/// (possibly correlated) subquery, with SQL three-valued semantics.</summary>
-public sealed record InSubqueryExpression(Expression Value, SelectStatement Query, bool Negated) : Expression;
+/// (possibly correlated) subquery, with SQL three-valued semantics. The query is any query statement — see
+/// <see cref="ScalarSubquery"/>.</summary>
+public sealed record InSubqueryExpression(Expression Value, SqlStatement Query, bool Negated) : Expression;
 
 /// <summary><c>x [NOT] IN (a, b, …)</c> over a literal value list, kept as a flat node (rather than lowered to a
 /// deep <c>OR</c>-chain) so a very large list — EF Core inlines a "huge number of values" Contains as thousands

@@ -455,9 +455,10 @@ internal sealed class AstBuilder
                 OrderBy = w.Over.OrderBy.Select(o => o with { Value = LowerExpr(o.Value, names) }).ToList(),
             },
         },
-        ScalarSubquery s => new ScalarSubquery(LowerSelect(s.Query, names)),
-        ExistsExpression x => new ExistsExpression(LowerSelect(x.Query, names)),
-        InSubqueryExpression i => i with { Value = LowerExpr(i.Value, names), Query = LowerSelect(i.Query, names) },
+        // LowerParameters, not LowerSelect: a subquery may be a set operation or a table value constructor.
+        ScalarSubquery s => new ScalarSubquery(LowerParameters(s.Query, names)),
+        ExistsExpression x => new ExistsExpression(LowerParameters(x.Query, names)),
+        InSubqueryExpression i => i with { Value = LowerExpr(i.Value, names), Query = LowerParameters(i.Query, names) },
         _ => e,
     };
 
@@ -848,7 +849,7 @@ internal sealed class AstBuilder
         BetweenExprContext b => BuildBetween(b),
         InExprContext i => BuildIn(i),
         InSubqueryExprContext i => new InSubqueryExpression(
-            BuildExpression(i.val), BuildSelect(i.sub), i.not is not null),
+            BuildExpression(i.val), BuildQueryExpression(i.sub), i.not is not null),
         LikeExprContext l => l.not is null
             ? new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))
             : new UnaryExpression(UnaryOperator.Not, new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))),
@@ -867,8 +868,8 @@ internal sealed class AstBuilder
         ParamPrimaryContext p => new ParameterExpression(p.PARAM().GetText()),
         SystemVariablePrimaryContext s => new SystemVariableExpression(s.SYSVAR().GetText().TrimStart('@')),
         FunctionCallPrimaryContext f => BuildFunctionCall(f.functionCall()),
-        ScalarSubqueryPrimaryContext s => new ScalarSubquery(BuildSelect(s.selectStatement())),
-        ExistsPrimaryContext e => new ExistsExpression(BuildSelect(e.selectStatement())),
+        ScalarSubqueryPrimaryContext s => new ScalarSubquery(BuildQueryExpression(s.queryExpression())),
+        ExistsPrimaryContext e => new ExistsExpression(BuildQueryExpression(e.queryExpression())),
         CasePrimaryContext c => BuildCase(c.caseExpression()),
         ParenPrimaryContext p => BuildExpression(p.expression()),
         _ => throw new SqlParseException($"Unsupported primary: {ctx.GetText()}"),

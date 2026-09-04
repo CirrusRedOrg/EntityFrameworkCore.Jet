@@ -338,7 +338,7 @@ expression
     | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression   # ComparisonExpr
     | val=expression not=NOT? BETWEEN lo=expression AND hi=expression        # BetweenExpr
     | left=expression not=NOT? LIKE right=expression                        # LikeExpr
-    | val=expression not=NOT? IN LPAREN sub=selectStatement RPAREN                            # InSubqueryExpr
+    | val=expression not=NOT? IN LPAREN sub=queryExpression RPAREN                            # InSubqueryExpr
     | val=expression not=NOT? IN LPAREN items+=expression (COMMA items+=expression)* RPAREN  # InExpr
     | operand=expression IS not=NOT? NULL                                   # IsNullExpr
     | left=expression op=(BAND | BOR | BXOR) right=expression               # BitwiseExpr
@@ -354,8 +354,12 @@ primary
     | columnRef                        # ColumnPrimary
     | PARAM                            # ParamPrimary
     | SYSVAR                           # SystemVariablePrimary
-    | EXISTS LPAREN selectStatement RPAREN # ExistsPrimary
-    | LPAREN selectStatement RPAREN    # ScalarSubqueryPrimary
+    // A subquery holds a full queryExpression, not just a SELECT: the standard reaches these three positions
+    // through the same <query expression> nonterminal a derived table uses, so a set operation is legal in all
+    // of them — `x IN (SELECT … UNION ALL SELECT …)`. EF Core emits exactly that once the generator elides the
+    // wrapping select it would otherwise put around the union.
+    | EXISTS LPAREN queryExpression RPAREN # ExistsPrimary
+    | LPAREN queryExpression RPAREN    # ScalarSubqueryPrimary
     | LPAREN expression RPAREN         # ParenPrimary
     ;
 

@@ -55,7 +55,7 @@ public sealed record ExecuteStatement(string Procedure, IReadOnlyList<Expression
 /// idempotent migrations (e.g. create the history table only if it isn't already in INFORMATION_SCHEMA.TABLES).
 /// <paramref name="Then"/> runs when the (possibly correlated) condition subquery returns a row — or, when
 /// <paramref name="Negated"/>, when it returns none.</summary>
-public sealed record IfThenStatement(bool Negated, SelectStatement Condition, SqlStatement Then) : SqlStatement;
+public sealed record IfThenStatement(bool Negated, SqlStatement Condition, SqlStatement Then) : SqlStatement;
 
 /// <summary>A FROM-less <c>SELECT @@IDENTITY</c> / <c>SELECT @@ROWCOUNT</c> (a comma list of system
 /// variables only). ACE allows these without a FROM clause; they yield a single row. The projection
@@ -68,10 +68,20 @@ public enum SetOperator { Union, UnionAll, Intersect, Except }
 /// A set operation combining two queries. UNION dedupes, UNION ALL keeps duplicates,
 /// INTERSECT keeps rows in both, EXCEPT keeps rows in the left not in the right.
 /// </summary>
+/// <remarks>
+/// <paramref name="OrderBy"/>, <paramref name="Top"/> and <paramref name="Offset"/> order and page the
+/// <b>result of the whole operation</b>, which is where the grammar puts them and where the standard defines
+/// them — an operand cannot carry them unless it is parenthesised, in which case it is a nested query
+/// expression with its own. Only the outermost node of a chain ever carries them: <c>A UNION B UNION C ORDER BY
+/// x</c> is one query expression, so the ordering belongs to the tree, not to any pair within it.
+/// </remarks>
 public sealed record SetOperationStatement(
     SqlStatement Left,
     SetOperator Operator,
-    SqlStatement Right) : SqlStatement;
+    SqlStatement Right,
+    IReadOnlyList<OrderByItem>? OrderBy = null,
+    Expression? Top = null,
+    Expression? Offset = null) : SqlStatement;
 
 /// <summary>
 /// A table value constructor used as a query rather than as an INSERT's VALUES clause —

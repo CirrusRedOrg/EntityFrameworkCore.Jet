@@ -480,11 +480,11 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitSetOperator([NotNull] AccessSqlParser.SetOperatorContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AccessSqlParser.selectStatement"/>.
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.querySpecification"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitSelectStatement([NotNull] AccessSqlParser.SelectStatementContext context);
+	Result VisitQuerySpecification([NotNull] AccessSqlParser.QuerySpecificationContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.selectPredicate"/>.
 	/// </summary>

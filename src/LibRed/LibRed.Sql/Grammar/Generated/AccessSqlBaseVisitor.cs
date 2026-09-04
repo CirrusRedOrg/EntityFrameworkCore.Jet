@@ -755,7 +755,7 @@ public partial class AccessSqlBaseVisitor<Result> : AbstractParseTreeVisitor<Res
 	/// <return>The visitor result.</return>
 	public virtual Result VisitSetOperator([NotNull] AccessSqlParser.SetOperatorContext context) { return VisitChildren(context); }
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AccessSqlParser.selectStatement"/>.
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.querySpecification"/>.
 	/// <para>
 	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
 	/// on <paramref name="context"/>.
@@ -763,7 +763,7 @@ public partial class AccessSqlBaseVisitor<Result> : AbstractParseTreeVisitor<Res
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	public virtual Result VisitSelectStatement([NotNull] AccessSqlParser.SelectStatementContext context) { return VisitChildren(context); }
+	public virtual Result VisitQuerySpecification([NotNull] AccessSqlParser.QuerySpecificationContext context) { return VisitChildren(context); }
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.selectPredicate"/>.
 	/// <para>

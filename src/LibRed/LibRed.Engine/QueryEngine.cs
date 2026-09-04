@@ -211,7 +211,7 @@ public sealed class QueryEngine
     /// (or, for NOT EXISTS, when it doesn't). @@ROWCOUNT reflects the THEN, or 0 when the guard skips it.</summary>
     private CommandResult ExecuteIfThen(IfThenStatement ifThen, IReadOnlyDictionary<string, object?>? parameters)
     {
-        var condPlan = IndexSelection.Apply(QueryPlanner.PlanSelect(ifThen.Condition), _database.Catalog);
+        var condPlan = IndexSelection.Apply(QueryPlanner.PlanStatement(ifThen.Condition), _database.Catalog);
         bool hasRows = new QueryExecutor(_database, parameters, _session).ExecuteQuery(condPlan).Rows.Any();
         if (hasRows == ifThen.Negated)
             return new CommandResult(ResultSet.Empty, 0); // guard not satisfied — skip the body

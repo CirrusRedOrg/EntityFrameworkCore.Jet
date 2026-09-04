@@ -54,7 +54,7 @@ internal sealed class AstBuilder
     };
 
     private SqlStatement BuildIfThen(IfThenStatementContext ctx) =>
-        new IfThenStatement(ctx.not is not null, BuildSelect(ctx.selectStatement()), BuildThenBody(ctx.thenBody()));
+        new IfThenStatement(ctx.not is not null, BuildQueryExpression(ctx.queryExpression()), BuildThenBody(ctx.thenBody()));
 
     private SqlStatement BuildThenBody(ThenBodyContext ctx)
     {
@@ -472,12 +472,13 @@ internal sealed class AstBuilder
         if (ctx.queryTerm(0) is not SelectTermContext term)
             throw new NotSupportedException("A parenthesised query is not a valid (simple) view.");
 
-        SelectStatementContext select = term.selectStatement();
+        QuerySpecificationContext select = term.querySpecification();
         if (select.havingClause() is not null)
             throw new NotSupportedException("A view with HAVING is not stored yet.");
         var groupBy = select.groupByClause() is { } g
             ? g.expression().Select(OriginalText).ToList() : (IReadOnlyList<string>)[];
-        var orderBy = select.orderByClause() is { } ob
+        // The view's ORDER BY comes off the query expression, not the SELECT: it orders the view's result.
+        var orderBy = ctx.orderByClause() is { } ob
             ? ob.orderByItem().Select(i => new ViewOrderBy(OriginalText(i.expression()), i.dir?.Type == DESC)).ToList()
             : (IReadOnlyList<ViewOrderBy>)[];
         // A stored view can only carry a literal TOP (Access stores it as text); reject a parameterized one.
@@ -625,8 +626,30 @@ internal sealed class AstBuilder
     {
         QueryTermContext[] terms = ctx.queryTerm();
         SetOperatorContext[] operators = ctx.setOperator();
+
+        // The ordering and paging of the WHOLE expression — the grammar admits them here and nowhere else, so
+        // there is nothing to disentangle: a leading TOP sits on its operand's own querySpecification, a FETCH
+        // sits here, and the two can no longer be mistaken for each other.
+        var orderBy = ctx.orderByClause() is { } ob
+            ? ob.orderByItem().Select(BuildOrderByItem).ToList()
+            : (IReadOnlyList<OrderByItem>)[];
+        Expression? top = null, offset = null;
+        if (ctx.offsetFetchClause() is { } paging)
+        {
+            offset = paging.offset is { } off ? PagingOperand(off) : null;
+            top = paging.limit is { } lim ? PagingOperand(lim) : null;
+        }
+        bool ordered = orderBy.Count > 0 || top is not null || offset is not null;
+
         if (operators.Length == 0)
-            return BuildQueryTerm(terms[0]);
+        {
+            SqlStatement single = BuildQueryTerm(terms[0]);
+            // A single term folds the clauses back into it, so an ordinary `SELECT … ORDER BY x` builds exactly
+            // the AST it always did and nothing downstream sees this restructuring at all.
+            return ordered && single is SelectStatement s
+                ? s with { OrderBy = orderBy, Top = top ?? s.Top, Offset = offset }
+                : single;
+        }
 
         // A long chain of one associative operator — e.g. EF's 5000-way `UNION ALL` for a huge primitive
         // collection — must be built as a *balanced* tree. A left-nested tree is O(n) deep, and the binder,
@@ -635,20 +658,27 @@ internal sealed class AstBuilder
         // Set operators are left-associative, so this is only sound when every operator is the same and
         // associative (UNION / UNION ALL / INTERSECT — EXCEPT is not); mixed/EXCEPT chains left-fold as before
         // (they are correct that way and never occur thousands deep).
+        var operands = new SqlStatement[terms.Length];
+        for (int i = 0; i < terms.Length; i++)
+            operands[i] = BuildQueryTerm(terms[i]);
+
         SetOperator first = SetOperatorOf(operators[0]);
+        SetOperationStatement result;
         if (IsAssociative(first) && operators.All(o => SetOperatorOf(o) == first))
         {
-            var operands = new SqlStatement[terms.Length];
-            for (int i = 0; i < terms.Length; i++)
-                operands[i] = BuildQueryTerm(terms[i]);
-            return BuildBalanced(operands, first, 0, operands.Length - 1);
+            result = (SetOperationStatement)BuildBalanced(operands, first, 0, operands.Length - 1);
+        }
+        else
+        {
+            result = new SetOperationStatement(operands[0], SetOperatorOf(operators[0]), operands[1]);
+            for (int i = 1; i < operators.Length; i++)
+                result = new SetOperationStatement(result, SetOperatorOf(operators[i]), operands[i + 1]);
         }
 
-        SqlStatement result = BuildQueryTerm(terms[0]);
-        for (int i = 0; i < operators.Length; i++)
-            result = new SetOperationStatement(result, SetOperatorOf(operators[i]), BuildQueryTerm(terms[i + 1]));
-        return result;
+        // Only the outermost node carries them: the ordering is the expression's, not that of any inner pair.
+        return ordered ? result with { OrderBy = orderBy, Top = top, Offset = offset } : result;
     }
+
 
     // UNION / UNION ALL / INTERSECT are associative (can be regrouped); EXCEPT is not.
     private static bool IsAssociative(SetOperator op) =>
@@ -668,7 +698,7 @@ internal sealed class AstBuilder
     /// <summary>A set-operation operand: a SELECT, or a parenthesised (possibly nested) query expression.</summary>
     private static SqlStatement BuildQueryTerm(QueryTermContext ctx) => ctx switch
     {
-        SelectTermContext s => BuildSelect(s.selectStatement()),
+        SelectTermContext s => BuildQuerySpecification(s.querySpecification()),
         ParenTermContext p => BuildQueryExpression(p.queryExpression()),
         ValuesTermContext v => BuildValuesQuery(v),
         _ => throw new SqlParseException($"Unsupported query term: {ctx.GetText()}"),
@@ -707,7 +737,11 @@ internal sealed class AstBuilder
         return ctx.ALL() != null ? SetOperator.UnionAll : SetOperator.Union;
     }
 
-    private static SelectStatement BuildSelect(SelectStatementContext ctx)
+    /// <summary>The standard's &lt;query specification&gt;: an order-less SELECT. ORDER BY and OFFSET/FETCH are
+    /// not part of it — the grammar puts them on the enclosing <c>queryExpression</c>, and
+    /// <see cref="BuildQueryExpression"/> folds them back onto this statement when there is no set operation for
+    /// them to belong to.</summary>
+    private static SelectStatement BuildQuerySpecification(QuerySpecificationContext ctx)
     {
         SelectListContext list = ctx.selectList();
         bool star = list.STAR() != null;
@@ -721,31 +755,16 @@ internal sealed class AstBuilder
             ? g.expression().Select(BuildExpression).ToList()
             : (IReadOnlyList<Expression>)[];
         Expression? having = ctx.havingClause() is { } h ? BuildExpression(h.expression()) : null;
-        var orderBy = ctx.orderByClause() is { } o
-            ? o.orderByItem().Select(BuildOrderByItem).ToList()
-            : (IReadOnlyList<OrderByItem>)[];
         Expression? top = ctx.topClause() is { } t ? BuildTop(t) : null;
         bool topPercent = ctx.topClause()?.percent is not null;
 
-        // ANSI OFFSET/FETCH. The FETCH count means the same as TOP n, so it feeds `top` and reuses the whole
-        // existing limit path; only the skip is genuinely new. TOP and FETCH together is not something EF ever
-        // emits and the two would contradict each other, so an explicit TOP wins and the FETCH is ignored.
-        Expression? offset = null;
-        if (ctx.offsetFetchClause() is { } paging)
-        {
-            offset = paging.offset is { } off ? PagingOperand(off) : null;
-            if (paging.limit is { } lim && top is null)
-                top = PagingOperand(lim);
-        }
-
         var predicate = ctx.predicate;
 
-        return new SelectStatement(projection, star, from, where, groupBy, having, orderBy, top,
+        return new SelectStatement(projection, star, from, where, groupBy, having, OrderBy: [], top,
             Distinct: predicate?.DISTINCT() is not null,
             DistinctRow: predicate?.DISTINCTROW() is not null,
             TopPercent: topPercent,
-            Into: ctx.into is null ? null : Identifier(ctx.into),
-            Offset: offset);
+            Into: ctx.into is null ? null : Identifier(ctx.into));
     }
 
     /// <summary>The TOP count expression: a single operand, or a left-associative +/- chain of them (each

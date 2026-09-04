@@ -20,12 +20,31 @@ public sealed class QueryPlanner
     public static PlanNode PlanStatement(SqlStatement statement) => statement switch
     {
         SelectStatement select => PlanSelect(select),
-        SetOperationStatement set => new SetOperationNode(
-            PlanStatement(set.Left), PlanStatement(set.Right), set.Operator),
+        // ORDER BY and paging on a set operation apply to its combined result, so they sit ABOVE the node —
+        // sorting an operand instead is what `A UNION B ORDER BY x` used to do, and it silently returned the
+        // rows in the wrong order (measured against ACE).
+        SetOperationStatement set => PageAndSort(
+            new SetOperationNode(PlanStatement(set.Left), PlanStatement(set.Right), set.Operator),
+            set.OrderBy ?? [], set.Top, set.Offset),
         ValuesStatement values => new ValuesNode(values.Rows),
         _ => throw new NotImplementedException(
             $"Planning for {statement.GetType().Name} is not yet implemented."),
     };
+
+    /// <summary>Sorts and then pages a set operation's combined result. The sort takes the row bound from the
+    /// paging for the same reason <see cref="BoundSort"/> does — only that many rows can survive it — except
+    /// under OFFSET, where the skipped rows must be produced before they can be discarded.</summary>
+    private static PlanNode PageAndSort(
+        PlanNode node, IReadOnlyList<OrderByItem> orderBy, Expression? top, Expression? offset)
+    {
+        if (orderBy.Count > 0)
+        {
+            Expression? bound = top is not null && offset is null ? top : null;
+            node = new SortNode(node, orderBy, bound);
+        }
+
+        return top is null && offset is null ? node : new LimitNode(node, top, Offset: offset);
+    }
 
     /// <summary>Plans a SELECT statement directly (used for subqueries).</summary>
     public static PlanNode PlanSelect(SelectStatement select)

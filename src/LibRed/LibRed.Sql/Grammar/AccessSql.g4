@@ -15,7 +15,7 @@ statement : parametersClause? (ifThenStatement | createTableStatement | createIn
 
 // EF emits Jet's conditional DDL for idempotent migrations: `IF [NOT] EXISTS (<select>) THEN <statement>`.
 // A single guarded statement (all EF produces); the condition is an ordinary subquery (e.g. over INFORMATION_SCHEMA).
-ifThenStatement : IF not=NOT? EXISTS LPAREN selectStatement RPAREN THEN thenBody ;
+ifThenStatement : IF not=NOT? EXISTS LPAREN queryExpression RPAREN THEN thenBody ;
 thenBody : createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | executeStatement | queryExpression ;
 
 // EXECUTE|EXEC procedure [arg [, arg …]] — invoke a stored procedure/query by name with positional
@@ -217,11 +217,17 @@ rowValue : DEFAULT | expression ;
 
 // Set operations over SELECTs (left-associative). UNION dedupes; UNION ALL keeps
 // duplicates; INTERSECT/EXCEPT dedupe. (Access has no INTERSECT/EXCEPT — LibRed owns the dialect.)
-queryExpression : queryTerm (setOperator queryTerm)* ;
-// A set-operation operand is a SELECT or a parenthesised query expression (so `A UNION ALL (B UNION C)`
-// groups the right side as one term — EF emits this from Concat/Union nesting).
+// ORDER BY and OFFSET/FETCH attach HERE, to the query expression, and nowhere else: they order the result of
+// the whole expression, so `A UNION B ORDER BY x` orders the union rather than its last operand (verified
+// against ACE, which does the same). An operand that needs an ordering of its own must be parenthesised, which
+// is what gives `(SELECT TOP 5 … ORDER BY x) UNION …` its meaning — the ordering is what makes that TOP
+// deterministic. This is the standard's own structure: <query expression> carries the ordering, <query term>
+// does not.
+queryExpression : queryTerm (setOperator queryTerm)* orderByClause? offsetFetchClause? ;
+// A set-operation operand is an order-less SELECT or a parenthesised query expression (so `A UNION ALL (B UNION
+// C)` groups the right side as one term — EF emits this from Concat/Union nesting).
 queryTerm
-    : selectStatement                 # SelectTerm
+    : querySpecification              # SelectTerm
     | LPAREN queryExpression RPAREN    # ParenTerm
     // A table value constructor standing in for a query — the standard's other use for it, beside the
     // INSERT clause. EF Core emits it for an inline collection, e.g.
@@ -238,8 +244,14 @@ setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 //   SELECT field1[, field2[, …]] INTO newtable [IN externaldatabase] FROM source
 // The IN externaldatabase clause is deliberately absent, as it is on INSERT — creating a table in another
 // file is part of the linked-database subsystem LibRed does not have.
-selectStatement
-    : SELECT predicate=selectPredicate? topClause? selectList (INTO into=identifier)? fromClause? whereClause? groupByClause? havingClause? orderByClause? offsetFetchClause?
+// The standard's <query specification>, and named for it: SELECT … FROM … WHERE … GROUP BY … HAVING, with no
+// ORDER BY or OFFSET/FETCH — see queryExpression, the only place those may appear. Splitting the ordering out
+// of the operand rule is what every serious SQL grammar does (Trino's querySpecification/queryNoWith, SQLite's
+// select_core, PostgreSQL's simple_select), because an operand rule that ends in an optional ORDER BY swallows
+// the enclosing expression's greedily. TOP stays, because a leading TOP genuinely belongs to its own operand:
+// `SELECT TOP 5 … UNION SELECT TOP 5 …` takes five rows from each side.
+querySpecification
+    : SELECT predicate=selectPredicate? topClause? selectList (INTO into=identifier)? fromClause? whereClause? groupByClause? havingClause?
     ;
 
 // The optional row predicate. ALL is the default (return every row); DISTINCT dedupes on the output

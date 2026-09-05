@@ -181,8 +181,10 @@ surface (unblocking cyclic/self-referencing FKs EF emits as a separate operation
 set-null** referential actions on `UPDATE`/`DELETE`; leaf/node B-tree splitting with root growth;
 **transactions** (real commit/rollback via a page-level undo log — see above); the **locale text
 collations**, which were listed here as encodable for the two General orders only; the **ACE 16/17 types**
-`BIGINT` and `DATETIME2` with the format auto-upgrade; and `INSERT INTO … SELECT` plus `SELECT … INTO`,
-which the grammar previously had no form for.
+`BIGINT` and `DATETIME2` with the format auto-upgrade; `INSERT INTO … SELECT` plus `SELECT … INTO`,
+which the grammar previously had no form for; **composite index keys**, now byte-verified against a
+five-column mixed-type, mixed-direction index ACE itself built (`CompositeIndexOrderingAccessTests`); and
+**writing** encryption in every scheme LibRed reads.
 
 **Not yet.** (Format-level details of each on-disk gap live in `docs/format/`; this is the working
 worklist. Much of the earlier "not yet" list is now done — the whole of `ALTER TABLE`
@@ -192,9 +194,6 @@ LibRed-side `CHECK` enforcement, self-pointing self-references, and writing Memo
 
 *On-disk / write gaps:*
 
-- **Composite index key encoding** — single-column keys are byte-verified vs ACE; a genuine
-  **multi-column** key is not (no column separator confirmed — Northwind's only composite is usually
-  empty). Verify against a created composite-key `.accdb` before relying on it.
 - **`ON UPDATE SET NULL`** — pathway threaded but throws; its Jet storage bytes are unverified because the
   ACE OLE DB provider rejects the DDL (needs a UI/DAO-created sample to probe). `ON DELETE SET NULL` and
   both `CASCADE` directions work.
@@ -208,8 +207,12 @@ LibRed-side `CHECK` enforcement, self-pointing self-references, and writing Memo
 - **`DROP TABLE` leaks until Compact** — multi-page TDEFs, non-root index pages, LVAL pages, and dedicated
   usage-map pages aren't freed; byte-faithful **child-in-relationship** `DROP TABLE` (ACE cascades the FK;
   LibRed requires dropping the FK first).
-- **Jet 3** format; **password/encryption** write; strict **DAO Compact & Repair** compatibility (checklist
-  captured — only relevant if targeting DAO C&R rather than "ACE opens + queries").
+- **Jet 3** format; strict **DAO Compact & Repair** compatibility (checklist captured — only relevant if
+  targeting DAO C&R rather than "ACE opens + queries"). The encryption half of this entry is **done**:
+  `DatabaseEncryption` sets, changes and removes passwords for Agile, Office Standard AES-256 and RC4 (with
+  a selectable key length and hash), and the legacy Jet 4 database password byte-identically to Access;
+  `SetJetEncoding` writes legacy RC4 page encoding. The only gap left is `AccessEncryption.LegacyJet` as a
+  *create* scheme for `SetPassword`, which `SetJetEncoding` covers directly.
 - **`CREATE TEMPORARY TABLE` / `WITH COMPRESSION`** — parsed only to throw `NotSupportedException`.
 
 *SQL surface / engine gaps:*

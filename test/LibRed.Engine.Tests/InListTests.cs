@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // x IN (literal list) is kept as a flat node and evaluated iteratively. The regression that motivated this:
 // EF Core inlines a "huge number of values" Contains as thousands of constants, and lowering that to a deep
 // OR-tree recursed once per item and overflowed the stack (crashing the test host, not just failing).
-public class InListTests
+public class InListTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"inlist-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "inlist-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY )");
         for (int i = 1; i <= 5; i++) e.ExecuteNonQuery($"INSERT INTO T (K) VALUES ({i})");
         return e;

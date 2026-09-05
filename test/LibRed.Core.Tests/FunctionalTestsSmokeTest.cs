@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using LibRed;
 using LibRed.Catalog;
 using Xunit;
@@ -14,43 +13,25 @@ public class FunctionalTestsSmokeTest(ITestOutputHelper output)
 {
     private readonly ITestOutputHelper _output = output;
 
-    [Fact]
-    public void Reads_the_builtin_datatypes_database()
-    {
-        var (tables, rows, failures) = Scan(TestDatabases.BuiltInDataTypesAccdb);
+    public static TheoryData<string> TrackedSchemaCorpus =>
+    [
+        TestDatabases.NorthwindAccdb,
+        TestDatabases.BuiltInDataTypesAccdb,
+        TestDatabases.EverythingIsBytesAccdb,
+        TestDatabases.DecimalsAccdb,
+        TestDatabases.WideTableAccdb,
+        TestDatabases.Ace16TypesAccdb,
+    ];
 
-        _output.WriteLine($"tables={tables} rows={rows}");
+    [Theory]
+    [MemberData(nameof(TrackedSchemaCorpus))]
+    public void Reads_every_table_and_row_in_the_tracked_schema_corpus(string path)
+    {
+        var (tables, rows, failures) = Scan(path);
+
+        _output.WriteLine($"file={Path.GetFileName(path)} tables={tables} rows={rows}");
         Assert.Empty(failures);
         Assert.True(tables > 0);
-    }
-
-    [Fact]
-    public void Reads_the_full_functional_test_corpus_when_present()
-    {
-        // A ~70 MB local-only corpus (gitignored); present on a dev box that has run the
-        // EFCore.Jet functional tests, absent on CI.
-        string dir = Path.Combine(SourceDirectory(), "FunctionalTestsData");
-        var files = Directory.Exists(dir) ? Directory.GetFiles(dir, "*.accdb") : [];
-        if (files.Length == 0)
-        {
-            _output.WriteLine("corpus not present — skipping");
-            return;
-        }
-
-        long totalTables = 0, totalRows = 0;
-        var allFailures = new List<string>();
-        foreach (string file in files)
-        {
-            var (tables, rows, failures) = Scan(file);
-            totalTables += tables;
-            totalRows += rows;
-            allFailures.AddRange(failures);
-        }
-
-        _output.WriteLine($"files={files.Length} tables={totalTables} rows={totalRows}");
-        foreach (string failure in allFailures)
-            _output.WriteLine(failure);
-        Assert.Empty(allFailures);
     }
 
     private static (int Tables, long Rows, List<string> Failures) Scan(string path)
@@ -82,6 +63,4 @@ public class FunctionalTestsSmokeTest(ITestOutputHelper output)
 
         return (tables, rows, failures);
     }
-
-    private static string SourceDirectory([CallerFilePath] string path = "") => Path.GetDirectoryName(path)!;
 }

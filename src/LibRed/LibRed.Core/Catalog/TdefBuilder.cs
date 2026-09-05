@@ -479,12 +479,12 @@ public static class TdefBuilder
         }
         else
         {
-            // Non-numeric columns store the text-collation LCID in the precision/scale bytes (0x0B/0x0C) and the
-            // sort-order version as the HIGH byte (0x0E) of the 2-byte field at 0x0D. General legacy is LCID 1033
-            // (0x0409), version 0; the Access-2010 "General" order is version 1. The low byte 0x0D is left as-is
-            // (0 on a fresh column, preserved from the original descriptor otherwise) — see Collation.Version.
+            // Non-numeric columns use the precision/scale bytes (0x0B/0x0C) onward for the text collation:
+            // 0x0B/0x0C LANGID, 0x0D sort id, 0x0E sort-order version. Together a 32-bit LCID with the version
+            // in its unused top byte. General legacy is LANGID 1033 (0x0409), sort id 0, version 0.
             BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnLocaleOffset, 2), (ushort)c.Collation.Order);
-            d[format.ColumnCollationVersionOffset + 1] = c.Collation.Version;
+            d[format.ColumnCollationSortIdOffset] = c.Collation.SortId;
+            d[format.ColumnCollationVersionOffset] = c.Collation.Version;
         }
         // Compose the flag byte (0x0F) from EVERY documented bit; only the undocumented bits survive from the
         // original (zero in every file observed). Likewise the extended-flag byte (0x10).

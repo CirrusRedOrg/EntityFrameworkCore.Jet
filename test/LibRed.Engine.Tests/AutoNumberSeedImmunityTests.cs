@@ -13,8 +13,7 @@ public class AutoNumberSeedImmunityTests
     [Fact]
     public void Explicit_lower_value_does_not_lower_the_counter_or_cause_a_collision()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"anl-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "anl-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -30,6 +29,6 @@ public class AutoNumberSeedImmunityTests
             var got = e.ExecuteQuery("SELECT Field1 FROM Table1 WHERE Field2 = 'G'").Rows.Single()[0];
             Assert.Equal(7, Convert.ToInt32(got));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

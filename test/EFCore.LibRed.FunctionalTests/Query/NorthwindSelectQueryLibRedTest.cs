@@ -1,11 +1,12 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.TestUtilities;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.TestUtilities;
 using Xunit;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
@@ -421,7 +422,6 @@ ORDER BY `c`.`CustomerID`
                     """);
         }
 
-        [Theory(Skip = "LibRed fails")]
         public override async Task Select_nested_collection_multi_level5(bool isAsync)
         {
             await base.Select_nested_collection_multi_level5(isAsync);
@@ -483,42 +483,41 @@ ORDER BY `c`.`CustomerID`
 """);
         }
 
-        [Theory(Skip = "LibRed fails")]
         public override async Task Select_nested_collection_multi_level6(bool isAsync)
         {
             await base.Select_nested_collection_multi_level6(isAsync);
 
             AssertSql(
                 """
-    SELECT IIF((
-            SELECT TOP 1 IIF((
-                    SELECT TOP 1 `o0`.`ProductID`
-                    FROM `Order Details` AS `o0`
-                    WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`)))
-                    ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
-                    SELECT TOP 1 `o0`.`ProductID`
-                    FROM `Order Details` AS `o0`
-                    WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`)))
-                    ORDER BY `o0`.`OrderID`, `o0`.`ProductID`))
-            FROM `Orders` AS `o`
-            WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
-            ORDER BY `o`.`OrderID`) IS NULL, 0, (
-            SELECT TOP 1 IIF((
-                    SELECT TOP 1 `o0`.`ProductID`
-                    FROM `Order Details` AS `o0`
-                    WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`)))
-                    ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
-                    SELECT TOP 1 `o0`.`ProductID`
-                    FROM `Order Details` AS `o0`
-                    WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> IIF(LEN(`c`.`CustomerID`) IS NULL, NULL, CLNG(LEN(`c`.`CustomerID`)))
-                    ORDER BY `o0`.`OrderID`, `o0`.`ProductID`))
-            FROM `Orders` AS `o`
-            WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
-            ORDER BY `o`.`OrderID`)) AS `Order`
-    FROM `Customers` AS `c`
-    WHERE `c`.`CustomerID` LIKE 'A%'
-    ORDER BY `c`.`CustomerID`
-    """);
+SELECT IIF((
+        SELECT TOP 1 IIF((
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> LEN(`c`.`CustomerID`)
+                ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> LEN(`c`.`CustomerID`)
+                ORDER BY `o0`.`OrderID`, `o0`.`ProductID`))
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
+        ORDER BY `o`.`OrderID`) IS NULL, 0, (
+        SELECT TOP 1 IIF((
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> LEN(`c`.`CustomerID`)
+                ORDER BY `o0`.`OrderID`, `o0`.`ProductID`) IS NULL, 0, (
+                SELECT TOP 1 `o0`.`ProductID`
+                FROM `Order Details` AS `o0`
+                WHERE `o`.`OrderID` = `o0`.`OrderID` AND `o0`.`OrderID` <> LEN(`c`.`CustomerID`)
+                ORDER BY `o0`.`OrderID`, `o0`.`ProductID`))
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID` AND `o`.`OrderID` < 10500
+        ORDER BY `o`.`OrderID`)) AS `Order`
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` LIKE 'A%'
+ORDER BY `c`.`CustomerID`
+""");
         }
 
         public override async Task Select_nested_collection_count_using_anonymous_type(bool isAsync)
@@ -786,24 +785,19 @@ FROM `Orders` AS `o`
                     """);
         }
 
-        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by LibRed.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT TOP 1 `t`.`CustomerID`
-                        FROM (
-                            SELECT TOP 1 `o`.`CustomerID`, `o`.`OrderID`
-                            FROM `Orders` AS `o`
-                            WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                            ORDER BY `o`.`OrderID`
-                        ) AS `t`
-                        ORDER BY `t`.`OrderID`)
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT (
+    SELECT TOP 1 `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`OrderID`)
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task Project_single_element_from_collection_with_OrderBy_Take_OrderBy_and_FirstOrDefault(bool async)
@@ -825,7 +819,6 @@ LEFT JOIN (
 """);
         }
 
-        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by LibRed.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Skip_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Skip_and_FirstOrDefault(isAsync);
@@ -856,7 +849,6 @@ FROM `Customers` AS `c`
 """);
         }
 
-        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by LibRed.")]
         public override async Task
             Project_single_element_from_collection_with_OrderBy_Distinct_and_FirstOrDefault_followed_by_projecting_length(bool isAsync)
         {
@@ -864,79 +856,68 @@ FROM `Customers` AS `c`
                 isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT TOP 1 CAST(LEN(`t`.`CustomerID`) AS int)
-                        FROM (
-                            SELECT DISTINCT `o`.`CustomerID`
-                            FROM `Orders` AS `o`
-                            WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                        ) AS `t`)
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT (
+    SELECT TOP 1 LEN(`o0`.`CustomerID`)
+    FROM (
+        SELECT DISTINCT `o`.`CustomerID`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ) AS `o0`)
+FROM `Customers` AS `c`
+""");
         }
 
-        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by LibRed.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Take_and_SingleOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Take_and_SingleOrDefault(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT TOP 1 `t`.`CustomerID`
-                        FROM (
-                            SELECT TOP 1 `o`.`CustomerID`, `o`.`OrderID`
-                            FROM `Orders` AS `o`
-                            WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                            ORDER BY `o`.`OrderID`
-                        ) AS `t`
-                        ORDER BY `t`.`OrderID`)
-                    FROM `Customers` AS `c`
-                    WHERE `c`.`CustomerID` = 'ALFKI'
-                    """);
+                """
+SELECT (
+    SELECT TOP 1 `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`OrderID`)
+FROM `Customers` AS `c`
+WHERE `c`.`CustomerID` = 'ALFKI'
+""");
         }
 
-        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by LibRed.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault_with_parameter(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_Take_and_FirstOrDefault_with_parameter(isAsync);
 
             AssertSql(
-                $"""
-                    {AssertSqlHelper.Declaration("@__i_0='1'")}
-                    
-                    SELECT (
-                        SELECT TOP 1 `t`.`CustomerID`
-                        FROM (
-                            SELECT TOP {AssertSqlHelper.Parameter("@__i_0")} `o`.`CustomerID`, `o`.`OrderID`
-                            FROM `Orders` AS `o`
-                            WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                            ORDER BY `o`.`OrderID`
-                        ) AS `t`
-                        ORDER BY `t`.`OrderID`)
-                    FROM `Customers` AS `c`
-                    """);
+                """
+@i='1'
+
+SELECT (
+    SELECT TOP 1 `o0`.`CustomerID`
+    FROM (
+        SELECT TOP @i `o`.`CustomerID`, `o`.`OrderID`
+        FROM `Orders` AS `o`
+        WHERE `c`.`CustomerID` = `o`.`CustomerID`
+        ORDER BY `o`.`OrderID`
+    ) AS `o0`
+    ORDER BY `o0`.`OrderID`)
+FROM `Customers` AS `c`
+""");
         }
 
-        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by LibRed.")]
         public override async Task Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT TOP 1 `t`.`CustomerID`
-                        FROM (
-                            SELECT TOP 2 `o`.`CustomerID`, `o`.`OrderID`, `o`.`OrderDate`
-                            FROM `Orders` AS `o`
-                            WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                            ORDER BY `o`.`OrderID`, `o`.`OrderDate` DESC
-                        ) AS `t`
-                        ORDER BY `t`.`OrderID`, `t`.`OrderDate` DESC)
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT (
+    SELECT TOP 1 `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`OrderID`, `o`.`OrderDate` DESC)
+FROM `Customers` AS `c`
+""");
         }
 
         public override async Task
@@ -958,46 +939,41 @@ FROM `Customers` AS `c`
 """);
         }
 
-        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by LibRed.")]
         public override async Task Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault_2(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_multiple_OrderBys_Take_and_FirstOrDefault_2(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT TOP 1 `t`.`CustomerID`
-                        FROM (
-                            SELECT TOP 2 `o`.`CustomerID`, `o`.`OrderID`, `o`.`OrderDate`
-                            FROM `Orders` AS `o`
-                            WHERE `c`.`CustomerID` = `o`.`CustomerID`
-                            ORDER BY `o`.`CustomerID`, `o`.`OrderDate` DESC
-                        ) AS `t`
-                        ORDER BY `t`.`CustomerID`, `t`.`OrderDate` DESC)
-                    FROM `Customers` AS `c`
-                    """);
+                """
+SELECT (
+    SELECT TOP 1 `o`.`CustomerID`
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`
+    ORDER BY `o`.`CustomerID`, `o`.`OrderDate` DESC)
+FROM `Customers` AS `c`
+""");
         }
 
-        [Theory(Skip = "`SELECT (SELECT TOP 1) FROM` is not supported by LibRed.")]
         public override async Task Project_single_element_from_collection_with_OrderBy_over_navigation_Take_and_FirstOrDefault(bool isAsync)
         {
             await base.Project_single_element_from_collection_with_OrderBy_over_navigation_Take_and_FirstOrDefault(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT (
-                        SELECT TOP 1 `t`.`OrderID`
-                        FROM (
-                            SELECT TOP 1 `o`.`OrderID`, `o`.`ProductID`, `p`.`ProductID` AS `ProductID0`, `p`.`ProductName`
-                            FROM `Order Details` AS `o`
-                            INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
-                            WHERE `o0`.`OrderID` = `o`.`OrderID`
-                            ORDER BY `p`.`ProductName`
-                        ) AS `t`
-                        ORDER BY `t`.`ProductName`)
-                    FROM `Orders` AS `o0`
-                    WHERE `o0`.`OrderID` < 10300
-                    """);
+                """
+SELECT IIF((
+        SELECT TOP 1 `o0`.`OrderID`
+        FROM `Order Details` AS `o0`
+        INNER JOIN `Products` AS `p` ON `o0`.`ProductID` = `p`.`ProductID`
+        WHERE `o`.`OrderID` = `o0`.`OrderID`
+        ORDER BY `p`.`ProductName`) IS NULL, 0, (
+        SELECT TOP 1 `o0`.`OrderID`
+        FROM `Order Details` AS `o0`
+        INNER JOIN `Products` AS `p` ON `o0`.`ProductID` = `p`.`ProductID`
+        WHERE `o`.`OrderID` = `o0`.`OrderID`
+        ORDER BY `p`.`ProductName`))
+FROM `Orders` AS `o`
+WHERE `o`.`OrderID` < 10300
+""");
         }
 
         public override async Task Project_single_element_from_collection_with_OrderBy_over_navigation_Take_and_FirstOrDefault_2(
@@ -1106,8 +1082,8 @@ FROM `Customers` AS `c`
             await base.Select_datetime_millisecond_component(isAsync);
 
             AssertSql(
-"""
-SELECT `o`.`OrderDate`
+                """
+SELECT DATEPART('ms', `o`.`OrderDate`)
 FROM `Orders` AS `o`
 """);
         }
@@ -2307,22 +2283,14 @@ ORDER BY `o`.`OrderID`
 
         public override async Task Correlated_collection_after_distinct_with_complex_projection_not_containing_original_identifier(bool async)
         {
-            await base.Correlated_collection_after_distinct_with_complex_projection_not_containing_original_identifier(async);
+            // Identifier set for Distinct. Issue efcore #24440.
+            Assert.Equal(
+                RelationalStrings.InsufficientInformationToIdentifyElementOfCollectionJoin,
+                (await Assert.ThrowsAsync<InvalidOperationException>(()
+                    => base.Correlated_collection_after_distinct_with_complex_projection_not_containing_original_identifier(async)))
+                .Message);
 
-            AssertSql(
-                """
-                    SELECT `t`.`OrderDate`, `t`.`CustomerID`, `t`.`Complex`, `t0`.`Outer1`, `t0`.`Outer2`, `t0`.`Outer3`, `t0`.`Inner`, `t0`.`OrderDate`
-                    FROM (
-                        SELECT DISTINCT `o`.`OrderDate`, `o`.`CustomerID`, DATEPART(month, `o`.`OrderDate`) AS `Complex`
-                        FROM `Orders` AS `o`
-                    ) AS `t`
-                    OUTER APPLY (
-                        SELECT `t`.`OrderDate` AS `Outer1`, `t`.`CustomerID` AS `Outer2`, `t`.`Complex` AS `Outer3`, `o0`.`OrderID` AS `Inner`, `o0`.`OrderDate`
-                        FROM `Orders` AS `o0`
-                        WHERE `o0`.`OrderID` IN (10248, 10249, 10250) AND ((`t`.`CustomerID` = `o0`.`CustomerID`) OR (`t`.`CustomerID` IS NULL AND `o0`.`CustomerID` IS NULL))
-                    ) AS `t0`
-                    ORDER BY `t`.`OrderDate`, `t`.`CustomerID`, `t`.`Complex`, `t0`.`Inner`
-                    """);
+            AssertSql();
         }
 
         public override async Task Correlated_collection_after_groupby_with_complex_projection_containing_original_identifier(bool async)

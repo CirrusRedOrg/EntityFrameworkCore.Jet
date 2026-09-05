@@ -9,21 +9,14 @@ namespace LibRed.Core.Tests;
 // LibRed mirrors this, and ACE opens+reads a LibRed-index-dropped file.
 public class DropIndexAccessTests
 {
-    private static OleDbConnection Open(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        throw new InvalidOperationException("no ace");
-    }
+    private static OleDbConnection Open(string path) => AceTestDatabase.Open(path);
     private static void Ace(string path, params string[] sqls)
     { using var c = Open(path); foreach (var s in sqls) { using var m = c.CreateCommand(); m.CommandText = s; m.ExecuteNonQuery(); } }
 
     [Fact]
     public void Access_reads_a_libred_index_dropped_table()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"dropix-lr-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "dropix-lr-");
         try
         {
             // ACE creates the table + indexes + rows so the TDEF is authentic.
@@ -53,6 +46,6 @@ public class DropIndexAccessTests
             cmd2.CommandText = "SELECT Name FROM T WHERE Id = 2";
             Assert.Equal("b", cmd2.ExecuteScalar());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

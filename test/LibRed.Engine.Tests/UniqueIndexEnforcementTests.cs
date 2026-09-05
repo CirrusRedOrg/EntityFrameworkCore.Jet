@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // UNIQUE / PRIMARY index uniqueness is enforced on insert: a duplicate non-null key is rejected, but Jet
 // treats NULLs as distinct so a unique index allows multiple nulls (both verified vs ACE). Dropping the
 // index lifts the constraint.
-public class UniqueIndexEnforcementTests
+public class UniqueIndexEnforcementTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"uq-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "uq-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T (Id long PRIMARY KEY, Code long)");
         e.ExecuteNonQuery("CREATE UNIQUE INDEX UX_Code ON T (Code)");
         return e;

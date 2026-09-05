@@ -1,7 +1,5 @@
-// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
-
 using System.Text;
-using EntityFrameworkCore.Jet.Data;
+using EntityFrameworkCore.Jet.Infrastructure;
 using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Utilities;
 
@@ -29,7 +27,29 @@ namespace EntityFrameworkCore.Jet.Migrations.Internal
     /// </remarks>
     public class JetHistoryRepository(HistoryRepositoryDependencies dependencies) : HistoryRepository(dependencies)
     {
-        private static readonly TimeSpan _retryDelay = TimeSpan.FromSeconds(1);
+        // Migration-lock retry policy. The lock guards a migration and is released explicitly the moment that
+        // migration finishes, so contention resolves in milliseconds — these delays are sized for a local file,
+        // not for a round trip to a remote server.
+        //
+        // The previous policy started at one second and doubled while under a minute, which had three separate
+        // faults that compounded: the delay was never reset, so a thread that lost a single race retried only
+        // once every 64 seconds for the rest of the run; there was no jitter, so every contender woke in the
+        // same millisecond, collided, and all but one backed off together; and the cap was 60 seconds, four
+        // orders of magnitude above the hold time. With N contenders in lockstep exactly one wins per round,
+        // making a run take N x 64s — about sixteen minutes for fifteen threads, which is indistinguishable
+        // from a deadlock and is why the parallel migration tests read as "hung" rather than "slow".
+        private static readonly TimeSpan _retryDelay = TimeSpan.FromMilliseconds(50);
+        private static readonly TimeSpan _maxRetryDelay = TimeSpan.FromSeconds(1);
+
+        /// <summary>How long to keep trying for the migration lock before giving up.</summary>
+        /// <remarks>
+        ///     Without a deadline the retry loop cannot fail, only wait, so a lock that is never released blocks
+        ///     the caller forever with nothing logged — the failure mode is a silent hang rather than an error
+        ///     anyone can act on. Giving up turns it into a reportable fault, as SQL Server's
+        ///     <c>sp_getapplock</c> timeout does.
+        /// </remarks>
+        private static readonly TimeSpan _lockTimeout = TimeSpan.FromMinutes(1);
+
         public override LockReleaseBehavior LockReleaseBehavior => LockReleaseBehavior.Explicit;
 
         /// <summary>
@@ -146,9 +166,9 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
             }
 
             var retryDelay = _retryDelay;
+            var deadline = DateTime.UtcNow + _lockTimeout;
             while (true)
             {
-                var dbLock = CreateMigrationDatabaseLock();
                 int? insertCount = 0;
                 //No CREATE TABLE IF EXISTS in Jet. We try a normal CREATE TABLE and catch the exception if it already exists
                 try
@@ -162,14 +182,18 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
                 }
                 if ((int)insertCount! == 1)
                 {
-                    return dbLock;
+                    // Built only once the lock is actually ours; the old loop constructed one per attempt and
+                    // dropped it on every miss.
+                    return CreateMigrationDatabaseLock();
                 }
 
-                Thread.Sleep(retryDelay);
-                if (retryDelay < TimeSpan.FromMinutes(1))
+                if (DateTime.UtcNow >= deadline)
                 {
-                    retryDelay = retryDelay.Add(retryDelay);
+                    throw new TimeoutException(LockTimeoutMessage());
                 }
+
+                Thread.Sleep(JitteredDelay(retryDelay));
+                retryDelay = EscalateDelay(retryDelay);
             }
         }
 
@@ -182,29 +206,71 @@ SELECT * FROM `INFORMATION_SCHEMA.TABLES` WHERE `TABLE_NAME` = {stringTypeMappin
                     await Dependencies.RawSqlCommandBuilder.Build(CreateExistsSql(LockTableName))
                         .ExecuteScalarAsync(CreateRelationalCommandParameters(), cancellationToken).ConfigureAwait(false)))
             {
-                await CreateLockTableCommand().ExecuteNonQueryAsync(CreateRelationalCommandParameters(), cancellationToken)
-                    .ConfigureAwait(false);
+                // Same guard as the synchronous overload, which this had been missing: the exists check above
+                // is not atomic, so concurrent migrators can all decide the table is absent and all issue the
+                // CREATE. Losing that race is the normal path, not a failure.
+                try
+                {
+                    await CreateLockTableCommand()
+                        .ExecuteNonQueryAsync(CreateRelationalCommandParameters(), cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (DbException e)
+                {
+                    if (!e.Message.Contains("already exists")) throw;
+                }
             }
 
             var retryDelay = _retryDelay;
+            var deadline = DateTime.UtcNow + _lockTimeout;
             while (true)
             {
-                var dbLock = CreateMigrationDatabaseLock();
-                var insertCount = await CreateInsertLockCommand(DateTimeOffset.UtcNow)
-                    .ExecuteScalarAsync(CreateRelationalCommandParameters(), cancellationToken)
-                    .ConfigureAwait(false);
+                int? insertCount = 0;
+                try
+                {
+                    insertCount = (int?)await CreateInsertLockCommand(DateTimeOffset.UtcNow)
+                        .ExecuteScalarAsync(CreateRelationalCommandParameters(), cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (DbException e)
+                {
+                    // Likewise mirrored from the synchronous overload: the WHERE NOT EXISTS guard on the
+                    // insert is not atomic either, so a duplicate key here means someone else took the lock.
+                    if (!e.Message.Contains("duplicate")) throw;
+                }
                 if ((int)insertCount! == 1)
                 {
-                    return dbLock;
+                    return CreateMigrationDatabaseLock();
                 }
 
-                await Task.Delay(retryDelay, cancellationToken).ConfigureAwait(false);
-                if (retryDelay < TimeSpan.FromMinutes(1))
+                if (DateTime.UtcNow >= deadline)
                 {
-                    retryDelay = retryDelay.Add(retryDelay);
+                    throw new TimeoutException(LockTimeoutMessage());
                 }
+
+                await Task.Delay(JitteredDelay(retryDelay), cancellationToken).ConfigureAwait(false);
+                retryDelay = EscalateDelay(retryDelay);
             }
         }
+
+        /// <summary>
+        ///     Spreads the wait by +/-25% so contenders stop waking together. This matters as much as the cap:
+        ///     with a fixed delay every loser retries in the same millisecond as every other loser, so the herd
+        ///     stays synchronised and each round yields exactly one winner no matter how short the delay is.
+        /// </summary>
+        private static TimeSpan JitteredDelay(TimeSpan delay)
+            => TimeSpan.FromTicks((long)(delay.Ticks * (0.75 + (Random.Shared.NextDouble() / 2.0))));
+
+        /// <summary>Doubles the backoff up to <see cref="_maxRetryDelay" /> and holds there.</summary>
+        private static TimeSpan EscalateDelay(TimeSpan delay)
+            => delay >= _maxRetryDelay
+                ? _maxRetryDelay
+                : TimeSpan.FromTicks(Math.Min(delay.Ticks * 2, _maxRetryDelay.Ticks));
+
+        private string LockTimeoutMessage()
+            => $"Timed out after {_lockTimeout.TotalSeconds:N0}s waiting for the migrations lock. Another "
+                + $"migration may still be running, or a previous one may have left a row in "
+                + $"'{LockTableName}' without releasing it; delete that row to clear the lock.";
 
         private IRelationalCommand CreateLockTableCommand()
             => Dependencies.RawSqlCommandBuilder.Build($"""
@@ -239,9 +305,7 @@ CREATE TABLE `{LockTableName}` (
         private IRelationalCommand CreateInsertLockCommand(DateTimeOffset timestamp)
         {
             var timestampLiteral = Dependencies.TypeMappingSource.GetMapping(typeof(DateTimeOffset)).GenerateSqlLiteral(timestamp);
-            var dualTableName = string.IsNullOrEmpty(JetConfiguration.CustomDualTableName)
-                ? JetConfiguration.DetectedDualTableName
-                : JetConfiguration.CustomDualTableName;
+            var dualTableName = JetDualTable.Name;
 
             return Dependencies.RawSqlCommandBuilder.Build($"""
 INSERT INTO `{LockTableName}` (`Id`, `Timestamp`)

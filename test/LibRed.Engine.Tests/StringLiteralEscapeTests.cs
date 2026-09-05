@@ -8,8 +8,7 @@ public class StringLiteralEscapeTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"strlit-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "strlit-");
         return path;
     }
 
@@ -32,6 +31,6 @@ public class StringLiteralEscapeTests
             e.ExecuteNonQuery($"INSERT INTO S (Id, V) VALUES (1, {literal})");
             Assert.Equal(expected, e.ExecuteQuery("SELECT V FROM S").Rows.First()[0]);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

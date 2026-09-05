@@ -13,8 +13,7 @@ public class MultiPageDefinitionTests
     public void Index_that_overflows_the_tdef_page_spills_to_a_continuation_and_round_trips()
     {
         const int n = 30;
-        string path = Path.Combine(Path.GetTempPath(), $"cont-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "cont-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -44,6 +43,6 @@ public class MultiPageDefinitionTests
                         && ix.Columns.Select(c => c.Column.Name).SequenceEqual([$"C{i:D2}"]));
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

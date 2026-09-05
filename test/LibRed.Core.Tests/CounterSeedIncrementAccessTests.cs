@@ -10,25 +10,14 @@ namespace LibRed.Core.Tests;
 // repair, and continues the AutoNumber sequence from the seed with the custom increment.
 public class CounterSeedIncrementAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Theory]
     [InlineData(1000, 7, new[] { 1000, 1007 })]     // ascending custom counter
     [InlineData(100, -5, new[] { 95, 100 })]        // descending counter (negative int32 increment), sorted asc
     public void Access_continues_a_libred_written_custom_counter(int seed, int increment, int[] expectedSortedIds)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"cnt-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "cnt-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -52,6 +41,6 @@ public class CounterSeedIncrementAccessTests
             // ACE picks up the LibRed-written seed/increment and continues the sequence in its direction.
             Assert.Equal(expectedSortedIds, ids);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

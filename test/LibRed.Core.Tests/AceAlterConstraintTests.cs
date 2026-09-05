@@ -10,23 +10,12 @@ namespace LibRed.Core.Tests;
 // structures — answering "does AddUnique write it the way ACE does": ACE accepts and enforces it.
 public class AceAlterConstraintTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_enforces_a_libred_added_check()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"chk-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "chk-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -44,14 +33,13 @@ public class AceAlterConstraintTests
             bad.CommandText = "INSERT INTO tblInvoices (ID, Amount) VALUES (2, -5)";
             Assert.ThrowsAny<OleDbException>(() => bad.ExecuteNonQuery());   // ACE rejects the check violation
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_stops_enforcing_a_check_libred_dropped()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"dchk-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "dchk-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -74,14 +62,13 @@ public class AceAlterConstraintTests
             read.CommandText = "SELECT Amount FROM tblInvoices WHERE ID = 1";
             Assert.Equal(-5.0, Convert.ToDouble(read.ExecuteScalar()));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_enforces_a_libred_added_unique_constraint()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"uq-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "uq-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -103,6 +90,6 @@ public class AceAlterConstraintTests
             dup.CommandText = "INSERT INTO tblCustomers (CustomerID, LastName, FirstName) VALUES (3, 'Smith', 'John')";
             Assert.ThrowsAny<OleDbException>(() => dup.ExecuteNonQuery());   // ACE rejects the duplicate composite
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

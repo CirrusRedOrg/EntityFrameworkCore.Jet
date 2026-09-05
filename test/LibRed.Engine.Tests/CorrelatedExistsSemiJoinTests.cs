@@ -1,6 +1,7 @@
 using LibRed;
 using LibRed.Engine;
 using LibRed.Engine.Execution;
+using LibRed.Tests.Shared;
 using LibRed.Sql.Ast;
 using LibRed.Sql.Parsing;
 using Xunit;
@@ -11,13 +12,12 @@ namespace LibRed.Engine.Tests;
 // hashed, rather than re-running the body per outer row. These pin the SEMANTICS of that rewrite — every case
 // here must give the same answer whether or not the optimisation engages, so they are written to fail if the
 // rewrite ever changes meaning. (The speedup itself is measured separately; correctness is what needs guarding.)
-public class CorrelatedExistsSemiJoinTests
+public class CorrelatedExistsSemiJoinTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"exsemi-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "exsemi-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
 
         // Outer: 1..5, with a NULL key to exercise the null side of the correlation.
         e.ExecuteNonQuery("CREATE TABLE O ( Id LONG PRIMARY KEY, K LONG, Tag TEXT(10) )");
@@ -44,13 +44,13 @@ public class CorrelatedExistsSemiJoinTests
     // since falling back gives the same answer — so this is the only thing that can tell a decorrelated shape
     // from a declined one. (The timing guards below do the same job for the shape EF actually emits, but at the
     // cost of running a 92 s query when they fail.) The outer scope is O aliased `o`, as in the queries above.
-    private static bool Decorrelates(QueryEngine e, string sql)
+    private static bool Decorrelates(QueryEngine e, string sql, IReadOnlyList<OutputColumn>? outerColumns = null)
     {
         var select = (SelectStatement)new AntlrSqlParser().ParseStatement(sql);
         Expression predicate = select.Where is UnaryExpression u ? u.Operand : select.Where!;
         var exists = (ExistsExpression)predicate;
 
-        OutputColumn[] outer =
+        IReadOnlyList<OutputColumn> outer = outerColumns ??
         [
             new("o", "Id", typeof(long)), new("o", "K", typeof(long)), new("o", "Tag", typeof(string)),
         ];
@@ -434,20 +434,26 @@ public class CorrelatedExistsSemiJoinTests
             Ids(Fresh(),
                 "SELECT o.Id FROM O AS o WHERE EXISTS (SELECT 1 FROM I AS i WHERE i.K = o.K AND Keep = 1)"));
 
-    // Every test above passes whether or not the rewrite engages, because falling back gives the same answer —
-    // which is precisely how an earlier version of this optimisation appeared "correct" while never firing at
-    // all (SubtreeAliases returned no aliases for a projected plan, so every subquery was declined). This guard
-    // fails if that happens again: the real shape EF generates for a predicate over a navigation takes ~92 s
-    // per-row and ~0.4 s decorrelated, so the threshold is ~30x clear of the fast path and ~6x clear of the slow
-    // one. It is a performance guard, not a correctness test.
+    // Every semantics test above passes whether or not the rewrite engages. Pin the real EF-generated shape by
+    // asking the analysis directly instead of inferring it from wall-clock duration.
     [Fact]
     public void The_rewrite_actually_engages_on_the_shape_ExecuteDelete_generates()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"exsemiperf-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        using var temp = TemporaryDatabase.CopyOf(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "exsemiplan");
+        var e = new QueryEngine(temp.Open());
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Assert.True(Decorrelates(e,
+            """
+            SELECT `o`.`OrderID` FROM `Order Details` AS `o`
+            WHERE EXISTS (
+                SELECT 1 FROM (`Order Details` AS `o0`
+                INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`)
+                LEFT JOIN `Customers` AS `c` ON `o1`.`CustomerID` = `c`.`CustomerID`
+                WHERE (`c`.`CustomerID` LIKE 'F%') AND `o0`.`OrderID` = `o`.`OrderID`
+                    AND `o0`.`ProductID` = `o`.`ProductID`)
+            """, [new("o", "OrderID", typeof(int)), new("o", "ProductID", typeof(int))]));
+
         int deleted = e.ExecuteNonQuery(
             """
             DELETE FROM `Order Details` AS `o`
@@ -458,24 +464,28 @@ public class CorrelatedExistsSemiJoinTests
                 LEFT JOIN `Customers` AS `c` ON `o1`.`CustomerID` = `c`.`CustomerID`
                 WHERE (`c`.`CustomerID` LIKE 'F%') AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
             """);
-        sw.Stop();
-
         Assert.Equal(164, deleted);
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(15),
-            $"correlated EXISTS took {sw.Elapsed.TotalSeconds:F1}s — the decorrelation is no longer engaging");
     }
 
-    // Same guard for the TOP form, because A_top_of_at_least_one_does_not_change_existence gives the right answer
-    // whether the TOP is dropped or the whole rewrite is declined — so only timing distinguishes them. EF emits
-    // TOP 1 inside EXISTS for Any(), so this is the shape that matters most in practice.
+    // Same structural guard for the TOP form EF emits for Any().
     [Fact]
     public void The_rewrite_engages_even_when_the_body_has_a_top()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"exsemitop-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        using var temp = TemporaryDatabase.CopyOf(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "exsemitop");
+        var e = new QueryEngine(temp.Open());
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Assert.True(Decorrelates(e,
+            """
+            SELECT `o`.`OrderID` FROM `Order Details` AS `o`
+            WHERE EXISTS (
+                SELECT TOP 1 1 FROM (`Order Details` AS `o0`
+                INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`)
+                LEFT JOIN `Customers` AS `c` ON `o1`.`CustomerID` = `c`.`CustomerID`
+                WHERE (`c`.`CustomerID` LIKE 'F%') AND `o0`.`OrderID` = `o`.`OrderID`
+                    AND `o0`.`ProductID` = `o`.`ProductID`)
+            """, [new("o", "OrderID", typeof(int)), new("o", "ProductID", typeof(int))]));
+
         int deleted = e.ExecuteNonQuery(
             """
             DELETE FROM `Order Details` AS `o`
@@ -486,10 +496,6 @@ public class CorrelatedExistsSemiJoinTests
                 LEFT JOIN `Customers` AS `c` ON `o1`.`CustomerID` = `c`.`CustomerID`
                 WHERE (`c`.`CustomerID` LIKE 'F%') AND `o0`.`OrderID` = `o`.`OrderID` AND `o0`.`ProductID` = `o`.`ProductID`)
             """);
-        sw.Stop();
-
         Assert.Equal(164, deleted);
-        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(15),
-            $"TOP-bodied correlated EXISTS took {sw.Elapsed.TotalSeconds:F1}s — the TOP is no longer being dropped");
     }
 }

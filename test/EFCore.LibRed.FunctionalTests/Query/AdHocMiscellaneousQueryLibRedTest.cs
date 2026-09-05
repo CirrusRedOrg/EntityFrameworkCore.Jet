@@ -49,7 +49,7 @@ public class AdHocMiscellaneousQueryLibRedTest(NonSharedFixture fixture) : AdHoc
         => context.Database.ExecuteSqlRawAsync(
             """
 CREATE TABLE ZeroKey (Id int);
-INSERT ZeroKey VALUES (NULL)
+INSERT INTO ZeroKey VALUES (NULL)
 """);
 
     protected override async Task Seed30915(Context30915 context)
@@ -472,7 +472,7 @@ WHERE `d`.`DateTime2_2` <> NOW() AND `d`.`DateTime2_7` <> NOW() AND `d`.`DateTim
             """
 SELECT `d`.`Id`, `d`.`DateTime`, `d`.`DateTime2`, `d`.`DateTime2_0`, `d`.`DateTime2_1`, `d`.`DateTime2_2`, `d`.`DateTime2_3`, `d`.`DateTime2_4`, `d`.`DateTime2_5`, `d`.`DateTime2_6`, `d`.`DateTime2_7`, `d`.`SmallDateTime`
 FROM `Dates` AS `d`
-WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-03 12:00:10# AND `d`.`DateTime2` = #1972-09-03 12:00:10# AND `d`.`DateTime2_0` = #1973-09-03 12:00:10# AND `d`.`DateTime2_1` = #1974-09-03 12:00:10# AND `d`.`DateTime2_2` = #1975-09-03 12:00:10# AND `d`.`DateTime2_3` = #1976-09-03 12:00:10# AND `d`.`DateTime2_4` = #1977-09-03 12:00:10# AND `d`.`DateTime2_5` = #1978-09-03 12:00:10# AND `d`.`DateTime2_6` = #1979-09-03 12:00:10# AND `d`.`DateTime2_7` = #1980-09-03 12:00:10#
+WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-03 12:00:10.220# AND `d`.`DateTime2` = #1972-09-03 12:00:10.333# AND `d`.`DateTime2_0` = #1973-09-03 12:00:10# AND `d`.`DateTime2_1` = #1974-09-03 12:00:10.500# AND `d`.`DateTime2_2` = #1975-09-03 12:00:10.660# AND `d`.`DateTime2_3` = #1976-09-03 12:00:10.777# AND `d`.`DateTime2_4` = #1977-09-03 12:00:10.888# AND `d`.`DateTime2_5` = #1978-09-03 12:00:10.999# AND `d`.`DateTime2_6` = #1979-09-03 12:00:10.111# AND `d`.`DateTime2_7` = #1980-09-03 12:00:10.222#
 """);
     }
 
@@ -520,10 +520,231 @@ WHERE `d`.`SmallDateTime` = #1970-09-03 12:00:00# AND `d`.`DateTime` = #1971-09-
 
         AssertSql(
             """
-            SELECT `d`.`Id`, `d`.`DateTime`, `d`.`DateTime2`, `d`.`DateTime2_0`, `d`.`DateTime2_1`, `d`.`DateTime2_2`, `d`.`DateTime2_3`, `d`.`DateTime2_4`, `d`.`DateTime2_5`, `d`.`DateTime2_6`, `d`.`DateTime2_7`, `d`.`SmallDateTime`
-            FROM `Dates` AS `d`
-            WHERE `d`.`SmallDateTime` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_0` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_1` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_2` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_3` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_4` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_5` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_6` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#) AND `d`.`DateTime2_7` IN (#1970-09-03 12:00:00#, #1971-09-03 12:00:10#, #1972-09-03 12:00:10#, #1973-09-03 12:00:10#, #1974-09-03 12:00:10#, #1975-09-03 12:00:10#, #1976-09-03 12:00:10#, #1977-09-03 12:00:10#, #1978-09-03 12:00:10#, #1979-09-03 12:00:10#, #1980-09-03 12:00:10#)
-            """);
+@dateTimes1='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes2='1971-09-03T12:00:10.2200000' (DbType = DateTime)
+@dateTimes3='1972-09-03T12:00:10.3330000' (DbType = DateTime)
+@dateTimes4='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes5='1974-09-03T12:00:10.5000000' (DbType = DateTime)
+@dateTimes6='1975-09-03T12:00:10.6600000' (DbType = DateTime)
+@dateTimes7='1976-09-03T12:00:10.7770000' (DbType = DateTime)
+@dateTimes8='1977-09-03T12:00:10.8880000' (DbType = DateTime)
+@dateTimes9='1978-09-03T12:00:10.9990000' (DbType = DateTime)
+@dateTimes10='1979-09-03T12:00:10.1110000' (DbType = DateTime)
+@dateTimes11='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes12='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes13='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes14='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes15='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes16='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes17='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes18='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes19='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes20='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes21='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes22='1971-09-03T12:00:10.2200000' (DbType = DateTime)
+@dateTimes23='1972-09-03T12:00:10.3330000' (DbType = DateTime)
+@dateTimes24='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes25='1974-09-03T12:00:10.5000000' (DbType = DateTime)
+@dateTimes26='1975-09-03T12:00:10.6600000' (DbType = DateTime)
+@dateTimes27='1976-09-03T12:00:10.7770000' (DbType = DateTime)
+@dateTimes28='1977-09-03T12:00:10.8880000' (DbType = DateTime)
+@dateTimes29='1978-09-03T12:00:10.9990000' (DbType = DateTime)
+@dateTimes30='1979-09-03T12:00:10.1110000' (DbType = DateTime)
+@dateTimes31='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes32='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes33='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes34='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes35='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes36='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes37='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes38='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes39='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes40='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes41='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes42='1971-09-03T12:00:10.2200000' (DbType = DateTime)
+@dateTimes43='1972-09-03T12:00:10.3330000' (DbType = DateTime)
+@dateTimes44='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes45='1974-09-03T12:00:10.5000000' (DbType = DateTime)
+@dateTimes46='1975-09-03T12:00:10.6600000' (DbType = DateTime)
+@dateTimes47='1976-09-03T12:00:10.7770000' (DbType = DateTime)
+@dateTimes48='1977-09-03T12:00:10.8880000' (DbType = DateTime)
+@dateTimes49='1978-09-03T12:00:10.9990000' (DbType = DateTime)
+@dateTimes50='1979-09-03T12:00:10.1110000' (DbType = DateTime)
+@dateTimes51='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes52='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes53='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes54='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes55='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes56='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes57='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes58='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes59='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes60='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes61='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes62='1971-09-03T12:00:10.2200000' (DbType = DateTime)
+@dateTimes63='1972-09-03T12:00:10.3330000' (DbType = DateTime)
+@dateTimes64='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes65='1974-09-03T12:00:10.5000000' (DbType = DateTime)
+@dateTimes66='1975-09-03T12:00:10.6600000' (DbType = DateTime)
+@dateTimes67='1976-09-03T12:00:10.7770000' (DbType = DateTime)
+@dateTimes68='1977-09-03T12:00:10.8880000' (DbType = DateTime)
+@dateTimes69='1978-09-03T12:00:10.9990000' (DbType = DateTime)
+@dateTimes70='1979-09-03T12:00:10.1110000' (DbType = DateTime)
+@dateTimes71='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes72='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes73='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes74='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes75='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes76='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes77='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes78='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes79='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes80='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes81='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes82='1971-09-03T12:00:10.2200000' (DbType = DateTime)
+@dateTimes83='1972-09-03T12:00:10.3330000' (DbType = DateTime)
+@dateTimes84='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes85='1974-09-03T12:00:10.5000000' (DbType = DateTime)
+@dateTimes86='1975-09-03T12:00:10.6600000' (DbType = DateTime)
+@dateTimes87='1976-09-03T12:00:10.7770000' (DbType = DateTime)
+@dateTimes88='1977-09-03T12:00:10.8880000' (DbType = DateTime)
+@dateTimes89='1978-09-03T12:00:10.9990000' (DbType = DateTime)
+@dateTimes90='1979-09-03T12:00:10.1110000' (DbType = DateTime)
+@dateTimes91='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes92='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes93='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes94='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes95='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes96='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes97='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes98='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes99='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes100='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes101='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes102='1971-09-03T12:00:10.2200000' (DbType = DateTime)
+@dateTimes103='1972-09-03T12:00:10.3330000' (DbType = DateTime)
+@dateTimes104='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes105='1974-09-03T12:00:10.5000000' (DbType = DateTime)
+@dateTimes106='1975-09-03T12:00:10.6600000' (DbType = DateTime)
+@dateTimes107='1976-09-03T12:00:10.7770000' (DbType = DateTime)
+@dateTimes108='1977-09-03T12:00:10.8880000' (DbType = DateTime)
+@dateTimes109='1978-09-03T12:00:10.9990000' (DbType = DateTime)
+@dateTimes110='1979-09-03T12:00:10.1110000' (DbType = DateTime)
+@dateTimes111='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes112='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes113='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes114='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes115='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes116='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes117='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes118='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes119='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes120='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes121='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes122='1971-09-03T12:00:10.2200000' (DbType = DateTime)
+@dateTimes123='1972-09-03T12:00:10.3330000' (DbType = DateTime)
+@dateTimes124='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes125='1974-09-03T12:00:10.5000000' (DbType = DateTime)
+@dateTimes126='1975-09-03T12:00:10.6600000' (DbType = DateTime)
+@dateTimes127='1976-09-03T12:00:10.7770000' (DbType = DateTime)
+@dateTimes128='1977-09-03T12:00:10.8880000' (DbType = DateTime)
+@dateTimes129='1978-09-03T12:00:10.9990000' (DbType = DateTime)
+@dateTimes130='1979-09-03T12:00:10.1110000' (DbType = DateTime)
+@dateTimes131='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes132='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes133='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes134='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes135='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes136='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes137='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes138='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes139='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes140='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes141='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes142='1971-09-03T12:00:10.2200000' (DbType = DateTime)
+@dateTimes143='1972-09-03T12:00:10.3330000' (DbType = DateTime)
+@dateTimes144='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes145='1974-09-03T12:00:10.5000000' (DbType = DateTime)
+@dateTimes146='1975-09-03T12:00:10.6600000' (DbType = DateTime)
+@dateTimes147='1976-09-03T12:00:10.7770000' (DbType = DateTime)
+@dateTimes148='1977-09-03T12:00:10.8880000' (DbType = DateTime)
+@dateTimes149='1978-09-03T12:00:10.9990000' (DbType = DateTime)
+@dateTimes150='1979-09-03T12:00:10.1110000' (DbType = DateTime)
+@dateTimes151='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes152='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes153='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes154='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes155='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes156='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes157='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes158='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes159='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes160='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes161='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes162='1971-09-03T12:00:10.2200000' (DbType = DateTime)
+@dateTimes163='1972-09-03T12:00:10.3330000' (DbType = DateTime)
+@dateTimes164='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes165='1974-09-03T12:00:10.5000000' (DbType = DateTime)
+@dateTimes166='1975-09-03T12:00:10.6600000' (DbType = DateTime)
+@dateTimes167='1976-09-03T12:00:10.7770000' (DbType = DateTime)
+@dateTimes168='1977-09-03T12:00:10.8880000' (DbType = DateTime)
+@dateTimes169='1978-09-03T12:00:10.9990000' (DbType = DateTime)
+@dateTimes170='1979-09-03T12:00:10.1110000' (DbType = DateTime)
+@dateTimes171='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes172='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes173='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes174='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes175='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes176='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes177='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes178='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes179='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes180='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes181='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes182='1971-09-03T12:00:10.2200000' (DbType = DateTime)
+@dateTimes183='1972-09-03T12:00:10.3330000' (DbType = DateTime)
+@dateTimes184='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes185='1974-09-03T12:00:10.5000000' (DbType = DateTime)
+@dateTimes186='1975-09-03T12:00:10.6600000' (DbType = DateTime)
+@dateTimes187='1976-09-03T12:00:10.7770000' (DbType = DateTime)
+@dateTimes188='1977-09-03T12:00:10.8880000' (DbType = DateTime)
+@dateTimes189='1978-09-03T12:00:10.9990000' (DbType = DateTime)
+@dateTimes190='1979-09-03T12:00:10.1110000' (DbType = DateTime)
+@dateTimes191='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes192='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes193='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes194='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes195='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes196='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes197='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes198='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes199='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes200='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes201='1970-09-03T12:00:00.0000000' (DbType = DateTime)
+@dateTimes202='1971-09-03T12:00:10.2200000' (DbType = DateTime)
+@dateTimes203='1972-09-03T12:00:10.3330000' (DbType = DateTime)
+@dateTimes204='1973-09-03T12:00:10.0000000' (DbType = DateTime)
+@dateTimes205='1974-09-03T12:00:10.5000000' (DbType = DateTime)
+@dateTimes206='1975-09-03T12:00:10.6600000' (DbType = DateTime)
+@dateTimes207='1976-09-03T12:00:10.7770000' (DbType = DateTime)
+@dateTimes208='1977-09-03T12:00:10.8880000' (DbType = DateTime)
+@dateTimes209='1978-09-03T12:00:10.9990000' (DbType = DateTime)
+@dateTimes210='1979-09-03T12:00:10.1110000' (DbType = DateTime)
+@dateTimes211='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes212='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes213='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes214='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes215='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes216='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes217='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes218='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes219='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+@dateTimes220='1980-09-03T12:00:10.2220000' (DbType = DateTime)
+
+SELECT `d`.`Id`, `d`.`DateTime`, `d`.`DateTime2`, `d`.`DateTime2_0`, `d`.`DateTime2_1`, `d`.`DateTime2_2`, `d`.`DateTime2_3`, `d`.`DateTime2_4`, `d`.`DateTime2_5`, `d`.`DateTime2_6`, `d`.`DateTime2_7`, `d`.`SmallDateTime`
+FROM `Dates` AS `d`
+WHERE `d`.`SmallDateTime` IN (CDATE(@dateTimes1), CDATE(@dateTimes2), CDATE(@dateTimes3), CDATE(@dateTimes4), CDATE(@dateTimes5), CDATE(@dateTimes6), CDATE(@dateTimes7), CDATE(@dateTimes8), CDATE(@dateTimes9), CDATE(@dateTimes10), CDATE(@dateTimes11), CDATE(@dateTimes12), CDATE(@dateTimes13), CDATE(@dateTimes14), CDATE(@dateTimes15), CDATE(@dateTimes16), CDATE(@dateTimes17), CDATE(@dateTimes18), CDATE(@dateTimes19), CDATE(@dateTimes20)) AND `d`.`DateTime` IN (CDATE(@dateTimes21), CDATE(@dateTimes22), CDATE(@dateTimes23), CDATE(@dateTimes24), CDATE(@dateTimes25), CDATE(@dateTimes26), CDATE(@dateTimes27), CDATE(@dateTimes28), CDATE(@dateTimes29), CDATE(@dateTimes30), CDATE(@dateTimes31), CDATE(@dateTimes32), CDATE(@dateTimes33), CDATE(@dateTimes34), CDATE(@dateTimes35), CDATE(@dateTimes36), CDATE(@dateTimes37), CDATE(@dateTimes38), CDATE(@dateTimes39), CDATE(@dateTimes40)) AND `d`.`DateTime2` IN (CDATE(@dateTimes41), CDATE(@dateTimes42), CDATE(@dateTimes43), CDATE(@dateTimes44), CDATE(@dateTimes45), CDATE(@dateTimes46), CDATE(@dateTimes47), CDATE(@dateTimes48), CDATE(@dateTimes49), CDATE(@dateTimes50), CDATE(@dateTimes51), CDATE(@dateTimes52), CDATE(@dateTimes53), CDATE(@dateTimes54), CDATE(@dateTimes55), CDATE(@dateTimes56), CDATE(@dateTimes57), CDATE(@dateTimes58), CDATE(@dateTimes59), CDATE(@dateTimes60)) AND `d`.`DateTime2_0` IN (CDATE(@dateTimes61), CDATE(@dateTimes62), CDATE(@dateTimes63), CDATE(@dateTimes64), CDATE(@dateTimes65), CDATE(@dateTimes66), CDATE(@dateTimes67), CDATE(@dateTimes68), CDATE(@dateTimes69), CDATE(@dateTimes70), CDATE(@dateTimes71), CDATE(@dateTimes72), CDATE(@dateTimes73), CDATE(@dateTimes74), CDATE(@dateTimes75), CDATE(@dateTimes76), CDATE(@dateTimes77), CDATE(@dateTimes78), CDATE(@dateTimes79), CDATE(@dateTimes80)) AND `d`.`DateTime2_1` IN (CDATE(@dateTimes81), CDATE(@dateTimes82), CDATE(@dateTimes83), CDATE(@dateTimes84), CDATE(@dateTimes85), CDATE(@dateTimes86), CDATE(@dateTimes87), CDATE(@dateTimes88), CDATE(@dateTimes89), CDATE(@dateTimes90), CDATE(@dateTimes91), CDATE(@dateTimes92), CDATE(@dateTimes93), CDATE(@dateTimes94), CDATE(@dateTimes95), CDATE(@dateTimes96), CDATE(@dateTimes97), CDATE(@dateTimes98), CDATE(@dateTimes99), CDATE(@dateTimes100)) AND `d`.`DateTime2_2` IN (CDATE(@dateTimes101), CDATE(@dateTimes102), CDATE(@dateTimes103), CDATE(@dateTimes104), CDATE(@dateTimes105), CDATE(@dateTimes106), CDATE(@dateTimes107), CDATE(@dateTimes108), CDATE(@dateTimes109), CDATE(@dateTimes110), CDATE(@dateTimes111), CDATE(@dateTimes112), CDATE(@dateTimes113), CDATE(@dateTimes114), CDATE(@dateTimes115), CDATE(@dateTimes116), CDATE(@dateTimes117), CDATE(@dateTimes118), CDATE(@dateTimes119), CDATE(@dateTimes120)) AND `d`.`DateTime2_3` IN (CDATE(@dateTimes121), CDATE(@dateTimes122), CDATE(@dateTimes123), CDATE(@dateTimes124), CDATE(@dateTimes125), CDATE(@dateTimes126), CDATE(@dateTimes127), CDATE(@dateTimes128), CDATE(@dateTimes129), CDATE(@dateTimes130), CDATE(@dateTimes131), CDATE(@dateTimes132), CDATE(@dateTimes133), CDATE(@dateTimes134), CDATE(@dateTimes135), CDATE(@dateTimes136), CDATE(@dateTimes137), CDATE(@dateTimes138), CDATE(@dateTimes139), CDATE(@dateTimes140)) AND `d`.`DateTime2_4` IN (CDATE(@dateTimes141), CDATE(@dateTimes142), CDATE(@dateTimes143), CDATE(@dateTimes144), CDATE(@dateTimes145), CDATE(@dateTimes146), CDATE(@dateTimes147), CDATE(@dateTimes148), CDATE(@dateTimes149), CDATE(@dateTimes150), CDATE(@dateTimes151), CDATE(@dateTimes152), CDATE(@dateTimes153), CDATE(@dateTimes154), CDATE(@dateTimes155), CDATE(@dateTimes156), CDATE(@dateTimes157), CDATE(@dateTimes158), CDATE(@dateTimes159), CDATE(@dateTimes160)) AND `d`.`DateTime2_5` IN (CDATE(@dateTimes161), CDATE(@dateTimes162), CDATE(@dateTimes163), CDATE(@dateTimes164), CDATE(@dateTimes165), CDATE(@dateTimes166), CDATE(@dateTimes167), CDATE(@dateTimes168), CDATE(@dateTimes169), CDATE(@dateTimes170), CDATE(@dateTimes171), CDATE(@dateTimes172), CDATE(@dateTimes173), CDATE(@dateTimes174), CDATE(@dateTimes175), CDATE(@dateTimes176), CDATE(@dateTimes177), CDATE(@dateTimes178), CDATE(@dateTimes179), CDATE(@dateTimes180)) AND `d`.`DateTime2_6` IN (CDATE(@dateTimes181), CDATE(@dateTimes182), CDATE(@dateTimes183), CDATE(@dateTimes184), CDATE(@dateTimes185), CDATE(@dateTimes186), CDATE(@dateTimes187), CDATE(@dateTimes188), CDATE(@dateTimes189), CDATE(@dateTimes190), CDATE(@dateTimes191), CDATE(@dateTimes192), CDATE(@dateTimes193), CDATE(@dateTimes194), CDATE(@dateTimes195), CDATE(@dateTimes196), CDATE(@dateTimes197), CDATE(@dateTimes198), CDATE(@dateTimes199), CDATE(@dateTimes200)) AND `d`.`DateTime2_7` IN (CDATE(@dateTimes201), CDATE(@dateTimes202), CDATE(@dateTimes203), CDATE(@dateTimes204), CDATE(@dateTimes205), CDATE(@dateTimes206), CDATE(@dateTimes207), CDATE(@dateTimes208), CDATE(@dateTimes209), CDATE(@dateTimes210), CDATE(@dateTimes211), CDATE(@dateTimes212), CDATE(@dateTimes213), CDATE(@dateTimes214), CDATE(@dateTimes215), CDATE(@dateTimes216), CDATE(@dateTimes217), CDATE(@dateTimes218), CDATE(@dateTimes219), CDATE(@dateTimes220))
+""");
     }
 
     protected class Context14095(DbContextOptions options) : DbContext(options)
@@ -1391,6 +1612,18 @@ GROUP BY `t1`.`AnotherEntity11818_Name`, `t3`.`MaumarEntity11818_Name`
 """);
     }
 
+    public override async Task LeftJoin_with_missing_key_values_on_both_sides(bool async)
+    {
+        await base.LeftJoin_with_missing_key_values_on_both_sides(async);
+
+        AssertSql(
+            """
+SELECT `c`.`CustomerID`, `c`.`CustomerName`, IIF(`p`.`PostcodeID` IS NULL, '', `p`.`TownName`) AS `TownName`, IIF(`p`.`PostcodeID` IS NULL, '', `p`.`PostcodeValue`) AS `PostcodeValue`
+FROM `Customers` AS `c`
+LEFT JOIN `Postcodes` AS `p` ON `c`.`PostcodeID` = `p`.`PostcodeID`
+""");
+    }
+
     public override async Task Comparing_enum_casted_to_byte_with_int_parameter(bool async)
     {
         await base.Comparing_enum_casted_to_byte_with_int_parameter(async);
@@ -1842,4 +2075,838 @@ WHERE 1 = `t`.`Id`
 """);
         }
     }
+
+    public override async Task Coalesce_in_conditional_with_value_conversion(bool async)
+    {
+        await base.Coalesce_in_conditional_with_value_conversion(async);
+
+        AssertSql(
+            """
+SELECT `d`.`Id`, IIF(IIF(`d`.`Foo` IS NULL, CINT(99), `d`.`Foo`) = CINT(10), 'A', 'B') AS `Foo`
+FROM `Data` AS `d`
+ORDER BY `d`.`Id`
+""");
+    }
+
+    public override async Task Like_on_value_converted_string_column_does_not_produce_cast(bool async)
+    {
+        await base.Like_on_value_converted_string_column_does_not_produce_cast(async);
+
+        AssertSql(
+            """
+SELECT `u`.`Id`, `u`.`Name`
+FROM `Users` AS `u`
+WHERE `u`.`Name` LIKE 'Name%'
+""");
+    }
+
+    public override async Task Entity_equality_with_Contains_and_Parameter(bool async)
+    {
+        await base.Entity_equality_with_Contains_and_Parameter(async);
+
+        AssertSql(
+            """
+@entity_equality_details_Id1='1'
+@entity_equality_details_Id2='2'
+
+SELECT `b`.`Id`, `b`.`DetailsId`, `b`.`Name`
+FROM `Blogs` AS `b`
+LEFT JOIN `BlogDetails` AS `b0` ON `b`.`DetailsId` = `b0`.`Id`
+WHERE `b0`.`Id` IN (@entity_equality_details_Id1, @entity_equality_details_Id2)
+""");
+    }
+
+    #region 30915
+
+    public override async Task Anon_whole_object_GroupJoin_DefaultIfEmpty()
+    {
+        await base.Anon_whole_object_GroupJoin_DefaultIfEmpty();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Anon_whole_object_LeftJoin_operator()
+    {
+        await base.Anon_whole_object_LeftJoin_operator();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Anon_client_null_check_GroupJoin()
+    {
+        await base.Anon_client_null_check_GroupJoin();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Anon_client_null_check_LeftJoin_operator()
+    {
+        await base.Anon_client_null_check_LeftJoin_operator();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Anon_member_only_nullable_cast()
+    {
+        await base.Anon_member_only_nullable_cast();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`Count`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
+""");
+    }
+
+    public override async Task Dto_memberinit_whole_object_LeftJoin()
+    {
+        await base.Dto_memberinit_whole_object_LeftJoin();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`PickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
+""");
+    }
+
+    public override async Task Nested_anon_whole_object()
+    {
+        await base.Nested_anon_whole_object();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Distinct_after_join_member()
+    {
+        await base.Distinct_after_join_member();
+
+        AssertSql(
+            """
+SELECT DISTINCT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Take_after_join_whole_object()
+    {
+        await base.Take_after_join_whole_object();
+
+        AssertSql(
+            """
+@p='10'
+
+SELECT TOP @p `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Projected_object_with_nullable_member()
+    {
+        await base.Projected_object_with_nullable_member();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`MaxPriority`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, MAX(`r`.`Priority`) AS `MaxPriority`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Projected_object_with_string_member()
+    {
+        await base.Projected_object_with_string_member();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`Name`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 'cat' AS `Name`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Projected_object_all_nullable_members()
+    {
+        await base.Projected_object_all_nullable_members();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`MaxPriority`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, MAX(`r`.`Priority`) AS `MaxPriority`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Matched_row_with_null_aggregate_keeps_object_non_null()
+    {
+        await base.Matched_row_with_null_aggregate_keeps_object_non_null();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`MaxPriority`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, MAX(`r`.`Priority`) AS `MaxPriority`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Bare_whole_object_projection_is_null_on_no_match()
+    {
+        await base.Bare_whole_object_projection_is_null_on_no_match();
+
+        AssertSql(
+            """
+SELECT `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task User_member_named_marker_does_not_collide_with_synthetic_marker()
+    {
+        await base.User_member_named_marker_does_not_collide_with_synthetic_marker();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`marker`, `r0`.`marker0` AS `marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `marker`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker0`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Anon_whole_object_GroupJoin_DefaultIfEmpty_sync()
+    {
+        await base.Anon_whole_object_GroupJoin_DefaultIfEmpty_sync();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Projected_object_with_decimal_member()
+    {
+        await base.Projected_object_with_decimal_member();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Total`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, IIF(SUM(CDEC(`r`.`PickupStatusId`)) IS NULL, 0.0, SUM(CDEC(`r`.`PickupStatusId`))) AS `Total`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Correlated_SelectMany_DefaultIfEmpty_whole_object()
+    {
+        await base.Correlated_SelectMany_DefaultIfEmpty_whole_object();
+
+        AssertSql();
+    }
+
+    public override async Task Composed_user_marker_projection_into_subquery_self_heals()
+    {
+        await base.Composed_user_marker_projection_into_subquery_self_heals();
+
+        AssertSql(
+            """
+SELECT `s0`.`PickupStatusId`, `s0`.`pickupStatusId0` AS `pickupStatusId`, `s0`.`marker`, `s0`.`marker0` AS `marker`
+FROM (
+    SELECT DISTINCT `s`.`PickupStatusId`, `r0`.`pickupStatusId` AS `pickupStatusId0`, `r0`.`marker`, `r0`.`marker0`
+    FROM `Statuses` AS `s`
+    LEFT JOIN (
+        SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `marker`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker0`
+        FROM `Requests` AS `r`
+        GROUP BY `r`.`PickupStatusId`
+    ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+) AS `s0`
+ORDER BY `s0`.`PickupStatusId`, `s0`.`pickupStatusId0`
+""");
+    }
+
+    public override async Task Nested_transparent_identifier_of_entities_as_leftjoin_inner()
+    {
+        await base.Nested_transparent_identifier_of_entities_as_leftjoin_inner();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `s1`.`Id`, `s1`.`PickupStatusId`, `s1`.`Priority`, `s1`.`PickupStatusId0`, `s1`.`Name`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`Id`, `r`.`PickupStatusId`, `r`.`Priority`, `s0`.`PickupStatusId` AS `PickupStatusId0`, `s0`.`Name`
+    FROM `Requests` AS `r`
+    INNER JOIN `Statuses` AS `s0` ON `r`.`PickupStatusId` = `s0`.`PickupStatusId`
+) AS `s1` ON `s`.`PickupStatusId` = `s1`.`PickupStatusId0`
+ORDER BY `s`.`PickupStatusId`
+""");
+    }
+
+    public override async Task Distinct_with_unconsumed_marker_is_benign()
+    {
+        await base.Distinct_with_unconsumed_marker_is_benign();
+
+        AssertSql(
+            """
+SELECT `s0`.`PickupStatusId`, `s0`.`pickupStatusId0`, `s0`.`Count`, `s0`.`marker`
+FROM (
+    SELECT DISTINCT `s`.`PickupStatusId`, `r0`.`pickupStatusId` AS `pickupStatusId0`, `r0`.`Count`, `r0`.`marker`
+    FROM `Statuses` AS `s`
+    LEFT JOIN (
+        SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+        FROM `Requests` AS `r`
+        GROUP BY `r`.`PickupStatusId`
+    ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+) AS `s0`
+ORDER BY `s0`.`PickupStatusId`, `s0`.`pickupStatusId0`
+""");
+    }
+
+    public override async Task Member_only_access_nested_two_joins_deep()
+    {
+        await base.Member_only_access_nested_two_joins_deep();
+
+        AssertSql(
+            """
+SELECT `s0`.`PickupStatusId`, `s0`.`Name`, `s1`.`marker` IS NULL, `s1`.`pickupStatusId0`, `s1`.`Count`
+FROM (
+    SELECT DISTINCT `s`.`PickupStatusId`, `r0`.`pickupStatusId` AS `pickupStatusId0`, `r0`.`Count`, `r0`.`marker`
+    FROM `Statuses` AS `s`
+    LEFT JOIN (
+        SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+        FROM `Requests` AS `r`
+        GROUP BY `r`.`PickupStatusId`
+    ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+) AS `s1`
+INNER JOIN `Statuses` AS `s0` ON `s1`.`PickupStatusId` = `s0`.`PickupStatusId`
+ORDER BY `s0`.`PickupStatusId`, `s1`.`pickupStatusId0`
+""");
+    }
+
+    public override async Task Dto_constructor_whole_object_LeftJoin()
+    {
+        await base.Dto_constructor_whole_object_LeftJoin();
+
+        AssertSql();
+    }
+
+    public override async Task Struct_whole_object_LeftJoin()
+    {
+        await base.Struct_whole_object_LeftJoin();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`PickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
+""");
+    }
+
+    public override async Task Struct_whole_object_GroupJoin_DefaultIfEmpty()
+    {
+        await base.Struct_whole_object_GroupJoin_DefaultIfEmpty();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`PickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
+""");
+    }
+
+    public override async Task RecordStruct_whole_object_LeftJoin()
+    {
+        await base.RecordStruct_whole_object_LeftJoin();
+
+        AssertSql();
+    }
+
+    public override async Task Nullable_struct_whole_object_from_nullable_side()
+    {
+        await base.Nullable_struct_whole_object_from_nullable_side();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`PickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
+""");
+    }
+
+    public override async Task ValueTuple_whole_object_from_nullable_side()
+    {
+        await base.ValueTuple_whole_object_from_nullable_side();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`PickupStatusId`, `r0`.`c`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId`, COUNT(*) AS `c`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
+""");
+    }
+
+    public override async Task Second_join_after_then_whole_object()
+    {
+        await base.Second_join_after_then_whole_object();
+
+        AssertSql(
+            """
+SELECT `s0`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM (`Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`)
+INNER JOIN `Statuses` AS `s0` ON `s`.`PickupStatusId` = `s0`.`PickupStatusId`
+ORDER BY `s0`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Plain_inner_no_aggregate_LeftJoin_whole_object()
+    {
+        await base.Plain_inner_no_aggregate_LeftJoin_whole_object();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r`.`PickupStatusId`, 1 AS `Count`
+FROM `Statuses` AS `s`
+LEFT JOIN `Requests` AS `r` ON `s`.`PickupStatusId` = `r`.`PickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r`.`Id`
+""");
+    }
+
+    public override async Task Union_of_two_leftjoin_nonentity()
+    {
+        await base.Union_of_two_leftjoin_nonentity();
+
+        AssertSql();
+    }
+
+    public override async Task OrderBy_member_of_nullable_projection()
+    {
+        await base.OrderBy_member_of_nullable_projection();
+
+        AssertSql();
+    }
+
+    public override async Task Where_nonentity_projection_not_null_serverside()
+    {
+        await base.Where_nonentity_projection_not_null_serverside();
+
+        AssertSql();
+    }
+
+    public override async Task Where_nonentity_projection_null_serverside()
+    {
+        await base.Where_nonentity_projection_null_serverside();
+
+        AssertSql();
+    }
+
+    public override async Task Matched_struct_row_with_zero_aggregate_keeps_real_key()
+    {
+        await base.Matched_struct_row_with_zero_aggregate_keeps_real_key();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`PickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId`, COUNT(IIF(`r`.`Priority` > 100, 1, NULL)) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
+""");
+    }
+
+    public override async Task RightJoin_whole_object_outer_nullable()
+    {
+        await base.RightJoin_whole_object_outer_nullable();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`
+FROM (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0`
+RIGHT JOIN `Statuses` AS `s` ON `r0`.`pickupStatusId` = `s`.`PickupStatusId`
+ORDER BY `s`.`PickupStatusId`
+""");
+    }
+
+    public override async Task GroupBy_after_join_then_whole_object()
+    {
+        await base.GroupBy_after_join_then_whole_object();
+
+        AssertSql(
+            """
+SELECT [s1].[PickupStatusId], [s3].[pickupStatusId], [s3].[Count], [s3].[marker], [s3].[c]
+FROM (
+    SELECT [s].[PickupStatusId]
+    FROM [Statuses] AS [s]
+    LEFT JOIN (
+        SELECT [r].[PickupStatusId] AS [pickupStatusId]
+        FROM [Requests] AS [r]
+        GROUP BY [r].[PickupStatusId]
+    ) AS [r0] ON [s].[PickupStatusId] = [r0].[pickupStatusId]
+    GROUP BY [s].[PickupStatusId]
+) AS [s1]
+LEFT JOIN (
+    SELECT [s2].[pickupStatusId], [s2].[Count], [s2].[marker], [s2].[c], [s2].[PickupStatusId0]
+    FROM (
+        SELECT [r1].[pickupStatusId], [r1].[Count], [r1].[marker], 1 AS [c], [s0].[PickupStatusId] AS [PickupStatusId0], ROW_NUMBER() OVER(PARTITION BY [s0].[PickupStatusId] ORDER BY [s0].[PickupStatusId], [r1].[pickupStatusId]) AS [row]
+        FROM [Statuses] AS [s0]
+        LEFT JOIN (
+            SELECT [r2].[PickupStatusId] AS [pickupStatusId], COUNT(*) AS [Count], 1 AS [marker]
+            FROM [Requests] AS [r2]
+            GROUP BY [r2].[PickupStatusId]
+        ) AS [r1] ON [s0].[PickupStatusId] = [r1].[pickupStatusId]
+    ) AS [s2]
+    WHERE [s2].[row] <= 1
+) AS [s3] ON [s1].[PickupStatusId] = [s3].[PickupStatusId0]
+ORDER BY [s1].[PickupStatusId]
+""");
+    }
+
+    public override async Task GroupBy_after_join_then_whole_object_nested_in_wrapper()
+    {
+        await base.GroupBy_after_join_then_whole_object_nested_in_wrapper();
+
+        // SQL is intentionally identical to the flat GroupBy_after_join_then_whole_object variant -- the wrapper is
+        // client-side-only nesting, so it changes no SQL. This test exists to exercise the nested-node rekey path.
+        AssertSql(
+            """
+SELECT [s1].[PickupStatusId], [s3].[pickupStatusId], [s3].[Count], [s3].[marker], [s3].[c]
+FROM (
+    SELECT [s].[PickupStatusId]
+    FROM [Statuses] AS [s]
+    LEFT JOIN (
+        SELECT [r].[PickupStatusId] AS [pickupStatusId]
+        FROM [Requests] AS [r]
+        GROUP BY [r].[PickupStatusId]
+    ) AS [r0] ON [s].[PickupStatusId] = [r0].[pickupStatusId]
+    GROUP BY [s].[PickupStatusId]
+) AS [s1]
+LEFT JOIN (
+    SELECT [s2].[pickupStatusId], [s2].[Count], [s2].[marker], [s2].[c], [s2].[PickupStatusId0]
+    FROM (
+        SELECT [r1].[pickupStatusId], [r1].[Count], [r1].[marker], 1 AS [c], [s0].[PickupStatusId] AS [PickupStatusId0], ROW_NUMBER() OVER(PARTITION BY [s0].[PickupStatusId] ORDER BY [s0].[PickupStatusId], [r1].[pickupStatusId]) AS [row]
+        FROM [Statuses] AS [s0]
+        LEFT JOIN (
+            SELECT [r2].[PickupStatusId] AS [pickupStatusId], COUNT(*) AS [Count], 1 AS [marker]
+            FROM [Requests] AS [r2]
+            GROUP BY [r2].[PickupStatusId]
+        ) AS [r1] ON [s0].[PickupStatusId] = [r1].[pickupStatusId]
+    ) AS [s2]
+    WHERE [s2].[row] <= 1
+) AS [s3] ON [s1].[PickupStatusId] = [s3].[PickupStatusId0]
+ORDER BY [s1].[PickupStatusId]
+""");
+    }
+
+    public override async Task GroupBy_after_join_then_whole_object_dto_memberinit()
+    {
+        await base.GroupBy_after_join_then_whole_object_dto_memberinit();
+
+        AssertSql(
+            """
+SELECT [s1].[PickupStatusId], [s3].[PickupStatusId], [s3].[Count], [s3].[marker], [s3].[c]
+FROM (
+    SELECT [s].[PickupStatusId]
+    FROM [Statuses] AS [s]
+    LEFT JOIN (
+        SELECT [r].[PickupStatusId]
+        FROM [Requests] AS [r]
+        GROUP BY [r].[PickupStatusId]
+    ) AS [r0] ON [s].[PickupStatusId] = [r0].[PickupStatusId]
+    GROUP BY [s].[PickupStatusId]
+) AS [s1]
+LEFT JOIN (
+    SELECT [s2].[PickupStatusId], [s2].[Count], [s2].[marker], [s2].[c], [s2].[PickupStatusId0]
+    FROM (
+        SELECT [r1].[PickupStatusId], [r1].[Count], [r1].[marker], 1 AS [c], [s0].[PickupStatusId] AS [PickupStatusId0], ROW_NUMBER() OVER(PARTITION BY [s0].[PickupStatusId] ORDER BY [s0].[PickupStatusId], [r1].[PickupStatusId]) AS [row]
+        FROM [Statuses] AS [s0]
+        LEFT JOIN (
+            SELECT [r2].[PickupStatusId], COUNT(*) AS [Count], 1 AS [marker]
+            FROM [Requests] AS [r2]
+            GROUP BY [r2].[PickupStatusId]
+        ) AS [r1] ON [s0].[PickupStatusId] = [r1].[PickupStatusId]
+    ) AS [s2]
+    WHERE [s2].[row] <= 1
+) AS [s3] ON [s1].[PickupStatusId] = [s3].[PickupStatusId0]
+ORDER BY [s1].[PickupStatusId]
+""");
+    }
+
+    public override async Task GroupBy_after_join_then_whole_object_struct()
+    {
+        await base.GroupBy_after_join_then_whole_object_struct();
+
+        AssertSql(
+            """
+SELECT [s1].[PickupStatusId], [s3].[PickupStatusId], [s3].[Count], [s3].[marker], [s3].[c]
+FROM (
+    SELECT [s].[PickupStatusId]
+    FROM [Statuses] AS [s]
+    LEFT JOIN (
+        SELECT [r].[PickupStatusId]
+        FROM [Requests] AS [r]
+        GROUP BY [r].[PickupStatusId]
+    ) AS [r0] ON [s].[PickupStatusId] = [r0].[PickupStatusId]
+    GROUP BY [s].[PickupStatusId]
+) AS [s1]
+LEFT JOIN (
+    SELECT [s2].[PickupStatusId], [s2].[Count], [s2].[marker], [s2].[c], [s2].[PickupStatusId0]
+    FROM (
+        SELECT [r1].[PickupStatusId], [r1].[Count], [r1].[marker], 1 AS [c], [s0].[PickupStatusId] AS [PickupStatusId0], ROW_NUMBER() OVER(PARTITION BY [s0].[PickupStatusId] ORDER BY [s0].[PickupStatusId], [r1].[PickupStatusId]) AS [row]
+        FROM [Statuses] AS [s0]
+        LEFT JOIN (
+            SELECT [r2].[PickupStatusId], COUNT(*) AS [Count], 1 AS [marker]
+            FROM [Requests] AS [r2]
+            GROUP BY [r2].[PickupStatusId]
+        ) AS [r1] ON [s0].[PickupStatusId] = [r1].[PickupStatusId]
+    ) AS [s2]
+    WHERE [s2].[row] <= 1
+) AS [s3] ON [s1].[PickupStatusId] = [s3].[PickupStatusId0]
+ORDER BY [s1].[PickupStatusId]
+""");
+    }
+
+    public override async Task Two_left_joined_nonentity_objects_second_marker_orphaned()
+    {
+        await base.Two_left_joined_nonentity_objects_second_marker_orphaned();
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`, `r2`.`pickupStatusId`, `r2`.`Count`, `r2`.`marker`
+FROM (`Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`)
+LEFT JOIN (
+    SELECT `r1`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r1`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r1`
+    GROUP BY `r1`.`PickupStatusId`
+) AS `r2` ON `s`.`PickupStatusId` = `r2`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`, `r2`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Three_sequential_joins_marker_survives_two_remaps()
+    {
+        await base.Three_sequential_joins_marker_survives_two_remaps();
+
+        AssertSql(
+            """
+SELECT `s1`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM ((`Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`)
+INNER JOIN `Statuses` AS `s0` ON `s`.`PickupStatusId` = `s0`.`PickupStatusId`)
+LEFT JOIN `Statuses` AS `s1` ON `s0`.`PickupStatusId` = `s1`.`PickupStatusId`
+WHERE `s0`.`PickupStatusId` IS NOT NULL AND `s1`.`PickupStatusId` IS NOT NULL
+ORDER BY `s1`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Marker_object_nested_in_outer_wrapper_across_second_join()
+    {
+        await base.Marker_object_nested_in_outer_wrapper_across_second_join();
+
+        AssertSql(
+            """
+SELECT `s0`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM (`Statuses` AS `s`
+LEFT JOIN (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker`
+    FROM `Requests` AS `r`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`)
+INNER JOIN `Statuses` AS `s0` ON `s`.`PickupStatusId` = `s0`.`PickupStatusId`
+ORDER BY `s0`.`PickupStatusId`, `r0`.`pickupStatusId`
+""");
+    }
+
+    public override async Task Query_when_null_key_in_database_should_throw()
+    {
+        await base.Query_when_null_key_in_database_should_throw();
+
+        AssertSql(
+            """
+SELECT `z`.`Id`
+FROM `ZeroKey` AS `z`
+""");
+    }
+
+    public override async Task Mapping_JsonElement_property_throws_a_meaningful_exception()
+    {
+        await base.Mapping_JsonElement_property_throws_a_meaningful_exception();
+
+        AssertSql();
+    }
+
+    public override async Task Struct_composed_user_marker_projection_into_subquery_self_heals()
+    {
+        await base.Struct_composed_user_marker_projection_into_subquery_self_heals();
+
+        AssertSql(
+            """
+SELECT `s0`.`PickupStatusId`, `s0`.`pickupStatusId0` AS `pickupStatusId`, `s0`.`marker`, `s0`.`marker0` AS `marker`
+FROM (
+    SELECT DISTINCT `s`.`PickupStatusId`, `r0`.`pickupStatusId` AS `pickupStatusId0`, `r0`.`marker`, `r0`.`marker0`
+    FROM `Statuses` AS `s`
+    LEFT JOIN (
+        SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `marker`, IIF(`r`.`PickupStatusId` IS NULL, NULL, 1) AS `marker0`
+        FROM `Requests` AS `r`
+        GROUP BY `r`.`PickupStatusId`
+    ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
+) AS `s0`
+ORDER BY `s0`.`PickupStatusId`, `s0`.`pickupStatusId0`
+""");
+    }
+
+    #endregion
+
+    [Fact]
+    public virtual void Check_all_tests_overridden()
+        => TestHelpers.AssertAllMethodsOverridden(GetType());
 }

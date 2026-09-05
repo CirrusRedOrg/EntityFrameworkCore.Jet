@@ -11,8 +11,7 @@ public class MultiTableUpdateDeleteTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"mtud-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "mtud-");
         return path;
     }
 
@@ -50,7 +49,7 @@ public class MultiTableUpdateDeleteTests
             Assert.All(e.ExecuteQuery("SELECT CName FROM C WHERE ParentId = 1").Rows, r => Assert.Equal("child", r[0]));
             Assert.Equal("c12", e.ExecuteQuery("SELECT CName FROM C WHERE Id = 12").Rows.Single()[0]);            // untouched
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -69,7 +68,7 @@ public class MultiTableUpdateDeleteTests
             Assert.Equal(new[] { 12 }, e.ExecuteQuery("SELECT Id FROM C").Rows.Select(r => Convert.ToInt32(r[0])).OrderBy(x => x));
             Assert.Equal(2, e.ExecuteQuery("SELECT Id FROM P").Rows.Count()); // both parents remain
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // `DELETE *` (bare star) is fine for a single table, but a join DELETE without a `table.*` target is
@@ -93,6 +92,6 @@ public class MultiTableUpdateDeleteTests
             Assert.Throws<InvalidOperationException>(() =>
                 e.ExecuteNonQuery("DELETE FROM C INNER JOIN P ON C.ParentId = P.Id WHERE P.PName = 'p2'"));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

@@ -3,17 +3,15 @@
     The LibRed.* projects are a from-scratch, fully managed implementation of the
     Jet/ACE (Access MDB/ACCDB) engine. Unlike the ODBC/OleDb-based EFCore.Jet
     projects, they have NO Windows dependency and must stay cross-platform.
+    [SupportedOSPlatform("windows")] is applied by each driver-bound project itself,
+    so nothing here needs to opt out of it.
 
-    We therefore deliberately bypass src/Directory.Build.props (which stamps every
-    assembly with [SupportedOSPlatform("windows")]) and import the repo-root props
-    directly to pick up shared metadata, versioning and analyzer settings.
   -->
-  <Import Project="$(MSBuildThisFileDirectory)..\..\Directory.Build.props" />
+  <Import Project="$(MSBuildThisFileDirectory)..\Directory.Build.props" />
 
   <PropertyGroup>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <IsPackable>false</IsPackable>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>

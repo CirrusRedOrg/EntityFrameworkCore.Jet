@@ -10,21 +10,14 @@ namespace LibRed.Core.Tests;
 // LibRed-column-added file, reads existing rows with the new column NULL, and can insert using it.
 public class AddColumnAccessTests
 {
-    private static OleDbConnection Open(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        throw new InvalidOperationException("no ace");
-    }
+    private static OleDbConnection Open(string path) => AceTestDatabase.Open(path);
     private static void Ace(string path, params string[] sqls)
     { using var c = Open(path); foreach (var s in sqls) { using var m = c.CreateCommand(); m.CommandText = s; m.ExecuteNonQuery(); } }
 
     [Fact]
     public void Access_reads_and_extends_a_libred_column_added_table()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"addcol-lr-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "addcol-lr-");
         try
         {
             // ACE creates the table + rows so the TDEF/rows are authentic.
@@ -64,14 +57,13 @@ public class AddColumnAccessTests
                 Assert.Equal(99, r.GetInt32(1));
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_reads_a_libred_row_inserted_after_adding_a_fixed_column_to_a_populated_table()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"addcol-fx-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "addcol-fx-");
         try
         {
             Ace(path,
@@ -94,14 +86,13 @@ public class AddColumnAccessTests
             Assert.True(r.Read()); Assert.Equal(2, r.GetInt32(0)); Assert.Equal(20, r.GetInt32(1)); Assert.True(r.IsDBNull(2));
             Assert.True(r.Read()); Assert.Equal(3, r.GetInt32(0)); Assert.Equal(30, r.GetInt32(1)); Assert.Equal(99, r.GetInt32(2));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Add_a_memo_column_falls_back_to_a_dedicated_usage_map_page_when_the_primary_is_full()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"addmemo-ded-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "addmemo-ded-");
         try
         {
             string memo = new string('z', 200);
@@ -132,14 +123,13 @@ public class AddColumnAccessTests
             cmd.CommandText = "SELECT Extra FROM W WHERE Id = 1";
             Assert.Equal(memo, cmd.ExecuteScalar());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Add_and_drop_column_work_on_a_multi_page_tdef()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"multipage-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "multipage-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -171,14 +161,13 @@ public class AddColumnAccessTests
             cmd.CommandText = "SELECT COUNT(*) FROM Wide";
             Assert.Equal(1, Convert.ToInt32(cmd.ExecuteScalar()));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_reads_a_libred_memo_column_added_to_a_populated_table()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"addcol-memo-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "addcol-memo-");
         try
         {
             Ace(path,
@@ -199,14 +188,13 @@ public class AddColumnAccessTests
             using (var c = conn.CreateCommand())
             { c.CommandText = "SELECT M FROM T WHERE Id = 2"; Assert.Equal(memo, c.ExecuteScalar()); }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Adding_columns_with_default_and_required_preserves_existing_props_and_access_applies_them()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"addcol-lv-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "addcol-lv-");
         try
         {
             // ACE creates a table that already has a column DEFAULT (A DEFAULT 5) in its LvProp blob.
@@ -234,6 +222,6 @@ public class AddColumnAccessTests
             using (var c = conn.CreateCommand())
             { c.CommandText = "SELECT Qty FROM T WHERE Id = 1"; Assert.Equal(1, Convert.ToInt32(c.ExecuteScalar())); }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

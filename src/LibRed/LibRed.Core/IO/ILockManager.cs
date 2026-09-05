@@ -15,9 +15,10 @@ namespace LibRed.IO;
 /// <c>docs/design/transactions.md</c>.</item>
 /// </list></para>
 ///
-/// <para>Locks are <b>operation-scoped</b> in this phase: acquired and released around a single page read or
-/// write, which prevents a reader from seeing a half-written page. Holding locks to transaction commit (strict
-/// two-phase locking, for full isolation) is a later refinement layered on the same seam.</para>
+/// <para>Locks are <b>operation-scoped</b>: acquired and released around a single page read or write, which
+/// prevents a reader from seeing a half-written page. Transaction overlays use optimistic committed-page
+/// validation at publish time, so overlapping writers fail deterministically instead of losing an update.
+/// Strict two-phase/cross-process locking remains a later refinement layered on the same seam.</para>
 /// </summary>
 /// <remarks>The API is <c>Enter</c>/<c>Exit</c> (not a disposable handle) so the hot path — a page read takes
 /// and releases a shared lock — allocates nothing; <see cref="PageChannel"/> pairs each Enter with an Exit in a

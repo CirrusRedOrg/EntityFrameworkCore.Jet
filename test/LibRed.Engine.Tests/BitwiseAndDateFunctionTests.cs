@@ -8,8 +8,7 @@ public class BitwiseAndDateFunctionTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"bitdate-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "bitdate-");
         return path;
     }
 
@@ -24,7 +23,7 @@ public class BitwiseAndDateFunctionTests
             e.ExecuteNonQuery("INSERT INTO One (Id) VALUES (1)");
             return e.ExecuteQuery($"SELECT {expr} FROM One").Rows.First()[0];
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // DateValue / TimeValue / IsDate (VBA/Access), semantics verified against ACE.
@@ -81,7 +80,7 @@ public class BitwiseAndDateFunctionTests
             Assert.Equal(1, r[4]); Assert.IsType<int>(r[4]);   // byte 5 & byte 3
             Assert.Equal(2, r[5]); Assert.IsType<int>(r[5]);   // short 6 & short 3
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]

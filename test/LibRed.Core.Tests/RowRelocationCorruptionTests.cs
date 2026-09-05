@@ -32,7 +32,7 @@ public class RowRelocationCorruptionTests
             Table table = db.OpenTable("T");
             Assert.Throws<InvalidDataException>(() => table.Rows().ToList());
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class RowRelocationCorruptionTests
             IndexDef primaryKey = table.Definition.Indexes.Single(i => i.IsPrimaryKey);
             Assert.Throws<InvalidDataException>(() => table.SeekRows(primaryKey, [3]).ToList());
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -64,13 +64,12 @@ public class RowRelocationCorruptionTests
             Assert.Throws<InvalidDataException>(() =>
                 new RowInserter(table.Channel, table.Definition).RewriteRowRaw(source, [1, 0, 0]));
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     private static (string Path, RowId Source) CreateRelocatedRow()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"reloc-corrupt-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "reloc-corrupt-");
         string mid = new('m', 80), big = new('X', 255);
 
         using var db = JetDatabase.Open(path, readOnly: false);

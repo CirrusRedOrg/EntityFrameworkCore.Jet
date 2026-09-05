@@ -7,9 +7,9 @@ namespace LibRed.Core.Tests;
 
 /// <summary>
 /// Text collation is threaded from the database object into new column descriptors instead of being a
-/// hardcoded constant. LibRed currently handles only General legacy (LCID 1033, version 0) — the order
-/// every file it opens uses — so this verifies the plumbing is byte-faithful and that the index-key path
-/// refuses any other collation rather than emitting wrong bytes.
+/// hardcoded constant, so a table created in a General (v1) database gets v1 columns. Both General orders
+/// encode index keys (v0 via JetTextCollation, v1 via JetTextCollationV1); other locales are refused rather
+/// than encoded with the English weight table. This verifies the plumbing is byte-faithful.
 /// </summary>
 public class CollationTests
 {
@@ -24,8 +24,7 @@ public class CollationTests
     [Fact]
     public void A_new_database_defaults_to_general_legacy()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"coll-def-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "coll-def-");
         try
         {
             using var db = JetDatabase.Open(path);
@@ -33,14 +32,13 @@ public class CollationTests
             Assert.Equal(CollatingOrder.General, db.Collation.Order);
             Assert.Equal(0, db.Collation.Version);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Non_numeric_columns_carry_the_database_collation_and_round_trip()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"coll-rt-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "coll-rt-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -59,14 +57,13 @@ public class CollationTests
             Assert.Equal(18, price.Precision);
             Assert.Equal(2, price.Scale);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void The_written_locale_bytes_are_byte_identical_to_the_old_hardcoded_constant()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"coll-bytes-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "coll-bytes-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -85,26 +82,37 @@ public class CollationTests
             Assert.Equal(0x04, descriptor[0x0C]);
             Assert.Equal(0x00, descriptor[0x0D]);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Index_key_encoding_refuses_an_unsupported_collation()
     {
-        // A column whose collation isn't General legacy (e.g. a 2010+ General v1, or a non-English locale)
-        // must be rejected, not encoded with the wrong (General-v0) weight table.
-        var v1 = new ColumnDef
+        // A non-English locale must be rejected rather than encoded with the English weight table.
+        var cyrillic = new ColumnDef
         {
             Name = "C",
             Type = JetDataType.Text,
-            Collation = new Collation(CollatingOrder.General, 1),
+            Collation = new Collation(CollatingOrder.Cyrillic, 0),
         };
         var ex = Assert.Throws<NotSupportedException>(() =>
-            IndexKeyEncoder.Encode([(v1, true)], ["abc"]));
+            IndexKeyEncoder.Encode([(cyrillic, true)], ["abc"]));
         Assert.Contains("not implemented", ex.Message);
+    }
 
-        // The same column at General legacy encodes fine.
+    [Fact]
+    public void Index_key_encoding_supports_both_general_orders()
+    {
+        // Both General orders encode, and to *different* bytes: v0 is the compacted one-byte-per-character
+        // table, v1 the Windows NLS weights verbatim (see GeneralV1CollationTests).
         var v0 = new ColumnDef { Name = "C", Type = JetDataType.Text, Collation = Collation.GeneralLegacy };
-        Assert.NotEmpty(IndexKeyEncoder.Encode([(v0, true)], ["abc"]));
+        var v1 = new ColumnDef { Name = "C", Type = JetDataType.Text, Collation = Collation.General };
+
+        byte[] legacy = IndexKeyEncoder.Encode([(v0, true)], ["abc"]);
+        byte[] general = IndexKeyEncoder.Encode([(v1, true)], ["abc"]);
+
+        Assert.NotEmpty(legacy);
+        Assert.NotEmpty(general);
+        Assert.NotEqual(Convert.ToHexString(legacy), Convert.ToHexString(general));
     }
 }

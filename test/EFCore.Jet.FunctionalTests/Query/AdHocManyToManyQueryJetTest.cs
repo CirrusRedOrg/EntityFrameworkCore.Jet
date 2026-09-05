@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using System.Threading.Tasks;
+using Xunit;
 
 namespace EntityFrameworkCore.Jet.FunctionalTests.Query;
 
@@ -101,4 +102,8 @@ WHERE `m`.`Id` = @p
 ORDER BY `m`.`Id`, `s`.`Id0`, `s0`.`Id`
 """);
     }
+
+    [Fact]
+    public virtual void Check_all_tests_overridden()
+        => TestHelpers.AssertAllMethodsOverridden(GetType());
 }

@@ -8,8 +8,7 @@ public class DeleteTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"delete-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "delete-");
         return path;
     }
 
@@ -43,6 +42,6 @@ public class DeleteTests
             e.ExecuteNonQuery("INSERT INTO T (N) VALUES (99)");
             Assert.Equal(99, Convert.ToInt32(e.ExecuteQuery("SELECT N FROM T").Rows.Single()[0]));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

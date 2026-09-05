@@ -37,8 +37,33 @@ public sealed class QueryEngine
 
     public ResultSet ExecuteQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
+        // Text with no statement in it (blank, or only comments) has nothing to run and nothing to return.
+        // It takes no page scope at all — there is no work to isolate.
+        if (_parser.IsStatementless(sql)) return ResultSet.Empty;
+
+        // Parse outside the gate — it touches no pages, and holding a file-wide scope across it would
+        // serialize parsing for no isolation benefit. The parsed shape then picks the scope.
         SqlStatement parsed = _parser.ParseStatement(sql);
+        return Scoped(parsed, () => ExecuteQueryCore(parsed, parameters));
+    }
+
+    /// <summary>Runs <paramref name="action"/> in the page scope <paramref name="statement"/> needs: shared
+    /// (concurrent with other readers) for a statement that cannot write, exclusive otherwise so its pages
+    /// publish as one unit. Anything not provably read-only takes the exclusive scope — a shared scope that
+    /// then writes is rejected, not silently upgraded.</summary>
+    private T Scoped<T>(SqlStatement statement, Func<T> action) =>
+        // A SELECT with INTO is a make-table query: it looks like a read and writes a table, so it takes the
+        // exclusive scope with the other writers. The guard above caught this rather than letting it through.
+        statement is SelectStatement { Into: null } or SetOperationStatement or SystemVariableSelectStatement
+            ? _database.ReadConsistent(action)
+            : _database.WriteExclusive(action);
+
+    private ResultSet ExecuteQueryCore(SqlStatement parsed, IReadOnlyDictionary<string, object?>? parameters)
+    {
         if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters).Rows;
+        // A make-table query is an action query however it was invoked: run it and return nothing, rather
+        // than handing the caller the rows it just wrote into a table.
+        if (parsed is SelectStatement { Into: not null }) return Route(parsed, parameters).Rows;
         SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog.Views, _parser);
         BoundStatement bound = _binder.Bind(ast);
         if (bound.Statement is TransactionControlStatement txnControl)
@@ -54,6 +79,13 @@ public sealed class QueryEngine
 
     public int ExecuteNonQuery(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
         => Execute(sql, parameters).RecordsAffected;
+
+    /// <summary>
+    /// True when <paramref name="sql"/> holds no statement — blank, or nothing but comments. The ADO batch
+    /// splitter uses this to drop such a fragment instead of running it, so a trailing <c>-- comment</c> in a
+    /// batch cannot become the batch's "last statement" and mask the real one's rows-affected.
+    /// </summary>
+    public bool IsStatementless(string sql) => _parser.IsStatementless(sql);
 
     /// <summary>Executes a stored action query (a CREATE PROCEDURE body that is not a SELECT) by name — the
     /// read-back counterpart of <see cref="JetDatabase.CreateActionQuery"/>. The query is reconstructed from
@@ -77,7 +109,16 @@ public sealed class QueryEngine
     /// </summary>
     public CommandResult Execute(string sql, IReadOnlyDictionary<string, object?>? parameters = null)
     {
+        // As in ExecuteQuery: nothing to parse, nothing to run. Reported as zero rows affected rather than
+        // the -1 a query returns, since a comment is an action that did nothing, not a result set.
+        if (_parser.IsStatementless(sql)) return new CommandResult(ResultSet.Empty, RecordsAffected: 0);
+
         SqlStatement parsed = _parser.ParseStatement(sql);
+        return Scoped(parsed, () => ExecuteCore(parsed, parameters));
+    }
+
+    private CommandResult ExecuteCore(SqlStatement parsed, IReadOnlyDictionary<string, object?>? parameters)
+    {
         if (parsed is ExecuteStatement exec) return ExecuteProcedure(exec, parameters);
         SqlStatement ast = ViewExpander.Expand(parsed, _database.Catalog.Views, _parser);
         BoundStatement bound = _binder.Bind(ast);
@@ -107,6 +148,11 @@ public sealed class QueryEngine
                     new QueryExecutor(_database, parameters, _session).ExecuteSystemVariableSelect(sysSelect), -1);
             case IfThenStatement ifThen:
                 return ExecuteIfThen(ifThen, parameters);
+            // A make-table query looks like a SELECT but IS an action query: it writes a table and returns no
+            // rows, so it belongs below with the writing statements — inside the implicit transaction, so a
+            // failure part-way cannot leave a half-populated table behind.
+            case SelectStatement { Into: not null }:
+                return ExecuteWritingStatement(statement, parameters);
             case SelectStatement or SetOperationStatement:
                 return new CommandResult(
                     new QueryExecutor(_database, parameters, _session).ExecuteQuery(PlanWithIndexes(new BoundStatement(statement))), -1);
@@ -165,7 +211,7 @@ public sealed class QueryEngine
     /// (or, for NOT EXISTS, when it doesn't). @@ROWCOUNT reflects the THEN, or 0 when the guard skips it.</summary>
     private CommandResult ExecuteIfThen(IfThenStatement ifThen, IReadOnlyDictionary<string, object?>? parameters)
     {
-        var condPlan = IndexSelection.Apply(QueryPlanner.PlanSelect(ifThen.Condition), _database.Catalog);
+        var condPlan = IndexSelection.Apply(QueryPlanner.PlanStatement(ifThen.Condition), _database.Catalog);
         bool hasRows = new QueryExecutor(_database, parameters, _session).ExecuteQuery(condPlan).Rows.Any();
         if (hasRows == ifThen.Negated)
             return new CommandResult(ResultSet.Empty, 0); // guard not satisfied — skip the body

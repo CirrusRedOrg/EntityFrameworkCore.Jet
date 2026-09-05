@@ -240,6 +240,7 @@ public class CompiledModelJetTest(NonSharedFixture fixture) : CompiledModelRelat
     protected override BuildSource AddReferences(BuildSource build, [CallerFilePath] string filePath = "")
     {
         base.AddReferences(build);
+        build.References.Add(BuildReference.ByName("EntityFrameworkCore.Jet.Common"));
         build.References.Add(BuildReference.ByName("EntityFrameworkCore.Jet"));
         return build;
     }

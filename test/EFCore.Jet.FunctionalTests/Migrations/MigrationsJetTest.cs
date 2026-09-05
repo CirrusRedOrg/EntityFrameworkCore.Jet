@@ -41,6 +41,9 @@ public class MigrationsJetTest : MigrationsTestBase<MigrationsJetTest.Migrations
         Fixture.TestSqlLoggerFactory.SetTestOutputHelper(testOutputHelper);
     }
 
+    protected override ICollection<BuildReference> GetAdditionalReferences()
+        => [.. base.GetAdditionalReferences(), BuildReference.ByName("EntityFrameworkCore.Jet.Common")];
+
     public override async Task Create_table()
     {
         await base.Create_table();

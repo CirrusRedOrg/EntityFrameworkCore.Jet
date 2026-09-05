@@ -63,6 +63,14 @@ public sealed class LibRedTransaction : DbTransaction
             throw new InvalidOperationException("This transaction has already been committed or rolled back.");
     }
 
+    /// <summary>Marks this handle complete when SQL COMMIT/ROLLBACK closes the physical transaction.</summary>
+    internal void CompleteFromSql()
+    {
+        _completed = true;
+        _connection = null;
+        _savepoints.Clear();
+    }
+
     // A DbException (not a plain InvalidOperationException): referencing a released/never-opened savepoint is a
     // database-operation error, and callers — EF Core's transaction tests included — expect DbException for it.
     private Savepoint Lookup(string name) =>

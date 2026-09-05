@@ -6,5 +6,5 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests;
 public class ModelBuilding101LibRedTest : ModelBuilding101RelationalTestBase
 {
     protected override DbContextOptionsBuilder ConfigureContext(DbContextOptionsBuilder optionsBuilder)
-        => optionsBuilder.UseLibRed();
+        => optionsBuilder.UseLibRed(b => b.UseSqlMode());
 }

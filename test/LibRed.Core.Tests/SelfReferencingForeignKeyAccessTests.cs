@@ -12,23 +12,12 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class SelfReferencingForeignKeyAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_reads_and_enforces_a_self_referencing_foreign_key()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"selffk-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "selffk-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -62,7 +51,7 @@ public class SelfReferencingForeignKeyAccessTests
 
             Exec("INSERT INTO Emp (EmployeeID, ReportsTo) VALUES (5, 2)");    // valid manager
             Exec("INSERT INTO Emp (EmployeeID, ReportsTo) VALUES (6, NULL)"); // no manager — allowed
-            Assert.ThrowsAny<Exception>(() =>                                 // manager 99 doesn't exist
+            Assert.Throws<OleDbException>(() =>                              // manager 99 doesn't exist
                 Exec("INSERT INTO Emp (EmployeeID, ReportsTo) VALUES (7, 99)"));
 
             using (var c = conn2.CreateCommand())
@@ -71,6 +60,6 @@ public class SelfReferencingForeignKeyAccessTests
                 Assert.Equal(6, Convert.ToInt32(c.ExecuteScalar()));
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

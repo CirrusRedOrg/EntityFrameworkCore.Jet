@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // A composite foreign key follows ACE's MATCH FULL rule (verified vs ACE): the FK is skipped only when EVERY
 // column is null; a partial null (some null, some not) is rejected — unlike SQL Server's MATCH SIMPLE, which
 // would skip the check when any column is null.
-public class CompositeFkMatchFullTests
+public class CompositeFkMatchFullTests : TempDatabaseTest
 {
     private static QueryEngine Setup()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"cfk-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "cfk-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE P (A long, B long, CONSTRAINT PK_P PRIMARY KEY (A, B))");
         e.ExecuteNonQuery("CREATE TABLE C (Id long PRIMARY KEY, X long, Y long, " +
                           "CONSTRAINT FK_C FOREIGN KEY (X, Y) REFERENCES P (A, B))");

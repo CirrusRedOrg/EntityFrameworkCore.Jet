@@ -17,20 +17,7 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class IndexUsageMapTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try
-            {
-                var connection = new OleDbConnection($"Provider={provider};Data Source={path};OLE DB Services=-4;");
-                connection.Open();
-                return connection;
-            }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider available.");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     /// <summary>Every index page (types 0x03/0x04) in the file owned by the table's TDEF, by owner stamp.</summary>
     private static SortedSet<int> IndexPagesOwnedByTable(string path, Table table, JetFormatBase format)
@@ -87,8 +74,7 @@ public class IndexUsageMapTests
     [Fact]
     public void An_index_usage_map_covers_every_btree_page_after_splits()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"idxmap-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "idxmap-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -112,14 +98,13 @@ public class IndexUsageMapTests
             Assert.True(actual.Count > 2, "expected the B-trees to have split beyond their creation roots");
             Assert.Equal(actual, mapped); // no page missing, none spurious
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Index_map_coverage_matches_what_access_itself_marks()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"idxmap-ace-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "idxmap-ace-");
         try
         {
             using (var connection = OpenOleDb(path))
@@ -139,6 +124,6 @@ public class IndexUsageMapTests
             // Access's own map must cover exactly the index pages it wrote — the invariant LibRed reproduces.
             Assert.Equal(IndexPagesOwnedByTable(path, table, db.Format), UnionOfIndexMaps(table, db.Format));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

@@ -13,8 +13,7 @@ public class AlterTableRenameTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"rename-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "rename-");
         return path;
     }
 
@@ -75,7 +74,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 
@@ -102,7 +101,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 
@@ -128,7 +127,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 
@@ -158,7 +157,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 
@@ -215,7 +214,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 
@@ -250,7 +249,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 
@@ -276,7 +275,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 
@@ -290,8 +289,9 @@ public class AlterTableRenameTests
             var e = new QueryEngine(db);
             CreateParentChild(e);
 
-            Assert.Throws<InvalidOperationException>(
+            Assert.Throws<SchemaObjectExistsException>(
                 () => e.ExecuteNonQuery("ALTER TABLE Parent RENAME TO Child"));
+            // A missing source table is a different failure and stays a plain InvalidOperationException.
             Assert.Throws<InvalidOperationException>(
                 () => e.ExecuteNonQuery("ALTER TABLE NoSuchTable RENAME TO Whatever"));
 
@@ -299,7 +299,7 @@ public class AlterTableRenameTests
             // rejects this (verified in the Jet suite's RenameFanOutProbeTest), and so must LibRed. The unique
             // (ParentId, Name) index alone would not catch it: queries sit in a different container.
             e.ExecuteNonQuery("CREATE VIEW vwParent AS SELECT Id, Name FROM Parent");
-            Assert.Throws<InvalidOperationException>(
+            Assert.Throws<SchemaObjectExistsException>(
                 () => e.ExecuteNonQuery("ALTER TABLE Child RENAME TO vwParent"));
 
             // The failed renames changed nothing.
@@ -308,7 +308,7 @@ public class AlterTableRenameTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 }

@@ -8,8 +8,7 @@ public class AlterTableAddPrimaryKeyTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"alterpk-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "alterpk-");
         return path;
     }
 
@@ -39,6 +38,6 @@ public class AlterTableAddPrimaryKeyTests
                 Assert.Equal(["CustomerID", "CustomerTypeID"], pk.Columns.Select(c => c.Column.Name));
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

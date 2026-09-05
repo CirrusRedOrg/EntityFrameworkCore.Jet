@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 // ALTER TABLE ... ALTER COLUMN field type: changes a variable text/binary column's max length (a descriptor
 // edit; existing rows are untouched, since variable columns store their own length). Changing the storage type
 // throws NotSupported (would need a full column rewrite).
-public class AlterColumnTests
+public class AlterColumnTests : TempDatabaseTest
 {
     private static (QueryEngine Engine, JetDatabase Db) Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"alc-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var db = JetDatabase.Open(path, readOnly: false);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "alc-");
+        var db = TemporaryDatabase.OpenTracked(path, readOnly: false);
         return (new QueryEngine(db), db);
     }
 
@@ -87,7 +86,9 @@ public class AlterColumnTests
         e.ExecuteNonQuery("INSERT INTO T (K, N) VALUES (1, 5)");
         e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN N LONG");    // SHORT -> LONG
         // PK still enforced after the rebuild
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (K, N) VALUES (1, 9)"));
+        var error = Assert.Throws<ConstraintViolationException>(() =>
+            e.ExecuteNonQuery("INSERT INTO T (K, N) VALUES (1, 9)"));
+        Assert.True(error.IsPrimaryKey);
         e.ExecuteNonQuery("INSERT INTO T (K, N) VALUES (2, 9)");
     }
 
@@ -100,7 +101,10 @@ public class AlterColumnTests
         e.ExecuteNonQuery("INSERT INTO T (K, N, C) VALUES (1, 5, 'a')");
         e.ExecuteNonQuery("ALTER TABLE T ALTER COLUMN N LONG");
         // the unique index on C survives the rebuild
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO T (K, N, C) VALUES (2, 9, 'a')"));
+        var error = Assert.Throws<ConstraintViolationException>(() =>
+            e.ExecuteNonQuery("INSERT INTO T (K, N, C) VALUES (2, 9, 'a')"));
+        Assert.Equal("UQ_C", error.ConstraintName, ignoreCase: true);
+        Assert.False(error.IsPrimaryKey);
         e.ExecuteNonQuery("INSERT INTO T (K, N, C) VALUES (3, 9, 'b')");
     }
 
@@ -122,7 +126,7 @@ public class AlterColumnTests
 
         // data survived and the FK is still enforced after the rebuild
         Assert.Equal(5.0, Convert.ToDouble(e.ExecuteQuery("SELECT CData FROM C WHERE CID = 10").Rows.Single()[0]));
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO C (CID, PID, CData) VALUES (11, 99, 1)")); // orphan rejected
+        AssertForeignKeyViolation(e, "INSERT INTO C (CID, PID, CData) VALUES (11, 99, 1)"); // orphan rejected
         e.ExecuteNonQuery("INSERT INTO C (CID, PID, CData) VALUES (12, 1, 2)");                                     // valid parent ok
     }
 
@@ -188,7 +192,7 @@ public class AlterColumnTests
 
         // parent data converted, and the relationship still enforced (child orphan rejected, valid parent ok)
         Assert.Equal(100.0, Convert.ToDouble(e.ExecuteQuery("SELECT PData FROM P WHERE PID = 1").Rows.Single()[0]));
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO C (CID, PID, CData) VALUES (20, 77, 1)")); // orphan
+        AssertForeignKeyViolation(e, "INSERT INTO C (CID, PID, CData) VALUES (20, 77, 1)"); // orphan
         e.ExecuteNonQuery("INSERT INTO C (CID, PID, CData) VALUES (21, 1, 1)");                                     // valid parent
         // the existing child row still resolves to its parent
         Assert.Equal(5, Convert.ToInt32(e.ExecuteQuery("SELECT CData FROM C WHERE CID = 10").Rows.Single()[0]));
@@ -200,7 +204,14 @@ public class AlterColumnTests
         var e = Related();
         e.ExecuteNonQuery("ALTER TABLE C ALTER COLUMN CData DOUBLE");   // child rebuild
         e.ExecuteNonQuery("ALTER TABLE P ALTER COLUMN PData DOUBLE");   // then parent rebuild
-        Assert.ThrowsAny<Exception>(() => e.ExecuteNonQuery("INSERT INTO C (CID, PID, CData) VALUES (30, 88, 1)"));
+        AssertForeignKeyViolation(e, "INSERT INTO C (CID, PID, CData) VALUES (30, 88, 1)");
         e.ExecuteNonQuery("INSERT INTO C (CID, PID, CData) VALUES (31, 1, 1)");
+    }
+
+    private static void AssertForeignKeyViolation(QueryEngine engine, string sql)
+    {
+        var error = Assert.Throws<InvalidOperationException>(() => engine.ExecuteNonQuery(sql));
+        Assert.Contains("FK", error.Message);
+        Assert.Contains("no matching row", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 }

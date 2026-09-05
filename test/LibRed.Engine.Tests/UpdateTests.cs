@@ -8,8 +8,7 @@ public class UpdateTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"update-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "update-");
         return path;
     }
 
@@ -45,7 +44,7 @@ public class UpdateTests
             Assert.Equal(3, Convert.ToInt32(e.ExecuteQuery("SELECT @@ROWCOUNT").Rows.Single()[0]));
             Assert.All(e.ExecuteQuery("SELECT N FROM T").Rows, row => Assert.Equal(0, Convert.ToInt32(row[0])));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Growing a row so it no longer fits its page relocates it (Access's overflow-forwarding: the slot
@@ -71,7 +70,7 @@ public class UpdateTests
             Assert.Equal(big, e.ExecuteQuery("SELECT A FROM T WHERE Id = 3").Rows.Single()[0]);           // the grown row
             Assert.Equal(mid, e.ExecuteQuery("SELECT A FROM T WHERE Id = 4").Rows.Single()[0]);           // a neighbour, untouched
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Updating an indexed column moves its index entry (old key removed, new key added), so a seek by the
@@ -98,6 +97,6 @@ public class UpdateTests
             Assert.Equal(1, e.ExecuteNonQuery("UPDATE T SET Id = 99, N = 990 WHERE Id = 20"));
             Assert.Equal(990, Convert.ToInt32(e.ExecuteQuery("SELECT N FROM T WHERE Id = 99").Rows.Single()[0]));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

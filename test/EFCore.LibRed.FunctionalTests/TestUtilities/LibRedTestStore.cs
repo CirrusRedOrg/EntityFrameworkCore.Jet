@@ -1,6 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using EntityFrameworkCore.Jet.Data;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -420,8 +419,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities
         public static string CreateConnectionString(string name)
         {
             var defaultConnectionString = TestEnvironment.DefaultConnection;
-            var dataAccessProviderFactory = LibRedFactory.GetDataAccessProviderFactory();
-            var connectionStringBuilder = (LibRedConnectionStringBuilder)dataAccessProviderFactory.CreateConnectionStringBuilder()!;
+            var connectionStringBuilder = new LibRedConnectionStringBuilder();
 
             connectionStringBuilder.ConnectionString = defaultConnectionString;
             connectionStringBuilder.DataSource = name;

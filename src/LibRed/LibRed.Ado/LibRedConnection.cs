@@ -55,6 +55,14 @@ public sealed class LibRedConnection : DbConnection
         CurrentTransaction = null;
     }
 
+    /// <summary>Keeps an ADO transaction handle honest when SQL COMMIT/ROLLBACK closes its transaction.</summary>
+    internal void ReconcileSqlTransactionControl()
+    {
+        if (_database?.TransactionDepth != 0 || CurrentTransaction is null) return;
+        CurrentTransaction.CompleteFromSql();
+        CurrentTransaction = null;
+    }
+
     /// <summary>Opens a savepoint in the connection's active transaction (called by
     /// <see cref="LibRedTransaction.Save"/>).</summary>
     internal LibRed.IO.Savepoint CreateSavepoint() =>
@@ -103,16 +111,28 @@ public sealed class LibRedConnection : DbConnection
     /// <remarks>
     /// <see cref="Storage.DatabaseCreator.CreateEmpty"/> synthesises the file from scratch (page 0,
     /// the free map, and the bootstrap system catalog), then LibRed's ordinary writers populate it.
-    /// Produces an ACE 2007-format (<c>.accdb</c>) database that LibRed reads and writes fully; the
-    /// remaining Access-compatibility system tables are still being filled in.
+    /// Produces an <c>.accdb</c> that LibRed reads and writes fully; the remaining Access-compatibility
+    /// system tables are still being filled in.
     /// </remarks>
-    public static void CreateDatabase(string connectionString)
+    /// <param name="collation">The database's default text collating order, written to page 0 and inherited
+    /// by every column created in it. Defaults to General-Legacy (the order the engine writes); pass
+    /// <see cref="Catalog.Collation.General"/> for the "General" order Access 2010+ offers.</param>
+    /// <param name="version">The file format to create. Defaults to
+    /// <see cref="Formats.JetVersion.Version12_2007"/> (ACE 12), which every Access from 2007 on can open —
+    /// raise it only for a database that needs a later type, since an older Access cannot open a newer file
+    /// at all. <see cref="Formats.JetVersion.Version16_2016"/> is what <c>BIGINT</c> requires and
+    /// <see cref="Formats.JetVersion.Version17_2019"/> what <c>DATETIME2</c> requires; <c>AccessTypeMapper</c>
+    /// refuses either type below its version rather than write a file Access could not read.</param>
+    public static void CreateDatabase(
+        string connectionString,
+        Catalog.Collation? collation = null,
+        Formats.JetVersion version = Formats.JetVersion.Version12_2007)
     {
         string path = ParseDataSource(connectionString);
         if (string.IsNullOrEmpty(path))
             throw new ArgumentException("The connection string is missing a Data Source.", nameof(connectionString));
 
-        Storage.DatabaseCreator.CreateEmpty(path);
+        Storage.DatabaseCreator.CreateEmpty(path, (byte)version, collation);
         CreateDualTable(path);
     }
 
@@ -181,6 +201,7 @@ public sealed class LibRedConnection : DbConnection
         _database = JetDatabase.Open(path, readOnly: false);
         Engine = new QueryEngine(_database);
         _state = ConnectionState.Open;
+        OnStateChange(new StateChangeEventArgs(ConnectionState.Closed, ConnectionState.Open));
     }
 
     public override void Close()
@@ -197,7 +218,14 @@ public sealed class LibRedConnection : DbConnection
         _database?.Dispose();
         _database = null;
         Engine = null;
+
+        // Only a real transition raises the event. Close() is not guarded against being called on an already
+        // closed connection - and Dispose() calls it - so firing unconditionally would report a second close
+        // that never happened. EF's connection diagnostics count these.
+        if (_state == ConnectionState.Closed) return;
+
         _state = ConnectionState.Closed;
+        OnStateChange(new StateChangeEventArgs(ConnectionState.Open, ConnectionState.Closed));
     }
 
     public override void ChangeDatabase(string databaseName) =>
@@ -223,7 +251,15 @@ public sealed class LibRedConnection : DbConnection
 
     protected override void Dispose(bool disposing)
     {
+        // Clearing the connection string is what makes a disposed connection unusable, as ADO.NET requires:
+        // Open() then fails its existing "missing a Data Source" guard instead of quietly reopening the file.
+        // SqlConnection and JetConnection both do exactly this, and it is why the resulting exception is an
+        // InvalidOperationException rather than an ObjectDisposedException. Assigned to the field directly
+        // because the property setter refuses to change while the connection is still open.
+        _connectionString = string.Empty;
+
         if (disposing) Close();
+
         base.Dispose(disposing);
     }
 

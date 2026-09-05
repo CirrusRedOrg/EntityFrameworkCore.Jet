@@ -8,13 +8,12 @@ namespace LibRed.Engine.Tests;
 // allowed and removes the relationship (ACE lets you drop the referencing table while the parent stays);
 // dropping a table still REFERENCED as a parent by a surviving child is rejected. Mirrors the order the
 // scaffolding cleanup uses (child first, then parent).
-public class DropTableRelationshipTests
+public class DropTableRelationshipTests : TempDatabaseTest
 {
     private static QueryEngine Setup()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"drop-rel-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "drop-rel-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE K2 ( Id int, A varchar, UNIQUE (A) )");
         e.ExecuteNonQuery("CREATE TABLE Kilimanjaro ( Id int, B varchar, UNIQUE (B), FOREIGN KEY (B) REFERENCES K2 (A) )");
         return e;

@@ -16,23 +16,36 @@ internal static class AccessTypeMapper
     public static ColumnSpec ToColumnSpec(ColumnDefinition column, JetVersion version) =>
         MapType(column, version) with { IsNullable = !column.NotNull };
 
-    private static ColumnSpec MapType(ColumnDefinition column, JetVersion version)
-    {
-        // Collapse any internal whitespace so two-word aliases ("character  varying") match.
-        string t = string.Join(' ', column.TypeName.ToUpperInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-
-        // BIGINT and DATETIME2 were added in DIFFERENT format versions — verified against files authored with
-        // each feature enabled: BIGINT (Large Number) forces the ACE 16 / Access 2016 format (version byte
-        // 0x05), while DATETIME2 (Date/Time Extended) forces the ACE 17 / 2019+ format (0x06). On any older
-        // format the engine can't represent the type, so refuse to create/alter a column to one rather than
-        // silently producing a file the real Access version couldn't open. This is the single DDL choke point.
-        (JetVersion Min, string Label)? gate = t switch
+    /// <summary>
+    /// The minimum file format a declared type needs, or <c>null</c> for the types every format can hold.
+    /// </summary>
+    /// <remarks>
+    /// BIGINT and DATETIME2 arrived in DIFFERENT format versions — verified against files authored with each
+    /// feature enabled: BIGINT (Large Number) forces the ACE 16 / Access 2016 format (version byte 0x05),
+    /// DATETIME2 (Date/Time Extended) the ACE 17 / 2019+ format (0x06). Below those the engine cannot
+    /// represent the type at all.
+    /// <para>Callers that are about to write storage raise the file to meet this (see
+    /// <c>StatementExecutor.MapColumn</c>), which is what Access itself does. <see cref="MapType"/> still
+    /// refuses a type the open file is too old for, so a caller that skips the upgrade — or cannot perform it,
+    /// on a read-only database — fails loudly instead of writing a column Access could not read.</para>
+    /// </remarks>
+    public static (JetVersion Min, string Label)? RequiredVersion(string typeName) =>
+        Normalize(typeName) switch
         {
             "BIGINT" => (JetVersion.Version16_2016, "Access 2016 (ACE 16)"),
             "DATETIME2" => (JetVersion.Version17_2019, "Access 2019+ (ACE 17)"),
             _ => null,
         };
-        if (gate is { } g && version < g.Min)
+
+    /// <summary>Collapses internal whitespace so two-word aliases ("character  varying") match.</summary>
+    private static string Normalize(string typeName) =>
+        string.Join(' ', typeName.ToUpperInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private static ColumnSpec MapType(ColumnDefinition column, JetVersion version)
+    {
+        string t = Normalize(column.TypeName);
+
+        if (RequiredVersion(t) is { } g && version < g.Min)
             throw new NotSupportedException(
                 $"Column type '{column.TypeName}' requires {g.Label} or later; this database is {version}.");
 
@@ -50,8 +63,12 @@ internal static class AccessTypeMapper
                 => Fixed(column, JetDataType.Int16, 2),
             "BYTE" or "TINYINT" or "INTEGER1"
                 => Fixed(column, JetDataType.Byte, 1),
+            // Large Number. Always 8 bytes, yet ACE stores it in the row's VARIABLE region, not the fixed one
+            // — a descriptor carrying length 8 with the fixed flag clear (verified: a column ACE created reads
+            // back `length=8 fixed=False`, and the row lays it out behind the variable offset table). Declaring
+            // it fixed would put it somewhere ACE does not look for it.
             "BIGINT"
-                => Fixed(column, JetDataType.Int64, 8),
+                => new ColumnSpec(column.Name, JetDataType.Int64, 8, IsFixedLength: false),
             "REAL" or "SINGLE" or "IEEESINGLE" or "FLOAT4"
                 => Fixed(column, JetDataType.Single, 4),
             "FLOAT" or "DOUBLE" or "DOUBLE PRECISION" or "IEEEDOUBLE" or "FLOAT8" or "NUMBER"
@@ -64,6 +81,12 @@ internal static class AccessTypeMapper
             // no file-format upgrade (verified vs ACE: SMALLDATETIME → DateTime, version byte unchanged).
             "DATETIME" or "DATE" or "TIME" or "TIMESTAMP" or "SMALLDATETIME"
                 => Fixed(column, JetDataType.DateTime, 8),
+            // Date/Time Extended: a fixed 42-byte ASCII triple, not the 8-byte OA double (see JetTypeCodec).
+            // Version-gated to ACE 17 above. ACE's own DDL accepts only this bare spelling - DATETIME2(7),
+            // DATETIMEEXTENDED and DATE/TIME EXTENDED are all syntax errors - so there are no aliases to fold
+            // in, and the declared precision is always 7.
+            "DATETIME2"
+                => Fixed(column, JetDataType.DateTimeExtended, 42),
             "BIT" or "YESNO" or "BOOLEAN" or "LOGICAL" or "LOGICAL1"
                 => Fixed(column, JetDataType.Boolean, 1),
             "GUID" or "UNIQUEIDENTIFIER"

@@ -8,8 +8,7 @@ public class InClauseTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"in-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "in-");
         return path;
     }
 
@@ -26,7 +25,7 @@ public class InClauseTests
             // Numeric IN.
             Assert.Equal(2, e.ExecuteQuery("SELECT ProductID FROM Products WHERE ProductID IN (1, 2)").Rows.Count());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // The failing shape: a mix of parameters and a constant in the IN list.
@@ -43,7 +42,7 @@ public class InClauseTests
                 new Dictionary<string, object?> { ["prm1"] = "ALFKI", ["prm2"] = "AROUT" }).Rows.Count();
             Assert.Equal(3, n); // ALFKI, AROUT, ANTON
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -59,7 +58,7 @@ public class InClauseTests
                 "SELECT CustomerID FROM Customers WHERE CustomerID NOT IN ('ALFKI', 'ANATR')").Rows.Count();
             Assert.Equal(total - 2, notIn);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -79,7 +78,7 @@ public class InClauseTests
             Assert.True(direct > 0);
             Assert.Equal(direct, viaIn);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -99,7 +98,7 @@ public class InClauseTests
                 "(SELECT CategoryID FROM Categories WHERE CategoryName = 'Beverages')").Rows.Count();
             Assert.Equal(total - inCount, notIn);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // The exact failing shape: a correlated IN subquery nested inside EXISTS (Where_contains_on_navigation).
@@ -122,7 +121,7 @@ public class InClauseTests
             Assert.True(total > 0);
             Assert.Equal(total, viaExists);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Case-insensitive membership (Access text semantics).
@@ -136,6 +135,6 @@ public class InClauseTests
             Assert.Equal(1, new QueryEngine(db).ExecuteQuery(
                 "SELECT CustomerID FROM Customers WHERE CustomerID IN ('alfki')").Rows.Count());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

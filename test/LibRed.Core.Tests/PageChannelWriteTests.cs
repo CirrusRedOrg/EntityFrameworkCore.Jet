@@ -7,8 +7,7 @@ public class PageChannelWriteTests
 {
     private static string CopyToTemp()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"libred-write-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-write-");
         return path;
     }
 
@@ -30,7 +29,7 @@ public class PageChannelWriteTests
             writer.WritePage(5, page);
             Assert.Equal(page, reader.ReadPage(5).Span.ToArray());
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -50,7 +49,7 @@ public class PageChannelWriteTests
             using (var channel = PageChannel.Open(path, readOnly: true))
                 Assert.Equal(original, channel.ReadPage(5).Span.ToArray());
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -74,7 +73,7 @@ public class PageChannelWriteTests
                 Assert.Equal(0xCD, reread[101]);
             }
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -99,7 +98,7 @@ public class PageChannelWriteTests
                 Assert.All(channel.ReadPage(allocated).Span.ToArray(), b => Assert.Equal(0, b));
             }
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -111,6 +110,6 @@ public class PageChannelWriteTests
             using var channel = PageChannel.Open(path, readOnly: true);
             Assert.Throws<InvalidOperationException>(() => channel.WritePage(5, new byte[channel.PageSize]));
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

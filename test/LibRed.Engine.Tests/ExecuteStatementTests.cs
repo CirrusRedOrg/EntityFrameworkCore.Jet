@@ -11,13 +11,12 @@ namespace LibRed.Engine.Tests;
 /// binding positional argument values to its declared parameters. A stored SELECT returns rows; a stored
 /// action query returns its rows-affected count.
 /// </summary>
-public class ExecuteStatementTests
+public class ExecuteStatementTests : TempDatabaseTest
 {
     private static QueryEngine Seeded()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"exec-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "exec-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T (Id LONG PRIMARY KEY, Nm TEXT(50), Amt LONG)");
         foreach (var (id, nm, amt) in new[] { (1, "a", 10), (2, "b", 20), (3, "c", 30) })
             e.ExecuteNonQuery($"INSERT INTO T (Id, Nm, Amt) VALUES ({id}, '{nm}', {amt})");

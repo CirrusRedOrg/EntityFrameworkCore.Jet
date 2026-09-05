@@ -27,6 +27,18 @@ public sealed class AntlrSqlParser : ISqlParser
         return new AstBuilder().Build(parser.statement());
     }
 
+    public bool IsStatementless(string sql)
+    {
+        if (string.IsNullOrWhiteSpace(sql)) return true;
+
+        // Ask the lexer, not a text scan: WS/LINE_COMMENT/BLOCK_COMMENT are `-> skip`, so text made only of
+        // those produces no tokens at all. Anything else yields at least one, and a `--` inside a string
+        // literal stays part of that literal's token rather than starting a comment.
+        var lexer = new AccessSqlLexer(new AntlrInputStream(sql));
+        lexer.RemoveErrorListeners();   // a malformed statement is ParseStatement's error to report, not ours
+        return lexer.NextToken().Type == TokenConstants.EOF;
+    }
+
     public Expression ParseExpression(string sql)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);

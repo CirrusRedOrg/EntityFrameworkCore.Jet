@@ -10,17 +10,7 @@ namespace LibRed.Core.Tests;
 // ACE's OLE DB DDL parser rejects at CREATE but its expression service applies at insert.
 public class AceChooseDefaultTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Theory]
     [InlineData("Choose(1, 0, 1, 2)", false)]        // 1st choice = 0 = False
@@ -28,8 +18,7 @@ public class AceChooseDefaultTests
     [InlineData("CBool(Choose(1, 0, 1, 2))", false)] // nested — DDL-parser-rejected, expression-service-applied
     public void Access_reads_and_applies_a_libred_written_choose_default(string def, bool expected)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"ch-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "ch-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -44,6 +33,6 @@ public class AceChooseDefaultTests
 
             Assert.Equal(expected, Convert.ToBoolean(v));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 // Functions added after the LibRed-vs-ACE function-whitelist cross-check. Each expected value is what ACE
 // returned for the same call in the sweep.
-public class AddedFunctionsTests
+public class AddedFunctionsTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"af-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "af-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY )");
         e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
         return e;

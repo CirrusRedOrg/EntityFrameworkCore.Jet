@@ -29,7 +29,6 @@ namespace EntityFrameworkCore.Jet.Internal
 
             DataAccessProviderType = GetDataAccessProviderTypeFromOptions(jetOptions);
             UseOuterSelectSkipEmulationViaDataReader = jetOptions.UseOuterSelectSkipEmulationViaDataReader;
-            EnableMillisecondsSupport = jetOptions.EnableMillisecondsSupport;
             ConnectionString = jetOptions.Connection?.ConnectionString ?? jetOptions.ConnectionString!;
             UseShortTextForSystemString = jetOptions.UseShortTextForSystemString;
         }
@@ -73,13 +72,6 @@ namespace EntityFrameworkCore.Jet.Internal
                         nameof(DbContextOptionsBuilder.UseInternalServiceProvider)));
             }
 
-            if (EnableMillisecondsSupport != jetOptions.EnableMillisecondsSupport)
-            {
-                throw new InvalidOperationException(
-                    CoreStrings.SingletonOptionChanged(
-                        nameof(JetOptionsExtension.EnableMillisecondsSupport),
-                        nameof(DbContextOptionsBuilder.UseInternalServiceProvider)));
-            }
             if (UseShortTextForSystemString != jetOptions.UseShortTextForSystemString)
             {
                 throw new InvalidOperationException(
@@ -152,14 +144,6 @@ namespace EntityFrameworkCore.Jet.Internal
         ///     doing so can result in application failures when updating to a new Entity Framework Core release.
         /// </summary>
         public virtual bool UseOuterSelectSkipEmulationViaDataReader { get; private set; }
-
-        /// <summary>
-        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-        ///     any release. You should only use it directly in your code with extreme caution and knowing that
-        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
-        /// </summary>
-        public bool EnableMillisecondsSupport { get; private set; }
 
         public bool UseShortTextForSystemString { get; private set; }
 

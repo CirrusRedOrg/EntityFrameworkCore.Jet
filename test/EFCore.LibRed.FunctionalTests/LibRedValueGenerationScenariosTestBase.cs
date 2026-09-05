@@ -1121,7 +1121,7 @@ END");
         }
     }
 
-    [Fact(Skip = "LibRed can't return server generated guid's when it is the key. Currently using client geerated guid's")]
+    [Fact]
     public async Task Insert_with_server_generated_GUID_key()
     {
         await using var testStore = await LibRedTestStore.CreateInitializedAsync(DatabaseName);

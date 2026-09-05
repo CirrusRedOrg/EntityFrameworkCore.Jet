@@ -28,8 +28,7 @@ FROM Shippers INNER JOIN
 
     private static string Fresh()
     {
-        string p = Path.Combine(Path.GetTempPath(), $"nested-view-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), p);
+        string p = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "nested-view-");
         return p;
     }
 
@@ -42,7 +41,7 @@ FROM Shippers INNER JOIN
             using var db = JetDatabase.Open(path, readOnly: false);
             new QueryEngine(db).ExecuteNonQuery(InvoicesView); // parses, flattens the joins, stores it
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -64,6 +63,6 @@ FROM Shippers INNER JOIN
             Assert.Equal("Steven Buchanan", row[0]);                      // FirstName + ' ' + LastName
             Assert.Equal(168.00m, Convert.ToDecimal(row[1]));            // CCur(14*12*(1-0)/100)*100
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

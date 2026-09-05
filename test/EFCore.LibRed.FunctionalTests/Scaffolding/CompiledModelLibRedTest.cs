@@ -240,10 +240,7 @@ public class CompiledModelLibRedTest(NonSharedFixture fixture) : CompiledModelRe
     protected override BuildSource AddReferences(BuildSource build, [CallerFilePath] string filePath = "")
     {
         base.AddReferences(build);
-        build.References.Add(BuildReference.ByName("EntityFrameworkCore.Jet"));
-        // The generated model names LibRed's own type mappings (LibRedLongTypeMapping and friends), which
-        // live in this assembly — without it the generated source doesn't compile. Copied from the Jet test,
-        // where only the Jet reference was needed.
+        build.References.Add(BuildReference.ByName("EntityFrameworkCore.Jet.Common"));
         build.References.Add(BuildReference.ByName("EntityFrameworkCore.LibRed"));
         return build;
     }

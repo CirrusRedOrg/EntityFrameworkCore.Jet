@@ -615,9 +615,9 @@ WHERE (`b`.`DateTime` & '') LIKE '%1998%'
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE [b].[Int] >= 0 AND [b].[Int] <= 255 AND CAST(CONVERT(nvarchar(max), [b].[Int]) AS tinyint) = CAST(12 AS tinyint)
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE `b`.`Int` >= 0 AND `b`.`Int` <= 255 AND CBYTE((`b`.`Int` & '')) = CBYTE(12)
 """);
     }
 
@@ -639,9 +639,9 @@ WHERE CAST(CONVERT(nvarchar(max), [b].[Int]) AS decimal(18,2)) = 8.0
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE CAST(CONVERT(nvarchar(max), [b].[Int]) AS float) = 8.0E0
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE CDBL((`b`.`Int` & '')) = 8.0
 """);
     }
 
@@ -651,9 +651,9 @@ WHERE CAST(CONVERT(nvarchar(max), [b].[Int]) AS float) = 8.0E0
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE CAST(CONVERT(nvarchar(max), [b].[Int]) AS smallint) = CAST(12 AS smallint)
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE CINT((`b`.`Int` & '')) = CINT(12)
 """);
     }
 
@@ -663,9 +663,9 @@ WHERE CAST(CONVERT(nvarchar(max), [b].[Int]) AS smallint) = CAST(12 AS smallint)
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE CAST(CONVERT(nvarchar(max), [b].[Int]) AS int) = 12
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE CLNG((`b`.`Int` & '')) = 12
 """);
     }
 
@@ -675,9 +675,9 @@ WHERE CAST(CONVERT(nvarchar(max), [b].[Int]) AS int) = 12
 
         AssertSql(
             """
-SELECT [b].[Id], [b].[Bool], [b].[Byte], [b].[ByteArray], [b].[DateOnly], [b].[DateTime], [b].[DateTimeOffset], [b].[Decimal], [b].[Double], [b].[Enum], [b].[FlagsEnum], [b].[Float], [b].[Guid], [b].[Int], [b].[Long], [b].[Short], [b].[String], [b].[TimeOnly], [b].[TimeSpan]
-FROM [BasicTypesEntities] AS [b]
-WHERE CAST(CONVERT(nvarchar(max), [b].[Int]) AS bigint) = CAST(12 AS bigint)
+SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
+FROM `BasicTypesEntities` AS `b`
+WHERE CLNG((`b`.`Int` & '')) = 12
 """);
     }
 

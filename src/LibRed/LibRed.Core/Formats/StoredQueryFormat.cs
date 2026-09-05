@@ -39,6 +39,12 @@ internal static class StoredQueryFormat
     /// <summary>AttrAction Flag value for an append (INSERT) query (target table in Name1).</summary>
     public const short ActionAppend = 3;
 
+    /// <summary>AttrAction Flag value for a DELETE query.</summary>
+    public const short ActionDelete = 5;
+
+    /// <summary>AttrAction Flag value for an UPDATE query.</summary>
+    public const short ActionUpdate = 4;
+
     /// <summary>AttrColumn Flag bit marking an appended literal value.</summary>
     public const short AppendValueFlag = unchecked((short)0x8000);
 }

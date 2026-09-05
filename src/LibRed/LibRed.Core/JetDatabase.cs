@@ -41,15 +41,21 @@ public sealed class JetDatabase : IDisposable
     /// <summary>The database's default collation LCID (e.g. 1033 = en-US), decoded from page 0.</summary>
     public int DefaultCollationLcid => DefinitionPage.DefaultCollationLcid;
 
-    /// <summary>The database default sort-order version (0 = General Legacy, 1 = General), from page 0.</summary>
+    /// <summary>The database default sort-order version (0 = the legacy compacted table, 1 = the Access-2010
+    /// NLS order), from page 0.</summary>
     public byte DefaultCollationVersion => DefinitionPage.DefaultCollationVersion;
 
-    /// <summary>The database's default text collating order — the source of truth for the LCID and
-    /// sort-order version written into new columns, in place of a hardcoded constant. Defaults to General
-    /// legacy (locale 1033, version 0), which is what every file LibRed currently handles uses; decoding
-    /// the actual value from the page-0 sort order (obfuscated region) is a follow-up, after which this
-    /// property would be populated from <see cref="DefinitionPage"/>.</summary>
-    public Collation Collation { get; internal set; } = Collation.GeneralLegacy;
+    /// <summary>The database default collation's sort id (page-0 <c>0x70</c>) — the LCID's high word, non-zero
+    /// only for a Windows alternate sort order such as German Phone Book or Hungarian Technical.</summary>
+    public byte DefaultCollationSortId => DefinitionPage.DefaultCollationSortId;
+
+    /// <summary>The database's default text collating order — the LCID and sort-order version written into
+    /// new columns. Read from the page-0 sort order, so a table created in a General (v1) database gets v1
+    /// columns, as Access would create them. (This used to be hardcoded to General legacy while the page-0
+    /// decode was pending; the decode landed in <see cref="DefaultCollationLcid"/>/
+    /// <see cref="DefaultCollationVersion"/> but this was left behind, which silently gave every new column
+    /// v0 weights even in a v1 database.)</summary>
+    public Collation Collation => DefinitionPage.Collation;
 
     /// <summary>Reads and decodes the table definition (TDEF) page at <paramref name="pageNumber"/>.</summary>
     public TableDefinitionPage ReadTableDefinition(int pageNumber)
@@ -68,7 +74,7 @@ public sealed class JetDatabase : IDisposable
     }
 
     /// <summary>Opens a database file (read-only by default). For a password-encrypted ACCDB, supply
-    /// <paramref name="password"/> — encrypted databases open read-only.</summary>
+    /// <paramref name="password"/>; writable opens encrypt modified pages again before publishing them.</summary>
     public static JetDatabase Open(string path, bool readOnly = true, string? password = null)
     {
         // Coordinate page access between every handle open on this file (EF holds several connections on one
@@ -91,8 +97,47 @@ public sealed class JetDatabase : IDisposable
     /// <summary>The resolved on-disk format/version of the database.</summary>
     public JetFormatBase Format => _channel.Format;
 
+    /// <summary>
+    /// Raises the database's format version to <paramref name="minimum"/> if it is below it, and reports
+    /// whether it moved. Writing nothing when the file already qualifies, so callers can call it
+    /// unconditionally.
+    /// </summary>
+    /// <remarks>
+    /// This is what lets a `BIGINT` or `DATETIME2` column be added to an older file: the type cannot be
+    /// represented below a given format, and Access's own engine responds by upgrading the file rather than
+    /// refusing the DDL — verified by having ACE add a Date/Time Extended column to an ACE 12 database and
+    /// diffing the result, which moved the version byte to 0x06 and nothing else
+    /// (docs/format/page-00-database.md).
+    /// <para>The upgrade is one-way and there is no downgrade: a raised file cannot be opened by an Access
+    /// older than the new format. That is inherent to the type, not a choice here — the alternative is a file
+    /// whose columns Access cannot read at all.</para>
+    /// <para>It joins the caller's transaction, so it commits with the statement that needed it and is undone
+    /// with a statement that fails.</para>
+    /// </remarks>
+    public bool EnsureFormatAtLeast(JetVersion minimum)
+    {
+        if (Format.Version >= minimum) return false;
+        if (!_channel.RaiseFormatVersion((byte)minimum)) return false;
+
+        RereadDefinitionPage();
+        return true;
+    }
+
+    /// <summary>Re-decodes page 0 into <see cref="DefinitionPage"/> — after the format version moves, and
+    /// after a rollback that may have put it back.</summary>
+    private void RereadDefinitionPage() => DefinitionPage.Read(_channel.ReadPage(0), _channel.Format);
+
     /// <summary>Whether a transaction is currently open.</summary>
     public bool InTransaction => _channel.InTransaction;
+
+    /// <summary>Runs a logical read without allowing a concurrent multi-page commit to publish halfway through.
+    /// Shared — reads on this file run concurrently with each other.</summary>
+    public T ReadConsistent<T>(Func<T> action) => _channel.ReadConsistent(action);
+
+    /// <summary>Runs a logical write with every other reader and writer on this file excluded, so a reader
+    /// never observes it half-published. Writing statements must use this rather than
+    /// <see cref="ReadConsistent{T}"/>: the shared scope cannot be upgraded.</summary>
+    public T WriteExclusive<T>(Func<T> action) => _channel.WriteExclusive(action);
 
     /// <summary>Begins a page-level transaction; writes are undoable until <see cref="Commit"/>.</summary>
     public void BeginTransaction() => _channel.BeginTransaction();
@@ -110,7 +155,8 @@ public sealed class JetDatabase : IDisposable
     {
         if (!_channel.InTransaction) return;
         _channel.RollbackTransaction();
-        Catalog.Invalidate();
+        Catalog.Invalidate(markChanged: false);
+        RereadDefinitionPage();   // page 0 moves too, when a rolled-back statement raised the format version
     }
 
     /// <summary>Opens a savepoint within the current transaction (used to make a single statement atomic
@@ -123,7 +169,8 @@ public sealed class JetDatabase : IDisposable
     public void RollbackToSavepoint(Savepoint savepoint)
     {
         _channel.RollbackToSavepoint(savepoint);
-        Catalog.Invalidate();
+        Catalog.Invalidate(markChanged: false);
+        RereadDefinitionPage();
     }
 
     /// <summary>Releases <paramref name="savepoint"/>, merging its writes into the enclosing scope.</summary>

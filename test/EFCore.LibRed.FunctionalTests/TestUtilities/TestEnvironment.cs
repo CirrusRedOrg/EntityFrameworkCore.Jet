@@ -1,8 +1,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using EntityFrameworkCore.Jet.Data;
 using System;
-using System.Data.Common;
 using System.IO;
 using Microsoft.Extensions.Configuration;
 
@@ -26,16 +24,12 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities
         {
             get
             {
-                var dataAccessProviderFactory = LibRedFactory.GetDataAccessProviderFactory();
-                var connectionStringBuilder = (LibRedConnectionStringBuilder)dataAccessProviderFactory.CreateConnectionStringBuilder()!;
-                connectionStringBuilder.ConnectionString = DefaultConnection;
+                var connectionStringBuilder = new LibRedConnectionStringBuilder { ConnectionString = DefaultConnection };
 
                 return !string.IsNullOrEmpty(connectionStringBuilder.DataSource);
             }
         }
 
-        public static DbProviderFactory DataAccessProviderFactory { get; } = LibRedFactory.GetDataAccessProviderFactory();
-        
         public static bool IsCI { get; } = Environment.GetEnvironmentVariable("PIPELINE_WORKSPACE") != null
             || Environment.GetEnvironmentVariable("TEAMCITY_VERSION") != null;
 

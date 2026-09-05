@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet test *)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet restore *)",
+      "Bash(dotnet nuget list source)",
+      "Bash(dotnet --info)",
+      "Bash(dotnet --version)",
+      "Bash(dotnet --list-sdks)",
+      "Bash(dotnet --list-runtimes)",
+      "PowerShell(dotnet test *)",
+      "PowerShell(dotnet build *)",
+      "PowerShell(dotnet restore *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "PowerShell"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); body=$(printf '%s' \"$in\" | sed 's/\"scratchpad_dir\":\"[^\"]*\"//g; s/\"transcript_path\":\"[^\"]*\"//g; s/\"cwd\":\"[^\"]*\"//g; s/\"description\":\"[^\"]*\"//g'); if printf '%s' \"$body\" | grep -qE '(^|[;&|(\")])[[:space:]]*(python[0-9.]*|pythonw|py)([[:space:]]|\")|sed[[:space:]]+-[a-zA-Z]*i|sed[[:space:]]+--in-place|>[[:space:]]*[^[:space:];&|]*\\.(cs|md|csproj|props|targets|sln|json|ps1|g4)|tee[[:space:]][^;&|]*\\.(cs|md|csproj|props|targets|sln|json|ps1|g4)'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Shell edits to source files (and Python) are disallowed: they bypass file checkpointing, so /rewind cannot undo them. Use Edit or Write instead. Writing logs to the scratchpad is fine.\"}}'; elif printf '%s' \"$body\" | grep -qE '(^|[;&(\")]|\\\\\\\\n)[[:space:]]*(grep|egrep|fgrep|rg|cat|head|tail|ls|dir|find|fd|fdfind|Get-Content|gc|Get-ChildItem|gci|Select-String|sls)([[:space:]]|\")'; then if ! printf '%s' \"$body\" | grep -qE '(scratchpad|\\.log|\\$log|/tmp/)'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Reading files through the shell costs a permission prompt and bypasses the dedicated tools. Use Grep for content, Glob for filenames, Read for file contents. Shell text tools stay allowed on scratchpad logs (paths containing scratchpad, .log or $log).\"}}'; elif ! printf '%s' \"$body\" | grep -qE '([;&`]|[$]\\()'; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"allow\",\"permissionDecisionReason\":\"Pre-approved: a shell text tool reading a scratchpad/log path, as a single command with no chaining.\"}}'; fi; fi; true"
+          }
+        ]
+      }
+    ]
+  }
+}

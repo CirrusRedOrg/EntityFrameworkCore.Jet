@@ -1,64 +1,87 @@
+using System.Buffers.Binary;
 using LibRed;
+using LibRed.Crypto;
 using Xunit;
 
 namespace LibRed.Core.Tests;
 
-/// <summary>
-/// Reads real Office-"Standard"/CryptoAPI encrypted <c>.accdb</c> fixtures re-encrypted with the
-/// "Encryption Manager for Access 2007" (EverythingAccess.com) tool, sweeping the AlgID / AlgIDHash / KeySize
-/// combinations it exposes. Verifies LibRed honours the hashing algorithm (MD5/SHA-1/…/SHA-512), resolves
-/// KeySize == 0 to the algorithm default, and rejects genuinely-unsupported ciphers (3DES) cleanly.
-/// Fixtures live under <c>enctest/</c> and are NOT committed (user preference); the test skips when absent.
-/// </summary>
+/// <summary>Fixture-free rejection coverage for unsupported Office-Standard descriptor variants.</summary>
 public class OfficeStandardVariantReadTests
 {
-    private const string Dir = @"D:\toolkits\efcorejetlibred\test\LibRed.Core.Tests\enctest";
-    private const string Password = "Test123";
-
-    public static IEnumerable<object[]> Readable =>
-    [
-        ["db2007-oldenc.accdb"],        // RC4-40, SHA-1
-        ["db2007-oldenc - Copy.accdb"], // RC4-56, SHA-1
-        ["db2007-oldenc - Copy (2).accdb"], // RC4, MD5,    KeySize=0 (default)
-        ["db2007-oldenc - Copy (3).accdb"], // RC4, MD5,    KeySize=0, Enhanced provider
-        ["db2007-oldenc - Copy (4).accdb"], // RC4-120, SHA-512
-        ["db2007-oldenc - Copy (5).accdb"], // AES-256, MD5,    KeySize=0 (Access won't open; LibRed can)
-        ["db2007-oldenc - Copy (6).accdb"], // AES-128, MD5,    KeySize=0 (Access won't open; LibRed can)
-        ["db2007-oldenc - Copy (8).accdb"], // AES-256, SHA-512, KeySize=0 (key < hash ⇒ truncate, no expansion)
-        ["db2007-oldenc - Copy (12).accdb"],// AES-256, SHA-256, KeySize=0 (key == hash 32 ⇒ 0x36/0x5C expansion)
-        ["db2007-oldenc - Copy (13).accdb"],// AES-256, SHA-384, KeySize=0 (key 32 < hash 48 ⇒ truncate)
-        ["db2007-oldenc - Copy (14).accdb"],// AES-192, SHA-256, KeySize=0 (24-byte key path)
-        ["db2007-oldenc - Copy (15).accdb"],// AES-128, SHA-512, KeySize=0 (key 16 < hash 64 ⇒ truncate)
-    ];
+    private const int DescriptorOffset = 0x29B;
+    private const int AlgorithmOffset = DescriptorOffset + 12 + 8;
+    private const int HashOffset = DescriptorOffset + 12 + 12;
 
     [Theory]
-    [MemberData(nameof(Readable))]
-    public void Reads_office_standard_variant(string file)
+    [InlineData(0x6603u)] // 3DES-168
+    [InlineData(0x6609u)] // 3DES-112
+    [InlineData(0x6601u)] // DES
+    public void Unsupported_cipher_is_rejected_cleanly(uint algorithm)
     {
-        string path = Path.Combine(Dir, file);
-        if (!File.Exists(path)) return; // fixtures not committed (user preference)
-
-        using var db = JetDatabase.Open(path, readOnly: true, password: Password);
-        Assert.Equal(1, db.OpenTable("Table1").Rows().Count());
+        string path = CreateEncryptedCopy();
+        try
+        {
+            MutateUInt32(path, AlgorithmOffset, algorithm);
+            Assert.Throws<NotSupportedException>(() => JetDatabase.Open(path, readOnly: true, password: "Test123"));
+        }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Theory]
-    [InlineData("db2007-oldenc - Copy (7).accdb")]  // 3DES-168 cipher
-    [InlineData("db2007-oldenc - Copy (9).accdb")]  // MD2 hashing (no managed implementation)
-    [InlineData("db2007-oldenc - Copy (10).accdb")] // 3DES-112 cipher
-    [InlineData("db2007-oldenc - Copy (11).accdb")] // DES cipher
-    public void Rejects_unsupported_cleanly(string file)
+    [InlineData(0x8001u)] // MD2
+    [InlineData(0x8002u)] // MD4
+    [InlineData(0xDEADu)] // unknown
+    public void Unsupported_hash_is_rejected_cleanly(uint hashAlgorithm)
     {
-        string path = Path.Combine(Dir, file); // all also refused by Access itself
-        if (!File.Exists(path)) return;
-
-        // A clear NotSupportedException, never a DivideByZero/EndOfStream from mis-reading ciphertext as plaintext.
+        string path = CreateEncryptedCopy();
         try
         {
-            JetDatabase.Open(path, readOnly: true, password: Password);
-            Assert.Fail($"expected NotSupportedException for {file}");
+            MutateUInt32(path, HashOffset, hashAlgorithm);
+            Assert.Throws<NotSupportedException>(() => JetDatabase.Open(path, readOnly: true, password: "Test123"));
         }
-        catch (NotSupportedException) { /* expected */ }
-        catch (IOException) { /* fixture locked by another process (an environment condition); skip */ }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // The descriptor length at 0x299 is authoritative, not a hint: Access reads a file whose key and
+    // descriptor are both present but whose length is zero as *plaintext*, and offers to "recover" it
+    // (verified experiment, page-00-database.md). A reader that instead scans page 0 for the EncryptionInfo
+    // signature would decrypt this file happily — succeeding where ACE cannot, which is treating corruption
+    // as valid. LibRed reaches the same verdict as ACE (this is not a readable encrypted database) but
+    // reports it rather than surfacing ciphertext as data: the 0x3E key says "encrypted", no descriptor is
+    // readable within the declared frame, so the scheme is unsupported. The password being correct is
+    // deliberate — it must not rescue the file.
+    [Fact]
+    public void A_zero_length_descriptor_is_read_as_unencrypted_like_ace()
+    {
+        string path = CreateEncryptedCopy();
+        try
+        {
+            MutateUInt16(path, 0x299, 0);
+            var error = Assert.Throws<NotSupportedException>(
+                () => JetDatabase.Open(path, readOnly: true, password: "Test123"));
+            Assert.Contains("unsupported scheme", error.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    private static string CreateEncryptedCopy()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.WideTableAccdb, "office-standard-variant-");
+        DatabaseEncryption.SetPasswordRc4(path, "Test123");
+        return path;
+    }
+
+    private static void MutateUInt32(string path, int offset, uint value)
+    {
+        byte[] file = File.ReadAllBytes(path);
+        BinaryPrimitives.WriteUInt32LittleEndian(file.AsSpan(offset, 4), value);
+        File.WriteAllBytes(path, file);
+    }
+
+    private static void MutateUInt16(string path, int offset, ushort value)
+    {
+        byte[] file = File.ReadAllBytes(path);
+        BinaryPrimitives.WriteUInt16LittleEndian(file.AsSpan(offset, 2), value);
+        File.WriteAllBytes(path, file);
     }
 }

@@ -54,7 +54,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // A table name is unique (case-insensitively) across the database; reject a duplicate rather
         // than writing a second MSysObjects row that shadows the existing table.
         if (_catalog.FindTable(name) is not null)
-            throw new InvalidOperationException($"Table '{name}' already exists.");
+            throw new SchemaObjectExistsException($"Table '{name}' already exists.", name);
 
         // Jet/ACE caps a table at 255 columns. The count/id fields are 2 bytes wide so we could physically
         // write more, but Access would refuse to open the table — fail early with a clear message instead.
@@ -70,7 +70,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int tdefPage = _allocator.Allocate();
         int usageMapPage = _allocator.Allocate();
 
-        var longValueCols = columns.Select((c, i) => (Column: c, Id: i))
+        // Key the long-value maps by the column's *id*, not its position. The two coincide on an ordinary
+        // CREATE TABLE, but a spec can carry an explicit id — the faithful-rebuild path does, and ids are
+        // never reused after a DROP COLUMN — and the TDEF's long-value map is read back by id, so using the
+        // position there silently points a Memo/OLE column's usage maps at the wrong column.
+        var longValueCols = columns.Select((c, i) => (Column: c, Id: c.ColumnId ?? i))
             .Where(x => x.Column.Type is JetDataType.Memo or JetDataType.Ole)
             .ToList();
 
@@ -752,8 +756,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // allows (and EF's schema "move" degrades to exactly that on a schema-less engine), as is a case-only
         // change. Both verified — RenameFanOutProbeTest.
         if (ObjectNameExists(newName, exceptObjectId: table.DefinitionPage))
-            throw new InvalidOperationException(
-                $"ALTER TABLE '{oldName}' RENAME TO '{newName}': a table or query named '{newName}' already exists.");
+            throw new SchemaObjectExistsException(
+                $"ALTER TABLE '{oldName}' RENAME TO '{newName}': a table or query named '{newName}' already exists.",
+                newName);
 
         RenameCatalogObject(table.DefinitionPage, newName);
         RepointRelationshipTables(oldName, newName);

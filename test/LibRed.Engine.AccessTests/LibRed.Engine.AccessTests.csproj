@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(JetTargetFramework)</TargetFramework>
+    <RootNamespace>LibRed.Engine.Tests</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Signed with the repo key so it can be an InternalsVisibleTo friend of the strong-named LibRed.Engine. -->
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)..\..\Key.snk</AssemblyOriginatorKeyFile>
+    <Platforms>AnyCPU;x86;x64</Platforms>
+    <!-- Every test here talks to ACE, which is Windows-only by definition. -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3.core" />
+    <PackageReference Include="xunit.v3.assert" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="System.Data.OleDb" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LibRed\LibRed.Engine\LibRed.Engine.csproj" />
+    <ProjectReference Include="..\..\src\LibRed\LibRed.Ado\LibRed.Ado.csproj" />
+    <Compile Include="..\LibRed.Shared\AceTestDatabase.cs" Link="AceTestDatabase.cs" />
+    <Compile Include="..\LibRed.Shared\TemporaryDatabase.cs" Link="TemporaryDatabase.cs" />
+    <Compile Include="..\LibRed.Shared\TempDatabaseTest.cs" Link="TempDatabaseTest.cs" />
+    <Using Include="LibRed.Tests.Shared" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\JetProviderExceptionTests\Northwind.accdb">
+      <Link>Data\Northwind.accdb</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

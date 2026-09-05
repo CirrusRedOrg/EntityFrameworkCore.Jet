@@ -5,13 +5,12 @@ using Xunit;
 namespace LibRed.Engine.Tests;
 
 // Val (whitespace-stripping + &H/&O prefixes) and Rnd (VBA 24-bit LCG) — verified byte-identical to ACE.
-public class RndValFunctionTests
+public class RndValFunctionTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"rv-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "rv-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY )");
         e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
         return e;

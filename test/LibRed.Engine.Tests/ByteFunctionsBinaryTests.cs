@@ -6,13 +6,12 @@ using Xunit;
 // The byte functions (LenB/AscB/LeftB/RightB/MidB) on a RAW BINARY column — matching ACE, which reinterprets the
 // binary as a UTF-16LE string (an odd trailing byte zero-padded) before applying them. Expected values are what
 // ACE returned for the same data. Covers odd (3-byte) and even (4-byte) values.
-public class ByteFunctionsBinaryTests
+public class ByteFunctionsBinaryTests : TempDatabaseTest
 {
     private static QueryEngine Seeded()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"bfb-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var db = JetDatabase.Open(path, readOnly: false);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "bfb-");
+        var db = TemporaryDatabase.OpenTracked(path, readOnly: false);
         db.CreateTable("T",
             [new ColumnSpec("K", JetDataType.Int32, 4, IsFixedLength: true),
              new ColumnSpec("B", JetDataType.Binary, 50, IsFixedLength: false)],

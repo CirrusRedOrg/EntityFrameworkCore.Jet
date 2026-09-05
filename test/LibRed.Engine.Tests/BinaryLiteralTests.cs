@@ -8,8 +8,7 @@ public class BinaryLiteralTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"binlit-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "binlit-");
         return path;
     }
 
@@ -34,7 +33,7 @@ public class BinaryLiteralTests
             Assert.Equal(small, (byte[])e.ExecuteQuery("SELECT Pic FROM Pics WHERE Id = 1").Rows.First()[0]!);
             Assert.Equal(big, (byte[])e.ExecuteQuery("SELECT Pic FROM Pics WHERE Id = 2").Rows.First()[0]!);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -46,9 +45,9 @@ public class BinaryLiteralTests
             using var db = JetDatabase.Open(path, readOnly: false);
             var e = new QueryEngine(db);
             e.ExecuteNonQuery("CREATE TABLE Pics2 (Id LONG, Pic OLEOBJECT)");
-            Assert.ThrowsAny<Exception>(() =>
+            Assert.Throws<LibRed.Sql.Parsing.SqlParseException>(() =>
                 e.ExecuteNonQuery("INSERT INTO Pics2 (Id, Pic) VALUES (1, 0x010)"));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

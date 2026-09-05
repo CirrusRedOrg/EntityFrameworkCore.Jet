@@ -35,12 +35,12 @@ public class DbContextPoolingTest(NorthwindQueryLibRedFixture<NoopModelCustomize
     private static DbContextOptionsBuilder<TContext> ConfigureOptions<TContext>(DbContextOptionsBuilder<TContext> optionsBuilder)
         where TContext : DbContext
         => optionsBuilder
-            .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString)
+            .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.UseSqlMode())
             .EnableServiceProviderCaching(false);
 
     private static DbContextOptionsBuilder ConfigureOptions(DbContextOptionsBuilder optionsBuilder)
         => optionsBuilder
-            .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString)
+            .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.UseSqlMode())
             .EnableServiceProviderCaching(false);
 
     private static IServiceProvider BuildServiceProvider<TContextService, TContext>(Action<DbContextOptionsBuilder> optionsAction = null)
@@ -631,7 +631,7 @@ public class DbContextPoolingTest(NorthwindQueryLibRedFixture<NoopModelCustomize
         var serviceProvider = new ServiceCollection()
             .AddDbContext<DbContext>(
                 ob
-                    => ob.UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString)
+                    => ob.UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.UseSqlMode())
                         .EnableServiceProviderCaching(false))
             .BuildServiceProvider(validateScopes: true);
 
@@ -1049,7 +1049,7 @@ public class DbContextPoolingTest(NorthwindQueryLibRedFixture<NoopModelCustomize
     {
         var context = new PooledContext(
             new DbContextOptionsBuilder().UseLibRed(
-                LibRedNorthwindTestStoreFactory.NorthwindConnectionString).Options);
+                LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.UseSqlMode()).Options);
 
         context.ChangeTracker.AutoDetectChangesEnabled = true;
         context.ChangeTracker.LazyLoadingEnabled = true;
@@ -1689,7 +1689,7 @@ public class DbContextPoolingTest(NorthwindQueryLibRedFixture<NoopModelCustomize
     {
         var serviceProvider = new ServiceCollection()
             .AddDbContextPool<PooledContext>(
-                ob => ob.UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString)
+                ob => ob.UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.UseSqlMode())
                     .EnableServiceProviderCaching(false))
             .BuildServiceProvider(validateScopes: true);
 
@@ -1767,7 +1767,7 @@ public class DbContextPoolingTest(NorthwindQueryLibRedFixture<NoopModelCustomize
 
         var serviceProvider = new ServiceCollection()
             .AddDbContextPool<PooledContext>(
-                ob => ob.UseLibRed(connection)
+                ob => ob.UseLibRed(connection, b => b.UseSqlMode())
                     .EnableServiceProviderCaching(false))
             .BuildServiceProvider(validateScopes: true);
 
@@ -1837,7 +1837,7 @@ public class DbContextPoolingTest(NorthwindQueryLibRedFixture<NoopModelCustomize
         bool withDependencyInjection)
     {
         var options = new DbContextOptionsBuilder<PooledContext>()
-            .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString)
+            .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.UseSqlMode())
             .EnableServiceProviderCaching(false)
             .Options;
 
@@ -1845,7 +1845,7 @@ public class DbContextPoolingTest(NorthwindQueryLibRedFixture<NoopModelCustomize
             withDependencyInjection
                 ? new ServiceCollection()
                     .AddPooledDbContextFactory<PooledContext>(
-                        ob => ob.UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString)
+                        ob => ob.UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.UseSqlMode())
                             .EnableServiceProviderCaching(false))
                     .BuildServiceProvider(validateScopes: true)
                     .GetRequiredService<IDbContextFactory<PooledContext>>()
@@ -1928,7 +1928,7 @@ public class DbContextPoolingTest(NorthwindQueryLibRedFixture<NoopModelCustomize
         }
 
         var options = new DbContextOptionsBuilder<PooledContext>()
-            .UseLibRed(connection)
+            .UseLibRed(connection, b => b.UseSqlMode())
             .EnableServiceProviderCaching(false)
             .Options;
 
@@ -1936,7 +1936,7 @@ public class DbContextPoolingTest(NorthwindQueryLibRedFixture<NoopModelCustomize
             withDependencyInjection
                 ? new ServiceCollection()
                     .AddPooledDbContextFactory<PooledContext>(
-                        ob => ob.UseLibRed(connection)
+                        ob => ob.UseLibRed(connection, b => b.UseSqlMode())
                             .EnableServiceProviderCaching(false))
                     .BuildServiceProvider(validateScopes: true)
                     .GetRequiredService<IDbContextFactory<PooledContext>>()

@@ -72,9 +72,15 @@ public sealed class LibRedCommand : DbCommand
         Engine.CommandResult? last = null;
         foreach (string statement in SplitStatements(CommandText))
         {
+            // A fragment holding no statement (only comments) is skipped rather than run: it must not become
+            // the batch's last result, or `INSERT …; -- done` would report the comment's zero rows instead of
+            // the insert's. A batch that is entirely comments falls through to the empty result below.
+            if (engine.IsStatementless(statement)) continue;
+
             try
             {
                 last = engine.Execute(statement, parameters);
+                Connection?.ReconcileSqlTransactionControl();
             }
             catch (LibRed.ConstraintViolationException e)
             {
@@ -83,6 +89,15 @@ public sealed class LibRedCommand : DbCommand
                 // migration lock treats losing the INSERT race as the normal path and retries, so an
                 // unrecognised constraint failure there turns contention into a hard failure.
                 throw new LibRedException(e.Message, LibRedException.DuplicateKey, e);
+            }
+            catch (LibRed.SchemaObjectExistsException e)
+            {
+                // Same contract for DDL name collisions. EF Core's migration lock creates its lock table
+                // behind an exists-then-create check that several connections can pass at once, and catches
+                // the losers' "already exists" as DbException. Left untranslated this escapes that guard and
+                // fails the migration outright — ACE raises OleDbException there, so translating is what
+                // makes LibRed behave like the engine it stands in for.
+                throw new LibRedException(e.Message, LibRedException.ObjectAlreadyExists, e);
             }
         }
 
@@ -149,24 +164,34 @@ public sealed class LibRedCommand : DbCommand
     /// the epoch date + time-of-day, a date at midnight.</summary>
     private static readonly DateTime OleEpoch = new(1899, 12, 30);
 
-    /// <summary>Coerces a parameter value to what the engine should see. Jet/ACE has no native TimeSpan, TimeOnly,
+    /// <summary>
+    /// Coerces a parameter value to what the engine should see. Jet/ACE has no native TimeSpan, TimeOnly,
     /// DateOnly or DateTimeOffset — they are all stored as a <see cref="DateTime"/> on the 1899-12-30 epoch — so
     /// this boundary (the single point EF parameters enter the engine) converts each to that DateTime, exactly as
     /// the literal path does (a TimeSpan literal renders as a <c>#…#</c>/TIMEVALUE DateTime). The engine then only
-    /// ever handles DateTime for temporals, and the reader converts back on the way out. Sub-seconds are stripped
-    /// (Jet has 1-second resolution) so a <c>WHERE d = @p</c> comparison matches the seconds-only stored value.</summary>
+    /// ever handles DateTime for temporals, and the reader converts back on the way out.
+    /// </summary>
+    /// <remarks>
+    /// Values are truncated to whole MILLISECONDS, not whole seconds. ACE has one-second resolution, but that is
+    /// ACE truncating on write — LibRed stores the full OA double, and a millisecond survives it exactly
+    /// (measured: 12:34:56.123 round-trips with zero tick loss). Below a millisecond nothing survives whatever
+    /// this does, because .NET's ToOADate/FromOADate quantise there; truncating to the same boundary the store
+    /// uses is what keeps <c>WHERE d = @p</c> matching, which is the reason this truncates at all.
+    /// </remarks>
     private static object? Normalize(object? value) => value switch
     {
         DBNull => null,
-        DateTime d => Seconds(d),
+        DateTime d => Milliseconds(d),
         // DateTimeOffset is read back at offset zero, so store its UTC instant.
-        DateTimeOffset dto => Seconds(dto.UtcDateTime),
-        TimeSpan t => OleEpoch + Seconds(t),
-        TimeOnly to => OleEpoch + Seconds(to.ToTimeSpan()),
+        DateTimeOffset dto => Milliseconds(dto.UtcDateTime),
+        TimeSpan t => OleEpoch + Milliseconds(t),
+        TimeOnly to => OleEpoch + Milliseconds(to.ToTimeSpan()),
         DateOnly d => d.ToDateTime(TimeOnly.MinValue),
         _ => value,
     };
 
-    private static DateTime Seconds(DateTime d) => d.AddTicks(-(d.Ticks % TimeSpan.TicksPerSecond));
-    private static TimeSpan Seconds(TimeSpan t) => TimeSpan.FromTicks(t.Ticks - t.Ticks % TimeSpan.TicksPerSecond);
+    private static DateTime Milliseconds(DateTime d) => d.AddTicks(-(d.Ticks % TimeSpan.TicksPerMillisecond));
+
+    private static TimeSpan Milliseconds(TimeSpan t) =>
+        TimeSpan.FromTicks(t.Ticks - t.Ticks % TimeSpan.TicksPerMillisecond);
 }

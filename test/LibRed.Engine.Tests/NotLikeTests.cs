@@ -8,8 +8,7 @@ public class NotLikeTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"notlike-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "notlike-");
         return path;
     }
 
@@ -27,7 +26,7 @@ public class NotLikeTests
             Assert.True(like > 0);
             Assert.Equal(total - like, notLike); // NOT LIKE = the rest (non-null names)
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // The .All() shape: NOT EXISTS (… WHERE ContactName NOT LIKE 'A%' OR ContactName IS NULL).
@@ -46,6 +45,6 @@ public class NotLikeTests
             // Not all contact names start with 'A' → All(...) is false.
             Assert.Equal(false, all);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

@@ -1,6 +1,7 @@
 using LibRed;
 using LibRed.Engine;
 using LibRed.Engine.Execution;
+using LibRed.Tests.Shared;
 using LibRed.Sql.Ast;
 using LibRed.Sql.Parsing;
 using Xunit;
@@ -11,13 +12,12 @@ namespace LibRed.Engine.Tests;
 // values are hashed, rather than the body being re-run per outer row. IN is the harder case because it is
 // three-valued — "no match" and "no match but the column held a NULL" are FALSE and UNKNOWN, and they differ once
 // NOT IN is in play — so these tests are mostly about that, not about the speed.
-public class CorrelatedInSemiJoinTests
+public class CorrelatedInSemiJoinTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"insemi-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "insemi-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
 
         e.ExecuteNonQuery("CREATE TABLE O ( Id LONG PRIMARY KEY, K LONG, Tag TEXT(10) )");
         e.ExecuteNonQuery("INSERT INTO O (Id, K, Tag) VALUES (1, 10, 'a')");
@@ -41,12 +41,12 @@ public class CorrelatedInSemiJoinTests
 
     // Whether the rewrite engages, asked of the analysis directly: every semantics test here passes either way,
     // since falling back to the per-row loop gives the same answer.
-    private static bool Decorrelates(QueryEngine e, string sql)
+    private static bool Decorrelates(QueryEngine e, string sql, IReadOnlyList<OutputColumn>? outerColumns = null)
     {
         var select = (SelectStatement)new AntlrSqlParser().ParseStatement(sql);
         var inq = (InSubqueryExpression)select.Where!;
 
-        OutputColumn[] outer =
+        IReadOnlyList<OutputColumn> outer = outerColumns ??
         [
             new("o", "Id", typeof(long)), new("o", "K", typeof(long)), new("o", "Tag", typeof(string)),
         ];
@@ -166,18 +166,23 @@ public class CorrelatedInSemiJoinTests
     public void The_analysis_accepts_exactly_these_shapes(bool expected, string sql)
         => Assert.Equal(expected, Decorrelates(Fresh(), sql));
 
-    // As with EXISTS, correctness tests pass whether or not the rewrite fires, so this pins that it DOES — the
-    // per-row form re-runs a two-table join for every candidate row. Northwind: 2155 Order Details rows against
-    // the orders of customers whose ID starts with F. Measured ~26 s per-row against ~0.2 s decorrelated, so the
-    // threshold sits well clear of both.
+    // As with EXISTS, correctness tests pass whether or not the rewrite fires, so pin the analysis directly.
     [Fact]
     public void The_rewrite_engages_on_a_correlated_in_over_a_join()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"insemiperf-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        using var temp = TemporaryDatabase.CopyOf(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "insemiplan");
+        var e = new QueryEngine(temp.Open());
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Assert.True(Decorrelates(e,
+            """
+            SELECT `o`.`OrderID` FROM `Order Details` AS `o`
+            WHERE `o`.`OrderID` IN (
+                SELECT `o1`.`OrderID` FROM `Orders` AS `o1`
+                INNER JOIN `Customers` AS `c` ON `o1`.`CustomerID` = `c`.`CustomerID`
+                WHERE (`c`.`CustomerID` LIKE 'F%') AND `o1`.`OrderID` = `o`.`OrderID`)
+            """, [new("o", "OrderID", typeof(int))]));
+
         int deleted = e.ExecuteNonQuery(
             """
             DELETE FROM `Order Details` AS `o`
@@ -187,9 +192,6 @@ public class CorrelatedInSemiJoinTests
                 INNER JOIN `Customers` AS `c` ON `o1`.`CustomerID` = `c`.`CustomerID`
                 WHERE (`c`.`CustomerID` LIKE 'F%') AND `o1`.`OrderID` = `o`.`OrderID`)
             """);
-        sw.Stop();
-
         Assert.Equal(164, deleted);
-        Assert.True(sw.ElapsedMilliseconds < 5000, $"took {sw.ElapsedMilliseconds} ms — the IN was not decorrelated");
     }
 }

@@ -1393,7 +1393,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 Assert.Equal("Blog1", blog1.Name);
                 Assert.True(blog1.George);
                 Assert.Equal(new Guid("0456AEF1-B7FC-47AA-8102-975D6BA3A9BF"), blog1.TheGu);
-                Assert.Equal(new DateTime(1973, 9, 3, 0, 10, 33, 0), blog1.NotFigTime);
+                Assert.Equal(new DateTime(1973, 9, 3, 0, 10, 33, 777), blog1.NotFigTime);
                 Assert.Equal(64, blog1.ToEat);
                 Assert.Equal(0.123456789, blog1.OrNothing);
                 Assert.Equal(777, blog1.Fuse);

@@ -11,15 +11,7 @@ namespace LibRed.Core.Tests;
 // ascending and descending, including truncation and an "ignorable" character (apostrophe).
 public class MemoKeyEncodingTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider available.");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static readonly string[] Values =
     [
@@ -35,8 +27,7 @@ public class MemoKeyEncodingTests
 
     private static void AssertKeysMatchAccess(string indexDdl)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"libred-memokey-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-memokey-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -76,7 +67,7 @@ public class MemoKeyEncodingTests
 
             Assert.Equal(Values.Length, checkedKeys);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]

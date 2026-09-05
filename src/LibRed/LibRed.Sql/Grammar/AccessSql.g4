@@ -1,6 +1,6 @@
 // ANTLR4 grammar for the Jet/ACE (Microsoft Access) SQL dialect.
 //
-// Scope: SELECT with projection/aliases, multi-table FROM with INNER/LEFT/RIGHT JOIN and
+// Scope: SELECT with projection/aliases, multi-table FROM with INNER/LEFT/RIGHT/FULL JOIN and
 // derived-table subqueries, WHERE, ORDER BY, TOP. The parse tree is lowered into
 // LibRed.Sql.Ast by AstBuilder, so the rest of the engine never sees these generated types.
 //
@@ -15,7 +15,7 @@ statement : parametersClause? (ifThenStatement | createTableStatement | createIn
 
 // EF emits Jet's conditional DDL for idempotent migrations: `IF [NOT] EXISTS (<select>) THEN <statement>`.
 // A single guarded statement (all EF produces); the condition is an ordinary subquery (e.g. over INFORMATION_SCHEMA).
-ifThenStatement : IF not=NOT? EXISTS LPAREN selectStatement RPAREN THEN thenBody ;
+ifThenStatement : IF not=NOT? EXISTS LPAREN queryExpression RPAREN THEN thenBody ;
 thenBody : createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | executeStatement | queryExpression ;
 
 // EXECUTE|EXEC procedure [arg [, arg …]] — invoke a stored procedure/query by name with positional
@@ -184,29 +184,74 @@ referentialAction
     | SET DEFAULT   # SetDefaultAction
     ;
 
-// INSERT … VALUES (…), or `INSERT INTO t DEFAULT VALUES` — the latter (EF Core emits it for an all-store-
-// -generated/all-default row) inserts one row taking every column's default / AutoNumber.
+// Access's two append-query forms:
+//   single-record    INSERT INTO target [(field, …)] VALUES (value, …)
+//   multiple-record  INSERT INTO target [(field, …)] SELECT [source.]field, … FROM tableexpression
+// plus `INSERT INTO t DEFAULT VALUES` — EF Core emits that for an all-store-generated/all-default row, and
+// it inserts one row taking every column's default / AutoNumber.
+//
+// The IN externaldatabase clause both forms allow is deliberately absent: appending into another file is
+// part of the linked/external-database subsystem, which LibRed neither reads nor writes.
+//
+// The multiple-record source is a queryExpression rather than a bare selectStatement, so a UNION can feed an
+// append — the shape EF emits from a Concat — which is a superset of what Access documents.
 insertStatement
     : INSERT INTO table=identifier
       ( (LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN)?
-        VALUES LPAREN expression (COMMA expression)* RPAREN
+        ( VALUES rowValues (COMMA rowValues)*
+        | source=queryExpression )
       | DEFAULT VALUES )
     ;
 
+// One parenthesised row of a table value constructor. Access documents only a single row after VALUES, but
+// the standard's constructor takes a comma-separated list of them and EF Core batches inserts that way, so
+// LibRed accepts the list — a superset of Access, like the UNION source above. Every row must supply the same
+// number of values as there are target columns, which the executor checks per row. SQL Server caps an
+// INSERT ... VALUES at 1,000 rows; nothing here needs that limit, so none is imposed.
+rowValues : LPAREN rowValue (COMMA rowValue)* RPAREN ;
+
+// A row value is DEFAULT, NULL, or any expression. NULL needs no alternative of its own — it is already a
+// literal. DEFAULT takes the column's declared default (or NULL when it has none), and the standard permits
+// it only inside an INSERT, which falls out of `rowValue` appearing nowhere else in the grammar.
+rowValue : DEFAULT | expression ;
+
 // Set operations over SELECTs (left-associative). UNION dedupes; UNION ALL keeps
 // duplicates; INTERSECT/EXCEPT dedupe. (Access has no INTERSECT/EXCEPT — LibRed owns the dialect.)
-queryExpression : queryTerm (setOperator queryTerm)* ;
-// A set-operation operand is a SELECT or a parenthesised query expression (so `A UNION ALL (B UNION C)`
-// groups the right side as one term — EF emits this from Concat/Union nesting).
+// ORDER BY and OFFSET/FETCH attach HERE, to the query expression, and nowhere else: they order the result of
+// the whole expression, so `A UNION B ORDER BY x` orders the union rather than its last operand (verified
+// against ACE, which does the same). An operand that needs an ordering of its own must be parenthesised, which
+// is what gives `(SELECT TOP 5 … ORDER BY x) UNION …` its meaning — the ordering is what makes that TOP
+// deterministic. This is the standard's own structure: <query expression> carries the ordering, <query term>
+// does not.
+queryExpression : queryTerm (setOperator queryTerm)* orderByClause? offsetFetchClause? ;
+// A set-operation operand is an order-less SELECT or a parenthesised query expression (so `A UNION ALL (B UNION
+// C)` groups the right side as one term — EF emits this from Concat/Union nesting).
 queryTerm
-    : selectStatement                 # SelectTerm
+    : querySpecification              # SelectTerm
     | LPAREN queryExpression RPAREN    # ParenTerm
+    // A table value constructor standing in for a query — the standard's other use for it, beside the
+    // INSERT clause. EF Core emits it for an inline collection, e.g.
+    //   SELECT MAX(`v`.`Value`) FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`)) AS `v`
+    // where the row values may reference outer columns, so this is evaluated per outer row. Column names come
+    // from the leading query of the set operation, per SQL, which is why no column alias list is needed here.
+    | VALUES rowValues (COMMA rowValues)*  # ValuesTerm
     ;
 setOperator : UNION ALL? | INTERSECT | EXCEPT ;
 
 // The FROM clause is optional: ACE accepts a bare `SELECT 2` (verified) — a FROM-less SELECT yields one row.
-selectStatement
-    : SELECT predicate=selectPredicate? topClause? selectList fromClause? whereClause? groupByClause? havingClause? orderByClause?
+//
+// INTO makes it a MAKE-TABLE query: the rows go into a new table rather than back to the caller.
+//   SELECT field1[, field2[, …]] INTO newtable [IN externaldatabase] FROM source
+// The IN externaldatabase clause is deliberately absent, as it is on INSERT — creating a table in another
+// file is part of the linked-database subsystem LibRed does not have.
+// The standard's <query specification>, and named for it: SELECT … FROM … WHERE … GROUP BY … HAVING, with no
+// ORDER BY or OFFSET/FETCH — see queryExpression, the only place those may appear. Splitting the ordering out
+// of the operand rule is what every serious SQL grammar does (Trino's querySpecification/queryNoWith, SQLite's
+// select_core, PostgreSQL's simple_select), because an operand rule that ends in an optional ORDER BY swallows
+// the enclosing expression's greedily. TOP stays, because a leading TOP genuinely belongs to its own operand:
+// `SELECT TOP 5 … UNION SELECT TOP 5 …` takes five rows from each side.
+querySpecification
+    : SELECT predicate=selectPredicate? topClause? selectList (INTO into=identifier)? fromClause? whereClause? groupByClause? havingClause?
     ;
 
 // The optional row predicate. ALL is the default (return every row); DISTINCT dedupes on the output
@@ -223,6 +268,33 @@ havingClause : HAVING expression ;
 // A trailing PERCENT returns that percentage of rows (ceil) instead of a fixed count.
 topClause : TOP topOperand ((PLUS | MINUS) topOperand)* percent=PERCENT? ;
 topOperand : INTEGER_LITERAL | PARAM | LPAREN expression RPAREN ;
+
+// ANSI SQL:2008 paging, which EF Core's base QuerySqlGenerator.GenerateLimitOffset emits whenever the
+// provider does not rewrite Skip/Take into something dialect-specific. Three shapes:
+//   Skip(n)          OFFSET n ROWS
+//   Skip(n).Take(m)  OFFSET n ROWS FETCH NEXT m ROWS ONLY
+//   Take(m)          FETCH FIRST m ROWS ONLY
+// FIRST and NEXT are interchangeable in the standard, as are ROW and ROWS, so both spellings are accepted
+// either side.
+//
+// The counts are full expressions, unlike topClause's — and deliberately NOT the same rule. TOP's operand has
+// to stay restricted because TOP sits immediately before the select list, where an unrestricted expression
+// would swallow the star of `SELECT TOP 5 * FROM t`. Here the operand is closed by the ROW/ROWS keyword that
+// must follow it, so there is nothing to swallow. That matters because EF emits a correlated COLUMN for
+// `ElementAt(<column>)` — `OFFSET `s`.`Id` ROWS` — which no literal-or-parameter rule can express.
+//
+// Deliberately wider than what is written down, so don't narrow it back to the documentation. The standard's
+// <offset row count> is a <simple value specification> (literal, parameter, variable), and SQL Server documents
+// offset_row_count_expression as a variable, parameter or constant scalar subquery — a correlated column is
+// none of those. But SQL Server *accepts* one: EF Core's own SQL Server baseline for
+// `Where_subquery_with_ElementAt_using_column_as_index` carries `OFFSET [s].[Id] ROWS`, and that baseline only
+// exists because the test passed against a real server. So this matches the engine's behaviour; it is the
+// documentation that is incomplete.
+offsetFetchClause
+    : OFFSET offset=expression rowKeyword (FETCH (NEXT | FIRST) limit=expression rowKeyword ONLY)?
+    | FETCH (FIRST | NEXT) limit=expression rowKeyword ONLY
+    ;
+rowKeyword : ROW | ROWS ;
 
 selectList
     : STAR
@@ -245,12 +317,35 @@ tablePrimary
     | LPAREN tableSource RPAREN                                 # ParenJoinPrimary
     ;
 
-joinClause : joinType JOIN tablePrimary ON expression ;
+// An ON condition is required for the conditional join types and forbidden for CROSS JOIN, which pairs every
+// row with every row and so has nothing to condition on. Access has no CROSS JOIN keyword — a cartesian
+// product is written there as comma-separated sources in the FROM clause, which `fromClause` still accepts
+// and which builds the identical tree. EF Core's base generator emits the explicit form, so LibRed takes
+// both spellings for the same thing.
+//
+// CROSS/OUTER APPLY are lateral joins and a LibRed extension - ACE has neither. The right side is evaluated
+// once per left row with that row's columns in scope, so it may correlate to the left, which an ordinary
+// join's right side may not. CROSS APPLY drops a left row whose right side came back empty; OUTER APPLY
+// keeps it, null-padded, the way a LEFT JOIN does. Neither takes an ON: the correlation inside the right
+// side is the condition. The position here follows T-SQL, which lists
+// `left_table_source { CROSS | OUTER } APPLY right_table_source` as a <joined_table> alternative next to the
+// conditional joins and CROSS JOIN.
+joinClause
+    : joinType JOIN tablePrimary ON expression   # ConditionalJoin
+    | CROSS JOIN tablePrimary                    # CrossJoin
+    | CROSS APPLY tablePrimary                   # CrossApply
+    | OUTER APPLY tablePrimary                   # OuterApply
+    ;
 
+// FULL [OUTER] JOIN is a LibRed extension: ACE has no full outer join at all, and no way to express one
+// (its query designer offers only the three above). FULL is therefore a keyword here that is not reserved in
+// Access, so a column actually named "Full" has to be bracketed or backticked - the same tax LEFT, RIGHT,
+// ORDER and every other keyword already charge.
 joinType
     : INNER?            # InnerJoin
     | LEFT OUTER?       # LeftJoin
     | RIGHT OUTER?      # RightJoin
+    | FULL OUTER?       # FullJoin
     ;
 
 whereClause : WHERE expression ;
@@ -268,7 +363,7 @@ expression
     | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression   # ComparisonExpr
     | val=expression not=NOT? BETWEEN lo=expression AND hi=expression        # BetweenExpr
     | left=expression not=NOT? LIKE right=expression                        # LikeExpr
-    | val=expression not=NOT? IN LPAREN sub=selectStatement RPAREN                            # InSubqueryExpr
+    | val=expression not=NOT? IN LPAREN sub=queryExpression RPAREN                            # InSubqueryExpr
     | val=expression not=NOT? IN LPAREN items+=expression (COMMA items+=expression)* RPAREN  # InExpr
     | operand=expression IS not=NOT? NULL                                   # IsNullExpr
     | left=expression op=(BAND | BOR | BXOR) right=expression               # BitwiseExpr
@@ -279,22 +374,53 @@ expression
 
 primary
     : literal                          # LiteralPrimary
+    | caseExpression                   # CasePrimary
     | functionCall                     # FunctionCallPrimary
     | columnRef                        # ColumnPrimary
     | PARAM                            # ParamPrimary
     | SYSVAR                           # SystemVariablePrimary
-    | EXISTS LPAREN selectStatement RPAREN # ExistsPrimary
-    | LPAREN selectStatement RPAREN    # ScalarSubqueryPrimary
+    // A subquery holds a full queryExpression, not just a SELECT: the standard reaches these three positions
+    // through the same <query expression> nonterminal a derived table uses, so a set operation is legal in all
+    // of them — `x IN (SELECT … UNION ALL SELECT …)`. EF Core emits exactly that once the generator elides the
+    // wrapping select it would otherwise put around the union.
+    | EXISTS LPAREN queryExpression RPAREN # ExistsPrimary
+    | LPAREN queryExpression RPAREN    # ScalarSubqueryPrimary
     | LPAREN expression RPAREN         # ParenPrimary
     ;
 
+// Standard SQL CASE, in both ANSI forms. Access/ACE has neither — it only has the IIF() function, which is
+// why the Jet SQL generator rewrites a CASE into nested IIFs and LibRed's extended mode does not.
+//   searched: CASE WHEN cond THEN result [WHEN …] [ELSE result] END
+//   simple:   CASE operand WHEN value THEN result [WHEN …] [ELSE result] END
+// EF Core emits both; its CaseExpression carries an optional Operand that selects between the two. The
+// simple form compares operand = value, so it is sugar for the searched one and is folded into it here
+// rather than kept as a separate node.
+caseExpression
+    : CASE operand=expression? caseWhen+ (ELSE elseResult=expression)? END
+    ;
+caseWhen : WHEN condition=expression THEN result=expression ;
+
 // An optional DISTINCT before the argument applies to aggregates (COUNT/SUM/AVG/…): the aggregate operates
 // on the distinct set of the argument's VALUES (COUNT(DISTINCT col)), not on distinct rows — see DISTINCTROW.
-functionCall : name=functionName LPAREN (star=STAR | (distinct=DISTINCT? expression (COMMA expression)*))? RPAREN ;
+// The OVER clause hangs off the call itself rather than off a list of window-function names. That is what makes
+// a new window function cost NO grammar at all: ROW_NUMBER, RANK, NTILE and friends already lex as IDENTIFIER
+// and reach here through `functionName`, and `SUM(x) OVER (…)` — an aggregate over a window — parses for free
+// as the same shape. Access has no window functions; this is a LibRed extension for extended mode.
+functionCall
+    : name=functionName LPAREN (star=STAR | (distinct=DISTINCT? expression (COMMA expression)*))? RPAREN
+      (OVER windowSpecification)?
+    ;
 // A function name is an identifier, or the LEFT/RIGHT/ASC keywords used as the Left()/Right()/Asc() functions —
 // unambiguous with LEFT/RIGHT JOIN and ORDER BY ... ASC because a function call is always followed by '(' and
 // never appears in the FROM/ORDER BY clause.
-functionName : identifier | LEFT | RIGHT | ASC ;
+// Keywords that are also function names have to be readmitted here or the lexer's keyword token wins and the
+// call stops parsing: Left/Right/Asc, and FIRST — which `offsetFetchClause` needs as a keyword for
+// `FETCH FIRST`, but which is also the Access aggregate First(). (LAST is not listed because nothing else
+// claims it as a keyword.)
+// PARTITION is readmitted for the same reason: `PARTITION BY` makes it a keyword, but Access has a real VBA
+// Partition(number, start, stop, interval) function that LibRed implements and tests. A function call is always
+// followed by '(' and `PARTITION BY` never is, so the two never collide.
+functionName : identifier | LEFT | RIGHT | ASC | FIRST | PARTITION ;
 
 columnRef : (qualifier=identifier DOT)? name=identifier ;
 
@@ -326,6 +452,16 @@ transactionStatement
 // Kept after the existing parser rules so adding it does not renumber their generated rule ids.
 standaloneExpression : expression EOF ;
 
+// A window function's OVER (…). Both parts are optional here even though EF Core always emits both and the
+// standard's defaults differ (no PARTITION BY = one partition over the whole input; no ORDER BY = every row a
+// peer), because rejecting them in the grammar would report a parse error where a semantic one is clearer.
+// A frame clause (ROWS/RANGE BETWEEN …) goes before the RPAREN when something needs one — nothing emits one
+// today, and admitting it now would reserve five more keywords (RANGE, PRECEDING, FOLLOWING, UNBOUNDED,
+// CURRENT) to buy nothing. Kept after the existing parser rules so adding it does not renumber their ids.
+windowSpecification
+    : LPAREN (PARTITION BY partition+=expression (COMMA partition+=expression)*)? orderByClause? RPAREN
+    ;
+
 // ---- Lexer ----
 
 SELECT : [Ss][Ee][Ll][Ee][Cc][Tt] ;
@@ -345,6 +481,7 @@ MOD    : [Mm][Oo][Dd] ;
 INNER  : [Ii][Nn][Nn][Ee][Rr] ;
 LEFT   : [Ll][Ee][Ff][Tt] ;
 RIGHT  : [Rr][Ii][Gg][Hh][Tt] ;
+FULL   : [Ff][Uu][Ll][Ll] ;
 OUTER  : [Oo][Uu][Tt][Ee][Rr] ;
 JOIN   : [Jj][Oo][Ii][Nn] ;
 IN     : [Ii][Nn] ;
@@ -360,6 +497,21 @@ THEN   : [Tt][Hh][Ee][Nn] ;
 DISTINCTROW : [Dd][Ii][Ss][Tt][Ii][Nn][Cc][Tt][Rr][Oo][Ww] ;
 DISTINCT : [Dd][Ii][Ss][Tt][Ii][Nn][Cc][Tt] ;
 PERCENT  : [Pp][Ee][Rr][Cc][Ee][Nn][Tt] ;
+CROSS    : [Cc][Rr][Oo][Ss][Ss] ;
+APPLY    : [Aa][Pp][Pp][Ll][Yy] ;
+OVER     : [Oo][Vv][Ee][Rr] ;
+PARTITION : [Pp][Aa][Rr][Tt][Ii][Tt][Ii][Oo][Nn] ;
+CASE     : [Cc][Aa][Ss][Ee] ;
+WHEN     : [Ww][Hh][Ee][Nn] ;
+ELSE     : [Ee][Ll][Ss][Ee] ;
+END      : [Ee][Nn][Dd] ;
+OFFSET   : [Oo][Ff][Ff][Ss][Ee][Tt] ;
+FETCH    : [Ff][Ee][Tt][Cc][Hh] ;
+NEXT     : [Nn][Ee][Xx][Tt] ;
+FIRST    : [Ff][Ii][Rr][Ss][Tt] ;
+ROWS     : [Rr][Oo][Ww][Ss] ;
+ROW      : [Rr][Oo][Ww] ;
+ONLY     : [Oo][Nn][Ll][Yy] ;
 BETWEEN  : [Bb][Ee][Tt][Ww][Ee][Ee][Nn] ;
 UNION     : [Uu][Nn][Ii][Oo][Nn] ;
 ALL       : [Aa][Ll][Ll] ;

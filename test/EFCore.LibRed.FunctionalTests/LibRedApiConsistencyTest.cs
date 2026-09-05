@@ -36,7 +36,7 @@ public class LibRedApiConsistencyTest(LibRedApiConsistencyTest.LibRedApiConsiste
             //typeof(JetPrimitiveCollectionBuilderExtensions),
             //typeof(JetComplexTypePrimitiveCollectionBuilderExtensions),
             //typeof(JetEntityTypeBuilderExtensions),
-            typeof(JetServiceCollectionExtensions),
+            typeof(LibRedServiceCollectionExtensions),
             typeof(JetDbFunctionsExtensions),
             //typeof(JetTableBuilderExtensions)
         ];

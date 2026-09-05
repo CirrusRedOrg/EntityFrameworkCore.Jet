@@ -5,13 +5,12 @@ using Xunit;
 namespace LibRed.Engine.Tests;
 
 // DROP VIEW / DROP PROCEDURE through LibRed's engine — both remove a type-5 query object.
-public class DropViewProcedureTests
+public class DropViewProcedureTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"dropview-eng-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        return new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "dropview-eng-");
+        return new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
     }
 
     [Fact]

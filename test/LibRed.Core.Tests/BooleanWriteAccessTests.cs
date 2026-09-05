@@ -11,23 +11,12 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class BooleanWriteAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_reads_libred_written_bit_values()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"bit-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "bit-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -61,6 +50,6 @@ public class BooleanWriteAccessTests
                 Assert.Equal(false, c.ExecuteScalar());
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

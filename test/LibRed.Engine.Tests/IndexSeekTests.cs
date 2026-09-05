@@ -10,13 +10,12 @@ namespace LibRed.Engine.Tests;
 /// IndexSeekNode) instead of a full scan, with the original predicate kept as a residual re-check. These
 /// verify the results are identical to a scan — the seek must be a pure speedup, never change the answer.
 /// </summary>
-public class IndexSeekTests
+public class IndexSeekTests : TempDatabaseTest
 {
     private static QueryEngine Seeded()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"seek-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "seek-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE B (Id LONG PRIMARY KEY, K LONG, V TEXT(40))");
         e.ExecuteNonQuery("CREATE INDEX IX_K ON B (K)");
         for (int i = 0; i < 500; i++) e.ExecuteNonQuery($"INSERT INTO B (Id, K, V) VALUES ({i}, {i % 10}, 'v{i}')");
@@ -61,9 +60,8 @@ public class IndexSeekTests
     // --- index-nested-loop join: the inner side is seeked per outer row, not scanned ---
     private static QueryEngine TwoTables()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"nlj-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "nlj-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE P (Id LONG PRIMARY KEY, Nm TEXT(20))");
         e.ExecuteNonQuery("CREATE TABLE C (Id LONG PRIMARY KEY, Pid LONG, Amt LONG)");
         e.ExecuteNonQuery("CREATE INDEX IX_Pid ON C (Pid)");

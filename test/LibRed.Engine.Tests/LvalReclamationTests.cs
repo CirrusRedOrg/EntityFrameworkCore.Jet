@@ -11,8 +11,7 @@ public class LvalReclamationTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"lval-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "lval-");
         return path;
     }
 
@@ -47,7 +46,7 @@ public class LvalReclamationTests
             using (var db = JetDatabase.Open(path))
                 Assert.Equal(Big((char)('b' + 29 % 20)), new QueryEngine(db).ExecuteQuery("SELECT M FROM T").Rows.Single()[0]);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -81,7 +80,7 @@ public class LvalReclamationTests
                 Assert.Equal(Big('a'), e.ExecuteQuery("SELECT M FROM T").Rows.Single()[0]); // memo intact
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -113,6 +112,6 @@ public class LvalReclamationTests
             Assert.True(afterChurn - afterInserts < 150_000,
                 $"file grew {afterChurn - afterInserts} bytes over 20 delete+insert cycles — deleted memo pages not reclaimed?");
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

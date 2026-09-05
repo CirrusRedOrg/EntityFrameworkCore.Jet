@@ -26,7 +26,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities
                 new DbContext(
                     new DbContextOptionsBuilder()
                         .EnableServiceProviderCaching(false)
-                        .UseLibRed(TestEnvironment.DefaultConnection, TestEnvironment.DataAccessProviderFactory).Options),
+                        .UseLibRed(TestEnvironment.DefaultConnection, b => b.UseSqlMode()).Options),
                 DefaultMaxRetryCount, DefaultMaxDelay, _additionalErrorNumbers)
         {
         }

@@ -18,36 +18,6 @@ namespace EntityFrameworkCore.LibRed.Infrastructure
     public class LibRedDbContextOptionsBuilder(DbContextOptionsBuilder optionsBuilder)
                 : RelationalDbContextOptionsBuilder<LibRedDbContextOptionsBuilder, LibRedOptionsExtension>(optionsBuilder)
     {
-
-        /// <summary>
-        ///     Use a ROW_NUMBER() in queries instead of OFFSET/FETCH. This method is backwards-compatible to Jet 2005.
-        /// </summary>
-        // [Obsolete("Row-number paging is no longer supported. See https://aka.ms/AA6h122 for more information.")]
-        // public virtual LibRedDbContextOptionsBuilder UseRowNumberForPaging(bool useRowNumberForPaging = true)
-        //    => WithOption(e => e.WithRowNumberPaging(useRowNumberForPaging));
-
-        /// <summary>
-        ///     Jet/ACE doesn't natively support row skipping. When this option is enabled, row skipping will be
-        ///     emulated in the most outer SELECT statement, by letting the JetDataReader ignore as many returned rows
-        ///     as should have been skipped by the database.
-        ///     This will only work when `JetCommand.ExecuteDataReader()` is beeing used to execute the `JetCommand`.
-        ///     It is recommanded to not use this option, but to switch to client evaluation instead, by inserting a
-        ///     call to either `AsEnumerable()`, `AsAsyncEnumerable()`, `ToList()`, or `ToListAsync()` and only then
-        ///     to use `Skip()`. This will work in all cases and independent of the specific `JetCommand.Execute()`
-        ///     method called. 
-        /// </summary>
-        [Obsolete("This method exists for backward compatibility reasons only. Switch to client evaluation instead.")]
-        public virtual LibRedDbContextOptionsBuilder UseOuterSelectSkipEmulationViaDataReader(bool enabled = true)
-            => WithOption(e => e.WithUseOuterSelectSkipEmulationViaDataReader(enabled));
-
-        /// <summary>
-        ///     Configures the context support milliseconds in `DateTime`, `DateTimeOffset` and `TimeSpan` values when
-        ///     accessing Jet databases. Jet has no native support for milliseconds, therefore this feature is opt-in.
-        /// </summary>
-        public virtual LibRedDbContextOptionsBuilder EnableMillisecondsSupport(bool enabled = true)
-            => WithOption(e => e.WithEnableMillisecondsSupport(enabled));
-
-
         /// <summary>
         ///     Set this to enabled to map the System.String CLR type to the Jet `Short Text` data type instead of the
         ///     Long Text data type. This will limit the maximum length of strings to 255 characters.
@@ -58,6 +28,15 @@ namespace EntityFrameworkCore.LibRed.Infrastructure
         /// </summary>
         public virtual LibRedDbContextOptionsBuilder UseShortTextForSystemString(bool enabled = true)
             => WithOption(e => e.WithUseShortTextForSystemString(enabled));
+
+        /// <summary>
+        ///     Selects the SQL dialect the provider generates. <see cref="LibRedSqlMode.Compatible" /> generates SQL
+        ///     that the Jet/ACE engine also accepts, using the same SQL generator as the EntityFrameworkCore.Jet
+        ///     provider; <see cref="LibRedSqlMode.Extended" /> uses LibRed's own SQL generator, which is free of the
+        ///     Jet dialect's limitations and is the default.
+        /// </summary>
+        public virtual LibRedDbContextOptionsBuilder UseSqlMode(LibRedSqlMode sqlMode = LibRedSqlMode.Compatible)
+            => WithOption(e => e.WithSqlMode(sqlMode));
 
         /// <summary>
         ///     Configures the context to use the default retrying <see cref="IExecutionStrategy" />.

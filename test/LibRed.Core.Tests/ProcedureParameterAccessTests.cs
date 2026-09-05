@@ -12,26 +12,12 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class ProcedureParameterAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-        {
-            foreach (string provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={provider};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; }
-            }
-            Thread.Sleep(50);
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider opened the database.", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_runs_a_parameterized_procedure()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"proc-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "proc-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -63,7 +49,7 @@ public class ProcedureParameterAccessTests
             int count = Convert.ToInt32(cmd.ExecuteScalar());
             Assert.Equal(expected, count); // the procedure honours the supplied parameter values
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // "Employee Sales by Country" shape: @-parameters + a nested join onto the "Order Subtotals" view.
@@ -71,8 +57,7 @@ public class ProcedureParameterAccessTests
     [Fact]
     public void Access_runs_a_nested_join_at_parameter_procedure()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"empsales-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "empsales-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -120,6 +105,6 @@ public class ProcedureParameterAccessTests
             cmd.Parameters.Add(new OleDbParameter("Ending_Date", new DateTime(1997, 12, 31)));
             Assert.Equal(expected, Convert.ToInt32(cmd.ExecuteScalar()));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

@@ -1272,19 +1272,20 @@ WHERE `c`.`CustomerID` LIKE 'F%'
         await base.Update_Union_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
+            """
+@p='Updated' (Size = 30)
+
+UPDATE `Customers` AS `c1`
 INNER JOIN (
-    SELECT [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region]
-    FROM [Customers] AS [c0]
-    WHERE [c0].[CustomerID] LIKE N'F%'
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
     UNION
-    SELECT [c1].[CustomerID], [c1].[Address], [c1].[City], [c1].[CompanyName], [c1].[ContactName], [c1].[ContactTitle], [c1].[Country], [c1].[Fax], [c1].[Phone], [c1].[PostalCode], [c1].[Region]
-    FROM [Customers] AS [c1]
-    WHERE [c1].[CustomerID] LIKE N'A%'
-) AS [t] ON [c].[CustomerID] = [t].[CustomerID]
+    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`CustomerID` LIKE 'A%'
+) AS `u` ON `c1`.`CustomerID` = `u`.`CustomerID`
+SET `c1`.`ContactName` = @p
 """);
     }
 
@@ -1293,19 +1294,20 @@ INNER JOIN (
         await base.Update_Concat_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
+            """
+@p='Updated' (Size = 30)
+
+UPDATE `Customers` AS `c1`
 INNER JOIN (
-    SELECT [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region]
-    FROM [Customers] AS [c0]
-    WHERE [c0].[CustomerID] LIKE N'F%'
+    SELECT `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
     UNION ALL
-    SELECT [c1].[CustomerID], [c1].[Address], [c1].[City], [c1].[CompanyName], [c1].[ContactName], [c1].[ContactTitle], [c1].[Country], [c1].[Fax], [c1].[Phone], [c1].[PostalCode], [c1].[Region]
-    FROM [Customers] AS [c1]
-    WHERE [c1].[CustomerID] LIKE N'A%'
-) AS [t] ON [c].[CustomerID] = [t].[CustomerID]
+    SELECT `c0`.`CustomerID`
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`CustomerID` LIKE 'A%'
+) AS `u` ON `c1`.`CustomerID` = `u`.`CustomerID`
+SET `c1`.`ContactName` = @p
 """);
     }
 

@@ -25,8 +25,8 @@ public class GlobalReferenceFreeMapTests
         // Page 0 — use a valid unencrypted header. A bare identifier/version leaves the masked database-key
         // field invalid and makes PageChannel correctly treat this synthetic file as encrypted.
         DatabaseCreator.BuildDefinitionPage(
-            0x02, isAccdb: true, codePage: 1252, collationLcid: 1033,
-            collationVersion: 0, creationDays: 45000).CopyTo(file, 0);
+            0x02, isAccdb: true, codePage: 1252, collation: LibRed.Catalog.Collation.GeneralLegacy,
+            creationDays: 45000).CopyTo(file, 0);
 
         // Page 1 — a data page whose row 0 is a reference-type global free map: slot 0 → bitmap page 2,
         // slot 1 → bitmap page 3. (The 69-byte record is packed at the page end, as ACE packs rows.)
@@ -43,7 +43,7 @@ public class GlobalReferenceFreeMapTests
         WriteBitmapPage(file, 2 * pageSize, inRangeBit: 5);
         WriteBitmapPage(file, 3 * pageSize, inRangeBit: null);
 
-        string path = Path.Combine(Path.GetTempPath(), $"libred-globalref-{Guid.NewGuid():N}.accdb");
+        string path = TemporaryDatabase.CreatePath("libred-globalref-");
         File.WriteAllBytes(path, file);
         try
         {
@@ -58,7 +58,7 @@ public class GlobalReferenceFreeMapTests
         }
         finally
         {
-            File.Delete(path);
+            TemporaryDatabase.Delete(path);
         }
     }
 

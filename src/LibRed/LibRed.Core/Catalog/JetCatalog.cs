@@ -37,36 +37,47 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
     private Dictionary<string, string>? _views;
     private Dictionary<string, StoredActionQuery>? _actionQueries;
     private Dictionary<string, IReadOnlyList<string>>? _queryParameters;
+    private long _seenSchemaGeneration = channel.SchemaGeneration;
 
     /// <summary>All tables in the database (user and system).</summary>
-    public IReadOnlyList<TableDef> Tables => _tables ??= LoadTables();
+    public IReadOnlyList<TableDef> Tables { get { EnsureFresh(); return _tables ??= LoadTables(); } }
 
     /// <summary>Views (stored simple-SELECT queries) as name → reconstructed SELECT SQL, rebuilt from
     /// each view's MSysQueries rows. Complex/system queries that don't reconstruct are omitted.</summary>
-    public IReadOnlyDictionary<string, string> Views { get { EnsureStoredQueries(); return _views!; } }
+    public IReadOnlyDictionary<string, string> Views { get { EnsureFresh(); EnsureStoredQueries(); return _views!; } }
 
     /// <summary>Stored action queries (a CREATE PROCEDURE body that is not a SELECT) as name → readback.
     /// A supported query (CREATE/DROP TABLE, INSERT … VALUES) carries executable SQL; an unsupported one
     /// (INSERT … SELECT, etc.) carries only a reason and throws when LibRed is asked to execute it.</summary>
-    public IReadOnlyDictionary<string, StoredActionQuery> ActionQueries { get { EnsureStoredQueries(); return _actionQueries!; } }
+    public IReadOnlyDictionary<string, StoredActionQuery> ActionQueries { get { EnsureFresh(); EnsureStoredQueries(); return _actionQueries!; } }
 
     /// <summary>A stored query's declared parameter names in declaration order (its <c>Attribute=2</c> rows).
     /// Used to bind an <c>EXECUTE proc a, b</c>'s positional arguments to the procedure's named parameters.
     /// Empty for a query with no parameters.</summary>
-    public IReadOnlyDictionary<string, IReadOnlyList<string>> QueryParameters { get { EnsureStoredQueries(); return _queryParameters!; } }
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> QueryParameters { get { EnsureFresh(); EnsureStoredQueries(); return _queryParameters!; } }
 
     /// <summary>Drops the cached catalog so a freshly created table is picked up on next read.</summary>
-    public void Invalidate()
+    public void Invalidate(bool markChanged = true)
     {
         _tables = null;
         _relationships = null;
         _views = null;
         _actionQueries = null;
         _queryParameters = null;
+        _seenSchemaGeneration = _channel.SchemaGeneration;
+        if (markChanged) _channel.MarkSchemaChanged();
+    }
+
+    private void EnsureFresh()
+    {
+        long generation = _channel.SchemaGeneration;
+        if (generation == _seenSchemaGeneration) return;
+        Invalidate(markChanged: false);
+        _seenSchemaGeneration = generation;
     }
 
     /// <summary>All relationships (foreign keys) defined in the database.</summary>
-    public IReadOnlyList<ForeignKey> Relationships => _relationships ??= LoadRelationships();
+    public IReadOnlyList<ForeignKey> Relationships { get { EnsureFresh(); return _relationships ??= LoadRelationships(); } }
 
     /// <summary>Relationships for which <paramref name="table"/> is the referencing (child) table.</summary>
     public IEnumerable<ForeignKey> ForeignKeysOf(string table) =>
@@ -249,6 +260,11 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
             string values = string.Join(", ", cols.Select(r => r[expr] as string ?? "NULL"));
             return new StoredActionQuery($"INSERT INTO [{target}] ({columns}) VALUES ({values})", null);
         }
+
+        if (kind == StoredQueryFormat.ActionUpdate)
+            return new StoredActionQuery(null, "UPDATE stored queries are not executed by LibRed yet.");
+        if (kind == StoredQueryFormat.ActionDelete)
+            return new StoredActionQuery(null, "DELETE stored queries are not executed by LibRed yet.");
 
         return new StoredActionQuery(null, "This stored action query kind is not supported by LibRed yet.");
     }

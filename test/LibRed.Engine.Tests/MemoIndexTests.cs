@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 // A Memo (Long Text) column is indexable in Access; its index key is the text collation key over the first
 // 255 characters. Exercise the insert path (RowInserter → IndexKeyEncoder) end-to-end through the engine.
-public class MemoIndexTests
+public class MemoIndexTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"memoidx-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "memoidx-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE MK (Id long PRIMARY KEY, M memo)");
         e.ExecuteNonQuery("CREATE INDEX IX_M ON MK (M)");
         return e;

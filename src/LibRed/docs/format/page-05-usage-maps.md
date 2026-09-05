@@ -150,9 +150,13 @@ one cleared bit per page taken.
 > free targets, and non-contiguous growth targets are rejected before a free bit is cleared or set.
 >
 > **Create-table side effects.** An ACE `CREATE TABLE` *also* (1) adds two rows to **`MSysACEs`**
-> (the new object's permission entries) and updates its `ObjectId` index, and (2) bumps a counter in
-> page 0's obfuscated region at `~0xE02` (not yet decoded). **(1) is now done** —
+> (the new object's permission entries) and updates its `ObjectId` index, and (2) bumps the opening user's
+> commit counter at `0xE02`. **(1) is now done** —
 > `TableCreator.AddPermissionRows` writes both permission rows (§11), and ACE opens LibRed-created
 > tables without repair (`CreateTableAccessTests`). **(2) appears not to be required:** LibRed does not
 > touch the page-0 counter, yet ACE opens/queries the created tables — so it's either unused for
 > table open or benign when stale. (Views likewise get their two `MSysACEs` rows now — §11.)
+>
+> That counter is **no longer undecoded**: it is a 16-bit little-endian count of the user's committed writes,
+> and it is not specific to `CREATE TABLE` — every committed write moves it, reads never do. See
+> [page-00 §2.2](page-00-database.md#the-slot-is-a-little-endian-commit-counter-verified-2026-08-26).

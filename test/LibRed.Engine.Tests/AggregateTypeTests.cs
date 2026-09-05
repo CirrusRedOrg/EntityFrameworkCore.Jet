@@ -10,8 +10,7 @@ public class AggregateTypeTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"agg-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "agg-");
         return path;
     }
 
@@ -23,7 +22,7 @@ public class AggregateTypeTests
             using var db = JetDatabase.Open(path);
             return new QueryEngine(db).ExecuteQuery(sql).Rows.First()[0];
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]

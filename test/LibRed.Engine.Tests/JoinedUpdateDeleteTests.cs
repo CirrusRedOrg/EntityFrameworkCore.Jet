@@ -10,13 +10,12 @@ namespace LibRed.Engine.Tests;
 /// over the ON equi-conditions, not a full cartesian product, and must correctly rewrite/remove exactly the
 /// matched rows. Includes the all-fixed-column-table case that previously overflowed on re-encode.
 /// </summary>
-public class JoinedUpdateDeleteTests
+public class JoinedUpdateDeleteTests : TempDatabaseTest
 {
     private static QueryEngine Seeded()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"jud-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "jud-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         // Parent P and child C, plus an ALL-FIXED-COLUMN table F (no variable columns) to cover the re-encode path.
         e.ExecuteNonQuery("CREATE TABLE P (Id LONG PRIMARY KEY, Flag LONG)");
         e.ExecuteNonQuery("CREATE TABLE C (Id LONG PRIMARY KEY, Pid LONG, Amt LONG)");

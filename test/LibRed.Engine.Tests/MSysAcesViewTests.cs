@@ -15,8 +15,7 @@ public class MSysAcesViewTests
     public void Created_view_gets_the_query_permission_rows_access_writes()
     {
         string northwind = Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb");
-        string path = Path.Combine(Path.GetTempPath(), $"aces-{Guid.NewGuid():N}.accdb");
-        File.Copy(northwind, path);
+        string path = TemporaryDatabase.CopyPath(northwind, "aces-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -44,7 +43,7 @@ public class MSysAcesViewTests
             Assert.Equal(("690C", 0xF00FE), (rows[1].Sid, rows[1].Acm)); // owner → query mask
             Assert.All(rows, r => Assert.Equal(false, r.Inh));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     private static int Col(Table t, string name) => t.Definition.FindColumn(name)!.Index;

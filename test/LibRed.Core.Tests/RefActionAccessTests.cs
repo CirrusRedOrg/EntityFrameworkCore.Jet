@@ -11,21 +11,12 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class RefActionAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No provider");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_applies_a_libred_written_on_delete_set_null()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"ri-ace-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "ri-ace-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -49,6 +40,6 @@ public class RefActionAccessTests
             using (var cmd = conn.CreateCommand())
             { cmd.CommandText = "SELECT COUNT(*) FROM C WHERE ParentId IS NULL"; Assert.Equal(2, Convert.ToInt32(cmd.ExecuteScalar())); } // both nulled
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

@@ -1,6 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using EntityFrameworkCore.Jet.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -90,13 +89,12 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests.Query
                 .AddEntityFrameworkLibRed()
                 .BuildServiceProvider(validateScopes: true);
 
-            var dataAccessProviderFactory = LibRedFactory.GetDataAccessProviderFactory();
-            var connectionStringBuilder = (LibRedConnectionStringBuilder)dataAccessProviderFactory.CreateConnectionStringBuilder()!;
+            var connectionStringBuilder = new LibRedConnectionStringBuilder();
             connectionStringBuilder.ConnectionString = TestEnvironment.DefaultConnection;
             connectionStringBuilder.DataSource = "StateManagerBug.accdb";
 
             _options = new DbContextOptionsBuilder()
-                .UseLibRed(connectionStringBuilder.ConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                .UseLibRed(connectionStringBuilder.ConnectionString, b => b.ApplyConfiguration())
                 .UseInternalServiceProvider(serviceProvider)
                 .Options;
         }

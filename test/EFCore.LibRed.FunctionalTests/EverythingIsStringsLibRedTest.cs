@@ -1,9 +1,9 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using EntityFrameworkCore.Jet.Storage.Internal;
 using System;
 using System.Collections.Generic;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -88,13 +88,13 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
         public class LibRedStringsTypeMappingSource : RelationalTypeMappingSource
         {
-            private readonly JetStringTypeMapping _fixedLengthUnicodeString = new(unicode: true, fixedLength: true);
+            private readonly LibRedStringTypeMapping _fixedLengthUnicodeString = new(unicode: true, fixedLength: true);
 
-            private readonly JetStringTypeMapping _variableLengthUnicodeString = new(unicode: true);
+            private readonly LibRedStringTypeMapping _variableLengthUnicodeString = new(unicode: true);
 
-            private readonly JetStringTypeMapping _fixedLengthAnsiString = new(fixedLength: true);
+            private readonly LibRedStringTypeMapping _fixedLengthAnsiString = new(fixedLength: true);
 
-            private readonly JetStringTypeMapping _variableLengthAnsiString = new();
+            private readonly LibRedStringTypeMapping _variableLengthAnsiString = new();
 
             private readonly Dictionary<string, RelationalTypeMapping> _storeTypeMappings;
 
@@ -156,7 +156,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                         size = isFixedLength ? maxSize : null;
                     }
 
-                    return new JetStringTypeMapping(
+                    return new LibRedStringTypeMapping(
                         baseName + "(" + (size == null ? "255" : size.ToString()) + ")",
                         !isAnsi,
                         size,

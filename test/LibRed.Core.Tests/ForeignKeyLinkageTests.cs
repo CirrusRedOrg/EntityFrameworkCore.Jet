@@ -42,8 +42,7 @@ public class ForeignKeyLinkageTests
     [Fact]
     public void Child_and_parent_carry_cross_linked_relationship_blocks()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"fklink-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "fklink-");
         try
         {
             int parentPage, childPage;
@@ -82,7 +81,7 @@ public class ForeignKeyLinkageTests
             // The parent's own primary key is untouched (still present, not a relationship).
             Assert.Contains(parent, b => b.Type == 0x01 && b.FkType == 0x00);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // FOREIGN KEY NO INDEX: ACE flags the child's outgoing block 0x03 instead of 0x02; the parent
@@ -90,8 +89,7 @@ public class ForeignKeyLinkageTests
     [Fact]
     public void No_index_relationship_flags_the_child_block_0x03()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"fknoidx-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "fknoidx-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -109,7 +107,7 @@ public class ForeignKeyLinkageTests
             Assert.Equal(0x03, child.Single(b => b.Name == "FKni").FkType);
             Assert.Equal(0x01, parent.Single(b => b.FkType == 0x01).FkType); // parent side unchanged
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A self-referencing foreign key (the table is its own parent) hosts BOTH ends in its one TDEF —
@@ -118,8 +116,7 @@ public class ForeignKeyLinkageTests
     [Fact]
     public void Self_referencing_relationship_hosts_both_ends_in_one_table()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"fkself-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "fkself-");
         try
         {
             int page;
@@ -144,14 +141,13 @@ public class ForeignKeyLinkageTests
             Assert.Equal((uint)incoming.Num, outgoing.FkNum); // cross-linked within the one table
             Assert.Equal((uint)outgoing.Num, incoming.FkNum);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Cascade_actions_are_written_on_both_ends()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"fkcasc-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "fkcasc-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -174,6 +170,6 @@ public class ForeignKeyLinkageTests
             Assert.Equal(0x01, incoming.Upd);
             Assert.Equal(0x01, incoming.Del);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

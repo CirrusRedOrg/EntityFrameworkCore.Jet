@@ -7,13 +7,12 @@ namespace LibRed.Engine.Tests;
 
 // Financial, FormatX, and colour functions — all exposed by the ACE JES and now implemented in LibRed. Expected
 // values are exactly what ACE returned. Culture pinned to en-US for the locale-sensitive FormatX cases.
-public class FinancialFunctionsTests
+public class FinancialFunctionsTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"fin-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "fin-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
         e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY )");
         e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
         return e;

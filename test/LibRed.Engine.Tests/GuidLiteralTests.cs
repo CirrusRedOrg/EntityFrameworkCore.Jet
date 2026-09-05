@@ -8,8 +8,7 @@ public class GuidLiteralTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"guidlit-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "guidlit-");
         return path;
     }
 
@@ -37,6 +36,6 @@ public class GuidLiteralTests
             var hit = e.ExecuteQuery($"SELECT `TemplateType` FROM `EmailTemplate` WHERE `Id` = {g}").Rows.Single();
             Assert.Equal(0, Convert.ToInt32(hit[0]));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

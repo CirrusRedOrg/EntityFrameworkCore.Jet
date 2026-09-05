@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 // Date/time arithmetic on the OLE Automation serial (days since 1899-12-30, fractional part = time), verified
 // vs ACE: date+time and date±N days yield a DateTime; date−date yields a plain day count.
-public class DateArithmeticTests
+public class DateArithmeticTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"datearith-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        return new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "datearith-");
+        return new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
     }
 
     private static object? Scalar(string expr) =>

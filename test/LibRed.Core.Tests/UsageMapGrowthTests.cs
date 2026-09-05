@@ -16,22 +16,13 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class UsageMapGrowthTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No provider");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Table_growing_past_the_inline_window_round_trips_through_libred_and_access()
     {
         const int rows = 400; // ~1 row/page on top of Northwind → owned pages cross page 512
-        string path = Path.Combine(Path.GetTempPath(), $"umgrow-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "umgrow-");
         string big = new('x', 255);
         try
         {
@@ -73,6 +64,6 @@ public class UsageMapGrowthTests
                 { c.CommandText = $"SELECT C0 FROM Big WHERE Id = {rows}"; Assert.Equal(big, c.ExecuteScalar()); }
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

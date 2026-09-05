@@ -8,8 +8,7 @@ public class StringFunctionTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"strfn-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "strfn-");
         return path;
     }
 
@@ -24,7 +23,7 @@ public class StringFunctionTests
             e.ExecuteNonQuery("INSERT INTO One (Id) VALUES (1)");
             return e.ExecuteQuery($"SELECT {expr} FROM One").Rows.First()[0];
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -92,6 +91,6 @@ public class StringFunctionTests
                 "LEFT JOIN Orders AS o ON c.CustomerID = o.CustomerID").Rows.Count();
             Assert.True(rows > 0);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

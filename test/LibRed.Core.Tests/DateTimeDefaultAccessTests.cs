@@ -9,23 +9,12 @@ namespace LibRed.Core.Tests;
 // file without repair and applies the default itself on a bare insert (a current timestamp).
 public class DateTimeDefaultAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_reads_and_applies_a_libred_written_now_default()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"nowdef-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "nowdef-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -56,6 +45,6 @@ public class DateTimeDefaultAccessTests
             Assert.InRange(v, before, after);
             Assert.True(v.TimeOfDay > TimeSpan.Zero);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

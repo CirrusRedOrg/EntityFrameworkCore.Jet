@@ -10,8 +10,7 @@ public class JetDatabaseLifetimeTests
     [Fact]
     public void Failed_catalog_initialization_releases_the_file()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"libred-invalid-{Guid.NewGuid():N}.accdb");
-        File.Copy(Northwind, path);
+        string path = TemporaryDatabase.CopyPath(Northwind, "libred-invalid-");
 
         try
         {
@@ -39,12 +38,12 @@ public class JetDatabaseLifetimeTests
             Assert.NotNull(error);
 
             // On Windows this fails if the unsuccessful Open leaked its FileStream.
-            File.Delete(path);
+            File.Delete(path); // deliberately no retry: proves the failed open released its handle immediately
             Assert.False(File.Exists(path));
         }
         finally
         {
-            if (File.Exists(path)) File.Delete(path);
+            if (File.Exists(path)) TemporaryDatabase.Delete(path);
         }
     }
 }

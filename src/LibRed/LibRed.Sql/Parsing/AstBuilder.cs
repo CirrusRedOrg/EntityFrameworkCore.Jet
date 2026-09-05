@@ -54,7 +54,7 @@ internal sealed class AstBuilder
     };
 
     private SqlStatement BuildIfThen(IfThenStatementContext ctx) =>
-        new IfThenStatement(ctx.not is not null, BuildSelect(ctx.selectStatement()), BuildThenBody(ctx.thenBody()));
+        new IfThenStatement(ctx.not is not null, BuildQueryExpression(ctx.queryExpression()), BuildThenBody(ctx.thenBody()));
 
     private SqlStatement BuildThenBody(ThenBodyContext ctx)
     {
@@ -350,7 +350,23 @@ internal sealed class AstBuilder
     private static SqlStatement BuildAppendProcedure(string name, InsertStatementContext insert)
     {
         var columns = insert._columns;
-        var values = insert.expression();
+
+        // A stored append query keeps its columns and values as text pairs, which has room for exactly one
+        // row — so a multi-row table value constructor cannot be stored as a procedure even though it is
+        // perfectly valid in a plain INSERT.
+        var rows = insert.rowValues();
+        if (rows.Length != 1)
+            throw new NotSupportedException(
+                "An INSERT procedure body must supply exactly one VALUES row.");
+
+        // Each value is stored as its original text, so an explicit DEFAULT has nothing to store — it is a
+        // marker rather than an expression. Rejected here for the same reason a multi-row constructor is.
+        var rowValues = rows[0].rowValue();
+        if (rowValues.Any(v => v.DEFAULT() is not null))
+            throw new NotSupportedException(
+                "An INSERT procedure body cannot use DEFAULT as a value.");
+
+        var values = rowValues.Select(v => v.expression()).ToArray();
         if (columns.Count == 0)
             throw new NotSupportedException("An INSERT procedure body must list its target columns.");
         if (columns.Count != values.Length)
@@ -392,6 +408,9 @@ internal sealed class AstBuilder
             Rows = ins.Rows
                 .Select(r => (IReadOnlyList<Expression>)r.Select(e => LowerExpr(e, names)).ToList())
                 .ToList(),
+            // The multiple-record form's source is a query in its own right, so a declared parameter can
+            // appear in its WHERE just as it can in a VALUES list.
+            Source = ins.Source is null ? null : LowerParameters(ins.Source, names),
         },
         _ => s,
     };
@@ -425,9 +444,21 @@ internal sealed class AstBuilder
         BinaryExpression b => b with { Left = LowerExpr(b.Left, names), Right = LowerExpr(b.Right, names) },
         UnaryExpression u => u with { Operand = LowerExpr(u.Operand, names) },
         FunctionCall f => f with { Arguments = f.Arguments.Select(a => LowerExpr(a, names)).ToList() },
-        ScalarSubquery s => new ScalarSubquery(LowerSelect(s.Query, names)),
-        ExistsExpression x => new ExistsExpression(LowerSelect(x.Query, names)),
-        InSubqueryExpression i => i with { Value = LowerExpr(i.Value, names), Query = LowerSelect(i.Query, names) },
+        // A window function lowers like any other call — arguments AND the OVER clause, since a PARAMETERS name
+        // can appear in a PARTITION BY or ORDER BY expression just as readily as in an argument.
+        WindowFunction w => w with
+        {
+            Arguments = w.Arguments.Select(a => LowerExpr(a, names)).ToList(),
+            Over = w.Over with
+            {
+                PartitionBy = w.Over.PartitionBy.Select(p => LowerExpr(p, names)).ToList(),
+                OrderBy = w.Over.OrderBy.Select(o => o with { Value = LowerExpr(o.Value, names) }).ToList(),
+            },
+        },
+        // LowerParameters, not LowerSelect: a subquery may be a set operation or a table value constructor.
+        ScalarSubquery s => new ScalarSubquery(LowerParameters(s.Query, names)),
+        ExistsExpression x => new ExistsExpression(LowerParameters(x.Query, names)),
+        InSubqueryExpression i => i with { Value = LowerExpr(i.Value, names), Query = LowerParameters(i.Query, names) },
         _ => e,
     };
 
@@ -441,12 +472,13 @@ internal sealed class AstBuilder
         if (ctx.queryTerm(0) is not SelectTermContext term)
             throw new NotSupportedException("A parenthesised query is not a valid (simple) view.");
 
-        SelectStatementContext select = term.selectStatement();
+        QuerySpecificationContext select = term.querySpecification();
         if (select.havingClause() is not null)
             throw new NotSupportedException("A view with HAVING is not stored yet.");
         var groupBy = select.groupByClause() is { } g
             ? g.expression().Select(OriginalText).ToList() : (IReadOnlyList<string>)[];
-        var orderBy = select.orderByClause() is { } ob
+        // The view's ORDER BY comes off the query expression, not the SELECT: it orders the view's result.
+        var orderBy = ctx.orderByClause() is { } ob
             ? ob.orderByItem().Select(i => new ViewOrderBy(OriginalText(i.expression()), i.dir?.Type == DESC)).ToList()
             : (IReadOnlyList<ViewOrderBy>)[];
         // A stored view can only carry a literal TOP (Access stores it as text); reject a parameterized one.
@@ -477,11 +509,26 @@ internal sealed class AstBuilder
         CollectPrimary(ts.tablePrimary(), tables, joins);
         foreach (JoinClauseContext jc in ts.joinClause())
         {
-            CollectPrimary(jc.tablePrimary(), tables, joins);
-            // Access records the join by the two tables named in its condition (Name1/Name2), not the
-            // structural left/right (which for a nested group is a whole subtree).
-            (string left, string right) = JoinSides(jc.expression());
-            joins.Add(new ViewJoin(ViewJoinKindOf(jc.joinType()), OriginalText(jc.expression()), left, right));
+            switch (jc)
+            {
+                case ConditionalJoinContext c:
+                    CollectPrimary(c.tablePrimary(), tables, joins);
+                    // Access records the join by the two tables named in its condition (Name1/Name2), not the
+                    // structural left/right (which for a nested group is a whole subtree).
+                    (string left, string right) = JoinSides(c.expression());
+                    joins.Add(new ViewJoin(ViewJoinKindOf(c.joinType()), OriginalText(c.expression()), left, right));
+                    break;
+
+                // A CROSS JOIN contributes a source and no join: Access has no CROSS JOIN keyword and records
+                // joins by their condition, so a cartesian product is stored exactly as the comma form is —
+                // another table with nothing joining it. The two spellings decompose identically.
+                case CrossJoinContext x:
+                    CollectPrimary(x.tablePrimary(), tables, joins);
+                    break;
+
+                default:
+                    throw new SqlParseException($"Unsupported join in a view: {jc.GetText()}");
+            }
         }
     }
 
@@ -542,6 +589,11 @@ internal sealed class AstBuilder
     {
         LeftJoinContext => ViewJoinKind.Left,
         RightJoinContext => ViewJoinKind.Right,
+        // A view is stored in Access's own query format, which has no full outer join to encode - so unlike a
+        // FULL JOIN executed directly, this one cannot be represented on disk. Refuse rather than silently
+        // storing the INNER the fall-through would otherwise pick.
+        FullJoinContext => throw new NotSupportedException(
+            "A FULL JOIN cannot be stored in a view: the Access query format has no representation for it."),
         _ => ViewJoinKind.Inner,
     };
 
@@ -552,16 +604,52 @@ internal sealed class AstBuilder
             return new InsertStatement(table, [], [(IReadOnlyList<Expression>)[]], DefaultValues: true);
 
         var columns = ctx._columns.Select(Identifier).ToList();
-        var values = ctx.expression().Select(BuildExpression).ToList();
-        return new InsertStatement(table, columns, [values]);
+
+        // The multiple-record form: the rows come from a query rather than a VALUES list.
+        if (ctx.source is not null)
+            return new InsertStatement(table, columns, [], Source: BuildQueryExpression(ctx.source));
+
+        // A table value constructor: one or more parenthesised rows. The AST and executor were already
+        // row-list shaped, so a multi-row insert needs nothing beyond handing them every row.
+        var rows = ctx.rowValues()
+            .Select(r => (IReadOnlyList<Expression>)r.rowValue().Select(BuildRowValue).ToList())
+            .ToList();
+        return new InsertStatement(table, columns, rows);
     }
+
+    /// <summary>One row value of a table value constructor: the <c>DEFAULT</c> keyword, or any expression
+    /// (which covers the NULL the standard lists separately, since NULL is already a literal).</summary>
+    private static Expression BuildRowValue(RowValueContext ctx)
+        => ctx.DEFAULT() is not null ? new DefaultValueExpression() : BuildExpression(ctx.expression());
 
     private static SqlStatement BuildQueryExpression(QueryExpressionContext ctx)
     {
         QueryTermContext[] terms = ctx.queryTerm();
         SetOperatorContext[] operators = ctx.setOperator();
+
+        // The ordering and paging of the WHOLE expression — the grammar admits them here and nowhere else, so
+        // there is nothing to disentangle: a leading TOP sits on its operand's own querySpecification, a FETCH
+        // sits here, and the two can no longer be mistaken for each other.
+        var orderBy = ctx.orderByClause() is { } ob
+            ? ob.orderByItem().Select(BuildOrderByItem).ToList()
+            : (IReadOnlyList<OrderByItem>)[];
+        Expression? top = null, offset = null;
+        if (ctx.offsetFetchClause() is { } paging)
+        {
+            offset = paging.offset is { } off ? BuildExpression(off) : null;
+            top = paging.limit is { } lim ? BuildExpression(lim) : null;
+        }
+        bool ordered = orderBy.Count > 0 || top is not null || offset is not null;
+
         if (operators.Length == 0)
-            return BuildQueryTerm(terms[0]);
+        {
+            SqlStatement single = BuildQueryTerm(terms[0]);
+            // A single term folds the clauses back into it, so an ordinary `SELECT … ORDER BY x` builds exactly
+            // the AST it always did and nothing downstream sees this restructuring at all.
+            return ordered && single is SelectStatement s
+                ? s with { OrderBy = orderBy, Top = top ?? s.Top, Offset = offset }
+                : single;
+        }
 
         // A long chain of one associative operator — e.g. EF's 5000-way `UNION ALL` for a huge primitive
         // collection — must be built as a *balanced* tree. A left-nested tree is O(n) deep, and the binder,
@@ -570,20 +658,27 @@ internal sealed class AstBuilder
         // Set operators are left-associative, so this is only sound when every operator is the same and
         // associative (UNION / UNION ALL / INTERSECT — EXCEPT is not); mixed/EXCEPT chains left-fold as before
         // (they are correct that way and never occur thousands deep).
+        var operands = new SqlStatement[terms.Length];
+        for (int i = 0; i < terms.Length; i++)
+            operands[i] = BuildQueryTerm(terms[i]);
+
         SetOperator first = SetOperatorOf(operators[0]);
+        SetOperationStatement result;
         if (IsAssociative(first) && operators.All(o => SetOperatorOf(o) == first))
         {
-            var operands = new SqlStatement[terms.Length];
-            for (int i = 0; i < terms.Length; i++)
-                operands[i] = BuildQueryTerm(terms[i]);
-            return BuildBalanced(operands, first, 0, operands.Length - 1);
+            result = (SetOperationStatement)BuildBalanced(operands, first, 0, operands.Length - 1);
+        }
+        else
+        {
+            result = new SetOperationStatement(operands[0], SetOperatorOf(operators[0]), operands[1]);
+            for (int i = 1; i < operators.Length; i++)
+                result = new SetOperationStatement(result, SetOperatorOf(operators[i]), operands[i + 1]);
         }
 
-        SqlStatement result = BuildQueryTerm(terms[0]);
-        for (int i = 0; i < operators.Length; i++)
-            result = new SetOperationStatement(result, SetOperatorOf(operators[i]), BuildQueryTerm(terms[i + 1]));
-        return result;
+        // Only the outermost node carries them: the ordering is the expression's, not that of any inner pair.
+        return ordered ? result with { OrderBy = orderBy, Top = top, Offset = offset } : result;
     }
+
 
     // UNION / UNION ALL / INTERSECT are associative (can be regrouped); EXCEPT is not.
     private static bool IsAssociative(SetOperator op) =>
@@ -603,10 +698,37 @@ internal sealed class AstBuilder
     /// <summary>A set-operation operand: a SELECT, or a parenthesised (possibly nested) query expression.</summary>
     private static SqlStatement BuildQueryTerm(QueryTermContext ctx) => ctx switch
     {
-        SelectTermContext s => BuildSelect(s.selectStatement()),
+        SelectTermContext s => BuildQuerySpecification(s.querySpecification()),
         ParenTermContext p => BuildQueryExpression(p.queryExpression()),
+        ValuesTermContext v => BuildValuesQuery(v),
         _ => throw new SqlParseException($"Unsupported query term: {ctx.GetText()}"),
     };
+
+    /// <summary>A table value constructor used as a query. Every row must be the same width, and DEFAULT is
+    /// rejected: it means "the column's default", which only has a meaning when there is a target column —
+    /// so the standard allows it in an INSERT alone.</summary>
+    private static SqlStatement BuildValuesQuery(ValuesTermContext ctx)
+    {
+        var rows = new List<IReadOnlyList<Expression>>();
+        foreach (RowValuesContext row in ctx.rowValues())
+        {
+            var values = new List<Expression>();
+            foreach (RowValueContext value in row.rowValue())
+            {
+                if (value.DEFAULT() is not null)
+                    throw new SqlParseException("DEFAULT is only allowed in an INSERT's VALUES clause.");
+                values.Add(BuildExpression(value.expression()));
+            }
+
+            if (rows.Count > 0 && values.Count != rows[0].Count)
+                throw new SqlParseException(
+                    $"VALUES rows must all have the same number of values ({rows[0].Count} then {values.Count}).");
+
+            rows.Add(values);
+        }
+
+        return new ValuesStatement(rows);
+    }
 
     private static SetOperator SetOperatorOf(SetOperatorContext ctx)
     {
@@ -615,7 +737,11 @@ internal sealed class AstBuilder
         return ctx.ALL() != null ? SetOperator.UnionAll : SetOperator.Union;
     }
 
-    private static SelectStatement BuildSelect(SelectStatementContext ctx)
+    /// <summary>The standard's &lt;query specification&gt;: an order-less SELECT. ORDER BY and OFFSET/FETCH are
+    /// not part of it — the grammar puts them on the enclosing <c>queryExpression</c>, and
+    /// <see cref="BuildQueryExpression"/> folds them back onto this statement when there is no set operation for
+    /// them to belong to.</summary>
+    private static SelectStatement BuildQuerySpecification(QuerySpecificationContext ctx)
     {
         SelectListContext list = ctx.selectList();
         bool star = list.STAR() != null;
@@ -629,17 +755,16 @@ internal sealed class AstBuilder
             ? g.expression().Select(BuildExpression).ToList()
             : (IReadOnlyList<Expression>)[];
         Expression? having = ctx.havingClause() is { } h ? BuildExpression(h.expression()) : null;
-        var orderBy = ctx.orderByClause() is { } o
-            ? o.orderByItem().Select(BuildOrderByItem).ToList()
-            : (IReadOnlyList<OrderByItem>)[];
         Expression? top = ctx.topClause() is { } t ? BuildTop(t) : null;
         bool topPercent = ctx.topClause()?.percent is not null;
+
         var predicate = ctx.predicate;
 
-        return new SelectStatement(projection, star, from, where, groupBy, having, orderBy, top,
+        return new SelectStatement(projection, star, from, where, groupBy, having, OrderBy: [], top,
             Distinct: predicate?.DISTINCT() is not null,
             DistinctRow: predicate?.DISTINCTROW() is not null,
-            TopPercent: topPercent);
+            TopPercent: topPercent,
+            Into: ctx.into is null ? null : Identifier(ctx.into));
     }
 
     /// <summary>The TOP count expression: a single operand, or a left-associative +/- chain of them (each
@@ -683,8 +808,22 @@ internal sealed class AstBuilder
         TableReference table = BuildTablePrimary(ctx.tablePrimary());
         foreach (JoinClauseContext join in ctx.joinClause())
         {
-            TableReference right = BuildTablePrimary(join.tablePrimary());
-            table = new JoinTable(table, right, JoinKindOf(join.joinType()), BuildExpression(join.expression()));
+            // A CROSS JOIN carries no ON, so it builds the same node the comma form does: kind Cross with a
+            // null condition. Everything downstream already understands that shape. The two APPLY kinds share
+            // that shape too - what makes them lateral is the kind, which is all the executor needs to know to
+            // re-run the right side per left row.
+            table = join switch
+            {
+                ConditionalJoinContext c => new JoinTable(
+                    table, BuildTablePrimary(c.tablePrimary()), JoinKindOf(c.joinType()), BuildExpression(c.expression())),
+                CrossJoinContext x => new JoinTable(
+                    table, BuildTablePrimary(x.tablePrimary()), JoinKind.Cross, null),
+                CrossApplyContext a => new JoinTable(
+                    table, BuildTablePrimary(a.tablePrimary()), JoinKind.CrossApply, null),
+                OuterApplyContext a => new JoinTable(
+                    table, BuildTablePrimary(a.tablePrimary()), JoinKind.OuterApply, null),
+                _ => throw new SqlParseException($"Unsupported join: {join.GetText()}"),
+            };
         }
         return table;
     }
@@ -701,6 +840,7 @@ internal sealed class AstBuilder
     {
         LeftJoinContext => JoinKind.Left,
         RightJoinContext => JoinKind.Right,
+        FullJoinContext => JoinKind.Full,
         _ => JoinKind.Inner,
     };
 
@@ -720,7 +860,7 @@ internal sealed class AstBuilder
         BetweenExprContext b => BuildBetween(b),
         InExprContext i => BuildIn(i),
         InSubqueryExprContext i => new InSubqueryExpression(
-            BuildExpression(i.val), BuildSelect(i.sub), i.not is not null),
+            BuildExpression(i.val), BuildQueryExpression(i.sub), i.not is not null),
         LikeExprContext l => l.not is null
             ? new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))
             : new UnaryExpression(UnaryOperator.Not, new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))),
@@ -739,19 +879,47 @@ internal sealed class AstBuilder
         ParamPrimaryContext p => new ParameterExpression(p.PARAM().GetText()),
         SystemVariablePrimaryContext s => new SystemVariableExpression(s.SYSVAR().GetText().TrimStart('@')),
         FunctionCallPrimaryContext f => BuildFunctionCall(f.functionCall()),
-        ScalarSubqueryPrimaryContext s => new ScalarSubquery(BuildSelect(s.selectStatement())),
-        ExistsPrimaryContext e => new ExistsExpression(BuildSelect(e.selectStatement())),
+        ScalarSubqueryPrimaryContext s => new ScalarSubquery(BuildQueryExpression(s.queryExpression())),
+        ExistsPrimaryContext e => new ExistsExpression(BuildQueryExpression(e.queryExpression())),
+        CasePrimaryContext c => BuildCase(c.caseExpression()),
         ParenPrimaryContext p => BuildExpression(p.expression()),
         _ => throw new SqlParseException($"Unsupported primary: {ctx.GetText()}"),
     };
+
+    /// <summary>A CASE expression. The simple form (<c>CASE operand WHEN value THEN …</c>) is folded into the
+    /// searched form here by turning each arm into <c>operand = value</c>, so evaluation only ever sees one
+    /// shape. The operand is re-emitted per arm, which is what the standard's own definition implies and
+    /// matches how the Jet generator expands a CASE into IIFs.</summary>
+    private static Expression BuildCase(CaseExpressionContext ctx)
+    {
+        Expression? operand = ctx.operand is null ? null : BuildExpression(ctx.operand);
+
+        var arms = ctx.caseWhen().Select(w =>
+        {
+            Expression condition = BuildExpression(w.condition);
+            if (operand is not null)
+                condition = new BinaryExpression(BinaryOperator.Equal, operand, condition);
+            return new CaseWhen(condition, BuildExpression(w.result));
+        }).ToList();
+
+        return new CaseExpression(arms, ctx.elseResult is null ? null : BuildExpression(ctx.elseResult));
+    }
 
     private static Expression BuildFunctionCall(FunctionCallContext ctx)
     {
         IReadOnlyList<Expression> args = ctx.star is not null
             ? [new StarExpression()]
             : ctx.expression().Select(BuildExpression).ToList();
-        return new FunctionCall(FunctionName(ctx.name), args, Distinct: ctx.distinct is not null);
+        // An OVER clause turns the same call into a window function, which is a different kind of node rather
+        // than a FunctionCall carrying a spec — see WindowFunction for why the distinction has to be in the type.
+        return ctx.windowSpecification() is { } over
+            ? new WindowFunction(FunctionName(ctx.name), args, BuildWindowSpec(over))
+            : new FunctionCall(FunctionName(ctx.name), args, Distinct: ctx.distinct is not null);
     }
+
+    private static WindowSpec BuildWindowSpec(WindowSpecificationContext ctx) =>
+        new(ctx._partition.Select(BuildExpression).ToList(),
+            ctx.orderByClause() is { } o ? o.orderByItem().Select(BuildOrderByItem).ToList() : []);
 
     /// <summary>A function name: an identifier, or the LEFT/RIGHT keyword tokens as Left()/Right().</summary>
     private static string FunctionName(FunctionNameContext ctx) =>

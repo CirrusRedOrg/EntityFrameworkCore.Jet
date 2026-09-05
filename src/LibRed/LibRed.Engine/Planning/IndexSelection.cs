@@ -35,6 +35,11 @@ internal static class IndexSelection
             LimitNode l => l with { Input = Apply(l.Input, catalog, outer) },
             AggregateNode a => a with { Input = Apply(a.Input, catalog, outer) },
             DerivedTableNode dt => dt with { Input = Apply(dt.Input, catalog, outer) },
+            // Must be here, not left to the `_` arm below: that arm does not merely decline to rewrite this
+            // node, it stops DESCENDING, so the whole subtree loses index selection. A WindowNode sits directly
+            // above the Filter-over-Scan that RewriteFilterOverScan turns into a seek, so omitting this would
+            // silently make every windowed query a full scan — correct results, catastrophic plans.
+            WindowNode w => w with { Input = Apply(w.Input, catalog, outer) },
             SetOperationNode so => so with { Left = Apply(so.Left, catalog, outer), Right = Apply(so.Right, catalog, outer) },
             _ => node,
         };
@@ -165,12 +170,20 @@ internal static class IndexSelection
             }
         }
 
-        PlanNode right = Apply(j.Right, catalog, outer);
+        // A lateral (APPLY) right side is re-executed per left row with the left row in scope, so its own
+        // index selection may treat the left side's columns as seekable constants — exactly as it does for a
+        // correlated subquery. Without this the right side rescans a base table for every left row, which is
+        // the one shape where that cost is paid over and over.
+        HashSet<string> rightOuter = j.Kind is JoinKind.CrossApply or JoinKind.OuterApply
+            ? QueryPlanner.SubtreeAliases(left).Union(outer).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : outer;
+        PlanNode right = Apply(j.Right, catalog, rightOuter);
 
         // No index-nested-loop available: if this is an equi-join whose keys are same-kind columns, hash it
         // (O(n+m)) instead of leaving the O(n·m) nested loop. See HashJoinNode for why same-kind is required.
-        // RIGHT joins hash too (the executor builds the left and probes with the right).
-        if (j.Kind is (JoinKind.Inner or JoinKind.Left or JoinKind.Right) && j.On is { } cond
+        // RIGHT joins hash too (the executor builds the left and probes with the right), and so does FULL, which
+        // additionally emits the build rows the probe never matched.
+        if (j.Kind is (JoinKind.Inner or JoinKind.Left or JoinKind.Right or JoinKind.Full) && j.On is { } cond
             && TryHashKeys(cond, left, right, catalog) is { } keys)
             return new HashJoinNode(left, right, j.Kind, keys.Left, keys.Right, cond);
 
@@ -331,6 +344,9 @@ internal static class IndexSelection
         // t.Id = …)`), so it must never be used as a seek key/bound — treat it as referencing a column. (A
         // seek bound is evaluated once, with no row scope; a correlated subquery would fail to resolve there.)
         ScalarSubquery or ExistsExpression or InSubqueryExpression => true,
+        // Same reasoning, and the same reason to be explicit: this switch's default means "no column reference"
+        // — i.e. usable as a seek bound — so an unlisted node fails towards a WRONG seek, not a missed one.
+        WindowFunction => true,
         BinaryExpression b => HasColumnRef(b.Left) || HasColumnRef(b.Right),
         UnaryExpression u => HasColumnRef(u.Operand),
         FunctionCall f => f.Arguments.Any(HasColumnRef),

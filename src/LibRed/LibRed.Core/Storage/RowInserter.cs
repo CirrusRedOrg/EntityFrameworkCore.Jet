@@ -36,7 +36,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Jet SQL omits the AutoNumber column from the insert). An explicitly supplied value is kept
         // as-is (Jet, unlike SQL Server, permits explicit AutoNumber values); either way the row's
         // final id drives both the row encoding and the high-water update below.
-        AssignAutoNumbers(format, values);
+        bool[]? generatedAutoNumbers = AssignAutoNumbers(format, values);
         if (updateIndexes) EnforceUniqueIndexes(values); // reject a duplicate before writing anything
 
         // Index keys are encoded from the *logical* values. MaterializeLongValues replaces a memo/OLE value
@@ -71,7 +71,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
         _channel.WritePage(pageNumber, page);
 
-        UpdateTdefCounters(format, values);
+        UpdateTdefCounters(format, values, generatedAutoNumbers);
         if (updateIndexes)
             UpdateIndexes(keyValues, new RowId(pageNumber, rowCount));
     }
@@ -506,13 +506,6 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     }
 
     /// <summary>
-    /// Fills each AutoNumber column the caller left null with the next id — the TDEF high-water value
-    /// (`0x14`) plus one — matching how Jet assigns AutoNumbers. A value the caller supplied
-    /// explicitly is left untouched (Jet allows it, and <see cref="UpdateTdefCounters"/> then bumps
-    /// the high-water to it). Access permits only one AutoNumber column per table, but any number are
-    /// handled here for safety.
-    /// </summary>
-    /// <summary>
     /// Access stores a memo/OLE value <b>inline</b> only up to 64 bytes (Jackcess
     /// <c>MAX_INLINE_LONG_VALUE_SIZE</c>, the same for Jet3/Jet4); a larger value goes on its own LVAL
     /// page. Inlining a long value works for LibRed's own reader but Access rejects it (e.g. it opens the
@@ -668,16 +661,26 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         return definition;
     }
 
-    private void AssignAutoNumbers(JetFormatBase format, object?[] values)
+    /// <summary>
+    /// Fills each AutoNumber column the caller left null with the next id — the TDEF high-water value
+    /// (`0x14`) plus the increment — matching how Jet assigns AutoNumbers. A value the caller supplied
+    /// explicitly is left untouched (Jet allows it, and <see cref="UpdateTdefCounters"/> then bumps
+    /// the high-water to it). Access permits only one AutoNumber column per table, but any number are
+    /// handled here for safety. Returns a per-value flag array marking the ids this call generated
+    /// (null when it generated none), which <see cref="UpdateTdefCounters"/> uses to tell a generated
+    /// id from a caller-supplied one.
+    /// </summary>
+    private bool[]? AssignAutoNumbers(JetFormatBase format, object?[] values)
     {
         bool needed = false;
         foreach (ColumnDef column in _table.Columns)
             if (column.IsAutoNumber && values[column.Index] is null or DBNull) { needed = true; break; }
-        if (!needed) return;
+        if (!needed) return null;
 
         ReadOnlySpan<byte> tdef = _channel.ReadPageShared(_table.DefinitionPage).Span;
         int highWater = BinaryPrimitives.ReadInt32LittleEndian(tdef.Slice(format.TdefLastAutoNumberOffset, 4));
 
+        bool[] generated = new bool[values.Length];
         foreach (ColumnDef column in _table.Columns)
             if (column.IsAutoNumber && values[column.Index] is null or DBNull)
             {
@@ -686,10 +689,16 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
                     // sequential counter. Access relies on the PK's uniqueness to reject the rare collision.
                     values[column.Index] = RandomAutoNumber();
                 else
+                {
                     // Next id = last-assigned + increment. On a fresh table the last value (0x14) is
-                    // Seed-Increment, so the first assigned id is the Seed.
-                    values[column.Index] = highWater += column.Increment;
+                    // Seed-Increment, so the first assigned id is the Seed. The addition is deliberately
+                    // unchecked: past int.MaxValue the counter wraps to int.MinValue and keeps going, which
+                    // is exactly what ACE does (no overflow error exists — see AceAutoNumberOverflowProbeTest).
+                    values[column.Index] = highWater = unchecked(highWater + column.Increment);
+                    generated[column.Index] = true;
+                }
             }
+        return generated;
     }
 
     /// <summary>A random non-zero signed Int32 for a "Random" AutoNumber, mirroring Access's <c>GenUniqueID()</c>.</summary>
@@ -705,9 +714,11 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// page:
     /// <list type="bullet">
     /// <item>Row count (`0x10`) — incremented.</item>
-    /// <item>AutoNumber high-water (`0x14`) — set to the max of its current value and the id just
-    /// written (Access reads it to pick the *next* id = this + 1; leaving it stale makes Access
-    /// reissue an existing id and reject the insert as a duplicate primary key).</item>
+    /// <item>AutoNumber high-water (`0x14`) — set to the id just written whenever that id advances the
+    /// counter: always for an id this insert generated (including the wrap past int.MaxValue), and for a
+    /// caller-supplied id only when it moves further in the increment's direction. (Access reads `0x14`
+    /// to pick the *next* id = this + increment; leaving it stale makes Access reissue an existing id and
+    /// reject the insert as a duplicate primary key.)</item>
     /// <item>Per-index **unique-entry count** (`0x3F + ordinal×12`, `+4`) — incremented by one for
     /// each **unique** index (a unique index gets a distinct key per row). This is the cumulative
     /// count Access advances on every insert and never decrements. The sibling **total-entry count**
@@ -716,7 +727,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// ACE-inserted table reads total `0` while saved Northwind tables read total = row count).</item>
     /// </list>
     /// </summary>
-    private void UpdateTdefCounters(JetFormatBase format, object?[] values)
+    private void UpdateTdefCounters(JetFormatBase format, object?[] values, bool[]? generatedAutoNumbers)
     {
         byte[] tdef = _channel.ReadPageShared(_table.DefinitionPage).Span.ToArray();
 
@@ -732,14 +743,23 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (column.IsRandomAutoNumber) continue;
             int assigned = Convert.ToInt32(value);
             int highWater = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4));
-            // Advance 0x14 to the id just written when it moves further in the counter's direction — for a
-            // positive increment that's the max seen, for a negative (descending) counter the min. Using max
-            // unconditionally would let a descending counter reissue the previous id (duplicate key).
-            // NB deliberate divergence from Access: ACE seeds 0x14 from the *last inserted* value regardless
-            // of direction (KB 884185), so an explicit lower INSERT drops the counter and the next auto id
-            // collides with an existing row ("duplicate values in the index/primary key"). LibRed's monotone
-            // rule is immune — verified both sides in AutoNumberSeed[Immunity]Tests.
-            bool advances = column.Increment >= 0 ? assigned > highWater : assigned < highWater;
+            // An id this insert *generated* always becomes the new high-water: it came from 0x14 + increment,
+            // so it is by construction the next value in the sequence. That includes the wrap past
+            // int.MaxValue (or int.MinValue for a descending counter), where the new id compares as going
+            // backwards yet is the correct continuation — ACE wraps and carries on, and the monotone rule
+            // below would instead pin 0x14 forever and reissue the same wrapped id on every later insert
+            // (a wedged table). Verified both sides in AceAutoNumberOverflowProbeTest.
+            //
+            // For a value the *caller* supplied explicitly, advance 0x14 only when it moves further in the
+            // counter's direction — for a positive increment that's the max seen, for a negative (descending)
+            // counter the min. Using max unconditionally would let a descending counter reissue the previous
+            // id (duplicate key). NB deliberate divergence from Access: ACE seeds 0x14 from the *last
+            // inserted* value regardless of direction (KB 884185), so an explicit lower INSERT drops the
+            // counter and the next auto id collides with an existing row ("duplicate values in the
+            // index/primary key"). LibRed's monotone rule is immune — verified both sides in
+            // AutoNumberSeed[Immunity]Tests.
+            bool advances = generatedAutoNumbers?[column.Index] == true
+                || (column.Increment >= 0 ? assigned > highWater : assigned < highWater);
             int newHighWater = advances ? assigned : highWater;
             if (advances)
                 BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(format.TdefLastAutoNumberOffset, 4), assigned);
@@ -748,7 +768,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             // (an ALTER on a table that has an AutoNumber) reconstructs the counter from the cached
             // ColumnDef.Seed; if left stale, a rebuild after the high rows were deleted resets the counter to its
             // create-time value (verified: next id dropped to 1 instead of continuing past 6). Seed = next id.
-            column.Seed = newHighWater + column.Increment;
+            column.Seed = unchecked(newHighWater + column.Increment);
         }
 
         // TODO(non-unique-index-stats): a non-unique index's unique-entry count must advance only

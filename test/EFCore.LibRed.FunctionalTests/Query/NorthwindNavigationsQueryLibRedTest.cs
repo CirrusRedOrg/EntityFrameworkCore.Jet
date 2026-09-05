@@ -917,7 +917,6 @@ WHERE `c`.`CustomerID` LIKE 'A%'
             AssertSql();
         }
 
-        [Theory(Skip="LibRed Fails")]
         public override async Task Navigation_in_subquery_referencing_outer_query(bool isAsync)
         {
             await base.Navigation_in_subquery_referencing_outer_query(isAsync);

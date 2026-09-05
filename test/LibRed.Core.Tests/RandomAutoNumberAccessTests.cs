@@ -10,17 +10,7 @@ namespace LibRed.Core.Tests;
 // insert), and continues issuing random-looking (non-sequential) ids of its own.
 public class RandomAutoNumberAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     // A "Random" AutoNumber: an AutoNumber column carrying DefaultValue = GenUniqueID() (byte-identical to the
     // UI-authored fixture database4.accdb). Created here via the Core CreateTable API with a column default.
@@ -38,8 +28,7 @@ public class RandomAutoNumberAccessTests
     [Fact]
     public void Access_reads_a_libred_written_random_autonumber_and_continues_it()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"rand-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "rand-");
         try
         {
             CreateRandomAutoNumberTable(path);
@@ -64,14 +53,13 @@ public class RandomAutoNumberAccessTests
             Assert.DoesNotContain(0, ids);
             Assert.False(ids.Zip(ids.Skip(1)).All(p => p.Second - p.First == 1), "ids should not be sequential");
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_reads_a_libred_written_plain_long_genuniqueid_default_and_applies_it()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"plain-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "plain-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -100,14 +88,13 @@ public class RandomAutoNumberAccessTests
             Assert.Equal(3, vs.Distinct().Count());
             Assert.DoesNotContain(0, vs);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Random_autonumber_descriptor_round_trips_through_libred()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"rand-desc-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "rand-desc-");
         try
         {
             CreateRandomAutoNumberTable(path);
@@ -120,6 +107,6 @@ public class RandomAutoNumberAccessTests
             Assert.True(col.IsRandomAutoNumber);
             Assert.Equal("GenUniqueID()", col.DefaultValue);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

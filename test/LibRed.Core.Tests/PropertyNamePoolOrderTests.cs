@@ -13,17 +13,7 @@ namespace LibRed.Core.Tests;
 // future "tidy-up" that sorts the pool in PropertyBlob.Write (which uses Distinct() = first appearance).
 public class PropertyNamePoolOrderTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static List<string> ReadNamePool(byte[] blob)
     {
@@ -52,8 +42,7 @@ public class PropertyNamePoolOrderTests
     [Fact]
     public void Ace_stores_the_name_pool_in_first_appearance_order_not_alphabetical()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"pnp-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "pnp-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -90,6 +79,6 @@ public class PropertyNamePoolOrderTests
             ]));
             Assert.Equal(pool, libred);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

@@ -17,6 +17,6 @@ public class KeysWithConvertersLibRedTest(KeysWithConvertersLibRedTest.KeysWithC
             => LibRedTestStoreFactory.Instance;
 
         public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)
-            => builder.UseLibRed();
+            => builder.UseLibRed(b => b.UseSqlMode());
     }
 }

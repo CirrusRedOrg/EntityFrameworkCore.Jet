@@ -10,8 +10,7 @@ public class ArithmeticTypeTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"arith-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "arith-");
         return path;
     }
 
@@ -26,7 +25,7 @@ public class ArithmeticTypeTests
             e.ExecuteNonQuery("INSERT INTO One (Id) VALUES (1)");
             return e.ExecuteQuery($"SELECT {expr} FROM One").Rows.First()[0];
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -48,7 +47,7 @@ public class ArithmeticTypeTests
             object? v = new QueryEngine(db).ExecuteQuery("SELECT OrderID + 1 AS c FROM Orders").Rows.First()[0];
             Assert.IsType<int>(v); // the failing Union_over_binary_binary shape
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -64,7 +63,7 @@ public class ArithmeticTypeTests
             Assert.IsType<int>(e.ExecuteQuery("SELECT -OrderID AS c FROM Orders").Rows.First()[0]);   // int
             Assert.IsType<decimal>(e.ExecuteQuery("SELECT -UnitPrice AS c FROM Products").Rows.First()[0]); // currency
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -92,7 +91,7 @@ public class ArithmeticTypeTests
                 "SELECT (OrderID \\ OrderID) \\ 2 AS A FROM Orders").Rows.First()[0];
             Assert.IsType<int>(v);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -107,6 +106,6 @@ public class ArithmeticTypeTests
             Assert.IsType<decimal>(e.ExecuteQuery("SELECT UnitPrice + 1 AS c FROM Products").Rows.First()[0]);
             Assert.IsType<decimal>(e.ExecuteQuery("SELECT UnitPrice / 2 AS c FROM Products").Rows.First()[0]);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

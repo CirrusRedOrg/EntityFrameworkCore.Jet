@@ -12,21 +12,12 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class UpdateAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No provider");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_reads_a_libred_in_place_update_including_memo_growth()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"upd-ace-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "upd-ace-");
         string big = new('x', 5000);
         try
         {
@@ -69,14 +60,13 @@ public class UpdateAccessTests
             Assert.StartsWith("a considerably longer", (string)r[1]);
             Assert.Equal(big, (string)r[2]);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_reads_a_libred_relocated_row()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"reloc-lr-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "reloc-lr-");
         string mid = new('m', 80), big = new('X', 255);
         try
         {
@@ -107,14 +97,13 @@ public class UpdateAccessTests
             using (var c = conn.CreateCommand())
             { c.CommandText = "SELECT A FROM T WHERE Id = 4"; Assert.Equal(mid, c.ExecuteScalar()); }        // a neighbour
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Libred_reads_an_access_relocated_row()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"reloc-ace-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "reloc-ace-");
         string mid = new('m', 80), big = new('X', 255);
         try
         {
@@ -136,14 +125,13 @@ public class UpdateAccessTests
 
             static void Exec(OleDbConnection c, string sql) { using var cmd = c.CreateCommand(); cmd.CommandText = sql; cmd.ExecuteNonQuery(); }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_reads_a_memo_after_libred_reclaims_and_reuses_lval_pages()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"upd-reclaim-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "upd-reclaim-");
         string Big(char c) => new(c, 20000); // chained (dedicated pages), so each update frees + reuses pages
         try
         {
@@ -173,14 +161,13 @@ public class UpdateAccessTests
             using (var c = conn.CreateCommand())
             { c.CommandText = "SELECT M FROM T"; Assert.Equal(Big('g'), c.ExecuteScalar()); } // 'b'+5 = 'g'
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_seeks_a_libred_updated_primary_key()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"upd-key-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "upd-key-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -209,6 +196,6 @@ public class UpdateAccessTests
             using (var c = conn.CreateCommand())
             { c.CommandText = "SELECT COUNT(*) FROM T WHERE Id = 2"; Assert.Equal(0, Convert.ToInt32(c.ExecuteScalar())); }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

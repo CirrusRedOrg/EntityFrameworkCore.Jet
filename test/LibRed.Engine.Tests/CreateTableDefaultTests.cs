@@ -8,8 +8,7 @@ public class CreateTableDefaultTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"def-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "def-");
         return path;
     }
 
@@ -34,7 +33,7 @@ public class CreateTableDefaultTests
             using (var db = JetDatabase.Open(path))
                 Assert.NotNull(db.Catalog.FindTable("T"));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A DEFAULT is persisted to the table's LvProp property blob, read back onto the column, and applied
@@ -77,7 +76,7 @@ public class CreateTableDefaultTests
                 Assert.Null(r3[0]); // explicit NULL, not the default
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // `INSERT INTO t DEFAULT VALUES` (EF emits it for an all-store-generated/all-default row): one row is
@@ -102,7 +101,7 @@ public class CreateTableDefaultTests
             Assert.All(rows, r => Assert.Equal("std", r[1])); // DEFAULT applied
             Assert.All(rows, r => Assert.Null(r[2]));          // no default → NULL
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A NOT NULL column with no default that an insert leaves unset is rejected — matching Access
@@ -128,7 +127,7 @@ public class CreateTableDefaultTests
             // Providing the value succeeds.
             Assert.Equal(1, e.ExecuteNonQuery("INSERT INTO `T` (`Req`) VALUES (7)"));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -148,7 +147,7 @@ public class CreateTableDefaultTests
             Assert.Contains("T.Req", ex.Message);
             Assert.Equal("kept", e.ExecuteQuery("SELECT `Req` FROM `T` WHERE `Id` = 1").Rows.Single()[0]);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // DEFAULT VALUES succeeds when every required column is covered by a DEFAULT (or is the AutoNumber).
@@ -164,7 +163,7 @@ public class CreateTableDefaultTests
             Assert.Equal(1, e.ExecuteNonQuery("INSERT INTO `T` DEFAULT VALUES"));
             Assert.Equal(3, Convert.ToInt32(e.ExecuteQuery("SELECT `Kind` FROM `T`").Rows.Single()[0]));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Creating a table whose name already exists (case-insensitively) is rejected, rather than writing a
@@ -178,14 +177,15 @@ public class CreateTableDefaultTests
             using var db = JetDatabase.Open(path, readOnly: false);
             var e = new QueryEngine(db);
             e.ExecuteNonQuery("CREATE TABLE `Widget` (`Id` INTEGER PRIMARY KEY)");
-            var ex = Assert.Throws<InvalidOperationException>(() =>
+            var ex = Assert.Throws<SchemaObjectExistsException>(() =>
                 e.ExecuteNonQuery("CREATE TABLE `widget` (`Id` INTEGER PRIMARY KEY)")); // different case
             Assert.Contains("already exists", ex.Message);
+            Assert.Equal("widget", ex.ObjectName);
             // An existing Northwind table is also protected.
-            Assert.Throws<InvalidOperationException>(() =>
+            Assert.Throws<SchemaObjectExistsException>(() =>
                 e.ExecuteNonQuery("CREATE TABLE `Shippers` (`Id` INTEGER PRIMARY KEY)"));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -199,7 +199,7 @@ public class CreateTableDefaultTests
                 new QueryEngine(db).ExecuteNonQuery("CREATE TEMPORARY TABLE `T` (`Id` INTEGER)"));
             Assert.Contains("TEMPORARY", ex.Message);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -213,6 +213,6 @@ public class CreateTableDefaultTests
                 new QueryEngine(db).ExecuteNonQuery("CREATE TABLE `T` (`S` VARCHAR(20) WITH COMPRESSION)"));
             Assert.Contains("COMPRESSION", ex.Message);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

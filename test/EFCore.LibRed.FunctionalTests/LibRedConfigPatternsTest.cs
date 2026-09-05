@@ -39,7 +39,6 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                         .EnableServiceProviderCaching(false)
                         .UseLibRed(
                             LibRedNorthwindTestStoreFactory.NorthwindConnectionString,
-                            TestEnvironment.DataAccessProviderFactory,
                             b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -58,7 +57,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                         new DbContextOptionsBuilder()
                             .EnableServiceProviderCaching(false)
                             .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString,
-                                TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                                b => b.ApplyConfiguration())
                             .Options);
                     Assert.Equal(91, await context.Customers.CountAsync());
                 }
@@ -93,7 +92,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                     => optionsBuilder.UseLibRed(
-                        LibRedNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration());
+                        LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
                     => ConfigureModel(modelBuilder);
@@ -109,7 +108,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 {
                     await using var context = new NorthwindContext(
                         new DbContextOptionsBuilder()
-                            .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                            .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration())
                             .UseInternalServiceProvider(
                                 new ServiceCollection()
                                     .AddEntityFrameworkLibRed()
@@ -217,7 +216,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 public DbSet<Customer> Customers { get; set; }
 
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
-                    optionsBuilder.UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration());
+                    optionsBuilder.UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
                     => ConfigureModel(modelBuilder);
@@ -269,7 +268,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                     => optionsBuilder.UseLibRed(
-                        LibRedNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration());
+                        LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
                     => ConfigureModel(modelBuilder);
@@ -287,7 +286,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     .AddSingleton(
                         new DbContextOptionsBuilder()
                             .EnableServiceProviderCaching(false)
-                            .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                            .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration())
                             .Options).BuildServiceProvider();
 
                 await using (await LibRedTestStore.GetNorthwindStoreAsync())
@@ -336,7 +335,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     await using var context = new NorthwindContext(
                         new DbContextOptionsBuilder()
                             .EnableServiceProviderCaching(false)
-                            .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration())
+                            .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration())
                             .Options);
                     Assert.Equal(91, await context.Customers.CountAsync());
                 }
@@ -370,7 +369,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
                     => optionsBuilder
                         .EnableServiceProviderCaching(false)
-                        .UseLibRed(connectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration());
+                        .UseLibRed(connectionString, b => b.ApplyConfiguration());
 
                 protected override void OnModelCreating(ModelBuilder modelBuilder)
                     => ConfigureModel(modelBuilder);
@@ -414,7 +413,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
                 protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) => optionsBuilder
                     .UseInternalServiceProvider(serviceProvider)
-                    .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, TestEnvironment.DataAccessProviderFactory, b => b.ApplyConfiguration());
+                    .UseLibRed(LibRedNorthwindTestStoreFactory.NorthwindConnectionString, b => b.ApplyConfiguration());
             }
         }
 

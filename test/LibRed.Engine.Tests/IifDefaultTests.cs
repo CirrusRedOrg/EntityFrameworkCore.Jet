@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 // IIF(cond, truePart, falsePart) works as a DEFAULT expression — verified to match ACE (both branches, an
 // environment-function condition, and string results).
-public class IifDefaultTests
+public class IifDefaultTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"iif-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        return new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "iif-");
+        return new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
     }
 
     private static object? DefaultOf(string type, string def)

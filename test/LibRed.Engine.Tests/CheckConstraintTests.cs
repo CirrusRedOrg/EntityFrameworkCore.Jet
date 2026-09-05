@@ -8,8 +8,7 @@ public class CheckConstraintTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"chk-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "chk-");
         return path;
     }
 
@@ -47,7 +46,7 @@ public class CheckConstraintTests
                 Assert.Equal("[BirthDate] < NOW()", expr);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -62,6 +61,6 @@ public class CheckConstraintTests
             using (var db = JetDatabase.Open(path))
                 Assert.NotNull(db.Catalog.FindTable("T"));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

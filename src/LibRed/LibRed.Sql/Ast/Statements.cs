@@ -27,7 +27,25 @@ public sealed record SelectStatement(
     // DISTINCTROW: dedupe on the underlying rows of the output-contributing tables (Access-specific).
     bool DistinctRow = false,
     // TOP n PERCENT: Top is a percentage (0–100) of the row count rather than an absolute count.
-    bool TopPercent = false) : SqlStatement;
+    bool TopPercent = false,
+    /// <summary>
+    /// The <c>INTO newtable</c> of a MAKE-TABLE query: the rows are written to a new table of that name
+    /// rather than returned. Null for an ordinary SELECT.
+    /// </summary>
+    /// <remarks>
+    /// The new table takes the result's column names and types and nothing else. Measured against ACE: the
+    /// source's PRIMARY KEY and indexes are NOT copied, an expression column is typed from the expression
+    /// (<c>Qty * 2</c> gives Int32, a concatenation gives Text(255)), <c>SUM</c> widens to Double, an empty
+    /// result still creates the table, and an existing name is an error ("Table 'X' already exists").
+    /// </remarks>
+    string? Into = null,
+    /// <summary>
+    /// Rows to skip, from ANSI <c>OFFSET n ROWS</c>. The take half of <c>OFFSET … FETCH NEXT m</c>, and a
+    /// standalone <c>FETCH FIRST m ROWS ONLY</c>, both land in <see cref="Top"/> instead — they mean exactly
+    /// <c>TOP m</c> and so reuse the path that already exists for it. <see cref="TopPercent"/> is never set
+    /// from a FETCH, which has no PERCENT form.
+    /// </summary>
+    Expression? Offset = null) : SqlStatement;
 
 /// <summary><c>EXECUTE|EXEC procedure [arg, …]</c> — invokes a stored procedure/query by name, passing
 /// positional argument values that bind to its declared parameters (in declaration order).</summary>
@@ -37,7 +55,7 @@ public sealed record ExecuteStatement(string Procedure, IReadOnlyList<Expression
 /// idempotent migrations (e.g. create the history table only if it isn't already in INFORMATION_SCHEMA.TABLES).
 /// <paramref name="Then"/> runs when the (possibly correlated) condition subquery returns a row — or, when
 /// <paramref name="Negated"/>, when it returns none.</summary>
-public sealed record IfThenStatement(bool Negated, SelectStatement Condition, SqlStatement Then) : SqlStatement;
+public sealed record IfThenStatement(bool Negated, SqlStatement Condition, SqlStatement Then) : SqlStatement;
 
 /// <summary>A FROM-less <c>SELECT @@IDENTITY</c> / <c>SELECT @@ROWCOUNT</c> (a comma list of system
 /// variables only). ACE allows these without a FROM clause; they yield a single row. The projection
@@ -50,19 +68,57 @@ public enum SetOperator { Union, UnionAll, Intersect, Except }
 /// A set operation combining two queries. UNION dedupes, UNION ALL keeps duplicates,
 /// INTERSECT keeps rows in both, EXCEPT keeps rows in the left not in the right.
 /// </summary>
+/// <remarks>
+/// <paramref name="OrderBy"/>, <paramref name="Top"/> and <paramref name="Offset"/> order and page the
+/// <b>result of the whole operation</b>, which is where the grammar puts them and where the standard defines
+/// them — an operand cannot carry them unless it is parenthesised, in which case it is a nested query
+/// expression with its own. Only the outermost node of a chain ever carries them: <c>A UNION B UNION C ORDER BY
+/// x</c> is one query expression, so the ordering belongs to the tree, not to any pair within it.
+/// </remarks>
 public sealed record SetOperationStatement(
     SqlStatement Left,
     SetOperator Operator,
-    SqlStatement Right) : SqlStatement;
+    SqlStatement Right,
+    IReadOnlyList<OrderByItem>? OrderBy = null,
+    Expression? Top = null,
+    Expression? Offset = null) : SqlStatement;
 
-/// <summary>An INSERT. <paramref name="DefaultValues"/> is the <c>DEFAULT VALUES</c> form (no column or
-/// value list): a single row where every column takes its default / AutoNumber; <paramref name="Columns"/>
-/// is empty and <paramref name="Rows"/> holds one empty row.</summary>
+/// <summary>
+/// A table value constructor used as a query rather than as an INSERT's VALUES clause —
+/// <c>VALUES (1), (2)</c> — yielding one row per list. EF Core emits it as an operand of a set operation for
+/// an inline collection.
+/// </summary>
+/// <remarks>
+/// The rows carry no column names of their own. In the set operation that always encloses one today, names
+/// come from the leading query per SQL, so none are needed; naming them would require the column alias list
+/// (<c>AS t(a, b)</c>) that derived tables do not yet support. Row values may reference outer columns, so the
+/// expressions are evaluated per outer row rather than once. <c>DEFAULT</c> is rejected here — the standard
+/// permits it only inside an INSERT.
+/// </remarks>
+public sealed record ValuesStatement(IReadOnlyList<IReadOnlyList<Expression>> Rows) : SqlStatement;
+
+/// <summary>
+/// An INSERT — Access's two append-query forms.
+/// </summary>
+/// <param name="Rows">
+/// The <b>single-record</b> form's values, <c>INSERT INTO t (…) VALUES (…)</c>. Empty when
+/// <paramref name="Source"/> is set.
+/// </param>
+/// <param name="Source">
+/// The <b>multiple-record</b> form's query, <c>INSERT INTO t (…) SELECT … FROM …</c>. Null for the
+/// single-record form. Access documents the source as a SELECT; a full query expression is accepted here so
+/// a UNION can feed an append, which is the shape EF emits from a Concat.
+/// </param>
+/// <param name="DefaultValues">
+/// The <c>DEFAULT VALUES</c> form (no column or value list): a single row where every column takes its
+/// default / AutoNumber. <paramref name="Columns"/> is empty and <paramref name="Rows"/> holds one empty row.
+/// </param>
 public sealed record InsertStatement(
     string Table,
     IReadOnlyList<string> Columns,
     IReadOnlyList<IReadOnlyList<Expression>> Rows,
-    bool DefaultValues = false) : SqlStatement;
+    bool DefaultValues = false,
+    SqlStatement? Source = null) : SqlStatement;
 
 /// <summary>A column in a CREATE TABLE: its declared SQL type, optional size/scale, constraints, and the
 /// raw text of an optional DEFAULT value expression (stored as the column's DefaultValue property).</summary>

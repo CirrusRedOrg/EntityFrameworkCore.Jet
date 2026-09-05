@@ -1,24 +1,36 @@
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 using EntityFrameworkCore.Jet.Design.Internal;
 using EntityFrameworkCore.LibRed.Scaffolding.Internal;
-using Microsoft.EntityFrameworkCore.Scaffolding;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore.Design.Internal;
 
-namespace EntityFrameworkCore.LibRed.Design.Internal;
-
-/// <summary>
-/// Design-time services for the LibRed provider. Reuses EFCore.Jet's design services but swaps
-/// the database-model factory for LibRed's catalog-backed one, so reverse-engineering reads the
-/// schema natively instead of via INFORMATION_SCHEMA/ADOX.
-/// </summary>
-public class LibRedDesignTimeServices : JetDesignTimeServices
+namespace EntityFrameworkCore.LibRed.Design.Internal
 {
-    public override void ConfigureDesignTimeServices(IServiceCollection serviceCollection)
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public class LibRedDesignTimeServices : IDesignTimeServices
     {
-        base.ConfigureDesignTimeServices(serviceCollection);
-        // Registered after the base Jet factory; the later registration wins on resolution. Scoped, NOT
-        // singleton, to match EF Core's conventional lifetime for IDatabaseModelFactory (which the base Jet
-        // registration gets via TryAdd): the factory depends on the scoped scaffolding logger, so a singleton
-        // would capture a scoped ILoggerFactory and fail service-provider scope validation.
-        serviceCollection.AddScoped<IDatabaseModelFactory, LibRedDatabaseModelFactory>();
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public virtual void ConfigureDesignTimeServices(IServiceCollection serviceCollection)
+        {
+            serviceCollection.AddEntityFrameworkLibRed();
+#pragma warning disable EF1001 // Internal EF Core API usage.
+            new EntityFrameworkRelationalDesignServicesBuilder(serviceCollection)
+                .TryAdd<IAnnotationCodeGenerator, JetAnnotationCodeGenerator>()
+                .TryAdd<ICSharpRuntimeAnnotationCodeGenerator, JetCSharpRuntimeAnnotationCodeGenerator>()
+#pragma warning restore EF1001 // Internal EF Core API usage.
+                .TryAdd<IDatabaseModelFactory, LibRedDatabaseModelFactory>()
+                .TryAdd<IProviderConfigurationCodeGenerator, LibRedCodeGenerator>()
+                .TryAddCoreServices();
+        }
     }
 }

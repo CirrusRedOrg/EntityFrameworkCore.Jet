@@ -22,7 +22,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         protected class SeedingLibRedContext(string testId) : SeedingContext(testId)
         {
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-                => optionsBuilder.UseLibRed(LibRedTestStore.CreateConnectionString($"Seeds{TestId}"), TestEnvironment.DataAccessProviderFactory);
+                => optionsBuilder.UseLibRed(LibRedTestStore.CreateConnectionString($"Seeds{TestId}"), b => b.UseSqlMode());
         }
     }
 }

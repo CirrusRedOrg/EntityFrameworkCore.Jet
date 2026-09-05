@@ -35,6 +35,7 @@ internal sealed class ExpressionEvaluator(
         ExistsExpression e => subqueries.ExecuteExists(e.Query, scope),
         InSubqueryExpression i => EvaluateInSubquery(i),
         InListExpression i => EvaluateInList(i),
+        CaseExpression c => EvaluateCase(c),
         FunctionCall f => EvaluateFunction(f),
         UnaryExpression u => EvaluateUnary(u),
         BinaryExpression b => EvaluateBinary(b),
@@ -124,6 +125,22 @@ internal sealed class ExpressionEvaluator(
         return inl.Negated ? (result is null ? null : !result) : result;
     }
 
+    /// <summary>Standard SQL <c>CASE</c>. Arms are tested in order and the first whose condition is true wins;
+    /// an arm is skipped when its condition is false <em>or</em> NULL, since only true selects. Evaluation
+    /// short-circuits — later conditions and every unselected result go unevaluated, which matters because a
+    /// result can divide by zero or otherwise throw in a branch the condition exists to avoid. With nothing
+    /// matched and no ELSE, the answer is NULL rather than an error, per the standard.</summary>
+    private object? EvaluateCase(CaseExpression c)
+    {
+        foreach (CaseWhen arm in c.WhenClauses)
+        {
+            if (IsTrue(arm.Condition))
+                return Evaluate(arm.Result);
+        }
+
+        return c.ElseResult is null ? null : Evaluate(c.ElseResult);
+    }
+
     private object? EvaluateFunction(FunctionCall f)
     {
         // Aggregate calls are precomputed per group and resolved by reference — including an outer
@@ -135,12 +152,16 @@ internal sealed class ExpressionEvaluator(
         // value in the Jet expression service — so a trailing "$" is stripped and dispatched to the base name.
         string name = f.Name.ToUpperInvariant();
         if (name.Length > 1 && name[^1] == '$') name = name[..^1];
+        ValidateArity(name, f.Arguments.Count);
 
         return name switch
         {
-            "IIF" => IsTrue(f.Arguments[0]) ? Evaluate(f.Arguments[1]) : Evaluate(f.Arguments[2]),
+            "IIF" => IsTrue(f.Arguments[0]) ? Evaluate(f.Arguments[1])
+                : f.Arguments.Count == 3 ? Evaluate(f.Arguments[2]) : null,
             "CHOOSE" => Choose(f),
             "SWITCH" => Switch(f),
+            "NULLIF" => NullIf(f),
+            "COALESCE" => Coalesce(f),
             "DATEPART" => DatePart(Evaluate(f.Arguments[0]), Evaluate(f.Arguments[1])),
             "ROUND" => Round(f),
             "FIX" => Numeric1(f, Math.Truncate, Math.Truncate),  // toward zero
@@ -168,12 +189,15 @@ internal sealed class ExpressionEvaluator(
 
             // VBA/Access string functions. All propagate NULL; positions are 1-based. Comparisons default to
             // case-insensitive (Access "Option Compare Database" = Text), overridable by a compare argument.
-            "LEN" => Convert1(f, v => v.ToString()!.Length),
-            "LCASE" => Convert1(f, v => v.ToString()!.ToLowerInvariant()),
-            "UCASE" => Convert1(f, v => v.ToString()!.ToUpperInvariant()),
-            "TRIM" => Convert1(f, v => v.ToString()!.Trim(' ')),
-            "LTRIM" => Convert1(f, v => v.ToString()!.TrimStart(' ')),
-            "RTRIM" => Convert1(f, v => v.ToString()!.TrimEnd(' ')),
+            // ToText, not ToString: a binary column's value is a UTF-16 STRING to every text function, so
+            // Len(0x4100) is 1 (one character) where LenB is 2. Calling ToString() on a byte[] yields the
+            // literal "System.Byte[]", which silently produced nonsense — Len returned 13 for every value.
+            "LEN" => Convert1(f, v => ToText(v).Length),
+            "LCASE" => Convert1(f, v => ToText(v).ToLowerInvariant()),
+            "UCASE" => Convert1(f, v => ToText(v).ToUpperInvariant()),
+            "TRIM" => Convert1(f, v => ToText(v).Trim(' ')),
+            "LTRIM" => Convert1(f, v => ToText(v).TrimStart(' ')),
+            "RTRIM" => Convert1(f, v => ToText(v).TrimEnd(' ')),
             "LEFT" => StringInt(f, static (s, n) => n <= 0 ? "" : n >= s.Length ? s : s[..n]),
             "RIGHT" => StringInt(f, static (s, n) => n <= 0 ? "" : n >= s.Length ? s : s[^n..]),
             "MID" => Mid(f),
@@ -290,6 +314,74 @@ internal sealed class ExpressionEvaluator(
         };
     }
 
+    /// <summary>Rejects argument counts verified against ACE. Keep this table evidence-driven: add a function
+    /// only after its minimum/maximum have been exercised through ACE, since Jet includes quirks such as IIf's
+    /// accepted two-argument form (the omitted false branch is Null).</summary>
+    internal static void ValidateArity(string name, int count)
+    {
+        (int Min, int Max)? range = name switch
+        {
+            // Conversion, unary numeric/string/date/inspection functions and single-argument aliases.
+            "CBOOL" or "CBYTE" or "CINT" or "CLNG" or "CSNG" or "CDBL" or "CCUR" or "CDEC"
+                or "CSTR" or "CDATE" or "CVAR"
+                or "ABS" or "SGN" or "INT" or "FIX" or "SQR" or "EXP" or "LOG" or "SIN" or "COS"
+                or "TAN" or "ATN"
+                or "LEN" or "LCASE" or "UCASE" or "TRIM" or "LTRIM" or "RTRIM" or "SPACE"
+                or "STRREVERSE" or "STR" or "VAL" or "CHR" or "ASC" or "HEX" or "OCT"
+                or "DATEVALUE" or "TIMEVALUE" or "YEAR" or "MONTH" or "DAY" or "HOUR" or "MINUTE"
+                or "SECOND" or "ISDATE" or "ISNULL" or "ISNUMERIC" or "ISERROR" or "TYPENAME" or "VARTYPE"
+                or "QBCOLOR" or "ASCW" or "CHRW" or "ASCB" or "LENB" => (1, 1),
+
+            "LEFT" or "RIGHT" or "STRING" or "LEFTB" or "RIGHTB" => (2, 2),
+            "MID" or "MIDB" => (2, 3),
+            "INSTR" or "INSTRREV" or "INSTRB" => (2, 4),
+            "STRCOMP" => (2, 3),
+            "STRCONV" => (2, 3),
+            "IIF" => (2, 3),
+            "NULLIF" => (2, 2),
+            "CHOOSE" => (2, int.MaxValue),
+            "SWITCH" => (2, int.MaxValue),
+            // COALESCE(expression [, ...n]). SQL Server insists on two, but one is harmless and the standard's
+            // own grammar allows it, so only an empty list is rejected.
+            "COALESCE" => (1, int.MaxValue),
+
+            "NOW" or "DATE" or "TIME" or "TIMER" or "GENUNIQUEID" or "GENGUID" => (0, 0),
+            "DATEADD" => (3, 3),
+            "DATEDIFF" => (3, 5),
+            "DATEPART" => (2, 4),
+            "DATESERIAL" or "TIMESERIAL" => (3, 3),
+            "WEEKDAY" or "MONTHNAME" => (1, 2),
+            "WEEKDAYNAME" => (1, 3),
+
+            "RGB" => (3, 3),
+            "ROUND" => (1, 2),
+            "RND" => (0, 1),
+            "REPLACE" => (3, 6),
+            "FORMAT" => (1, 4),
+            "FORMATCURRENCY" or "FORMATNUMBER" or "FORMATPERCENT" => (1, 5),
+            "FORMATDATETIME" => (1, 2),
+            "PARTITION" => (4, 4),
+
+            "PMT" or "FV" or "PV" or "NPER" => (3, 5),
+            "IPMT" or "PPMT" => (4, 6),
+            "RATE" => (3, 6),
+            "SLN" => (3, 3),
+            "SYD" => (4, 4),
+            "DDB" => (4, 5),
+
+            "COUNT" or "SUM" or "AVG" or "MIN" or "MAX" or "FIRST" or "LAST" or "STDEV" or "VAR"
+                or "STDEVP" or "VARP" or "STDDEV" or "STDDEVP" => (1, 1),
+            _ => null,
+        };
+        bool invalidPairs = name == "SWITCH" && count % 2 != 0;
+        if (range is { } valid && (count < valid.Min || count > valid.Max || invalidPairs))
+            throw new InvalidOperationException(
+                $"Wrong number of arguments used with function {name} (expected " +
+                (name == "SWITCH" ? "condition/value pairs" : valid.Min == valid.Max
+                    ? valid.Min.ToString(CultureInfo.InvariantCulture)
+                    : valid.Max == int.MaxValue ? $"at least {valid.Min}" : $"{valid.Min} to {valid.Max}") + ").");
+    }
+
     /// <summary>Access <c>Choose(index, choice-1, choice-2, …)</c>: returns the 1-based choice at
     /// <paramref name="f"/>'s index, or NULL when the index is out of range (verified vs ACE: <c>Choose(0,…)</c>
     /// and <c>Choose(5,…)</c> on three choices both return Null). A NULL index is an error in ACE ("Data type
@@ -302,6 +394,56 @@ internal sealed class ExpressionEvaluator(
         int index = Convert.ToInt32(indexValue, CultureInfo.InvariantCulture);
         int choiceCount = f.Arguments.Count - 1;
         return index < 1 || index > choiceCount ? null : Evaluate(f.Arguments[index]);
+    }
+
+    /// <summary>
+    /// <c>NULLIF(a, b)</c>: NULL when the two are equal, otherwise <c>a</c>.
+    /// </summary>
+    /// <remarks>
+    /// A deliberate divergence from ACE, which has no such function — it answers "Undefined function 'NULLIF'
+    /// in expression" (verified). Access's own spelling of this is <c>IIF(a = b, NULL, a)</c>, and that is what
+    /// this evaluates to; the difference is only that LibRed also accepts the name EF Core emits, so a query
+    /// using it runs here rather than failing at the engine.
+    ///
+    /// Equality follows the same comparison as the <c>=</c> operator, which makes the NULL cases fall out
+    /// correctly without special-casing: comparing with a NULL is unknown rather than equal, so
+    /// <c>NULLIF(x, NULL)</c> is <c>x</c> and <c>NULLIF(NULL, y)</c> is NULL — matching the IIF form, where an
+    /// unknown condition takes the false branch.
+    ///
+    /// Unlike the IIF spelling, <c>a</c> is evaluated once.
+    /// </remarks>
+    private object? NullIf(FunctionCall f)
+    {
+        object? left = Evaluate(f.Arguments[0]);
+        if (left is null) return null;
+
+        object? right = Evaluate(f.Arguments[1]);
+        return right is not null && Compare(left, right) == 0 ? null : left;
+    }
+
+    /// <summary>
+    /// <c>COALESCE(a, b, …)</c> — the arguments in order, and the value of the first that is not NULL; NULL
+    /// when every one of them is. Access/ACE has no COALESCE (its nearest equivalent is <c>Nz</c>, which takes
+    /// only two), so this is reachable from LibRed's extended SQL mode and from hand-written SQL.
+    /// </summary>
+    /// <remarks>
+    /// The standard defines COALESCE as shorthand for
+    /// <c>CASE WHEN a IS NOT NULL THEN a WHEN b IS NOT NULL THEN b … END</c>, and SQL Server implements it by
+    /// literally rewriting to that — which is why its docs warn that arguments are evaluated more than once
+    /// and a subquery argument can yield different values between evaluations. Evaluating each argument once
+    /// here gives the same answer with none of that, so the shorthand is honoured without inheriting the
+    /// rewrite's cost or its instability.
+    /// </remarks>
+    private object? Coalesce(FunctionCall f)
+    {
+        foreach (Expression argument in f.Arguments)
+        {
+            object? value = Evaluate(argument);
+            if (value is not null)
+                return value;
+        }
+
+        return null;
     }
 
     /// <summary>Access <c>Switch(cond-1, value-1, cond-2, value-2, …)</c>: evaluates the conditions left to
@@ -435,6 +577,9 @@ internal sealed class ExpressionEvaluator(
         decimal => "Currency",
         DateTime => "Date",
         string => "String",
+        // A binary column reports as String, not Byte[] — ACE's expression service sees the value as a
+        // UTF-16 string (VarType 8 = VT_BSTR), so TypeName must say so even though LibRed holds a byte[].
+        byte[] => "String",
         _ => v.GetType().Name,
     };
 
@@ -1000,9 +1145,12 @@ internal sealed class ExpressionEvaluator(
     private object? Replace(FunctionCall f)
     {
         object? sv = Evaluate(f.Arguments[0]), findv = Evaluate(f.Arguments[1]), replv = Evaluate(f.Arguments[2]);
-        // ACE raises "Data type mismatch" for a null argument (unlike InStr, which propagates NULL).
+        // ACE raises "Data type mismatch" here (unlike InStr, which propagates NULL), but LibRed propagates
+        // instead, matching every other dialect - SQL Server documents REPLACE as returning NULL if any
+        // argument is NULL. A deliberate divergence, and a widening: no query that returns a value today
+        // changes, only ones that error start returning NULL.
         if (sv is null || findv is null || replv is null)
-            throw new InvalidOperationException("Data type mismatch in criteria expression: Replace() argument is null.");
+            return null;
         string s = sv.ToString()!, find = findv.ToString()!, repl = replv.ToString()!;
 
         int start = f.Arguments.Count > 3 ? Convert.ToInt32(Evaluate(f.Arguments[3]), CultureInfo.InvariantCulture) : 1;
@@ -1114,6 +1262,7 @@ internal sealed class ExpressionEvaluator(
             "h" => d.AddHours(n),
             "n" => d.AddMinutes(n),
             "s" => d.AddSeconds(n),
+            "ms" => d.AddMilliseconds(n),
             _ => throw new NotSupportedException($"DATEADD interval '{intervalV}' is not supported."),
         };
     }
@@ -1126,7 +1275,22 @@ internal sealed class ExpressionEvaluator(
         if (d1V is null || d2V is null) return null;
         var d1 = Convert.ToDateTime(d1V, CultureInfo.InvariantCulture);
         var d2 = Convert.ToDateTime(d2V, CultureInfo.InvariantCulture);
-        return (intervalV?.ToString() ?? "").ToLowerInvariant() switch
+        string interval = (intervalV?.ToString() ?? "").ToLowerInvariant();
+
+        // "ms" is a LibRed extension — ACE's interval list stops at "s". It is available because LibRed stores
+        // the full OA double rather than truncating to whole seconds as ACE does, and it is exact: .NET's OA
+        // conversion quantises to whole milliseconds, so nothing below a millisecond survived storage anyway
+        // (measured: 12:34:56.123 round-trips with zero tick loss, .1234560 comes back as .123).
+        //
+        // Handled before the switch, and as Int64 rather than the Long Integer every other interval returns: a
+        // millisecond difference overflows Int32 after 25 days, and ToUnixTimeMilliseconds spans decades. A
+        // long arm inside the switch would widen every other interval's result type along with it.
+        if (interval == "ms")
+        {
+            return (long)(d2 - d1).TotalMilliseconds;
+        }
+
+        return interval switch
         {
             "yyyy" => d2.Year - d1.Year,
             "q" => (d2.Year - d1.Year) * 4 + (d2.Month - 1) / 3 - (d1.Month - 1) / 3,
@@ -1136,6 +1300,7 @@ internal sealed class ExpressionEvaluator(
             "h" => (int)(d2 - d1).TotalHours,
             "n" => (int)(d2 - d1).TotalMinutes,
             "s" => (int)(d2 - d1).TotalSeconds,
+            // "ms" is handled above, as Int64.
             _ => throw new NotSupportedException($"DATEDIFF interval '{intervalV}' is not supported."),
         };
     }
@@ -1186,7 +1351,7 @@ internal sealed class ExpressionEvaluator(
         object? right = Evaluate(b.Right);
 
         if (b.Operator == BinaryOperator.Concat)
-            return (left?.ToString() ?? "") + (right?.ToString() ?? "");
+            return (left is null ? "" : ToText(left)) + (right is null ? "" : ToText(right));
 
         if (left is null || right is null)
             return null;
@@ -1199,9 +1364,12 @@ internal sealed class ExpressionEvaluator(
             BinaryOperator.LessThanOrEqual => Compare(left, right) <= 0,
             BinaryOperator.GreaterThan => Compare(left, right) > 0,
             BinaryOperator.GreaterThanOrEqual => Compare(left, right) >= 0,
-            BinaryOperator.Like => Like(left.ToString()!, right.ToString()!),
+            // LIKE reads a binary value as text, so it is CASE-INSENSITIVE over a binary column even though
+            // '=' on the same column is byte-wise and case-sensitive. Verified vs ACE: `B LIKE 'A%'` matches
+            // both 0x4100 ('A') and 0x6100 ('a'), while `B = 0x4100` matches only the first.
+            BinaryOperator.Like => Like(ToText(left), ToText(right)),
             // Access '+' concatenates when either operand is text (but, unlike '&', null already propagated above).
-            BinaryOperator.Add => left is string || right is string ? left.ToString() + right.ToString() : Arithmetic(left, right, '+'),
+            BinaryOperator.Add => left is string || right is string ? ToText(left) + ToText(right) : Arithmetic(left, right, '+'),
             BinaryOperator.Subtract => Arithmetic(left, right, '-'),
             BinaryOperator.Multiply => Arithmetic(left, right, '*'),
             BinaryOperator.Divide => Divide(left, right), // Access '/' is floating division

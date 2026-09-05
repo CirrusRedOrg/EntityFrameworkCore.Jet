@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using EntityFrameworkCore.Jet.Metadata;
-using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -46,7 +46,7 @@ public partial class DataEntityType
             shadowIndex: 0,
             relationshipIndex: 0,
             storeGenerationIndex: 0);
-        id.TypeMapping = JetIntTypeMapping.Default;
+        id.TypeMapping = LibRedIntTypeMapping.Default;
         id.SetCurrentValueComparer(new EntryCurrentValueComparer<int>(id));
         id.AddAnnotation("Jet:ValueGenerationStrategy", JetValueGenerationStrategy.IdentityColumn);
 
@@ -82,7 +82,7 @@ public partial class DataEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        blob.TypeMapping = JetByteArrayTypeMapping.Default.Clone(
+        blob.TypeMapping = LibRedByteArrayTypeMapping.Default.Clone(
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "longbinary"),
             storeTypePostfix: StoreTypePostfix.None);

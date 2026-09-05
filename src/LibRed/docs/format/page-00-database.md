@@ -21,7 +21,7 @@
 | `0x3E` | 4 | **Database (encryption) key** — 0 when there is no password |
 | `0x42` | 40 | **Password** (Jet 4; Jet 3 = 20 bytes) — additionally masked by a creation-date-derived value, so an empty password does not read as zeroes |
 | `0x6A` | 4 | Fixed constant `0x000011A6` — invariant across the entire Jet 4 lineage (every version/engine/collation/language tested); likely a validation sentinel/marker (cf. the `0x0659` TDEF record marker, §3.1), exact purpose unconfirmed |
-| `0x6E` | 4 | **Default text collating sort order** — LCID (2, LE, `0x0409` = 1033 en-US) + **sort-order version** at `0x71` (0 = General Legacy, 1 = General) |
+| `0x6E` | 4 | **Default text collating sort order** — a 32-bit LCID with the version in its unused top byte: LANGID (2, LE, `0x0409` = 1033 en-US), **sort id** at `0x70`, **sort-order version** at `0x71` (0 = legacy table, 1 = the Access-2010 order). Byte-for-byte the same layout as a column descriptor's `0x0B`–`0x0E` |
 | `0x72` | 8 | **Database creation timestamp** — OLE automation `double` (days from 1899-12-30) |
 | `0x98` | 4 | **Past the masked window** (cleartext). Fixed constant `0x00000654` (1620), undecoded |
 | `0x9C` | 4 | ASCII **engine/format version string `"4.0"`** (NUL-terminated) — the Jet **4.0** version, present in both `.mdb` (Jet 4) and `.accdb` (ACE, which is Jet-4-based) |
@@ -61,6 +61,41 @@ A genuinely **unknown** version byte on an `.accdb` that still carries the clear
 unrecognised byte is almost certainly a newer 4KB ACE variant; the `"4.0"` guard stops a genuinely different
 future engine (e.g. a `"5.0"` string) from being mis-read as ACE.
 
+**Upgrading an existing file is that byte and nothing else** (verified 2026-08-26 against ACE over OLE DB,
+from a DAO-created ACE 12 baseline — `dbVersion120`, version `0x02`). Adding a `DATETIME2` column through ACE
+changes exactly one byte of page 0: `0x14`, `0x02` → `0x06`. A control arm adding an ordinary `DATETIME` column
+to the same baseline is what isolates it — the only other byte either arm touched was the opening user's
+commit slot at `0xE02` (§2.2), which moves for any write at all.
+
+The byte is **sufficient, not merely necessary**: writing `0x06` to `0x14` by hand upgrades an ACE 12 file in
+place. ACE then opens it, data written before the flip is still readable, and `ALTER TABLE … ADD COLUMN …
+DATETIME2`, `INSERT`, `SELECT` and `CREATE TABLE` with the type all work — ACE adding nothing further to page 0
+of its own. Guard: `AceDateTime2UpgradeTests`. ACE's DDL accepts only the bare spelling **`DATETIME2`**;
+`DATETIME2(7)`, `DATETIMEEXTENDED`, `DATE/TIME EXTENDED` and `DATETIMEOFFSET` are all syntax errors.
+
+The `0x05` / **Large Number** route behaves the same way and is now measured too (verified 2026-08-26): a
+`CREATE TABLE … BIGINT` issued through ACE against an ACE 12 file moves `0x14` from `0x02` to **`0x05`** — not
+to `0x06`, confirming the two types really do sit at different formats. Guard:
+`BigIntKeyEncodingTests.Adding_a_bigint_column_makes_ace_raise_the_file_to_ace16`.
+
+**LibRed performs this upgrade itself**, as ACE does: DDL introducing a type the open file is too old for
+raises the version byte instead of refusing (`StatementExecutor.MapColumn` →
+`JetDatabase.EnsureFormatAtLeast` → `PageChannel.RaiseFormatVersion`). Three properties are worth recording,
+because each is a place the obvious implementation goes wrong:
+
+- The write goes through `PageChannel.WritePage`, not the stream, so it **joins the statement's transaction**.
+  A `CREATE TABLE` that raises the format and then fails takes the raise back down with it.
+- The in-memory `Format` is *not* transactional on its own, so both rollback paths (`RollbackTransaction`
+  and the savepoint `RestoreOverlay`) re-derive it from the version byte then visible, and `JetDatabase`
+  re-reads `DefinitionPage` alongside. Getting only the disk half right leaves an open database claiming a
+  version its file does not have.
+- It is one-way: there is no downgrade, and an Access older than the new format can no longer open the file.
+  That is inherent — the column it would find is one it could not read either.
+
+Verified against the real engine: ACE opens a file LibRed upgraded in place and reads the value that forced
+the upgrade (`DateTime2CreatedDatabaseAccessTests`). A saved query's *parameter* type is deliberately excluded
+— it declares no storage, and what ACE does with a new-type parameter in `MSysQueries` has not been probed.
+
 **Catalog bootstrap.** Reading the database is a two-step hop from page 0: the pointer at `0x20` gives the
 `MSysObjects` TDEF page (2), and `MSysObjects` then lists every other object (each table's row `Id` is *its*
 TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` and hands it to `JetCatalog`
@@ -75,6 +110,31 @@ TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` an
 > that work, both recorded below: the **creation date is bound to the on-disk security SIDs** (§2.3), and the
 > file must **not** hand-create the `MSysAccessStorage` / `MSysNavPane*` tables — real DAO files omit them and
 > Access adds them (with the nav-pane long SID) on first open (verified across ~135 pure-DAO files).
+
+> **How the reference engine lays out a new file** (DAO-created ACE 12, 42 pages — `DaoPageLayoutProbeTest`).
+> Per table the allocation order is **TDEF → usage-map page → one page per index root**, in table-creation
+> order; both usage maps share one page (owned = row 0, free = row 1, inline), which is what every TDEF's
+> `0x37`/`0x3B` pointers show. **Data pages are allocated lazily on first insert**, so they appear out of
+> sequence and an empty table has none at all.
+>
+> | pages | contents |
+> | --- | --- |
+> | `0`, `1` | database definition; global free-pages map |
+> | `2`–`5` | the four core TDEFs — fixed, because page 0's bootstrap pointers name them |
+> | `6`, `9`, `11`, `13` | usage maps for MSysObjects / MSysACEs / MSysQueries / MSysRelationships |
+> | `7`, `8`, `10`, `12`, `14`–`16` | their index roots (2 + 1 + 1 + 3), each a leaf page |
+> | `17` | MSysObjects' first data page — the catalog rows |
+> | `18`–`22` | MSysComplexColumns: TDEF, usage map, three index roots |
+> | `23`–`40` | the nine `MSysComplexType_*` tables: TDEF, then usage map, in pairs |
+> | `41` | MSysACEs' data page — the ACL rows |
+>
+> MSysQueries and MSysRelationships are empty in a fresh database and own no data page.
+>
+> **Column descriptors are stored sorted by name, while column ids follow creation order** — the two do not
+> agree, and code that treats a column's position as its id is wrong wherever the TDEF is keyed by id (the
+> long-value usage-map block is). E.g. `MSysComplexColumns.ComplexID` is the 2nd descriptor with id 4, and
+> `MSysComplexType_Attachment.FileURL` is the last descriptor with id 0. Sorting is by name, not
+> fixed-before-variable: `ColumnName` is variable-length and still sorts first.
 
 ### 2.1 The obfuscated header (`0x18`–`0x98`)
 
@@ -133,17 +193,31 @@ CF 65 ED FF 07 C7 46 A1 78 16 0C ED E9 2D 62 D4   ; 0x88
     `RemoveJetPassword`): write `UTF-16LE(password)` zero-padded to 40 bytes, XOR the date mask, then the
     base header mask — the exact inverse of the read. **Verified byte-identical to Access's own output**:
     `SetJetPassword` on a copy of `2002plain.mdb` reproduces Access-set `Test1`/`Test2`/`AAAA`/`z` files
-    bit-for-bit in the `0x42` field (`LegacyJetPasswordTests`). This is password-only obfuscation — the
+    bit-for-bit in the `0x42` field (`LegacyJetPasswordTests.SetJetPassword_matches_access_output`). Those
+    fixtures are not committed, so that case **skips with a reason** unless they are present — point
+    `LIBRED_ENCTEST_DIR` at them to run it. The rest of `LegacyJetPasswordTests` builds its own Jet 4 header and
+    covers the field transformation, limits, removal, and encoding independence on every platform. This is
+    password-only obfuscation — the
     data pages stay plaintext (`0x3E` key = 0); it is a *different* feature from Jet RC4 page encryption
     (§2.4), which the "Encode/Encrypt" menu applies. The earlier "per-file SID mask = f(date,password)"
     theory was a misdiagnosis — the mask is simply `(int)creationDate`.
   - **ACE `.accdb`**: real encryption — this region is an encryption **verifier**, not recoverable
     plaintext (an actual password decodes to random-looking bytes under the Jet 4 scheme). Recovering
     it is a crypto attack, not format work.
-- **Collation sort order (`0x6E`, 4 bytes)** → `DefaultCollationLcid` (LCID at `0x6E`) +
-  `DefaultCollationVersion` (the byte at `0x71`, 0 = General Legacy, 1 = General). The version here
-  **matches each column descriptor's `0x0E`** — the sort version lives both database-wide (page 0)
-  and per column (see [page-02b-columns.md](page-02b-columns.md)).
+- **Writing it:** `DatabaseCreator.CreateEmpty(path, version, collation)` (and
+  `LibRedConnection.CreateDatabase(connectionString, collation)`) set this pair, defaulting to General-Legacy.
+  The chosen collation goes into page 0 *and* into the system tables' column descriptors, and
+  `JetDatabase.Collation` reads it back so every table created later inherits it — matching Access, which
+  writes v1 descriptors on `MSys*` in a General database. LibRed is currently the only way to create a v1
+  database programmatically: DAO writes v0 whatever the application setting says, and Access honours its
+  "New database sort order" option only through its own UI.
+- **Collation sort order (`0x6E`, 4 bytes)** → `DefaultCollationLcid` (the LANGID at `0x6E`),
+  `DefaultCollationSortId` (`0x70` — the LCID's high word, non-zero only for a Windows *alternate* sort
+  order such as German Phone Book `0x00010407` or Hungarian Technical `0x0001040E`), and
+  `DefaultCollationVersion` (`0x71`, 0 = the legacy compacted table, 1 = the Access-2010 NLS order).
+  `DatabaseDefinitionPage.Collation` assembles the three. All three **match each column descriptor's
+  `0x0B`–`0x0E`** — the sort order lives both database-wide (page 0) and per column (see
+  [page-02b-columns.md](page-02b-columns.md)), and the two blocks have identical layout.
 - **Creation date (`0x72`, 8 bytes)** → `CreationDate` — an OLE `double`. Matches the earliest
   `MSysObjects.DateCreate`; on an *edited* database (e.g. Northwind) it is the **file's** creation
   instant and can differ from the first object's by minutes. **Unlike a normal Jet/ACE `DateTime`
@@ -170,10 +244,50 @@ relocated to the end of the larger 4 KB page:
 The first slot is the **exclusive-mode** commit state; the remaining 255 are shared-mode users. Each 2-byte
 value is a commit/lock status Jet uses (with the matching user lock in the `.ldb`/`.laccdb`) to coordinate
 concurrency — this table is only the per-user *overall status*; the `.ldb`/`.laccdb` holds the actual
-page-level read/write registration. Observed: an idle/unused slot reads **`00 01`**; the head slots carry
-per-file last-commit states (`01 01`, `05 01`, …). **`00 00` means "mid-write to disk"**, and `01 00` means
+page-level read/write registration. **`00 00` means "mid-write to disk"**, and `01 00` means
 "accessed a corrupted page" — either one *without a matching user lock* makes Jet declare the database
 suspect and demand a repair before it will open.
+
+#### The slot is a little-endian commit counter (verified 2026-08-26)
+
+Above those low reserved values, a slot is **one 16-bit little-endian counter of that user's committed
+writes** — not an enumerated state, which is how this file previously described it and how the note in
+[page-05](page-05-usage-maps.md) half-described it ("bumps a counter … not yet decoded"). Measured against
+`Microsoft.ACE.OLEDB.16.0` on one connection, watching `0xE02` (slot 1, the first shared user):
+
+| | slot 1 | as LE16 |
+| --- | --- | --- |
+| baseline | `D2 02` | 722 |
+| after `SELECT` | `D2 02` | 722 — **reads never move it** |
+| after `CREATE TABLE` | `D3 02` | 723 |
+| after 3 × `INSERT` | `D5 02` | 725 |
+| after `UPDATE`, after `DELETE` | `D6 02`, `D7 02` | 726, 727 |
+| after `CREATE INDEX` | `D9 02` | 729 |
+| +40 inserts | `01 03` | 769 — exactly +40 |
+| +240 more | `F1 03` | 1009 — exactly +240 |
+
+Four properties fall out, each of which the "state" reading would have got wrong:
+
+- **The two bytes are one value.** Driving the low byte past `0xFF` carries into the high byte —
+  `0x03F1` + 16 = `0x0401` — which independent bytes would not do. It also explains why a well-used file
+  shows a high byte of `02`/`03`/`04` rather than the `01` of an untouched slot: the low byte has wrapped
+  that many times.
+- **The idle `00 01` is that counter's start value**, 256 — not a magic constant. It sits just above the
+  reserved `00 00`/`01 00` status codes, and a freshly compacted file starts there (below).
+- **The on-disk value lags the last write by one.** A statement's increment is not flushed until the *next*
+  write, or until the connection closes (which lands the pending one plus its own). So a burst of *n* inserts
+  reads as *n−1* until something follows it. Measure between two mid-burst samples and the lag cancels.
+- **Every committed write costs exactly one**, DDL included. The lag makes this easy to misread: in the run
+  above `CREATE INDEX` appears to move it by 2 and the first `INSERT` by 0, but the whole seven-statement
+  sequence is 722 → 729, exactly +7. Isolating `CREATE INDEX` — the same trailing five inserts with and
+  without it — gives +5 versus +6, so it is one commit like anything else.
+
+**Reopening does not reset it; compacting does.** The counter carries straight across a close and reopen
+(`…DA` before, `…DA` after). A DAO `CompactDatabase` writes a whole new file and its slot 1 starts at **256**,
+the idle value, then counts normally from there (744 → 256 → 260 after five inserts).
+
+Tests: `CommitByteTableTests`. LibRed still does not read or maintain the table — ACE opens and queries
+LibRed-created tables with the counter untouched — so this is documentation of the format, not a dependency.
 
 This region is **undocumented by mdbtools and Jackcess** — LibRed's own decode, cross-checked three ways:
 the white paper's Jet 2.x/3.x structure, the raw bytes of real ACE files, and the Microsoft **LDBView**
@@ -308,10 +422,11 @@ algorithm is used for `baseHash`, the per-block `H`, and the AES `0x36`/`0x5C` e
 - cipher: RC4 (re-keyed per page; the verifier + verifier-hash decrypt as one continuous stream) or **AES-ECB**.
 
 The applicable `(key length, RC4 pad, AES iteration count)` is decided by whichever authenticates the verifier.
-Fixture-free known-answer tests (real salt + verifier vectors, synthetic page 0) in `OfficeStandardEncryptionTests`;
-real-fixture variant sweep in `OfficeStandardVariantReadTests` covering **RC4 and AES-128/192/256 × MD5/SHA-1/
-SHA-256/SHA-384/SHA-512 × `KeySize=0`** (all Access-tool re-encryptions of `db2007-oldenc`), plus clean-rejection
-cases (3DES/DES/RC2 ciphers, MD2 hash).
+Fixture-free known-answer tests (real salt + verifier vectors, synthetic page 0) live in
+`OfficeStandardEncryptionTests`; `DatabaseEncryptionTests` exercise generated RC4 key/hash variants end-to-end,
+and `OfficeStandardVariantReadTests` mutate generated descriptors to verify clean rejection of unsupported
+ciphers and hashes. The broader **RC4 and AES-128/192/256 × MD5/SHA-1/SHA-256/SHA-384/SHA-512 ×
+`KeySize=0`** sweep was verified against Access-tool re-encryptions of `db2007-oldenc` during format research.
 
 > **LibRed reads more than Access opens.** Verified on EverythingAccess-re-encrypted `db2007-oldenc` variants:
 > **AES-128/AES-256 with MD5 or SHA-512 hashing** authenticate and decode correctly in LibRed, but **Access refuses
@@ -354,8 +469,9 @@ nonzero, parses `len` bytes of `EncryptionInfo` at `0x29B`; if **zero it treats 
 with a nonzero `0x3E` key and a valid descriptor present. Verified across `db-nonstandard`/`db2007-oldenc`/
 `db2013` (each length equals its exact blob size: 224 / 190 / 1055) and by experiment: a file with the key +
 descriptor but `len@0x299 = 0` makes Access read ciphertext as plaintext and offer to "recover"; writing the
-length makes it prompt for the password and open. LibRed's *reader* ignores this (it scans for the descriptor),
-but a *writer* must set it. The Agile XML descriptor uses the same `len@0x299` + blob-at-`0x29B` framing.
+length makes it prompt for the password and open. LibRed likewise treats the length as authoritative: binary or
+XML content outside the declared frame is ignored, and a frame extending beyond page 0 is rejected as malformed.
+The Agile XML descriptor uses the same `len@0x299` + blob-at-`0x29B` framing.
 
 > **Creating encryption from scratch (implemented — Office Standard).** `LibRed.Crypto.DatabaseEncryption`
 > (`SetPassword`/`RemovePassword`/`ChangePassword`, scheme via `AccessEncryption`) encrypts a plaintext `.accdb`

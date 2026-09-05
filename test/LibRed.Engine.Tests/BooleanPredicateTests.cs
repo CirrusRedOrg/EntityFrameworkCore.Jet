@@ -9,8 +9,7 @@ public class BooleanPredicateTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"boolpred-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "boolpred-");
         return path;
     }
 
@@ -37,7 +36,7 @@ public class BooleanPredicateTests
             Assert.Equal([1, 3, 4], Ids(e.ExecuteQuery("SELECT Id FROM Tvals WHERE D")));          // non-zero doubles incl. 0.5
             Assert.Equal(1, e.ExecuteQuery("SELECT Id FROM Tvals WHERE N AND Id = 3").Rows.Count()); // combined
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A native BIT column written by LibRed: the value may be inserted as 1/-1/0 or TRUE/FALSE (Northwind's
@@ -65,7 +64,7 @@ public class BooleanPredicateTests
             Assert.Equal(true, e.ExecuteQuery("SELECT Flag FROM B WHERE Id = 1").Rows.First()[0]);
             Assert.Equal(false, e.ExecuteQuery("SELECT Flag FROM B WHERE Id = 2").Rows.First()[0]);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A native Jet YesNo (bool) column still works as a bare predicate (Northwind Products.Discontinued = 8).
@@ -80,6 +79,6 @@ public class BooleanPredicateTests
             Assert.Equal(8, e.ExecuteQuery("SELECT ProductID FROM Products WHERE Discontinued").Rows.Count());
             Assert.Equal(69, e.ExecuteQuery("SELECT ProductID FROM Products WHERE NOT Discontinued").Rows.Count());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

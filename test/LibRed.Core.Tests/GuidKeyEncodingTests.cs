@@ -8,15 +8,7 @@ namespace LibRed.Core.Tests;
 
 public class GuidKeyEncodingTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider available.");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static readonly Guid[] Guids =
     [
@@ -32,8 +24,7 @@ public class GuidKeyEncodingTests
     public void Encoded_guid_keys_match_access_byte_for_byte()
     {
         // Build a real GUID-PK table via Access, then check our encoder reproduces each stored key.
-        string path = Path.Combine(Path.GetTempPath(), $"libred-guidkey-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-guidkey-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -75,7 +66,7 @@ public class GuidKeyEncodingTests
             }
             Assert.Equal(Guids.Length, checkd);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -83,8 +74,7 @@ public class GuidKeyEncodingTests
     {
         // A DESCENDING GUID index: ACE inverts every byte of the ascending key except the 0x09 field
         // marker. Build it via Access, then confirm our encoder reproduces each stored key (and decodes).
-        string path = Path.Combine(Path.GetTempPath(), $"libred-guiddesc-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-guiddesc-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -127,7 +117,7 @@ public class GuidKeyEncodingTests
             }
             Assert.Equal(Guids.Length, checkd);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -135,8 +125,7 @@ public class GuidKeyEncodingTests
     {
         // The mirror direction: LibRed writes the GUID-PK table + rows, and ACE opens it, seeks by the
         // key, and returns every row in key order — proving the index keys we wrote are well-ordered.
-        string path = Path.Combine(Path.GetTempPath(), $"libred-guidwr-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-guidwr-");
         try
         {
             var target = Guids[4]; // 12345678-...
@@ -163,6 +152,6 @@ public class GuidKeyEncodingTests
                 Assert.Equal(4, Convert.ToInt32(c.ExecuteScalar())); // seek by the GUID key finds the row
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

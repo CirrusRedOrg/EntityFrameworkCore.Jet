@@ -38,8 +38,7 @@ public class JetNameValidationTests
     [Fact]
     public void CreateTable_rejects_a_too_long_column_name()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"nv-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "nv-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -48,21 +47,20 @@ public class JetNameValidationTests
                 primaryKey: null));
             Assert.Contains("64", ex.Message);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void CreateTable_rejects_a_forbidden_table_name()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"nv-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "nv-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
             Assert.Throws<ArgumentException>(() => db.CreateTable("My.Table",
                 [new ColumnSpec("K", JetDataType.Int32, 4, IsFixedLength: true)], primaryKey: ["K"]));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // Constraint names (PK/unique/check) go to disk too and carry the same limits — a 100-char one corrupts
@@ -70,8 +68,7 @@ public class JetNameValidationTests
     [Fact]
     public void CreateTable_rejects_over_long_constraint_names()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"nv-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "nv-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -83,6 +80,6 @@ public class JetNameValidationTests
             Assert.Throws<ArgumentException>(() => db.CreateTable("T3", [K, new("U", JetDataType.Int32, 4, IsFixedLength: true)],
                 primaryKey: ["K"], uniqueConstraints: [new UniqueIndexSpec(L100, ["U"])]));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

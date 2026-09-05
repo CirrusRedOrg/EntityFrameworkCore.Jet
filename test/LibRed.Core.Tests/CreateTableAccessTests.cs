@@ -9,31 +9,15 @@ public class CreateTableAccessTests
 {
     private static string CopyToTemp()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"libred-createaccess-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-createaccess-");
         return path;
     }
 
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try
-            {
-                // "OLE DB Services=-4" disables connection pooling so the file is released on
-                // Dispose and the temp copy can be deleted.
-                var conn = new OleDbConnection($"Provider={provider};Data Source={path};OLE DB Services=-4;");
-                conn.Open();
-                return conn;
-            }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider (12.0/16.0) is available.");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static void TryDelete(string path)
     {
-        try { File.Delete(path); } catch (IOException) { /* lock lingered; temp file, ignore */ }
+        TemporaryDatabase.Delete(path);
     }
 
     [Fact]
@@ -509,7 +493,7 @@ public class CreateTableAccessTests
             using (var bad = conn.CreateCommand())
             {
                 bad.CommandText = "INSERT INTO T (Id, Age) VALUES (2, -1)"; // violates [Age] > 0
-                Assert.ThrowsAny<Exception>(() => bad.ExecuteNonQuery());
+                Assert.Throws<OleDbException>(() => bad.ExecuteNonQuery());
             }
         }
         finally { TryDelete(path); }

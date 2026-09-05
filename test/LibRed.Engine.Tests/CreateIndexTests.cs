@@ -8,8 +8,7 @@ public class CreateIndexTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"cidx-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "cidx-");
         return path;
     }
 
@@ -41,7 +40,7 @@ public class CreateIndexTests
                 Assert.Equal(2, new QueryEngine(db).ExecuteQuery("SELECT `Id` FROM `T`").Rows.Count());
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -65,7 +64,7 @@ public class CreateIndexTests
                 Assert.Contains(t.Indexes, ix => ix.Name == "PK_T" && ix.IsPrimaryKey && ix.IsUnique);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // WITH IGNORE NULL: the index is created (flag 0x02, reader exposes IgnoreNulls), and a row whose
@@ -93,7 +92,7 @@ public class CreateIndexTests
                 Assert.Equal(3, new QueryEngine(db).ExecuteQuery("SELECT `Id` FROM `T`").Rows.Count());
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // A descending index: the index-data block records the column as descending (Ascending = false),
@@ -120,7 +119,7 @@ public class CreateIndexTests
                 Assert.False(ascending); // recorded as descending
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // CREATE INDEX on a populated table back-fills the new index over the existing rows.
@@ -146,6 +145,6 @@ public class CreateIndexTests
                 Assert.Equal(1, e.ExecuteQuery("SELECT `Id` FROM `T` WHERE `Name` = 'b'").Rows.Count());
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

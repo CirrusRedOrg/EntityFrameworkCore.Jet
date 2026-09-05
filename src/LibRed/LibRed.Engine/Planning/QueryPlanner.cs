@@ -15,14 +15,36 @@ public sealed class QueryPlanner
         return PlanStatement(bound.Statement);
     }
 
-    private static PlanNode PlanStatement(SqlStatement statement) => statement switch
+    /// <summary>Plans a SELECT or a set operation over SELECTs. Public because an append query's source is
+    /// either — <c>INSERT INTO t SELECT …</c>, or a UNION feeding one.</summary>
+    public static PlanNode PlanStatement(SqlStatement statement) => statement switch
     {
         SelectStatement select => PlanSelect(select),
-        SetOperationStatement set => new SetOperationNode(
-            PlanStatement(set.Left), PlanStatement(set.Right), set.Operator),
+        // ORDER BY and paging on a set operation apply to its combined result, so they sit ABOVE the node —
+        // sorting an operand instead is what `A UNION B ORDER BY x` used to do, and it silently returned the
+        // rows in the wrong order (measured against ACE).
+        SetOperationStatement set => PageAndSort(
+            new SetOperationNode(PlanStatement(set.Left), PlanStatement(set.Right), set.Operator),
+            set.OrderBy ?? [], set.Top, set.Offset),
+        ValuesStatement values => new ValuesNode(values.Rows),
         _ => throw new NotImplementedException(
             $"Planning for {statement.GetType().Name} is not yet implemented."),
     };
+
+    /// <summary>Sorts and then pages a set operation's combined result. The sort takes the row bound from the
+    /// paging for the same reason <see cref="BoundSort"/> does — only that many rows can survive it — except
+    /// under OFFSET, where the skipped rows must be produced before they can be discarded.</summary>
+    private static PlanNode PageAndSort(
+        PlanNode node, IReadOnlyList<OrderByItem> orderBy, Expression? top, Expression? offset)
+    {
+        if (orderBy.Count > 0)
+        {
+            Expression? bound = top is not null && offset is null ? top : null;
+            node = new SortNode(node, orderBy, bound);
+        }
+
+        return top is null && offset is null ? node : new LimitNode(node, top, Offset: offset);
+    }
 
     /// <summary>Plans a SELECT statement directly (used for subqueries).</summary>
     public static PlanNode PlanSelect(SelectStatement select)
@@ -34,8 +56,28 @@ public sealed class QueryPlanner
         if (select.Where is not null)
             node = PushPredicates(node, select.Where);
 
+        // Window functions see the post-WHERE rows and are computed before ORDER BY, which may sort by one — so
+        // the node goes here. Each call is lifted out of the projection into a reference to the column the node
+        // publishes for it, which is what leaves everything above (declared types, sorting, DISTINCT, LIMIT)
+        // looking at an ordinary column and needing no changes at all.
+        var windows = new List<WindowOutput>();
+        select = ExtractWindows(select, windows);
+
         bool aggregate = select.GroupBy.Count > 0 || select.Having is not null
             || select.Projection.Any(i => HasAggregate(i.Value));
+
+        if (windows.Count > 0)
+        {
+            if (aggregate)
+                // AggregateNode owns the projection, HAVING and ORDER BY and collapses rows, so a window over
+                // grouped output would need its projection split across the two nodes. EF Core always puts such
+                // a window in its own derived table, so nothing needs this yet — refuse loudly rather than hand
+                // the call to AggregateNode, whose per-group evaluation swallows the resulting error.
+                throw new NotSupportedException(
+                    "A window function over a grouped query (GROUP BY / HAVING / an aggregate projection) is not supported.");
+            node = new WindowNode(node, windows);
+        }
+
         if (aggregate)
             // The aggregate node owns ORDER BY: its keys are evaluated in the group scope (so they can
             // reference grouping expressions / aggregates), not over the already-projected output.
@@ -55,17 +97,23 @@ public sealed class QueryPlanner
         if (select.Distinct)
             node = new DistinctNode(node);
 
-        if (select.Top is { } top)
+        if (select.Top is { } top || select.Offset is not null)
         {
             // `TOP n ... ORDER BY k` only needs the n smallest rows by k, so tell the sort the bound and let it
             // discard rows that can't survive rather than ordering everything. Only sound when nothing between the
             // sort and the limit changes the row count: a projection is 1:1, but DISTINCT/DISTINCTROW collapse
             // rows, so the n rows reaching the limit are not the n the sort would have kept. PERCENT is excluded
             // because it needs the full input count to work out the take at all.
-            if (!select.TopPercent && !select.Distinct && !select.DistinctRow)
-                node = BoundSort(node, top);
+            //
+            // With an OFFSET the sort must keep skip + take rows, not take: the ones it would otherwise discard
+            // are exactly the ones the skip consumes. A bare OFFSET has no bound at all - every row can survive
+            // it - so the sort orders its whole input, as it did before paging existed.
+            if (!select.TopPercent && !select.Distinct && !select.DistinctRow && select.Top is not null)
+                node = BoundSort(node, select.Offset is { } skip
+                    ? new BinaryExpression(BinaryOperator.Add, skip, select.Top)
+                    : select.Top);
 
-            node = new LimitNode(node, top, select.TopPercent);
+            node = new LimitNode(node, select.Top, select.TopPercent, select.Offset);
         }
 
         return node;
@@ -138,8 +186,85 @@ public sealed class QueryPlanner
         FunctionCall f => f.Arguments.Any(HasAggregate),
         BinaryExpression b => HasAggregate(b.Left) || HasAggregate(b.Right),
         UnaryExpression u => HasAggregate(u.Operand),
+        // An aggregate inside a CASE has to be found here so it is computed per group and handed to the
+        // evaluator, rather than being reached during evaluation when no group scope can resolve it. The
+        // standard says the same: aggregates in a WHEN are evaluated before the CASE, not by it. Conditions
+        // count as well as results — HAVING CASE WHEN COUNT(*) > 1 … puts the aggregate in the condition.
+        CaseExpression c => c.WhenClauses.Any(w => HasAggregate(w.Condition) || HasAggregate(w.Result))
+            || (c.ElseResult is not null && HasAggregate(c.ElseResult)),
         _ => false,
     };
+
+    /// <summary>
+    /// Replaces every window function in the projection and ORDER BY with a reference to the column a
+    /// <see cref="WindowNode"/> will publish for it, appending one <see cref="WindowOutput"/> per call.
+    /// Returns the statement unchanged when there are none.
+    /// </summary>
+    /// <remarks>
+    /// Identical calls are not shared. EF Core never repeats one, and comparing two specs for equality to
+    /// dedupe would cost more than the extra column it saves. A subquery is opaque here — its own
+    /// <see cref="PlanSelect"/> handles any window inside it, in its own scope.
+    /// </remarks>
+    private static SelectStatement ExtractWindows(SelectStatement select, List<WindowOutput> windows)
+    {
+        // WHERE and HAVING cannot contain a window function (its value is not defined until they have run), so
+        // only these two clauses are walked.
+        if (!select.Projection.Any(i => HasWindow(i.Value)) && !select.OrderBy.Any(k => HasWindow(k.Value)))
+            return select;
+
+        return select with
+        {
+            Projection = select.Projection.Select(i => i with { Value = LiftWindows(i.Value, windows) }).ToList(),
+            OrderBy = select.OrderBy.Select(k => k with { Value = LiftWindows(k.Value, windows) }).ToList(),
+        };
+    }
+
+    private static bool HasWindow(Expression e) => e switch
+    {
+        WindowFunction => true,
+        FunctionCall f => f.Arguments.Any(HasWindow),
+        BinaryExpression b => HasWindow(b.Left) || HasWindow(b.Right),
+        UnaryExpression u => HasWindow(u.Operand),
+        CaseExpression c => c.WhenClauses.Any(w => HasWindow(w.Condition) || HasWindow(w.Result))
+            || (c.ElseResult is not null && HasWindow(c.ElseResult)),
+        InListExpression il => HasWindow(il.Value) || il.Items.Any(HasWindow),
+        _ => false,
+    };
+
+    private static Expression LiftWindows(Expression e, List<WindowOutput> windows)
+    {
+        switch (e)
+        {
+            case WindowFunction w:
+                // A name no identifier can spell: IDENTIFIER allows '$' only as a trailing character, so this
+                // cannot collide with a real column and be silently shadowed.
+                string name = $"$window{windows.Count}";
+                windows.Add(new WindowOutput(name, w));
+                return new ColumnReference(null, name);
+            case FunctionCall f:
+                return f with { Arguments = f.Arguments.Select(a => LiftWindows(a, windows)).ToList() };
+            case BinaryExpression b:
+                return b with { Left = LiftWindows(b.Left, windows), Right = LiftWindows(b.Right, windows) };
+            case UnaryExpression u:
+                return u with { Operand = LiftWindows(u.Operand, windows) };
+            case CaseExpression c:
+                return c with
+                {
+                    WhenClauses = c.WhenClauses
+                        .Select(w => w with { Condition = LiftWindows(w.Condition, windows), Result = LiftWindows(w.Result, windows) })
+                        .ToList(),
+                    ElseResult = c.ElseResult is null ? null : LiftWindows(c.ElseResult, windows),
+                };
+            case InListExpression il:
+                return il with
+                {
+                    Value = LiftWindows(il.Value, windows),
+                    Items = il.Items.Select(i => LiftWindows(i, windows)).ToList(),
+                };
+            default:
+                return e;
+        }
+    }
 
     private static PlanNode PlanFrom(TableReference? from) => from switch
     {
@@ -161,29 +286,52 @@ public sealed class QueryPlanner
     {
         var conjuncts = new List<Expression>();
         SplitAnd(where, conjuncts);
-        (PlanNode node, List<Expression> unplaced) = Place(joinTree, conjuncts);
+        // The aliases this FROM clause introduces. Any other qualifier belongs to an enclosing query — this is
+        // a correlated subquery's WHERE — and an outer column is readable at every depth of this tree, so it
+        // must not be the thing that stops a conjunct from sinking. That mattered little before APPLY, because
+        // a correlated subquery's predicate still landed as a Filter directly over its own scan, which index
+        // selection recognises. Over a lateral join it lands above the join instead, and the difference is
+        // seeking the inner table once per outer row versus rescanning all of it.
+        HashSet<string> introduced = SubtreeAliases(joinTree);
+        (PlanNode node, List<Expression> unplaced) = Place(joinTree, conjuncts, introduced);
         return unplaced.Count == 0 ? node : new FilterNode(node, CombineAnd(unplaced));
     }
 
     /// <summary>Pushes each conjunct that lies entirely within <paramref name="node"/>'s subtree as deep as it
-    /// fits; returns the rewritten node and the conjuncts that reference tables outside it (to bubble up).</summary>
-    private static (PlanNode Node, List<Expression> Unplaced) Place(PlanNode node, List<Expression> conjuncts)
+    /// fits; returns the rewritten node and the conjuncts that reference tables outside it (to bubble up).
+    /// <paramref name="introduced"/> is the alias set of the whole tree — qualifiers outside it are the
+    /// enclosing query's and are ignored when deciding where a conjunct fits.</summary>
+    private static (PlanNode Node, List<Expression> Unplaced) Place(
+        PlanNode node, List<Expression> conjuncts, HashSet<string> introduced)
     {
         HashSet<string> aliases = SubtreeAliases(node);
         var candidates = new List<Expression>();
         var outside = new List<Expression>();
         foreach (Expression c in conjuncts)
-            (Qualifiers(c) is { } q && q.Count > 0 && q.IsSubsetOf(aliases) ? candidates : outside).Add(c);
+            (Qualifiers(c) is { } q && q.Count > 0 && q.Where(introduced.Contains).All(aliases.Contains)
+                ? candidates : outside).Add(c);
 
         // Only CROSS/INNER joins are safe to push below (an outer join's null-supplying side changes meaning).
         if (node is JoinNode { Kind: JoinKind.Cross or JoinKind.Inner } j)
         {
-            (PlanNode left, List<Expression> afterLeft) = Place(j.Left, candidates);
-            (PlanNode right, List<Expression> both) = Place(j.Right, afterLeft);
+            (PlanNode left, List<Expression> afterLeft) = Place(j.Left, candidates, introduced);
+            (PlanNode right, List<Expression> both) = Place(j.Right, afterLeft, introduced);
             // `both` reference columns from each side → this is the lowest join that sees them: fold into ON.
             Expression? on = j.On;
             foreach (Expression c in both) on = on is null ? c : new BinaryExpression(BinaryOperator.And, on, c);
             return (new JoinNode(left, right, j.Kind, on), outside);
+        }
+
+        // Both APPLY kinds preserve their left side, so a conjunct confined to it can be pushed there: dropping
+        // a left row before the lateral runs removes exactly the output rows the WHERE would have removed
+        // after, and saves re-running the whole right side for it. Nothing is pushed into the RIGHT side —
+        // under OUTER APPLY a filter there can empty an otherwise non-empty result and so manufacture the very
+        // null-padded row the WHERE was there to drop.
+        if (node is JoinNode { Kind: JoinKind.CrossApply or JoinKind.OuterApply } a)
+        {
+            (PlanNode left, List<Expression> rest) = Place(a.Left, candidates, introduced);
+            PlanNode lateral = a with { Left = left };
+            return (rest.Count > 0 ? new FilterNode(lateral, CombineAnd(rest)) : lateral, outside);
         }
 
         PlanNode placed = candidates.Count > 0 ? new FilterNode(node, CombineAnd(candidates)) : node;
@@ -207,6 +355,9 @@ public sealed class QueryPlanner
         // "which aliases does this query introduce?" (ExistsSemiJoin declined every subquery because of it).
         // A DerivedTableNode is deliberately NOT pass-through: above it only its own alias is visible.
         ProjectNode p => SubtreeAliases(p.Input),
+        // A window appends a column without renaming a source, so it passes its input's aliases through — the
+        // same reasoning as ProjectNode above, and the same bug if omitted.
+        WindowNode w => SubtreeAliases(w.Input),
         SortNode s => SubtreeAliases(s.Input),
         LimitNode l => SubtreeAliases(l.Input),
         DistinctNode d => SubtreeAliases(d.Input),

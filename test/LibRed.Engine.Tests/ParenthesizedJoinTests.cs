@@ -13,8 +13,7 @@ public class ParenthesizedJoinTests
 {
     private static string Fresh()
     {
-        string p = Path.Combine(Path.GetTempPath(), $"parenjoin-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), p);
+        string p = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "parenjoin-");
         return p;
     }
 
@@ -40,6 +39,6 @@ public class ParenthesizedJoinTests
             Assert.Equal(2155, flat);      // Customers ⋈ Orders ⋈ Order Details
             Assert.Equal(flat, nested);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

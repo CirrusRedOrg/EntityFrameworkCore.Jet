@@ -24,19 +24,9 @@ namespace LibRed.Core.Tests;
 //
 // Output is written to the test log; the assertions pin only what has actually been observed, so a future ACE
 // change (or a wrong assumption on our side) is noticed rather than silently absorbed.
-public class AceVbaConversionProbeTest(ITestOutputHelper output)
+public class AceVbaConversionRegressionTests(ITestOutputHelper output)
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private static void Exec(OleDbConnection c, string sql) { using var cmd = c.CreateCommand(); cmd.CommandText = sql; cmd.ExecuteNonQuery(); }
 
@@ -73,15 +63,14 @@ public class AceVbaConversionProbeTest(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Probe_vba_conversion_functions()
+    public void Ace_vba_conversion_values_and_provider_types_are_pinned()
     {
         // 58.6 as a double is really 58.600000000000001421085471520..., so CDec either rounds it back to 58.6
         // (OA's 15-digit VarDecFromR8) or expands the exact binary value. This is the value that broke
         // Sum_over_round_works_correctly_in_projection.
         string d586 = (58.6).ToString("R", CultureInfo.InvariantCulture);
 
-        string path = Path.Combine(Path.GetTempPath(), $"acevba-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "acevba-");
         try
         {
             using var conn = OpenOleDb(path);
@@ -157,7 +146,18 @@ public class AceVbaConversionProbeTest(ITestOutputHelper output)
             //    FormatException, so LibRed rejects input ACE accepts.
             Assert.Equal((short)-1, Scalar(conn, "SELECT CBool('-1') FROM `P`"));
             Assert.Equal((short)-1, Scalar(conn, "SELECT CBool(0.5) FROM `P`"));
+
+            // Pin the remaining values emitted by the diagnostic table as well; the output is explanatory,
+            // not an unasserted exploratory branch.
+            Assert.Equal(58.6000m, Scalar(conn, "SELECT CCur(`D`) FROM `P`"));
+            Assert.Equal("58.6", Scalar(conn, "SELECT CStr(`D`) FROM `P`"));
+            // Do not pin OLE DB's CLR box here: computed values are frequently widened or otherwise
+            // misrepresented by the provider. The numeric result is the contract (JetDataReader normalizes it).
+            Assert.Equal(-1f, Convert.ToSingle(Scalar(conn, "SELECT CSng(True) FROM `P`")));
+            Assert.Equal(-1.0000m, Scalar(conn, "SELECT CCur(True) FROM `P`"));
+            Assert.Throws<OleDbException>(() => Scalar(conn, "SELECT CByte(True) FROM `P`"));
+            Assert.Equal((short)-1, Scalar(conn, "SELECT CBool('True') FROM `P`"));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

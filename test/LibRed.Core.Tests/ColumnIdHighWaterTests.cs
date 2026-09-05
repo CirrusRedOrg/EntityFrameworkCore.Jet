@@ -11,23 +11,12 @@ namespace LibRed.Core.Tests;
 // ACE enforces this ("Too many fields defined"); LibRed must too, rather than write a 256th id ACE can't read.
 public class ColumnIdHighWaterTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Ace_rejects_add_column_after_255_ids_used_even_with_dropped_columns()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"c255a-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "c255a-");
         try
         {
             using var conn = OpenOleDb(path);
@@ -43,14 +32,13 @@ public class ColumnIdHighWaterTests
             var ex = Assert.ThrowsAny<OleDbException>(() => add.ExecuteNonQuery());
             Assert.Contains("Too many fields", ex.Message);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Libred_rejects_add_column_once_the_id_high_water_reaches_255()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"c255l-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "c255l-");
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
@@ -69,6 +57,6 @@ public class ColumnIdHighWaterTests
             Assert.Contains("too many fields", ex.Message);
             Assert.Equal(245, db.Catalog.FindTable("C")!.Columns.Count);   // unchanged — nothing written
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

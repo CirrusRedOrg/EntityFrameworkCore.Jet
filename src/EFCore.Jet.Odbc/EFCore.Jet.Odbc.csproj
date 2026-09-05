@@ -37,4 +37,9 @@
 	  <Using Include="System.Diagnostics.CodeAnalysis" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatform">
+			<_Parameter1>windows</_Parameter1>
+		</AssemblyAttribute>
+	</ItemGroup>
 </Project>

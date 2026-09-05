@@ -22,6 +22,10 @@ chronologically: below the 1899-12-30 epoch the day count goes negative while th
 positive, so 1899-12-29 06:00 is -1.25 and 18:00 is -1.75 and ACE orders the later time first. LibRed
 matches that, because `IndexKeyEncoder` writes the same serial as the index key and the two paths must
 agree (see `AcePreEpochDateProbeTest`). Date *functions* are unaffected — they work in date space.
+Function argument counts are validated against ACE's JES, including optional arguments and Jet quirks:
+`IIf` accepts two or three arguments (an omitted false branch yields NULL), `Choose` needs an index and at
+least one choice, and `Switch` needs at least one complete condition/value pair. Aggregate calls are checked
+by the same contract instead of bypassing scalar validation.
 
 > **Two expression services — what "ACE has it" means.** Access has (1) the **Jet/ACE OLE DB Expression
 > Service (JES)**, the built-in set the ACE OLE DB provider carries **standalone**, and (2) the **Access
@@ -141,8 +145,6 @@ NULL (`Count` returns 0).
   `Environ`, `Randomize`, and the domain aggregates. `Split` also returns a Variant array (no scalar-SQL
   representation).
 - **No scalar-SQL form:** `IRR` / `NPV` (array argument); `Array` / `Join` / `CVErr` (VBA-only).
-- **Argument arity is not validated** — LibRed reads the arguments it needs and ignores extras, where ACE
-  errors "Wrong number of arguments". A cross-cutting lenience, not per-function.
 
 See [page-02c-default-values.md](format/page-02c-default-values.md) for how these functions behave specifically in a column
 `DEFAULT` (the DDL-parser-vs-expression-service split, and the forbidden categories).

@@ -7,7 +7,6 @@ using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Text;
 using EntityFrameworkCore.Jet.Metadata;
-using EntityFrameworkCore.Jet.Storage.Internal;
 using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.ChangeTracking.Internal;
@@ -71,7 +70,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: 0,
             storeGenerationIndex: 0);
-        id.TypeMapping = JetIntTypeMapping.Default.Clone(
+        id.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.ManyTypesId>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: new ValueConverter<CompiledModelTestBase.ManyTypesId, int>(int (CompiledModelTestBase.ManyTypesId v) => v.Id, CompiledModelTestBase.ManyTypesId (int v) => new CompiledModelTestBase.ManyTypesId(v)),
@@ -114,7 +113,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        @bool.TypeMapping = JetBoolTypeMapping.Default;
+        @bool.TypeMapping = LibRedBoolTypeMapping.Default;
 
         var boolArray = runtimeEntityType.AddProperty(
             "BoolArray",
@@ -147,7 +146,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        boolArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        boolArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<bool[], bool>(DefaultValueComparer<bool>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -157,7 +156,7 @@ public partial class ManyTypesEntityType
                 JsonBoolReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<bool[], bool>(
                 JsonBoolReaderWriter.Instance),
-            elementMapping: JetBoolTypeMapping.Default);
+            elementMapping: LibRedBoolTypeMapping.Default);
         var boolArrayElementType = boolArray.SetElementType(typeof(bool));
         boolArrayElementType.TypeMapping = boolArray.TypeMapping.ElementTypeMapping;
 
@@ -192,7 +191,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        boolReadOnlyCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        boolReadOnlyCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<bool>, bool>(DefaultValueComparer<bool>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -202,7 +201,7 @@ public partial class ManyTypesEntityType
                 JsonBoolReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<List<bool>, bool>(
                 JsonBoolReaderWriter.Instance),
-            elementMapping: JetBoolTypeMapping.Default);
+            elementMapping: LibRedBoolTypeMapping.Default);
         var boolReadOnlyCollectionElementType = boolReadOnlyCollection.SetElementType(typeof(bool));
         boolReadOnlyCollectionElementType.TypeMapping = boolReadOnlyCollection.TypeMapping.ElementTypeMapping;
 
@@ -237,7 +236,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        boolToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        boolToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<bool>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -280,7 +279,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        boolToTwoValuesConverterProperty.TypeMapping = JetByteTypeMapping.Default.Clone(
+        boolToTwoValuesConverterProperty.TypeMapping = LibRedByteTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<bool>.Default,
             providerValueComparer: DefaultValueComparer<byte>.Default,
             converter: new ValueConverter<bool, byte>(byte (bool v) => ((byte)((v ? 1 : 0))), bool (byte v) => v == 1),
@@ -321,7 +320,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        boolToZeroOneConverterProperty.TypeMapping = JetShortTypeMapping.Default.Clone(
+        boolToZeroOneConverterProperty.TypeMapping = LibRedShortTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<bool>.Default,
             providerValueComparer: DefaultValueComparer<short>.Default,
             converter: new ValueConverter<bool, short>(short (bool v) => ((short)((v ? 1 : 0))), bool (short v) => v == 1),
@@ -361,7 +360,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        bytes.TypeMapping = JetByteArrayTypeMapping.Default.Clone(
+        bytes.TypeMapping = LibRedByteArrayTypeMapping.Default.Clone(
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "longbinary"),
             storeTypePostfix: StoreTypePostfix.None);
@@ -397,7 +396,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        bytesArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        bytesArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<byte[][], byte[]>(ValueComparer<byte[]>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -407,7 +406,7 @@ public partial class ManyTypesEntityType
                 JsonByteArrayReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfReferencesReaderWriter<byte[][], byte[]>(
                 JsonByteArrayReaderWriter.Instance),
-            elementMapping: JetByteArrayTypeMapping.Default.Clone(
+            elementMapping: LibRedByteArrayTypeMapping.Default.Clone(
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "longbinary"),
                 storeTypePostfix: StoreTypePostfix.None));
@@ -447,7 +446,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        bytesToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        bytesToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<byte[]>.Default,
             keyComparer: ValueComparer<byte[]>.DefaultWithStructuralComparisons,
             providerValueComparer: DefaultValueComparer<string>.Default,
@@ -491,7 +490,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        castingConverterProperty.TypeMapping = JetDecimalTypeMapping.Default.Clone(
+        castingConverterProperty.TypeMapping = LibRedDecimalTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<int>.Default,
             providerValueComparer: DefaultValueComparer<decimal>.Default,
             converter: new ValueConverter<int, decimal>(decimal (int v) => ((decimal)v), int (decimal v) => ((int)v)),
@@ -531,7 +530,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        @char.TypeMapping = JetStringTypeMapping.Default.Clone(
+        @char.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<char>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -574,7 +573,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        charArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        charArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<char[], char>(DefaultValueComparer<char>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -588,7 +587,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<char, string>(
                     JsonStringReaderWriter.Instance,
                     CharToStringConverter.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: DefaultValueComparer<char>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -633,7 +632,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        charToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        charToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<char>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -679,7 +678,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        dateOnly.TypeMapping = JetDateOnlyTypeMapping.Default;
+        dateOnly.TypeMapping = LibRedDateOnlyTypeMapping.Default;
 
         var dateOnlyArray = runtimeEntityType.AddProperty(
             "DateOnlyArray",
@@ -712,7 +711,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        dateOnlyArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        dateOnlyArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<DateOnly[], DateOnly>(DefaultValueComparer<DateOnly>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -722,7 +721,7 @@ public partial class ManyTypesEntityType
                 JsonDateOnlyReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<DateOnly[], DateOnly>(
                 JsonDateOnlyReaderWriter.Instance),
-            elementMapping: JetDateOnlyTypeMapping.Default);
+            elementMapping: LibRedDateOnlyTypeMapping.Default);
         var dateOnlyArrayElementType = dateOnlyArray.SetElementType(typeof(DateOnly));
         dateOnlyArrayElementType.TypeMapping = dateOnlyArray.TypeMapping.ElementTypeMapping;
 
@@ -758,7 +757,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        dateOnlyToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        dateOnlyToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<DateOnly>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -802,7 +801,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        dateTime.TypeMapping = JetDateTimeTypeMapping.Default;
+        dateTime.TypeMapping = LibRedDateTimeTypeMapping.Default;
 
         var dateTimeArray = runtimeEntityType.AddProperty(
             "DateTimeArray",
@@ -835,7 +834,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        dateTimeArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        dateTimeArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<DateTime[], DateTime>(DefaultValueComparer<DateTime>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -845,7 +844,7 @@ public partial class ManyTypesEntityType
                 JsonDateTimeReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<DateTime[], DateTime>(
                 JsonDateTimeReaderWriter.Instance),
-            elementMapping: JetDateTimeTypeMapping.Default);
+            elementMapping: LibRedDateTimeTypeMapping.Default);
         var dateTimeArrayElementType = dateTimeArray.SetElementType(typeof(DateTime));
         dateTimeArrayElementType.TypeMapping = dateTimeArray.TypeMapping.ElementTypeMapping;
 
@@ -922,7 +921,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        dateTimeOffsetToBytesConverterProperty.TypeMapping = JetByteArrayTypeMapping.Default.Clone(
+        dateTimeOffsetToBytesConverterProperty.TypeMapping = LibRedByteArrayTypeMapping.Default.Clone(
             comparer: DefaultDateTimeOffsetValueComparer.Default,
             providerValueComparer: ValueComparer<byte[]>.DefaultWithStructuralComparisons,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -966,7 +965,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        dateTimeOffsetToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        dateTimeOffsetToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultDateTimeOffsetValueComparer.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1051,7 +1050,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        dateTimeToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        dateTimeToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<DateTime>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1095,7 +1094,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        dateTimeToTicksConverterProperty.TypeMapping = JetDateTimeTypeMapping.Default;
+        dateTimeToTicksConverterProperty.TypeMapping = LibRedDateTimeTypeMapping.Default;
 
         var @decimal = runtimeEntityType.AddProperty(
             "Decimal",
@@ -1129,7 +1128,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        @decimal.TypeMapping = JetDecimalTypeMapping.Default.Clone(
+        @decimal.TypeMapping = LibRedDecimalTypeMapping.Default.Clone(
             );
 
         var decimalArray = runtimeEntityType.AddProperty(
@@ -1163,7 +1162,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        decimalArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        decimalArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<decimal[], decimal>(DefaultValueComparer<decimal>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1173,7 +1172,7 @@ public partial class ManyTypesEntityType
                 JsonDecimalReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<decimal[], decimal>(
                 JsonDecimalReaderWriter.Instance),
-            elementMapping: JetDecimalTypeMapping.Default.Clone(
+            elementMapping: LibRedDecimalTypeMapping.Default.Clone(
                 ));
         var decimalArrayElementType = decimalArray.SetElementType(typeof(decimal));
         decimalArrayElementType.TypeMapping = decimalArray.TypeMapping.ElementTypeMapping;
@@ -1210,7 +1209,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        decimalNumberToBytesConverterProperty.TypeMapping = JetByteArrayTypeMapping.Default.Clone(
+        decimalNumberToBytesConverterProperty.TypeMapping = LibRedByteArrayTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<decimal>.Default,
             providerValueComparer: ValueComparer<byte[]>.DefaultWithStructuralComparisons,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1254,7 +1253,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        decimalNumberToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        decimalNumberToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<decimal>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1298,7 +1297,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        @double.TypeMapping = JetDoubleTypeMapping.Default;
+        @double.TypeMapping = LibRedDoubleTypeMapping.Default;
 
         var doubleArray = runtimeEntityType.AddProperty(
             "DoubleArray",
@@ -1331,7 +1330,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        doubleArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        doubleArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<double[], double>(DefaultDoubleValueComparer.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1341,7 +1340,7 @@ public partial class ManyTypesEntityType
                 JsonDoubleReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<double[], double>(
                 JsonDoubleReaderWriter.Instance),
-            elementMapping: JetDoubleTypeMapping.Default);
+            elementMapping: LibRedDoubleTypeMapping.Default);
         var doubleArrayElementType = doubleArray.SetElementType(typeof(double));
         doubleArrayElementType.TypeMapping = doubleArray.TypeMapping.ElementTypeMapping;
 
@@ -1377,7 +1376,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        doubleNumberToBytesConverterProperty.TypeMapping = JetByteArrayTypeMapping.Default.Clone(
+        doubleNumberToBytesConverterProperty.TypeMapping = LibRedByteArrayTypeMapping.Default.Clone(
             comparer: DefaultDoubleValueComparer.Default,
             providerValueComparer: ValueComparer<byte[]>.DefaultWithStructuralComparisons,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1421,7 +1420,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        doubleNumberToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        doubleNumberToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultDoubleValueComparer.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1464,7 +1463,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum16.TypeMapping = JetShortTypeMapping.Default.Clone(
+        enum16.TypeMapping = LibRedShortTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum16>.Default,
             providerValueComparer: DefaultValueComparer<short>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance,
@@ -1504,7 +1503,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum16Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum16Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.Enum16[], CompiledModelTestBase.Enum16>(ValueComparer<CompiledModelTestBase.Enum16>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1518,7 +1517,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum16, short>(
                     JsonInt16ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance)),
-            elementMapping: JetShortTypeMapping.Default.Clone(
+            elementMapping: LibRedShortTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum16>.Default,
                 providerValueComparer: DefaultValueComparer<short>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance,
@@ -1560,7 +1559,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum16AsString.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum16AsString.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum16>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1603,7 +1602,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum16AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum16AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.Enum16[], CompiledModelTestBase.Enum16>(ValueComparer<CompiledModelTestBase.Enum16>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1617,7 +1616,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum16, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.Enum16>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum16>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -1662,7 +1661,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum16AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum16AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.Enum16>, CompiledModelTestBase.Enum16>(ValueComparer<CompiledModelTestBase.Enum16>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1676,7 +1675,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum16, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.Enum16>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum16>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -1721,7 +1720,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum16Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum16Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.Enum16>, CompiledModelTestBase.Enum16>(ValueComparer<CompiledModelTestBase.Enum16>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1735,7 +1734,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum16, short>(
                     JsonInt16ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance)),
-            elementMapping: JetShortTypeMapping.Default.Clone(
+            elementMapping: LibRedShortTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum16>.Default,
                 providerValueComparer: DefaultValueComparer<short>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance,
@@ -1776,7 +1775,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum32.TypeMapping = JetIntTypeMapping.Default.Clone(
+        enum32.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum32>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance,
@@ -1816,7 +1815,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum32Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum32Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.Enum32[], CompiledModelTestBase.Enum32>(ValueComparer<CompiledModelTestBase.Enum32>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1830,7 +1829,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum32, int>(
                     JsonInt32ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance)),
-            elementMapping: JetIntTypeMapping.Default.Clone(
+            elementMapping: LibRedIntTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum32>.Default,
                 providerValueComparer: DefaultValueComparer<int>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance,
@@ -1872,7 +1871,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum32AsString.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum32AsString.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum32>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1915,7 +1914,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum32AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum32AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.Enum32[], CompiledModelTestBase.Enum32>(ValueComparer<CompiledModelTestBase.Enum32>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1929,7 +1928,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum32, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.Enum32>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum32>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -1974,7 +1973,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum32AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum32AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.Enum32>, CompiledModelTestBase.Enum32>(ValueComparer<CompiledModelTestBase.Enum32>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -1988,7 +1987,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum32, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.Enum32>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum32>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -2033,7 +2032,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum32Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum32Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.Enum32>, CompiledModelTestBase.Enum32>(ValueComparer<CompiledModelTestBase.Enum32>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2047,7 +2046,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum32, int>(
                     JsonInt32ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance)),
-            elementMapping: JetIntTypeMapping.Default.Clone(
+            elementMapping: LibRedIntTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum32>.Default,
                 providerValueComparer: DefaultValueComparer<int>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance,
@@ -2128,7 +2127,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum64Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum64Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.Enum64[], CompiledModelTestBase.Enum64>(ValueComparer<CompiledModelTestBase.Enum64>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2184,7 +2183,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum64AsString.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum64AsString.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum64>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2227,7 +2226,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum64AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum64AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.Enum64[], CompiledModelTestBase.Enum64>(ValueComparer<CompiledModelTestBase.Enum64>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2241,7 +2240,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum64, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.Enum64>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum64>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -2286,7 +2285,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum64AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum64AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.Enum64>, CompiledModelTestBase.Enum64>(ValueComparer<CompiledModelTestBase.Enum64>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2300,7 +2299,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum64, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.Enum64>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum64>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -2345,7 +2344,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum64Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum64Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.Enum64>, CompiledModelTestBase.Enum64>(ValueComparer<CompiledModelTestBase.Enum64>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2400,7 +2399,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum8.TypeMapping = JetShortTypeMapping.Default.Clone(
+        enum8.TypeMapping = LibRedShortTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum8>.Default,
             providerValueComparer: DefaultValueComparer<short>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance,
@@ -2440,7 +2439,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum8Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum8Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.Enum8[], CompiledModelTestBase.Enum8>(ValueComparer<CompiledModelTestBase.Enum8>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2454,7 +2453,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum8, short>(
                     JsonInt16ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance)),
-            elementMapping: JetShortTypeMapping.Default.Clone(
+            elementMapping: LibRedShortTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum8>.Default,
                 providerValueComparer: DefaultValueComparer<short>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance,
@@ -2496,7 +2495,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum8AsString.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum8AsString.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum8>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2539,7 +2538,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum8AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum8AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.Enum8[], CompiledModelTestBase.Enum8>(ValueComparer<CompiledModelTestBase.Enum8>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2553,7 +2552,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum8, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.Enum8>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum8>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -2598,7 +2597,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum8AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum8AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.Enum8>, CompiledModelTestBase.Enum8>(ValueComparer<CompiledModelTestBase.Enum8>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2612,7 +2611,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum8, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.Enum8>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum8>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -2657,7 +2656,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enum8Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enum8Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.Enum8>, CompiledModelTestBase.Enum8>(ValueComparer<CompiledModelTestBase.Enum8>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2671,7 +2670,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum8, short>(
                     JsonInt16ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance)),
-            elementMapping: JetShortTypeMapping.Default.Clone(
+            elementMapping: LibRedShortTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum8>.Default,
                 providerValueComparer: DefaultValueComparer<short>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance,
@@ -2713,7 +2712,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumToNumberConverterProperty.TypeMapping = JetIntTypeMapping.Default.Clone(
+        enumToNumberConverterProperty.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum32>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: new ValueConverter<CompiledModelTestBase.Enum32, int>(int (CompiledModelTestBase.Enum32 value) => ((int)value), CompiledModelTestBase.Enum32 (int value) => ((CompiledModelTestBase.Enum32)value)),
@@ -2754,7 +2753,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum32>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2797,7 +2796,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU16.TypeMapping = JetIntTypeMapping.Default.Clone(
+        enumU16.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.EnumU16>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance,
@@ -2837,7 +2836,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU16Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU16Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.EnumU16[], CompiledModelTestBase.EnumU16>(ValueComparer<CompiledModelTestBase.EnumU16>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2851,7 +2850,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU16, int>(
                     JsonInt32ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance)),
-            elementMapping: JetIntTypeMapping.Default.Clone(
+            elementMapping: LibRedIntTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU16>.Default,
                 providerValueComparer: DefaultValueComparer<int>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance,
@@ -2893,7 +2892,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU16AsString.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU16AsString.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.EnumU16>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2936,7 +2935,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU16AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU16AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.EnumU16[], CompiledModelTestBase.EnumU16>(ValueComparer<CompiledModelTestBase.EnumU16>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -2950,7 +2949,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU16, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.EnumU16>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU16>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -2995,7 +2994,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU16AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU16AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.EnumU16>, CompiledModelTestBase.EnumU16>(ValueComparer<CompiledModelTestBase.EnumU16>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3009,7 +3008,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU16, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.EnumU16>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU16>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -3054,7 +3053,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU16Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU16Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.EnumU16>, CompiledModelTestBase.EnumU16>(ValueComparer<CompiledModelTestBase.EnumU16>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3068,7 +3067,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU16, int>(
                     JsonInt32ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance)),
-            elementMapping: JetIntTypeMapping.Default.Clone(
+            elementMapping: LibRedIntTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU16>.Default,
                 providerValueComparer: DefaultValueComparer<int>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance,
@@ -3149,7 +3148,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU32Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU32Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.EnumU32[], CompiledModelTestBase.EnumU32>(ValueComparer<CompiledModelTestBase.EnumU32>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3205,7 +3204,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU32AsString.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU32AsString.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.EnumU32>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3248,7 +3247,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU32AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU32AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.EnumU32[], CompiledModelTestBase.EnumU32>(ValueComparer<CompiledModelTestBase.EnumU32>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3262,7 +3261,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU32, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.EnumU32>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU32>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -3307,7 +3306,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU32AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU32AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.EnumU32>, CompiledModelTestBase.EnumU32>(ValueComparer<CompiledModelTestBase.EnumU32>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3321,7 +3320,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU32, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.EnumU32>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU32>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -3366,7 +3365,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU32Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU32Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.EnumU32>, CompiledModelTestBase.EnumU32>(ValueComparer<CompiledModelTestBase.EnumU32>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3421,7 +3420,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU64.TypeMapping = JetDecimalTypeMapping.Default.Clone(
+        enumU64.TypeMapping = LibRedDecimalTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.EnumU64>.Default,
             providerValueComparer: DefaultValueComparer<decimal>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3465,7 +3464,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU64Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU64Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.EnumU64[], CompiledModelTestBase.EnumU64>(ValueComparer<CompiledModelTestBase.EnumU64>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3479,7 +3478,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU64, decimal>(
                     JsonDecimalReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU64, decimal>.Instance)),
-            elementMapping: JetDecimalTypeMapping.Default.Clone(
+            elementMapping: LibRedDecimalTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU64>.Default,
                 providerValueComparer: DefaultValueComparer<decimal>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -3525,7 +3524,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU64AsString.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU64AsString.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.EnumU64>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3568,7 +3567,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU64AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU64AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.EnumU64[], CompiledModelTestBase.EnumU64>(ValueComparer<CompiledModelTestBase.EnumU64>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3582,7 +3581,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU64, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.EnumU64>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU64>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -3627,7 +3626,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU64AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU64AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.EnumU64>, CompiledModelTestBase.EnumU64>(ValueComparer<CompiledModelTestBase.EnumU64>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3641,7 +3640,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU64, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.EnumU64>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU64>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -3686,7 +3685,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU64Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU64Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.EnumU64>, CompiledModelTestBase.EnumU64>(ValueComparer<CompiledModelTestBase.EnumU64>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3700,7 +3699,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU64, decimal>(
                     JsonDecimalReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU64, decimal>.Instance)),
-            elementMapping: JetDecimalTypeMapping.Default.Clone(
+            elementMapping: LibRedDecimalTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU64>.Default,
                 providerValueComparer: DefaultValueComparer<decimal>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -3745,7 +3744,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU8.TypeMapping = JetByteTypeMapping.Default.Clone(
+        enumU8.TypeMapping = LibRedByteTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.EnumU8>.Default,
             providerValueComparer: DefaultValueComparer<byte>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance,
@@ -3785,7 +3784,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU8Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU8Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.EnumU8[], CompiledModelTestBase.EnumU8>(ValueComparer<CompiledModelTestBase.EnumU8>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3799,7 +3798,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU8, byte>(
                     JsonByteReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance)),
-            elementMapping: JetByteTypeMapping.Default.Clone(
+            elementMapping: LibRedByteTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU8>.Default,
                 providerValueComparer: DefaultValueComparer<byte>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance,
@@ -3841,7 +3840,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU8AsString.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU8AsString.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.EnumU8>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3884,7 +3883,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU8AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU8AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<CompiledModelTestBase.EnumU8[], CompiledModelTestBase.EnumU8>(ValueComparer<CompiledModelTestBase.EnumU8>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3898,7 +3897,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU8, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.EnumU8>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU8>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -3943,7 +3942,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU8AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU8AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.EnumU8>, CompiledModelTestBase.EnumU8>(ValueComparer<CompiledModelTestBase.EnumU8>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -3957,7 +3956,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU8, string>(
                     JsonStringReaderWriter.Instance,
                     EnumToStringConverter<CompiledModelTestBase.EnumU8>.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU8>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -4002,7 +4001,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        enumU8Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        enumU8Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<CompiledModelTestBase.EnumU8>, CompiledModelTestBase.EnumU8>(ValueComparer<CompiledModelTestBase.EnumU8>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4016,7 +4015,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU8, byte>(
                     JsonByteReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance)),
-            elementMapping: JetByteTypeMapping.Default.Clone(
+            elementMapping: LibRedByteTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU8>.Default,
                 providerValueComparer: DefaultValueComparer<byte>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance,
@@ -4058,7 +4057,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        @float.TypeMapping = JetFloatTypeMapping.Default;
+        @float.TypeMapping = LibRedFloatTypeMapping.Default;
 
         var floatArray = runtimeEntityType.AddProperty(
             "FloatArray",
@@ -4091,7 +4090,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        floatArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        floatArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<float[], float>(DefaultFloatValueComparer.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4101,7 +4100,7 @@ public partial class ManyTypesEntityType
                 JsonFloatReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<float[], float>(
                 JsonFloatReaderWriter.Instance),
-            elementMapping: JetFloatTypeMapping.Default);
+            elementMapping: LibRedFloatTypeMapping.Default);
         var floatArrayElementType = floatArray.SetElementType(typeof(float));
         floatArrayElementType.TypeMapping = floatArray.TypeMapping.ElementTypeMapping;
 
@@ -4137,7 +4136,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        guid.TypeMapping = JetGuidTypeMapping.Default;
+        guid.TypeMapping = LibRedGuidTypeMapping.Default;
 
         var guidArray = runtimeEntityType.AddProperty(
             "GuidArray",
@@ -4170,7 +4169,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        guidArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        guidArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<Guid[], Guid>(DefaultValueComparer<Guid>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4180,7 +4179,7 @@ public partial class ManyTypesEntityType
                 JsonGuidReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<Guid[], Guid>(
                 JsonGuidReaderWriter.Instance),
-            elementMapping: JetGuidTypeMapping.Default);
+            elementMapping: LibRedGuidTypeMapping.Default);
         var guidArrayElementType = guidArray.SetElementType(typeof(Guid));
         guidArrayElementType.TypeMapping = guidArray.TypeMapping.ElementTypeMapping;
 
@@ -4216,7 +4215,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        guidToBytesConverterProperty.TypeMapping = JetByteArrayTypeMapping.Default.Clone(
+        guidToBytesConverterProperty.TypeMapping = LibRedByteArrayTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<Guid>.Default,
             providerValueComparer: ValueComparer<byte[]>.DefaultWithStructuralComparisons,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4260,7 +4259,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        guidToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        guidToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<Guid>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4303,7 +4302,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        iPAddress.TypeMapping = JetStringTypeMapping.Default.Clone(
+        iPAddress.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<IPAddress>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4345,7 +4344,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        iPAddressArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        iPAddressArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<IPAddress[], IPAddress>(ValueComparer<IPAddress>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4359,7 +4358,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<IPAddress, string>(
                     JsonStringReaderWriter.Instance,
                     IPAddressToStringConverter.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<IPAddress>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -4403,7 +4402,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        iPAddressReadOnlyCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        iPAddressReadOnlyCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<List<IPAddress>, IPAddress>(ValueComparer<IPAddress>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4417,7 +4416,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<IPAddress, string>(
                     JsonStringReaderWriter.Instance,
                     IPAddressToStringConverter.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<IPAddress>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -4463,7 +4462,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        iPAddressToBytesConverterProperty.TypeMapping = JetByteArrayTypeMapping.Default.Clone(
+        iPAddressToBytesConverterProperty.TypeMapping = LibRedByteArrayTypeMapping.Default.Clone(
             comparer: ValueComparer<IPAddress>.Default,
             providerValueComparer: ValueComparer<byte[]>.DefaultWithStructuralComparisons,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4506,7 +4505,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        iPAddressToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        iPAddressToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<IPAddress>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4549,7 +4548,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        int16.TypeMapping = JetShortTypeMapping.Default;
+        int16.TypeMapping = LibRedShortTypeMapping.Default;
 
         var int16Array = runtimeEntityType.AddProperty(
             "Int16Array",
@@ -4582,7 +4581,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        int16Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        int16Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<short[], short>(DefaultValueComparer<short>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4592,7 +4591,7 @@ public partial class ManyTypesEntityType
                 JsonInt16ReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<short[], short>(
                 JsonInt16ReaderWriter.Instance),
-            elementMapping: JetShortTypeMapping.Default);
+            elementMapping: LibRedShortTypeMapping.Default);
         var int16ArrayElementType = int16Array.SetElementType(typeof(short));
         int16ArrayElementType.TypeMapping = int16Array.TypeMapping.ElementTypeMapping;
 
@@ -4628,7 +4627,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        int32.TypeMapping = JetIntTypeMapping.Default;
+        int32.TypeMapping = LibRedIntTypeMapping.Default;
 
         var int32Array = runtimeEntityType.AddProperty(
             "Int32Array",
@@ -4661,7 +4660,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        int32Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        int32Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<int[], int>(DefaultValueComparer<int>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4671,7 +4670,7 @@ public partial class ManyTypesEntityType
                 JsonInt32ReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<int[], int>(
                 JsonInt32ReaderWriter.Instance),
-            elementMapping: JetIntTypeMapping.Default);
+            elementMapping: LibRedIntTypeMapping.Default);
         var int32ArrayElementType = int32Array.SetElementType(typeof(int));
         int32ArrayElementType.TypeMapping = int32Array.TypeMapping.ElementTypeMapping;
 
@@ -4706,7 +4705,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        int32ReadOnlyCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        int32ReadOnlyCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<int>, int>(DefaultValueComparer<int>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4716,7 +4715,7 @@ public partial class ManyTypesEntityType
                 JsonInt32ReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<List<int>, int>(
                 JsonInt32ReaderWriter.Instance),
-            elementMapping: JetIntTypeMapping.Default);
+            elementMapping: LibRedIntTypeMapping.Default);
         var int32ReadOnlyCollectionElementType = int32ReadOnlyCollection.SetElementType(typeof(int));
         int32ReadOnlyCollectionElementType.TypeMapping = int32ReadOnlyCollection.TypeMapping.ElementTypeMapping;
 
@@ -4785,7 +4784,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        int64Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        int64Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<long[], long>(DefaultValueComparer<long>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4830,7 +4829,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        int8.TypeMapping = JetShortTypeMapping.Default.Clone(
+        int8.TypeMapping = LibRedShortTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<sbyte>.Default,
             providerValueComparer: DefaultValueComparer<short>.Default,
             converter: CastingConverter<sbyte, short>.Instance,
@@ -4870,7 +4869,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        int8Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        int8Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<sbyte[], sbyte>(DefaultValueComparer<sbyte>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4884,7 +4883,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<sbyte, short>(
                     JsonInt16ReaderWriter.Instance,
                     CastingConverter<sbyte, short>.Instance)),
-            elementMapping: JetShortTypeMapping.Default.Clone(
+            elementMapping: LibRedShortTypeMapping.Default.Clone(
                 comparer: DefaultValueComparer<sbyte>.Default,
                 providerValueComparer: DefaultValueComparer<short>.Default,
                 converter: CastingConverter<sbyte, short>.Instance,
@@ -4926,7 +4925,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        intNumberToBytesConverterProperty.TypeMapping = JetByteArrayTypeMapping.Default.Clone(
+        intNumberToBytesConverterProperty.TypeMapping = LibRedByteArrayTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<int>.Default,
             providerValueComparer: ValueComparer<byte[]>.DefaultWithStructuralComparisons,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -4970,7 +4969,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        intNumberToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        intNumberToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<int>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -5015,7 +5014,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullIntToNullStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullIntToNullStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<int?>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -5058,7 +5057,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableBool.TypeMapping = JetBoolTypeMapping.Default;
+        nullableBool.TypeMapping = LibRedBoolTypeMapping.Default;
         nullableBool.SetComparer(new NullableValueComparer<bool>(nullableBool.TypeMapping.Comparer));
 
         var nullableBoolArray = runtimeEntityType.AddProperty(
@@ -5092,7 +5091,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableBoolArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableBoolArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<bool?[], bool>(new NullableValueComparer<bool>(DefaultValueComparer<bool>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -5102,7 +5101,7 @@ public partial class ManyTypesEntityType
                 JsonBoolReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<bool?[], bool>(
                 JsonBoolReaderWriter.Instance),
-            elementMapping: JetBoolTypeMapping.Default);
+            elementMapping: LibRedBoolTypeMapping.Default);
         var nullableBoolArrayElementType = nullableBoolArray.SetElementType(typeof(bool?),
             nullable: true);
         nullableBoolArrayElementType.TypeMapping = nullableBoolArray.TypeMapping.ElementTypeMapping;
@@ -5140,7 +5139,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableBytes.TypeMapping = JetByteArrayTypeMapping.Default.Clone(
+        nullableBytes.TypeMapping = LibRedByteArrayTypeMapping.Default.Clone(
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "longbinary"),
             storeTypePostfix: StoreTypePostfix.None);
@@ -5176,7 +5175,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableBytesArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableBytesArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<byte[][], byte[]>(ValueComparer<byte[]>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -5186,7 +5185,7 @@ public partial class ManyTypesEntityType
                 JsonByteArrayReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfReferencesReaderWriter<byte[][], byte[]>(
                 JsonByteArrayReaderWriter.Instance),
-            elementMapping: JetByteArrayTypeMapping.Default.Clone(
+            elementMapping: LibRedByteArrayTypeMapping.Default.Clone(
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "longbinary"),
                 storeTypePostfix: StoreTypePostfix.None));
@@ -5226,7 +5225,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableChar.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableChar.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<char>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -5269,7 +5268,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableCharArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableCharArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<char?[], char>(new NullableValueComparer<char>(DefaultValueComparer<char>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -5283,7 +5282,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<char, string>(
                     JsonStringReaderWriter.Instance,
                     CharToStringConverter.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: DefaultValueComparer<char>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -5330,7 +5329,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableDateOnly.TypeMapping = JetDateOnlyTypeMapping.Default;
+        nullableDateOnly.TypeMapping = LibRedDateOnlyTypeMapping.Default;
         nullableDateOnly.SetComparer(new NullableValueComparer<DateOnly>(nullableDateOnly.TypeMapping.Comparer));
 
         var nullableDateOnlyArray = runtimeEntityType.AddProperty(
@@ -5364,7 +5363,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableDateOnlyArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableDateOnlyArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<DateOnly?[], DateOnly>(new NullableValueComparer<DateOnly>(DefaultValueComparer<DateOnly>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -5374,7 +5373,7 @@ public partial class ManyTypesEntityType
                 JsonDateOnlyReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<DateOnly?[], DateOnly>(
                 JsonDateOnlyReaderWriter.Instance),
-            elementMapping: JetDateOnlyTypeMapping.Default);
+            elementMapping: LibRedDateOnlyTypeMapping.Default);
         var nullableDateOnlyArrayElementType = nullableDateOnlyArray.SetElementType(typeof(DateOnly?),
             nullable: true);
         nullableDateOnlyArrayElementType.TypeMapping = nullableDateOnlyArray.TypeMapping.ElementTypeMapping;
@@ -5412,7 +5411,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableDateTime.TypeMapping = JetDateTimeTypeMapping.Default;
+        nullableDateTime.TypeMapping = LibRedDateTimeTypeMapping.Default;
         nullableDateTime.SetComparer(new NullableValueComparer<DateTime>(nullableDateTime.TypeMapping.Comparer));
 
         var nullableDateTimeArray = runtimeEntityType.AddProperty(
@@ -5446,7 +5445,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableDateTimeArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableDateTimeArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<DateTime?[], DateTime>(new NullableValueComparer<DateTime>(DefaultValueComparer<DateTime>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -5456,7 +5455,7 @@ public partial class ManyTypesEntityType
                 JsonDateTimeReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<DateTime?[], DateTime>(
                 JsonDateTimeReaderWriter.Instance),
-            elementMapping: JetDateTimeTypeMapping.Default);
+            elementMapping: LibRedDateTimeTypeMapping.Default);
         var nullableDateTimeArrayElementType = nullableDateTimeArray.SetElementType(typeof(DateTime?),
             nullable: true);
         nullableDateTimeArrayElementType.TypeMapping = nullableDateTimeArray.TypeMapping.ElementTypeMapping;
@@ -5494,7 +5493,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableDecimal.TypeMapping = JetDecimalTypeMapping.Default.Clone(
+        nullableDecimal.TypeMapping = LibRedDecimalTypeMapping.Default.Clone(
             );
         nullableDecimal.SetComparer(new NullableValueComparer<decimal>(nullableDecimal.TypeMapping.Comparer));
 
@@ -5529,7 +5528,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableDecimalArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableDecimalArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<decimal?[], decimal>(new NullableValueComparer<decimal>(DefaultValueComparer<decimal>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -5539,7 +5538,7 @@ public partial class ManyTypesEntityType
                 JsonDecimalReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<decimal?[], decimal>(
                 JsonDecimalReaderWriter.Instance),
-            elementMapping: JetDecimalTypeMapping.Default.Clone(
+            elementMapping: LibRedDecimalTypeMapping.Default.Clone(
                 ));
         var nullableDecimalArrayElementType = nullableDecimalArray.SetElementType(typeof(decimal?),
             nullable: true);
@@ -5578,7 +5577,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableDouble.TypeMapping = JetDoubleTypeMapping.Default;
+        nullableDouble.TypeMapping = LibRedDoubleTypeMapping.Default;
         nullableDouble.SetComparer(new NullableValueComparer<double>(nullableDouble.TypeMapping.Comparer));
 
         var nullableDoubleArray = runtimeEntityType.AddProperty(
@@ -5612,7 +5611,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableDoubleArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableDoubleArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<double?[], double>(new NullableValueComparer<double>(DefaultDoubleValueComparer.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -5622,7 +5621,7 @@ public partial class ManyTypesEntityType
                 JsonDoubleReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<double?[], double>(
                 JsonDoubleReaderWriter.Instance),
-            elementMapping: JetDoubleTypeMapping.Default);
+            elementMapping: LibRedDoubleTypeMapping.Default);
         var nullableDoubleArrayElementType = nullableDoubleArray.SetElementType(typeof(double?),
             nullable: true);
         nullableDoubleArrayElementType.TypeMapping = nullableDoubleArray.TypeMapping.ElementTypeMapping;
@@ -5660,7 +5659,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum16.TypeMapping = JetShortTypeMapping.Default.Clone(
+        nullableEnum16.TypeMapping = LibRedShortTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum16>.Default,
             providerValueComparer: DefaultValueComparer<short>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance,
@@ -5700,7 +5699,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum16Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum16Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.Enum16?[], CompiledModelTestBase.Enum16>(new NullableValueComparer<CompiledModelTestBase.Enum16>(ValueComparer<CompiledModelTestBase.Enum16>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -5714,7 +5713,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum16, short>(
                     JsonInt16ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance)),
-            elementMapping: JetShortTypeMapping.Default.Clone(
+            elementMapping: LibRedShortTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum16>.Default,
                 providerValueComparer: DefaultValueComparer<short>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance,
@@ -5758,7 +5757,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum16AsString.TypeMapping = JetShortTypeMapping.Default.Clone(
+        nullableEnum16AsString.TypeMapping = LibRedShortTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum16>.Default,
             providerValueComparer: DefaultValueComparer<short>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance,
@@ -5798,7 +5797,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum16AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum16AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.Enum16?[], CompiledModelTestBase.Enum16>(new NullableValueComparer<CompiledModelTestBase.Enum16>(ValueComparer<CompiledModelTestBase.Enum16>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -5812,7 +5811,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum16, short>(
                     JsonInt16ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance)),
-            elementMapping: JetShortTypeMapping.Default.Clone(
+            elementMapping: LibRedShortTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum16>.Default,
                 providerValueComparer: DefaultValueComparer<short>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance,
@@ -5855,7 +5854,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum16AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum16AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.Enum16?>, CompiledModelTestBase.Enum16>(new NullableValueComparer<CompiledModelTestBase.Enum16>(ValueComparer<CompiledModelTestBase.Enum16>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -5869,7 +5868,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum16, short>(
                     JsonInt16ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance)),
-            elementMapping: JetShortTypeMapping.Default.Clone(
+            elementMapping: LibRedShortTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum16>.Default,
                 providerValueComparer: DefaultValueComparer<short>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance,
@@ -5912,7 +5911,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum16Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum16Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.Enum16?>, CompiledModelTestBase.Enum16>(new NullableValueComparer<CompiledModelTestBase.Enum16>(ValueComparer<CompiledModelTestBase.Enum16>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -5926,7 +5925,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum16, short>(
                     JsonInt16ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance)),
-            elementMapping: JetShortTypeMapping.Default.Clone(
+            elementMapping: LibRedShortTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum16>.Default,
                 providerValueComparer: DefaultValueComparer<short>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum16, short>.Instance,
@@ -5970,7 +5969,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum32.TypeMapping = JetIntTypeMapping.Default.Clone(
+        nullableEnum32.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum32>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance,
@@ -6010,7 +6009,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum32Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum32Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.Enum32?[], CompiledModelTestBase.Enum32>(new NullableValueComparer<CompiledModelTestBase.Enum32>(ValueComparer<CompiledModelTestBase.Enum32>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -6024,7 +6023,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum32, int>(
                     JsonInt32ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance)),
-            elementMapping: JetIntTypeMapping.Default.Clone(
+            elementMapping: LibRedIntTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum32>.Default,
                 providerValueComparer: DefaultValueComparer<int>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance,
@@ -6068,7 +6067,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum32AsString.TypeMapping = JetIntTypeMapping.Default.Clone(
+        nullableEnum32AsString.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum32>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance,
@@ -6108,7 +6107,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum32AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum32AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.Enum32?[], CompiledModelTestBase.Enum32>(new NullableValueComparer<CompiledModelTestBase.Enum32>(ValueComparer<CompiledModelTestBase.Enum32>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -6122,7 +6121,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum32, int>(
                     JsonInt32ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance)),
-            elementMapping: JetIntTypeMapping.Default.Clone(
+            elementMapping: LibRedIntTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum32>.Default,
                 providerValueComparer: DefaultValueComparer<int>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance,
@@ -6165,7 +6164,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum32AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum32AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.Enum32?>, CompiledModelTestBase.Enum32>(new NullableValueComparer<CompiledModelTestBase.Enum32>(ValueComparer<CompiledModelTestBase.Enum32>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -6179,7 +6178,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum32, int>(
                     JsonInt32ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance)),
-            elementMapping: JetIntTypeMapping.Default.Clone(
+            elementMapping: LibRedIntTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum32>.Default,
                 providerValueComparer: DefaultValueComparer<int>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance,
@@ -6222,7 +6221,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum32Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum32Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.Enum32?>, CompiledModelTestBase.Enum32>(new NullableValueComparer<CompiledModelTestBase.Enum32>(ValueComparer<CompiledModelTestBase.Enum32>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -6236,7 +6235,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum32, int>(
                     JsonInt32ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance)),
-            elementMapping: JetIntTypeMapping.Default.Clone(
+            elementMapping: LibRedIntTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum32>.Default,
                 providerValueComparer: DefaultValueComparer<int>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum32, int>.Instance,
@@ -6320,7 +6319,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum64Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum64Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.Enum64?[], CompiledModelTestBase.Enum64>(new NullableValueComparer<CompiledModelTestBase.Enum64>(ValueComparer<CompiledModelTestBase.Enum64>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -6418,7 +6417,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum64AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum64AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.Enum64?[], CompiledModelTestBase.Enum64>(new NullableValueComparer<CompiledModelTestBase.Enum64>(ValueComparer<CompiledModelTestBase.Enum64>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -6475,7 +6474,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum64AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum64AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.Enum64?>, CompiledModelTestBase.Enum64>(new NullableValueComparer<CompiledModelTestBase.Enum64>(ValueComparer<CompiledModelTestBase.Enum64>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -6532,7 +6531,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum64Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum64Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.Enum64?>, CompiledModelTestBase.Enum64>(new NullableValueComparer<CompiledModelTestBase.Enum64>(ValueComparer<CompiledModelTestBase.Enum64>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -6590,7 +6589,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum8.TypeMapping = JetShortTypeMapping.Default.Clone(
+        nullableEnum8.TypeMapping = LibRedShortTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum8>.Default,
             providerValueComparer: DefaultValueComparer<short>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance,
@@ -6630,7 +6629,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum8Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum8Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.Enum8?[], CompiledModelTestBase.Enum8>(new NullableValueComparer<CompiledModelTestBase.Enum8>(ValueComparer<CompiledModelTestBase.Enum8>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -6644,7 +6643,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum8, short>(
                     JsonInt16ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance)),
-            elementMapping: JetShortTypeMapping.Default.Clone(
+            elementMapping: LibRedShortTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum8>.Default,
                 providerValueComparer: DefaultValueComparer<short>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance,
@@ -6688,7 +6687,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum8AsString.TypeMapping = JetShortTypeMapping.Default.Clone(
+        nullableEnum8AsString.TypeMapping = LibRedShortTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.Enum8>.Default,
             providerValueComparer: DefaultValueComparer<short>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance,
@@ -6728,7 +6727,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum8AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum8AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.Enum8?[], CompiledModelTestBase.Enum8>(new NullableValueComparer<CompiledModelTestBase.Enum8>(ValueComparer<CompiledModelTestBase.Enum8>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -6742,7 +6741,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum8, short>(
                     JsonInt16ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance)),
-            elementMapping: JetShortTypeMapping.Default.Clone(
+            elementMapping: LibRedShortTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum8>.Default,
                 providerValueComparer: DefaultValueComparer<short>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance,
@@ -6785,7 +6784,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum8AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum8AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.Enum8?>, CompiledModelTestBase.Enum8>(new NullableValueComparer<CompiledModelTestBase.Enum8>(ValueComparer<CompiledModelTestBase.Enum8>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -6799,7 +6798,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum8, short>(
                     JsonInt16ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance)),
-            elementMapping: JetShortTypeMapping.Default.Clone(
+            elementMapping: LibRedShortTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum8>.Default,
                 providerValueComparer: DefaultValueComparer<short>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance,
@@ -6842,7 +6841,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnum8Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnum8Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.Enum8?>, CompiledModelTestBase.Enum8>(new NullableValueComparer<CompiledModelTestBase.Enum8>(ValueComparer<CompiledModelTestBase.Enum8>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -6856,7 +6855,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.Enum8, short>(
                     JsonInt16ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance)),
-            elementMapping: JetShortTypeMapping.Default.Clone(
+            elementMapping: LibRedShortTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.Enum8>.Default,
                 providerValueComparer: DefaultValueComparer<short>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.Enum8, short>.Instance,
@@ -6900,7 +6899,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU16.TypeMapping = JetIntTypeMapping.Default.Clone(
+        nullableEnumU16.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.EnumU16>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance,
@@ -6940,7 +6939,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU16Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU16Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.EnumU16?[], CompiledModelTestBase.EnumU16>(new NullableValueComparer<CompiledModelTestBase.EnumU16>(ValueComparer<CompiledModelTestBase.EnumU16>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -6954,7 +6953,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU16, int>(
                     JsonInt32ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance)),
-            elementMapping: JetIntTypeMapping.Default.Clone(
+            elementMapping: LibRedIntTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU16>.Default,
                 providerValueComparer: DefaultValueComparer<int>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance,
@@ -6998,7 +6997,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU16AsString.TypeMapping = JetIntTypeMapping.Default.Clone(
+        nullableEnumU16AsString.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.EnumU16>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance,
@@ -7038,7 +7037,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU16AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU16AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.EnumU16?[], CompiledModelTestBase.EnumU16>(new NullableValueComparer<CompiledModelTestBase.EnumU16>(ValueComparer<CompiledModelTestBase.EnumU16>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -7052,7 +7051,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU16, int>(
                     JsonInt32ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance)),
-            elementMapping: JetIntTypeMapping.Default.Clone(
+            elementMapping: LibRedIntTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU16>.Default,
                 providerValueComparer: DefaultValueComparer<int>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance,
@@ -7095,7 +7094,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU16AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU16AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.EnumU16?>, CompiledModelTestBase.EnumU16>(new NullableValueComparer<CompiledModelTestBase.EnumU16>(ValueComparer<CompiledModelTestBase.EnumU16>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -7109,7 +7108,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU16, int>(
                     JsonInt32ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance)),
-            elementMapping: JetIntTypeMapping.Default.Clone(
+            elementMapping: LibRedIntTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU16>.Default,
                 providerValueComparer: DefaultValueComparer<int>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance,
@@ -7152,7 +7151,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU16Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU16Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.EnumU16?>, CompiledModelTestBase.EnumU16>(new NullableValueComparer<CompiledModelTestBase.EnumU16>(ValueComparer<CompiledModelTestBase.EnumU16>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -7166,7 +7165,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU16, int>(
                     JsonInt32ReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance)),
-            elementMapping: JetIntTypeMapping.Default.Clone(
+            elementMapping: LibRedIntTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU16>.Default,
                 providerValueComparer: DefaultValueComparer<int>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.EnumU16, int>.Instance,
@@ -7250,7 +7249,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU32Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU32Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.EnumU32?[], CompiledModelTestBase.EnumU32>(new NullableValueComparer<CompiledModelTestBase.EnumU32>(ValueComparer<CompiledModelTestBase.EnumU32>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -7348,7 +7347,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU32AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU32AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.EnumU32?[], CompiledModelTestBase.EnumU32>(new NullableValueComparer<CompiledModelTestBase.EnumU32>(ValueComparer<CompiledModelTestBase.EnumU32>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -7405,7 +7404,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU32AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU32AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.EnumU32?>, CompiledModelTestBase.EnumU32>(new NullableValueComparer<CompiledModelTestBase.EnumU32>(ValueComparer<CompiledModelTestBase.EnumU32>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -7462,7 +7461,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU32Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU32Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.EnumU32?>, CompiledModelTestBase.EnumU32>(new NullableValueComparer<CompiledModelTestBase.EnumU32>(ValueComparer<CompiledModelTestBase.EnumU32>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -7520,7 +7519,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU64.TypeMapping = JetDecimalTypeMapping.Default.Clone(
+        nullableEnumU64.TypeMapping = LibRedDecimalTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.EnumU64>.Default,
             providerValueComparer: DefaultValueComparer<decimal>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -7564,7 +7563,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU64Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU64Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.EnumU64?[], CompiledModelTestBase.EnumU64>(new NullableValueComparer<CompiledModelTestBase.EnumU64>(ValueComparer<CompiledModelTestBase.EnumU64>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -7578,7 +7577,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU64, decimal>(
                     JsonDecimalReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU64, decimal>.Instance)),
-            elementMapping: JetDecimalTypeMapping.Default.Clone(
+            elementMapping: LibRedDecimalTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU64>.Default,
                 providerValueComparer: DefaultValueComparer<decimal>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -7626,7 +7625,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU64AsString.TypeMapping = JetDecimalTypeMapping.Default.Clone(
+        nullableEnumU64AsString.TypeMapping = LibRedDecimalTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.EnumU64>.Default,
             providerValueComparer: DefaultValueComparer<decimal>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -7670,7 +7669,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU64AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU64AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.EnumU64?[], CompiledModelTestBase.EnumU64>(new NullableValueComparer<CompiledModelTestBase.EnumU64>(ValueComparer<CompiledModelTestBase.EnumU64>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -7684,7 +7683,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU64, decimal>(
                     JsonDecimalReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU64, decimal>.Instance)),
-            elementMapping: JetDecimalTypeMapping.Default.Clone(
+            elementMapping: LibRedDecimalTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU64>.Default,
                 providerValueComparer: DefaultValueComparer<decimal>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -7731,7 +7730,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU64AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU64AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.EnumU64?>, CompiledModelTestBase.EnumU64>(new NullableValueComparer<CompiledModelTestBase.EnumU64>(ValueComparer<CompiledModelTestBase.EnumU64>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -7745,7 +7744,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU64, decimal>(
                     JsonDecimalReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU64, decimal>.Instance)),
-            elementMapping: JetDecimalTypeMapping.Default.Clone(
+            elementMapping: LibRedDecimalTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU64>.Default,
                 providerValueComparer: DefaultValueComparer<decimal>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -7792,7 +7791,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU64Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU64Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.EnumU64?>, CompiledModelTestBase.EnumU64>(new NullableValueComparer<CompiledModelTestBase.EnumU64>(ValueComparer<CompiledModelTestBase.EnumU64>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -7806,7 +7805,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU64, decimal>(
                     JsonDecimalReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU64, decimal>.Instance)),
-            elementMapping: JetDecimalTypeMapping.Default.Clone(
+            elementMapping: LibRedDecimalTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU64>.Default,
                 providerValueComparer: DefaultValueComparer<decimal>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -7854,7 +7853,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU8.TypeMapping = JetByteTypeMapping.Default.Clone(
+        nullableEnumU8.TypeMapping = LibRedByteTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.EnumU8>.Default,
             providerValueComparer: DefaultValueComparer<byte>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance,
@@ -7894,7 +7893,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU8Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU8Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.EnumU8?[], CompiledModelTestBase.EnumU8>(new NullableValueComparer<CompiledModelTestBase.EnumU8>(ValueComparer<CompiledModelTestBase.EnumU8>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -7908,7 +7907,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU8, byte>(
                     JsonByteReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance)),
-            elementMapping: JetByteTypeMapping.Default.Clone(
+            elementMapping: LibRedByteTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU8>.Default,
                 providerValueComparer: DefaultValueComparer<byte>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance,
@@ -7952,7 +7951,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU8AsString.TypeMapping = JetByteTypeMapping.Default.Clone(
+        nullableEnumU8AsString.TypeMapping = LibRedByteTypeMapping.Default.Clone(
             comparer: ValueComparer<CompiledModelTestBase.EnumU8>.Default,
             providerValueComparer: DefaultValueComparer<byte>.Default,
             converter: EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance,
@@ -7992,7 +7991,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU8AsStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU8AsStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<CompiledModelTestBase.EnumU8?[], CompiledModelTestBase.EnumU8>(new NullableValueComparer<CompiledModelTestBase.EnumU8>(ValueComparer<CompiledModelTestBase.EnumU8>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -8006,7 +8005,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU8, byte>(
                     JsonByteReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance)),
-            elementMapping: JetByteTypeMapping.Default.Clone(
+            elementMapping: LibRedByteTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU8>.Default,
                 providerValueComparer: DefaultValueComparer<byte>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance,
@@ -8049,7 +8048,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU8AsStringCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU8AsStringCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.EnumU8?>, CompiledModelTestBase.EnumU8>(new NullableValueComparer<CompiledModelTestBase.EnumU8>(ValueComparer<CompiledModelTestBase.EnumU8>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -8063,7 +8062,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU8, byte>(
                     JsonByteReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance)),
-            elementMapping: JetByteTypeMapping.Default.Clone(
+            elementMapping: LibRedByteTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU8>.Default,
                 providerValueComparer: DefaultValueComparer<byte>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance,
@@ -8106,7 +8105,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableEnumU8Collection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableEnumU8Collection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<List<CompiledModelTestBase.EnumU8?>, CompiledModelTestBase.EnumU8>(new NullableValueComparer<CompiledModelTestBase.EnumU8>(ValueComparer<CompiledModelTestBase.EnumU8>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -8120,7 +8119,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<CompiledModelTestBase.EnumU8, byte>(
                     JsonByteReaderWriter.Instance,
                     EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance)),
-            elementMapping: JetByteTypeMapping.Default.Clone(
+            elementMapping: LibRedByteTypeMapping.Default.Clone(
                 comparer: ValueComparer<CompiledModelTestBase.EnumU8>.Default,
                 providerValueComparer: DefaultValueComparer<byte>.Default,
                 converter: EnumToNumberConverter<CompiledModelTestBase.EnumU8, byte>.Instance,
@@ -8164,7 +8163,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableFloat.TypeMapping = JetFloatTypeMapping.Default;
+        nullableFloat.TypeMapping = LibRedFloatTypeMapping.Default;
         nullableFloat.SetComparer(new NullableValueComparer<float>(nullableFloat.TypeMapping.Comparer));
 
         var nullableFloatArray = runtimeEntityType.AddProperty(
@@ -8198,7 +8197,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableFloatArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableFloatArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<float?[], float>(new NullableValueComparer<float>(DefaultFloatValueComparer.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -8208,7 +8207,7 @@ public partial class ManyTypesEntityType
                 JsonFloatReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<float?[], float>(
                 JsonFloatReaderWriter.Instance),
-            elementMapping: JetFloatTypeMapping.Default);
+            elementMapping: LibRedFloatTypeMapping.Default);
         var nullableFloatArrayElementType = nullableFloatArray.SetElementType(typeof(float?),
             nullable: true);
         nullableFloatArrayElementType.TypeMapping = nullableFloatArray.TypeMapping.ElementTypeMapping;
@@ -8246,7 +8245,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableGuid.TypeMapping = JetGuidTypeMapping.Default;
+        nullableGuid.TypeMapping = LibRedGuidTypeMapping.Default;
         nullableGuid.SetComparer(new NullableValueComparer<Guid>(nullableGuid.TypeMapping.Comparer));
 
         var nullableGuidArray = runtimeEntityType.AddProperty(
@@ -8280,7 +8279,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableGuidArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableGuidArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<Guid?[], Guid>(new NullableValueComparer<Guid>(DefaultValueComparer<Guid>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -8290,7 +8289,7 @@ public partial class ManyTypesEntityType
                 JsonGuidReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<Guid?[], Guid>(
                 JsonGuidReaderWriter.Instance),
-            elementMapping: JetGuidTypeMapping.Default);
+            elementMapping: LibRedGuidTypeMapping.Default);
         var nullableGuidArrayElementType = nullableGuidArray.SetElementType(typeof(Guid?),
             nullable: true);
         nullableGuidArrayElementType.TypeMapping = nullableGuidArray.TypeMapping.ElementTypeMapping;
@@ -8328,7 +8327,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableIPAddress.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableIPAddress.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<IPAddress>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -8370,7 +8369,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableIPAddressArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableIPAddressArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<IPAddress[], IPAddress>(ValueComparer<IPAddress>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -8384,7 +8383,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<IPAddress, string>(
                     JsonStringReaderWriter.Instance,
                     IPAddressToStringConverter.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<IPAddress>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -8430,7 +8429,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableInt16.TypeMapping = JetShortTypeMapping.Default;
+        nullableInt16.TypeMapping = LibRedShortTypeMapping.Default;
         nullableInt16.SetComparer(new NullableValueComparer<short>(nullableInt16.TypeMapping.Comparer));
 
         var nullableInt16Array = runtimeEntityType.AddProperty(
@@ -8464,7 +8463,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableInt16Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableInt16Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<short?[], short>(new NullableValueComparer<short>(DefaultValueComparer<short>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -8474,7 +8473,7 @@ public partial class ManyTypesEntityType
                 JsonInt16ReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<short?[], short>(
                 JsonInt16ReaderWriter.Instance),
-            elementMapping: JetShortTypeMapping.Default);
+            elementMapping: LibRedShortTypeMapping.Default);
         var nullableInt16ArrayElementType = nullableInt16Array.SetElementType(typeof(short?),
             nullable: true);
         nullableInt16ArrayElementType.TypeMapping = nullableInt16Array.TypeMapping.ElementTypeMapping;
@@ -8512,7 +8511,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableInt32.TypeMapping = JetIntTypeMapping.Default;
+        nullableInt32.TypeMapping = LibRedIntTypeMapping.Default;
         nullableInt32.SetComparer(new NullableValueComparer<int>(nullableInt32.TypeMapping.Comparer));
 
         var nullableInt32Array = runtimeEntityType.AddProperty(
@@ -8546,7 +8545,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableInt32Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableInt32Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<int?[], int>(new NullableValueComparer<int>(DefaultValueComparer<int>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -8556,7 +8555,7 @@ public partial class ManyTypesEntityType
                 JsonInt32ReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<int?[], int>(
                 JsonInt32ReaderWriter.Instance),
-            elementMapping: JetIntTypeMapping.Default);
+            elementMapping: LibRedIntTypeMapping.Default);
         var nullableInt32ArrayElementType = nullableInt32Array.SetElementType(typeof(int?),
             nullable: true);
         nullableInt32ArrayElementType.TypeMapping = nullableInt32Array.TypeMapping.ElementTypeMapping;
@@ -8628,7 +8627,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableInt64Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableInt64Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<long?[], long>(new NullableValueComparer<long>(DefaultValueComparer<long>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -8676,7 +8675,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableInt8.TypeMapping = JetShortTypeMapping.Default.Clone(
+        nullableInt8.TypeMapping = LibRedShortTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<sbyte>.Default,
             providerValueComparer: DefaultValueComparer<short>.Default,
             converter: CastingConverter<sbyte, short>.Instance,
@@ -8716,7 +8715,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableInt8Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableInt8Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<sbyte?[], sbyte>(new NullableValueComparer<sbyte>(DefaultValueComparer<sbyte>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -8730,7 +8729,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<sbyte, short>(
                     JsonInt16ReaderWriter.Instance,
                     CastingConverter<sbyte, short>.Instance)),
-            elementMapping: JetShortTypeMapping.Default.Clone(
+            elementMapping: LibRedShortTypeMapping.Default.Clone(
                 comparer: DefaultValueComparer<sbyte>.Default,
                 providerValueComparer: DefaultValueComparer<short>.Default,
                 converter: CastingConverter<sbyte, short>.Instance,
@@ -8774,7 +8773,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullablePhysicalAddress.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullablePhysicalAddress.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<PhysicalAddress>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -8816,7 +8815,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullablePhysicalAddressArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullablePhysicalAddressArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<PhysicalAddress[], PhysicalAddress>(ValueComparer<PhysicalAddress>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -8830,7 +8829,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<PhysicalAddress, string>(
                     JsonStringReaderWriter.Instance,
                     PhysicalAddressToStringConverter.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<PhysicalAddress>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -8877,7 +8876,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableString.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableString.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "varchar(255)",
                 size: 255));
@@ -8913,7 +8912,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableStringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableStringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<string[], string>(DefaultValueComparer<string>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -8923,7 +8922,7 @@ public partial class ManyTypesEntityType
                 JsonStringReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfReferencesReaderWriter<string[], string>(
                 JsonStringReaderWriter.Instance),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "varchar(255)",
                     size: 255)));
@@ -8963,7 +8962,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableTimeOnly.TypeMapping = JetTimeOnlyTypeMapping.Default;
+        nullableTimeOnly.TypeMapping = LibRedTimeOnlyTypeMapping.Default;
         nullableTimeOnly.SetComparer(new NullableValueComparer<TimeOnly>(nullableTimeOnly.TypeMapping.Comparer));
 
         var nullableTimeOnlyArray = runtimeEntityType.AddProperty(
@@ -8997,7 +8996,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableTimeOnlyArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableTimeOnlyArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<TimeOnly?[], TimeOnly>(new NullableValueComparer<TimeOnly>(DefaultValueComparer<TimeOnly>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9007,7 +9006,7 @@ public partial class ManyTypesEntityType
                 JsonTimeOnlyReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<TimeOnly?[], TimeOnly>(
                 JsonTimeOnlyReaderWriter.Instance),
-            elementMapping: JetTimeOnlyTypeMapping.Default);
+            elementMapping: LibRedTimeOnlyTypeMapping.Default);
         var nullableTimeOnlyArrayElementType = nullableTimeOnlyArray.SetElementType(typeof(TimeOnly?),
             nullable: true);
         nullableTimeOnlyArrayElementType.TypeMapping = nullableTimeOnlyArray.TypeMapping.ElementTypeMapping;
@@ -9045,7 +9044,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableTimeSpan.TypeMapping = JetTimeSpanTypeMapping.Default;
+        nullableTimeSpan.TypeMapping = LibRedTimeSpanTypeMapping.Default;
         nullableTimeSpan.SetComparer(new NullableValueComparer<TimeSpan>(nullableTimeSpan.TypeMapping.Comparer));
 
         var nullableTimeSpanArray = runtimeEntityType.AddProperty(
@@ -9079,7 +9078,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableTimeSpanArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableTimeSpanArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<TimeSpan?[], TimeSpan>(new NullableValueComparer<TimeSpan>(DefaultValueComparer<TimeSpan>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9089,7 +9088,7 @@ public partial class ManyTypesEntityType
                 JsonTimeSpanReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<TimeSpan?[], TimeSpan>(
                 JsonTimeSpanReaderWriter.Instance),
-            elementMapping: JetTimeSpanTypeMapping.Default);
+            elementMapping: LibRedTimeSpanTypeMapping.Default);
         var nullableTimeSpanArrayElementType = nullableTimeSpanArray.SetElementType(typeof(TimeSpan?),
             nullable: true);
         nullableTimeSpanArrayElementType.TypeMapping = nullableTimeSpanArray.TypeMapping.ElementTypeMapping;
@@ -9127,7 +9126,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableUInt16.TypeMapping = JetIntTypeMapping.Default.Clone(
+        nullableUInt16.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<ushort>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: CastingConverter<ushort, int>.Instance,
@@ -9167,7 +9166,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableUInt16Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableUInt16Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<ushort?[], ushort>(new NullableValueComparer<ushort>(DefaultValueComparer<ushort>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9181,7 +9180,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<ushort, int>(
                     JsonInt32ReaderWriter.Instance,
                     CastingConverter<ushort, int>.Instance)),
-            elementMapping: JetIntTypeMapping.Default.Clone(
+            elementMapping: LibRedIntTypeMapping.Default.Clone(
                 comparer: DefaultValueComparer<ushort>.Default,
                 providerValueComparer: DefaultValueComparer<int>.Default,
                 converter: CastingConverter<ushort, int>.Instance,
@@ -9265,7 +9264,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableUInt32Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableUInt32Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<uint?[], uint>(new NullableValueComparer<uint>(DefaultValueComparer<uint>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9323,7 +9322,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableUInt64.TypeMapping = JetDecimalTypeMapping.Default.Clone(
+        nullableUInt64.TypeMapping = LibRedDecimalTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<ulong>.Default,
             providerValueComparer: DefaultValueComparer<decimal>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9367,7 +9366,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableUInt64Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableUInt64Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<ulong?[], ulong>(new NullableValueComparer<ulong>(DefaultValueComparer<ulong>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9381,7 +9380,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<ulong, decimal>(
                     JsonDecimalReaderWriter.Instance,
                     CastingConverter<ulong, decimal>.Instance)),
-            elementMapping: JetDecimalTypeMapping.Default.Clone(
+            elementMapping: LibRedDecimalTypeMapping.Default.Clone(
                 comparer: DefaultValueComparer<ulong>.Default,
                 providerValueComparer: DefaultValueComparer<decimal>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -9429,7 +9428,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableUInt8.TypeMapping = JetByteTypeMapping.Default;
+        nullableUInt8.TypeMapping = LibRedByteTypeMapping.Default;
         nullableUInt8.SetComparer(new NullableValueComparer<byte>(nullableUInt8.TypeMapping.Comparer));
 
         var nullableUInt8Array = runtimeEntityType.AddProperty(
@@ -9463,7 +9462,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableUInt8Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableUInt8Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfNullableValueTypesComparer<byte?[], byte>(new NullableValueComparer<byte>(DefaultValueComparer<byte>.Default)),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9473,7 +9472,7 @@ public partial class ManyTypesEntityType
                 JsonByteReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfNullableStructsReaderWriter<byte?[], byte>(
                 JsonByteReaderWriter.Instance),
-            elementMapping: JetByteTypeMapping.Default);
+            elementMapping: LibRedByteTypeMapping.Default);
         var nullableUInt8ArrayElementType = nullableUInt8Array.SetElementType(typeof(byte?),
             nullable: true);
         nullableUInt8ArrayElementType.TypeMapping = nullableUInt8Array.TypeMapping.ElementTypeMapping;
@@ -9511,7 +9510,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableUri.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableUri.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<Uri>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9553,7 +9552,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        nullableUriArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        nullableUriArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<Uri[], Uri>(ValueComparer<Uri>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9567,7 +9566,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<Uri, string>(
                     JsonStringReaderWriter.Instance,
                     UriToStringConverter.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<Uri>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -9612,7 +9611,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        physicalAddress.TypeMapping = JetStringTypeMapping.Default.Clone(
+        physicalAddress.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<PhysicalAddress>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9654,7 +9653,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        physicalAddressArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        physicalAddressArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<PhysicalAddress[], PhysicalAddress>(ValueComparer<PhysicalAddress>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9668,7 +9667,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<PhysicalAddress, string>(
                     JsonStringReaderWriter.Instance,
                     PhysicalAddressToStringConverter.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<PhysicalAddress>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -9713,7 +9712,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        physicalAddressToBytesConverterProperty.TypeMapping = JetByteArrayTypeMapping.Default.Clone(
+        physicalAddressToBytesConverterProperty.TypeMapping = LibRedByteArrayTypeMapping.Default.Clone(
             comparer: ValueComparer<PhysicalAddress>.Default,
             providerValueComparer: ValueComparer<byte[]>.DefaultWithStructuralComparisons,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9756,7 +9755,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        physicalAddressToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        physicalAddressToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<PhysicalAddress>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9798,7 +9797,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        @string.TypeMapping = JetStringTypeMapping.Default.Clone(
+        @string.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "varchar(255)",
                 size: 255));
@@ -9834,7 +9833,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        stringArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<string[], string>(DefaultValueComparer<string>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9844,7 +9843,7 @@ public partial class ManyTypesEntityType
                 JsonStringReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfReferencesReaderWriter<string[], string>(
                 JsonStringReaderWriter.Instance),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "varchar(255)",
                     size: 255)));
@@ -9882,7 +9881,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringReadOnlyCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        stringReadOnlyCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<List<string>, string>(DefaultValueComparer<string>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -9892,7 +9891,7 @@ public partial class ManyTypesEntityType
                 JsonStringReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfReferencesReaderWriter<List<string>, string>(
                 JsonStringReaderWriter.Instance),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "varchar(255)",
                     size: 255)));
@@ -9931,7 +9930,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToBoolConverterProperty.TypeMapping = JetBoolTypeMapping.Default.Clone(
+        stringToBoolConverterProperty.TypeMapping = LibRedBoolTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<string>.Default,
             providerValueComparer: DefaultValueComparer<bool>.Default,
             converter: new ValueConverter<string, bool>(bool (string v) => Convert.ToBoolean(v), string (bool v) => Convert.ToString(v)),
@@ -9971,7 +9970,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToBytesConverterProperty.TypeMapping = JetByteArrayTypeMapping.Default.Clone(
+        stringToBytesConverterProperty.TypeMapping = LibRedByteArrayTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<string>.Default,
             providerValueComparer: ValueComparer<byte[]>.DefaultWithStructuralComparisons,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10014,7 +10013,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToCharConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        stringToCharConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "varchar(1)",
@@ -10056,7 +10055,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToDateOnlyConverterProperty.TypeMapping = JetDateOnlyTypeMapping.Default.Clone(
+        stringToDateOnlyConverterProperty.TypeMapping = LibRedDateOnlyTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<string>.Default,
             providerValueComparer: DefaultValueComparer<DateOnly>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10098,7 +10097,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToDateTimeConverterProperty.TypeMapping = JetDateTimeTypeMapping.Default.Clone(
+        stringToDateTimeConverterProperty.TypeMapping = LibRedDateTimeTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<string>.Default,
             providerValueComparer: DefaultValueComparer<DateTime>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10140,7 +10139,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToDateTimeOffsetConverterProperty.TypeMapping = JetDateTimeOffsetTypeMapping.Default.Clone(
+        stringToDateTimeOffsetConverterProperty.TypeMapping = LibRedDateTimeOffsetTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<string>.Default,
             providerValueComparer: DefaultDateTimeOffsetValueComparer.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10182,7 +10181,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToDecimalNumberConverterProperty.TypeMapping = JetDecimalTypeMapping.Default.Clone(
+        stringToDecimalNumberConverterProperty.TypeMapping = LibRedDecimalTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<string>.Default,
             providerValueComparer: DefaultValueComparer<decimal>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10224,7 +10223,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToDoubleNumberConverterProperty.TypeMapping = JetDoubleTypeMapping.Default.Clone(
+        stringToDoubleNumberConverterProperty.TypeMapping = LibRedDoubleTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<string>.Default,
             providerValueComparer: DefaultDoubleValueComparer.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10305,7 +10304,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToGuidConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        stringToGuidConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "varchar(255)",
                 size: 255));
@@ -10342,7 +10341,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToIntNumberConverterProperty.TypeMapping = JetIntTypeMapping.Default.Clone(
+        stringToIntNumberConverterProperty.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<string>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10384,7 +10383,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToTimeOnlyConverterProperty.TypeMapping = JetTimeOnlyTypeMapping.Default.Clone(
+        stringToTimeOnlyConverterProperty.TypeMapping = LibRedTimeOnlyTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<string>.Default,
             providerValueComparer: DefaultValueComparer<TimeOnly>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10426,7 +10425,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToTimeSpanConverterProperty.TypeMapping = JetTimeSpanTypeMapping.Default.Clone(
+        stringToTimeSpanConverterProperty.TypeMapping = LibRedTimeSpanTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<string>.Default,
             providerValueComparer: DefaultValueComparer<TimeSpan>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10468,7 +10467,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        stringToUriConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        stringToUriConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "varchar(255)",
@@ -10510,7 +10509,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        timeOnly.TypeMapping = JetTimeOnlyTypeMapping.Default;
+        timeOnly.TypeMapping = LibRedTimeOnlyTypeMapping.Default;
 
         var timeOnlyArray = runtimeEntityType.AddProperty(
             "TimeOnlyArray",
@@ -10543,7 +10542,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        timeOnlyArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        timeOnlyArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<TimeOnly[], TimeOnly>(DefaultValueComparer<TimeOnly>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10553,7 +10552,7 @@ public partial class ManyTypesEntityType
                 JsonTimeOnlyReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<TimeOnly[], TimeOnly>(
                 JsonTimeOnlyReaderWriter.Instance),
-            elementMapping: JetTimeOnlyTypeMapping.Default);
+            elementMapping: LibRedTimeOnlyTypeMapping.Default);
         var timeOnlyArrayElementType = timeOnlyArray.SetElementType(typeof(TimeOnly));
         timeOnlyArrayElementType.TypeMapping = timeOnlyArray.TypeMapping.ElementTypeMapping;
 
@@ -10589,7 +10588,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        timeOnlyToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        timeOnlyToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<TimeOnly>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10674,7 +10673,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        timeSpan.TypeMapping = JetTimeSpanTypeMapping.Default;
+        timeSpan.TypeMapping = LibRedTimeSpanTypeMapping.Default;
 
         var timeSpanArray = runtimeEntityType.AddProperty(
             "TimeSpanArray",
@@ -10707,7 +10706,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        timeSpanArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        timeSpanArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<TimeSpan[], TimeSpan>(DefaultValueComparer<TimeSpan>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10717,7 +10716,7 @@ public partial class ManyTypesEntityType
                 JsonTimeSpanReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<TimeSpan[], TimeSpan>(
                 JsonTimeSpanReaderWriter.Instance),
-            elementMapping: JetTimeSpanTypeMapping.Default);
+            elementMapping: LibRedTimeSpanTypeMapping.Default);
         var timeSpanArrayElementType = timeSpanArray.SetElementType(typeof(TimeSpan));
         timeSpanArrayElementType.TypeMapping = timeSpanArray.TypeMapping.ElementTypeMapping;
 
@@ -10753,7 +10752,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        timeSpanToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        timeSpanToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<TimeSpan>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10837,7 +10836,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        uInt16.TypeMapping = JetIntTypeMapping.Default.Clone(
+        uInt16.TypeMapping = LibRedIntTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<ushort>.Default,
             providerValueComparer: DefaultValueComparer<int>.Default,
             converter: CastingConverter<ushort, int>.Instance,
@@ -10877,7 +10876,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        uInt16Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        uInt16Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<ushort[], ushort>(DefaultValueComparer<ushort>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -10891,7 +10890,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<ushort, int>(
                     JsonInt32ReaderWriter.Instance,
                     CastingConverter<ushort, int>.Instance)),
-            elementMapping: JetIntTypeMapping.Default.Clone(
+            elementMapping: LibRedIntTypeMapping.Default.Clone(
                 comparer: DefaultValueComparer<ushort>.Default,
                 providerValueComparer: DefaultValueComparer<int>.Default,
                 converter: CastingConverter<ushort, int>.Instance,
@@ -10972,7 +10971,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        uInt32Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        uInt32Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<uint[], uint>(DefaultValueComparer<uint>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -11027,7 +11026,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        uInt64.TypeMapping = JetDecimalTypeMapping.Default.Clone(
+        uInt64.TypeMapping = LibRedDecimalTypeMapping.Default.Clone(
             comparer: DefaultValueComparer<ulong>.Default,
             providerValueComparer: DefaultValueComparer<decimal>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -11071,7 +11070,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        uInt64Array.TypeMapping = JetStringTypeMapping.Default.Clone(
+        uInt64Array.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<ulong[], ulong>(DefaultValueComparer<ulong>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -11085,7 +11084,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<ulong, decimal>(
                     JsonDecimalReaderWriter.Instance,
                     CastingConverter<ulong, decimal>.Instance)),
-            elementMapping: JetDecimalTypeMapping.Default.Clone(
+            elementMapping: LibRedDecimalTypeMapping.Default.Clone(
                 comparer: DefaultValueComparer<ulong>.Default,
                 providerValueComparer: DefaultValueComparer<decimal>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -11131,7 +11130,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        uInt8.TypeMapping = JetByteTypeMapping.Default;
+        uInt8.TypeMapping = LibRedByteTypeMapping.Default;
 
         var uInt8Array = runtimeEntityType.AddProperty(
             "UInt8Array",
@@ -11164,7 +11163,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        uInt8Array.TypeMapping = JetByteArrayTypeMapping.Default.Clone(
+        uInt8Array.TypeMapping = LibRedByteArrayTypeMapping.Default.Clone(
             mappingInfo: new RelationalTypeMappingInfo(
                 storeTypeName: "longbinary"),
             storeTypePostfix: StoreTypePostfix.None);
@@ -11200,7 +11199,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        uInt8ReadOnlyCollection.TypeMapping = JetStringTypeMapping.Default.Clone(
+        uInt8ReadOnlyCollection.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfValueTypesComparer<List<byte>, byte>(DefaultValueComparer<byte>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -11210,7 +11209,7 @@ public partial class ManyTypesEntityType
                 JsonByteReaderWriter.Instance)),
             jsonValueReaderWriter: new JsonCollectionOfStructsReaderWriter<List<byte>, byte>(
                 JsonByteReaderWriter.Instance),
-            elementMapping: JetByteTypeMapping.Default);
+            elementMapping: LibRedByteTypeMapping.Default);
         var uInt8ReadOnlyCollectionElementType = uInt8ReadOnlyCollection.SetElementType(typeof(byte));
         uInt8ReadOnlyCollectionElementType.TypeMapping = uInt8ReadOnlyCollection.TypeMapping.ElementTypeMapping;
 
@@ -11245,7 +11244,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        uri.TypeMapping = JetStringTypeMapping.Default.Clone(
+        uri.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<Uri>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -11287,7 +11286,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        uriArray.TypeMapping = JetStringTypeMapping.Default.Clone(
+        uriArray.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: new ListOfReferenceTypesComparer<Uri[], Uri>(ValueComparer<Uri>.Default),
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(
@@ -11301,7 +11300,7 @@ public partial class ManyTypesEntityType
                 new JsonConvertedValueReaderWriter<Uri, string>(
                     JsonStringReaderWriter.Instance,
                     UriToStringConverter.Instance)),
-            elementMapping: JetStringTypeMapping.Default.Clone(
+            elementMapping: LibRedStringTypeMapping.Default.Clone(
                 comparer: ValueComparer<Uri>.Default,
                 providerValueComparer: DefaultValueComparer<string>.Default,
                 mappingInfo: new RelationalTypeMappingInfo(
@@ -11346,7 +11345,7 @@ public partial class ManyTypesEntityType
             shadowIndex: -1,
             relationshipIndex: -1,
             storeGenerationIndex: -1);
-        uriToStringConverterProperty.TypeMapping = JetStringTypeMapping.Default.Clone(
+        uriToStringConverterProperty.TypeMapping = LibRedStringTypeMapping.Default.Clone(
             comparer: ValueComparer<Uri>.Default,
             providerValueComparer: DefaultValueComparer<string>.Default,
             mappingInfo: new RelationalTypeMappingInfo(

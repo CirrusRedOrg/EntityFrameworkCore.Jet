@@ -1,6 +1,5 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using EntityFrameworkCore.Jet.Data;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -97,7 +96,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
             using (var context = CreateContext())
             {
-                var connection = (TestLibRedConnection)context.GetService<ILibRedRelationalConnection>();
+                var connection = (TestLibRedConnection)context.GetService<IRelationalConnection>();
 
                 connection.CommitFailures.Enqueue([realFailure]);
                 Fixture.TestSqlLoggerFactory.Clear();
@@ -208,7 +207,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
             using (var context = CreateContext())
             {
-                var connection = (TestLibRedConnection)context.GetService<ILibRedRelationalConnection>();
+                var connection = (TestLibRedConnection)context.GetService<IRelationalConnection>();
 
                 connection.CommitFailures.Enqueue([realFailure]);
                 Fixture.TestSqlLoggerFactory.Clear();
@@ -246,7 +245,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             CleanContext();
 
             using var context1 = CreateContext();
-            var connection = (TestLibRedConnection)context1.GetService<ILibRedRelationalConnection>();
+            var connection = (TestLibRedConnection)context1.GetService<IRelationalConnection>();
 
             using (var context2 = CreateContext())
             {
@@ -287,7 +286,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
             using (var context = CreateContext())
             {
-                var connection = (TestLibRedConnection)context.GetService<ILibRedRelationalConnection>();
+                var connection = (TestLibRedConnection)context.GetService<IRelationalConnection>();
 
                 connection.ExecutionFailures.Enqueue([null, realFailure]);
 
@@ -396,7 +395,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
             using (var context = CreateContext())
             {
-                var connection = (TestLibRedConnection)context.GetService<ILibRedRelationalConnection>();
+                var connection = (TestLibRedConnection)context.GetService<IRelationalConnection>();
 
                 connection.ExecutionFailures.Enqueue([true]);
 
@@ -452,7 +451,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
             using (var context = CreateContext())
             {
-                var connection = (TestLibRedConnection)context.GetService<ILibRedRelationalConnection>();
+                var connection = (TestLibRedConnection)context.GetService<IRelationalConnection>();
 
                 connection.ExecutionFailures.Enqueue([true]);
 
@@ -515,7 +514,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         public async Task Retries_OpenConnection_on_execution_failure(bool externalStrategy, bool async)
         {
             using var context = CreateContext();
-            var connection = (TestLibRedConnection)context.GetService<ILibRedRelationalConnection>();
+            var connection = (TestLibRedConnection)context.GetService<IRelationalConnection>();
 
             connection.OpenFailures.Enqueue([true]);
 
@@ -568,7 +567,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
         public async Task Retries_BeginTransaction_on_execution_failure(bool async)
         {
             using var context = CreateContext();
-            var connection = (TestLibRedConnection)context.GetService<ILibRedRelationalConnection>();
+            var connection = (TestLibRedConnection)context.GetService<IRelationalConnection>();
 
             connection.OpenFailures.Enqueue([true]);
 
@@ -603,7 +602,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
             using (var context = CreateContext())
             {
-                var connection = (TestLibRedConnection)context.GetService<ILibRedRelationalConnection>();
+                var connection = (TestLibRedConnection)context.GetService<IRelationalConnection>();
 
                 connection.ExecutionFailures.Enqueue([true, null, true, true]);
                 connection.CommitFailures.Enqueue([true, true, true, true]);
@@ -668,7 +667,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                     // IJetRelationalConnection/IRelationalConnection forward to it (see
                     // LibRedServiceCollectionExtensions) — so overriding it here makes every resolution of the
                     // connection (including the one TestRelationalTransaction casts) the test connection.
-                    .AddScoped<ILibRedRelationalConnection, TestLibRedConnection>()
+                    .AddScoped<IRelationalConnection, TestLibRedConnection>()
                     .AddSingleton<IRelationalCommandBuilderFactory, TestRelationalCommandBuilderFactory>();
 
             public override DbContextOptionsBuilder AddOptions(DbContextOptionsBuilder builder)

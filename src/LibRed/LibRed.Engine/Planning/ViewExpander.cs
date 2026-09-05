@@ -44,12 +44,13 @@ internal static class ViewExpander
     /// the operator/function tree; leaf expressions are returned unchanged.</summary>
     private static Expression RewriteExpression(Expression expr, IReadOnlyDictionary<string, string> views, ISqlParser parser) => expr switch
     {
-        ScalarSubquery s => new ScalarSubquery(RewriteSelect(s.Query, views, parser)),
-        ExistsExpression x => new ExistsExpression(RewriteSelect(x.Query, views, parser)),
+        // Rewrite, not RewriteSelect: a subquery may be a set operation, whose arms each need view expansion.
+        ScalarSubquery s => new ScalarSubquery(Rewrite(s.Query, views, parser)),
+        ExistsExpression x => new ExistsExpression(Rewrite(x.Query, views, parser)),
         InSubqueryExpression i => i with
         {
             Value = RewriteExpression(i.Value, views, parser),
-            Query = RewriteSelect(i.Query, views, parser),
+            Query = Rewrite(i.Query, views, parser),
         },
         BinaryExpression b => b with
         {

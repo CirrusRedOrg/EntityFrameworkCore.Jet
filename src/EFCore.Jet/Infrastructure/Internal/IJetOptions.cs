@@ -12,7 +12,6 @@ namespace EntityFrameworkCore.Jet.Infrastructure.Internal
         string? ConnectionString { get; }
         DataAccessProviderType DataAccessProviderType { get; }
         bool UseOuterSelectSkipEmulationViaDataReader { get; }
-        bool EnableMillisecondsSupport { get; }
         bool UseShortTextForSystemString { get; }
     }
 }

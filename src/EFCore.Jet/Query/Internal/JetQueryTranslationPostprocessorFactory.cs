@@ -1,7 +1,3 @@
-// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
-
-using EntityFrameworkCore.Jet.Infrastructure.Internal;
-
 namespace EntityFrameworkCore.Jet.Query.Internal
 {
     /// <summary>
@@ -20,8 +16,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
     public class JetQueryTranslationPostprocessorFactory(
         QueryTranslationPostprocessorDependencies dependencies,
         RelationalQueryTranslationPostprocessorDependencies relationalDependencies,
-        IRelationalTypeMappingSource relationalTypeMappingSource,
-        IJetOptions options)
+        IRelationalTypeMappingSource relationalTypeMappingSource)
         : IQueryTranslationPostprocessorFactory
     {
         public virtual QueryTranslationPostprocessor Create(QueryCompilationContext queryCompilationContext)
@@ -29,7 +24,6 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                 dependencies,
                 relationalDependencies,
                 (RelationalQueryCompilationContext)queryCompilationContext,
-                relationalTypeMappingSource,
-                options);
+                relationalTypeMappingSource);
     }
 }

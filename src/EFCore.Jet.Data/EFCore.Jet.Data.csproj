@@ -1,8 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<Description>Jet/ACE data provider for .NET used by EntityFrameworkCore.Jet (Microsoft Access MDB/ACCDB files).</Description>
-		<TargetFramework>$(JetTargetFramework)</TargetFramework>
+		<TargetFramework>net11.0</TargetFramework>
 		<Platforms>AnyCPU;x86;x64</Platforms>
 		<AssemblyName>EntityFrameworkCore.Jet.Data</AssemblyName>
 		<RootNamespace>EntityFrameworkCore.Jet.Data</RootNamespace>
@@ -10,4 +10,9 @@
 		<Nullable>annotations</Nullable>
 	</PropertyGroup>
 
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatform">
+			<_Parameter1>windows</_Parameter1>
+		</AssemblyAttribute>
+	</ItemGroup>
 </Project>

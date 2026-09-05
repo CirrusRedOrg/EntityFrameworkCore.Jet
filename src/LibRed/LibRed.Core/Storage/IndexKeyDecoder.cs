@@ -77,7 +77,7 @@ public static class IndexKeyDecoder
         JetDataType.Int32 => 4,
         JetDataType.Single => 4,
         JetDataType.Double or JetDataType.DateTime => 8,
-        JetDataType.Currency => 8,
+        JetDataType.Currency or JetDataType.Int64 => 8,
         _ => -1,
     };
 
@@ -95,6 +95,8 @@ public static class IndexKeyDecoder
                 return (int)DecodeInteger(raw, ascending);
             case JetDataType.Currency:
                 return DecodeInteger(raw, ascending) / 10000m;
+            case JetDataType.Int64:
+                return DecodeInteger(raw, ascending);
 
             case JetDataType.Single:
                 return BitConverter.Int32BitsToSingle((int)DecodeFloatBits(raw, ascending));

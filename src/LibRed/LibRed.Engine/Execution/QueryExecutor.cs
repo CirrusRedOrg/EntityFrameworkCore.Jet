@@ -21,7 +21,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     // Optimised plans for subqueries, keyed by their AST node (reference identity). A correlated subquery is
     // executed once per outer row, so planning + index selection must be done ONCE, not on every evaluation.
-    private readonly Dictionary<SelectStatement, PlanNode> _subqueryPlans = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, PlanNode> _subqueryPlans = new(ReferenceEqualityComparer.Instance);
 
     // Flattened projection schema (output columns + per-item source), keyed by the ProjectNode. Depends only on
     // the node and its input column structure — both invariant across outer rows — so, like the subquery plans,
@@ -31,32 +31,32 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     // Decorrelated EXISTS subqueries, keyed by AST node. A present-but-null value records "analysed, not
     // decorrelatable", so an unsound-to-rewrite subquery isn't re-analysed on every outer row.
-    private readonly Dictionary<SelectStatement, ExistsSemiJoin?> _semiJoins = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, ExistsSemiJoin?> _semiJoins = new(ReferenceEqualityComparer.Instance);
 
     // The same for `x IN (subquery)`, kept separate because the plan there carries the IN value as an extra key
     // column — the same SelectStatement node reached as an EXISTS body would need a different one.
-    private readonly Dictionary<SelectStatement, ExistsSemiJoin?> _inSemiJoins = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, ExistsSemiJoin?> _inSemiJoins = new(ReferenceEqualityComparer.Instance);
 
     // And for a correlated scalar aggregate, which maps each key to one value rather than testing membership.
-    private readonly Dictionary<SelectStatement, ScalarAggregateSemiJoin?> _scalarSemiJoins = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, ScalarAggregateSemiJoin?> _scalarSemiJoins = new(ReferenceEqualityComparer.Instance);
 
     // Results of subqueries that turned out not to depend on the outer row: same answer every time, so they are
     // evaluated once per statement. Keyed by AST node; the boxed value may legitimately be null (SQL NULL), hence
     // separate dictionaries rather than a null-means-absent convention.
-    private readonly Dictionary<SelectStatement, object?> _hoistedScalar = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<SelectStatement, List<object?>> _hoistedColumn = new(ReferenceEqualityComparer.Instance);
-    private readonly Dictionary<SelectStatement, bool> _hoistedExists = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, object?> _hoistedScalar = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, List<object?>> _hoistedColumn = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, bool> _hoistedExists = new(ReferenceEqualityComparer.Instance);
 
     // Subqueries proven to depend on the outer row. Recorded so a correlated subquery pays ONE failed hoist
     // attempt per statement rather than one per row.
-    private readonly HashSet<SelectStatement> _correlated = new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<SqlStatement> _correlated = new(ReferenceEqualityComparer.Instance);
 
     // Per-row time spent on each decorrelatable subquery, which is what decides when to switch over. See
     // DecorrelationGate: the rewrite is sound from the first probe but not always cheaper, and the outer row count
     // that would settle it isn't known until the outer scan has finished.
-    private readonly Dictionary<SelectStatement, DecorrelationGate> _gates = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<SqlStatement, DecorrelationGate> _gates = new(ReferenceEqualityComparer.Instance);
 
-    private DecorrelationGate Gate(SelectStatement query)
+    private DecorrelationGate Gate(SqlStatement query)
         => _gates.TryGetValue(query, out DecorrelationGate? gate) ? gate : _gates[query] = new DecorrelationGate();
 
     public QueryExecutor(JetDatabase database, IReadOnlyDictionary<string, object?>? parameters = null, SessionState? session = null)
@@ -74,6 +74,22 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             rows,
             columns.Select(c => c.ClrType ?? typeof(object)).ToList());
     }
+
+    /// <summary>
+    ///     Runs a plan against an enclosing scope, so a <b>correlated</b> one resolves the outer row's columns.
+    ///     Columns come back eagerly and rows lazily, as everywhere else, so a caller that only wants the schema
+    ///     can pass a null-filled outer row and read nothing.
+    /// </summary>
+    /// <remarks>
+    ///     For <see cref="StatementExecutor"/>'s lateral joins. Its join loop cannot reuse the one here because
+    ///     DML is identity-oriented — it carries a RowId per table to know which physical row to write, and
+    ///     shares a row's value array across the combinations it appears in so a SET that reads the row's own
+    ///     value accumulates per match — where this pipeline yields flat value arrays and keeps no identity. So
+    ///     the two join loops stay separate, and this is the seam that lets the DML one borrow execution.
+    /// </remarks>
+    internal (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteCorrelated(
+        PlanNode plan, EvalScope outer)
+        => Execute(plan, outer);
 
     /// <summary>Runs a FROM-less <c>SELECT @@IDENTITY</c> / <c>SELECT @@ROWCOUNT</c>: evaluates each system
     /// variable against the session state and yields a single row. Each output column is named by its alias,
@@ -93,7 +109,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             .Select(item => DeclaredType(item.Value, []) ?? typeof(object)).ToList());
     }
 
-    object? IScalarSubqueryRunner.ExecuteScalar(SelectStatement query, EvalScope outerScope)
+    object? IScalarSubqueryRunner.ExecuteScalar(SqlStatement query, EvalScope outerScope)
     {
         if (_hoistedScalar.TryGetValue(query, out object? hoisted))
             return hoisted;
@@ -104,9 +120,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         // A correlated aggregate is one grouped pass over the body rather than one aggregate per outer row.
         if (!_scalarSemiJoins.TryGetValue(query, out ScalarAggregateSemiJoin? semi))
         {
-            _scalarSemiJoins[query] = semi = ScalarAggregateSemiJoin.TryBuild(
-                query, outerScope.AllColumns(), outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase),
-                _database.Catalog);
+            // Only a plain SELECT is analysable: the rewrite reads the body's projection, FROM and WHERE, none of
+            // which a set operation or a table value constructor has. Declining costs speed, never correctness —
+            // the per-row path below runs the body as written.
+            _scalarSemiJoins[query] = semi = query is SelectStatement scalarBody
+                ? ScalarAggregateSemiJoin.TryBuild(
+                    scalarBody, outerScope.AllColumns(),
+                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog)
+                : null;
         }
 
         if (semi is null)
@@ -130,7 +151,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
     }
 
-    bool IScalarSubqueryRunner.ExecuteExists(SelectStatement query, EvalScope outerScope)
+    bool IScalarSubqueryRunner.ExecuteExists(SqlStatement query, EvalScope outerScope)
     {
         // An EXISTS that doesn't depend on the outer row at all has one answer for the whole statement.
         if (_hoistedExists.TryGetValue(query, out bool hoisted))
@@ -143,9 +164,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         // executed once for the whole statement instead of once per row. See ExistsSemiJoin for the measurements.
         if (!_semiJoins.TryGetValue(query, out ExistsSemiJoin? semi))
         {
-            _semiJoins[query] = semi = ExistsSemiJoin.TryBuild(
-                query, outerScope.AllColumns(), outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase),
-                _database.Catalog);
+            // As in ExecuteScalar: only a plain SELECT can be decorrelated, and declining is the safe direction.
+            _semiJoins[query] = semi = query is SelectStatement existsBody
+                ? ExistsSemiJoin.TryBuild(
+                    existsBody, outerScope.AllColumns(),
+                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog)
+                : null;
         }
 
         if (semi is null)
@@ -183,7 +207,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     ///     recorded as correlated and re-run per row, which raises the same error the caller would have seen
     ///     anyway. A subquery is a SELECT, so the abandoned attempt has no side effects.
     /// </remarks>
-    private bool TryHoist<T>(SelectStatement query, EvalScope outerScope, Func<EvalScope?, T> run, out T result)
+    private bool TryHoist<T>(SqlStatement query, EvalScope outerScope, Func<EvalScope?, T> run, out T result)
     {
         result = default!;
         if (_correlated.Contains(query)
@@ -315,15 +339,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     }
 
     (bool Found, bool HasNull)? IScalarSubqueryRunner.ExecuteInSubquery(
-        SelectStatement query, Expression value, object? evaluated, EvalScope outerScope)
+        SqlStatement query, Expression value, object? evaluated, EvalScope outerScope)
     {
         // An uncorrelated IN needs nothing from here: ExecuteColumn hoists it, so the body already runs once and
         // the caller's loop walks a cached list. TryBuildForIn declines it too (there are no correlation keys).
         if (!_inSemiJoins.TryGetValue(query, out ExistsSemiJoin? semi))
         {
-            _inSemiJoins[query] = semi = ExistsSemiJoin.TryBuildForIn(
-                query, value, outerScope.AllColumns(),
-                outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog);
+            _inSemiJoins[query] = semi = query is SelectStatement inBody
+                ? ExistsSemiJoin.TryBuildForIn(
+                    inBody, value, outerScope.AllColumns(),
+                    outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase), _database.Catalog)
+                : null;
         }
 
         // Not ready yet: decline, and the caller's loop runs the body through ExecuteColumn, which charges the gate.
@@ -332,7 +358,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             : null;
     }
 
-    IEnumerable<object?> IScalarSubqueryRunner.ExecuteColumn(SelectStatement query, EvalScope outerScope)
+    IEnumerable<object?> IScalarSubqueryRunner.ExecuteColumn(SqlStatement query, EvalScope outerScope)
     {
         if (_hoistedColumn.TryGetValue(query, out List<object?>? hoisted))
             return hoisted;
@@ -360,13 +386,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// predicate (<c>inner.col = outer.col</c>) becomes an index seek keyed off the outer row — a correlated
     /// subquery runs per outer row, so an unoptimised plan re-run thousands of times is what made correlated
     /// EXISTS/scalar pathological.</summary>
-    private PlanNode SubqueryPlan(SelectStatement query, EvalScope outerScope)
+    private PlanNode SubqueryPlan(SqlStatement query, EvalScope outerScope)
     {
         if (!_subqueryPlans.TryGetValue(query, out PlanNode? plan))
         {
             var outerAliases = outerScope.VisibleAliases().ToHashSet(StringComparer.OrdinalIgnoreCase);
             _subqueryPlans[query] = plan =
-                Planning.IndexSelection.Apply(QueryPlanner.PlanSelect(query), _database.Catalog, outerAliases);
+                Planning.IndexSelection.Apply(QueryPlanner.PlanStatement(query), _database.Catalog, outerAliases);
         }
         return plan;
     }
@@ -378,6 +404,27 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case SingleRowNode:
                 // FROM-less SELECT: one row, no columns — the projection above evaluates its constants once.
                 return ([], [new object?[0]]);
+
+            case ValuesNode values:
+            {
+                // A table value constructor as a query. The row expressions can reference outer columns — EF
+                // emits VALUES (`p`.`Int`) inside a correlated subquery — so they are evaluated against the
+                // outer scope here, on every run of the node, rather than folded once at planning time.
+                var evaluator = new ExpressionEvaluator(
+                    new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
+
+                var valueColumns = values.Rows.Count == 0
+                    ? []
+                    : values.Rows[0]
+                        .Select((expr, i) => new OutputColumn(null, $"Expr{i + 1}", DeclaredType(expr, [])))
+                        .ToList();
+
+                var valueRows = values.Rows
+                    .Select(row => row.Select(evaluator.Evaluate).ToArray())
+                    .ToList();
+
+                return (valueColumns, valueRows);
+            }
 
             case ScanNode scan when Schema.InformationSchema.IsInformationSchema(scan.Table):
             {
@@ -447,11 +494,19 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return (columns, rows.Where(row => Eval(columns, row, outer).IsTrue(filter.Predicate)));
             }
 
+            // A lateral join re-runs its right side per left row, so it cannot go through ExecuteJoin (which
+            // materialises the right side once, against the enclosing scope).
+            case JoinNode { Kind: JoinKind.CrossApply or JoinKind.OuterApply } apply:
+                return ExecuteApply(apply, outer);
+
             case JoinNode join:
                 return ExecuteJoin(join, outer);
 
             case HashJoinNode hashJoin:
                 return ExecuteHashJoin(hashJoin, outer);
+
+            case WindowNode window:
+                return ExecuteWindow(window, outer);
 
             case AggregateNode aggregate:
                 return ExecuteAggregate(aggregate, outer);
@@ -495,9 +550,25 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case LimitNode limit:
             {
                 var (columns, rows) = Execute(limit.Input, outer);
-                // The count is literal/parameter/arithmetic (no column refs), so an empty row scope suffices.
-                object? countValue = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session)
-                    .Evaluate(limit.Count);
+                // Counts are literal/parameter/arithmetic (no column refs), so an empty row scope suffices.
+                var limitEval = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
+
+                // OFFSET n ROWS. Applied before the take, so `OFFSET 10 FETCH NEXT 5` gives rows 11-15. A
+                // negative or zero skip is a no-op rather than an error, matching how a zero TOP is handled
+                // below; Skip is lazy, so nothing is buffered to discard.
+                if (limit.Offset is { } offsetExpr)
+                {
+                    int skip = Convert.ToInt32(
+                        limitEval.Evaluate(offsetExpr), System.Globalization.CultureInfo.InvariantCulture);
+                    if (skip > 0)
+                        rows = rows.Skip(skip);
+                }
+
+                // `OFFSET n ROWS` with no FETCH: skip, then return everything left.
+                if (limit.Count is null)
+                    return (columns, rows);
+
+                object? countValue = limitEval.Evaluate(limit.Count);
                 int n = Convert.ToInt32(countValue, System.Globalization.CultureInfo.InvariantCulture);
 
                 // Nothing can be returned, so don't read the input at all. This matters for the PERCENT branch
@@ -666,10 +737,78 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return DeclaredBinaryType(binary.Operator, left, right);
             case FunctionCall function:
                 return DeclaredFunctionType(function, columns);
+            case CaseExpression @case:
+                return DeclaredCaseType(@case, columns);
             default:
                 return null;
         }
     }
+
+    /// <summary>
+    /// The declared type of a CASE — the standard's "highest precedence type from the set of types in
+    /// result_expressions and the optional else_result_expression". A branch whose own type is unknown
+    /// contributes nothing rather than poisoning the answer, which is what makes a bare <c>NULL</c> arm
+    /// harmless: a NULL literal has no type and the standard ignores it for precedence too. Numeric branches
+    /// widen along the same ladder as arithmetic, so <c>THEN 1 ELSE 2.5</c> declares decimal. A genuine mix
+    /// (a string branch and a numeric one) declares nothing rather than guessing, leaving the column untyped
+    /// exactly as it was before CASE was understood at all.
+    /// </summary>
+    private Type? DeclaredCaseType(CaseExpression @case, IReadOnlyList<OutputColumn> columns)
+        => UnifiedType(CaseResults(@case), columns);
+
+    private static IEnumerable<Expression> CaseResults(CaseExpression c)
+    {
+        foreach (CaseWhen arm in c.WhenClauses)
+            yield return arm.Result;
+        if (c.ElseResult is not null)
+            yield return c.ElseResult;
+    }
+
+    /// <summary>The single type a set of alternative expressions declares — shared by CASE and COALESCE,
+    /// which the standard defines in terms of CASE and gives the same precedence rule.</summary>
+    private Type? UnifiedType(IEnumerable<Expression> alternatives, IReadOnlyList<OutputColumn> columns)
+    {
+        Type? result = null;
+
+        foreach (Expression alternative in alternatives)
+        {
+            Type? branchType = DeclaredType(alternative, columns);
+            if (branchType is null)
+                continue;
+
+            if (result is null)
+            {
+                result = branchType;
+                continue;
+            }
+
+            if (result == branchType)
+                continue;
+
+            result = WidenNumeric(result, branchType);
+            if (result is null)
+                return null;
+        }
+
+        return result;
+    }
+
+    /// <summary>The wider of two numeric types, on the same ladder <see cref="DeclaredBinaryType"/> uses for
+    /// arithmetic. Null when either side is not numeric, meaning the two cannot be reconciled.</summary>
+    private static Type? WidenNumeric(Type left, Type right)
+    {
+        if (!IsNumeric(left) || !IsNumeric(right)) return null;
+        if (left == typeof(decimal) || right == typeof(decimal)) return typeof(decimal);
+        if (left == typeof(double) || right == typeof(double)) return typeof(double);
+        if (left == typeof(float) || right == typeof(float)) return typeof(float);
+        if (IsInt64(left) || IsInt64(right)) return typeof(long);
+        return typeof(int);
+    }
+
+    private static bool IsNumeric(Type type)
+        => type == typeof(byte) || type == typeof(sbyte) || type == typeof(short) || type == typeof(ushort)
+            || type == typeof(int) || type == typeof(uint) || IsInt64(type)
+            || type == typeof(float) || type == typeof(double) || type == typeof(decimal);
 
     private static Type? DeclaredColumnType(ColumnReference reference, IReadOnlyList<OutputColumn> columns)
     {
@@ -716,6 +855,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 or "PMT" or "FV" or "PV" or "NPER" or "IPMT" or "PPMT" or "DDB" or "RATE" => typeof(double),
             "IIF" when function.Arguments.Count == 3 => SameType(
                 DeclaredType(function.Arguments[1], columns), DeclaredType(function.Arguments[2], columns)),
+            // The standard makes COALESCE shorthand for a CASE over its arguments, so it takes the same rule:
+            // the highest-precedence type among them. Unified the same way, which also means a bare NULL
+            // argument contributes no type rather than erasing the others.
+            "COALESCE" => UnifiedType(function.Arguments, columns),
+            // NULLIF returns its first expression, or a NULL of that expression's type — so unlike COALESCE
+            // it takes the first argument's type outright rather than unifying across both. The second
+            // argument only ever participates in the comparison.
+            "NULLIF" => argument,
             _ => null,
         };
     }
@@ -787,11 +934,58 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         _ => [],
     };
 
+    /// <summary>
+    ///     CROSS/OUTER APPLY: a lateral join. The right side is a table expression that may correlate to the
+    ///     left, so it is re-executed once per left row with that row pushed onto the scope chain - the same
+    ///     mechanism a correlated subquery uses, only producing rows rather than one value. CROSS APPLY emits
+    ///     nothing for a left row whose right side came back empty; OUTER APPLY emits it null-padded.
+    /// </summary>
+    private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteApply(JoinNode apply, EvalScope? outer)
+    {
+        var (leftColumns, leftRows) = Execute(apply.Left, outer);
+        bool preserveLeft = apply.Kind is JoinKind.OuterApply;
+
+        // The right side's rows vary per left row but its schema does not, and the caller needs the joined
+        // schema before a single left row is read (a left side with no rows still has one). So run the right
+        // side once here against an all-null left row purely to learn its columns, and drop the rows unread:
+        // Execute resolves columns eagerly and rows lazily, so for almost every node this reads nothing at all.
+        var probeScope = new EvalScope(leftColumns, new object?[leftColumns.Count], outer);
+        var (rightColumns, _) = Execute(apply.Right, probeScope);
+        var columns = leftColumns.Concat(rightColumns).ToList();
+
+        IEnumerable<object?[]> Rows()
+        {
+            foreach (object?[] left in leftRows)
+            {
+                // A fresh scope per left row rather than a rebound one (as the joins use): the right side's
+                // row enumerable captures the scope it was built with, and re-planning happens inside Execute
+                // anyway, so there is nothing here that a shared scope would save.
+                var (_, rightRows) = Execute(apply.Right, new EvalScope(leftColumns, left, outer));
+
+                bool any = false;
+                foreach (object?[] right in rightRows)
+                {
+                    any = true;
+                    yield return [.. left, .. right];
+                }
+
+                if (!any && preserveLeft)
+                    yield return [.. left, .. new object?[rightColumns.Count]];
+            }
+        }
+
+        return (columns, Rows());
+    }
+
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteJoin(JoinNode join, EvalScope? outer)
     {
         var (leftColumns, leftRows) = Execute(join.Left, outer);
         Expression? on = join.On; // null for a CROSS join (cartesian product)
-        bool leftOuter = join.Kind == JoinKind.Left;
+        // Which sides are preserved. FULL preserves both, so it is left-outer and right-outer at once. The
+        // right-preserving half costs more: a right row's fate is not settled until every left row has been
+        // tried, so those rows are tracked and emitted after the loop rather than inside it.
+        bool leftOuter = join.Kind is JoinKind.Left or JoinKind.Full;
+        bool rightOuter = join.Kind is JoinKind.Right or JoinKind.Full;
 
         // Index-nested-loop: the right side is a *correlated* index seek (keyed off the outer row). Re-execute
         // it per left row — seeking the inner index — instead of materialising and scanning the whole inner
@@ -855,16 +1049,18 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         {
             var onScope = new EvalScope(columns, [], outer); // one scope/evaluator, rebound per combined row
             var onEval = new ExpressionEvaluator(onScope, this, parameters: _parameters, session: _session);
+            bool[]? rightMatched = rightOuter ? new bool[rightRows.Count] : null;
 
             foreach (object?[] left in leftRows)
             {
                 bool matched = false;
-                foreach (object?[] right in rightRows)
+                for (int r = 0; r < rightRows.Count; r++)
                 {
-                    object?[] combined = [.. left, .. right];
+                    object?[] combined = [.. left, .. rightRows[r]];
                     if (on is null || onEval.Rebind(combined).IsTrue(on))
                     {
                         matched = true;
+                        if (rightMatched is not null) rightMatched[r] = true;
                         yield return combined;
                     }
                 }
@@ -872,6 +1068,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 if (leftOuter && !matched)
                     yield return [.. left, .. new object?[rightColumns.Count]];
             }
+
+            // Right-preserving tail: every right row no left row matched, null-padded on the left.
+            for (int r = 0; rightMatched is not null && r < rightMatched.Length; r++)
+                if (!rightMatched[r])
+                    yield return [.. new object?[leftColumns.Count], .. rightRows[r]];
         }
 
         return (columns, Rows());
@@ -888,8 +1089,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         // INNER/LEFT build the right side and probe with the left; RIGHT builds the left and probes with the
         // right (so the preserved — outer — side is always the probe side). The emitted row is [left.., right..]
         // regardless of which side was built.
+        // FULL builds the right and probes with the left, like INNER/LEFT - but it preserves the build side too,
+        // which the others never do, so it additionally tracks which build rows were hit.
         bool buildRight = join.Kind != JoinKind.Right;
-        bool preserveProbe = join.Kind is JoinKind.Left or JoinKind.Right; // probe side is the outer/preserved side
+        bool preserveProbe = join.Kind is JoinKind.Left or JoinKind.Right or JoinKind.Full; // probe side is outer
+        bool preserveBuild = join.Kind is JoinKind.Full;
         var buildColumns = buildRight ? rightColumns : leftColumns;
         var buildKeys = buildRight ? join.RightKeys : join.LeftKeys;
         var buildRowsEnum = buildRight ? rightRowsEnum : leftRows;
@@ -904,11 +1108,19 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var table = new Dictionary<object?[], List<object?[]>>(HashKeyComparer.Instance);
             var buildScope = new EvalScope(buildColumns, [], outer);
             var buildEval = new ExpressionEvaluator(buildScope, this, parameters: _parameters, session: _session);
+            // A null-key build row can never match, so it is normally dropped outright. Under FULL the build
+            // side is preserved, which makes "never matches" a reason to emit it, not to discard it - so those
+            // rows are set aside instead and joined to the unmatched tail below.
+            List<object?[]>? unhashableBuild = preserveBuild ? [] : null;
             foreach (object?[] b in buildRowsEnum)
             {
                 buildScope.Rebind(b);
                 var key = new object?[buildKeys.Count];
-                if (!EvalKey(buildEval, buildKeys, key)) continue; // null key → unmatchable
+                if (!EvalKey(buildEval, buildKeys, key)) // null key → unmatchable
+                {
+                    unhashableBuild?.Add(b);
+                    continue;
+                }
                 if (!table.TryGetValue(key, out List<object?[]>? bucket))
                     table[key] = bucket = [];
                 bucket.Add(b);
@@ -921,6 +1133,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var onScope = new EvalScope(joinColumns, [], outer);
             var onEval = new ExpressionEvaluator(onScope, this, parameters: _parameters, session: _session);
             var probe = new object?[probeKeys.Count]; // reused; only used to look up, never stored
+            var matchedBuild = preserveBuild ? new HashSet<object?[]>(RowIdentityComparer.Instance) : null;
 
             foreach (object?[] p in probeRowsEnum)
             {
@@ -936,6 +1149,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                         if (onEval.Rebind(combined).IsTrue(on))
                         {
                             matched = true;
+                            matchedBuild?.Add(b);
                             yield return combined;
                         }
                     }
@@ -944,6 +1158,24 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     yield return buildRight
                         ? [.. p, .. new object?[rightWidth]]  // probe is the left side; right is null
                         : [.. new object?[leftWidth], .. p];  // probe is the right side; left is null
+            }
+
+            // FULL only: the build side is preserved as well, so every build row the probe never matched is
+            // emitted null-padded on the other side. This has to trail the whole probe pass - a build row is
+            // only unmatched once every probe row has failed to hit it.
+            if (preserveBuild)
+            {
+                object?[] Unmatched(object?[] b) => buildRight
+                    ? [.. new object?[leftWidth], .. b]   // build is the right side; left is null
+                    : [.. b, .. new object?[rightWidth]]; // build is the left side; right is null
+
+                foreach (List<object?[]> bucket in table.Values)
+                    foreach (object?[] b in bucket)
+                        if (!matchedBuild!.Contains(b))
+                            yield return Unmatched(b);
+
+                foreach (object?[] b in unhashableBuild!) // null-key rows: unmatchable by construction
+                    yield return Unmatched(b);
             }
         }
 
@@ -958,6 +1190,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             if ((dest[i] = eval.Evaluate(keys[i])) is null)
                 return false;
         return true;
+    }
+
+    /// <summary>Identity, not value, over a row array: a FULL join's "was this build row ever matched?" set has to
+    /// distinguish two rows that happen to hold equal values, so it keys on the reference itself.</summary>
+    private sealed class RowIdentityComparer : IEqualityComparer<object?[]>
+    {
+        public static readonly RowIdentityComparer Instance = new();
+
+        public bool Equals(object?[]? x, object?[]? y) => ReferenceEquals(x, y);
+
+        public int GetHashCode(object?[] obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
     }
 
     /// <summary>Hash/equality over a composite join key that mirrors the evaluator's <c>=</c> within a type kind
@@ -1109,6 +1352,115 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private ExpressionEvaluator Eval(IReadOnlyList<OutputColumn> columns, object?[] row, EvalScope? outer) =>
         new(new EvalScope(columns, row, outer), this, parameters: _parameters, session: _session);
 
+    /// <summary>
+    ///     Window functions: one value per input row, computed from the other rows of that row's partition.
+    ///     Every input row passes through, in input order, with one column appended per function.
+    /// </summary>
+    /// <remarks>
+    ///     The schema is resolved eagerly from the input's schema alone; the rows — and the materialisation a
+    ///     window needs — stay inside the iterator, so a caller that only wants the columns (an APPLY probing
+    ///     its right side for them) reads nothing.
+    /// </remarks>
+    private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteWindow(WindowNode node, EvalScope? outer)
+    {
+        var (inColumns, inRowsEnum) = Execute(node.Input, outer);
+
+        var columns = inColumns.Concat(node.Outputs.Select(o => new OutputColumn(
+            null,
+            o.Name,
+            WindowFunctions.Lookup(o.Function.Name).ResultType(
+                o.Function.Arguments.Count > 0 ? DeclaredType(o.Function.Arguments[0], inColumns) : null)))).ToList();
+
+        IEnumerable<object?[]> Rows()
+        {
+            var rows = inRowsEnum.ToList();
+            var values = new object?[rows.Count][];
+            for (int i = 0; i < rows.Count; i++)
+                values[i] = new object?[node.Outputs.Count];
+
+            for (int slot = 0; slot < node.Outputs.Count; slot++)
+                ComputeWindow(node.Outputs[slot].Function, rows, inColumns, outer, values, slot);
+
+            for (int i = 0; i < rows.Count; i++)
+                yield return [.. rows[i], .. values[i]];
+        }
+
+        return (columns, Rows());
+    }
+
+    /// <summary>Computes one window function into <paramref name="slot"/> of every row's value array.</summary>
+    private void ComputeWindow(
+        WindowFunction fn, List<object?[]> rows, IReadOnlyList<OutputColumn> columns, EvalScope? outer,
+        object?[][] values, int slot)
+    {
+        WindowFunctionDef def = WindowFunctions.Lookup(fn.Name);
+        if (fn.Arguments.Count < def.MinArguments || fn.Arguments.Count > def.MaxArguments)
+            throw new InvalidOperationException(
+                $"{fn.Name} takes {(def.MinArguments == def.MaxArguments ? $"{def.MinArguments}" : $"{def.MinArguments} to {def.MaxArguments}")} argument(s).");
+
+        // One scope/evaluator rebound per row, as the joins do: partition keys, sort keys and arguments are all
+        // evaluated once per row and a fresh pair each time is the dominant cost otherwise.
+        var scope = new EvalScope(columns, [], outer);
+        var eval = new ExpressionEvaluator(scope, this, parameters: _parameters, session: _session);
+
+        // Partition, preserving input order within each. A null partition key groups with other nulls exactly as
+        // GROUP BY does, because this is the same key type.
+        var partitions = new Dictionary<GroupKey, List<int>>();
+        var sortKeys = new object?[rows.Count][];
+        var arguments = new object?[rows.Count][];
+        for (int i = 0; i < rows.Count; i++)
+        {
+            scope.Rebind(rows[i]);
+            var key = new object?[fn.Over.PartitionBy.Count];
+            for (int k = 0; k < key.Length; k++)
+                key[k] = eval.Evaluate(fn.Over.PartitionBy[k]);
+
+            var groupKey = new GroupKey(key);
+            if (!partitions.TryGetValue(groupKey, out List<int>? members))
+                partitions[groupKey] = members = [];
+            members.Add(i);
+
+            sortKeys[i] = new object?[fn.Over.OrderBy.Count];
+            for (int k = 0; k < sortKeys[i].Length; k++)
+                sortKeys[i][k] = eval.Evaluate(fn.Over.OrderBy[k].Value);
+
+            arguments[i] = fn.Arguments.Count == 0 ? [] : new object?[fn.Arguments.Count];
+            for (int k = 0; k < fn.Arguments.Count; k++)
+                arguments[i][k] = eval.Evaluate(fn.Arguments[k]);
+        }
+
+        foreach (List<int> members in partitions.Values)
+        {
+            // Ties break on the original position, so the window order is stable and a window with no ORDER BY
+            // (every row a peer) still numbers rows in input order rather than arbitrarily.
+            if (fn.Over.OrderBy.Count > 0)
+                members.Sort((a, b) =>
+                {
+                    int c = CompareEvaluatedKeys(fn.Over.OrderBy, sortKeys[a], sortKeys[b]);
+                    return c != 0 ? c : a.CompareTo(b);
+                });
+
+            var peerStart = new int[members.Count];
+            var peerOrdinal = new int[members.Count];
+            for (int i = 1; i < members.Count; i++)
+            {
+                // With no ORDER BY every row of the partition is a peer of every other.
+                bool samePeer = fn.Over.OrderBy.Count == 0
+                    || CompareEvaluatedKeys(fn.Over.OrderBy, sortKeys[members[i - 1]], sortKeys[members[i]]) == 0;
+                peerStart[i] = samePeer ? peerStart[i - 1] : i;
+                peerOrdinal[i] = samePeer ? peerOrdinal[i - 1] : peerOrdinal[i - 1] + 1;
+            }
+
+            var output = new object?[members.Count];
+            def.Evaluate(
+                new WindowPartition(peerStart, peerOrdinal, members.Select(m => arguments[m]).ToList()), output);
+
+            // Scatter back to the input positions: the node emits rows in input order, not window order.
+            for (int i = 0; i < members.Count; i++)
+                values[members[i]][slot] = output[i];
+        }
+    }
+
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteAggregate(AggregateNode node, EvalScope? outer)
     {
         var (inColumns, inRowsEnum) = Execute(node.Input, outer);
@@ -1215,6 +1567,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private object? ComputeAggregate(FunctionCall call, List<object?[]> group, IReadOnlyList<OutputColumn> columns, EvalScope? outer)
     {
         string name = call.Name.ToUpperInvariant();
+        ExpressionEvaluator.ValidateArity(name, call.Arguments.Count);
         Expression? arg = call.Arguments.Count > 0 ? call.Arguments[0] : null;
 
         // COUNT is an Access Long Integer (32-bit) — EF reads it with GetInt32, so return int, not long.
@@ -1318,17 +1671,36 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case InListExpression i:
                 foreach (FunctionCall a in Aggregates(i.Value).Concat(i.Items.SelectMany(Aggregates))) yield return a;
                 break;
+            // Both halves of every arm, and the ELSE. An aggregate in a CASE is computed for the group up
+            // front and handed to the evaluator by reference — the standard specifies the same order, that
+            // aggregates in a WHEN are evaluated before the CASE rather than by it. Conditions matter as much
+            // as results: `HAVING CASE WHEN COUNT(*) > 1 THEN …` carries the aggregate in the condition.
+            case CaseExpression c:
+                foreach (FunctionCall a in c.WhenClauses
+                    .SelectMany(w => Aggregates(w.Condition).Concat(Aggregates(w.Result)))
+                    .Concat(c.ElseResult is { } e2 ? Aggregates(e2) : []))
+                    yield return a;
+                break;
         }
     }
 
     /// <summary>All aggregate calls anywhere in a subquery's clauses (projection, WHERE, HAVING, GROUP BY,
     /// ORDER BY) — used to surface outer aggregates that a correlated subquery references.</summary>
-    private static IEnumerable<FunctionCall> AggregatesInSelect(SelectStatement s) =>
-        s.Projection.SelectMany(i => Aggregates(i.Value))
+    /// <summary>The aggregate calls anywhere in a subquery. A set operation is walked into on both sides rather
+    /// than skipped: an aggregate over an OUTER column can sit in either arm, and missing one leaves it
+    /// uncomputed for the group — the evaluator would then fail to resolve it, so declining is not safe here the
+    /// way it is for the decorrelation rewrites.</summary>
+    private static IEnumerable<FunctionCall> AggregatesInSelect(SqlStatement statement) => statement switch
+    {
+        SelectStatement s => s.Projection.SelectMany(i => Aggregates(i.Value))
             .Concat(s.Where is { } w ? Aggregates(w) : [])
             .Concat(s.Having is { } h ? Aggregates(h) : [])
             .Concat(s.GroupBy.SelectMany(Aggregates))
-            .Concat(s.OrderBy.SelectMany(o => Aggregates(o.Value)));
+            .Concat(s.OrderBy.SelectMany(o => Aggregates(o.Value))),
+        SetOperationStatement so => AggregatesInSelect(so.Left).Concat(AggregatesInSelect(so.Right)),
+        ValuesStatement v => v.Rows.SelectMany(r => r.SelectMany(Aggregates)),
+        _ => [],
+    };
 
     /// <summary>Groups by structural equality of the key value tuple.</summary>
     // DISTINCT / GROUP BY / INTERSECT / EXCEPT key. String keys use Access text semantics — case-insensitive

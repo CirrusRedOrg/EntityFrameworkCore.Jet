@@ -9,24 +9,13 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class BitwiseOperatorAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     // ACE evaluates the same bitwise operator syntax, giving the values the LibRed engine tests assert.
     [Fact]
     public void Access_evaluates_bitwise_operators()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"bitop-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "bitop-");
         try
         {
             using var conn = OpenOleDb(path);
@@ -46,6 +35,6 @@ public class BitwiseOperatorAccessTests
             Assert.Equal(-6, Ace("BNOT 5"));
             Assert.Equal(10, Ace("6 BAND 3 BOR 8"));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

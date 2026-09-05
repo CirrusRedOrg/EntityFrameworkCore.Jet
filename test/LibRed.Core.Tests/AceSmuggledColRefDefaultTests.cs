@@ -12,25 +12,14 @@ namespace LibRed.Core.Tests;
 // at create time. There is no way to smuggle a working column-ref default past the engine.
 public class AceSmuggledColRefDefaultTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Theory]
     [InlineData("[A] + 2", "does not recognize")]  // engine names the field reference in the default
     [InlineData("A + 2", "Type mismatch")]          // bare A parses as something else → type mismatch
     public void Access_opens_the_file_but_rejects_an_insert_using_a_smuggled_column_ref_default(string def, string expectedError)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"smug-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "smug-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -60,6 +49,6 @@ public class AceSmuggledColRefDefaultTests
             count.CommandText = "SELECT COUNT(*) FROM T";
             Assert.Equal(0, Convert.ToInt32(count.ExecuteScalar()));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

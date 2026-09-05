@@ -1,6 +1,7 @@
 using LibRed;
 using LibRed.Engine;
 using LibRed.Engine.Execution;
+using LibRed.Tests.Shared;
 using LibRed.Sql.Ast;
 using LibRed.Sql.Parsing;
 using Xunit;
@@ -11,13 +12,12 @@ namespace LibRed.Engine.Tests;
 // the correlation column instead of once per outer row. The semantics that need pinning are all about the outer
 // row with NO partner: the correlated body still returns a row there, so absence from the grouped result is not
 // null but the aggregate's own empty-input value, which differs per aggregate (COUNT 0, SUM/MIN/MAX null).
-public class CorrelatedScalarAggregateTests
+public class CorrelatedScalarAggregateTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"scagg-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "scagg-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
 
         e.ExecuteNonQuery("CREATE TABLE O ( Id LONG PRIMARY KEY, K LONG, Tag TEXT(10) )");
         e.ExecuteNonQuery("INSERT INTO O (Id, K, Tag) VALUES (1, 10, 'a')"); // two partners
@@ -43,12 +43,12 @@ public class CorrelatedScalarAggregateTests
         => e.ExecuteQuery($"SELECT o.Id, {scalar} FROM O AS o")
             .Rows.ToDictionary(r => Convert.ToInt64(r[0]), r => r[1]);
 
-    private static bool Decorrelates(QueryEngine e, string sql)
+    private static bool Decorrelates(QueryEngine e, string sql, IReadOnlyList<OutputColumn>? outerColumns = null)
     {
         var select = (SelectStatement)new AntlrSqlParser().ParseStatement(sql);
         var scalar = (ScalarSubquery)select.Projection[1].Value;
 
-        OutputColumn[] outer =
+        IReadOnlyList<OutputColumn> outer = outerColumns ??
         [
             new("o", "Id", typeof(long)), new("o", "K", typeof(long)), new("o", "Tag", typeof(string)),
         ];
@@ -180,12 +180,11 @@ public class CorrelatedScalarAggregateTests
     [Fact]
     public void The_rewrite_engages_on_a_correlated_count_over_northwind()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"scaggperf-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        using var temp = TemporaryDatabase.CopyOf(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "scaggplan");
+        var e = new QueryEngine(temp.Open());
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        int rows = e.ExecuteQuery(
+        const string sql =
             """
             SELECT `o`.`OrderID`
             FROM `Order Details` AS `o`
@@ -194,10 +193,21 @@ public class CorrelatedScalarAggregateTests
                 FROM `Orders` AS `o1`
                 INNER JOIN `Customers` AS `c` ON `o1`.`CustomerID` = `c`.`CustomerID`
                 WHERE `o1`.`OrderID` = `o`.`OrderID`) > 0
-            """).Rows.Count();
-        sw.Stop();
+            """;
+
+        Assert.True(Decorrelates(e,
+            """
+            SELECT `o`.`OrderID`, (
+                SELECT COUNT(*)
+                FROM `Orders` AS `o1`
+                INNER JOIN `Customers` AS `c` ON `o1`.`CustomerID` = `c`.`CustomerID`
+                WHERE `o1`.`OrderID` = `o`.`OrderID`)
+            FROM `Order Details` AS `o`
+            """, [new("o", "OrderID", typeof(int))]));
+
+        int rows = e.ExecuteQuery(
+            sql).Rows.Count();
 
         Assert.Equal(2155, rows);
-        Assert.True(sw.ElapsedMilliseconds < 5000, $"took {sw.ElapsedMilliseconds} ms — the aggregate was not decorrelated");
     }
 }

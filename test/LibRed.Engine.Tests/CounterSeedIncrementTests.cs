@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 // COUNTER(seed, increment): the first generated AutoNumber id is the seed, then +increment per row (verified
 // vs ACE, which stores increment at TDEF 0x18 and last-value = seed-increment at 0x14). A plain COUNTER is 1/1.
-public class CounterSeedIncrementTests
+public class CounterSeedIncrementTests : TempDatabaseTest
 {
     private static (QueryEngine Engine, JetDatabase Db) Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"counter-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var db = JetDatabase.Open(path, readOnly: false);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "counter-");
+        var db = TemporaryDatabase.OpenTracked(path, readOnly: false);
         return (new QueryEngine(db), db);
     }
 

@@ -6,13 +6,12 @@ namespace LibRed.Engine.Tests;
 
 // Access Switch(cond-1, value-1, cond-2, value-2, …): returns the value of the first true condition, NULL if none
 // match, and requires an even argument count. Semantics verified against ACE. Exercised via DEFAULT expressions.
-public class SwitchFunctionTests
+public class SwitchFunctionTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"switch-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        return new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "switch-");
+        return new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
     }
 
     private static object? DefaultOf(string type, string def)

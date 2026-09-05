@@ -18,8 +18,7 @@ public class UnionDerivedTableTests
 
     private static string Fresh()
     {
-        string p = Path.Combine(Path.GetTempPath(), $"union-derived-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), p);
+        string p = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "union-derived-");
         return p;
     }
 
@@ -34,7 +33,7 @@ public class UnionDerivedTableTests
                 "SELECT u.City FROM (SELECT City FROM Customers UNION SELECT City FROM Suppliers) AS u");
             Assert.True(rs.Rows.Count() > 0);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -58,6 +57,6 @@ public class UnionDerivedTableTests
                 Assert.Equal(viaBase, viaView);
             }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

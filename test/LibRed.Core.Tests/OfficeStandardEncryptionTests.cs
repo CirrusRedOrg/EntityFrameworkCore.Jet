@@ -102,7 +102,7 @@ public class OfficeStandardEncryptionTests
         int verifierHashSize = 20)
     {
         var page = new byte[4096];
-        int ei = 0x100;
+        const int ei = 0x29B;
         const int headerSize = 32;
         void U16(int o, ushort v) => BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(o), v);
         void U32(int o, uint v) => BinaryPrimitives.WriteUInt32LittleEndian(page.AsSpan(o), v);
@@ -121,6 +121,8 @@ public class OfficeStandardEncryptionTests
         encVerifier.CopyTo(page, v + 4 + salt.Length);
         U32(v + 4 + salt.Length + 16, (uint)verifierHashSize); // VerifierHashSize (SHA1 normally 20)
         encVerifierHash.CopyTo(page, v + 4 + salt.Length + 16 + 4);
+        int descriptorLength = v + 4 + salt.Length + 16 + 4 + encVerifierHash.Length - ei;
+        U16(0x299, checked((ushort)descriptorLength));
         return page;
     }
 }

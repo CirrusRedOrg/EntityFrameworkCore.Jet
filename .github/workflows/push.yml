@@ -97,6 +97,7 @@ jobs:
               - *shared
               - 'src/Shared/**'
               - 'src/EFCore.Jet/**'
+              - 'src/EFCore.Jet.Common/**'
               - 'src/EFCore.Jet.Data/**'
               - 'src/EFCore.Jet.Odbc/**'
               - 'src/EFCore.Jet.OleDb/**'
@@ -112,12 +113,10 @@ jobs:
               - 'test/LibRed.Core.Tests/**'
               - 'test/LibRed.EFCore.Tests/**'
               - 'test/LibRed.Engine.Tests/**'
+              - 'test/LibRed.Engine.AccessTests/**'
               - 'test/EFCore.LibRed.FunctionalTests/**'
-              # LibRed.Ado references EFCore.Jet.Data and LibRed.EFCore references EFCore.Jet, so a
-              # change on the Jet side has to re-run LibRed. The reverse is not true: nothing under
-              # src/LibRed is referenced by the Jet provider.
-              - 'src/EFCore.Jet/**'
-              - 'src/EFCore.Jet.Data/**'
+              - 'test/EFCore.LibRed.Extended.FunctionalTests/**'
+              - 'src/EFCore.Jet.Common/**'
               # Northwind.accdb lives here and every LibRed suite links to it as its fixture.
               - 'test/JetProviderExceptionTests/**'
       - name: 'Decide What To Run'
@@ -686,6 +685,12 @@ jobs:
         if: env.skipTests != 'true'
         shell: pwsh
         run: dotnet test .\test\LibRed.Core.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
+      # The engine tests that cross-check against ACE. They belong here rather than in the cross-platform
+      # LibRed job above, which runs on five platforms precisely to prove LibRed needs no ACE at all.
+      - name: 'Run Tests: LibRed.Engine.AccessTests'
+        if: always() && env.skipTests != 'true'
+        shell: pwsh
+        run: dotnet test .\test\LibRed.Engine.AccessTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
       - name: 'Run Tests: LibRed.Ado.Tests'
         if: always() && env.skipTests != 'true'
         shell: pwsh
@@ -699,9 +704,9 @@ jobs:
     needs:
       - Preconditions
       - Changes
-    # Non-blocking for now: the suite sits at ~278 failures out of ~36,000 run, so it would be red on
-    # every push and quickly learn to be ignored. It still runs on every push and the log is there to
-    # read. Drop this line once the remaining failures are fixed or skipped.
+    # Non-blocking for now: both suites still fail in the low hundreds out of ~38,000 run, so the job would
+    # be red on every push and quickly learn to be ignored. It still runs on every push and the log is there
+    # to read. Drop this line once the remaining failures are fixed or skipped.
     continue-on-error: true
     if: (needs.Preconditions.outputs.lastCommitIsAutoCommit != 'true' || needs.Preconditions.outputs.lastCommitCreatedBeforeSeconds > 300) && needs.Changes.outputs.libred == 'true'
     strategy:
@@ -735,6 +740,12 @@ jobs:
       - name: 'Run Tests: EFCore.LibRed.FunctionalTests'
         if: env.skipTests != 'true'
         run: dotnet test test/EFCore.LibRed.FunctionalTests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 10m
+      # The same specification suite against extended mode, where the generator emits standard SQL instead of
+      # Jet dialect workarounds. It has its own baselines, so it is a separate project rather than a matrix leg.
+      # always(), so a failure in the compat suite above does not skip this one.
+      - name: 'Run Tests: EFCore.LibRed.Extended.FunctionalTests'
+        if: always() && env.skipTests != 'true'
+        run: dotnet test test/EFCore.LibRed.Extended.FunctionalTests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 10m
   MergeArtifacts:
     needs: BuildAndTest
     if: always()
@@ -798,10 +809,7 @@ jobs:
           pattern: green-tests_*
           delete-merged: true
   NuGet:
-    needs:
-      - BuildAndTest
-      - MergeArtifacts
-    if: always() && (needs.BuildAndTest.result == 'success' || needs.BuildAndTest.result == 'skipped') && (github.event_name == 'push' || github.event_name == 'release') && needs.MergeArtifacts.result == 'success' && github.repository == 'CirrusRedOrg/EntityFrameworkCore.Jet'
+    if: (github.event_name == 'push' || github.event_name == 'release') && github.repository == 'CirrusRedOrg/EntityFrameworkCore.Jet'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

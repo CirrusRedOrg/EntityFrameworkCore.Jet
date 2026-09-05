@@ -4,8 +4,9 @@ namespace LibRed.IO;
 /// A bounded, write-through buffer pool of raw page bytes for one physical database file, <b>shared by every
 /// <see cref="PageChannel"/> open on that file</b> (see <see cref="Acquire"/>). A single cache per file is what
 /// keeps coexisting handles coherent: because they all read and write through the same pool, one connection's
-/// committed — or, as today, uncommitted — writes are immediately visible to the others, exactly as the old
-/// straight-to-disk reads were, only now served from memory instead of a <c>Seek()+Read()</c> per page.
+/// committed writes are immediately visible to the others, while transaction-local overlay pages remain private,
+/// exactly as the old straight-to-disk committed reads were, only now served from memory instead of a
+/// <c>Seek()+Read()</c> per page.
 ///
 /// <para>The pool owns its own copies: reads copy <i>out</i> to the caller and writes copy <i>in</i> from the
 /// caller, so a caller mutating its buffer can never corrupt a cached page. Eviction is LRU, capped at
@@ -32,6 +33,10 @@ internal sealed class PageCache
 
     private readonly int _pageSize;
     private readonly object _gate = new();
+    // Shared for readers, exclusive for publication. Recursive so a writing statement can hold the exclusive
+    // scope while each page write re-enters it; an attempted read→write upgrade is rejected explicitly below.
+    private readonly ReaderWriterLockSlim _publishGate = new(LockRecursionPolicy.SupportsRecursion);
+    private long _schemaGeneration;
     private readonly Dictionary<int, LinkedListNode<Entry>> _map = [];
     private readonly LinkedList<Entry> _lru = new(); // first = most-recently-used
 
@@ -138,6 +143,58 @@ internal sealed class PageCache
                 _map.Remove(lruNode.Value.Page);
             }
         }
+    }
+
+    /// <summary>Removes a page which was appended during a failed commit and subsequently truncated.</summary>
+    public void Remove(int page)
+    {
+        lock (_gate)
+        {
+            if (!_map.Remove(page, out LinkedListNode<Entry>? node)) return;
+            _lru.Remove(node);
+        }
+    }
+
+    /// <summary>Serializes committed-page validation and publication for every channel on this file, and
+    /// excludes readers for the duration. A transaction validates all pages it derived from and publishes its
+    /// overlay while holding this gate; ordinary write-through operations use the same gate, preventing a write
+    /// between validation and publish. Writing statements hold it for their whole duration, so a reader never
+    /// sees one statement's pages half-written. The gate is recursive: a statement-scoped acquisition nests the
+    /// per-page publications inside it.</summary>
+    public void PublishLocked(Action action) => PublishLocked<object?>(() => { action(); return null; });
+
+    /// <inheritdoc cref="PublishLocked(Action)"/>
+    public T PublishLocked<T>(Func<T> action)
+    {
+        // A reader that turns out to write is a statement-classification bug (see QueryEngine): the shared
+        // gate cannot be upgraded, so say so rather than surfacing a bare LockRecursionException.
+        if (_publishGate.IsReadLockHeld)
+            throw new InvalidOperationException(
+                "A page write was attempted inside a shared (read-consistent) scope; the statement should have taken the exclusive scope.");
+
+        _publishGate.EnterWriteLock();
+        try { return action(); }
+        finally { _publishGate.ExitWriteLock(); }
+    }
+
+    /// <summary>Runs one logical read while excluding a multi-page commit publication, so the caller sees
+    /// either the complete pre-commit or complete post-commit page set. Shared: concurrent readers on this file
+    /// run together, and only a publication (see <see cref="PublishLocked(Action)"/>) excludes them.</summary>
+    public T ReadConsistent<T>(Func<T> action)
+    {
+        _publishGate.EnterReadLock();
+        try { return action(); }
+        finally { _publishGate.ExitReadLock(); }
+    }
+
+    public long SchemaGeneration
+    {
+        get { lock (_gate) return _schemaGeneration; }
+    }
+
+    public void MarkSchemaChanged()
+    {
+        lock (_gate) _schemaGeneration++;
     }
 
     /// <summary>Returns a previously cached higher-layer parse of <paramref name="page"/> (see

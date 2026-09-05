@@ -1,0 +1,124 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>$(JetTargetFramework)</TargetFramework>
+		<RootNamespace>EntityFrameworkCore.LibRed.Extended.FunctionalTests</RootNamespace>
+		<AssemblyName>EntityFrameworkCore.LibRed.Extended.FunctionalTests</AssemblyName>
+		<Platforms>AnyCPU;x86;x64</Platforms>
+		<PreserveCompilationContext>true</PreserveCompilationContext>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<NoWarn>$(NoWarn);CA1416</NoWarn>
+		<OutputType>Exe</OutputType>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Compile Include="..\Shared\**\*.cs">
+			<Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+		</Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Build.Tasks.Core" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" />
+		<PackageReference Include="xunit.v3.core" />
+		<PackageReference Include="xunit.v3.assert" />
+		<PackageReference Include="xunit.runner.visualstudio" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+		<PackageReference Include="System.Data.Odbc" />
+		<PackageReference Include="System.Data.OleDb" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(LocalEFCoreRepository)' == ''">
+		<PackageReference Include="Microsoft.EntityFrameworkCore" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(LocalEFCoreRepository)' != ''">
+		<Reference Include="Microsoft.EntityFrameworkCore">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Abstractions">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Abstractions.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Analyzers">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Analyzers.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Proxies">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Proxies.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Relational">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Relational.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Relational.Specification.Tests.dll</HintPath>
+		</Reference>
+		<Reference Include="Microsoft.EntityFrameworkCore.Specification.Tests">
+			<HintPath>$(LocalEFCoreRepository)\artifacts\bin\EFCore.Relational.Specification.Tests\Debug\$(EfCoreTestTargetFramework)\Microsoft.EntityFrameworkCore.Specification.Tests.dll</HintPath>
+		</Reference>
+		<PackageReference Include="NetTopologySuite" />
+		<PackageReference Include="Castle.Core" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="config.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Include="..\xunit.runner.json">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Include="Query\AdHocJsonQueryLibRedTest.cs" />
+		<None Include="Query\AdHocJsonQueryLibRedTestBase.cs" />
+		<None Remove="TestResults\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\LibRed\LibRed.EFCore\LibRed.EFCore.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="config.json">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="..\Northwind.sql">
+			<Link>Northwind.sql</Link>
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+		<EmbeddedResource Remove="TestResults\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Remove="TestResults\**" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Remove="PropertyEntryLibRedTest.cs" />
+		<Compile Remove="Query\AdHocJsonQueryLibRedTest.cs" />
+		<Compile Remove="Query\AdHocJsonQueryLibRedTestBase.cs" />
+	</ItemGroup>
+
+	<!-- Compiled-model baselines are comparison text, not compiled code. -->
+	<ItemGroup>
+		<Compile Remove="Scaffolding\Baselines\**\*" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="Scaffolding\Baselines\**\*" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Scaffolding\Baselines\" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Using Include="LibRed.Data" />
+	</ItemGroup>
+
+</Project>

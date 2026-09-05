@@ -90,6 +90,16 @@ public sealed class OfficeStandardEncryption : IPageCodec
         if (databaseKey == 0)
             return null;
 
+        const int descriptorOffset = 0x29B;
+        if (page0.Length < descriptorOffset)
+            throw new InvalidDataException("Page 0 is too short to contain an ACE EncryptionInfo frame.");
+        int descriptorLength = BinaryPrimitives.ReadUInt16LittleEndian(page0.Slice(0x299, 2));
+        if (descriptorLength == 0)
+            return null;
+        if (descriptorLength > page0.Length - descriptorOffset)
+            throw new InvalidDataException("The declared Office-Standard EncryptionInfo extends beyond page 0.");
+        page0 = page0.Slice(descriptorOffset, descriptorLength);
+
         int ei = LocateBinaryEncryptionInfo(page0);
         if (ei < 0)
             return null;
@@ -346,7 +356,7 @@ public sealed class OfficeStandardEncryption : IPageCodec
     {
         // A binary EncryptionInfo begins: uint16 major, uint16 minor(=2 for standard/CryptoAPI), uint32 flags
         // (fCryptoAPI=0x04 set), uint32 headerSize. Validate against a known cipher AlgID to avoid false hits.
-        for (int i = 0x100; i + 32 < page0.Length && i < 0x400; i++)
+        for (int i = 0; i + 32 < page0.Length; i++)
         {
             ushort major = BinaryPrimitives.ReadUInt16LittleEndian(page0.Slice(i, 2));
             ushort minor = BinaryPrimitives.ReadUInt16LittleEndian(page0.Slice(i + 2, 2));

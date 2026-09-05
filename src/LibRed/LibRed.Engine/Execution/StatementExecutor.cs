@@ -30,15 +30,38 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         DropTableStatement dropTable => DropTable(dropTable.Table),
         DropViewStatement dropView => DropQueryObject(dropView.View, "view"),
         DropProcedureStatement dropProc => DropQueryObject(dropProc.Procedure, "procedure"),
+        SelectStatement { Into: not null } makeTable => ExecuteSelectInto(makeTable),
         InsertStatement insert => ExecuteInsert(insert),
         UpdateStatement update => ExecuteUpdate(update),
         DeleteStatement delete => ExecuteDelete(delete),
         _ => throw new NotSupportedException($"{statement.GetType().Name} cannot be executed as a non-query."),
     };
 
+    /// <summary>
+    /// Maps a declared column type to its storage spec, first raising the database's format version if the
+    /// type needs a newer one than the file currently is.
+    /// </summary>
+    /// <remarks>
+    /// Access does the upgrade itself rather than refusing the DDL — adding a Date/Time Extended column to an
+    /// ACE 12 database moves its version byte to 0x06, and for DATETIME2 that byte is the entire upgrade
+    /// (docs/format/page-00-database.md). Refusing instead would leave LibRed unable to do something the
+    /// engine it mirrors does routinely.
+    /// <para>The raise joins this statement's transaction, so a failed CREATE/ALTER takes its format bump
+    /// back down with it. It is still one-way in the sense that matters: once committed, an Access older than
+    /// the new format cannot open the file — unavoidable, since the column it would find is one it cannot
+    /// read either.</para>
+    /// </remarks>
+    private ColumnSpec MapColumn(ColumnDefinition column)
+    {
+        if (AccessTypeMapper.RequiredVersion(column.TypeName) is { } required)
+            _database.EnsureFormatAtLeast(required.Min);
+
+        return AccessTypeMapper.ToColumnSpec(column, _database.Format.Version);
+    }
+
     private int ExecuteCreateTable(CreateTableStatement statement)
     {
-        var columns = statement.Columns.Select(c => AccessTypeMapper.ToColumnSpec(c, _database.Format.Version)).ToList();
+        var columns = statement.Columns.Select(MapColumn).ToList();
         foreach (var (spec, def) in columns.Zip(statement.Columns))
             ValidateColumnDefault(spec, def.Default);
         IReadOnlyList<string>? primaryKey = statement.PrimaryKey.Count > 0 ? statement.PrimaryKey : null;
@@ -374,6 +397,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     {
         // A procedure is a parameterized stored query: a view spec plus a parameter row per declared
         // parameter (name + Jet type code, resolved from the declared Access type name).
+        //
+        // Deliberately NOT MapColumn: this declares no storage, so there is no column forcing the file's
+        // hand, and a BIGINT/DATETIME2 parameter on an older format is left to fail. Upgrading a whole
+        // database for a saved query's parameter type is a bigger claim than anything measured — what ACE
+        // does with a new-type parameter in MSysQueries has not been probed, unlike the column case.
         var parameters = statement.Parameters
             .Select(p => new ViewParameterSpec(
                 p.Name,
@@ -481,7 +509,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private int AddColumn(string table, ColumnDefinition column)
     {
         // NOT NULL and DEFAULT are written to the column's LvProp properties (Required / DefaultValue).
-        ColumnSpec spec = AccessTypeMapper.ToColumnSpec(column, _database.Format.Version);
+        ColumnSpec spec = MapColumn(column);
         ValidateColumnDefault(spec, column.Default);
         if (!_database.AddColumn(table, spec, column.Default))
             throw new InvalidOperationException($"ALTER TABLE '{table}' ADD COLUMN '{column.Name}': the column already exists.");
@@ -559,7 +587,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private int AlterColumn(string table, AlterColumnAction alter)
     {
         var colDef = new ColumnDefinition(alter.Field, alter.TypeName, alter.Size, alter.Scale, NotNull: false, PrimaryKey: false);
-        _database.AlterColumn(table, alter.Field, AccessTypeMapper.ToColumnSpec(colDef, _database.Format.Version));
+        _database.AlterColumn(table, alter.Field, MapColumn(colDef));
         // Apply DEFAULT before Required so the column's property map keeps ACE's order (DefaultValue, then Required).
         if (alter.Default is not null)   // ALTER COLUMN … DEFAULT: set the column's default after the type change
             _database.SetColumnDefault(table, alter.Field, alter.Default);
@@ -618,6 +646,115 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         OrderBy: d.OrderBy.Select(o => new ViewOrderBySpec(o.Expression, o.Descending)).ToList(),
         Top: d.Top);
 
+    /// <summary>
+    /// A make-table query: <c>SELECT … INTO newtable FROM source</c>.
+    /// </summary>
+    /// <remarks>
+    /// The new table takes the result's column names and types and NOTHING else. Measured against ACE
+    /// (<c>SelectIntoShapeProbeTest</c>): a source's PRIMARY KEY and indexes are not copied, so archiving a
+    /// keyed table gives an unkeyed copy. An expression column is typed from the expression rather than from
+    /// any source column — <c>Qty * 2</c> gives Int32, a concatenation gives Text at the 255-character
+    /// maximum, and <c>SUM</c> widens to Double. An empty result still creates the table. An existing name is
+    /// an error, which the docs call "a trappable error" and ACE reports as "Table 'X' already exists".
+    /// </remarks>
+    private int ExecuteSelectInto(SelectStatement statement)
+    {
+        string target = statement.Into!;
+        if (_database.Catalog.Tables.Any(t => string.Equals(t.Name, target, StringComparison.OrdinalIgnoreCase)))
+            throw new SchemaObjectExistsException($"Table '{target}' already exists.", target);
+
+        // Run the query first — with INTO stripped, or planning would recurse back into this method — and
+        // materialise it. The rows have to exist before the table does: the source may read a table this
+        // statement is about to change, and the row count is not known until the read completes.
+        ResultSet source = _scalarRunner.ExecuteQuery(Planning.IndexSelection.Apply(
+            Planning.QueryPlanner.PlanSelect(statement with { Into = null }), _database.Catalog));
+        var rows = source.Rows.ToList();
+
+        // A result column that IS a source column keeps that column's DEFINITION — its type and its declared
+        // width. Only a computed column is typed from its value. Measured: a source Text(30) arrives as
+        // Text(60) bytes, not the Text(510) maximum, while a concatenation does get the maximum because
+        // there is no declared width to copy.
+        var sourceColumns = SourceColumnsFor(statement);
+        var specs = source.ColumnNames
+            .Select((name, i) => sourceColumns.TryGetValue(name, out ColumnDef? column)
+                ? new ColumnSpec(name, column.Type, column.Length, column.IsFixedLength,
+                                 Precision: column.Precision, Scale: column.Scale)
+                : ColumnSpecFor(name, source.ColumnTypes[i]))
+            .ToList();
+        _database.CreateTable(target, specs);
+
+        Table table = _database.OpenTable(target);
+        foreach (object?[] row in rows)
+        {
+            var values = new object?[specs.Count];
+            Array.Copy(row, values, Math.Min(row.Length, values.Length));
+            table.Insert(values);
+        }
+
+        if (_session is not null) _session.RowCount = rows.Count;
+        return rows.Count;
+    }
+
+    /// <summary>
+    /// The source columns a make-table's output names can be copied from, by output name.
+    /// </summary>
+    /// <remarks>
+    /// Only projections that ARE a column carry a definition to copy: <c>SELECT Label</c> and
+    /// <c>SELECT Label AS L</c> do, <c>SELECT Label &amp; '!'</c> does not. <c>SELECT *</c> takes every
+    /// column of every table in the FROM. Anything not found here falls back to typing from the value.
+    /// </remarks>
+    private Dictionary<string, ColumnDef> SourceColumnsFor(SelectStatement statement)
+    {
+        var available = new Dictionary<string, ColumnDef>(StringComparer.OrdinalIgnoreCase);
+        foreach (string table in TablesIn(statement.From))
+            if (_database.Catalog.Tables.FirstOrDefault(
+                    t => string.Equals(t.Name, table, StringComparison.OrdinalIgnoreCase)) is { } def)
+                foreach (ColumnDef column in def.Columns)
+                    available.TryAdd(column.Name, column);
+
+        if (statement.IsSelectStar) return available;
+
+        var byOutputName = new Dictionary<string, ColumnDef>(StringComparer.OrdinalIgnoreCase);
+        foreach (SelectItem item in statement.Projection)
+            if (item.Value is ColumnReference reference &&
+                available.TryGetValue(reference.Column, out ColumnDef? column))
+                byOutputName.TryAdd(item.Alias ?? reference.Column, column);
+        return byOutputName;
+    }
+
+    /// <summary>The table names a FROM clause reaches, so their column definitions can be found.</summary>
+    private static IEnumerable<string> TablesIn(TableReference? from) => from switch
+    {
+        NamedTable named => [named.Name],
+        JoinTable join => [.. TablesIn(join.Left), .. TablesIn(join.Right)],
+        // A derived table has no stored column definitions to copy, so its columns fall back to being typed
+        // from their values — as a computed column does.
+        _ => [],
+    };
+
+    /// <summary>The column a COMPUTED result column becomes. Text takes the 255-character maximum, because an
+    /// expression carries no declared width — ACE gives a concatenation Text(255) rather than measuring the
+    /// values it produced.</summary>
+    private static ColumnSpec ColumnSpecFor(string name, Type clrType) => Type.GetTypeCode(clrType) switch
+    {
+        TypeCode.Boolean => new ColumnSpec(name, JetDataType.Boolean, 1, IsFixedLength: true),
+        TypeCode.Byte => new ColumnSpec(name, JetDataType.Byte, 1, IsFixedLength: true),
+        TypeCode.Int16 => new ColumnSpec(name, JetDataType.Int16, 2, IsFixedLength: true),
+        TypeCode.Int32 => new ColumnSpec(name, JetDataType.Int32, 4, IsFixedLength: true),
+        TypeCode.Single => new ColumnSpec(name, JetDataType.Single, 4, IsFixedLength: true),
+        TypeCode.Double => new ColumnSpec(name, JetDataType.Double, 8, IsFixedLength: true),
+        TypeCode.Decimal => new ColumnSpec(name, JetDataType.Currency, 8, IsFixedLength: true),
+        TypeCode.DateTime => new ColumnSpec(name, JetDataType.DateTime, 8, IsFixedLength: true),
+        _ when clrType == typeof(Guid) => new ColumnSpec(name, JetDataType.Guid, 16, IsFixedLength: true),
+        _ when clrType == typeof(byte[]) => new ColumnSpec(name, JetDataType.Binary, 255, IsFixedLength: false),
+        _ => new ColumnSpec(name, JetDataType.Text, 255 * 2, IsFixedLength: false),
+    };
+
+    /// <summary>Sentinel standing for an explicit <c>DEFAULT</c> row value. Reference identity is what marks
+    /// it, so it can never collide with a real value — including a genuine NULL, which DEFAULT is distinct
+    /// from: NULL stores NULL, DEFAULT takes whatever the column declares.</summary>
+    private static readonly object DefaultRowValue = new();
+
     private int ExecuteInsert(InsertStatement statement)
     {
         Table table = _database.OpenTable(statement.Table);
@@ -649,11 +786,14 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         int affected = 0;
         object? lastIdentity = null;
-        foreach (IReadOnlyList<Expression> rowExprs in statement.Rows)
+
+        // One row, given the values already in target order — the two append forms differ only in where
+        // those come from: evaluated VALUES expressions, or a row of the source query's output.
+        void InsertRow(ReadOnlySpan<object?> supplied)
         {
-            if (rowExprs.Count != targets.Count)
+            if (supplied.Length != targets.Count)
                 throw new InvalidOperationException(
-                    $"INSERT has {rowExprs.Count} values but {targets.Count} target columns.");
+                    $"INSERT has {supplied.Length} values but {targets.Count} target columns.");
 
             var values = new object?[columns.Count];
             var provided = new HashSet<int>();
@@ -661,7 +801,16 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             {
                 ColumnDef column = table.Definition.FindColumn(targets[i])
                     ?? throw new InvalidOperationException($"Column '{targets[i]}' does not exist in '{statement.Table}'.");
-                values[column.Index] = evaluator.Evaluate(rowExprs[i]);
+
+                // An explicit DEFAULT is not a value: leaving the column out of `provided` routes it through
+                // the default-filling loop below, so it takes its declared default, or stays NULL when it has
+                // none — which is what the standard specifies. A NOT NULL column with no default then fails
+                // EnforceRequired, as it should. An AutoNumber column takes its generated id, the same as it
+                // would from INSERT INTO t DEFAULT VALUES.
+                if (ReferenceEquals(supplied[i], DefaultRowValue))
+                    continue;
+
+                values[column.Index] = supplied[i];
                 provided.Add(column.Index);
             }
 
@@ -677,6 +826,45 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             if (autoNumber is not null)
                 lastIdentity = values[autoNumber.Index];
             affected++;
+        }
+
+        if (statement.Source is not null)
+        {
+            // The multiple-record form. The source is MATERIALISED before a single row is written: appending
+            // a table to itself otherwise feeds its own output back into the scan and never terminates.
+            // Access's INSERT INTO t SELECT * FROM t doubles the table and stops, so the read completes
+            // before the write begins.
+            ResultSet source = _scalarRunner.ExecuteQuery(
+                Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(statement.Source), _database.Catalog));
+            var rows = source.Rows.ToList();
+
+            // With no column list the source's output NAMES choose the target columns — ACE resolves by name,
+            // not by position. Measured, because the two only disagree when they disagree silently:
+            //   INSERT INTO PDst SELECT B AS Name, A AS Id FROM PSrc
+            // stores Id=7, Name='seven' — the values routed by their aliases, not by the order they appear
+            // in. Positionally that would have put 'seven' in Id. ACE rejects a name the target lacks
+            // ("unknown field name: 'A'"), including through SELECT *, and FindColumn below does the same.
+            //
+            // An explicit column list is the other rule entirely: it names the targets and the source's
+            // values map positionally onto IT, whatever the source calls them.
+            if (statement.Columns.Count == 0)
+                targets = source.ColumnNames;
+
+            foreach (object?[] row in rows) InsertRow(row);
+        }
+        else
+        {
+            foreach (IReadOnlyList<Expression> rowExprs in statement.Rows)
+            {
+                var supplied = new object?[rowExprs.Count];
+                for (int i = 0; i < rowExprs.Count; i++)
+                    // DEFAULT is a marker, not something to evaluate — it is carried through as a sentinel so
+                    // InsertRow can tell "take the column's default" apart from any value, NULL included.
+                    supplied[i] = rowExprs[i] is DefaultValueExpression
+                        ? DefaultRowValue
+                        : evaluator.Evaluate(rowExprs[i]);
+                InsertRow(supplied);
+            }
         }
 
         // Publish @@ROWCOUNT (rows this insert affected) and @@IDENTITY (the last AutoNumber generated) so a
@@ -696,8 +884,44 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// combined evaluation scope), and its rows. A physical table exposes <see cref="Table"/> (rows have real
     /// <see cref="RowId"/>s and can be a SET/DELETE target); a derived table (a subquery in the source) has
     /// <see cref="Table"/> null and its already-materialised <see cref="DerivedRows"/> (never a target).</summary>
+    /// <param name="Lateral">The plan of a LATERAL source — an APPLY's right side — which is re-executed once
+    /// per outer row instead of being materialised, because it may correlate to the rows joined before it.</param>
     private sealed record SourceTable(string Alias, Table? Table, IReadOnlyList<OutputColumn> Columns,
-        IReadOnlyList<object?[]>? DerivedRows);
+        IReadOnlyList<object?[]>? DerivedRows, Plan.PlanNode? Lateral = null);
+
+    /// <summary>How a join kind is handled in a DML source.</summary>
+    private enum JoinShape
+    {
+        /// <summary>Left-deep: walk the left subtree, then the right side tagged with this join.</summary>
+        Conditional,
+        /// <summary>RIGHT JOIN, modelled as the right side preserved with the left LEFT-joined onto it.</summary>
+        RightPreserving,
+        /// <summary>An APPLY: the right side is correlated and re-executed per outer row.</summary>
+        Lateral,
+        Unsupported,
+    }
+
+    /// <summary>
+    ///     Deliberately a switch <b>expression</b> with no discard arm, so adding a <see cref="JoinKind"/> is a
+    ///     BUILD error here rather than a runtime refusal for one query shape.
+    /// </summary>
+    /// <remarks>
+    ///     A join kind has to be taught to two executors — the query one and this one — because DML tracks row
+    ///     identity that the query pipeline discards (see <c>QueryExecutor.ExecuteCorrelated</c>). The
+    ///     duplication is unavoidable; forgetting the second half is not, and this is what makes it so.
+    /// </remarks>
+    // CS8524 is the "value not a named member" case — a cast like (JoinKind)7, which the parser cannot produce.
+    // Silencing only that keeps CS8509, which is the one that matters: with no discard arm, adding a named
+    // JoinKind fails THIS build. A `_ =>` arm would satisfy both and quietly defeat the whole point.
+#pragma warning disable CS8524
+    private static JoinShape ShapeOf(JoinKind kind) => kind switch
+    {
+        JoinKind.Inner or JoinKind.Cross or JoinKind.Left => JoinShape.Conditional,
+        JoinKind.Right => JoinShape.RightPreserving,
+        JoinKind.CrossApply or JoinKind.OuterApply => JoinShape.Lateral,
+        JoinKind.Full => JoinShape.Unsupported,
+    };
+#pragma warning restore CS8524
 
     /// <summary>Flattens the UPDATE/DELETE table source into its tables in order, each paired with the join that
     /// introduced it: its <see cref="JoinKind"/> and ON condition (the first/base table is Inner with a null ON).
@@ -727,6 +951,29 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             ons.Add(on);
         }
 
+        void EmitLateral(SubqueryTable sq, JoinKind kind, Expression? on)
+        {
+            string alias = sq.Alias ?? throw new NotSupportedException("A lateral join in an UPDATE/DELETE source requires an alias.");
+
+            // The tables joined so far are this one's outer scope: pass their aliases to index selection so a
+            // correlated predicate becomes a seek rather than a rescan, which matters here more than anywhere
+            // because the body runs once per outer row.
+            var outerColumns = tables.SelectMany(t => t.Columns).ToList();
+            Plan.PlanNode plan = Planning.IndexSelection.Apply(
+                Planning.QueryPlanner.PlanStatement(sq.Query), _database.Catalog,
+                tables.Select(t => t.Alias).ToHashSet(StringComparer.OrdinalIgnoreCase));
+
+            // The rows vary per outer row but the schema does not, and JoinRows needs it before reading any row.
+            // Probe once against an all-null outer row and drop the rows unread, as QueryExecutor.ExecuteApply does.
+            var (columns, _) = _scalarRunner.ExecuteCorrelated(
+                plan, new EvalScope(outerColumns, new object?[outerColumns.Count], null));
+
+            tables.Add(new SourceTable(
+                alias, null, columns.Select(c => new OutputColumn(alias, c.Name, c.ClrType)).ToList(), null, plan));
+            kinds.Add(kind);
+            ons.Add(on);
+        }
+
         void Walk(TableReference r, JoinKind kind, Expression? on)
         {
             switch (r)
@@ -737,21 +984,48 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 case SubqueryTable sq:
                     EmitDerived(sq, kind, on);
                     break;
-                // Left-deep: the left subtree carries its own joins (its base is the source's first table, Inner
-                // with no ON); the right side is the newly joined named/derived table, tagged with this join.
-                case JoinTable { Kind: JoinKind.Inner or JoinKind.Cross or JoinKind.Left, Right: NamedTable or SubqueryTable } j:
-                    Walk(j.Left, JoinKind.Inner, null);
-                    Walk(j.Right, j.Kind, j.On);
-                    break;
-                // RIGHT JOIN keeps the right side: model it as the right side preserved (the base) with the left
-                // side LEFT-joined onto it. The SET/DELETE target is usually that left side — which then becomes
-                // the nullable side, so a right row with no match yields a null target that the WHERE drops.
-                case JoinTable { Kind: JoinKind.Right, Left: NamedTable or SubqueryTable } j:
-                    Walk(j.Right, JoinKind.Inner, null);
-                    Walk(j.Left, JoinKind.Left, j.On);
+                case JoinTable j:
+                    WalkJoin(j);
                     break;
                 default:
                     throw new NotSupportedException($"UPDATE/DELETE over a {r.GetType().Name} source is not supported yet.");
+            }
+        }
+
+        void WalkJoin(JoinTable j)
+        {
+            switch (ShapeOf(j.Kind))
+            {
+                // Left-deep: the left subtree carries its own joins (its base is the source's first table, Inner
+                // with no ON); the right side is the newly joined named/derived table, tagged with this join.
+                case JoinShape.Conditional when j.Right is NamedTable or SubqueryTable:
+                    Walk(j.Left, JoinKind.Inner, null);
+                    Walk(j.Right, j.Kind, j.On);
+                    break;
+
+                // RIGHT JOIN keeps the right side: model it as the right side preserved (the base) with the left
+                // side LEFT-joined onto it. The SET/DELETE target is usually that left side — which then becomes
+                // the nullable side, so a right row with no match yields a null target that the WHERE drops.
+                case JoinShape.RightPreserving when j.Left is NamedTable or SubqueryTable:
+                    Walk(j.Right, JoinKind.Inner, null);
+                    Walk(j.Left, JoinKind.Left, j.On);
+                    break;
+
+                // A named table on the right of an APPLY cannot correlate to anything, so it is exactly a CROSS
+                // (or, for OUTER APPLY, a LEFT with no condition) and takes the ordinary path.
+                case JoinShape.Lateral when j.Right is NamedTable:
+                    Walk(j.Left, JoinKind.Inner, null);
+                    Walk(j.Right, j.Kind == JoinKind.OuterApply ? JoinKind.Left : JoinKind.Cross, null);
+                    break;
+
+                case JoinShape.Lateral when j.Right is SubqueryTable sq:
+                    Walk(j.Left, JoinKind.Inner, null);
+                    EmitLateral(sq, j.Kind, j.On);
+                    break;
+
+                default:
+                    throw new NotSupportedException(
+                        $"UPDATE/DELETE over a {j.Kind} join of this shape is not supported yet.");
             }
         }
 
@@ -764,9 +1038,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// table's alias for the combined evaluation scope.</summary>
     private (List<OutputColumn> Columns, List<object?[]> Rows) ExecuteDerivedSource(SqlStatement query, string alias)
     {
-        if (query is not SelectStatement select)
-            throw new NotSupportedException("Only a SELECT is supported as a derived table in an UPDATE/DELETE source.");
-        var plan = Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanSelect(select), _database.Catalog);
+        // PlanStatement, not PlanSelect: EF puts a set operation here for Union/Except/Intersect/Concat before
+        // an ExecuteUpdate, and a table value constructor for an inline collection. Same widening as the
+        // subquery predicates needed, for the same reason - a derived table is a query expression.
+        var plan = Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(query), _database.Catalog);
         ResultSet result = _scalarRunner.ExecuteQuery(plan);
         var columns = result.ColumnNames.Select((name, i) => new OutputColumn(alias, name, result.ColumnTypes[i])).ToList();
         return (columns, result.Rows.ToList());
@@ -823,7 +1098,15 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             // A derived table's rows are already materialised and have no RowId (never a target). A physical
             // table is seeked when its ON allows (index-nested-loop), else scanned.
             IEnumerable<(RowId Id, object?[] Values)> rows;
-            if (tables[i].Table is null)
+            if (tables[i].Lateral is { } lateral)
+            {
+                // What makes it lateral: re-executed for THIS outer row, with the rows joined so far in scope,
+                // rather than materialised once. Checked before the derived case, which it also looks like.
+                var (_, lateralRows) = _scalarRunner.ExecuteCorrelated(
+                    lateral, new EvalScope(colsUpTo[i], Flatten(acc, i), null));
+                rows = lateralRows.Select(v => (default(RowId), v));
+            }
+            else if (tables[i].Table is null)
             {
                 rows = tables[i].DerivedRows!.Select(v => (default(RowId), v));
             }
@@ -853,8 +1136,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 }
             }
 
-            // LEFT join: an outer row with no matching inner row is still emitted, with the inner side all-null.
-            if (kinds[i] == JoinKind.Left && !matched)
+            // LEFT join, and OUTER APPLY for the same reason: an outer row with no matching inner row is still
+            // emitted, with the inner side all-null.
+            if (kinds[i] is JoinKind.Left or JoinKind.OuterApply && !matched)
             {
                 acc[i] = (default, new object?[tables[i].Columns.Count]);
                 Recurse(i + 1);

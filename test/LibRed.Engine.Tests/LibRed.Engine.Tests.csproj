@@ -13,6 +13,8 @@
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)..\..\Key.snk</AssemblyOriginatorKeyFile>
     <Platforms>AnyCPU;x86;x64</Platforms>
+    <!-- A small interoperability subset verifies failed statements leave files readable by ACE. -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,10 +29,21 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <!-- No System.Data.OleDb here, deliberately. CI runs THIS suite on Linux, Windows, macOS and both ARM
+         legs, and it is the run that proves LibRed needs no Access engine. A test that opens an ACE
+         connection fails on four of the five for a reason that says nothing about the code, so those live in
+         LibRed.Engine.AccessTests instead. Leaving the reference out is what keeps that from drifting back. -->
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\LibRed\LibRed.Engine\LibRed.Engine.csproj" />
+    <ProjectReference Include="..\..\src\LibRed\LibRed.Ado\LibRed.Ado.csproj" />
+    <!-- LibRed-only helpers live outside test\Shared: the EF functional test projects glob that folder
+         wholesale (..\Shared\**\*.cs) and do not all reference LibRed.Core.
+         AceTestDatabase is deliberately absent — see the note on the package group above. -->
+    <Compile Include="..\LibRed.Shared\TemporaryDatabase.cs" Link="TemporaryDatabase.cs" />
+    <Compile Include="..\LibRed.Shared\TempDatabaseTest.cs" Link="TempDatabaseTest.cs" />
+    <Using Include="LibRed.Tests.Shared" />
   </ItemGroup>
 
   <ItemGroup>

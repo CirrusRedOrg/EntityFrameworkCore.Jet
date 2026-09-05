@@ -10,6 +10,7 @@ public class IndexTraversalCorruptionTests
 {
     private const int PageSize = 4096;
     private const int OwnerOffset = 0x04;
+    private const int PreviousPageOffset = 0x0C;
     private const int NextPageOffset = 0x10;
     private const int ChildTailOffset = 0x14;
     private const int EntryMaskOffset = 0x1B;
@@ -18,7 +19,10 @@ public class IndexTraversalCorruptionTests
     [Theory]
     [InlineData("wrong-owner")]
     [InlineData("child-outside-file")]
+    [InlineData("child-zero")]
+    [InlineData("leaf-previous-outside-file")]
     [InlineData("leaf-next-outside-file")]
+    [InlineData("leaf-row-outside-file")]
     [InlineData("entry-shorter-than-trailer")]
     [InlineData("wrong-page-type")]
     [InlineData("descent-cycle")]
@@ -28,8 +32,7 @@ public class IndexTraversalCorruptionTests
     [InlineData("compressed-prefix-too-long")]
     public void Malformed_index_traversal_is_rejected_as_corruption(string corruption)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"index-corrupt-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "index-corrupt-");
         try
         {
             (int root, int owner) = IndexIdentity(path);
@@ -44,9 +47,23 @@ public class IndexTraversalCorruptionTests
                 case "child-outside-file":
                     BinaryPrimitives.WriteInt32LittleEndian(rootPage[ChildTailOffset..], pageCount + 1);
                     break;
+                case "child-zero":
+                    BinaryPrimitives.WriteInt32LittleEndian(rootPage[ChildTailOffset..], 0);
+                    break;
+                case "leaf-previous-outside-file":
+                    int previousLeaf = LeftmostLeaf(file, root);
+                    BinaryPrimitives.WriteInt32LittleEndian(Page(file, previousLeaf)[PreviousPageOffset..], pageCount + 1);
+                    break;
                 case "leaf-next-outside-file":
                     int leaf = LeftmostLeaf(file, root);
                     BinaryPrimitives.WriteInt32LittleEndian(Page(file, leaf)[NextPageOffset..], pageCount + 1);
+                    break;
+                case "leaf-row-outside-file":
+                    int rowLeaf = LeftmostLeaf(file, root);
+                    Span<byte> rowLeafPage = Page(file, rowLeaf);
+                    int rowEnd = FirstEntryEnd(rowLeafPage);
+                    BinaryPrimitives.WriteInt32BigEndian(
+                        rowLeafPage.Slice(EntryDataOffset + rowEnd - 4, 4), (pageCount + 1) << 8);
                     break;
                 case "entry-shorter-than-trailer":
                     rootPage[EntryMaskOffset..EntryDataOffset].Clear();
@@ -80,18 +97,18 @@ public class IndexTraversalCorruptionTests
             Table table = db.OpenTable("Orders");
             IndexDef index = table.Definition.Indexes.Single(i => i.IsPrimaryKey);
             Assert.Throws<InvalidDataException>(() =>
-                corruption is "leaf-next-outside-file" or "leaf-cycle" or "child-wrong-owner" or "leaf-next-nonleaf"
+                corruption is "leaf-previous-outside-file" or "leaf-next-outside-file" or "leaf-row-outside-file"
+                    or "leaf-cycle" or "child-wrong-owner" or "leaf-next-nonleaf"
                     ? table.SeekRangeRows(index, null, null).ToList()
                     : table.SeekRows(index, [int.MaxValue]).ToList());
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Full_index_cursor_rejects_a_child_owned_by_another_table()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"index-cursor-corrupt-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "index-cursor-corrupt-");
         try
         {
             (int root, int owner) = IndexIdentity(path);
@@ -104,14 +121,13 @@ public class IndexTraversalCorruptionTests
             Table table = db.OpenTable("Orders");
             Assert.Throws<InvalidDataException>(() => new IndexCursor(table.Channel, root).RowIds().ToList());
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Full_index_cursor_rejects_a_cycle_without_recursive_descent()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"index-cursor-cycle-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "index-cursor-cycle-");
         try
         {
             (int root, _) = IndexIdentity(path);
@@ -123,7 +139,7 @@ public class IndexTraversalCorruptionTests
             Table table = db.OpenTable("Orders");
             Assert.Throws<InvalidDataException>(() => new IndexCursor(table.Channel, root).RowIds().ToList());
         }
-        finally { File.Delete(path); }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     private static (int Root, int Owner) IndexIdentity(string path)

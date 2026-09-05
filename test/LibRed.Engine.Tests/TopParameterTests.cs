@@ -8,8 +8,7 @@ public class TopParameterTests
 {
     private static string Fresh()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"top-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "top-");
         return path;
     }
 
@@ -25,7 +24,7 @@ public class TopParameterTests
                 new Dictionary<string, object?> { ["n"] = 3 }).Rows.Count();
             Assert.Equal(3, rows);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -40,7 +39,7 @@ public class TopParameterTests
                 new Dictionary<string, object?> { ["a"] = 2, ["b"] = 3 }).Rows.Count();
             Assert.Equal(5, rows); // @a + @b, and the SELECT star is not swallowed by the TOP expression
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -52,7 +51,7 @@ public class TopParameterTests
             using var db = JetDatabase.Open(path);
             Assert.Equal(4, new QueryEngine(db).ExecuteQuery("SELECT TOP 4 * FROM Customers").Rows.Count());
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -65,6 +64,6 @@ public class TopParameterTests
             Assert.Throws<NotSupportedException>(() => new QueryEngine(db).ExecuteNonQuery(
                 "CREATE VIEW `V` AS SELECT TOP @n `CustomerID` FROM `Customers`"));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

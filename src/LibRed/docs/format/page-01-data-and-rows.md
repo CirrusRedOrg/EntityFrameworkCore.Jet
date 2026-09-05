@@ -27,7 +27,7 @@ of the page backward, so a slot runs from its offset up to where the previous sl
 
 ### Relocated rows
 
-A live slot with `0x4000` set contains exactly one 4-byte little-endian forward pointer,
+A live slot with `0x4000` set **begins with** a 4-byte little-endian forward pointer,
 `(targetPage << 8) | targetRow`. The target is a nonempty inline row on a type-`0x01` page owned by
 the same table. Its target slot has `0x8000` (deleted/hidden) set and `0x4000` clear: ordinary scans
 skip the hidden physical row, while the original row id and its index entries continue to resolve
@@ -35,10 +35,35 @@ through the live source slot. A zero-length slot with both flags set is a tombst
 source. These shapes are verified by LibRed-created files opened by Access and Access-relocated files
 read by LibRed.
 
+**The slot is normally exactly 4 bytes wide, but not always.** When ACE relocates a row through
+ordinary DML it trims the slot down to the pointer, and LibRed does the same. Measured across **317
+relocations with no exception**, covering ACE on x64, the **ACE 2010 runtime on x86**, and LibRed's
+own writer, under: growing and shrinking text, repeated re-relocation of the same rows, page
+fragmentation by interleaved deletes and re-inserts, and an OLE column going from NULL to a value.
+
+Longer slots exist in the wild all the same. In the Northwind ACCDB, `MSysAccessStorage` carries live
+overflow slots of 45–63 bytes. Their content is the row **as it was before it moved**, with only the
+leading 4 bytes replaced by the pointer:
+
+- discount those 4 bytes and every field lands exactly where the row format puts it — the pointer
+  covers the 2-byte column count plus the first 2 bytes of the first column, leaving the remaining
+  6 bytes of that column at offset 4;
+- the remnant's `Id` / `ParentId` / `Type` / `Name` equal those of the row it forwards to;
+- the remnant's null bitmap differs from its target's in exactly one bit, the OLE column `Lv` —
+  NULL in the remnant, set in the target — which is what grew the row and forced the move;
+- every remnant is shorter than its target (55→89, 55→89, 63→87, 63→75, 45→57, 57→71, 53→65).
+
+So the slot kept the previous row's width and was stamped with the pointer rather than trimmed.
+**What writes them is not known**, and is deliberately not asserted here. No write path reproduces
+the shape — not the OLE-column transition the bytes themselves record, and not an older engine
+(ACE 2010 trims exactly as the current one does). What has *not* been exercised is Access's own
+maintenance of its system tables, which is not reachable through SQL DML. Readers must therefore
+take the pointer from the leading 4 bytes and ignore any remainder rather than requiring a width.
+
 LibRed follows relocations through one shared resolver used by scans, index seeks, and raw-row
-mutation helpers. It validates the exact source width, in-file page number, target row, page owner,
-and source/target flag shapes before exposing target bytes; malformed pointers fail with
-`InvalidDataException`.
+mutation helpers. It validates that the source begins with a 4-byte pointer, plus the in-file page
+number, target row, page owner, and source/target flag shapes before exposing target bytes;
+malformed pointers fail with `InvalidDataException`.
 
 ## 5. Row record format
 

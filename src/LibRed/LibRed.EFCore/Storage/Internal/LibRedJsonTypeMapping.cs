@@ -1,0 +1,118 @@
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
+using System.Text;
+using System.Text.Json;
+
+namespace EntityFrameworkCore.LibRed.Storage.Internal;
+
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
+// EF 11 renamed the base to StructuralJsonTypeMapping and reduced JsonTypeMapping to an obsolete stub that no
+// longer derives from RelationalTypeMapping — which is why the old base took GetDataReaderMethod,
+// CustomizeDataReaderExpression, GenerateNonNullSqlLiteral and the nested RelationalTypeMappingParameters out of
+// scope with it. The members themselves are unchanged.
+public class LibRedJsonTypeMapping : StructuralJsonTypeMapping
+{
+    private static readonly MethodInfo GetStringMethod
+        = typeof(DbDataReader).GetRuntimeMethod(nameof(DbDataReader.GetString), [typeof(int)])!;
+
+    private static readonly PropertyInfo UTF8Property
+        = typeof(Encoding).GetProperty(nameof(Encoding.UTF8))!;
+
+    private static readonly MethodInfo EncodingGetBytesMethod
+        = typeof(Encoding).GetMethod(nameof(Encoding.GetBytes), [typeof(string)])!;
+
+    private static readonly ConstructorInfo MemoryStreamConstructor
+        = typeof(MemoryStream).GetConstructor([typeof(byte[])])!;
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public static LibRedJsonTypeMapping Default { get; } = new("longchar");
+
+    /// <summary>
+    ///     For a JSON column the model explicitly sized, which lands in a varchar rather than a memo. Cloned
+    ///     outside for the requested size.
+    /// </summary>
+    public static LibRedJsonTypeMapping VarcharDefault { get; } = new("varchar");
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public LibRedJsonTypeMapping(string storeType)
+        : base(storeType, typeof(JsonElement), System.Data.DbType.String)
+    {
+    }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public override MethodInfo GetDataReaderMethod()
+        => GetStringMethod;
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public override Expression CustomizeDataReaderExpression(Expression expression)
+        => Expression.New(
+            MemoryStreamConstructor,
+            Expression.Call(
+                Expression.Property(null, UTF8Property),
+                EncodingGetBytesMethod,
+                expression));
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    protected LibRedJsonTypeMapping(RelationalTypeMappingParameters parameters)
+        : base(parameters)
+    {
+    }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    protected virtual string EscapeSqlLiteral(string literal)
+        => literal.Replace("'", "''");
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    protected override string GenerateNonNullSqlLiteral(object value)
+        => $"'{EscapeSqlLiteral(JsonSerializer.Serialize(value))}'";
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
+        => new LibRedJsonTypeMapping(parameters);
+}

@@ -369,7 +369,7 @@ public class MismatchedKeyTypesLibRedTest(MismatchedKeyTypesLibRedTest.Mismatche
             => Set<PrincipalComposite>();
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-            => optionsBuilder.UseLibRed(Fixture.Store.ConnectionString);
+            => optionsBuilder.UseLibRed(Fixture.Store.ConnectionString, b => b.UseSqlMode());
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

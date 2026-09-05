@@ -11,26 +11,12 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class GroupByViewAccessTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-        {
-            foreach (string provider in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={provider};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; }
-            }
-            Thread.Sleep(50);
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider opened the database.", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Access_runs_a_group_by_totals_view()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"groupby-view-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "groupby-view-");
         try
         {
             using (var db = JetDatabase.Open(path, readOnly: false))
@@ -55,6 +41,6 @@ public class GroupByViewAccessTests
             sub.CommandText = "SELECT Subtotal FROM Subtotals WHERE OrderID = 10248";
             Assert.Equal(440m, Convert.ToDecimal(sub.ExecuteScalar()));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

@@ -1,7 +1,9 @@
 using System.Buffers.Binary;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using LibRed.Catalog;
 using LibRed.Formats;
+using LibRed.Storage.Types;
 
 namespace LibRed.Storage;
 
@@ -15,16 +17,48 @@ namespace LibRed.Storage;
 /// 0x80 / 0xFF descending). Fixed/numeric types use the reversible transform (sign-bit flip +
 /// big-endian for integers; an IEEE transform for floating point); descending inverts the bytes.
 /// GUID keys are encoded byte-faithfully (string-order halves split by 0x09, terminated by 0x08).
-/// Text uses Jet's collation; general Binary keys use the same 0x09-chunked layout for any length.
+/// Text uses Jet's collation; general Binary keys — and DATETIME2, whose stored form is already
+/// order-preserving — use the same 0x09-chunked layout for any length.
 /// </remarks>
 public static class IndexKeyEncoder
 {
     /// <summary>Access indexes only the first 255 characters of a Memo (Long Text) value (verified vs ACE).</summary>
     private const int MemoKeyMaxChars = 255;
 
-    public static byte[] Encode(IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, object?[] values)
+    /// <summary>
+    /// The longest index entry ACE stores verbatim. Measured: an entry of exactly 510 bytes comes back
+    /// byte-for-byte, and one that would be 511 comes back as 510 — the weights cut short and the last two
+    /// bytes replaced by a value that varies with the string (<c>…0E0602</c> for one 254-character value,
+    /// <c>…0EDE2A</c> for the 255-character one). That is a truncated key plus a checksum, which is why two
+    /// long values never collide, and it is why LibRed cannot simply cut its own key to match.
+    /// <para>
+    /// It caps the whole entry rather than each column: two 200-character text columns are about 404 bytes
+    /// of key each and ACE stores their combined entry hashed at 510.
+    /// </para>
+    /// </summary>
+    private const int MaxIndexKeyBytes = 510;
+
+    public static byte[] Encode(IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, object?[] values) =>
+        Encode(columns, values, enforceLengthLimit: true);
+
+    /// <summary>
+    /// The key LibRed would build if ACE had no length limit — the input the truncation works ON.
+    /// </summary>
+    /// <remarks>
+    /// Only the research that is trying to identify ACE's two-byte checksum wants this: recovering the
+    /// function means pairing what ACE stored against the full key it was derived from, and the ordinary
+    /// entry point refuses exactly those values. Not a way around the limit — a key this returns is longer
+    /// than ACE would store and must never be written to a file.
+    /// </remarks>
+    internal static byte[] EncodeWithoutLengthLimit(
+        IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, object?[] values) =>
+        Encode(columns, values, enforceLengthLimit: false);
+
+    private static byte[] Encode(
+        IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, object?[] values, bool enforceLengthLimit)
     {
         var buffer = new List<byte>();
+        bool anyWordSortRecord = false;
 
         for (int i = 0; i < columns.Count; i++)
         {
@@ -54,21 +88,31 @@ public static class IndexKeyEncoder
             // produces byte-for-byte the key of its 255-character prefix.
             if (column.Type is JetDataType.Text or JetDataType.Memo)
             {
-                // Index-key weights are only implemented for General legacy; refuse other collations up front
-                // rather than emit wrong bytes with the General-v0 table (e.g. a 2010+ General-v1 column, or a
-                // non-English locale). The collation is read per-column from the descriptor (0x0B–0x0E).
+                // Weights are implemented for the two General orders plus the locale tailorings in
+                // JetLocaleTailoring. Refuse anything else up front rather than emit wrong bytes with the
+                // English table — a wrong key does not fail, it silently disagrees with ACE's. The collation
+                // is read per-column from the descriptor (0x0B–0x0E).
                 if (!column.Collation.IsIndexKeyEncodable)
                     throw new NotSupportedException(
                         $"Index key encoding for column '{column.Name}' uses collation {column.Collation.Order} " +
-                        $"version {column.Collation.Version}, which is not implemented yet (only General legacy is).");
+                        $"version {column.Collation.Version}" +
+                        (column.Collation.SortId == 0 ? "" : $" sort id {column.Collation.SortId}") +
+                        ", which is not implemented yet.");
 
                 string text = (string)value;
                 if (column.Type == JetDataType.Memo && text.Length > MemoKeyMaxChars)
                     text = text[..MemoKeyMaxChars];
 
                 var ascendingKey = new List<byte> { IndexKeyFlags.AscStart };
-                if (!JetTextCollation.TryEncode(text, ascendingKey))
-                    throw new NotSupportedException($"Text index key '{text}' contains a character whose collation weight is not implemented yet.");
+                LocaleTailoring? tailoring = JetLocaleTailoring.For(column.Collation);
+                bool encoded = column.Collation.Version == Collation.GeneralVersion
+                    ? JetTextCollationV1.TryEncode(text, ascendingKey, tailoring, out bool wordSort)
+                    : JetTextCollation.TryEncode(text, ascendingKey, tailoring, out wordSort);
+                anyWordSortRecord |= wordSort;
+                if (!encoded)
+                    throw new NotSupportedException(
+                        $"Text index key '{text}' contains a character with no weight in the {column.Collation.Order} " +
+                        $"v{column.Collation.Version} collation table.");
 
                 if (ascending)
                 {
@@ -131,6 +175,20 @@ public static class IndexKeyEncoder
                 continue;
             }
 
+            // DATETIME2 keys the whole 42-byte stored value through that same chunking, rather than folding
+            // it to a number the way DateTime folds to its OA double — verified against ACE, which stores
+            // 7F <8B> 09 … <final> <count> over exactly the bytes on the page. It works because the encoding
+            // is already order-preserving: both numeric fields are zero-padded to 19 digits, so byte order is
+            // chronological order. Note the value's 42nd byte is a NUL (see JetTypeCodec) and lands in the key.
+            if (column.Type == JetDataType.DateTimeExtended)
+            {
+                EncodeBinaryChunked(
+                    buffer,
+                    JetTypeCodec.EncodeExtendedDateTime(Convert.ToDateTime(value, CultureInfo.InvariantCulture)),
+                    ascending);
+                continue;
+            }
+
             int size = FixedKeySize(column.Type);
             if (size <= 0)
                 throw new NotSupportedException(
@@ -143,7 +201,30 @@ public static class IndexKeyEncoder
             buffer.AddRange(raw);
         }
 
-        return [.. buffer];
+        // Past 510 bytes ACE keeps the first 508 and replaces the rest with a checksum over what it dropped,
+        // which is why two long values sharing a prefix still sort apart. The limit is on the WHOLE entry,
+        // not per column: two 200-character text columns weigh about 404 bytes each, comfortably under the
+        // cap individually, and ACE stores their combined entry truncated.
+        if (!enforceLengthLimit || buffer.Count <= MaxIndexKeyBytes) return [.. buffer];
+
+        // Except where the dropped bytes hold a word-sort record. That case cannot be verified even in
+        // principle — the record sits in the part ACE discarded, so what it actually contained is
+        // unobservable, and if ACE recomputes its position when truncating then the checksum's input is not
+        // what is reconstructed here. Refuse rather than write a key that might disagree, because a wrong
+        // index key is silent: ACE writes its own into the same index and a seek misses rows.
+        if (anyWordSortRecord)
+            throw new NotSupportedException(
+                $"These values need a {buffer.Count}-byte index key across {columns.Count} column(s), past the " +
+                $"{MaxIndexKeyBytes} ACE stores, and one of them contains an apostrophe or hyphen. ACE truncates " +
+                $"and appends a checksum, and for a discarded word-sort record that checksum is not verifiable, " +
+                $"so LibRed will not guess at it. Shorten the value or drop it from the index.");
+
+        byte[] truncated = new byte[MaxIndexKeyBytes];
+        buffer.CopyTo(0, truncated, 0, JetIndexKeyChecksum.KeptBytes);
+        ushort checksum = JetIndexKeyChecksum.Compute(CollectionsMarshal.AsSpan(buffer)[JetIndexKeyChecksum.KeptBytes..]);
+        truncated[JetIndexKeyChecksum.KeptBytes] = (byte)(checksum >> 8);
+        truncated[JetIndexKeyChecksum.KeptBytes + 1] = (byte)checksum;
+        return truncated;
     }
 
     /// <summary>
@@ -154,6 +235,9 @@ public static class IndexKeyEncoder
     private static void EncodeBinaryChunked(List<byte> buffer, byte[] data, bool ascending)
     {
         buffer.Add(ascending ? IndexKeyFlags.AscStart : IndexKeyFlags.DescStart);
+        // ACE represents an empty Binary value by the start flag alone.
+        if (data.Length == 0)
+            return;
 
         int offset = 0;
         do
@@ -181,7 +265,9 @@ public static class IndexKeyEncoder
         JetDataType.Int32 => 4,
         JetDataType.Single => 4,
         JetDataType.Double or JetDataType.DateTime => 8,
-        JetDataType.Currency => 8,
+        // Int64/BIGINT keys like Currency — both are an int64, sign bit flipped, big-endian. Its VARIABLE
+        // storage does not change that: this dispatch is on the type, not on where the row keeps it.
+        JetDataType.Currency or JetDataType.Int64 => 8,
         JetDataType.FixedPoint => 17, // sign byte + 16-byte big-endian magnitude
         _ => -1,
     };
@@ -199,6 +285,8 @@ public static class IndexKeyEncoder
                 return EncodeInteger(Convert.ToInt32(value, c), 4);
             case JetDataType.Currency:
                 return EncodeInteger((long)decimal.Round(Convert.ToDecimal(value, c) * 10000m), 8);
+            case JetDataType.Int64: // BIGINT — verified against ACE across 0, ±1, ±42 and both extremes
+                return EncodeInteger(Convert.ToInt64(value, c), 8);
             case JetDataType.Single:
                 return EncodeFloatBits(BitConverter.SingleToInt32Bits(Convert.ToSingle(value, c)), 4);
             case JetDataType.Double:

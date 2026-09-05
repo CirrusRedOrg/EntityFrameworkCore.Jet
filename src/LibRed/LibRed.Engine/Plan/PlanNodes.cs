@@ -89,6 +89,26 @@ public sealed record AggregateNode(
     public override IReadOnlyList<PlanNode> Children => [Input];
 }
 
+/// <summary>One window function and the name of the column <see cref="WindowNode"/> publishes its value under.
+/// The planner mints the name and rewrites the call in the projection into a reference to it.</summary>
+public sealed record WindowOutput(string Name, WindowFunction Function);
+
+/// <summary>
+/// Computes window functions over its input, appending one column per <see cref="WindowOutput"/> and passing
+/// every input row through unchanged and <b>in input order</b>. Order preservation is load-bearing: the sort
+/// sits above this node, so emitting rows in partition order would silently reorder any query that both uses a
+/// window and has its own ORDER BY.
+/// </summary>
+/// <remarks>
+/// A window value depends on the other rows of its partition, and partitions are only known once the input is
+/// exhausted, so this node materialises its input — as <see cref="AggregateNode"/> does. Its schema, however, is
+/// derived from the input schema alone, so it is still resolved without reading a row.
+/// </remarks>
+public sealed record WindowNode(PlanNode Input, IReadOnlyList<WindowOutput> Outputs) : PlanNode
+{
+    public override IReadOnlyList<PlanNode> Children => [Input];
+}
+
 /// <summary>Orders rows.</summary>
 /// <param name="Limit">
 /// When set, only this many rows are needed from the ordering, so the sort keeps the smallest n as it goes instead
@@ -101,17 +121,41 @@ public sealed record SortNode(PlanNode Input, IReadOnlyList<OrderByItem> Keys, E
     public override IReadOnlyList<PlanNode> Children => [Input];
 }
 
+/// <summary>
+/// A table value constructor used as a query — <c>VALUES (1), (2)</c> — producing one row per list from
+/// expressions rather than from a table. The leaf analogue of <see cref="SingleRowNode"/>, which is the same
+/// idea for a FROM-less SELECT's single empty row.
+/// </summary>
+/// <remarks>
+/// The expressions may reference outer columns (EF emits <c>VALUES (`p`.`Int`)</c> inside a correlated
+/// subquery), so they are evaluated against the outer scope each time the node runs, not once at planning.
+/// The columns are unnamed: today this only ever appears as an operand of a set operation, whose names come
+/// from the leading query.
+/// </remarks>
+public sealed record ValuesNode(IReadOnlyList<IReadOnlyList<Expression>> Rows) : PlanNode
+{
+    public override IReadOnlyList<PlanNode> Children => [];
+}
+
 /// <summary>Combines two inputs by a set operation (UNION / UNION ALL / INTERSECT / EXCEPT).</summary>
 public sealed record SetOperationNode(PlanNode Left, PlanNode Right, SetOperator Operator) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Left, Right];
 }
 
-/// <summary>Limits the number of rows (Access <c>TOP n</c>). The count is an expression (usually a literal,
-/// but LibRed also accepts a parameter or a +/- expression) evaluated once at execution. When
-/// <paramref name="Percent"/> is set (<c>TOP n PERCENT</c>) the count is a percentage of the input row
-/// count, taken as <c>ceil(rows × n / 100)</c> (verified vs ACE).</summary>
-public sealed record LimitNode(PlanNode Input, Expression Count, bool Percent = false) : PlanNode
+/// <summary>Limits the number of rows (Access <c>TOP n</c>, or ANSI <c>OFFSET</c>/<c>FETCH</c>). The count is
+/// an expression (usually a literal, but LibRed also accepts a parameter or a +/- expression) evaluated once
+/// at execution. When <paramref name="Percent"/> is set (<c>TOP n PERCENT</c>) the count is a percentage of
+/// the input row count, taken as <c>ceil(rows × n / 100)</c> (verified vs ACE).</summary>
+/// <param name="Count">
+/// Rows to return, or null for <c>OFFSET n ROWS</c> with no <c>FETCH</c> — skip and then return the rest.
+/// </param>
+/// <param name="Offset">
+/// Rows to skip before returning any, from <c>OFFSET n ROWS</c>. Null means start at the first row. The skip
+/// is applied before the count, so <c>OFFSET 10 ROWS FETCH NEXT 5</c> yields rows 11-15. Cannot combine with
+/// <paramref name="Percent"/>: ANSI paging has no PERCENT form and Access's TOP has no OFFSET.
+/// </param>
+public sealed record LimitNode(PlanNode Input, Expression? Count, bool Percent = false, Expression? Offset = null) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }

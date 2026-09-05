@@ -40,6 +40,11 @@ public sealed class PageChannel : IDisposable
     // lock. `_txPageCount` is the logical page count during a transaction (committed pages plus any the overlay
     // allocated), since deferred allocations do not grow the file until commit.
     private readonly Dictionary<int, byte[]> _overlay = [];
+    // Committed plaintext image from which each transactional page was first derived. At commit, every image
+    // must still match; otherwise another channel committed the same page and publishing this stale overlay
+    // would silently lose that writer's change.
+    private readonly Dictionary<int, byte[]?> _commitBaselines = [];
+    private bool _schemaDirty;
     private int _txPageCount;
 
     private PageChannel(FileStream stream, JetFormatBase format, bool readOnly, string path, IPageCodec? codec, ILockManager? locks)
@@ -58,7 +63,20 @@ public sealed class PageChannel : IDisposable
     /// <summary>Whether a transaction is currently open on this channel.</summary>
     public bool InTransaction => _active is not null;
 
-    public JetFormatBase Format { get; }
+    /// <summary>
+    /// The resolved on-disk format. Settable only by <see cref="RaiseFormatVersion"/> and its rollback
+    /// counterpart: a database's format version can move up in place when DDL introduces a type that needs a
+    /// newer one, which is what Access itself does.
+    /// </summary>
+    public JetFormatBase Format { get; private set; }
+
+    internal long SchemaGeneration => _cache.SchemaGeneration;
+
+    internal void MarkSchemaChanged()
+    {
+        if (_active is not null) _schemaDirty = true;
+        else _cache.MarkSchemaChanged();
+    }
 
     public int PageSize => Format.PageSize;
 
@@ -231,6 +249,8 @@ public sealed class PageChannel : IDisposable
         // restore it, then buffer a private copy of the new bytes and advance the logical page count.
         if (_active is not null)
         {
+            if (!_commitBaselines.ContainsKey(pageNumber))
+                _commitBaselines[pageNumber] = ReadCommittedPageOrNull(pageNumber);
             if (_active.NeedsBeforeImage(pageNumber))
                 _active.RecordBeforeImage(pageNumber, _overlay.TryGetValue(pageNumber, out byte[]? prior) ? prior : null);
             _overlay[pageNumber] = source[..PageSize].ToArray();
@@ -245,6 +265,20 @@ public sealed class PageChannel : IDisposable
     /// disk for an encrypted file while caching plaintext, growing the file if the page lies past its end. Used
     /// for non-transactional writes and to publish each overlay page on commit.</summary>
     private void WriteThrough(int pageNumber, ReadOnlySpan<byte> source)
+    {
+        byte[] copy = source[..PageSize].ToArray();
+        _cache.PublishLocked(() => WriteThroughUnderPublishLock(pageNumber, copy));
+    }
+
+    /// <summary>Runs a logical read against one committed page-set generation. Shared: other readers on this
+    /// file run concurrently; only a publication excludes them.</summary>
+    internal T ReadConsistent<T>(Func<T> action) => _cache.ReadConsistent(action);
+
+    /// <summary>Runs a logical write with every other reader and writer on this file excluded, so its pages
+    /// publish as one unit.</summary>
+    internal T WriteExclusive<T>(Func<T> action) => _cache.PublishLocked(action);
+
+    private void WriteThroughUnderPublishLock(int pageNumber, ReadOnlySpan<byte> source)
     {
         _locks?.EnterExclusive(pageNumber);
         try
@@ -302,6 +336,8 @@ public sealed class PageChannel : IDisposable
         if (_active is not null)
             throw new InvalidOperationException("A transaction is already in progress.");
         _overlay.Clear();
+        _commitBaselines.Clear();
+        _schemaDirty = false;
         _txPageCount = PageCount; // committed count at start (PageCount is still file-based while _active is null)
         return _active = new Transaction(_txPageCount);
     }
@@ -318,10 +354,71 @@ public sealed class PageChannel : IDisposable
 
         int[] pages = _overlay.Keys.ToArray();
         Array.Sort(pages);
-        _active = null; // clear first so WriteThrough takes the committed path and PageCount reverts to the file
-        foreach (int page in pages)
-            WriteThrough(page, _overlay[page]);
-        _overlay.Clear();
+        _cache.PublishLocked(() =>
+        {
+            foreach (int page in pages)
+            {
+                byte[]? current = ReadCommittedPageOrNull(page);
+                byte[]? baseline = _commitBaselines[page];
+                if (!SamePage(baseline, current))
+                    throw new InvalidOperationException(
+                        $"Transaction write conflict on page {page}: another connection committed a change to this page.");
+            }
+
+            // Keep the transaction open until every page has published. If a later page fails, restore the
+            // already-published prefix from its validated committed baselines so the caller can still roll back.
+            var published = new List<int>(pages.Length);
+            try
+            {
+                foreach (int page in pages)
+                {
+                    WriteThroughUnderPublishLock(page, _overlay[page]);
+                    published.Add(page);
+                }
+            }
+            catch (Exception publishFailure)
+            {
+                // The restore writes to the same file that just failed to accept a write, so they can fail
+                // too — and if one does, the original cause must not be swallowed by the cleanup's exception.
+                // Collect both: the caller needs the publish failure to know why the commit failed, and the
+                // restore failure to know the file was left mid-publish rather than rolled back.
+                List<Exception>? restoreFailures = null;
+                for (int i = published.Count - 1; i >= 0; i--)
+                {
+                    int page = published[i];
+                    try
+                    {
+                        if (_commitBaselines[page] is { } baseline)
+                        {
+                            WriteThroughUnderPublishLock(page, baseline);
+                        }
+                        else
+                        {
+                            // A null baseline is a transaction-allocated tail page. Validation proved no other
+                            // writer had claimed it, and the publish gate excludes one while we truncate it again.
+                            _stream.SetLength((long)page * PageSize);
+                            _cache.Remove(page);
+                        }
+                    }
+                    catch (Exception restoreFailure)
+                    {
+                        (restoreFailures ??= []).Add(
+                            new IOException($"Could not restore page {page} after a failed commit publication.", restoreFailure));
+                    }
+                }
+
+                if (restoreFailures is null) throw;
+                throw new AggregateException(
+                    "A commit publication failed and the already-published pages could not all be restored; " +
+                    "the file is left mid-publish.", [publishFailure, .. restoreFailures]);
+            }
+
+            _active = null;
+            _overlay.Clear();
+            _commitBaselines.Clear();
+            if (_schemaDirty) _cache.MarkSchemaChanged();
+            _schemaDirty = false;
+        });
 
         if (flush) _stream.Flush(flushToDisk: true);
     }
@@ -334,7 +431,43 @@ public sealed class PageChannel : IDisposable
     {
         if (_active is null) return;
         _overlay.Clear();
+        _commitBaselines.Clear();
+        _schemaDirty = false;
         _active = null;
+        ResyncFormatVersion();   // a discarded format raise must not stay raised in memory
+    }
+
+    /// <summary>
+    /// Raises the file's format version byte (page 0, <c>0x14</c>) to <paramref name="version"/>, in place, and
+    /// swaps <see cref="Format"/> to match. Returns false — writing nothing — when the file already meets it,
+    /// so callers can call this unconditionally.
+    /// </summary>
+    /// <remarks>
+    /// The write goes through <see cref="WritePage"/> rather than to the stream, so it joins the calling
+    /// statement's transaction overlay: the upgrade commits with the DDL that needed it, or is discarded with
+    /// it. Page 0 is never page-encrypted, so the write is byte-transparent even on an encrypted file.
+    /// Only the version byte moves. The ACE format classes above 0x02 override nothing but
+    /// <see cref="JetFormatBase.Version"/> — same page size, same offsets — so the swap changes what the
+    /// database reports about itself and nothing about how it is parsed.
+    /// </remarks>
+    internal bool RaiseFormatVersion(byte version)
+    {
+        byte[] page0 = ReadPage(0).Span.ToArray();
+        if (page0[JetFormatBase.VersionOffset] >= version) return false;
+
+        page0[JetFormatBase.VersionOffset] = version;
+        WritePage(0, page0);
+        Format = JetFormatBase.FromVersionByte(version);
+        return true;
+    }
+
+    /// <summary>Re-derives <see cref="Format"/> from the version byte now visible on page 0. Cheap, and only
+    /// on the rollback paths, so it costs nothing in the ordinary case.</summary>
+    private void ResyncFormatVersion()
+    {
+        byte onDisk = ReadPage(0).Span[JetFormatBase.VersionOffset];
+        if ((byte)Format.Version != onDisk)
+            Format = JetFormatBase.FromVersionByte(onDisk);
     }
 
     /// <summary>Opens a savepoint in the current transaction; pass the handle to
@@ -377,7 +510,34 @@ public sealed class PageChannel : IDisposable
             else _overlay[page] = image;
         }
         _txPageCount = pageCount;
+        foreach (int page in _commitBaselines.Keys.Where(p => !_overlay.ContainsKey(p)).ToArray())
+            _commitBaselines.Remove(page);
+        ResyncFormatVersion();   // page 0 may have been one of the restored images
     }
+
+    private byte[]? ReadCommittedPageOrNull(int pageNumber)
+    {
+        int committedPageCount = (int)(_stream.Length / PageSize);
+        if (pageNumber < 0 || pageNumber >= committedPageCount) return null;
+
+        var buffer = new byte[PageSize];
+        if (_cache.TryRead(pageNumber, buffer)) return buffer;
+
+        _locks?.EnterShared(pageNumber);
+        try
+        {
+            if (_cache.TryRead(pageNumber, buffer)) return buffer;
+            _stream.Seek((long)pageNumber * PageSize, SeekOrigin.Begin);
+            _stream.ReadExactly(buffer);
+            _codec?.DecryptPage(pageNumber, buffer);
+            _cache.Store(pageNumber, buffer);
+            return buffer;
+        }
+        finally { _locks?.ExitShared(pageNumber); }
+    }
+
+    private static bool SamePage(byte[]? left, byte[]? right) =>
+        left is null ? right is null : right is not null && left.AsSpan().SequenceEqual(right);
 
     /// <summary>Retrieves a higher-layer parse of a page previously stored via <see cref="SetParsedPage"/>
     /// (e.g. an index page's decoded entries), or false if none is cached. The parse is dropped automatically

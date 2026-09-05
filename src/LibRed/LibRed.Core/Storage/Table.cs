@@ -36,6 +36,10 @@ public sealed class Table
 
     private object?[]? GetRow(RowId id, RowDecoder decoder)
     {
+        if (id.Page <= 0 || id.Page >= Channel.PageCount)
+            throw new InvalidDataException(
+                $"Row pointer {id.Page}:{id.Row} is outside the file's 1..{Channel.PageCount - 1} page range.");
+
         // Read just the one wanted slot straight from the page directory (O(1)), over the shared cache buffer
         // without copying the 4 KB page out — the bytes are consumed immediately by Decode. Both were the
         // seek's per-row hot cost.

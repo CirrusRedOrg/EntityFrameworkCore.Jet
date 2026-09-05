@@ -39,7 +39,7 @@ internal static class SubqueryHoisting
     ///     contains something this walk cannot inspect. True means "do not hoist": unrecognised shapes are
     ///     treated as correlated so a missed case costs speed, never correctness.
     /// </summary>
-    internal static bool MayReferenceOuter(SelectStatement query, HashSet<string> outerAliases)
+    internal static bool MayReferenceOuter(SqlStatement query, HashSet<string> outerAliases)
         => outerAliases.Count > 0 && Statement(query, outerAliases);
 
     /// <summary>

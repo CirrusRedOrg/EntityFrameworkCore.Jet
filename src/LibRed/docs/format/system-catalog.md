@@ -258,8 +258,43 @@
   > name Type, …;` clause (the `0x02` rows) and lowers body references to a declared name into engine
   > parameters, so LibRed's own engine executes the stored procedure when values are supplied.
   >
+  > **Complex-column system tables (ACE 12+ only).** Access 2007 introduced multi-value and attachment
+  > columns, and with them `MSysComplexColumns` (the registry) plus nine `MSysComplexType_*` flat storage
+  > tables. **Jet 4 has none of them.** Verified against a DAO-created ACE 12 database:
+  >
+  > | table | columns (id) | indexes | `MSysObjects.Flags` |
+  > | --- | --- | --- | --- |
+  > | `MSysComplexColumns` | `ColumnName` Text(510) (0), `ComplexID` Long **AutoNumber** (4), `ComplexTypeObjectID` Long (1), `ConceptualTableID` Long (3), `FlatTableID` Long (2) | `IdxID`(ComplexID, unique+PK), `IdxConceptualTableID`, `IdxFlatTableID` — all required + ignore-nulls | `0x80000000` |
+  > | `MSysComplexType_{UnsignedByte,Short,Long,IEEESingle,IEEEDouble,GUID,Decimal,Text}` | a single `Value` of the matching type (0) | none | `0x80030000` |
+  > | `MSysComplexType_Attachment` | `FileData` OLE (3), `FileFlags` Long (5), `FileName` Text(510) (1), `FileTimeStamp` DateTime (4), `FileType` Text(510) (2), `FileURL` Memo (0) | none | `0x80030000` |
+  >
+  > Column **ids are creation order, not descriptor order** — descriptors are stored alphabetically, so the
+  > two differ (e.g. `ComplexID` is the 2nd descriptor but id 4). All are `ParentId` = the Tables container,
+  > `Type` = 1, owner = the Engine SID.
+  >
+  > **`MSysComplexColumns` is load-bearing for object creation even when unused.** ACE consults it whenever
+  > it creates a new catalog object, and only then. Verified by dropping it from a working DAO-created
+  > database and exercising the surface (`AceDdlOnLibRedDatabaseProbeTest`):
+  >
+  > | operation | without `MSysComplexColumns` |
+  > | --- | --- |
+  > | `SELECT` / `INSERT` / `UPDATE` / `DELETE` | OK |
+  > | `CREATE INDEX`, `ALTER TABLE ADD COLUMN`, `DROP TABLE` | OK |
+  > | `CREATE TABLE` | *"Cannot find table or constraint."* |
+  > | `CREATE VIEW` | *"…could not find the object 'MSysComplexColumns'."* |
+  >
+  > So it is exactly the two statements that add an `MSysObjects` row that need it — not the DDL surface as a
+  > whole, and not a fixed system-table bind (the `CREATE VIEW` error names the table outright). It is
+  > **read-only** from ACE's side: a `CREATE TABLE`, a table of seven varied column types, and a
+  > `CREATE INDEX` all leave it at **0 rows**. Isolated against the other system tables — dropping
+  > `MSysComplexType_Text` changes nothing, dropping `MSysQueries` gives a different error. LibRed creates all
+  > ten in `DatabaseCreator.CreateEmpty` for version ≥ `0x02`, which is what lets ACE run DDL in a
+  > LibRed-created database.
+
   > **Action-query procedure bodies** (a CREATE PROCEDURE body that is not a SELECT) are stored with a
   > different MSysObjects `Flags` and an `Attribute=0x01` row (verified vs ACE):
+  > - **Delete**: the `0x01` action row has `Flag 5`.
+  > - **Update**: the `0x01` action row has `Flag 4`.
   > - **Data-definition** (CREATE TABLE / DROP TABLE): MSysObjects `Flags=0x10000060`; one `0x01` row with
   >   `Flag 7` and `Expression` = the **whole DDL statement** verbatim (ACE prepends a single space).
   > - **Append** (INSERT): MSysObjects `Flags=0x10000040`; a `0x01` row with `Flag 3` and `Name1` = the

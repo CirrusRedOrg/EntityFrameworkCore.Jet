@@ -29,7 +29,7 @@ public static class DatabaseCreator
     /// as the raw double so the exact millisecond-precise bit pattern is preserved — the page-0 SID mask is bound
     /// to those exact bits (see <see cref="SeedCreationDateBits"/>).</param>
     public static byte[] BuildDefinitionPage(
-        byte version, bool isAccdb, int codePage, int collationLcid, byte collationVersion, double creationDays)
+        byte version, bool isAccdb, int codePage, Collation collation, double creationDays)
     {
         var page = new byte[4096];
 
@@ -64,9 +64,11 @@ public static class DatabaseCreator
             clear[JetFormatBase.PasswordOffset - b + i] = dateMask[i % 4];
         // 0x6A fixed sentinel constant.
         BinaryPrimitives.WriteInt32LittleEndian(clear[(0x6A - b)..], 0x000011A6);
-        // 0x6E..0x71 collating sort order: LCID + version byte at 0x71.
-        BinaryPrimitives.WriteUInt16LittleEndian(clear[(JetFormatBase.CollationSortOrderOffset - b)..], (ushort)collationLcid);
-        clear[JetFormatBase.CollationVersionOffset - b] = collationVersion;
+        // 0x6E..0x71 collating sort order: LANGID, sort id at 0x70, version at 0x71 — a 32-bit LCID carrying
+        // the sort-order version in its unused top byte. Mirrors a column descriptor's 0x0B..0x0E.
+        BinaryPrimitives.WriteUInt16LittleEndian(clear[(JetFormatBase.CollationSortOrderOffset - b)..], (ushort)collation.Order);
+        clear[JetFormatBase.CollationSortIdOffset - b] = collation.SortId;
+        clear[JetFormatBase.CollationVersionOffset - b] = collation.Version;
         // 0x72..0x79 creation date (OLE double).
         BinaryPrimitives.WriteDoubleLittleEndian(clear[(JetFormatBase.CreationDateOffset - b)..], days);
 
@@ -149,6 +151,57 @@ public static class DatabaseCreator
         new("szRelationship", JetDataType.Text, 510, false, ColumnId: 0, SystemFlags: Sys),
     ];
 
+
+    // ---- Complex-column system tables (ACE 12 / Access 2007 and later) --------------------------------------
+    //
+    // Complex columns are Access's multi-value and attachment columns. Their registry is MSysComplexColumns,
+    // and each supported element type gets a flat storage table. Jet 4 (.mdb) has none of this — the feature
+    // arrived with ACE 12 — so these are only created from version byte 0x02 up.
+    //
+    // MSysComplexColumns is not optional even for a database that never uses a complex column: ACE consults it
+    // on every CREATE TABLE, and without it DDL through the OLE DB provider fails with "Cannot find table or
+    // constraint" (isolated in AceDdlOnLibRedDatabaseProbeTest by dropping exactly this table from a working
+    // DAO-created database). ACE never writes to it — it only has to resolve.
+    //
+    // Column ids are the ones the real engine assigns (creation order, which is not the alphabetical order the
+    // descriptors are stored in), so a byte-comparison against a DAO-created file lines up.
+
+    private static readonly ColumnSpec[] MSysComplexColumnsColumns =
+    [
+        new("ColumnName", JetDataType.Text, 510, false, ColumnId: 0, SystemFlags: Sys),
+        new("ComplexID", JetDataType.Int32, 4, true, IsAutoNumber: true, ColumnId: 4, SystemFlags: Sys),
+        new("ComplexTypeObjectID", JetDataType.Int32, 4, true, ColumnId: 1, SystemFlags: Sys),
+        new("ConceptualTableID", JetDataType.Int32, 4, true, ColumnId: 3, SystemFlags: Sys),
+        new("FlatTableID", JetDataType.Int32, 4, true, ColumnId: 2, SystemFlags: Sys),
+    ];
+
+    /// <summary>The flat storage tables, in the order the engine creates them. Each holds a single
+    /// <c>Value</c> column of its element type; Attachment is the exception, carrying the file metadata.</summary>
+    private static readonly (string Name, ColumnSpec[] Columns)[] MSysComplexTypeTables =
+    [
+        ("MSysComplexType_UnsignedByte", [new("Value", JetDataType.Byte, 1, true, ColumnId: 0, SystemFlags: Sys)]),
+        ("MSysComplexType_Short", [new("Value", JetDataType.Int16, 2, true, ColumnId: 0, SystemFlags: Sys)]),
+        ("MSysComplexType_Long", [new("Value", JetDataType.Int32, 4, true, ColumnId: 0, SystemFlags: Sys)]),
+        ("MSysComplexType_IEEESingle", [new("Value", JetDataType.Single, 4, true, ColumnId: 0, SystemFlags: Sys)]),
+        ("MSysComplexType_IEEEDouble", [new("Value", JetDataType.Double, 8, true, ColumnId: 0, SystemFlags: Sys)]),
+        ("MSysComplexType_GUID", [new("Value", JetDataType.Guid, 16, true, ColumnId: 0, SystemFlags: Sys)]),
+        ("MSysComplexType_Decimal", [new("Value", JetDataType.FixedPoint, 9, false, ColumnId: 0, SystemFlags: Sys)]),
+        ("MSysComplexType_Text", [new("Value", JetDataType.Text, 510, false, ColumnId: 0, SystemFlags: Sys)]),
+        ("MSysComplexType_Attachment",
+        [
+            new("FileData", JetDataType.Ole, 0, false, ColumnId: 3, SystemFlags: Sys),
+            new("FileFlags", JetDataType.Int32, 4, true, ColumnId: 5, SystemFlags: Sys),
+            new("FileName", JetDataType.Text, 510, false, ColumnId: 1, SystemFlags: Sys),
+            new("FileTimeStamp", JetDataType.DateTime, 8, true, ColumnId: 4, SystemFlags: Sys),
+            new("FileType", JetDataType.Text, 510, false, ColumnId: 2, SystemFlags: Sys),
+            new("FileURL", JetDataType.Memo, 0, false, ColumnId: 0, SystemFlags: Sys),
+        ]),
+    ];
+
+    /// <summary>MSysObjects.Flags for the complex tables, as the real engine writes them: the registry carries
+    /// the plain system flag, the flat storage tables an extra <c>0x00030000</c>.</summary>
+    private const int ComplexStorageFlags = unchecked((int)0x80030000);
+
     private const int SystemFlag = unchecked((int)0x80000000);
 
     // Per-file SID cluster. A database's on-disk 2-byte SIDs are the DEFAULT WORKGROUP's account SIDs XOR'd with
@@ -179,21 +232,46 @@ public static class DatabaseCreator
     /// are added through the ordinary writers. Produces a LibRed-openable, round-trippable file (Access-level
     /// fidelity — the remaining system tables and the 0xE00 map — is a follow-up).
     /// </summary>
-    public static void CreateEmpty(string path, byte version = 0x02)
+    /// <param name="collation">
+    /// The database's default text collating order, written to page 0 and inherited by every column created
+    /// in it. Defaults to General-Legacy (LCID 1033, version 0), which is what the engine writes; pass
+    /// <see cref="Collation.General"/> for the order Access 2010+ offers as "General".
+    /// <para>
+    /// Any order <see cref="Collation.IsIndexKeyEncodable"/> accepts can be created — 30 configurations, the
+    /// two General orders and every locale in <c>JetLocaleTailoring</c>, each verified by having ACE build an
+    /// index in the created file and agree on the keys (<c>CreatedDatabaseCollationAccessTests</c>). It
+    /// cannot be otherwise: the system-table indexes are built here, in this order, so creating a database
+    /// REQUIRES encoding its collation. That is why a new locale is unavailable to this method until it is
+    /// implemented, and why measuring one for the first time needs DAO to author the file.
+    /// </para>
+    /// </param>
+    public static void CreateEmpty(string path, byte version = 0x02, Collation? collation = null)
     {
+        Collation sortOrder = collation ?? Collation.GeneralLegacy;
         JetFormatBase format = JetFormatBase.FromVersionByte(version);
+
+        // Only the ACCDB versions can be created. Page 0 is stamped "Standard ACE DB" below, and pairing that
+        // identifier with a Jet-4 version byte produces exactly the mismatch JetFormatBase.Detect refuses — a
+        // file this method wrote and could not then reopen. Jet 3 is rejected by FromVersionByte already.
+        if (!format.IsAccdb)
+            throw new NotSupportedException(
+                $"Cannot create a database at version 0x{version:X2} ({format.Version}): LibRed creates ACCDB " +
+                $"formats only (0x02 ACE 12 through 0x06 ACE 17).");
         // The four core system tables live at the exact pages the page-0 bootstrap pointers name (2/3/4/5);
         // their usage maps follow at 6..9. Access uses those pointers to find the catalog.
         const int objPage = 2, acesPage = 3, queriesPage = 4, relPage = 5;
 
-        var (objTdef, objMap) = BuildSystemTable(format, MSysObjectsColumns, usageMapPage: 6);
-        var (acesTdef, acesMap) = BuildSystemTable(format, MSysAcesColumns, usageMapPage: 7);
-        var (queriesTdef, queriesMap) = BuildSystemTable(format, MSysQueriesColumns, usageMapPage: 8);
-        var (relTdef, relMap) = BuildSystemTable(format, MSysRelationshipsColumns, usageMapPage: 9);
+        // The system tables take the database collation too: Access writes v1 descriptors on MSys* in a
+        // General (v1) database, so anything else would be a mixed-collation file it never produces.
+        var (objTdef, objMap) = BuildSystemTable(format, MSysObjectsColumns, usageMapPage: 6, sortOrder);
+        var (acesTdef, acesMap) = BuildSystemTable(format, MSysAcesColumns, usageMapPage: 7, sortOrder);
+        var (queriesTdef, queriesMap) = BuildSystemTable(format, MSysQueriesColumns, usageMapPage: 8, sortOrder);
+        var (relTdef, relMap) = BuildSystemTable(format, MSysRelationshipsColumns, usageMapPage: 9, sortOrder);
         const int seedPages = 10;   // page 0, page 1, 4 core TDEFs (2..5), 4 usage maps (6..9)
         byte[][] seed =
         [
-            BuildDefinitionPage(version, isAccdb: true, 1252, 1033, 0, BitConverter.Int64BitsToDouble(SeedCreationDateBits)),
+            BuildDefinitionPage(version, format.IsAccdb, 1252, sortOrder,
+                BitConverter.Int64BitsToDouble(SeedCreationDateBits)),
             BuildFreeMapPage(format, seedPages),       // page 1: global free-pages map
             objTdef, acesTdef, queriesTdef, relTdef,   // pages 2..5: core TDEFs
             objMap, acesMap, queriesMap, relMap,       // pages 6..9: their usage maps
@@ -255,11 +333,82 @@ public static class DatabaseCreator
         db.CreateIndex("MSysRelationships", "szObject", [("szObject", false)]);
         db.CreateIndex("MSysRelationships", "szReferencedObject", [("szReferencedObject", false)]);
 
+        // Complex-column system tables — ACE 12 and later only (see CreateComplexSystemTables).
+        if (version >= 0x02) CreateComplexSystemTables(db);
+
         // Note: MSysAccessStorage and the MSysNavPane* tables are deliberately NOT created here. Verified across
         // ~135 pure-DAO reference files: none of them carry those tables — Access creates them (plus the nav-pane
         // long SID) itself on first open. Emitting them ourselves both diverged from real DAO output and produced
         // a table Access's compact rejected ("-1206 Unrecognized database format"). A faithful native file mirrors
         // DAO: core catalog only, and Access augments on first open.
+    }
+
+    /// <summary>
+    /// Creates <c>MSysComplexColumns</c> and the <c>MSysComplexType_*</c> storage tables — the complex-column
+    /// (multi-value / attachment) infrastructure Access 2007 / ACE 12 introduced. <b>Jet 4 has none of it</b>,
+    /// so the caller gates this on version byte <c>0x02</c> or later.
+    ///
+    /// <para>The registry table is required even in a database that never uses a complex column: ACE consults
+    /// it on every <c>CREATE TABLE</c>, and a database without it rejects DDL through the OLE DB provider with
+    /// "Cannot find table or constraint". It stays empty — ACE reads it, never writes it (both facts isolated
+    /// in <c>AceDdlOnLibRedDatabaseProbeTest</c>). The storage tables are created for completeness so a
+    /// complex column added later has somewhere to live.</para>
+    ///
+    /// <para>These go through the ordinary writers, so each gets its TDEF, usage map, catalog row and index
+    /// roots the same way a user table does; the rows are then corrected to the system flags and owner the
+    /// real engine writes. Page numbers therefore follow LibRed's own allocation rather than matching a
+    /// DAO-created file position for position — DAO's numbering is a consequence of how it lays out the core
+    /// four tables' usage maps and index roots, which LibRed does differently.</para>
+    /// </summary>
+    private static void CreateComplexSystemTables(JetDatabase db)
+    {
+        db.CreateTable("MSysComplexColumns", MSysComplexColumnsColumns);
+        // Index names, order and flags as the engine writes them: the ComplexID primary key first, then the
+        // two non-unique lookups the engine uses to find a table's complex columns.
+        db.CreateIndex("MSysComplexColumns", "IdxID", [("ComplexID", false)],
+            isUnique: true, isPrimary: true, disallowNull: true, ignoreNulls: true);
+        db.CreateIndex("MSysComplexColumns", "IdxConceptualTableID", [("ConceptualTableID", false)],
+            disallowNull: true, ignoreNulls: true);
+        db.CreateIndex("MSysComplexColumns", "IdxFlatTableID", [("FlatTableID", false)],
+            disallowNull: true, ignoreNulls: true);
+        MarkAsSystemTable(db, "MSysComplexColumns", SystemFlag);
+
+        foreach ((string name, ColumnSpec[] columns) in MSysComplexTypeTables)
+        {
+            db.CreateTable(name, columns);
+            MarkAsSystemTable(db, name, ComplexStorageFlags);
+        }
+    }
+
+    /// <summary>Turns a table the ordinary writers just created into a system object: the MSysObjects row gets
+    /// the engine's flags and owner, and the TDEF's table-type byte becomes 'S'. Creating it as a user table
+    /// first and correcting it reuses all the allocation, usage-map and index machinery.</summary>
+    private static void MarkAsSystemTable(JetDatabase db, string name, int flags)
+    {
+        TableDef definition = db.Catalog.FindTable(name)
+            ?? throw new InvalidOperationException($"'{name}' was not found after creating it.");
+
+        Table msysObjects = db.OpenTable("MSysObjects");
+        TableDef objectsDef = msysObjects.Definition;
+        int idIndex = objectsDef.FindColumn("Id")!.Index;
+        int flagsIndex = objectsDef.FindColumn("Flags")!.Index;
+        int ownerIndex = objectsDef.FindColumn("Owner")!.Index;
+
+        foreach ((RowId rowId, object?[] values) in msysObjects.Rows().WithIds())
+        {
+            if (values[idIndex] is not { } id || Convert.ToInt32(id) != definition.DefinitionPage) continue;
+            values[flagsIndex] = flags;
+            values[ownerIndex] = SidEngine;
+            msysObjects.Update(rowId, values, new HashSet<int> { flagsIndex, ownerIndex });
+            break;
+        }
+
+        // TDEF table type: 'N' user -> 'S' system.
+        IO.PageChannel channel = msysObjects.Channel;
+        byte[] tdef = channel.ReadPageShared(definition.DefinitionPage).Span.ToArray();
+        tdef[channel.Format.TdefTableTypeOffset] = (byte)TableType.System;
+        channel.WritePage(definition.DefinitionPage, tdef);
+        db.Catalog.Invalidate();
     }
 
     private static void InsertCatalogRow(Table msysObjects, int id, string name, short type, int flags, int parentId = 0, byte[]? owner = null)
@@ -307,7 +456,7 @@ public static class DatabaseCreator
     /// row that stores a long value — e.g. an <c>MSysObjects</c> catalog row carrying an <c>LvProp</c> blob —
     /// has somewhere to record its LVAL page.</summary>
     private static (byte[] Tdef, byte[] UsageMap) BuildSystemTable(
-        JetFormatBase format, IReadOnlyList<ColumnSpec> columns, int usageMapPage)
+        JetFormatBase format, IReadOnlyList<ColumnSpec> columns, int usageMapPage, Collation collation)
     {
         var longValueCols = columns.Select((c, pos) => (c, id: c.ColumnId ?? pos))
             .Where(x => x.c.Type is JetDataType.Memo or JetDataType.Ole).ToList();
@@ -315,7 +464,8 @@ public static class DatabaseCreator
         for (int j = 0; j < longValueCols.Count; j++)
             longValueSpecs.Add(new LongValueColumnSpec(longValueCols[j].id, UsedRow: 2 + 2 * j, FreeRow: 3 + 2 * j, MapPage: usageMapPage));
 
-        byte[] tdef = TdefBuilder.Build(format, TableType.System, columns, longValueColumns: longValueSpecs).Page;
+        byte[] tdef = TdefBuilder.Build(format, TableType.System, columns, longValueColumns: longValueSpecs,
+            collation: collation).Page;
         tdef[format.TdefOwnedPagesOffset] = 0; WriteInt24(tdef, format.TdefOwnedPagesOffset + 1, usageMapPage);
         tdef[format.TdefFreePagesOffset] = 1; WriteInt24(tdef, format.TdefFreePagesOffset + 1, usageMapPage);
         var tdefPage = new byte[format.PageSize];

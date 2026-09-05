@@ -17,13 +17,12 @@ public class FormatFunctionTests
         CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
         try
         {
-            string path = Path.Combine(Path.GetTempPath(), $"fmt-{Guid.NewGuid():N}.accdb");
-            File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-            var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+            using var temp = TemporaryDatabase.CopyOf(
+                Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "fmt-");
+            var e = new QueryEngine(temp.Open());
             e.ExecuteNonQuery("CREATE TABLE T ( K LONG PRIMARY KEY )");
             e.ExecuteNonQuery("INSERT INTO T (K) VALUES (1)");
             string r = e.ExecuteQuery($"SELECT {expr} FROM T").Rows.Single()[0]?.ToString()!;
-            try { File.Delete(path); } catch (IOException) { }
             return r;
         }
         finally { CultureInfo.CurrentCulture = prev; }

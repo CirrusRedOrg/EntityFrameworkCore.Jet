@@ -1,9 +1,10 @@
-using EntityFrameworkCore.Jet.Internal;
 using EntityFrameworkCore.Jet.Storage.Internal;
 using EntityFrameworkCore.Jet.Update.Internal;
 using System;
 using System.Text;
 using EntityFrameworkCore.LibRed.FunctionalTests.TestUtilities;
+using EntityFrameworkCore.LibRed.Internal;
+using EntityFrameworkCore.LibRed.Storage.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.TestUtilities;
 using Microsoft.EntityFrameworkCore.Update;
@@ -19,9 +20,9 @@ public class LibRedUpdateSqlGeneratorTest : UpdateSqlGeneratorTestBase
             new UpdateSqlGeneratorDependencies(
                 new JetSqlGenerationHelper(
                     new RelationalSqlGenerationHelperDependencies()),
-                new JetTypeMappingSource(
+                new LibRedTypeMappingSource(
                     TestServiceFactory.Instance.Create<TypeMappingSourceDependencies>(),
-                    TestServiceFactory.Instance.Create<RelationalTypeMappingSourceDependencies>(), new JetOptions())));
+                    TestServiceFactory.Instance.Create<RelationalTypeMappingSourceDependencies>(), new LibRedOptions())));
 
     protected override TestHelpers TestHelpers
         => LibRedTestHelpers.Instance;

@@ -12,15 +12,7 @@ namespace LibRed.Core.Tests;
 /// </summary>
 public class RequiredColumnTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No provider");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     private const string Ddl = "CREATE TABLE T (Id counter PRIMARY KEY, Req int NOT NULL, Opt int, Def int DEFAULT 7 NOT NULL)";
 
@@ -54,10 +46,8 @@ public class RequiredColumnTests
     [Fact]
     public void Required_property_blob_matches_access_byte_for_byte()
     {
-        string acePath = Path.Combine(Path.GetTempPath(), $"req-ace-{Guid.NewGuid():N}.accdb");
-        string libPath = Path.Combine(Path.GetTempPath(), $"req-lib-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, acePath);
-        File.Copy(TestDatabases.NorthwindAccdb, libPath);
+        string acePath = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "req-ace-");
+        string libPath = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "req-lib-");
         try
         {
             using (var conn = OpenOleDb(acePath))
@@ -69,14 +59,13 @@ public class RequiredColumnTests
             Assert.True(ace.AsSpan().SequenceEqual(lib),
                 $"ace={Convert.ToHexString(ace)}\nlib={Convert.ToHexString(lib)}");
         }
-        finally { foreach (var p in new[] { acePath, libPath }) try { File.Delete(p); } catch (IOException) { } }
+        finally { foreach (var p in new[] { acePath, libPath }) TemporaryDatabase.Delete(p); }
     }
 
     [Fact]
     public void Libred_reads_required_back_as_not_nullable()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"req-read-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "req-read-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -88,14 +77,13 @@ public class RequiredColumnTests
             Assert.False(def.FindColumn("Def")!.IsNullable);
             Assert.True(def.FindColumn("Opt")!.IsNullable);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
     public void Access_enforces_required_on_a_libred_created_table()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"req-enf-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "req-enf-");
         try
         {
             CreateViaLibRed(path);
@@ -112,6 +100,6 @@ public class RequiredColumnTests
             using (var c = conn.CreateCommand())
             { c.CommandText = "INSERT INTO T (Req) VALUES (5)"; Assert.Equal(1, c.ExecuteNonQuery()); }
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

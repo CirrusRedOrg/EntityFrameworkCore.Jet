@@ -13,17 +13,7 @@ namespace LibRed.Core.Tests;
 // read and applied by ACE on insert. Verifies LibRed's SQL surface is a superset of ACE's DDL here.
 public class AceCompoundDefaultTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        Exception? last = null;
-        for (int attempt = 0; attempt < 12; attempt++)
-            foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-            {
-                try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-                catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { last = ex; Thread.Sleep(40); }
-            }
-        throw new InvalidOperationException("no provider", last);
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Theory]
     [InlineData("TEXT", "\"INV-\" & Year(Now())", "INV-2026")]  // double-quoted string, & concat, nested call
@@ -31,8 +21,7 @@ public class AceCompoundDefaultTests
     [InlineData("LONG", "Year(Now())", "2026")]                 // nested function call (ACE's DDL parser rejects)
     public void Access_reads_and_applies_a_libred_written_compound_default(string type, string def, string expected)
     {
-        string path = Path.Combine(Path.GetTempPath(), $"cx-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "cx-");
         try
         {
             ColumnSpec v = type == "TEXT"
@@ -54,6 +43,6 @@ public class AceCompoundDefaultTests
             string want = expected.Replace("2026", DateTime.Now.Year.ToString());
             Assert.Equal(want, Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture));
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

@@ -8,15 +8,14 @@ namespace LibRed.Engine.Tests;
 // it keeps only the n smallest instead of ordering everything. Both change HOW rows are ordered internally — the
 // second replaced a stable sort with a total order over (keys, input position) — so these pin that the observable
 // order is unchanged, in particular that ties still come out in input order.
-public class SortBoundTests
+public class SortBoundTests : TempDatabaseTest
 {
     private const int Rows = 500;
 
     private static QueryEngine Ties()
     {
-        string path = Path.Combine(Path.GetTempPath(), $"sortb-{Guid.NewGuid():N}.accdb");
-        File.Copy(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), path);
-        var e = new QueryEngine(JetDatabase.Open(path, readOnly: false));
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "sortb-");
+        var e = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
 
         // Grp deliberately coarse (5 values over 500 rows) so every ORDER BY on it is 100-way tied, and Id
         // ascending is the insertion order — so "ties in input order" is checkable.

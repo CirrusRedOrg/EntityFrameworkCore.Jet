@@ -8,15 +8,7 @@ namespace LibRed.Core.Tests;
 
 public class TextKeyEncodingTests
 {
-    private static OleDbConnection OpenOleDb(string path)
-    {
-        foreach (string p in new[] { "Microsoft.ACE.OLEDB.16.0", "Microsoft.ACE.OLEDB.12.0" })
-        {
-            try { var c = new OleDbConnection($"Provider={p};Data Source={path};OLE DB Services=-4;"); c.Open(); return c; }
-            catch (Exception ex) when (ex is OleDbException or InvalidOperationException) { }
-        }
-        throw new InvalidOperationException("No Microsoft.ACE.OLEDB provider available.");
-    }
+    private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);
 
     [Fact]
     public void Encoded_text_keys_match_access_byte_for_byte()
@@ -37,8 +29,7 @@ public class TextKeyEncodingTests
             "ß", "Straße", "Þor", "NuNuCa Nuß-Nougat-Creme", "Aß-B",
         ];
 
-        string path = Path.Combine(Path.GetTempPath(), $"libred-textkey-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-textkey-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -77,7 +68,7 @@ public class TextKeyEncodingTests
             }
             Assert.Equal(values.Length, checkd);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
@@ -85,8 +76,7 @@ public class TextKeyEncodingTests
     {
         string[] values = ["A", "B", "AB", "Z", "Apple", "A-B", "O'Brien", "0", "Order9"];
 
-        string path = Path.Combine(Path.GetTempPath(), $"libred-textdesc-{Guid.NewGuid():N}.accdb");
-        File.Copy(TestDatabases.NorthwindAccdb, path);
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "libred-textdesc-");
         try
         {
             using (var conn = OpenOleDb(path))
@@ -126,6 +116,6 @@ public class TextKeyEncodingTests
             }
             Assert.Equal(values.Length, checkd);
         }
-        finally { try { File.Delete(path); } catch (IOException) { } }
+        finally { TemporaryDatabase.Delete(path); }
     }
 }

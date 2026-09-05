@@ -33,4 +33,13 @@ public sealed class LibRedException : DbException
     /// duplicate-key error so callers that already special-case 2627 need no extra branch.
     /// </summary>
     public const int DuplicateKey = 2627;
+
+    /// <summary>
+    /// DDL named a schema object that already exists. Provider code keys on this rather than on the
+    /// message: EF Core's migration lock creates its lock table under a racy exists-then-create guard and
+    /// treats the loser's failure as the normal path. The value matches SQL Server's "there is already an
+    /// object named ... in the database" error, so callers that already special-case 2714 need no extra
+    /// branch.
+    /// </summary>
+    public const int ObjectAlreadyExists = 2714;
 }

@@ -1,10 +1,22 @@
-using EntityFrameworkCore.Jet.Infrastructure.Internal;
+using EntityFrameworkCore.Jet.Diagnostics.Internal;
+using EntityFrameworkCore.Jet.Internal;
+using EntityFrameworkCore.Jet.Metadata.Internal;
+using EntityFrameworkCore.Jet.Migrations.Internal;
+using EntityFrameworkCore.LibRed.Migrations.Internal;
+using EntityFrameworkCore.Jet.Query;
+using EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal;
+using EntityFrameworkCore.Jet.Query.Internal;
+using EntityFrameworkCore.Jet.Query.Sql.Internal;
 using EntityFrameworkCore.Jet.Storage.Internal;
+using EntityFrameworkCore.Jet.Update.Internal;
+using EntityFrameworkCore.Jet.Utilities;
+using EntityFrameworkCore.Jet.ValueGeneration.Internal;
 using EntityFrameworkCore.LibRed.Infrastructure.Internal;
+using EntityFrameworkCore.LibRed.Internal;
+using EntityFrameworkCore.LibRed.Query.Internal;
+using EntityFrameworkCore.LibRed.Query.Sql.Internal;
 using EntityFrameworkCore.LibRed.Storage.Internal;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.Extensions.DependencyInjection.Extensions;
+using EntityFrameworkCore.LibRed.Update.Internal;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.Extensions.DependencyInjection;
@@ -13,69 +25,51 @@ namespace Microsoft.Extensions.DependencyInjection;
 public static class LibRedServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the EFCore.Jet provider services, then overrides the LibRed-specific pieces.
-    /// Today that is the relational connection (native engine instead of ODBC/OLE DB), the
-    /// database creator, and the default execution strategy; the SQL generator and others are
-    /// inherited from EFCore.Jet for now. The later registration wins when a single service is
-    /// resolved, so this overrides the Jet defaults.
+    /// Registers the EFCore.LibRed provider services
     /// </summary>
     public static IServiceCollection AddEntityFrameworkLibRed(this IServiceCollection serviceCollection)
     {
-        serviceCollection.AddEntityFrameworkJet();
-        // ILibRedRelationalConnection is the concrete registration LibRed owns; IJetRelationalConnection
-        // (and therefore IRelationalConnection, which Jet forwards to it) resolve to the same instance.
-        // Registering on the LibRed interface — not IJetRelationalConnection — lets tests and downstream
-        // code override "the LibRed connection" without naming a Jet type.
-        // TryAdd/Replace (never plain Add) so a second AddEntityFrameworkLibRed() call is idempotent and Jet's
-        // original registration doesn't linger beside ours — the service-collection conformance test checks both
-        // (Repeated_calls_to_add_do_not_modify_collection, Required_services_are_registered_with_expected_lifetimes).
-        serviceCollection.TryAddScoped<ILibRedRelationalConnection, LibRedRelationalConnection>();
-        serviceCollection.Replace(ServiceDescriptor.Scoped<IJetRelationalConnection>(
-            p => p.GetRequiredService<ILibRedRelationalConnection>()));
-        // Answer existence / has-tables from LibRed's catalog instead of INFORMATION_SCHEMA + ADOX.
-        serviceCollection.Replace(ServiceDescriptor.Scoped<IRelationalDatabaseCreator, LibRedDatabaseCreator>());
-        // Substitute the driver-free `long` mapping (DbType reflects the decimal(20,0) it's stored as) for
-        // EFCore.Jet's, which only reports Decimal via an OLE DB/ODBC reflection poke a native engine can't use.
-        //
-        // This MUST go through the EF services builder (not serviceCollection.AddSingleton) so it lands in
-        // EF Core's internal service provider as a *per-options* singleton — one instance per unique
-        // DbContextOptions, each built with that context's own IJetOptions. A plain application singleton is
-        // constructed once with whichever context resolves it first and then shared across every context,
-        // baking in the wrong UseShortTextForSystemString (the model-building context, False, wins over the
-        // store context, True) — which made unbounded strings scaffold/migrate as `longchar` instead of
-        // `varchar(255)`. TryAdd won't replace Jet's existing registration, so drop it first — but drop ONLY
-        // EFCore.Jet's own JetTypeMappingSource, NOT a custom source a fixture/downstream registered before us.
-        // (RemoveAll<IRelationalTypeMappingSource> wiped those too: e.g. the EverythingIsStrings/EverythingIsBytes
-        // fixtures register their own all-string/all-byte IRelationalTypeMappingSource, then call AddProviderServices
-        // → us; when one is present Jet's TryAdd already no-op'd, so there's no Jet mapping to remove and our TryAdd
-        // below correctly no-ops too, leaving the custom source in place.)
-        foreach (ServiceDescriptor jetMapping in serviceCollection.Where(d =>
-                     d.ServiceType == typeof(IRelationalTypeMappingSource) &&
-                     d.ImplementationType == typeof(JetTypeMappingSource)).ToList())
-            serviceCollection.Remove(jetMapping);
-        new EntityFrameworkRelationalServicesBuilder(serviceCollection)
-            .TryAdd<IRelationalTypeMappingSource, LibRedTypeMappingSource>();
-        serviceCollection.Replace(ServiceDescriptor.Scoped<IExecutionStrategyFactory, LibRedExecutionStrategyFactory>());
-        // Report LibRed's own provider identity in logs/diagnostics ("EntityFrameworkCore.LibRed", not
-        // "EntityFrameworkCore.Jet"): IDatabaseProvider's Name is DatabaseProvider<TOptionsExtension>'s
-        // options-extension assembly name. Swap Jet's registration (keyed on JetOptionsExtension) for one keyed
-        // on LibRedOptionsExtension. Same remove-then-TryAdd shape as the other service swaps.
-        foreach (ServiceDescriptor jetProvider in serviceCollection.Where(d =>
-                     d.ServiceType == typeof(IDatabaseProvider) &&
-                     d.ImplementationType == typeof(DatabaseProvider<JetOptionsExtension>)).ToList())
-            serviceCollection.Remove(jetProvider);
-        new EntityFrameworkRelationalServicesBuilder(serviceCollection)
-            .TryAdd<IDatabaseProvider, DatabaseProvider<LibRedOptionsExtension>>();
-        // EFCore.Jet's JetTransaction disables savepoints (ACE has none). LibRed's engine and ADO layer both
-        // support them, so swap in a factory that builds EF Core's base RelationalTransaction, which honours
-        // savepoints via the ADO transaction. Same shape as the type-mapping swap above: drop Jet's descriptor
-        // (TryAdd won't replace it), then re-add ours through the services builder at the conventional lifetime.
-        foreach (ServiceDescriptor jetTxFactory in serviceCollection.Where(d =>
-                     d.ServiceType == typeof(IRelationalTransactionFactory) &&
-                     d.ImplementationType == typeof(JetTransactionFactory)).ToList())
-            serviceCollection.Remove(jetTxFactory);
-        new EntityFrameworkRelationalServicesBuilder(serviceCollection)
-            .TryAdd<IRelationalTransactionFactory, LibRedTransactionFactory>();
+        Check.NotNull(serviceCollection, nameof(serviceCollection));
+
+        var builder = new EntityFrameworkRelationalServicesBuilder(serviceCollection)
+            .TryAdd<LoggingDefinitions, JetLoggingDefinitions>()
+            .TryAdd<IDatabaseProvider, DatabaseProvider<LibRedOptionsExtension>>()
+            .TryAdd<IRelationalTypeMappingSource, LibRedTypeMappingSource>()
+            .TryAdd<ISqlGenerationHelper, JetSqlGenerationHelper>()
+            .TryAdd<IRelationalAnnotationProvider, JetAnnotationProvider>()
+            .TryAdd<IMigrationsAnnotationProvider, JetMigrationsAnnotationProvider>()
+            .TryAdd<IModelValidator, JetModelValidator>()
+            .TryAdd<IProviderConventionSetBuilder, LibRedConventionSetBuilder>()
+            .TryAdd<IUpdateSqlGenerator>(p => p.GetRequiredService<IJetUpdateSqlGenerator>())
+            .TryAdd<IModificationCommandBatchFactory, JetModificationCommandBatchFactory>()
+            .TryAdd<IValueGeneratorSelector, JetValueGeneratorSelector>()
+            .TryAdd<IRelationalConnection>(p => p.GetRequiredService<ILibRedRelationalConnection>())
+            .TryAdd<IMigrationsSqlGenerator, LibRedMigrationsSqlGenerator>()
+            .TryAdd<IRelationalDatabaseCreator, LibRedDatabaseCreator>()
+            .TryAdd<IHistoryRepository, LibRedHistoryRepository>()
+            .TryAdd<ICompiledQueryCacheKeyGenerator, JetCompiledQueryCacheKeyGenerator>()
+            .TryAdd<IExecutionStrategyFactory, LibRedExecutionStrategyFactory>()
+            .TryAdd<ISingletonOptions, ILibRedOptions>(p => p.GetRequiredService<ILibRedOptions>())
+            .TryAdd<IQueryCompilationContextFactory, JetQueryCompilationContextFactory>()
+            .TryAdd<IMethodCallTranslatorProvider, JetMethodCallTranslatorProvider>()
+            .TryAdd<IAggregateMethodCallTranslatorProvider, JetAggregateMethodCallTranslatorProvider>()
+            .TryAdd<IMemberTranslatorProvider, JetMemberTranslatorProvider>()
+            .TryAdd<IQuerySqlGeneratorFactory, LibRedQuerySqlGeneratorFactory>()
+            .TryAdd<IRelationalSqlTranslatingExpressionVisitorFactory, JetSqlTranslatingExpressionVisitorFactory>()
+            .TryAdd<ISqlExpressionFactory, JetSqlExpressionFactory>()
+            .TryAdd<IQueryTranslationPreprocessorFactory, JetQueryTranslationPreprocessorFactory>()
+            .TryAdd<IQueryTranslationPostprocessorFactory, LibRedQueryTranslationPostprocessorFactory>()
+            .TryAdd<IRelationalTransactionFactory, LibRedTransactionFactory>()
+            .TryAdd<IRelationalParameterBasedSqlProcessorFactory, LibRedParameterBasedSqlProcessorFactory>()
+            .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory, JetQueryableMethodTranslatingExpressionVisitorFactory>()
+            .TryAddProviderSpecificServices(
+                b => b
+                    .TryAddSingleton<ILibRedOptions, LibRedOptions>()
+                    .TryAddSingleton<IJetUpdateSqlGenerator, LibRedUpdateSqlGenerator>()
+                    .TryAddScoped<ILibRedRelationalConnection, LibRedRelationalConnection>());
+
+        builder.TryAddCoreServices();
+
         return serviceCollection;
     }
 }

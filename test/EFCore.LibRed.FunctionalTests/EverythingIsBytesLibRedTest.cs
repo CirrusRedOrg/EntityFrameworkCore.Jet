@@ -93,11 +93,11 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
         public class LibRedBytesTypeMappingSource : RelationalTypeMappingSource
         {
-            private readonly JetByteArrayTypeMapping _rowversion = new("rowversion", size: 8);
+            private readonly LibRedByteArrayTypeMapping _rowversion = new("rowversion", size: 8);
 
-            private readonly JetByteArrayTypeMapping _variableLengthBinary = new();
+            private readonly LibRedByteArrayTypeMapping _variableLengthBinary = new();
 
-            private readonly JetByteArrayTypeMapping _fixedLengthBinary = new(fixedLength: true);
+            private readonly LibRedByteArrayTypeMapping _fixedLengthBinary = new(fixedLength: true);
 
             private readonly Dictionary<string, RelationalTypeMapping> _storeTypeMappings;
 
@@ -153,7 +153,7 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
                         size = isFixedLength ? 510 : null;
                     }
 
-                    return new JetByteArrayTypeMapping(
+                    return new LibRedByteArrayTypeMapping(
                         "varbinary(" + (size == null ? "510" : size.ToString()) + ")",
                         size,
                         isFixedLength,

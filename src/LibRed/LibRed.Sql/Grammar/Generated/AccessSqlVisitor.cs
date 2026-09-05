@@ -435,6 +435,18 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitInsertStatement([NotNull] AccessSqlParser.InsertStatementContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.rowValues"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitRowValues([NotNull] AccessSqlParser.RowValuesContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.rowValue"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitRowValue([NotNull] AccessSqlParser.RowValueContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.queryExpression"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
@@ -455,17 +467,24 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitParenTerm([NotNull] AccessSqlParser.ParenTermContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>ValuesTerm</c>
+	/// labeled alternative in <see cref="AccessSqlParser.queryTerm"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitValuesTerm([NotNull] AccessSqlParser.ValuesTermContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.setOperator"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitSetOperator([NotNull] AccessSqlParser.SetOperatorContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AccessSqlParser.selectStatement"/>.
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.querySpecification"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitSelectStatement([NotNull] AccessSqlParser.SelectStatementContext context);
+	Result VisitQuerySpecification([NotNull] AccessSqlParser.QuerySpecificationContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.selectPredicate"/>.
 	/// </summary>
@@ -496,6 +515,18 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitTopOperand([NotNull] AccessSqlParser.TopOperandContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.offsetFetchClause"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitOffsetFetchClause([NotNull] AccessSqlParser.OffsetFetchClauseContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.rowKeyword"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitRowKeyword([NotNull] AccessSqlParser.RowKeywordContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.selectList"/>.
 	/// </summary>
@@ -550,11 +581,33 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitParenJoinPrimary([NotNull] AccessSqlParser.ParenJoinPrimaryContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="AccessSqlParser.joinClause"/>.
+	/// Visit a parse tree produced by the <c>ConditionalJoin</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinClause"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitJoinClause([NotNull] AccessSqlParser.JoinClauseContext context);
+	Result VisitConditionalJoin([NotNull] AccessSqlParser.ConditionalJoinContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>CrossJoin</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinClause"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCrossJoin([NotNull] AccessSqlParser.CrossJoinContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>CrossApply</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinClause"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCrossApply([NotNull] AccessSqlParser.CrossApplyContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>OuterApply</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinClause"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitOuterApply([NotNull] AccessSqlParser.OuterApplyContext context);
 	/// <summary>
 	/// Visit a parse tree produced by the <c>InnerJoin</c>
 	/// labeled alternative in <see cref="AccessSqlParser.joinType"/>.
@@ -576,6 +629,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitRightJoin([NotNull] AccessSqlParser.RightJoinContext context);
+	/// <summary>
+	/// Visit a parse tree produced by the <c>FullJoin</c>
+	/// labeled alternative in <see cref="AccessSqlParser.joinType"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitFullJoin([NotNull] AccessSqlParser.FullJoinContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.whereClause"/>.
 	/// </summary>
@@ -714,6 +774,13 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitLiteralPrimary([NotNull] AccessSqlParser.LiteralPrimaryContext context);
 	/// <summary>
+	/// Visit a parse tree produced by the <c>CasePrimary</c>
+	/// labeled alternative in <see cref="AccessSqlParser.primary"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCasePrimary([NotNull] AccessSqlParser.CasePrimaryContext context);
+	/// <summary>
 	/// Visit a parse tree produced by the <c>FunctionCallPrimary</c>
 	/// labeled alternative in <see cref="AccessSqlParser.primary"/>.
 	/// </summary>
@@ -762,6 +829,18 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitParenPrimary([NotNull] AccessSqlParser.ParenPrimaryContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.caseExpression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCaseExpression([NotNull] AccessSqlParser.CaseExpressionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.caseWhen"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCaseWhen([NotNull] AccessSqlParser.CaseWhenContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.functionCall"/>.
 	/// </summary>
@@ -876,5 +955,11 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitStandaloneExpression([NotNull] AccessSqlParser.StandaloneExpressionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.windowSpecification"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitWindowSpecification([NotNull] AccessSqlParser.WindowSpecificationContext context);
 }
 } // namespace LibRed.Sql.Grammar

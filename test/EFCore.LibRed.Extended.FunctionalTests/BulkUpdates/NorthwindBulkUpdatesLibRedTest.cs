@@ -1080,8 +1080,8 @@ WHERE `c`.`City` = 'Seattle'
             """
 @p='1'
 
-UPDATE (`Order Details` AS `o`
-INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`)
+UPDATE `Order Details` AS `o`
+INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
 SET `o`.`Quantity` = CASE
     WHEN @p IS NULL THEN NULL
@@ -1217,19 +1217,20 @@ WHERE `c`.`CustomerID` LIKE 'F%'
         await base.Update_Union_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
+            """
+@p='Updated' (Size = 30)
+
+UPDATE `Customers` AS `c1`
 INNER JOIN (
-    SELECT [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region]
-    FROM [Customers] AS [c0]
-    WHERE [c0].[CustomerID] LIKE N'F%'
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
     UNION
-    SELECT [c1].[CustomerID], [c1].[Address], [c1].[City], [c1].[CompanyName], [c1].[ContactName], [c1].[ContactTitle], [c1].[Country], [c1].[Fax], [c1].[Phone], [c1].[PostalCode], [c1].[Region]
-    FROM [Customers] AS [c1]
-    WHERE [c1].[CustomerID] LIKE N'A%'
-) AS [t] ON [c].[CustomerID] = [t].[CustomerID]
+    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`CustomerID` LIKE 'A%'
+) AS `u` ON `c1`.`CustomerID` = `u`.`CustomerID`
+SET `c1`.`ContactName` = @p
 """);
     }
 
@@ -1238,19 +1239,20 @@ INNER JOIN (
         await base.Update_Concat_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
+            """
+@p='Updated' (Size = 30)
+
+UPDATE `Customers` AS `c1`
 INNER JOIN (
-    SELECT [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region]
-    FROM [Customers] AS [c0]
-    WHERE [c0].[CustomerID] LIKE N'F%'
+    SELECT `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
     UNION ALL
-    SELECT [c1].[CustomerID], [c1].[Address], [c1].[City], [c1].[CompanyName], [c1].[ContactName], [c1].[ContactTitle], [c1].[Country], [c1].[Fax], [c1].[Phone], [c1].[PostalCode], [c1].[Region]
-    FROM [Customers] AS [c1]
-    WHERE [c1].[CustomerID] LIKE N'A%'
-) AS [t] ON [c].[CustomerID] = [t].[CustomerID]
+    SELECT `c0`.`CustomerID`
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`CustomerID` LIKE 'A%'
+) AS `u` ON `c1`.`CustomerID` = `u`.`CustomerID`
+SET `c1`.`ContactName` = @p
 """);
     }
 
@@ -1259,19 +1261,20 @@ INNER JOIN (
         await base.Update_Except_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
+            """
+@p='Updated' (Size = 30)
+
+UPDATE `Customers` AS `c1`
 INNER JOIN (
-    SELECT [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region]
-    FROM [Customers] AS [c0]
-    WHERE [c0].[CustomerID] LIKE N'F%'
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
     EXCEPT
-    SELECT [c1].[CustomerID], [c1].[Address], [c1].[City], [c1].[CompanyName], [c1].[ContactName], [c1].[ContactTitle], [c1].[Country], [c1].[Fax], [c1].[Phone], [c1].[PostalCode], [c1].[Region]
-    FROM [Customers] AS [c1]
-    WHERE [c1].[CustomerID] LIKE N'A%'
-) AS [t] ON [c].[CustomerID] = [t].[CustomerID]
+    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`CustomerID` LIKE 'A%'
+) AS `e` ON `c1`.`CustomerID` = `e`.`CustomerID`
+SET `c1`.`ContactName` = @p
 """);
     }
 
@@ -1280,19 +1283,20 @@ INNER JOIN (
         await base.Update_Intersect_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
+            """
+@p='Updated' (Size = 30)
+
+UPDATE `Customers` AS `c1`
 INNER JOIN (
-    SELECT [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region]
-    FROM [Customers] AS [c0]
-    WHERE [c0].[CustomerID] LIKE N'F%'
+    SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+    FROM `Customers` AS `c`
+    WHERE `c`.`CustomerID` LIKE 'F%'
     INTERSECT
-    SELECT [c1].[CustomerID], [c1].[Address], [c1].[City], [c1].[CompanyName], [c1].[ContactName], [c1].[ContactTitle], [c1].[Country], [c1].[Fax], [c1].[Phone], [c1].[PostalCode], [c1].[Region]
-    FROM [Customers] AS [c1]
-    WHERE [c1].[CustomerID] LIKE N'A%'
-) AS [t] ON [c].[CustomerID] = [t].[CustomerID]
+    SELECT `c0`.`CustomerID`, `c0`.`Address`, `c0`.`City`, `c0`.`CompanyName`, `c0`.`ContactName`, `c0`.`ContactTitle`, `c0`.`Country`, `c0`.`Fax`, `c0`.`Phone`, `c0`.`PostalCode`, `c0`.`Region`
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`CustomerID` LIKE 'A%'
+) AS `i` ON `c1`.`CustomerID` = `i`.`CustomerID`
+SET `c1`.`ContactName` = @p
 """);
     }
 
@@ -1402,16 +1406,17 @@ WHERE [c].[CustomerID] LIKE N'F%'
         await base.Update_with_cross_apply_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
+            """
+@p='Updated' (Size = 30)
+
+UPDATE `Customers` AS `c`
 CROSS APPLY (
-    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-    FROM [Orders] AS [o]
-    WHERE [o].[OrderID] < 10300 AND DATEPART(year, [o].[OrderDate]) < CAST(LEN([c].[ContactName]) AS int)
-) AS [t]
-WHERE [c].[CustomerID] LIKE N'F%'
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `o`.`OrderID` < 10300 AND DATEPART('yyyy', `o`.`OrderDate`) < LEN(`c`.`ContactName`)
+) AS `o0`
+SET `c`.`ContactName` = @p
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -1420,16 +1425,17 @@ WHERE [c].[CustomerID] LIKE N'F%'
         await base.Update_with_outer_apply_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
+            """
+@p='Updated' (Size = 30)
+
+UPDATE `Customers` AS `c`
 OUTER APPLY (
-    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-    FROM [Orders] AS [o]
-    WHERE [o].[OrderID] < 10300 AND DATEPART(year, [o].[OrderDate]) < CAST(LEN([c].[ContactName]) AS int)
-) AS [t]
-WHERE [c].[CustomerID] LIKE N'F%'
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `o`.`OrderID` < 10300 AND DATEPART('yyyy', `o`.`OrderDate`) < LEN(`c`.`ContactName`)
+) AS `o0`
+SET `c`.`ContactName` = @p
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -1461,21 +1467,22 @@ WHERE [c].[CustomerID] LIKE N'F%'
         await base.Update_with_cross_join_cross_apply_set_constant(async);
 
         AssertExecuteUpdateSql(
-"""
-UPDATE [c]
-SET [c].[ContactName] = N'Updated'
-FROM [Customers] AS [c]
+            """
+@p='Updated' (Size = 30)
+
+UPDATE `Customers` AS `c`
 CROSS JOIN (
-    SELECT [c0].[CustomerID], [c0].[Address], [c0].[City], [c0].[CompanyName], [c0].[ContactName], [c0].[ContactTitle], [c0].[Country], [c0].[Fax], [c0].[Phone], [c0].[PostalCode], [c0].[Region]
-    FROM [Customers] AS [c0]
-    WHERE ([c0].[City] IS NOT NULL) AND ([c0].[City] LIKE N'S%')
-) AS [t]
+    SELECT 1
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`City` LIKE 'S%'
+) AS `c1`
 CROSS APPLY (
-    SELECT [o].[OrderID], [o].[CustomerID], [o].[EmployeeID], [o].[OrderDate]
-    FROM [Orders] AS [o]
-    WHERE [o].[OrderID] < 10300 AND DATEPART(year, [o].[OrderDate]) < CAST(LEN([c].[ContactName]) AS int)
-) AS [t0]
-WHERE [c].[CustomerID] LIKE N'F%'
+    SELECT 1
+    FROM `Orders` AS `o`
+    WHERE `o`.`OrderID` < 10300 AND DATEPART('yyyy', `o`.`OrderDate`) < LEN(`c`.`ContactName`)
+) AS `o0`
+SET `c`.`ContactName` = @p
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -1552,18 +1559,14 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 
         AssertExecuteUpdateSql(
             """
-UPDATE `Customers` AS `c2`
-INNER JOIN (
-    SELECT `c`.`CustomerID`, `c1`.`City` AS `City0`
-    FROM `Customers` AS `c`,
-    (
-        SELECT `c0`.`City`
-        FROM `Customers` AS `c0`
-        WHERE `c0`.`CustomerID` = 'ALFKI'
-    ) AS `c1`
-    WHERE `c`.`CustomerID` LIKE 'F%'
-) AS `s` ON `c2`.`CustomerID` = `s`.`CustomerID`
-SET `c2`.`City` = `s`.`City0`
+UPDATE `Customers` AS `c`
+CROSS JOIN (
+    SELECT `c0`.`City`
+    FROM `Customers` AS `c0`
+    WHERE `c0`.`CustomerID` = 'ALFKI'
+) AS `c1`
+SET `c`.`City` = `c1`.`City`
+WHERE `c`.`CustomerID` LIKE 'F%'
 """);
     }
 
@@ -1593,8 +1596,8 @@ WHERE `c`.`CustomerID` LIKE 'F%'
             """
 @p='1'
 
-UPDATE (`Order Details` AS `o`
-INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`)
+UPDATE `Order Details` AS `o`
+INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 SET `o`.`Quantity` = CASE
     WHEN @p IS NULL THEN NULL

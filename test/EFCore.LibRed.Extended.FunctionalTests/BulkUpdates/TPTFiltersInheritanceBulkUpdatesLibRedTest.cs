@@ -142,8 +142,8 @@ WHERE `a`.`CountryId` = 1 AND `k`.`Id` IS NOT NULL
             """
 @p='SomeOtherKiwi' (Size = 255)
 
-UPDATE (`Animals` AS `a`
-INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+UPDATE `Animals` AS `a`
+INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 SET `a`.`Name` = @p
 WHERE `a`.`CountryId` = 1
@@ -158,8 +158,8 @@ WHERE `a`.`CountryId` = 1
             """
 @p='0' (Size = 1)
 
-UPDATE (`Animals` AS `a`
-INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`)
+UPDATE `Animals` AS `a`
+INNER JOIN `Birds` AS `b` ON `a`.`Id` = `b`.`Id`
 INNER JOIN `Kiwi` AS `k` ON `a`.`Id` = `k`.`Id`
 SET `k`.`FoundOn` = @p
 WHERE `a`.`CountryId` = 1

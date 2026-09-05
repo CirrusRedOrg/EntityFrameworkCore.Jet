@@ -1,8 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using EntityFrameworkCore.Jet.Internal;
-using System;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -125,9 +123,33 @@ ORDER BY `c0`.`CompanyName` DESC, `c0`.`CustomerID`
     }
 
     public override async Task Include_collection_skip_no_order_by(bool async)
-        => Assert.Equal(
-            JetStrings.SplitQueryOffsetWithoutOrderBy,
-            (await Assert.ThrowsAsync<InvalidOperationException>(() => base.Include_collection_skip_no_order_by(async))).Message);
+    {
+        await base.Include_collection_skip_no_order_by(async);
+
+        AssertSql(
+            """
+@p='10'
+
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
+OFFSET @p ROWS
+""",
+            //
+            """
+@p='10'
+
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c0`.`CustomerID`
+FROM (
+    SELECT `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+    OFFSET @p ROWS
+) AS `c0`
+INNER JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `c0`.`CustomerID`
+""");
+    }
 
     public override async Task Include_collection_take_no_order_by(bool async)
     {
@@ -157,9 +179,35 @@ ORDER BY `c0`.`CustomerID`
     }
 
     public override async Task Include_collection_skip_take_no_order_by(bool async)
-        => Assert.Equal(
-            JetStrings.SplitQueryOffsetWithoutOrderBy,
-            (await Assert.ThrowsAsync<InvalidOperationException>(() => base.Include_collection_skip_take_no_order_by(async))).Message);
+    {
+        await base.Include_collection_skip_take_no_order_by(async);
+
+        AssertSql(
+            """
+@p='10'
+@p1='5'
+
+SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
+FROM `Customers` AS `c`
+ORDER BY `c`.`CustomerID`
+OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
+""",
+            //
+            """
+@p='10'
+@p1='5'
+
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`, `c0`.`CustomerID`
+FROM (
+    SELECT `c`.`CustomerID`
+    FROM `Customers` AS `c`
+    ORDER BY `c`.`CustomerID`
+    OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
+) AS `c0`
+INNER JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
+ORDER BY `c0`.`CustomerID`
+""");
+    }
 
     public override async Task Include_reference_and_collection(bool async)
     {

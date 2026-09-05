@@ -403,6 +403,13 @@ namespace EntityFrameworkCore.Jet.Data
 
             var parser = new JetCommandParser(CommandText);
             var commandDelimiters = parser.GetStateIndices(';');
+
+            if (commandDelimiters.Count > 0 &&
+                !string.IsNullOrWhiteSpace(CommandText[(commandDelimiters[^1] + 1)..]))
+            {
+                commandDelimiters = [.. commandDelimiters, CommandText.Length];
+            }
+
             var currentCommandStart = 0;
             var usedParameterCount = 0;
             var commands = new List<JetCommand>();

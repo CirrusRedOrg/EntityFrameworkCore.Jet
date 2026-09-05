@@ -40,10 +40,11 @@ To develop against a local EF Core build instead of NuGet packages, copy `Develo
 **Jet** tests require a real Microsoft Access driver installed (ODBC or OLE DB) and an actual `.accdb` file — no mocks. The connection string is configured via:
 - `test/EFCore.Jet.FunctionalTests/config.json` (OLE DB example present)
 - `test/EFCore.Jet.Tests/config.json` (bare filename; picks up default provider)
-- `test/EFCore.LibRed.FunctionalTests/config.json` (LibRed connection)
+- `test/EFCore.LibRed.FunctionalTests/config.json` and
+  `test/EFCore.LibRed.Extended.FunctionalTests/config.json` (LibRed connection, one per SQL mode)
 - Or env var `EFCoreJet_DefaultConnection`
 
-**LibRed** tests split in two: `LibRed.Engine.Tests` and `EFCore.LibRed.FunctionalTests` need **no driver at all** and CI runs them on Linux/Windows/macOS plus ARM64 legs — that matrix is what proves the cross-platform claim, so don't add an ACE dependency to them. `LibRed.Core.Tests`, `LibRed.Engine.AccessTests`, `LibRed.Ado.Tests` and `LibRed.EFCore.Tests` deliberately cross-check LibRed's output against the real engine over OLE DB, so they need Windows + ACE.
+**LibRed** tests split in two: `LibRed.Engine.Tests`, `EFCore.LibRed.FunctionalTests` and `EFCore.LibRed.Extended.FunctionalTests` need **no driver at all** and CI runs them on Linux/Windows/macOS plus ARM64 legs — that matrix is what proves the cross-platform claim, so don't add an ACE dependency to them. `LibRed.Core.Tests`, `LibRed.Engine.AccessTests`, `LibRed.Ado.Tests` and `LibRed.EFCore.Tests` deliberately cross-check LibRed's output against the real engine over OLE DB, so they need Windows + ACE.
 
 **Run all tests** (requires x86 or x64 matching your driver bitness):
 
@@ -80,8 +81,8 @@ newly-passing tests are appended and pushed back by the `auto_commit` workflow. 
 change is "did anything that used to pass stop passing", not the raw failure count.
 
 CI splits the functional suite into three shards (query core / Northwind+GearsOfWar / non-query) and retries a shard
-up to three times if the runner crashes. `EFCore.LibRed.FunctionalTests` is `continue-on-error` for now — it still
-runs on every push, but its remaining failures don't block.
+up to three times if the runner crashes. The two `EFCore.LibRed*.FunctionalTests` suites are `continue-on-error`
+for now — they still run on every push, but their remaining failures don't block.
 
 ### Docker images
 
@@ -121,7 +122,11 @@ test/
   LibRed.Ado.Tests/               ADO.NET surface                                     [Windows + ACE]
   LibRed.EFCore.Tests/            LibRed EF Core provider: query round-trip,
                                   database-first scaffolding                          [Windows + ACE]
-  EFCore.LibRed.FunctionalTests/  EF Core specification suite over LibRed          [cross-platform]
+  EFCore.LibRed.FunctionalTests/  EF Core specification suite over LibRed, compatible
+                                  SQL mode (Jet-dialect SQL)                        [cross-platform]
+  EFCore.LibRed.Extended.FunctionalTests/
+                                  The same suite in extended SQL mode; its own
+                                  baselines, because the SQL differs               [cross-platform]
   LibRed.Benchmarks/              BenchmarkDotNet harness (not a test project)
   Shared/                         ModuleInitializer.cs — locks culture to en-US
 
@@ -225,9 +230,11 @@ src/LibRed/
   LibRed.EFCore/    EF Core provider over LibRed.Ado + EFCore.Jet.Common (no EFCore.Jet
                     reference): AddEntityFrameworkLibRed/UseLibRed, its own options, type
                     mappings, connection, database creator, transactions, convention set
-                    builder, history repository, code generator and design-time services;
-                    the query pipeline comes from Common. An extended mode with its own
-                    query SQL generator is planned; compat mode keeps using Common's.
+                    builder, history repository, code generator and design-time services.
+                    Two SQL modes, selected by UseLibRed(.., LibRedSqlMode): Extended
+                    (the default) uses LibRed's own LibRedQuerySqlGenerator, which emits
+                    standard SQL; Compatible uses Common's JetQuerySqlGenerator, so the
+                    statements also run against ACE.
 ```
 
 **Format version gating and auto-upgrade — LibRed already does this.** Don't grep for `JetCapabilities`;
@@ -310,7 +317,8 @@ flags — `jet` and `libred` — and skips the jobs that don't apply:
   partway through the largest shard.
 - **LibRed** — `LibRed.Engine.Tests` on Linux/Windows/macOS + ubuntu-arm/windows-arm, no ACE anywhere.
 - **LibRedAccess** — the ACE cross-check suites on `windows-latest` with ACE 2016.
-- **LibRedFunctional** — `EFCore.LibRed.FunctionalTests` on the five-platform matrix, `continue-on-error`.
+- **LibRedFunctional** — both `EFCore.LibRed.FunctionalTests` (compatible mode) and
+  `EFCore.LibRed.Extended.FunctionalTests` (extended mode) on the five-platform matrix, `continue-on-error`.
 - **NuGet** — packs and pushes to MyGet/NuGet for `master`, `*-servicing`, `*-wip` and release tags.
 
 ## Versioning

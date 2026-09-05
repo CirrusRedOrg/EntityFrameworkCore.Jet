@@ -30,12 +30,57 @@ It runs on Windows operating systems only and can be used with either ODBC or OL
 
 The provider works with Microsoft Access `MDB` and `ACCDB` database files.
 
+## LibRed - native managed engine (in development)
+
+[LibRed](https://github.com/CirrusRedOrg/EntityFrameworkCore.Jet/blob/master/src/LibRed/README.md) is a
+from-scratch, fully managed implementation of the Jet/ACE engine that also lives in this repository. It reads
+and writes `MDB`/`ACCDB` files **directly** - no ODBC, OLE DB, DAO or ADOX - so **none of the requirements
+above apply to it**: no Windows, no installed Access driver, and no need to match your process architecture to
+one. It runs on Linux, macOS and ARM64, which CI proves by running its suites on all five platforms with no
+Access engine installed anywhere.
+
+It reads and writes real database files, creates them from nothing (no DAO, no template file), runs SQL end to
+end, and an EF Core `DbContext` round-trips through it. The on-disk format it depends on is documented and
+verified in
+[`src/LibRed/docs/format/`](https://github.com/CirrusRedOrg/EntityFrameworkCore.Jet/blob/master/src/LibRed/docs/format/README.md).
+
+```csharp
+optionsBuilder.UseLibRed(@"C:\Data\Blogging.accdb");
+```
+
+Because LibRed owns both the SQL generator and the engine that parses the result, it does not have to please
+ACE. `UseLibRed` takes an optional `LibRedSqlMode`:
+
+* `LibRedSqlMode.Extended` (the default) - LibRed's own SQL generator, free of the Jet dialect's limitations.
+  It emits standard SQL that ACE has no syntax for at all: `CROSS`/`OUTER APPLY`, window functions,
+  `OFFSET`/`FETCH` paging, `FULL OUTER JOIN`, `CASE`, `COALESCE`, `NULLIF`, set operations inside subquery
+  predicates, and flat unparenthesised join chains.
+* `LibRedSqlMode.Compatible` - the same SQL generator the `EntityFrameworkCore.Jet` provider uses, so the
+  statements LibRed receives are ones ACE would also accept. Use it when the same queries have to run against
+  both engines.
+
+Each mode has its own EF Core specification suite, since the two produce different SQL for the same query.
+
 ## Packages
+
+The Jet provider (Windows, ACE driver required):
 
 * [EntityFrameworkCore.Jet](https://www.nuget.org/packages/EntityFrameworkCore.Jet/) - the EF Core provider.
 * [EntityFrameworkCore.Jet.Data](https://www.nuget.org/packages/EntityFrameworkCore.Jet.Data/) - the shared ADO.NET-style data access layer used by the provider packages.
 * [EntityFrameworkCore.Jet.Odbc](https://www.nuget.org/packages/EntityFrameworkCore.Jet.Odbc/) - ODBC support, including the `UseJetOdbc` extension method.
 * [EntityFrameworkCore.Jet.OleDb](https://www.nuget.org/packages/EntityFrameworkCore.Jet.OleDb/) - OLE DB support, including the `UseJetOleDb` extension method.
+
+Shared by both providers:
+
+* `EntityFrameworkCore.Jet.Common` - the Jet-dialect EF Core services (query pipeline and translators, migrations SQL generation, conventions, annotations, value generation). Cross-platform, and it does not reference the ACE-bound data layer, which is what lets LibRed sit on it.
+
+LibRed, the native managed engine (cross-platform, no driver):
+
+* `LibRed.Core` - the `MDB`/`ACCDB` file format reader/writer.
+* `LibRed.Sql` - the SQL front end (ANTLR grammar, AST, binder).
+* `LibRed.Engine` - the query planner and executor.
+* `LibRed.Ado` - the ADO.NET surface.
+* `EntityFrameworkCore.LibRed` - the EF Core provider, including `UseLibRed`.
 
 ## Getting Started
 
@@ -110,18 +155,6 @@ Examples are:
 
 * `UseIdentityColumn` -> `UseJetIdentityColumn`
 * `UseIdentityColumns` -> `UseJetIdentityColumns`
-
-## LibRed - native managed engine (in development)
-
-[LibRed](https://github.com/CirrusRedOrg/EntityFrameworkCore.Jet/blob/master/src/LibRed/README.md) is a
-from-scratch, fully managed implementation of the Jet/ACE engine that lives in this repository. It reads and
-writes `MDB`/`ACCDB` files **directly** - no ODBC, OLE DB, DAO or ADOX - so it removes both the Windows-only
-requirement and the need to match your process architecture to an installed Access driver.
-
-It reads and writes real database files, runs SQL end to end, and an EF Core `DbContext` round-trips through
-it today. It is still in development and is **not published as a NuGet package**; the on-disk format it
-depends on is documented and verified in
-[`src/LibRed/docs/format/`](https://github.com/CirrusRedOrg/EntityFrameworkCore.Jet/blob/master/src/LibRed/docs/format/README.md).
 
 ## Further information
 

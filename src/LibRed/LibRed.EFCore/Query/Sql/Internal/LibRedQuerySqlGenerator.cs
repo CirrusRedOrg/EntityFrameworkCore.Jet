@@ -322,6 +322,19 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
             }
         }
 
+        protected override Expression VisitJsonScalar(JsonScalarExpression jsonScalarExpression)
+        {
+            var path = jsonScalarExpression.Path;
+            if (path.Count == 0)
+            {
+                Visit(jsonScalarExpression.Json);
+                return jsonScalarExpression;
+            }
+
+            throw new NotSupportedException(
+                "JSON path queries are not supported; only the root JSON column can be selected.");
+        }
+
         protected override Expression VisitOrdering(OrderingExpression orderingExpression)
         {
             // Jet uses the value -1 as True, so ordering by a boolean expression will first list the True values

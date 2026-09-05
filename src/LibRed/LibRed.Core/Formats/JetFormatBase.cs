@@ -155,10 +155,28 @@ public abstract class JetFormatBase
     /// <summary>Offset of the 2-byte total column count.</summary>
     public virtual int TdefColumnCountOffset => 0x2D;
 
-    /// <summary>Offset of the 4-byte real-index (slot) count, used to size the index block before columns.</summary>
-    public virtual int TdefRealIndexCountOffset => 0x2F;
+    /// <summary>
+    ///     Offset of the 4-byte <b>logical</b> index count — the §3.6 index-info blocks, one per named index.
+    ///     Several may share a single data block: a relationship adds a logical block pointing at an index that
+    ///     already exists, so a table many others reference accumulates these without gaining any B-tree.
+    ///     <b>It does not size the statistics or index-data regions</b> — <see cref="TdefIndexCountOffset"/>
+    ///     does. Both counts are capped at 32 (see <c>page-02d-constraints.md</c>).
+    /// </summary>
+    /// <remarks>
+    ///     Named for the meaning rather than the offset's history, because the history is a trap: this was
+    ///     previously <c>TdefRealIndexCountOffset</c>, which inverts the reference vocabulary. mdbtools calls
+    ///     <c>0x2F</c> <c>num_idx</c> ("number of logical indexes") and <c>0x33</c> <c>num_real_idx</c>;
+    ///     Jackcess calls them <c>OFFSET_NUM_INDEX_SLOTS</c> and <c>OFFSET_NUM_INDEXES</c>. "Real" belongs to
+    ///     <c>0x33</c>, not here.
+    /// </remarks>
+    public virtual int TdefLogicalIndexCountOffset => 0x2F;
 
-    /// <summary>Offset of the 4-byte logical index count.</summary>
+    /// <summary>
+    ///     Offset of the 4-byte <b>real</b> index count — the §3.5 index-data blocks, one per B-tree actually
+    ///     on disk. This is the count that sizes both the statistics block at
+    ///     <see cref="TdefRealIndexBlockOffset"/> and the index-data blocks that follow the column names.
+    ///     mdbtools calls it <c>num_real_idx</c>; Jackcess calls it <c>OFFSET_NUM_INDEXES</c>.
+    /// </summary>
     public virtual int TdefIndexCountOffset => 0x33;
 
     /// <summary>Offset where the real-index block begins; column descriptors follow it.</summary>

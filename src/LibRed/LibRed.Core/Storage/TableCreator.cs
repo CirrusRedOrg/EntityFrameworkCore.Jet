@@ -22,6 +22,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     // legacy for callers that don't create columns (most alter operations).
     private readonly Collation _collation = collation ?? Collation.GeneralLegacy;
 
+
     public void Create(
         string name,
         IReadOnlyList<ColumnSpec> columns,
@@ -285,7 +286,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 ix.Columns.Select(c => c.Column.Name).SequenceEqual(refColumns, StringComparer.OrdinalIgnoreCase))
             ?? throw new InvalidOperationException(
                 $"Referenced table '{fk.ReferencedTable}' has no index over ({string.Join(", ", refColumns)}).");
-        return (parent.DefinitionPage, refIndex.RealIndexOrdinal, ptdef.RealIndexCount);
+        return (parent.DefinitionPage, refIndex.RealIndexOrdinal, ptdef.LogicalIndexCount);
     }
 
     /// <summary>
@@ -370,7 +371,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             EnsureNoDuplicateKeys(table, indexName, slots);
 
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
-        int logicalCount = buf.ReadInt32(format.TdefRealIndexCountOffset);
+        int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset);
         int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
 
         // Walk the TDEF regions: stats -> column descriptors -> column names -> data blocks -> info blocks.
@@ -449,7 +450,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         // Bump the two index counts and the definition length in the header.
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefIndexCountOffset, 4), dataCount + 1);
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefRealIndexCountOffset, 4), logicalCount + 1);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLogicalIndexCountOffset, 4), logicalCount + 1);
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLengthOffset, 4), newDefEnd);
 
         WriteDefinition(table.DefinitionPage, def, existingContinuations);
@@ -2106,7 +2107,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         (LibRed.IO.PageBuffer buf, IReadOnlyList<int> continuations) = ReadDefinition(tdefPage);
 
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
-        int logicalCount = buf.ReadInt32(format.TdefRealIndexCountOffset);
+        int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset);
         int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
 
         int statsStart = format.TdefRealIndexBlockOffset;
@@ -2179,7 +2180,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int defEnd = def.Length;
 
         BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefIndexCountOffset, 4), parts.DataBlocks.Count);
-        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefRealIndexCountOffset, 4), parts.Logical.Count);
+        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLogicalIndexCountOffset, 4), parts.Logical.Count);
         BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLengthOffset, 4), defEnd);
 
         // Write across the first page and continuation pages as needed (reusing the existing ones) — handles a
@@ -2350,7 +2351,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             throw new NotSupportedException("Adding a relationship to a multi-page table definition is not supported yet.");
 
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);        // 0x33 real data blocks
-        int logicalCount = buf.ReadInt32(format.TdefRealIndexCountOffset); // 0x2F logical blocks
+        int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset); // 0x2F logical blocks
         int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
 
         // Walk to the logical index-info blocks: stats + column descriptors -> column names -> data blocks.
@@ -2392,7 +2393,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         foreach (byte[] n in nameBytes) { n.CopyTo(page.AsSpan(w)); w += n.Length; }
         lvalRegion.CopyTo(page.AsSpan(w));
 
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRealIndexCountOffset, 4), logicalCount + 1);
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefLogicalIndexCountOffset, 4), logicalCount + 1);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefLengthOffset, 4), newDefEnd);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefFreeSpaceOffset, 2),
             (ushort)(format.PageSize - newDefEnd - JetFormatBase.TdefContinuationHeaderSize));

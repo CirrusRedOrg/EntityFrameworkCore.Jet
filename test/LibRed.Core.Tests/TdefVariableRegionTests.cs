@@ -171,10 +171,10 @@ public class TdefVariableRegionTests
                 BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefIndexCountOffset, 4), 33);
                 break;
             case "negative-logical-index-count":
-                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefRealIndexCountOffset, 4), -1);
+                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefLogicalIndexCountOffset, 4), -1);
                 break;
             case "logical-index-region-overflow":
-                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefRealIndexCountOffset, 4), int.MaxValue);
+                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(Format.TdefLogicalIndexCountOffset, 4), int.MaxValue);
                 break;
         }
 

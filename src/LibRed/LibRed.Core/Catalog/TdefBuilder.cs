@@ -140,7 +140,7 @@ public static class TdefBuilder
         // Logical index count (0x2F) may exceed the real data-block count (0x33): a relationship adds
         // a logical block that shares a data block. Without explicit logical specs the two are equal.
         int logicalCount = logical.Count;
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRealIndexCountOffset, 4), logicalCount);
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefLogicalIndexCountOffset, 4), logicalCount);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefIndexCountOffset, 4), indexes.Count);
 
         // The per-index statistics blocks (12 bytes each, one per data block) precede the columns.

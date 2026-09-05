@@ -157,10 +157,10 @@ the documented 255-column, 32-index, and 64-character-name limits.
 ### 3.3 Body layout (in order, after the header)
 
 ```
-0x3F : index statistics      RealIndexCount(0x33) × 12 bytes   (per-index, §3.3.1)
+0x3F : index statistics      IndexCount(0x33) × 12 bytes       (per-index, §3.3.1)
        column descriptors    ColumnCount(0x2D)    × 25 bytes
        column names          ColumnCount          × (2-byte length + UTF-16LE)   (naming limits below)
-       index-data blocks     RealIndexCount(0x33) × 52 bytes
+       index-data blocks     IndexCount(0x33) × 52 bytes
        index-info blocks     LogicalIndexCount(0x2F) × 28 bytes
        index names           LogicalIndexCount    × (2-byte length + UTF-16LE)
        column usage maps     (per long-value column) × 10 bytes, then 0xFFFF  (§3.3.2)

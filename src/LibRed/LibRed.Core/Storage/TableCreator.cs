@@ -22,6 +22,46 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     // legacy for callers that don't create columns (most alter operations).
     private readonly Collation _collation = collation ?? Collation.GeneralLegacy;
 
+    /// <summary>
+    /// Jet/ACE caps a table at 32 indexes and the cap applies to BOTH TDEF counts — the index-data blocks at
+    /// <c>0x33</c> and the logical index-info blocks at <c>0x2F</c>. Microsoft states it against the logical
+    /// one: "Number of indexes in a table: 32, including indexes created internally to maintain table
+    /// relationships, single-field and composite indexes."
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="TdefBuilder"/> checks both when a table is created with all its indexes at once, but EF does
+    /// not work that way: it creates the table, then adds indexes and relationships one statement at a time,
+    /// and each of those comes through a surgical insert here instead. Nothing checked those paths, so the
+    /// counts simply walked past 32 — the fields are <c>Int32</c>, so nothing overflowed.
+    /// </para>
+    /// <para>
+    /// The logical count is the one that binds, because a data block must be named by a logical block, so
+    /// <c>0x33 ≤ 0x2F</c> always holds. A table many others reference gains a logical block per incoming
+    /// relationship and no data block, so it overruns on <c>0x2F</c> while <c>0x33</c> still looks healthy —
+    /// which is exactly what the read-side check inspected. Building EF Core's
+    /// <c>ComplexNavigationsSharedType</c> model, <c>Level1</c> reached 46 logical against 31 data, and the
+    /// resulting file was unreadable by Access ("Unrecognized database format", the table missing entirely)
+    /// while LibRed read it back without complaint. Measured in <c>IndexCountLimitAccessTests</c>; see
+    /// <c>docs/format/page-02d-constraints.md</c>.
+    /// </para>
+    /// </remarks>
+    private const int MaxIndexesPerTable = 32;
+
+    /// <summary>Rejects an incremental index or relationship that would take either TDEF count past the
+    /// Jet/ACE limit, naming both counts so the failure says which one bound.</summary>
+    private static void EnsureIndexCapacity(string tableName, string what, int dataCount, int logicalCount)
+    {
+        if (dataCount > MaxIndexesPerTable || logicalCount > MaxIndexesPerTable)
+        {
+            throw new NotSupportedException(
+                $"Cannot add {what} to '{tableName}': it would leave the table with {dataCount} index-data blocks and " +
+                $"{logicalCount} logical index blocks. Jet/ACE allows at most {MaxIndexesPerTable} of each, counting " +
+                "those backing primary keys, unique constraints and relationships - and a table referenced by many " +
+                "others accumulates a logical block per incoming relationship without gaining a data block.");
+        }
+    }
+
 
     public void Create(
         string name,
@@ -373,6 +413,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
         int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset);
         int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
+
+        // A plain index or an outgoing FK adds one of each. Checked before a byte moves, like the
+        // duplicate-key scan above, so a rejection leaves the file exactly as it was.
+        EnsureIndexCapacity(table.Name, $"index '{indexName}'", dataCount + 1, logicalCount + 1);
 
         // Walk the TDEF regions: stats -> column descriptors -> column names -> data blocks -> info blocks.
         int afterStats = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize;
@@ -2353,6 +2397,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);        // 0x33 real data blocks
         int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset); // 0x2F logical blocks
         int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
+
+        // An incoming relationship adds a logical block and no data block, so this is the path a referenced
+        // table overruns: 0x33 stays where it was while 0x2F climbs with every table that points here.
+        EnsureIndexCapacity(
+            _catalog.Tables.FirstOrDefault(t => t.DefinitionPage == inc.ParentPage)?.Name ?? $"page {inc.ParentPage}",
+            "an incoming relationship", dataCount, logicalCount + 1);
 
         // Walk to the logical index-info blocks: stats + column descriptors -> column names -> data blocks.
         int pos = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize

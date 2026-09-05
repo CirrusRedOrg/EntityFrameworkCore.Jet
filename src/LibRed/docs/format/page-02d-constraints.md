@@ -57,8 +57,60 @@ insert/delete/insert sequence and against saved Northwind tables:**
 
 A table has **at most 32 index-data blocks** (the `0x33` count, §3.1) — the Jet/ACE "32 indexes per
 table" limit, counting the indexes that back primary keys, unique constraints and the child side of
-relationships. (Incoming relationships add *logical* index-info blocks, §3.6, which reuse an existing
-data block and so do not count toward this.)
+relationships. Incoming relationships add *logical* index-info blocks (§3.6) that reuse an existing data
+block, so they do not count toward `0x33` — but they are **not** thereby unconstrained. The logical count
+at `0x2F` is capped as well, and it is the easier of the two to overrun.
+
+Microsoft documents the limit against the **logical** count, not the physical one:
+
+> Number of indexes in a table: **32**, including indexes created internally to maintain table
+> relationships, single-field and composite indexes.
+
+"Indexes created internally to maintain table relationships" are the `0x2F` entries a table gains when
+something *references* it. So the budget is:
+
+```
+0x33 = every index with its own B-tree
+       primary key, UNIQUE, plain CREATE INDEX, and the CHILD side of each foreign key
+0x2F = 0x33 + one entry per INCOMING relationship (this table as the referenced end)
+```
+
+The child side of a foreign key is a real index and costs one from each count; only the parent end is free
+of storage, reusing the index already over the referenced columns. So being *referenced* is what spends the
+budget invisibly. A self-reference lands both ends on one table: one data block, two logical blocks.
+
+Because a data block must be named by a logical block, `0x33 ≤ 0x2F` always holds — which makes `0x2F` the
+binding constraint and `0x33` derivable from it. It is also why the physical cap cannot be reached in
+isolation: 33 plain indexes push both counts to 33 together.
+
+> **Measured 2026-09-06 — a file LibRed wrote that Access cannot read.** Creating EF Core's
+> `ComplexNavigationsSharedType` model, `Level1` ended at **46 logical blocks against 31 data blocks, with
+> a continuation page**. ACE refuses to build the same model at all — *"There are too many indexes on table
+> 'Level1'. Delete some of the indexes on the table and try the operation again."*
+>
+> Opening the resulting file in Access logs `-1206 Unrecognized database format` plus fifteen
+> `-1305 … could not find the object 'Level1'` into `MSysCompactError`, and the table is absent from the
+> object list. Nothing in that failure names indexes or a limit. LibRed reads the same file back without
+> complaint.
+>
+> **The boundary is exactly 32, isolated against ACE.** `Level1` carried two anomalies at once — the logical
+> count *and* the only multi-page TDEF in the file — so it could not settle which mattered. A pair of
+> minimal tables did (`IndexCountLimitAccessTests`): one primary key plus incoming relationships, one data
+> block, single page, differing only in the count.
+>
+> | `0x2F` | `0x33` | continuation | ACE |
+> | --- | --- | --- | --- |
+> | 32 | 1 | none | reads the table |
+> | 33 | 1 | none | refuses it |
+>
+> So the logical count alone does it, at exactly the same 32 as `0x33`, and the continuation page on
+> `Level1` was incidental. Note a logical count merely *exceeding* the data count is ordinary and harmless —
+> `InheritanceOne` in the same file sits at 13 against 5 and reads fine. Only the magnitude matters.
+>
+> Two practical notes. `0x33` was **31** on `Level1`, one below the cap, so the read-side check on that
+> count came within a single index of catching this by luck rather than design. And both counts must be
+> validated on the **incremental** write paths, not only at create time: a table built one
+> `CREATE INDEX`/`ALTER TABLE` at a time never passes through the whole-table check.
 
 
 ### 3.6 Index-info block (28 bytes) — one per *logical* index

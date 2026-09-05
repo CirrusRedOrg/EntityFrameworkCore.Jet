@@ -97,8 +97,14 @@ public sealed class TableDefinitionPage : Page
                 $"TDEF declares a variable-column high-water of {VariableColumnCount}; Jet/ACE permits at most {MaxColumnsPerTable}.");
         if (IndexCount is < 0 or > MaxIndexesPerTable)
             throw new InvalidDataException($"TDEF declares {IndexCount} real indexes; Jet/ACE permits 0 through {MaxIndexesPerTable}.");
-        if (LogicalIndexCount < 0)
-            throw new InvalidDataException($"TDEF declares a negative logical-index count ({LogicalIndexCount}).");
+        // Capped at 32 exactly as IndexCount is, and this is the check that matters: a table gains a logical
+        // block per INCOMING relationship without gaining a data block, so it overruns here while 0x33 stays
+        // legal. Previously only the sign was checked, which let a file written past the limit read back as
+        // sound - the one shape where LibRed produces a database Access reports as an unrecognized format
+        // while seeing nothing wrong with it itself.
+        if (LogicalIndexCount is < 0 or > MaxIndexesPerTable)
+            throw new InvalidDataException(
+                $"TDEF declares {LogicalIndexCount} logical indexes; Jet/ACE permits 0 through {MaxIndexesPerTable}.");
 
         // The column descriptors follow a per-index block sized by the REAL index count at
         // 0x33 (IndexCount) — NOT the logical count at 0x2F (LogicalIndexCount). The two are

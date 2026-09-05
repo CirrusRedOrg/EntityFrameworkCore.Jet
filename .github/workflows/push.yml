@@ -901,14 +901,14 @@ jobs:
         if: ${{ env.pushToMygetOrg == 'true' }}
         working-directory: nupkgs
         shell: pwsh
-        run: dotnet nuget push './Debug/withPdbs/**/*.nupkg' --api-key '${{ secrets.MYGETORG_CIRRUSRED_ALLPACKAGES_DEBUG_PUSHNEW }}' --source 'https://www.myget.org/F/cirrusred-debug/api/v3/index.json'
+        run: dotnet nuget push './Debug/withPdbs/**/*.nupkg' --api-key '${{ secrets.MYGETORG_CIRRUSRED_ALLPACKAGES_DEBUG_PUSHNEW }}' --source 'https://www.myget.org/F/cirrusred-debug/api/v3/index.json' --skip-duplicate
       - name: "NuGet Push - myget.org - Release"
         if: ${{ env.pushToMygetOrg == 'true' }}
         working-directory: nupkgs
         shell: pwsh
-        run: dotnet nuget push './Release/default/**/*.nupkg' --api-key '${{ secrets.MYGETORG_CIRRUSRED_ALLPACKAGES_PUSHNEW }}' --source 'https://www.myget.org/F/cirrusred/api/v3/index.json'
+        run: dotnet nuget push './Release/default/**/*.nupkg' --api-key '${{ secrets.MYGETORG_CIRRUSRED_ALLPACKAGES_PUSHNEW }}' --source 'https://www.myget.org/F/cirrusred/api/v3/index.json' --skip-duplicate
       - name: "NuGet Push - nuget.org - Release"
         if: ${{ env.pushToNugetOrg == 'true' }}
         working-directory: nupkgs
         shell: pwsh
-        run: dotnet nuget push './Release/default/**/*.nupkg' --api-key '${{ secrets.NUGETORG_EFCOREJET_ALLPACKAGES_PUSHNEW }}' --source 'https://api.nuget.org/v3/index.json'
+        run: dotnet nuget push './Release/default/**/*.nupkg' --api-key '${{ secrets.NUGETORG_EFCOREJET_ALLPACKAGES_PUSHNEW }}' --source 'https://api.nuget.org/v3/index.json' --skip-duplicate

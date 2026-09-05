@@ -61,7 +61,9 @@ public static class JetTypeCodec
             case JetDataType.FixedPoint:
                 return DecodeNumeric(value, column.Scale);
 
-            // Long values stored on LVAL pages — needs the long-value reader. TODO.
+            // Long values live on LVAL pages, so the inline bytes are only a descriptor. Resolving them needs
+            // page access this codec deliberately does not have: RowDecoder holds the LongValueReader and
+            // substitutes the real value, and hands the raw bytes here only when it has none.
             case JetDataType.Memo:
             case JetDataType.Ole:
             case JetDataType.Complex:

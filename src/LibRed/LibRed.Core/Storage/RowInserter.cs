@@ -9,10 +9,9 @@ using LibRed.Pages;
 namespace LibRed.Storage;
 
 /// <summary>
-/// Inserts a row into an existing data page of a table. This first cut only fills free space on
-/// the table's already-owned pages — it does not yet allocate a new page or update indexes — so
-/// it is valid for tables whose last data page has room. The page's slot directory grows forward
-/// while row data is packed from the page end backward (see <see cref="DataPage"/>).
+/// Inserts a row into a table: finds free space on an already-owned data page or allocates a new one,
+/// stores any long values, maintains every index B-tree, and enforces unique keys. The page's slot
+/// directory grows forward while row data is packed from the page end backward (see <see cref="DataPage"/>).
 /// </summary>
 public sealed class RowInserter(PageChannel channel, TableDef table)
 {
@@ -24,9 +23,10 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     public void Insert(object?[] values) => Insert(values, updateIndexes: true);
 
     /// <summary>
-    /// Inserts a row, optionally skipping index maintenance. Heap-only inserts are used for the
-    /// MSysObjects catalog row (whose text indexes are not yet writable), which the catalog reader
-    /// finds by table scan anyway.
+    /// Inserts a row, optionally skipping index maintenance. Every caller now passes true — the catalog
+    /// rows written during CREATE TABLE included, since Access resolves a table through the MSysObjects
+    /// <c>ParentIdName</c> index rather than by scan. The heap-only path is retained for seeding a table
+    /// whose indexes do not exist yet; it has no caller today.
     /// </summary>
     public void Insert(object?[] values, bool updateIndexes)
     {
@@ -324,8 +324,6 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         throw new ArgumentOutOfRangeException(nameof(slot));
     }
 
-    /// <summary>Adds the new row to every index B-tree (deduped by root page, since relationship
-    /// indexes share a real index's data) so indexed lookups — and Access — find it.</summary>
     /// <summary>Rejects the insert if a UNIQUE or PRIMARY index would gain a duplicate key. A row with a
     /// null in any of a unique index's columns is skipped — Jet treats nulls as distinct, so a unique index
     /// allows multiple nulls (verified vs ACE). Runs before the row is written so nothing is half-inserted.</summary>
@@ -347,6 +345,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         }
     }
 
+    /// <summary>Adds the new row to every index B-tree (deduped by root page, since relationship
+    /// indexes share a real index's data) so indexed lookups — and Access — find it.</summary>
     private void UpdateIndexes(object?[] values, RowId rowId)
     {
         var writer = new IndexWriter(_channel, _table);

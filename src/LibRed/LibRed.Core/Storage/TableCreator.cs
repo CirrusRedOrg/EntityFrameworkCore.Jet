@@ -7,10 +7,11 @@ using LibRed.Pages;
 namespace LibRed.Storage;
 
 /// <summary>
-/// Creates a new (heap) table in an existing database: allocates and writes its TDEF page, an
-/// empty data page, and an owned-pages usage map, then records it in MSysObjects so the catalog
-/// finds it. This first cut creates a no-index table and writes the catalog row heap-only (the
-/// catalog is read by table scan), enough for LibRed to round-trip create → insert → query.
+/// Creates and alters tables in an existing database. <see cref="Create"/> allocates and writes the TDEF
+/// page, its indexes' B-tree roots and an owned-pages usage map, then records the table in MSysObjects so
+/// the catalog finds it. The rest of the class is the incremental DDL EF issues one statement at a time —
+/// ADD/DROP/ALTER/RENAME for columns, indexes, relationships and CHECK constraints — each a surgical edit
+/// of the existing TDEF rather than a rebuild, so unmodelled descriptor bytes survive.
 /// </summary>
 public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collation? collation = null)
 {
@@ -363,10 +364,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
 
     /// <summary>
-    /// Adds an index to an existing (empty) table for CREATE INDEX. Surgically inserts a statistics
-    /// block, an index-data block and a logical index-info block into the TDEF (preserving the existing
-    /// columns, indexes, relationship linkage and long-value entries byte-for-byte), grows the usage-map
-    /// page by one row and writes an empty B-tree root. Single-page, empty-table only.
+    /// Adds an index to an existing table for CREATE INDEX. Surgically inserts a statistics block, an
+    /// index-data block and a logical index-info block into the TDEF (preserving the existing columns,
+    /// indexes, relationship linkage and long-value entries byte-for-byte), grows the usage-map page by one
+    /// row and writes a B-tree root, back-filled from the table's existing rows.
     /// </summary>
     public void AddIndex(string tableName, string indexName, IReadOnlyList<(string Column, bool Descending)> columns,
         bool isUnique, bool isPrimary, bool disallowNull, bool ignoreNulls)
@@ -389,8 +390,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             : throw new InvalidOperationException($"Column '{c.Column}' does not exist in '{table.Name}'.")).ToList();
     }
 
-    /// <summary>Surgically inserts one data index and its logical info block into an existing (empty)
-    /// table's TDEF, name-sorted. <paramref name="buildInfo"/> gets (block number, data-block ordinal) and
+    /// <summary>Surgically inserts one data index and its logical info block into an existing table's TDEF,
+    /// name-sorted. <paramref name="buildInfo"/> gets (block number, data-block ordinal) and
     /// returns the 28-byte info block — a plain index or an outgoing-FK block. Returns the new block number.</summary>
     private int InsertIndex(TableDef table, string indexName, IReadOnlyList<(int Id, bool Ascending)> slots,
         bool unique, bool required, bool ignoreNulls, Func<int, int, byte[]> buildInfo)
@@ -597,7 +598,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     }
 
     /// <summary>
-    /// Adds a foreign key to an existing (empty) child table: a backing non-unique index over the child
+    /// Adds a foreign key to an existing child table: a backing non-unique index over the child
     /// columns carrying an outgoing-relationship block, an incoming block on the parent's TDEF, and the
     /// MSysRelationships rows. The child index and parent block are written the same way inline-FK creation
     /// does (verified byte-faithful vs ACE). A self-reference hosts both ends in the one table; FOREIGN KEY
@@ -776,11 +777,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     }
 
 
-    /// <summary>Deletes every row of <paramref name="catalogTable"/> whose <paramref name="keyColumn"/> equals
-    /// <paramref name="keyValue"/> (the object id) — used to remove a dropped table's MSysObjects and MSysACEs
-    /// rows. A full delete: its **index entries are removed** (not just the slot soft-deleted) so, e.g., the
-    /// MSysObjects <c>ParentIdName</c> unique index doesn't retain a stale entry that would then reject
-    /// re-creating a same-named table.</summary>
     /// <summary>
     /// Renames a table — <c>ALTER TABLE … RENAME TO</c>. Measured against ACE (see <c>RenameFanOutProbeTest</c>):
     /// only two things move — the object's <c>MSysObjects.Name</c>, and the by-name table references in
@@ -1019,6 +1015,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         table.Update(id, newValues, changed);
     }
 
+    /// <summary>Deletes every row of <paramref name="catalogTable"/> whose <paramref name="keyColumn"/> equals
+    /// <paramref name="keyValue"/> (the object id) — used to remove a dropped table's MSysObjects and MSysACEs
+    /// rows. A full delete: its <b>index entries are removed</b> (not just the slot soft-deleted) so, e.g., the
+    /// MSysObjects <c>ParentIdName</c> unique index doesn't retain a stale entry that would then reject
+    /// re-creating a same-named table.</summary>
     private void DeleteCatalogRows(string catalogTable, string keyColumn, int keyValue)
     {
         TableDef t = _catalog.FindTable(catalogTable)
@@ -1229,9 +1230,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         parts.Lval = result;
     }
 
-    /// <summary>Appends a column's extended properties (DefaultValue/Required) to its table's
-    /// <c>MSysObjects.LvProp</c> blob and re-stores it — the add-side counterpart of
-    /// <see cref="RemoveColumnProperties"/>.</summary>
     /// <summary>Sets (replaces) a column's <c>DefaultValue</c> in the table's <c>MSysObjects.LvProp</c> blob —
     /// ALTER TABLE … ALTER COLUMN … DEFAULT. Reads all properties, drops any existing DefaultValue for the
     /// column, adds the new one, and rewrites the blob (preserving every other property).</summary>
@@ -1294,6 +1292,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         throw new InvalidOperationException($"MSysObjects row for table '{tableName}' (page {tdefPage}) was not found.");
     }
 
+    /// <summary>Appends a column's extended properties (DefaultValue/Required) to its table's
+    /// <c>MSysObjects.LvProp</c> blob and re-stores it — the add-side counterpart of
+    /// <see cref="RemoveColumnProperties"/>.</summary>
     private void SetColumnProperties(int tdefPage, string columnName, IReadOnlyList<PropertyBlob.Property> props)
     {
         TableDef msys = _catalog.FindTable("MSysObjects")
@@ -1461,17 +1462,25 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         throw new InvalidOperationException($"Descriptor for column '{columnName}' (id {col.ColumnId}) was not found.");
     }
 
+    /// <summary>Whether the column is either end of a relationship — the child's FK column or the parent's
+    /// referenced key. ACE refuses to alter or drop such a column; the two callers differ only in the message
+    /// they raise, so the rule itself lives here.</summary>
+    private bool ColumnIsInRelationship(TableDef table, ColumnDef column)
+    {
+        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
+        return _catalog.Relationships.Any(r =>
+            (string.Equals(r.Table, table.Name, oic) &&
+             r.Columns.Any(c => string.Equals(c.Column, column.Name, oic))) ||
+            (string.Equals(r.ReferencedTable, table.Name, oic) &&
+             r.Columns.Any(c => string.Equals(c.ReferencedColumn, column.Name, oic))));
+    }
+
     /// <summary>ACE rejects every type/length alteration of a relationship column, on either the
     /// referencing or referenced side. Keep this check ahead of all specialized ALTER paths so an
     /// in-place descriptor edit cannot bypass the same rule enforced by a logical table rebuild.</summary>
     private void EnsureColumnIsNotInRelationship(TableDef table, ColumnDef column)
     {
-        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
-        if (_catalog.Relationships.Any(r =>
-                (string.Equals(r.Table, table.Name, oic) &&
-                 r.Columns.Any(c => string.Equals(c.Column, column.Name, oic))) ||
-                (string.Equals(r.ReferencedTable, table.Name, oic) &&
-                 r.Columns.Any(c => string.Equals(c.ReferencedColumn, column.Name, oic)))))
+        if (ColumnIsInRelationship(table, column))
             throw new InvalidOperationException(
                 $"Cannot change field '{column.Name}'. It is part of one or more relationships.");
     }
@@ -1483,11 +1492,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// that.</summary>
     private void ReseedCounter(TableDef table, ColumnDef col, int seed, int increment)
     {
-        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
-        if (_catalog.Relationships.Any(r =>
-                (string.Equals(r.Table, table.Name, oic) && r.Columns.Any(c => string.Equals(c.Column, col.Name, oic))) ||
-                (string.Equals(r.ReferencedTable, table.Name, oic) && r.Columns.Any(c => string.Equals(c.ReferencedColumn, col.Name, oic)))))
-            throw new InvalidOperationException($"Cannot change field '{col.Name}'. It is part of one or more relationships.");
+        EnsureColumnIsNotInRelationship(table, col);
 
         if (increment == 0) increment = 1;
         JetFormatBase format = _channel.Format;
@@ -1505,14 +1510,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// the reseed path) a column in a relationship is rejected, matching ACE.</summary>
     private void PromoteColumnToCounter(TableDef table, ColumnDef col, int seed, int increment)
     {
-        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
         if (table.Columns.Any(c => c.IsAutoNumber && c.ColumnId != col.ColumnId))
             throw new InvalidOperationException(
                 $"Cannot make '{col.Name}' an AutoNumber: table '{table.Name}' already has one (Jet allows a single AutoNumber column per table).");
-        if (_catalog.Relationships.Any(r =>
-                (string.Equals(r.Table, table.Name, oic) && r.Columns.Any(c => string.Equals(c.Column, col.Name, oic))) ||
-                (string.Equals(r.ReferencedTable, table.Name, oic) && r.Columns.Any(c => string.Equals(c.ReferencedColumn, col.Name, oic)))))
-            throw new InvalidOperationException($"Cannot change field '{col.Name}'. It is part of one or more relationships.");
+        EnsureColumnIsNotInRelationship(table, col);
 
         if (increment == 0) increment = 1;
         JetFormatBase format = _channel.Format;
@@ -1578,20 +1579,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         ColumnDef target = def.FindColumn(columnName)
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
 
-        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
-
-        // ACE rejects altering a column that is itself part of a relationship (an FK column or the referenced
-        // key column) — "Cannot change field 'X'. It is part of one or more relationships." (verified).
-        if (_catalog.Relationships.Any(r =>
-                (string.Equals(r.Table, tableName, oic) && r.Columns.Any(c => string.Equals(c.Column, columnName, oic))) ||
-                (string.Equals(r.ReferencedTable, tableName, oic) && r.Columns.Any(c => string.Equals(c.ReferencedColumn, columnName, oic)))))
-            throw new InvalidOperationException($"Cannot change field '{columnName}'. It is part of one or more relationships.");
+        EnsureColumnIsNotInRelationship(def, target);
 
         // The rebuild drops + recreates the table, so every relationship it touches is captured and restored
         // afterwards. OUTGOING FKs (this table is the child) are cascaded away by DropTable and re-added; their
         // backing indexes are recreated with them, so they're excluded from `secondary`. INCOMING FKs (this table
         // is the referenced parent) are dropped up front so the parent can be dropped, then re-added — this is
         // what makes a parent-side rewrite work. Self-references count as outgoing only.
+        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
         var foreignKeys = _catalog.ForeignKeysOf(tableName).ToList();
         var incoming = _catalog.Relationships
             .Where(r => string.Equals(r.ReferencedTable, tableName, oic) && !string.Equals(r.Table, tableName, oic))
@@ -1862,7 +1857,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         if (!newTarget.IsFixedLength) chunks.Add(targetBytes);
 
         // Assemble via the shared row layout (count + var table + null bitmap identical to a fresh encode).
-        _ = newFixedLen; // == newFixed.Length
         return RowEncoder.AssembleRow(newMaxId, newFixed, chunks, newCols, values);
     }
 
@@ -2019,11 +2013,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // referenced parent key) — even a NO INDEX FK with no backing index — with "It is part of one or more
         // relationships"; you must drop the relationship first. This is correct, permanent behaviour (not a
         // gap), so mirror it. Verified vs ACE.
-        if (_catalog.Relationships.Any(r =>
-                (string.Equals(r.Table, tableName, StringComparison.OrdinalIgnoreCase)
-                    && r.Columns.Any(c => string.Equals(c.Column, columnName, StringComparison.OrdinalIgnoreCase))) ||
-                (string.Equals(r.ReferencedTable, tableName, StringComparison.OrdinalIgnoreCase)
-                    && r.Columns.Any(c => string.Equals(c.ReferencedColumn, columnName, StringComparison.OrdinalIgnoreCase)))))
+        if (ColumnIsInRelationship(table, col))
             throw new InvalidOperationException(
                 $"Cannot drop column '{columnName}': it is part of one or more relationships — drop the relationship first.");
 
@@ -2131,7 +2121,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     private static string NameOf(byte[] nameEntry) =>
         System.Text.Encoding.Unicode.GetString(nameEntry, 2, BinaryPrimitives.ReadUInt16LittleEndian(nameEntry.AsSpan(0, 2)));
 
-    /// <summary>The parsed regions of a single-page table definition, for surgical block removal.</summary>
+    /// <summary>The parsed regions of a table definition, for surgical block removal. A multi-page definition
+    /// is stitched into one buffer by <see cref="ParseTdef"/>; <see cref="Continuations"/> carries its extra
+    /// pages so <see cref="WriteTdef"/> can reuse them.</summary>
     private sealed class TdefParts
     {
         public required byte[] Header;                          // [0, TdefRealIndexBlockOffset)
@@ -2539,8 +2531,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
     // An inline usage-map record: type byte + 4-byte start page + a 64-byte all-zero bitmap = 69 bytes.
     private const int UsageMapRecordLength = 1 + 4 + 64;
-
-    // A user table's parent object is the database's "Tables" container; observed constant.
 
     // A user table's owner + grantee SIDs, matching the cluster DatabaseCreator seeds for the system objects
     // (Users owns user objects; Users + Admin get the user-table grants).

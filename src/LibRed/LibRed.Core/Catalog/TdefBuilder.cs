@@ -47,9 +47,12 @@ public sealed record LongValueColumnSpec(int ColumnId, int UsedRow, int FreeRow,
 
 /// <summary>
 /// Serializes a table schema into a Jet 4 / ACE table-definition (TDEF) page — the inverse of
-/// <see cref="TableDefinitionPage"/>. This first cut builds a single-page definition with no
-/// indexes; index-data blocks and continuation pages come later. Fixed columns are packed in
-/// declaration order; variable columns are ranked by column id for the row var-offset table.
+/// <see cref="TableDefinitionPage"/>, covering the whole definition: column descriptors and names, index
+/// statistics, index-data and logical index-info blocks with their relationship linkage, and the trailing
+/// long-value column-usage list. The result is one contiguous buffer in the absolute coordinate space the
+/// descriptors use, which may exceed a page — splitting it across continuation pages is the caller's job
+/// (<c>TableCreator.WriteDefinition</c>). Fixed columns are packed in declaration order; variable columns
+/// are ranked by column id for the row var-offset table.
 /// </summary>
 public static class TdefBuilder
 {

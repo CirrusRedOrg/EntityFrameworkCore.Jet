@@ -872,7 +872,7 @@ namespace EntityFrameworkCore.LibRed.Extended.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE DefaultComputedValues;");
 
-        [Fact(Skip = "LibRed can only understand literal defaults")]
+        [Fact]
         public void Non_literal_bool_default_values_are_passed_through()
             => Test(
                 """
@@ -1034,7 +1034,7 @@ namespace EntityFrameworkCore.LibRed.Extended.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [Fact(Skip = "LibRed can only understand literal defaults")]
+        [Fact]
         public void Non_literal_int_default_values_are_passed_through()
             => Test(
                 """
@@ -1216,7 +1216,7 @@ namespace EntityFrameworkCore.LibRed.Extended.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [Fact(Skip = "LibRed can only understand literal defaults")]
+        [Fact]
         public void Non_literal_or_non_parsable_DateTime_default_values_are_passed_through()
             => Test(
                 """
@@ -1339,7 +1339,7 @@ namespace EntityFrameworkCore.LibRed.Extended.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE MyTable;");
 
-        [Fact(Skip = "LibRed can only understand literal defaults")]
+        [Fact]
         public void Non_literal_Guid_default_values_are_passed_through()
             => Test(
                 """

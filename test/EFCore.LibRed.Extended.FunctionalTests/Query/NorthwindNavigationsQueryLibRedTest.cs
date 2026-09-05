@@ -928,20 +928,19 @@ WHERE `c`.`Country` IN ('USA', 'Redania')
             AssertSql();
         }
 
-        [Theory(Skip="LibRed Fails")]
         public override async Task Navigation_in_subquery_referencing_outer_query(bool isAsync)
         {
             await base.Navigation_in_subquery_referencing_outer_query(isAsync);
 
             AssertSql(
-"""
+                """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 WHERE (
     SELECT COUNT(*)
-    FROM (`Order Details` AS `o0`
-    INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`)
+    FROM `Order Details` AS `o0`
+    INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
     LEFT JOIN `Customers` AS `c0` ON `o1`.`CustomerID` = `c0`.`CustomerID`
     WHERE `c`.`Country` = `c0`.`Country` OR (`c`.`Country` IS NULL AND `c0`.`Country` IS NULL)) > 0 AND `o`.`OrderID` IN (10643, 10692)
 """);

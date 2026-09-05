@@ -1537,25 +1537,23 @@ WHERE `o`.`ProductID` IN (
 """);
         }
 
-        [Theory(Skip = "LibRed fails")]
         public override async Task Where_contains_on_navigation(bool isAsync)
         {
             await base.Where_contains_on_navigation(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
-                    FROM `Orders` AS `o`
-                    WHERE EXISTS (
-                        SELECT 1
-                        FROM `Customers` AS `c`
-                        WHERE `o`.`OrderID` IN (
-                            SELECT `o0`.`OrderID`
-                            FROM `Orders` AS `o0`
-                            WHERE `c`.`CustomerID` = `o0`.`CustomerID`
-                        )
-                    )
-                    """);
+                """
+SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
+FROM `Orders` AS `o`
+WHERE EXISTS (
+    SELECT 1
+    FROM `Customers` AS `c`
+    WHERE `o`.`OrderID` IN (
+        SELECT `o0`.`OrderID`
+        FROM `Orders` AS `o0`
+        WHERE `c`.`CustomerID` = `o0`.`CustomerID`
+    ))
+""");
         }
 
         public override async Task Where_subquery_FirstOrDefault_is_null(bool isAsync)

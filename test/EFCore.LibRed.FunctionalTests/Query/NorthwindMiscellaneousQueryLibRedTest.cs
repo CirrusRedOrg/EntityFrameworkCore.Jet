@@ -4863,21 +4863,24 @@ WHERE FALSE
                     """);
         }
 
-        [Theory(Skip = "Can be supported after rearranging CROSS JOIN/JOIN expressions.")]
         public override async Task Comparing_navigations_using_Equals(bool isAsync)
         {
             await base.Comparing_navigations_using_Equals(isAsync);
 
             AssertSql(
-                $"""
-                    SELECT `o`.`OrderID` AS `Id1`, `o0`.`OrderID` AS `Id2`
-                    FROM `Orders` AS `o`,
-                    `Orders` AS `o0`
-                    LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-                    LEFT JOIN `Customers` AS `c0` ON `o0`.`CustomerID` = `c0`.`CustomerID`
-                    WHERE (`o`.`CustomerID` IS NOT NULL AND (`o`.`CustomerID` LIKE 'A' & '%')) AND ((`c`.`CustomerID` = `c0`.`CustomerID`) OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL))
-                    ORDER BY `o`.`OrderID`, `o0`.`OrderID`
-                    """);
+                """
+SELECT `s`.`OrderID` AS `Id1`, `s`.`OrderID0` AS `Id2`
+FROM ((
+    SELECT `o`.`OrderID`, `o`.`CustomerID`, `o0`.`OrderID` AS `OrderID0`, `o0`.`CustomerID` AS `CustomerID0`
+    FROM `Orders` AS `o`,
+    `Orders` AS `o0`
+    WHERE `o`.`CustomerID` LIKE 'A%'
+) AS `s`
+LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`)
+LEFT JOIN `Customers` AS `c0` ON `s`.`CustomerID0` = `c0`.`CustomerID`
+WHERE `c`.`CustomerID` = `c0`.`CustomerID` OR (`c`.`CustomerID` IS NULL AND `c0`.`CustomerID` IS NULL)
+ORDER BY `s`.`OrderID`, `s`.`OrderID0`
+""");
         }
 
         public override async Task Comparing_navigations_using_static_Equals(bool isAsync)
@@ -5840,7 +5843,6 @@ ORDER BY `c`.`CustomerID`
 """);
         }
 
-        [Theory(Skip = "LibRed Fails")]
         public override async Task Pending_selector_in_cardinality_reducing_method_is_applied_before_expanding_collection_navigation_member(
             bool async)
         {
@@ -6159,7 +6161,7 @@ ORDER BY `c`.`CustomerID`
                         .Where(od => od.OrderID > 0)).ToListAsync();
         }
 
-        [Fact(Skip = "LibRed fails")]
+        [Fact]
         public async Task Concurrent_async_queries_when_raw_query()
         {
             using var context = CreateContext();

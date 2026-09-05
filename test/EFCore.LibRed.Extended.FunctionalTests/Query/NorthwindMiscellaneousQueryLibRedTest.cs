@@ -2871,16 +2871,7 @@ END, `c`.`CustomerID`
 
             AssertSql(
                 """
-SELECT COALESCE(CASE
-    WHEN `e`.`ReportsTo` IS NULL THEN NULL
-    ELSE CLNG(`e`.`ReportsTo`)
-END + 1, CASE
-    WHEN `e`.`ReportsTo` IS NULL THEN NULL
-    ELSE CLNG(`e`.`ReportsTo`)
-END + 2, CASE
-    WHEN `e`.`ReportsTo` IS NULL THEN NULL
-    ELSE CLNG(`e`.`ReportsTo`)
-END + 3)
+SELECT COALESCE(CLNG(`e`.`ReportsTo`) + 1, CLNG(`e`.`ReportsTo`) + 2, CLNG(`e`.`ReportsTo`) + 3)
 FROM `Employees` AS `e`
 WHERE `e`.`ReportsTo` IS NOT NULL
 ORDER BY `e`.`EmployeeID`

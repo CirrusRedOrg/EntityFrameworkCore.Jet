@@ -59,10 +59,7 @@ FROM `BasicTypesEntities` AS `b`
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE (CASE
-    WHEN (`b`.`Int` BOR CLNG(`b`.`Short`)) IS NULL THEN NULL
-    ELSE CLNG(`b`.`Int` BOR CLNG(`b`.`Short`))
-END BOR `b`.`Long`) = 7
+WHERE (CLNG(`b`.`Int` BOR CLNG(`b`.`Short`)) BOR `b`.`Long`) = 7
 """);
     }
 

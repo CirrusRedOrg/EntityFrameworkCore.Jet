@@ -1083,10 +1083,7 @@ WHERE `c`.`City` = 'Seattle'
 UPDATE `Order Details` AS `o`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 LEFT JOIN `Customers` AS `c` ON `o0`.`CustomerID` = `c`.`CustomerID`
-SET `o`.`Quantity` = CASE
-    WHEN @p IS NULL THEN NULL
-    ELSE CINT(@p)
-END
+SET `o`.`Quantity` = CINT(@p)
 WHERE `c`.`City` = 'Seattle'
 """);
     }
@@ -1599,10 +1596,7 @@ WHERE `c`.`CustomerID` LIKE 'F%'
 UPDATE `Order Details` AS `o`
 INNER JOIN `Products` AS `p` ON `o`.`ProductID` = `p`.`ProductID`
 INNER JOIN `Orders` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
-SET `o`.`Quantity` = CASE
-    WHEN @p IS NULL THEN NULL
-    ELSE CINT(@p)
-END
+SET `o`.`Quantity` = CINT(@p)
 WHERE `p`.`Discontinued` AND `o0`.`OrderDate` > #1990-01-01#
 """);
     }
@@ -1629,10 +1623,7 @@ INNER JOIN (
     INNER JOIN `Orders` AS `o0` ON `o1`.`OrderID` = `o0`.`OrderID`
     WHERE `o0`.`CustomerID` = 'ALFKI'
 ) AS `s` ON `o2`.`OrderID` = `s`.`OrderID` AND `o2`.`ProductID` = `s`.`ProductID`
-SET `o2`.`Quantity` = CASE
-    WHEN @p IS NULL THEN NULL
-    ELSE CINT(@p)
-END,
+SET `o2`.`Quantity` = CINT(@p),
     `o2`.`UnitPrice` = @p2
 """);
     }

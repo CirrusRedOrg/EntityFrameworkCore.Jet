@@ -1145,9 +1145,12 @@ internal sealed class ExpressionEvaluator(
     private object? Replace(FunctionCall f)
     {
         object? sv = Evaluate(f.Arguments[0]), findv = Evaluate(f.Arguments[1]), replv = Evaluate(f.Arguments[2]);
-        // ACE raises "Data type mismatch" for a null argument (unlike InStr, which propagates NULL).
+        // ACE raises "Data type mismatch" here (unlike InStr, which propagates NULL), but LibRed propagates
+        // instead, matching every other dialect - SQL Server documents REPLACE as returning NULL if any
+        // argument is NULL. A deliberate divergence, and a widening: no query that returns a value today
+        // changes, only ones that error start returning NULL.
         if (sv is null || findv is null || replv is null)
-            throw new InvalidOperationException("Data type mismatch in criteria expression: Replace() argument is null.");
+            return null;
         string s = sv.ToString()!, find = findv.ToString()!, repl = replv.ToString()!;
 
         int start = f.Arguments.Count > 3 ? Convert.ToInt32(Evaluate(f.Arguments[3]), CultureInfo.InvariantCulture) : 1;

@@ -6677,7 +6677,7 @@ LEFT JOIN (
     SELECT `g`.`Nickname`, `g`.`SquadId`
     FROM `Gears` AS `g`
 ) AS `s` ON `t`.`GearNickName` = `s`.`Nickname` AND `t`.`GearSquadId` = `s`.`SquadId`
-WHERE IIF(`s`.`SquadId` IS NULL, NULL, MID(`t`.`Note`, 0 + 1, `s`.`SquadId`)) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s`.`SquadId` IS NULL) AND `t`.`GearNickName` IS NULL)
+WHERE MID(`t`.`Note`, 0 + 1, `s`.`SquadId`) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s`.`SquadId` IS NULL) AND `t`.`GearNickName` IS NULL)
 """);
     }
 
@@ -6696,7 +6696,7 @@ LEFT JOIN (
     FROM `Gears` AS `g`
 ) AS `s` ON `t`.`GearNickName` = `s`.`Nickname` AND `t`.`GearSquadId` = `s`.`SquadId`
 LEFT JOIN `Squads` AS `s0` ON `s`.`SquadId` = `s0`.`Id`
-WHERE IIF(LEN(`s0`.`Name`) IS NULL, NULL, MID(`t`.`Note`, 0 + 1, LEN(`s0`.`Name`))) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s0`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
+WHERE MID(`t`.`Note`, 0 + 1, LEN(`s0`.`Name`)) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s0`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
 """);
     }
 
@@ -7987,16 +7987,10 @@ FROM `Squads` AS `s`
 WHERE CASE
     WHEN ASCB(RIGHTB(`s`.`Banner`, 1)) = 0 THEN LENB(`s`.`Banner`) - 1
     ELSE LENB(`s`.`Banner`)
-END = CASE
-    WHEN CASE
-        WHEN ASCB(RIGHTB(@byteArrayParam, 1)) = 0 THEN LENB(@byteArrayParam) - 1
-        ELSE LENB(@byteArrayParam)
-    END IS NULL THEN NULL
-    ELSE CLNG(CASE
-        WHEN ASCB(RIGHTB(@byteArrayParam, 1)) = 0 THEN LENB(@byteArrayParam) - 1
-        ELSE LENB(@byteArrayParam)
-    END)
-END
+END = CLNG(CASE
+    WHEN ASCB(RIGHTB(@byteArrayParam, 1)) = 0 THEN LENB(@byteArrayParam) - 1
+    ELSE LENB(@byteArrayParam)
+END)
 """);
     }
 
@@ -10441,10 +10435,7 @@ ORDER BY `g`.`SquadId`, `g`.`Nickname`, `w`.`Id`
 
         AssertSql(
             """
-SELECT `g`.`FullName`, CASE
-    WHEN `s`.`ThreatLevel` IS NULL THEN NULL
-    ELSE CLNG(`s`.`ThreatLevel`)
-END AS `ThreatLevel`
+SELECT `g`.`FullName`, CLNG(`s`.`ThreatLevel`) AS `ThreatLevel`
 FROM `Gears` AS `g`
 LEFT JOIN (
     SELECT `l`.`ThreatLevel`, `l0`.`DefeatedByNickname`

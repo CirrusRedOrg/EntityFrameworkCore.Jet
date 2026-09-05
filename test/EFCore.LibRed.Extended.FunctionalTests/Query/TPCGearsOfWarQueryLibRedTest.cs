@@ -7961,7 +7961,7 @@ LEFT JOIN (
     SELECT `o`.`Nickname`, `o`.`SquadId`
     FROM `Officers` AS `o`
 ) AS `u` ON `t`.`GearNickName` = `u`.`Nickname` AND `t`.`GearSquadId` = `u`.`SquadId`
-WHERE IIF(`u`.`SquadId` IS NULL, NULL, MID(`t`.`Note`, 0 + 1, `u`.`SquadId`)) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `u`.`SquadId` IS NULL) AND `t`.`GearNickName` IS NULL)
+WHERE MID(`t`.`Note`, 0 + 1, `u`.`SquadId`) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `u`.`SquadId` IS NULL) AND `t`.`GearNickName` IS NULL)
 """);
     }
 
@@ -7983,7 +7983,7 @@ LEFT JOIN (
     FROM `Officers` AS `o`
 ) AS `u` ON `t`.`GearNickName` = `u`.`Nickname` AND `t`.`GearSquadId` = `u`.`SquadId`
 LEFT JOIN `Squads` AS `s` ON `u`.`SquadId` = `s`.`Id`
-WHERE IIF(LEN(`s`.`Name`) IS NULL, NULL, MID(`t`.`Note`, 0 + 1, LEN(`s`.`Name`))) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
+WHERE MID(`t`.`Note`, 0 + 1, LEN(`s`.`Name`)) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
 """);
     }
 
@@ -9448,16 +9448,10 @@ FROM `Squads` AS `s`
 WHERE CASE
     WHEN ASCB(RIGHTB(`s`.`Banner`, 1)) = 0 THEN LENB(`s`.`Banner`) - 1
     ELSE LENB(`s`.`Banner`)
-END = CASE
-    WHEN CASE
-        WHEN ASCB(RIGHTB(@byteArrayParam, 1)) = 0 THEN LENB(@byteArrayParam) - 1
-        ELSE LENB(@byteArrayParam)
-    END IS NULL THEN NULL
-    ELSE CLNG(CASE
-        WHEN ASCB(RIGHTB(@byteArrayParam, 1)) = 0 THEN LENB(@byteArrayParam) - 1
-        ELSE LENB(@byteArrayParam)
-    END)
-END
+END = CLNG(CASE
+    WHEN ASCB(RIGHTB(@byteArrayParam, 1)) = 0 THEN LENB(@byteArrayParam) - 1
+    ELSE LENB(@byteArrayParam)
+END)
 """);
     }
 
@@ -12336,10 +12330,7 @@ ORDER BY `u`.`SquadId`, `u`.`Nickname`
 
         AssertSql(
             """
-SELECT `u`.`FullName`, CASE
-    WHEN `u0`.`ThreatLevel` IS NULL THEN NULL
-    ELSE CLNG(`u0`.`ThreatLevel`)
-END AS `ThreatLevel`
+SELECT `u`.`FullName`, CLNG(`u0`.`ThreatLevel`) AS `ThreatLevel`
 FROM (
     SELECT `g`.`Nickname`, `g`.`FullName`
     FROM `Gears` AS `g`

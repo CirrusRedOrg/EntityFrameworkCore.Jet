@@ -5846,7 +5846,7 @@ WHERE `g`.`Nickname` <> 'Dom'
 SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`Note`
 FROM `Tags` AS `t`
 LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
-WHERE IIF(`g`.`SquadId` IS NULL, NULL, MID(`t`.`Note`, 0 + 1, `g`.`SquadId`)) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `g`.`SquadId` IS NULL) AND `t`.`GearNickName` IS NULL)
+WHERE MID(`t`.`Note`, 0 + 1, `g`.`SquadId`) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `g`.`SquadId` IS NULL) AND `t`.`GearNickName` IS NULL)
 """);
         }
 
@@ -5862,7 +5862,7 @@ SELECT `t`.`Id`, `t`.`GearNickName`, `t`.`GearSquadId`, `t`.`IssueDate`, `t`.`No
 FROM `Tags` AS `t`
 LEFT JOIN `Gears` AS `g` ON `t`.`GearNickName` = `g`.`Nickname` AND `t`.`GearSquadId` = `g`.`SquadId`
 LEFT JOIN `Squads` AS `s` ON `g`.`SquadId` = `s`.`Id`
-WHERE IIF(LEN(`s`.`Name`) IS NULL, NULL, MID(`t`.`Note`, 0 + 1, LEN(`s`.`Name`))) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
+WHERE MID(`t`.`Note`, 0 + 1, LEN(`s`.`Name`)) = `t`.`GearNickName` OR ((`t`.`Note` IS NULL OR `s`.`Name` IS NULL) AND `t`.`GearNickName` IS NULL)
 """);
         }
 
@@ -7051,16 +7051,10 @@ FROM `Squads` AS `s`
 WHERE CASE
     WHEN ASCB(RIGHTB(`s`.`Banner`, 1)) = 0 THEN LENB(`s`.`Banner`) - 1
     ELSE LENB(`s`.`Banner`)
-END = CASE
-    WHEN CASE
-        WHEN ASCB(RIGHTB(@byteArrayParam, 1)) = 0 THEN LENB(@byteArrayParam) - 1
-        ELSE LENB(@byteArrayParam)
-    END IS NULL THEN NULL
-    ELSE CLNG(CASE
-        WHEN ASCB(RIGHTB(@byteArrayParam, 1)) = 0 THEN LENB(@byteArrayParam) - 1
-        ELSE LENB(@byteArrayParam)
-    END)
-END
+END = CLNG(CASE
+    WHEN ASCB(RIGHTB(@byteArrayParam, 1)) = 0 THEN LENB(@byteArrayParam) - 1
+    ELSE LENB(@byteArrayParam)
+END)
 """);
         }
 
@@ -9181,10 +9175,7 @@ ORDER BY `g`.`SquadId`, `g`.`Nickname`, `w`.`Id`
 
             AssertSql(
                 """
-SELECT `g`.`FullName`, CASE
-    WHEN `l0`.`ThreatLevel` IS NULL THEN NULL
-    ELSE CLNG(`l0`.`ThreatLevel`)
-END AS `ThreatLevel`
+SELECT `g`.`FullName`, CLNG(`l0`.`ThreatLevel`) AS `ThreatLevel`
 FROM `Gears` AS `g`
 LEFT JOIN (
     SELECT `l`.`ThreatLevel`, `l`.`DefeatedByNickname`

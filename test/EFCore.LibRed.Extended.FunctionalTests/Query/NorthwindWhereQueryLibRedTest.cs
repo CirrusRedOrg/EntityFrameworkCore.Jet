@@ -170,10 +170,7 @@ WHERE `c`.`City` = @city
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE CASE
-    WHEN `e`.`ReportsTo` IS NULL THEN NULL
-    ELSE CLNG(`e`.`ReportsTo`)
-END = @p
+WHERE CLNG(`e`.`ReportsTo`) = @p
 """,
                 //
                 """
@@ -181,10 +178,7 @@ END = @p
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE CASE
-    WHEN `e`.`ReportsTo` IS NULL THEN NULL
-    ELSE CLNG(`e`.`ReportsTo`)
-END = @p
+WHERE CLNG(`e`.`ReportsTo`) = @p
 """);
         }
 
@@ -418,10 +412,7 @@ WHERE `c`.`City` = @InstanceFieldValue
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE CASE
-    WHEN `e`.`ReportsTo` IS NULL THEN NULL
-    ELSE CLNG(`e`.`ReportsTo`)
-END = @p
+WHERE CLNG(`e`.`ReportsTo`) = @p
 """,
                 //
                 """
@@ -429,10 +420,7 @@ END = @p
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE CASE
-    WHEN `e`.`ReportsTo` IS NULL THEN NULL
-    ELSE CLNG(`e`.`ReportsTo`)
-END = @p
+WHERE CLNG(`e`.`ReportsTo`) = @p
 """,
                 //
                 """
@@ -458,10 +446,7 @@ WHERE `e`.`ReportsTo` IS NULL
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE CASE
-    WHEN `e`.`ReportsTo` IS NULL THEN NULL
-    ELSE CLNG(`e`.`ReportsTo`)
-END = @p
+WHERE CLNG(`e`.`ReportsTo`) = @p
 """,
                 //
                 """
@@ -469,10 +454,7 @@ END = @p
 
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-WHERE CASE
-    WHEN `e`.`ReportsTo` IS NULL THEN NULL
-    ELSE CLNG(`e`.`ReportsTo`)
-END = @p
+WHERE CLNG(`e`.`ReportsTo`) = @p
 """);
         }
 
@@ -2850,10 +2832,7 @@ WHERE `e`.`Title` = 'Sales Representative'
                 """
 SELECT `p`.`ProductID`, `p`.`Discontinued`, `p`.`ProductName`, `p`.`SupplierID`, `p`.`UnitPrice`, `p`.`UnitsInStock`
 FROM `Products` AS `p`
-WHERE CASE
-    WHEN `p`.`UnitPrice` IS NULL THEN NULL
-    ELSE CDBL(`p`.`UnitPrice`)
-END > 100.0
+WHERE CDBL(`p`.`UnitPrice`) > 100.0
 """);
         }
 

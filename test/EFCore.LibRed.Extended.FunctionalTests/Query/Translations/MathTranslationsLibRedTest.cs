@@ -61,10 +61,7 @@ WHERE ABS(`b`.`Double`) = 9.5
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE CASE
-    WHEN ABS(`b`.`Float`) IS NULL THEN NULL
-    ELSE CDBL(ABS(`b`.`Float`))
-END = 9.5
+WHERE CDBL(ABS(`b`.`Float`)) = 9.5
 """);
     }
 
@@ -287,17 +284,11 @@ FROM `BasicTypesEntities` AS `b`
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE CASE
-    WHEN FIX(`b`.`Float`) IS NULL THEN NULL
-    ELSE CSNG(FIX(`b`.`Float`))
-END = 8
+WHERE CSNG(FIX(`b`.`Float`)) = 8
 """,
             //
             """
-SELECT CASE
-    WHEN FIX(`b`.`Float`) IS NULL THEN NULL
-    ELSE CSNG(FIX(`b`.`Float`))
-END
+SELECT CSNG(FIX(`b`.`Float`))
 FROM `BasicTypesEntities` AS `b`
 """);
     }
@@ -776,10 +767,7 @@ WHERE `b`.`Double` >= -1.0 AND `b`.`Double` <= 1.0 AND ATN(`b`.`Double` / SQR(-(
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`Float` >= -1 AND `b`.`Float` <= 1 AND CASE
-    WHEN ATN(`b`.`Float` / SQR(-(`b`.`Float` * `b`.`Float`) + 1)) IS NULL THEN NULL
-    ELSE CDBL(ATN(`b`.`Float` / SQR(-(`b`.`Float` * `b`.`Float`) + 1)))
-END > -1.7976931348623157E+308
+WHERE `b`.`Float` >= -1 AND `b`.`Float` <= 1 AND CDBL(ATN(`b`.`Float` / SQR(-(`b`.`Float` * `b`.`Float`) + 1))) > -1.7976931348623157E+308
 """);
     }
 

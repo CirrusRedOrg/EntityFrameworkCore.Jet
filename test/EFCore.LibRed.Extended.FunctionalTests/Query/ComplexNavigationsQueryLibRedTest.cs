@@ -1144,10 +1144,7 @@ LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
 
             AssertSql(
                 """
-SELECT AVG(CASE
-    WHEN `l0`.`Level1_Required_Id` IS NULL THEN NULL
-    ELSE CDBL(`l0`.`Level1_Required_Id`)
-END)
+SELECT AVG(CDBL(`l0`.`Level1_Required_Id`))
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
 """);
@@ -1159,10 +1156,7 @@ LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
 
             AssertSql(
                 """
-SELECT AVG(CASE
-    WHEN `l0`.`Level1_Required_Id` IS NULL THEN NULL
-    ELSE CDBL(`l0`.`Level1_Required_Id`)
-END)
+SELECT AVG(CDBL(`l0`.`Level1_Required_Id`))
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
 """);
@@ -1174,10 +1168,7 @@ LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
 
             AssertSql(
                 """
-SELECT AVG(CASE
-    WHEN `l0`.`Level1_Required_Id` IS NULL THEN NULL
-    ELSE CDBL(`l0`.`Level1_Required_Id`)
-END)
+SELECT AVG(CDBL(`l0`.`Level1_Required_Id`))
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Optional_Id`
 """);

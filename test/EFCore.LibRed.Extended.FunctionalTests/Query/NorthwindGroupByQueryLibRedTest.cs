@@ -697,10 +697,7 @@ GROUP BY `o`.`CustomerID`, `o`.`EmployeeID`
 
             AssertSql(
                 """
-SELECT COALESCE(SUM(CASE
-    WHEN `o`.`EmployeeID` IS NULL THEN NULL
-    ELSE CLNG(`o`.`EmployeeID`)
-END), 0) AS `Sum`, `o`.`CustomerID` AS `Key`
+SELECT COALESCE(SUM(CLNG(`o`.`EmployeeID`)), 0) AS `Sum`, `o`.`CustomerID` AS `Key`
 FROM `Orders` AS `o`
 GROUP BY `o`.`CustomerID`
 """);
@@ -1400,10 +1397,7 @@ GROUP BY `c0`.`CustomerID`
 
             AssertSql(
                 """
-SELECT `o`.`CustomerID` AS `Key`, AVG(CASE
-    WHEN `o`.`OrderID` IS NULL THEN NULL
-    ELSE CDBL(`o`.`OrderID`)
-END) AS `Average`
+SELECT `o`.`CustomerID` AS `Key`, AVG(CDBL(`o`.`OrderID`)) AS `Average`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `o`.`OrderID` IS NOT NULL
@@ -2468,13 +2462,7 @@ GROUP BY `o`.`EmployeeID`
 SELECT `o`.`EmployeeID` AS `Key`, (
     SELECT MAX(`o0`.`OrderID`)
     FROM `Orders` AS `o0`
-    WHERE CASE
-        WHEN `o0`.`EmployeeID` IS NULL THEN NULL
-        ELSE CLNG(`o0`.`EmployeeID`)
-    END = CASE
-        WHEN (MAX(`o`.`OrderID`) * 6) IS NULL THEN NULL
-        ELSE CLNG(MAX(`o`.`OrderID`) * 6)
-    END OR (`o0`.`EmployeeID` IS NULL AND MAX(`o`.`OrderID`) IS NULL)) AS `Max`
+    WHERE CLNG(`o0`.`EmployeeID`) = CLNG(MAX(`o`.`OrderID`) * 6) OR (`o0`.`EmployeeID` IS NULL AND MAX(`o`.`OrderID`) IS NULL)) AS `Max`
 FROM `Orders` AS `o`
 GROUP BY `o`.`EmployeeID`
 """);

@@ -1342,10 +1342,7 @@ FROM `Prices` AS `p`
 """,
             //
             """
-SELECT AVG(CASE
-    WHEN `p`.`NullableIntColumn` IS NULL THEN NULL
-    ELSE CDBL(`p`.`NullableIntColumn`)
-END)
+SELECT AVG(CDBL(`p`.`NullableIntColumn`))
 FROM `Prices` AS `p`
 """,
             //
@@ -1355,10 +1352,7 @@ FROM `Prices` AS `p`
 """,
             //
             """
-SELECT AVG(CASE
-    WHEN `p`.`NullableLongColumn` IS NULL THEN NULL
-    ELSE CDBL(`p`.`NullableLongColumn`)
-END)
+SELECT AVG(CDBL(`p`.`NullableLongColumn`))
 FROM `Prices` AS `p`
 """,
             //

@@ -772,10 +772,7 @@ WHERE `o`.`OrderID` = -1
 
             AssertSql(
                 """
-SELECT AVG(CASE
-    WHEN `p`.`SupplierID` IS NULL THEN NULL
-    ELSE CDBL(`p`.`SupplierID`)
-END)
+SELECT AVG(CDBL(`p`.`SupplierID`))
 FROM `Products` AS `p`
 WHERE `p`.`SupplierID` = -1
 """);
@@ -1322,16 +1319,10 @@ WHERE `p`.`ProductID` < 40
 
             AssertSql(
                 """
-SELECT AVG(CASE
-    WHEN (
-        SELECT COALESCE(SUM(`o`.`OrderID`), 0)
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`) IS NULL THEN NULL
-    ELSE CDBL((
-        SELECT COALESCE(SUM(`o`.`OrderID`), 0)
-        FROM `Orders` AS `o`
-        WHERE `c`.`CustomerID` = `o`.`CustomerID`))
-END)
+SELECT AVG(CDBL((
+    SELECT COALESCE(SUM(`o`.`OrderID`), 0)
+    FROM `Orders` AS `o`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)))
 FROM `Customers` AS `c`
 """);
         }
@@ -1343,22 +1334,13 @@ FROM `Customers` AS `c`
                 """
 @p='3'
 
-SELECT AVG(CASE
-    WHEN (
-        SELECT AVG(5.0 + (
-            SELECT AVG(CDBL(`o0`.`ProductID`))
-            FROM `Order Details` AS `o0`
-            WHERE `o`.`OrderID` = `o0`.`OrderID`))
-        FROM `Orders` AS `o`
-        WHERE `c0`.`CustomerID` = `o`.`CustomerID`) IS NULL THEN NULL
-    ELSE CDEC((
-        SELECT AVG(5.0 + (
-            SELECT AVG(CDBL(`o0`.`ProductID`))
-            FROM `Order Details` AS `o0`
-            WHERE `o`.`OrderID` = `o0`.`OrderID`))
-        FROM `Orders` AS `o`
-        WHERE `c0`.`CustomerID` = `o`.`CustomerID`))
-END)
+SELECT AVG(CDEC((
+    SELECT AVG(5.0 + (
+        SELECT AVG(CDBL(`o0`.`ProductID`))
+        FROM `Order Details` AS `o0`
+        WHERE `o`.`OrderID` = `o0`.`OrderID`))
+    FROM `Orders` AS `o`
+    WHERE `c0`.`CustomerID` = `o`.`CustomerID`)))
 FROM (
     SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`
@@ -1374,22 +1356,13 @@ FROM (
                 """
 @p='3'
 
-SELECT AVG(CASE
-    WHEN (
-        SELECT AVG(CDBL(5 + (
-            SELECT MAX(`o0`.`ProductID`)
-            FROM `Order Details` AS `o0`
-            WHERE `o`.`OrderID` = `o0`.`OrderID`)))
-        FROM `Orders` AS `o`
-        WHERE `c0`.`CustomerID` = `o`.`CustomerID`) IS NULL THEN NULL
-    ELSE CDEC((
-        SELECT AVG(CDBL(5 + (
-            SELECT MAX(`o0`.`ProductID`)
-            FROM `Order Details` AS `o0`
-            WHERE `o`.`OrderID` = `o0`.`OrderID`)))
-        FROM `Orders` AS `o`
-        WHERE `c0`.`CustomerID` = `o`.`CustomerID`))
-END)
+SELECT AVG(CDEC((
+    SELECT AVG(CDBL(5 + (
+        SELECT MAX(`o0`.`ProductID`)
+        FROM `Order Details` AS `o0`
+        WHERE `o`.`OrderID` = `o0`.`OrderID`)))
+    FROM `Orders` AS `o`
+    WHERE `c0`.`CustomerID` = `o`.`CustomerID`)))
 FROM (
     SELECT TOP @p `c`.`CustomerID`
     FROM `Customers` AS `c`

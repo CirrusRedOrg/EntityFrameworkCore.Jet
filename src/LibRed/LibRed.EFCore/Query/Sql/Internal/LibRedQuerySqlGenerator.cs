@@ -25,15 +25,7 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
             { nameof(Decimal), "CDEC" },
             { nameof(DateTime), "CDATE" },
             { nameof(TimeOnly), "TIMEVALUE" },
-        };
-
-        // VBA functions that raise on a NULL in a numeric argument - a length, start, count or code - instead of
-        // propagating it, with the positions that need guarding. Verified against ACE in
-        // LibRed.Core.Tests.AceNullArgumentProbeTest; add an entry as others turn up.
-        private static readonly Dictionary<string, int[]> _nullHostileArguments = new(StringComparer.OrdinalIgnoreCase)
-        {
-            { "MID", [1, 2] },
-        };
+        };  
 
         private readonly ITypeMappingSource _typeMappingSource;
         private readonly ISqlGenerationHelper _sqlGenerationHelper;
@@ -179,41 +171,6 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
         private static bool MayBeNull(SqlExpression expression)
             => expression is ColumnExpression { IsNullable: true };
 
-        /// <summary>The nullable columns an expression reads, so constants and parameters contribute nothing.</summary>
-        private static IEnumerable<ColumnExpression> NullableColumns(SqlExpression expression)
-        {
-            switch (expression)
-            {
-                case ColumnExpression { IsNullable: true } column:
-                    yield return column;
-                    break;
-
-                case SqlUnaryExpression unary:
-                    foreach (var column in NullableColumns(unary.Operand))
-                    {
-                        yield return column;
-                    }
-
-                    break;
-
-                case SqlBinaryExpression binary:
-                    foreach (var column in NullableColumns(binary.Left).Concat(NullableColumns(binary.Right)))
-                    {
-                        yield return column;
-                    }
-
-                    break;
-
-                case SqlFunctionExpression { Arguments: { } functionArguments }:
-                    foreach (var column in functionArguments.SelectMany(NullableColumns))
-                    {
-                        yield return column;
-                    }
-
-                    break;
-            }
-        }
-
         protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
         {
             if (sqlConstantExpression.TypeMapping is BoolTypeMapping
@@ -267,67 +224,23 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
             // of the returned value using a different (unaligned) type mapping (e.g. date/time related ones).
             if (_convertMappings.TryGetValue(convertExpression.Type.Name, out var function))
             {
-                SqlExpression checksqlexp = convertExpression.Operand;
-                SqlExpression? notnullsqlexp = null;
+                SqlExpression? convertedExpression = null;
 
                 SqlFunctionExpression WrapConvert(SqlExpression inner) =>
                     new SqlFunctionExpression(function, [inner], false, [false], typeMapping.ClrType, null);
 
                 if (convertExpression.TypeMapping is ByteArrayTypeMapping)
                 {
-                    notnullsqlexp = checksqlexp;
+                    convertedExpression = convertExpression.Operand;
                 }
                 else
                 {
                     // A bool operand arrives already flipped to 0/1 by JetSqlExpressionFactory.Convert, so
                     // CBYTE/CINT/CLNG receive .NET's values rather than VARIANT_BOOL's 0/-1.
-                    notnullsqlexp = WrapConvert(convertExpression.Operand);
+                    convertedExpression = WrapConvert(convertExpression.Operand);
                 }
 
-                SqlConstantExpression nullcons = new(null, typeof(string), RelationalTypeMapping.NullMapping);
-                SqlUnaryExpression isnullexp = new(ExpressionType.Equal, checksqlexp, typeof(bool), null);
-                List<CaseWhenClause> whenclause =
-                [
-                    new CaseWhenClause(isnullexp, nullcons)
-                ];
-                CaseExpression caseexp = new(whenclause, notnullsqlexp);
-
-                switch (checksqlexp)
-                {
-                    case ColumnExpression { IsNullable: true }:
-                        Visit(caseexp);
-                        break;
-                    case ColumnExpression:
-                        Visit(notnullsqlexp);
-                        break;
-                    case SqlFunctionExpression { IsNullable: true, ArgumentsPropagateNullability: not null } functionExpression
-                        when functionExpression.ArgumentsPropagateNullability.Any(d => d):
-                        Visit(caseexp);
-                        break;
-                    case SqlFunctionExpression:
-                        Visit(notnullsqlexp);
-                        break;
-                    case SqlBinaryExpression binaryExpression:
-                        {
-                            static bool IsNullable(SqlExpression? e) =>
-                                e is ColumnExpression { IsNullable: true }
-                                or SqlFunctionExpression { IsNullable: true };
-
-                            if (IsNullable(binaryExpression.Left) || IsNullable(binaryExpression.Right))
-                                Visit(caseexp);
-                            else
-                                Visit(notnullsqlexp);
-
-                            break;
-                        }
-                    case SqlUnaryExpression:
-                    case SqlConstantExpression { Value: not null }:
-                        Visit(notnullsqlexp);
-                        break;
-                    default:
-                        Visit(caseexp);
-                        break;
-                }
+                Visit(convertedExpression);
 
                 return convertExpression;
             }
@@ -413,44 +326,6 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
                 return sqlFunctionExpression;
             }
 
-            // The guard has to be applied here rather than in the query tree: EF removes a CASE that merely
-            // replicates SQL's native null propagation (dotnet/efcore#34127), which is what this looks like to
-            // every dialect where these functions do propagate. IIF short-circuits, so the call is not evaluated.
-            if (_nullHostileArguments.TryGetValue(sqlFunctionExpression.Name, out var guardedPositions)
-                && sqlFunctionExpression.Arguments is { Count: > 0 } arguments)
-            {
-                // Nullability coming from the value argument itself needs no guard: ACE returns NULL for the
-                // whole call when the value is NULL, before it coerces the numeric arguments. Only a NULL
-                // arriving from somewhere else - MID(note, 1, LEN(otherTable.Name)) - reaches the coercion.
-                var valueColumns = NullableColumns(arguments[0]).ToHashSet();
-
-                var nullable = guardedPositions
-                    .Where(position => position < arguments.Count)
-                    .Where(position => NullableColumns(arguments[position]).Any(column => !valueColumns.Contains(column)))
-                    .Select(position => arguments[position])
-                    .ToList();
-
-                if (nullable.Count > 0)
-                {
-                    Sql.Append("IIF(");
-                    for (var i = 0; i < nullable.Count; i++)
-                    {
-                        if (i > 0)
-                        {
-                            Sql.Append(" OR ");
-                        }
-
-                        Visit(nullable[i]);
-                        Sql.Append(" IS NULL");
-                    }
-
-                    Sql.Append(", NULL, ");
-                    base.VisitSqlFunction(sqlFunctionExpression);
-                    Sql.Append(")");
-                    return sqlFunctionExpression;
-                }
-            }
-
             if (sqlFunctionExpression.Name.Equals("POW", StringComparison.OrdinalIgnoreCase) && sqlFunctionExpression.Arguments != null)
             {
                 Visit(sqlFunctionExpression.Arguments[0]);
@@ -459,94 +334,6 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
                 return sqlFunctionExpression;
             }
 
-            if (sqlFunctionExpression.Name.Equals("REPLACE", StringComparison.OrdinalIgnoreCase) &&
-                sqlFunctionExpression.Arguments is { Count: 3 })
-            {
-                // Access VBA's Replace() throws "Type mismatch" when ANY argument is NULL rather than
-                // propagating NULL as relational semantics require. Access IIF is also non-short-circuit
-                // (evaluates both branches), so a simple IIF wrapper doesn't prevent the crash.
-                // Solution: outer IIF returns NULL when any nullable arg IS NULL, while inner IIFs
-                // substitute safe non-NULL placeholders so REPLACE never actually receives NULL.
-                static SqlExpression? GetNullableTarget(SqlExpression arg) => arg switch
-                {
-                    ColumnExpression { IsNullable: true } col => col,
-                    SqlUnaryExpression { OperatorType: ExpressionType.Convert, Operand: ColumnExpression { IsNullable: true } inner } => inner,
-                    SqlUnaryExpression { OperatorType: ExpressionType.Convert, Operand: SqlFunctionExpression { IsNullable: true } inner } => inner,
-                    _ => null
-                };
-
-                var arg0Check = GetNullableTarget(sqlFunctionExpression.Arguments[0]);
-                var arg1Check = GetNullableTarget(sqlFunctionExpression.Arguments[1]);
-                var arg2Check = GetNullableTarget(sqlFunctionExpression.Arguments[2]);
-
-                if (arg0Check != null || arg1Check != null || arg2Check != null)
-                {
-                    Sql.Append("IIF(");
-                    var nullChecks = new SqlExpression?[] { arg0Check, arg1Check, arg2Check }
-                        .Where(c => c != null).ToList();
-                    for (int i = 0; i < nullChecks.Count; i++)
-                    {
-                        if (i > 0) Sql.Append(" OR ");
-                        Visit(nullChecks[i]!);
-                        Sql.Append(" IS NULL");
-                    }
-                    Sql.Append(", NULL, REPLACE(");
-
-                    // Arg 0 (expression): '' prevents Type mismatch if NULL slips past outer IIF
-                    if (arg0Check != null)
-                    {
-                        Sql.Append("IIF("); Visit(arg0Check); Sql.Append(" IS NULL, '', ");
-                        Visit(sqlFunctionExpression.Arguments[0]); Sql.Append(")");
-                    }
-                    else Visit(sqlFunctionExpression.Arguments[0]);
-
-                    Sql.Append(", ");
-
-                    // Arg 1 (find): CHR(1) is a safe non-empty placeholder unlikely to appear in data
-                    if (arg1Check != null)
-                    {
-                        Sql.Append("IIF("); Visit(arg1Check); Sql.Append(" IS NULL, CHR(1), ");
-                        Visit(sqlFunctionExpression.Arguments[1]); Sql.Append(")");
-                    }
-                    else Visit(sqlFunctionExpression.Arguments[1]);
-
-                    Sql.Append(", ");
-
-                    // Arg 2 (replacewith): CHR(1) placeholder; result is discarded by outer IIF anyway
-                    if (arg2Check != null)
-                    {
-                        Sql.Append("IIF("); Visit(arg2Check); Sql.Append(" IS NULL, CHR(1), ");
-                        Visit(sqlFunctionExpression.Arguments[2]); Sql.Append(")");
-                    }
-                    else Visit(sqlFunctionExpression.Arguments[2]);
-
-                    Sql.Append("))");
-                    return sqlFunctionExpression;
-                }
-            }
-
-            if (sqlFunctionExpression.Name.Equals("MID", StringComparison.OrdinalIgnoreCase) &&
-                sqlFunctionExpression.Arguments is { Count: > 2 })
-            {
-                if (sqlFunctionExpression.Arguments[2] is ColumnExpression { IsNullable: true })
-                {
-                    Sql.Append("IIF(");
-                    Visit(sqlFunctionExpression.Arguments[2]);
-                    Sql.Append(" IS NULL, NULL, ");
-                    base.VisitSqlFunction(sqlFunctionExpression);
-                    Sql.Append(")");
-                    return sqlFunctionExpression;
-                }
-                if (sqlFunctionExpression.Arguments[2] is SqlUnaryExpression { OperatorType: ExpressionType.Convert, Operand: ColumnExpression { IsNullable: true } or SqlFunctionExpression { IsNullable: true } } unaryExpression)
-                {
-                    Sql.Append("IIF(");
-                    Visit(unaryExpression.Operand);
-                    Sql.Append(" IS NULL, NULL, ");
-                    base.VisitSqlFunction(sqlFunctionExpression);
-                    Sql.Append(")");
-                    return sqlFunctionExpression;
-                }
-            }
             var result = base.VisitSqlFunction(sqlFunctionExpression);
             return result;
         }

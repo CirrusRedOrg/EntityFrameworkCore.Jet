@@ -5,8 +5,9 @@ using Xunit;
 namespace LibRed.Engine.Tests;
 
 // Mid(string, start, [length]) and Replace(string1, find, replacement, [start], [count], [compare]) edge cases,
-// all verified byte-identical to ACE — including where ACE ERRORS rather than clamping/propagating: start < 1,
-// negative length, start=0, and a null Replace argument. (Mid propagates null on the string; Replace does not.)
+// verified byte-identical to ACE — including where ACE ERRORS rather than clamping: start < 1, negative length,
+// start=0. The one deliberate exception is a null string argument to Replace, where ACE raises and LibRed
+// propagates; see Replace_null_string_argument_propagates. (Mid propagates null on its string argument too.)
 public class MidReplaceEdgeCasesTests : TempDatabaseTest
 {
     private static QueryEngine Fresh()
@@ -43,11 +44,20 @@ public class MidReplaceEdgeCasesTests : TempDatabaseTest
     public void Mid_null_string_propagates()
         => Assert.Null(Eval("Mid(Null, 2)"));
 
+    // DELIBERATE DIVERGENCE FROM ACE. ACE raises "Data type mismatch" when any of Replace's three string
+    // arguments is null; LibRed propagates instead, matching SQL Server and every other dialect. It is a
+    // widening - only queries that used to error are affected, and they now return NULL rather than a value.
+    [Theory]
+    [InlineData("Replace(Null, 'b', 'X')")]
+    [InlineData("Replace('abcabc', Null, 'X')")]
+    [InlineData("Replace('abcabc', 'b', Null)")]
+    public void Replace_null_string_argument_propagates(string expr)
+        => Assert.Null(Eval(expr));
+
     // Where ACE raises an error instead of clamping/propagating.
     [Theory]
     [InlineData("Mid('abcdef', 0, 2)")]                // start < 1 → Invalid procedure call
     [InlineData("Mid('abcdef', 3, -1)")]               // negative length → Invalid procedure call
-    [InlineData("Replace(Null, 'b', 'X')")]            // null arg → Data type mismatch
     [InlineData("Replace('abcabc', 'b', 'X', 0)")]     // start < 1 → Invalid procedure call
     public void Error_cases(string expr)
         => Assert.Throws<InvalidOperationException>(() => Eval(expr));

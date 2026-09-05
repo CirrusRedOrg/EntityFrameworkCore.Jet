@@ -509,10 +509,7 @@ ORDER BY `c`.`CustomerID`
 
             AssertSql(
                 """
-SELECT CASE
-    WHEN `o`.`EmployeeID` IS NULL THEN NULL
-    ELSE CLNG(`o`.`EmployeeID`)
-END
+SELECT CLNG(`o`.`EmployeeID`)
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` = 'ALFKI'
 ORDER BY `o`.`OrderID`
@@ -604,10 +601,7 @@ ORDER BY `o`.`OrderID`
 
             AssertSql(
                 """
-SELECT CASE
-    WHEN LEN(`o`.`CustomerID`) IS NULL THEN NULL
-    ELSE CLNG(LEN(`o`.`CustomerID`))
-END
+SELECT CLNG(LEN(`o`.`CustomerID`))
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` = 'ALFKI'
 ORDER BY `o`.`OrderID`
@@ -620,10 +614,7 @@ ORDER BY `o`.`OrderID`
 
             AssertSql(
                 """
-SELECT CASE
-    WHEN ABS(`o`.`OrderID`) IS NULL THEN NULL
-    ELSE CLNG(ABS(`o`.`OrderID`))
-END
+SELECT CLNG(ABS(`o`.`OrderID`))
 FROM `Orders` AS `o`
 WHERE `o`.`CustomerID` = 'ALFKI'
 ORDER BY `o`.`OrderID`

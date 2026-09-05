@@ -129,7 +129,7 @@ WHERE `b`.`Id` IN (7, 8)
             """
 SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
-WHERE `b`.`Name` IS NOT NULL AND LEFT(`b`.`Name`, IIF(LEN(`b`.`Name`) IS NULL, 0, LEN(`b`.`Name`))) = `b`.`Name`
+WHERE `b`.`Name` IS NOT NULL AND LEFT(`b`.`Name`, COALESCE(LEN(`b`.`Name`), 0)) = `b`.`Name`
 """);
     }
 
@@ -313,9 +313,9 @@ ORDER BY `b`.`Name`, `b`.`Id`
             """
 @p='1'
 
-SELECT [b].[Id], [b].[Name], [b].[Json]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Name]
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Name`, `b`.`Id`
 OFFSET @p ROWS
 """);
     }
@@ -328,9 +328,9 @@ OFFSET @p ROWS
             """
 @p='1'
 
-SELECT [b].[Id], [b].[Name], [b].[Json]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Name]
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Name`, `b`.`Id`
 OFFSET @p ROWS
 """);
     }
@@ -849,18 +849,18 @@ WHERE `b`.`Id` > 8
             """
 @p='1'
 
-SELECT [b].[Id], [b].[Name], [b].[Json]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Id]
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Id`
 OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """,
             //
             """
 @p='3'
 
-SELECT [b].[Id], [b].[Name], [b].[Json]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Id]
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Id`
 OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """);
     }
@@ -873,18 +873,18 @@ OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
             """
 @p='1'
 
-SELECT [b].[Id], [b].[Name], [b].[Json]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Id]
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Id`
 OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """,
             //
             """
 @p='3'
 
-SELECT [b].[Id], [b].[Name], [b].[Json]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Id]
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Id`
 OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """);
     }
@@ -897,18 +897,18 @@ OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
             """
 @p='1'
 
-SELECT [b].[Id], [b].[Name], [b].[Json]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Id]
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Id`
 OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """,
             //
             """
 @p='3'
 
-SELECT [b].[Id], [b].[Name], [b].[Json]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Id]
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Id`
 OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """);
     }
@@ -921,18 +921,18 @@ OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
             """
 @p='1'
 
-SELECT [b].[Id], [b].[Name], [b].[Json]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Id]
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Id`
 OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """,
             //
             """
 @p='3'
 
-SELECT [b].[Id], [b].[Name], [b].[Json]
-FROM [Blogs] AS [b]
-ORDER BY [b].[Id]
+SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
+FROM `Blogs` AS `b`
+ORDER BY `b`.`Id`
 OFFSET @p ROWS FETCH NEXT 1 ROWS ONLY
 """);
     }
@@ -1755,11 +1755,7 @@ SELECT `b`.`Id`, `b`.`Name`, `b`.`Json`
 FROM `Blogs` AS `b`
 WHERE (
     SELECT COUNT(*)
-    FROM (SELECT CLNG(7) AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_0`
-    UNION
-    SELECT `b`.`Id` AS `Value`
-    FROM (SELECT COUNT(*) FROM `#Dual`) AS `v_1`) AS `v`
+    FROM (SELECT CLNG(7) AS `Value` UNION ALL VALUES (`b`.`Id`)) AS `v`
     WHERE `v`.`Value` > 8) = 2
 """);
     }

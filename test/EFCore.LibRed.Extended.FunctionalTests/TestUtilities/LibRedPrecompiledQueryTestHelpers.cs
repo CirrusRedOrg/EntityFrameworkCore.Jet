@@ -3,6 +3,7 @@
 
 using System.Collections.Generic;
 using System.Reflection;
+using EntityFrameworkCore.Jet.Query.Internal;
 using EntityFrameworkCore.LibRed.Infrastructure.Internal;
 using Microsoft.CodeAnalysis;
 using Microsoft.EntityFrameworkCore.TestUtilities;
@@ -16,6 +17,7 @@ public class LibRedPrecompiledQueryTestHelpers : PrecompiledQueryTestHelpers
     protected override IEnumerable<MetadataReference> BuildProviderMetadataReferences()
     {
         yield return MetadataReference.CreateFromFile(typeof(LibRedOptionsExtension).Assembly.Location);
+        yield return MetadataReference.CreateFromFile(typeof(JetSqlTranslatingExpressionVisitor).Assembly.Location);
         yield return MetadataReference.CreateFromFile(Assembly.GetExecutingAssembly().Location);
     }
 }

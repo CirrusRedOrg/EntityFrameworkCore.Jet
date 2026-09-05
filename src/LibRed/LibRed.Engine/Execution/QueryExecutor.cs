@@ -75,6 +75,22 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             columns.Select(c => c.ClrType ?? typeof(object)).ToList());
     }
 
+    /// <summary>
+    ///     Runs a plan against an enclosing scope, so a <b>correlated</b> one resolves the outer row's columns.
+    ///     Columns come back eagerly and rows lazily, as everywhere else, so a caller that only wants the schema
+    ///     can pass a null-filled outer row and read nothing.
+    /// </summary>
+    /// <remarks>
+    ///     For <see cref="StatementExecutor"/>'s lateral joins. Its join loop cannot reuse the one here because
+    ///     DML is identity-oriented — it carries a RowId per table to know which physical row to write, and
+    ///     shares a row's value array across the combinations it appears in so a SET that reads the row's own
+    ///     value accumulates per match — where this pipeline yields flat value arrays and keeps no identity. So
+    ///     the two join loops stay separate, and this is the seam that lets the DML one borrow execution.
+    /// </remarks>
+    internal (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteCorrelated(
+        PlanNode plan, EvalScope outer)
+        => Execute(plan, outer);
+
     /// <summary>Runs a FROM-less <c>SELECT @@IDENTITY</c> / <c>SELECT @@ROWCOUNT</c>: evaluates each system
     /// variable against the session state and yields a single row. Each output column is named by its alias,
     /// or the variable name if unaliased.</summary>

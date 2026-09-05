@@ -56,254 +56,6 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
             => selectExpression.Tables is not [ValuesExpression]
                && base.TryGenerateWithoutWrappingSelect(selectExpression);
 
-        private void VisitJetTables(IReadOnlyList<TableExpressionBase> tables, bool addFromSql, out List<ColumnExpression> colexp)
-        {
-            colexp = [];
-            if (!tables.Any())
-            {
-                GeneratePseudoFromClause();
-                return;
-            }
-
-            if (addFromSql)
-                Sql.AppendLine().Append("FROM ");
-
-            if (tables.Any(t => t is CrossJoinExpression or CrossApplyExpression))
-                VisitJetTablesGrouped(tables, colexp);
-            else
-                VisitJetTablesLinear(tables, colexp);
-        }
-
-        // No cross joins: existing linear parenthesization algorithm.
-        private void VisitJetTablesLinear(IReadOnlyList<TableExpressionBase> tables, List<ColumnExpression> colexp)
-        {
-            const int maxTablesWithoutBrackets = 2;
-            var nonCrossTableCount = tables.Count(t => t is not CrossJoinExpression and not CrossApplyExpression);
-            Sql.Append(new string('(', Math.Max(0, nonCrossTableCount - maxTablesWithoutBrackets)));
-
-            var nonCrossTablesSeen = 0;
-            for (var index = 0; index < tables.Count; index++)
-            {
-                var tableExpression = tables[index];
-                var isCrossExpression = tableExpression is CrossJoinExpression or CrossApplyExpression;
-
-                if (tableExpression is CrossApplyExpression or OuterApplyExpression)
-                    throw new UnreachableException();
-
-                if (!isCrossExpression)
-                    nonCrossTablesSeen++;
-
-                if (index > 0)
-                {
-                    if (isCrossExpression)
-                        Sql.Append(",");
-                    else if (nonCrossTablesSeen > maxTablesWithoutBrackets)
-                        Sql.Append(")");
-
-                    Sql.AppendLine();
-                }
-
-                if (tableExpression is InnerJoinExpression innerJoin)
-                {
-                    var tempcolexp = innerJoin.JoinPredicate switch
-                    {
-                        SqlBinaryExpression bin => ExtractColumnExpressions(bin),
-                        SqlUnaryExpression unary => ExtractColumnExpressions(unary),
-                        // A bare boolean column used directly as the ON condition (e.g. `ON g.HasSoulPatch`,
-                        // once `= True` has been simplified away). Without this case it falls through to an
-                        // empty list, the tables[0] check fails, and the INNER JOIN is wrongly emitted as a
-                        // LEFT JOIN with nothing hoisted to WHERE — turning an inner join into an outer one
-                        // (extra unmatched rows). See GearsOfWar Join_predicate_value.
-                        ColumnExpression col => [col],
-                        _ => (List<ColumnExpression>)[]
-                    };
-
-                    if (tempcolexp.Any(col => col.TableAlias == tables[0].Alias))
-                    {
-                        Visit(tableExpression);
-                    }
-                    else
-                    {
-                        colexp.AddRange(tempcolexp);
-                        Sql.Append("LEFT JOIN ");
-                        Visit(innerJoin.Table);
-                        Sql.Append(" ON ");
-                        Visit(innerJoin.JoinPredicate);
-                    }
-                }
-                else
-                {
-                    Visit(tableExpression);
-                }
-            }
-        }
-
-        // Cross joins present: group each primary table with its associated joins so that
-        // each group is parenthesized independently before being comma-cross-joined.
-        // Jet rejects mixing comma (cross-join) and explicit JOIN at the same paren level.
-        private void VisitJetTablesGrouped(IReadOnlyList<TableExpressionBase> tables, List<ColumnExpression> colexp)
-        {
-            var groups = new List<(TableExpressionBase Primary, List<PredicateJoinExpressionBase> Joins, HashSet<string> OwnedAliases)>();
-
-            foreach (var table in tables)
-            {
-                switch (table)
-                {
-                    case CrossApplyExpression or OuterApplyExpression:
-                        throw new UnreachableException();
-                    case CrossJoinExpression cj:
-                        groups.Add((cj.Table, [], new HashSet<string> { cj.Table.Alias! }));
-                        break;
-                    case PredicateJoinExpressionBase join:
-                        var predicateAliases = ExtractTableAliases(join.JoinPredicate);
-                        var owner = groups.FirstOrDefault(g => g.OwnedAliases.Overlaps(predicateAliases));
-                        if (owner.Primary != null)
-                        {
-                            owner.Joins.Add(join);
-                            owner.OwnedAliases.Add(join.Table.Alias!);
-                        }
-                        else
-                        {
-                            var last = groups[^1];
-                            last.Joins.Add(join);
-                            last.OwnedAliases.Add(join.Table.Alias!);
-                        }
-                        break;
-                    default:
-                        groups.Add((table, [], new HashSet<string> { table.Alias! }));
-                        break;
-                }
-            }
-
-            for (var i = 0; i < groups.Count; i++)
-            {
-                if (i > 0)
-                    Sql.Append(",").AppendLine();
-
-                var (primary, joins, _) = groups[i];
-                var groupTableCount = 1 + joins.Count;
-
-                if (joins.Count > 0)
-                    Sql.Append("(");
-
-                Sql.Append(new string('(', Math.Max(0, groupTableCount - 2)));
-
-                Visit(primary);
-
-                var nonSeen = 1;
-                foreach (var join in joins)
-                {
-                    nonSeen++;
-                    if (nonSeen > 2)
-                        Sql.Append(")");
-
-                    Sql.AppendLine();
-                    EmitJoinInGroup(join, primary, colexp);
-                }
-
-                if (joins.Count > 0)
-                    Sql.Append(")");
-            }
-        }
-
-        private void EmitJoinInGroup(PredicateJoinExpressionBase join, TableExpressionBase groupPrimary, List<ColumnExpression> colexp)
-        {
-            if (join is InnerJoinExpression innerJoin)
-            {
-                var tempcolexp = innerJoin.JoinPredicate switch
-                {
-                    SqlBinaryExpression bin => ExtractColumnExpressions(bin),
-                    SqlUnaryExpression unary => ExtractColumnExpressions(unary),
-                    // A bare boolean column used directly as the ON condition (e.g. `ON g.HasSoulPatch`,
-                    // once `= True` is simplified away). Without this case it falls through to an empty
-                    // list, the tables[0] check fails, and the INNER JOIN is wrongly emitted as a LEFT
-                    // JOIN with nothing hoisted to WHERE — turning an inner join into an outer one.
-                    ColumnExpression col => [col],
-                    _ => (List<ColumnExpression>)[]
-                };
-
-                if (tempcolexp.Any(col => col.TableAlias == groupPrimary.Alias))
-                    Visit(join);
-                else
-                {
-                    colexp.AddRange(tempcolexp);
-                    Sql.Append("LEFT JOIN ");
-                    Visit(innerJoin.Table);
-                    Sql.Append(" ON ");
-                    Visit(innerJoin.JoinPredicate);
-                }
-            }
-            else
-            {
-                Visit(join);
-            }
-        }
-
-        private HashSet<string> ExtractTableAliases(SqlExpression expression)
-        {
-            var result = new HashSet<string>();
-            CollectTableAliases(expression, result);
-            return result;
-        }
-
-        private static void CollectTableAliases(SqlExpression expression, HashSet<string> result)
-        {
-            switch (expression)
-            {
-                case ColumnExpression col:
-                    result.Add(col.TableAlias);
-                    break;
-                case SqlBinaryExpression bin:
-                    CollectTableAliases(bin.Left, result);
-                    CollectTableAliases(bin.Right, result);
-                    break;
-                case SqlUnaryExpression unary:
-                    CollectTableAliases(unary.Operand, result);
-                    break;
-            }
-        }
-
-        private List<ColumnExpression> ExtractColumnExpressions(SqlBinaryExpression binaryexp)
-        {
-            List<ColumnExpression> result = [];
-            switch (binaryexp.Left)
-            {
-                case SqlBinaryExpression left:
-                    result.AddRange(ExtractColumnExpressions(left));
-                    break;
-                case ColumnExpression colLeft:
-                    result.Add(colLeft);
-                    break;
-            }
-
-            switch (binaryexp.Right)
-            {
-                case SqlBinaryExpression right:
-                    result.AddRange(ExtractColumnExpressions(right));
-                    break;
-                case ColumnExpression colRight:
-                    result.Add(colRight);
-                    break;
-            }
-
-            return result;
-        }
-        private List<ColumnExpression> ExtractColumnExpressions(SqlUnaryExpression unaryexp)
-        {
-            List<ColumnExpression> result = [];
-            switch (unaryexp.Operand)
-            {
-                case SqlBinaryExpression left:
-                    result.AddRange(ExtractColumnExpressions(left));
-                    break;
-                case ColumnExpression colLeft:
-                    result.Add(colLeft);
-                    break;
-            }
-
-            return result;
-        }
-
         private void GenerateList<T>(
             IReadOnlyList<T> items,
             Action<T> generationAction,
@@ -464,21 +216,6 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
 
         protected override Expression VisitSqlConstant(SqlConstantExpression sqlConstantExpression)
         {
-            /*if (sqlConstantExpression.TypeMapping == RelationalTypeMapping.NullMapping && sqlConstantExpression.Value is DateTime)
-            {
-                sqlConstantExpression = (SqlConstantExpression)sqlConstantExpression.ApplyTypeMapping(
-                    (RelationalTypeMapping?)_typeMappingSource.FindMapping(typeof(DateTime)));
-            }
-
-            parent.TryPeek(out var exp);
-            if (sqlConstantExpression.Value is null && exp is ProjectionExpression && (sqlConstantExpression.Type.IsNumeric() || sqlConstantExpression.Type.IsEnum || sqlConstantExpression.Type == typeof(bool)))
-            {
-                Sql.Append("CVar(");
-                Sql.Append(sqlConstantExpression.TypeMapping!.GenerateSqlLiteral(sqlConstantExpression.Value));
-                Sql.Append(")");
-                return sqlConstantExpression;
-            }*/
-
             if (sqlConstantExpression.TypeMapping is BoolTypeMapping
                 && sqlConstantExpression.TypeMapping.GetType() != _boolTypeMapping?.GetType())
             {
@@ -839,7 +576,7 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
                 }
 
                 Sql.Append("FROM ");
-                VisitJetTables(selectExpression.Tables, false, out _);
+                GenerateList(selectExpression.Tables, e => Visit(e), sql => sql.AppendLine());
 
                 if (selectExpression.Predicate != null)
                 {
@@ -876,7 +613,7 @@ namespace EntityFrameworkCore.LibRed.Query.Sql.Internal
             {
                 Sql.Append("UPDATE ");
 
-                VisitJetTables(selectExpression.Tables, false, out _);
+                GenerateList(selectExpression.Tables, e => Visit(e), sql => sql.AppendLine());
 
                 Sql.AppendLine().Append("SET ");
                 Visit(updateExpression.ColumnValueSetters[0].Column);

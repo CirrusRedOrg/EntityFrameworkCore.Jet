@@ -884,8 +884,44 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// combined evaluation scope), and its rows. A physical table exposes <see cref="Table"/> (rows have real
     /// <see cref="RowId"/>s and can be a SET/DELETE target); a derived table (a subquery in the source) has
     /// <see cref="Table"/> null and its already-materialised <see cref="DerivedRows"/> (never a target).</summary>
+    /// <param name="Lateral">The plan of a LATERAL source — an APPLY's right side — which is re-executed once
+    /// per outer row instead of being materialised, because it may correlate to the rows joined before it.</param>
     private sealed record SourceTable(string Alias, Table? Table, IReadOnlyList<OutputColumn> Columns,
-        IReadOnlyList<object?[]>? DerivedRows);
+        IReadOnlyList<object?[]>? DerivedRows, Plan.PlanNode? Lateral = null);
+
+    /// <summary>How a join kind is handled in a DML source.</summary>
+    private enum JoinShape
+    {
+        /// <summary>Left-deep: walk the left subtree, then the right side tagged with this join.</summary>
+        Conditional,
+        /// <summary>RIGHT JOIN, modelled as the right side preserved with the left LEFT-joined onto it.</summary>
+        RightPreserving,
+        /// <summary>An APPLY: the right side is correlated and re-executed per outer row.</summary>
+        Lateral,
+        Unsupported,
+    }
+
+    /// <summary>
+    ///     Deliberately a switch <b>expression</b> with no discard arm, so adding a <see cref="JoinKind"/> is a
+    ///     BUILD error here rather than a runtime refusal for one query shape.
+    /// </summary>
+    /// <remarks>
+    ///     A join kind has to be taught to two executors — the query one and this one — because DML tracks row
+    ///     identity that the query pipeline discards (see <c>QueryExecutor.ExecuteCorrelated</c>). The
+    ///     duplication is unavoidable; forgetting the second half is not, and this is what makes it so.
+    /// </remarks>
+    // CS8524 is the "value not a named member" case — a cast like (JoinKind)7, which the parser cannot produce.
+    // Silencing only that keeps CS8509, which is the one that matters: with no discard arm, adding a named
+    // JoinKind fails THIS build. A `_ =>` arm would satisfy both and quietly defeat the whole point.
+#pragma warning disable CS8524
+    private static JoinShape ShapeOf(JoinKind kind) => kind switch
+    {
+        JoinKind.Inner or JoinKind.Cross or JoinKind.Left => JoinShape.Conditional,
+        JoinKind.Right => JoinShape.RightPreserving,
+        JoinKind.CrossApply or JoinKind.OuterApply => JoinShape.Lateral,
+        JoinKind.Full => JoinShape.Unsupported,
+    };
+#pragma warning restore CS8524
 
     /// <summary>Flattens the UPDATE/DELETE table source into its tables in order, each paired with the join that
     /// introduced it: its <see cref="JoinKind"/> and ON condition (the first/base table is Inner with a null ON).
@@ -915,6 +951,29 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             ons.Add(on);
         }
 
+        void EmitLateral(SubqueryTable sq, JoinKind kind, Expression? on)
+        {
+            string alias = sq.Alias ?? throw new NotSupportedException("A lateral join in an UPDATE/DELETE source requires an alias.");
+
+            // The tables joined so far are this one's outer scope: pass their aliases to index selection so a
+            // correlated predicate becomes a seek rather than a rescan, which matters here more than anywhere
+            // because the body runs once per outer row.
+            var outerColumns = tables.SelectMany(t => t.Columns).ToList();
+            Plan.PlanNode plan = Planning.IndexSelection.Apply(
+                Planning.QueryPlanner.PlanStatement(sq.Query), _database.Catalog,
+                tables.Select(t => t.Alias).ToHashSet(StringComparer.OrdinalIgnoreCase));
+
+            // The rows vary per outer row but the schema does not, and JoinRows needs it before reading any row.
+            // Probe once against an all-null outer row and drop the rows unread, as QueryExecutor.ExecuteApply does.
+            var (columns, _) = _scalarRunner.ExecuteCorrelated(
+                plan, new EvalScope(outerColumns, new object?[outerColumns.Count], null));
+
+            tables.Add(new SourceTable(
+                alias, null, columns.Select(c => new OutputColumn(alias, c.Name, c.ClrType)).ToList(), null, plan));
+            kinds.Add(kind);
+            ons.Add(on);
+        }
+
         void Walk(TableReference r, JoinKind kind, Expression? on)
         {
             switch (r)
@@ -925,21 +984,48 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 case SubqueryTable sq:
                     EmitDerived(sq, kind, on);
                     break;
-                // Left-deep: the left subtree carries its own joins (its base is the source's first table, Inner
-                // with no ON); the right side is the newly joined named/derived table, tagged with this join.
-                case JoinTable { Kind: JoinKind.Inner or JoinKind.Cross or JoinKind.Left, Right: NamedTable or SubqueryTable } j:
-                    Walk(j.Left, JoinKind.Inner, null);
-                    Walk(j.Right, j.Kind, j.On);
-                    break;
-                // RIGHT JOIN keeps the right side: model it as the right side preserved (the base) with the left
-                // side LEFT-joined onto it. The SET/DELETE target is usually that left side — which then becomes
-                // the nullable side, so a right row with no match yields a null target that the WHERE drops.
-                case JoinTable { Kind: JoinKind.Right, Left: NamedTable or SubqueryTable } j:
-                    Walk(j.Right, JoinKind.Inner, null);
-                    Walk(j.Left, JoinKind.Left, j.On);
+                case JoinTable j:
+                    WalkJoin(j);
                     break;
                 default:
                     throw new NotSupportedException($"UPDATE/DELETE over a {r.GetType().Name} source is not supported yet.");
+            }
+        }
+
+        void WalkJoin(JoinTable j)
+        {
+            switch (ShapeOf(j.Kind))
+            {
+                // Left-deep: the left subtree carries its own joins (its base is the source's first table, Inner
+                // with no ON); the right side is the newly joined named/derived table, tagged with this join.
+                case JoinShape.Conditional when j.Right is NamedTable or SubqueryTable:
+                    Walk(j.Left, JoinKind.Inner, null);
+                    Walk(j.Right, j.Kind, j.On);
+                    break;
+
+                // RIGHT JOIN keeps the right side: model it as the right side preserved (the base) with the left
+                // side LEFT-joined onto it. The SET/DELETE target is usually that left side — which then becomes
+                // the nullable side, so a right row with no match yields a null target that the WHERE drops.
+                case JoinShape.RightPreserving when j.Left is NamedTable or SubqueryTable:
+                    Walk(j.Right, JoinKind.Inner, null);
+                    Walk(j.Left, JoinKind.Left, j.On);
+                    break;
+
+                // A named table on the right of an APPLY cannot correlate to anything, so it is exactly a CROSS
+                // (or, for OUTER APPLY, a LEFT with no condition) and takes the ordinary path.
+                case JoinShape.Lateral when j.Right is NamedTable:
+                    Walk(j.Left, JoinKind.Inner, null);
+                    Walk(j.Right, j.Kind == JoinKind.OuterApply ? JoinKind.Left : JoinKind.Cross, null);
+                    break;
+
+                case JoinShape.Lateral when j.Right is SubqueryTable sq:
+                    Walk(j.Left, JoinKind.Inner, null);
+                    EmitLateral(sq, j.Kind, j.On);
+                    break;
+
+                default:
+                    throw new NotSupportedException(
+                        $"UPDATE/DELETE over a {j.Kind} join of this shape is not supported yet.");
             }
         }
 
@@ -952,9 +1038,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// table's alias for the combined evaluation scope.</summary>
     private (List<OutputColumn> Columns, List<object?[]> Rows) ExecuteDerivedSource(SqlStatement query, string alias)
     {
-        if (query is not SelectStatement select)
-            throw new NotSupportedException("Only a SELECT is supported as a derived table in an UPDATE/DELETE source.");
-        var plan = Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanSelect(select), _database.Catalog);
+        // PlanStatement, not PlanSelect: EF puts a set operation here for Union/Except/Intersect/Concat before
+        // an ExecuteUpdate, and a table value constructor for an inline collection. Same widening as the
+        // subquery predicates needed, for the same reason - a derived table is a query expression.
+        var plan = Planning.IndexSelection.Apply(Planning.QueryPlanner.PlanStatement(query), _database.Catalog);
         ResultSet result = _scalarRunner.ExecuteQuery(plan);
         var columns = result.ColumnNames.Select((name, i) => new OutputColumn(alias, name, result.ColumnTypes[i])).ToList();
         return (columns, result.Rows.ToList());
@@ -1011,7 +1098,15 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             // A derived table's rows are already materialised and have no RowId (never a target). A physical
             // table is seeked when its ON allows (index-nested-loop), else scanned.
             IEnumerable<(RowId Id, object?[] Values)> rows;
-            if (tables[i].Table is null)
+            if (tables[i].Lateral is { } lateral)
+            {
+                // What makes it lateral: re-executed for THIS outer row, with the rows joined so far in scope,
+                // rather than materialised once. Checked before the derived case, which it also looks like.
+                var (_, lateralRows) = _scalarRunner.ExecuteCorrelated(
+                    lateral, new EvalScope(colsUpTo[i], Flatten(acc, i), null));
+                rows = lateralRows.Select(v => (default(RowId), v));
+            }
+            else if (tables[i].Table is null)
             {
                 rows = tables[i].DerivedRows!.Select(v => (default(RowId), v));
             }
@@ -1041,8 +1136,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 }
             }
 
-            // LEFT join: an outer row with no matching inner row is still emitted, with the inner side all-null.
-            if (kinds[i] == JoinKind.Left && !matched)
+            // LEFT join, and OUTER APPLY for the same reason: an outer row with no matching inner row is still
+            // emitted, with the inner side all-null.
+            if (kinds[i] is JoinKind.Left or JoinKind.OuterApply && !matched)
             {
                 acc[i] = (default, new object?[tables[i].Columns.Count]);
                 Recurse(i + 1);

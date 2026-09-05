@@ -32,13 +32,11 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         if (values.Length != _columns.Count)
             throw new ArgumentException($"Expected {_columns.Count} values, got {values.Length}.", nameof(values));
 
-        int colCountSize = _format.RowColumnCountSize;
         // The leading count and the null-bitmap width are driven by the highest column id + 1, NOT the live
         // column count — the two coincide only while ids are contiguous (fresh table / ADD COLUMN), and diverge
         // once ids have a gap (a burned type-change id, or a DROP COLUMN gap). Verified vs ACE (spec §5).
+        // AssembleRow derives both from this.
         int maxColumnId = _columns.Count == 0 ? -1 : _columns.Max(c => c.ColumnId);
-        int colCount = maxColumnId + 1;
-        int nullBitmapSize = (colCount + 7) / 8;
 
         var varCols = _columns.Where(c => !c.IsFixedLength).OrderBy(c => c.VariableIndex).ToList();
         int numVar = varCols.Count;
@@ -59,12 +57,32 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         var varChunks = new byte[numVar][];
         for (int j = 0; j < numVar; j++)
         {
-            object? v = values[varCols[j].Index];
-            varChunks[j] = v is null ? [] : JetTypeCodec.Encode(varCols[j], v);
+            ColumnDef column = varCols[j];
+            object? v = values[column.Index];
+            varChunks[j] = v is null ? [] : JetTypeCodec.Encode(column, v);
+            EnsureFitsDeclaredLength(column, varChunks[j]);
         }
 
-        _ = colCount; _ = colCountSize; _ = nullBitmapSize; // sizes are derived inside AssembleRow
         return AssembleRow(maxColumnId, fixedRegion, varChunks, _columns, values);
+    }
+
+    /// <summary>Rejects a variable TEXT/BINARY value longer than its column's declared width, as ACE does
+    /// (measured in <c>ColumnLengthAccessTests</c>); without it LibRed wrote rows Access will not read back.
+    /// Memo/OLE are exempt — they encode to a long-value descriptor whose size is unrelated to
+    /// <see cref="ColumnDef.Length"/>. Fixed columns need no equivalent: the codec pads or truncates them to
+    /// width, and the caller then checks for exactly that width.</summary>
+    private static void EnsureFitsDeclaredLength(ColumnDef column, byte[] encoded)
+    {
+        if (column.Type is not (JetDataType.Text or JetDataType.Binary)) return;
+        if (column.Length <= 0 || encoded.Length <= column.Length) return;
+
+        // Report in the column's own units: TEXT declares characters and stores UTF-16, BINARY declares bytes.
+        bool text = column.Type == JetDataType.Text;
+        int declared = text ? column.Length / 2 : column.Length;
+        int actual = text ? encoded.Length / 2 : encoded.Length;
+        throw new InvalidOperationException(
+            $"The field '{column.Name}' is too small to accept the amount of data you attempted to add: "
+            + $"{actual} {(text ? "characters" : "bytes")} into a column declared to hold {declared}.");
     }
 
     /// <summary>Assembles the on-disk row bytes from a prepared fixed region and the ordered variable chunks:

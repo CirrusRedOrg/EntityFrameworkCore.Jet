@@ -100,6 +100,12 @@ malformed pointers fail with `InvalidDataException`.
   variable column `j` spans `[offset(numVarCols − j), offset(numVarCols − j − 1))`, where
   `offset(k)` is the little-endian 16-bit value at `varTableStart + k×2`. (The table is stored
   end-first, i.e. ascending column-id order maps to descending table index.)
+  - A variable **text**/**binary** value must **fit its column's declared width**. Where a fixed column pads or
+    truncates, ACE **rejects** an over-long variable one — six characters into a `TEXT(5)`, six bytes into a
+    `VARBINARY(5)`, both *"The field is too small to accept the amount of data you attempted to add"* (verified
+    vs ACE, `ColumnLengthAccessTests`). The bound is the descriptor's `length`, in **bytes** for both, so
+    `TEXT(5)` is 10. `Memo`/`OLE` are exempt — their inline form is a long-value descriptor whose size is
+    unrelated to `length`.
 - **Booleans** carry **no data** — the value *is* the null-bitmap bit (set = true). Boolean
   columns are never null, and they occupy **no fixed-region bytes**: their descriptor's fixed
   offset is 0 and the fixed offsets of other columns skip over them. (Verified: Northwind's

@@ -97,9 +97,17 @@ leaves it **clear** and stores UTF-16 whatever the content.
   Microsoft's "only instances that, when compressed, will fit within 4096 bytes" describes the wrong
   quantity; see [long-values.md](long-values.md) for the measured boundary.
 
-> Not yet handled: the full format can toggle between 1-byte and 2-byte runs mid-string for
-> mixed scripts. LibRed handles the common all-compressed case on read, and on write emits either the whole
-> value compressed or the whole value UTF-16.
+> **The mixed form is unreproduced.** The format allows a value to toggle between 1-byte and 2-byte runs
+> mid-string — an embedded `0x00` after the marker switches mode — and mdbtools decodes it. LibRed reads only
+> the all-compressed case, and writes either the whole value compressed or the whole value UTF-16.
+>
+> That gap is unreachable from anything ACE writes: **one incompressible character forfeits compression for
+> the entire value**, position irrelevant, even when that throws away a ~1,000-byte saving
+> (`MixedCompressionAccessTests` — 1,000 ASCII compresses, 1,000 ASCII + one CJK does not, whether the CJK
+> sits first, last or in the middle). Checked by hand on ACE 12.0 and 16.0, which agree byte for byte; the
+> test can only assert whichever is installed. A producer plausibly exists — the scheme dates from Jet 4.0,
+> and Jackcess has a bug report about Access 2000 files — so treat this as *technically possible, not
+> reproducible here*, and revisit if a real mixed-form file turns up.
 
 
 ---

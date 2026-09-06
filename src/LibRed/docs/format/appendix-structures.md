@@ -255,7 +255,7 @@ so guard with a validator; **query-engine** — ACE's SQL-engine limits that Lib
 | Indexes per table | 32 | structural (`0x33` real-index count) |
 | Fields per index / PK | 10 | structural (the 52-byte index-data block's fixed 10-slot column array — [page-02d](page-02d-constraints.md) §3.5) |
 | Short Text length | 255 chars | validator |
-| Record (excl. Long Text/OLE) | ~4000 bytes | structural (page space) |
+| Record (excl. Long Text/OLE) | **4060 bytes** | ACE-enforced, **not** page space — 20 bytes below what a page holds, and a larger row writes but cannot be read back ([page-01](page-01-data-and-rows.md)) |
 | Database file size | 2 GiB | ACE-enforced file extent; page numbering and reference-map coverage extend beyond this limit |
 
 `LvProp` property **values** (DefaultValue, CheckConstraints) are variable-length and length-tolerant — no

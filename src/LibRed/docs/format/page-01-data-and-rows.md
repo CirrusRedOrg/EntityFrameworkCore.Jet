@@ -18,6 +18,36 @@ Row slot entry: lower 13 bits (`& 0x1FFF`) = the row's byte offset in the page; 
 deleted, `0x4000` = overflow/lookup pointer (not an inline row). Rows are packed from the end
 of the page backward, so a slot runs from its offset up to where the previous slot's row began.
 
+> **A record is capped at 4060 bytes**, counting everything in the row itself — the leading count, fixed
+> data, variable data, the offset table and the null bitmap — but not the payload of a Memo/OLE column,
+> which lives on LVAL pages behind a 12-byte descriptor. Past it ACE refuses the insert with *"Record is
+> too large."*
+>
+> **The cap is ACE's, not the page's.** A page holds 4080 (4096 less the 14-byte header and a 2-byte slot),
+> and the 20-byte reserve below that is measured, not explained. It is also not derived from the row's
+> shape: three tables whose overhead differs by 23 bytes — 9, 12 and 20 text columns — all stop at the same
+> 4060 (`RecordSizeAccessTests`).
+>
+> It is **the same 4060 under page-level and row-level locking** (`Jet OLEDB:Database Locking Mode` 0 and 1),
+> which is what it must be — a limit that moved with the connection would make a file written by one client
+> unreadable by another opening it differently. That independence is also what lets LibRed, which has no
+> locking mode at all, enforce one constant for every caller.
+>
+> *Unverified lead, recorded because the evidence is suggestive rather than because it is established:* the
+> 20 bytes may be space the engine always keeps for row-lock bookkeeping, whether or not the connection uses
+> it. Two things point that way. Row-level locking arrived in Jet 4, the same generation as this reserve.
+> And the **class** of error is wrong for corruption: a malformed row reads as "Unrecognized database
+> format" or a decode failure, whereas this one reports a concurrent edit — so ACE parsed the row and then
+> its multi-user layer objected, meaning something is *interpreting* those bytes rather than merely running
+> past them. Nothing here tests it; the mode-independence above is equally consistent with the reserve being
+> something else.
+>
+> **Writing into the 4061–4080 band is worse than writing past it.** It fits the page, so nothing fails at
+> write time, and ACE then cannot materialise the row — it reports *"you and another user are attempting to
+> change the same data at the same time"*, naming a concurrency problem that does not exist. Only above 4080
+> does anything complain locally. A writer must therefore enforce 4060 rather than the page geometry;
+> LibRed does so in `RowInserter` from `JetFormatBase.MaxRecordSize`.
+
 > **Reader guardrails.** LibRed requires an exact format-sized type-`0x01` page before either a full
 > scan or the O(1) index-seek slot path. The declared slot directory must fit before the heap; every
 > masked row offset must lie between the directory end and page end and must not increase relative to

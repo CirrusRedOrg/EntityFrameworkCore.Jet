@@ -50,6 +50,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format));
         byte[] record = encoder.Encode(values);
 
+        EnsureRecordFits(format, record);
+
         // Then find an owned page with room for the record plus its 2-byte slot entry.
         (int pageNumber, byte[] page) = FindPageWithRoom(format, record.Length + 2);
 
@@ -373,6 +375,19 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// map is normally just the page currently being appended to. Scanning the owned map instead would read
     /// every already-full page from disk on every insert — O(pages) per row, i.e. quadratic over a bulk load.
     /// </remarks>
+    /// <summary>Rejects a record ACE would refuse to store, before any page is touched. Without this
+    /// <see cref="FindPageWithRoom"/> finds nothing with room, allocates a fresh page that cannot hold it
+    /// either, and the offset arithmetic then throws an ArgumentOutOfRangeException that says nothing about
+    /// the cause — and for the 4061..4080 band it would not even throw, writing a row ACE cannot read back.
+    /// See <see cref="JetFormatBase.MaxRecordSize"/>.</summary>
+    private static void EnsureRecordFits(JetFormatBase format, byte[] record)
+    {
+        if (record.Length > format.MaxRecordSize)
+            throw new InvalidOperationException(
+                $"Record is too large: {record.Length} bytes, and Jet/ACE stores at most {format.MaxRecordSize} "
+                + "excluding long values. Move the large columns to Memo/OLE, which live on their own pages.");
+    }
+
     private (int PageNumber, byte[] Page) FindPageWithRoom(JetFormatBase format, int needed)
     {
         foreach (int pageNumber in new UsageMap(_channel, _table).FreeDataPages())

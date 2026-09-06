@@ -252,6 +252,20 @@ public abstract class JetFormatBase
     /// <summary>Size of the column-count field at the start of a row record (2 bytes in Jet 4 / ACE, 1 in Jet 3).</summary>
     public virtual int RowColumnCountSize => 2;
 
+    /// <summary>
+    /// The largest record ACE will store — <b>4060 bytes</b>, excluding anything that lives on LVAL pages,
+    /// where ACE raises "Record is too large." Measured across three table shapes whose row overhead differs
+    /// by 23 bytes (9, 12 and 20 text columns), and the total lands on 4060 every time, so it is a flat cap
+    /// rather than something derived from the row's layout (<c>RecordSizeAccessTests</c>).
+    /// </summary>
+    /// <remarks>
+    /// It is 20 bytes below what the page could hold — 4096 less the 14-byte header and a 2-byte slot leaves
+    /// 4080 — and that reserve is not explained. Enforcing it is not optional politeness: a record between
+    /// 4061 and 4080 fits the page and LibRed used to write it happily, but ACE then <b>cannot read the
+    /// row</b>, failing with an unrelated "another user are attempting to change the same data" error.
+    /// </remarks>
+    public virtual int MaxRecordSize => 4060;
+
     /// <summary>Page number of the system catalog table MSysObjects (its TDEF page).</summary>
     public virtual int CatalogPage => 2;
 

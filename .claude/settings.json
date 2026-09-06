@@ -13,6 +13,7 @@
       "PowerShell(dotnet build *)",
       "PowerShell(dotnet restore *)",
       "Bash(git status*)",
+      "Bash(git add*)",
       "Bash(git diff*)",
       "Bash(git log*)",
       "Bash(git show*)",

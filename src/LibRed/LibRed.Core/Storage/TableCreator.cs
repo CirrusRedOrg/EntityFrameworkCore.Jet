@@ -1434,6 +1434,23 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             return;
         }
 
+        // ACE identity ALTER succeeds at exhausted ids for these measured scalar/short-value types, so a
+        // re-declaration that changes nothing must not burn one. Memo/OLE still consume an id even for an
+        // identical declaration, and so fall through.
+        //
+        // Nullability is deliberately NOT compared: no ALTER path carries it. The SQL layer always builds
+        // the spec with NotNull false and applies Required separately afterwards, and RewriteColumn discards
+        // newSpec.IsNullable outright in favour of the target's. Comparing it here would make the check fail
+        // for every NOT NULL column, so the same statement would burn an id — and throw at 255 — purely
+        // because the column was required.
+        if (col.Type is JetDataType.Boolean or JetDataType.Byte or JetDataType.Int16 or JetDataType.Int32
+                or JetDataType.Single or JetDataType.Double or JetDataType.Currency or JetDataType.DateTime
+                or JetDataType.Guid or JetDataType.Text or JetDataType.Binary or JetDataType.FixedPoint
+            && col.Type == newSpec.Type
+            && col.Length == newSpec.Length && col.IsFixedLength == newSpec.IsFixedLength
+            && (col.Type != JetDataType.FixedPoint || (col.Precision == newSpec.Precision && col.Scale == newSpec.Scale)))
+            return;
+
         bool variableLengthChange =
             !col.IsFixedLength && !newSpec.IsFixedLength && col.Type == newSpec.Type &&
             newSpec.Type is JetDataType.Text or JetDataType.Binary;
@@ -1581,6 +1598,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         EnsureColumnIsNotInRelationship(def, target);
 
+        // Read straight off the definition page: 0x29 is in the header, so this needs none of the block
+        // slicing (or continuation-page stitching) a full ParseTdef would do for one 16-bit field.
+        int priorHighWater = _channel.ReadPage(def.DefinitionPage).ReadUInt16(_channel.Format.TdefMaxColumnsOffset);
+        if (priorHighWater >= MaxColumnsPerTable)
+            throw new NotSupportedException($"Cannot alter '{columnName}': too many fields defined — {MaxColumnsPerTable} column ids have been used.");
+
         // The rebuild drops + recreates the table, so every relationship it touches is captured and restored
         // afterwards. OUTGOING FKs (this table is the child) are cascaded away by DropTable and re-added; their
         // backing indexes are recreated with them, so they're excluded from `secondary`. INCOMING FKs (this table
@@ -1639,6 +1662,15 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             _catalog.Invalidate();
             Create(tableName, specs, primaryKey, relationships: null, uniqueConstraints: null,
                 columnDefaults: defaults, checkConstraints: checks, primaryKeyName: pk?.Name);
+            _catalog.Invalidate();
+
+            // The logical rebuild still lays live columns out contiguously, but must not reset
+            // lifetime id consumption. ACE consumes one even for identity Memo/OLE ALTER.
+            int rebuiltPage = _catalog.FindTable(tableName)!.DefinitionPage;
+            TdefParts rebuilt = ParseTdef(rebuiltPage);
+            BinaryPrimitives.WriteUInt16LittleEndian(
+                rebuilt.Header.AsSpan(_channel.Format.TdefMaxColumnsOffset, 2), (ushort)(priorHighWater + 1));
+            WriteTdef(rebuiltPage, rebuilt);
             _catalog.Invalidate();
 
             var dest = new Table(_channel, _catalog.FindTable(tableName)!);
@@ -1711,6 +1743,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     private static int EditTargetDescriptor(TdefParts parts, ColumnDef target, ColumnSpec newSpec, int fixedEnd, JetFormatBase format)
     {
         int maxCols = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefMaxColumnsOffset, 2));
+        // ACE-only probe: with 254 columns one retype succeeds, the next fails; with 255
+        // columns the first retype fails. A same-type ALTER does not reach this id-burning path.
+        if (maxCols >= MaxColumnsPerTable)
+            throw new NotSupportedException(
+                $"Cannot change the type of '{target.Name}': too many fields defined — {MaxColumnsPerTable} column ids have been used.");
         int varCount = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefVariableColumnsOffset, 2));
 
         Span<byte> d = parts.Columns.AsSpan(target.Index * format.ColumnDescriptorSize, format.ColumnDescriptorSize);

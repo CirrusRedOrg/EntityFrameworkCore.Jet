@@ -120,11 +120,14 @@ columns ordered by ascending column id, but a `DROP COLUMN` can leave a gap (see
 Changing a column's **type or length** does **not** edit that column in place. Access **makes a brand-new
 column that keeps the old one's ordinal position but takes a fresh id**, copies + converts the data into
 it, and **leaves the old column's storage as dead space** (it is *not* compacted away). Verified by
-diffing whole files before/after `ALTER COLUMN` over the ACE OLE DB provider; LibRed reproduces every byte
+diffing whole files before/after `ALTER COLUMN` over the ACE OLE DB provider; LibRed's in-place path reproduces every byte
 (`AceModifyByteDiffProbe.Libred_in_place_modify_matches_ace_whole_file`, a theory over fixed / variable /
 fixed↔variable / PK / indexed / multi-page / decimal shapes, plus a 20-column 7-step non-sequential stress
 run). This is **the same mechanism for every type/length change** — including a *widening* `TEXT(n)→TEXT(m)`;
 there is no cheap "just bump the length" path, ACE burns the id there too.
+
+LibRed's Memo/OLE logical rebuild has a different layout but enforces the same id high-water limit;
+see [§3.1](page-02a-tdef.md#31-header).
 
 > **Relationship columns cannot be altered.** ACE rejects a type or length change when the target is either
 > a referencing FK column or its referenced parent column: *"Cannot change field 'X'. It is part of one or

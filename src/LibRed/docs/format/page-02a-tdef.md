@@ -107,15 +107,21 @@
 >   - **Null bitmap is keyed by column *id*** (not position) — verified: a row ACE wrote into that modified
 >     table (`A` null, `B` id 4 non-null) is read back correctly by LibRed's id-keyed decoder, i.e. `B`'s
 >     present-bit sits at bit *4*, not bit 1.
+>   - An identical `SHORT`/`LONG` declaration does not consume an id, even at 255; an identical Memo/OLE
+>     declaration does consume one and is rejected at 255. Verified against ACE, and **independent of
+>     nullability** — ACE accepts the identity ALTER at 255 for a `NOT NULL` column as readily as a nullable
+>     one (`ColumnIdBoundaryAccessTests.Ace_identity_alter_at_exhaustion_ignores_nullability`). LibRed
+>     therefore must not compare nullability when deciding an ALTER is a no-op; no ALTER path carries it
+>     anyway, since `Required` is applied separately and `RewriteColumn` discards the spec's value.
 >   - **LibRed today:** `RewriteColumn` preserves each untouched column's **original descriptor bytes**
->     verbatim (the `RawDescriptor` passthrough — fields LibRed doesn't model survive the rewrite) and keeps
->     column order, but it does **not** yet burn the target's id: it rebuilds with **contiguous** ids (the
->     target keeps its position/id). Reason: LibRed's row **encoder** keys the null bitmap by id sized to the
->     *live* column count, so a burned id that exceeds the live count writes a present-bit ACE can't find
->     (verified: a LibRed-written burned-id table read back null in ACE). Burning the id faithfully needs the
->     encoder's bitmap sizing reconciled with ACE's first. Until then LibRed stays more permissive on the 255
->     cap (never spuriously "Too many fields"), which is a deliberate, ACE-readable divergence — not a
->     correctness gap.
+>     except for the fields LibRed models (the `RawDescriptor` passthrough — fields LibRed doesn't model
+>     survive the rewrite) and keeps column order, but it does **not** assign the target the burned id:
+>     it rebuilds with **contiguous** ids (the target keeps its position). Rows are re-encoded with null
+>     bits keyed by those rebuilt ids, rather than retaining ACE's old ids and dead storage. The prior
+>     `0x29` high-water is nevertheless preserved and incremented, and an ALTER at 255 is rejected before
+>     the rebuild. Thus the Memo/OLE rebuild now enforces the same lifetime cap as ACE while retaining
+>     an ACE-readable layout divergence. The in-place ALTER path already retains the ids and dead storage
+>     as described in §3.8.
 > - **`0x2B` variable-length column count** — also a **high-water**. `ADD COLUMN` of a variable column
 >   increments it (the new column's variable index = the old value); `DROP COLUMN` of a variable column
 >   **leaves it unchanged**, so survivors keep their stored variable index (§3.4) and existing rows keep the

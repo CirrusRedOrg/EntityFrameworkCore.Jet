@@ -22,12 +22,48 @@ Flags (byte `0x03` masked with `0xC0`; its low six bits belong to the length):
   pointer + up to 4072 data bytes — except the last, which is shorter. Verified against ACE's own
   chained OLE (Northwind Employee photos: 4076, 4076, 2606-byte chunk rows).
 
-ACE accepts an OLE/binary payload of `0x3FFFFFFF` bytes (1 GiB − 1) and rejects `0x40000000`
-bytes. That is a **byte** limit, so the Memo **character** limit follows from how many bytes a character
-costs: ACE creates a text column through SQL DDL with the compressed-Unicode flag (§7) **clear** and stores
-long text as UTF-16 whatever the content — 100,000 characters occupy 200,000 bytes for ASCII and for CJK
-alike (`LongTextStorageAccessTests`). So a Memo holds at most **`0x3FFFFFFF / 2` = 536,870,911 characters**,
-and LibRed's always-UTF-16 writer already matches ACE rather than being half its capacity.
+ACE accepts an OLE/binary payload of `0x3FFFFFFF` bytes (1 GiB − 1) and rejects `0x40000000`. That is a
+**byte** limit, so the Memo **character** limit is it divided by the two bytes a character costs: Jet 4
+stores text as UTF-16LE, and compressed Unicode (§7) is an optimisation on top of that rather than a
+different encoding (`LongTextStorageAccessTests`).
+
+Both ends measured directly rather than inferred, with ACE authoring and both engines verifying every
+character:
+
+| | bytes | outcome |
+| --- | ---: | --- |
+| binary `0x3FFFFFFF` | 1,073,741,823 | accepted |
+| binary `0x40000000` | 1,073,741,824 | rejected |
+| Memo 536,870,911 chars, non-ASCII | 1,073,741,822 | accepted |
+| Memo 536,870,912 chars, non-ASCII | 1,073,741,824 | rejected, *"field too small"* |
+| Memo 536,870,911 chars, **ASCII** | 1,073,741,822 | accepted |
+| Memo 536,870,912 chars, **ASCII** | 1,073,741,824 | rejected |
+
+So a Memo holds at most **536,870,911 characters**, and LibRed's always-UTF-16 writer matches ACE rather
+than being half its capacity.
+
+**The limit is content-independent, and that follows from the type.** Jet 4 has one text representation —
+**UTF-16LE** — and compressed Unicode (§7) is a space optimisation layered on it, not a second encoding. A
+character costs two bytes; whether some of them can be squeezed to one on the way to disk is a property of
+the *storage form*, and at this scale the answer is always no, because a chained value is never compressed
+(see below) and anything near the ceiling is chained many times over. So "how many characters fit" is the
+byte ceiling divided by two, whatever the text holds.
+
+Worth measuring anyway, because the alternative was cheap to believe: if compression had applied, an
+all-ASCII Memo would have reached twice as far. It does not — ASCII and non-ASCII agree character for
+character at both ends, 536,870,911 accepted and 536,870,912 refused, and the accepted one takes the same
+~2 hours to write. Confirmation of the model rather than a surprise in it.
+
+> **The rejection is not cheap and not lossy.** ACE took ~109 minutes to refuse the over-long Memo — it does
+> not pre-check the declared length, it processes the whole value and fails at the end — and the database
+> then reopened with **zero rows**, in every rejected case, so the failed insert rolled back rather than
+> leaving a partial chain. For scale: writing the 1 GiB value took ACE ~110 minutes (~118 for the ASCII one)
+> against LibRed's ~3, while reading it back took ACE 6–10 seconds and LibRed 4–5. The asymmetry is entirely
+> in ACE's write path.
+>
+> Every accepted value was read back in full and verified character by character through **both** engines,
+> including the ACE-written 1 GiB − 1 binary — so the ceiling is where values stop being *storable*, not
+> where they stop being retrievable.
 
 > **`WITH COMPRESSION` does not raise that ceiling.** The attribute is reachable from SQL
 > (`M MEMO WITH COMP`) and does set the capable flag, but compression is decided *after* the storage form,
@@ -104,13 +140,31 @@ list (terminator included) counts toward the definition, not free space.
 > **LibRed writes the §3.3.2 entry + empty usage maps for every memo/OLE column** — byte-faithful with
 > ACE, whose usage-map page lays the records out as: row 0 table-owned, row 1 table-free, then one row
 > **per index**, then two rows (owned/free) **per long-value column** (verified against Northwind
-> Categories and against an ACE-created 80-memo-column table). **Multi-page distribution (wide tables):**
+> Categories and against an ACE-created 80-memo-column table).
+>
+> **That order is the DDL's, not a fixed rule — ACE assigns the rows in declaration order.** An *inline*
+> `PRIMARY KEY` is declared before the long-value columns and takes row 2, giving the layout above; a
+> trailing `CONSTRAINT pk PRIMARY KEY (…)` clause is created *after* them, so on a two-memo table ACE gives
+> the columns rows 2–5 and the index row 6. Measured both ways at 1, 2, 5, 26, 27, 28 and 40 long-value
+> columns. LibRed always writes the inline order — the declaration position is lost between the parser and
+> `CreateTable` — so it matches ACE byte-for-byte for inline keys and differs by the row numbering alone for
+> a named constraint. Both files are self-consistent and ACE reads either.
+> `TdefByteParityAccessTests.Usage_map_rows_follow_declaration_order` holds both measurements.
+>
+> The spill rule applies here too, and to whichever comes last: at 27 memo columns the index still fits the
+> primary page (row 56, the 57th record), and at 28 it goes to **row 0 of a page of its own** — the same
+> behaviour `CREATE INDEX` shows on an already-full page. **Multi-page distribution (wide tables):**
 > a usage-map page holds ~57 of the 69-byte inline records, so a table with many memo/OLE columns can't
 > fit all its used/free maps on one page. Access fills the primary page (data + indexes + as many *whole*
 > columns as fit — 27 columns alongside a single index), then gives **each remaining long-value column its
 > own dedicated usage-map page** with owned = row 0, free = row 1. LibRed reproduces this exactly (verified:
 > an 80-memo table lands 27 columns on the primary page at rows 3–56, then one page each for the rest;
-> ACE opens it and round-trips an 8000-char value written to an overflow column). Each column's §3.3.2
+> ACE opens it and round-trips an 8000-char value written to an overflow column). **`CREATE INDEX` on such
+> a table spills too**: with the primary page full, ACE does not compact or reuse it but allocates a page
+> holding the new index's map alone, at row 0 (verified on a 40-memo table: after `CREATE INDEX` the
+> primary page still has its 57 rows and the new index block's `+0x22` pointer reads row 0 of a fresh
+> page). Only when the primary page still has room for another 69-byte record does the new index's map go
+> there, appended after the existing rows. Each column's §3.3.2
 > `used_pages`/`free_pages` pointers, and the index blocks' `+0x22` pointers, carry the resolved (row, page).
 > For a fresh table all these maps are empty. When LibRed writes a value to an LVAL page
 > (§8), it now **sets that page's bit in the column's owned-pages *and* free-pages maps** — both §3.3.2

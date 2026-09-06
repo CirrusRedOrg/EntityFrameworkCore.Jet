@@ -41,6 +41,13 @@ delete, permanently. `DeletedRowSpaceAccessTests`.
 The **slot directory** is not reclaimed by either engine: a tombstoned slot is never reused, so a page that
 has seen thirteen rows carries thirteen slots whatever is live. Only the row bytes come back.
 
+**A relocated row is reclaimed on both pages.** When a slot carries the overflow flag it holds a 4-byte
+forward pointer rather than the row, and the row itself sits on another page flagged deleted (§ relocation
+below). Deleting it reclaims the target first and then the pointer: ACE brings the target's page back to a
+bare `4080` free and returns the pointer's four bytes to the source page. Reclaiming only the pointer
+strands the moved row for ever — for a row that relocated because it grew, that is the whole widened row,
+hundreds of bytes against the pointer's four. `RelocatedRowDeleteAccessTests`.
+
 > **A record is capped at 4060 bytes**, counting everything in the row itself — the leading count, fixed
 > data, variable data, the offset table and the null bitmap — but not the payload of a Memo/OLE column,
 > which lives on LVAL pages behind a 12-byte descriptor. Past it ACE refuses the insert with *"Record is

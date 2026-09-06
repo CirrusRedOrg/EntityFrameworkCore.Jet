@@ -229,14 +229,15 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             int dir = format.DataRowDirectoryOffset + id.Row * 2;
             ushort entry = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir, 2));
 
-            // A slot that already carries the overflow flag is a 4-byte forward pointer to a relocated row,
-            // not the row itself; flag it and leave both alone rather than reclaiming the pointer's bytes
-            // and orphaning the target.
+            // A slot carrying the overflow flag is a 4-byte forward pointer to a relocated row rather than
+            // the row itself, so the row it forwards to has to go first — otherwise deleting a relocated
+            // row strands it on its own page for ever, which for a widened row is far more than the
+            // pointer's own four bytes. ACE reclaims both (verified: the target's page comes back to a bare
+            // 4080 free, and the pointer's four bytes return to this one).
             if ((entry & RowPointer.OverflowFlag) != 0)
-                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir, 2), (ushort)(entry | RowPointer.DeletedFlag));
-            else
-                ReclaimRow(format, page, id.Row);
+                ReclaimRelocationTarget(format, page, id.Row);
 
+            ReclaimRow(format, page, id.Row);
             _channel.WritePage(id.Page, page.AsSpan(0, format.PageSize));
         }
         finally { ArrayPool<byte>.Shared.Return(page); }
@@ -250,6 +251,31 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             _channel.WritePage(_table.DefinitionPage, tdef.AsSpan(0, format.PageSize));
         }
         finally { ArrayPool<byte>.Shared.Return(tdef); }
+    }
+
+    /// <summary>Reclaims the row a relocation pointer forwards to, on whatever page it lives. The pointer
+    /// is the first four bytes of the source row: <c>page = pointer >> 8</c>, <c>row = pointer &amp; 0xFF</c>
+    /// (see <see cref="RowRelocationReader"/>). The target is flagged deleted so scans skip it, which is why
+    /// it is read straight off the directory rather than through the reader's live-slot validation.</summary>
+    private void ReclaimRelocationTarget(JetFormatBase format, byte[] sourcePage, int row)
+    {
+        int offset = BinaryPrimitives.ReadUInt16LittleEndian(
+            sourcePage.AsSpan(format.DataRowDirectoryOffset + row * 2, 2)) & RowPointer.OffsetMask;
+        int pointer = BinaryPrimitives.ReadInt32LittleEndian(sourcePage.AsSpan(offset, 4));
+        int targetPage = pointer >> 8, targetRow = pointer & 0xFF;
+        if (targetPage <= 0 || targetPage >= _channel.PageCount) return;
+
+        byte[] page = ArrayPool<byte>.Shared.Rent(format.PageSize);
+        try
+        {
+            _channel.ReadPage(targetPage, page);
+            if (targetRow < BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2)))
+            {
+                ReclaimRow(format, page, targetRow);
+                _channel.WritePage(targetPage, page.AsSpan(0, format.PageSize));
+            }
+        }
+        finally { ArrayPool<byte>.Shared.Return(page); }
     }
 
     /// <summary>

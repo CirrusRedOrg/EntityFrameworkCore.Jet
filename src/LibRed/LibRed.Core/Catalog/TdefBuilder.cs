@@ -177,6 +177,7 @@ public static class TdefBuilder
         var ids = new HashSet<int>();
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         long fixedBytes = 0;
+        int variableColumns = 0, highWater = -1;
         for (int i = 0; i < specs.Count; i++)
         {
             ColumnSpec spec = specs[i];
@@ -195,13 +196,18 @@ public static class TdefBuilder
             if (spec.Length is < 0 or > ushort.MaxValue)
                 throw new NotSupportedException(
                     $"Column '{spec.Name}' has byte length {spec.Length}, which does not fit the TDEF field.");
+            RecordLayout.ValidateFieldWidth(spec.Name, spec.Type, spec.Length);
             if (spec.IsFixedLength && spec.Type != JetDataType.Boolean)
                 fixedBytes += spec.Length;
+            if (!spec.IsFixedLength) variableColumns++;
+            highWater = Math.Max(highWater, id);
         }
 
-        if (fixedBytes > ushort.MaxValue)
-            throw new NotSupportedException(
-                $"The table's fixed-data region is {fixedBytes} bytes, which does not fit the TDEF offset fields.");
+        // The fixed region used to be checked only against the TDEF's 2-byte offset fields (65535). ACE's real
+        // limit is far tighter — the widest record the declaration allows must still be storable — and it
+        // subsumes that one, since no column may now exceed 510 bytes. Without this a plain CreateTable of
+        // 252 GUID columns writes a database Access will not open at all.
+        RecordLayout.ValidateRecordFits(null, (int)fixedBytes, variableColumns, highWater + 1, format);
     }
 
     private static void ValidateIndexAndLongValueSpecs(

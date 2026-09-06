@@ -1178,6 +1178,15 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 $"Cannot add column '{spec.Name}' to '{tableName}': too many fields defined — {MaxColumnsPerTable} column ids " +
                 "have been used over this table's lifetime (Jet/ACE caps the id high-water; a compact is required to reclaim dropped ids).");
 
+        // The width limits Create enforces through TdefBuilder apply just as much to a column added later:
+        // the new column's own width, and what it does to the widest record the table can now hold.
+        RecordLayout.ValidateFieldWidth(spec.Name, spec.Type, spec.Length);
+        RecordLayout.ValidateRecordFits(tableName,
+            FixedBytes(table) + (spec.IsFixedLength && spec.Type != JetDataType.Boolean ? spec.Length : 0),
+            varCount + (spec.IsFixedLength ? 0 : 1),
+            maxCols + 1,
+            format);
+
         var newColumn = new ColumnDef
         {
             Name = spec.Name,
@@ -1453,6 +1462,19 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
         EnsureColumnIsNotInRelationship(table, col);
 
+        // Widening a column reaches the same bytes as declaring it wide in the first place, so the limits
+        // Create enforces apply here too. This sits ahead of the identity and counter short-circuits below
+        // deliberately: re-declaring an already-oversized column should report the problem, not wave it on.
+        RecordLayout.ValidateFieldWidth(newSpec.Name, newSpec.Type, newSpec.Length);
+        RecordLayout.ValidateRecordFits(tableName,
+            FixedBytes(table)
+                - (col.IsFixedLength && col.Type != JetDataType.Boolean ? col.Length : 0)
+                + (newSpec.IsFixedLength && newSpec.Type != JetDataType.Boolean ? newSpec.Length : 0),
+            table.Columns.Count(c => !c.IsFixedLength) + (col.IsFixedLength ? 0 : -1) + (newSpec.IsFixedLength ? 0 : 1),
+            // A type change burns a fresh column id, so the bitmap can widen by one.
+            HighWater(table) + (col.Type == newSpec.Type ? 0 : 1),
+            _channel.Format);
+
         // A pure reseed of an existing counter — ALTER COLUMN c COUNTER(seed, increment) where c is already an
         // AutoNumber of the same storage type — changes only the next id, not the data or layout. It's an
         // in-place TDEF header edit (0x14/0x18), exactly what ACE does; RewriteColumn would needlessly rebuild
@@ -1525,6 +1547,16 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         }
         throw new InvalidOperationException($"Descriptor for column '{columnName}' (id {col.ColumnId}) was not found.");
     }
+
+    /// <summary>The table's fixed-data region, counted the way <see cref="TdefBuilder"/> counts it on create:
+    /// Boolean is fixed but occupies no data, so it contributes nothing.</summary>
+    private static int FixedBytes(TableDef table) =>
+        table.Columns.Where(c => c.IsFixedLength && c.Type != JetDataType.Boolean).Sum(c => c.Length);
+
+    /// <summary>The TDEF's `0x29` column-id high-water — the number of ids handed out over the table's
+    /// lifetime, which is what sizes a record's null bitmap (dropped ids keep their bit).</summary>
+    private int HighWater(TableDef table) =>
+        ReadDefinition(table.DefinitionPage).Buffer.ReadUInt16(_channel.Format.TdefMaxColumnsOffset);
 
     /// <summary>Whether the column is either end of a relationship — the child's FK column or the parent's
     /// referenced key. ACE refuses to alter or drop such a column; the two callers differ only in the message
@@ -1836,6 +1868,16 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         ColumnDef oldTarget = oldDef.FindColumn(columnName)
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
         EnsureColumnIsNotInRelationship(oldDef, oldTarget);
+
+        // Also reached directly, not only through AlterColumn, so it carries the width limits itself.
+        RecordLayout.ValidateFieldWidth(newSpec.Name, newSpec.Type, newSpec.Length);
+        RecordLayout.ValidateRecordFits(tableName,
+            FixedBytes(oldDef)
+                - (oldTarget.IsFixedLength && oldTarget.Type != JetDataType.Boolean ? oldTarget.Length : 0)
+                + (newSpec.IsFixedLength && newSpec.Type != JetDataType.Boolean ? newSpec.Length : 0),
+            oldDef.Columns.Count(c => !c.IsFixedLength) + (oldTarget.IsFixedLength ? 0 : -1) + (newSpec.IsFixedLength ? 0 : 1),
+            HighWater(oldDef) + 1,   // the type change burns a fresh id
+            _channel.Format);
 
         // A long-value (Memo/OLE) target — or converting one away — needs long-value column mechanics (a §3.3.2
         // usage-map entry, LVAL pages, freeing the old value). That's out of scope for the byte-faithful in-place

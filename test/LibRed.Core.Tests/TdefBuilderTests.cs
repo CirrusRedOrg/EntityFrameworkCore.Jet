@@ -141,13 +141,20 @@ public class TdefBuilderTests
     }
 
     [Fact]
-    public void Builder_rejects_a_fixed_region_that_cannot_fit_its_offsets()
+    public void Builder_rejects_a_column_wider_than_ace_stores()
     {
-        ColumnSpec[] specs =
-        [
-            new("A", JetDataType.Binary, 40000, IsFixedLength: true),
-            new("B", JetDataType.Binary, 40000, IsFixedLength: true),
-        ];
+        ColumnSpec[] specs = [new("A", JetDataType.Binary, 40000, IsFixedLength: true)];
+
+        Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, specs));
+    }
+
+    // Every column within the per-field limit, yet the fixed region as a whole is past what a record can
+    // hold — the boundary itself is measured against ACE in ColumnWidthLimitAccessTests.
+    [Fact]
+    public void Builder_rejects_a_fixed_region_past_the_record_cap()
+    {
+        ColumnSpec[] specs = [.. Enumerable.Range(0, 252)
+            .Select(i => new ColumnSpec($"G{i}", JetDataType.Guid, 16, IsFixedLength: true))];
 
         Assert.Throws<NotSupportedException>(() => TdefBuilder.Build(Format, TableType.User, specs));
     }

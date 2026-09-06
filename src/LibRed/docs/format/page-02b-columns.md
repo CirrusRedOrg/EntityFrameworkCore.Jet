@@ -114,6 +114,47 @@ Variable-length columns carry a *variable index* — their position in the row's
 (§5), stored in the descriptor at `0x07`. For an untouched table this equals their rank among variable
 columns ordered by ascending column id, but a `DROP COLUMN` can leave a gap (see the note above).
 
+#### Declared width limits
+
+Two limits bind a declaration, both enforced by ACE when it **opens the file**, so writing past either
+damages the database rather than just the table. Measured 2026-09-06 against ACE 16 (OLE DB); LibRed
+applies both in `Catalog/RecordLayout.cs`, on create and on every incremental path.
+
+**Per field: 510 bytes** — 255 Text characters, or 510 bytes of Binary, fixed or variable alike. ACE
+refuses a wider column through its own DDL identically on `CREATE TABLE`, `ALTER COLUMN` and `ADD COLUMN`
+(*"Size of field is too long"*: `TEXT(255)` and `BINARY(510)` are accepted, `TEXT(256)` and `BINARY(511)`
+are not). A file written with a wider column **opens**, but the table cannot be queried — `SELECT` fails
+with *"The size of a field is too long"*. Memo and OLE are exempt: their data lives on long-value pages.
+
+**Per declaration: the widest possible record must fit the 4060-byte cap** (§5), which is far tighter than
+the TDEF's own 2-byte offset fields:
+
+```
+2 + fixedBytes + varOverhead + ceil(columnIdHighWater / 8)  <=  4060
+varOverhead = 4 when the table has no variable columns, else (numVar + 1) * 2 + 2
+```
+
+Note what is **not** in the sum: a variable column costs only its 2 bytes of offset table, never its
+declared width — which is why an all-Text table is unconstrained while a wide fixed region is not. The
+4-byte allowance for a table with no variable columns at all is ACE's; LibRed's own encoder omits the
+variable section entirely in that case (§5), so its rows come in 4 bytes under what ACE reserves.
+
+Measured on both sides of the boundary at column counts chosen so the null-bitmap term differs by 31 bytes,
+and the two boundaries duly differ by 31:
+
+| shape | fixed bytes | widest record | ACE |
+| --- | ---: | ---: | --- |
+| 8 fixed columns (1 bitmap byte) | 4053 | 4060 | opens |
+| 8 fixed columns | 4054 | 4061 | *"Unrecognized database format"* |
+| 252 fixed columns (32 bitmap bytes) | 4022 | 4060 | opens |
+| 252 fixed columns | 4023 | 4061 | *"Unrecognized database format"* |
+| 4018 fixed bytes + 2 variable | 4018 | 4060 | opens |
+| 4018 fixed bytes + 3 variable | 4018 | 4062 | *"Unrecognized database format"* |
+
+ACE's own SQL DDL cannot easily reach this: it declares `GUID` columns **variable** (see
+[data-types.md](data-types.md)), so a table wide enough to trip the limit takes deliberately wide fixed
+columns. `ColumnWidthLimitAccessTests` holds the measurements.
+
 
 ### 3.8 In-place column type/length change (`ALTER COLUMN`) — verified byte-for-byte
 

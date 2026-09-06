@@ -816,6 +816,28 @@ The split mechanics:
   leaf-chain offsets) neither is *verified* to be required — see §10.1 `0x1A` and §10.3.
 - **Node split:** partition on a **middle entry** whose key is *promoted* (removed from the node);
   its child becomes the left node's child-tail, and the old tail stays the right node's tail.
+- **ACE additionally splits at the RIGHT EDGE, and LibRed does not.** When the incoming key is the highest
+  on the page, ACE leaves that page full and starts a new one with the new entry alone, instead of halving
+  it. Nothing sorts below a maximum key, so a middle split there strands half a page for ever. Measured on
+  1500 rows through both engines (leaf free space, sorted):
+
+  | inserted | ACE | LibRed |
+  | --- | --- | --- |
+  | ascending | 3 leaves — `1, 1, 952` | 4 leaves — `31, 1807, 1807, 1807` |
+  | descending | 4 — `31, 1807, 1807, 1807` | 4 — `49, 1801, 1801, 1801` |
+  | random | 4 — `1267, 1369, 1405, 1411` | 4 — `1291, 1357, 1387, 1417` |
+  | gapped, then backfilled ascending (3000 rows) | 5 — `1, 1, 1, 7, 55` | 6 — `1, 1, 7, 73, 1789, 1807` |
+
+  Three things follow. The optimisation is **right-edge only** — descending inserts get an ordinary middle
+  split from ACE too, and the two engines then agree. On random keys both settle near two-thirds full, the
+  classic B-tree equilibrium, so **LibRed's middle split matches ACE's**; the gap is exclusively the missing
+  special case. And it appears to cost nothing: the obvious objection — that a page packed to capacity must
+  split as soon as anything lands in its range — did not show up, because an ascending backfill keeps
+  meeting the right edge of a subtree. (A *random* backfill into pre-packed pages has not been measured.)
+
+  Ascending keys are the ordinary case, since AutoNumber and identity keys are ascending by construction, so
+  LibRed spends roughly 1.8x the index pages on the commonest shape. Correct either way — ACE seeks through
+  LibRed's tree — and `IndexSplitPackingAccessTests` holds the assertion plus the ACE-reads-it check.
 - **Propagation:** the promoted separator `[key → left page]` is inserted into the parent, whose
   pointer to the just-split page is repointed to the new right page; if the parent overflows it
   splits in turn, up to the root.

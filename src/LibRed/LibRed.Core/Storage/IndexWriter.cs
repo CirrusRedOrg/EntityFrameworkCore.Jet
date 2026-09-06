@@ -398,6 +398,13 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
         // A single entry (or a node) has no common-prefix compression — ACE writes 0 here (the whole key with
         // itself would otherwise "compress" to its full length, which ACE does not do for one entry).
+        //
+        // ACE leaves one leaf of a sequential load uncompressed (`3, 3, 0` where LibRed writes `3, 3, 3`),
+        // and the obvious explanation — that it recomputes only when a split writes the page, and a page
+        // born from a right-edge split starts at 0 and keeps it while filling — is WRONG. Implemented, it
+        // makes pages fill uncompressed, overflow sooner, and then shrink when the split recompresses them:
+        // 4 leaves and 11,820 bytes against ACE's 3 and 11,334. Whatever ACE does, its full pages were
+        // filled already compressed. Recomputing every time is kept until that is actually understood.
         int compress = !isLeaf || entries.Count <= 1 ? 0 : CommonPrefixLength(entries[0].Key, entries[^1].Key);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(CompressedByteCountOffset, 2), (ushort)compress);
 

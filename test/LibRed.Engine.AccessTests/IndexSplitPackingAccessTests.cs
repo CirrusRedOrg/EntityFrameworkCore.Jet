@@ -39,7 +39,7 @@ public class IndexSplitPackingAccessTests(ITestOutputHelper output) : TempDataba
     public void An_ascending_load_packs_its_leaves()
     {
         (_, string free, _, _) = Leaves("ascending", ace: false);
-        int fullest = free.Split(',').Select(int.Parse).Min();
+        int fullest = free.Split(',').Select(int.Parse).Min();   // page order now, so take the minimum
         Assert.True(fullest < 16, $"expected a leaf packed to capacity, got free space {free}");
     }
 
@@ -153,7 +153,9 @@ public class IndexSplitPackingAccessTests(ITestOutputHelper output) : TempDataba
                 prefix.Add(BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(0x18, 2)));
                 used += channel.Format.PageSize - pageFree;
             }
-            free.Sort();
+            // Both lists stay in PAGE order. Sorting one and not the other made the two columns disagree
+            // about which page was which, which is how "the uncompressed page is the tail" got read off a
+            // report that did not say so.
             return (free.Count, string.Join(",", free), used, string.Join(",", prefix));
         }
         finally { TemporaryDatabase.Delete(path); }

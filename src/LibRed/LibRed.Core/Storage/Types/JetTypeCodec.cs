@@ -147,20 +147,43 @@ public static class JetTypeCodec
     }
 
     /// <summary>
-    /// Decodes a Jet text value, honoring compressed Unicode. A value beginning with the
-    /// 0xFF 0xFE marker stores ASCII-range characters as one byte each; otherwise it is
-    /// UTF-16LE.
+    /// Decodes a Jet text value, honoring compressed Unicode. A value beginning with the <c>FF FE</c> marker
+    /// is compressed: it starts in 1-byte-per-character mode, and every <c>0x00</c> byte at a character
+    /// boundary toggles between that and 2-byte UTF-16LE. Without the marker the value is plain UTF-16LE.
     /// </summary>
     /// <remarks>
-    /// TODO: the full compressed format can toggle between 1-byte and 2-byte runs mid-string
-    /// (via embedded markers) for mixed scripts; this handles the common all-compressed case.
+    /// The toggling (mixed) form is not hypothetical and ACE writes it readily: <c>café中</c> is stored as
+    /// <c>FF FE 63 61 66 E9 00 2D 4E</c> — "café" compressed, a switch, then 中. Decoding such a value as a
+    /// single Latin1 run, as this used to, silently returns <c>café\0-N</c>: wrong data from a file Access
+    /// wrote, with no error. Access's UI defaults Unicode Compression to Yes, so mixed-script text in a real
+    /// database reaches this path routinely.
+    /// <para>
+    /// A character whose UTF-16LE <b>low</b> byte is <c>0x00</c> — U+4E00 is <c>00 4E</c> — would be
+    /// indistinguishable from a switch. ACE resolves that by not using the mixed form at all when one is
+    /// present: <c>aaaaa中</c> is mixed, <c>aaaaa一</c> is plain UTF-16. It also uses the form only when it
+    /// strictly saves space, so <c>abc中</c> (8 bytes either way) stays UTF-16. Both measured in
+    /// <c>MixedCompressionAccessTests</c>, and together they are what make toggling on <c>0x00</c> safe.
+    /// </para>
     /// </remarks>
     public static string DecodeText(ReadOnlySpan<byte> value)
     {
-        if (value.Length >= 2 && value[0] == 0xFF && value[1] == 0xFE)
-            return Encoding.Latin1.GetString(value[2..]);
+        if (value.Length < 2 || value[0] != 0xFF || value[1] != 0xFE)
+            return Encoding.Unicode.GetString(value);
 
-        return Encoding.Unicode.GetString(value);
+        var text = new StringBuilder(value.Length - 2);
+        bool oneByte = true;
+        for (int i = 2; i < value.Length;)
+        {
+            if (value[i] == 0x00) { oneByte = !oneByte; i++; continue; }
+            if (oneByte) { text.Append((char)value[i]); i++; }
+            else
+            {
+                if (i + 1 >= value.Length) break;   // a truncated trailing pair: take what is whole
+                text.Append((char)(value[i] | (value[i + 1] << 8)));
+                i += 2;
+            }
+        }
+        return text.ToString();
     }
 
     /// <summary>
@@ -221,11 +244,12 @@ public static class JetTypeCodec
             // flag. Chained LVAL pages for values too large to inline are not written yet.
             case JetDataType.Memo:
             {
-                // An inline memo compresses on the same terms as inline text — measured: 20 characters in a
-                // WITH COMPRESSION column store as 22 bytes behind the 0x80 flag. Only values the caller has
-                // already decided to inline reach here, so no storage-form test is needed.
+                // An inline memo compresses whether or not the column was declared WITH COMPRESSION — the
+                // capable flag gates single-page values, not inline ones (see TryCompressText). Only values
+                // the caller has already decided to inline reach here, so no storage-form test is needed.
                 string memo = AsText(value, c);
-                return EncodeInlineLongValue(TryCompressText(column, memo) ?? Encoding.Unicode.GetBytes(memo));
+                return EncodeInlineLongValue(
+                    TryCompressText(column, memo, requireCapableFlag: false) ?? Encoding.Unicode.GetBytes(memo));
             }
             case JetDataType.Ole:
                 return EncodeInlineLongValue(AsBinary(value));
@@ -244,14 +268,23 @@ public static class JetTypeCodec
 
     /// <summary>
     /// The compressed form of <paramref name="value"/> — the <c>FF FE</c> marker then one byte per character
-    /// — or null when ACE would not compress it. Measured (<c>TextCompressionProbeTests</c>): the column must
-    /// be declared <c>WITH COMPRESSION</c>, every character must fit a single byte, and it must actually save
-    /// space. The last condition bites at the short end, where the 2-byte marker costs more than it saves:
+    /// — or null when ACE would not compress it. Every character must fit a single byte and it must actually
+    /// save space; the latter bites at the short end, where the 2-byte marker costs more than it saves, so
     /// ACE leaves 1- and 2-character values as UTF-16 and compresses from 3 up.
+    /// <para>
+    /// <paramref name="requireCapableFlag"/> is what the column's <c>WITH COMPRESSION</c> declaration gates,
+    /// and it does not gate everything. Measured against ACE: an <b>inline</b> long value is compressed
+    /// whether the flag is set or not, while a value on a single LVAL page is compressed <b>only</b> when it
+    /// is set (a 40-character ASCII memo stores 80 bytes on a plain column and 42 on a compressed one), and
+    /// a chained value never is. Ordinary Text columns do honour the flag. The storage form itself is chosen
+    /// on the UNCOMPRESSED length either way — 33 ASCII characters are 66 bytes and go to a page, even
+    /// though they would compress to 35 and fit inline. <c>MemoCompressionAccessTests</c>.
+    /// </para>
     /// </summary>
-    internal static byte[]? TryCompressText(ColumnDef column, string value)
+    internal static byte[]? TryCompressText(ColumnDef column, string value, bool requireCapableFlag = true)
     {
-        if (!column.SupportsCompressedUnicode || 2 + value.Length >= value.Length * 2) return null;
+        if (requireCapableFlag && !column.SupportsCompressedUnicode) return null;
+        if (2 + value.Length >= value.Length * 2) return null;
         foreach (char c in value)
             if (c > 0xFF) return null;
 

@@ -7,35 +7,46 @@ using Xunit;
 
 namespace LibRed.Core.Tests;
 
-// ACE never writes the MIXED compressed form - compressed runs toggled by an embedded 0x00, the shape
-// mdbtools decodes and LibRed's reader does not. It is all or nothing, and this is what makes LibRed's
-// all-or-nothing writer a match rather than a simplification.
+// Whether one non-Latin1 character costs a value its compression depends entirely on WHICH character.
 //
-// Worth asserting rather than assuming, because the obvious reading of the first sample was wrong twice
-// over. "mixed 一 text" came back fully UTF-16, but at 12 characters the saving is trivial, so a heuristic
-// that does not bother for small values would look identical. These cases make the saving large - one
-// character out of 1001 forfeits about 1000 bytes - and move the incompressible character around, which
-// also rules out compressing greedily until blocked.
+// This file used to conclude that ACE never writes the MIXED form (compressed runs toggled by an embedded
+// 0x00), and it was wrong in an instructive way: every case used 一, and U+4E00 is stored 00 4E, whose low
+// byte is indistinguishable from the mode switch. ACE avoids the mixed form for exactly such a character —
+// so the file had picked the one input that cannot show it, and read "ACE will not" off "ACE cannot here".
+//
+// Swap in 中 (2D 4E, no 0x00 low byte) and the same 1001-character shape comes back MIXED: 1005 bytes,
+// FF FE + 1000 compressed + a switch + the 2-byte character. So the form appears on LVAL pages, not only
+// inline, and "one incompressible character forfeits the whole value" holds only for the ambiguous ones.
+//
+// Position still makes no difference, which rules out compressing greedily until blocked. The emit rule
+// and the inline cases are in MemoCompressionAccessTests (Engine suite); data-types.md §7 has the summary.
 //
 // Scope: whatever ACE is installed. The provider is logged, since the scheme dates from Jet 4.0 and an
 // older engine may differ; 12.0 and 16.0 were checked by hand and agree byte for byte, but only one ACE is
 // installed at a time so the test cannot assert both.
 public class MixedCompressionAccessTests(ITestOutputHelper output) : TempDatabaseTest
 {
-    public static TheoryData<string, string, bool> Cases => new()
+    // name, payload, stored bytes, mode switches in the payload
+    public static TheoryData<string, string, int, int> Cases => new()
     {
         // The control: the saving is available and taken, so a refusal below is a decision, not an inability.
-        { "all ascii (control)", new string('a', 1000), true },
-        // One character out of 1001 costs the whole value its compression - about 1000 bytes thrown away.
-        // Position makes no difference, which rules out "compress greedily until blocked" as well.
-        { "odd char last", new string('a', 1000) + '一', false },
-        { "odd char first", '一' + new string('a', 1000), false },
-        { "odd char middle", new string('a', 500) + '一' + new string('a', 500), false },
+        { "all ascii (control)", new string('a', 1000), 1002, 0 },
+        // 一 is 00 4E — ambiguous with the switch, so ACE will not mix and the whole value goes UTF-16,
+        // throwing away about 1000 bytes for one character. Position makes no difference.
+        { "ambiguous last", new string('a', 1000) + '一', 2002, 0 },
+        { "ambiguous first", '一' + new string('a', 1000), 2002, 0 },
+        { "ambiguous middle", new string('a', 500) + '一' + new string('a', 500), 2002, 0 },
+        // 中 is 2D 4E — unambiguous, so the same shape mixes instead: 2 + 1000 + 1 + 2.
+        { "unambiguous last", new string('a', 1000) + '中', 1005, 1 },
+        // Leading 2-byte run costs an extra switch to get into it: marker, switch, 中, switch, 1000.
+        { "unambiguous first", '中' + new string('a', 1000), 1006, 2 },
+        { "unambiguous middle", new string('a', 500) + '中' + new string('a', 500), 1006, 2 },
     };
 
     [Theory]
     [MemberData(nameof(Cases))]
-    public void Ace_never_writes_the_mixed_compressed_form(string name, string payload, bool expectCompressed)
+    public void Only_an_ambiguous_character_forfeits_compression(
+        string name, string payload, int expectedBytes, int expectedSwitches)
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "mixed-comp-");
         using (OleDbConnection connection = AceTestDatabase.Open(path))
@@ -77,10 +88,14 @@ public class MixedCompressionAccessTests(ITestOutputHelper output) : TempDatabas
                     output.WriteLine($"{name}: {payload.Length} chars -> stored {stored} bytes "
                         + $"(utf16 would be {payload.Length * 2}); head={Convert.ToHexString(body[..Math.Min(8, body.Length)])}");
 
-                    Assert.Equal(expectCompressed ? payload.Length + 2 : payload.Length * 2, stored);
-                    Assert.Equal(expectCompressed, body.Length >= 2 && body[0] == 0xFF && body[1] == 0xFE);
-                    // Whatever it wrote, no mode toggle: this engine emits one form for the whole value.
-                    Assert.Equal(0, Toggles(body));
+                    Assert.Equal(expectedBytes, stored);
+                    Assert.Equal(expectedBytes < payload.Length * 2,
+                        body.Length >= 2 && body[0] == 0xFF && body[1] == 0xFE);
+                    Assert.Equal(expectedSwitches, Toggles(body));
+
+                    // And whatever form it chose, LibRed must read the value back intact — the decoder is
+                    // the half of this that can silently return wrong data.
+                    Assert.Equal(payload, Storage.Types.JetTypeCodec.DecodeText(body));
                     return;
                 }
             }

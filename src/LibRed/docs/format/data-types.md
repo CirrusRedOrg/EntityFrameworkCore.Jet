@@ -100,9 +100,28 @@ A text value that begins with the 2-byte marker `FF FE` is **compressed**: the f
 are one per character (ASCII range), not UTF-16. Otherwise the value is UTF-16LE. Applies to
 both `Text` and resolved `Memo`.
 
-Compression is opt-in per column, via the descriptor's `0x10` extended flag `0x01`. ACE sets it only when the
-column is declared `WITH COMPRESSION` (or `WITH COMP`) — a plain `TEXT`/`MEMO` column created through SQL DDL
-leaves it **clear** and stores UTF-16 whatever the content.
+The descriptor's `0x10` extended flag `0x01` records the column as compression-*capable*. ACE sets it only
+when the column is declared `WITH COMPRESSION` (or `WITH COMP`); a plain `TEXT`/`MEMO` column created through
+SQL DDL leaves it **clear**.
+
+> **The flag does not gate everything, and for a long value it gates the *page* case only.** A plain
+> `LONGTEXT` column — capable flag clear — still stores an **inline** value compressed. What the declaration
+> buys is compression of a value that landed on a single LVAL page. Measured against ACE, ASCII throughout:
+>
+> | column | characters | form | on-disk length |
+> | --- | ---: | --- | ---: |
+> | `LONGTEXT` | 30 | inline | 32 — compressed |
+> | `LONGTEXT` | 32 | inline | 34 — compressed |
+> | `LONGTEXT` | 33 | page | 66 — **not** compressed |
+> | `LONGTEXT` | 40 | page | 80 — not compressed |
+> | `LONGTEXT WITH COMPRESSION` | 40 | page | 42 — compressed |
+> | `LONGTEXT WITH COMPRESSION` | 100 | page | 102 — compressed |
+>
+> The 32/33 boundary also shows the form being chosen on the **uncompressed** length: 33 characters are 66
+> bytes and go to a page, though they would compress to 35 and fit inline. An ordinary `Text` column does
+> honour the flag, so this is specific to long values. LibRed required the flag everywhere and so stored
+> every short ASCII memo at twice ACE's size — found by diffing row bytes, fixed in `JetTypeCodec`.
+> `MemoCompressionAccessTests`.
 
 **When a capable column actually compresses a value** (measured in `CompressedTextAccessTests` and
 `LongTextStorageAccessTests`, and reproduced by LibRed byte-for-byte):
@@ -113,14 +132,39 @@ leaves it **clear** and stores UTF-16 whatever the content.
 - **It must save space.** The marker costs 2 bytes, so 1- and 2-character values stay UTF-16 (2 + N < 2N only
   from N = 3). Verified at each of 1, 2 and 3 characters.
 - **A chained long value is never compressed.** Compression is decided *after* the storage form, and the
-  form — inline, single page or chained — is chosen on the **uncompressed** UTF-16 length. So an inline or
-  single-page Memo compresses and a chained one does not, and the compressed size never approaches any limit.
+  form — inline, single page or chained — is chosen on the **uncompressed** UTF-16 length. So an inline Memo
+  compresses (whatever the capable flag says), a single-page one compresses only on a `WITH COMPRESSION`
+  column, and a chained one never does; the compressed size never approaches any limit.
   Microsoft's "only instances that, when compressed, will fit within 4096 bytes" describes the wrong
   quantity; see [long-values.md](long-values.md) for the measured boundary.
 
-> **The mixed form is unreproduced.** The format allows a value to toggle between 1-byte and 2-byte runs
-> mid-string — an embedded `0x00` after the marker switches mode — and mdbtools decodes it. LibRed reads only
-> the all-compressed case, and writes either the whole value compressed or the whole value UTF-16.
+> **The mixed form is real, and ACE writes it readily.** A value can toggle between 1-byte and 2-byte runs
+> mid-string: after the `FF FE` marker the value starts in 1-byte mode and every `0x00` byte at a character
+> boundary switches mode. `café中` is stored as `FF FE 63 61 66 E9 00 2D 4E` — "café", a switch, then 中.
+>
+> This was previously recorded here as technically possible but unreproducible. The attempt that failed used
+> 1,000 ASCII characters plus one CJK — far too long to stay inline, so it went to an LVAL page and was not
+> compressed at all. The form appears on short **inline** values, and ACE emits it under two conditions,
+> both measured:
+>
+> - **It must strictly save space.** `abc中` is 8 bytes either way, so it stays UTF-16; `café中` saves one
+>   byte and is mixed.
+> - **No character in a 2-byte run may have a `0x00` low byte**, since that is indistinguishable from the
+>   switch. U+4E00 is `00 4E` and U+0100 is `00 01`, so `aaaaa一` and `aaaaaĀ` are stored as plain UTF-16
+>   while `aaaaa中` is mixed. One such character forfeits the form for the whole value.
+>
+> It is **not** limited to inline values: 1,000 ASCII characters plus one `中` on an LVAL page store as
+> 1,005 bytes (`FF FE` + 1,000 + switch + 2) where the same shape with `一` stores 2,002. So "one
+> incompressible character forfeits the whole value" holds only for the *ambiguous* ones — the original
+> reading of that experiment was an artefact of the character it happened to use.
+>
+> Together those are what make toggling on `0x00` unambiguous for a reader. **LibRed used to decode the
+> whole payload as a single Latin1 run**, silently returning `café\0-N` for a value Access wrote — wrong
+> data, no error, and reachable by ordinary mixed-script text since Access's UI defaults Unicode Compression
+> to Yes. `JetTypeCodec.DecodeText` now honours the switches. LibRed still *writes* either the whole value
+> compressed or the whole value UTF-16, which ACE reads correctly; that gap is asserted in
+> `MemoCompressionAccessTests.Libred_does_not_yet_write_the_mixed_form`, and closing it needs the emit rule
+> for a `WITH COMPRESSION` **Text** column measured too — only the Memo path is established.
 >
 > That gap is unreachable from anything ACE writes: **one incompressible character forfeits compression for
 > the entire value**, position irrelevant, even when that throws away a ~1,000-byte saving

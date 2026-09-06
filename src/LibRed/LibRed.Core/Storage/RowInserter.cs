@@ -110,6 +110,12 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format));
         byte[] record = encoder.Encode(values);
 
+        // Here as well as on the insert path, and before the in-place rewrite rather than beside the
+        // page-search: a row that grows past the cap but still fits its current page is rewritten where it
+        // lies and never reaches the search, so guarding only there let an UPDATE produce exactly the
+        // unreadable row an INSERT was stopped from producing.
+        EnsureRecordFits(format, record);
+
         int raw = BinaryPrimitives.ReadUInt16LittleEndian(srcPage.AsSpan(format.DataRowDirectoryOffset + id.Row * 2, 2));
         if ((raw & RowPointer.OverflowFlag) != 0)
         {
@@ -247,6 +253,13 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     public void RewriteRowRaw(RowId id, byte[] record)
     {
         JetFormatBase format = _channel.Format;
+
+        // The third entry point that writes a row, and the one most likely to cross the cap: its caller is
+        // the in-place ALTER re-lay, which by design makes rows LONGER — the retyped column is appended and
+        // its old slot left as dead space. The record arrives pre-built (BuildRelaidRecord → AssembleRow),
+        // so it never passes through RowEncoder.Encode or either guarded entry point.
+        EnsureRecordFits(format, record);
+
         byte[] srcPage = _channel.ReadPageShared(id.Page).Span.ToArray();
         int raw = BinaryPrimitives.ReadUInt16LittleEndian(srcPage.AsSpan(format.DataRowDirectoryOffset + id.Row * 2, 2));
         if ((raw & RowPointer.OverflowFlag) != 0)

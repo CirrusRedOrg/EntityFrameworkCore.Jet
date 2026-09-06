@@ -140,6 +140,67 @@ public class RecordSizeAccessTests(ITestOutputHelper output) : TempDatabaseTest
         }
     }
 
+    // UPDATE has to enforce the same cap. It is a separate path: the insert guard sits before the
+    // page-search, but an update first tries to rewrite the row where it already is, and a row that grows
+    // past the cap while still fitting its page would take that branch and never reach the search.
+    [Fact]
+    public void An_update_that_grows_a_row_past_the_cap_is_refused()
+    {
+        const int columns = 12;
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "recsize-update-");
+        using var database = JetDatabase.Open(path, readOnly: false);
+        database.CreateTable("WideRow", Specs(columns), primaryKey: ["Id"]);
+        Table table = database.OpenTable("WideRow");
+
+        // A small row, well inside the cap and alone on its page.
+        var values = new object?[columns + 1];
+        values[0] = 1;
+        values[1] = "seed";
+        table.Insert(values);
+
+        RowId id = table.Rows().WithIds().Single().Id;
+        object?[] grown = (object?[])values.Clone();
+        for (int i = 0; i < 7; i++) grown[i + 1] = new string('a', 255);
+        grown[8] = new string('a', 228);   // 4062 bytes, two past the cap
+
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => table.Update(id, grown, new HashSet<int>(Enumerable.Range(1, 8))));
+        Assert.Contains("Record is too large", thrown.Message);
+
+        // The original row survives untouched.
+        Assert.Equal("seed", Assert.IsType<string>(table.Rows().Single()[1]));
+    }
+
+    // The third writer: RewriteRowRaw takes a pre-built record, so it bypasses RowEncoder.Encode and both
+    // guarded entry points. Its caller is the in-place ALTER re-lay, which makes rows longer by design, so
+    // it is the path most likely to cross the cap rather than the least.
+    [Fact]
+    public void A_raw_row_rewrite_is_bounded_too()
+    {
+        const int columns = 12;
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "recsize-raw-");
+        using (var database = JetDatabase.Open(path, readOnly: false))
+        {
+            database.CreateTable("WideRow", Specs(columns), primaryKey: ["Id"]);
+            var values = new object?[columns + 1];
+            values[0] = 1;
+            values[1] = "seed";
+            database.OpenTable("WideRow").Insert(values);
+        }
+
+        using var channel = LibRed.IO.PageChannel.Open(path, readOnly: false);
+        TableDef definition = new JetCatalog(channel).FindTable("WideRow")!;
+        var table = new Table(channel, definition);
+        RowId id = table.Rows().WithIds().Single().Id;
+
+        var inserter = new RowInserter(channel, definition);
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => inserter.RewriteRowRaw(id, new byte[4062]));
+        Assert.Contains("Record is too large", thrown.Message);
+
+        Assert.Equal("seed", Assert.IsType<string>(table.Rows().Single()[1]));
+    }
+
     [Fact]
     public void Ace_reads_the_largest_record_libred_will_write()
     {

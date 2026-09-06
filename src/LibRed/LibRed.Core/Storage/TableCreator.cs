@@ -804,6 +804,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     {
         TableDef? table = _catalog.FindTable(oldName);
         if (table is null) return false;
+        // The same names Create refuses. A rename reaches the identical bytes by a different route, so
+        // validating only on the way in left it open: renaming a COLUMN to over 64 characters makes the
+        // whole database unreadable to ACE ("Unrecognized database format"), which is exactly what the
+        // create-side check exists to prevent (RenameNameValidationAccessTests).
+        JetName.Validate(newName, "table name");
         // The table being renamed is not a collision with itself: renaming to the same name is a no-op that ACE
         // allows (and EF's schema "move" degrades to exactly that on a schema-less engine), as is a case-only
         // change. Both verified — RenameFanOutProbeTest.
@@ -870,6 +875,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
         ColumnDef? col = table.Columns.FirstOrDefault(c => string.Equals(c.Name, oldName, StringComparison.OrdinalIgnoreCase));
         if (col is null) return false;
+        JetName.Validate(newName, "column name");   // see RenameTable: unchecked, this corrupts the file
         if (table.Columns.Any(c => string.Equals(c.Name, newName, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException(
                 $"ALTER TABLE '{tableName}' RENAME COLUMN '{oldName}' TO '{newName}': the table already has a column named '{newName}'.");

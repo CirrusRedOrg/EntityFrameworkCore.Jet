@@ -1045,19 +1045,44 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (on is null && join.Kind != JoinKind.Cross)
             throw new NotSupportedException("Joins require an ON condition.");
 
+        // Subqueries in the ON that cannot reference the right side hold still while the inner loop turns, so
+        // they are evaluated once per left row and substituted in. See JoinPredicateHoisting for the measurement:
+        // without this, one EF-generated join ran the same subquery 8,099 times for 89 distinct answers.
+        IReadOnlyList<Expression> invariants = JoinPredicateHoisting.Invariants(on, QueryPlanner.SubtreeAliases(join.Right));
+
         IEnumerable<object?[]> Rows()
         {
             var onScope = new EvalScope(columns, [], outer); // one scope/evaluator, rebound per combined row
             var onEval = new ExpressionEvaluator(onScope, this, parameters: _parameters, session: _session);
             bool[]? rightMatched = rightOuter ? new bool[rightRows.Count] : null;
 
+            // The hoisted subqueries see the left row only: binding them against the combined row would let a
+            // bare name resolve to the right side, which is the case Invariants already declines to hoist.
+            EvalScope? leftScope = invariants.Count > 0 ? new EvalScope(leftColumns, [], outer) : null;
+            ExpressionEvaluator? leftEval = leftScope is null
+                ? null
+                : new ExpressionEvaluator(leftScope, this, parameters: _parameters, session: _session);
+
             foreach (object?[] left in leftRows)
             {
+                Expression? rowOn = on;
+                if (leftEval is not null && on is not null)
+                {
+                    leftScope!.Rebind(left);
+                    var values = new Dictionary<Expression, object?>(ReferenceEqualityComparer.Instance);
+                    foreach (Expression invariant in invariants)
+                    {
+                        values[invariant] = leftEval.Evaluate(invariant);
+                    }
+
+                    rowOn = JoinPredicateHoisting.Substitute(on, values);
+                }
+
                 bool matched = false;
                 for (int r = 0; r < rightRows.Count; r++)
                 {
                     object?[] combined = [.. left, .. rightRows[r]];
-                    if (on is null || onEval.Rebind(combined).IsTrue(on))
+                    if (rowOn is null || onEval.Rebind(combined).IsTrue(rowOn))
                     {
                         matched = true;
                         if (rightMatched is not null) rightMatched[r] = true;

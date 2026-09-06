@@ -20,7 +20,7 @@ public class ForeignKeyLinkageTests
         var fmt = ch.Format;
         var buf = ch.ReadPage(page);
         int dataCount = buf.ReadInt32(fmt.TdefIndexCountOffset);
-        int logicalCount = buf.ReadInt32(fmt.TdefRealIndexCountOffset);
+        int logicalCount = buf.ReadInt32(fmt.TdefLogicalIndexCountOffset);
         int cols = buf.ReadUInt16(fmt.TdefColumnCountOffset);
         int pos = fmt.TdefRealIndexBlockOffset + dataCount * fmt.RealIndexEntrySize + cols * fmt.ColumnDescriptorSize;
         for (int i = 0; i < cols; i++) pos += 2 + buf.ReadUInt16(pos);

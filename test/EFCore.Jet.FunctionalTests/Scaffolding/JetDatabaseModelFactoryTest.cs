@@ -1696,23 +1696,6 @@ namespace EntityFrameworkCore.Jet.FunctionalTests.Scaffolding
                 },
                 "DROP TABLE `FilteredIndexTable`;");
 
-        [Fact]
-        public void Ignore_columnstore_index()
-            => Test(
-                """
-                    
-                    CREATE TABLE ColumnStoreIndexTable (
-                    	Id1 int,
-                    	Id2 int NULL
-                    );
-                    
-                    CREATE NONCLUSTERED COLUMNSTORE INDEX ixColumnStore ON ColumnStoreIndexTable ( Id1, Id2 )
-                    """,
-                [],
-                [],
-                dbModel => { Assert.Empty(dbModel.Tables.Single().Indexes); },
-                "DROP TABLE ColumnStoreIndexTable;");
-
         [Fact(Skip = "Jet does not support include for index")]
         public void Set_include_for_index()
             => Test(

@@ -27,7 +27,10 @@ public sealed record ColumnSpec(
     // Undocumented flag bits (0x0F) Access sets on system-table columns: 0x10 marks a system-catalog column,
     // 0x20 additionally marks a security-identifier column (MSysObjects.Owner, MSysACEs.SID). User-table
     // columns leave these clear. Verified against real files; the desktop engine expects them on MSys* columns.
-    byte SystemFlags = 0);
+    byte SystemFlags = 0,
+    // WITH COMPRESSION on a Text/Memo column: the 0x10 extended flag bit 0x01. Off unless asked for, which
+    // is what ACE does for a column declared without it (LongTextStorageAccessTests).
+    bool SupportsCompressedUnicode = false);
 
 /// <summary>An index to create over the named columns, anchored at an already-allocated root page.</summary>
 public sealed record IndexSpec(
@@ -47,9 +50,12 @@ public sealed record LongValueColumnSpec(int ColumnId, int UsedRow, int FreeRow,
 
 /// <summary>
 /// Serializes a table schema into a Jet 4 / ACE table-definition (TDEF) page — the inverse of
-/// <see cref="TableDefinitionPage"/>. This first cut builds a single-page definition with no
-/// indexes; index-data blocks and continuation pages come later. Fixed columns are packed in
-/// declaration order; variable columns are ranked by column id for the row var-offset table.
+/// <see cref="TableDefinitionPage"/>, covering the whole definition: column descriptors and names, index
+/// statistics, index-data and logical index-info blocks with their relationship linkage, and the trailing
+/// long-value column-usage list. The result is one contiguous buffer in the absolute coordinate space the
+/// descriptors use, which may exceed a page — splitting it across continuation pages is the caller's job
+/// (<c>TableCreator.WriteDefinition</c>). Fixed columns are packed in declaration order; variable columns
+/// are ranked by column id for the row var-offset table.
 /// </summary>
 public static class TdefBuilder
 {
@@ -140,7 +146,7 @@ public static class TdefBuilder
         // Logical index count (0x2F) may exceed the real data-block count (0x33): a relationship adds
         // a logical block that shares a data block. Without explicit logical specs the two are equal.
         int logicalCount = logical.Count;
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRealIndexCountOffset, 4), logicalCount);
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefLogicalIndexCountOffset, 4), logicalCount);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefIndexCountOffset, 4), indexes.Count);
 
         // The per-index statistics blocks (12 bytes each, one per data block) precede the columns.
@@ -171,6 +177,7 @@ public static class TdefBuilder
         var ids = new HashSet<int>();
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         long fixedBytes = 0;
+        int variableColumns = 0, highWater = -1;
         for (int i = 0; i < specs.Count; i++)
         {
             ColumnSpec spec = specs[i];
@@ -189,13 +196,18 @@ public static class TdefBuilder
             if (spec.Length is < 0 or > ushort.MaxValue)
                 throw new NotSupportedException(
                     $"Column '{spec.Name}' has byte length {spec.Length}, which does not fit the TDEF field.");
+            RecordLayout.ValidateFieldWidth(spec.Name, spec.Type, spec.Length);
             if (spec.IsFixedLength && spec.Type != JetDataType.Boolean)
                 fixedBytes += spec.Length;
+            if (!spec.IsFixedLength) variableColumns++;
+            highWater = Math.Max(highWater, id);
         }
 
-        if (fixedBytes > ushort.MaxValue)
-            throw new NotSupportedException(
-                $"The table's fixed-data region is {fixedBytes} bytes, which does not fit the TDEF offset fields.");
+        // The fixed region used to be checked only against the TDEF's 2-byte offset fields (65535). ACE's real
+        // limit is far tighter — the widest record the declaration allows must still be storable — and it
+        // subsumes that one, since no column may now exceed 510 bytes. Without this a plain CreateTable of
+        // 252 GUID columns writes a database Access will not open at all.
+        RecordLayout.ValidateRecordFits(null, (int)fixedBytes, variableColumns, highWater + 1, format);
     }
 
     private static void ValidateIndexAndLongValueSpecs(
@@ -432,7 +444,8 @@ public static class TdefBuilder
                 IsUpdatable = (rawFlags & JetFormatBase.ColumnFlagUpdatable) != 0,
                 IsGuidAutoNumber = (rawFlags & JetFormatBase.ColumnFlagGuidAutoNumber) != 0,
                 IsHyperlink = (rawFlags & JetFormatBase.ColumnFlagHyperlink) != 0,
-                SupportsCompressedUnicode = (rawExt & JetFormatBase.ColumnExtFlagCompressedUnicode) != 0,
+                SupportsCompressedUnicode = s.SupportsCompressedUnicode
+                    || (rawExt & JetFormatBase.ColumnExtFlagCompressedUnicode) != 0,
                 IsCalculated = (rawExt & JetFormatBase.ColumnExtFlagCalculated) != 0,
                 SystemFlags = s.SystemFlags,
                 Precision = s.Precision,
@@ -467,7 +480,15 @@ public static class TdefBuilder
         d[format.ColumnTypeOffset] = (byte)c.Type;
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(ColumnRecordMarkerOffset, 2), (ushort)JetFormatBase.TdefRecordMarker);
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnNumberOffset, 2), (ushort)c.ColumnId);
-        // Offset 0x09 stays zero on a fresh column (real DAO/Access files store 0 here, not a duplicate id).
+        // Offset 0x09 repeats the id on a user column. Every creator does it — ACE's SQL DDL, DAO's object
+        // model and DAO-executed SQL — and every user table in every fixture carries it, while only the
+        // engine's own bootstrap tables (MSysObjects and friends) leave it zero, which is what a system
+        // column keeps here. An earlier comment claimed real files store zero; that had been read off the
+        // system tables alone. On a rebuild the original value survives untouched, because it stops
+        // tracking 0x05 once an ALTER COLUMN type change burns a new id there (§3.8).
+        if (c.RawDescriptor is null or { Length: 0 })
+            BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnSecondaryNumberOffset, 2),
+                (ushort)(c.SystemFlags != 0 ? 0 : c.ColumnId));
         // Offset 7 = variable-table index (count of variable columns with a smaller id), stored on fixed columns
         // too. Prefer the precomputed value; fall back to the legacy rule (0 for fixed) when unset (ADD COLUMN).
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnVariableIndexOffset, 2),
@@ -476,6 +497,19 @@ public static class TdefBuilder
         {
             d[format.ColumnPrecisionOffset] = c.Precision;
             d[format.ColumnScaleOffset] = c.Scale;
+        }
+        else if (c.Type == JetDataType.DateTimeExtended)
+        {
+            // Date/Time Extended is 42 bytes of ASCII with nothing to collate, and ACE writes only the LOW
+            // byte of the LANGID here, clearing the sublanguage half — the primary language id on its own,
+            // with sort id and version zero. Measured across five collating orders: 0x0409 and 0x0809 both
+            // give 0x0009, 0x0407 gives 0x0007, 0x040E 0x000E, 0x041D 0x001D, while a Text column in the
+            // same table carries the full LANGID each time. (On an en-US database this looks like a
+            // constant 0x0009, which is how it was first mis-read.)
+            BinaryPrimitives.WriteUInt16LittleEndian(
+                d.AsSpan(format.ColumnLocaleOffset, 2), (ushort)((ushort)c.Collation.Order & 0x00FF));
+            d[format.ColumnCollationSortIdOffset] = 0;
+            d[format.ColumnCollationVersionOffset] = 0;
         }
         else
         {

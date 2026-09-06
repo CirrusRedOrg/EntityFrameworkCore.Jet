@@ -84,6 +84,36 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 > not the sole key's whole length. (LibRed had a bug writing the full length there via
 > `CommonPrefixLength(key, key)`; now `entries.Count ≤ 1 ⇒ 0`. Verified vs ACE on an index whose fresh
 > root leaf holds a single key, e.g. the rebuild in §3.8.)
+>
+> **A leaf is compressed only when it fills, and split only when compressing is not enough.** The prefix is
+> not a property recomputed on every write; it is applied once, in place, at the moment the page can no
+> longer take the next entry. Watching a sequential load one batch at a time shows the cycle twice:
+>
+> | after | page | prefix | entries | free |
+> | ---: | --- | ---: | ---: | ---: |
+> | 400 rows | `p353` | 0 | 400 | 16 |
+> | 410 rows | `p353` | **3** | 410 | **1153** |
+> | 600 rows | `p353` | 3 | 600 | 13 |
+> | 610 rows | `p359` / `p360` | 3 / **0** | 602 / 8 | 1 / 3544 |
+> | 1000 rows | `p360` | 0 | 398 | 34 |
+> | 1010 rows | `p360` | **3** | 408 | **1165** |
+> | 1210 rows | `p360` / `p364` | 3 / **0** | 602 / 6 | 1 / 3562 |
+>
+> So: fill uncompressed at 9 bytes an entry; at ~400 entries the page is full, so **rewrite it in place**
+> with the shared prefix, which drops entries to 6 bytes and hands back about 1,150 of the 4,080; keep
+> filling to ~602; then split. The split is the right-edge one (§10.5), so the old page stays full and the
+> new one starts **empty and uncompressed**, beginning the cycle again. Compressing buys roughly 50% more
+> entries before a split, and a page that never fills never pays for compression at all.
+>
+> This is why a sequentially loaded index reads `3, 3, 0` — two pages through the full cycle, and a tail
+> still in its uncompressed phase. Descending and random loads read `3, 3, 3, 3`, because a middle split
+> computes the prefix for both halves as it writes them.
+>
+> Two wrong readings preceded this, both from end state rather than transitions. "LibRed compresses where
+> ACE does not" came from a single leaf that had never filled. "ACE recomputes on split and keeps the value
+> while appending" was implemented and falsified: pages then fill uncompressed and split without ever being
+> compressed, giving 4 leaves and 11,820 bytes against ACE's 3 and 11,334. `IndexPrefixTransitionProbeTests`
+> is the measurement; `IndexSplitPackingAccessTests` asserts the result.
 
 ### 10.4 Key encoding (order-preserving)
 
@@ -816,6 +846,30 @@ The split mechanics:
   leaf-chain offsets) neither is *verified* to be required — see §10.1 `0x1A` and §10.3.
 - **Node split:** partition on a **middle entry** whose key is *promoted* (removed from the node);
   its child becomes the left node's child-tail, and the old tail stays the right node's tail.
+- **Right-edge split.** When the incoming key is the highest on the page, both engines leave that page full
+  and start a new one holding the new entry alone, instead of halving it: nothing sorts below a maximum key,
+  so a middle split there strands half a page for ever. LibRed split down the middle unconditionally until
+  this was measured, and so spent about 1.8x the leaves on a sequential load — the ordinary case, since
+  AutoNumber and identity keys ascend by construction. Measured on 1500 rows through both engines (leaf free
+  space, sorted):
+
+  | inserted | ACE | LibRed before | LibRed now |
+  | --- | --- | --- | --- |
+  | ascending | 3 leaves — `1, 1, 952` | 4 — `31, 1807, 1807, 1807` | 3 — `1, 1, 1837` |
+  | descending | 4 — `31, 1807, 1807, 1807` | 4 — `49, 1801, 1801, 1801` | unchanged |
+  | random | 4 — `1267, 1369, 1405, 1411` | 4 — `1291, 1357, 1387, 1417` | unchanged |
+
+  The rule is **right-edge only**: descending inserts get an ordinary middle split from ACE too, and on
+  random keys both settle near two-thirds full — the classic B-tree equilibrium. Those two workloads are
+  what make the special case free: its condition cannot fire when the new key is not the page maximum, so
+  the general behaviour is untouched. They also showed LibRed's middle split already matched ACE's, which is
+  why this was an added case rather than a change to the split machinery.
+
+  It also appears to cost nothing on the workload it is supposed to: the obvious objection — that a page
+  packed to capacity must split as soon as anything lands in its range — did not show up in a gapped load
+  backfilled ascending (ACE 5 leaves `1, 1, 1, 7, 55` against LibRed's then-6), because an ascending
+  backfill keeps meeting the right edge of a subtree. A *random* backfill into pre-packed pages has not been
+  measured. `IndexSplitPackingAccessTests`.
 - **Propagation:** the promoted separator `[key → left page]` is inserted into the parent, whose
   pointer to the just-split page is repointed to the new right page; if the parent overflows it
   splits in turn, up to the root.

@@ -32,7 +32,7 @@ public sealed class TableDefinitionPage : Page
     public TableType TableType { get; private set; }
     public int VariableColumnCount { get; private set; }
     public int ColumnCount { get; private set; }
-    public int RealIndexCount { get; private set; }
+    public int LogicalIndexCount { get; private set; }
     public int IndexCount { get; private set; }
 
     public IReadOnlyList<ColumnDef> Columns => _columns;
@@ -87,7 +87,7 @@ public sealed class TableDefinitionPage : Page
         TableType = (TableType)buffer.ReadByte(format.TdefTableTypeOffset);
         VariableColumnCount = buffer.ReadUInt16(format.TdefVariableColumnsOffset);
         ColumnCount = buffer.ReadUInt16(format.TdefColumnCountOffset);
-        RealIndexCount = buffer.ReadInt32(format.TdefRealIndexCountOffset);
+        LogicalIndexCount = buffer.ReadInt32(format.TdefLogicalIndexCountOffset);
         IndexCount = buffer.ReadInt32(format.TdefIndexCountOffset);
 
         if (ColumnCount > MaxColumnsPerTable)
@@ -97,12 +97,18 @@ public sealed class TableDefinitionPage : Page
                 $"TDEF declares a variable-column high-water of {VariableColumnCount}; Jet/ACE permits at most {MaxColumnsPerTable}.");
         if (IndexCount is < 0 or > MaxIndexesPerTable)
             throw new InvalidDataException($"TDEF declares {IndexCount} real indexes; Jet/ACE permits 0 through {MaxIndexesPerTable}.");
-        if (RealIndexCount < 0)
-            throw new InvalidDataException($"TDEF declares a negative logical-index count ({RealIndexCount}).");
+        // Capped at 32 exactly as IndexCount is, and this is the check that matters: a table gains a logical
+        // block per INCOMING relationship without gaining a data block, so it overruns here while 0x33 stays
+        // legal. Previously only the sign was checked, which let a file written past the limit read back as
+        // sound - the one shape where LibRed produces a database Access reports as an unrecognized format
+        // while seeing nothing wrong with it itself.
+        if (LogicalIndexCount is < 0 or > MaxIndexesPerTable)
+            throw new InvalidDataException(
+                $"TDEF declares {LogicalIndexCount} logical indexes; Jet/ACE permits 0 through {MaxIndexesPerTable}.");
 
-        // The column descriptors follow a per-index block sized by the index count at
-        // 0x33 (IndexCount) — NOT the index-slot count at 0x2F. The two are equal for
-        // MSysObjects but differ for user tables (e.g. slots=2, indexes=1).
+        // The column descriptors follow a per-index block sized by the REAL index count at
+        // 0x33 (IndexCount) — NOT the logical count at 0x2F (LogicalIndexCount). The two are
+        // equal for MSysObjects but differ for user tables (e.g. logical=2, real=1).
         // The buffer here may already be a stitched multi-page definition (see Read(channel, page)).
         int columnBlock = CheckedRegionEnd(
             format.TdefRealIndexBlockOffset, IndexCount, format.RealIndexEntrySize, buffer.Span.Length, "index statistics");
@@ -124,7 +130,7 @@ public sealed class TableDefinitionPage : Page
         int infoStart = CheckedRegionEnd(
             blockStart, IndexCount, IndexBlockFormat.DataBlockSize, buffer.Span.Length, "index-data blocks");
         _ = CheckedRegionEnd(
-            infoStart, RealIndexCount, IndexBlockFormat.InfoBlockSize, buffer.Span.Length, "logical-index blocks");
+            infoStart, LogicalIndexCount, IndexBlockFormat.InfoBlockSize, buffer.Span.Length, "logical-index blocks");
 
         // 1. Index-data blocks (one IndexDef each): columns, unique flag, root page.
         for (int i = 0; i < IndexCount; i++)
@@ -220,7 +226,7 @@ public sealed class TableDefinitionPage : Page
     /// </summary>
     private int ResolveIndexNames(PageBuffer buffer, int infoStart)
     {
-        int logicalCount = RealIndexCount; // 0x2F — the logical-index (slot) count
+        int logicalCount = LogicalIndexCount; // 0x2F — the logical-index (slot) count
         var info = new (int DataNumber, bool IsRelationship, byte Type)[logicalCount];
         for (int i = 0; i < logicalCount; i++)
         {

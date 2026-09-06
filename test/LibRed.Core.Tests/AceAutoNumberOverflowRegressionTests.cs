@@ -198,7 +198,7 @@ public class AceAutoNumberOverflowRegressionTests(ITestOutputHelper output)
             {
                 db.CreateTable("T",
                     [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true, Seed: seed, Increment: increment),
-                     new ColumnSpec("V", JetDataType.Text, 5, IsFixedLength: false)],
+                     new ColumnSpec("V", JetDataType.Text, 10, IsFixedLength: false)], // 10 bytes = the ACE arm's TEXT(5)
                     primaryKey: ["Id"]);
                 var table = db.OpenTable("T");
                 int idIdx = table.Definition.FindColumn("Id")!.Index;
@@ -252,7 +252,7 @@ public class AceAutoNumberOverflowRegressionTests(ITestOutputHelper output)
             using var db = JetDatabase.Open(path, readOnly: false);
             db.CreateTable("T",
                 [new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true),
-                 new ColumnSpec("V", JetDataType.Text, 5, IsFixedLength: false)],
+                 new ColumnSpec("V", JetDataType.Text, 10, IsFixedLength: false)], // 10 bytes = the ACE arm's TEXT(5)
                 primaryKey: ["Id"]);
             var table = db.OpenTable("T");
             int idIdx = table.Definition.FindColumn("Id")!.Index;

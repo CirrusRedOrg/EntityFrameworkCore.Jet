@@ -46,7 +46,8 @@ public sealed class LongValueWriter(PageChannel channel)
     /// and the pages used (all owned; the last is also free, having spare room).</summary>
     public LongValueResult Write(byte[] payload)
     {
-        if (payload.Length <= MaxLvalRowSize)
+        LongValueFormat.ValidateLength(payload.Length);
+        if (payload.Length <= LongValueFormat.MaxSinglePageValue)
         {
             int page = _allocator.Allocate();
             WriteChunkPage(page, payload); // a single-page row is the payload itself (no next pointer)
@@ -147,14 +148,12 @@ public sealed class LongValueWriter(PageChannel channel)
         _channel.WritePage(pageNumber, page);
     }
 
-    /// <summary>Builds the 12-byte in-row descriptor: <c>[length:3][flag:1][row:1][page:3][4 reserved]</c>.</summary>
+    /// <summary>Builds the 12-byte descriptor: 4-byte length with storage flags, row/page, reserved.</summary>
     private static byte[] Descriptor(int length, byte flag, int firstPage, int row = 0)
     {
+        LongValueFormat.ValidateLength(length);
         var d = new byte[12];
-        d[0] = (byte)length;
-        d[1] = (byte)(length >> 8);
-        d[2] = (byte)(length >> 16);
-        d[3] = flag;
+        BinaryPrimitives.WriteUInt32LittleEndian(d, (uint)length | ((uint)flag << 24));
         d[4] = (byte)row;
         d[5] = (byte)firstPage;
         d[6] = (byte)(firstPage >> 8);

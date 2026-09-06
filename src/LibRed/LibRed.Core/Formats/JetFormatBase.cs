@@ -155,10 +155,28 @@ public abstract class JetFormatBase
     /// <summary>Offset of the 2-byte total column count.</summary>
     public virtual int TdefColumnCountOffset => 0x2D;
 
-    /// <summary>Offset of the 4-byte real-index (slot) count, used to size the index block before columns.</summary>
-    public virtual int TdefRealIndexCountOffset => 0x2F;
+    /// <summary>
+    ///     Offset of the 4-byte <b>logical</b> index count — the §3.6 index-info blocks, one per named index.
+    ///     Several may share a single data block: a relationship adds a logical block pointing at an index that
+    ///     already exists, so a table many others reference accumulates these without gaining any B-tree.
+    ///     <b>It does not size the statistics or index-data regions</b> — <see cref="TdefIndexCountOffset"/>
+    ///     does. Both counts are capped at 32 (see <c>page-02d-constraints.md</c>).
+    /// </summary>
+    /// <remarks>
+    ///     Named for the meaning rather than the offset's history, because the history is a trap: this was
+    ///     previously <c>TdefRealIndexCountOffset</c>, which inverts the reference vocabulary. mdbtools calls
+    ///     <c>0x2F</c> <c>num_idx</c> ("number of logical indexes") and <c>0x33</c> <c>num_real_idx</c>;
+    ///     Jackcess calls them <c>OFFSET_NUM_INDEX_SLOTS</c> and <c>OFFSET_NUM_INDEXES</c>. "Real" belongs to
+    ///     <c>0x33</c>, not here.
+    /// </remarks>
+    public virtual int TdefLogicalIndexCountOffset => 0x2F;
 
-    /// <summary>Offset of the 4-byte logical index count.</summary>
+    /// <summary>
+    ///     Offset of the 4-byte <b>real</b> index count — the §3.5 index-data blocks, one per B-tree actually
+    ///     on disk. This is the count that sizes both the statistics block at
+    ///     <see cref="TdefRealIndexBlockOffset"/> and the index-data blocks that follow the column names.
+    ///     mdbtools calls it <c>num_real_idx</c>; Jackcess calls it <c>OFFSET_NUM_INDEXES</c>.
+    /// </summary>
     public virtual int TdefIndexCountOffset => 0x33;
 
     /// <summary>Offset where the real-index block begins; column descriptors follow it.</summary>
@@ -174,6 +192,11 @@ public abstract class JetFormatBase
     public virtual int ColumnTypeOffset => 0x00;
     public virtual int ColumnNumberOffset => 0x05;
     public virtual int ColumnVariableIndexOffset => 0x07; // position among variable columns (0 for fixed)
+    // A second copy of the column id. Every creator writes it on a user table — ACE's SQL DDL, DAO's object
+    // model and DAO-executed SQL alike — while the engine's own bootstrap tables (MSysObjects and friends,
+    // and the f_<GUID> complex-column tables) leave it zero. It stops tracking 0x05 after an ALTER COLUMN
+    // type change, which burns a new id there and leaves this at the old one (§3.8).
+    public virtual int ColumnSecondaryNumberOffset => 0x09;
     public virtual int ColumnPrecisionOffset => 0x0B; // Decimal/Numeric columns only
     public virtual int ColumnScaleOffset => 0x0C;     // Decimal/Numeric columns only
     // Non-numeric columns instead use 0x0B..0x0E for the text collation, and the four bytes together are a
@@ -233,6 +256,20 @@ public abstract class JetFormatBase
 
     /// <summary>Size of the column-count field at the start of a row record (2 bytes in Jet 4 / ACE, 1 in Jet 3).</summary>
     public virtual int RowColumnCountSize => 2;
+
+    /// <summary>
+    /// The largest record ACE will store — <b>4060 bytes</b>, excluding anything that lives on LVAL pages,
+    /// where ACE raises "Record is too large." Measured across three table shapes whose row overhead differs
+    /// by 23 bytes (9, 12 and 20 text columns), and the total lands on 4060 every time, so it is a flat cap
+    /// rather than something derived from the row's layout (<c>RecordSizeAccessTests</c>).
+    /// </summary>
+    /// <remarks>
+    /// It is 20 bytes below what the page could hold — 4096 less the 14-byte header and a 2-byte slot leaves
+    /// 4080 — and that reserve is not explained. Enforcing it is not optional politeness: a record between
+    /// 4061 and 4080 fits the page and LibRed used to write it happily, but ACE then <b>cannot read the
+    /// row</b>, failing with an unrelated "another user are attempting to change the same data" error.
+    /// </remarks>
+    public virtual int MaxRecordSize => 4060;
 
     /// <summary>Page number of the system catalog table MSysObjects (its TDEF page).</summary>
     public virtual int CatalogPage => 2;

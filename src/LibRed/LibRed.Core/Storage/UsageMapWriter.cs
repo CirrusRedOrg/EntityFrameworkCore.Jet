@@ -269,7 +269,7 @@ public sealed class UsageMapWriter(PageChannel channel)
     /// bitmap once it spans past the current window. Records keep their directory order (row 0 nearest the
     /// page end). Returns the rewritten page and the record's new offset, or <see langword="null"/> if the
     /// record no longer fits the page.</summary>
-    private static byte[]? ReplaceMapRecord(byte[] page, DataPage holder, JetFormatBase format, int mapRow, byte[] newRecord, out int newOffset)
+    internal static byte[]? ReplaceMapRecord(byte[] page, DataPage holder, JetFormatBase format, int mapRow, byte[] newRecord, out int newOffset)
     {
         int rowCount = holder.Rows.Count;
         var records = new byte[rowCount][];

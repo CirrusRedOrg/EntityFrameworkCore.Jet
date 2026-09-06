@@ -11,7 +11,7 @@
 | `0x03` | 2 | Unknown (zero observed) |
 | `0x05` | 2 | Column id |
 | `0x07` | 2 | Variable-table index — the count of variable-length columns whose column id is smaller than this one's. For a **variable** column this equals its own position in the variable-offset table; for a **fixed** column it is the running count of preceding variable columns (**not** `0`). Access stores it on every column and its strict reader relies on it — writing `0` on fixed columns yields a file Access rejects with *"record(s) cannot be read"* even though LibRed/OLE DB (which recompute the index) tolerate it. Verified byte-for-byte against `MSysObjects`/`MSysACEs` in a real DAO file. |
-| `0x09` | 2 | Column number (equals the column id `0x05` in a freshly written descriptor — but **diverges after an `ALTER COLUMN` type change**, which burns a new id into `0x05` yet leaves `0x09` at the *old* id; see §3.8) |
+| `0x09` | 2 | Column number — a second copy of the column id `0x05` on a **user** table, but **zero** on the tables the engine writes for itself (see the note below). It **diverges after an `ALTER COLUMN` type change**, which burns a new id into `0x05` yet leaves `0x09` at the *old* id; see §3.8 |
 | `0x0B` | 1 | Numeric **precision** (Decimal/Numeric columns); otherwise the low byte of the locale id, `0x09` |
 | `0x0C` | 1 | Numeric **scale** (Decimal/Numeric columns); otherwise the high byte of the locale id, `0x04` |
 | `0x0D` | 2 | Text sort-order **version** — a 2-byte field (the high half of a 4-byte sort-order descriptor whose low half is the locale at `0x0B`, `0x0409` = General, §10.4). The version *number* is the **high byte at `0x0E`**: `0` = General Legacy (Access 2000–2007), `1` = the "General" order Access 2010+ made default (a different key encoding). The **low byte `0x0D` is `0` in every file observed** and isn't modelled — but the field is nominally 2 bytes, so keep an eye on it (see note). |
@@ -23,6 +23,42 @@
 
 **Flags (`0x0F`):** `0x01` fixed-length, `0x02` updatable, `0x04` auto-number,
 `0x40` auto-number GUID, `0x80` hyperlink (on a Memo column).
+
+> **`0x09` is written by everything that creates a user table, and only by those.** Measured per table
+> across the fixtures: every genuine user table carries the id on every column (Northwind's `Categories`,
+> `Customers`, `Employees`, `Orders`, …; `Ace16Types`' `T`), and every zero belongs to a table the engine
+> made for itself — `MSysObjects`, `MSysACEs`, `MSysQueries`, `MSysRelationships`, `MSysComplexColumns`,
+> `MSysComplexType_*`, and the `f_<GUID>_Data` complex-column backing tables. `Database4.accdb` looks like
+> a counterexample at a glance because it is *all* zeros; it simply contains no user tables at all.
+> (`MSysAccessStorage` goes each way depending on the file, so it is not part of the bootstrap set.)
+>
+> Three creators were tried and all three write the id: ACE's SQL DDL, DAO's object model
+> (`CreateTableDef`/`CreateField`/`Append`, the path Access's UI uses) and DAO-executed SQL. **Compacting a
+> database preserves the field exactly** — before and after are byte-identical — so it is fixed at creation
+> and no later rewrite normalises it. LibRed wrote zero everywhere until this was measured, on the strength
+> of a comment that had generalised from the system tables; it now writes the id except on a system column.
+> `ColumnDescriptorByteParityAccessTests`.
+
+> **Date/Time Extended carries only the primary language id.** For a `DATETIME2` column ACE writes the
+> **low byte** of the database's LANGID at `0x0B`/`0x0C` — the primary language with the sublanguage half
+> cleared — and zero at `0x0D`/`0x0E`, where every other type carries the whole LANGID. The value is 42
+> bytes of ASCII (§6), so there is nothing to collate.
+>
+> Measured across five collating orders, each produced by compacting a database into it (DAO's
+> `CompactDatabase`, the documented way to change one), with a `TEXT` column in the same table as control:
+>
+> | database LANGID | `TEXT` `0x0B`/`0x0C` | `DATETIME2` `0x0B`/`0x0C` |
+> | --- | --- | --- |
+> | `0x0409` en-US | `09 04` | `09 00` |
+> | `0x0809` en-GB | `09 08` | `09 00` |
+> | `0x0407` German | `07 04` | `07 00` |
+> | `0x040E` Hungarian | `0E 04` | `0E 00` |
+> | `0x041D` Swedish | `1D 04` | `1D 00` |
+>
+> An en-US database alone reads as the constant `0x0009`, which is how this was first mis-implemented; the
+> en-GB row is the tell, a different LANGID giving the same value because it shares en-US's primary id.
+> Every sort order Access offers has a primary id below `0xFF`, so "low byte" and Windows' `PRIMARYLANGID`
+> (mask `0x3FF`) cannot be told apart here. `DateTime2LocaleAccessTests`.
 
 > **Every documented flag is modelled — nothing rides through raw except the reserved/unknown.** LibRed reads
 > each `0x0F` bit and the whole `0x10` byte into `ColumnDef` (`IsUpdatable`/`IsGuidAutoNumber`/`IsHyperlink`,
@@ -114,17 +150,61 @@ Variable-length columns carry a *variable index* — their position in the row's
 (§5), stored in the descriptor at `0x07`. For an untouched table this equals their rank among variable
 columns ordered by ascending column id, but a `DROP COLUMN` can leave a gap (see the note above).
 
+#### Declared width limits
+
+Two limits bind a declaration, both enforced by ACE when it **opens the file**, so writing past either
+damages the database rather than just the table. Measured 2026-09-06 against ACE 16 (OLE DB); LibRed
+applies both in `Catalog/RecordLayout.cs`, on create and on every incremental path.
+
+**Per field: 510 bytes** — 255 Text characters, or 510 bytes of Binary, fixed or variable alike. ACE
+refuses a wider column through its own DDL identically on `CREATE TABLE`, `ALTER COLUMN` and `ADD COLUMN`
+(*"Size of field is too long"*: `TEXT(255)` and `BINARY(510)` are accepted, `TEXT(256)` and `BINARY(511)`
+are not). A file written with a wider column **opens**, but the table cannot be queried — `SELECT` fails
+with *"The size of a field is too long"*. Memo and OLE are exempt: their data lives on long-value pages.
+
+**Per declaration: the widest possible record must fit the 4060-byte cap** (§5), which is far tighter than
+the TDEF's own 2-byte offset fields:
+
+```
+2 + fixedBytes + varOverhead + ceil(columnIdHighWater / 8)  <=  4060
+varOverhead = 4 when the table has no variable columns, else (numVar + 1) * 2 + 2
+```
+
+Note what is **not** in the sum: a variable column costs only its 2 bytes of offset table, never its
+declared width — which is why an all-Text table is unconstrained while a wide fixed region is not. The
+4-byte allowance for a table with no variable columns at all is ACE's; LibRed's own encoder omits the
+variable section entirely in that case (§5), so its rows come in 4 bytes under what ACE reserves.
+
+Measured on both sides of the boundary at column counts chosen so the null-bitmap term differs by 31 bytes,
+and the two boundaries duly differ by 31:
+
+| shape | fixed bytes | widest record | ACE |
+| --- | ---: | ---: | --- |
+| 8 fixed columns (1 bitmap byte) | 4053 | 4060 | opens |
+| 8 fixed columns | 4054 | 4061 | *"Unrecognized database format"* |
+| 252 fixed columns (32 bitmap bytes) | 4022 | 4060 | opens |
+| 252 fixed columns | 4023 | 4061 | *"Unrecognized database format"* |
+| 4018 fixed bytes + 2 variable | 4018 | 4060 | opens |
+| 4018 fixed bytes + 3 variable | 4018 | 4062 | *"Unrecognized database format"* |
+
+ACE's own SQL DDL cannot easily reach this: it declares `GUID` columns **variable** (see
+[data-types.md](data-types.md)), so a table wide enough to trip the limit takes deliberately wide fixed
+columns. `ColumnWidthLimitAccessTests` holds the measurements.
+
 
 ### 3.8 In-place column type/length change (`ALTER COLUMN`) — verified byte-for-byte
 
 Changing a column's **type or length** does **not** edit that column in place. Access **makes a brand-new
 column that keeps the old one's ordinal position but takes a fresh id**, copies + converts the data into
 it, and **leaves the old column's storage as dead space** (it is *not* compacted away). Verified by
-diffing whole files before/after `ALTER COLUMN` over the ACE OLE DB provider; LibRed reproduces every byte
+diffing whole files before/after `ALTER COLUMN` over the ACE OLE DB provider; LibRed's in-place path reproduces every byte
 (`AceModifyByteDiffProbe.Libred_in_place_modify_matches_ace_whole_file`, a theory over fixed / variable /
 fixed↔variable / PK / indexed / multi-page / decimal shapes, plus a 20-column 7-step non-sequential stress
 run). This is **the same mechanism for every type/length change** — including a *widening* `TEXT(n)→TEXT(m)`;
 there is no cheap "just bump the length" path, ACE burns the id there too.
+
+LibRed's Memo/OLE logical rebuild has a different layout but enforces the same id high-water limit;
+see [§3.1](page-02a-tdef.md#31-header).
 
 > **Relationship columns cannot be altered.** ACE rejects a type or length change when the target is either
 > a referencing FK column or its referenced parent column: *"Cannot change field 'X'. It is part of one or

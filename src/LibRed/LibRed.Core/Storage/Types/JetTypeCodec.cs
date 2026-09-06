@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 using LibRed.Catalog;
+using LibRed.Formats;
 
 namespace LibRed.Storage.Types;
 
@@ -61,7 +62,9 @@ public static class JetTypeCodec
             case JetDataType.FixedPoint:
                 return DecodeNumeric(value, column.Scale);
 
-            // Long values stored on LVAL pages — needs the long-value reader. TODO.
+            // Long values live on LVAL pages, so the inline bytes are only a descriptor. Resolving them needs
+            // page access this codec deliberately does not have: RowDecoder holds the LongValueReader and
+            // substitutes the real value, and hands the raw bytes here only when it has none.
             case JetDataType.Memo:
             case JetDataType.Ole:
             case JetDataType.Complex:
@@ -144,27 +147,52 @@ public static class JetTypeCodec
     }
 
     /// <summary>
-    /// Decodes a Jet text value, honoring compressed Unicode. A value beginning with the
-    /// 0xFF 0xFE marker stores ASCII-range characters as one byte each; otherwise it is
-    /// UTF-16LE.
+    /// Decodes a Jet text value, honoring compressed Unicode. A value beginning with the <c>FF FE</c> marker
+    /// is compressed: it starts in 1-byte-per-character mode, and every <c>0x00</c> byte at a character
+    /// boundary toggles between that and 2-byte UTF-16LE. Without the marker the value is plain UTF-16LE.
     /// </summary>
     /// <remarks>
-    /// TODO: the full compressed format can toggle between 1-byte and 2-byte runs mid-string
-    /// (via embedded markers) for mixed scripts; this handles the common all-compressed case.
+    /// The toggling (mixed) form is not hypothetical and ACE writes it readily: <c>café中</c> is stored as
+    /// <c>FF FE 63 61 66 E9 00 2D 4E</c> — "café" compressed, a switch, then 中. Decoding such a value as a
+    /// single Latin1 run, as this used to, silently returns <c>café\0-N</c>: wrong data from a file Access
+    /// wrote, with no error. Access's UI defaults Unicode Compression to Yes, so mixed-script text in a real
+    /// database reaches this path routinely.
+    /// <para>
+    /// A character whose UTF-16LE <b>low</b> byte is <c>0x00</c> — U+4E00 is <c>00 4E</c> — would be
+    /// indistinguishable from a switch. ACE resolves that by not using the mixed form at all when one is
+    /// present: <c>aaaaa中</c> is mixed, <c>aaaaa一</c> is plain UTF-16. It also uses the form only when it
+    /// strictly saves space, so <c>abc中</c> (8 bytes either way) stays UTF-16. Both measured in
+    /// <c>MixedCompressionAccessTests</c>, and together they are what make toggling on <c>0x00</c> safe.
+    /// </para>
     /// </remarks>
     public static string DecodeText(ReadOnlySpan<byte> value)
     {
-        if (value.Length >= 2 && value[0] == 0xFF && value[1] == 0xFE)
-            return Encoding.Latin1.GetString(value[2..]);
+        if (value.Length < 2 || value[0] != 0xFF || value[1] != 0xFE)
+            return Encoding.Unicode.GetString(value);
 
-        return Encoding.Unicode.GetString(value);
+        var text = new StringBuilder(value.Length - 2);
+        bool oneByte = true;
+        for (int i = 2; i < value.Length;)
+        {
+            if (value[i] == 0x00) { oneByte = !oneByte; i++; continue; }
+            if (oneByte) { text.Append((char)value[i]); i++; }
+            else
+            {
+                if (i + 1 >= value.Length) break;   // a truncated trailing pair: take what is whole
+                text.Append((char)(value[i] | (value[i + 1] << 8)));
+                i += 2;
+            }
+        }
+        return text.ToString();
     }
 
     /// <summary>
     /// Encodes a non-null CLR value to its on-disk bytes — the inverse of <see cref="Decode"/>.
-    /// Boolean is not handled here (its value lives in the null bitmap). Text is written as
-    /// uncompressed UTF-16LE. Memo/OLE values are written as an <b>inline</b> long value
-    /// (see <see cref="EncodeInlineLongValue"/>); chained LVAL pages for larger values are not yet written.
+    /// Boolean is not handled here (its value lives in the null bitmap). Text is written as UTF-16LE, or
+    /// compressed (§7) when <see cref="TryCompressText"/> says ACE would. A memo/OLE value small enough to
+    /// inline is written as an <b>inline</b> long value (see <see cref="EncodeInlineLongValue"/>); a larger
+    /// one reaches here as the pre-built descriptor of a value
+    /// <see cref="LibRed.Storage.RowInserter"/> has already put on LVAL pages.
     /// </summary>
     public static byte[] Encode(ColumnDef column, object value)
     {
@@ -215,7 +243,14 @@ public static class JetTypeCodec
             // text as UTF-16LE, OLE as raw bytes). LongValueReader reads this back via the inline
             // flag. Chained LVAL pages for values too large to inline are not written yet.
             case JetDataType.Memo:
-                return EncodeInlineLongValue(Encoding.Unicode.GetBytes(AsText(value, c)));
+            {
+                // An inline memo compresses whether or not the column was declared WITH COMPRESSION — the
+                // capable flag gates single-page values, not inline ones (see TryCompressText). Only values
+                // the caller has already decided to inline reach here, so no storage-form test is needed.
+                string memo = AsText(value, c);
+                return EncodeInlineLongValue(
+                    TryCompressText(column, memo, requireCapableFlag: false) ?? Encoding.Unicode.GetBytes(memo));
+            }
             case JetDataType.Ole:
                 return EncodeInlineLongValue(AsBinary(value));
 
@@ -231,11 +266,75 @@ public static class JetTypeCodec
     private static string AsText(object value, IFormatProvider culture) =>
         value as string ?? Convert.ToString(value, culture) ?? "";
 
+    /// <summary>
+    /// The compressed form of <paramref name="value"/> — or null when ACE would not compress it. Characters
+    /// that fit one byte are stored as one, wider ones as UTF-16LE, and a <c>0x00</c> switches between the
+    /// two runs (see <see cref="EncodeCompressed"/>), so a mixed-script value is not forfeited the way an
+    /// all-or-nothing writer forfeits it. Values under three characters stay UTF-16 whatever the arithmetic.
+    /// <para>
+    /// <paramref name="requireCapableFlag"/> is what the column's <c>WITH COMPRESSION</c> declaration gates,
+    /// and it does not gate everything. Measured against ACE: an <b>inline</b> long value is compressed
+    /// whether the flag is set or not, while a value on a single LVAL page is compressed <b>only</b> when it
+    /// is set (a 40-character ASCII memo stores 80 bytes on a plain column and 42 on a compressed one), and
+    /// a chained value never is. Ordinary Text columns do honour the flag. The storage form itself is chosen
+    /// on the UNCOMPRESSED length either way — 33 ASCII characters are 66 bytes and go to a page, even
+    /// though they would compress to 35 and fit inline. <c>MemoCompressionAccessTests</c>.
+    /// </para>
+    /// </summary>
+    internal static byte[]? TryCompressText(ColumnDef column, string value, bool requireCapableFlag = true)
+    {
+        if (requireCapableFlag && !column.SupportsCompressedUnicode) return null;
+        if (value.Length < MinCompressedCharacters) return null;
+
+        // A 0x00 byte inside a run cannot be told from the mode switch, so ACE declines the form entirely
+        // when one would appear — a NUL character, or a 2-byte character whose LOW byte is zero (U+4E00 is
+        // 00 4E). One such character forfeits compression for the whole value.
+        foreach (char c in value)
+            if (c == '\0' || (c > 0xFF && (c & 0xFF) == 0)) return null;
+
+        byte[] encoded = EncodeCompressed(value);
+        int utf16 = value.Length * 2;
+
+        // The two paths break an exact tie differently, measured both ways: a long value takes the form only
+        // when it is strictly smaller, an ordinary Text column takes it when it is no larger. "ab中cd" is 10
+        // bytes either way and comes back UTF-16 from a Memo, mixed from a Text column.
+        bool longValue = column.Type is JetDataType.Memo or JetDataType.Ole;
+        return (longValue ? encoded.Length >= utf16 : encoded.Length > utf16) ? null : encoded;
+    }
+
+    /// <summary>ACE leaves 1- and 2-character values as UTF-16 whatever the byte arithmetic says.</summary>
+    private const int MinCompressedCharacters = 3;
+
+    /// <summary>The compressed encoding: the <c>FF FE</c> marker, then runs of 1-byte (Latin1) and 2-byte
+    /// (UTF-16LE) characters with a <c>0x00</c> switch at each change of run. An all-Latin1 value needs no
+    /// switches and degenerates to the familiar marker-plus-bytes form; a value starting with a wide
+    /// character opens with a switch, as ACE's does.</summary>
+    private static byte[] EncodeCompressed(string value)
+    {
+        var bytes = new List<byte>(value.Length + 4) { 0xFF, 0xFE };
+        bool oneByte = true;
+        foreach (char c in value)
+        {
+            bool fits = c <= 0xFF;
+            if (fits != oneByte)
+            {
+                bytes.Add(0x00);
+                oneByte = fits;
+            }
+            bytes.Add((byte)c);
+            if (!fits) bytes.Add((byte)(c >> 8));
+        }
+        return [.. bytes];
+    }
+
     /// <summary>Encodes text. A fixed-length (CHAR/NCHAR) column is **space-padded** (or truncated) to its byte
     /// length — matching ACE, which stores and returns fixed text space-padded to the full width; a variable
-    /// column (TEXT/VARCHAR) is its exact UTF-16 bytes.</summary>
+    /// column (TEXT/VARCHAR) is its exact UTF-16 bytes, or the compressed form when the column allows it and
+    /// ACE would use it (see <see cref="TryCompressText"/>).</summary>
     private static byte[] EncodeText(ColumnDef column, string value)
     {
+        if (!column.IsFixedLength && TryCompressText(column, value) is { } compressed) return compressed;
+
         byte[] text = Encoding.Unicode.GetBytes(value);
         if (!column.IsFixedLength) return text;
         var padded = new byte[column.Length];
@@ -302,17 +401,15 @@ public static class JetTypeCodec
 
     /// <summary>
     /// Builds an <b>inline</b> long-value (memo/OLE) in-row value: a 12-byte descriptor
-    /// (24-bit length, the <c>0x80</c> inline flag, then 8 unused bytes) followed by the payload.
+    /// (length combined with the <c>0x80</c> inline flag, then 8 unused bytes) followed by the payload.
     /// This is the exact shape <see cref="LibRed.Storage.LongValueReader"/> reads back for an inline
     /// value.
     /// </summary>
     private static byte[] EncodeInlineLongValue(ReadOnlySpan<byte> payload)
     {
+        LongValueFormat.ValidateLength(payload.Length);
         var result = new byte[12 + payload.Length];
-        result[0] = (byte)payload.Length;
-        result[1] = (byte)(payload.Length >> 8);
-        result[2] = (byte)(payload.Length >> 16);
-        result[3] = 0x80; // inline
+        BinaryPrimitives.WriteUInt32LittleEndian(result, (uint)payload.Length | 0x80000000u);
         payload.CopyTo(result.AsSpan(12));
         return result;
     }

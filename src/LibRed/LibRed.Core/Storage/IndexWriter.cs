@@ -250,22 +250,54 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         while (pos < entries.Count && CompareBytes(WithTrailer(entries[pos].Key, entries[pos].Trailer), fullKey) < 0) pos++;
         entries.Insert(pos, new Entry(key, pointer));
 
-        if (Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries) is { } built)
+        // ACE compresses a leaf only when it has to, and splits only when compressing is not enough. A page
+        // starts uncompressed and stores whole keys; when the next entry will not fit, the shared prefix is
+        // computed and the page rewritten IN PLACE, which typically frees most of it; filling then continues
+        // at the shorter size; and only when the compressed page fills does it split. Watching a sequential
+        // load shows the cycle twice — a leaf reaching 400 entries at 9 bytes each with 16 bytes left, then
+        // reading 410 entries at 6 bytes with 1153 free, then splitting at 602 (see §10.3).
+        //
+        // Rebuilding at the largest available prefix on every write instead would be smaller, but it is not
+        // what ACE writes, and the tail page of a sequential load is the visible difference.
+        int share = entries.Count <= 1 ? 0 : CommonPrefixLength(entries[0].Key, entries[^1].Key);
+        int keep = Math.Min(page.CompressedByteCount, share);   // the new key may not share the old prefix
+
+        if (Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, keep) is { } asIs)
         {
-            _channel.WritePage(leafPage, built);
+            _channel.WritePage(leafPage, asIs);
             return;
         }
 
+        if (share > keep
+            && Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, share)
+                is { } compressed)
+        {
+            _channel.WritePage(leafPage, compressed);
+            return;
+        }
+
+        // Where to cut. Splitting down the middle is right when keys arrive all over the range, because the
+        // lower half's free space is room for the next key near it. When the new entry is the page's MAXIMUM
+        // it is waste instead: nothing sorts below a maximum, so half the page is stranded for ever. ACE
+        // splits at the right edge in that case — the page stays full and the new entry starts a fresh one —
+        // which is why a sequentially loaded index of ACE's packs its leaves to capacity and LibRed's used to
+        // settle near half (see docs/format/page-03-04-index-btree.md §10.5 for the measured comparison).
+        //
+        // AutoNumber and identity keys are ascending by construction, so this is the ordinary case. The
+        // condition cannot fire on a random insert, which is why the general behaviour is unchanged.
+        int splitAt = pos == entries.Count - 1 ? entries.Count - 1 : entries.Count / 2;
         SplitAndPropagate(index, path, path.Count - 1, entries, PageType.LeafIndexPage,
-            page.Previous, page.Next);
+            page.Previous, page.Next, splitAt);
     }
 
     /// <summary>
     /// Splits the (leaf or node) page at <paramref name="level"/> into two, writes both, then promotes a
     /// separator into the parent — splitting parents in turn, or growing a new root at the top.
     /// </summary>
+    /// <param name="splitAt">How many entries stay on the left page; negative for the default half. Only a
+    /// leaf split sets it, to keep a page full when the new entry is its maximum (see InsertIntoLeaf).</param>
     private void SplitAndPropagate(IndexDef index, List<int> path, int level, List<Entry> entries,
-        PageType type, int prev, int next)
+        PageType type, int prev, int next, int splitAt = -1)
     {
         int leftPage = path[level];
         int rightPage = AllocateIndexPage(index);
@@ -274,7 +306,9 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         byte[] promoted;
         if (type == PageType.LeafIndexPage)
         {
-            int mid = entries.Count / 2;
+            // The left page always fits: at worst it is the page as it stood before the insert that
+            // overflowed it, and that fitted.
+            int mid = splitAt < 0 ? entries.Count / 2 : splitAt;
             var left = entries.GetRange(0, mid);
             var right = entries.GetRange(mid, entries.Count - mid);
             promoted = WithTrailer(left[^1].Key, left[^1].Trailer); // left's max full key
@@ -369,7 +403,10 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     /// both matching what Access writes. (An isolation test showed neither is strictly required — Access reads
     /// a node with <c>0x1A=0</c> and compressed just fine; they are kept purely for byte-faithfulness. The one
     /// hard requirement is a <b>leaf's</b> <c>0x1A=0</c> and the leaf-chain offsets at <c>0x0C</c>/<c>0x10</c>.)</summary>
-    private byte[]? Build(PageType type, int prev, int next, int tail, int level, List<Entry> entries)
+    /// <param name="prefix">The shared-prefix length to store the entries at. Null computes the largest
+    /// available, which is what a split writes. It must not exceed what the entries actually share.</param>
+    private byte[]? Build(PageType type, int prev, int next, int tail, int level, List<Entry> entries,
+        int? prefix = null)
     {
         bool isLeaf = type == PageType.LeafIndexPage;
         int pageSize = _channel.PageSize;
@@ -384,7 +421,10 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
         // A single entry (or a node) has no common-prefix compression — ACE writes 0 here (the whole key with
         // itself would otherwise "compress" to its full length, which ACE does not do for one entry).
-        int compress = !isLeaf || entries.Count <= 1 ? 0 : CommonPrefixLength(entries[0].Key, entries[^1].Key);
+        // Otherwise the caller chooses: see InsertIntoLeaf for when a page is compressed at all.
+        int compress = !isLeaf || entries.Count <= 1
+            ? 0
+            : prefix ?? CommonPrefixLength(entries[0].Key, entries[^1].Key);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(CompressedByteCountOffset, 2), (ushort)compress);
 
         int pos = EntryDataOffset;

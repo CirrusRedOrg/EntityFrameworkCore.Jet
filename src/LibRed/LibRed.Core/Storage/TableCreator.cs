@@ -7,10 +7,11 @@ using LibRed.Pages;
 namespace LibRed.Storage;
 
 /// <summary>
-/// Creates a new (heap) table in an existing database: allocates and writes its TDEF page, an
-/// empty data page, and an owned-pages usage map, then records it in MSysObjects so the catalog
-/// finds it. This first cut creates a no-index table and writes the catalog row heap-only (the
-/// catalog is read by table scan), enough for LibRed to round-trip create → insert → query.
+/// Creates and alters tables in an existing database. <see cref="Create"/> allocates and writes the TDEF
+/// page, its indexes' B-tree roots and an owned-pages usage map, then records the table in MSysObjects so
+/// the catalog finds it. The rest of the class is the incremental DDL EF issues one statement at a time —
+/// ADD/DROP/ALTER/RENAME for columns, indexes, relationships and CHECK constraints — each a surgical edit
+/// of the existing TDEF rather than a rebuild, so unmodelled descriptor bytes survive.
 /// </summary>
 public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collation? collation = null)
 {
@@ -21,6 +22,47 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     // The database's default collating order, written into new non-numeric columns. Defaults to General
     // legacy for callers that don't create columns (most alter operations).
     private readonly Collation _collation = collation ?? Collation.GeneralLegacy;
+
+    /// <summary>
+    /// Jet/ACE caps a table at 32 indexes and the cap applies to BOTH TDEF counts — the index-data blocks at
+    /// <c>0x33</c> and the logical index-info blocks at <c>0x2F</c>. Microsoft states it against the logical
+    /// one: "Number of indexes in a table: 32, including indexes created internally to maintain table
+    /// relationships, single-field and composite indexes."
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="TdefBuilder"/> checks both when a table is created with all its indexes at once, but EF does
+    /// not work that way: it creates the table, then adds indexes and relationships one statement at a time,
+    /// and each of those comes through a surgical insert here instead. Nothing checked those paths, so the
+    /// counts simply walked past 32 — the fields are <c>Int32</c>, so nothing overflowed.
+    /// </para>
+    /// <para>
+    /// The logical count is the one that binds, because a data block must be named by a logical block, so
+    /// <c>0x33 ≤ 0x2F</c> always holds. A table many others reference gains a logical block per incoming
+    /// relationship and no data block, so it overruns on <c>0x2F</c> while <c>0x33</c> still looks healthy —
+    /// which is exactly what the read-side check inspected. Building EF Core's
+    /// <c>ComplexNavigationsSharedType</c> model, <c>Level1</c> reached 46 logical against 31 data, and the
+    /// resulting file was unreadable by Access ("Unrecognized database format", the table missing entirely)
+    /// while LibRed read it back without complaint. Measured in <c>IndexCountLimitAccessTests</c>; see
+    /// <c>docs/format/page-02d-constraints.md</c>.
+    /// </para>
+    /// </remarks>
+    private const int MaxIndexesPerTable = 32;
+
+    /// <summary>Rejects an incremental index or relationship that would take either TDEF count past the
+    /// Jet/ACE limit, naming both counts so the failure says which one bound.</summary>
+    private static void EnsureIndexCapacity(string tableName, string what, int dataCount, int logicalCount)
+    {
+        if (dataCount > MaxIndexesPerTable || logicalCount > MaxIndexesPerTable)
+        {
+            throw new NotSupportedException(
+                $"Cannot add {what} to '{tableName}': it would leave the table with {dataCount} index-data blocks and " +
+                $"{logicalCount} logical index blocks. Jet/ACE allows at most {MaxIndexesPerTable} of each, counting " +
+                "those backing primary keys, unique constraints and relationships - and a table referenced by many " +
+                "others accumulates a logical block per incoming relationship without gaining a data block.");
+        }
+    }
+
 
     public void Create(
         string name,
@@ -285,7 +327,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 ix.Columns.Select(c => c.Column.Name).SequenceEqual(refColumns, StringComparer.OrdinalIgnoreCase))
             ?? throw new InvalidOperationException(
                 $"Referenced table '{fk.ReferencedTable}' has no index over ({string.Join(", ", refColumns)}).");
-        return (parent.DefinitionPage, refIndex.RealIndexOrdinal, ptdef.RealIndexCount);
+        return (parent.DefinitionPage, refIndex.RealIndexOrdinal, ptdef.LogicalIndexCount);
     }
 
     /// <summary>
@@ -322,10 +364,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
 
     /// <summary>
-    /// Adds an index to an existing (empty) table for CREATE INDEX. Surgically inserts a statistics
-    /// block, an index-data block and a logical index-info block into the TDEF (preserving the existing
-    /// columns, indexes, relationship linkage and long-value entries byte-for-byte), grows the usage-map
-    /// page by one row and writes an empty B-tree root. Single-page, empty-table only.
+    /// Adds an index to an existing table for CREATE INDEX. Surgically inserts a statistics block, an
+    /// index-data block and a logical index-info block into the TDEF (preserving the existing columns,
+    /// indexes, relationship linkage and long-value entries byte-for-byte), grows the usage-map page by one
+    /// row and writes a B-tree root, back-filled from the table's existing rows.
     /// </summary>
     public void AddIndex(string tableName, string indexName, IReadOnlyList<(string Column, bool Descending)> columns,
         bool isUnique, bool isPrimary, bool disallowNull, bool ignoreNulls)
@@ -348,13 +390,24 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             : throw new InvalidOperationException($"Column '{c.Column}' does not exist in '{table.Name}'.")).ToList();
     }
 
-    /// <summary>Surgically inserts one data index and its logical info block into an existing (empty)
-    /// table's TDEF, name-sorted. <paramref name="buildInfo"/> gets (block number, data-block ordinal) and
+    /// <summary>Surgically inserts one data index and its logical info block into an existing table's TDEF,
+    /// name-sorted. <paramref name="buildInfo"/> gets (block number, data-block ordinal) and
     /// returns the 28-byte info block — a plain index or an outgoing-FK block. Returns the new block number.</summary>
     private int InsertIndex(TableDef table, string indexName, IReadOnlyList<(int Id, bool Ascending)> slots,
         bool unique, bool required, bool ignoreNulls, Func<int, int, byte[]> buildInfo)
     {
         JetFormatBase format = _channel.Format;
+
+        // The index-data block holds exactly IndexBlockFormat.MaxColumns slots, with no count and no
+        // continuation, so a wider index cannot be represented. TdefBuilder rejects this when a table is
+        // created with its indexes; this is the incremental path, where BuildIndexDataBlock would otherwise
+        // write the first ten and mark the rest unused — silently storing a different index from the one
+        // asked for, which ACE reads without complaint. ACE refuses instead: "Cannot have more than 10
+        // fields in an index."
+        if (slots.Count > IndexBlockFormat.MaxColumns)
+            throw new NotSupportedException(
+                $"Cannot create index '{indexName}' on '{table.Name}' over {slots.Count} columns: "
+                + $"Jet/ACE stores at most {IndexBlockFormat.MaxColumns} fields in an index.");
 
         // Read the whole definition (stitching any existing continuation pages) so the surgical insert
         // works in absolute coordinates; the old continuation pages are reused when we write it back.
@@ -370,8 +423,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             EnsureNoDuplicateKeys(table, indexName, slots);
 
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
-        int logicalCount = buf.ReadInt32(format.TdefRealIndexCountOffset);
+        int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset);
         int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
+
+        // A plain index or an outgoing FK adds one of each. Checked before a byte moves, like the
+        // duplicate-key scan above, so a rejection leaves the file exactly as it was.
+        EnsureIndexCapacity(table.Name, $"index '{indexName}'", dataCount + 1, logicalCount + 1);
 
         // Walk the TDEF regions: stats -> column descriptors -> column names -> data blocks -> info blocks.
         int afterStats = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize;
@@ -409,11 +466,34 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int rootPage = _allocator.Allocate();
         WriteEmptyLeafIndexPage(format, rootPage, owner: table.DefinitionPage);
         int usageMapPage = ReadInt24(buf, format.TdefOwnedPagesOffset + 1);
-        int newIndexUsageRow = 2 + lvalCount * 2 + dataCount;
+        // Where the new index's usage map goes. The primary page holds the table's two maps, one row per
+        // index, then two rows per long-value column — but only for the columns that FIT; create spills the
+        // rest onto dedicated pages. So on a wide memo table the row this formula names is past the end.
+        //
+        // ACE's answer is not to squeeze it in but to spill, exactly as it does for the columns: measured on
+        // a 40-memo table, CREATE INDEX leaves the full 57-row primary page alone and puts the new index's
+        // map at row 0 of a page of its own (WideMemoUsageMapProbeTests). Match that.
+        var primaryMap = new DataPage();
+        primaryMap.Read(_channel.ReadPage(usageMapPage), format);
+        int primaryFree = BinaryPrimitives.ReadUInt16LittleEndian(
+            _channel.ReadPage(usageMapPage).Span.Slice(format.DataFreeSpaceOffset, 2));
+
+        // Clamped, because after a DROP INDEX left an orphaned row the formula lands below the row count and
+        // that slot is meant to be reused rather than a duplicate appended.
+        int newIndexUsageRow = Math.Min(2 + lvalCount * 2 + dataCount, primaryMap.Rows.Count);
+        bool ownPage = newIndexUsageRow == primaryMap.Rows.Count
+            && primaryFree < UsageMapRecordLength + 2;
+        if (ownPage)
+        {
+            usageMapPage = _allocator.Allocate();
+            WriteUsageMaps(format, usageMapPage, mapCount: 1);
+            newIndexUsageRow = 0;
+        }
         // Append the new index's (empty) usage-map row, preserving every existing record. The data maps are
         // empty on an empty table but the *existing indexes'* maps already carry their root bits (set at
-        // creation), so we must not rewrite the page from scratch even when the table has no rows.
-        AppendEmptyUsageMapRow(format, usageMapPage, newIndexUsageRow);
+        // creation), so we must not rewrite the page from scratch even when the table has no rows. A page of
+        // its own already has the row, written empty above.
+        if (!ownPage) AppendEmptyUsageMapRow(format, usageMapPage, newIndexUsageRow);
 
         // Record this index's own root, as Access does at CREATE INDEX (the empty root is the index's sole
         // page until it splits, after which IndexWriter adds each page it allocates).
@@ -449,7 +529,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         // Bump the two index counts and the definition length in the header.
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefIndexCountOffset, 4), dataCount + 1);
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefRealIndexCountOffset, 4), logicalCount + 1);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLogicalIndexCountOffset, 4), logicalCount + 1);
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLengthOffset, 4), newDefEnd);
 
         WriteDefinition(table.DefinitionPage, def, existingContinuations);
@@ -543,6 +623,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             minOffset = Math.Min(minOffset, BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + r * 2, 2)));
 
         int newOffset = minOffset - MapLength;
+        // A record written below the directory would overwrite the slots themselves — which reads back later
+        // as a slot with offset 0 "outside the row heap", a long way from the cause. The caller is expected
+        // to spill onto a fresh page rather than get here; this is the backstop that keeps a mistake loud.
+        if (newOffset < format.DataRowDirectoryOffset + (rowCount + 1) * 2)
+            throw new InvalidOperationException(
+                $"Usage-map page {pageNumber} has no room for another record: {rowCount} rows already reach "
+                + $"offset {minOffset}. The new map belongs on a page of its own.");
         Array.Clear(page, newOffset, MapLength); // inline type 0x00, start page 0, zero bitmap
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + newRow * 2, 2), (ushort)newOffset);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), (ushort)(rowCount + 1));
@@ -552,7 +639,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     }
 
     /// <summary>
-    /// Adds a foreign key to an existing (empty) child table: a backing non-unique index over the child
+    /// Adds a foreign key to an existing child table: a backing non-unique index over the child
     /// columns carrying an outgoing-relationship block, an incoming block on the parent's TDEF, and the
     /// MSysRelationships rows. The child index and parent block are written the same way inline-FK creation
     /// does (verified byte-faithful vs ACE). A self-reference hosts both ends in the one table; FOREIGN KEY
@@ -731,11 +818,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     }
 
 
-    /// <summary>Deletes every row of <paramref name="catalogTable"/> whose <paramref name="keyColumn"/> equals
-    /// <paramref name="keyValue"/> (the object id) — used to remove a dropped table's MSysObjects and MSysACEs
-    /// rows. A full delete: its **index entries are removed** (not just the slot soft-deleted) so, e.g., the
-    /// MSysObjects <c>ParentIdName</c> unique index doesn't retain a stale entry that would then reject
-    /// re-creating a same-named table.</summary>
     /// <summary>
     /// Renames a table — <c>ALTER TABLE … RENAME TO</c>. Measured against ACE (see <c>RenameFanOutProbeTest</c>):
     /// only two things move — the object's <c>MSysObjects.Name</c>, and the by-name table references in
@@ -752,6 +834,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     {
         TableDef? table = _catalog.FindTable(oldName);
         if (table is null) return false;
+        // The same names Create refuses. A rename reaches the identical bytes by a different route, so
+        // validating only on the way in left it open: renaming a COLUMN to over 64 characters makes the
+        // whole database unreadable to ACE ("Unrecognized database format"), which is exactly what the
+        // create-side check exists to prevent (RenameNameValidationAccessTests).
+        JetName.Validate(newName, "table name");
         // The table being renamed is not a collision with itself: renaming to the same name is a no-op that ACE
         // allows (and EF's schema "move" degrades to exactly that on a schema-less engine), as is a case-only
         // change. Both verified — RenameFanOutProbeTest.
@@ -818,6 +905,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
         ColumnDef? col = table.Columns.FirstOrDefault(c => string.Equals(c.Name, oldName, StringComparison.OrdinalIgnoreCase));
         if (col is null) return false;
+        JetName.Validate(newName, "column name");   // see RenameTable: unchecked, this corrupts the file
         if (table.Columns.Any(c => string.Equals(c.Name, newName, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException(
                 $"ALTER TABLE '{tableName}' RENAME COLUMN '{oldName}' TO '{newName}': the table already has a column named '{newName}'.");
@@ -974,6 +1062,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         table.Update(id, newValues, changed);
     }
 
+    /// <summary>Deletes every row of <paramref name="catalogTable"/> whose <paramref name="keyColumn"/> equals
+    /// <paramref name="keyValue"/> (the object id) — used to remove a dropped table's MSysObjects and MSysACEs
+    /// rows. A full delete: its <b>index entries are removed</b> (not just the slot soft-deleted) so, e.g., the
+    /// MSysObjects <c>ParentIdName</c> unique index doesn't retain a stale entry that would then reject
+    /// re-creating a same-named table.</summary>
     private void DeleteCatalogRows(string catalogTable, string keyColumn, int keyValue)
     {
         TableDef t = _catalog.FindTable(catalogTable)
@@ -1085,6 +1178,15 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 $"Cannot add column '{spec.Name}' to '{tableName}': too many fields defined — {MaxColumnsPerTable} column ids " +
                 "have been used over this table's lifetime (Jet/ACE caps the id high-water; a compact is required to reclaim dropped ids).");
 
+        // The width limits Create enforces through TdefBuilder apply just as much to a column added later:
+        // the new column's own width, and what it does to the widest record the table can now hold.
+        RecordLayout.ValidateFieldWidth(spec.Name, spec.Type, spec.Length);
+        RecordLayout.ValidateRecordFits(tableName,
+            FixedBytes(table) + (spec.IsFixedLength && spec.Type != JetDataType.Boolean ? spec.Length : 0),
+            varCount + (spec.IsFixedLength ? 0 : 1),
+            maxCols + 1,
+            format);
+
         var newColumn = new ColumnDef
         {
             Name = spec.Name,
@@ -1184,9 +1286,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         parts.Lval = result;
     }
 
-    /// <summary>Appends a column's extended properties (DefaultValue/Required) to its table's
-    /// <c>MSysObjects.LvProp</c> blob and re-stores it — the add-side counterpart of
-    /// <see cref="RemoveColumnProperties"/>.</summary>
     /// <summary>Sets (replaces) a column's <c>DefaultValue</c> in the table's <c>MSysObjects.LvProp</c> blob —
     /// ALTER TABLE … ALTER COLUMN … DEFAULT. Reads all properties, drops any existing DefaultValue for the
     /// column, adds the new one, and rewrites the blob (preserving every other property).</summary>
@@ -1249,6 +1348,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         throw new InvalidOperationException($"MSysObjects row for table '{tableName}' (page {tdefPage}) was not found.");
     }
 
+    /// <summary>Appends a column's extended properties (DefaultValue/Required) to its table's
+    /// <c>MSysObjects.LvProp</c> blob and re-stores it — the add-side counterpart of
+    /// <see cref="RemoveColumnProperties"/>.</summary>
     private void SetColumnProperties(int tdefPage, string columnName, IReadOnlyList<PropertyBlob.Property> props)
     {
         TableDef msys = _catalog.FindTable("MSysObjects")
@@ -1360,6 +1462,19 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
         EnsureColumnIsNotInRelationship(table, col);
 
+        // Widening a column reaches the same bytes as declaring it wide in the first place, so the limits
+        // Create enforces apply here too. This sits ahead of the identity and counter short-circuits below
+        // deliberately: re-declaring an already-oversized column should report the problem, not wave it on.
+        RecordLayout.ValidateFieldWidth(newSpec.Name, newSpec.Type, newSpec.Length);
+        RecordLayout.ValidateRecordFits(tableName,
+            FixedBytes(table)
+                - (col.IsFixedLength && col.Type != JetDataType.Boolean ? col.Length : 0)
+                + (newSpec.IsFixedLength && newSpec.Type != JetDataType.Boolean ? newSpec.Length : 0),
+            table.Columns.Count(c => !c.IsFixedLength) + (col.IsFixedLength ? 0 : -1) + (newSpec.IsFixedLength ? 0 : 1),
+            // A type change burns a fresh column id, so the bitmap can widen by one.
+            HighWater(table) + (col.Type == newSpec.Type ? 0 : 1),
+            _channel.Format);
+
         // A pure reseed of an existing counter — ALTER COLUMN c COUNTER(seed, increment) where c is already an
         // AutoNumber of the same storage type — changes only the next id, not the data or layout. It's an
         // in-place TDEF header edit (0x14/0x18), exactly what ACE does; RewriteColumn would needlessly rebuild
@@ -1387,6 +1502,23 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             DemoteCounterToInt(table, col);
             return;
         }
+
+        // ACE identity ALTER succeeds at exhausted ids for these measured scalar/short-value types, so a
+        // re-declaration that changes nothing must not burn one. Memo/OLE still consume an id even for an
+        // identical declaration, and so fall through.
+        //
+        // Nullability is deliberately NOT compared: no ALTER path carries it. The SQL layer always builds
+        // the spec with NotNull false and applies Required separately afterwards, and RewriteColumn discards
+        // newSpec.IsNullable outright in favour of the target's. Comparing it here would make the check fail
+        // for every NOT NULL column, so the same statement would burn an id — and throw at 255 — purely
+        // because the column was required.
+        if (col.Type is JetDataType.Boolean or JetDataType.Byte or JetDataType.Int16 or JetDataType.Int32
+                or JetDataType.Single or JetDataType.Double or JetDataType.Currency or JetDataType.DateTime
+                or JetDataType.Guid or JetDataType.Text or JetDataType.Binary or JetDataType.FixedPoint
+            && col.Type == newSpec.Type
+            && col.Length == newSpec.Length && col.IsFixedLength == newSpec.IsFixedLength
+            && (col.Type != JetDataType.FixedPoint || (col.Precision == newSpec.Precision && col.Scale == newSpec.Scale)))
+            return;
 
         bool variableLengthChange =
             !col.IsFixedLength && !newSpec.IsFixedLength && col.Type == newSpec.Type &&
@@ -1416,17 +1548,35 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         throw new InvalidOperationException($"Descriptor for column '{columnName}' (id {col.ColumnId}) was not found.");
     }
 
+    /// <summary>The table's fixed-data region, counted the way <see cref="TdefBuilder"/> counts it on create:
+    /// Boolean is fixed but occupies no data, so it contributes nothing.</summary>
+    private static int FixedBytes(TableDef table) =>
+        table.Columns.Where(c => c.IsFixedLength && c.Type != JetDataType.Boolean).Sum(c => c.Length);
+
+    /// <summary>The TDEF's `0x29` column-id high-water — the number of ids handed out over the table's
+    /// lifetime, which is what sizes a record's null bitmap (dropped ids keep their bit).</summary>
+    private int HighWater(TableDef table) =>
+        ReadDefinition(table.DefinitionPage).Buffer.ReadUInt16(_channel.Format.TdefMaxColumnsOffset);
+
+    /// <summary>Whether the column is either end of a relationship — the child's FK column or the parent's
+    /// referenced key. ACE refuses to alter or drop such a column; the two callers differ only in the message
+    /// they raise, so the rule itself lives here.</summary>
+    private bool ColumnIsInRelationship(TableDef table, ColumnDef column)
+    {
+        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
+        return _catalog.Relationships.Any(r =>
+            (string.Equals(r.Table, table.Name, oic) &&
+             r.Columns.Any(c => string.Equals(c.Column, column.Name, oic))) ||
+            (string.Equals(r.ReferencedTable, table.Name, oic) &&
+             r.Columns.Any(c => string.Equals(c.ReferencedColumn, column.Name, oic))));
+    }
+
     /// <summary>ACE rejects every type/length alteration of a relationship column, on either the
     /// referencing or referenced side. Keep this check ahead of all specialized ALTER paths so an
     /// in-place descriptor edit cannot bypass the same rule enforced by a logical table rebuild.</summary>
     private void EnsureColumnIsNotInRelationship(TableDef table, ColumnDef column)
     {
-        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
-        if (_catalog.Relationships.Any(r =>
-                (string.Equals(r.Table, table.Name, oic) &&
-                 r.Columns.Any(c => string.Equals(c.Column, column.Name, oic))) ||
-                (string.Equals(r.ReferencedTable, table.Name, oic) &&
-                 r.Columns.Any(c => string.Equals(c.ReferencedColumn, column.Name, oic)))))
+        if (ColumnIsInRelationship(table, column))
             throw new InvalidOperationException(
                 $"Cannot change field '{column.Name}'. It is part of one or more relationships.");
     }
@@ -1438,11 +1588,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// that.</summary>
     private void ReseedCounter(TableDef table, ColumnDef col, int seed, int increment)
     {
-        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
-        if (_catalog.Relationships.Any(r =>
-                (string.Equals(r.Table, table.Name, oic) && r.Columns.Any(c => string.Equals(c.Column, col.Name, oic))) ||
-                (string.Equals(r.ReferencedTable, table.Name, oic) && r.Columns.Any(c => string.Equals(c.ReferencedColumn, col.Name, oic)))))
-            throw new InvalidOperationException($"Cannot change field '{col.Name}'. It is part of one or more relationships.");
+        EnsureColumnIsNotInRelationship(table, col);
 
         if (increment == 0) increment = 1;
         JetFormatBase format = _channel.Format;
@@ -1460,14 +1606,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// the reseed path) a column in a relationship is rejected, matching ACE.</summary>
     private void PromoteColumnToCounter(TableDef table, ColumnDef col, int seed, int increment)
     {
-        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
         if (table.Columns.Any(c => c.IsAutoNumber && c.ColumnId != col.ColumnId))
             throw new InvalidOperationException(
                 $"Cannot make '{col.Name}' an AutoNumber: table '{table.Name}' already has one (Jet allows a single AutoNumber column per table).");
-        if (_catalog.Relationships.Any(r =>
-                (string.Equals(r.Table, table.Name, oic) && r.Columns.Any(c => string.Equals(c.Column, col.Name, oic))) ||
-                (string.Equals(r.ReferencedTable, table.Name, oic) && r.Columns.Any(c => string.Equals(c.ReferencedColumn, col.Name, oic)))))
-            throw new InvalidOperationException($"Cannot change field '{col.Name}'. It is part of one or more relationships.");
+        EnsureColumnIsNotInRelationship(table, col);
 
         if (increment == 0) increment = 1;
         JetFormatBase format = _channel.Format;
@@ -1533,20 +1675,20 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         ColumnDef target = def.FindColumn(columnName)
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
 
-        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
+        EnsureColumnIsNotInRelationship(def, target);
 
-        // ACE rejects altering a column that is itself part of a relationship (an FK column or the referenced
-        // key column) — "Cannot change field 'X'. It is part of one or more relationships." (verified).
-        if (_catalog.Relationships.Any(r =>
-                (string.Equals(r.Table, tableName, oic) && r.Columns.Any(c => string.Equals(c.Column, columnName, oic))) ||
-                (string.Equals(r.ReferencedTable, tableName, oic) && r.Columns.Any(c => string.Equals(c.ReferencedColumn, columnName, oic)))))
-            throw new InvalidOperationException($"Cannot change field '{columnName}'. It is part of one or more relationships.");
+        // Read straight off the definition page: 0x29 is in the header, so this needs none of the block
+        // slicing (or continuation-page stitching) a full ParseTdef would do for one 16-bit field.
+        int priorHighWater = _channel.ReadPage(def.DefinitionPage).ReadUInt16(_channel.Format.TdefMaxColumnsOffset);
+        if (priorHighWater >= MaxColumnsPerTable)
+            throw new NotSupportedException($"Cannot alter '{columnName}': too many fields defined — {MaxColumnsPerTable} column ids have been used.");
 
         // The rebuild drops + recreates the table, so every relationship it touches is captured and restored
         // afterwards. OUTGOING FKs (this table is the child) are cascaded away by DropTable and re-added; their
         // backing indexes are recreated with them, so they're excluded from `secondary`. INCOMING FKs (this table
         // is the referenced parent) are dropped up front so the parent can be dropped, then re-added — this is
         // what makes a parent-side rewrite work. Self-references count as outgoing only.
+        const StringComparison oic = StringComparison.OrdinalIgnoreCase;
         var foreignKeys = _catalog.ForeignKeysOf(tableName).ToList();
         var incoming = _catalog.Relationships
             .Where(r => string.Equals(r.ReferencedTable, tableName, oic) && !string.Equals(r.Table, tableName, oic))
@@ -1599,6 +1741,15 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             _catalog.Invalidate();
             Create(tableName, specs, primaryKey, relationships: null, uniqueConstraints: null,
                 columnDefaults: defaults, checkConstraints: checks, primaryKeyName: pk?.Name);
+            _catalog.Invalidate();
+
+            // The logical rebuild still lays live columns out contiguously, but must not reset
+            // lifetime id consumption. ACE consumes one even for identity Memo/OLE ALTER.
+            int rebuiltPage = _catalog.FindTable(tableName)!.DefinitionPage;
+            TdefParts rebuilt = ParseTdef(rebuiltPage);
+            BinaryPrimitives.WriteUInt16LittleEndian(
+                rebuilt.Header.AsSpan(_channel.Format.TdefMaxColumnsOffset, 2), (ushort)(priorHighWater + 1));
+            WriteTdef(rebuiltPage, rebuilt);
             _catalog.Invalidate();
 
             var dest = new Table(_channel, _catalog.FindTable(tableName)!);
@@ -1671,6 +1822,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     private static int EditTargetDescriptor(TdefParts parts, ColumnDef target, ColumnSpec newSpec, int fixedEnd, JetFormatBase format)
     {
         int maxCols = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefMaxColumnsOffset, 2));
+        // ACE-only probe: with 254 columns one retype succeeds, the next fails; with 255
+        // columns the first retype fails. A same-type ALTER does not reach this id-burning path.
+        if (maxCols >= MaxColumnsPerTable)
+            throw new NotSupportedException(
+                $"Cannot change the type of '{target.Name}': too many fields defined — {MaxColumnsPerTable} column ids have been used.");
         int varCount = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefVariableColumnsOffset, 2));
 
         Span<byte> d = parts.Columns.AsSpan(target.Index * format.ColumnDescriptorSize, format.ColumnDescriptorSize);
@@ -1712,6 +1868,16 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         ColumnDef oldTarget = oldDef.FindColumn(columnName)
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
         EnsureColumnIsNotInRelationship(oldDef, oldTarget);
+
+        // Also reached directly, not only through AlterColumn, so it carries the width limits itself.
+        RecordLayout.ValidateFieldWidth(newSpec.Name, newSpec.Type, newSpec.Length);
+        RecordLayout.ValidateRecordFits(tableName,
+            FixedBytes(oldDef)
+                - (oldTarget.IsFixedLength && oldTarget.Type != JetDataType.Boolean ? oldTarget.Length : 0)
+                + (newSpec.IsFixedLength && newSpec.Type != JetDataType.Boolean ? newSpec.Length : 0),
+            oldDef.Columns.Count(c => !c.IsFixedLength) + (oldTarget.IsFixedLength ? 0 : -1) + (newSpec.IsFixedLength ? 0 : 1),
+            HighWater(oldDef) + 1,   // the type change burns a fresh id
+            _channel.Format);
 
         // A long-value (Memo/OLE) target — or converting one away — needs long-value column mechanics (a §3.3.2
         // usage-map entry, LVAL pages, freeing the old value). That's out of scope for the byte-faithful in-place
@@ -1817,7 +1983,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         if (!newTarget.IsFixedLength) chunks.Add(targetBytes);
 
         // Assemble via the shared row layout (count + var table + null bitmap identical to a fresh encode).
-        _ = newFixedLen; // == newFixed.Length
         return RowEncoder.AssembleRow(newMaxId, newFixed, chunks, newCols, values);
     }
 
@@ -1974,11 +2139,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // referenced parent key) — even a NO INDEX FK with no backing index — with "It is part of one or more
         // relationships"; you must drop the relationship first. This is correct, permanent behaviour (not a
         // gap), so mirror it. Verified vs ACE.
-        if (_catalog.Relationships.Any(r =>
-                (string.Equals(r.Table, tableName, StringComparison.OrdinalIgnoreCase)
-                    && r.Columns.Any(c => string.Equals(c.Column, columnName, StringComparison.OrdinalIgnoreCase))) ||
-                (string.Equals(r.ReferencedTable, tableName, StringComparison.OrdinalIgnoreCase)
-                    && r.Columns.Any(c => string.Equals(c.ReferencedColumn, columnName, StringComparison.OrdinalIgnoreCase)))))
+        if (ColumnIsInRelationship(table, col))
             throw new InvalidOperationException(
                 $"Cannot drop column '{columnName}': it is part of one or more relationships — drop the relationship first.");
 
@@ -2086,7 +2247,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     private static string NameOf(byte[] nameEntry) =>
         System.Text.Encoding.Unicode.GetString(nameEntry, 2, BinaryPrimitives.ReadUInt16LittleEndian(nameEntry.AsSpan(0, 2)));
 
-    /// <summary>The parsed regions of a single-page table definition, for surgical block removal.</summary>
+    /// <summary>The parsed regions of a table definition, for surgical block removal. A multi-page definition
+    /// is stitched into one buffer by <see cref="ParseTdef"/>; <see cref="Continuations"/> carries its extra
+    /// pages so <see cref="WriteTdef"/> can reuse them.</summary>
     private sealed class TdefParts
     {
         public required byte[] Header;                          // [0, TdefRealIndexBlockOffset)
@@ -2106,7 +2269,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         (LibRed.IO.PageBuffer buf, IReadOnlyList<int> continuations) = ReadDefinition(tdefPage);
 
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
-        int logicalCount = buf.ReadInt32(format.TdefRealIndexCountOffset);
+        int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset);
         int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
 
         int statsStart = format.TdefRealIndexBlockOffset;
@@ -2179,7 +2342,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int defEnd = def.Length;
 
         BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefIndexCountOffset, 4), parts.DataBlocks.Count);
-        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefRealIndexCountOffset, 4), parts.Logical.Count);
+        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLogicalIndexCountOffset, 4), parts.Logical.Count);
         BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLengthOffset, 4), defEnd);
 
         // Write across the first page and continuation pages as needed (reusing the existing ones) — handles a
@@ -2350,8 +2513,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             throw new NotSupportedException("Adding a relationship to a multi-page table definition is not supported yet.");
 
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);        // 0x33 real data blocks
-        int logicalCount = buf.ReadInt32(format.TdefRealIndexCountOffset); // 0x2F logical blocks
+        int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset); // 0x2F logical blocks
         int colCount = buf.ReadUInt16(format.TdefColumnCountOffset);
+
+        // An incoming relationship adds a logical block and no data block, so this is the path a referenced
+        // table overruns: 0x33 stays where it was while 0x2F climbs with every table that points here.
+        EnsureIndexCapacity(
+            _catalog.Tables.FirstOrDefault(t => t.DefinitionPage == inc.ParentPage)?.Name ?? $"page {inc.ParentPage}",
+            "an incoming relationship", dataCount, logicalCount + 1);
 
         // Walk to the logical index-info blocks: stats + column descriptors -> column names -> data blocks.
         int pos = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize
@@ -2392,7 +2561,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         foreach (byte[] n in nameBytes) { n.CopyTo(page.AsSpan(w)); w += n.Length; }
         lvalRegion.CopyTo(page.AsSpan(w));
 
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRealIndexCountOffset, 4), logicalCount + 1);
+        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefLogicalIndexCountOffset, 4), logicalCount + 1);
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefLengthOffset, 4), newDefEnd);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefFreeSpaceOffset, 2),
             (ushort)(format.PageSize - newDefEnd - JetFormatBase.TdefContinuationHeaderSize));
@@ -2488,8 +2657,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
     // An inline usage-map record: type byte + 4-byte start page + a 64-byte all-zero bitmap = 69 bytes.
     private const int UsageMapRecordLength = 1 + 4 + 64;
-
-    // A user table's parent object is the database's "Tables" container; observed constant.
 
     // A user table's owner + grantee SIDs, matching the cluster DatabaseCreator seeds for the system objects
     // (Users owns user objects; Users + Admin get the user-table grants).

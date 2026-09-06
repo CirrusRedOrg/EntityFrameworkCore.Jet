@@ -256,16 +256,28 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
             return;
         }
 
+        // Where to cut. Splitting down the middle is right when keys arrive all over the range, because the
+        // lower half's free space is room for the next key near it. When the new entry is the page's MAXIMUM
+        // it is waste instead: nothing sorts below a maximum, so half the page is stranded for ever. ACE
+        // splits at the right edge in that case — the page stays full and the new entry starts a fresh one —
+        // which is why a sequentially loaded index of ACE's packs its leaves to capacity and LibRed's used to
+        // settle near half (see docs/format/page-03-04-index-btree.md §10.5 for the measured comparison).
+        //
+        // AutoNumber and identity keys are ascending by construction, so this is the ordinary case. The
+        // condition cannot fire on a random insert, which is why the general behaviour is unchanged.
+        int splitAt = pos == entries.Count - 1 ? entries.Count - 1 : entries.Count / 2;
         SplitAndPropagate(index, path, path.Count - 1, entries, PageType.LeafIndexPage,
-            page.Previous, page.Next);
+            page.Previous, page.Next, splitAt);
     }
 
     /// <summary>
     /// Splits the (leaf or node) page at <paramref name="level"/> into two, writes both, then promotes a
     /// separator into the parent — splitting parents in turn, or growing a new root at the top.
     /// </summary>
+    /// <param name="splitAt">How many entries stay on the left page; negative for the default half. Only a
+    /// leaf split sets it, to keep a page full when the new entry is its maximum (see InsertIntoLeaf).</param>
     private void SplitAndPropagate(IndexDef index, List<int> path, int level, List<Entry> entries,
-        PageType type, int prev, int next)
+        PageType type, int prev, int next, int splitAt = -1)
     {
         int leftPage = path[level];
         int rightPage = AllocateIndexPage(index);
@@ -274,7 +286,9 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         byte[] promoted;
         if (type == PageType.LeafIndexPage)
         {
-            int mid = entries.Count / 2;
+            // The left page always fits: at worst it is the page as it stood before the insert that
+            // overflowed it, and that fitted.
+            int mid = splitAt < 0 ? entries.Count / 2 : splitAt;
             var left = entries.GetRange(0, mid);
             var right = entries.GetRange(mid, entries.Count - mid);
             promoted = WithTrailer(left[^1].Key, left[^1].Trailer); // left's max full key

@@ -208,9 +208,9 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     }
 
     /// <summary>
-    /// Soft-deletes the row at <paramref name="id"/> — sets the deleted flag (0x8000) on its slot (the bytes
-    /// stay; scans and Access skip it) and decrements the TDEF row count (0x10), matching Access. The caller
-    /// removes the row's index entries first. (The row's LVAL pages, if any, are not reclaimed yet.)
+    /// Deletes the row at <paramref name="id"/> and reclaims its space, then decrements the TDEF row count
+    /// (0x10). The caller removes the row's index entries first. (The row's LVAL pages, if any, are freed
+    /// above; nothing else about them is reclaimed yet.)
     /// </summary>
     public void Delete(RowId id)
     {
@@ -228,7 +228,15 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             _channel.ReadPage(id.Page, page);
             int dir = format.DataRowDirectoryOffset + id.Row * 2;
             ushort entry = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir, 2));
-            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir, 2), (ushort)(entry | RowPointer.DeletedFlag));
+
+            // A slot that already carries the overflow flag is a 4-byte forward pointer to a relocated row,
+            // not the row itself; flag it and leave both alone rather than reclaiming the pointer's bytes
+            // and orphaning the target.
+            if ((entry & RowPointer.OverflowFlag) != 0)
+                BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir, 2), (ushort)(entry | RowPointer.DeletedFlag));
+            else
+                ReclaimRow(format, page, id.Row);
+
             _channel.WritePage(id.Page, page.AsSpan(0, format.PageSize));
         }
         finally { ArrayPool<byte>.Shared.Return(page); }
@@ -242,6 +250,54 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             _channel.WritePage(_table.DefinitionPage, tdef.AsSpan(0, format.PageSize));
         }
         finally { ArrayPool<byte>.Shared.Return(tdef); }
+    }
+
+    /// <summary>
+    /// Takes a row's bytes off its page the way ACE does: the rows stored below it slide up to close the
+    /// gap, their slot offsets follow, and the emptied slot becomes a zero-length tombstone whose offset is
+    /// the row's FORMER END, flagged deleted + overflow. The freed bytes go back to the page's free-space
+    /// count, so a delete-heavy table stops growing where ACE's would not.
+    /// <para>
+    /// Slot <i>indices</i> never move, which is what keeps index entries and row ids valid — only offsets
+    /// change. Pointing the tombstone at the former end rather than at the page end is what keeps the
+    /// directory non-increasing, which <see cref="Pages.DataPage"/> relies on to derive each row's length
+    /// from the previous slot. Verified against ACE for a first, middle and last row: deleting the first of
+    /// three 19-byte rows gives <c>D000 0FED 0FDA</c>, the middle <c>0FED CFED 0FDA</c>, the last
+    /// <c>0FED 0FDA CFDA</c>, with free space rising by 19 in each case.
+    /// </para>
+    /// </summary>
+    private static void ReclaimRow(JetFormatBase format, byte[] page, int row)
+    {
+        int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
+        int Offset(int i) => BinaryPrimitives.ReadUInt16LittleEndian(
+            page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2)) & RowPointer.OffsetMask;
+
+        // Slot offsets are non-increasing with slot index, so row i occupies [offset(i), offset(i-1)) and
+        // every row stored below this one is simply a LATER slot. Working by slot index rather than by
+        // comparing offsets is what keeps zero-length tombstones correct: one sitting at exactly this row's
+        // offset has to move up with the rows after it, and an offset comparison leaves it behind — where it
+        // then absorbs this row's length and starves the next live row down to zero.
+        int start = Offset(row);
+        int end = row == 0 ? format.PageSize : Offset(row - 1);
+        int length = end - start;
+
+        int lowest = rowCount > 0 ? Offset(rowCount - 1) : format.PageSize;
+        if (length > 0 && start > lowest)
+            page.AsSpan(lowest, start - lowest).CopyTo(page.AsSpan(lowest + length));
+
+        for (int i = row + 1; i < rowCount; i++)
+        {
+            int at = format.DataRowDirectoryOffset + i * 2;
+            ushort entry = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(at, 2));
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(at, 2),
+                (ushort)((entry & ~RowPointer.OffsetMask) | ((entry & RowPointer.OffsetMask) + length)));
+        }
+
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + row * 2, 2),
+            (ushort)(end | RowPointer.DeletedFlag | RowPointer.OverflowFlag));
+
+        int free = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2));
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2), (ushort)(free + length));
     }
 
     /// <summary>The full inline bytes of the row at <paramref name="id"/> (following an overflow pointer).</summary>

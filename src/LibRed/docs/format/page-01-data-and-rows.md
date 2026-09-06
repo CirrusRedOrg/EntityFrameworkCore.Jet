@@ -17,6 +17,29 @@
 Row slot entry: lower 13 bits (`& 0x1FFF`) = the row's byte offset in the page; `0x8000` =
 deleted, `0x4000` = overflow/lookup pointer (not an inline row). Rows are packed from the end
 of the page backward, so a slot runs from its offset up to where the previous slot's row began.
+**Offsets are therefore non-increasing with slot index**, and the rows stored below a given row are exactly
+the *later slots* — an ordering the delete path below depends on.
+
+### Deleting a row reclaims its bytes
+
+ACE closes the gap rather than leaving the row in place: the rows below it slide up, their slot offsets
+follow, and the emptied slot becomes a **zero-length tombstone flagged deleted + overflow (`0xC000`) whose
+offset is the row's former end**. Slot *indices* never move, which is what keeps index entries and row ids
+valid. Measured on three 19-byte rows, deleting each position in turn — free space rises by 19 every time:
+
+| deleted | directory after |
+| --- | --- |
+| first | `D000 0FED 0FDA` — tombstone at the page end (`0x1000`) |
+| middle | `0FED CFED 0FDA` — at the row above's start |
+| last | `0FED 0FDA CFDA` — nothing below to move |
+
+Pointing the tombstone at the former end rather than at the page end is what preserves the non-increasing
+order, which is what makes it zero-length: its offset equals the preceding slot's. LibRed used to only set
+the deleted flag and leave the row where it was, so the space was never reclaimed — about 21 bytes per
+delete, permanently. `DeletedRowSpaceAccessTests`.
+
+The **slot directory** is not reclaimed by either engine: a tombstoned slot is never reused, so a page that
+has seen thirteen rows carries thirteen slots whatever is live. Only the row bytes come back.
 
 > **A record is capped at 4060 bytes**, counting everything in the row itself — the leading count, fixed
 > data, variable data, the offset table and the null bitmap — but not the payload of a Memo/OLE column,

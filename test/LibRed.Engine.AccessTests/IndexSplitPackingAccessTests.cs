@@ -31,7 +31,14 @@ public class IndexSplitPackingAccessTests(ITestOutputHelper output) : TempDataba
         output.WriteLine($"{workload}: ACE {aceLeaves} leaves [{aceFree}] using {aceUsed} bytes, prefix {acePrefix}");
         output.WriteLine($"{workload,-11}  LibRed {libredLeaves} leaves [{libredFree}] using {libredUsed}, "
             + $"prefix {libredPrefix}");
+
         Assert.Equal(aceLeaves, libredLeaves);
+        Assert.Equal(aceUsed, libredUsed);
+        Assert.Equal(acePrefix, libredPrefix);
+
+        // Ascending is the one that pins both rules at once: the right-edge split (§10.5) and compressing a
+        // page in place before splitting it (§10.3). Get either wrong and this diverges.
+        if (workload == "ascending") Assert.Equal(aceFree, libredFree);
     }
 
     // A sequential load has to pack its leaves, not half-fill them — the point of the right-edge rule.

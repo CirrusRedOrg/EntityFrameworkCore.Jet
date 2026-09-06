@@ -85,14 +85,35 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 > `CommonPrefixLength(key, key)`; now `entries.Count ≤ 1 ⇒ 0`. Verified vs ACE on an index whose fresh
 > root leaf holds a single key, e.g. the rebuild in §3.8.)
 >
-> **ACE computes the prefix when it SPLITS a page, not while appending to one.** On a sequential load its
-> leaves come out `3, 3, 0` — the two pages that split are compressed, the page still being appended to is
-> not — while LibRed recomputes on every write and gets `3, 3, 3`. On descending and random loads, where
-> every page has been through a split, the two engines agree exactly: `3, 3, 3, 3` and the same 10,932 bytes
-> of leaf. So LibRed's ascending index is *smaller* than ACE's by the tail page's saving (885 bytes over
-> 1500 rows), which is a difference in when the prefix is recomputed rather than in the compression itself.
-> An earlier reading of this — "LibRed compresses where ACE does not" — was generalised from a single leaf
-> that had never split and so could not have shown the rule. `IndexSplitPackingAccessTests` reports both.
+> **A leaf is compressed only when it fills, and split only when compressing is not enough.** The prefix is
+> not a property recomputed on every write; it is applied once, in place, at the moment the page can no
+> longer take the next entry. Watching a sequential load one batch at a time shows the cycle twice:
+>
+> | after | page | prefix | entries | free |
+> | ---: | --- | ---: | ---: | ---: |
+> | 400 rows | `p353` | 0 | 400 | 16 |
+> | 410 rows | `p353` | **3** | 410 | **1153** |
+> | 600 rows | `p353` | 3 | 600 | 13 |
+> | 610 rows | `p359` / `p360` | 3 / **0** | 602 / 8 | 1 / 3544 |
+> | 1000 rows | `p360` | 0 | 398 | 34 |
+> | 1010 rows | `p360` | **3** | 408 | **1165** |
+> | 1210 rows | `p360` / `p364` | 3 / **0** | 602 / 6 | 1 / 3562 |
+>
+> So: fill uncompressed at 9 bytes an entry; at ~400 entries the page is full, so **rewrite it in place**
+> with the shared prefix, which drops entries to 6 bytes and hands back about 1,150 of the 4,080; keep
+> filling to ~602; then split. The split is the right-edge one (§10.5), so the old page stays full and the
+> new one starts **empty and uncompressed**, beginning the cycle again. Compressing buys roughly 50% more
+> entries before a split, and a page that never fills never pays for compression at all.
+>
+> This is why a sequentially loaded index reads `3, 3, 0` — two pages through the full cycle, and a tail
+> still in its uncompressed phase. Descending and random loads read `3, 3, 3, 3`, because a middle split
+> computes the prefix for both halves as it writes them.
+>
+> Two wrong readings preceded this, both from end state rather than transitions. "LibRed compresses where
+> ACE does not" came from a single leaf that had never filled. "ACE recomputes on split and keeps the value
+> while appending" was implemented and falsified: pages then fill uncompressed and split without ever being
+> compressed, giving 4 leaves and 11,820 bytes against ACE's 3 and 11,334. `IndexPrefixTransitionProbeTests`
+> is the measurement; `IndexSplitPackingAccessTests` asserts the result.
 
 ### 10.4 Key encoding (order-preserving)
 

@@ -8,13 +8,12 @@ The in-row value for a Memo/OLE column is a **12-byte descriptor**, not the data
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 3 | Length (24-bit) |
-| `0x03` | 1 | Flags |
+| `0x00` | 4 | Little-endian word: byte length in bits 0–29, flags in bits 30–31 |
 | `0x04` | 1 | Row |
 | `0x05` | 3 | Page |
 | `0x08` | 4 | reserved |
 
-Flags:
+Flags (byte `0x03` masked with `0xC0`; its low six bits belong to the length):
 - `0x80` **inline** — the payload follows the descriptor in the row.
 - `0x40` **single LVAL page** — the row at (page, row) *is* the whole payload.
 - `0x00` **multi-page** — the payload is chained across LVAL pages; each chunk's row begins
@@ -22,6 +21,9 @@ Flags:
   data. Each chunk row is **`MAX_LONG_VALUE_ROW_SIZE` = 4076 bytes** (Jet4; Jet3 = 2032) — a 4-byte
   pointer + up to 4072 data bytes — except the last, which is shorter. Verified against ACE's own
   chained OLE (Northwind Employee photos: 4076, 4076, 2606-byte chunk rows).
+
+ACE accepts an OLE/binary payload of `0x3FFFFFFF` bytes (1 GiB − 1) and rejects `0x40000000`
+bytes. This verifies the binary limit; it does not establish the Memo character limit.
 
 LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII marker `LVAL`.
 
@@ -32,7 +34,10 @@ LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII 
 > a `(page,row)`, terminate at zero exactly when the declared length is reached, and neither underfill nor
 > overrun that length. Before reclaiming a replaced chain, LibRed validates the complete chain and requires
 > every page to be present in that column's owned-pages map; only then does it begin clearing maps/free bits.
-> Those subsequent writes are not yet atomic without the planned transaction/savepoint layer.
+> Those subsequent writes are atomic whenever a transaction is open — the page-level undo log exists now
+> (`docs/design/transactions.md`), and the engine opens one per statement — so a failed reclamation rolls
+> back with the statement. A direct `LibRed.Core` caller that opens none gets the same non-atomic behaviour
+> as any other multi-page write.
 
 ### 3.3.2 Column usage-map list (trailing the index names)
 
@@ -94,7 +99,9 @@ list (terminator included) counts toward the definition, not free space.
 > packing is used for the MSysObjects **LvProp** property blob (via `RowInserter.StorePackedLongValue`) —
 > but always to a page, never inline (Access reads object properties only from a page), so two tables'
 > DEFAULT/CHECK blobs share one LvProp page. A chained value uses dedicated pages. A page outside the inline
-> map's window would need a reference-type map — not exercised here.
+> map's window is handled by the shared `UsageMapWriter.SetBit`, which grows the inline record in place and
+converts it to a reference map when it no longer fits — a long-value column's maps are not a special case,
+and `MapPages` reads either form back.
 
 > **The terminating `0xFFFF` is mandatory on write — even for a table with no long-value
 > columns** (where the list is empty and the `0xFFFF` is the only bytes here). Omitting it makes

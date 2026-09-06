@@ -14,8 +14,8 @@ namespace LibRed.Storage;
 /// The null bitmap marks present (non-null) columns; a Boolean column has no data and its
 /// bit carries the value. Variable columns are laid out in ascending VariableIndex order with
 /// an end-first offset table. A memo/OLE column's value is written as an *inline* long-value
-/// (12-byte descriptor + payload, §8); values too large to inline (chained LVAL pages) are not
-/// written yet.
+/// (12-byte descriptor + payload, §8) when it is small enough; anything larger is stored on LVAL
+/// pages by <see cref="RowInserter"/> before the row reaches here, so only the descriptor is encoded.
 /// </summary>
 public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase format, int? fixedDataLength = null)
 {

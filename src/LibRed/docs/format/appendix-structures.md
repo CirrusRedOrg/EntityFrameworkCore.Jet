@@ -169,8 +169,7 @@ Nullability is **not** in the descriptor — it's the `Required` property in `Lv
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 3 | Length (24-bit) |
-| `0x03` | 1 | Flags: `0x80` inline, `0x40` single LVAL page, `0x00` multi-page chain |
+| `0x00` | 4 | Little-endian word: length in bits 0–29; flags in bits 30–31 (`0x80000000` inline, `0x40000000` single LVAL page, `0x00000000` chain) |
 | `0x04` | 1 | Row |
 | `0x05` | 3 | Page |
 | `0x08` | 4 | Reserved |
@@ -190,7 +189,7 @@ Nullability is **not** in the descriptor — it's the `Required` property in `Lv
 **Inline (type `0x00`):** `[0x00][startPage:4][bitmap…]` — bit `i` ⇒ page `startPage+i` owned.
 **Reference (type `0x01`, 69 bytes):** `[0x01][17 × 4-byte bitmap-page pointers]`.
 **Bitmap page (type `0x05`):** header `[0x05][0x01][0][0]`, bitmap from offset 4.
-Global free-pages map: **page 1, row 0**, inline — set bit = **free** (opposite of a table map).
+Global free-pages map: **page 1, row 0**, inline or reference — set bit = **free** (opposite of a table map).
 
 ---
 
@@ -257,7 +256,7 @@ so guard with a validator; **query-engine** — ACE's SQL-engine limits that Lib
 | Fields per index / PK | 10 | structural (the 52-byte index-data block's fixed 10-slot column array — [page-02d](page-02d-constraints.md) §3.5) |
 | Short Text length | 255 chars | validator |
 | Record (excl. Long Text/OLE) | ~4000 bytes | structural (page space) |
-| DB / table size | 2 GB | structural (page numbering; the reference usage map's 17 slots span just past it — [page-05](page-05-usage-maps.md)) |
+| Database file size | 2 GiB | ACE-enforced file extent; page numbering and reference-map coverage extend beyond this limit |
 
 `LvProp` property **values** (DefaultValue, CheckConstraints) are variable-length and length-tolerant — no
 fixed-buffer overrun like the name pool, so no storage cap to guard (the Access "255-char property" and

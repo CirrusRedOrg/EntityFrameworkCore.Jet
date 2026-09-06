@@ -301,8 +301,9 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
                 throw new InvalidDataException(
                     $"Long-value page {page} is not present in column '{column.Name}'s owned-pages map.");
 
-        // Validation above completes before the first free-map or page mutation. The writes are still not
-        // atomic without the planned transaction/savepoint layer, but malformed chains cannot partially free.
+        // Validation above completes before the first free-map or page mutation, so a malformed chain cannot
+        // partially free. The writes themselves are atomic under the caller's transaction (the engine opens
+        // one per statement); a direct Core caller without one gets no more than any other multi-page write.
         foreach (int page in pages)
         {
             allocator.Free(page);

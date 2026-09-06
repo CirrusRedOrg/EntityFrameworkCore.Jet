@@ -244,6 +244,11 @@ public sealed class PageChannel : IDisposable
         if (pageNumber < 0)
             throw new ArgumentOutOfRangeException(nameof(pageNumber));
 
+        // ACE-only full-database probe: the file reaches exactly 2 GiB (524288 Jet4/ACE pages)
+        // and rejects the next allocation. Check before staging a page or extending the stream.
+        if ((long)pageNumber >= (1L << 31) / PageSize)
+            throw new InvalidOperationException("The database cannot grow beyond the ACE 2 GiB file-size limit.");
+
         // Inside a transaction, defer the write into the private overlay — invisible to other channels until
         // commit. Snapshot the page's prior overlay state (once per savepoint frame) so a savepoint rollback can
         // restore it, then buffer a private copy of the new bytes and advance the logical page count.

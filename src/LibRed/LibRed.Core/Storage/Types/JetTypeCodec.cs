@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 using LibRed.Catalog;
+using LibRed.Formats;
 
 namespace LibRed.Storage.Types;
 
@@ -304,17 +305,15 @@ public static class JetTypeCodec
 
     /// <summary>
     /// Builds an <b>inline</b> long-value (memo/OLE) in-row value: a 12-byte descriptor
-    /// (24-bit length, the <c>0x80</c> inline flag, then 8 unused bytes) followed by the payload.
+    /// (length combined with the <c>0x80</c> inline flag, then 8 unused bytes) followed by the payload.
     /// This is the exact shape <see cref="LibRed.Storage.LongValueReader"/> reads back for an inline
     /// value.
     /// </summary>
     private static byte[] EncodeInlineLongValue(ReadOnlySpan<byte> payload)
     {
+        LongValueFormat.ValidateLength(payload.Length);
         var result = new byte[12 + payload.Length];
-        result[0] = (byte)payload.Length;
-        result[1] = (byte)(payload.Length >> 8);
-        result[2] = (byte)(payload.Length >> 16);
-        result[3] = 0x80; // inline
+        BinaryPrimitives.WriteUInt32LittleEndian(result, (uint)payload.Length | 0x80000000u);
         payload.CopyTo(result.AsSpan(12));
         return result;
     }

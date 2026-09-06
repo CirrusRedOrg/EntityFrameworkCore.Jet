@@ -7,6 +7,17 @@ namespace LibRed.Formats;
 /// </summary>
 internal static class LongValueFormat
 {
+    // ACE accepted and fully read back 0x3FFFFFFF binary bytes, then rejected 0x40000000.
+    // Length carries into byte 3; its 0x40/0x80 storage flags must remain separate.
+    public const int LengthMask = 0x3FFFFFFF;
+    public const byte FlagMask = 0xC0;
+
+    internal static void ValidateLength(int length)
+    {
+        if ((uint)length > LengthMask)
+            throw new ArgumentOutOfRangeException(nameof(length), "The long-value length would overwrite its storage flags.");
+    }
+
     /// <summary>Descriptor flag: the payload follows the descriptor inline (no LVAL page).</summary>
     public const byte FlagInline = 0x80;
 

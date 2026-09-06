@@ -52,8 +52,8 @@ public sealed class PageAllocator(PageChannel channel)
             return allocated;
         }
 
-        // No free page recorded; fall back to growing the file (the new page is used, not free).
-        return _channel.AllocatePage();
+        // An unrepresented page is not safely recorded as used. Grow the global map before appending.
+        return GrowAndAllocate();
     }
 
     /// <summary>Returns a page to the global free-pages map (sets its bit) so it can be reused — the inverse
@@ -125,8 +125,116 @@ public sealed class PageAllocator(PageChannel channel)
             }
         }
 
-        // No free page recorded in any bitmap page; grow the file (the new page is used, not free).
-        return _channel.AllocatePage();
+        return GrowAndAllocate();
+    }
+
+    /// <summary>Extends allocation metadata before the physical file: four-byte inline growth, four spare
+    /// bytes left on the holder page before promoting to reference form, and a reference bitmap allocated
+    /// before the first data page in its range. All three measured against ACE and asserted by
+    /// <c>GlobalMapGrowthTests</c>.</summary>
+    private int GrowAndAllocate()
+    {
+        bool ownTransaction = !_channel.InTransaction;
+        if (ownTransaction) _channel.BeginTransaction();
+        try
+        {
+            int result = GrowAndAllocateCore();
+            if (ownTransaction) _channel.CommitTransaction(flush: false);
+            return result;
+        }
+        catch
+        {
+            if (ownTransaction) _channel.RollbackTransaction();
+            throw;
+        }
+    }
+
+    private int GrowAndAllocateCore()
+    {
+        (byte[] page, RowSlot slot) = ReadGlobalMap();
+        byte[] record = page.AsSpan(slot.Offset, slot.Length).ToArray();
+        int frontier = _channel.PageCount;
+        if (record[0] == InlineMapType)
+        {
+            int start = BinaryPrimitives.ReadInt32LittleEndian(record.AsSpan(1));
+            if (start != 0)
+                throw new NotSupportedException("Cannot grow a global inline map with a nonzero start page.");
+            int bitmapBytes = ((frontier / 8 + 1 + 3) / 4) * 4;
+            if (bitmapBytes <= record.Length - 5)
+                return _channel.AllocatePage(); // already represented as used
+
+            var grown = new byte[5 + bitmapBytes];
+            // Preserve existing free bits; newly covered physical pages are already used. Only future
+            // pages start free. The requested frontier is cleared by the ordinary allocation path.
+            record.CopyTo(grown, 0);
+            for (int bit = frontier; bit < bitmapBytes * 8; bit++)
+                grown[5 + bit / 8] |= (byte)(1 << (bit % 8));
+            var holder = new DataPage();
+            holder.Read(_channel.ReadPage(GlobalMapPage), _channel.Format);
+            byte[]? rewritten = UsageMapWriter.ReplaceMapRecord(page, holder, _channel.Format, 0, grown, out _);
+            if (rewritten is not null &&
+                BinaryPrimitives.ReadUInt16LittleEndian(rewritten.AsSpan(_channel.Format.DataFreeSpaceOffset)) >= 4)
+            {
+                _channel.WritePage(GlobalMapPage, rewritten);
+                return Allocate();
+            }
+
+            // Inline exhausted: every existing page is used (Allocate already searched all free bits).
+            // Reserve the bitmap pages first so their own bits are clear in the finished map.
+            record = new byte[1 + ReferenceMapSlots * 4];
+            record[0] = ReferenceMapType;
+            int span = (_channel.PageSize - BitmapPageHeaderSize) * 8;
+            for (int range = 0; range <= _channel.PageCount / span; range++)
+            {
+                if (range >= ReferenceMapSlots)
+                    throw new NotSupportedException("Global allocation map has no remaining bitmap slots.");
+                int bitmap = _channel.AllocatePage();
+                BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(1 + range * 4), bitmap);
+            }
+            for (int range = 0; range < ReferenceMapSlots; range++)
+            {
+                int bitmap = BinaryPrimitives.ReadInt32LittleEndian(record.AsSpan(1 + range * 4));
+                if (bitmap != 0) WriteNewGlobalBitmap(bitmap, range);
+            }
+            WriteGlobalRecord(record);
+            return Allocate();
+        }
+
+        ValidateReferenceMap(record);
+        int pagesPerBitmap = (_channel.PageSize - BitmapPageHeaderSize) * 8;
+        int rangeIndex = frontier / pagesPerBitmap;
+        if (rangeIndex >= ReferenceMapSlots)
+            throw new NotSupportedException("Global allocation map has no remaining bitmap slots.");
+        if (BinaryPrimitives.ReadInt32LittleEndian(record.AsSpan(1 + rangeIndex * 4)) != 0)
+            return _channel.AllocatePage(); // represented range, bit already clear
+
+        int newBitmap = _channel.AllocatePage();
+        BinaryPrimitives.WriteInt32LittleEndian(record.AsSpan(1 + rangeIndex * 4), newBitmap);
+        WriteNewGlobalBitmap(newBitmap, rangeIndex);
+        WriteGlobalRecord(record);
+        return Allocate();
+    }
+
+    private void WriteNewGlobalBitmap(int number, int range)
+    {
+        var bitmap = new byte[_channel.PageSize];
+        bitmap[0] = (byte)PageType.PageUsageBitmap;
+        bitmap[1] = 1;
+        int span = (_channel.PageSize - BitmapPageHeaderSize) * 8;
+        int firstFree = Math.Clamp(_channel.PageCount - range * span, 0, span);
+        for (int bit = firstFree; bit < span; bit++)
+            bitmap[BitmapPageHeaderSize + bit / 8] |= (byte)(1 << (bit % 8));
+        _channel.WritePage(number, bitmap);
+    }
+
+    private void WriteGlobalRecord(byte[] record)
+    {
+        byte[] page = _channel.ReadPage(GlobalMapPage).Span.ToArray();
+        var holder = new DataPage();
+        holder.Read(_channel.ReadPage(GlobalMapPage), _channel.Format);
+        byte[] rewritten = UsageMapWriter.ReplaceMapRecord(page, holder, _channel.Format, 0, record, out _)
+            ?? throw new InvalidDataException("Global allocation map cannot fit its holder page.");
+        _channel.WritePage(GlobalMapPage, rewritten);
     }
 
     /// <summary>Returns a page to a reference-type global free map by setting its bit on the bitmap page for

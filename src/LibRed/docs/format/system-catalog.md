@@ -190,10 +190,12 @@
   > type raises "Cannot place this validation expression on this field"), matching ACE.
 
 - **LVAL (long-value) page** — a data page (type `0x01`) whose owner field (`0x04`) is the ASCII marker
-  `"LVAL"` instead of a TDEF page number. A single-page long value stores the whole payload as row 0; the
-  in-row reference descriptor is `[length:3][flags:1][row:1][page:3][4 reserved]` with flag `0x40` = single
-  page (`0x80` = inline, payload follows the descriptor; `0x00` = chained across pages). LibRed writes the
-  single-page form (`LongValueWriter`); chained pages for payloads larger than one page are not written yet.
+  `"LVAL"` instead of a TDEF page number. A single-page long value stores the whole payload in the
+  referenced row (row 0 on a fresh page); the in-row reference descriptor is
+  `[length-and-flags:4][row:1][page:3][4 reserved]`. The first word is little-endian, with a 30-bit byte
+  length and two flag bits: byte `0x03` masked with `0xC0` gives `0x40` = single page
+  (`0x80` = inline, payload follows the descriptor; `0x00` = chained across pages). LibRed writes the
+  single-page form (`LongValueWriter`) and chained pages for payloads larger than one page.
 
   > With those fields set, Access **enumerates** a LibRed-created table (it appears in the
   > schema/Tables rowset) — verified via OLE DB. Maintaining MSysObjects' indexes (the composite

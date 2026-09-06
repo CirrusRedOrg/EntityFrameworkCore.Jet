@@ -18,7 +18,7 @@
 | `0x0A` | Text | UTF-16LE, or compressed Unicode (§7); inline ≤ 255 chars |
 | `0x0B` | OLE | long value (§8) |
 | `0x0C` | Memo | long value (§8); text once resolved |
-| `0x0F` | GUID | 16 raw bytes |
+| `0x0F` | GUID | 16 raw bytes. Stored as a *variable*-length column when declared through SQL (see below) |
 | `0x10` | FixedPoint (Numeric/Decimal) | 17 bytes: sign byte (`0x80` = negative) + 128-bit magnitude (four 32-bit little-endian words, low word last); value = magnitude / 10^scale. Precision/scale from the column descriptor (§3.4) |
 | `0x12` | Complex (multi-value / attachment) | descriptor parsed; contents not materialized (out of scope for SQL/EF) |
 | `0x13` | Int64 — **BIGINT** (ACE 16 / Access 2016) | 8-byte little-endian signed integer. Stored as a *variable*-length column (see below) |
@@ -32,9 +32,30 @@ than being allowed to fail incidentally inside a primitive decoder.
 **`BIGINT` is variable-length despite being a fixed 8 bytes.** ACE puts it behind the row's variable offset
 table rather than in the fixed region — a descriptor carrying length 8 with the fixed flag clear (verified: a
 column ACE created reads back `length=8 fixed=False`, and the row lays the value out at a variable-column
-start offset). Declaring it fixed would write the value somewhere ACE does not look for it. Its *index* key is
-unaffected — that dispatches on the column's type, not on where the row keeps the bytes — and is the same
-sign-bit-flipped big-endian int64 as Currency (§10.4).
+start offset). Its *index* key is unaffected — that dispatches on the column's type, not on where the row
+keeps the bytes — and is the same sign-bit-flipped big-endian int64 as Currency (§10.4).
+
+> **The reason to match is faithfulness, not readability — ACE honours the descriptor's fixed flag.** It has
+> to: its own `MSysComplexType_GUID` declares `Value` *fixed* while every GUID column its DDL creates is
+> *variable*, so one engine reads both layouts routinely. Measured directly rather than argued: a **fixed**
+> BIGINT, Currency and DateTime, and a **variable** Int32, Double, Currency and DateTime, all read back
+> correctly through ACE — each with a variable column before the target and a fixed one after, so a value
+> landing in the wrong region would have shifted its neighbours. (An earlier revision of this file claimed a
+> fixed BIGINT would put the value "somewhere ACE does not look for it"; that was inferred from what ACE
+> writes, never measured, and it is wrong.) `FixedFlagHonouredAccessTests`.
+
+**`GUID` is variable-length too — but only where ACE's DDL made it.** Every GUID column ACE's SQL creates
+carries length 16 with the fixed flag clear, at one column or at 252 (it is not a fallback for wide tables),
+and `SELECT … INTO` produces the same. ACE's **own system tables are the exception**: `MSysComplexType_GUID`
+`Value` is *fixed*, verified across eight ACE-created fixtures, and `DatabaseCreator` reproduces that — so
+"GUID is variable" is a rule about declarations, not about GUID storage everywhere.
+
+Unlike BIGINT this is not a wrong-value hazard: ACE reads a value back correctly from either layout
+(verified with a variable column before the GUID and a fixed one after, so a misplaced value would have
+shifted its neighbours). What it costs is record budget — 16 *fixed* bytes per column that ACE does not
+spend, enough that a 250-column GUID table ACE creates without complaint exceeded the declared-record limit
+in §3.4. `AccessTypeMapper` and `StatementExecutor.ColumnSpecFor` both declare it variable;
+`GuidColumnStorageAccessTests` (in the Core and Engine suites) holds the measurements.
 
 > **Writing one through ACE's OLE DB provider: not `DBTYPE_I8`.** An `OleDbType.BigInt` (20) parameter carries
 > **no** value into a Large Number column — every value fails with "data value could not be converted", zero

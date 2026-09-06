@@ -745,7 +745,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         TypeCode.Double => new ColumnSpec(name, JetDataType.Double, 8, IsFixedLength: true),
         TypeCode.Decimal => new ColumnSpec(name, JetDataType.Currency, 8, IsFixedLength: true),
         TypeCode.DateTime => new ColumnSpec(name, JetDataType.DateTime, 8, IsFixedLength: true),
-        _ when clrType == typeof(Guid) => new ColumnSpec(name, JetDataType.Guid, 16, IsFixedLength: true),
+        // Variable, like every GUID column ACE declares — including through SELECT INTO, which is this
+        // method's caller (verified: ACE's `SELECT G INTO Dst` gives Dst.G length 16, fixed flag clear).
+        // See AccessTypeMapper for the same rule on a declared column, and BIGINT for the same shape.
+        _ when clrType == typeof(Guid) => new ColumnSpec(name, JetDataType.Guid, 16, IsFixedLength: false),
         _ when clrType == typeof(byte[]) => new ColumnSpec(name, JetDataType.Binary, 255, IsFixedLength: false),
         _ => new ColumnSpec(name, JetDataType.Text, 255 * 2, IsFixedLength: false),
     };

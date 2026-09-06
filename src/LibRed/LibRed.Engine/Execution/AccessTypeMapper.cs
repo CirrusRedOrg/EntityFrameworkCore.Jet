@@ -102,8 +102,15 @@ internal static class AccessTypeMapper
                 => Fixed(column, JetDataType.DateTimeExtended, 42),
             "BIT" or "YESNO" or "BOOLEAN" or "LOGICAL" or "LOGICAL1"
                 => Fixed(column, JetDataType.Boolean, 1),
+            // Replication ID. Like BIGINT above: always 16 bytes, and ACE still keeps it in the row's
+            // VARIABLE region (verified: every GUID column ACE's DDL creates reads back fixed=False, at 1,
+            // 2, 10, 250 and 252 columns alike — it is not a fallback for wide tables, and SELECT INTO
+            // agrees). ACE's own system tables are the exception: MSysComplexType_GUID.Value is fixed, and
+            // DatabaseCreator reproduces that. ACE reads either layout back correctly, so this is about
+            // matching what ACE writes; it also stops a GUID column spending fixed-record budget ACE does
+            // not spend, which made a 252-GUID table ACE creates happily exceed the declared record cap.
             "GUID" or "UNIQUEIDENTIFIER"
-                => Fixed(column, JetDataType.Guid, 16),
+                => new ColumnSpec(column.Name, JetDataType.Guid, 16, IsFixedLength: false),
             "DECIMAL" or "NUMERIC" or "DEC"
                 => Decimal(column),
             // Fixed-length character types (the CHAR family) → a fixed-length Text column (ACE stores it in

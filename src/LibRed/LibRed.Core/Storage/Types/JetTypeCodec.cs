@@ -267,10 +267,10 @@ public static class JetTypeCodec
         value as string ?? Convert.ToString(value, culture) ?? "";
 
     /// <summary>
-    /// The compressed form of <paramref name="value"/> — the <c>FF FE</c> marker then one byte per character
-    /// — or null when ACE would not compress it. Every character must fit a single byte and it must actually
-    /// save space; the latter bites at the short end, where the 2-byte marker costs more than it saves, so
-    /// ACE leaves 1- and 2-character values as UTF-16 and compresses from 3 up.
+    /// The compressed form of <paramref name="value"/> — or null when ACE would not compress it. Characters
+    /// that fit one byte are stored as one, wider ones as UTF-16LE, and a <c>0x00</c> switches between the
+    /// two runs (see <see cref="EncodeCompressed"/>), so a mixed-script value is not forfeited the way an
+    /// all-or-nothing writer forfeits it. Values under three characters stay UTF-16 whatever the arithmetic.
     /// <para>
     /// <paramref name="requireCapableFlag"/> is what the column's <c>WITH COMPRESSION</c> declaration gates,
     /// and it does not gate everything. Measured against ACE: an <b>inline</b> long value is compressed
@@ -284,15 +284,47 @@ public static class JetTypeCodec
     internal static byte[]? TryCompressText(ColumnDef column, string value, bool requireCapableFlag = true)
     {
         if (requireCapableFlag && !column.SupportsCompressedUnicode) return null;
-        if (2 + value.Length >= value.Length * 2) return null;
-        foreach (char c in value)
-            if (c > 0xFF) return null;
+        if (value.Length < MinCompressedCharacters) return null;
 
-        var compressed = new byte[2 + value.Length];
-        compressed[0] = 0xFF;
-        compressed[1] = 0xFE;
-        Encoding.Latin1.GetBytes(value, compressed.AsSpan(2));
-        return compressed;
+        // A 0x00 byte inside a run cannot be told from the mode switch, so ACE declines the form entirely
+        // when one would appear — a NUL character, or a 2-byte character whose LOW byte is zero (U+4E00 is
+        // 00 4E). One such character forfeits compression for the whole value.
+        foreach (char c in value)
+            if (c == '\0' || (c > 0xFF && (c & 0xFF) == 0)) return null;
+
+        byte[] encoded = EncodeCompressed(value);
+        int utf16 = value.Length * 2;
+
+        // The two paths break an exact tie differently, measured both ways: a long value takes the form only
+        // when it is strictly smaller, an ordinary Text column takes it when it is no larger. "ab中cd" is 10
+        // bytes either way and comes back UTF-16 from a Memo, mixed from a Text column.
+        bool longValue = column.Type is JetDataType.Memo or JetDataType.Ole;
+        return (longValue ? encoded.Length >= utf16 : encoded.Length > utf16) ? null : encoded;
+    }
+
+    /// <summary>ACE leaves 1- and 2-character values as UTF-16 whatever the byte arithmetic says.</summary>
+    private const int MinCompressedCharacters = 3;
+
+    /// <summary>The compressed encoding: the <c>FF FE</c> marker, then runs of 1-byte (Latin1) and 2-byte
+    /// (UTF-16LE) characters with a <c>0x00</c> switch at each change of run. An all-Latin1 value needs no
+    /// switches and degenerates to the familiar marker-plus-bytes form; a value starting with a wide
+    /// character opens with a switch, as ACE's does.</summary>
+    private static byte[] EncodeCompressed(string value)
+    {
+        var bytes = new List<byte>(value.Length + 4) { 0xFF, 0xFE };
+        bool oneByte = true;
+        foreach (char c in value)
+        {
+            bool fits = c <= 0xFF;
+            if (fits != oneByte)
+            {
+                bytes.Add(0x00);
+                oneByte = fits;
+            }
+            bytes.Add((byte)c);
+            if (!fits) bytes.Add((byte)(c >> 8));
+        }
+        return [.. bytes];
     }
 
     /// <summary>Encodes text. A fixed-length (CHAR/NCHAR) column is **space-padded** (or truncated) to its byte

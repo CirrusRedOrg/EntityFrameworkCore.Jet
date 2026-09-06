@@ -117,22 +117,80 @@ public class MemoCompressionAccessTests(ITestOutputHelper output) : TempDatabase
         Assert.Equal(expected, Convert.ToHexString(ace!));
     }
 
-    // LibRed READS the mixed form (below) but does not WRITE it — it falls back to UTF-16, which ACE reads
-    // correctly, so this costs bytes rather than fidelity of meaning. Left unimplemented deliberately: the
-    // emit rule is measured for Memo columns only, and whether a WITH COMPRESSION *Text* column behaves the
-    // same has not been, so writing it now would mean inventing the other half. Asserted rather than
-    // ignored, so implementing it fails here and this note gets revisited.
-    [Fact]
-    public void Libred_does_not_yet_write_the_mixed_form()
+    // LibRed writes the mixed form too, byte-for-byte. The tie rule differs between the two paths and is
+    // measured both ways: a long value takes the compressed form only when it is strictly smaller, an
+    // ordinary Text column takes it when it is no larger — "ab中cd" is 10 bytes either way and comes back
+    // UTF-16 from a Memo, mixed from a Text column. Both are asserted, since a writer that got the tie
+    // wrong in either direction would still pass every non-tie case.
+    [Theory]
+    [InlineData("café中", "FFFE636166E9002D4E")]        // strictly smaller: 9 < 10
+    [InlineData("ab中cd", "610062002D4E63006400")]      // exact tie on a Memo: UTF-16 wins
+    [InlineData("abc中de", "FFFE616263002D4E006465")]   // 11 < 12
+    [InlineData("中aaaaa", "FFFE002D4E006161616161")]
+    public void Libred_writes_the_mixed_form_as_ace_does(string value, string expected)
     {
         const string ddl = "CREATE TABLE W (A LONG, M LONGTEXT)";
-        const string insert = "INSERT INTO W (A, M) VALUES (1, 'café中')";
+        string insert = $"INSERT INTO W (A, M) VALUES (1, '{value}')";
 
         byte[]? ace = Payload(ddl, insert, AceRun);
         Assert.SkipWhen(ace is null, "ACE would not run this insert.");
 
-        Assert.Equal("FFFE636166E9002D4E", Convert.ToHexString(ace!));                     // mixed, 9 bytes
-        Assert.Equal("630061006600E9002D4E", Convert.ToHexString(Payload(ddl, insert, LibRedRun)!)); // UTF-16
+        Assert.Equal(expected, Convert.ToHexString(ace!));
+        Assert.Equal(expected, Convert.ToHexString(Payload(ddl, insert, LibRedRun)!));
+    }
+
+    // The same on a Text column, where the tie goes the other way.
+    [Theory]
+    [InlineData("ab中cd", "FFFE6162002D4E006364")]      // exact tie on Text: the compressed form wins
+    [InlineData("abc中", "FFFE616263002D4E")]
+    [InlineData("ab", "61006200")]                     // under the three-character floor
+    [InlineData("abc", "FFFE616263")]
+    [InlineData("aaaaa一", "61006100610061006100004E")] // ambiguous character forfeits it
+    public void A_text_column_breaks_the_tie_the_other_way(string value, string expected)
+    {
+        const string ddl = "CREATE TABLE W (A LONG, T TEXT(100) WITH COMPRESSION)";
+        string insert = $"INSERT INTO W (A, T) VALUES (1, '{value}')";
+
+        string? ace = TextSlot(ddl, insert, AceRun);
+        Assert.SkipWhen(ace is null, "This ACE build does not accept WITH COMPRESSION.");
+
+        Assert.Equal(expected, ace);
+        Assert.Equal(expected, TextSlot(ddl, insert, LibRedRun));
+    }
+
+    /// <summary>The stored bytes of the row's single variable column — the tail before the offset table,
+    /// which for one variable column is seven bytes from the row's end.</summary>
+    private static string? TextSlot(string ddl, string insert, Action<string, string[]> run)
+    {
+        string path = TemporaryDatabase.CopyPath(
+            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "textslot-");
+        try
+        {
+            try { run(path, [ddl, insert]); }
+            catch (OleDbException) { return null; }
+
+            int definitionPage;
+            using (var database = JetDatabase.Open(path, readOnly: true))
+                definitionPage = database.Catalog.FindTable("W")!.DefinitionPage;
+
+            using var channel = PageChannel.Open(path, readOnly: true);
+            JetFormatBase format = channel.Format;
+            for (int page = 1; page < channel.PageCount; page++)
+            {
+                byte[] bytes = channel.ReadPage(page).Span.ToArray();
+                if (bytes[0] != 0x01) continue;
+                if (BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(4, 4)) != definitionPage) continue;
+                if (BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(format.DataRowCountOffset, 2)) == 0)
+                    continue;
+
+                int start = BinaryPrimitives.ReadUInt16LittleEndian(
+                    bytes.AsSpan(format.DataRowDirectoryOffset, 2)) & 0x1FFF;
+                int at = start + 2 + 4;
+                return Convert.ToHexString(bytes.AsSpan(at, format.PageSize - 7 - at));
+            }
+            return null;
+        }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     // The consequence of getting the decoder wrong is silent: LibRed used to read the whole payload as one

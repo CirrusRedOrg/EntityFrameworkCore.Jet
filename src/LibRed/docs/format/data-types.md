@@ -161,10 +161,13 @@ SQL DDL leaves it **clear**.
 > Together those are what make toggling on `0x00` unambiguous for a reader. **LibRed used to decode the
 > whole payload as a single Latin1 run**, silently returning `café\0-N` for a value Access wrote — wrong
 > data, no error, and reachable by ordinary mixed-script text since Access's UI defaults Unicode Compression
-> to Yes. `JetTypeCodec.DecodeText` now honours the switches. LibRed still *writes* either the whole value
-> compressed or the whole value UTF-16, which ACE reads correctly; that gap is asserted in
-> `MemoCompressionAccessTests.Libred_does_not_yet_write_the_mixed_form`, and closing it needs the emit rule
-> for a `WITH COMPRESSION` **Text** column measured too — only the Memo path is established.
+> to Yes. `JetTypeCodec.DecodeText` now honours the switches, and `EncodeCompressed` emits them.
+>
+> **The two paths break an exact tie differently.** A long value takes the compressed form only when it is
+> strictly smaller; an ordinary `Text` column takes it when it is no larger. `ab中cd` is 10 bytes either way
+> and comes back UTF-16 from a Memo but mixed from a `WITH COMPRESSION` Text column — measured on both.
+> Under three characters nothing is compressed on either path, whatever the arithmetic says, which is what
+> settles the all-Latin1 ties (`ab` is 4 bytes either way and stays UTF-16).
 >
 > That gap is unreachable from anything ACE writes: **one incompressible character forfeits compression for
 > the entire value**, position irrelevant, even when that throws away a ~1,000-byte saving

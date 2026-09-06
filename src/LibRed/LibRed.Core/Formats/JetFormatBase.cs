@@ -192,6 +192,11 @@ public abstract class JetFormatBase
     public virtual int ColumnTypeOffset => 0x00;
     public virtual int ColumnNumberOffset => 0x05;
     public virtual int ColumnVariableIndexOffset => 0x07; // position among variable columns (0 for fixed)
+    // A second copy of the column id. Every creator writes it on a user table — ACE's SQL DDL, DAO's object
+    // model and DAO-executed SQL alike — while the engine's own bootstrap tables (MSysObjects and friends,
+    // and the f_<GUID> complex-column tables) leave it zero. It stops tracking 0x05 after an ALTER COLUMN
+    // type change, which burns a new id there and leaves this at the old one (§3.8).
+    public virtual int ColumnSecondaryNumberOffset => 0x09;
     public virtual int ColumnPrecisionOffset => 0x0B; // Decimal/Numeric columns only
     public virtual int ColumnScaleOffset => 0x0C;     // Decimal/Numeric columns only
     // Non-numeric columns instead use 0x0B..0x0E for the text collation, and the four bytes together are a

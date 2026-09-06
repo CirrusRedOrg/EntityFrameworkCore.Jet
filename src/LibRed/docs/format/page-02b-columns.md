@@ -11,7 +11,7 @@
 | `0x03` | 2 | Unknown (zero observed) |
 | `0x05` | 2 | Column id |
 | `0x07` | 2 | Variable-table index — the count of variable-length columns whose column id is smaller than this one's. For a **variable** column this equals its own position in the variable-offset table; for a **fixed** column it is the running count of preceding variable columns (**not** `0`). Access stores it on every column and its strict reader relies on it — writing `0` on fixed columns yields a file Access rejects with *"record(s) cannot be read"* even though LibRed/OLE DB (which recompute the index) tolerate it. Verified byte-for-byte against `MSysObjects`/`MSysACEs` in a real DAO file. |
-| `0x09` | 2 | Column number (equals the column id `0x05` in a freshly written descriptor — but **diverges after an `ALTER COLUMN` type change**, which burns a new id into `0x05` yet leaves `0x09` at the *old* id; see §3.8) |
+| `0x09` | 2 | Column number — a second copy of the column id `0x05` on a **user** table, but **zero** on the tables the engine writes for itself (see the note below). It **diverges after an `ALTER COLUMN` type change**, which burns a new id into `0x05` yet leaves `0x09` at the *old* id; see §3.8 |
 | `0x0B` | 1 | Numeric **precision** (Decimal/Numeric columns); otherwise the low byte of the locale id, `0x09` |
 | `0x0C` | 1 | Numeric **scale** (Decimal/Numeric columns); otherwise the high byte of the locale id, `0x04` |
 | `0x0D` | 2 | Text sort-order **version** — a 2-byte field (the high half of a 4-byte sort-order descriptor whose low half is the locale at `0x0B`, `0x0409` = General, §10.4). The version *number* is the **high byte at `0x0E`**: `0` = General Legacy (Access 2000–2007), `1` = the "General" order Access 2010+ made default (a different key encoding). The **low byte `0x0D` is `0` in every file observed** and isn't modelled — but the field is nominally 2 bytes, so keep an eye on it (see note). |
@@ -23,6 +23,42 @@
 
 **Flags (`0x0F`):** `0x01` fixed-length, `0x02` updatable, `0x04` auto-number,
 `0x40` auto-number GUID, `0x80` hyperlink (on a Memo column).
+
+> **`0x09` is written by everything that creates a user table, and only by those.** Measured per table
+> across the fixtures: every genuine user table carries the id on every column (Northwind's `Categories`,
+> `Customers`, `Employees`, `Orders`, …; `Ace16Types`' `T`), and every zero belongs to a table the engine
+> made for itself — `MSysObjects`, `MSysACEs`, `MSysQueries`, `MSysRelationships`, `MSysComplexColumns`,
+> `MSysComplexType_*`, and the `f_<GUID>_Data` complex-column backing tables. `Database4.accdb` looks like
+> a counterexample at a glance because it is *all* zeros; it simply contains no user tables at all.
+> (`MSysAccessStorage` goes each way depending on the file, so it is not part of the bootstrap set.)
+>
+> Three creators were tried and all three write the id: ACE's SQL DDL, DAO's object model
+> (`CreateTableDef`/`CreateField`/`Append`, the path Access's UI uses) and DAO-executed SQL. **Compacting a
+> database preserves the field exactly** — before and after are byte-identical — so it is fixed at creation
+> and no later rewrite normalises it. LibRed wrote zero everywhere until this was measured, on the strength
+> of a comment that had generalised from the system tables; it now writes the id except on a system column.
+> `ColumnDescriptorByteParityAccessTests`.
+
+> **Date/Time Extended carries only the primary language id.** For a `DATETIME2` column ACE writes the
+> **low byte** of the database's LANGID at `0x0B`/`0x0C` — the primary language with the sublanguage half
+> cleared — and zero at `0x0D`/`0x0E`, where every other type carries the whole LANGID. The value is 42
+> bytes of ASCII (§6), so there is nothing to collate.
+>
+> Measured across five collating orders, each produced by compacting a database into it (DAO's
+> `CompactDatabase`, the documented way to change one), with a `TEXT` column in the same table as control:
+>
+> | database LANGID | `TEXT` `0x0B`/`0x0C` | `DATETIME2` `0x0B`/`0x0C` |
+> | --- | --- | --- |
+> | `0x0409` en-US | `09 04` | `09 00` |
+> | `0x0809` en-GB | `09 08` | `09 00` |
+> | `0x0407` German | `07 04` | `07 00` |
+> | `0x040E` Hungarian | `0E 04` | `0E 00` |
+> | `0x041D` Swedish | `1D 04` | `1D 00` |
+>
+> An en-US database alone reads as the constant `0x0009`, which is how this was first mis-implemented; the
+> en-GB row is the tell, a different LANGID giving the same value because it shares en-US's primary id.
+> Every sort order Access offers has a primary id below `0xFF`, so "low byte" and Windows' `PRIMARYLANGID`
+> (mask `0x3FF`) cannot be told apart here. `DateTime2LocaleAccessTests`.
 
 > **Every documented flag is modelled — nothing rides through raw except the reserved/unknown.** LibRed reads
 > each `0x0F` bit and the whole `0x10` byte into `ColumnDef` (`IsUpdatable`/`IsGuidAutoNumber`/`IsHyperlink`,

@@ -480,7 +480,15 @@ public static class TdefBuilder
         d[format.ColumnTypeOffset] = (byte)c.Type;
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(ColumnRecordMarkerOffset, 2), (ushort)JetFormatBase.TdefRecordMarker);
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnNumberOffset, 2), (ushort)c.ColumnId);
-        // Offset 0x09 stays zero on a fresh column (real DAO/Access files store 0 here, not a duplicate id).
+        // Offset 0x09 repeats the id on a user column. Every creator does it — ACE's SQL DDL, DAO's object
+        // model and DAO-executed SQL — and every user table in every fixture carries it, while only the
+        // engine's own bootstrap tables (MSysObjects and friends) leave it zero, which is what a system
+        // column keeps here. An earlier comment claimed real files store zero; that had been read off the
+        // system tables alone. On a rebuild the original value survives untouched, because it stops
+        // tracking 0x05 once an ALTER COLUMN type change burns a new id there (§3.8).
+        if (c.RawDescriptor is null or { Length: 0 })
+            BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnSecondaryNumberOffset, 2),
+                (ushort)(c.SystemFlags != 0 ? 0 : c.ColumnId));
         // Offset 7 = variable-table index (count of variable columns with a smaller id), stored on fixed columns
         // too. Prefer the precomputed value; fall back to the legacy rule (0 for fixed) when unset (ADD COLUMN).
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnVariableIndexOffset, 2),
@@ -489,6 +497,19 @@ public static class TdefBuilder
         {
             d[format.ColumnPrecisionOffset] = c.Precision;
             d[format.ColumnScaleOffset] = c.Scale;
+        }
+        else if (c.Type == JetDataType.DateTimeExtended)
+        {
+            // Date/Time Extended is 42 bytes of ASCII with nothing to collate, and ACE writes only the LOW
+            // byte of the LANGID here, clearing the sublanguage half — the primary language id on its own,
+            // with sort id and version zero. Measured across five collating orders: 0x0409 and 0x0809 both
+            // give 0x0009, 0x0407 gives 0x0007, 0x040E 0x000E, 0x041D 0x001D, while a Text column in the
+            // same table carries the full LANGID each time. (On an en-US database this looks like a
+            // constant 0x0009, which is how it was first mis-read.)
+            BinaryPrimitives.WriteUInt16LittleEndian(
+                d.AsSpan(format.ColumnLocaleOffset, 2), (ushort)((ushort)c.Collation.Order & 0x00FF));
+            d[format.ColumnCollationSortIdOffset] = 0;
+            d[format.ColumnCollationVersionOffset] = 0;
         }
         else
         {

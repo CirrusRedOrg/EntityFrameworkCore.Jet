@@ -398,6 +398,17 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     {
         JetFormatBase format = _channel.Format;
 
+        // The index-data block holds exactly IndexBlockFormat.MaxColumns slots, with no count and no
+        // continuation, so a wider index cannot be represented. TdefBuilder rejects this when a table is
+        // created with its indexes; this is the incremental path, where BuildIndexDataBlock would otherwise
+        // write the first ten and mark the rest unused — silently storing a different index from the one
+        // asked for, which ACE reads without complaint. ACE refuses instead: "Cannot have more than 10
+        // fields in an index."
+        if (slots.Count > IndexBlockFormat.MaxColumns)
+            throw new NotSupportedException(
+                $"Cannot create index '{indexName}' on '{table.Name}' over {slots.Count} columns: "
+                + $"Jet/ACE stores at most {IndexBlockFormat.MaxColumns} fields in an index.");
+
         // Read the whole definition (stitching any existing continuation pages) so the surgical insert
         // works in absolute coordinates; the old continuation pages are reused when we write it back.
         (LibRed.IO.PageBuffer buf, IReadOnlyList<int> existingContinuations) = ReadDefinition(table.DefinitionPage);

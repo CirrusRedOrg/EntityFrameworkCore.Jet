@@ -45,6 +45,19 @@ insert/delete/insert sequence and against saved Northwind tables:**
 | `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+). Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. |
 | `0x30` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 52-byte block |
 
+> **The 10-column cap must be enforced on the incremental path too** — the same lesson as the 32-index cap
+> below, and missed the same way. `TdefBuilder` rejects an over-wide index when a table is created with its
+> indexes, but `CREATE INDEX` and `ADD FOREIGN KEY` on an existing table go through
+> `TableCreator.InsertIndex`, which checked nothing: the block builder filled its ten slots and marked the
+> rest unused, so LibRed accepted an 11-column index and stored a 10-column one. ACE refuses outright —
+> *"Cannot have more than 10 fields in an index."*
+>
+> That failure was quieter than the other overruns, and worse for it. Too many indexes yields a file Access
+> cannot open, and an over-long record yields a row it cannot read; this yielded a file ACE reads happily,
+> holding an index over different columns from the ones requested. It was inconsistent internally as well —
+> the duplicate-key scan validated against all eleven requested columns while the back-fill populated the
+> index from the ten the TDEF recorded (`IndexColumnCountAccessTests`).
+
 > **Unique (`0x01`) enforcement treats NULLs as distinct (verified vs ACE).** A `UNIQUE` index (that is
 > **not** `WITH IGNORE NULL`) rejects a duplicate **non-null** key but permits **multiple NULL** keys — two
 > rows may both be null in the indexed column(s). So uniqueness is enforced only over the non-null keys; a

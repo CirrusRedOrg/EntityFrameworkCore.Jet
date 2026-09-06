@@ -466,11 +466,34 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int rootPage = _allocator.Allocate();
         WriteEmptyLeafIndexPage(format, rootPage, owner: table.DefinitionPage);
         int usageMapPage = ReadInt24(buf, format.TdefOwnedPagesOffset + 1);
-        int newIndexUsageRow = 2 + lvalCount * 2 + dataCount;
+        // Where the new index's usage map goes. The primary page holds the table's two maps, one row per
+        // index, then two rows per long-value column — but only for the columns that FIT; create spills the
+        // rest onto dedicated pages. So on a wide memo table the row this formula names is past the end.
+        //
+        // ACE's answer is not to squeeze it in but to spill, exactly as it does for the columns: measured on
+        // a 40-memo table, CREATE INDEX leaves the full 57-row primary page alone and puts the new index's
+        // map at row 0 of a page of its own (WideMemoUsageMapProbeTests). Match that.
+        var primaryMap = new DataPage();
+        primaryMap.Read(_channel.ReadPage(usageMapPage), format);
+        int primaryFree = BinaryPrimitives.ReadUInt16LittleEndian(
+            _channel.ReadPage(usageMapPage).Span.Slice(format.DataFreeSpaceOffset, 2));
+
+        // Clamped, because after a DROP INDEX left an orphaned row the formula lands below the row count and
+        // that slot is meant to be reused rather than a duplicate appended.
+        int newIndexUsageRow = Math.Min(2 + lvalCount * 2 + dataCount, primaryMap.Rows.Count);
+        bool ownPage = newIndexUsageRow == primaryMap.Rows.Count
+            && primaryFree < UsageMapRecordLength + 2;
+        if (ownPage)
+        {
+            usageMapPage = _allocator.Allocate();
+            WriteUsageMaps(format, usageMapPage, mapCount: 1);
+            newIndexUsageRow = 0;
+        }
         // Append the new index's (empty) usage-map row, preserving every existing record. The data maps are
         // empty on an empty table but the *existing indexes'* maps already carry their root bits (set at
-        // creation), so we must not rewrite the page from scratch even when the table has no rows.
-        AppendEmptyUsageMapRow(format, usageMapPage, newIndexUsageRow);
+        // creation), so we must not rewrite the page from scratch even when the table has no rows. A page of
+        // its own already has the row, written empty above.
+        if (!ownPage) AppendEmptyUsageMapRow(format, usageMapPage, newIndexUsageRow);
 
         // Record this index's own root, as Access does at CREATE INDEX (the empty root is the index's sole
         // page until it splits, after which IndexWriter adds each page it allocates).
@@ -600,6 +623,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             minOffset = Math.Min(minOffset, BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + r * 2, 2)));
 
         int newOffset = minOffset - MapLength;
+        // A record written below the directory would overwrite the slots themselves — which reads back later
+        // as a slot with offset 0 "outside the row heap", a long way from the cause. The caller is expected
+        // to spill onto a fresh page rather than get here; this is the backstop that keeps a mistake loud.
+        if (newOffset < format.DataRowDirectoryOffset + (rowCount + 1) * 2)
+            throw new InvalidOperationException(
+                $"Usage-map page {pageNumber} has no room for another record: {rowCount} rows already reach "
+                + $"offset {minOffset}. The new map belongs on a page of its own.");
         Array.Clear(page, newOffset, MapLength); // inline type 0x00, start page 0, zero bitmap
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + newRow * 2, 2), (ushort)newOffset);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2), (ushort)(rowCount + 1));

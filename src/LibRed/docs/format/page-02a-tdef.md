@@ -219,7 +219,9 @@ Only a few fields are *not* fixed constants and so warrant a write note:
   see §9). A **fresh table still has no data page** (Access allocates the first lazily on the first
   insert), so the *data* owned/free maps start empty. When an index is **added to a populated table**,
   LibRed *appends* the new index's record to the existing usage-map page (preserving every other record —
-  including the other indexes' root bits) rather than rewriting it, then **back-fills** the B-tree by
+  including the other indexes' root bits) rather than rewriting it — unless that page is full, in which
+  case the map goes on a page of its own, as ACE's does (see the multi-page distribution rule in
+  [long-values.md](long-values.md)) — then **back-fills** the B-tree by
   scanning every existing row (`AddEntry` per row). Verified vs ACE: a primary key added after data
   enforces uniqueness and seeks correctly, incl. a 2000-row back-fill that splits the tree.
 

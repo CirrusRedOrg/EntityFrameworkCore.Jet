@@ -47,7 +47,7 @@ public sealed class LongValueWriter(PageChannel channel)
     public LongValueResult Write(byte[] payload)
     {
         LongValueFormat.ValidateLength(payload.Length);
-        if (payload.Length <= MaxLvalRowSize)
+        if (payload.Length <= LongValueFormat.MaxSinglePageValue)
         {
             int page = _allocator.Allocate();
             WriteChunkPage(page, payload); // a single-page row is the payload itself (no next pointer)

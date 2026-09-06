@@ -129,7 +129,9 @@ public sealed record ColumnDefinition(
     int? Scale,
     bool NotNull,
     bool PrimaryKey,
-    string? Default = null);
+    string? Default = null,
+    /// <summary>WITH COMPRESSION / WITH COMP — Text and Memo only.</summary>
+    bool Compressed = false);
 
 /// <summary>Referential action for a foreign key's ON DELETE / ON UPDATE clause. Jet records only
 /// enforce + cascade-update + cascade-delete, so NoAction/SetNull/SetDefault collapse to "no cascade".</summary>

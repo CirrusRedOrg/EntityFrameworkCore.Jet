@@ -23,7 +23,32 @@ Flags (byte `0x03` masked with `0xC0`; its low six bits belong to the length):
   chained OLE (Northwind Employee photos: 4076, 4076, 2606-byte chunk rows).
 
 ACE accepts an OLE/binary payload of `0x3FFFFFFF` bytes (1 GiB − 1) and rejects `0x40000000`
-bytes. This verifies the binary limit; it does not establish the Memo character limit.
+bytes. That is a **byte** limit, so the Memo **character** limit follows from how many bytes a character
+costs: ACE creates a text column through SQL DDL with the compressed-Unicode flag (§7) **clear** and stores
+long text as UTF-16 whatever the content — 100,000 characters occupy 200,000 bytes for ASCII and for CJK
+alike (`LongTextStorageAccessTests`). So a Memo holds at most **`0x3FFFFFFF / 2` = 536,870,911 characters**,
+and LibRed's always-UTF-16 writer already matches ACE rather than being half its capacity.
+
+> **`WITH COMPRESSION` does not raise that ceiling.** The attribute is reachable from SQL
+> (`M MEMO WITH COMP`) and does set the capable flag, but compression is decided *after* the storage form,
+> and a **chained** value is never compressed. Anything near the byte ceiling is chained by a wide margin,
+> so the character limit is unaffected however the column was declared. LibRed implements the attribute and
+> matches ACE's choice byte-for-byte (`CompressedTextAccessTests`); the eligibility rules are in
+> [data-types.md §7](data-types.md#7-compressed-unicode).
+
+**Choosing the storage form.** All three forms are chosen on the value's **uncompressed** UTF-16 length:
+
+| uncompressed length | form | flag |
+| --- | --- | --- |
+| ≤ 64 bytes | inline, payload follows the descriptor | `0x80` |
+| 66 … 3816 bytes | one LVAL page | `0x40` |
+| > 3816 bytes | chained across LVAL pages | `0x00` |
+
+> **3816 is not the same number as the 4076-byte chunk row**, and conflating them was a real bug: LibRed used
+> 4076 as its single-page threshold and so kept 3818–4076 byte values on one page where ACE chains them.
+> Measured both ways — a plain `LONGCHAR` and a `WITH COMP` one behave identically, 1908 characters (3816
+> bytes) staying single-page and 1909 (3818) chaining. What fixes the boundary at 3816, rather than the 4076
+> a row can actually hold, is **not established**; the ~260-byte margin is unexplained.
 
 LVAL pages are data pages (type `0x01`) whose owner field (`0x04`) is the ASCII marker `LVAL`.
 

@@ -531,6 +531,14 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             };
             if (payload is null || payload.Length <= maxInline) continue;
 
+            // Compress before storing, but AFTER the inline test above and using the uncompressed length for
+            // the single-page test below: ACE decides the storage form on the uncompressed size and applies
+            // compression to whatever form results, never to a chained value (LongTextStorageAccessTests).
+            if (payload.Length <= LongValueFormat.MaxSinglePageValue
+                && values[column.Index] is string text
+                && Types.JetTypeCodec.TryCompressText(column, text) is { } compressed)
+                payload = compressed;
+
             writer ??= new LongValueWriter(_channel);
             definition ??= ReadDefinition();
             definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned);
@@ -571,7 +579,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         _ = MapPages(owned.Row, owned.Page); // validate both map targets before allocating or writing LVAL pages
         IReadOnlyList<int> freePages = MapPages(free.Row, free.Page);
 
-        if (payload.Length > MaxLvalRowSize)
+        if (payload.Length > LongValueFormat.MaxSinglePageValue)
         {
             LongValueResult chained = writer.Write(payload);
             foreach (int page in chained.OwnedPages) _usageMaps.SetBit(owned.Row, owned.Page, page, set: true);

@@ -14,7 +14,20 @@ namespace LibRed.Engine.Execution;
 internal static class AccessTypeMapper
 {
     public static ColumnSpec ToColumnSpec(ColumnDefinition column, JetVersion version) =>
-        MapType(column, version) with { IsNullable = !column.NotNull };
+        MapType(column, version) with
+        {
+            IsNullable = !column.NotNull,
+            // WITH COMPRESSION is only meaningful on the two types ACE accepts it for; Access rejects it
+            // elsewhere rather than ignoring it, so refuse rather than silently dropping the request.
+            SupportsCompressedUnicode = column.Compressed
+                ? IsCompressible(column) ? true
+                    : throw new NotSupportedException(
+                        $"WITH COMPRESSION on column '{column.Name}': only text and memo columns can be compressed.")
+                : false,
+        };
+
+    private static bool IsCompressible(ColumnDefinition column) =>
+        MapType(column, JetVersion.Version4).Type is JetDataType.Text or JetDataType.Memo;
 
     /// <summary>
     /// The minimum file format a declared type needs, or <c>null</c> for the types every format can hold.

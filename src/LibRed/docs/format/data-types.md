@@ -79,8 +79,27 @@ A text value that begins with the 2-byte marker `FF FE` is **compressed**: the f
 are one per character (ASCII range), not UTF-16. Otherwise the value is UTF-16LE. Applies to
 both `Text` and resolved `Memo`.
 
+Compression is opt-in per column, via the descriptor's `0x10` extended flag `0x01`. ACE sets it only when the
+column is declared `WITH COMPRESSION` (or `WITH COMP`) — a plain `TEXT`/`MEMO` column created through SQL DDL
+leaves it **clear** and stores UTF-16 whatever the content.
+
+**When a capable column actually compresses a value** (measured in `CompressedTextAccessTests` and
+`LongTextStorageAccessTests`, and reproduced by LibRed byte-for-byte):
+
+- **Every character must fit one byte** (`<= 0xFF`, so Latin1, not just ASCII — `café` compresses, `一` does
+  not). One non-Latin1 character leaves the whole value UTF-16; LibRed does not split runs, and neither does
+  ACE here.
+- **It must save space.** The marker costs 2 bytes, so 1- and 2-character values stay UTF-16 (2 + N < 2N only
+  from N = 3). Verified at each of 1, 2 and 3 characters.
+- **A chained long value is never compressed.** Compression is decided *after* the storage form, and the
+  form — inline, single page or chained — is chosen on the **uncompressed** UTF-16 length. So an inline or
+  single-page Memo compresses and a chained one does not, and the compressed size never approaches any limit.
+  Microsoft's "only instances that, when compressed, will fit within 4096 bytes" describes the wrong
+  quantity; see [long-values.md](long-values.md) for the measured boundary.
+
 > Not yet handled: the full format can toggle between 1-byte and 2-byte runs mid-string for
-> mixed scripts. LibRed handles the common all-compressed case.
+> mixed scripts. LibRed handles the common all-compressed case on read, and on write emits either the whole
+> value compressed or the whole value UTF-16.
 
 
 ---

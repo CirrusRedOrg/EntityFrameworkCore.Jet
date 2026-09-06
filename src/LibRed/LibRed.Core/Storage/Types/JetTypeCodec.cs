@@ -165,9 +165,11 @@ public static class JetTypeCodec
 
     /// <summary>
     /// Encodes a non-null CLR value to its on-disk bytes — the inverse of <see cref="Decode"/>.
-    /// Boolean is not handled here (its value lives in the null bitmap). Text is written as
-    /// uncompressed UTF-16LE. Memo/OLE values are written as an <b>inline</b> long value
-    /// (see <see cref="EncodeInlineLongValue"/>); chained LVAL pages for larger values are not yet written.
+    /// Boolean is not handled here (its value lives in the null bitmap). Text is written as UTF-16LE, or
+    /// compressed (§7) when <see cref="TryCompressText"/> says ACE would. A memo/OLE value small enough to
+    /// inline is written as an <b>inline</b> long value (see <see cref="EncodeInlineLongValue"/>); a larger
+    /// one reaches here as the pre-built descriptor of a value
+    /// <see cref="LibRed.Storage.RowInserter"/> has already put on LVAL pages.
     /// </summary>
     public static byte[] Encode(ColumnDef column, object value)
     {
@@ -218,7 +220,13 @@ public static class JetTypeCodec
             // text as UTF-16LE, OLE as raw bytes). LongValueReader reads this back via the inline
             // flag. Chained LVAL pages for values too large to inline are not written yet.
             case JetDataType.Memo:
-                return EncodeInlineLongValue(Encoding.Unicode.GetBytes(AsText(value, c)));
+            {
+                // An inline memo compresses on the same terms as inline text — measured: 20 characters in a
+                // WITH COMPRESSION column store as 22 bytes behind the 0x80 flag. Only values the caller has
+                // already decided to inline reach here, so no storage-form test is needed.
+                string memo = AsText(value, c);
+                return EncodeInlineLongValue(TryCompressText(column, memo) ?? Encoding.Unicode.GetBytes(memo));
+            }
             case JetDataType.Ole:
                 return EncodeInlineLongValue(AsBinary(value));
 
@@ -234,11 +242,34 @@ public static class JetTypeCodec
     private static string AsText(object value, IFormatProvider culture) =>
         value as string ?? Convert.ToString(value, culture) ?? "";
 
+    /// <summary>
+    /// The compressed form of <paramref name="value"/> — the <c>FF FE</c> marker then one byte per character
+    /// — or null when ACE would not compress it. Measured (<c>TextCompressionProbeTests</c>): the column must
+    /// be declared <c>WITH COMPRESSION</c>, every character must fit a single byte, and it must actually save
+    /// space. The last condition bites at the short end, where the 2-byte marker costs more than it saves:
+    /// ACE leaves 1- and 2-character values as UTF-16 and compresses from 3 up.
+    /// </summary>
+    internal static byte[]? TryCompressText(ColumnDef column, string value)
+    {
+        if (!column.SupportsCompressedUnicode || 2 + value.Length >= value.Length * 2) return null;
+        foreach (char c in value)
+            if (c > 0xFF) return null;
+
+        var compressed = new byte[2 + value.Length];
+        compressed[0] = 0xFF;
+        compressed[1] = 0xFE;
+        Encoding.Latin1.GetBytes(value, compressed.AsSpan(2));
+        return compressed;
+    }
+
     /// <summary>Encodes text. A fixed-length (CHAR/NCHAR) column is **space-padded** (or truncated) to its byte
     /// length — matching ACE, which stores and returns fixed text space-padded to the full width; a variable
-    /// column (TEXT/VARCHAR) is its exact UTF-16 bytes.</summary>
+    /// column (TEXT/VARCHAR) is its exact UTF-16 bytes, or the compressed form when the column allows it and
+    /// ACE would use it (see <see cref="TryCompressText"/>).</summary>
     private static byte[] EncodeText(ColumnDef column, string value)
     {
+        if (!column.IsFixedLength && TryCompressText(column, value) is { } compressed) return compressed;
+
         byte[] text = Encoding.Unicode.GetBytes(value);
         if (!column.IsFixedLength) return text;
         var padded = new byte[column.Length];

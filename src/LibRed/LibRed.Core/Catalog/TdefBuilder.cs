@@ -27,7 +27,10 @@ public sealed record ColumnSpec(
     // Undocumented flag bits (0x0F) Access sets on system-table columns: 0x10 marks a system-catalog column,
     // 0x20 additionally marks a security-identifier column (MSysObjects.Owner, MSysACEs.SID). User-table
     // columns leave these clear. Verified against real files; the desktop engine expects them on MSys* columns.
-    byte SystemFlags = 0);
+    byte SystemFlags = 0,
+    // WITH COMPRESSION on a Text/Memo column: the 0x10 extended flag bit 0x01. Off unless asked for, which
+    // is what ACE does for a column declared without it (LongTextStorageAccessTests).
+    bool SupportsCompressedUnicode = false);
 
 /// <summary>An index to create over the named columns, anchored at an already-allocated root page.</summary>
 public sealed record IndexSpec(
@@ -435,7 +438,8 @@ public static class TdefBuilder
                 IsUpdatable = (rawFlags & JetFormatBase.ColumnFlagUpdatable) != 0,
                 IsGuidAutoNumber = (rawFlags & JetFormatBase.ColumnFlagGuidAutoNumber) != 0,
                 IsHyperlink = (rawFlags & JetFormatBase.ColumnFlagHyperlink) != 0,
-                SupportsCompressedUnicode = (rawExt & JetFormatBase.ColumnExtFlagCompressedUnicode) != 0,
+                SupportsCompressedUnicode = s.SupportsCompressedUnicode
+                    || (rawExt & JetFormatBase.ColumnExtFlagCompressedUnicode) != 0,
                 IsCalculated = (rawExt & JetFormatBase.ColumnExtFlagCalculated) != 0,
                 SystemFlags = s.SystemFlags,
                 Precision = s.Precision,

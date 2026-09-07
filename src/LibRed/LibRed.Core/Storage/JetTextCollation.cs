@@ -26,6 +26,10 @@ internal static class JetTextCollation
     private const byte EndKey = 0x00;
     private const byte InlineStart = 0x80;
     private const byte InlineMid = 0x06;
+
+    /// <summary>ARABIC SHADDA — the gemination mark. Not an ignorable like the harakat around it: it
+    /// doubles the preceding weight. See the rule in <c>TryEncode</c>.</summary>
+    private const char Shadda = (char)0x0651;
     private const byte ApostropheCode = 0x80;
     private const byte HyphenCode = 0x82;
     private const byte SoftHyphenCode = 0x83;
@@ -36,6 +40,10 @@ internal static class JetTextCollation
     /// keeps <c>coop</c> and <c>co-op</c> together. Every dash, the Arabic harakat and the fullwidth
     /// apostrophe and hyphen are treated the same way — the fullwidth pair share their ASCII counterparts'
     /// codes exactly.
+    /// <para>
+    /// The gap at <c>U+0651</c> in the harakat run is deliberate, not an omission: the shadda doubles the
+    /// preceding weight instead of being ignored. See <see cref="Shadda"/> and the rule in <c>TryEncode</c>.
+    /// </para>
     /// </summary>
     /// <remarks>Written as code points rather than literals: several of these are invisible or are the very
     /// characters an editor normalises, and a wrong one here is a silently wrong key.</remarks>
@@ -241,6 +249,12 @@ internal static class JetTextCollation
         int kanaWeight = -1;
         byte kanaVowel = 0;
         bool kanaSmall = false;
+        // The bytes the last character actually CONTRIBUTED to the key, which the shadda doubles. For an
+        // ordinary character that is its primary weight; for an ignorable it is the <06 code> pair its
+        // trailing record carries, since that is this character's whole contribution. Empty at the start of
+        // the string and after a weight that folded into its predecessor — in both cases there is nothing to
+        // double.
+        byte[] lastWeight = [];
 
         // Indexed rather than foreach, because a tailoring entry can consume several characters: a
         // contraction is a digraph weighing as one letter (Czech "ch", Hungarian "gy", Danish "aa").
@@ -261,6 +275,7 @@ internal static class JetTextCollation
                 JetTextCollationTableV0.TryGetInlineCode(c, out code))
             {
                 inline.Add((secondaries.Count, code));
+                lastWeight = [InlineMid, code];
                 continue;
             }
 
@@ -301,6 +316,30 @@ internal static class JetTextCollation
             if (c is (char)0xFF9E or (char)0xFF9F && kanaWeight >= 0 && kanaWeight == secondaries.Count - 1)
             {
                 secondaries[kanaWeight] = c == (char)0xFF9E ? (byte)0x03 : (byte)0x04;
+                continue;
+            }
+
+            // The shadda marks a DOUBLED consonant, and ACE sorts it as exactly that: a second copy of what
+            // came before. It re-emits the preceding character's contribution verbatim — a letter's primary
+            // weight, so مّ is 79 C6 79 C6; or an ignorable harakat's <06 code> pair, so مَّ is 79 C6 06 A3,
+            // the fatha's own trailing-record bytes lifted into the primary section. Its secondary is the
+            // default: مّم weighs secondaries 08 02 08, the copy carrying no accent of its own.
+            //
+            // With nothing ahead of it there is nothing to double, and it keeps the FF FF the measured table
+            // holds — but takes NO secondary slot, which is the one place this differs from an ordinary
+            // weight (ACE stores ّم as 7F FFFF 79C6 01 08 00, one secondary for two primaries).
+            //
+            // The table's FF FF is a correct measurement of the character ALONE, which is the only form a
+            // per-character sweep can present it in, and wrong for every word containing one. It sat above
+            // the shadda in the spec as "the anomalous FF FF" until the collation survey put shadda words
+            // through ACE. Same shape as the kana prolonged mark above: a mark whose weight is a function of
+            // its neighbour cannot be tabulated per character.
+            if (c == Shadda)
+            {
+                if (lastWeight.Length > 0)
+                    AddWeight(lastWeight, DefaultSecondary);
+                else
+                    primaries.AddRange((byte[])[0xFF, 0xFF]);
                 continue;
             }
 
@@ -445,6 +484,7 @@ internal static class JetTextCollation
         {
             primaries.Add(primary);
             secondaries.Add(secondary);
+            lastWeight = [primary];
         }
 
         // A primary WEIGHT may be one or two bytes, and the secondary section has one entry per weight —
@@ -470,6 +510,7 @@ internal static class JetTextCollation
 
             foreach (byte b in weight) primaries.Add(b);
             secondaries.Add(secondary);
+            lastWeight = weight.ToArray();
         }
     }
 

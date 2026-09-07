@@ -186,7 +186,7 @@ Then the value, transformed:
 > | | agreement |
 > |---|---|
 > | Cyrillic, Greek, Hebrew, both Latin extensions, punctuation, currency, letterlike, number forms, spacing modifiers, fullwidth | **100%** — every block, every pair |
-> | Latin-1 + ASCII | 51/52; the single exception is `U+0651`, whose v0 primary is the anomalous `FF FF` |
+> | Latin-1 + ASCII | 51/52; the single exception is `U+0651`, whose `FF FF` is not a primary at all — see the shadda rule below |
 > | Arabic | 149/151 — the only script where Jet genuinely renumbered against NLS |
 >
 > So the `+2` stride, the gaps that became language-letter insertion slots, and the `0x79` page for
@@ -417,6 +417,26 @@ this is the practical cost of General over General Legacy, invisible in the sche
   > which is *not* what ACE's keys show. So the ignorable pair is the platform default rather than an Access
   > invention. (The soft hyphen `U+00AD`, code `0x83`, is ignorable for a different reason: it carries no
   > weight of its own. The same page notes the Arabic kashida likewise produces no sort-key value.)
+
+  **The shadda `U+0651` doubles the preceding weight.** The Arabic harakat `U+064B`–`U+0650` and `U+0652`
+  are ordinary ignorables with inline codes `0xA0`–`0xA6`. `U+0651`, sitting in the middle of that run, is
+  not: it marks a **doubled consonant**, and ACE sorts it as exactly that — it re-emits, in the primary
+  section, whatever the character immediately before it contributed, carrying the default secondary `0x02`:
+
+  | | ACE key | the shadda's own weight |
+  |---|---|---|
+  | `U+0645 U+0651` | `7F 79C6 79C6 01 08 00` | `79 C6` — the meem's primary |
+  | `U+0627 U+0651` | `7F 79AB 79AB 01 08 00` | `79 AB` — the alef's, so it is not one fixed value |
+  | `U+0645 U+064E U+0651` | `7F 79C6 06A3 01 08 01 01 01 800B 06A3 00` | `06 A3` — the **fatha's inline `<06 code>` pair**, lifted out of the trailing record |
+  | `U+0645 U+0651 U+0651` | `7F 79C6 79C6 79C6 01 08 00` | each shadda doubles what now precedes it |
+  | `U+0651 U+0645` | `7F FFFF 79C6 01 08 00` | nothing precedes: `FF FF`, and **no secondary slot** — one secondary for two primaries |
+
+  So `FF FF` is what a shadda weighs only when there is nothing to double, which is the one form a
+  per-character sweep can present it in — and the reason the table recorded `FF FF` as its primary and the
+  provenance check above counted it an anomaly. Same shape as the kana prolonged sound mark: a mark whose
+  weight is a function of its neighbour cannot be tabulated per character, and a single-character sweep
+  cannot discover it. Measured across ten shadda shapes against ACE
+  (`CollationSurveyProbeTests` batch 06, whose self-check is the assertion).
 
   **Latin-1 punctuation and symbols** weigh two bytes, in groups that mirror the Win32 NLS primary order
   in ACE's own compacted numbering — harvested from ACE's stored keys character by character
@@ -773,6 +793,29 @@ this is the practical cost of General over General Legacy, invisible in the sche
   An **empty** tailoring is meaningful and different from none: it says the order was measured to need no
   change, so the order can be encoded rather than refused.
 
+  **One order can wear several LCIDs.** 49 further orders needed no tailoring of their own, because their
+  keys are byte-identical to one already listed — measured LibRed-against-ACE over the whole survey sample
+  set, so the encoder was already emitting the right bytes and only the dictionary key was missing. They live
+  in `JetLocaleTailoring.Aliases`, which points each at the entry already built **by reference**, so the
+  weights exist once and two LCIDs cannot drift apart:
+
+  | is | LCIDs |
+  |---|---|
+  | Norwegian/Danish (1044) | 1030 Danish, 2068 Nynorsk, neutral `da` (6), neutral `no` (20) |
+  | Swedish/Finnish (1053) | 1035 Finnish, 2077 Swedish (Finland), neutral `fi` (11), neutral `sv` (29) |
+  | French (1036) | 2060 Belgium, 3084 Canada, 4108 Switzerland, 5132 Luxembourg, 6156 Monaco, neutral `fr` (12) |
+  | Spanish **Traditional** (1034) | 2058 Mexico, neutral `es` (10) |
+  | Spanish **Modern** (3082) | seventeen Latin-American locales, 4106 Guatemala through 20490 Puerto Rico |
+  | its own language's order | the neutral `cs` `hr` `hu` `is` `pl` `ro` `sk` `sl` `et` `lv` `lt` `vi` `th` `tr` `uk` `mk` |
+
+  > **Mexico is the warning against reasoning from names.** It takes Spanish *Traditional* while seventeen of
+  > its siblings take *Modern* and three take neither; the sweep ranks Modern as the nearest miss at 14
+  > departures, so the sample set genuinely discriminated rather than picking between two plausible parents.
+
+  > **Danish 1030 vs Norwegian 1044 is not a typo.** DAO's own `dbSortNorwDan` constant is 1030, while the
+  > order Access calls "Norwegian/Danish" — and which LibRed's `Norwegian` member names — is 1044. The two
+  > LCIDs carry the same order; the sweep says so directly rather than by reasoning from the names.
+
   > **"Technical" is not a variant of the digraph order.** Hungarian Technical tailors plain `g` to `56 03`,
   > so its `gy` is that tailored `g` followed by an ordinary `y` — not a contraction. It is the largest
   > single-character tailoring measured and contains no multi-character entry.
@@ -783,10 +826,51 @@ this is the practical cost of General over General Legacy, invisible in the sche
   > matching as `g`+`h` and `ng`+`h`, which is exactly what ACE stores.
 
   Everything else stays refused — `Collation.IsIndexKeyEncodable` gates on it, because a wrong key is silent.
-  What remains: **Thai** needs reordering, and **Bosnian, Croatian and Serbian at version 1** need the v1
-  encoder to grow a tailoring hook (its primaries are 2-byte NLS values, a different shape). **French** is
-  unclassified, its tailoring being in the secondary section where single-character samples do not exercise
-  it — its one measured difference is on `Ǆ`, which is refused anyway.
+  That gate is **default-closed on purpose**: an order absent from `JetLocaleTailoring` is refused rather
+  than encoded with the English table, because encoding it wrongly would not fail, it would quietly disagree
+  with ACE about where rows sort. Widening it is therefore always a matter of adding a measurement, never of
+  adding a fallback.
+
+  **The 325 orders with no tailoring at all.** Every other locale DAO will create — Bulgarian, Russian,
+  Greek, Hebrew, Arabic, the Indic scripts, Khmer, Yi, all fourteen Arabic and thirteen English
+  sublanguages, all eight Sami, and 280 more — was measured to produce index keys **byte-identical to
+  General v0**, over its own script's whole Unicode block plus a 626-value Latin baseline. They carry no
+  weights and are admitted by `JetLocaleTailoring.GeneralV0`, a set of orders rather than a dictionary of
+  tailorings, since the fact recorded is about the order and not about anything it does.
+
+  > **The reachable set is far wider than Access's dropdown, in two directions nobody expects.** DAO takes a
+  > raw LANGID, so the sweep is over every LANGID Windows defines a culture for — 409 of them, of which 406
+  > create.
+  >
+  > **Neutral LANGIDs are real orders.** `0x0001`–`0x0091`, and the script-neutral `0x64xx`–`0x7Cxx` forms,
+  > are all accepted and stored verbatim as collating orders `1`–`145` and `25626`–`31847` — numbers no
+  > locale picker will ever show. Each resolves to *its language's own order*, not to General: `cs` (5) is
+  > Czech, `hr` (26) is Croatian, `th` (30) is Thai. The opposite of what "neutral" suggests.
+  >
+  > **Sublanguages do not inherit.** This is the finding that makes the sweep worth its cost. **Spanish
+  > splits three ways**: `es` and es-MX take Traditional, seventeen Latin-American locales take Modern, and
+  > es-US, es-419 and es-CU take no tailoring at all. **French splits two ways**: fr-CH, fr-LU and fr-MC take
+  > the French order, while fr-CD, fr-SN, fr-CI, fr-ML, fr-MA, fr-HT, fr-CM, fr-RE and fr-029 are plain
+  > General. Same language, same script, opposite answers — and no rule derivable from the names predicts it.
+
+  > That set is a list of **measurements, not a fallback**, and the difference is the whole design. It would
+  > be one line to say "any version-0 order behaves as General" and it would be wrong: Danish, Finnish,
+  > French (Belgium and Canada) and Spanish (Mexico) are all version-0 orders reaching the same code path
+  > that do *not*, which is why they are aliased instead. The guard is on version **and** sort id, because
+  > Georgian is the live counterexample on the second axis — `1079` at sort id 0 is in the set, `1079` at
+  > sort id 1 is Georgian Modern with a tailoring of its own.
+
+  What remains: **Irish 1084**, the one order the survey could not measure at all — Jet accepts it, but not
+  in a process that has loaded the ACE OLE DB provider, so no ACE keys could be obtained to compare; and the
+  **CJK** orders, deliberately out of scope. Three orders — Serbian Latin 2074, Bosnian Latin 5146 and Hindi
+  1081 — are unreachable at version 0 by construction: Jet refuses them with *"Incorrect collating
+  sequence."*, and they are exactly the three already implemented at version 1.
+
+  > **Everything above is checked by creation, not just by the survey.** `CreatedDatabaseCollationAccessTests`
+  > enumerates `CollatingOrder` and takes every combination `IsIndexKeyEncodable` accepts — **404** of them —
+  > has LibRed synthesise a database in that order, then has ACE open it, build an index and write keys, and
+  > requires the two engines' keys to match byte for byte. So a wrong LCID in the set does not pass quietly:
+  > ACE would index with whatever order that LCID really names, and the keys would part company.
 
   *Not yet handled:* characters outside ASCII + the accented Latin-1 set above (and a key mixing an
   accent with an ignorable apostrophe/hyphen is untested); every locale other than General (above).

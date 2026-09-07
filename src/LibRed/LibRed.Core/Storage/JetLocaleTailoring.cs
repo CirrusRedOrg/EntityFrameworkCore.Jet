@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using LibRed.Catalog;
 
 namespace LibRed.Storage;
@@ -136,13 +137,315 @@ internal static class JetLocaleTailoring
     /// <summary>The tailoring for a collation, or null when it has none — either because it is General
     /// itself, or because LibRed cannot express it. An <b>empty</b> tailoring is meaningful and not the same
     /// as null: it records that the order was measured to be indistinguishable from General.</summary>
-    public static LocaleTailoring? For(Collation collation) => Tailorings.GetValueOrDefault(collation);
+    public static LocaleTailoring? For(Collation collation) =>
+        Tailorings.GetValueOrDefault(collation)
+        ?? (collation is { Version: 0, SortId: 0 } && GeneralV0.Contains(collation.Order) ? None : null);
 
-    private static readonly Dictionary<Collation, LocaleTailoring> Tailorings = new()
+    /// <summary>Shared by every order in <see cref="GeneralV0"/>: no entries, no reversal, nothing to do.
+    /// Distinct from a null tailoring, which means "refused".</summary>
+    private static readonly LocaleTailoring None = Table([]);
+
+    /// <summary>
+    /// The orders measured to produce index keys byte-identical to General v0, and so encodable with no
+    /// tailoring at all. Held as a set rather than 107 empty dictionary entries because the fact recorded is
+    /// about the ORDER, not about any weight it carries.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Each was measured against ACE's own stored index keys, in a database DAO created carrying that order,
+    /// over the whole Unicode block of the order's script plus a Latin baseline of 626 values
+    /// (<c>CollationSurveyProbeTests</c>). Every batch carries Czech and Turkish as positive controls, so a
+    /// batch that could not tell two orders apart reports itself broken instead of reporting agreement.
+    /// </para>
+    /// <para>
+    /// <b>This is a list of measurements, not a fallback.</b> An order absent from it stays refused, which is
+    /// the whole point of <see cref="Collation.IsIndexKeyEncodable"/>: encoding an unmeasured order with the
+    /// English table would not fail, it would quietly disagree with ACE about where rows sort. Do not turn
+    /// this into "any version-0 order behaves as General" — Danish, Finnish, French and Spanish all reach
+    /// here as version-0 orders that do NOT, and are aliased above instead.
+    /// </para>
+    /// <para>
+    /// The version and sort-id guard in <see cref="For"/> matters on both axes. The survey only ever saw
+    /// version 0, and Georgian is the live example on the other: <c>1079</c> at sort id 0 is in this set,
+    /// while <c>1079</c> at sort id 1 is "Georgian Modern" with an entry of its own.
+    /// </para>
+    /// </remarks>
+    private static readonly FrozenSet<CollatingOrder> GeneralV0 =
+    [
+        // Latin — western Europe
+        CollatingOrder.Catalan, CollatingOrder.German, CollatingOrder.Italian, CollatingOrder.Dutch,
+        CollatingOrder.PortugueseBrazil, CollatingOrder.Romansh, CollatingOrder.Albanian,
+        CollatingOrder.Basque,
+
+        // Latin — sublanguage variants
+        CollatingOrder.GermanSwitzerland, CollatingOrder.EnglishUnitedKingdom,
+        CollatingOrder.ItalianSwitzerland, CollatingOrder.DutchBelgium, CollatingOrder.PortuguesePortugal,
+        CollatingOrder.GermanAustria, CollatingOrder.EnglishAustralia,
+
+        // Latin — central and northern Europe
+        CollatingOrder.UpperSorbian, CollatingOrder.Afrikaans, CollatingOrder.Faroese,
+        CollatingOrder.Maltese, CollatingOrder.SamiNorthern, CollatingOrder.Welsh, CollatingOrder.Galician,
+        CollatingOrder.Frisian, CollatingOrder.Luxembourgish, CollatingOrder.Greenlandic,
+        CollatingOrder.Breton, CollatingOrder.Occitan, CollatingOrder.Corsican, CollatingOrder.Alsatian,
+        CollatingOrder.ScottishGaelic,
+
+        // Latin — Turkic, African, Asian, American
+        CollatingOrder.Indonesian, CollatingOrder.AzerbaijaniLatin, CollatingOrder.Tswana,
+        CollatingOrder.Xhosa, CollatingOrder.Zulu, CollatingOrder.Malay, CollatingOrder.Swahili,
+        CollatingOrder.Turkmen, CollatingOrder.UzbekLatin, CollatingOrder.TamazightLatin,
+        CollatingOrder.Filipino, CollatingOrder.Hausa, CollatingOrder.Yoruba, CollatingOrder.Quechua,
+        CollatingOrder.SesothoSaLeboa, CollatingOrder.Igbo, CollatingOrder.Mapudungun,
+        CollatingOrder.Mohawk, CollatingOrder.Maori, CollatingOrder.Kiche, CollatingOrder.Kinyarwanda,
+        CollatingOrder.Wolof, CollatingOrder.InuktitutLatin,
+
+        // Cyrillic
+        CollatingOrder.Bulgarian, CollatingOrder.Cyrillic, CollatingOrder.Belarusian, CollatingOrder.Tajik,
+        CollatingOrder.Kazakh, CollatingOrder.Kyrgyz, CollatingOrder.Tatar,
+        CollatingOrder.MongolianCyrillic, CollatingOrder.Bashkir, CollatingOrder.Sakha,
+        CollatingOrder.AzerbaijaniCyrillic, CollatingOrder.UzbekCyrillic, CollatingOrder.SerbianCyrillic,
+        CollatingOrder.BosnianCyrillic, CollatingOrder.CroatianBosniaHerzegovina,
+
+        // Caucasus and Greek. Georgian is here at sort id 0 only — the For() guard is what keeps
+        // "Georgian Modern" (sort id 1, tailored) from reaching this set.
+        CollatingOrder.Georgian, CollatingOrder.Armenian, CollatingOrder.Greek,
+
+        // Arabic script and the other RTL orders
+        CollatingOrder.Arabic, CollatingOrder.ArabicIraq, CollatingOrder.UrduPakistan,
+        CollatingOrder.UrduIndia, CollatingOrder.Persian, CollatingOrder.Pashto, CollatingOrder.Dari,
+        CollatingOrder.Uighur, CollatingOrder.CentralKurdish, CollatingOrder.Hebrew,
+        CollatingOrder.Yiddish, CollatingOrder.Syriac, CollatingOrder.Divehi,
+
+        // Devanagari and the eastern Indic scripts
+        CollatingOrder.Marathi, CollatingOrder.Sanskrit, CollatingOrder.Nepali, CollatingOrder.Konkani,
+        CollatingOrder.Bengali, CollatingOrder.Assamese, CollatingOrder.Punjabi, CollatingOrder.Gujarati,
+        CollatingOrder.Odia,
+
+        // The southern Indic scripts
+        CollatingOrder.Tamil, CollatingOrder.Telugu, CollatingOrder.Kannada, CollatingOrder.Malayalam,
+        CollatingOrder.Sinhala,
+
+        // The remaining scripts
+        CollatingOrder.Khmer, CollatingOrder.Lao, CollatingOrder.Tibetan,
+        CollatingOrder.MongolianTraditional, CollatingOrder.Amharic, CollatingOrder.Tigrinya,
+        CollatingOrder.Cherokee, CollatingOrder.InuktitutSyllabics, CollatingOrder.Yi,
+
+        // -----------------------------------------------------------------------------------------------
+        // The neutral and sublanguage LANGIDs, from the widened sweep. Same measurement, same controls;
+        // these are the orders Access's dropdown never offers but DAO will write. The 42 that do NOT belong
+        // here are in Tailorings above — every one of them an alias for an order already implemented.
+        // -----------------------------------------------------------------------------------------------
+
+        // arabic
+        CollatingOrder.ArabicNeutral, CollatingOrder.UrduNeutral, CollatingOrder.PersianNeutral,
+        CollatingOrder.SindhiNeutral, CollatingOrder.PashtoNeutral, CollatingOrder.UyghurNeutral,
+        CollatingOrder.KashmiriArabicNeutral, CollatingOrder.PunjabiArabicPakistan,
+        CollatingOrder.SindhiArabicPakistan, CollatingOrder.ArabicEgypt, CollatingOrder.ArabicLibya,
+        CollatingOrder.ArabicAlgeria, CollatingOrder.ArabicMorocco, CollatingOrder.ArabicTunisia,
+        CollatingOrder.ArabicOman, CollatingOrder.ArabicYemen, CollatingOrder.ArabicSyria,
+        CollatingOrder.ArabicJordan, CollatingOrder.ArabicLebanon, CollatingOrder.ArabicKuwait,
+        CollatingOrder.ArabicUnitedArabEmirates, CollatingOrder.ArabicBahrain, CollatingOrder.ArabicQatar,
+        CollatingOrder.PunjabiArabicNeutral, CollatingOrder.SindhiArabicNeutral,
+
+        // armenian, bengali, cherokee
+        CollatingOrder.ArmenianNeutral,
+        CollatingOrder.BanglaNeutral, CollatingOrder.AssameseNeutral, CollatingOrder.ManipuriNeutral,
+        CollatingOrder.BanglaBangladesh,
+        CollatingOrder.CherokeeNeutral,
+
+        // cyrillic
+        CollatingOrder.BulgarianNeutral, CollatingOrder.RussianNeutral, CollatingOrder.BelarusianNeutral,
+        CollatingOrder.TajikNeutral, CollatingOrder.KazakhNeutral, CollatingOrder.KyrgyzNeutral,
+        CollatingOrder.TatarNeutral, CollatingOrder.MongolianNeutral, CollatingOrder.BashkirNeutral,
+        CollatingOrder.YakutNeutral, CollatingOrder.RussianMoldova,
+        CollatingOrder.SerbianCyrillicBosniaHerzegovina, CollatingOrder.SerbianCyrillicSerbia,
+        CollatingOrder.SerbianCyrillicMontenegro, CollatingOrder.BosnianCyrillicNeutral,
+        CollatingOrder.SerbianCyrillicNeutral, CollatingOrder.AzerbaijaniCyrillicNeutral,
+        CollatingOrder.UzbekCyrillicNeutral,
+
+        // devanagari, ethiopic, georgian, greek, gujarati, gurmukhi, hebrew
+        CollatingOrder.HindiNeutral, CollatingOrder.MarathiNeutral, CollatingOrder.SanskritNeutral,
+        CollatingOrder.KonkaniNeutral, CollatingOrder.KashmiriNeutral, CollatingOrder.NepaliNeutral,
+        CollatingOrder.SindhiDevanagariIndia, CollatingOrder.KashmiriDevanagariIndia,
+        CollatingOrder.NepaliIndia,
+        CollatingOrder.AmharicNeutral, CollatingOrder.TigrinyaNeutral, CollatingOrder.TigrinyaEritrea,
+        CollatingOrder.GeorgianNeutral, CollatingOrder.GreekNeutral, CollatingOrder.GujaratiNeutral,
+        CollatingOrder.PunjabiNeutral,
+        CollatingOrder.HebrewNeutral, CollatingOrder.YiddishNeutral,
+
+        // kannada, khmer, lao, malayalam, mongolian, myanmar, oriya, sinhala, syllabics, syriac
+        CollatingOrder.KannadaNeutral, CollatingOrder.KhmerNeutral, CollatingOrder.LaoNeutral,
+        CollatingOrder.MalayalamNeutral, CollatingOrder.MongolianMongolianMongolia,
+        CollatingOrder.MongolianMongolianNeutral, CollatingOrder.BurmeseNeutral,
+        CollatingOrder.BurmeseMyanmar, CollatingOrder.OdiaNeutral, CollatingOrder.SinhalaNeutral,
+        CollatingOrder.InuktitutNeutral, CollatingOrder.SyriacNeutral,
+
+        // tamil, telugu, thaana, tibetan, tifinagh, yi
+        CollatingOrder.TamilNeutral, CollatingOrder.TamilSriLanka, CollatingOrder.TeluguNeutral,
+        CollatingOrder.DivehiNeutral, CollatingOrder.TibetanNeutral, CollatingOrder.DzongkhaBhutan,
+        CollatingOrder.CentralAtlasTamazightNeutral, CollatingOrder.CentralAtlasTamazightTifinaghMorocco,
+        CollatingOrder.CentralAtlasTamazightTifinaghNeutral, CollatingOrder.YiNeutral,
+
+        // latin
+        CollatingOrder.CatalanNeutral, CollatingOrder.GermanNeutral, CollatingOrder.EnglishNeutral,
+        CollatingOrder.ItalianNeutral, CollatingOrder.DutchNeutral, CollatingOrder.PortugueseNeutral,
+        CollatingOrder.RomanshNeutral, CollatingOrder.AlbanianNeutral, CollatingOrder.IndonesianNeutral,
+        CollatingOrder.AzerbaijaniNeutral, CollatingOrder.BasqueNeutral, CollatingOrder.UpperSorbianNeutral,
+        CollatingOrder.SesothoNeutral, CollatingOrder.XitsongaNeutral, CollatingOrder.SetswanaNeutral,
+        CollatingOrder.VendaNeutral, CollatingOrder.IsiXhosaNeutral, CollatingOrder.IsiZuluNeutral,
+        CollatingOrder.AfrikaansNeutral, CollatingOrder.FaroeseNeutral, CollatingOrder.MalteseNeutral,
+        CollatingOrder.NorthernSamiNeutral, CollatingOrder.IrishNeutral, CollatingOrder.MalayNeutral,
+        CollatingOrder.KiswahiliNeutral, CollatingOrder.TurkmenNeutral, CollatingOrder.UzbekNeutral,
+        CollatingOrder.WelshNeutral, CollatingOrder.GalicianNeutral, CollatingOrder.WesternFrisianNeutral,
+        CollatingOrder.FilipinoNeutral, CollatingOrder.EdoNeutral, CollatingOrder.FulaNeutral,
+        CollatingOrder.HausaNeutral, CollatingOrder.IbibioNeutral, CollatingOrder.YorubaNeutral,
+        CollatingOrder.SesothoSaLeboaNeutral, CollatingOrder.LuxembourgishNeutral,
+        CollatingOrder.KalaallisutNeutral, CollatingOrder.IgboNeutral, CollatingOrder.KanuriNeutral,
+        CollatingOrder.OromoNeutral, CollatingOrder.GuaraniNeutral, CollatingOrder.HawaiianNeutral,
+        CollatingOrder.LatinNeutral, CollatingOrder.SomaliNeutral, CollatingOrder.PapiamentoNeutral,
+        CollatingOrder.MapucheNeutral, CollatingOrder.MohawkNeutral, CollatingOrder.BretonNeutral,
+        CollatingOrder.MaoriNeutral, CollatingOrder.OccitanNeutral, CollatingOrder.CorsicanNeutral,
+        CollatingOrder.SwissGermanNeutral, CollatingOrder.KIcheNeutral, CollatingOrder.KinyarwandaNeutral,
+        CollatingOrder.WolofNeutral, CollatingOrder.ScottishGaelicNeutral,
+        CollatingOrder.SesothoSouthAfrica, CollatingOrder.XitsongaSouthAfrica,
+        CollatingOrder.VendaSouthAfrica, CollatingOrder.EdoNigeria, CollatingOrder.IbibioNigeria,
+        CollatingOrder.OromoEthiopia, CollatingOrder.GuaraniParaguay, CollatingOrder.HawaiianUnitedStates,
+        CollatingOrder.SomaliSomalia, CollatingOrder.PapiamentoCaribbean, CollatingOrder.RomanianMoldova,
+        CollatingOrder.LowerSorbianGermany, CollatingOrder.SetswanaBotswana,
+        CollatingOrder.NorthernSamiSweden, CollatingOrder.IrishIreland, CollatingOrder.MalayBrunei,
+        CollatingOrder.FulaLatinSenegal, CollatingOrder.NorthernSamiFinland,
+        CollatingOrder.GermanLuxembourg, CollatingOrder.EnglishCanada, CollatingOrder.LuleSamiNorway,
+        CollatingOrder.GermanLiechtenstein, CollatingOrder.EnglishNewZealand, CollatingOrder.LuleSamiSweden,
+        CollatingOrder.EnglishIreland, CollatingOrder.SerbianLatinBosniaHerzegovina,
+        CollatingOrder.SouthernSamiNorway, CollatingOrder.EnglishSouthAfrica,
+        CollatingOrder.FrenchCaribbean, CollatingOrder.SouthernSamiSweden, CollatingOrder.EnglishJamaica,
+        CollatingOrder.FrenchReunion, CollatingOrder.SkoltSamiFinland, CollatingOrder.EnglishCaribbean,
+        CollatingOrder.FrenchCongoDRC, CollatingOrder.SerbianLatinSerbia, CollatingOrder.InariSamiFinland,
+        CollatingOrder.EnglishBelize, CollatingOrder.FrenchSenegal, CollatingOrder.EnglishTrinidadTobago,
+        CollatingOrder.FrenchCameroon, CollatingOrder.SerbianLatinMontenegro,
+        CollatingOrder.EnglishZimbabwe, CollatingOrder.FrenchCoteDIvoire, CollatingOrder.EnglishPhilippines,
+        CollatingOrder.FrenchMali, CollatingOrder.EnglishIndonesia, CollatingOrder.FrenchMorocco,
+        CollatingOrder.EnglishHongKongSAR, CollatingOrder.FrenchHaiti, CollatingOrder.EnglishIndia,
+        CollatingOrder.EnglishMalaysia, CollatingOrder.EnglishSingapore,
+        // The three Spanish locales that take NO tailoring at all, where seventeen of their siblings take
+        // Spanish Modern and `es` itself takes Traditional. Measured, not inherited.
+        CollatingOrder.SpanishUnitedStates, CollatingOrder.SpanishLatinAmerica, CollatingOrder.SpanishCuba,
+        CollatingOrder.BosnianLatinNeutral, CollatingOrder.SerbianLatinNeutral,
+        CollatingOrder.InariSamiNeutral, CollatingOrder.SkoltSamiNeutral,
+        CollatingOrder.NorwegianNynorskNeutral, CollatingOrder.BosnianNeutral,
+        CollatingOrder.AzerbaijaniLatinNeutral, CollatingOrder.SouthernSamiNeutral,
+        CollatingOrder.NorwegianBokmalNeutral, CollatingOrder.SerbianNeutral,
+        CollatingOrder.LowerSorbianNeutral, CollatingOrder.LuleSamiNeutral,
+        CollatingOrder.UzbekLatinNeutral, CollatingOrder.InuktitutLatinNeutral,
+        CollatingOrder.FulaLatinNeutral,
+    ];
+
+    private static readonly Dictionary<Collation, LocaleTailoring> Tailorings = BuildTailorings();
+
+    /// <summary>
+    /// The measured tailorings, plus every LCID that carries one of them under a different number.
+    /// </summary>
+    private static Dictionary<Collation, LocaleTailoring> BuildTailorings()
+    {
+        Dictionary<Collation, LocaleTailoring> tailorings = Measured;
+        foreach ((CollatingOrder alias, CollatingOrder order) in Aliases)
+            tailorings[new Collation(alias, 0)] = tailorings[new Collation(order, 0)];
+        return tailorings;
+    }
+
+    /// <summary>
+    /// One order under several LCIDs — an alias carries the tailoring of the order it names, <b>by
+    /// reference</b>, so the two can never drift apart and no weight is written down twice.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every pair was measured, not inferred: the alias produced byte-identical index keys to its target
+    /// over the whole survey sample set, LibRed's encoder against ACE's stored keys. So the encoder was
+    /// already emitting the right bytes for these and was refusing only because the LCID was missing here.
+    /// </para>
+    /// <para>
+    /// <b>Do not extend this table by reasoning about language.</b> Every plausible rule for deriving an
+    /// alias from its name is contradicted by something in it. Spanish splits three ways — <c>es</c> and
+    /// es-MX take Traditional, seventeen Latin-American locales take Modern, and es-US, es-419 and es-CU
+    /// take no tailoring at all. French splits too: fr-CH, fr-LU and fr-MC take the French order while
+    /// fr-CD, fr-SN, fr-CI and six more are plain General. And a region-less LANGID takes its language's
+    /// order rather than General, which is the opposite of what "neutral" suggests.
+    /// </para>
+    /// <para>
+    /// Danish is the trap that looks like a bug: DAO's own <c>dbSortNorwDan</c> is 1030, but the order
+    /// Access calls "Norwegian/Danish" — LibRed's <c>Norwegian</c> member — is 1044. Same order, two names.
+    /// </para>
+    /// </remarks>
+    /// <remarks>A property, not a static field: static initialisers run in declaration order, and
+    /// <see cref="Tailorings"/> is declared first, so a field here would still be null when it builds.
+    /// </remarks>
+    private static (CollatingOrder Alias, CollatingOrder Order)[] Aliases =>
+    [
+        // Sublanguages of an order Access itself offers.
+        (CollatingOrder.NorwegianDanish, CollatingOrder.Norwegian),
+        (CollatingOrder.NorwegianNynorsk, CollatingOrder.Norwegian),
+        (CollatingOrder.Finnish, CollatingOrder.SwedishFinnish),
+        (CollatingOrder.SwedishFinland, CollatingOrder.SwedishFinnish),
+        (CollatingOrder.FrenchBelgium, CollatingOrder.French),
+        (CollatingOrder.FrenchCanada, CollatingOrder.French),
+        (CollatingOrder.FrenchSwitzerland, CollatingOrder.French),
+        (CollatingOrder.FrenchLuxembourg, CollatingOrder.French),
+        (CollatingOrder.FrenchMonaco, CollatingOrder.French),
+
+        // A language with no region takes THAT LANGUAGE'S order. `cs` really is Czech, `hr` really is
+        // Croatian — Jet resolves the region-less form rather than falling back to General.
+        (CollatingOrder.CzechNeutral, CollatingOrder.Czech),
+        (CollatingOrder.DanishNeutral, CollatingOrder.Norwegian),
+        (CollatingOrder.SpanishNeutral, CollatingOrder.Spanish),
+        (CollatingOrder.FinnishNeutral, CollatingOrder.SwedishFinnish),
+        (CollatingOrder.FrenchNeutral, CollatingOrder.French),
+        (CollatingOrder.HungarianNeutral, CollatingOrder.Hungarian),
+        (CollatingOrder.IcelandicNeutral, CollatingOrder.Icelandic),
+        (CollatingOrder.NorwegianNeutral, CollatingOrder.Norwegian),
+        (CollatingOrder.PolishNeutral, CollatingOrder.Polish),
+        (CollatingOrder.RomanianNeutral, CollatingOrder.Romanian),
+        (CollatingOrder.CroatianNeutral, CollatingOrder.Croatian),
+        (CollatingOrder.SlovakNeutral, CollatingOrder.Slovak),
+        (CollatingOrder.SwedishNeutral, CollatingOrder.SwedishFinnish),
+        (CollatingOrder.ThaiNeutral, CollatingOrder.Thai),
+        (CollatingOrder.TurkishNeutral, CollatingOrder.Turkish),
+        (CollatingOrder.UkrainianNeutral, CollatingOrder.Ukrainian),
+        (CollatingOrder.SlovenianNeutral, CollatingOrder.Slovenian),
+        (CollatingOrder.EstonianNeutral, CollatingOrder.Estonian),
+        (CollatingOrder.LatvianNeutral, CollatingOrder.Latvian),
+        (CollatingOrder.LithuanianNeutral, CollatingOrder.Lithuanian),
+        (CollatingOrder.VietnameseNeutral, CollatingOrder.Vietnamese),
+        (CollatingOrder.MacedonianNeutral, CollatingOrder.Macedonian),
+
+        // Spanish Traditional for Mexico; Spanish MODERN for the other seventeen. es-US, es-419 and es-CU
+        // are not here at all — they take no tailoring and live in GeneralV0.
+        (CollatingOrder.SpanishMexico, CollatingOrder.Spanish),
+        (CollatingOrder.SpanishGuatemala, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishCostaRica, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishPanama, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishDominicanRepublic, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishVenezuela, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishColombia, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishPeru, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishArgentina, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishEcuador, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishChile, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishUruguay, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishParaguay, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishBolivia, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishElSalvador, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishHonduras, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishNicaragua, CollatingOrder.SpanishModern),
+        (CollatingOrder.SpanishPuertoRico, CollatingOrder.SpanishModern),
+    ];
+
+    private static Dictionary<Collation, LocaleTailoring> Measured => new()
     {
         // --- Orders measured to be indistinguishable from General; recorded on disk, but no tailoring. ---
         [new Collation(CollatingOrder.Georgian, 0, SortId: 1)] = Table([]),
         [new Collation(CollatingOrder.Indic, Collation.GeneralVersion)] = Table([]),
+
+        // The orders that are one order under several LCIDs are NOT listed here — see Aliases below, which
+        // points each at the entry built here rather than rebuilding its weights.
 
         // --- Thai: the five leading vowels contract with the consonant they precede. Built as a rule. ---
         [new Collation(CollatingOrder.Thai, 0)] = Thai(),
@@ -169,8 +472,7 @@ internal static class JetLocaleTailoring
             ("Ñ", [0x63, 0x04])]),
 
         // --- Spanish Traditional: Modern plus the two digraphs the 1994 reform dropped. ---
-        [new Collation(CollatingOrder.Spanish, 0)] = Table([
-            ("CH", [0x4E, 0x04]), ("LL", [0x5F, 0x04]), ("Ñ", [0x63, 0x04])]),
+        [new Collation(CollatingOrder.Spanish, 0)] = SpanishTraditional(),
 
         // --- German Phone Book: the umlauts expand to the vowel plus e, exactly as ß expands to SS. ---
         [new Collation(CollatingOrder.German, 0, SortId: 1)] = Table([
@@ -241,21 +543,10 @@ internal static class JetLocaleTailoring
 
         // --- Norwegian/Danish: æ ø å after z; "aa" weighs as å with a secondary marking the spelling, and
         //     ä/ö are æ/ø with an umlaut while ü rides on y. ---
-        [new Collation(CollatingOrder.Norwegian, 0)] = Table(
-            [("Æ", [0x79, 0x04]), ("Ø", [0x79, 0x06]), ("Å", [0x79, 0x09])],
-            [("AA", [0x79, 0x09], 0x03),
-             ("Ä", [0x79, 0x04], 0x13), ("Ö", [0x79, 0x06], 0x13), ("Ü", [0x76], 0x7B),
-             ("Ő", [0x79, 0x06], 0x1B), ("Ű", [0x76], 0x1B),
-             ("Ǣ", [0x79, 0x04], 0x03)]),   // Æ with a macron rides on the locale's own Æ
+        [new Collation(CollatingOrder.Norwegian, 0)] = NorwegianDanish(),
 
         // --- Swedish/Finnish: å ä ö after z, w is a variant of v, and ü rides on y. ---
-        [new Collation(CollatingOrder.SwedishFinnish, 0)] = Table(
-            [("Ä", [0x79, 0x07]), ("Å", [0x79, 0x05]), ("Ö", [0x79, 0x08])],
-            [("W", [0x71], 0x03), ("Ŵ", [0x71], 0x12), ("Ø", [0x79, 0x08], 0x1E),
-             ("Ü", [0x76], 0x7B), ("Ő", [0x79, 0x08], 0x1B), ("Ű", [0x76], 0x1B),
-             // Wynn follows w onto v's primary. Keyed lowercase deliberately: its uppercase U+01F7 is
-             // ignorable in General, so folding to it would lose the weight.
-             ("ƿ", [0x71], 0x7B)]),
+        [new Collation(CollatingOrder.SwedishFinnish, 0)] = SwedishFinnish(),
 
         // --- Icelandic: the accented vowels are letters, and þ æ ö close the alphabet after z. ---
         [new Collation(CollatingOrder.Icelandic, 0)] = Table(
@@ -392,6 +683,28 @@ internal static class JetLocaleTailoring
     /// tries the original text before the uppercased text, so without one the uppercase entry would claim it.
     /// </para>
     /// </remarks>
+    /// <summary>Norwegian/Danish — LCIDs 1044, 1030 (Danish) and 2068 (Nynorsk).</summary>
+    private static LocaleTailoring NorwegianDanish() => Table(
+        [("Æ", [0x79, 0x04]), ("Ø", [0x79, 0x06]), ("Å", [0x79, 0x09])],
+        [("AA", [0x79, 0x09], 0x03),
+         ("Ä", [0x79, 0x04], 0x13), ("Ö", [0x79, 0x06], 0x13), ("Ü", [0x76], 0x7B),
+         ("Ő", [0x79, 0x06], 0x1B), ("Ű", [0x76], 0x1B),
+         ("Ǣ", [0x79, 0x04], 0x03)]);   // Æ with a macron rides on the locale's own Æ
+
+    /// <summary>Swedish/Finnish — LCIDs 1053, 1035 (Finnish) and 2077 (Swedish, Finland).</summary>
+    private static LocaleTailoring SwedishFinnish() => Table(
+        [("Ä", [0x79, 0x07]), ("Å", [0x79, 0x05]), ("Ö", [0x79, 0x08])],
+        [("W", [0x71], 0x03), ("Ŵ", [0x71], 0x12), ("Ø", [0x79, 0x08], 0x1E),
+         ("Ü", [0x76], 0x7B), ("Ő", [0x79, 0x08], 0x1B), ("Ű", [0x76], 0x1B),
+         // Wynn follows w onto v's primary. Keyed lowercase deliberately: its uppercase U+01F7 is
+         // ignorable in General, so folding to it would lose the weight.
+         ("ƿ", [0x71], 0x7B)]);
+
+    /// <summary>Spanish Traditional — LCIDs 1034 and 2058 (Mexico). Spanish Modern (3082) is a DIFFERENT
+    /// order and keeps its own entry: it drops the two digraphs.</summary>
+    private static LocaleTailoring SpanishTraditional() => Table([
+        ("CH", [0x4E, 0x04]), ("LL", [0x5F, 0x04]), ("Ñ", [0x63, 0x04])]);
+
     private static LocaleTailoring BosnianCroatianSerbian() => Table(
         [("Ć", [0x0E, 0x0C]), ("Č", [0x0E, 0x0B]), ("Đ", [0x0E, 0x1E]),
          ("Š", [0x0E, 0x97]), ("Ž", [0x0E, 0xAD]),

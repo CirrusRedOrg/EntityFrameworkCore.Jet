@@ -149,6 +149,18 @@ public sealed class PageChannel : IDisposable
         return BinaryPrimitives.ReadInt32LittleEndian(key);
     }
 
+    /// <summary>Rejects a page number that cannot exist in this file. Page numbers come out of the file
+    /// itself, so a bad one is corruption — without this the read seeks past the end and throws
+    /// <c>EndOfStreamException</c>, which callers handling a damaged file do not catch. Called only on the
+    /// paths that reach disk: a cache or overlay hit has already proved the page exists, and
+    /// <see cref="PageCount"/> measures the stream.</summary>
+    private void ValidatePageNumber(int pageNumber)
+    {
+        if (pageNumber < 0 || pageNumber >= PageCount)
+            throw new InvalidDataException(
+                $"Page {pageNumber} is outside the database, which holds {PageCount} pages.");
+    }
+
     /// <summary>Reads a single page into a freshly allocated buffer.</summary>
     public PageBuffer ReadPage(int pageNumber)
     {
@@ -183,6 +195,7 @@ public sealed class PageChannel : IDisposable
             if (_cache.TryGetArray(pageNumber, out cached))
                 return new PageBuffer(cached, pageNumber);
 
+            ValidatePageNumber(pageNumber);
             var buffer = new byte[PageSize];
             long offset = (long)pageNumber * PageSize;
             _stream.Seek(offset, SeekOrigin.Begin);
@@ -219,6 +232,7 @@ public sealed class PageChannel : IDisposable
             if (_cache.TryRead(pageNumber, destination))
                 return;
 
+            ValidatePageNumber(pageNumber);
             long offset = (long)pageNumber * PageSize;
             _stream.Seek(offset, SeekOrigin.Begin);
             _stream.ReadExactly(destination[..PageSize]);

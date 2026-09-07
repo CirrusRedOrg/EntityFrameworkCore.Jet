@@ -66,8 +66,15 @@ public sealed class DataPage : Page
     }
 
     /// <summary>Returns the raw bytes of the row at <paramref name="index"/> in the slot directory.</summary>
+    /// <exception cref="InvalidDataException">The index is outside the slot directory. Callers pass a row
+    /// number read out of the file (a usage-map pointer, a long-value descriptor), so out of range means
+    /// corruption, not a caller bug.</exception>
     public ReadOnlySpan<byte> GetRow(int index)
     {
+        if (index < 0 || index >= _rows.Count)
+            throw new InvalidDataException(
+                $"Row {index} is outside this page's slot directory ({_rows.Count} rows).");
+
         RowSlot slot = _rows[index];
         return _buffer.Slice(slot.Offset, slot.Length);
     }

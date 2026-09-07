@@ -47,7 +47,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
         // Encode first: the fixed-region length is pinned by any existing row (to match Access),
         // or derived from the columns for a just-created empty table.
-        var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format));
+        var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format),
+            _table.VariableColumnCount);
         byte[] record = encoder.Encode(values);
 
         EnsureRecordFits(format, record);
@@ -107,7 +108,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Use the same guarded inference as Insert (Math.Max with the column-derived length): the raw per-row
         // parse returns a negative length for an all-fixed-column table (no variable columns — e.g. Northwind
         // Order Details), which without the guard would overflow `new byte[len]`.
-        var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format));
+        var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format),
+            _table.VariableColumnCount);
         byte[] record = encoder.Encode(values);
 
         // Here as well as on the insert path, and before the in-place rewrite rather than beside the

@@ -150,6 +150,10 @@ malformed pointers fail with `InvalidDataException`.
   (`AceModifyByteDiffProbe`): after `ALTER COLUMN B DOUBLE` burns B's id 1→3 in a 3-column table, the row's
   `colCount` field is **4** and the null bitmap is `0x0F` (the dead id 1's bit is set present). A writer that
   sizes these by the live count writes a bit ACE can't find for any id ≥ live count → ACE reads that column null.
+  - It is the **highest live id**, though, and *not* the TDEF's `0x29` id high-water — those differ when the
+    highest-id column is dropped, and rows written afterwards then legitimately carry a *shorter* count and a
+    narrower bitmap than the rows before them. ACE reads across the change
+    (`VariableColumnHighWaterAccessTests`).
 - **Null bitmap** is indexed by **column id**; a **set bit = the value is present** (non-null).
 - **Fixed** column value is at `rowStart + 2 + fixedOffset`, `length` bytes.
   - A **fixed-length text** column (`CHAR`/`NCHAR`, not `TEXT`/`VARCHAR`) fills its whole `length`: the value is
@@ -160,6 +164,16 @@ malformed pointers fail with `InvalidDataException`.
   variable column `j` spans `[offset(numVarCols − j), offset(numVarCols − j − 1))`, where
   `offset(k)` is the little-endian 16-bit value at `varTableStart + k×2`. (The table is stored
   end-first, i.e. ascending column-id order maps to descending table index.)
+  - **`j` is the column's VARIABLE INDEX** — descriptor byte `0x07` — **not its position among the table's
+    live variable columns**, and **`numVarCols` is the TDEF's `0x2B`**, which is a high-water and not a live
+    count. The two coincide only while the index space is contiguous and part company after a `DROP COLUMN`:
+    see [page-02a §3.1](page-02a-tdef.md#31-header) for why, which is the same place the matching rules for
+    `colCount` and for a fixed column's offset live, together with the table of which writers enforce each. Writing the chunks densely instead
+    puts every column after the hole one slot too low, and it is silent — ACE and LibRed's own decoder both
+    index by variable index, so the row is written and read back happily by nothing at all. `0x2B` is the
+    authority even where it exceeds `max(index) + 1` over the live columns: a row one slot short makes the
+    `ALTER COLUMN` re-lay (§3.8) append the retyped column past the end of the row, and **ACE then rejects
+    the file** with *"A column Id is incorrect."* (`VariableColumnHighWaterAccessTests`.)
   - A variable **text**/**binary** value must **fit its column's declared width**. Where a fixed column pads or
     truncates, ACE **rejects** an over-long variable one — six characters into a `TEXT(5)`, six bytes into a
     `VARBINARY(5)`, both *"The field is too small to accept the amount of data you attempted to add"* (verified

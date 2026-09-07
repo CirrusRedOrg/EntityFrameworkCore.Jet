@@ -32,8 +32,8 @@ than being allowed to fail incidentally inside a primitive decoder.
 **`BIGINT` is variable-length despite being a fixed 8 bytes.** ACE puts it behind the row's variable offset
 table rather than in the fixed region — a descriptor carrying length 8 with the fixed flag clear (verified: a
 column ACE created reads back `length=8 fixed=False`, and the row lays the value out at a variable-column
-start offset). Its *index* key is unaffected — that dispatches on the column's type, not on where the row
-keeps the bytes — and is the same sign-bit-flipped big-endian int64 as Currency (§10.4).
+start offset). Its *index* key is unaffected — key encoding dispatches on the column's type, not on where
+the row keeps the bytes; the encoding itself is [§10.4](page-03-04-index-btree.md).
 
 > **The reason to match is faithfulness, not readability — ACE honours the descriptor's fixed flag.** It has
 > to: its own `MSysComplexType_GUID` declares `Value` *fixed* while every GUID column its DDL creates is
@@ -67,12 +67,11 @@ in §3.4. `AccessTypeMapper` and `StatementExecutor.ColumnSpecFor` both declare 
 > work … When running in x64 it fails to convert"* — the same defect, found from the other direction and years
 > earlier, though that mapping targets a `decimal(20,0)` column rather than a real `0x13` one.
 
-**New-type format versions — the two are NOT the same version** (verified against files authored with each
-feature enabled: enabling BigInt made the file version byte `0x05`, enabling Date/Time Extended made it
-`0x06`; and measured again from the other direction — issuing `CREATE TABLE … BIGINT` against an ACE 12 file
-raises it to `0x05`, `DATETIME2` to `0x06`). **`BIGINT` (Large Number)** requires the **ACE 16 / Access 2016** format (`0x05`); **`DATETIME2`
+**New-type format versions — the two are NOT the same version**, which is the natural assumption and is
+wrong. **`BIGINT` (Large Number)** requires the **ACE 16 / Access 2016** format (`0x05`); **`DATETIME2`
 (Date/Time Extended)** requires the **ACE 17 / Access 2019+** format (`0x06`) — it arrived later (Access for
-Microsoft 365). LibRed gates each accordingly (`AccessTypeMapper`). `DATETIME2` is a fixed 42-byte ASCII string of
+Microsoft 365). LibRed gates each accordingly (`AccessTypeMapper`). Both thresholds were measured from two
+directions — see [page-00 §2](page-00-database.md), which owns the version byte and the experiment. `DATETIME2` is a fixed 42-byte ASCII string of
 three colon-separated fields: the .NET **day number**, the count of **100-ns ticks within the
 day**, and the fractional **precision** (e.g. `7`). The first two are zero-padded to 19 digits so
 that byte order equals chronological order (an order-preserving inline encoding). The value is
@@ -84,11 +83,10 @@ space** — verified by reading rows ACE itself wrote (`… 3A 37 00`). The dist
 42 bytes go into the index key verbatim, so a space there would put every key out of step with ACE's and make
 its seeks miss those rows.
 
-**Indexing.** ACE does permit an index on the type, and keys it through the same 8-byte chunking it uses for
-`Binary` (§10.4) — start flag, 8 bytes, `0x09` while more follow, then the final chunk and its real-byte count
-— rather than folding the value to a number the way `DateTime` folds to its OA double. It can do that because
-the stored form is already order-preserving. Verified ascending and descending in
-`DateTime2KeyEncodingTests`.
+**Indexing.** ACE does permit an index on the type, and keys the 42 bytes verbatim through its `Binary`
+chunking rather than folding the value to a number — which it can do precisely because the stored form
+above is already order-preserving. The encoding itself is
+[§10.4](page-03-04-index-btree.md).
 
 The bytes on disk are correct, but **ACE's own OLE DB provider cannot read this type back** — see the
 [footnote](#footnote--reading-datetime2-through-aces-own-drivers) at the bottom of this page.

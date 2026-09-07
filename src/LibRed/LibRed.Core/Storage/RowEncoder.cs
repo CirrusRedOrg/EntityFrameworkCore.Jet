@@ -17,10 +17,16 @@ namespace LibRed.Storage;
 /// (12-byte descriptor + payload, §8) when it is small enough; anything larger is stored on LVAL
 /// pages by <see cref="RowInserter"/> before the row reaches here, so only the descriptor is encoded.
 /// </summary>
-public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase format, int? fixedDataLength = null)
+public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase format,
+    int? fixedDataLength = null, int? variableColumnCount = null)
 {
     private readonly IReadOnlyList<ColumnDef> _columns = columns;
     private readonly JetFormatBase _format = format;
+
+    // How many variable slots a row carries. The TDEF's 0x2B when the caller has it — a high-water that
+    // never decrements — else the tight maximum over the live columns, which is the same number until the
+    // LAST variable column is dropped and is all a standalone encode can know.
+    private readonly int? _variableColumnCount = variableColumnCount;
 
     // Fixed (non-boolean) columns occupy a contiguous region; its length is defined by the
     // table definition. Default to the tight max so a standalone encode round-trips; INSERT
@@ -38,8 +44,15 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         // AssembleRow derives both from this.
         int maxColumnId = _columns.Count == 0 ? -1 : _columns.Max(c => c.ColumnId);
 
-        var varCols = _columns.Where(c => !c.IsFixedLength).OrderBy(c => c.VariableIndex).ToList();
-        int numVar = varCols.Count;
+        // And the variable section is addressed the same way: by VariableIndex, NOT by position among the
+        // live variable columns. DROP COLUMN leaves a hole in the index space — the TDEF's 0x2B count is a
+        // high-water mark that never decrements, and a column added later takes the next index above it — so
+        // packing the chunks densely puts every column after the hole one slot too low. The decoder reads
+        // VarChunk(column.VariableIndex) and so does ACE, which is what makes it silent: the row is written
+        // and read back happily by nothing at all.
+        var varCols = _columns.Where(c => !c.IsFixedLength).ToList();
+        int numVar = varCols.Count == 0 ? 0
+            : Math.Max(_variableColumnCount ?? 0, varCols.Max(c => c.VariableIndex) + 1);
 
         // Encode each region's payload first so we can size the row exactly.
         var fixedRegion = new byte[_fixedDataLength];
@@ -55,12 +68,12 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         }
 
         var varChunks = new byte[numVar][];
-        for (int j = 0; j < numVar; j++)
+        Array.Fill(varChunks, []);          // a dropped column's slot stays present, and empty
+        foreach (ColumnDef column in varCols)
         {
-            ColumnDef column = varCols[j];
             object? v = values[column.Index];
-            varChunks[j] = v is null ? [] : JetTypeCodec.Encode(column, v);
-            EnsureFitsDeclaredLength(column, varChunks[j]);
+            varChunks[column.VariableIndex] = v is null ? [] : JetTypeCodec.Encode(column, v);
+            EnsureFitsDeclaredLength(column, varChunks[column.VariableIndex]);
         }
 
         return AssembleRow(maxColumnId, fixedRegion, varChunks, _columns, values);

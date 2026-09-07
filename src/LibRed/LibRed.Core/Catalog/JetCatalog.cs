@@ -404,6 +404,7 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
             DefinitionPage = definitionPage,
             Columns = tdef.Columns,
             Indexes = tdef.Indexes,
+            VariableColumnCount = tdef.VariableColumnCount,
             ComplexAutoNumber = tdef.ComplexAutoNumber,
             IsSystem = isSystem,
         };

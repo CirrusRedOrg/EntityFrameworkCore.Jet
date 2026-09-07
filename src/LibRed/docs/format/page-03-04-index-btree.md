@@ -872,8 +872,17 @@ this is the practical cost of General over General Legacy, invisible in the sche
   > requires the two engines' keys to match byte for byte. So a wrong LCID in the set does not pass quietly:
   > ACE would index with whatever order that LCID really names, and the keys would part company.
 
-  *Not yet handled:* characters outside ASCII + the accented Latin-1 set above (and a key mixing an
-  accent with an ignorable apostrophe/hyphen is untested); every locale other than General (above).
+  *Not yet handled:* **Irish 1084**, the one order the survey could not measure; the **CJK** orders,
+  deliberately out of scope; and the rest of the **version-1** surface. Five version-1 collations are
+  implemented — General v1, Indic v1, and Croatian / Bosnian / Serbian v1 sharing one table — but no sweep
+  has covered the others, because DAO writes version 0 for every LANGID it accepts, so measuring v1 needs a
+  different authoring route entirely.
+
+  > This paragraph said "characters outside ASCII + the accented Latin-1 set; every locale other than
+  > General" for a long time after both had been done — it was written when they were true and never
+  > revisited, while the sections above it grew to a whole-BMP table and hundreds of locales. A "not yet"
+  > list is the first thing in a spec to rot, and the only defence is to treat it as a claim needing the
+  > same evidence as any other.
 - **GUID:** the start flag `0x7F`, then the 16 GUID bytes in **canonical string order** (i.e.
   `guid.ToString("N")` bytes — **not** the mixed-endian `.ToByteArray()` storage layout), split into two
   8-byte halves by a constant `0x09` marker, and terminated by `0x08` — a fixed **19-byte** key. Data
@@ -962,9 +971,10 @@ The split mechanics:
   pointer (§3.5 `0x26`) is repointed to it. (The single-leaf → two-leaves case hits this on the
   first overflow, changing the root page's type from leaf `0x04` to node `0x03`.)
 
-> Newly allocated split pages are taken from the global free-page map (§ page 1). Registering them
-> in the *index's own* owned-pages usage map (§3.5) is **not yet done** — tolerated so far, but a
-> point to revisit when validating large indexes against Access.
+> Newly allocated split pages are taken from the global free-page map (§ page 1) and are registered in the
+> *index's own* owned-pages usage map as Access does — `IndexWriter.AllocateIndexPage` sets the bit for
+> every page it hands out, so the map covers the whole B-tree rather than just the root. See
+> [page-05 §9](page-05-usage-maps.md), which owns that rule.
 
 
 > **Indexable types — coverage vs ACE (§10.4).** `IndexKeyEncoder` now encodes **every type ACE lets you

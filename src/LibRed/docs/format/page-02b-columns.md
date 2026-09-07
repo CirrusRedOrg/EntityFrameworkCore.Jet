@@ -134,21 +134,20 @@
 > `Version` (`0x0E`), `SortId` (`0x0D`) — with `Collation.Lcid` assembling the 32-bit LCID. It is **read**
 > per column into `ColumnDef.Collation` (numeric columns, whose `0x0B/0x0C` are precision/scale, carry none)
 > and **written** from `JetDatabase.Collation` (the database default), all three bytes explicitly. The write
-> is byte-identical for General legacy (verified). `IndexKeyEncoder` **gates** on the collation: it refuses (throws) anything but General legacy
-> rather than emit v0 key bytes for a v1 or non-English column.
-> LibRed reads and distinguishes v1, but does not yet **encode** its index keys (the v1 weight table is the
-> remaining work, §10.4).
+> is byte-identical for General legacy (verified). Which of these collations LibRed can **encode index keys
+> for** is not this section's subject and is answered in [§10.4](page-03-04-index-btree.md): the gate is
+> `Collation.IsIndexKeyEncodable`, it is deliberately default-closed, and both sort-order versions plus
+> several hundred locales now pass it.
 >
-> LibRed **reads** the variable-table index from the descriptor (`0x07`) rather than deriving it by
-> ranking column ids. For an untouched table the two agree, but they **diverge after a `DROP COLUMN`**:
-> ACE's drop is a metadata-only TDEF edit that does **not** renumber the surviving columns or rewrite
-> existing rows, so a survivor keeps its original variable index even though ranking would shift it down
-> into the gap. Deriving would then decode the wrong variable slot (verified: after dropping a middle
-> Text column, the next Text column read the dropped column's value); reading `0x07` decodes correctly.
+Variable-length columns carry a *variable index* — their slot in the row's variable-offset table
+([§5](page-01-data-and-rows.md)), stored in the descriptor at `0x07`. For an untouched table it equals the
+column's rank among the variable columns ordered by ascending id.
 
-Variable-length columns carry a *variable index* — their position in the row's variable-offset table
-(§5), stored in the descriptor at `0x07`. For an untouched table this equals their rank among variable
-columns ordered by ascending column id, but a `DROP COLUMN` can leave a gap (see the note above).
+> **Always read `0x07`; never re-derive it by ranking.** The two agree only until a `DROP COLUMN` leaves a
+> gap in the index space, and a survivor then keeps an index that ranking would shift down into the hole —
+> so deriving decodes the wrong slot (verified: after dropping a middle Text column, the next Text column
+> read the dropped column's value). Why the gap is left, and what it means for writing a row rather than
+> reading one, are [§3.1](page-02a-tdef.md#31-header) and [§5](page-01-data-and-rows.md) respectively.
 
 #### Declared width limits
 
@@ -216,6 +215,25 @@ change **to a variable type**, the variable-column count (`0x2B`) also bumps **+
 permanent: repeated modifies keep consuming ids from `0x29`, which is why a heavily-altered table can hit
 "Too many fields defined" with far fewer than 255 *live* columns (only a compact renumbers).
 
+Probed directly: a 4-column table `A,B,C,D` (ids 0,1,2,3); `ALTER COLUMN B …` → B stays at index 1 with
+**id 4**; a later `ALTER COLUMN C …` → C stays at index 2 with **id 5**; every *other* column keeps its id.
+So after modifies the ids are non-contiguous while the physical order is unchanged — which is why the row's
+null bitmap is keyed by **id** and not by position (§5).
+
+> **An identity ALTER is not always free, and nullability never enters into it.** An identical
+> `SHORT`/`LONG` declaration consumes no id, even at 255; an identical Memo/OLE declaration *does* consume
+> one and is rejected at 255. ACE accepts the identity ALTER at 255 for a `NOT NULL` column as readily as a
+> nullable one (`ColumnIdBoundaryAccessTests.Ace_identity_alter_at_exhaustion_ignores_nullability`), so
+> LibRed must not compare nullability when deciding an ALTER is a no-op — and no ALTER path carries it
+> anyway, since `Required` is applied separately and `RewriteColumn` discards the spec's value.
+
+> **Where LibRed's Memo/OLE rebuild diverges.** `RewriteColumn` preserves each untouched column's original
+> descriptor bytes except the fields LibRed models (the `RawDescriptor` passthrough) and keeps column order,
+> but it does **not** give the target the burned id: it rebuilds with **contiguous** ids and re-encodes rows
+> with null bits keyed by those, rather than retaining ACE's old ids and dead storage. The `0x29` high-water
+> is still preserved and incremented and an ALTER at 255 still rejected, so the lifetime cap matches ACE
+> even though the layout does not. The in-place path above retains the ids and dead storage as ACE does.
+
 **Target column descriptor (§3.4)** — the *only* descriptor that changes; all others stay byte-identical:
 
 | Offset | New value |
@@ -248,10 +266,8 @@ index (its keys change type). Verified reproduction:
 - **Re-point the index-data block** (§3.5) in the TDEF: the target's **burned id** replaces the old id in
   its column slot (`0x04` array), the **new root** at `0x26`, the **new usage-map row** at `0x22`, and the
   index **stats block** (§3.3.1) first word bumped **0→1**.
-- **Recycle the owned-pages usage-map row** the way ACE does (§9): *append* a fresh row and set the new
-  root's bit, then **move** that map into the old row's freed slot and soft-delete the old row as a
-  0-length deleted+overflow tombstone — leaving the appended slot's bytes **stale in free space**, a
-  deterministic ACE artifact reproduced byte-for-byte.
+- **Recycle the owned-pages usage-map row** the way ACE does — the append/move/tombstone dance, and the
+  stale bytes it deliberately leaves behind, are [page-05 §9](page-05-usage-maps.md).
 - **Back-fill** the new B-tree with new-type keys (one `AddEntry` per row).
 
 The descriptor edit and the index-block re-point are applied to **one** parsed TDEF and written **once**.

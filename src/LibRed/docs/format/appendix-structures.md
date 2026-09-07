@@ -83,7 +83,7 @@ Variable section (`varOffsetTable`+`numVar`) omitted when the table has no varia
 | `0x08` | 4 | TDEF length (total logical bytes) |
 | `0x0C` | 4 | Constant marker `0x00000659` |
 | `0x10` | 4 | Row count |
-| `0x14` | 4 | AutoNumber high-water = last assigned id (next = `+ 0x18`, unchecked — **wraps** at the int32 boundary); seed `= 0x14 + increment` |
+| `0x14` | 4 | AutoNumber high-water = last assigned id (assignment rules: [page-02a](page-02a-tdef.md) §3.1) |
 | `0x18` | 4 | AutoNumber increment (signed int32; default 1) |
 | `0x1C` | 4 | Complex-type AutoNumber high-water |
 | `0x20` | 8 | Unknown / reserved (zero) |
@@ -111,8 +111,8 @@ Variable section (`varOffsetTable`+`numVar`) omitted when the table has no varia
 | `0x01` | 2 | Marker `0x0659` |
 | `0x03` | 2 | Unknown (zero) |
 | `0x05` | 2 | Column id |
-| `0x07` | 2 | Variable-table index (0 for fixed) |
-| `0x09` | 2 | Column number (= id, until an `ALTER COLUMN` burns a new id at `0x05`) |
+| `0x07` | 2 | Variable-table index — on a **fixed** column the running count of preceding variable columns, **NOT `0`**; writing `0` there yields a file Access refuses with *"record(s) cannot be read"* ([page-02b §3.4](page-02b-columns.md)) |
+| `0x09` | 2 | Column number — a second copy of the id `0x05` on a **user** table, but **`0`** on the tables the engine writes for itself; unchanged by an `ALTER COLUMN` that burns a new id at `0x05` ([page-02b §3.4](page-02b-columns.md)) |
 | `0x0B` | 1 | Precision (Decimal) — else locale low byte `0x09` |
 | `0x0C` | 1 | Scale (Decimal) — else locale high byte `0x04` |
 | `0x0D` | 1 | Collation sort id — the LCID's high word (`0x01` = an alternate sort order, e.g. Hungarian Technical) |
@@ -251,11 +251,11 @@ so guard with a validator; **query-engine** — ACE's SQL-engine limits that Lib
 | Limit | Value | Kind |
 | --- | --- | --- |
 | Object / table / field name | 64 chars | engine constant (ACE `WCHAR[64]`-style; >64 corrupts the file — [page-02a](page-02a-tdef.md) §3.3) |
-| Fields per table | 255 | structural (the `0x29` column-id high-water; never reused — [page-02b](page-02b-columns.md)) |
-| Indexes per table | 32 | structural (`0x33` real-index count) |
+| Fields per table | 255 | engine constant — the `0x29` column-id high-water, ids never reused ([page-02a](page-02a-tdef.md) §3.1) |
+| Indexes per table | 32 | engine constant — binds on the **logical** count `0x2F`, not the real count `0x33` ([page-02d](page-02d-constraints.md) §3.5) |
 | Fields per index / PK | 10 | structural (the 52-byte index-data block's fixed 10-slot column array — [page-02d](page-02d-constraints.md) §3.5) |
 | Short Text length | 255 chars | validator |
-| Record (excl. Long Text/OLE) | **4060 bytes** | ACE-enforced, **not** page space — 20 bytes below what a page holds, and a larger row writes but cannot be read back ([page-01](page-01-data-and-rows.md)) |
+| Record (excl. Long Text/OLE) | **4060 bytes** | ACE-enforced, not page space ([page-01](page-01-data-and-rows.md) §5) |
 | Database file size | 2 GiB | ACE-enforced file extent; page numbering and reference-map coverage extend beyond this limit |
 
 `LvProp` property **values** (DefaultValue, CheckConstraints) are variable-length and length-tolerant — no

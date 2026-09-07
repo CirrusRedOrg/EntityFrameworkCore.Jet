@@ -212,12 +212,11 @@ CF 65 ED FF 07 C7 46 A1 78 16 0C ED E9 2D 62 D4   ; 0x88
   database programmatically: DAO writes v0 whatever the application setting says, and Access honours its
   "New database sort order" option only through its own UI.
 - **Collation sort order (`0x6E`, 4 bytes)** → `DefaultCollationLcid` (the LANGID at `0x6E`),
-  `DefaultCollationSortId` (`0x70` — the LCID's high word, non-zero only for a Windows *alternate* sort
-  order such as German Phone Book `0x00010407` or Hungarian Technical `0x0001040E`), and
-  `DefaultCollationVersion` (`0x71`, 0 = the legacy compacted table, 1 = the Access-2010 NLS order).
-  `DatabaseDefinitionPage.Collation` assembles the three. All three **match each column descriptor's
-  `0x0B`–`0x0E`** — the sort order lives both database-wide (page 0) and per column (see
-  [page-02b-columns.md](page-02b-columns.md)), and the two blocks have identical layout.
+  `DefaultCollationSortId` (`0x70`) and `DefaultCollationVersion` (`0x71`), assembled by
+  `DatabaseDefinitionPage.Collation`. This is **byte-for-byte the same four-field block as a column
+  descriptor's `0x0B`–`0x0E`**, and the two agree: the sort order lives both database-wide here and per
+  column. The block's semantics — what a non-zero sort id means, which version is which — belong to that
+  descriptor field and are [page-02b §3.4](page-02b-columns.md).
 - **Creation date (`0x72`, 8 bytes)** → `CreationDate` — an OLE `double`. Matches the earliest
   `MSysObjects.DateCreate`; on an *edited* database (e.g. Northwind) it is the **file's** creation
   instant and can differ from the first object's by minutes. **Unlike a normal Jet/ACE `DateTime`

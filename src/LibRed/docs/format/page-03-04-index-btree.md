@@ -45,6 +45,21 @@ Each entry ends with a **4-byte big-endian** trailing pointer:
 > role; this avoids relying on an earlier descent check if the file changed between reads. Violations
 > are reported as `InvalidDataException`.
 
+> **How the insert path revalidates.** A leaf rewrite no longer re-reads and re-decodes the page the descent
+> just decoded; it takes that parse from the channel's parsed-page cache and copies the entry list before
+> mutating it (the cached object is shared with every other reader of the file, so it must never be written
+> through). The guarantee is unchanged: a cached parse survives only while the bytes behind it are untouched —
+> any write from any channel drops it, eviction drops it, and a page buffered in an open transaction's overlay
+> is never served — so a hit carries what a re-read would, and the page's type and owning TDEF are still
+> checked before it is mutated. The copy is shallow by design: an entry is an immutable struct referencing its
+> key, so copying the list shares the key arrays and costs one array of structs rather than one array per entry.
+>
+> A consequence worth knowing when reading write benchmarks: because an overlay page is never served from the
+> cache, this saves nothing for a page already written inside the current transaction. Inserts outside a
+> transaction, or early in one, gain the most; a long transaction rewriting the same leaf repeatedly gains
+> nothing (measured: a raw insert went 234.6 µs → 164.5 µs, while the same insert inside a transaction did not
+> move).
+
 ### 10.3 Prefix compression
 
 Entries on a page share a leading prefix of `compressedByteCount` (`0x18`) bytes. The **first** entry is

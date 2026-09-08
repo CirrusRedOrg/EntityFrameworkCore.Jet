@@ -212,14 +212,15 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         }
     }
 
-    /// <summary>An index page decoded for the read paths (<see cref="Descend"/>/<see cref="Seek"/>/
-    /// <see cref="SeekRange"/>): its type, entries, node child-tail and leaf next-pointer.</summary>
-    private sealed record ParsedIndexPage(PageType Type, int Owner, List<Entry> Entries, int Tail, int Next);
+    /// <summary>An index page decoded: its type, entries, node child-tail, and the leaf header fields a
+    /// rewrite of the page has to carry forward (previous/next links and the stored prefix length).</summary>
+    private sealed record ParsedIndexPage(
+        PageType Type, int Owner, List<Entry> Entries, int Tail, int Next, int Previous, int Compressed);
 
     /// <summary>Reads an index page as decoded entries, served from the channel's parsed-page cache on a repeat
     /// visit — a B-tree descent re-reads its root/internal pages on every seek, so caching the decode (not just
-    /// the bytes) removes both the page copy and the entry decode. Read-only: the write paths parse fresh, and
-    /// their <c>WritePage</c> invalidates the cached parse, so a hit is always consistent with the bytes.</summary>
+    /// the bytes) removes both the page copy and the entry decode. A cached parse is dropped whenever the bytes
+    /// change (any channel) or the page is evicted, so a hit is always consistent with the bytes.</summary>
     private ParsedIndexPage ReadIndexPage(int pageNumber)
     {
         if (_channel.TryGetParsedPage(pageNumber, out object? cached) && cached is ParsedIndexPage hit)
@@ -232,16 +233,44 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
         CheckedIndexPage page = IndexPageReader.Read(_channel, pageNumber, _table.DefinitionPage);
         (List<Entry> entries, int tail) = Parse(page);
-        var parsed = new ParsedIndexPage(page.Type, page.Owner, entries, tail, page.Next);
+        var parsed = new ParsedIndexPage(
+            page.Type, page.Owner, entries, tail, page.Next, page.Previous, page.CompressedByteCount);
         _channel.SetParsedPage(pageNumber, parsed);
         return parsed;
+    }
+
+    /// <summary>
+    /// The decoded page a read-modify-write is about to rewrite, with an <b>owned</b> entry list the caller may
+    /// mutate. Serves the parse the descent just made rather than reading and decoding the page a second time.
+    /// </summary>
+    /// <remarks>
+    /// <para>Every insert descends to its leaf and then rewrites it, and the two steps each parsed the page —
+    /// decoding a fresh <c>byte[]</c> for every entry on it, twice. This reuses the first parse.</para>
+    /// <para>The list is <b>copied</b> before it is handed over, because the cached parse is shared with every
+    /// other reader of the file and <see cref="PageChannel.SetParsedPage"/>'s contract forbids mutating it. The
+    /// copy is shallow, which is the point: <see cref="Entry"/> is an immutable struct holding a reference to
+    /// its key, so copying the list shares the key arrays and allocates one array of structs instead of one
+    /// array per entry. Keys are never written through, only read by <see cref="Build"/>.</para>
+    /// <para>This does not weaken the revalidation the write paths perform (§10.2). A cached parse exists only
+    /// while the bytes behind it are unchanged — any write, from any channel, drops it, and a page buffered in
+    /// an open transaction's overlay is never served — so a hit carries the same guarantee a re-read would, and
+    /// the type and owner recorded in it are checked exactly as before.</para>
+    /// </remarks>
+    private ParsedIndexPage ReadMutablePage(int pageNumber, PageType expectedType)
+    {
+        ParsedIndexPage parsed = ReadIndexPage(pageNumber);
+        if (parsed.Type != expectedType)
+            throw new InvalidDataException(
+                $"Index mutation expected page {pageNumber} to be {expectedType}, but found {parsed.Type}.");
+
+        return parsed with { Entries = [.. parsed.Entries] };
     }
 
     private void InsertIntoLeaf(IndexDef index, List<int> path, byte[] key, int pointer)
     {
         int leafPage = path[^1];
-        CheckedIndexPage page = ReadMutationPage(leafPage, PageType.LeafIndexPage);
-        (List<Entry> entries, _) = Parse(page);
+        ParsedIndexPage page = ReadMutablePage(leafPage, PageType.LeafIndexPage);
+        List<Entry> entries = page.Entries;
 
         // Insert in key order (key then pointer tiebreaker) — the full leaf key is key ++ pointer. Compared
         // without materialising each entry's concatenation: this scan runs over every entry on the page for
@@ -262,7 +291,7 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         // Rebuilding at the largest available prefix on every write instead would be smaller, but it is not
         // what ACE writes, and the tail page of a sequential load is the visible difference.
         int share = entries.Count <= 1 ? 0 : CommonPrefixLength(entries[0].Key, entries[^1].Key);
-        int keep = Math.Min(page.CompressedByteCount, share);   // the new key may not share the old prefix
+        int keep = Math.Min(page.Compressed, share);            // the new key may not share the old prefix
 
         if (Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, keep) is { } asIs)
         {

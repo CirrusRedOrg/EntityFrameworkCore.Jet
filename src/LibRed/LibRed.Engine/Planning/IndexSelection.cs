@@ -26,6 +26,11 @@ internal static class IndexSelection
             FilterNode { Input: ScanNode scan } filter => RewriteFilterOverScan(filter, scan, catalog, outer),
             JoinNode j => RewriteJoin(j, catalog, outer),
 
+            // `TOP n … ORDER BY <indexed columns>` — read the index in order and stop after n, instead of
+            // scanning the table to feed a sort. Must precede the general SortNode arm below.
+            SortNode { Input: ScanNode ordered, Limit: not null } sort
+                when OrderedIndexRead(sort, ordered, catalog) is { } indexScan => indexScan,
+
             // Otherwise rebuild the node with its children rewritten.
             FilterNode f => f with { Input = Apply(f.Input, catalog, outer) },
             SortNode s => s with { Input = Apply(s.Input, catalog, outer) },
@@ -96,6 +101,65 @@ internal static class IndexSelection
         }
 
         return filter;
+    }
+
+    /// <summary>
+    /// Turns <c>Sort(keys, bound) over Scan(t)</c> into an ordered read of an index whose key IS those sort keys,
+    /// dropping the sort: the rows already arrive in the wanted order, so the enclosing <c>TOP n</c> stops after
+    /// n instead of the sort consuming the whole table to find them. Returns null when no index qualifies.
+    /// </summary>
+    /// <remarks>
+    /// <para>Only applied under a bound (an enclosing <c>TOP n</c>), which is where the win is. Unbounded, it is
+    /// a wash: an ordered index read costs ~2.7 µs/row against ~0.44 µs/row for a scan plus ~2.4 µs/row to sort,
+    /// so reading the whole table through the index buys nothing but a smaller peak footprint (measured — see
+    /// test/LibRed.Benchmarks, `sort.by_indexed` against `StorageBenchmarks.RangeSeek`). With the bound, only n
+    /// rows are ever read.</para>
+    /// <para>The conditions are what make the substitution produce the <b>same rows in the same order</b>, not
+    /// merely a valid order:</para>
+    /// <list type="bullet">
+    /// <item><description><b>Every index column is a sort key, in the same order, all ascending.</b> A mere
+    /// prefix match would leave the index ordering ties by its remaining columns while the sort leaves them in
+    /// input order — a legal but different answer, and one that would silently change results EF asserts on.</description></item>
+    /// <item><description><b>Numeric or temporal columns only.</b> Their key encoding is order-preserving with no
+    /// collation involved, so index order and <see cref="ExpressionEvaluator.CompareForSort"/> cannot disagree.
+    /// Text keys are NLS sort keys and lossy; whether they order identically to the evaluator is a separate
+    /// question that wants checking against ACE before being relied on here.</description></item>
+    /// <item><description><b>Not a WITH IGNORE NULL index</b>, which omits null-keyed rows from the B-tree
+    /// altogether — reading it in order would silently drop rows. An ordinary index stores nulls, sorted first
+    /// ascending (<c>AscNull</c> 0x00 &lt; <c>AscStart</c> 0x7F), exactly as CompareForSort puts them.</description></item>
+    /// </list>
+    /// <para>Ties then match too: equal-keyed index entries are ordered by row pointer, i.e. physical position,
+    /// which is the order a scan feeds the sort in — and the sort breaks ties by input position.</para>
+    /// </remarks>
+    private static PlanNode? OrderedIndexRead(SortNode sort, ScanNode scan, JetCatalog catalog)
+    {
+        if (catalog.FindTable(scan.Table) is not { } def)
+            return null;
+        string alias = scan.Alias ?? scan.Table;
+
+        foreach (IndexDef index in def.Indexes)
+        {
+            if (index.IgnoreNulls || index.RootPage <= 0 || index.Columns.Count != sort.Keys.Count)
+                continue;
+
+            bool matches = true;
+            for (int i = 0; i < sort.Keys.Count && matches; i++)
+            {
+                (ColumnDef indexColumn, bool ascending) = index.Columns[i];
+                matches = ascending
+                    && sort.Keys[i].Direction == SortDirection.Ascending
+                    && Classify(indexColumn.Type) is TypeKind.Numeric or TypeKind.Temporal
+                    && Column(sort.Keys[i].Value, alias, def) is { } key
+                    && string.Equals(key.Column, indexColumn.Name, StringComparison.OrdinalIgnoreCase);
+            }
+
+            // Both bounds open: the range seek descends to the leftmost leaf and walks the chain, which is the
+            // whole index in key order — lazily, so the enclosing limit ends the read.
+            if (matches)
+                return new IndexRangeSeekNode(scan.Table, scan.Alias, index, Low: null, High: null);
+        }
+
+        return null;
     }
 
     /// <summary>Whether <paramref name="e"/> can be evaluated as a seek key without a row of the table being

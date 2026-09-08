@@ -25,6 +25,10 @@ public sealed record IndexSeekNode(string Table, string? Alias, IndexDef Index, 
 /// scan. Emitted for range predicates (<c>&gt;</c>/<c>&gt;=</c>/<c>&lt;</c>/<c>&lt;=</c>/<c>BETWEEN</c>) on an
 /// indexed column. The residual <see cref="FilterNode"/> above re-applies the exact bounds (the seek is an
 /// over-returning access path — lossy keys, strict-vs-inclusive boundaries).
+/// <para>With <b>both bounds null</b> it is the whole index read in key order — the ordered access path an
+/// <c>ORDER BY</c> matching the index uses instead of sorting (see <c>IndexSelection.OrderedIndexRead</c>).
+/// That is the one case where the index may have several columns: the bounds are what the executor reads a
+/// single column for, and there are none.</para>
 /// </summary>
 public sealed record IndexRangeSeekNode(string Table, string? Alias, IndexDef Index, Expression? Low, Expression? High) : PlanNode;
 

@@ -101,7 +101,10 @@ internal static class RunHistory
     private static (string Commit, bool Dirty) GitState()
     {
         string commit = Git("rev-parse --short HEAD");
-        return (commit.Length > 0 ? commit : "unknown", Git("status --porcelain").Length > 0);
+        // Tracked modifications only. Counting untracked files would mark every run dirty for a stray scratch
+        // directory sitting in the working tree, which says nothing about the code that was measured — and a
+        // dirty flag that is always set carries no information at all.
+        return (commit.Length > 0 ? commit : "unknown", Git("status --porcelain --untracked-files=no").Length > 0);
     }
 
     private static string Git(string arguments)

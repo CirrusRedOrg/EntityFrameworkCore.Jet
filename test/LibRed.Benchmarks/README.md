@@ -90,8 +90,9 @@ append-only and one line per benchmark, a regression shows up as an added line b
 
 Two columns exist to stop you drawing a false conclusion:
 
-- **`dirty`** — whether the tree had uncommitted changes. A `dirty` row cannot be attributed to any commit;
-  treat it as an anecdote, not a baseline.
+- **`dirty`** — whether any *tracked* file was modified. A `dirty` row cannot be attributed to any commit;
+  treat it as an anecdote, not a baseline. Untracked files are ignored deliberately: a stray scratch directory
+  in the working tree says nothing about the code being measured, and a flag that is always set is no flag.
 - **`host`** — these numbers are not comparable across machines, and a row that quietly came from a different
   one would be worse than no row at all.
 

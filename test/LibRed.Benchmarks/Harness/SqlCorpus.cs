@@ -139,6 +139,10 @@ public static class SqlCorpus
         Find("join.hash_unindexed"),
         Find("agg.group_low_card"),
         Find("sort.top_10"),
+        // Its indexed twin, kept alongside deliberately: one orders by an unindexed column and must sort, the
+        // other matches an index and is read straight off it. Same statement shape, and the pair is what shows
+        // the ordered-index read is doing anything at all.
+        Find("sort.top_10_indexed"),
         Find("sub.scalar_correlated"),
     ];
 

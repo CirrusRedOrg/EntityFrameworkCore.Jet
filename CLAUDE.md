@@ -44,7 +44,15 @@ To develop against a local EF Core build instead of NuGet packages, copy `Develo
   `test/EFCore.LibRed.Extended.FunctionalTests/config.json` (LibRed connection, one per SQL mode)
 - Or env var `EFCoreJet_DefaultConnection`
 
-**LibRed** tests split in two: `LibRed.Engine.Tests`, `EFCore.LibRed.FunctionalTests` and `EFCore.LibRed.Extended.FunctionalTests` need **no driver at all** and CI runs them on Linux/Windows/macOS plus ARM64 legs — that matrix is what proves the cross-platform claim, so don't add an ACE dependency to them. `LibRed.Core.Tests`, `LibRed.Engine.AccessTests`, `LibRed.Ado.Tests` and `LibRed.EFCore.Tests` deliberately cross-check LibRed's output against the real engine over OLE DB, so they need Windows + ACE.
+**LibRed** tests split in two: `LibRed.Core.Tests`, `LibRed.Engine.Tests`, `EFCore.LibRed.FunctionalTests` and `EFCore.LibRed.Extended.FunctionalTests` need **no driver at all** and CI runs them on Linux/Windows/macOS plus ARM64 legs — that matrix is what proves the cross-platform claim, so don't add an ACE dependency to them. `LibRed.Core.AccessTests`, `LibRed.Engine.AccessTests`, `LibRed.Ado.Tests` and `LibRed.EFCore.Tests` deliberately cross-check LibRed's output against the real engine over OLE DB, so they need Windows + ACE.
+
+> **The `*.AccessTests` split is by which engine a test needs, not by subject.** A file-format test belongs in
+> `LibRed.Core.Tests` if LibRed alone can decide the answer, and in `LibRed.Core.AccessTests` if ACE has to be
+> asked — the two halves share a namespace and their helpers (`test/LibRed.Shared/`), so moving a test between
+> them is a file move and nothing else. The ACE half runs serially; the plain half runs **in parallel** and
+> takes seconds, which is why adding an ACE dependency to it costs more than it looks. Note the dependency is
+> not always visible in a name or a `using`: three DAO probes reach ACE through `Type.GetTypeFromProgID`, and
+> were only caught because the plain project does not suppress `CA1416`. Leave that suppression off.
 
 **Run all tests** (requires x86 or x64 matching your driver bitness):
 
@@ -125,7 +133,8 @@ test/
   EFCore.Jet.IntegrationTests/    Integration scenario tests                          [Windows + ACE]
   JetProviderExceptionTests/      Exception-path tests; also hosts Northwind.accdb,
                                   which every LibRed suite links to as its fixture    [Windows + ACE]
-  LibRed.Core.Tests/              File-format read/write, cross-checked against ACE   [Windows + ACE]
+  LibRed.Core.Tests/              File-format read/write through LibRed alone      [cross-platform]
+  LibRed.Core.AccessTests/        File-format tests cross-checked against ACE          [Windows + ACE]
   LibRed.Engine.Tests/            Planner/executor, no engine dependency           [cross-platform]
   LibRed.Engine.AccessTests/      Engine tests that cross-check against ACE           [Windows + ACE]
   LibRed.Ado.Tests/               ADO.NET surface                                     [Windows + ACE]

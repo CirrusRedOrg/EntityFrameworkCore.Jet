@@ -111,6 +111,7 @@ jobs:
               - 'src/LibRed/**'
               - 'test/LibRed.Ado.Tests/**'
               - 'test/LibRed.Core.Tests/**'
+              - 'test/LibRed.Core.AccessTests/**'
               - 'test/LibRed.EFCore.Tests/**'
               - 'test/LibRed.Engine.Tests/**'
               - 'test/LibRed.Engine.AccessTests/**'
@@ -639,6 +640,13 @@ jobs:
       - name: 'Run Tests: LibRed.Engine.Tests'
         if: env.skipTests != 'true'
         run: dotnet test ./test/LibRed.Engine.Tests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 3m
+      # The file-format half of LibRed.Core.Tests. It reads and writes .accdb files with LibRed alone — the
+      # cross-checks against the real Access engine live in LibRed.Core.AccessTests — so it belongs on this
+      # matrix rather than the Windows one, and reading the on-disk format on Linux/macOS/ARM64 is the part
+      # of the cross-platform claim that was previously only asserted for the engine.
+      - name: 'Run Tests: LibRed.Core.Tests'
+        if: always() && env.skipTests != 'true'
+        run: dotnet test ./test/LibRed.Core.Tests --configuration ${{ env.buildConfiguration }} -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 3m
 
   # The rest of the LibRed suites cross-check LibRed's output against the real engine over OLE DB,
   # so unlike the job above they do need Windows with ACE installed.
@@ -681,10 +689,12 @@ jobs:
               }
               $v
           }
-      - name: 'Run Tests: LibRed.Core.Tests'
+      # The file-format tests that cross-check against ACE. Their ACE-free half runs on the five-platform
+      # LibRed job above.
+      - name: 'Run Tests: LibRed.Core.AccessTests'
         if: env.skipTests != 'true'
         shell: pwsh
-        run: dotnet test .\test\LibRed.Core.Tests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
+        run: dotnet test .\test\LibRed.Core.AccessTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --blame-hang-timeout 5m
       # The engine tests that cross-check against ACE. They belong here rather than in the cross-platform
       # LibRed job above, which runs on five platforms precisely to prove LibRed needs no ACE at all.
       - name: 'Run Tests: LibRed.Engine.AccessTests'

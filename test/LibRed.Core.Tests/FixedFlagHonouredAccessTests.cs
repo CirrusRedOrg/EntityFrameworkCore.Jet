@@ -21,8 +21,14 @@ namespace LibRed.Core.Tests;
 // borrowing the Ace16Types fixture. That fixture is version 0x06 - ACE 17 / Access 2019 - and ACE opens a
 // file only if it understands the whole format, so every case in this theory, Int32 and Double included,
 // became unopenable on the ACE 2016 CI installs: "The database you are trying to open requires a newer
-// version of Microsoft Access", which says nothing about the column under test. Int64 needs 0x05 (ACE 16),
-// everything else needs nothing beyond the 0x02 baseline, and both are within ACE 2016's reach.
+// version of Microsoft Access", which says nothing about the column under test.
+//
+// Everything but Int64 needs nothing beyond the 0x02 baseline and now runs everywhere. Int64 needs 0x05,
+// and that is NOT within the CI engine's reach either, measured: with the six other cases passing at 0x02,
+// the two Int64 ones still failed to open at 0x05. The "Access Database Engine 2016 Redistributable" is
+// the 2016-era build, and Large Number arrived in a later servicing build - so "needs ACE 16" is about the
+// Access version, not about anything named 2016. Hence the skip: an engine that cannot create a BIGINT
+// cannot open a file holding one, and that says nothing about the descriptor behaviour under test.
 public class FixedFlagHonouredAccessTests : TempDatabaseTest
 {
     public static TheoryData<JetDataType, int, bool> Shapes => new()
@@ -46,6 +52,11 @@ public class FixedFlagHonouredAccessTests : TempDatabaseTest
     public void Ace_reads_a_value_from_whichever_region_the_descriptor_names(
         JetDataType type, int width, bool isFixed)
     {
+        if (type == JetDataType.Int64)
+            Assert.SkipUnless(
+                AceTestDatabase.SupportsColumnType(TestDatabases.NorthwindAccdb, "BIGINT"),
+                AceTestDatabase.UnsupportedColumnTypeReason("BIGINT"));
+
         object value = type switch
         {
             JetDataType.Int64 => 1234567890123456789L,

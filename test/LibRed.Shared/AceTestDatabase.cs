@@ -21,17 +21,30 @@ internal static class AceTestDatabase
         {
             foreach (string provider in Providers)
             {
+                // Disposed when Open throws. The connection is a live native provider object — pooling is off
+                // (OLE DB Services=-4), so nothing else reclaims it — and abandoning it to the finalizer meant
+                // a test that cannot open its file leaked one per attempt, 24 across the retry loop. A suite
+                // with several such tests leaks them by the hundred into a provider already known to fault
+                // with 0xC0000005, which is worth not doing whether or not it is what crashes the run.
+                OleDbConnection? connection = null;
                 try
                 {
                     string passwordPart = password is null ? "" : $"Jet OLEDB:Database Password={password};";
-                    var connection = new OleDbConnection(
+                    connection = new OleDbConnection(
                         $"Provider={provider};Data Source={path};{passwordPart}OLE DB Services=-4;");
                     connection.Open();
-                    return connection;
+
+                    OleDbConnection opened = connection;
+                    connection = null;   // ownership passes to the caller; the finally must not dispose it
+                    return opened;
                 }
                 catch (Exception ex) when (ex is OleDbException or InvalidOperationException)
                 {
                     last = ex;
+                }
+                finally
+                {
+                    connection?.Dispose();
                 }
             }
 

@@ -243,10 +243,13 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         CheckedIndexPage page = ReadMutationPage(leafPage, PageType.LeafIndexPage);
         (List<Entry> entries, _) = Parse(page);
 
-        // Insert in key order (key then pointer tiebreaker) — the full leaf key is key ++ pointer.
+        // Insert in key order (key then pointer tiebreaker) — the full leaf key is key ++ pointer. Compared
+        // without materialising each entry's concatenation: this scan runs over every entry on the page for
+        // every row inserted, so building one throwaway array per comparison was the write path's largest
+        // single allocator.
         byte[] fullKey = WithTrailer(key, pointer);
         int pos = 0;
-        while (pos < entries.Count && CompareBytes(WithTrailer(entries[pos].Key, entries[pos].Trailer), fullKey) < 0) pos++;
+        while (pos < entries.Count && CompareWithTrailer(entries[pos].Key, entries[pos].Trailer, fullKey) < 0) pos++;
         entries.Insert(pos, new Entry(key, pointer));
 
         // ACE compresses a leaf only when it has to, and splits only when compressing is not enough. A page
@@ -579,12 +582,40 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         _channel.WritePage(pageNumber, page ?? throw new NotSupportedException(
             "An index page still overflows after a split (a key wider than half a page)."));
 
+    /// <summary>Width of the row/child pointer an entry carries after its key.</summary>
+    private const int TrailerSize = 4;
+
     private static byte[] WithTrailer(byte[] key, int trailer)
     {
-        var result = new byte[key.Length + 4];
+        var result = new byte[key.Length + TrailerSize];
         key.CopyTo(result, 0);
         WriteInt32Be(result, key.Length, trailer);
         return result;
+    }
+
+    /// <summary>
+    /// Compares <paramref name="key"/> ++ its 4-byte big-endian <paramref name="trailer"/> against
+    /// <paramref name="other"/>, byte for byte, without building the concatenation.
+    /// </summary>
+    /// <remarks>
+    /// Exactly <c>CompareBytes(WithTrailer(key, trailer), other)</c>, and it has to be: comparing the keys
+    /// alone and then breaking the tie on the trailer is NOT the same relation. <see cref="CompareBytes"/>
+    /// compares the shared prefix and only then falls back to length, so when one key is a prefix of another
+    /// the real comparison runs on into the trailer bytes — precisely the case a naive rewrite gets wrong, and
+    /// it would misplace an entry rather than fail.
+    /// </remarks>
+    internal static int CompareWithTrailer(byte[] key, int trailer, ReadOnlySpan<byte> other)
+    {
+        int total = key.Length + TrailerSize;
+        int n = Math.Min(total, other.Length);
+        for (int i = 0; i < n; i++)
+        {
+            // Past the key, read the trailer's bytes most-significant first, as WriteInt32Be lays them out.
+            int mine = i < key.Length ? key[i] : (byte)(trailer >> (8 * (TrailerSize - 1 - (i - key.Length))));
+            if (mine != other[i]) return mine - other[i];
+        }
+
+        return total - other.Length;
     }
 
     private static int CommonPrefixLength(byte[] a, byte[] b)

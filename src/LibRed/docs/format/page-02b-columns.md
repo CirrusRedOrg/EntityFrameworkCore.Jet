@@ -123,6 +123,23 @@
 > (An earlier revision claimed page 0 held *no* sort-order value — that was inferred from a v0/v1 diff
 > whose obfuscated `0x71` looked like creation-date noise. De-obfuscating the header with the fixed mask
 > showed the version is there too.)
+
+> **The format allows a per-column collation; the engine never writes one.** Each descriptor carries its
+> own four bytes, so a file *could* hold a column sorting differently from its database — and one can be
+> made, by editing the bytes. Nothing Microsoft ships will make it: DAO documents `Field.CollatingOrder` as
+> **read-only** (and "not supported" on `Index` and `Relation`), states that its value "corresponds to the
+> locale argument of the **CreateDatabase** method … or the **CompactDatabase** method", and says outright
+> that *"you can't set a collating order for an individual index — you can only set it for an entire
+> table"*. ACE's SQL has no syntax for it and Access's UI offers only the database-wide setting. Hence the
+> per-column `0x0E` equalling page-0 `0x71` in every file measured: not a coincidence, an absence of any way
+> to make it otherwise. The room is reserved in the format if a future version wants it.
+>
+> That absence is what makes a **stamped** file the only way to measure a version-1 collation, and it is
+> load-bearing for `CollationV1PatchProbeTests`: create the database as General v1, write the target LCID
+> onto one column's descriptor, and ACE indexes with it. Which is also why LibRed does **not** implement
+> ACE's fallback for a version-1 declaration with no version-1 table (region-specific LCIDs resolve to plain
+> General v0, neutral ones to their own language's v0 order — measured across all 404 known LCIDs). It is
+> real behaviour on input that no supported tool can produce.
 >
 > **Format-version coupling.** Access sets the file format to the lowest version that supports the features
 > used, so choosing General Legacy in the UI *downgrades the file to the 2007 format*, while General (v1)

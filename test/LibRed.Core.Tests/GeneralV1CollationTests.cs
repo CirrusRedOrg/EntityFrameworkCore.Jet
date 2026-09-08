@@ -241,12 +241,20 @@ public class GeneralV1CollationTests
         Assert.Equal("7F0100", Hex(Encode("   ", Collation.General)));   // trailing spaces are trimmed
     }
 
-    // Non-English locales are still refused: the embedded table is the English (1033) one.
-    [Fact]
-    public void A_non_english_locale_is_still_refused()
+    // An order with no version-1 table of its own is refused, at both versions. ACE would instead resolve a
+    // version-1 declaration down to a version-0 table, but LibRed deliberately does not emulate that: the
+    // only way to declare a collation ACE has no table for is to edit a file's bytes by hand, since a
+    // column's collation always equals its database's and DAO exposes CollatingOrder read-only. Refusing
+    // keeps the gate default-closed for input that cannot arise. See JetLocaleTailoring.
+    [Theory]
+    [InlineData((int)CollatingOrder.Cyrillic, 1, "an order with a v0 table but no v1 one")]
+    [InlineData(0x7FFF, 0, "an LCID nothing has measured")]
+    [InlineData(0x7FFF, 1, "the same, at version 1")]
+    public void An_order_with_no_table_of_its_own_is_refused(int order, byte version, string what)
     {
+        _ = what;
         var error = Assert.Throws<NotSupportedException>(
-            () => Encode("a", new Collation(CollatingOrder.Cyrillic, 1)));
+            () => Encode("a", new Collation((CollatingOrder)order, version)));
         Assert.Contains("not implemented", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 }

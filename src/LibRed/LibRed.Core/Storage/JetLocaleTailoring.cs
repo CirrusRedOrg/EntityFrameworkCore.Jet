@@ -145,6 +145,13 @@ internal static class JetLocaleTailoring
     /// Distinct from a null tailoring, which means "refused".</summary>
     private static readonly LocaleTailoring None = Table([]);
 
+    // NOT IMPLEMENTED, DELIBERATELY: ACE resolves a version-1 declaration on an order with no version-1
+    // table down to a version-0 one — region-specific LCIDs to plain General v0, neutral ones to their own
+    // language's v0 order. That is measured (CollationV1PatchProbeTests, across all 404 known LCIDs) and
+    // was briefly emulated here, but it is unreachable in any file ACE can produce: a column's collation
+    // always equals the database's, so the only way to declare one is to edit the bytes by hand. See
+    // page-02b §3.4 for the evidence on both sides.
+
     /// <summary>
     /// The orders measured to produce index keys byte-identical to General v0, and so encodable with no
     /// tailoring at all. Held as a set rather than 107 empty dictionary entries because the fact recorded is
@@ -461,6 +468,20 @@ internal static class JetLocaleTailoring
         [new Collation(CollatingOrder.Croatian, Collation.GeneralVersion)] = BosnianCroatianSerbian(),
         [new Collation(CollatingOrder.Bosnian, Collation.GeneralVersion)] = BosnianCroatianSerbian(),
         [new Collation(CollatingOrder.Serbian, Collation.GeneralVersion)] = BosnianCroatianSerbian(),
+
+        // --- Romanian at version 1: five letters, each promoted out of the diacritic section. ---
+        // Where General v1 gives these a base letter's primary plus a secondary, Romanian gives each its own
+        // primary and no secondary at all — â is 0E08 rather than 0E02 with 0x12. The same device as the
+        // version-0 Romanian order, at v1's two-byte primaries.
+        //
+        // Measured through a STAMPED file (CollationV1PatchProbeTests): version 1 is unreachable by any
+        // authoring tool — DAO writes v0 for every LANGID it takes — so the file is created as General v1 by
+        // LibRed and the target LCID written onto the column descriptor before ACE fills the index. The
+        // sweep that found this also found that Romanian and Croatian are the ONLY orders here with a real
+        // v1 sort: for every other LCID ACE falls back to General v0 entirely.
+        [new Collation(CollatingOrder.Romanian, Collation.GeneralVersion)] = Table([
+            ("Ă", [0x0E, 0x07]), ("Â", [0x0E, 0x08]), ("Î", [0x0E, 0x34]),
+            ("Ş", [0x0E, 0x98]), ("Ţ", [0x0E, 0x9E])]),
 
         // --- French: not one tailored letter — General with the diacritic section REVERSED. ---
         // Accents are weighed from the end of the word, so coté sorts before côte where General has it the

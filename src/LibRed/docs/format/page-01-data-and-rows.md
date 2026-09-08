@@ -11,8 +11,25 @@
 | `0x02` | 2 | Free space |
 | `0x04` | 4 | Owning table's TDEF page — **or** the ASCII marker `LVAL` (`0x4C41564C`) for long-value pages |
 | `0x08` | 4 | Jet4-only; purpose unknown — **zero** on every page observed (data, usage-map, LVAL). Jet3 has the row count here instead (which is why Jet4's row count sits 4 bytes later). LibRed writes zero. |
-| `0x0C` | 2 | Row count on this page |
+| `0x0C` | 2 | Row count on this page. **Capped at 256 in practice, whatever the free space** — see the slot-count limit below. |
 | `0x0E` | 2×N | Row slot directory: one 2-byte entry per row |
+
+> **A data page holds at most 256 rows — a limit the free space does not express.** An index entry addresses a
+> row as `page << 8 | row` ([page-03-04-index-btree.md](page-03-04-index-btree.md) §10.2), so the slot number
+> occupies exactly one byte and slots `0..255` are all that can ever be named. The field at `0x0C` is two bytes
+> wide and the page has room for far more, so nothing in the page format stops a writer going past it.
+>
+> Only narrow rows get there: 256 rows fit a 4 KB page once each is under about 14 bytes, which in practice
+> means an all-fixed-column table of a few small columns. LibRed did exactly that and packed 314 rows onto a
+> page — the rows wrote and scanned back correctly (a scan walks slots directly and never forms a pointer), but
+> **every row past slot 255 was unaddressable by any index**, and its index entry aliased a different row on
+> another page. A silent wrong answer on every indexed read, with no error anywhere. `RowInserter`'s page
+> placer now refuses a page at `RowPointer.MaxRowsPerPage` instead of trusting free space alone; the guard is
+> `IndexBuildOrderingTests`.
+>
+> The pointer layout is ACE-verified, so the 256-slot ceiling follows from it. What is **not** measured is what
+> ACE itself does on reaching it — whether it caps at 256 or lower, and whether it leaves the page in the
+> free-pages map. LibRed's choice of 256 is the maximum the pointer allows, not an observation of ACE.
 
 Row slot entry: lower 13 bits (`& 0x1FFF`) = the row's byte offset in the page; `0x8000` =
 deleted, `0x4000` = overflow/lookup pointer (not an inline row). Rows are packed from the end

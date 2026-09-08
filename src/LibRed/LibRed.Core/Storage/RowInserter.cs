@@ -527,7 +527,11 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         {
             byte[] page = _channel.ReadPageShared(pageNumber).Span.ToArray();
             int freeSpace = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2));
-            if (freeSpace >= needed)
+            // Space is not the only limit: an index addresses a row by a one-byte slot number, so a page that
+            // already holds RowPointer.MaxRowsPerPage rows has no addressable slot left however much room it
+            // has. Narrow rows hit this long before they fill the page.
+            int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
+            if (freeSpace >= needed && rowCount < RowPointer.MaxRowsPerPage)
                 return (pageNumber, page);
         }
 

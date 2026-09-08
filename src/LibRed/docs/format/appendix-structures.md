@@ -263,3 +263,23 @@ fixed-buffer overrun like the name pool, so no storage cap to guard (the Access 
 "2048-char validation rule" caps are DAO/UI limits, not the file format). ACE's query-engine limits (tables
 per query 32, joins 16, `AND`s in WHERE 99, nested queries 50, SQL length ~64k) are the capabilities LibRed
 exists to beat and are deliberately **not** guarded.
+
+### Ceilings one structure imposes on another
+
+The limits above are all stated where they bind. These are not: a field in **one** structure fixes a ceiling
+that a writer of a **different** structure has to respect, and nothing in the second structure's layout says
+so. Both bugs found in this class were silent — the write succeeds, the read succeeds, and the wrong row
+comes back — so the table records how each ceiling is actually held, not merely that it exists.
+
+| Narrow field | Ceiling it imposes | How it is held |
+| --- | --- | --- |
+| Index leaf entry addresses a row as `page << 8 \| row` — 1 byte of slot | **256 rows per data page**, though the row count at `0x0C` is 2 bytes and a 4 KB page fits far more | **Enforced.** `FindPageWithRoom` refuses a page at `RowPointer.MaxRowsPerPage`, covering both the insert path and `WriteHiddenRow` (a relocation target is named by the same pointer). Was a live bug: narrow all-fixed rows reached 314 per page, and every slot past 255 aliased another row |
+| Long-value descriptor names its row in 1 byte (`d[4]`) | **256 rows per LVAL page** | **Enforced** in `TryAppend`. Unreachable in practice — a payload ≤ 64 bytes inlines, and the free-map drop at `MinLvalRow` caps a page near 108 rows even for the smallest thing that can arrive (a 33-character memo compressed to 35 bytes; compression is applied *after* the inline test, so the floor is below the 65 bytes the inline limit suggests) |
+| Page numbers are 3 bytes in the TDEF usage-map pointer, the long-value descriptor (`d[5..7]`) and an LVAL chunk's next-pointer | **page < 2²⁴** (16,777,216) | **Safe with 32× headroom**, because `PageChannel.WritePage` enforces the 2 GiB file limit at 524,288 pages. The 24-bit fields are never the binding constraint |
+| Usage-map pointer names its record row in 1 byte | **256 records per usage-map page** | **Safe by a louder guard.** A record is 69 bytes, so `AppendEmptyUsageMapRow`'s space check admits 57 and refuses the 58th — 4.5× tighter than the byte — and it throws rather than truncating |
+| Reference usage map holds 17 bitmap-page slots | **~2.28 GB of page coverage** | **Enforced** — `NotSupportedException` on both the set-bit and inline→reference conversion paths. Just past the 2 GiB file limit, by design |
+| Index page entry mask spans `0x1B`–`0x1E0` (453 bytes = 3,624 bits) | one bit per byte of entry data, which starts at `0x1E0` | **Exact fit, not slack**: entry data tops out at `4096 − 0x1E0` = 3,616 bytes, so the highest bit lands in the mask's last byte. `EntryDataOffset` is evidently chosen for this |
+| Row slot offset is 13 bits (`0x1FFF` = 8,191) | offsets within a 4 KB page | Safe by 2×; the mask exists for the two flag bits above it |
+
+The pattern worth carrying: **a ceiling is only safe if something refuses to cross it, or if a tighter guard
+fires first and says so.** "The arithmetic doesn't reach it" is the state both live bugs were in.

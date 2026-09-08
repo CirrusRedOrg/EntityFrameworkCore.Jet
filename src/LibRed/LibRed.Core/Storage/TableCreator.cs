@@ -602,26 +602,33 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         }
     }
 
-    /// <summary>Populates a freshly added index over a table's existing rows: scans every live row and
-    /// inserts its key (IndexWriter handles B-tree growth). Rows with a null in an IGNORE NULL index's key
-    /// are skipped, matching the per-insert path.</summary>
+    /// <summary>Populates a freshly added index over a table's existing rows: encodes every live row's key,
+    /// then hands the lot to <see cref="IndexWriter.BulkBuild"/>, which sorts them and writes each B-tree page
+    /// once. Rows with a null in an IGNORE NULL index's key are skipped, matching the per-insert path.</summary>
+    /// <remarks>
+    /// This used to insert the rows one at a time, which re-read, re-parsed and rebuilt a whole leaf page per
+    /// row: an index over 10,000 rows cost ~440 ms and allocated over a gigabyte, nearly all of it leaves
+    /// replaced by the next entry. Sorting first lets each leaf be filled and written once.
+    /// <para>Uniqueness moves with it: on sorted keys a duplicate is an adjacent pair, so the per-row
+    /// <see cref="IndexWriter.KeyExists"/> descent is gone. The comparison is still on the encoded key, which
+    /// is Access's uniqueness domain (see <see cref="EnsureNoDuplicateKeys"/>).</para>
+    /// </remarks>
     private void BackfillIndex(string tableName, string indexName, bool ignoreNulls, bool validateUnique)
     {
         TableDef table = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found after adding the index.");
         IndexDef index = table.Indexes.First(ix => string.Equals(ix.Name, indexName, StringComparison.OrdinalIgnoreCase));
         var keyColumnIds = index.Columns.Select(c => c.Column.Index).ToArray();
-        var writer = new IndexWriter(_channel, table);
 
+        var entries = new List<(byte[] Key, int Pointer, bool NullKey)>();
         foreach ((RowId id, object?[] values) in new Table(_channel, table).Rows().WithIds())
         {
             bool hasNullKey = keyColumnIds.Any(i => values[i] is null);
             if (ignoreNulls && hasNullKey) continue;
-            if (validateUnique && index.IsUnique && !hasNullKey && writer.KeyExists(index, values))
-                throw new InvalidOperationException(
-                    $"Cannot create unique index '{indexName}' on '{tableName}': duplicate key values exist.");
-            writer.AddEntry(index, values, id);
+            entries.Add((IndexKeyEncoder.Encode(index.Columns, values), (id.Page << 8) | id.Row, hasNullKey));
         }
+
+        new IndexWriter(_channel, table).BulkBuild(index, entries, validateUnique && index.IsUnique);
     }
 
     /// <summary>Appends one empty inline usage-map record (row <paramref name="newRow"/>) to an existing

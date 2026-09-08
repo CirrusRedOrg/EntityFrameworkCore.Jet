@@ -594,6 +594,160 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     }
 
     /// <summary>
+    /// Fills an <b>empty</b> index from <paramref name="entries"/> by writing each page once, instead of
+    /// inserting the entries one at a time and rewriting a whole leaf per entry.
+    /// </summary>
+    /// <param name="entries">(key, row pointer) pairs with a <c>NullKey</c> marker; any order. Sorted here.</param>
+    /// <param name="rejectDuplicates">Enforce uniqueness — adjacent equal keys after the sort, null keys exempt
+    /// (Jet's uniqueness is over the non-null keys only).</param>
+    /// <remarks>
+    /// <para>This is not a different B-tree: it is the SAME fill <see cref="InsertIntoLeaf"/> performs, driven
+    /// over pre-sorted input so each page is finished before the next begins. A sequential load already took
+    /// the right-edge split — a new entry that is the page's maximum leaves the full page alone and starts a
+    /// fresh one — so feeding sorted entries reproduces the leaf partitioning ACE produces; the difference is
+    /// only that a page is built once rather than rebuilt per entry.</para>
+    /// <para>Whether an entry fits is decided by <b>arithmetic</b>, not by calling <see cref="Build"/>: Build
+    /// allocates a page-sized array, so probing with it would allocate two pages per entry and lose exactly
+    /// what this exists to save. <see cref="LeafFits"/> mirrors Build's layout — entry data starts at
+    /// <c>0x1E0</c>, the first entry stores its whole key, the rest drop the shared prefix, and each carries a
+    /// 4-byte trailer (see page-01/page-03-04 §10.2–10.3).</para>
+    /// <para>Node levels are then built bottom-up, splitting at the middle and promoting the middle entry as
+    /// <see cref="InsertSeparator"/> does, so interior pages keep the shape the incremental path gives them.</para>
+    /// </remarks>
+    internal void BulkBuild(IndexDef index, List<(byte[] Key, int Pointer, bool NullKey)> entries, bool rejectDuplicates)
+    {
+        if (entries.Count == 0)
+            return; // the caller's freshly created empty root is already the correct tree
+
+        entries.Sort((a, b) => CompareEntries(a.Key, a.Pointer, b.Key, b.Pointer));
+
+        if (rejectDuplicates)
+            for (int i = 1; i < entries.Count; i++)
+                if (!entries[i].NullKey && !entries[i - 1].NullKey
+                    && CompareBytes(entries[i].Key, entries[i - 1].Key) == 0)
+                    throw new InvalidOperationException(
+                        $"Cannot create unique index '{index.Name}' on '{_table.Name}': duplicate key values exist.");
+
+        // --- leaves ---------------------------------------------------------------------------------------
+        var separators = new List<(byte[] Key, int Child)>();
+        int page = index.RootPage;         // the empty leaf the caller created; it becomes the first leaf
+        int previous = 0;
+        var current = new List<Entry>();
+        long keyBytes = 0;                 // running sum of the current page's key lengths
+        int compressed = 0;                // the prefix the page would be written at, as filling stands
+
+        foreach ((byte[] key, int pointer, _) in entries)
+        {
+            current.Add(new Entry(key, pointer));
+            keyBytes += key.Length;
+
+            int share = current.Count <= 1 ? 0 : CommonPrefixLength(current[0].Key, current[^1].Key);
+            if (LeafFits(current.Count, keyBytes, Math.Min(compressed, share)))
+                continue;
+            if (share > compressed && LeafFits(current.Count, keyBytes, share))
+            {
+                compressed = share;        // the compress-in-place step, without writing the page yet
+                continue;
+            }
+
+            // Full. The entry that did not fit starts the next leaf, as the right-edge split does.
+            current.RemoveAt(current.Count - 1);
+            keyBytes -= key.Length;
+            int next = AllocateIndexPage(index);
+            WriteOrThrow(page, Build(PageType.LeafIndexPage, previous, next, tail: 0, level: 0, current));
+            separators.Add((WithTrailer(current[^1].Key, current[^1].Trailer), page));
+
+            previous = page;
+            page = next;
+            current = [new Entry(key, pointer)];
+            keyBytes = key.Length;
+            compressed = 0;
+        }
+
+        WriteOrThrow(page, Build(PageType.LeafIndexPage, previous, next: 0, tail: 0, level: 0, current));
+
+        // --- node levels, until one page covers the level --------------------------------------------------
+        int level = 1;
+        while (separators.Count > 0)
+            (separators, page) = BuildNodeLevel(index, separators, tailChild: page, level++);
+
+        if (page != index.RootPage)
+        {
+            UpdateIndexRoot(index, page);
+            index.RootPage = page;
+        }
+    }
+
+    /// <summary>Whether <paramref name="count"/> entries totalling <paramref name="keyBytes"/> of key data fit
+    /// one leaf at prefix <paramref name="prefix"/> — Build's layout, without building anything.</summary>
+    private bool LeafFits(int count, long keyBytes, int prefix) =>
+        EntryDataOffset + keyBytes + (long)TrailerSize * count - (long)prefix * (count - 1) <= _channel.PageSize;
+
+    /// <summary>Writes one level of interior nodes over <paramref name="children"/>, returning the separators
+    /// promoted to the level above and the page that is this level's rightmost (tail) child.</summary>
+    private (List<(byte[] Key, int Child)> Promoted, int Tail) BuildNodeLevel(
+        IndexDef index, List<(byte[] Key, int Child)> children, int tailChild, int level)
+    {
+        var promoted = new List<(byte[] Key, int Child)>();
+        var current = new List<Entry>();
+        long keyBytes = 0;
+        int page = AllocateIndexPage(index);
+
+        foreach ((byte[] key, int child) in children)
+        {
+            current.Add(new Entry(key, child));
+            keyBytes += key.Length;
+            if (EntryDataOffset + keyBytes + (long)TrailerSize * current.Count <= _channel.PageSize)
+                continue;
+
+            // Overflow: split at the middle and promote the middle entry, whose child becomes the left node's
+            // tail — the division InsertSeparator makes. Nodes are stored uncompressed.
+            int mid = current.Count / 2;
+            Entry middle = current[mid];
+            List<Entry> left = current.GetRange(0, mid);
+            List<Entry> right = current.GetRange(mid + 1, current.Count - mid - 1);
+
+            WriteOrThrow(page, Build(PageType.IntermediateIndexPage, 0, 0, middle.Trailer, level, left));
+            promoted.Add((middle.Key, page));
+
+            page = AllocateIndexPage(index);
+            current = right;
+            keyBytes = right.Sum(e => (long)e.Key.Length);
+        }
+
+        WriteOrThrow(page, Build(PageType.IntermediateIndexPage, 0, 0, tailChild, level, current));
+        return (promoted, page);
+    }
+
+    /// <summary>Orders two entries as their stored <c>key ++ trailer</c> bytes compare, without building either.</summary>
+    internal static int CompareEntries(byte[] aKey, int aTrailer, byte[] bKey, int bTrailer)
+    {
+        int shared = Math.Min(aKey.Length, bKey.Length);
+        for (int i = 0; i < shared; i++)
+            if (aKey[i] != bKey[i]) return aKey[i] - bKey[i];
+
+        // The keys agree as far as the shorter runs, so the shorter one's trailer meets the longer one's
+        // remaining key bytes — the same crossing CompareWithTrailer handles, and why this cannot be
+        // "compare keys, then compare trailers".
+        return aKey.Length == bKey.Length
+            ? CompareTrailers(aTrailer, bTrailer)
+            : aKey.Length < bKey.Length
+                ? -CompareWithTrailer(bKey, bTrailer, WithTrailer(aKey, aTrailer))
+                : CompareWithTrailer(aKey, aTrailer, WithTrailer(bKey, bTrailer));
+    }
+
+    private static int CompareTrailers(int a, int b)
+    {
+        for (int shift = 24; shift >= 0; shift -= 8)
+        {
+            int x = (byte)(a >> shift), y = (byte)(b >> shift);
+            if (x != y) return x - y;
+        }
+
+        return 0;
+    }
+
+    /// <summary>
     /// Compares <paramref name="key"/> ++ its 4-byte big-endian <paramref name="trailer"/> against
     /// <paramref name="other"/>, byte for byte, without building the concatenation.
     /// </summary>

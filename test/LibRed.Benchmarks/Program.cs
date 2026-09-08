@@ -47,9 +47,11 @@ if (validate) return CorpusValidator.Run(BenchmarkOptions.SmallestScale);
 // take a while, and it must not land inside a measured setup.
 foreach (int scale in BenchmarkOptions.ScaleFactors) Corpus.EnsureBuilt(scale);
 
-BenchmarkSwitcher
-    .FromAssembly(Assembly.GetExecutingAssembly())
-    .Run([.. passthrough], new BenchmarkConfig(longRun));
+// Every benchmark that produced a number is appended to History.tsv, which is tracked — see RunHistory.
+RunHistory.Append(
+    BenchmarkSwitcher
+        .FromAssembly(Assembly.GetExecutingAssembly())
+        .Run([.. passthrough], new BenchmarkConfig(longRun)));
 
 return 0;
 

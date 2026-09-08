@@ -76,8 +76,28 @@ Two numbers together usually say more than either alone:
 - `WriteBenchmarks.InsertStorage` against `InsertSqlAutocommit` — the same question for writes.
 - `DuplicateKeySeek` against `RangeSeek` — B-tree descent separated from traversal.
 
-Reports are exported to `Results/` as GitHub markdown and CSV. Nothing there is tracked by default; `git add -f`
-a run you want to keep for comparison.
+## Keeping a history
+
+Every run appends one row per benchmark to **`History.tsv`**, which *is* tracked:
+
+```
+utc  commit  dirty  host  suite  benchmark  params  mean_us  stddev_us  alloc_kb
+```
+
+This is the performance counterpart of `GreenTests/` — a committed baseline a later run is read against, so
+"was this number different before?" is answered by `git log -p History.tsv` rather than from memory. Being
+append-only and one line per benchmark, a regression shows up as an added line beside the old one.
+
+Two columns exist to stop you drawing a false conclusion:
+
+- **`dirty`** — whether the tree had uncommitted changes. A `dirty` row cannot be attributed to any commit;
+  treat it as an anecdote, not a baseline.
+- **`host`** — these numbers are not comparable across machines, and a row that quietly came from a different
+  one would be worse than no row at all.
+
+BenchmarkDotNet's own richer reports still go to `Results/` as GitHub markdown and CSV. Nothing there is
+tracked — per-suite reports carry no timestamp and each run overwrites the last — so `git add -f` anything you
+want to keep beyond the summary row.
 
 ## Caveats
 

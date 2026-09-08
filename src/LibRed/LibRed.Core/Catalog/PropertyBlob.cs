@@ -56,13 +56,17 @@ public static class PropertyBlob
 
     /// <summary>Builds the blob for a set of properties, grouped by owner in the given order — matching
     /// what ACE writes (verified byte-for-byte for column DefaultValues).</summary>
-    public static byte[] Write(IReadOnlyList<Property> properties)
+    /// <param name="signature">The 4-byte signature to stamp. Pass the ORIGINAL blob's first four bytes when
+    /// rewriting one, so a Jet-4 <c>KKD\0</c> blob is not silently reissued as an ACE <c>MR2\0</c> one — two
+    /// of the four write paths here already preserve it, and the faithful round-trip rule says all four
+    /// should. Omit it only when authoring a blob from nothing, where ACE's is the right default.</param>
+    public static byte[] Write(IReadOnlyList<Property> properties, ReadOnlySpan<byte> signature = default)
     {
         ValidateForWrite(properties);
         var names = properties.Select(p => p.Name).Distinct().ToList();
         var nameIndex = names.Select((n, i) => (n, i)).ToDictionary(x => x.n, x => x.i);
 
-        var blob = new List<byte>(SignatureAce);
+        var blob = new List<byte>(signature.Length == 4 ? signature.ToArray() : SignatureAce);
 
         var namesBody = new List<byte>();
         foreach (string name in names) AppendString(namesBody, name);
@@ -99,7 +103,7 @@ public static class PropertyBlob
         ValidateNames(names);
         ValidateOwnerProperties(owner, newProps, nameIndex);
 
-        var result = new List<byte>(SignatureAce);
+        var result = new List<byte>(blob[..4].ToArray());   // keep the original signature, MR2\0 or KKD\0
         var namesBody = new List<byte>();
         foreach (string n in names) AppendString(namesBody, n);
         AppendBlock(result, NameListBlock, namesBody);

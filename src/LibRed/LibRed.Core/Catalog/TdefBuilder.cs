@@ -125,7 +125,15 @@ public static class TdefBuilder
         // the last-assigned value initialized to Seed-Increment so the first insert yields Seed. A table has
         // at most one AutoNumber column; with none, these stay at the plain-counter defaults (increment 1,
         // last 0). Verified vs ACE (COUNTER(1000, 7) → 0x18=7, 0x14=993).
-        ColumnSpec? counter = specs.FirstOrDefault(s => s.IsAutoNumber);
+        // "At most one" is enforced, not assumed: the header holds a single seed/increment pair, so a second
+        // AutoNumber column would be written with the 0x04 flag set and no counter configuration of its own —
+        // two columns then claiming one header counter at insert. ALTER's promote path already refuses this;
+        // CREATE silently took the first and ignored the rest.
+        var counters = specs.Where(s => s.IsAutoNumber).ToList();
+        if (counters.Count > 1)
+            throw new NotSupportedException(
+                $"A table may have only one AutoNumber column; {string.Join(", ", counters.Select(c => $"'{c.Name}'"))} are all declared as one.");
+        ColumnSpec? counter = counters.FirstOrDefault();
         BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefAutoNumberIncrementOffset, 4), counter?.Increment ?? 1);
         // Complex-type AutoNumber high-water (0x1C) — 0 for a table with no complex column, carried through on
         // a rebuild for faithful round-trip.
@@ -197,6 +205,7 @@ public static class TdefBuilder
                 throw new NotSupportedException(
                     $"Column '{spec.Name}' has byte length {spec.Length}, which does not fit the TDEF field.");
             RecordLayout.ValidateFieldWidth(spec.Name, spec.Type, spec.Length);
+            JetDataTypeVersions.EnsureStorable(spec.Type, format.Version, spec.Name);
             if (spec.IsFixedLength && spec.Type != JetDataType.Boolean)
                 fixedBytes += spec.Length;
             if (!spec.IsFixedLength) variableColumns++;
@@ -232,7 +241,16 @@ public static class TdefBuilder
                     throw new NotSupportedException($"Index '{index.Name}' refers to unknown column '{column}'.");
             ValidateUsageMapPointer(index.UsageMapRow, index.UsageMapPage, $"index '{index.Name}'", allowNull: true);
         }
-        foreach (LogicalIndexSpec index in logical) ValidateNameLength(index.Name, "Logical index");
+        // Duplicate index names, on the create path. ACE rejects them, and every downstream lookup resolves an
+        // index by name, so two blocks sharing one would make DROP INDEX remove an arbitrary one of them. The
+        // column list has had this check all along (see below); the index list had only a length check.
+        var indexNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (LogicalIndexSpec index in logical)
+        {
+            ValidateNameLength(index.Name, "Logical index");
+            if (!indexNames.Add(index.Name))
+                throw new NotSupportedException($"Index name '{index.Name}' is used more than once.");
+        }
 
         var columnById = columns.ToDictionary(c => c.ColumnId);
         var seen = new HashSet<int>();
@@ -399,8 +417,9 @@ public static class TdefBuilder
             variableRank[i] = rank++;
 
         // Descriptor offset 7 ("variable-table index") = number of variable columns with a smaller column-id.
-        // Access stores this on EVERY column (fixed columns included) and its strict row reader relies on it;
-        // writing 0 on fixed columns yields a file Access rejects with "record(s) cannot be read".
+        // Access stores this on EVERY column, fixed ones included, where it is NOT 0 — measured on ACE's own
+        // ADD COLUMN, which writes 2 for a LONG added to (K LONG, A TEXT, B TEXT). ACE does still read a file
+        // that has 0 there, so this is parity rather than a hard requirement.
         int VarTableIndex(int i) =>
             Enumerable.Range(0, specs.Count).Count(j => !specs[j].IsFixedLength && EffectiveId(j) < EffectiveId(i));
 
@@ -493,33 +512,7 @@ public static class TdefBuilder
         // too. Prefer the precomputed value; fall back to the legacy rule (0 for fixed) when unset (ADD COLUMN).
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnVariableIndexOffset, 2),
             (ushort)(c.VariableTableIndex >= 0 ? c.VariableTableIndex : (c.IsFixedLength ? 0 : c.VariableIndex)));
-        if (c.Type == JetDataType.FixedPoint)
-        {
-            d[format.ColumnPrecisionOffset] = c.Precision;
-            d[format.ColumnScaleOffset] = c.Scale;
-        }
-        else if (c.Type == JetDataType.DateTimeExtended)
-        {
-            // Date/Time Extended is 42 bytes of ASCII with nothing to collate, and ACE writes only the LOW
-            // byte of the LANGID here, clearing the sublanguage half — the primary language id on its own,
-            // with sort id and version zero. Measured across five collating orders: 0x0409 and 0x0809 both
-            // give 0x0009, 0x0407 gives 0x0007, 0x040E 0x000E, 0x041D 0x001D, while a Text column in the
-            // same table carries the full LANGID each time. (On an en-US database this looks like a
-            // constant 0x0009, which is how it was first mis-read.)
-            BinaryPrimitives.WriteUInt16LittleEndian(
-                d.AsSpan(format.ColumnLocaleOffset, 2), (ushort)((ushort)c.Collation.Order & 0x00FF));
-            d[format.ColumnCollationSortIdOffset] = 0;
-            d[format.ColumnCollationVersionOffset] = 0;
-        }
-        else
-        {
-            // Non-numeric columns use the precision/scale bytes (0x0B/0x0C) onward for the text collation:
-            // 0x0B/0x0C LANGID, 0x0D sort id, 0x0E sort-order version. Together a 32-bit LCID with the version
-            // in its unused top byte. General legacy is LANGID 1033 (0x0409), sort id 0, version 0.
-            BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnLocaleOffset, 2), (ushort)c.Collation.Order);
-            d[format.ColumnCollationSortIdOffset] = c.Collation.SortId;
-            d[format.ColumnCollationVersionOffset] = c.Collation.Version;
-        }
+        WriteLocaleUnion(d, c.Type, c.Precision, c.Scale, c.Collation, format);
         // Compose the flag byte (0x0F) from EVERY documented bit; only the undocumented bits survive from the
         // original (zero in every file observed). Likewise the extended-flag byte (0x10).
         byte flags = (byte)(
@@ -538,6 +531,45 @@ public static class TdefBuilder
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnFixedOffsetOffset, 2), (ushort)c.FixedOffset);
         BinaryPrimitives.WriteUInt16LittleEndian(d.AsSpan(format.ColumnLengthOffset, 2), (ushort)c.Length);
         return d;
+    }
+
+    /// <summary>Writes descriptor bytes <c>0x0B</c>–<c>0x0E</c>, which are a union keyed by column type.
+    /// Shared with the in-place ALTER (<c>TableCreator.EditTargetDescriptor</c>), which edits an existing
+    /// descriptor in place: it must rewrite the whole union on every retype, or a column that stops being
+    /// <c>DECIMAL</c> keeps its precision and scale sitting where the LANGID belongs — read back as a
+    /// nonexistent collating order on what is now a text column.</summary>
+    internal static void WriteLocaleUnion(
+        Span<byte> d, JetDataType type, byte precision, byte scale, Collation collation, JetFormatBase format)
+    {
+        if (type == JetDataType.FixedPoint)
+        {
+            // Decimal/Numeric: precision and scale take the LANGID bytes. 0x0D/0x0E are left as they stand —
+            // ACE does not clear them on a retype INTO decimal, so neither does LibRed.
+            d[format.ColumnPrecisionOffset] = precision;
+            d[format.ColumnScaleOffset] = scale;
+        }
+        else if (type == JetDataType.DateTimeExtended)
+        {
+            // Date/Time Extended is 42 bytes of ASCII with nothing to collate, and ACE writes only the LOW
+            // byte of the LANGID here, clearing the sublanguage half — the primary language id on its own,
+            // with sort id and version zero. Measured across five collating orders: 0x0409 and 0x0809 both
+            // give 0x0009, 0x0407 gives 0x0007, 0x040E 0x000E, 0x041D 0x001D, while a Text column in the
+            // same table carries the full LANGID each time. (On an en-US database this looks like a
+            // constant 0x0009, which is how it was first mis-read.)
+            BinaryPrimitives.WriteUInt16LittleEndian(
+                d.Slice(format.ColumnLocaleOffset, 2), (ushort)((ushort)collation.Order & 0x00FF));
+            d[format.ColumnCollationSortIdOffset] = 0;
+            d[format.ColumnCollationVersionOffset] = 0;
+        }
+        else
+        {
+            // Non-numeric columns use the precision/scale bytes (0x0B/0x0C) onward for the text collation:
+            // 0x0B/0x0C LANGID, 0x0D sort id, 0x0E sort-order version. Together a 32-bit LCID with the version
+            // in its unused top byte. General legacy is LANGID 1033 (0x0409), sort id 0, version 0.
+            BinaryPrimitives.WriteUInt16LittleEndian(d.Slice(format.ColumnLocaleOffset, 2), (ushort)collation.Order);
+            d[format.ColumnCollationSortIdOffset] = collation.SortId;
+            d[format.ColumnCollationVersionOffset] = collation.Version;
+        }
     }
 
     private static int WriteColumnNames(byte[] page, JetFormatBase format, List<ColumnDef> columns, int namePos)

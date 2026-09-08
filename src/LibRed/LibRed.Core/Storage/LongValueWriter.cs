@@ -13,9 +13,15 @@ public sealed record LongValueDescriptor(byte[] Bytes);
 
 /// <summary>
 /// The result of writing a long value to LVAL page(s): the 12-byte in-row descriptor, the pages it now
-/// occupies (to record in the column's owned-pages map), and the one page that still has spare room (the
-/// last, partially-filled chunk — recorded in the free-pages map).
+/// occupies (to record in the column's owned-pages map), and the one page that still has spare room, to be
+/// recorded in the free-pages map — or <c>0</c> when no page may be shared.
 /// </summary>
+/// <remarks>
+/// A chained value reports <c>0</c>. Its last chunk usually leaves room, but a chained value owns its pages
+/// outright: freeing the value frees every page in the chain, so a small value packed onto the tail would be
+/// destroyed under a live descriptor when the chain's owner is updated or deleted. The spare room in a chain
+/// tail is the price of the chain.
+/// </remarks>
 public sealed record LongValueResult(byte[] Descriptor, IReadOnlyList<int> OwnedPages, int FreePage);
 
 /// <summary>
@@ -74,7 +80,7 @@ public sealed class LongValueWriter(PageChannel channel)
             WriteChunkPage(pages[i], row);
         }
 
-        return new LongValueResult(Descriptor(payload.Length, LongValueFormat.FlagChained, pages[0]), pages, pages[^1]);
+        return new LongValueResult(Descriptor(payload.Length, LongValueFormat.FlagChained, pages[0]), pages, FreePage: 0);
     }
 
     /// <summary>Allocates a fresh LVAL page, writes <paramref name="row"/> as its row 0, and returns the

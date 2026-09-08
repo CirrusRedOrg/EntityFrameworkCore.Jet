@@ -29,6 +29,11 @@ internal static class LongValueFormat
     /// compression is applied to whatever form results, and a chained value is never compressed.</remarks>
     public const int MaxSinglePageValue = 3816;
 
+    /// <summary>Bytes in an in-row long-value descriptor. Every consumer must have all of them before
+    /// reading any field — the descriptor arrives as a row's variable chunk, so its width is whatever the
+    /// offset table declared, not something the column guarantees.</summary>
+    public const int DescriptorSize = 12;
+
     /// <summary>Descriptor flag: the payload follows the descriptor inline (no LVAL page).</summary>
     public const byte FlagInline = 0x80;
 

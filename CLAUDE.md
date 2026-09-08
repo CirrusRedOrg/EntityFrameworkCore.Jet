@@ -136,7 +136,11 @@ test/
   EFCore.LibRed.Extended.FunctionalTests/
                                   The same suite in extended SQL mode; its own
                                   baselines, because the SQL differs               [cross-platform]
-  LibRed.Benchmarks/              BenchmarkDotNet harness (not a test project)
+  LibRed.Benchmarks/              BenchmarkDotNet harness over the engine directly — no EF, no
+                                  ADO. Suites for end-to-end queries, the parse/plan/execute
+                                  split, storage, writes, DDL, catalog, and an opt-in ACE
+                                  head-to-head. `-- --validate` checks the SQL corpus.
+                                  See its README.md                                [cross-platform]
   Shared/                         ModuleInitializer.cs — locks culture to en-US
 
 tools/
@@ -254,7 +258,10 @@ the names are `JetVersion` / `RequiredVersion` / `EnsureFormatAtLeast`:
   `DATETIME2` needs `Version17_2019` (0x06). **Different thresholds** — the natural assumption that ACE 16 added
   both at once is wrong, and it's measured in `docs/format/page-00-database.md`.
 - `AccessTypeMapper.MapType` **refuses** a type the open file is too old for, so a caller that can't upgrade
-  (read-only database) fails loudly instead of writing a column Access couldn't read.
+  (read-only database) fails loudly instead of writing a column Access couldn't read. That guard is on the SQL
+  path; the same rule is enforced again in Core over `JetDataType` (`JetDataTypeVersions.EnsureStorable`, called
+  from `TdefBuilder` and `TableCreator`), because every `JetDatabase` DDL method takes a raw `ColumnSpec` and
+  would otherwise write the descriptor with nothing objecting.
 - `StatementExecutor.MapColumn` → `JetDatabase.EnsureFormatAtLeast` → `PageChannel.RaiseFormatVersion`
   **raises the file's version byte** rather than refusing the DDL, which is what ACE itself does. The raise goes
   through `WritePage`, so it joins the statement's transaction and a failed `CREATE`/`ALTER` takes it back down;
@@ -279,7 +286,9 @@ Jet 4 / ACE format, **split one file per page type** (plus cross-cutting topics)
 the `appendix-structures.md` bare field-layout reference. It is the source of truth — keep it
 updated as the format understanding grows. (`docs/jet-ace-file-format.md` is now just a redirect
 stub to that folder.) Alongside it: `docs/functions.md` catalogs the supported VBA/Access function surface,
-`docs/design/transactions.md` covers the page-level undo log, and `docs/mdbtools-spec-diff-todo.md`
+`docs/design/transactions.md` covers the deferred-write page overlay,
+`docs/design/index-key-checksum.md` records how the index-key truncation checksum was pinned down (and why the
+rule it replaced looked verified for years), and `docs/mdbtools-spec-diff-todo.md`
 tracks where our spec and mdbtools' still disagree.
 
 > **Rule — spec sync on every `LibRed.Core` change.** Whenever you touch the actual on-disk
@@ -299,9 +308,12 @@ parser: the lexer/parser are pre-generated and committed under `LibRed.Sql/Gramm
 `LibRed.Sql/Grammar/generate.ps1` after editing `AccessSql.g4`.
 
 > **LibRed is a single-writer engine.** It tolerates extra open handles (a `.accdb` is a shared-file database and
-> EF's own test infra keeps a store connection open), but there is no lock file, no read isolation, and the
-> transaction undo log is per-`PageChannel`. Two concurrent writers corrupt the file. See `src/LibRed/README.md`
-> for the full statement of what is and isn't safe before designing anything concurrent on top of it.
+> EF's own test infra keeps a store connection open), but there is no lock file and no page/record locking, so
+> two concurrent writers corrupt the file. Transactions use a **deferred-write overlay** per `PageChannel`, not
+> an undo log: writes buffer until commit and publish under a lock, so a reader cannot see another handle's
+> uncommitted pages and a rollback cannot discard another channel's committed work — both hazards the older
+> description warned about are gone, and a stale writer now fails commit with a write-conflict error. See
+> `src/LibRed/README.md` for the full statement of what is and isn't safe before designing anything concurrent.
 
 ## Working in This Repo
 

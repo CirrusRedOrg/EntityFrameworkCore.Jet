@@ -17,7 +17,12 @@ namespace LibRed.Core.Tests;
 // produces - see GuidColumnStorageAccessTests) and never a read-side hazard. A guard against re-deriving
 // that claim next time the question comes up.
 //
-// Ace16Types.accdb is already ACE 16, so an Int64 column needs no version raise.
+// Each case builds its base database at the LOWEST format version its column type needs, rather than
+// borrowing the Ace16Types fixture. That fixture is version 0x06 - ACE 17 / Access 2019 - and ACE opens a
+// file only if it understands the whole format, so every case in this theory, Int32 and Double included,
+// became unopenable on the ACE 2016 CI installs: "The database you are trying to open requires a newer
+// version of Microsoft Access", which says nothing about the column under test. Int64 needs 0x05 (ACE 16),
+// everything else needs nothing beyond the 0x02 baseline, and both are within ACE 2016's reach.
 public class FixedFlagHonouredAccessTests : TempDatabaseTest
 {
     public static TheoryData<JetDataType, int, bool> Shapes => new()
@@ -50,7 +55,9 @@ public class FixedFlagHonouredAccessTests : TempDatabaseTest
             _ => 1234.5678d,
         };
 
-        string path = TemporaryDatabase.CopyPath(TestDatabases.Data("Ace16Types.accdb"), "fixedflag-");
+        string path = TemporaryDatabase.CreatePath("fixedflag-");
+        LibRed.Storage.DatabaseCreator.CreateEmpty(
+            path, version: type == JetDataType.Int64 ? (byte)0x05 : (byte)0x02);
         using (var database = JetDatabase.Open(path, readOnly: false))
         {
             // Neighbours either side: had the value landed in the wrong region, these would shift.

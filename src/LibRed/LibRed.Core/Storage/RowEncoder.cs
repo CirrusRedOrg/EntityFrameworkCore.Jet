@@ -73,7 +73,6 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         {
             object? v = values[column.Index];
             varChunks[column.VariableIndex] = v is null ? [] : JetTypeCodec.Encode(column, v);
-            EnsureFitsDeclaredLength(column, varChunks[column.VariableIndex]);
         }
 
         return AssembleRow(maxColumnId, fixedRegion, varChunks, _columns, values);
@@ -82,8 +81,8 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     /// <summary>Rejects a variable TEXT/BINARY value longer than its column's declared width, as ACE does
     /// (measured in <c>ColumnLengthAccessTests</c>); without it LibRed wrote rows Access will not read back.
     /// Memo/OLE are exempt — they encode to a long-value descriptor whose size is unrelated to
-    /// <see cref="ColumnDef.Length"/>. Fixed columns need no equivalent: the codec pads or truncates them to
-    /// width, and the caller then checks for exactly that width.</summary>
+    /// <see cref="ColumnDef.Length"/>. Fixed columns are checked by <see cref="JetTypeCodec.EnsureFitsFixedWidth"/>
+    /// before the codec pads them, since padding to width would otherwise hide an over-long value.</summary>
     private static void EnsureFitsDeclaredLength(ColumnDef column, byte[] encoded)
     {
         if (column.Type is not (JetDataType.Text or JetDataType.Binary)) return;
@@ -104,9 +103,18 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     /// column's bit is set when present (Boolean = its truthy value), and dead ids (gaps below the max, from a
     /// burned/dropped id) are set present too — all verified vs ACE (§5). Shared by <see cref="Encode"/> and
     /// the ALTER COLUMN row re-lay so the two can never drift.</summary>
+    /// <remarks>
+    /// The declared-width check runs HERE rather than in <see cref="Encode"/>. It used to sit above this call,
+    /// which meant the ALTER COLUMN re-lay — the other caller — never got it, and a narrowing retype could
+    /// write rows Access refuses. A guard that both paths must pass through belongs on the shared path.
+    /// </remarks>
     internal static byte[] AssembleRow(int maxColumnId, ReadOnlySpan<byte> fixedRegion,
         IReadOnlyList<byte[]> varChunks, IReadOnlyList<ColumnDef> columns, object?[] values)
     {
+        foreach (ColumnDef column in columns)
+            if (!column.IsFixedLength && column.VariableIndex >= 0 && column.VariableIndex < varChunks.Count)
+                EnsureFitsDeclaredLength(column, varChunks[column.VariableIndex]);
+
         const int countSize = 2;
         int count = maxColumnId + 1;
         int nullBitmapSize = (count + 7) / 8;

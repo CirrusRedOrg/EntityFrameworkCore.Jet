@@ -58,14 +58,20 @@ internal static class JetIndexKeyChecksum
     /// The checksum over the bytes ACE dropped — everything from <see cref="KeptBytes"/> on.
     /// </summary>
     /// <remarks>
-    /// The terminator is excluded. Running it would advance every other byte one step further, and a byte at
-    /// distance d contributes <c>S^(d-1)</c>, not <c>S^d</c>. It is always <c>0x00</c> in any case, and a
-    /// linear map sends zero to zero, so it could never have contributed anything.
+    /// The last byte does not go through a full step. Every byte before it is folded in the usual way, and
+    /// then the final one is XORed into the <b>high</b> half — it never gets its own shift or table lookup.
+    /// <para>This was first written as "the terminator is excluded", which is the same thing whenever that
+    /// byte is <c>0x00</c>: XOR-ing zero changes nothing. A key ending in text always ends in its <c>0x00</c>
+    /// terminator, and every measurement behind the original rule used one, so the two readings could not be
+    /// told apart. They diverge the moment the key's last column is numeric — <c>(TEXT, TEXT, LONG)</c> put
+    /// a data byte there and the keys parted company from ACE's, silently. Re-measured over LONG, CURRENCY
+    /// and DOUBLE tails across 24 keys: this form matches ACE on every one, and still matches on the all-text
+    /// keys the old form was derived from. See <c>docs/design/index-key-checksum.md</c>.</para>
     /// </remarks>
     public static ushort Compute(ReadOnlySpan<byte> discarded)
     {
         ushort crc = 0;
         foreach (byte b in discarded[..^1]) crc = (ushort)((crc >> 8) ^ Table[crc & 0xFF] ^ b);
-        return crc;
+        return (ushort)(crc ^ (discarded[^1] << 8));
     }
 }

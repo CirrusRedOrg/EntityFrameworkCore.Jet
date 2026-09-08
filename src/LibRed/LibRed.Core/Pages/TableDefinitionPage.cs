@@ -171,7 +171,11 @@ public sealed class TableDefinitionPage : Page
         ReadLongValueMaps(buffer, afterIndexNames);
     }
 
-    private static int CheckedRegionEnd(
+    /// <summary>Bounds one variable-length TDEF region against the assembled definition, in <c>long</c> so a
+    /// file-sourced count cannot overflow the multiply back into range. Shared with <c>IndexWriter</c>, which
+    /// walks the very same regions to reach an index-data block: an unchecked walk there lands the write on
+    /// the wrong block rather than throwing.</summary>
+    internal static int CheckedRegionEnd(
         int start, int count, int itemSize, int bufferLength, string section)
     {
         long end = (long)start + (long)count * itemSize;

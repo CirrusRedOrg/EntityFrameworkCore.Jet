@@ -26,8 +26,13 @@ internal static class AccessTypeMapper
                 : false,
         };
 
+    /// <summary>Whether WITH COMPRESSION applies to this column's type. Mapped at the HIGHEST version so the
+    /// version gate inside <see cref="MapType"/> cannot fire here: asking at Version4 made
+    /// <c>BIGINT … WITH COMPRESSION</c> on an ACE 16 file — which had already passed the real gate — report
+    /// "requires Access 2016 or later; this database is Version4" instead of the compression message. Only the
+    /// resulting type matters, and that does not vary with version.</summary>
     private static bool IsCompressible(ColumnDefinition column) =>
-        MapType(column, JetVersion.Version4).Type is JetDataType.Text or JetDataType.Memo;
+        MapType(column, JetVersion.Version17_2019).Type is JetDataType.Text or JetDataType.Memo;
 
     /// <summary>
     /// The minimum file format a declared type needs, or <c>null</c> for the types every format can hold.

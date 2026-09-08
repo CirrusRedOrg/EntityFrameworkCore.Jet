@@ -269,8 +269,8 @@ internal static class JetTextCollation
             // Neither half contributes, so both are skipped and an astral character vanishes from the key.
             if (char.IsSurrogate(c)) continue;
 
-            // The hand-verified ignorables first, then the measured ones — 296 across the BMP, every dash and
-            // quotation form, the Arabic harakat, and the CJK and fullwidth punctuation.
+            // The 20 hand-verified ignorables first, then the 40 measured ones — 60 across the BMP, every dash
+            // and quotation form, the Arabic harakat, and the CJK and fullwidth punctuation.
             if (Ignorables.TryGetValue(c, out byte code) ||
                 JetTextCollationTableV0.TryGetInlineCode(c, out code))
             {

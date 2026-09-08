@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Data.OleDb;
 using LibRed;
 using LibRed.Catalog;
+using LibRed.Formats;
 using LibRed.IO;
 using Xunit;
 
@@ -348,6 +349,75 @@ public class VariableColumnHighWaterAccessTests(ITestOutputHelper output)
         output.WriteLine($"ACE    {ace}");
         output.WriteLine($"LibRed {libred}");
         Assert.Equal(ace, libred);
+    }
+
+    // Descriptor byte 0x07 on a FIXED column added after a variable one. The spec says it is the running count
+    // of preceding variable columns and that writing 0 yields a file Access rejects; LibRed's ADD COLUMN wrote
+    // 0 for years and the ACE-read tests never complained, so one of those two statements was wrong. This
+    // measures what ACE itself writes, which settles it for both.
+    [Fact]
+    public void The_variable_table_index_of_an_added_fixed_column_matches_ace()
+    {
+        string ace = DescribeVarTableIndex(path =>
+        {
+            using OleDbConnection connection = AceTestDatabase.Open(path);
+            foreach (string sql in (string[])
+                     [
+                         "CREATE TABLE X (K LONG, A TEXT(30), B TEXT(30))",
+                         "ALTER TABLE X ADD COLUMN C LONG",
+                     ])
+            {
+                using OleDbCommand command = connection.CreateCommand();
+                command.CommandText = sql;
+                command.ExecuteNonQuery();
+            }
+        });
+
+        string libred = DescribeVarTableIndex(path =>
+        {
+            using var database = JetDatabase.Open(path, readOnly: false);
+            database.CreateTable("X", [Long("K"), Text("A"), Text("B")]);
+            Assert.True(database.AddColumn("X", Long("C")));
+        });
+
+        output.WriteLine($"ACE    {ace}");
+        output.WriteLine($"LibRed {libred}");
+        Assert.Equal(ace, libred);
+    }
+
+    /// <summary>Descriptor byte 0x07 for every column, read raw off the TDEF page — <see cref="ColumnDef"/>
+    /// does not surface it, and the point here is the stored byte rather than the derived model.</summary>
+    private static string DescribeVarTableIndex(Action<string> run)
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "vartab-");
+        try
+        {
+            run(path);
+            int definitionPage;
+            List<(string Name, int Index)> columns;
+            using (var database = JetDatabase.Open(path))
+            {
+                TableDef table = database.Catalog.FindTable("X")!;
+                definitionPage = table.DefinitionPage;
+                columns = table.Columns.Select(c => (c.Name, c.Index)).ToList();
+            }
+
+            using var channel = PageChannel.Open(path, readOnly: true);
+            var tdef = new Pages.TableDefinitionPage();
+            tdef.Read(channel, definitionPage);
+            byte[] page = channel.ReadPage(definitionPage).Span.ToArray();
+            JetFormatBase format = channel.Format;
+            int columnBlock = format.TdefRealIndexBlockOffset + tdef.IndexCount * format.RealIndexEntrySize;
+
+            return string.Join(" ", columns.Select(c =>
+            {
+                int entry = columnBlock + c.Index * format.ColumnDescriptorSize;
+                int stored = BinaryPrimitives.ReadUInt16LittleEndian(
+                    page.AsSpan(entry + format.ColumnVariableIndexOffset, 2));
+                return $"{c.Name}:{stored}";
+            }));
+        }
+        finally { TemporaryDatabase.Delete(path); }
     }
 
     /// <summary>Each surviving fixed column's byte offset, which is what a reused offset would collide on.

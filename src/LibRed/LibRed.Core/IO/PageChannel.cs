@@ -109,6 +109,12 @@ public sealed class PageChannel : IDisposable
 
             // Read page 0 (always unencrypted) to detect encryption: a nonzero database key at 0x3E means the
             // data pages are ACE-encrypted, and the EncryptionInfo descriptor lives in the clear on this page.
+            // A file too short to hold one page is truncated, not a database — say so, rather than letting
+            // ReadExactly raise EndOfStreamException, which callers handling a damaged file do not catch.
+            if (stream.Length < format.PageSize)
+                throw new InvalidDataException(
+                    $"The file is {stream.Length} bytes, shorter than the {format.PageSize}-byte page 0 a "
+                    + $"{format.Version} database begins with.");
             var page0 = new byte[format.PageSize];
             stream.Seek(0, SeekOrigin.Begin);
             stream.ReadExactly(page0);
@@ -473,6 +479,15 @@ public sealed class PageChannel : IDisposable
     {
         byte[] page0 = ReadPage(0).Span.ToArray();
         if (page0[JetFormatBase.VersionOffset] >= version) return false;
+
+        // A Jet MDB carries the "Standard Jet DB" identifier, which JetFormatBase.Detect pairs with version
+        // 0x00/0x01 only. Raising one to an ACE version writes a file nothing can reopen — not LibRed, not
+        // Access. DatabaseCreator refuses to create that same pair; refuse to upgrade into it too.
+        if (!Format.IsAccdb)
+            throw new NotSupportedException(
+                $"Cannot raise this database to version 0x{version:X2}: it is a Jet MDB " +
+                $"(\"{JetFormatBase.JetIdentifier}\"), and only an ACCDB carries an ACE version byte. " +
+                "The statement needs a data type this format cannot store.");
 
         page0[JetFormatBase.VersionOffset] = version;
         WritePage(0, page0);

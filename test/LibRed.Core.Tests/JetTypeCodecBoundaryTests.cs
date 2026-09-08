@@ -111,16 +111,30 @@ public class JetTypeCodecBoundaryTests
         Assert.Equal("Å", JetTypeCodec.DecodeText(Encoding.Unicode.GetBytes("Å")));
     }
 
+    // Padding short values is right — ACE stores fixed text space-padded to the full width. Over-long is NOT
+    // truncation: this asserted that it was, which is where the bug lived. ACE refuses an over-long value on a
+    // fixed column exactly as it does on a variable one (measured in FixedWidthOverflowAccessTests), so the
+    // padding must not be allowed to swallow it.
     [Fact]
-    public void Fixed_text_and_binary_are_padded_or_truncated_to_the_declared_width()
+    public void Fixed_text_and_binary_are_padded_to_the_declared_width()
     {
         ColumnDef text = Column(JetDataType.Text, length: 6, fixedLength: true);
         Assert.Equal("A  ", JetTypeCodec.Decode(text, JetTypeCodec.Encode(text, "A")));
-        Assert.Equal("ABC", JetTypeCodec.Decode(text, JetTypeCodec.Encode(text, "ABCD")));
 
         ColumnDef binary = Column(JetDataType.Binary, length: 3, fixedLength: true);
         Assert.Equal(new byte[] { 1, 0, 0 }, JetTypeCodec.Encode(binary, new byte[] { 1 }));
-        Assert.Equal(new byte[] { 1, 2, 3 }, JetTypeCodec.Encode(binary, new byte[] { 1, 2, 3, 4 }));
+    }
+
+    [Fact]
+    public void An_over_long_value_is_refused_on_a_fixed_column_too()
+    {
+        ColumnDef text = Column(JetDataType.Text, length: 6, fixedLength: true);
+        Assert.Contains("too small to accept",
+            Assert.Throws<InvalidOperationException>(() => JetTypeCodec.Encode(text, "ABCD")).Message);
+
+        ColumnDef binary = Column(JetDataType.Binary, length: 3, fixedLength: true);
+        Assert.Contains("too small to accept",
+            Assert.Throws<InvalidOperationException>(() => JetTypeCodec.Encode(binary, new byte[] { 1, 2, 3, 4 })).Message);
     }
 
     [Fact]

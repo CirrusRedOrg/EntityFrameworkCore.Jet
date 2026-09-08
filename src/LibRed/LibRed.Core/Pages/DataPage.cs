@@ -123,14 +123,23 @@ public sealed class DataPage : Page
         directoryEnd = (int)end;
     }
 
-    private static void ValidateSlot(PageBuffer buffer, int index, int offset, int previousEnd, int directoryEnd)
+    private static void ValidateSlot(PageBuffer buffer, int index, int offset, int previousEnd, int directoryEnd) =>
+        ValidateSlot(buffer.PageNumber, buffer.Length, index, offset, previousEnd, directoryEnd);
+
+    /// <summary>The slot-directory invariant, over raw values so the write paths can share it. Offsets are
+    /// masked out of 13 bits and so can reach 8191 on a 4096-byte page; rows are packed from the page end
+    /// backward, so they must also never increase. <c>RowInserter</c>'s in-place repackers re-derived this
+    /// arithmetic without the checks, which on a corrupt directory produced an out-of-range exception from a
+    /// half-repacked page rather than a diagnosis.</summary>
+    internal static void ValidateSlot(
+        int pageNumber, int bufferLength, int index, int offset, int previousEnd, int directoryEnd)
     {
-        if (offset < directoryEnd || offset > buffer.Length)
+        if (offset < directoryEnd || offset > bufferLength)
             throw new InvalidDataException(
-                $"Data page {buffer.PageNumber} row slot {index} has offset {offset}, outside the row heap " +
-                $"[{directoryEnd}, {buffer.Length}].");
+                $"Data page {pageNumber} row slot {index} has offset {offset}, outside the row heap " +
+                $"[{directoryEnd}, {bufferLength}].");
         if (offset > previousEnd)
             throw new InvalidDataException(
-                $"Data page {buffer.PageNumber} row slot {index} has offset {offset}, above the previous row boundary {previousEnd}.");
+                $"Data page {pageNumber} row slot {index} has offset {offset}, above the previous row boundary {previousEnd}.");
     }
 }

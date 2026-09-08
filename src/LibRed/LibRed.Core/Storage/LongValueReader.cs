@@ -23,9 +23,9 @@ public sealed class LongValueReader(PageChannel channel)
 
     internal byte[] ResolveWithPages(ReadOnlySpan<byte> descriptor, out IReadOnlyList<int> pages)
     {
-        if (descriptor.Length < 12)
+        if (descriptor.Length < LongValueFormat.DescriptorSize)
             throw new InvalidDataException(
-                $"Long-value descriptor has {descriptor.Length} bytes; expected at least 12.");
+                $"Long-value descriptor has {descriptor.Length} bytes; expected at least {LongValueFormat.DescriptorSize}.");
 
         int length = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(descriptor) & LongValueFormat.LengthMask;
         byte flags = (byte)(descriptor[3] & LongValueFormat.FlagMask);

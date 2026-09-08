@@ -110,9 +110,7 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     {
         if (row.Length < _format.RowColumnCountSize)
             throw new InvalidDataException("Row is too short to be an inline record.");
-        int storedCount = BinaryPrimitives.ReadUInt16LittleEndian(row[.._format.RowColumnCountSize]);
-        bool hasVar = _columns.Any(c => !c.IsFixedLength && c.ColumnId < storedCount);
-        return RowLayout.Parse(row, _format.RowColumnCountSize, hasVar);
+        return RowLayout.Parse(row, _format.RowColumnCountSize, RowLayout.HasVariableSection(row, _columns));
     }
 
     private static bool IsPresent(ReadOnlySpan<byte> nullBitmap, int storedColumnCount, int columnId) =>

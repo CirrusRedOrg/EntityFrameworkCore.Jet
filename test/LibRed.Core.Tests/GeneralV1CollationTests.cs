@@ -145,14 +145,16 @@ public class GeneralV1CollationTests
         Assert.Equal(checksum, Hex(key)[^4..]);
     }
 
-    // The one case that is refused rather than truncated: a discarded word-sort record cannot be verified,
-    // because the record is in the part ACE dropped and what it held is unobservable.
+    // A key whose dropped bytes hold a word-sort record used to be refused here, on the reasoning that the
+    // record is unobservable and might be repositioned by ACE when truncating. Both were disproved once the
+    // checksum's arithmetic was settled — see docs/design/index-key-checksum.md — so it truncates like any
+    // other. The ACE cross-check for this shape lives in IndexKeyTruncationAccessTests, which compares
+    // against keys ACE itself wrote at seven mark positions; this only pins that it is no longer refused.
     [Fact]
-    public void A_key_past_the_limit_holding_a_word_sort_record_is_refused()
+    public void A_key_past_the_limit_holding_a_word_sort_record_is_truncated()
     {
-        var error = Assert.Throws<NotSupportedException>(
-            () => Encode(new string('一', 200) + "-" + new string('一', 54), Collation.General));
-        Assert.Contains("apostrophe or hyphen", error.Message);
+        byte[] key = Encode(new string('一', 200) + "-" + new string('一', 54), Collation.General);
+        Assert.Equal(510, key.Length);
     }
 
     // The cap is on the WHOLE entry, not on each column. Two 200-character columns weigh about 404 bytes of

@@ -19,6 +19,11 @@ public static class DatabaseEncryption
     private const int LengthOffset = 0x299;      // 2-byte EncryptionInfo blob length (Access's "is encrypted" signal)
     private const int DescriptorOffset = 0x29B;  // the EncryptionInfo blob itself
 
+    // The descriptor shares page 0 with the user commit-byte table at 0xE00, which a fresh file seeds with the
+    // neutral 00 01 pairs — an all-zero table reads to Access as "every user is mid-write", i.e. corrupt. So a
+    // descriptor may only occupy the zero padding that ends at 0xDFF, not merely fit within the page.
+    private const int DescriptorPaddingEnd = 0xE00;
+
     private const int JetPasswordOffset = 0x42;  // 40-byte legacy Jet database-password field (header-masked)
     private const int JetPasswordSize = 40;      // 20 UTF-16LE chars
     private const int HeaderDateOffset = 0x72;   // 8-byte creation-date OLE double (header-masked)
@@ -234,6 +239,11 @@ public static class DatabaseEncryption
     private static void ApplyEncryption(byte[] file, int dbKey, byte[] descriptor, IPageCodec codec)
     {
         WriteDatabaseKey(file, dbKey);
+        if (DescriptorOffset + descriptor.Length > DescriptorPaddingEnd)
+            throw new NotSupportedException(
+                $"The {descriptor.Length}-byte EncryptionInfo descriptor does not fit page 0's padding "
+                + $"({DescriptorPaddingEnd - DescriptorOffset} bytes); writing it would overrun the user "
+                + "commit-byte table at 0xE00, which Access reads as corruption.");
         BinaryPrimitives.WriteUInt16LittleEndian(file.AsSpan(LengthOffset, 2), (ushort)descriptor.Length);
         descriptor.CopyTo(file, DescriptorOffset);
 
@@ -254,9 +264,15 @@ public static class DatabaseEncryption
 
     private static void ClearEncryption(byte[] file)
     {
+        // Clamp to the padding window rather than trusting the stored length. On an .accdb the frame has been
+        // through Agile's or Standard's bound check by now, but a legacy .mdb never uses this frame at all —
+        // OpenDecryptor returns the RC4 codec without reading 0x299 — so those two bytes hold whatever they
+        // hold, and 2 + blobLen could reach 65537, wiping page-0 structures past the padding (the commit-byte
+        // table at 0xE00 among them) or throwing outright.
         int blobLen = BinaryPrimitives.ReadUInt16LittleEndian(file.AsSpan(LengthOffset, 2));
-        Array.Clear(file, LengthOffset, 2 + blobLen); // the length signal + the descriptor
-        WriteDatabaseKey(file, 0);                    // decodes back to 0 = unencrypted
+        int clearLength = Math.Min(2 + blobLen, DescriptorPaddingEnd - LengthOffset);
+        Array.Clear(file, LengthOffset, clearLength);  // the length signal + the descriptor
+        WriteDatabaseKey(file, 0);                     // decodes back to 0 = unencrypted
     }
 
     private static IPageCodec OpenDecryptor(byte[] file, int dbKey, string password)
@@ -285,7 +301,13 @@ public static class DatabaseEncryption
             case AccessEncryption.LegacyJet:
                 if (format.IsAccdb)
                     throw new ArgumentException("Legacy Jet encryption applies to .mdb, not .accdb.", nameof(scheme));
-                throw new NotSupportedException("Legacy Jet set-password is not yet implemented.");
+                // Not unimplemented — differently named. The legacy .mdb has two independent mechanisms and
+                // this generic entry point cannot tell which one is meant, so it names both rather than
+                // sending the caller off after a feature that already ships.
+                throw new NotSupportedException(
+                    "Legacy Jet has two separate mechanisms, so SetPassword cannot pick one: use "
+                    + $"{nameof(SetJetPassword)} for the database password (obfuscation only) or "
+                    + $"{nameof(SetJetEncoding)} for RC4 page encoding.");
             case AccessEncryption.None:
                 throw new ArgumentException("Use RemovePassword to remove encryption.", nameof(scheme));
             default:

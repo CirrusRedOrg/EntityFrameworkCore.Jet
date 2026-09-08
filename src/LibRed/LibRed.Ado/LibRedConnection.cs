@@ -40,10 +40,21 @@ public sealed class LibRedConnection : DbConnection
 
     /// <summary>Commits the page-level transaction and clears it as the active one. Goes through the shared
     /// nested-transaction controller so SQL <c>COMMIT</c> and this ADO commit track one depth.</summary>
+    /// <remarks>
+    /// Committing closes every level down to the one this handle opened at, not exactly one level. A batch
+    /// containing a bare SQL <c>BEGIN</c> pushes a level inside the ADO transaction and may never close it;
+    /// a single <c>CommitNested</c> then released only that inner savepoint while the handle was retired
+    /// anyway, leaving the real transaction open with nothing able to commit it — so <c>Close</c>'s
+    /// <c>RollbackAll</c> discarded work the caller had been told was committed. Unwinding to the opening
+    /// depth also keeps the mirror case right, where SQL opened the outer transaction and the ADO handle owns
+    /// only an inner level: there the loop runs once and leaves the outer level to its own COMMIT/ROLLBACK.
+    /// </remarks>
     internal void CommitTransaction(LibRedTransaction transaction)
     {
         if (!ReferenceEquals(CurrentTransaction, transaction)) return;
-        _database?.CommitNested();
+        if (_database is not null)
+            while (_database.TransactionDepth > transaction.OpenedAtDepth)
+                _database.CommitNested();
         CurrentTransaction = null;
     }
 
@@ -240,13 +251,15 @@ public sealed class LibRedConnection : DbConnection
         if (CurrentTransaction is not null)
             throw new InvalidOperationException("A transaction is already in progress on this connection; use SQL BEGIN/COMMIT or savepoints to nest.");
 
+        // The depth BEFORE this handle's level, so Commit knows how far to unwind — see CommitTransaction.
+        int openedAtDepth = _database.TransactionDepth;
         _database.BeginNested();
         // Resolve the ADO default (Unspecified) to a concrete level the way real providers do — EF and its
         // TransactionStarted interceptor expect a started transaction to report a real IsolationLevel, not
         // Unspecified. LibRed serialises writers via page-level locking; ReadCommitted is the reported default.
         if (isolationLevel == IsolationLevel.Unspecified)
             isolationLevel = IsolationLevel.ReadCommitted;
-        return CurrentTransaction = new LibRedTransaction(this, isolationLevel);
+        return CurrentTransaction = new LibRedTransaction(this, isolationLevel, openedAtDepth);
     }
 
     protected override void Dispose(bool disposing)

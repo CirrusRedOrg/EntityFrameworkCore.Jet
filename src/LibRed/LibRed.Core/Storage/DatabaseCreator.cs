@@ -229,8 +229,9 @@ public static class DatabaseCreator
     /// Creates a new, empty database at <paramref name="path"/> from scratch — no DAO/ADOX. Hand-builds the
     /// bootstrap (page 0, the page-1 free map, and the <c>MSysObjects</c>/<c>MSysACEs</c> TDEFs with their
     /// usage maps + self-registering catalog rows), then the file is a normal LibRed database: further tables
-    /// are added through the ordinary writers. Produces a LibRed-openable, round-trippable file (Access-level
-    /// fidelity — the remaining system tables and the 0xE00 map — is a follow-up).
+    /// are added through the ordinary writers. The file opens in the Access GUI: the <c>0xE00</c> user
+    /// commit-byte table is seeded here, and Access adds the system tables it wants (MSysAccessStorage, the
+    /// navigation-pane objects) itself — hand-creating those was tried and made things worse.
     /// </summary>
     /// <param name="collation">
     /// The database's default text collating order, written to page 0 and inherited by every column created

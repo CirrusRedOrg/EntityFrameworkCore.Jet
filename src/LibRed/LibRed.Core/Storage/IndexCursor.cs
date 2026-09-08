@@ -59,9 +59,15 @@ public sealed class IndexCursor(PageChannel channel, int rootPage)
                 continue;
             }
             pending.Push(page.Tail);
-            for (int i = page.EntryRanges.Count - 1; i >= 0; i--)
-                pending.Push(IndexPageReader.ReadInt32BigEndian(
-                    page.Buffer, IndexPageReader.EntryDataOffset + page.EntryRanges[i].End - 4));
+            // Children come from the RECONSTRUCTED entries, like every other reader of this page format.
+            // Reading the trailer at (stored end - 4) is only correct on an uncompressed node: the shared
+            // prefix can cover the first bytes of the trailer, and on a node whose 0x18 is nonzero — which ACE
+            // tolerates — that offset lands on the wrong bytes, or inside the entry bitmask for a stored entry
+            // under 4 bytes, still in bounds. Either way it yields a wrong child page with no exception, and
+            // bypasses the child-page validation IndexPageReader.Read performs on the reconstructed entries.
+            var children = IndexPageReader.DecodeEntries(page).Select(e => e.Trailer).ToList();
+            for (int i = children.Count - 1; i >= 0; i--)
+                pending.Push(children[i]);
         }
     }
 

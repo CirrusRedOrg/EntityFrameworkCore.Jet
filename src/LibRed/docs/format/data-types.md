@@ -124,9 +124,12 @@ SQL DDL leaves it **clear**.
 **When a capable column actually compresses a value** (measured in `CompressedTextAccessTests` and
 `LongTextStorageAccessTests`, and reproduced by LibRed byte-for-byte):
 
-- **Every character must fit one byte** (`<= 0xFF`, so Latin1, not just ASCII — `café` compresses, `一` does
-  not). One non-Latin1 character leaves the whole value UTF-16; LibRed does not split runs, and neither does
-  ACE here.
+- **A run of characters that fit one byte** (`<= 0xFF`, so Latin1, not just ASCII) is stored one byte per
+  character. Runs are **split**, not all-or-nothing: a non-Latin1 character switches the value into 2-byte
+  mode rather than forfeiting compression for the whole of it, and both ACE and LibRed do this — see the
+  mixed-run note below, which supersedes the earlier reading. The exception is a 2-byte character with a
+  `0x00` low byte (`一` = `00 4E`), which is indistinguishable from the mode switch and does forfeit the
+  whole value.
 - **It must save space.** The marker costs 2 bytes, so 1- and 2-character values stay UTF-16 (2 + N < 2N only
   from N = 3). Verified at each of 1, 2 and 3 characters.
 - **A chained long value is never compressed.** Compression is decided *after* the storage form, and the
@@ -167,13 +170,11 @@ SQL DDL leaves it **clear**.
 > Under three characters nothing is compressed on either path, whatever the arithmetic says, which is what
 > settles the all-Latin1 ties (`ab` is 4 bytes either way and stays UTF-16).
 >
-> That gap is unreachable from anything ACE writes: **one incompressible character forfeits compression for
-> the entire value**, position irrelevant, even when that throws away a ~1,000-byte saving
-> (`MixedCompressionAccessTests` — 1,000 ASCII compresses, 1,000 ASCII + one CJK does not, whether the CJK
-> sits first, last or in the middle). Checked by hand on ACE 12.0 and 16.0, which agree byte for byte; the
-> test can only assert whichever is installed. A producer plausibly exists — the scheme dates from Jet 4.0,
-> and Jackcess has a bug report about Access 2000 files — so treat this as *technically possible, not
-> reproducible here*, and revisit if a real mixed-form file turns up.
+> **Only an *ambiguous* character forfeits the whole value** — one whose low byte is `0x00`, and so cannot be
+> told from the mode switch (`一` = `00 4E`, `Ā` = `00 01`). `MixedCompressionAccessTests` measures both:
+> 1,000 ASCII + one `一` stores as 2,002 bytes (plain UTF-16, the saving thrown away), while 1,000 ASCII +
+> one `中` stores as 1,005 (compressed with a switch). Position is irrelevant in both cases. Checked by hand
+> on ACE 12.0 and 16.0, which agree byte for byte; the test can only assert whichever is installed.
 
 
 ---
@@ -194,6 +195,17 @@ Points verified against ACE that aren't obvious from that page:
   `CHARACTER_MAXIMUM_LENGTH`), **not** 1.
 - **Bare `TEXT` → Memo** (long text); `TEXT(n)` → `varchar(n)` (a Jet quirk, ACE-verified).
 - Sized Text/Binary dimensions must be positive: Text is `1..255` characters and Binary is `1..510` bytes.
+- **`CHAR(n)` / `BINARY(n)` are FIXED-length columns; `TEXT(n)` / `VARBINARY(n)` are variable** — ACE's own DDL
+  produces both forms, so the fixed form is not a LibRed-only construct (`FixedWidthOverflowAccessTests`).
+- **An over-long value is refused on both forms, with one message**: *"The field is too small to accept the
+  amount of data you attempted to add."* Measured on all four shapes above. The fixed form is the one worth
+  recording: because ACE stores fixed text space-padded to the full width, a writer that pads is one line away
+  from *truncating* the over-long case instead of refusing it, which is what LibRed did — silently storing
+  `'abc'` for `CHAR(3)` where the same value into `TEXT(3)` raised. The width check therefore belongs on the
+  encode path for fixed columns (`JetTypeCodec.EnsureFitsFixedWidth`, before padding) and on the shared
+  row-assembly path for variable ones (`RowEncoder.AssembleRow`, so the ALTER re-lay passes it too).
+- **Narrowing an existing column is checked against its rows.** `ALTER TABLE … ALTER COLUMN c TEXT(5)` on a
+  column holding wider values is refused rather than leaving rows that violate the declaration.
 - `DECIMAL(p,s)` / `NUMERIC(p,s)` use precision `1..28` and scale `0..p`; LibRed rejects dimensions outside
   those ACE/.NET decimal bounds before allocating or writing a table definition.
 - The grammar parses **two-word** type names (`CHARACTER VARYING`, `BIT VARYING`); three-word

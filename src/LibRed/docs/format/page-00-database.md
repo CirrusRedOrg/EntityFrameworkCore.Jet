@@ -11,7 +11,7 @@
 | `0x04` | 15 | Format identifier ASCII: `Standard Jet DB` or `Standard ACE DB` |
 | `0x13` | 1 | NUL terminator of the identifier string |
 | `0x14` | 1 | Version byte (see below). mdbtools reads `jet_version` as a 4-byte word at `0x14`; the version is its low byte |
-| `0x15` | 1 | Version **minor/update** byte: **`0x01` on ACE 14 / Access 2010 (version `0x03`)**, `0x00` on every other version tested (Jet 4, ACE 12/17). mdbtools says this is always zero — not universally true. Purpose beyond distinguishing the 2010 format unknown |
+| `0x15` | 1 | Version **minor/update** byte: **`0x01` on ACE 14 / Access 2010 (version `0x03`)**, `0x00` on every other version tested (Jet 4, ACE 12/17). mdbtools says this is always zero — not universally true. Purpose beyond distinguishing the 2010 format unknown. **An in-place version raise moves `0x14` only**, so raising a 2010 file leaves the pair `(0x05, 0x01)`, which no ACE-authored file carries — measured, and **ACE opens the result and reads and writes it normally** (`AuditRegressionAccessTests`), so the pair is tolerated |
 | `0x16` | 2 | Unknown (zero observed) |
 | `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with a fixed 128-byte mask (§2.1). Jet 3 masks 126 bytes. Fields below are offsets into it. |
 | `0x18`, `0x1C` | 4+4 | Fixed constants `0x00000100`, `0x00000101` (not page pointers — out of range in small files) |
@@ -481,8 +481,11 @@ The Agile XML descriptor uses the same `len@0x299` + blob-at-`0x29B` framing.
 > the Access desktop GUI with the password.** For **Agile**, the same path emits the XML descriptor (version 4.4
 > prefix `04 00 04 00 40 00 00 00` + UTF-8 XML) with a random data key wrapped via the 100000-spin SHA-512 KDF —
 > Access's `.accdb` Agile has **no `<dataIntegrity>` element** (verified against `db2013` and a created file), so
-> none is emitted. `ChangePassword` = decrypt + re-encrypt. Legacy Jet set-password and Jet 3 remain
-> unimplemented.
+> none is emitted. `ChangePassword` = decrypt + re-encrypt. **Jet 3 remains unimplemented.** Legacy Jet is
+> implemented, but under its own names rather than through `SetPassword`: an `.mdb` has two independent
+> mechanisms — the database password at `0x42` (`SetJetPassword`/`RemoveJetPassword`) and RC4 page encoding
+> keyed by `0x3E` (`SetJetEncoding`/`RemoveJetEncoding`) — so the single `AccessEncryption.LegacyJet` scheme
+> cannot say which is meant, and directs the caller to the pair.
 >
 > **RC4 key length + hash are caller-selectable** via `DatabaseEncryption.SetPasswordRc4(path, password, keyBits =
 > 40, hash = StandardHash.Sha1)` / `ChangePasswordRc4` — `keyBits` 40–128 (multiple of 8), `hash` ∈ MD5/SHA-1/

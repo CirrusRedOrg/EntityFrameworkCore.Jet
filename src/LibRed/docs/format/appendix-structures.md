@@ -111,7 +111,7 @@ Variable section (`varOffsetTable`+`numVar`) omitted when the table has no varia
 | `0x01` | 2 | Marker `0x0659` |
 | `0x03` | 2 | Unknown (zero) |
 | `0x05` | 2 | Column id |
-| `0x07` | 2 | Variable-table index — on a **fixed** column the running count of preceding variable columns, **NOT `0`**; writing `0` there yields a file Access refuses with *"record(s) cannot be read"* ([page-02b §3.4](page-02b-columns.md)) |
+| `0x07` | 2 | Variable-table index — on a **fixed** column the running count of preceding variable columns, **NOT `0`**; on a variable column its own slot index, which follows the `0x2B` high-water ([page-02b §3.4](page-02b-columns.md)) |
 | `0x09` | 2 | Column number — a second copy of the id `0x05` on a **user** table, but **`0`** on the tables the engine writes for itself; unchanged by an `ALTER COLUMN` that burns a new id at `0x05` ([page-02b §3.4](page-02b-columns.md)) |
 | `0x0B` | 1 | Precision (Decimal) — else locale low byte `0x09` |
 | `0x0C` | 1 | Scale (Decimal) — else locale high byte `0x04` |

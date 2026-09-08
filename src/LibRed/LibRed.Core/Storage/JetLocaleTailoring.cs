@@ -154,8 +154,8 @@ internal static class JetLocaleTailoring
 
     /// <summary>
     /// The orders measured to produce index keys byte-identical to General v0, and so encodable with no
-    /// tailoring at all. Held as a set rather than 107 empty dictionary entries because the fact recorded is
-    /// about the ORDER, not about any weight it carries.
+    /// tailoring at all. Held as a set rather than as that many empty dictionary entries because the fact
+    /// recorded is about the ORDER, not about any weight it carries.
     /// </summary>
     /// <remarks>
     /// <para>

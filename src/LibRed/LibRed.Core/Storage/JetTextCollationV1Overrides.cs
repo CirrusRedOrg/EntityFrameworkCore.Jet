@@ -15,8 +15,8 @@ namespace LibRed.Storage;
 /// <para>
 /// Rather than guess which NLS revision ACE carries, the disagreements are measured and embedded:
 /// <c>SortKeyTableV1OverrideGeneratorTest</c> (<c>LIBRED_GENERATE_V1=1</c>) encodes every BMP character
-/// through ACE and records the weights implied wherever the result differs. 446 characters, 1.2 KB — the
-/// same answer v0 needed, at a fraction of the size, because v1 is right about the other 57,594.
+/// through ACE and records the weights implied wherever the result differs. 501 characters, 1.9 KB — the
+/// same answer v0 needed, at a fraction of the size, because v1 is right about every other BMP character.
 /// </para>
 /// <para>
 /// An entry is a <b>sequence</b> of weights, since one character can imply several: ACE encodes

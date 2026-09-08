@@ -95,10 +95,21 @@ internal sealed class ExpressionEvaluator(
         }
         else
         {
-            foreach (object? item in subqueries.ExecuteColumn(inq.Query, scope))
+            // An uncorrelated body is hoisted by ExecuteColumn and runs once; what used to cost outer × inner
+            // was the membership test over its values, repeated per outer row. Hoisting also builds a hash set,
+            // so ask that first and only walk the values when it declines (mixed or non-hashable kinds).
+            IEnumerable<object?> items = subqueries.ExecuteColumn(inq.Query, scope);
+            if (subqueries.LookupHoistedIn(inq.Query, val) is var (setFound, setNull))
             {
-                if (item is null) hasNull = true;
-                else if (Compare(val, item) == 0) { found = true; break; }
+                (found, hasNull) = (setFound, setNull);
+            }
+            else
+            {
+                foreach (object? item in items)
+                {
+                    if (item is null) hasNull = true;
+                    else if (Compare(val, item) == 0) { found = true; break; }
+                }
             }
         }
 
@@ -254,7 +265,11 @@ internal sealed class ExpressionEvaluator(
             "HEX" => Convert1(f, v => Convert.ToString(Convert.ToInt64(v, CultureInfo.InvariantCulture), 16).ToUpperInvariant()),
             "OCT" => Convert1(f, v => Convert.ToString(Convert.ToInt64(v, CultureInfo.InvariantCulture), 8)),
             "INSTRREV" => InstrRev(f),                       // last occurrence, 1-based (0 if none)
-            "MONTHNAME" => Convert1(f, v => EnUs.DateTimeFormat.GetMonthName(Convert.ToInt32(v, CultureInfo.InvariantCulture))),
+            // MonthName(month, [abbreviate]). The second argument was accepted by the arity table and then
+            // ignored by Convert1, so MonthName(1, True) returned "January" where ACE returns "Jan" — a
+            // silently wrong value, and the arity check that would have caught a stray argument is what let
+            // it through. WeekdayName next to it always honoured its own.
+            "MONTHNAME" => MonthNameOf(f),
             "TIMER" => (DateTime.Now - DateTime.Today).TotalSeconds,
             "RND" => Rnd(f),
             // Predicates / type inspection. IsError is always false — LibRed has no error-value type. ISNULL
@@ -748,6 +763,19 @@ internal sealed class ExpressionEvaluator(
     /// Verified vs ACE for an explicit first day (<c>WeekdayName(1,,1)</c>→"Sunday", <c>(1,,2)</c>→"Monday"). NOTE:
     /// ACE's *omitted* default follows the OS regional first day; LibRed uses the VBA-documented default of
     /// vbSunday for determinism, so the no-third-arg case may differ from a given ACE host. NULL-propagating.</summary>
+    /// <summary>Access <c>MonthName(month, [abbreviate])</c> — the full English month name, or its
+    /// abbreviation when the second argument is true. NULL-propagating, like its Weekday sibling below.</summary>
+    private object? MonthNameOf(FunctionCall f)
+    {
+        object? monthValue = Evaluate(f.Arguments[0]);
+        if (monthValue is null) return null;
+        int month = Convert.ToInt32(monthValue, CultureInfo.InvariantCulture);
+        bool abbreviate = f.Arguments.Count > 1 && IsTrue(f.Arguments[1]);
+        return abbreviate
+            ? EnUs.DateTimeFormat.GetAbbreviatedMonthName(month)
+            : EnUs.DateTimeFormat.GetMonthName(month);
+    }
+
     private object? WeekdayNameOf(FunctionCall f)
     {
         object? wdV = Evaluate(f.Arguments[0]);
@@ -1635,6 +1663,6 @@ internal sealed class ExpressionEvaluator(
     // a boolean predicate (e.g. IS NOT NULL) must compare equal to that stored value. The comparison
     // coercions (Dec/Dbl) use Jet's convention (false = 0, true = -1) so a bool matches the numeric value
     // it is stored as.
-    private static bool IsNumeric(object v) =>
+    internal static bool IsNumeric(object v) =>
         v is bool or byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;
 }

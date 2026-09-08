@@ -3,7 +3,7 @@ using System.IO.Compression;
 namespace LibRed.Storage;
 
 /// <summary>
-/// The measured General v0 weights for the whole Basic Multilingual Plane — 63,208 code points, of which
+/// The measured General v0 weights for the whole Basic Multilingual Plane — 63,105 code points, of which
 /// 19,186 are ignorable. Consulted by <see cref="JetTextCollation"/> only after its own hand-verified
 /// tables, so nothing here can change a weight that was already proven byte for byte.
 /// </summary>
@@ -40,9 +40,9 @@ internal static class JetTextCollationTableV0
     }
 
     /// <summary>The inline code for a word-sort ignorable — a character that adds no weight at all and
-    /// records <c>80 &lt;pos&gt; 06 &lt;code&gt;</c> in the trailing section instead. There are 296 of them
-    /// across the BMP: every dash and quotation form, the Arabic harakat, and the CJK and fullwidth
-    /// punctuation.</summary>
+    /// records <c>80 &lt;pos&gt; 06 &lt;code&gt;</c> in the trailing section instead. This table holds the 40
+    /// measured ones; with the 20 hand-verified in <see cref="JetTextCollation"/> that is 60 across the BMP —
+    /// every dash and quotation form, the Arabic harakat, and the CJK and fullwidth punctuation.</summary>
     public static bool TryGetInlineCode(char c, out byte code)
     {
         Table table = Loaded.Value;

@@ -30,7 +30,6 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     private const int LevelOffset = 0x1A;       // 0 on a leaf, its height above the leaves on a node
     private const int EntryMaskOffset = 0x1B;
     private const int EntryDataOffset = 0x1E0;
-    private const int RootPageInBlockOffset = 0x26; // within the 52-byte index-data block
 
     private readonly PageChannel _channel = channel;
     private readonly TableDef _table = table;
@@ -459,25 +458,28 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     private void UpdateIndexRoot(IndexDef index, int newRoot)
     {
         (_, IReadOnlyList<int> continuations, int block) = LocateIndexBlock(index);
-        WriteInt32IntoDefinition(continuations, block + RootPageInBlockOffset, newRoot);
+        WriteInt32IntoDefinition(continuations, block + IndexBlockFormat.RootPageOffset, newRoot);
     }
-
-    private const int IndexUsageMapRowOffset = 0x22;  // within the 52-byte block: 1-byte row + 3-byte page
 
     /// <summary>The (row, page) pointer to the index's own pages usage map, read from its data block.</summary>
     private (int MapRow, int MapPage) IndexUsageMapPointer(IndexDef index)
     {
         (byte[] tdef, _, int block) = LocateIndexBlock(index);
-        int row = tdef[block + IndexUsageMapRowOffset];
-        int mapPage = tdef[block + IndexUsageMapRowOffset + 1]
-                      | tdef[block + IndexUsageMapRowOffset + 2] << 8
-                      | tdef[block + IndexUsageMapRowOffset + 3] << 16;
+        int pointer = block + IndexBlockFormat.UsageMapRowOffset;   // 1-byte row + 3-byte page
+        int row = tdef[pointer];
+        int mapPage = tdef[pointer + 1] | tdef[pointer + 2] << 8 | tdef[pointer + 3] << 16;
         return (row, mapPage);
     }
 
     /// <summary>Walks the stitched definition (stats → column descriptors → column names → data blocks) to
     /// the index's 52-byte data block, returning the buffer, its continuation pages, and the block's absolute
     /// offset. A wide table's blocks sit past the column names, well beyond the first page.</summary>
+    /// <remarks>
+    /// Every region is bounded, because this walk decides where <see cref="UpdateIndexRoot"/> writes. The
+    /// counts and name lengths all come out of the file, and unchecked they can carry <c>pos</c> past the
+    /// buffer — or, when the multiply overflows, back inside it at the wrong place, which would repoint some
+    /// other index's B-tree root with no error at all. The read side bounds the identical regions.
+    /// </remarks>
     private (byte[] Definition, IReadOnlyList<int> Continuations, int BlockOffset) LocateIndexBlock(IndexDef index)
     {
         JetFormatBase format = _channel.Format;
@@ -485,11 +487,21 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         int dataCount = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefIndexCountOffset, 4));
         int colCount = BinaryPrimitives.ReadUInt16LittleEndian(tdef.AsSpan(format.TdefColumnCountOffset, 2));
 
-        int pos = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize
-                  + colCount * format.ColumnDescriptorSize;
-        for (int i = 0; i < colCount; i++) pos += 2 + BinaryPrimitives.ReadUInt16LittleEndian(tdef.AsSpan(pos, 2));
+        int columnBlock = TableDefinitionPage.CheckedRegionEnd(
+            format.TdefRealIndexBlockOffset, dataCount, format.RealIndexEntrySize, tdef.Length, "index statistics");
+        int pos = TableDefinitionPage.CheckedRegionEnd(
+            columnBlock, colCount, format.ColumnDescriptorSize, tdef.Length, "column descriptors");
+        for (int i = 0; i < colCount; i++)
+        {
+            int nameEnd = TableDefinitionPage.CheckedRegionEnd(pos, 1, 2, tdef.Length, "a column-name length");
+            pos = TableDefinitionPage.CheckedRegionEnd(
+                nameEnd, 1, BinaryPrimitives.ReadUInt16LittleEndian(tdef.AsSpan(pos, 2)), tdef.Length, "a column name");
+        }
 
-        return (tdef, continuations, pos + index.RealIndexOrdinal * 52);
+        int block = TableDefinitionPage.CheckedRegionEnd(
+            pos, index.RealIndexOrdinal + 1, IndexBlockFormat.DataBlockSize, tdef.Length, "index-data blocks")
+            - IndexBlockFormat.DataBlockSize;
+        return (tdef, continuations, block);
     }
 
     /// <summary>Allocates a fresh B-tree page for <paramref name="index"/> and records it in the index's own

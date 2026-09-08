@@ -89,10 +89,13 @@ public sealed class ColumnDef
     public byte Precision { get; init; }
     public byte Scale { get; init; }
 
-    /// <summary>The text collation (LCID + sort-order version) for a non-numeric column — read from the
-    /// descriptor's locale bytes (<c>0x0B/0x0C</c>) and version byte (<c>0x0D</c>). Numeric columns reuse
-    /// those bytes for precision/scale and carry no collation. Defaults to General legacy, which is what
-    /// every file LibRed currently handles uses, and the only order whose index keys it can encode.</summary>
+    /// <summary>The text collation (LCID + sort id + sort-order version) for a non-numeric column — read from
+    /// the descriptor's locale bytes (<c>0x0B/0x0C</c>), sort id (<c>0x0D</c>) and version byte
+    /// (<c>0x0E</c>). Numeric columns reuse the locale bytes for precision/scale and carry no collation.
+    /// Defaults to General legacy.</summary>
+    /// <remarks>The version is at <c>0x0E</c>, not <c>0x0D</c>. Reading it from <c>0x0D</c> — which is 0 in
+    /// both General orders — made LibRed report every database as v0, so the byte is worth naming exactly.
+    /// LibRed encodes index keys for 405 collation configurations, not only General legacy.</remarks>
     public Collation Collation { get; init; } = Collation.GeneralLegacy;
 
     /// <summary>The column's original on-disk descriptor bytes (the 25-byte Jet4 record), captured verbatim on

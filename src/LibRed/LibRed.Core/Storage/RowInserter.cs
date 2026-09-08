@@ -160,12 +160,16 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
             var rows = new byte[rowCount][];
             var rawDir = new int[rowCount];
+            int directoryEnd = format.DataRowDirectoryOffset + rowCount * 2;
             int prevEnd = format.PageSize;
             for (int i = 0; i < rowCount; i++)
             {
                 int raw = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2));
                 rawDir[i] = raw;
                 int offset = raw & RowPointer.OffsetMask;
+                // Same invariant DataPage enforces on the read side — this repacker rewrites the page, so a
+                // bad directory entry must be reported before the first CopyTo rather than mid-repack.
+                DataPage.ValidateSlot(pageNumber, format.PageSize, i, offset, prevEnd, directoryEnd);
                 rows[i] = page.AsSpan(offset, prevEnd - offset).ToArray(); // preserve every row's bytes (deleted/overflow included)
                 prevEnd = offset;
             }
@@ -231,12 +235,16 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             int dir = format.DataRowDirectoryOffset + id.Row * 2;
             ushort entry = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir, 2));
 
-            // A slot carrying the overflow flag is a 4-byte forward pointer to a relocated row rather than
-            // the row itself, so the row it forwards to has to go first — otherwise deleting a relocated
+            // A LIVE slot carrying the overflow flag is a 4-byte forward pointer to a relocated row rather
+            // than the row itself, so the row it forwards to has to go first — otherwise deleting a relocated
             // row strands it on its own page for ever, which for a widened row is far more than the
             // pointer's own four bytes. ACE reclaims both (verified: the target's page comes back to a bare
             // 4080 free, and the pointer's four bytes return to this one).
-            if ((entry & RowPointer.OverflowFlag) != 0)
+            //
+            // Deleted must be excluded, not just overflow: ReclaimRow's own tombstone is deleted+overflow
+            // (0xC000) and zero-length, so testing the overflow bit alone treats a tombstone as a relocation
+            // source and reads four bytes of the NEIGHBOURING row as a page/row pointer.
+            if ((entry & (RowPointer.DeletedFlag | RowPointer.OverflowFlag)) == RowPointer.OverflowFlag)
                 ReclaimRelocationTarget(format, page, id.Row);
 
             ReclaimRow(format, page, id.Row);
@@ -256,13 +264,22 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     }
 
     /// <summary>Reclaims the row a relocation pointer forwards to, on whatever page it lives. The pointer
-    /// is the first four bytes of the source row: <c>page = pointer >> 8</c>, <c>row = pointer &amp; 0xFF</c>
-    /// (see <see cref="RowRelocationReader"/>). The target is flagged deleted so scans skip it, which is why
-    /// it is read straight off the directory rather than through the reader's live-slot validation.</summary>
+    /// is the first four bytes of the source row: <c>page = pointer >> 8</c>, <c>row = pointer &amp; 0xFF</c>.
+    /// The target is flagged deleted so scans skip it, which is why it is read straight off the directory
+    /// rather than through <see cref="RowRelocationReader"/> — but it carries that reader's checks, because
+    /// this one WRITES: an unvalidated pointer runs ReclaimRow over a live row of an unrelated page, sliding
+    /// its neighbours and stamping a tombstone. Anything that fails a check is left alone rather than
+    /// throwing, so a delete still removes the row the caller asked about.</summary>
     private void ReclaimRelocationTarget(JetFormatBase format, byte[] sourcePage, int row)
     {
         int offset = BinaryPrimitives.ReadUInt16LittleEndian(
             sourcePage.AsSpan(format.DataRowDirectoryOffset + row * 2, 2)) & RowPointer.OffsetMask;
+        int end = row == 0
+            ? format.PageSize
+            : BinaryPrimitives.ReadUInt16LittleEndian(
+                sourcePage.AsSpan(format.DataRowDirectoryOffset + (row - 1) * 2, 2)) & RowPointer.OffsetMask;
+        if (offset < format.DataRowDirectoryOffset || end > format.PageSize || end - offset < 4) return;
+
         int pointer = BinaryPrimitives.ReadInt32LittleEndian(sourcePage.AsSpan(offset, 4));
         int targetPage = pointer >> 8, targetRow = pointer & 0xFF;
         if (targetPage <= 0 || targetPage >= _channel.PageCount) return;
@@ -271,11 +288,17 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         try
         {
             _channel.ReadPage(targetPage, page);
-            if (targetRow < BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2)))
-            {
-                ReclaimRow(format, page, targetRow);
-                _channel.WritePage(targetPage, page.AsSpan(0, format.PageSize));
-            }
+            if (BinaryPrimitives.ReadUInt32LittleEndian(page.AsSpan(format.DataOwnerOffset, 4))
+                != (uint)_table.DefinitionPage) return;
+            if (targetRow >= BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2))) return;
+
+            // The target is a hidden inline row: deleted, not itself a relocation source, and nonempty.
+            ushort slot = BinaryPrimitives.ReadUInt16LittleEndian(
+                page.AsSpan(format.DataRowDirectoryOffset + targetRow * 2, 2));
+            if ((slot & (RowPointer.DeletedFlag | RowPointer.OverflowFlag)) != RowPointer.DeletedFlag) return;
+
+            ReclaimRow(format, page, targetRow);
+            _channel.WritePage(targetPage, page.AsSpan(0, format.PageSize));
         }
         finally { ArrayPool<byte>.Shared.Return(page); }
     }
@@ -384,8 +407,21 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// </summary>
     private void FreeLongValue(ColumnDef column, byte[] descriptor)
     {
-        byte flags = descriptor[3];
-        if ((flags & 0x80) != 0 || (flags & 0x40) != 0) return; // inline or single (shared) page — not reclaimed here
+        // The descriptor comes off the row's variable chunk, so its width is whatever the offset table said.
+        // LongValueReader requires the full 12 bytes before reading any field; reclaiming has to agree, or a
+        // short chunk indexes past the end and escapes Delete/Update as IndexOutOfRangeException.
+        if (descriptor.Length < LongValueFormat.DescriptorSize)
+            throw new InvalidDataException(
+                $"Long-value descriptor has {descriptor.Length} bytes; expected at least {LongValueFormat.DescriptorSize}.");
+
+        // Byte 3 carries the length's top byte AND the flags, so it must be masked before comparison — the
+        // length runs to 0x3FFFFFFF, and a 16 MB value puts 0x01 there. Masked exactly as LongValueReader does.
+        byte flags = (byte)(descriptor[3] & LongValueFormat.FlagMask);
+        if (flags is not (LongValueFormat.FlagInline or LongValueFormat.FlagSinglePage or LongValueFormat.FlagChained))
+            throw new InvalidDataException($"Long-value descriptor has unknown flags 0x{flags:X2}.");
+        // Inline (0x80) has no pages; single-page (0x40) shares its page with other values — neither is
+        // reclaimed here. Only a chained value owns pages outright.
+        if (flags != LongValueFormat.FlagChained) return;
 
         TableDefinitionPage definition = ReadDefinition();
         definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned);
@@ -601,11 +637,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (length < format.RowColumnCountSize + 2) continue;
 
             ReadOnlySpan<byte> row = page.AsSpan(offset, length);
-            // An old row written before the table's first variable ADD has no variable trailer even though
-            // the current schema does. Its stored count cannot cover that new variable column, which lets us
-            // distinguish the verified all-fixed form without interpreting fixed bytes as trailer offsets.
-            int storedCount = BinaryPrimitives.ReadUInt16LittleEndian(row[..format.RowColumnCountSize]);
-            bool rowHasVar = _table.Columns.Any(c => !c.IsFixedLength && c.ColumnId < storedCount);
+            bool rowHasVar = RowLayout.HasVariableSection(row, _table.Columns);
             RowLayout layout = RowLayout.Parse(row, format.RowColumnCountSize, rowHasVar);
             int varDataStart = layout.FixedRegionLength + format.RowColumnCountSize;
 
@@ -695,7 +727,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         {
             LongValueResult chained = writer.Write(payload);
             foreach (int page in chained.OwnedPages) _usageMaps.SetBit(owned.Row, owned.Page, page, set: true);
-            _usageMaps.SetBit(free.Row, free.Page, chained.FreePage, set: true, movableWindow: true);
+            if (chained.FreePage != 0)
+                _usageMaps.SetBit(free.Row, free.Page, chained.FreePage, set: true, movableWindow: true);
             return chained.Descriptor;
         }
 
@@ -763,12 +796,16 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
     private void AppendMapBits(List<int> result, ReadOnlySpan<byte> bitmap, int startPage)
     {
+        // Bound read once, for the reason UsageMap.AppendSetBits records: outside a transaction PageCount is a
+        // file-length syscall, and a per-bit test costs real time on a hot path. Nothing here writes.
+        int pageCount = _channel.PageCount;
+
         for (int i = 0; i < bitmap.Length; i++)
             for (int bit = 0; bit < 8; bit++)
                 if ((bitmap[i] & (1 << bit)) != 0)
                 {
                     int page = startPage + i * 8 + bit;
-                    if (page <= 1 || page >= _channel.PageCount)
+                    if (page <= 1 || page >= pageCount)
                         throw new InvalidDataException(
                             $"Long-value usage map names page {page}, outside the physical reusable range.");
                     result.Add(page);
@@ -894,8 +931,9 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
         // TODO(non-unique-index-stats): a non-unique index's unique-entry count must advance only
         // when the inserted key is genuinely new (Access's cumulative-distinct semantics), which
-        // needs a probe of the existing keys. LibRed only creates unique (PK) indexes today, so we
-        // handle just those; extend this when secondary/non-unique indexes are supported.
+        // needs a probe of the existing keys. Only unique indexes advance it today — and LibRed does
+        // create non-unique ones (every FK backing index is one, and CREATE INDEX without UNIQUE),
+        // so this gap applies to the majority of indexes written, not to none of them.
         foreach (IndexDef index in _table.Indexes)
         {
             if (!index.IsUnique) continue;

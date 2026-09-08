@@ -103,6 +103,41 @@ public class SqlTransactionControlTests : TempDatabaseTest
         }
     }
 
+    // The mirror of the test above, and the one that was silently wrong: the ADO handle is the OUTER scope and
+    // a batch pushes a SQL BEGIN inside it that nothing closes. Committing the ADO transaction has to unwind
+    // to the depth it opened at, not one level — releasing only the stray inner savepoint retired the handle
+    // while leaving the real transaction open, so Close's RollbackAll then threw the committed work away and
+    // reported nothing. Committed data surviving the connection is the whole contract of Commit.
+    [Fact]
+    public void Ado_commit_survives_a_stray_sql_begin_inside_it()
+    {
+        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "txnctl-stray-");
+        using (var connection = new LibRedConnection($"Data Source={path}"))
+        {
+            connection.Open();
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "CREATE TABLE t (id LONG PRIMARY KEY)";
+                command.ExecuteNonQuery();
+            }
+
+            using var transaction = connection.BeginTransaction();
+            using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText = "BEGIN TRANSACTION; INSERT INTO t (id) VALUES (1)";
+                command.ExecuteNonQuery();
+            }
+            transaction.Commit();
+        }
+
+        using var reopened = new LibRedConnection($"Data Source={path}");
+        reopened.Open();
+        using var count = reopened.CreateCommand();
+        count.CommandText = "SELECT COUNT(*) FROM t";
+        Assert.Equal(1, Convert.ToInt32(count.ExecuteScalar()));
+    }
+
     [Fact]
     public void Sql_commit_completes_the_active_ado_handle()
     {

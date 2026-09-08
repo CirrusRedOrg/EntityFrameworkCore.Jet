@@ -298,6 +298,13 @@ public abstract class JetFormatBase
     public static JetFormatBase Detect(Stream stream)
     {
         Span<byte> header = stackalloc byte[EngineVersionOffset + EngineVersionLength]; // through the 0x9C engine string
+        // An empty or truncated file is not a database, and saying so here keeps the whole open path on one
+        // exception contract — without this ReadExactly raises EndOfStreamException, which derives from
+        // IOException and so shares no catchable base with the InvalidDataException everything else throws.
+        if (stream.Length < header.Length)
+            throw new InvalidDataException(
+                $"The file is {stream.Length} bytes, too short to contain a Jet/ACE page-0 header ({header.Length} bytes).");
+
         long original = stream.Position;
         try
         {

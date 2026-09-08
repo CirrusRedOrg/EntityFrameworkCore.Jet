@@ -112,8 +112,8 @@ omits. Reconstruct: `fullEntry = prefix ++ stored`.
 > Two wrong readings preceded this, both from end state rather than transitions. "LibRed compresses where
 > ACE does not" came from a single leaf that had never filled. "ACE recomputes on split and keeps the value
 > while appending" was implemented and falsified: pages then fill uncompressed and split without ever being
-> compressed, giving 4 leaves and 11,820 bytes against ACE's 3 and 11,334. `IndexPrefixTransitionProbeTests`
-> is the measurement; `IndexSplitPackingAccessTests` asserts the result.
+> compressed, giving 4 leaves and 11,820 bytes against ACE's 3 and 11,334. `IndexSplitPackingAccessTests`
+> asserts the result. (The transition probe that produced the measurement was not kept.)
 
 ### 10.4 Key encoding (order-preserving)
 
@@ -140,8 +140,12 @@ Non-boolean columns are prefixed by a **flag byte**:
 
 Then the value, transformed:
 
-- **Integers** (Byte/Int16/Int32) and **Currency** (int64): big-endian, with the **sign bit of
+- **Integers** (Int16/Int32) and **Currency** (int64): big-endian, with the **sign bit of
   the first byte flipped**. Descending additionally inverts all bytes. (Decode reverses this.)
+- **Byte**: the raw byte, with **no** sign flip — Jet's `BYTE` is unsigned, so flipping would sort 128–255
+  before 0–127. Verified against ACE over 0, 1, 127, 128, 200 and 255 on an indexed `BYTE` column: LibRed's
+  keys match ACE's exactly. (This entry previously listed Byte alongside Int16/Int32 as sign-flipped, which
+  was wrong.)
 - **Single / Double / DateTime** (IEEE): if non-negative, flip the first bit; if negative,
   invert all bytes (ascending). Decode: first byte's top bit set ⇒ was positive (un-flip);
   else ⇒ was negative (invert all). DateTime is the resulting double via the OLE epoch.
@@ -297,7 +301,8 @@ Then the value, transformed:
 > table plus the measured overrides — see `tools/sortkey-table/generate.ps1`), sharing `JetKanaSection`.
 > **Both now cover the whole Basic Multilingual Plane**: 63,422 characters each, every key byte-for-byte
 > what ACE stores, nothing refused and nothing left unhandled (`Probe_full_bmp_coverage`, needs
-> `LIBRED_FULL_BMP`). Other locales are still refused under v1.
+> `LIBRED_FULL_BMP`). Other locales are **not** refused under v1: the six orders with a version-1 table are
+> tailored, and every other LANGID falls back to General v1 (see §10.4's collation list).
 >
 > **Above the BMP** the two orders disagree completely, measured over all of planes 1 and 2 and sampled across
 > all sixteen. **v0 ignores astral characters entirely** — every one gets the empty key `7F 01 00`, so under
@@ -324,37 +329,53 @@ prefix still sort apart instead of colliding.
 
 #### The checksum
 
-Recovered by measurement. Three tails differing in one byte show the function is **affine over GF(2)** —
-`L(0xA3) = CA03`, `L(0x13) = 6980`, `L(0xB0) = A383`, and `CA03 ^ 6980 = A383` exactly — and it is
-**shift-invariant** across 173 observations, so a byte at distance *d* from the end contributes `S^(d-1)` of
-itself whatever the message length. Sweeping all 65,536 polynomials in five framings found nothing, because
-the framing is the unusual part: the standard reflected update is `crc = (crc >> 8) ^ T[(crc ^ b) & 0xFF]`,
-passing the byte **through** the table, while ACE computes
+A 16-bit fold over the **discarded run** — every byte from offset 508 to the end of the untruncated key —
+stored big-endian in the last two bytes. Each byte is XORed into the **high** half and the state is then
+folded; the fold happens *between* bytes, so the last byte of the run contributes its XOR and nothing else:
 
 ```
 crc = 0
-for each dropped byte b, except the terminator:
-    crc = (crc >> 8) ^ T[crc & 0xFF] ^ b        // b injected RAW, not through T
+for each byte b of the discarded run:
+    crc ^= b << 8
+    if b is not the last:  crc = (crc >> 8) ^ T[crc & 0xFF]
 ```
 
-with no initial value and no final XOR. The step's table, solved by Gaussian elimination over the measured
-contributions and predicting all 657 of them, is
+with no initial value and no final XOR. The step table is
 
 ```
 T[1<<i] = 0580 0F80 1B80 3380 6380 C380 8381 0383      (i = 0..7)
 ```
 
-The terminator is excluded: running it would advance every other byte one step further. It is `0x00` anyway,
-and a linear map sends zero to zero.
+Note the framing rather than the polynomial is the unusual part: a standard reflected CRC updates as
+`crc = (crc >> 8) ^ T[(crc ^ b) & 0xFF]`, passing the byte **through** the table. Sweeping all 65,536
+polynomials in five conventional framings found nothing, which is what pointed at the framing.
 
-LibRed reproduces this (`JetIndexKeyChecksum`), so a long value is truncated exactly as ACE truncates it
-rather than refused — verified against ACE at and past the boundary for Latin, accented and Han text under
-both sort orders.
+The table is not a guess either. The function is **affine over GF(2)** — three tails differing in one byte
+give `L(0xA3) = CA03`, `L(0x13) = 6980`, `L(0xB0) = A383`, and `CA03 ^ 6980 = A383` exactly — and
+**shift-invariant** across 173 observations, so a byte at distance *d* from the end contributes `S^(d-1)` of
+itself whatever the message length. That makes the eight rows above solvable by Gaussian elimination over the
+measured contributions, and the solution predicts all 657 of them.
 
-**One case is still refused:** where the dropped bytes contain an inline word-sort record. It cannot be
-verified even in principle, because the record sits in the part ACE discarded and what it held is
-unobservable; if ACE recomputes its position when truncating, the checksum's input is not what LibRed
-reconstructs. Guessing there would write a silently wrong key.
+Equivalently, and how `JetIndexKeyChecksum` implements it: fold every byte but the last in the form
+`crc = (crc >> 8) ^ T[crc & 0xFF] ^ b`, then XOR the last byte's `b << 8` into the result. The two are the
+same function — verified over 12,800 random inputs at every length from 1 to 64 bytes.
+
+**The discarded run is 3 bytes at minimum** (truncation triggers only above 510, and the run is
+`length − 508`), and the rule is keyed to the run's *last byte*, not to a fixed offset in the key: measured
+over runs of 3 through 13 bytes, from keys of 511 to 521 bytes.
+
+Verified against ACE for Latin, accented and Han text under both sort orders; for composite keys ending in
+`LONG`, `CURRENCY` and `DOUBLE`; and for keys whose dropped bytes contain an inline **word-sort record** —
+ACE does not reposition that record when truncating, so it reconstructs exactly (measured at eight positions
+for each of the hyphen and apostrophe). **Nothing is refused**; every key past the cap is truncated the way
+ACE truncates it.
+
+> The "fold between bytes" framing matters, and is easy to get wrong in a way no all-text test can catch.
+> Writing the loop as "fold every byte except the last" — reading the skipped byte as the text terminator —
+> gives the identical answer whenever that byte is `0x00`, which it always is when the key ends in text. The
+> two readings part company the moment the last key column is numeric. See
+> [`docs/design/index-key-checksum.md`](../design/index-key-checksum.md) for how that was found and what it
+> cost.
 
 The cap is on the **whole entry, not per column**: two 200-character text columns weigh about 404 bytes of
 key each, comfortably under the cap individually, and ACE stores their combined entry hashed at 510.
@@ -867,16 +888,17 @@ this is the practical cost of General over General Legacy, invisible in the sche
   sequence."*, and they are exactly the three already implemented at version 1.
 
   > **Everything above is checked by creation, not just by the survey.** `CreatedDatabaseCollationAccessTests`
-  > enumerates `CollatingOrder` and takes every combination `IsIndexKeyEncodable` accepts — **404** of them —
+  > enumerates `CollatingOrder` and takes every combination `IsIndexKeyEncodable` accepts — **405** of them
+  > (399 at version 0 plus the six orders with a version-1 table) —
   > has LibRed synthesise a database in that order, then has ACE open it, build an index and write keys, and
   > requires the two engines' keys to match byte for byte. So a wrong LCID in the set does not pass quietly:
   > ACE would index with whatever order that LCID really names, and the keys would part company.
 
-  *Not yet handled:* **Irish 1084**, the one order the survey could not measure; the **CJK** orders,
-  deliberately out of scope; and the rest of the **version-1** surface. Five version-1 collations are
-  implemented — General v1, Indic v1, and Croatian / Bosnian / Serbian v1 sharing one table — but no sweep
-  has covered the others, because DAO writes version 0 for every LANGID it accepts, so measuring v1 needs a
-  different authoring route entirely.
+  *Not yet handled:* **Irish 1084**, the one order the survey could not measure, and the **CJK** orders,
+  deliberately out of scope. **Six** version-1 collations are implemented — General v1, Indic v1, Romanian v1,
+  and Croatian / Bosnian / Serbian v1 sharing one table — and the version-1 surface is now swept: those six
+  are the only non-CJK orders that differ from General v1, so the rest are covered by falling back to it.
+  Measuring v1 needed an authoring route other than DAO, which writes version 0 for every LANGID it accepts.
 
   > This paragraph said "characters outside ASCII + the accented Latin-1 set; every locale other than
   > General" for a long time after both had been done — it was written when they were true and never

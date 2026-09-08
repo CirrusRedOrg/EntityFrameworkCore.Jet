@@ -67,8 +67,16 @@ public sealed class DatabaseDefinitionPage : Page
         DefaultCollationSortId = clear[Formats.JetFormatBase.CollationSortIdOffset - b];
         DefaultCollationVersion = clear[Formats.JetFormatBase.CollationVersionOffset - b];
         CatalogRootPage = BinaryPrimitives.ReadInt32LittleEndian(clear.Slice(Formats.JetFormatBase.CatalogRootPointerOffset - b, 4));
+        // An OLE Automation date, so it is decoded by the OA function rather than by hand: the two disagree
+        // below the epoch, where OA keeps the time fraction positive (-1.25 is 1899-12-29 06:00, not
+        // 1899-12-28 18:00). And the value comes straight off page 0, so a NaN, an infinity or anything past
+        // DateTime.MaxValue is corruption in the very first thing an open does — reported as such, rather than
+        // escaping as ArgumentOutOfRangeException from inside AddDays.
         double days = BinaryPrimitives.ReadDoubleLittleEndian(clear.Slice(Formats.JetFormatBase.CreationDateOffset - b, 8));
-        DatabaseCreationDate = OleAutomationEpoch.AddDays(days);
+        if (!double.IsFinite(days) || days <= MinOleAutomationDate || days >= MaxOleAutomationDate)
+            throw new InvalidDataException(
+                $"Page 0's creation date ({days}) is not a valid OLE Automation date.");
+        DatabaseCreationDate = DateTime.FromOADate(days);
     }
 
     /// <summary>XOR-de-obfuscates the page-0 header region into <paramref name="clear"/>, whose length
@@ -82,6 +90,8 @@ public sealed class DatabaseDefinitionPage : Page
             clear[i] = (byte)(page[start + i] ^ mask[i]);
     }
 
-    /// <summary>The OLE automation date epoch: 1899-12-30.</summary>
-    private static readonly DateTime OleAutomationEpoch = new(1899, 12, 30);
+    // The range DateTime.FromOADate accepts, checked before the call so a corrupt page 0 reports as corruption
+    // rather than as an argument error. Its own documented bounds: 0100-01-01 through 9999-12-31.
+    private const double MinOleAutomationDate = -657435.0;
+    private const double MaxOleAutomationDate = 2958466.0;
 }

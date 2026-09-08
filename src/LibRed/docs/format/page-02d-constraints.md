@@ -21,15 +21,18 @@ insert/delete/insert sequence and against saved Northwind tables:**
   `total == rowCount` (Categories 8, Orders 830, Order Details 2155) precisely because they were
   compacted; a freshly SQL-inserted table reads `total == 0` while `rowCount` climbs. A writer
   should therefore **leave `+0` at `0`** on insert (LibRed does), not set it to the row count —
-  doing so would falsely mark the file as compacted.
+  doing so would falsely mark the file as compacted. One exception, measured: ACE's **index rebuild**
+  does bump `+0` (observed 0 → 1), and LibRed reproduces that in `TableCreator` — so "leave it at 0"
+  is a rule about the INSERT path, not about every writer.
 - **Unique entry count (`+4`) *is* maintained live and is cumulative** — Access increments it per
   insert and **never decrements** it. Verified: after 3 inserts it is `3`; after deleting a row it
   stays `3` (not decremented); after one more insert it is `4`. It equals the current
   distinct-value count only with no deletions. A **unique** index gains one distinct key per row,
   so a writer increments `+4` by one per insert per unique index (LibRed does this in
   `RowInserter`). A **non-unique** index should advance `+4` only when the inserted key is
-  genuinely new — not yet handled (LibRed creates only unique indexes; see the
-  `TODO(non-unique-index-stats)` marker). LibRed exposes `+4` as `IndexDef.UniqueEntryCount`.
+  genuinely new — not yet handled (see the `TODO(non-unique-index-stats)` marker). This applies to
+  **most** indexes LibRed writes, not none: every FK backing index is non-unique, as is any
+  `CREATE INDEX` without `UNIQUE`. LibRed exposes `+4` as `IndexDef.UniqueEntryCount`.
 
 
 ### 3.5 Index-data block (52 bytes)
@@ -137,7 +140,7 @@ isolation: 33 plain indexes push both counts to 33 together.
 | `0x0D` | 4 | Foreign-key index number: the `index_num` (`0x04`) of the **matching logical block on the other table**; `0xFFFFFFFF` when not a relationship |
 | `0x11` | 4 | Foreign-key table page (the *other* table's TDEF page; non-zero ⇒ a relationship index) |
 | `0x15` | 1 | Update action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade update |
-| `0x16` | 1 | Delete action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade delete |
+| `0x16` | 1 | Delete action: `0x04` plain index; on a relationship `0x00` = no cascade, `0x01` = cascade delete, `0x02` = **`ON DELETE SET NULL`** (verified vs ACE) |
 | `0x17` | 1 | Index type: `0x00` = plain secondary, `0x01` = primary, `0x02` = foreign/relationship |
 | `0x18` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 28-byte block |
 
@@ -153,8 +156,15 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > `index_num2` → its referenced-key (PK) data block, `0x0C = 0x01` (incoming), `0x11` = child page,
 > `0x17 = 0x02`, name = an auto-generated hidden `.r?` name. The two ends cross-reference: each block's
 > `0x0D` holds the other block's `index_num` (`0x04`). Logical blocks are stored **sorted by name**;
-> `index_num` is assigned in creation order (a table's own indexes first, then relationships as added —
-> so a parent's Nth incoming relationship gets `index_num` = its logical count before the insert).
+> `index_num` is assigned in creation order (a table's own indexes first, then relationships as added). Take
+> the next number as **`max(index_num) + 1`**, not as the logical block count: dropping a relationship removes
+> a block *without* renumbering the survivors' `index_num` (only their data ordinals shift), so after any
+> `DROP CONSTRAINT` the count sits below the max and a count-derived number collides with a live block —
+> leaving two blocks claiming the number each end's `0x0D` cross-link names.
+>
+> The parent key must be a **unique or primary** index over the referenced columns. Measured: over a plain
+> non-unique index ACE refuses the relationship — *"No unique index found for the referenced field of the
+> primary table"* — while the same shape over a `PRIMARY KEY` succeeds.
 > Cascade `ON UPDATE`/`ON DELETE` set `0x15`/`0x16` to `0x01` on **both** ends' blocks.
 >
 > **Self-reference** (a table whose FK targets itself): both ends live in the **one** TDEF, each with

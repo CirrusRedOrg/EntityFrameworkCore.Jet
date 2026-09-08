@@ -79,6 +79,10 @@ public static class JetTypeCodec
     /// <c>time</c> is the count of 100-ns ticks within the day. Both are zero-padded to 19
     /// digits so that byte order equals chronological order.
     /// </summary>
+    /// <remarks>The 42-byte width is checked by the caller; the CONTENT is checked here. Every field comes off
+    /// the row, so a damaged value must report as corruption like every other type, not escape as whatever
+    /// primitive happens to fail first — a missing colon gave <c>s[..-1]</c>, a non-digit gave FormatException,
+    /// and a plausible day number overflowed the tick multiply or the DateTime constructor.</remarks>
     private static DateTime DecodeExtendedDateTime(ReadOnlySpan<byte> value)
     {
         Span<char> chars = stackalloc char[value.Length];
@@ -86,9 +90,19 @@ public static class JetTypeCodec
         ReadOnlySpan<char> s = chars[..n];
 
         int c1 = s.IndexOf(':');
-        int c2 = s.Slice(c1 + 1).IndexOf(':') + c1 + 1;
-        long day = long.Parse(s[..c1]);
-        long time = long.Parse(s.Slice(c1 + 1, c2 - c1 - 1));
+        int c2 = c1 < 0 ? -1 : s[(c1 + 1)..].IndexOf(':') + c1 + 1;
+        if (c1 < 0 || c2 <= c1)
+            throw new InvalidDataException(
+                $"A Date/Time Extended value must be \"<day>:<time>:<precision>\"; found \"{s}\".");
+
+        if (!long.TryParse(s[..c1], out long day) ||
+            !long.TryParse(s.Slice(c1 + 1, c2 - c1 - 1), out long time))
+            throw new InvalidDataException($"A Date/Time Extended value has non-numeric fields: \"{s}\".");
+
+        if (day < 0 || day > DateTime.MaxValue.Ticks / TimeSpan.TicksPerDay ||
+            time < 0 || time >= TimeSpan.TicksPerDay)
+            throw new InvalidDataException(
+                $"A Date/Time Extended value is out of range (day {day}, time {time}).");
 
         return new DateTime(day * TimeSpan.TicksPerDay + time);
     }
@@ -231,7 +245,17 @@ public static class JetTypeCodec
             case JetDataType.Currency:
                 return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, (long)decimal.Round(Convert.ToDecimal(value, c) * 10000m)));
             case JetDataType.Guid:
-                return ((Guid)value).ToByteArray();
+                // Coerced, not cast: every other type here accepts what the caller has (AsText, AsBinary, ToOaDate,
+        // Convert.To*), and TableCreator.ConvertValue already parses a string GUID on the ALTER path. A hard
+        // cast turned a string reaching a GUID column into an InvalidCastException with no column named.
+        return (value switch
+        {
+            Guid g => g,
+            byte[] b when b.Length == 16 => new Guid(b),
+            string s when Guid.TryParse(s, out Guid parsed) => parsed,
+            _ => throw new NotSupportedException(
+                $"Cannot store {value.GetType().Name} in GUID column '{column.Name}'."),
+        }).ToByteArray();
             case JetDataType.Text:
                 return EncodeText(column, AsText(value, c));
             case JetDataType.Binary:
@@ -337,10 +361,26 @@ public static class JetTypeCodec
 
         byte[] text = Encoding.Unicode.GetBytes(value);
         if (!column.IsFixedLength) return text;
+        EnsureFitsFixedWidth(column, text.Length, value.Length);
         var padded = new byte[column.Length];
         for (int i = 0; i < column.Length; i += 2) padded[i] = 0x20; // UTF-16LE space (0x20 0x00)
         Array.Copy(text, padded, Math.Min(text.Length, column.Length));
         return padded;
+    }
+
+    /// <summary>Rejects a value too wide for a FIXED text/binary column, before the padding below would hide it.
+    /// The padding exists for the short case — ACE stores fixed text space-padded to the full width — but it
+    /// truncates the long case just as silently, so <c>CHAR(3)</c> accepted 'abcdef' and stored 'abc' while the
+    /// variable column of the same width raised. Same message and units as the variable-width check in
+    /// <c>RowEncoder</c>, because to a caller it is the same mistake.</summary>
+    internal static void EnsureFitsFixedWidth(ColumnDef column, int encodedLength, int declaredUnits)
+    {
+        if (encodedLength <= column.Length) return;
+        bool text = column.Type == JetDataType.Text;
+        throw new InvalidOperationException(
+            $"The field '{column.Name}' is too small to accept the amount of data you attempted to add: "
+            + $"{declaredUnits} {(text ? "characters" : "bytes")} into a column declared to hold "
+            + $"{(text ? column.Length / 2 : column.Length)}.");
     }
 
     /// <summary>Encodes binary. A fixed-length (BINARY) column is **zero-padded** (or truncated) to its byte
@@ -348,6 +388,7 @@ public static class JetTypeCodec
     private static byte[] EncodeBinary(ColumnDef column, byte[] value)
     {
         if (!column.IsFixedLength || value.Length == column.Length) return value;
+        EnsureFitsFixedWidth(column, value.Length, value.Length);
         var padded = new byte[column.Length];
         Array.Copy(value, padded, Math.Min(value.Length, column.Length));
         return padded;

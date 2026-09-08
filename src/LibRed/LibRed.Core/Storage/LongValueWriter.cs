@@ -111,6 +111,18 @@ public sealed class LongValueWriter(PageChannel channel)
             throw new InvalidDataException($"LVAL append target {pageNumber} is not owned by the LVAL store.");
 
         int rowCount = parsed.RowCount;
+        // A long-value descriptor addresses its row with a ONE-BYTE field (Descriptor writes `d[4] = (byte)row`),
+        // exactly as an index entry addresses a data row — so the same 256-slot ceiling applies, and passing it
+        // would alias one value's descriptor onto another's row with no error. Today it is unreachable: a
+        // payload of 64 bytes or less inlines and never arrives here, and a page leaves the free-pages map once
+        // it has under MinLvalRow bytes left, which caps a page at roughly 108 rows even for the smallest thing
+        // that can reach it (a 33-character memo compressed to 35 bytes — compression is applied AFTER the
+        // inline test, so the floor is lower than the 65-byte inline limit suggests). That margin is emergent,
+        // not stated: it moves if the inline limit or the free-map threshold changes. Refusing the page here
+        // costs nothing and makes the ceiling structural — the caller allocates a fresh page, as it does when
+        // the page is out of room.
+        if (rowCount >= RowPointer.MaxRowsPerPage) return null;
+
         int lowest = parsed.Rows.Count == 0 ? format.PageSize : parsed.Rows.Min(r => r.Offset);
         int directoryEnd = format.DataRowDirectoryOffset + rowCount * 2;
         int physicalFree = lowest - directoryEnd;

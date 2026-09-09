@@ -111,6 +111,12 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
         PageBuffer tdef = _channel.ReadPage(_table.DefinitionPage);
         int mapRow = tdef.ReadByte(pointerOffset);
         int mapPage = tdef.ReadInt24(pointerOffset + 1);
+        // Both halves of the pointer come out of the TDEF, so both are corruption when wrong. Unchecked, the
+        // page number reached the channel as an out-of-range read and the row number reached GetRow as an
+        // index; the long-value map's equivalent pointer is validated the same way in RowInserter.MapPages.
+        if (mapPage <= 1 || mapPage >= _channel.PageCount)
+            throw new InvalidDataException(
+                $"Usage-map pointer names page {mapPage}, outside the file's 2..{_channel.PageCount - 1} range.");
 
         var holder = new DataPage();
         holder.Read(_channel.ReadPage(mapPage), format);
@@ -127,7 +133,7 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
         };
     }
 
-    private static List<int> ReadInlineMap(ReadOnlySpan<byte> map)
+    private List<int> ReadInlineMap(ReadOnlySpan<byte> map)
     {
         if (map.Length < 5)
             throw new InvalidDataException("An inline usage-map record must contain its 5-byte header.");
@@ -177,15 +183,32 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
         return page[BitmapPageHeaderSize..];
     }
 
-    private static void AppendSetBits(List<int> pages, ReadOnlySpan<byte> bitmap, int basePage)
+    /// <summary>Expands a bitmap's set bits into page numbers, rejecting any that cannot exist in this file.
+    /// The base page comes out of the map record, so an unchecked expansion turns corrupt bytes into ownership
+    /// data — and these lists feed straight into page reads (TableCursor, FindPageWithRoom), where a bad number
+    /// would surface as an out-of-range or end-of-stream error instead. The long-value map's twin of this loop
+    /// in RowInserter already range-checks; this is the same check.</summary>
+    private void AppendSetBits(List<int> pages, ReadOnlySpan<byte> bitmap, int basePage)
     {
+        // Read the bound ONCE. Outside a transaction PageChannel.PageCount is a file-length syscall (inside one
+        // it is a cached field), and this loop runs per set bit on every insert — so testing it per bit made a
+        // non-transactional insert ~1.9x slower while leaving the transactional path untouched, which is what
+        // made the cost so easy to miss. Nothing in the loop writes, so the count cannot move under it.
+        int pageCount = _channel.PageCount;
+
         for (int i = 0; i < bitmap.Length; i++)
         {
             byte b = bitmap[i];
             if (b == 0) continue;
             for (int bit = 0; bit < 8; bit++)
-                if ((b & (1 << bit)) != 0)
-                    pages.Add(basePage + i * 8 + bit);
+            {
+                if ((b & (1 << bit)) == 0) continue;
+                long page = (long)basePage + i * 8 + bit;
+                if (page <= 1 || page >= pageCount)
+                    throw new InvalidDataException(
+                        $"A usage map names page {page}, outside the file's 2..{pageCount - 1} range.");
+                pages.Add((int)page);
+            }
         }
     }
 }

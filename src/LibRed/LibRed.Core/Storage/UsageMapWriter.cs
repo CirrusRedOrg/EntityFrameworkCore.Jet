@@ -61,6 +61,12 @@ public sealed class UsageMapWriter(PageChannel channel)
         byte[] page = _channel.ReadPage(mapPage).Span.ToArray();
         var holder = new DataPage();
         holder.Read(_channel.ReadPage(mapPage), format);
+
+        // mapRow comes from a TDEF pointer, i.e. out of the file. The readers of this same pointer all
+        // bounds-check it and report corruption; this writer indexed the slot list bare, so a malformed
+        // pointer escaped as ArgumentOutOfRangeException from a write path instead.
+        if (mapRow < 0 || mapRow >= holder.RowCount)
+            throw new InvalidDataException($"Usage-map row {mapPage}:{mapRow} does not exist.");
         int mapOffset = holder.Rows[mapRow].Offset;
 
         if (page[mapOffset] == ReferenceMapType)
@@ -68,6 +74,16 @@ public sealed class UsageMapWriter(PageChannel channel)
             SetReferenceBit(page, mapPage, mapOffset, targetPage, set);
             return;
         }
+
+        // Anything that is neither type byte is corruption, not an inline map. Falling through treated it as
+        // inline and read the next four bytes as a start page — mangling the record in place, so the eventual
+        // complaint came from a reader at a different call site. Both readers reject an unknown type.
+        if (page[mapOffset] != InlineMapType)
+            throw new InvalidDataException(
+                $"Usage map at {mapPage}:{mapRow} has unknown type 0x{page[mapOffset]:X2}.");
+        if (holder.Rows[mapRow].Length < InlineMapHeaderSize)
+            throw new InvalidDataException(
+                $"Inline usage map at {mapPage}:{mapRow} is {holder.Rows[mapRow].Length} bytes, too short for its header.");
 
         int startPage = BinaryPrimitives.ReadInt32LittleEndian(page.AsSpan(mapOffset + 1, 4));
         int bitmapBits = (holder.Rows[mapRow].Length - InlineMapHeaderSize) * 8;
@@ -190,9 +206,26 @@ public sealed class UsageMapWriter(PageChannel channel)
         SetBitmapPageBit(bitmapPage, targetPage % PagesPerBitmapPage, set);
     }
 
+    /// <summary>Flips one bit on a dedicated bitmap page, after proving the page IS one.</summary>
+    /// <remarks>
+    /// The pointer comes out of the map record, i.e. out of the file. All three readers of this same pointer
+    /// verify the page is in range and carries the complete <c>[05 01 00 00]</c> bitmap header before trusting
+    /// it — the spec states that validation as mandatory "before any bitmap is expanded into page numbers".
+    /// The writer skipped both, so a stale or corrupt in-range pointer had it OR a bit into an ordinary data,
+    /// TDEF or index page and write it back. The readers then reject that same pointer, meaning the damage
+    /// landed on a different page from the one eventually diagnosed.
+    /// </remarks>
     private void SetBitmapPageBit(int bitmapPage, int bit, bool set)
     {
+        if (bitmapPage <= 1 || bitmapPage >= _channel.PageCount)
+            throw new InvalidDataException(
+                $"Usage map names bitmap page {bitmapPage}, outside the file's 2..{_channel.PageCount - 1} range.");
+
         byte[] bitmap = _channel.ReadPage(bitmapPage).Span.ToArray();
+        if (bitmap[0] != (byte)PageType.PageUsageBitmap || bitmap[1] != 0x01 || bitmap[2] != 0 || bitmap[3] != 0)
+            throw new InvalidDataException(
+                $"Page {bitmapPage} is named as a usage bitmap but does not carry the [05 01 00 00] header.");
+
         int byteIndex = BitmapPageHeaderSize + bit / 8;
         byte mask = (byte)(1 << (bit % 8));
         if (set) bitmap[byteIndex] |= mask;
@@ -269,7 +302,7 @@ public sealed class UsageMapWriter(PageChannel channel)
     /// bitmap once it spans past the current window. Records keep their directory order (row 0 nearest the
     /// page end). Returns the rewritten page and the record's new offset, or <see langword="null"/> if the
     /// record no longer fits the page.</summary>
-    private static byte[]? ReplaceMapRecord(byte[] page, DataPage holder, JetFormatBase format, int mapRow, byte[] newRecord, out int newOffset)
+    internal static byte[]? ReplaceMapRecord(byte[] page, DataPage holder, JetFormatBase format, int mapRow, byte[] newRecord, out int newOffset)
     {
         int rowCount = holder.Rows.Count;
         var records = new byte[rowCount][];
@@ -290,7 +323,15 @@ public sealed class UsageMapWriter(PageChannel channel)
         {
             offset -= records[i].Length;
             Array.Copy(records[i], 0, result, offset, records[i].Length);
-            BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(format.DataRowDirectoryOffset + i * 2, 2), (ushort)offset);
+            // Carry each slot's flags across, not just its offset. A usage-map page can hold the deleted +
+            // overflow tombstone that the index-rebuild recycle deliberately leaves behind (RecycleOwnedMapRow,
+            // reproduced byte-for-byte from ACE); rebuilding the entry from the offset alone cleared those two
+            // bits and turned that tombstone back into a live zero-length record. The data-page repacker in
+            // RowInserter preserves them explicitly for the same reason.
+            ushort slotFlags = (ushort)((holder.Rows[i].IsDeleted ? RowPointer.DeletedFlag : 0)
+                                        | (holder.Rows[i].HasOverflow ? RowPointer.OverflowFlag : 0));
+            BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(format.DataRowDirectoryOffset + i * 2, 2),
+                (ushort)(slotFlags | (offset & RowPointer.OffsetMask)));
             if (i == mapRow) newOffset = offset;
         }
 

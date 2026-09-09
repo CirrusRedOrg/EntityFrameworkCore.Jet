@@ -106,4 +106,12 @@ internal interface IScalarSubqueryRunner
     ///     should fall back to <see cref="ExecuteColumn" />.
     /// </summary>
     (bool Found, bool HasNull)? ExecuteInSubquery(SqlStatement query, Expression value, object? evaluated, EvalScope outerScope);
+
+    /// <summary>
+    ///     Membership of <paramref name="value" /> in an <b>uncorrelated</b> subquery's already-hoisted column,
+    ///     answered from a hash set built once instead of by walking the hoisted list for every outer row.
+    ///     Null when no set applies — the body was not hoisted, its values are of mixed kinds, or the probe is of
+    ///     a different kind from them — and the caller then scans <see cref="ExecuteColumn" />'s values as before.
+    /// </summary>
+    (bool Found, bool HasNull)? LookupHoistedIn(SqlStatement query, object value);
 }

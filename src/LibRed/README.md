@@ -164,9 +164,9 @@ which is a different job.
     last operand; an operand carries its own ordering only when parenthesised. ACE silently accepts and then
     ignores an operand's `ORDER BY`, which is a wrong-answer bug rather than an error.
 - **ADO.NET** — connection / command / reader / parameter / transaction / factory over the engine.
-  Transactions commit/roll back for real via a page-level undo log in `PageChannel` (snapshot pages on
-  first write, restore on rollback, truncate pages the txn allocated) — this is what gives EF Core's
-  shared-database functional tests their per-test isolation.
+  Transactions commit/roll back for real via a deferred-write page overlay in `PageChannel` (writes are
+  buffered per transaction and materialise on commit; rollback discards the overlay, so nothing partial ever
+  reaches disk) — this is what gives EF Core's shared-database functional tests their per-test isolation.
 - **EF Core** — the `LibRed.EFCore` provider (`AddEntityFrameworkLibRed` / `UseLibRed`) over `LibRed.Ado`
   and `EntityFrameworkCore.Jet.Common`, in two SQL modes. Beyond query round-trips and database-first
   scaffolding (`LibRed.EFCore.Tests`), it runs EF Core's own **specification suite** in both modes —
@@ -179,10 +179,12 @@ generated-AutoNumber `@@IDENTITY` round-trip up through Engine → Ado → EFCor
 surface (unblocking cyclic/self-referencing FKs EF emits as a separate operation) and
 `DROP {TABLE|INDEX|VIEW|PROCEDURE}`; `CREATE PROCEDURE` / `EXECUTE`; foreign-key **enforcement + cascade /
 set-null** referential actions on `UPDATE`/`DELETE`; leaf/node B-tree splitting with root growth;
-**transactions** (real commit/rollback via a page-level undo log — see above); the **locale text
+**transactions** (real commit/rollback via a deferred-write page overlay — see above); the **locale text
 collations**, which were listed here as encodable for the two General orders only; the **ACE 16/17 types**
-`BIGINT` and `DATETIME2` with the format auto-upgrade; and `INSERT INTO … SELECT` plus `SELECT … INTO`,
-which the grammar previously had no form for.
+`BIGINT` and `DATETIME2` with the format auto-upgrade; `INSERT INTO … SELECT` plus `SELECT … INTO`,
+which the grammar previously had no form for; **composite index keys**, now byte-verified against a
+five-column mixed-type, mixed-direction index ACE itself built (`CompositeIndexOrderingAccessTests`); and
+**writing** encryption in every scheme LibRed reads.
 
 **Not yet.** (Format-level details of each on-disk gap live in `docs/format/`; this is the working
 worklist. Much of the earlier "not yet" list is now done — the whole of `ALTER TABLE`
@@ -192,9 +194,6 @@ LibRed-side `CHECK` enforcement, self-pointing self-references, and writing Memo
 
 *On-disk / write gaps:*
 
-- **Composite index key encoding** — single-column keys are byte-verified vs ACE; a genuine
-  **multi-column** key is not (no column separator confirmed — Northwind's only composite is usually
-  empty). Verify against a created composite-key `.accdb` before relying on it.
 - **`ON UPDATE SET NULL`** — pathway threaded but throws; its Jet storage bytes are unverified because the
   ACE OLE DB provider rejects the DDL (needs a UI/DAO-created sample to probe). `ON DELETE SET NULL` and
   both `CASCADE` directions work.
@@ -202,15 +201,26 @@ LibRed-side `CHECK` enforcement, self-pointing self-references, and writing Memo
   1:many in Access (the unique index still enforces uniqueness). Probe a real 1:1's `grbit` first.
 - **Computed / calculated columns** (ACE 14) — the evaluation half exists; the gap is the on-disk
   TDEF/`LvProp` storage of the expression (and persisted-vs-virtual semantics).
-- **`LvProp` properties not modelled** — `ValidationRule`/`ValidationText` (UI-authored validation,
-  distinct from a SQL `CHECK`), `AllowZeroLength`, and `UnicodeCompression` (storage-affecting). Column-level
-  `CHECK` persistence is likewise unprobed (its ACE storage differs).
+- **`ValidationRule`/`ValidationText` are read but not enforced** — UI-authored validation, distinct from a
+  SQL `CHECK`. `JetCatalog` parses both off the property blob and `INFORMATION_SCHEMA` reports them, and they
+  survive a rewrite; what is missing is evaluation, so a row violating an Access-authored validation rule is
+  accepted where ACE would refuse it. Note the asymmetry is invisible at the call site: `CheckConstraints`
+  comes from the same blob, read by the same code, and *is* enforced.
+- **`LvProp` properties not modelled** — `AllowZeroLength` and `UnicodeCompression` (storage-affecting).
+  Column-level `CHECK` persistence is likewise unprobed (its ACE storage differs).
 - **`DROP TABLE` leaks until Compact** — multi-page TDEFs, non-root index pages, LVAL pages, and dedicated
   usage-map pages aren't freed; byte-faithful **child-in-relationship** `DROP TABLE` (ACE cascades the FK;
   LibRed requires dropping the FK first).
-- **Jet 3** format; **password/encryption** write; strict **DAO Compact & Repair** compatibility (checklist
-  captured — only relevant if targeting DAO C&R rather than "ACE opens + queries").
-- **`CREATE TEMPORARY TABLE` / `WITH COMPRESSION`** — parsed only to throw `NotSupportedException`.
+- **Jet 3** format; strict **DAO Compact & Repair** compatibility (checklist captured — only relevant if
+  targeting DAO C&R rather than "ACE opens + queries"). The encryption half of this entry is **done**:
+  `DatabaseEncryption` sets, changes and removes passwords for Agile, Office Standard AES-256 and RC4 (with
+  a selectable key length and hash), and the legacy Jet 4 database password byte-identically to Access;
+  `SetJetEncoding` writes legacy RC4 page encoding. The only gap left is `AccessEncryption.LegacyJet` as a
+  *create* scheme for `SetPassword`, which `SetJetEncoding` covers directly.
+- **`CREATE TEMPORARY TABLE`** — parsed only to throw `NotSupportedException`. (`WITH COMPRESSION` used to
+  be listed here too and is implemented end to end: `AccessTypeMapper` maps it onto
+  `SupportsCompressedUnicode`, `TdefBuilder` writes the `0x01` extended-flag bit, and `JetTypeCodec` gates
+  compressed encoding on it.)
 
 *SQL surface / engine gaps:*
 
@@ -224,21 +234,24 @@ LibRed-side `CHECK` enforcement, self-pointing self-references, and writing Memo
   date/currency formats are locale-dependent by design (not byte-identical cross-locale). Argument **arity**
   *is* now checked against a per-function range table, so a wrong count raises rather than being ignored.
 - **Non-unique index statistics** — only unique indexes advance the live unique-entry count (`+4`) today.
-- **Deferred-write transactions** — writes are eager (write-through + undo log); a future `PageChannel`
-  refactor could buffer changed pages and materialize only on commit (cheaper rollback, never half-applied).
 - **Single-writer concurrency** — LibRed is a **single-writer engine that merely tolerates extra open
   handles**, not a concurrent multi-user one. `PageChannel.Open` opens the file `FileShare.ReadWrite`
   (a Jet/ACE file is a shared-file database — Access/ODBC/OLE DB all open it with multiple handles, and
   EF's own test infra keeps a store connection open alongside per-context connections), but there is **no
-  concurrency control**: no lock file (Access coordinates multi-user access via a side-car `.laccdb`/`.ldb`
-  with page/record locks — LibRed writes and honours none of it), no read isolation, and the transaction
-  undo log is **per-`PageChannel`**. Safe: any number of readers with no writer; one writer plus readers
-  when access is **serialized** (the single-threaded app / EF case). Unsafe: truly concurrent readers and a
-  writer (torn/dirty reads — a reader can see a half-applied multi-page operation or another handle's
-  uncommitted transaction); **two or more concurrent writers → file corruption** (unarbitrated page writes,
-  racing usage-map allocation, and — worst — one channel's rollback *truncates the file* back to its own
-  transaction start, discarding pages another channel committed past that point). True multi-user support
-  is its own project: a lock file, page/record locking, and a shared or WAL-based write path.
+  multi-user concurrency control**: no lock file — Access coordinates multi-user access via a side-car
+  `.laccdb`/`.ldb` with page/record locks, and LibRed writes and honours none of it. Safe: any number of
+  readers with no writer; one writer plus readers when access is **serialized** (the single-threaded app /
+  EF case). Unsafe: **two or more concurrent writers → file corruption** (unarbitrated page writes and
+  racing usage-map allocation). True multi-user support is its own project: a lock file, page/record
+  locking, and a shared or WAL-based write path.
+
+  Two hazards this list used to carry are **gone**, and the reason is the deferred-write overlay. A
+  transaction's writes now live in a per-`PageChannel` overlay until commit, published under
+  `PageCache.PublishLocked`, so a concurrent reader can no longer see another handle's uncommitted pages or
+  a half-applied multi-page operation; and rollback discards the overlay rather than restoring and
+  truncating, so one channel's rollback can no longer throw away pages another channel committed. A stale
+  writer now fails its commit with `Transaction write conflict on page N` instead of corrupting silently.
+  Don't design around the old description — see `docs/design/transactions.md`.
 
 ## SQL pipeline
 

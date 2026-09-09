@@ -13,7 +13,9 @@ public enum AccessEncryption
 
     /// <summary>Legacy Jet 3/4 page encoding (RC4 keyed by the <c>0x3E</c> database key). <c>.mdb</c> only.
     /// <b>Not a set-scheme here</b> — the legacy Jet database <i>password</i> (obfuscation only) is set via
-    /// <see cref="DatabaseEncryption.SetJetPassword"/>; RC4 page encoding of a <c>.mdb</c> is not yet a create path.</summary>
+    /// <see cref="DatabaseEncryption.SetJetPassword"/>, and RC4 page encoding via
+    /// <see cref="DatabaseEncryption.SetJetEncoding"/>. Both are implemented; they are simply two different
+    /// mechanisms, which is why this one enum member cannot stand for either.</summary>
     LegacyJet,
 
     /// <summary>Office "Standard"/CryptoAPI RC4-40 (binary <c>EncryptionInfo</c> descriptor). <c>.accdb</c> only.</summary>

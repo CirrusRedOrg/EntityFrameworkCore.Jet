@@ -5,11 +5,11 @@ using LibRed.IO;
 namespace LibRed.Data;
 
 /// <summary>
-/// A database transaction over LibRed's page-level undo log. <see cref="Commit"/> makes the writes
-/// permanent (they are already on disk; commit just discards the undo log); <see cref="Rollback"/>
-/// restores every page the transaction touched and drops any it allocated. An uncommitted
-/// transaction that is disposed rolls back — this is what gives EF Core's shared-database tests
-/// their per-test isolation.
+/// A database transaction over LibRed's deferred-write page overlay. Writes are buffered in the overlay
+/// rather than going to disk, so <see cref="Commit"/> is what makes them visible at all, and
+/// <see cref="Rollback"/> simply discards the overlay — there is nothing on disk to restore. An uncommitted
+/// transaction that is disposed rolls back, which is what gives EF Core's shared-database tests their
+/// per-test isolation.
 /// </summary>
 public sealed class LibRedTransaction : DbTransaction
 {
@@ -20,11 +20,17 @@ public sealed class LibRedTransaction : DbTransaction
     // engine's savepoint handle.
     private readonly Dictionary<string, Savepoint> _savepoints = new(StringComparer.Ordinal);
 
-    internal LibRedTransaction(LibRedConnection connection, IsolationLevel isolationLevel)
+    internal LibRedTransaction(LibRedConnection connection, IsolationLevel isolationLevel, int openedAtDepth)
     {
         _connection = connection;
         IsolationLevel = isolationLevel;
+        OpenedAtDepth = openedAtDepth;
     }
+
+    /// <summary>The engine's nesting depth before this handle opened its level — how far
+    /// <see cref="Commit"/> unwinds, so a SQL <c>BEGIN</c> left open inside it cannot strand the
+    /// transaction. See <c>LibRedConnection.CommitTransaction</c>.</summary>
+    internal int OpenedAtDepth { get; }
 
     public override IsolationLevel IsolationLevel { get; }
 
@@ -46,7 +52,18 @@ public sealed class LibRedTransaction : DbTransaction
     public override void Rollback(string savepointName)
     {
         EnsureActive();
-        _connection!.RollbackToSavepoint(Lookup(savepointName));
+        Savepoint target = Lookup(savepointName);
+        _connection!.RollbackToSavepoint(target);
+
+        // Rolling back discards every frame ABOVE the target, so the names that addressed them are now stale.
+        // A Savepoint is a bare frame index with no validity token, and the next Save reuses the freed index —
+        // so a stale name silently resolves to a DIFFERENT savepoint rather than failing. Release does drop
+        // its own name; this drops the ones the rollback invalidated. EF Core reaches this shape whenever a
+        // nested SaveChanges rolls back inside a user transaction and another follows it.
+        foreach (string stale in _savepoints
+                     .Where(e => e.Value.Index > target.Index)
+                     .Select(e => e.Key).ToList())
+            _savepoints.Remove(stale);
     }
 
     /// <summary>Releases a named savepoint, merging its writes into the enclosing scope.</summary>
@@ -84,6 +101,7 @@ public sealed class LibRedTransaction : DbTransaction
             throw new InvalidOperationException("This transaction has already been committed or rolled back.");
         _connection?.CommitTransaction(this);
         _completed = true;
+        _savepoints.Clear();
     }
 
     public override void Rollback()

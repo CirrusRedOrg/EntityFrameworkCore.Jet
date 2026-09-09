@@ -109,6 +109,12 @@ public sealed class PageChannel : IDisposable
 
             // Read page 0 (always unencrypted) to detect encryption: a nonzero database key at 0x3E means the
             // data pages are ACE-encrypted, and the EncryptionInfo descriptor lives in the clear on this page.
+            // A file too short to hold one page is truncated, not a database — say so, rather than letting
+            // ReadExactly raise EndOfStreamException, which callers handling a damaged file do not catch.
+            if (stream.Length < format.PageSize)
+                throw new InvalidDataException(
+                    $"The file is {stream.Length} bytes, shorter than the {format.PageSize}-byte page 0 a "
+                    + $"{format.Version} database begins with.");
             var page0 = new byte[format.PageSize];
             stream.Seek(0, SeekOrigin.Begin);
             stream.ReadExactly(page0);
@@ -149,6 +155,18 @@ public sealed class PageChannel : IDisposable
         return BinaryPrimitives.ReadInt32LittleEndian(key);
     }
 
+    /// <summary>Rejects a page number that cannot exist in this file. Page numbers come out of the file
+    /// itself, so a bad one is corruption — without this the read seeks past the end and throws
+    /// <c>EndOfStreamException</c>, which callers handling a damaged file do not catch. Called only on the
+    /// paths that reach disk: a cache or overlay hit has already proved the page exists, and
+    /// <see cref="PageCount"/> measures the stream.</summary>
+    private void ValidatePageNumber(int pageNumber)
+    {
+        if (pageNumber < 0 || pageNumber >= PageCount)
+            throw new InvalidDataException(
+                $"Page {pageNumber} is outside the database, which holds {PageCount} pages.");
+    }
+
     /// <summary>Reads a single page into a freshly allocated buffer.</summary>
     public PageBuffer ReadPage(int pageNumber)
     {
@@ -183,6 +201,7 @@ public sealed class PageChannel : IDisposable
             if (_cache.TryGetArray(pageNumber, out cached))
                 return new PageBuffer(cached, pageNumber);
 
+            ValidatePageNumber(pageNumber);
             var buffer = new byte[PageSize];
             long offset = (long)pageNumber * PageSize;
             _stream.Seek(offset, SeekOrigin.Begin);
@@ -219,6 +238,7 @@ public sealed class PageChannel : IDisposable
             if (_cache.TryRead(pageNumber, destination))
                 return;
 
+            ValidatePageNumber(pageNumber);
             long offset = (long)pageNumber * PageSize;
             _stream.Seek(offset, SeekOrigin.Begin);
             _stream.ReadExactly(destination[..PageSize]);
@@ -243,6 +263,11 @@ public sealed class PageChannel : IDisposable
             throw new ArgumentException($"A page write must be exactly {PageSize} bytes.", nameof(source));
         if (pageNumber < 0)
             throw new ArgumentOutOfRangeException(nameof(pageNumber));
+
+        // ACE-only full-database probe: the file reaches exactly 2 GiB (524288 Jet4/ACE pages)
+        // and rejects the next allocation. Check before staging a page or extending the stream.
+        if ((long)pageNumber >= (1L << 31) / PageSize)
+            throw new InvalidOperationException("The database cannot grow beyond the ACE 2 GiB file-size limit.");
 
         // Inside a transaction, defer the write into the private overlay — invisible to other channels until
         // commit. Snapshot the page's prior overlay state (once per savepoint frame) so a savepoint rollback can
@@ -454,6 +479,15 @@ public sealed class PageChannel : IDisposable
     {
         byte[] page0 = ReadPage(0).Span.ToArray();
         if (page0[JetFormatBase.VersionOffset] >= version) return false;
+
+        // A Jet MDB carries the "Standard Jet DB" identifier, which JetFormatBase.Detect pairs with version
+        // 0x00/0x01 only. Raising one to an ACE version writes a file nothing can reopen — not LibRed, not
+        // Access. DatabaseCreator refuses to create that same pair; refuse to upgrade into it too.
+        if (!Format.IsAccdb)
+            throw new NotSupportedException(
+                $"Cannot raise this database to version 0x{version:X2}: it is a Jet MDB " +
+                $"(\"{JetFormatBase.JetIdentifier}\"), and only an ACCDB carries an ACE version byte. " +
+                "The statement needs a data type this format cannot store.");
 
         page0[JetFormatBase.VersionOffset] = version;
         WritePage(0, page0);

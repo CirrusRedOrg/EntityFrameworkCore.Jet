@@ -13,9 +13,15 @@ public sealed record LongValueDescriptor(byte[] Bytes);
 
 /// <summary>
 /// The result of writing a long value to LVAL page(s): the 12-byte in-row descriptor, the pages it now
-/// occupies (to record in the column's owned-pages map), and the one page that still has spare room (the
-/// last, partially-filled chunk — recorded in the free-pages map).
+/// occupies (to record in the column's owned-pages map), and the one page that still has spare room, to be
+/// recorded in the free-pages map — or <c>0</c> when no page may be shared.
 /// </summary>
+/// <remarks>
+/// A chained value reports <c>0</c>. Its last chunk usually leaves room, but a chained value owns its pages
+/// outright: freeing the value frees every page in the chain, so a small value packed onto the tail would be
+/// destroyed under a live descriptor when the chain's owner is updated or deleted. The spare room in a chain
+/// tail is the price of the chain.
+/// </remarks>
 public sealed record LongValueResult(byte[] Descriptor, IReadOnlyList<int> OwnedPages, int FreePage);
 
 /// <summary>
@@ -46,7 +52,8 @@ public sealed class LongValueWriter(PageChannel channel)
     /// and the pages used (all owned; the last is also free, having spare room).</summary>
     public LongValueResult Write(byte[] payload)
     {
-        if (payload.Length <= MaxLvalRowSize)
+        LongValueFormat.ValidateLength(payload.Length);
+        if (payload.Length <= LongValueFormat.MaxSinglePageValue)
         {
             int page = _allocator.Allocate();
             WriteChunkPage(page, payload); // a single-page row is the payload itself (no next pointer)
@@ -73,7 +80,7 @@ public sealed class LongValueWriter(PageChannel channel)
             WriteChunkPage(pages[i], row);
         }
 
-        return new LongValueResult(Descriptor(payload.Length, LongValueFormat.FlagChained, pages[0]), pages, pages[^1]);
+        return new LongValueResult(Descriptor(payload.Length, LongValueFormat.FlagChained, pages[0]), pages, FreePage: 0);
     }
 
     /// <summary>Allocates a fresh LVAL page, writes <paramref name="row"/> as its row 0, and returns the
@@ -104,6 +111,18 @@ public sealed class LongValueWriter(PageChannel channel)
             throw new InvalidDataException($"LVAL append target {pageNumber} is not owned by the LVAL store.");
 
         int rowCount = parsed.RowCount;
+        // A long-value descriptor addresses its row with a ONE-BYTE field (Descriptor writes `d[4] = (byte)row`),
+        // exactly as an index entry addresses a data row — so the same 256-slot ceiling applies, and passing it
+        // would alias one value's descriptor onto another's row with no error. Today it is unreachable: a
+        // payload of 64 bytes or less inlines and never arrives here, and a page leaves the free-pages map once
+        // it has under MinLvalRow bytes left, which caps a page at roughly 108 rows even for the smallest thing
+        // that can reach it (a 33-character memo compressed to 35 bytes — compression is applied AFTER the
+        // inline test, so the floor is lower than the 65-byte inline limit suggests). That margin is emergent,
+        // not stated: it moves if the inline limit or the free-map threshold changes. Refusing the page here
+        // costs nothing and makes the ceiling structural — the caller allocates a fresh page, as it does when
+        // the page is out of room.
+        if (rowCount >= RowPointer.MaxRowsPerPage) return null;
+
         int lowest = parsed.Rows.Count == 0 ? format.PageSize : parsed.Rows.Min(r => r.Offset);
         int directoryEnd = format.DataRowDirectoryOffset + rowCount * 2;
         int physicalFree = lowest - directoryEnd;
@@ -147,14 +166,12 @@ public sealed class LongValueWriter(PageChannel channel)
         _channel.WritePage(pageNumber, page);
     }
 
-    /// <summary>Builds the 12-byte in-row descriptor: <c>[length:3][flag:1][row:1][page:3][4 reserved]</c>.</summary>
+    /// <summary>Builds the 12-byte descriptor: 4-byte length with storage flags, row/page, reserved.</summary>
     private static byte[] Descriptor(int length, byte flag, int firstPage, int row = 0)
     {
+        LongValueFormat.ValidateLength(length);
         var d = new byte[12];
-        d[0] = (byte)length;
-        d[1] = (byte)(length >> 8);
-        d[2] = (byte)(length >> 16);
-        d[3] = flag;
+        BinaryPrimitives.WriteUInt32LittleEndian(d, (uint)length | ((uint)flag << 24));
         d[4] = (byte)row;
         d[5] = (byte)firstPage;
         d[6] = (byte)(firstPage >> 8);

@@ -58,7 +58,6 @@ public static class IndexKeyEncoder
         IReadOnlyList<(ColumnDef Column, bool Ascending)> columns, object?[] values, bool enforceLengthLimit)
     {
         var buffer = new List<byte>();
-        bool anyWordSortRecord = false;
 
         for (int i = 0; i < columns.Count; i++)
         {
@@ -105,10 +104,11 @@ public static class IndexKeyEncoder
 
                 var ascendingKey = new List<byte> { IndexKeyFlags.AscStart };
                 LocaleTailoring? tailoring = JetLocaleTailoring.For(column.Collation);
+                // The word-sort flag is discarded: it existed only to refuse a key whose record the truncation
+                // would drop, and that refusal is gone — see the note at the truncation below.
                 bool encoded = column.Collation.Version == Collation.GeneralVersion
-                    ? JetTextCollationV1.TryEncode(text, ascendingKey, tailoring, out bool wordSort)
-                    : JetTextCollation.TryEncode(text, ascendingKey, tailoring, out wordSort);
-                anyWordSortRecord |= wordSort;
+                    ? JetTextCollationV1.TryEncode(text, ascendingKey, tailoring, out _)
+                    : JetTextCollation.TryEncode(text, ascendingKey, tailoring, out _);
                 if (!encoded)
                     throw new NotSupportedException(
                         $"Text index key '{text}' contains a character with no weight in the {column.Collation.Order} " +
@@ -207,18 +207,14 @@ public static class IndexKeyEncoder
         // cap individually, and ACE stores their combined entry truncated.
         if (!enforceLengthLimit || buffer.Count <= MaxIndexKeyBytes) return [.. buffer];
 
-        // Except where the dropped bytes hold a word-sort record. That case cannot be verified even in
-        // principle — the record sits in the part ACE discarded, so what it actually contained is
-        // unobservable, and if ACE recomputes its position when truncating then the checksum's input is not
-        // what is reconstructed here. Refuse rather than write a key that might disagree, because a wrong
-        // index key is silent: ACE writes its own into the same index and a seek misses rows.
-        if (anyWordSortRecord)
-            throw new NotSupportedException(
-                $"These values need a {buffer.Count}-byte index key across {columns.Count} column(s), past the " +
-                $"{MaxIndexKeyBytes} ACE stores, and one of them contains an apostrophe or hyphen. ACE truncates " +
-                $"and appends a checksum, and for a discarded word-sort record that checksum is not verifiable, " +
-                $"so LibRed will not guess at it. Shorten the value or drop it from the index.");
-
+        // A discarded word-sort record used to be refused here, on the reasoning that the record sits in the
+        // part ACE dropped and so what it held is unobservable — and that if ACE recomputed its position when
+        // truncating, LibRed's reconstruction would be feeding the checksum the wrong bytes. Both halves are
+        // now measured and neither holds: ACE does NOT recompute the position (the record's position byte
+        // tracks where the mark actually sat), and the checksum over LibRed's reconstructed key reproduces
+        // ACE's exactly — 16 of 16 over two mark characters at eight positions each. The record was never
+        // unobservable; it just could not be checked until the checksum's own arithmetic was pinned down.
+        // See docs/design/index-key-checksum.md.
         byte[] truncated = new byte[MaxIndexKeyBytes];
         buffer.CopyTo(0, truncated, 0, JetIndexKeyChecksum.KeptBytes);
         ushort checksum = JetIndexKeyChecksum.Compute(CollectionsMarshal.AsSpan(buffer)[JetIndexKeyChecksum.KeptBytes..]);

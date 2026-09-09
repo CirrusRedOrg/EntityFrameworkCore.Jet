@@ -3845,26 +3845,36 @@ LEFT JOIN `LevelOne` AS `l3` ON `l0`.`Id` >= `l3`.`Id` AND (`l2`.`Name` = `l3`.`
 
         public override async Task Nested_SelectMany_correlated_with_join_table_correctly_translated_to_apply(bool async)
         {
-            // DefaultIfEmpty on child collection. Issue #19095.
-            await Assert.ThrowsAsync<EqualException>(
-                async () => await base.Nested_SelectMany_correlated_with_join_table_correctly_translated_to_apply(async));
+            await base.Nested_SelectMany_correlated_with_join_table_correctly_translated_to_apply(async);
 
             AssertSql(
                 """
-SELECT [t0].[l1Name], [t0].[l2Name], [t0].[l3Name]
-FROM [LevelOne] AS [l]
-OUTER APPLY (
-    SELECT [t].[l1Name], [t].[l2Name], [t].[l3Name]
-    FROM [LevelTwo] AS [l0]
-    LEFT JOIN [LevelThree] AS [l1] ON [l0].[Id] = [l1].[Id]
+SELECT `s0`.`l1Name`, `s0`.`l2Name`, `s0`.`l3Name`
+FROM `LevelOne` AS `l`
+CROSS APPLY (
+    SELECT `s`.`l1Name`, `s`.`l2Name`, `s`.`l3Name`
+    FROM (
+        SELECT 1
+    ) AS `e`
+    LEFT JOIN (
+        SELECT `l0`.`Id`
+        FROM `LevelTwo` AS `l0`
+        WHERE `l`.`Id` = `l0`.`OneToMany_Optional_Inverse2Id`
+    ) AS `l1` ON TRUE
+    LEFT JOIN `LevelThree` AS `l2` ON `l1`.`Id` = `l2`.`Id`
     CROSS APPLY (
-        SELECT [l].[Name] AS [l1Name], [l1].[Name] AS [l2Name], [l3].[Name] AS [l3Name]
-        FROM [LevelFour] AS [l2]
-        LEFT JOIN [LevelThree] AS [l3] ON [l2].[OneToOne_Optional_PK_Inverse4Id] = [l3].[Id]
-        WHERE [l1].[Id] IS NOT NULL AND [l1].[Id] = [l2].[OneToMany_Optional_Inverse4Id]
-    ) AS [t]
-    WHERE [l].[Id] = [l0].[OneToMany_Optional_Inverse2Id]
-) AS [t0]
+        SELECT `l`.`Name` AS `l1Name`, `l2`.`Name` AS `l2Name`, `l5`.`Name` AS `l3Name`
+        FROM (
+            SELECT 1
+        ) AS `e0`
+        LEFT JOIN (
+            SELECT `l3`.`OneToOne_Optional_PK_Inverse4Id`
+            FROM `LevelFour` AS `l3`
+            WHERE `l2`.`Id` IS NOT NULL AND `l2`.`Id` = `l3`.`OneToMany_Optional_Inverse4Id`
+        ) AS `l4` ON TRUE
+        LEFT JOIN `LevelThree` AS `l5` ON `l4`.`OneToOne_Optional_PK_Inverse4Id` = `l5`.`Id`
+    ) AS `s`
+) AS `s0`
 """);
         }
 

@@ -74,7 +74,7 @@ public class TableDefinitionPageTests
                 BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefIndexCountOffset, 4), 33);
                 break;
             case "logical-indexes":
-                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefRealIndexCountOffset, 4), -1);
+                BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefLogicalIndexCountOffset, 4), -1);
                 break;
         }
 

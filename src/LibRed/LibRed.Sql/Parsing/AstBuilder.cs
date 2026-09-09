@@ -278,9 +278,7 @@ internal sealed class AstBuilder
 
         string typeName = TypeName(type);
 
-        if (ctx.columnConstraint().OfType<CompressionConstraintContext>().Any())
-            throw new NotSupportedException($"WITH COMPRESSION on column '{Identifier(ctx.name)}' is not supported.");
-
+        bool compressed = ctx.columnConstraint().OfType<CompressionConstraintContext>().Any();
         bool notNull = ctx.columnConstraint().OfType<NotNullConstraintContext>().Any();
         bool primaryKey = ctx.columnConstraint().OfType<PrimaryKeyConstraintContext>().Any();
         // Capture the DEFAULT expression's source text (stored verbatim as the DefaultValue property,
@@ -288,7 +286,8 @@ internal sealed class AstBuilder
         string? defaultSql = ctx.columnConstraint().OfType<DefaultConstraintContext>()
             .FirstOrDefault()?.expression().GetText();
 
-        return new ColumnDefinition(Identifier(ctx.name), typeName, size, scale, notNull, primaryKey, defaultSql);
+        return new ColumnDefinition(
+            Identifier(ctx.name), typeName, size, scale, notNull, primaryKey, defaultSql, compressed);
     }
 
     private static SqlStatement BuildCreateIndex(CreateIndexStatementContext ctx)

@@ -12,7 +12,6 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             ?? throw new InvalidOperationException("Could not find SelectExpression._identifier.");
 
         private readonly IRelationalTypeMappingSource _relationalTypeMappingSource;
-        private readonly SkipWithoutOrderByInSplitQueryVerifier _skipWithoutOrderByInSplitQueryVerifier = new();
         private readonly JetLiftOrderByPostprocessor _liftOrderByPostprocessor;
         private readonly JetSkipTakePostprocessor _skipTakePostprocessor;
 
@@ -32,7 +31,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal
         public override Expression Process(Expression query)
         {
             query = _skipTakePostprocessor.Process(query);
-            //query = _liftOrderByPostprocessor.Process(query);
+
             query = base.Process(query);
 
             var identifiers = GetIdentifiers(query);
@@ -46,9 +45,6 @@ namespace EntityFrameworkCore.Jet.Query.Internal
                     new OrderingExpression(identifiers[^1].Column, ascending: true));
             }
 
-            //query = _skipTakePostprocessor.Process(query);
-            //query = _skipWithoutOrderByInSplitQueryVerifier.Visit(query);
-            //query = _skipTakePostprocessor.Process(query);
             query = _liftOrderByPostprocessor.Process(query);
 
             return query;
@@ -62,39 +58,6 @@ namespace EntityFrameworkCore.Jet.Query.Internal
             }
 
             return (IReadOnlyList<(ColumnExpression Column, ValueComparer Comparer)>)SelectExpressionIdentifierField.GetValue(selectExpression)!;
-        }
-
-        private sealed class SkipWithoutOrderByInSplitQueryVerifier : ExpressionVisitor
-        {
-            [return: NotNullIfNotNull("expression")]
-            public override Expression? Visit(Expression? expression)
-            {
-                switch (expression)
-                {
-                    case ShapedQueryExpression shapedQueryExpression:
-                        Visit(shapedQueryExpression.ShaperExpression);
-                        return shapedQueryExpression;
-
-                    case RelationalSplitCollectionShaperExpression relationalSplitCollectionShaperExpression:
-                        foreach (var table in relationalSplitCollectionShaperExpression.SelectExpression.Tables)
-                        {
-                            Visit(table);
-                        }
-
-                        Visit(relationalSplitCollectionShaperExpression.InnerShaper);
-
-                        return relationalSplitCollectionShaperExpression;
-
-                    case SelectExpression { Offset: not null, Orderings.Count: 0 }:
-                        throw new InvalidOperationException(JetStrings.SplitQueryOffsetWithoutOrderBy);
-
-                    case UpdateExpression or DeleteExpression:
-                        return expression;
-
-                    default:
-                        return base.Visit(expression);
-                }
-            }
         }
     }
 }

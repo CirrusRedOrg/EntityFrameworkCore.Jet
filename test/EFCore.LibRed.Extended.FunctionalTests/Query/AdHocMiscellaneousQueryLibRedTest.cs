@@ -2410,11 +2410,54 @@ ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
 """);
     }
 
+    // PROVIDER DIVERGENCE: extended mode emits OUTER APPLY, so unlike SQLite (which throws because it
+    // has no APPLY) the correlated whole-object DefaultIfEmpty actually translates and materializes
+    // correctly here. Override the base (SQLite-shaped) assert-throws with the real-results assertion.
     public override async Task Correlated_SelectMany_DefaultIfEmpty_whole_object()
     {
-        await base.Correlated_SelectMany_DefaultIfEmpty_whole_object();
+        var contextFactory = await InitializeNonSharedTest<Context30915>(seed: Seed30915);
+        using var context = contextFactory.CreateDbContext();
 
-        AssertSql();
+        var query = from s in context.Statuses
+            from countInfo in context.Requests
+                .Where(r => r.PickupStatusId == s.PickupStatusId)
+                .GroupBy(r => r.PickupStatusId, (k, els) => new { pickupStatusId = k, Count = els.Count() })
+                .DefaultIfEmpty()
+            orderby s.PickupStatusId
+            select new { s.PickupStatusId, countInfo };
+
+        var result = await query.ToListAsync();
+
+        Assert.Equal(3, result.Count);
+
+        // status 1 -> matched, Count 2
+        Assert.Equal(1, result[0].PickupStatusId);
+        Assert.NotNull(result[0].countInfo);
+        Assert.Equal(1, result[0].countInfo.pickupStatusId);
+        Assert.Equal(2, result[0].countInfo.Count);
+
+        // status 2 -> no match: whole non-entity object is null
+        Assert.Equal(2, result[1].PickupStatusId);
+        Assert.Null(result[1].countInfo);
+
+        // status 3 -> matched, Count 1
+        Assert.Equal(3, result[2].PickupStatusId);
+        Assert.NotNull(result[2].countInfo);
+        Assert.Equal(3, result[2].countInfo.pickupStatusId);
+        Assert.Equal(1, result[2].countInfo.Count);
+
+        AssertSql(
+            """
+SELECT `s`.`PickupStatusId`, `r0`.`pickupStatusId`, `r0`.`Count`, `r0`.`marker`
+FROM `Statuses` AS `s`
+OUTER APPLY (
+    SELECT `r`.`PickupStatusId` AS `pickupStatusId`, COUNT(*) AS `Count`, 1 AS `marker`
+    FROM `Requests` AS `r`
+    WHERE `r`.`PickupStatusId` = `s`.`PickupStatusId`
+    GROUP BY `r`.`PickupStatusId`
+) AS `r0`
+ORDER BY `s`.`PickupStatusId`
+""");
     }
 
     public override async Task Composed_user_marker_projection_into_subquery_self_heals()

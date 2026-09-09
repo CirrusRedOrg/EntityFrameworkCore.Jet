@@ -44,6 +44,9 @@
 		<PackageReference Update="Microsoft.Extensions.Configuration.FileExtensions" Version="$(MSLibVersion)" />
 		<PackageReference Update="NetTopologySuite" Version="2.6.0" />
 
+		<!-- LibRed.Benchmarks -->
+		<PackageReference Update="BenchmarkDotNet" Version="0.15.2" />
+
 		<!-- EFCore.Jet.Tests -->
 		<PackageReference Update="Microsoft.Extensions.DependencyModel" Version="$(MSLibVersion)" />
 		<PackageReference Update="Moq" Version="4.20.72" />

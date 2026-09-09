@@ -65,7 +65,16 @@ dotnet test test\EFCore.Jet.FunctionalTests\EFCore.Jet.FunctionalTests.csproj --
 dotnet test test\EFCore.Jet.FunctionalTests\EFCore.Jet.FunctionalTests.csproj --filter "FullyQualifiedName=EntityFrameworkCore.Jet.FunctionalTests.Query.NorthwindQueryJetTest.Where_simple"
 ```
 
-**When running a suite, capture the failing test *names* in the same run** — don't reduce the output to just the `Passed!/Failed!` count line and then re-run the whole suite to find which failed. Grep a pattern that catches both, e.g. `grep -iE "Passed!|Failed!|\[FAIL\]|error CS"` (xUnit prints `… [FAIL]` and `Failed <FullyQualifiedName>` lines as it goes), or tee the full output to a file and inspect it. Only re-run after changing something.
+**The user runs the suites and owns the baselines.** Don't run a functional suite. In particular, never run one
+to make the baseline rewriter fill in an `AssertSql` — rebaselining is the user's job, and running it yourself
+does not help. Build to check that something compiles; run at most the specific tests covering a change you have
+just made, and only when asked or when verifying that change.
+
+**Only re-run after changing something.** If a run failed, read the failure output before running anything else —
+an unchanged command produces an unchanged result. Reaching for another run instead of reading the one you have
+is the most common way to waste minutes here.
+
+**When you do run a suite, capture the failing test *names* in the same run** — don't reduce the output to just the `Passed!/Failed!` count line and then re-run the whole suite to find which failed. Grep a pattern that catches both, e.g. `grep -iE "Passed!|Failed!|\[FAIL\]|error CS"` (xUnit prints `… [FAIL]` and `Failed <FullyQualifiedName>` lines as it goes), or tee the full output to a file and inspect it.
 
 Tests run in **fixed order by default** (`FIXED_TEST_ORDER` compile constant, set unless `-p:FixedTestOrder=false`; see `test/Directory.Build.props`). All tests lock culture to `en-US` via a module initializer (`test/Shared/ModuleInitializer.cs`).
 
@@ -296,6 +305,14 @@ parser: the lexer/parser are pre-generated and committed under `LibRed.Sql/Gramm
 > for the full statement of what is and isn't safe before designing anything concurrent on top of it.
 
 ## Working in This Repo
+
+**Check before asserting.** Don't state a fact about this codebase — that a feature exists, that a gap is still
+open, that a tool can or cannot do something — without having just read the code, the test, or the tool output
+that shows it. Plausible-sounding inference presented as established fact is the single most expensive habit
+here, because it sends the work off in a direction that has to be unwound later. Two traps in particular: the
+**"Not yet" lists in the READMEs go stale** — entries are routinely closed long before anyone removes them, so
+verify against the code rather than quoting the list; and a **memory or summary records what was true when it
+was written**, not what is true now.
 
 **Do not edit source files through the shell.** No `sed -i`, no redirects or `tee` into `.cs`/`.md`/`.csproj`/
 `.props`/`.json`/`.ps1`/`.g4`, and no Python scripts that rewrite files. Shell edits bypass the agent's file

@@ -9,7 +9,7 @@ namespace LibRed.Storage;
 /// byte payload, following LVAL pages as needed.
 /// </summary>
 /// <remarks>
-/// Descriptor layout: bytes 0-2 = length (24-bit), byte 3 = flags, bytes 4-7 = a
+/// Descriptor layout: bytes 0-3 = length with storage flags in the high two bits, bytes 4-7 = a
 /// row+page pointer to the first LVAL chunk, bytes 8-11 reserved. Flags:
 /// 0x80 = inline (payload follows the descriptor); 0x40 = single LVAL page (the row is
 /// the whole payload); otherwise the payload is chained across LVAL pages, each row
@@ -23,12 +23,12 @@ public sealed class LongValueReader(PageChannel channel)
 
     internal byte[] ResolveWithPages(ReadOnlySpan<byte> descriptor, out IReadOnlyList<int> pages)
     {
-        if (descriptor.Length < 12)
+        if (descriptor.Length < LongValueFormat.DescriptorSize)
             throw new InvalidDataException(
-                $"Long-value descriptor has {descriptor.Length} bytes; expected at least 12.");
+                $"Long-value descriptor has {descriptor.Length} bytes; expected at least {LongValueFormat.DescriptorSize}.");
 
-        int length = descriptor[0] | (descriptor[1] << 8) | (descriptor[2] << 16);
-        byte flags = descriptor[3];
+        int length = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(descriptor) & LongValueFormat.LengthMask;
+        byte flags = (byte)(descriptor[3] & LongValueFormat.FlagMask);
         if (flags is not (LongValueFormat.FlagInline or LongValueFormat.FlagSinglePage or LongValueFormat.FlagChained))
             throw new InvalidDataException($"Long-value descriptor has unsupported flags 0x{flags:X2}.");
 

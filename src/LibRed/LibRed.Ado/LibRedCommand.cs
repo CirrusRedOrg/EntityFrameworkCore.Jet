@@ -150,13 +150,14 @@ public sealed class LibRedCommand : DbCommand
                 "connection or has already been committed or rolled back.");
     }
 
-    /// <summary>Snapshots the command's parameters as a name→value map for the engine,
-    /// translating <see cref="DBNull"/> to a SQL null.</summary>
+    /// <summary>Snapshots the command's parameters as a name→value map for the engine, clipping each to its
+    /// declared size (see <see cref="LibRedParameter.EffectiveValue"/>) and translating <see cref="DBNull"/> to
+    /// a SQL null.</summary>
     private IReadOnlyDictionary<string, object?> BuildParameters()
     {
         var map = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         foreach (LibRedParameter parameter in _parameters.Cast<LibRedParameter>())
-            map[parameter.ParameterName] = Normalize(parameter.Value);
+            map[parameter.ParameterName] = Normalize(parameter.EffectiveValue);
         return map;
     }
 

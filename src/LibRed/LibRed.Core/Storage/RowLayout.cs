@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using LibRed.Catalog;
 
 namespace LibRed.Storage;
 
@@ -77,6 +78,25 @@ internal readonly ref struct RowLayout
 
     /// <summary>Parses <paramref name="row"/>; <paramref name="hasVar"/> is whether the schema has any variable column.</summary>
     public static RowLayout Parse(ReadOnlySpan<byte> row, int countSize, bool hasVar) => new(row, countSize, hasVar);
+
+    /// <summary>Whether <b>this row</b> carries a variable section — the argument every <see cref="Parse"/>
+    /// caller needs, derived once here rather than at each call site.</summary>
+    /// <remarks>
+    /// It is not "does the schema have a variable column": a row written before the table's first variable
+    /// ADD COLUMN has no trailer even though the current schema does, because ADD COLUMN is metadata-only.
+    /// The row's own stored count is what dates it — a column id at or above the count did not exist when
+    /// the row was written. Get this wrong and the parse reads the last bytes of FIXED data as numVar and an
+    /// offset table, which the bounds checks above usually catch, but not always.
+    /// </remarks>
+    public static bool HasVariableSection(ReadOnlySpan<byte> row, IReadOnlyList<ColumnDef> columns)
+    {
+        if (row.Length < 2)
+            throw new InvalidDataException("Row is too short to contain its 2-byte column count.");
+        int storedCount = BinaryPrimitives.ReadUInt16LittleEndian(row[..2]);
+        foreach (ColumnDef column in columns)
+            if (!column.IsFixedLength && column.ColumnId < storedCount) return true;
+        return false;
+    }
 
     /// <summary>The raw bytes of variable column <paramref name="variableIndex"/> (end-first offset table).</summary>
     public ReadOnlySpan<byte> VarChunk(int variableIndex)

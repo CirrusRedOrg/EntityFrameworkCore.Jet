@@ -21,7 +21,12 @@ internal static class TestDatabases
     public static string DecimalsAccdb { get; } =
         Path.Combine(AppContext.BaseDirectory, "Data", "Decimals.accdb");
 
-    /// <summary>An ACE 16 (version 0x06) ACCDB using the Office 2016 BIGINT and DATETIME2 types.</summary>
+    /// <summary>An <b>ACE 17</b> (version byte <c>0x06</c>, Access 2019+) ACCDB using BIGINT and DATETIME2.
+    /// The name predates the distinction and is misleading: <c>Version16_2016</c> is <c>0x05</c>, and only
+    /// DATETIME2 needs <c>0x06</c>. An ACE 2016 install — which is what CI has — cannot open this file at
+    /// all, so use it only for tests that are genuinely about the 0x06 format, and guard those with
+    /// <see cref="Tests.Shared.AceTestDatabase.SupportsColumnType"/>. For anything else, create a database at
+    /// the lowest version the case needs.</summary>
     public static string Ace16TypesAccdb { get; } =
         Path.Combine(AppContext.BaseDirectory, "Data", "Ace16Types.accdb");
 

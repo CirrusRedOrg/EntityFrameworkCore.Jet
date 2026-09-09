@@ -52,6 +52,19 @@ public sealed class LibRedParameter : DbParameter
         set => _size = value;
     }
 
+    /// <summary>The value as the engine should see it: clipped to an explicitly-set <see cref="Size"/>, which is
+    /// what ACE does to a too-long string or byte[] (measured in <c>ParameterSizeAccessTests</c>).
+    /// <see cref="Value"/> is left alone — a caller must read back what it set, so the clip belongs on the way
+    /// out. A size of 0 was never set, and −1 is ADO.NET's "no limit".</summary>
+    internal object? EffectiveValue => _size <= 0
+        ? Value
+        : Value switch
+        {
+            string s when s.Length > _size => s[.._size],
+            byte[] b when b.Length > _size => b[.._size],
+            _ => Value,
+        };
+
     // The base DbParameter.Precision/Scale are no-ops (get => 0; set { }) unless a concrete parameter type
     // overrides them - SqlParameter/OdbcParameter/OleDbParameter do, so this must too. Two reasons:
     //  1. JetDecimalTypeMapping.ConfigureParameter's `parameter.Value = decimal.Round(dec, parameter.Scale)`

@@ -1,0 +1,19 @@
+utc	commit	dirty	host	suite	benchmark	params	mean_us	stddev_us	alloc_kb
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=agg.group_low_card	10421.18	92.08	49.86
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=agg.group_low_card	12201.53	119.88	11468.78
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=join.hash_unindexed	3870.71	72.22	27.93
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=join.hash_unindexed	5267.40	34.83	5649.70
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=join.index_nested_loop	970.43	17.80	3.83
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=join.index_nested_loop	169.46	5.18	62.28
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.index_range	749.92	10.73	4.94
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.index_range	393.38	2.98	173.81
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=predicate.pk_point	680.33	14.96	3.53
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=predicate.pk_point	24.89	0.34	20.29
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=scan.three_columns	17429.33	203.15	941.88
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=scan.three_columns	5851.93	215.14	8758.25
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10	5230.31	68.39	3.44
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10	6718.06	75.04	6805.20
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sort.top_10_indexed	3759.58	62.79	2.63
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sort.top_10_indexed	44.66	0.19	22.81
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	Ace	Case=sub.scalar_correlated	1413.78	18.64	3.39
+2026-09-08 16:54	4b8ba080	clean	DESKTOP-D1RBTPV	AceComparisonBenchmarks	LibRed	Case=sub.scalar_correlated	185.70	1.45	80.85

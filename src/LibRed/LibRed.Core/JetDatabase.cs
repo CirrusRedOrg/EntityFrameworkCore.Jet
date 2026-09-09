@@ -51,10 +51,7 @@ public sealed class JetDatabase : IDisposable
 
     /// <summary>The database's default text collating order — the LCID and sort-order version written into
     /// new columns. Read from the page-0 sort order, so a table created in a General (v1) database gets v1
-    /// columns, as Access would create them. (This used to be hardcoded to General legacy while the page-0
-    /// decode was pending; the decode landed in <see cref="DefaultCollationLcid"/>/
-    /// <see cref="DefaultCollationVersion"/> but this was left behind, which silently gave every new column
-    /// v0 weights even in a v1 database.)</summary>
+    /// columns, as Access would create them.</summary>
     public Collation Collation => DefinitionPage.Collation;
 
     /// <summary>Reads and decodes the table definition (TDEF) page at <paramref name="pageNumber"/>.</summary>
@@ -258,8 +255,8 @@ public sealed class JetDatabase : IDisposable
     }
 
     /// <summary>
-    /// Adds an index to an existing (currently empty) table — the CREATE INDEX statement. WITH PRIMARY
-    /// makes it the primary key; WITH DISALLOW NULL marks it required.
+    /// Adds an index to an existing table — the CREATE INDEX statement, back-filled from the table's rows.
+    /// WITH PRIMARY makes it the primary key; WITH DISALLOW NULL marks it required.
     /// </summary>
     public void CreateIndex(string table, string index, IReadOnlyList<(string Column, bool Descending)> columns,
         bool isUnique = false, bool isPrimary = false, bool disallowNull = false, bool ignoreNulls = false)
@@ -305,9 +302,14 @@ public sealed class JetDatabase : IDisposable
     /// target descriptor), matching ACE byte-for-byte — the TDEF-page step of <see cref="AlterColumnTypeInPlace"/>,
     /// exposed on its own so a byte-diff test can isolate the TDEF page. It does NOT re-lay rows or rebuild
     /// indexes; call <see cref="AlterColumnTypeInPlace"/> for the full, self-consistent change.</summary>
-    public void AlterColumnTypeInPlaceTdef(string table, string column, ColumnSpec newSpec)
+    /// <param name="fixedEndOverride">Where the current fixed region ends, for placing the retyped column's
+    /// new slot. On a table with rows this MUST come from an existing row (its variable-data start), not from
+    /// the live column descriptors: a previous retype leaves a dead fixed slot that the descriptors no longer
+    /// account for, so deriving it from them lands the new slot on top of the dead one. Omit it only for an
+    /// empty table. Without this parameter the method could not be called correctly from outside Core.</param>
+    public void AlterColumnTypeInPlaceTdef(string table, string column, ColumnSpec newSpec, int? fixedEndOverride = null)
     {
-        new Storage.TableCreator(_channel, Catalog).AlterColumnTypeInPlaceTdef(table, column, newSpec);
+        new Storage.TableCreator(_channel, Catalog).AlterColumnTypeInPlaceTdef(table, column, newSpec, fixedEndOverride);
         Catalog.Invalidate();
     }
 

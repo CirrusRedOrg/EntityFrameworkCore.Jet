@@ -202,15 +202,33 @@ public class CreateTableDefaultTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    [Theory]
+    [InlineData("VARCHAR(20)")]
+    [InlineData("LONGTEXT")]
+    public void With_compression_sets_the_capable_flag(string type)
+    {
+        string path = Fresh();
+        try
+        {
+            using var db = JetDatabase.Open(path, readOnly: false);
+            new QueryEngine(db).ExecuteNonQuery($"CREATE TABLE `T` (`S` {type} WITH COMPRESSION)");
+
+            Assert.True(db.Catalog.FindTable("T")!.FindColumn("S")!.SupportsCompressedUnicode);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // The attribute is only meaningful on the types ACE accepts it for; Access rejects it elsewhere rather
+    // than ignoring it, so the request is refused rather than silently dropped.
     [Fact]
-    public void With_compression_throws_not_supported()
+    public void With_compression_on_a_non_text_column_throws()
     {
         string path = Fresh();
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
             var ex = Assert.Throws<NotSupportedException>(() =>
-                new QueryEngine(db).ExecuteNonQuery("CREATE TABLE `T` (`S` VARCHAR(20) WITH COMPRESSION)"));
+                new QueryEngine(db).ExecuteNonQuery("CREATE TABLE `T` (`N` LONG WITH COMPRESSION)"));
             Assert.Contains("COMPRESSION", ex.Message);
         }
         finally { TemporaryDatabase.Delete(path); }

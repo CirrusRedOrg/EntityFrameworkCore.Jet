@@ -13,6 +13,7 @@
       "PowerShell(dotnet build *)",
       "PowerShell(dotnet restore *)",
       "Bash(git status*)",
+      "Bash(git add*)",
       "Bash(git diff*)",
       "Bash(git log*)",
       "Bash(git show*)",
@@ -23,6 +24,17 @@
     ]
   },
   "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "in=$(cat); p=$(printf '%s' \"$in\" | sed -n 's/.*\"file_path\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p' | sed 's|\\\\\\\\|/|g'); if [ -f \"$p\" ]; then sed -i 's/\\r$//; s/$/\\r/' \"$p\"; fi; true"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash|PowerShell",

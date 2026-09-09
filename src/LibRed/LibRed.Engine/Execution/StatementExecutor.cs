@@ -367,6 +367,25 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         }
         if (changed.Count == 0) return;
 
+        // A cascade rewrites a row, so it owes the row the same invariants an UPDATE does. It used to apply
+        // none of them: ON DELETE SET NULL would write NULL into a column carrying the Required property, and
+        // ON UPDATE CASCADE could drive two children onto the same unique key — states the UPDATE path a few
+        // lines below explicitly refuses, reached by a statement that never names the child table.
+        // Table.Update carries no enforcement of its own (unlike Insert), so there is no backstop under this.
+        EnforceRequired(child.Name, child.Definition.Columns, newValues);
+
+        foreach (IndexDef index in child.Definition.Indexes
+            .Where(i => i.IsUnique && i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
+            .GroupBy(i => i.RootPage).Select(g => g.First()))
+            if (!index.Columns.Any(c => newValues[c.Column.Index] is null) && child.HasDuplicateKey(index, newValues, childId))
+                throw new ConstraintViolationException(
+                    $"Cannot cascade to '{child.Name}': a row with the same " +
+                    $"{(index.IsPrimaryKey ? "primary key" : "unique key")} already exists (index '{index.Name}').",
+                    index.Name,
+                    index.IsPrimaryKey);
+
+        EnforceCheckConstraints(child.Definition, newValues);
+
         child.Update(childId, newValues, changed);
         foreach (IndexDef index in child.Definition.Indexes
             .Where(i => i.RootPage > 0 && i.Columns.Any(c => changed.Contains(c.Column.Index)))
@@ -520,14 +539,28 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// validation. Currently: <c>GenUniqueID()</c> is only valid on a <c>LONG</c> (Int32) column; every other
     /// type raises "Cannot place this validation expression on this field" (verified across BYTE/SHORT/SINGLE/
     /// DOUBLE/CURRENCY/DECIMAL/GUID/DATETIME/BIT/TEXT).</summary>
-    private static void ValidateColumnDefault(ColumnSpec spec, string? defaultSql)
+    private static void ValidateColumnDefault(ColumnSpec spec, string? defaultSql) =>
+        ValidateColumnDefault(spec.Name, spec.Type, defaultSql);
+
+    private static void ValidateColumnDefault(string columnName, JetDataType type, string? defaultSql)
     {
         if (defaultSql is not null
             && defaultSql.Trim().Equals("GenUniqueID()", StringComparison.OrdinalIgnoreCase)
-            && spec.Type != JetDataType.Int32)
+            && type != JetDataType.Int32)
             throw new InvalidOperationException(
                 $"Cannot place this validation expression on this field. GenUniqueID() is only valid as the " +
-                $"DEFAULT of a LONG (Int32) column (column '{spec.Name}').");
+                $"DEFAULT of a LONG (Int32) column (column '{columnName}').");
+    }
+
+    /// <summary>The same check for a column that already exists, so every statement that can write a
+    /// <c>DefaultValue</c> property passes it. CREATE TABLE and ADD COLUMN validated against the spec they
+    /// were handed; the two ALTER forms wrote the property straight through, which let a default ACE refuses
+    /// at DDL time be persisted — and then evaluated, putting a random Int32 into a Text column on insert.
+    /// A column the catalog cannot find is left to the layer below to report.</summary>
+    private void ValidateExistingColumnDefault(string table, string column, string? defaultSql)
+    {
+        if (_database.Catalog.FindTable(table)?.FindColumn(column) is { } existing)
+            ValidateColumnDefault(existing.Name, existing.Type, defaultSql);
     }
 
     private int DropColumn(string table, string column)
@@ -587,7 +620,11 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private int AlterColumn(string table, AlterColumnAction alter)
     {
         var colDef = new ColumnDefinition(alter.Field, alter.TypeName, alter.Size, alter.Scale, NotNull: false, PrimaryKey: false);
-        _database.AlterColumn(table, alter.Field, MapColumn(colDef));
+        ColumnSpec spec = MapColumn(colDef);
+        // Validated against the column's NEW type, and before the type change, so a rejected DEFAULT leaves
+        // the whole statement having done nothing.
+        ValidateColumnDefault(spec, alter.Default);
+        _database.AlterColumn(table, alter.Field, spec);
         // Apply DEFAULT before Required so the column's property map keeps ACE's order (DefaultValue, then Required).
         if (alter.Default is not null)   // ALTER COLUMN … DEFAULT: set the column's default after the type change
             _database.SetColumnDefault(table, alter.Field, alter.Default);
@@ -598,6 +635,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int SetColumnDefault(string table, AlterColumnSetDefaultAction set)
     {
+        ValidateExistingColumnDefault(table, set.Field, set.Default);
         _database.SetColumnDefault(table, set.Field, set.Default);
         return 0;
     }
@@ -745,7 +783,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         TypeCode.Double => new ColumnSpec(name, JetDataType.Double, 8, IsFixedLength: true),
         TypeCode.Decimal => new ColumnSpec(name, JetDataType.Currency, 8, IsFixedLength: true),
         TypeCode.DateTime => new ColumnSpec(name, JetDataType.DateTime, 8, IsFixedLength: true),
-        _ when clrType == typeof(Guid) => new ColumnSpec(name, JetDataType.Guid, 16, IsFixedLength: true),
+        // Variable, like every GUID column ACE declares — including through SELECT INTO, which is this
+        // method's caller (verified: ACE's `SELECT G INTO Dst` gives Dst.G length 16, fixed flag clear).
+        // See AccessTypeMapper for the same rule on a declared column, and BIGINT for the same shape.
+        _ when clrType == typeof(Guid) => new ColumnSpec(name, JetDataType.Guid, 16, IsFixedLength: false),
         _ when clrType == typeof(byte[]) => new ColumnSpec(name, JetDataType.Binary, 255, IsFixedLength: false),
         _ => new ColumnSpec(name, JetDataType.Text, 255 * 2, IsFixedLength: false),
     };
@@ -1071,6 +1112,14 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         var seekPlan = new (IndexDef Index, Expression Key)?[tables.Count];
         for (int i = 1; i < tables.Count; i++)
             seekPlan[i] = SeekPlanFor(i, tables, ons[i]);
+
+        // The first table has no ON to seek from, but a single-table UPDATE/DELETE's WHERE is the same shape:
+        // a conjunct equating one of its indexed columns to a constant is an access path. Safe because the
+        // WHERE is re-checked on the assembled row below, so an over-returning (collation-lossy) seek stays
+        // correct, and a row the seek skips is one the WHERE would have rejected anyway. Restricted to the
+        // single-table case: with a join, an UNQUALIFIED column in the WHERE could belong to another table.
+        if (tables.Count == 1)
+            seekPlan[0] = SeekPlanFor(0, tables, where);
 
         // Precompute the accumulated columns visible when seeking/evaluating an ON at each depth.
         var colsUpTo = new List<OutputColumn>[tables.Count + 1];

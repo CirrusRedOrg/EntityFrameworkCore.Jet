@@ -18,7 +18,7 @@
 | `0x0A` | Text | UTF-16LE, or compressed Unicode (§7); inline ≤ 255 chars |
 | `0x0B` | OLE | long value (§8) |
 | `0x0C` | Memo | long value (§8); text once resolved |
-| `0x0F` | GUID | 16 raw bytes |
+| `0x0F` | GUID | 16 raw bytes. Stored as a *variable*-length column when declared through SQL (see below) |
 | `0x10` | FixedPoint (Numeric/Decimal) | 17 bytes: sign byte (`0x80` = negative) + 128-bit magnitude (four 32-bit little-endian words, low word last); value = magnitude / 10^scale. Precision/scale from the column descriptor (§3.4) |
 | `0x12` | Complex (multi-value / attachment) | descriptor parsed; contents not materialized (out of scope for SQL/EF) |
 | `0x13` | Int64 — **BIGINT** (ACE 16 / Access 2016) | 8-byte little-endian signed integer. Stored as a *variable*-length column (see below) |
@@ -32,9 +32,30 @@ than being allowed to fail incidentally inside a primitive decoder.
 **`BIGINT` is variable-length despite being a fixed 8 bytes.** ACE puts it behind the row's variable offset
 table rather than in the fixed region — a descriptor carrying length 8 with the fixed flag clear (verified: a
 column ACE created reads back `length=8 fixed=False`, and the row lays the value out at a variable-column
-start offset). Declaring it fixed would write the value somewhere ACE does not look for it. Its *index* key is
-unaffected — that dispatches on the column's type, not on where the row keeps the bytes — and is the same
-sign-bit-flipped big-endian int64 as Currency (§10.4).
+start offset). Its *index* key is unaffected — key encoding dispatches on the column's type, not on where
+the row keeps the bytes; the encoding itself is [§10.4](page-03-04-index-btree.md).
+
+> **The reason to match is faithfulness, not readability — ACE honours the descriptor's fixed flag.** It has
+> to: its own `MSysComplexType_GUID` declares `Value` *fixed* while every GUID column its DDL creates is
+> *variable*, so one engine reads both layouts routinely. Measured directly rather than argued: a **fixed**
+> BIGINT, Currency and DateTime, and a **variable** Int32, Double, Currency and DateTime, all read back
+> correctly through ACE — each with a variable column before the target and a fixed one after, so a value
+> landing in the wrong region would have shifted its neighbours. (An earlier revision of this file claimed a
+> fixed BIGINT would put the value "somewhere ACE does not look for it"; that was inferred from what ACE
+> writes, never measured, and it is wrong.) `FixedFlagHonouredAccessTests`.
+
+**`GUID` is variable-length too — but only where ACE's DDL made it.** Every GUID column ACE's SQL creates
+carries length 16 with the fixed flag clear, at one column or at 252 (it is not a fallback for wide tables),
+and `SELECT … INTO` produces the same. ACE's **own system tables are the exception**: `MSysComplexType_GUID`
+`Value` is *fixed*, verified across eight ACE-created fixtures, and `DatabaseCreator` reproduces that — so
+"GUID is variable" is a rule about declarations, not about GUID storage everywhere.
+
+Unlike BIGINT this is not a wrong-value hazard: ACE reads a value back correctly from either layout
+(verified with a variable column before the GUID and a fixed one after, so a misplaced value would have
+shifted its neighbours). What it costs is record budget — 16 *fixed* bytes per column that ACE does not
+spend, enough that a 250-column GUID table ACE creates without complaint exceeded the declared-record limit
+in §3.4. `AccessTypeMapper` and `StatementExecutor.ColumnSpecFor` both declare it variable;
+`GuidColumnStorageAccessTests` (in the Core and Engine suites) holds the measurements.
 
 > **Writing one through ACE's OLE DB provider: not `DBTYPE_I8`.** An `OleDbType.BigInt` (20) parameter carries
 > **no** value into a Large Number column — every value fails with "data value could not be converted", zero
@@ -46,12 +67,11 @@ sign-bit-flipped big-endian int64 as Currency (§10.4).
 > work … When running in x64 it fails to convert"* — the same defect, found from the other direction and years
 > earlier, though that mapping targets a `decimal(20,0)` column rather than a real `0x13` one.
 
-**New-type format versions — the two are NOT the same version** (verified against files authored with each
-feature enabled: enabling BigInt made the file version byte `0x05`, enabling Date/Time Extended made it
-`0x06`; and measured again from the other direction — issuing `CREATE TABLE … BIGINT` against an ACE 12 file
-raises it to `0x05`, `DATETIME2` to `0x06`). **`BIGINT` (Large Number)** requires the **ACE 16 / Access 2016** format (`0x05`); **`DATETIME2`
+**New-type format versions — the two are NOT the same version**, which is the natural assumption and is
+wrong. **`BIGINT` (Large Number)** requires the **ACE 16 / Access 2016** format (`0x05`); **`DATETIME2`
 (Date/Time Extended)** requires the **ACE 17 / Access 2019+** format (`0x06`) — it arrived later (Access for
-Microsoft 365). LibRed gates each accordingly (`AccessTypeMapper`). `DATETIME2` is a fixed 42-byte ASCII string of
+Microsoft 365). LibRed gates each accordingly (`AccessTypeMapper`). Both thresholds were measured from two
+directions — see [page-00 §2](page-00-database.md), which owns the version byte and the experiment. `DATETIME2` is a fixed 42-byte ASCII string of
 three colon-separated fields: the .NET **day number**, the count of **100-ns ticks within the
 day**, and the fractional **precision** (e.g. `7`). The first two are zero-padded to 19 digits so
 that byte order equals chronological order (an order-preserving inline encoding). The value is
@@ -63,11 +83,10 @@ space** — verified by reading rows ACE itself wrote (`… 3A 37 00`). The dist
 42 bytes go into the index key verbatim, so a space there would put every key out of step with ACE's and make
 its seeks miss those rows.
 
-**Indexing.** ACE does permit an index on the type, and keys it through the same 8-byte chunking it uses for
-`Binary` (§10.4) — start flag, 8 bytes, `0x09` while more follow, then the final chunk and its real-byte count
-— rather than folding the value to a number the way `DateTime` folds to its OA double. It can do that because
-the stored form is already order-preserving. Verified ascending and descending in
-`DateTime2KeyEncodingTests`.
+**Indexing.** ACE does permit an index on the type, and keys the 42 bytes verbatim through its `Binary`
+chunking rather than folding the value to a number — which it can do precisely because the stored form
+above is already order-preserving. The encoding itself is
+[§10.4](page-03-04-index-btree.md).
 
 The bytes on disk are correct, but **ACE's own OLE DB provider cannot read this type back** — see the
 [footnote](#footnote--reading-datetime2-through-aces-own-drivers) at the bottom of this page.
@@ -79,8 +98,83 @@ A text value that begins with the 2-byte marker `FF FE` is **compressed**: the f
 are one per character (ASCII range), not UTF-16. Otherwise the value is UTF-16LE. Applies to
 both `Text` and resolved `Memo`.
 
-> Not yet handled: the full format can toggle between 1-byte and 2-byte runs mid-string for
-> mixed scripts. LibRed handles the common all-compressed case.
+The descriptor's `0x10` extended flag `0x01` records the column as compression-*capable*. ACE sets it only
+when the column is declared `WITH COMPRESSION` (or `WITH COMP`); a plain `TEXT`/`MEMO` column created through
+SQL DDL leaves it **clear**.
+
+> **The flag does not gate everything, and for a long value it gates the *page* case only.** A plain
+> `LONGTEXT` column — capable flag clear — still stores an **inline** value compressed. What the declaration
+> buys is compression of a value that landed on a single LVAL page. Measured against ACE, ASCII throughout:
+>
+> | column | characters | form | on-disk length |
+> | --- | ---: | --- | ---: |
+> | `LONGTEXT` | 30 | inline | 32 — compressed |
+> | `LONGTEXT` | 32 | inline | 34 — compressed |
+> | `LONGTEXT` | 33 | page | 66 — **not** compressed |
+> | `LONGTEXT` | 40 | page | 80 — not compressed |
+> | `LONGTEXT WITH COMPRESSION` | 40 | page | 42 — compressed |
+> | `LONGTEXT WITH COMPRESSION` | 100 | page | 102 — compressed |
+>
+> The 32/33 boundary also shows the form being chosen on the **uncompressed** length: 33 characters are 66
+> bytes and go to a page, though they would compress to 35 and fit inline. An ordinary `Text` column does
+> honour the flag, so this is specific to long values. LibRed required the flag everywhere and so stored
+> every short ASCII memo at twice ACE's size — found by diffing row bytes, fixed in `JetTypeCodec`.
+> `MemoCompressionAccessTests`.
+
+**When a capable column actually compresses a value** (measured in `CompressedTextAccessTests` and
+`LongTextStorageAccessTests`, and reproduced by LibRed byte-for-byte):
+
+- **A run of characters that fit one byte** (`<= 0xFF`, so Latin1, not just ASCII) is stored one byte per
+  character. Runs are **split**, not all-or-nothing: a non-Latin1 character switches the value into 2-byte
+  mode rather than forfeiting compression for the whole of it, and both ACE and LibRed do this — see the
+  mixed-run note below, which supersedes the earlier reading. The exception is a 2-byte character with a
+  `0x00` low byte (`一` = `00 4E`), which is indistinguishable from the mode switch and does forfeit the
+  whole value.
+- **It must save space.** The marker costs 2 bytes, so 1- and 2-character values stay UTF-16 (2 + N < 2N only
+  from N = 3). Verified at each of 1, 2 and 3 characters.
+- **A chained long value is never compressed.** Compression is decided *after* the storage form, and the
+  form — inline, single page or chained — is chosen on the **uncompressed** UTF-16 length. So an inline Memo
+  compresses (whatever the capable flag says), a single-page one compresses only on a `WITH COMPRESSION`
+  column, and a chained one never does; the compressed size never approaches any limit.
+  Microsoft's "only instances that, when compressed, will fit within 4096 bytes" describes the wrong
+  quantity; see [long-values.md](long-values.md) for the measured boundary.
+
+> **The mixed form is real, and ACE writes it readily.** A value can toggle between 1-byte and 2-byte runs
+> mid-string: after the `FF FE` marker the value starts in 1-byte mode and every `0x00` byte at a character
+> boundary switches mode. `café中` is stored as `FF FE 63 61 66 E9 00 2D 4E` — "café", a switch, then 中.
+>
+> This was previously recorded here as technically possible but unreproducible. The attempt that failed used
+> 1,000 ASCII characters plus one CJK — far too long to stay inline, so it went to an LVAL page and was not
+> compressed at all. The form appears on short **inline** values, and ACE emits it under two conditions,
+> both measured:
+>
+> - **It must strictly save space.** `abc中` is 8 bytes either way, so it stays UTF-16; `café中` saves one
+>   byte and is mixed.
+> - **No character in a 2-byte run may have a `0x00` low byte**, since that is indistinguishable from the
+>   switch. U+4E00 is `00 4E` and U+0100 is `00 01`, so `aaaaa一` and `aaaaaĀ` are stored as plain UTF-16
+>   while `aaaaa中` is mixed. One such character forfeits the form for the whole value.
+>
+> It is **not** limited to inline values: 1,000 ASCII characters plus one `中` on an LVAL page store as
+> 1,005 bytes (`FF FE` + 1,000 + switch + 2) where the same shape with `一` stores 2,002. So "one
+> incompressible character forfeits the whole value" holds only for the *ambiguous* ones — the original
+> reading of that experiment was an artefact of the character it happened to use.
+>
+> Together those are what make toggling on `0x00` unambiguous for a reader. **LibRed used to decode the
+> whole payload as a single Latin1 run**, silently returning `café\0-N` for a value Access wrote — wrong
+> data, no error, and reachable by ordinary mixed-script text since Access's UI defaults Unicode Compression
+> to Yes. `JetTypeCodec.DecodeText` now honours the switches, and `EncodeCompressed` emits them.
+>
+> **The two paths break an exact tie differently.** A long value takes the compressed form only when it is
+> strictly smaller; an ordinary `Text` column takes it when it is no larger. `ab中cd` is 10 bytes either way
+> and comes back UTF-16 from a Memo but mixed from a `WITH COMPRESSION` Text column — measured on both.
+> Under three characters nothing is compressed on either path, whatever the arithmetic says, which is what
+> settles the all-Latin1 ties (`ab` is 4 bytes either way and stays UTF-16).
+>
+> **Only an *ambiguous* character forfeits the whole value** — one whose low byte is `0x00`, and so cannot be
+> told from the mode switch (`一` = `00 4E`, `Ā` = `00 01`). `MixedCompressionAccessTests` measures both:
+> 1,000 ASCII + one `一` stores as 2,002 bytes (plain UTF-16, the saving thrown away), while 1,000 ASCII +
+> one `中` stores as 1,005 (compressed with a switch). Position is irrelevant in both cases. Checked by hand
+> on ACE 12.0 and 16.0, which agree byte for byte; the test can only assert whichever is installed.
 
 
 ---
@@ -101,6 +195,17 @@ Points verified against ACE that aren't obvious from that page:
   `CHARACTER_MAXIMUM_LENGTH`), **not** 1.
 - **Bare `TEXT` → Memo** (long text); `TEXT(n)` → `varchar(n)` (a Jet quirk, ACE-verified).
 - Sized Text/Binary dimensions must be positive: Text is `1..255` characters and Binary is `1..510` bytes.
+- **`CHAR(n)` / `BINARY(n)` are FIXED-length columns; `TEXT(n)` / `VARBINARY(n)` are variable** — ACE's own DDL
+  produces both forms, so the fixed form is not a LibRed-only construct (`FixedWidthOverflowAccessTests`).
+- **An over-long value is refused on both forms, with one message**: *"The field is too small to accept the
+  amount of data you attempted to add."* Measured on all four shapes above. The fixed form is the one worth
+  recording: because ACE stores fixed text space-padded to the full width, a writer that pads is one line away
+  from *truncating* the over-long case instead of refusing it, which is what LibRed did — silently storing
+  `'abc'` for `CHAR(3)` where the same value into `TEXT(3)` raised. The width check therefore belongs on the
+  encode path for fixed columns (`JetTypeCodec.EnsureFitsFixedWidth`, before padding) and on the shared
+  row-assembly path for variable ones (`RowEncoder.AssembleRow`, so the ALTER re-lay passes it too).
+- **Narrowing an existing column is checked against its rows.** `ALTER TABLE … ALTER COLUMN c TEXT(5)` on a
+  column holding wider values is refused rather than leaving rows that violate the declaration.
 - `DECIMAL(p,s)` / `NUMERIC(p,s)` use precision `1..28` and scale `0..p`; LibRed rejects dimensions outside
   those ACE/.NET decimal bounds before allocating or writing a table definition.
 - The grammar parses **two-word** type names (`CHARACTER VARYING`, `BIT VARYING`); three-word

@@ -120,7 +120,7 @@ numbers, so appended pointer-shaped bytes or pointers to ordinary data pages can
 ### 9.1 Global free-pages map — page 1 (page allocation)
 
 Besides the per-table maps, the database has a **global free-pages map** at **page 1, row 0** (a
-data page; its row 0 is an inline usage map, start page `0`). Here a **set bit means the page is
+data page; its row 0 starts as an inline usage map, start page `0`). Here a **set bit means the page is
 free / available**, the *opposite* of a per-table owned map — verified against Northwind (161 free
 pages among 353) and by diffing before/after an ACE `CREATE TABLE`.
 
@@ -139,10 +139,14 @@ one cleared bit per page taken.
 > bitmap directly; for a **reference (`0x01`)** map — as a very large pre-existing ACE file carries —
 > it scans each slot's dedicated bitmap page (type `0x05`), where a **set bit is a free page** (the
 > global map's sense), clears the bit on that bitmap page, and returns `slot × (pageSize−4)×8 + bit`.
-> `Free` is the inverse (sets the bit on the range's bitmap page). A page in a range with no bitmap
-> page (e.g. one grown past the map's coverage) is simply left unrecorded — it won't be reused, the
-> same as the inline-window edge. (`GlobalReferenceFreeMapTests`; the bit↔page math is the one the
-> per-table reference map is byte-verified against, §9.)
+> `Free` is the inverse (sets the bit). A page outside a pre-existing map's coverage cannot be recorded
+> as free until that coverage exists.
+>
+> **Global-map growth.** The inline growth rule in §9 applies, but ACE leaves **4 bytes free in the
+> holder page** before promoting the global map to reference form. With a 69-byte companion row,
+> the final inline record is 4005 bytes, covering 32,000 pages. LibRed matches this transition and
+> allocates each required bitmap page before the data page, marking the bitmap itself used.
+> Existing file pages are marked used and the remaining new coverage free.
 >
 > **Allocator mutation guardrails.** Page 1 must be a valid data page with a live, non-overflow row 0.
 > Inline records require their complete header; reference records require exactly 69 bytes, unique in-file

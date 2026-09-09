@@ -85,6 +85,15 @@ public sealed class OfficeStandardEncryption : IPageCodec
 
     /// <summary>Builds a codec for an <c>.accdb</c> that uses a binary (non-Agile) EncryptionInfo descriptor, or
     /// null if the file is not encrypted / carries no such descriptor. Throws if a password is required/incorrect.</summary>
+    /// <summary>Asserts that <paramref name="count"/> bytes are readable at <paramref name="offset"/> within
+    /// the descriptor, so a length taken from the file cannot index past it.</summary>
+    private static void Require(ReadOnlySpan<byte> descriptor, int offset, int count, string field)
+    {
+        if (offset < 0 || count < 0 || (long)offset + count > descriptor.Length)
+            throw new InvalidDataException(
+                $"Office-Standard {field} needs {count} bytes at offset {offset}, past the {descriptor.Length}-byte descriptor.");
+    }
+
     public static OfficeStandardEncryption? TryCreate(ReadOnlySpan<byte> page0, int databaseKey, string? password)
     {
         if (databaseKey == 0)
@@ -106,8 +115,14 @@ public sealed class OfficeStandardEncryption : IPageCodec
         if (password is null)
             throw new InvalidOperationException("This database is password-encrypted; a password is required to open it.");
 
+        // Everything below indexes with lengths read out of the descriptor, so each one is bounded against the
+        // descriptor's own frame first. The outer frame was checked above; the interior was not, and a small
+        // frame with a large headerSize walked `v` past the end — throwing ArgumentOutOfRangeException out of
+        // PageChannel.Open, where the contract for a damaged file is InvalidDataException. The Agile sibling
+        // bounds every field it reads; this is that, for the fields this descriptor has.
         int headerSize = BinaryPrimitives.ReadInt32LittleEndian(page0.Slice(ei + 8, 4));
         int h = ei + 12;
+        Require(page0, h, 20, "EncryptionHeader");
         uint algId = BinaryPrimitives.ReadUInt32LittleEndian(page0.Slice(h + 8, 4));
         uint algIdHash = BinaryPrimitives.ReadUInt32LittleEndian(page0.Slice(h + 12, 4));
         int keyBits = BinaryPrimitives.ReadInt32LittleEndian(page0.Slice(h + 16, 4));
@@ -126,10 +141,14 @@ public sealed class OfficeStandardEncryption : IPageCodec
             throw new NotSupportedException(
                 $"Unsupported Office-Standard {(rc4 ? "RC4" : "AES")} key size {keyBits} bits.");
 
+        if (headerSize < 0)
+            throw new InvalidDataException($"Office-Standard EncryptionHeader declares a negative size ({headerSize}).");
         int v = h + headerSize;                       // EncryptionVerifier
+        Require(page0, v, 4, "EncryptionVerifier");
         int saltSize = BinaryPrimitives.ReadInt32LittleEndian(page0.Slice(v, 4));
         if (saltSize != 16)
             throw new NotSupportedException($"Unsupported Office-Standard salt size {saltSize}; expected 16 bytes.");
+        Require(page0, v + 4, saltSize + 16 + 4, "EncryptionVerifier salt and verifier");
         byte[] salt = page0.Slice(v + 4, saltSize).ToArray();
         byte[] encVerifier = page0.Slice(v + 4 + saltSize, 16).ToArray();
         int verifierHashSize = BinaryPrimitives.ReadInt32LittleEndian(page0.Slice(v + 4 + saltSize + 16, 4));
@@ -137,6 +156,7 @@ public sealed class OfficeStandardEncryption : IPageCodec
             throw new NotSupportedException(
                 $"Office-Standard verifier hash size {verifierHashSize} does not match {hashName.Name} ({hashLength} bytes).");
         int encHashLen = rc4 ? verifierHashSize : (verifierHashSize + 15) / 16 * 16; // RC4: raw hash; AES: padded to block
+        Require(page0, v + 4 + saltSize + 16 + 4, encHashLen, "EncryptionVerifier hash");
         byte[] encVerifierHash = page0.Slice(v + 4 + saltSize + 16 + 4, encHashLen).ToArray();
 
         byte[] baseHash = Hash(hashName, Concat(salt, Encoding.Unicode.GetBytes(password)));

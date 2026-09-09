@@ -145,14 +145,16 @@ public class GeneralV1CollationTests
         Assert.Equal(checksum, Hex(key)[^4..]);
     }
 
-    // The one case that is refused rather than truncated: a discarded word-sort record cannot be verified,
-    // because the record is in the part ACE dropped and what it held is unobservable.
+    // A key whose dropped bytes hold a word-sort record used to be refused here, on the reasoning that the
+    // record is unobservable and might be repositioned by ACE when truncating. Both were disproved once the
+    // checksum's arithmetic was settled — see docs/design/index-key-checksum.md — so it truncates like any
+    // other. The ACE cross-check for this shape lives in IndexKeyTruncationAccessTests, which compares
+    // against keys ACE itself wrote at seven mark positions; this only pins that it is no longer refused.
     [Fact]
-    public void A_key_past_the_limit_holding_a_word_sort_record_is_refused()
+    public void A_key_past_the_limit_holding_a_word_sort_record_is_truncated()
     {
-        var error = Assert.Throws<NotSupportedException>(
-            () => Encode(new string('一', 200) + "-" + new string('一', 54), Collation.General));
-        Assert.Contains("apostrophe or hyphen", error.Message);
+        byte[] key = Encode(new string('一', 200) + "-" + new string('一', 54), Collation.General);
+        Assert.Equal(510, key.Length);
     }
 
     // The cap is on the WHOLE entry, not on each column. Two 200-character columns weigh about 404 bytes of
@@ -241,12 +243,20 @@ public class GeneralV1CollationTests
         Assert.Equal("7F0100", Hex(Encode("   ", Collation.General)));   // trailing spaces are trimmed
     }
 
-    // Non-English locales are still refused: the embedded table is the English (1033) one.
-    [Fact]
-    public void A_non_english_locale_is_still_refused()
+    // An order with no version-1 table of its own is refused, at both versions. ACE would instead resolve a
+    // version-1 declaration down to a version-0 table, but LibRed deliberately does not emulate that: the
+    // only way to declare a collation ACE has no table for is to edit a file's bytes by hand, since a
+    // column's collation always equals its database's and DAO exposes CollatingOrder read-only. Refusing
+    // keeps the gate default-closed for input that cannot arise. See JetLocaleTailoring.
+    [Theory]
+    [InlineData((int)CollatingOrder.Cyrillic, 1, "an order with a v0 table but no v1 one")]
+    [InlineData(0x7FFF, 0, "an LCID nothing has measured")]
+    [InlineData(0x7FFF, 1, "the same, at version 1")]
+    public void An_order_with_no_table_of_its_own_is_refused(int order, byte version, string what)
     {
+        _ = what;
         var error = Assert.Throws<NotSupportedException>(
-            () => Encode("a", new Collation(CollatingOrder.Cyrillic, 1)));
+            () => Encode("a", new Collation((CollatingOrder)order, version)));
         Assert.Contains("not implemented", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 }

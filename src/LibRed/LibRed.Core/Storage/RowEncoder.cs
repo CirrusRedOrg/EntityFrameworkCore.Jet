@@ -14,13 +14,19 @@ namespace LibRed.Storage;
 /// The null bitmap marks present (non-null) columns; a Boolean column has no data and its
 /// bit carries the value. Variable columns are laid out in ascending VariableIndex order with
 /// an end-first offset table. A memo/OLE column's value is written as an *inline* long-value
-/// (12-byte descriptor + payload, §8); values too large to inline (chained LVAL pages) are not
-/// written yet.
+/// (12-byte descriptor + payload, §8) when it is small enough; anything larger is stored on LVAL
+/// pages by <see cref="RowInserter"/> before the row reaches here, so only the descriptor is encoded.
 /// </summary>
-public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase format, int? fixedDataLength = null)
+public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase format,
+    int? fixedDataLength = null, int? variableColumnCount = null)
 {
     private readonly IReadOnlyList<ColumnDef> _columns = columns;
     private readonly JetFormatBase _format = format;
+
+    // How many variable slots a row carries. The TDEF's 0x2B when the caller has it — a high-water that
+    // never decrements — else the tight maximum over the live columns, which is the same number until the
+    // LAST variable column is dropped and is all a standalone encode can know.
+    private readonly int? _variableColumnCount = variableColumnCount;
 
     // Fixed (non-boolean) columns occupy a contiguous region; its length is defined by the
     // table definition. Default to the tight max so a standalone encode round-trips; INSERT
@@ -32,16 +38,21 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         if (values.Length != _columns.Count)
             throw new ArgumentException($"Expected {_columns.Count} values, got {values.Length}.", nameof(values));
 
-        int colCountSize = _format.RowColumnCountSize;
         // The leading count and the null-bitmap width are driven by the highest column id + 1, NOT the live
         // column count — the two coincide only while ids are contiguous (fresh table / ADD COLUMN), and diverge
         // once ids have a gap (a burned type-change id, or a DROP COLUMN gap). Verified vs ACE (spec §5).
+        // AssembleRow derives both from this.
         int maxColumnId = _columns.Count == 0 ? -1 : _columns.Max(c => c.ColumnId);
-        int colCount = maxColumnId + 1;
-        int nullBitmapSize = (colCount + 7) / 8;
 
-        var varCols = _columns.Where(c => !c.IsFixedLength).OrderBy(c => c.VariableIndex).ToList();
-        int numVar = varCols.Count;
+        // And the variable section is addressed the same way: by VariableIndex, NOT by position among the
+        // live variable columns. DROP COLUMN leaves a hole in the index space — the TDEF's 0x2B count is a
+        // high-water mark that never decrements, and a column added later takes the next index above it — so
+        // packing the chunks densely puts every column after the hole one slot too low. The decoder reads
+        // VarChunk(column.VariableIndex) and so does ACE, which is what makes it silent: the row is written
+        // and read back happily by nothing at all.
+        var varCols = _columns.Where(c => !c.IsFixedLength).ToList();
+        int numVar = varCols.Count == 0 ? 0
+            : Math.Max(_variableColumnCount ?? 0, varCols.Max(c => c.VariableIndex) + 1);
 
         // Encode each region's payload first so we can size the row exactly.
         var fixedRegion = new byte[_fixedDataLength];
@@ -57,14 +68,33 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         }
 
         var varChunks = new byte[numVar][];
-        for (int j = 0; j < numVar; j++)
+        Array.Fill(varChunks, []);          // a dropped column's slot stays present, and empty
+        foreach (ColumnDef column in varCols)
         {
-            object? v = values[varCols[j].Index];
-            varChunks[j] = v is null ? [] : JetTypeCodec.Encode(varCols[j], v);
+            object? v = values[column.Index];
+            varChunks[column.VariableIndex] = v is null ? [] : JetTypeCodec.Encode(column, v);
         }
 
-        _ = colCount; _ = colCountSize; _ = nullBitmapSize; // sizes are derived inside AssembleRow
         return AssembleRow(maxColumnId, fixedRegion, varChunks, _columns, values);
+    }
+
+    /// <summary>Rejects a variable TEXT/BINARY value longer than its column's declared width, as ACE does
+    /// (measured in <c>ColumnLengthAccessTests</c>); without it LibRed wrote rows Access will not read back.
+    /// Memo/OLE are exempt — they encode to a long-value descriptor whose size is unrelated to
+    /// <see cref="ColumnDef.Length"/>. Fixed columns are checked by <see cref="JetTypeCodec.EnsureFitsFixedWidth"/>
+    /// before the codec pads them, since padding to width would otherwise hide an over-long value.</summary>
+    private static void EnsureFitsDeclaredLength(ColumnDef column, byte[] encoded)
+    {
+        if (column.Type is not (JetDataType.Text or JetDataType.Binary)) return;
+        if (column.Length <= 0 || encoded.Length <= column.Length) return;
+
+        // Report in the column's own units: TEXT declares characters and stores UTF-16, BINARY declares bytes.
+        bool text = column.Type == JetDataType.Text;
+        int declared = text ? column.Length / 2 : column.Length;
+        int actual = text ? encoded.Length / 2 : encoded.Length;
+        throw new InvalidOperationException(
+            $"The field '{column.Name}' is too small to accept the amount of data you attempted to add: "
+            + $"{actual} {(text ? "characters" : "bytes")} into a column declared to hold {declared}.");
     }
 
     /// <summary>Assembles the on-disk row bytes from a prepared fixed region and the ordered variable chunks:
@@ -73,9 +103,18 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     /// column's bit is set when present (Boolean = its truthy value), and dead ids (gaps below the max, from a
     /// burned/dropped id) are set present too — all verified vs ACE (§5). Shared by <see cref="Encode"/> and
     /// the ALTER COLUMN row re-lay so the two can never drift.</summary>
+    /// <remarks>
+    /// The declared-width check runs HERE rather than in <see cref="Encode"/>. It used to sit above this call,
+    /// which meant the ALTER COLUMN re-lay — the other caller — never got it, and a narrowing retype could
+    /// write rows Access refuses. A guard that both paths must pass through belongs on the shared path.
+    /// </remarks>
     internal static byte[] AssembleRow(int maxColumnId, ReadOnlySpan<byte> fixedRegion,
         IReadOnlyList<byte[]> varChunks, IReadOnlyList<ColumnDef> columns, object?[] values)
     {
+        foreach (ColumnDef column in columns)
+            if (!column.IsFixedLength && column.VariableIndex >= 0 && column.VariableIndex < varChunks.Count)
+                EnsureFitsDeclaredLength(column, varChunks[column.VariableIndex]);
+
         const int countSize = 2;
         int count = maxColumnId + 1;
         int nullBitmapSize = (count + 7) / 8;

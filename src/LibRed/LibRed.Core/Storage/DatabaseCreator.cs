@@ -229,15 +229,17 @@ public static class DatabaseCreator
     /// Creates a new, empty database at <paramref name="path"/> from scratch — no DAO/ADOX. Hand-builds the
     /// bootstrap (page 0, the page-1 free map, and the <c>MSysObjects</c>/<c>MSysACEs</c> TDEFs with their
     /// usage maps + self-registering catalog rows), then the file is a normal LibRed database: further tables
-    /// are added through the ordinary writers. Produces a LibRed-openable, round-trippable file (Access-level
-    /// fidelity — the remaining system tables and the 0xE00 map — is a follow-up).
+    /// are added through the ordinary writers. The file opens in the Access GUI: the <c>0xE00</c> user
+    /// commit-byte table is seeded here, and Access adds the system tables it wants (MSysAccessStorage, the
+    /// navigation-pane objects) itself — hand-creating those was tried and made things worse.
     /// </summary>
     /// <param name="collation">
     /// The database's default text collating order, written to page 0 and inherited by every column created
     /// in it. Defaults to General-Legacy (LCID 1033, version 0), which is what the engine writes; pass
     /// <see cref="Collation.General"/> for the order Access 2010+ offers as "General".
     /// <para>
-    /// Any order <see cref="Collation.IsIndexKeyEncodable"/> accepts can be created — 30 configurations, the
+    /// Any order <see cref="Collation.IsIndexKeyEncodable"/> accepts can be created — 405 configurations
+    /// (399 at version 0, and the six orders that have a version-1 table), the
     /// two General orders and every locale in <c>JetLocaleTailoring</c>, each verified by having ACE build an
     /// index in the created file and agree on the keys (<c>CreatedDatabaseCollationAccessTests</c>). It
     /// cannot be otherwise: the system-table indexes are built here, in this order, so creating a database

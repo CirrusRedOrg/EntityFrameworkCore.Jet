@@ -343,9 +343,24 @@ internal static class JetTextCollationV1
         output.AddRange(primaries);
         output.Add(EndPrimary);
 
-        // Secondary section: emitted up to and including the last character carrying a non-default accent.
-        int lastAccent = secondaries.FindLastIndex(weight => weight != DefaultSecondary);
-        for (int i = 0; i <= lastAccent; i++) output.Add(secondaries[i]);
+        // Secondary section: emitted up to and including the last character carrying a non-default accent —
+        // or BACKWARDS from the last to the first accented one for a French-style order, where the trimming
+        // mirrors too because the leading defaults become the trailing ones once reversed. Identical to v0's
+        // rule; ReverseDiacritics lives on the shared LocaleTailoring, and this encoder used to ignore it,
+        // so a v1 tailoring that set the flag was accepted by IsIndexKeyEncodable and then silently produced
+        // a forward section. Latent — the one order that sets it (French) is v0 — but a silently wrong key is
+        // the exact failure this subsystem exists to prevent, so the two encoders agree rather than differ.
+        if (tailoring?.ReverseDiacritics == true)
+        {
+            int firstAccent = secondaries.FindIndex(weight => weight != DefaultSecondary);
+            if (firstAccent >= 0)
+                for (int i = secondaries.Count - 1; i >= firstAccent; i--) output.Add(secondaries[i]);
+        }
+        else
+        {
+            int lastAccent = secondaries.FindLastIndex(weight => weight != DefaultSecondary);
+            for (int i = 0; i <= lastAccent; i++) output.Add(secondaries[i]);
+        }
 
         hasWordSortRecord = inline.Count > 0;
 

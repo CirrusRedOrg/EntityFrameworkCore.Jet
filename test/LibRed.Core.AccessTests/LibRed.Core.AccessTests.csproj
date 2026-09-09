@@ -1,0 +1,72 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(JetTargetFramework)</TargetFramework>
+    <!-- The same namespace as LibRed.Core.Tests, as LibRed.Engine.AccessTests does: the split is about which
+         engine a test needs, not about what it is testing, so the classes keep their names and namespace. -->
+    <RootNamespace>LibRed.Core.Tests</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Signed with the repo key so it can be an InternalsVisibleTo friend of the strong-named LibRed.Core
+         (the sort-key generators must read the bare weight table, bypassing the resource they rewrite). -->
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)..\..\Key.snk</AssemblyOriginatorKeyFile>
+    <!-- Every test here cross-checks against Access's own OLE DB engine, which is Windows-only. -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <Platforms>AnyCPU;x86;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3.core" />
+    <PackageReference Include="xunit.v3.assert" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="System.Data.OleDb" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LibRed\LibRed.Core\LibRed.Core.csproj" />
+    <!-- LibRed-only helpers live outside test\Shared: the EF functional test projects glob that folder
+         wholesale (..\Shared\**\*.cs) and do not all reference LibRed.Core. -->
+    <Compile Include="..\LibRed.Shared\AceTestDatabase.cs" Link="AceTestDatabase.cs" />
+    <Compile Include="..\LibRed.Shared\TemporaryDatabase.cs" Link="TemporaryDatabase.cs" />
+    <Compile Include="..\LibRed.Shared\TempDatabaseTest.cs" Link="TempDatabaseTest.cs" />
+    <Compile Include="..\LibRed.Shared\TestDatabases.cs" Link="TestDatabases.cs" />
+    <Using Include="LibRed.Tests.Shared" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="xunit.runner.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- The fixtures live in LibRed.Core.Tests\Data and are copied into both outputs rather than duplicated on
+       disk: several of these tests read an Access-authored file and hand the same path to ACE, so the two
+       projects need the identical set. -->
+  <ItemGroup>
+    <Content Include="..\JetProviderExceptionTests\Northwind.accdb">
+      <Link>Data\Northwind.accdb</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\LibRed.Core.Tests\Expected\*.txt">
+      <Link>Expected\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\LibRed.Core.Tests\Data\*.accdb" Exclude="..\LibRed.Core.Tests\Data\BigTable.accdb">
+      <Link>Data\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

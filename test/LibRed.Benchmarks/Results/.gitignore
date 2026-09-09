@@ -1,0 +1,7 @@
+# BenchmarkDotNet writes a report set here on every run, including ones from a half-finished experiment.
+# Nothing is tracked by default so a casual run never shows up in `git status`; to publish a run worth
+# keeping, add the reports you want explicitly:
+#
+#     git add -f test/LibRed.Benchmarks/Results/results/<suite>-report-github.md
+*
+!.gitignore

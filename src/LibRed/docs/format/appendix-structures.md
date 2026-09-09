@@ -83,7 +83,7 @@ Variable section (`varOffsetTable`+`numVar`) omitted when the table has no varia
 | `0x08` | 4 | TDEF length (total logical bytes) |
 | `0x0C` | 4 | Constant marker `0x00000659` |
 | `0x10` | 4 | Row count |
-| `0x14` | 4 | AutoNumber high-water = last assigned id (next = `+ 0x18`, unchecked — **wraps** at the int32 boundary); seed `= 0x14 + increment` |
+| `0x14` | 4 | AutoNumber high-water = last assigned id (assignment rules: [page-02a](page-02a-tdef.md) §3.1) |
 | `0x18` | 4 | AutoNumber increment (signed int32; default 1) |
 | `0x1C` | 4 | Complex-type AutoNumber high-water |
 | `0x20` | 8 | Unknown / reserved (zero) |
@@ -111,8 +111,8 @@ Variable section (`varOffsetTable`+`numVar`) omitted when the table has no varia
 | `0x01` | 2 | Marker `0x0659` |
 | `0x03` | 2 | Unknown (zero) |
 | `0x05` | 2 | Column id |
-| `0x07` | 2 | Variable-table index (0 for fixed) |
-| `0x09` | 2 | Column number (= id, until an `ALTER COLUMN` burns a new id at `0x05`) |
+| `0x07` | 2 | Variable-table index — on a **fixed** column the running count of preceding variable columns, **NOT `0`**; on a variable column its own slot index, which follows the `0x2B` high-water ([page-02b §3.4](page-02b-columns.md)) |
+| `0x09` | 2 | Column number — a second copy of the id `0x05` on a **user** table, but **`0`** on the tables the engine writes for itself; unchanged by an `ALTER COLUMN` that burns a new id at `0x05` ([page-02b §3.4](page-02b-columns.md)) |
 | `0x0B` | 1 | Precision (Decimal) — else locale low byte `0x09` |
 | `0x0C` | 1 | Scale (Decimal) — else locale high byte `0x04` |
 | `0x0D` | 1 | Collation sort id — the LCID's high word (`0x01` = an alternate sort order, e.g. Hungarian Technical) |
@@ -169,8 +169,7 @@ Nullability is **not** in the descriptor — it's the `Required` property in `Lv
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 3 | Length (24-bit) |
-| `0x03` | 1 | Flags: `0x80` inline, `0x40` single LVAL page, `0x00` multi-page chain |
+| `0x00` | 4 | Little-endian word: length in bits 0–29; flags in bits 30–31 (`0x80000000` inline, `0x40000000` single LVAL page, `0x00000000` chain) |
 | `0x04` | 1 | Row |
 | `0x05` | 3 | Page |
 | `0x08` | 4 | Reserved |
@@ -190,7 +189,7 @@ Nullability is **not** in the descriptor — it's the `Required` property in `Lv
 **Inline (type `0x00`):** `[0x00][startPage:4][bitmap…]` — bit `i` ⇒ page `startPage+i` owned.
 **Reference (type `0x01`, 69 bytes):** `[0x01][17 × 4-byte bitmap-page pointers]`.
 **Bitmap page (type `0x05`):** header `[0x05][0x01][0][0]`, bitmap from offset 4.
-Global free-pages map: **page 1, row 0**, inline — set bit = **free** (opposite of a table map).
+Global free-pages map: **page 1, row 0**, inline or reference — set bit = **free** (opposite of a table map).
 
 ---
 
@@ -252,15 +251,35 @@ so guard with a validator; **query-engine** — ACE's SQL-engine limits that Lib
 | Limit | Value | Kind |
 | --- | --- | --- |
 | Object / table / field name | 64 chars | engine constant (ACE `WCHAR[64]`-style; >64 corrupts the file — [page-02a](page-02a-tdef.md) §3.3) |
-| Fields per table | 255 | structural (the `0x29` column-id high-water; never reused — [page-02b](page-02b-columns.md)) |
-| Indexes per table | 32 | structural (`0x33` real-index count) |
+| Fields per table | 255 | engine constant — the `0x29` column-id high-water, ids never reused ([page-02a](page-02a-tdef.md) §3.1) |
+| Indexes per table | 32 | engine constant — binds on the **logical** count `0x2F`, not the real count `0x33` ([page-02d](page-02d-constraints.md) §3.5) |
 | Fields per index / PK | 10 | structural (the 52-byte index-data block's fixed 10-slot column array — [page-02d](page-02d-constraints.md) §3.5) |
 | Short Text length | 255 chars | validator |
-| Record (excl. Long Text/OLE) | ~4000 bytes | structural (page space) |
-| DB / table size | 2 GB | structural (page numbering; the reference usage map's 17 slots span just past it — [page-05](page-05-usage-maps.md)) |
+| Record (excl. Long Text/OLE) | **4060 bytes** | ACE-enforced, not page space ([page-01](page-01-data-and-rows.md) §5) |
+| Database file size | 2 GiB | ACE-enforced file extent; page numbering and reference-map coverage extend beyond this limit |
 
 `LvProp` property **values** (DefaultValue, CheckConstraints) are variable-length and length-tolerant — no
 fixed-buffer overrun like the name pool, so no storage cap to guard (the Access "255-char property" and
 "2048-char validation rule" caps are DAO/UI limits, not the file format). ACE's query-engine limits (tables
 per query 32, joins 16, `AND`s in WHERE 99, nested queries 50, SQL length ~64k) are the capabilities LibRed
 exists to beat and are deliberately **not** guarded.
+
+### Ceilings one structure imposes on another
+
+The limits above are all stated where they bind. These are not: a field in **one** structure fixes a ceiling
+that a writer of a **different** structure has to respect, and nothing in the second structure's layout says
+so. Both bugs found in this class were silent — the write succeeds, the read succeeds, and the wrong row
+comes back — so the table records how each ceiling is actually held, not merely that it exists.
+
+| Narrow field | Ceiling it imposes | How it is held |
+| --- | --- | --- |
+| Index leaf entry addresses a row as `page << 8 \| row` — 1 byte of slot | **256 rows per data page**, though the row count at `0x0C` is 2 bytes and a 4 KB page fits far more | **Enforced.** `FindPageWithRoom` refuses a page at `RowPointer.MaxRowsPerPage`, covering both the insert path and `WriteHiddenRow` (a relocation target is named by the same pointer). Was a live bug: narrow all-fixed rows reached 314 per page, and every slot past 255 aliased another row |
+| Long-value descriptor names its row in 1 byte (`d[4]`) | **256 rows per LVAL page** | **Enforced** in `TryAppend`. Unreachable in practice — a payload ≤ 64 bytes inlines, and the free-map drop at `MinLvalRow` caps a page near 108 rows even for the smallest thing that can arrive (a 33-character memo compressed to 35 bytes; compression is applied *after* the inline test, so the floor is below the 65 bytes the inline limit suggests) |
+| Page numbers are 3 bytes in the TDEF usage-map pointer, the long-value descriptor (`d[5..7]`) and an LVAL chunk's next-pointer | **page < 2²⁴** (16,777,216) | **Safe with 32× headroom**, because `PageChannel.WritePage` enforces the 2 GiB file limit at 524,288 pages. The 24-bit fields are never the binding constraint |
+| Usage-map pointer names its record row in 1 byte | **256 records per usage-map page** | **Safe by a louder guard.** A record is 69 bytes, so `AppendEmptyUsageMapRow`'s space check admits 57 and refuses the 58th — 4.5× tighter than the byte — and it throws rather than truncating |
+| Reference usage map holds 17 bitmap-page slots | **~2.28 GB of page coverage** | **Enforced** — `NotSupportedException` on both the set-bit and inline→reference conversion paths. Just past the 2 GiB file limit, by design |
+| Index page entry mask spans `0x1B`–`0x1E0` (453 bytes = 3,624 bits) | one bit per byte of entry data, which starts at `0x1E0` | **Exact fit, not slack**: entry data tops out at `4096 − 0x1E0` = 3,616 bytes, so the highest bit lands in the mask's last byte. `EntryDataOffset` is evidently chosen for this |
+| Row slot offset is 13 bits (`0x1FFF` = 8,191) | offsets within a 4 KB page | Safe by 2×; the mask exists for the two flag bits above it |
+
+The pattern worth carrying: **a ceiling is only safe if something refuses to cross it, or if a tighter guard
+fires first and says so.** "The arithmetic doesn't reach it" is the state both live bugs were in.

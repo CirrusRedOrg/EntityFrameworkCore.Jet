@@ -11,12 +11,89 @@
 | `0x02` | 2 | Free space |
 | `0x04` | 4 | Owning table's TDEF page — **or** the ASCII marker `LVAL` (`0x4C41564C`) for long-value pages |
 | `0x08` | 4 | Jet4-only; purpose unknown — **zero** on every page observed (data, usage-map, LVAL). Jet3 has the row count here instead (which is why Jet4's row count sits 4 bytes later). LibRed writes zero. |
-| `0x0C` | 2 | Row count on this page |
+| `0x0C` | 2 | Row count on this page. **Capped at 256 in practice, whatever the free space** — see the slot-count limit below. |
 | `0x0E` | 2×N | Row slot directory: one 2-byte entry per row |
+
+> **A data page holds at most 256 rows — a limit the free space does not express.** An index entry addresses a
+> row as `page << 8 | row` ([page-03-04-index-btree.md](page-03-04-index-btree.md) §10.2), so the slot number
+> occupies exactly one byte and slots `0..255` are all that can ever be named. The field at `0x0C` is two bytes
+> wide and the page has room for far more, so nothing in the page format stops a writer going past it.
+>
+> Only narrow rows get there: 256 rows fit a 4 KB page once each is under about 14 bytes, which in practice
+> means an all-fixed-column table of a few small columns. LibRed did exactly that and packed 314 rows onto a
+> page — the rows wrote and scanned back correctly (a scan walks slots directly and never forms a pointer), but
+> **every row past slot 255 was unaddressable by any index**, and its index entry aliased a different row on
+> another page. A silent wrong answer on every indexed read, with no error anywhere. `RowInserter`'s page
+> placer now refuses a page at `RowPointer.MaxRowsPerPage` instead of trusting free space alone; the guard is
+> `IndexBuildOrderingTests`.
+>
+> The pointer layout is ACE-verified, so the 256-slot ceiling follows from it. What is **not** measured is what
+> ACE itself does on reaching it — whether it caps at 256 or lower, and whether it leaves the page in the
+> free-pages map. LibRed's choice of 256 is the maximum the pointer allows, not an observation of ACE.
 
 Row slot entry: lower 13 bits (`& 0x1FFF`) = the row's byte offset in the page; `0x8000` =
 deleted, `0x4000` = overflow/lookup pointer (not an inline row). Rows are packed from the end
 of the page backward, so a slot runs from its offset up to where the previous slot's row began.
+**Offsets are therefore non-increasing with slot index**, and the rows stored below a given row are exactly
+the *later slots* — an ordering the delete path below depends on.
+
+### Deleting a row reclaims its bytes
+
+ACE closes the gap rather than leaving the row in place: the rows below it slide up, their slot offsets
+follow, and the emptied slot becomes a **zero-length tombstone flagged deleted + overflow (`0xC000`) whose
+offset is the row's former end**. Slot *indices* never move, which is what keeps index entries and row ids
+valid. Measured on three 19-byte rows, deleting each position in turn — free space rises by 19 every time:
+
+| deleted | directory after |
+| --- | --- |
+| first | `D000 0FED 0FDA` — tombstone at the page end (`0x1000`) |
+| middle | `0FED CFED 0FDA` — at the row above's start |
+| last | `0FED 0FDA CFDA` — nothing below to move |
+
+Pointing the tombstone at the former end rather than at the page end is what preserves the non-increasing
+order, which is what makes it zero-length: its offset equals the preceding slot's. LibRed used to only set
+the deleted flag and leave the row where it was, so the space was never reclaimed — about 21 bytes per
+delete, permanently. `DeletedRowSpaceAccessTests`.
+
+The **slot directory** is not reclaimed by either engine: a tombstoned slot is never reused, so a page that
+has seen thirteen rows carries thirteen slots whatever is live. Only the row bytes come back.
+
+**A relocated row is reclaimed on both pages.** When a slot carries the overflow flag it holds a 4-byte
+forward pointer rather than the row, and the row itself sits on another page flagged deleted (§ relocation
+below). Deleting it reclaims the target first and then the pointer: ACE brings the target's page back to a
+bare `4080` free and returns the pointer's four bytes to the source page. Reclaiming only the pointer
+strands the moved row for ever — for a row that relocated because it grew, that is the whole widened row,
+hundreds of bytes against the pointer's four. `RelocatedRowDeleteAccessTests`.
+
+> **A record is capped at 4060 bytes**, counting everything in the row itself — the leading count, fixed
+> data, variable data, the offset table and the null bitmap — but not the payload of a Memo/OLE column,
+> which lives on LVAL pages behind a 12-byte descriptor. Past it ACE refuses the insert with *"Record is
+> too large."*
+>
+> **The cap is ACE's, not the page's.** A page holds 4080 (4096 less the 14-byte header and a 2-byte slot),
+> and the 20-byte reserve below that is measured, not explained. It is also not derived from the row's
+> shape: three tables whose overhead differs by 23 bytes — 9, 12 and 20 text columns — all stop at the same
+> 4060 (`RecordSizeAccessTests`).
+>
+> It is **the same 4060 under page-level and row-level locking** (`Jet OLEDB:Database Locking Mode` 0 and 1),
+> which is what it must be — a limit that moved with the connection would make a file written by one client
+> unreadable by another opening it differently. That independence is also what lets LibRed, which has no
+> locking mode at all, enforce one constant for every caller.
+>
+> *Unverified lead, recorded because the evidence is suggestive rather than because it is established:* the
+> 20 bytes may be space the engine always keeps for row-lock bookkeeping, whether or not the connection uses
+> it. Two things point that way. Row-level locking arrived in Jet 4, the same generation as this reserve.
+> And the **class** of error is wrong for corruption: a malformed row reads as "Unrecognized database
+> format" or a decode failure, whereas this one reports a concurrent edit — so ACE parsed the row and then
+> its multi-user layer objected, meaning something is *interpreting* those bytes rather than merely running
+> past them. Nothing here tests it; the mode-independence above is equally consistent with the reserve being
+> something else.
+>
+> **Writing into the 4061–4080 band is worse than writing past it.** It fits the page, so nothing fails at
+> write time, and ACE then cannot materialise the row — it reports *"you and another user are attempting to
+> change the same data at the same time"*, naming a concurrency problem that does not exist. Only above 4080
+> does anything complain locally. A writer must therefore enforce 4060 rather than the page geometry;
+> LibRed does so in `RowInserter` from `JetFormatBase.MaxRecordSize`.
 
 > **Reader guardrails.** LibRed requires an exact format-sized type-`0x01` page before either a full
 > scan or the O(1) index-seek slot path. The declared slot directory must fit before the heap; every
@@ -90,6 +167,10 @@ malformed pointers fail with `InvalidDataException`.
   (`AceModifyByteDiffProbe`): after `ALTER COLUMN B DOUBLE` burns B's id 1→3 in a 3-column table, the row's
   `colCount` field is **4** and the null bitmap is `0x0F` (the dead id 1's bit is set present). A writer that
   sizes these by the live count writes a bit ACE can't find for any id ≥ live count → ACE reads that column null.
+  - It is the **highest live id**, though, and *not* the TDEF's `0x29` id high-water — those differ when the
+    highest-id column is dropped, and rows written afterwards then legitimately carry a *shorter* count and a
+    narrower bitmap than the rows before them. ACE reads across the change
+    (`VariableColumnHighWaterAccessTests`).
 - **Null bitmap** is indexed by **column id**; a **set bit = the value is present** (non-null).
 - **Fixed** column value is at `rowStart + 2 + fixedOffset`, `length` bytes.
   - A **fixed-length text** column (`CHAR`/`NCHAR`, not `TEXT`/`VARCHAR`) fills its whole `length`: the value is
@@ -100,6 +181,22 @@ malformed pointers fail with `InvalidDataException`.
   variable column `j` spans `[offset(numVarCols − j), offset(numVarCols − j − 1))`, where
   `offset(k)` is the little-endian 16-bit value at `varTableStart + k×2`. (The table is stored
   end-first, i.e. ascending column-id order maps to descending table index.)
+  - **`j` is the column's VARIABLE INDEX** — descriptor byte `0x07` — **not its position among the table's
+    live variable columns**, and **`numVarCols` is the TDEF's `0x2B`**, which is a high-water and not a live
+    count. The two coincide only while the index space is contiguous and part company after a `DROP COLUMN`:
+    see [page-02a §3.1](page-02a-tdef.md#31-header) for why, which is the same place the matching rules for
+    `colCount` and for a fixed column's offset live, together with the table of which writers enforce each. Writing the chunks densely instead
+    puts every column after the hole one slot too low, and it is silent — ACE and LibRed's own decoder both
+    index by variable index, so the row is written and read back happily by nothing at all. `0x2B` is the
+    authority even where it exceeds `max(index) + 1` over the live columns: a row one slot short makes the
+    `ALTER COLUMN` re-lay (§3.8) append the retyped column past the end of the row, and **ACE then rejects
+    the file** with *"A column Id is incorrect."* (`VariableColumnHighWaterAccessTests`.)
+  - A variable **text**/**binary** value must **fit its column's declared width**. Where a fixed column pads or
+    truncates, ACE **rejects** an over-long variable one — six characters into a `TEXT(5)`, six bytes into a
+    `VARBINARY(5)`, both *"The field is too small to accept the amount of data you attempted to add"* (verified
+    vs ACE, `ColumnLengthAccessTests`). The bound is the descriptor's `length`, in **bytes** for both, so
+    `TEXT(5)` is 10. `Memo`/`OLE` are exempt — their inline form is a long-value descriptor whose size is
+    unrelated to `length`.
 - **Booleans** carry **no data** — the value *is* the null-bitmap bit (set = true). Boolean
   columns are never null, and they occupy **no fixed-region bytes**: their descriptor's fixed
   offset is 0 and the fixed offsets of other columns skip over them. (Verified: Northwind's

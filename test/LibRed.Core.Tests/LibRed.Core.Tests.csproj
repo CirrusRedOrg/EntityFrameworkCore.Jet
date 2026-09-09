@@ -12,8 +12,6 @@
          (the sort-key generators must read the bare weight table, bypassing the resource they rewrite). -->
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)..\..\Key.snk</AssemblyOriginatorKeyFile>
-    <!-- The insert verification compares against Access's own OLE DB engine (Windows-only). -->
-    <NoWarn>$(NoWarn);CA1416</NoWarn>
     <Platforms>AnyCPU;x86;x64</Platforms>
   </PropertyGroup>
 
@@ -29,17 +27,15 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <!-- To verify inserts against Access's own engine (ground truth). -->
-    <PackageReference Include="System.Data.OleDb" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\LibRed\LibRed.Core\LibRed.Core.csproj" />
     <!-- LibRed-only helpers live outside test\Shared: the EF functional test projects glob that folder
          wholesale (..\Shared\**\*.cs) and do not all reference LibRed.Core. -->
-    <Compile Include="..\LibRed.Shared\AceTestDatabase.cs" Link="AceTestDatabase.cs" />
     <Compile Include="..\LibRed.Shared\TemporaryDatabase.cs" Link="TemporaryDatabase.cs" />
     <Compile Include="..\LibRed.Shared\TempDatabaseTest.cs" Link="TempDatabaseTest.cs" />
+    <Compile Include="..\LibRed.Shared\TestDatabases.cs" Link="TestDatabases.cs" />
     <Using Include="LibRed.Tests.Shared" />
   </ItemGroup>
 

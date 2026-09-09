@@ -85,19 +85,48 @@ public class CollationTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
-    [Fact]
-    public void Index_key_encoding_refuses_an_unsupported_collation()
+    // An order LibRed has not measured must be REFUSED, not encoded with the English table. A wrong key does
+    // not throw and does not corrupt anything visibly — it just disagrees with ACE about where a row sorts,
+    // so seeks miss rows that are present. Refusing is the only way that failure becomes visible.
+    //
+    // This used to be asserted with Cyrillic (1049), on the reasoning that a non-English locale obviously
+    // could not be encoded with the English table. The collation survey measured 1049 and found its keys
+    // byte-identical to General v0, so the example stopped being an example. The two below are refused for
+    // reasons that will outlive a survey: CJK is deliberately out of scope, and Irish is the one order that
+    // could not be measured at all.
+    [Theory]
+    [InlineData((int)CollatingOrder.Japanese, "a CJK order, deliberately out of scope")]
+    [InlineData(1084, "Irish - accepted by Jet, but never measured against ACE")]
+    public void Index_key_encoding_refuses_an_unmeasured_collation(int order, string why)
     {
-        // A non-English locale must be rejected rather than encoded with the English weight table.
-        var cyrillic = new ColumnDef
+        _ = why;   // names the case in the test output
+
+        var column = new ColumnDef
         {
             Name = "C",
             Type = JetDataType.Text,
-            Collation = new Collation(CollatingOrder.Cyrillic, 0),
+            Collation = new Collation((CollatingOrder)order, 0),
         };
         var ex = Assert.Throws<NotSupportedException>(() =>
-            IndexKeyEncoder.Encode([(cyrillic, true)], ["abc"]));
+            IndexKeyEncoder.Encode([(column, true)], ["abc"]));
         Assert.Contains("not implemented", ex.Message);
+    }
+
+    // The other half of the same guard, and the one a list of refusals cannot give: an order that IS
+    // measured must be accepted. Cyrillic is here precisely because it moved.
+    [Fact]
+    public void Index_key_encoding_accepts_an_order_measured_to_equal_general()
+    {
+        Assert.True(new Collation(CollatingOrder.Cyrillic, 0).IsIndexKeyEncodable);
+
+        ColumnDef Column(Collation collation) =>
+            new() { Name = "C", Type = JetDataType.Text, Collation = collation };
+
+        Assert.Equal(
+            Convert.ToHexString(IndexKeyEncoder.Encode(
+                [(Column(Collation.GeneralLegacy), true)], ["abc"])),
+            Convert.ToHexString(IndexKeyEncoder.Encode(
+                [(Column(new Collation(CollatingOrder.Cyrillic, 0)), true)], ["abc"])));
     }
 
     [Fact]

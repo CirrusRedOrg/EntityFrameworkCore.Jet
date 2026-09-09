@@ -47,10 +47,11 @@
 > not observed in any ACE table; it may be a Jet 3 or degenerate-record case.)
 
 > ⚠️ `0x2F` vs `0x33`: these are equal for MSysObjects (which hid the distinction during
-> reverse-engineering) but differ for user tables. `0x33` (real index count) sizes the
-> index-data blocks **and** the `0x3F` pre-column block; `0x2F` (logical count) is the number
-> of logical-index info blocks and index names. A relationship adds a *logical* index that
-> shares a real index's data, so logical ≥ real.
+> reverse-engineering) but differ for user tables. For **sizing the body**, which is this section's
+> concern: `0x33` (real index count) sizes the index-data blocks **and** the `0x3F` pre-column block, while
+> `0x2F` (logical count) sizes the logical-index info blocks and the index names. Why the two differ, why
+> `0x33 ≤ 0x2F` always holds, and which of them the 32-index limit binds on are
+> [page-02d §3.5](page-02d-constraints.md).
 
 > **The AutoNumber counter wraps at the int32 boundary — there is no overflow error** (verified vs ACE
 > OLE DB 16.0/12.0, `AceAutoNumberOverflowProbeTest`). `0x14` is an ordinary signed int32 and the next id is
@@ -98,24 +99,10 @@
 >   `ADD COLUMN` fails even if the *live* count (`0x2D`) is lower — only a **compact** (which renumbers) frees
 >   the id space. ACE-verified: create 255 columns, drop 10, `ADD COLUMN` → *"Too many fields defined."*
 >   LibRed enforces this on `0x29` (not the live count) rather than write a 256th id ACE can't represent.
->   **Access burns an id per *modify* too, but keeps the column's position (both verified vs ACE via OLE DB
->   `ALTER TABLE … ALTER COLUMN`).** Changing a column's type is internally *a new column*: the column keeps its
->   **ordinal position** in the field list but gets a **fresh id** from the `0x29` high-water. Probed: a
->   4-column table `A,B,C,D` (ids 0,1,2,3); `ALTER COLUMN B …` → B stays at index 1 with **id 4**; a later
->   `ALTER COLUMN C …` → C stays at index 2 with **id 5**; every *other* column keeps its id. So after modifies,
->   descriptor **position ≠ id** (ids non-contiguous, in a fixed physical order).
->   - **Null bitmap is keyed by column *id*** (not position) — verified: a row ACE wrote into that modified
->     table (`A` null, `B` id 4 non-null) is read back correctly by LibRed's id-keyed decoder, i.e. `B`'s
->     present-bit sits at bit *4*, not bit 1.
->   - **LibRed today:** `RewriteColumn` preserves each untouched column's **original descriptor bytes**
->     verbatim (the `RawDescriptor` passthrough — fields LibRed doesn't model survive the rewrite) and keeps
->     column order, but it does **not** yet burn the target's id: it rebuilds with **contiguous** ids (the
->     target keeps its position/id). Reason: LibRed's row **encoder** keys the null bitmap by id sized to the
->     *live* column count, so a burned id that exceeds the live count writes a present-bit ACE can't find
->     (verified: a LibRed-written burned-id table read back null in ACE). Burning the id faithfully needs the
->     encoder's bitmap sizing reconciled with ACE's first. Until then LibRed stays more permissive on the 255
->     cap (never spuriously "Too many fields"), which is a deliberate, ACE-readable divergence — not a
->     correctness gap.
+>   **`ALTER COLUMN` consumes an id from `0x29` too**, keeping the column's ordinal position — so after a
+>   modify, descriptor **position ≠ id**. That is a property of the ALTER mechanism rather than of this
+>   field, and is documented with its measurements in
+>   [page-02b §3.8](page-02b-columns.md#38-in-place-column-typelength-change-alter-column--verified-byte-for-byte).
 > - **`0x2B` variable-length column count** — also a **high-water**. `ADD COLUMN` of a variable column
 >   increments it (the new column's variable index = the old value); `DROP COLUMN` of a variable column
 >   **leaves it unchanged**, so survivors keep their stored variable index (§3.4) and existing rows keep the
@@ -125,6 +112,43 @@
 > an added **variable** column appends. A dropped column's descriptor + name are removed from the column
 > region; a dropped **memo/OLE** column's §3.3.2 entry is removed, an added one's is appended (its two page
 > maps go on the table's usage-map page, or a dedicated page if that's full — the same rule as create).
+
+#### Which writers must honour each of these
+
+Every rule above is a property of the **format**, so it binds every path that writes, not just the one it
+was first measured on. That is not obvious from the prose: the rules are stated once, here, while the code
+that must obey them is spread across three row writers and five definition mutators — and each new path
+tends to re-derive the rule from the *live* columns, which is the one reading that is always wrong.
+
+The table is the enforcement surface. A blank cell means the path cannot reach that invariant, not that it
+is exempt.
+
+| invariant | `RowEncoder`<br>(INSERT/UPDATE) | `BuildRelaidRecord`<br>(in-place ALTER) | `AddColumn` | `DropColumn` | `AlterColumn` retype |
+|---|---|---|---|---|---|
+| `colCount` + null-bitmap width = `max(live column id) + 1` | ✅ | ✅ `newMaxId` | | | |
+| variable slots per row = `0x2B` | ✅ via `TableDef.VariableColumnCount` | ✅ appends onto a full-width row | | | |
+| variable index from `0x2B`, hole abandoned | | | ✅ | ✅ leaves `0x2B` | ✅ |
+| fixed offset = live `max(offset+length)`, hole **reused** | ✅ | ✅ `newFixedLen` from the old row | ✅ | ✅ no renumber | ⚠️ **NOT the live max** — measure the fixed-region end from an existing row's var-data start, because a prior retype's dead slot makes the descriptors under-count it ([§3.8](page-02b-columns.md)) |
+| fixed region never shrinks below existing rows | ✅ `InferFixedDataLength` takes `max(pinned, derived)` | ✅ derived from the old row | | | |
+| column id from the `0x29` high-water, 255 lifetime cap | | | ✅ | ✅ leaves `0x29` | ✅ burns an id |
+
+**Audited, and two of the cells were wrong when the table was first drawn up** — the two row-writer cells
+for the variable-slot count. `RowEncoder` packed the chunks densely and `BuildRelaidRecord` appended onto
+the short row that produced, so a `DROP COLUMN` of a variable column silently moved every later column
+down one slot, and dropping the *last* variable column then retyping another made ACE reject the file
+outright. Both are fixed; the row is `VariableColumnHighWaterAccessTests`.
+
+The remaining cells were checked the same way rather than by reading — ACE performing the identical DDL,
+compared field by field, and ACE reading rows written on both sides of the drop. Two are worth recording
+because the obvious guess is wrong:
+
+- **A row's `colCount` is `max(live id) + 1`, not this page's `0x29` high-water** — they differ once the
+  highest-id column is dropped. The row-side consequence is [page-01 §5](page-01-data-and-rows.md).
+- **The fixed half follows the OPPOSITE rule to the variable half.** A dropped variable column's index is
+  abandoned and the next added column goes *above* it; a dropped fixed column's offset is **reused** by the
+  next fixed column added. `F(K, P, Q LONG, T TEXT)`, drop `Q`, add `R LONG` → ACE puts `R` at offset 8,
+  where `Q` was. Nothing about one half predicts the other, which is exactly why deriving the variable
+  section from the live columns looked reasonable.
 
 
 ### 3.2 Multi-page TDEFs
@@ -157,10 +181,10 @@ the documented 255-column, 32-index, and 64-character-name limits.
 ### 3.3 Body layout (in order, after the header)
 
 ```
-0x3F : index statistics      RealIndexCount(0x33) × 12 bytes   (per-index, §3.3.1)
+0x3F : index statistics      IndexCount(0x33) × 12 bytes       (per-index, §3.3.1)
        column descriptors    ColumnCount(0x2D)    × 25 bytes
        column names          ColumnCount          × (2-byte length + UTF-16LE)   (naming limits below)
-       index-data blocks     RealIndexCount(0x33) × 52 bytes
+       index-data blocks     IndexCount(0x33) × 52 bytes
        index-info blocks     LogicalIndexCount(0x2F) × 28 bytes
        index names           LogicalIndexCount    × (2-byte length + UTF-16LE)
        column usage maps     (per long-value column) × 10 bytes, then 0xFFFF  (§3.3.2)
@@ -213,7 +237,9 @@ Only a few fields are *not* fixed constants and so warrant a write note:
   see §9). A **fresh table still has no data page** (Access allocates the first lazily on the first
   insert), so the *data* owned/free maps start empty. When an index is **added to a populated table**,
   LibRed *appends* the new index's record to the existing usage-map page (preserving every other record —
-  including the other indexes' root bits) rather than rewriting it, then **back-fills** the B-tree by
+  including the other indexes' root bits) rather than rewriting it — unless that page is full, in which
+  case the map goes on a page of its own, as ACE's does (see the multi-page distribution rule in
+  [long-values.md](long-values.md)) — then **back-fills** the B-tree by
   scanning every existing row (`AddEntry` per row). Verified vs ACE: a primary key added after data
   enforces uniqueness and seeks correctly, incl. a 2000-row back-fill that splits the tree.
 
@@ -221,9 +247,10 @@ Only a few fields are *not* fixed constants and so warrant a write note:
 > verified through the ACE OLE DB provider). Getting there required *all* of the following together;
 > each was independently necessary (removing any one reproduces "Unrecognized database format"):
 >
-> 1. **TDEF byte-validity** — every constant/marker written (§3.1), and the **trailing `0xFFFF`
->    index-name terminator** included in the definition length (§3.3). This terminator was the last
->    blocker found: with it omitted the TDEF was otherwise byte-identical to ACE's yet still rejected.
+> 1. **TDEF byte-validity** — every constant/marker written (§3.1), and the trailing `0xFFFF` that
+>    terminates the **long-value usage-map list** (§3.3.2 — *not* the index names, which precede it)
+>    included in the definition length. It is mandatory even on a table with no long-value columns at all;
+>    [long-values.md](long-values.md) owns the rule and the byte-diff that found it.
 > 2. **Global page allocation** — pages must be taken from the database's **global free-pages map**
 >    (§9.1), not by blindly growing the file, so Access accounts for them. LibRed allocates by
 >    clearing a free bit there.

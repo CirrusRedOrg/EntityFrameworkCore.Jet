@@ -30,7 +30,6 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     private const int LevelOffset = 0x1A;       // 0 on a leaf, its height above the leaves on a node
     private const int EntryMaskOffset = 0x1B;
     private const int EntryDataOffset = 0x1E0;
-    private const int RootPageInBlockOffset = 0x26; // within the 52-byte index-data block
 
     private readonly PageChannel _channel = channel;
     private readonly TableDef _table = table;
@@ -213,14 +212,15 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         }
     }
 
-    /// <summary>An index page decoded for the read paths (<see cref="Descend"/>/<see cref="Seek"/>/
-    /// <see cref="SeekRange"/>): its type, entries, node child-tail and leaf next-pointer.</summary>
-    private sealed record ParsedIndexPage(PageType Type, int Owner, List<Entry> Entries, int Tail, int Next);
+    /// <summary>An index page decoded: its type, entries, node child-tail, and the leaf header fields a
+    /// rewrite of the page has to carry forward (previous/next links and the stored prefix length).</summary>
+    private sealed record ParsedIndexPage(
+        PageType Type, int Owner, List<Entry> Entries, int Tail, int Next, int Previous, int Compressed);
 
     /// <summary>Reads an index page as decoded entries, served from the channel's parsed-page cache on a repeat
     /// visit — a B-tree descent re-reads its root/internal pages on every seek, so caching the decode (not just
-    /// the bytes) removes both the page copy and the entry decode. Read-only: the write paths parse fresh, and
-    /// their <c>WritePage</c> invalidates the cached parse, so a hit is always consistent with the bytes.</summary>
+    /// the bytes) removes both the page copy and the entry decode. A cached parse is dropped whenever the bytes
+    /// change (any channel) or the page is evicted, so a hit is always consistent with the bytes.</summary>
     private ParsedIndexPage ReadIndexPage(int pageNumber)
     {
         if (_channel.TryGetParsedPage(pageNumber, out object? cached) && cached is ParsedIndexPage hit)
@@ -233,39 +233,102 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
         CheckedIndexPage page = IndexPageReader.Read(_channel, pageNumber, _table.DefinitionPage);
         (List<Entry> entries, int tail) = Parse(page);
-        var parsed = new ParsedIndexPage(page.Type, page.Owner, entries, tail, page.Next);
+        var parsed = new ParsedIndexPage(
+            page.Type, page.Owner, entries, tail, page.Next, page.Previous, page.CompressedByteCount);
         _channel.SetParsedPage(pageNumber, parsed);
         return parsed;
+    }
+
+    /// <summary>
+    /// The decoded page a read-modify-write is about to rewrite, with an <b>owned</b> entry list the caller may
+    /// mutate. Serves the parse the descent just made rather than reading and decoding the page a second time.
+    /// </summary>
+    /// <remarks>
+    /// <para>Every insert descends to its leaf and then rewrites it, and the two steps each parsed the page —
+    /// decoding a fresh <c>byte[]</c> for every entry on it, twice. This reuses the first parse.</para>
+    /// <para>The list is <b>copied</b> before it is handed over, because the cached parse is shared with every
+    /// other reader of the file and <see cref="PageChannel.SetParsedPage"/>'s contract forbids mutating it. The
+    /// copy is shallow, which is the point: <see cref="Entry"/> is an immutable struct holding a reference to
+    /// its key, so copying the list shares the key arrays and allocates one array of structs instead of one
+    /// array per entry. Keys are never written through, only read by <see cref="Build"/>.</para>
+    /// <para>This does not weaken the revalidation the write paths perform (§10.2). A cached parse exists only
+    /// while the bytes behind it are unchanged — any write, from any channel, drops it, and a page buffered in
+    /// an open transaction's overlay is never served — so a hit carries the same guarantee a re-read would, and
+    /// the type and owner recorded in it are checked exactly as before.</para>
+    /// </remarks>
+    private ParsedIndexPage ReadMutablePage(int pageNumber, PageType expectedType)
+    {
+        ParsedIndexPage parsed = ReadIndexPage(pageNumber);
+        if (parsed.Type != expectedType)
+            throw new InvalidDataException(
+                $"Index mutation expected page {pageNumber} to be {expectedType}, but found {parsed.Type}.");
+
+        return parsed with { Entries = [.. parsed.Entries] };
     }
 
     private void InsertIntoLeaf(IndexDef index, List<int> path, byte[] key, int pointer)
     {
         int leafPage = path[^1];
-        CheckedIndexPage page = ReadMutationPage(leafPage, PageType.LeafIndexPage);
-        (List<Entry> entries, _) = Parse(page);
+        ParsedIndexPage page = ReadMutablePage(leafPage, PageType.LeafIndexPage);
+        List<Entry> entries = page.Entries;
 
-        // Insert in key order (key then pointer tiebreaker) — the full leaf key is key ++ pointer.
+        // Insert in key order (key then pointer tiebreaker) — the full leaf key is key ++ pointer. Compared
+        // without materialising each entry's concatenation: this scan runs over every entry on the page for
+        // every row inserted, so building one throwaway array per comparison was the write path's largest
+        // single allocator.
         byte[] fullKey = WithTrailer(key, pointer);
         int pos = 0;
-        while (pos < entries.Count && CompareBytes(WithTrailer(entries[pos].Key, entries[pos].Trailer), fullKey) < 0) pos++;
+        while (pos < entries.Count && CompareWithTrailer(entries[pos].Key, entries[pos].Trailer, fullKey) < 0) pos++;
         entries.Insert(pos, new Entry(key, pointer));
 
-        if (Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries) is { } built)
+        // ACE compresses a leaf only when it has to, and splits only when compressing is not enough. A page
+        // starts uncompressed and stores whole keys; when the next entry will not fit, the shared prefix is
+        // computed and the page rewritten IN PLACE, which typically frees most of it; filling then continues
+        // at the shorter size; and only when the compressed page fills does it split. Watching a sequential
+        // load shows the cycle twice — a leaf reaching 400 entries at 9 bytes each with 16 bytes left, then
+        // reading 410 entries at 6 bytes with 1153 free, then splitting at 602 (see §10.3).
+        //
+        // Rebuilding at the largest available prefix on every write instead would be smaller, but it is not
+        // what ACE writes, and the tail page of a sequential load is the visible difference.
+        int share = entries.Count <= 1 ? 0 : CommonPrefixLength(entries[0].Key, entries[^1].Key);
+        int keep = Math.Min(page.Compressed, share);            // the new key may not share the old prefix
+
+        if (Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, keep) is { } asIs)
         {
-            _channel.WritePage(leafPage, built);
+            _channel.WritePage(leafPage, asIs);
             return;
         }
 
+        if (share > keep
+            && Build(PageType.LeafIndexPage, page.Previous, page.Next, tail: 0, level: 0, entries, share)
+                is { } compressed)
+        {
+            _channel.WritePage(leafPage, compressed);
+            return;
+        }
+
+        // Where to cut. Splitting down the middle is right when keys arrive all over the range, because the
+        // lower half's free space is room for the next key near it. When the new entry is the page's MAXIMUM
+        // it is waste instead: nothing sorts below a maximum, so half the page is stranded for ever. ACE
+        // splits at the right edge in that case — the page stays full and the new entry starts a fresh one —
+        // which is why a sequentially loaded index of ACE's packs its leaves to capacity and LibRed's used to
+        // settle near half (see docs/format/page-03-04-index-btree.md §10.5 for the measured comparison).
+        //
+        // AutoNumber and identity keys are ascending by construction, so this is the ordinary case. The
+        // condition cannot fire on a random insert, which is why the general behaviour is unchanged.
+        int splitAt = pos == entries.Count - 1 ? entries.Count - 1 : entries.Count / 2;
         SplitAndPropagate(index, path, path.Count - 1, entries, PageType.LeafIndexPage,
-            page.Previous, page.Next);
+            page.Previous, page.Next, splitAt);
     }
 
     /// <summary>
     /// Splits the (leaf or node) page at <paramref name="level"/> into two, writes both, then promotes a
     /// separator into the parent — splitting parents in turn, or growing a new root at the top.
     /// </summary>
+    /// <param name="splitAt">How many entries stay on the left page; negative for the default half. Only a
+    /// leaf split sets it, to keep a page full when the new entry is its maximum (see InsertIntoLeaf).</param>
     private void SplitAndPropagate(IndexDef index, List<int> path, int level, List<Entry> entries,
-        PageType type, int prev, int next)
+        PageType type, int prev, int next, int splitAt = -1)
     {
         int leftPage = path[level];
         int rightPage = AllocateIndexPage(index);
@@ -274,7 +337,9 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         byte[] promoted;
         if (type == PageType.LeafIndexPage)
         {
-            int mid = entries.Count / 2;
+            // The left page always fits: at worst it is the page as it stood before the insert that
+            // overflowed it, and that fitted.
+            int mid = splitAt < 0 ? entries.Count / 2 : splitAt;
             var left = entries.GetRange(0, mid);
             var right = entries.GetRange(mid, entries.Count - mid);
             promoted = WithTrailer(left[^1].Key, left[^1].Trailer); // left's max full key
@@ -369,7 +434,10 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     /// both matching what Access writes. (An isolation test showed neither is strictly required — Access reads
     /// a node with <c>0x1A=0</c> and compressed just fine; they are kept purely for byte-faithfulness. The one
     /// hard requirement is a <b>leaf's</b> <c>0x1A=0</c> and the leaf-chain offsets at <c>0x0C</c>/<c>0x10</c>.)</summary>
-    private byte[]? Build(PageType type, int prev, int next, int tail, int level, List<Entry> entries)
+    /// <param name="prefix">The shared-prefix length to store the entries at. Null computes the largest
+    /// available, which is what a split writes. It must not exceed what the entries actually share.</param>
+    private byte[]? Build(PageType type, int prev, int next, int tail, int level, List<Entry> entries,
+        int? prefix = null)
     {
         bool isLeaf = type == PageType.LeafIndexPage;
         int pageSize = _channel.PageSize;
@@ -384,7 +452,10 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
 
         // A single entry (or a node) has no common-prefix compression — ACE writes 0 here (the whole key with
         // itself would otherwise "compress" to its full length, which ACE does not do for one entry).
-        int compress = !isLeaf || entries.Count <= 1 ? 0 : CommonPrefixLength(entries[0].Key, entries[^1].Key);
+        // Otherwise the caller chooses: see InsertIntoLeaf for when a page is compressed at all.
+        int compress = !isLeaf || entries.Count <= 1
+            ? 0
+            : prefix ?? CommonPrefixLength(entries[0].Key, entries[^1].Key);
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(CompressedByteCountOffset, 2), (ushort)compress);
 
         int pos = EntryDataOffset;
@@ -419,25 +490,28 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
     private void UpdateIndexRoot(IndexDef index, int newRoot)
     {
         (_, IReadOnlyList<int> continuations, int block) = LocateIndexBlock(index);
-        WriteInt32IntoDefinition(continuations, block + RootPageInBlockOffset, newRoot);
+        WriteInt32IntoDefinition(continuations, block + IndexBlockFormat.RootPageOffset, newRoot);
     }
-
-    private const int IndexUsageMapRowOffset = 0x22;  // within the 52-byte block: 1-byte row + 3-byte page
 
     /// <summary>The (row, page) pointer to the index's own pages usage map, read from its data block.</summary>
     private (int MapRow, int MapPage) IndexUsageMapPointer(IndexDef index)
     {
         (byte[] tdef, _, int block) = LocateIndexBlock(index);
-        int row = tdef[block + IndexUsageMapRowOffset];
-        int mapPage = tdef[block + IndexUsageMapRowOffset + 1]
-                      | tdef[block + IndexUsageMapRowOffset + 2] << 8
-                      | tdef[block + IndexUsageMapRowOffset + 3] << 16;
+        int pointer = block + IndexBlockFormat.UsageMapRowOffset;   // 1-byte row + 3-byte page
+        int row = tdef[pointer];
+        int mapPage = tdef[pointer + 1] | tdef[pointer + 2] << 8 | tdef[pointer + 3] << 16;
         return (row, mapPage);
     }
 
     /// <summary>Walks the stitched definition (stats → column descriptors → column names → data blocks) to
     /// the index's 52-byte data block, returning the buffer, its continuation pages, and the block's absolute
     /// offset. A wide table's blocks sit past the column names, well beyond the first page.</summary>
+    /// <remarks>
+    /// Every region is bounded, because this walk decides where <see cref="UpdateIndexRoot"/> writes. The
+    /// counts and name lengths all come out of the file, and unchecked they can carry <c>pos</c> past the
+    /// buffer — or, when the multiply overflows, back inside it at the wrong place, which would repoint some
+    /// other index's B-tree root with no error at all. The read side bounds the identical regions.
+    /// </remarks>
     private (byte[] Definition, IReadOnlyList<int> Continuations, int BlockOffset) LocateIndexBlock(IndexDef index)
     {
         JetFormatBase format = _channel.Format;
@@ -445,11 +519,21 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         int dataCount = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefIndexCountOffset, 4));
         int colCount = BinaryPrimitives.ReadUInt16LittleEndian(tdef.AsSpan(format.TdefColumnCountOffset, 2));
 
-        int pos = format.TdefRealIndexBlockOffset + dataCount * format.RealIndexEntrySize
-                  + colCount * format.ColumnDescriptorSize;
-        for (int i = 0; i < colCount; i++) pos += 2 + BinaryPrimitives.ReadUInt16LittleEndian(tdef.AsSpan(pos, 2));
+        int columnBlock = TableDefinitionPage.CheckedRegionEnd(
+            format.TdefRealIndexBlockOffset, dataCount, format.RealIndexEntrySize, tdef.Length, "index statistics");
+        int pos = TableDefinitionPage.CheckedRegionEnd(
+            columnBlock, colCount, format.ColumnDescriptorSize, tdef.Length, "column descriptors");
+        for (int i = 0; i < colCount; i++)
+        {
+            int nameEnd = TableDefinitionPage.CheckedRegionEnd(pos, 1, 2, tdef.Length, "a column-name length");
+            pos = TableDefinitionPage.CheckedRegionEnd(
+                nameEnd, 1, BinaryPrimitives.ReadUInt16LittleEndian(tdef.AsSpan(pos, 2)), tdef.Length, "a column name");
+        }
 
-        return (tdef, continuations, pos + index.RealIndexOrdinal * 52);
+        int block = TableDefinitionPage.CheckedRegionEnd(
+            pos, index.RealIndexOrdinal + 1, IndexBlockFormat.DataBlockSize, tdef.Length, "index-data blocks")
+            - IndexBlockFormat.DataBlockSize;
+        return (tdef, continuations, block);
     }
 
     /// <summary>Allocates a fresh B-tree page for <paramref name="index"/> and records it in the index's own
@@ -527,12 +611,194 @@ public sealed class IndexWriter(PageChannel channel, TableDef table)
         _channel.WritePage(pageNumber, page ?? throw new NotSupportedException(
             "An index page still overflows after a split (a key wider than half a page)."));
 
+    /// <summary>Width of the row/child pointer an entry carries after its key.</summary>
+    private const int TrailerSize = 4;
+
     private static byte[] WithTrailer(byte[] key, int trailer)
     {
-        var result = new byte[key.Length + 4];
+        var result = new byte[key.Length + TrailerSize];
         key.CopyTo(result, 0);
         WriteInt32Be(result, key.Length, trailer);
         return result;
+    }
+
+    /// <summary>
+    /// Fills an <b>empty</b> index from <paramref name="entries"/> by writing each page once, instead of
+    /// inserting the entries one at a time and rewriting a whole leaf per entry.
+    /// </summary>
+    /// <param name="entries">(key, row pointer) pairs with a <c>NullKey</c> marker; any order. Sorted here.</param>
+    /// <param name="rejectDuplicates">Enforce uniqueness — adjacent equal keys after the sort, null keys exempt
+    /// (Jet's uniqueness is over the non-null keys only).</param>
+    /// <remarks>
+    /// <para>This is not a different B-tree: it is the SAME fill <see cref="InsertIntoLeaf"/> performs, driven
+    /// over pre-sorted input so each page is finished before the next begins. A sequential load already took
+    /// the right-edge split — a new entry that is the page's maximum leaves the full page alone and starts a
+    /// fresh one — so feeding sorted entries reproduces the leaf partitioning ACE produces; the difference is
+    /// only that a page is built once rather than rebuilt per entry.</para>
+    /// <para>Whether an entry fits is decided by <b>arithmetic</b>, not by calling <see cref="Build"/>: Build
+    /// allocates a page-sized array, so probing with it would allocate two pages per entry and lose exactly
+    /// what this exists to save. <see cref="LeafFits"/> mirrors Build's layout — entry data starts at
+    /// <c>0x1E0</c>, the first entry stores its whole key, the rest drop the shared prefix, and each carries a
+    /// 4-byte trailer (see page-01/page-03-04 §10.2–10.3).</para>
+    /// <para>Node levels are then built bottom-up, splitting at the middle and promoting the middle entry as
+    /// <see cref="InsertSeparator"/> does, so interior pages keep the shape the incremental path gives them.</para>
+    /// </remarks>
+    internal void BulkBuild(IndexDef index, List<(byte[] Key, int Pointer, bool NullKey)> entries, bool rejectDuplicates)
+    {
+        if (entries.Count == 0)
+            return; // the caller's freshly created empty root is already the correct tree
+
+        entries.Sort((a, b) => CompareEntries(a.Key, a.Pointer, b.Key, b.Pointer));
+
+        if (rejectDuplicates)
+            for (int i = 1; i < entries.Count; i++)
+                if (!entries[i].NullKey && !entries[i - 1].NullKey
+                    && CompareBytes(entries[i].Key, entries[i - 1].Key) == 0)
+                    throw new InvalidOperationException(
+                        $"Cannot create unique index '{index.Name}' on '{_table.Name}': duplicate key values exist.");
+
+        // --- leaves ---------------------------------------------------------------------------------------
+        var separators = new List<(byte[] Key, int Child)>();
+        int page = index.RootPage;         // the empty leaf the caller created; it becomes the first leaf
+        int previous = 0;
+        var current = new List<Entry>();
+        long keyBytes = 0;                 // running sum of the current page's key lengths
+        int compressed = 0;                // the prefix the page would be written at, as filling stands
+
+        foreach ((byte[] key, int pointer, _) in entries)
+        {
+            current.Add(new Entry(key, pointer));
+            keyBytes += key.Length;
+
+            int share = current.Count <= 1 ? 0 : CommonPrefixLength(current[0].Key, current[^1].Key);
+            if (LeafFits(current.Count, keyBytes, Math.Min(compressed, share)))
+                continue;
+            if (share > compressed && LeafFits(current.Count, keyBytes, share))
+            {
+                compressed = share;        // the compress-in-place step, without writing the page yet
+                continue;
+            }
+
+            // Full. The entry that did not fit starts the next leaf, as the right-edge split does.
+            current.RemoveAt(current.Count - 1);
+            keyBytes -= key.Length;
+            int next = AllocateIndexPage(index);
+            WriteOrThrow(page, Build(PageType.LeafIndexPage, previous, next, tail: 0, level: 0, current));
+            separators.Add((WithTrailer(current[^1].Key, current[^1].Trailer), page));
+
+            previous = page;
+            page = next;
+            current = [new Entry(key, pointer)];
+            keyBytes = key.Length;
+            compressed = 0;
+        }
+
+        WriteOrThrow(page, Build(PageType.LeafIndexPage, previous, next: 0, tail: 0, level: 0, current));
+
+        // --- node levels, until one page covers the level --------------------------------------------------
+        int level = 1;
+        while (separators.Count > 0)
+            (separators, page) = BuildNodeLevel(index, separators, tailChild: page, level++);
+
+        if (page != index.RootPage)
+        {
+            UpdateIndexRoot(index, page);
+            index.RootPage = page;
+        }
+    }
+
+    /// <summary>Whether <paramref name="count"/> entries totalling <paramref name="keyBytes"/> of key data fit
+    /// one leaf at prefix <paramref name="prefix"/> — Build's layout, without building anything.</summary>
+    private bool LeafFits(int count, long keyBytes, int prefix) =>
+        EntryDataOffset + keyBytes + (long)TrailerSize * count - (long)prefix * (count - 1) <= _channel.PageSize;
+
+    /// <summary>Writes one level of interior nodes over <paramref name="children"/>, returning the separators
+    /// promoted to the level above and the page that is this level's rightmost (tail) child.</summary>
+    private (List<(byte[] Key, int Child)> Promoted, int Tail) BuildNodeLevel(
+        IndexDef index, List<(byte[] Key, int Child)> children, int tailChild, int level)
+    {
+        var promoted = new List<(byte[] Key, int Child)>();
+        var current = new List<Entry>();
+        long keyBytes = 0;
+        int page = AllocateIndexPage(index);
+
+        foreach ((byte[] key, int child) in children)
+        {
+            current.Add(new Entry(key, child));
+            keyBytes += key.Length;
+            if (EntryDataOffset + keyBytes + (long)TrailerSize * current.Count <= _channel.PageSize)
+                continue;
+
+            // Overflow: split at the middle and promote the middle entry, whose child becomes the left node's
+            // tail — the division InsertSeparator makes. Nodes are stored uncompressed.
+            int mid = current.Count / 2;
+            Entry middle = current[mid];
+            List<Entry> left = current.GetRange(0, mid);
+            List<Entry> right = current.GetRange(mid + 1, current.Count - mid - 1);
+
+            WriteOrThrow(page, Build(PageType.IntermediateIndexPage, 0, 0, middle.Trailer, level, left));
+            promoted.Add((middle.Key, page));
+
+            page = AllocateIndexPage(index);
+            current = right;
+            keyBytes = right.Sum(e => (long)e.Key.Length);
+        }
+
+        WriteOrThrow(page, Build(PageType.IntermediateIndexPage, 0, 0, tailChild, level, current));
+        return (promoted, page);
+    }
+
+    /// <summary>Orders two entries as their stored <c>key ++ trailer</c> bytes compare, without building either.</summary>
+    internal static int CompareEntries(byte[] aKey, int aTrailer, byte[] bKey, int bTrailer)
+    {
+        int shared = Math.Min(aKey.Length, bKey.Length);
+        for (int i = 0; i < shared; i++)
+            if (aKey[i] != bKey[i]) return aKey[i] - bKey[i];
+
+        // The keys agree as far as the shorter runs, so the shorter one's trailer meets the longer one's
+        // remaining key bytes — the same crossing CompareWithTrailer handles, and why this cannot be
+        // "compare keys, then compare trailers".
+        return aKey.Length == bKey.Length
+            ? CompareTrailers(aTrailer, bTrailer)
+            : aKey.Length < bKey.Length
+                ? -CompareWithTrailer(bKey, bTrailer, WithTrailer(aKey, aTrailer))
+                : CompareWithTrailer(aKey, aTrailer, WithTrailer(bKey, bTrailer));
+    }
+
+    private static int CompareTrailers(int a, int b)
+    {
+        for (int shift = 24; shift >= 0; shift -= 8)
+        {
+            int x = (byte)(a >> shift), y = (byte)(b >> shift);
+            if (x != y) return x - y;
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Compares <paramref name="key"/> ++ its 4-byte big-endian <paramref name="trailer"/> against
+    /// <paramref name="other"/>, byte for byte, without building the concatenation.
+    /// </summary>
+    /// <remarks>
+    /// Exactly <c>CompareBytes(WithTrailer(key, trailer), other)</c>, and it has to be: comparing the keys
+    /// alone and then breaking the tie on the trailer is NOT the same relation. <see cref="CompareBytes"/>
+    /// compares the shared prefix and only then falls back to length, so when one key is a prefix of another
+    /// the real comparison runs on into the trailer bytes — precisely the case a naive rewrite gets wrong, and
+    /// it would misplace an entry rather than fail.
+    /// </remarks>
+    internal static int CompareWithTrailer(byte[] key, int trailer, ReadOnlySpan<byte> other)
+    {
+        int total = key.Length + TrailerSize;
+        int n = Math.Min(total, other.Length);
+        for (int i = 0; i < n; i++)
+        {
+            // Past the key, read the trailer's bytes most-significant first, as WriteInt32Be lays them out.
+            int mine = i < key.Length ? key[i] : (byte)(trailer >> (8 * (TrailerSize - 1 - (i - key.Length))));
+            if (mine != other[i]) return mine - other[i];
+        }
+
+        return total - other.Length;
     }
 
     private static int CommonPrefixLength(byte[] a, byte[] b)

@@ -7,16 +7,30 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
-    <!-- ACE OLE DB is the comparison baseline and is Windows-only. -->
+    <Platforms>AnyCPU;x86;x64</Platforms>
+    <!-- Signed with the repo key so it can be an InternalsVisibleTo friend of the strong-named LibRed.Engine:
+         the pipeline-phase benchmarks build a plan without executing it (QueryEngine.PlanFor). -->
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)..\..\Key.snk</AssemblyOriginatorKeyFile>
+    <!-- ACE OLE DB is the comparison baseline and is Windows-only; every other suite runs anywhere. -->
     <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <!-- BenchmarkDotNet requires an optimised build to produce meaningful numbers, and refuses to run
+         without one unless told otherwise. Fail loudly rather than publishing Debug timings. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\LibRed\LibRed.Engine\LibRed.Engine.csproj" />
+    <PackageReference Include="BenchmarkDotNet" />
     <PackageReference Include="System.Data.OleDb" />
   </ItemGroup>
 
-  <!-- Realistic query shapes come from the tracked Northwind sample. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LibRed\LibRed.Engine\LibRed.Engine.csproj" />
+  </ItemGroup>
+
+  <!-- Realistic query shapes (text keys, spaces in names, skewed cardinalities) come from the tracked
+       Northwind sample; the scale-factor corpus is generated from scratch at first run. -->
   <ItemGroup>
     <Content Include="..\JetProviderExceptionTests\Northwind.accdb">
       <Link>Data\Northwind.accdb</Link>

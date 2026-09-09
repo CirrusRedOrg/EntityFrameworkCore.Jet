@@ -45,6 +45,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     // separate dictionaries rather than a null-means-absent convention.
     private readonly Dictionary<SqlStatement, object?> _hoistedScalar = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<SqlStatement, List<object?>> _hoistedColumn = new(ReferenceEqualityComparer.Instance);
+
+    // Hash membership over a hoisted IN body's values, so testing an outer row is a lookup rather than a walk of
+    // that list. A present-but-null entry records "built, not usable" (mixed or non-hashable kinds), so the
+    // decision is made once rather than re-attempted for every row.
+    private readonly Dictionary<SqlStatement, HoistedInSet?> _hoistedInSets = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<SqlStatement, bool> _hoistedExists = new(ReferenceEqualityComparer.Instance);
 
     // Subqueries proven to depend on the outer row. Recorded so a correlated subquery pays ONE failed hoist
@@ -358,13 +363,21 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             : null;
     }
 
+    (bool Found, bool HasNull)? IScalarSubqueryRunner.LookupHoistedIn(SqlStatement query, object value) =>
+        _hoistedInSets.TryGetValue(query, out HoistedInSet? set) ? set?.Lookup(value) : null;
+
     IEnumerable<object?> IScalarSubqueryRunner.ExecuteColumn(SqlStatement query, EvalScope outerScope)
     {
         if (_hoistedColumn.TryGetValue(query, out List<object?>? hoisted))
             return hoisted;
 
         if (TryHoist(query, outerScope, ColumnOf, out List<object?>? once))
+        {
+            // Built here rather than lazily on first probe: this is the one place that knows the body was
+            // hoisted, and the set is only ever worth building for a body that runs once.
+            _hoistedInSets[query] = HoistedInSet.TryBuild(once!);
             return _hoistedColumn[query] = once!;
+        }
 
         // This is the per-row cost of an IN, so it is what the gate measures — the membership comparison the caller
         // then does over the returned values is negligible beside running the body.
@@ -1045,19 +1058,44 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (on is null && join.Kind != JoinKind.Cross)
             throw new NotSupportedException("Joins require an ON condition.");
 
+        // Subqueries in the ON that cannot reference the right side hold still while the inner loop turns, so
+        // they are evaluated once per left row and substituted in. See JoinPredicateHoisting for the measurement:
+        // without this, one EF-generated join ran the same subquery 8,099 times for 89 distinct answers.
+        IReadOnlyList<Expression> invariants = JoinPredicateHoisting.Invariants(on, QueryPlanner.SubtreeAliases(join.Right));
+
         IEnumerable<object?[]> Rows()
         {
             var onScope = new EvalScope(columns, [], outer); // one scope/evaluator, rebound per combined row
             var onEval = new ExpressionEvaluator(onScope, this, parameters: _parameters, session: _session);
             bool[]? rightMatched = rightOuter ? new bool[rightRows.Count] : null;
 
+            // The hoisted subqueries see the left row only: binding them against the combined row would let a
+            // bare name resolve to the right side, which is the case Invariants already declines to hoist.
+            EvalScope? leftScope = invariants.Count > 0 ? new EvalScope(leftColumns, [], outer) : null;
+            ExpressionEvaluator? leftEval = leftScope is null
+                ? null
+                : new ExpressionEvaluator(leftScope, this, parameters: _parameters, session: _session);
+
             foreach (object?[] left in leftRows)
             {
+                Expression? rowOn = on;
+                if (leftEval is not null && on is not null)
+                {
+                    leftScope!.Rebind(left);
+                    var values = new Dictionary<Expression, object?>(ReferenceEqualityComparer.Instance);
+                    foreach (Expression invariant in invariants)
+                    {
+                        values[invariant] = leftEval.Evaluate(invariant);
+                    }
+
+                    rowOn = JoinPredicateHoisting.Substitute(on, values);
+                }
+
                 bool matched = false;
                 for (int r = 0; r < rightRows.Count; r++)
                 {
                     object?[] combined = [.. left, .. rightRows[r]];
-                    if (on is null || onEval.Rebind(combined).IsTrue(on))
+                    if (rowOn is null || onEval.Rebind(combined).IsTrue(rowOn))
                     {
                         matched = true;
                         if (rightMatched is not null) rightMatched[r] = true;
@@ -1464,18 +1502,26 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteAggregate(AggregateNode node, EvalScope? outer)
     {
         var (inColumns, inRowsEnum) = Execute(node.Input, outer);
+
+        var outColumns = node.Projection
+            .Select((item, i) => new OutputColumn(null,
+                item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}"),
+                DeclaredType(item.Value, inColumns)))
+            .ToList();
+
+        // A bare `SELECT COUNT(*)` wants the number of rows, not the rows. Everything below materialises the
+        // whole input first — which for this shape is the entire cost, and pure waste: holding every decoded row
+        // alive at once made counting a table cost more than reading it (measured, `scan.count_star` against
+        // `scan.star`). Counting the same sequence lazily is the identical answer with nothing retained.
+        if (IsBareCountStar(node))
+            return (outColumns, [[CountRows(inRowsEnum)]]);
+
         var inRows = inRowsEnum.ToList();
         // Aggregates can appear in the projection, HAVING (e.g. HAVING COUNT(*) > 30) and ORDER BY
         // (e.g. ORDER BY COUNT(*)); precompute all of them per group so each instance resolves.
         var aggregateCalls = node.Projection.SelectMany(i => Aggregates(i.Value))
             .Concat(node.Having is { } h ? Aggregates(h) : [])
             .Concat(node.OrderBy.SelectMany(k => Aggregates(k.Value)))
-            .ToList();
-
-        var outColumns = node.Projection
-            .Select((item, i) => new OutputColumn(null,
-                item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}"),
-                DeclaredType(item.Value, inColumns)))
             .ToList();
 
         // Each output row carries its ORDER BY key values AND its grouping-key values, evaluated in the same
@@ -1529,6 +1575,33 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             });
 
         return (outColumns, outRows.Select(x => x.Row));
+    }
+
+    /// <summary>
+    /// Whether <paramref name="node"/> is exactly <c>SELECT COUNT(*)</c> over its input — one output column,
+    /// nothing to group by, no HAVING and no ORDER BY — so the answer is the input's row count and the rows
+    /// themselves are never looked at.
+    /// </summary>
+    /// <remarks>
+    /// Every condition earns its place. A GROUP BY needs the rows to partition them; a HAVING or ORDER BY may
+    /// reference other aggregates over them; a second projection item may be any expression at all; and
+    /// <c>COUNT(DISTINCT …)</c> or <c>COUNT(col)</c> counts values, not rows, so only the star form qualifies.
+    /// </remarks>
+    private static bool IsBareCountStar(AggregateNode node) =>
+        node.GroupBy.Count == 0
+        && node.Having is null
+        && node.OrderBy.Count == 0
+        && node.Projection is [{ Value: FunctionCall { Distinct: false, Arguments: [StarExpression] } call }]
+        && string.Equals(call.Name, "COUNT", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Counts a row sequence without retaining it. COUNT is an Access Long Integer, so the count is an
+    /// <see cref="int"/> — the same type <see cref="ComputeAggregate"/> returns, which EF reads with GetInt32.</summary>
+    private static int CountRows(IEnumerable<object?[]> rows)
+    {
+        int count = 0;
+        foreach (object?[] _ in rows)
+            count++;
+        return count;
     }
 
     private List<List<object?[]>> GroupRows(List<object?[]> rows, IReadOnlyList<Expression> keys, IReadOnlyList<OutputColumn> columns, EvalScope? outer)

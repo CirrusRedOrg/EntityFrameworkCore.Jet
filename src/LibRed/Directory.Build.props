@@ -21,4 +21,16 @@
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)..\..\Key.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
+
+  <!--
+    The repo-root props packs docs\README.md as every package's readme, which is the Jet provider's page -
+    it opens with "requires Windows" and an ACE driver, neither of which applies here. Swap in a LibRed one.
+    PackagePath carries a file name, so it is packed AS README.md and the inherited PackageReadmeFile
+    property still resolves. The Remove has to name the same file the root props included, by a path
+    relative to this one.
+  -->
+  <ItemGroup>
+    <None Remove="$(MSBuildThisFileDirectory)..\..\docs\README.md" />
+    <None Include="$(MSBuildThisFileDirectory)PackageReadme.md" Pack="true" PackagePath="\README.md" Visible="false" />
+  </ItemGroup>
 </Project>

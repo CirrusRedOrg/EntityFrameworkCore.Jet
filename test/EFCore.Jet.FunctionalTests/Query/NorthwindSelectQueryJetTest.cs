@@ -65,7 +65,7 @@ FROM (
     FROM `Employees` AS `e`
     ORDER BY `e`.`EmployeeID`
 ) AS `e0`
-ORDER BY `o0`.`OrderID`, `e0`.`EmployeeID`
+ORDER BY `o0`.`OrderID`
 """);
         }
 
@@ -89,7 +89,7 @@ FROM `Customers` AS `c`
 SELECT `c`.`CustomerID`, `o`.`CustomerID`, `o`.`OrderID`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -166,7 +166,6 @@ WHERE `e`.`EmployeeID` = 1
 
 SELECT CBOOL(@boolean)
 FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -1172,7 +1171,7 @@ FROM `Orders` AS `o`
 SELECT `c`.`CustomerID` AS `A`, `o`.`CustomerID` AS `B`
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
-ORDER BY `o`.`CustomerID`, `o`.`OrderID`
+ORDER BY `o`.`CustomerID`
 """);
         }
 
@@ -1508,7 +1507,7 @@ LEFT JOIN (
     WHERE `o`.`OrderID` > 11000
 ) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -1526,7 +1525,7 @@ LEFT JOIN (
     WHERE `o`.`OrderID` > 11000
 ) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -1581,7 +1580,7 @@ SELECT `o`.`OrderID`, `o0`.`OrderID`, `o0`.`CustomerID`, `o0`.`EmployeeID`, `o0`
 FROM (`Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`)
 LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
-ORDER BY `o`.`OrderID`, `o0`.`OrderID`
+ORDER BY `o`.`OrderID`
 """);
         }
 
@@ -1722,7 +1721,7 @@ WHERE `c`.`CustomerID` LIKE 'A%'
 SELECT `c`.`CustomerID`, `o`.`OrderDate`, `o`.`OrderID`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -1864,7 +1863,7 @@ ORDER BY `e0`.`EmployeeID` DESC
 SELECT `c`.`CustomerID`, `o`.`OrderID`
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`City`, `c`.`CustomerID` DESC, `o`.`OrderID`
+ORDER BY `c`.`City`, `c`.`CustomerID` DESC
 """);
         }
 
@@ -1894,7 +1893,7 @@ ORDER BY `c0`.`CustomerID`
 SELECT `c`.`CustomerID`, `o`.`OrderID`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -1927,7 +1926,7 @@ ORDER BY [c].[CustomerID]
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID` DESC, `o`.`OrderID`
+ORDER BY `c`.`CustomerID` DESC
 """);
         }
 
@@ -2020,7 +2019,7 @@ WHERE (`c`.`CustomerID` LIKE 'A%') AND (
     SELECT COUNT(*)
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = `c`.`CustomerID` AND `o`.`OrderID` < 11000) > 0
-ORDER BY `c`.`CustomerID`, `o1`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -2047,7 +2046,7 @@ FROM (`Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`)
 LEFT JOIN `Orders` AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`CustomerID` = 'ALFKI'
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`, `o0`.`OrderID`
+ORDER BY `c`.`CustomerID`, `o`.`OrderID`
 """);
         }
 
@@ -2118,7 +2117,7 @@ ORDER BY `c`.`CustomerID`
 SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -2500,7 +2499,7 @@ FROM (
     WHERE `c`.`CustomerID` = 'ALFKI'
 ) AS `c0`
 LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c0`.`CustomerID`
 """);
         }
 
@@ -2529,7 +2528,7 @@ SELECT `c`.`CustomerID`, `o`.`OrderID`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -2584,7 +2583,7 @@ FROM (
     FROM `Employees` AS `e`
     ORDER BY `e`.`EmployeeID`
 ) AS `e0`
-ORDER BY `o0`.`OrderID`, `e0`.`EmployeeID`
+ORDER BY `o0`.`OrderID`
 """);
         }
 
@@ -2802,7 +2801,7 @@ FROM (
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
 LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c0`.`CustomerID`
 """);
         }
 
@@ -2819,7 +2818,7 @@ FROM (
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
 LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c0`.`CustomerID`
 """);
         }
 

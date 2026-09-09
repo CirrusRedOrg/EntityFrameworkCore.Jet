@@ -301,7 +301,7 @@ FROM `BasicTypesEntities` AS `b`
             """
 SELECT FIX(`b`.`Double`) AS `A`
 FROM `BasicTypesEntities` AS `b`
-ORDER BY FIX(`b`.`Double`), `b`.`Id`
+ORDER BY FIX(`b`.`Double`)
 """);
     }
 
@@ -319,7 +319,7 @@ ORDER BY FIX(`b`.`Double`), `b`.`Id`
             """
 SELECT FIX(`b`.`Double`) AS `A`
 FROM `BasicTypesEntities` AS `b`
-ORDER BY FIX(`b`.`Double`) DESC, `b`.`Id`
+ORDER BY FIX(`b`.`Double`) DESC
 """);
     }
 
@@ -337,7 +337,7 @@ ORDER BY FIX(`b`.`Double`) DESC, `b`.`Id`
             """
 SELECT FIX(`b`.`Double`) AS `A`
 FROM `BasicTypesEntities` AS `b`
-ORDER BY FIX(`b`.`Double`) DESC, `b`.`Id`
+ORDER BY FIX(`b`.`Double`) DESC
 """);
     }
 

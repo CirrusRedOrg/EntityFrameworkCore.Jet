@@ -394,7 +394,7 @@ FROM `Customers` AS `c`
 ORDER BY (
     SELECT TOP 1 `o`.`OrderID`
     FROM `Orders` AS `o`
-    WHERE `c`.`CustomerID` = `o`.`CustomerID`), `c`.`CustomerID`
+    WHERE `c`.`CustomerID` = `o`.`CustomerID`)
 """);
         }
 
@@ -412,7 +412,7 @@ ORDER BY (
     WHERE `o`.`OrderID` = `o0`.`OrderID`) DESC, (
     SELECT TOP 1 `o1`.`ProductID`
     FROM `Order Details` AS `o1`
-    WHERE `o`.`OrderID` = `o1`.`OrderID`) DESC, `o`.`OrderID`
+    WHERE `o`.`OrderID` = `o1`.`OrderID`) DESC
 """);
         }
 
@@ -967,7 +967,7 @@ CROSS JOIN (
     ORDER BY `o`.`OrderID`
 ) AS `o0`
 WHERE `e0`.`EmployeeID` = `o0`.`EmployeeID`
-ORDER BY `e0`.`EmployeeID`, `o0`.`OrderID`
+ORDER BY `e0`.`EmployeeID`
 """);
         }
 
@@ -996,7 +996,7 @@ CROSS JOIN (
     ORDER BY `c`.`CustomerID`
 ) AS `c0`
 WHERE `e0`.`City` = 'Seattle'
-ORDER BY `e0`.`EmployeeID`, `c0`.`CustomerID`
+ORDER BY `e0`.`EmployeeID`
 """);
         }
 
@@ -1042,7 +1042,7 @@ ORDER BY `c`.`CustomerID`
                 """
 SELECT `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-ORDER BY `e`.`EmployeeID` - `e`.`EmployeeID`, `e`.`EmployeeID`
+ORDER BY `e`.`EmployeeID` - `e`.`EmployeeID`
 """);
         }
 
@@ -1126,7 +1126,7 @@ OFFSET @p ROWS
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY NOT (TRUE), `c`.`CustomerID`
+ORDER BY NOT (TRUE)
 OFFSET @p ROWS
 """);
         }
@@ -1142,7 +1142,7 @@ OFFSET @p ROWS
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY `c`.`ContactName`, `c`.`CustomerID`
+ORDER BY `c`.`ContactName`
 OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 """);
         }
@@ -1253,7 +1253,7 @@ FROM (
     FROM `Customers` AS `c`
     ORDER BY `c`.`ContactName`
 ) AS `c0`
-ORDER BY `c0`.`ContactName`, `c0`.`CustomerID`
+ORDER BY `c0`.`ContactName`
 OFFSET @p1 ROWS
 """);
         }
@@ -2067,7 +2067,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` <> 'ALFKI'
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -2082,7 +2082,7 @@ FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 INNER JOIN `Order Details` AS `o0` ON `o`.`OrderID` = `o0`.`OrderID`
 WHERE `c`.`CustomerID` <> 'ALFKI'
-ORDER BY `c`.`CustomerID`, `o0`.`ProductID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -2109,7 +2109,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 CROSS JOIN `Orders` AS `o`
 WHERE `c`.`CustomerID` = 'ALFKI'
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -2123,7 +2123,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 CROSS JOIN `Employees` AS `e`
 WHERE `c`.`City` = `e`.`City` OR (`c`.`City` IS NULL AND `e`.`City` IS NULL)
-ORDER BY `e`.`City`, `c`.`CustomerID` DESC, `e`.`EmployeeID`
+ORDER BY `e`.`City`, `c`.`CustomerID` DESC
 """);
         }
 
@@ -2258,7 +2258,7 @@ FROM (
     SELECT DISTINCT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
     FROM `Customers` AS `c`
 ) AS `c0`
-ORDER BY `c0`.`ContactName`, `c0`.`CustomerID`
+ORDER BY `c0`.`ContactName`
 OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 """);
         }
@@ -2417,7 +2417,6 @@ SELECT EXISTS (
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -2429,7 +2428,6 @@ ORDER BY `c`.`CustomerID`
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -2441,7 +2439,6 @@ ORDER BY `c`.`CustomerID`
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -2523,7 +2520,7 @@ FROM (
 SELECT `c`.`City`
 FROM `Customers` AS `c`
 WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`Country`, `c`.`City`, `c`.`CustomerID`
+ORDER BY `c`.`Country`, `c`.`City`
 """);
         }
 
@@ -2647,7 +2644,7 @@ FROM (
     WHERE `o`.`OrderID` < 10300
 ) AS `o0`
 LEFT JOIN `Orders` AS `o1` ON `o0`.`CustomerID` = `o1`.`CustomerID`
-ORDER BY `o0`.`CustomerID`, `o1`.`OrderID`
+ORDER BY `o0`.`CustomerID`
 """);
         }
 
@@ -2667,7 +2664,7 @@ FROM (
     WHERE `o`.`OrderID` < 10300
 ) AS `o0`
 LEFT JOIN `Orders` AS `o1` ON `o0`.`CustomerID` = `o1`.`CustomerID`
-ORDER BY `o0`.`CustomerID`, `o1`.`OrderID`
+ORDER BY `o0`.`CustomerID`
 """);
         }
 
@@ -2756,7 +2753,7 @@ SELECT `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -2934,7 +2931,7 @@ FROM (
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY `c`.`City`, `c`.`CustomerID`
+ORDER BY `c`.`City`
 """);
         }
 
@@ -2946,7 +2943,7 @@ ORDER BY `c`.`City`, `c`.`CustomerID`
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY NOT (`c`.`Region` = 'ASK' AND `c`.`Region` IS NOT NULL), `c`.`CustomerID`
+ORDER BY NOT (`c`.`Region` = 'ASK' AND `c`.`Region` IS NOT NULL)
 """);
         }
 
@@ -3064,7 +3061,7 @@ FROM (
     FROM `Customers` AS `c`
     ORDER BY COALESCE(`c`.`Region`, 'ZZ')
 ) AS `c0`
-ORDER BY `c0`.`c`, `c0`.`CustomerID`
+ORDER BY `c0`.`c`
 OFFSET @p1 ROWS
 """);
         }
@@ -3077,7 +3074,7 @@ OFFSET @p1 ROWS
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY COALESCE(`c`.`Region`, 'ZZ'), `c`.`CustomerID`
+ORDER BY COALESCE(`c`.`Region`, 'ZZ')
 """);
         }
 
@@ -3614,7 +3611,7 @@ ORDER BY `s`.`OrderID`, `o2`.`OrderDate`
 
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY `c`.`ContactTitle`, `c`.`ContactName`, `c`.`CustomerID`
+ORDER BY `c`.`ContactTitle`, `c`.`ContactName`
 OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 """);
         }
@@ -3636,7 +3633,7 @@ FROM (
     ORDER BY `c`.`ContactTitle`, `c`.`ContactName`
     OFFSET @p ROWS
 ) AS `c0`
-ORDER BY `c0`.`ContactTitle`, `c0`.`ContactName`, `c0`.`CustomerID`
+ORDER BY `c0`.`ContactTitle`, `c0`.`ContactName`
 OFFSET @p1 ROWS FETCH NEXT @p2 ROWS ONLY
 """);
         }
@@ -3658,7 +3655,7 @@ FROM (
     ORDER BY `c`.`ContactTitle`, `c`.`ContactName`
     OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 ) AS `c0`
-ORDER BY `c0`.`ContactTitle`, `c0`.`ContactName`, `c0`.`CustomerID`
+ORDER BY `c0`.`ContactTitle`, `c0`.`ContactName`
 """);
         }
 
@@ -3688,7 +3685,7 @@ FROM (
     ) AS `c1`
     ORDER BY `c1`.`ContactTitle`, `c1`.`ContactName`
 ) AS `c2`
-ORDER BY `c2`.`ContactTitle`, `c2`.`ContactName`, `c2`.`CustomerID`
+ORDER BY `c2`.`ContactTitle`, `c2`.`ContactName`
 """);
         }
 
@@ -3715,7 +3712,7 @@ FROM (
     ORDER BY `c0`.`ContactTitle`, `c0`.`ContactName`
     OFFSET @p2 ROWS FETCH NEXT @p3 ROWS ONLY
 ) AS `c1`
-ORDER BY `c1`.`ContactTitle`, `c1`.`ContactName`, `c1`.`CustomerID`
+ORDER BY `c1`.`ContactTitle`, `c1`.`ContactName`
 OFFSET @p ROWS
 """);
         }
@@ -3814,7 +3811,7 @@ FROM (
         OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
     ) AS `c0`
 ) AS `c1`
-ORDER BY `c1`.`ContactTitle`, `c1`.`CustomerID`
+ORDER BY `c1`.`ContactTitle`
 """);
         }
 
@@ -4039,7 +4036,7 @@ FROM (
                 """
 SELECT `c`.`CustomerID` & COALESCE(`c`.`City`, '') AS `A`
 FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID` & COALESCE(`c`.`City`, ''), `c`.`CustomerID`
+ORDER BY `c`.`CustomerID` & COALESCE(`c`.`City`, '')
 """);
         }
 
@@ -4063,7 +4060,7 @@ ORDER BY (
     SELECT TOP 1 `o0`.`OrderDate`
     FROM `Orders` AS `o0`
     WHERE `c`.`CustomerID` = `o0`.`CustomerID`
-    ORDER BY `o0`.`OrderID` DESC), `c`.`CustomerID`
+    ORDER BY `o0`.`OrderID` DESC)
 """);
         }
 
@@ -4182,7 +4179,7 @@ ORDER BY (
     SELECT TOP 1 `o0`.`OrderDate`
     FROM `Orders` AS `o0`
     WHERE `c`.`CustomerID` = `o0`.`CustomerID`
-    ORDER BY `o0`.`OrderID` DESC), `c`.`CustomerID`
+    ORDER BY `o0`.`OrderID` DESC)
 """);
         }
 
@@ -4204,7 +4201,7 @@ FROM (
     OFFSET @p ROWS FETCH NEXT @p1 ROWS ONLY
 ) AS `c0`
 LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c0`.`City`, `c0`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c0`.`City`, `c0`.`CustomerID`
 """);
         }
 
@@ -4630,7 +4627,7 @@ SELECT `c`.`CustomerID` AS `Id1`, `c0`.`CustomerID` AS `Id2`
 FROM `Customers` AS `c`
 CROSS JOIN `Customers` AS `c0`
 WHERE (`c`.`CustomerID` LIKE 'ALFKI%') AND `c`.`CustomerID` = `c0`.`CustomerID`
-ORDER BY `c`.`CustomerID`, `c0`.`CustomerID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -4847,7 +4844,7 @@ OUTER APPLY (
     WHERE `c`.`CustomerID` = `o`.`CustomerID`
 ) AS `o1`
 WHERE `c`.`CustomerID` = 'ALFKI'
-ORDER BY `c`.`CustomerID`, `o1`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -4915,7 +4912,6 @@ FROM (
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -4927,7 +4923,6 @@ ORDER BY `c`.`CustomerID`
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -5429,7 +5424,7 @@ LEFT JOIN (
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
 WHERE (`o`.`Quantity` + CINT(1)) = CINT(5) AND (`o`.`Quantity` - CINT(1)) = CINT(3) AND (`o`.`Quantity` * CINT(1)) = `o`.`Quantity`
-ORDER BY `o`.`OrderID`, `o`.`ProductID`
+ORDER BY `o`.`OrderID`
 """);
         }
 
@@ -5949,7 +5944,7 @@ OUTER APPLY (
     FROM `Orders` AS `o`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`
 ) AS `o0`
-ORDER BY `c`.`CustomerID`, `o0`.`First`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -5968,7 +5963,7 @@ OUTER APPLY (
     LEFT JOIN `Customers` AS `c0` ON `o`.`CustomerID` = `c0`.`CustomerID`
     WHERE `c`.`CustomerID` = `o`.`CustomerID`
 ) AS `s`
-ORDER BY `c`.`CustomerID`, `s`.`First`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -5988,7 +5983,7 @@ LEFT JOIN (
     FROM `Orders` AS `o0`
 ) AS `o1` ON `c`.`CustomerID` = `o1`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`CustomerID`, `o1`.`CustomerID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -6209,7 +6204,7 @@ FROM `Customers` AS `c`
 SELECT `c`.`CustomerID`, `o`.`OrderID`
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -7064,7 +7059,7 @@ ORDER BY (
     SELECT MAX(`o1`.`OrderDate`)
     FROM `Order Details` AS `o0`
     INNER JOIN `Orders` AS `o1` ON `o0`.`OrderID` = `o1`.`OrderID`
-    WHERE `o0`.`OrderID` IN (@ids1, @ids2) AND `o`.`Quantity` = `o0`.`Quantity`), `o`.`Quantity`
+    WHERE `o0`.`OrderID` IN (@ids1, @ids2) AND `o`.`Quantity` = `o0`.`Quantity`)
 """);
         }
 
@@ -7296,7 +7291,6 @@ WHERE EXISTS (
                 """
 SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Orders` AS `o`
-ORDER BY `o`.`OrderID`
 """);
         }
 

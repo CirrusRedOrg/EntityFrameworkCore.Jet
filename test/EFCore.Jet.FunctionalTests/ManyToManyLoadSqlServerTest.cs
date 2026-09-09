@@ -27,47 +27,26 @@ public class ManyToManyLoadJetTest : ManyToManyLoadTestBase<ManyToManyLoadJetTes
         await base.Load_collection(state, queryTrackingBehavior, async);
 
         AssertSql(
-            state == EntityState.Detached
-                ? """
-                  @p='3'
-                  @p='3'
+            """
+@p='3'
+@p='3'
 
-                  SELECT `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`Id`, `s0`.`Name`, `s0`.`OneId`, `s0`.`TwoId`
-                  FROM (`EntityOnes` AS `e`
-                  INNER JOIN (
-                      SELECT `e0`.`Id`, `e0`.`CollectionInverseId`, `e0`.`ExtraId`, `e0`.`Name`, `e0`.`ReferenceInverseId`, `j`.`OneId`, `j`.`TwoId`
-                      FROM `JoinOneToTwo` AS `j`
-                      INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
-                  ) AS `s` ON `e`.`Id` = `s`.`OneId`)
-                  LEFT JOIN (
-                      SELECT `e1`.`Id`, `e1`.`Name`, `j0`.`OneId`, `j0`.`TwoId`
-                      FROM `JoinOneToTwo` AS `j0`
-                      INNER JOIN `EntityOnes` AS `e1` ON `j0`.`OneId` = `e1`.`Id`
-                      WHERE `e1`.`Id` = @p
-                  ) AS `s0` ON `s`.`Id` = `s0`.`TwoId`
-                  WHERE `e`.`Id` = @p
-                  ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`OneId`, `s0`.`TwoId`
-                  """
-                : """
-                  @p='3'
-                  @p='3'
-
-                  SELECT `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`OneId`, `s0`.`TwoId`, `s0`.`JoinOneToTwoExtraId`, `s0`.`Id`, `s0`.`Name`
-                  FROM (`EntityOnes` AS `e`
-                  INNER JOIN (
-                      SELECT `e0`.`Id`, `e0`.`CollectionInverseId`, `e0`.`ExtraId`, `e0`.`Name`, `e0`.`ReferenceInverseId`, `j`.`OneId`, `j`.`TwoId`
-                      FROM `JoinOneToTwo` AS `j`
-                      INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
-                  ) AS `s` ON `e`.`Id` = `s`.`OneId`)
-                  LEFT JOIN (
-                      SELECT `j0`.`OneId`, `j0`.`TwoId`, `j0`.`JoinOneToTwoExtraId`, `e1`.`Id`, `e1`.`Name`
-                      FROM `JoinOneToTwo` AS `j0`
-                      INNER JOIN `EntityOnes` AS `e1` ON `j0`.`OneId` = `e1`.`Id`
-                      WHERE `e1`.`Id` = @p
-                  ) AS `s0` ON `s`.`Id` = `s0`.`TwoId`
-                  WHERE `e`.`Id` = @p
-                  ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`OneId`, `s0`.`TwoId`
-                  """);
+SELECT `s`.`Id`, `s`.`CollectionInverseId`, `s`.`ExtraId`, `s`.`Name`, `s`.`ReferenceInverseId`, `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`Id`, `s0`.`Name`, `s0`.`OneId`, `s0`.`TwoId`
+FROM (`EntityOnes` AS `e`
+INNER JOIN (
+    SELECT `e0`.`Id`, `e0`.`CollectionInverseId`, `e0`.`ExtraId`, `e0`.`Name`, `e0`.`ReferenceInverseId`, `j`.`OneId`, `j`.`TwoId`
+    FROM `JoinOneToTwo` AS `j`
+    INNER JOIN `EntityTwos` AS `e0` ON `j`.`TwoId` = `e0`.`Id`
+) AS `s` ON `e`.`Id` = `s`.`OneId`)
+LEFT JOIN (
+    SELECT `e1`.`Id`, `e1`.`Name`, `j0`.`OneId`, `j0`.`TwoId`
+    FROM `JoinOneToTwo` AS `j0`
+    INNER JOIN `EntityOnes` AS `e1` ON `j0`.`OneId` = `e1`.`Id`
+    WHERE `e1`.`Id` = @p
+) AS `s0` ON `s`.`Id` = `s0`.`TwoId`
+WHERE `e`.`Id` = @p
+ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`OneId`
+""");
     }
 
     public override async Task Load_collection_using_Query_with_Include_for_inverse(bool async)
@@ -93,7 +72,7 @@ LEFT JOIN (
     WHERE `e3`.`Id` = @p
 ) AS `s0` ON `s`.`Id` = `s0`.`TwoSkipSharedId`
 WHERE `e`.`Id` = @p
-ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`
+ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`
 """);
     }
 
@@ -157,7 +136,7 @@ LEFT JOIN (
     INNER JOIN `EntityThrees` AS `e4` ON `j`.`ThreeId` = `e4`.`Id`
 ) AS `s1` ON `s`.`Id` = `s1`.`TwoId`
 WHERE `e`.`Id` = @p
-ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`, `s1`.`ThreeId`, `s1`.`TwoId`
+ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`, `s1`.`ThreeId`
 """);
     }
 
@@ -190,7 +169,7 @@ LEFT JOIN (
     WHERE `e4`.`Id` IN (13, 11)
 ) AS `s1` ON `s`.`Id` = `s1`.`TwoId`
 WHERE `e`.`Id` = @p
-ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`, `s1`.`ThreeId`, `s1`.`TwoId`
+ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`, `s1`.`ThreeId`
 """);
     }
 

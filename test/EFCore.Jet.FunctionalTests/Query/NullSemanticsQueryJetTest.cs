@@ -2675,7 +2675,7 @@ FROM `Entities1` AS `e`
                 """
 SELECT `e`.`Id`, `e`.`BoolA`, `e`.`BoolB`, `e`.`BoolC`, `e`.`IntA`, `e`.`IntB`, `e`.`IntC`, `e`.`NullableBoolA`, `e`.`NullableBoolB`, `e`.`NullableBoolC`, `e`.`NullableIntA`, `e`.`NullableIntB`, `e`.`NullableIntC`, `e`.`NullableStringA`, `e`.`NullableStringB`, `e`.`NullableStringC`, `e`.`StringA`, `e`.`StringB`, `e`.`StringC`
 FROM `Entities1` AS `e`
-ORDER BY NOT (`e`.`NullableStringA` <> 'Foo' OR `e`.`NullableStringA` IS NULL), NOT (`e`.`NullableIntB` <> 10 OR `e`.`NullableIntB` IS NULL), `e`.`Id`
+ORDER BY NOT (`e`.`NullableStringA` <> 'Foo' OR `e`.`NullableStringA` IS NULL), NOT (`e`.`NullableIntB` <> 10 OR `e`.`NullableIntB` IS NULL)
 """);
         }
 

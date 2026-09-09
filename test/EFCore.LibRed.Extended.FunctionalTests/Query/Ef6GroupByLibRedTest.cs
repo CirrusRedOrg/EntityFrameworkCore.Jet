@@ -493,7 +493,7 @@ LEFT JOIN (
     FROM `OrderForLinq` AS `o`
     LEFT JOIN `CustomerForLinq` AS `c0` ON `o`.`CustomerId` = `c0`.`Id`
 ) AS `s` ON `c`.`Id` = `s`.`Id0`
-ORDER BY `c`.`Id`, `s`.`Id`
+ORDER BY `c`.`Id`
 """);
     }
 
@@ -513,7 +513,7 @@ GROUP BY `p`.`LastName`
 ORDER BY LEN((
     SELECT TOP 1 `p0`.`LastName`
     FROM `Person` AS `p0`
-    WHERE `p0`.`MiddleInitial` = 'Q' AND `p0`.`Age` = 20 AND (`p`.`LastName` = `p0`.`LastName` OR (`p`.`LastName` IS NULL AND `p0`.`LastName` IS NULL)))), `p`.`LastName`
+    WHERE `p0`.`MiddleInitial` = 'Q' AND `p0`.`Age` = 20 AND (`p`.`LastName` = `p0`.`LastName` OR (`p`.`LastName` IS NULL AND `p0`.`LastName` IS NULL))))
 """);
     }
 
@@ -532,7 +532,7 @@ GROUP BY `p`.`FirstName`
 ORDER BY (
     SELECT TOP 1 `p0`.`LastName`
     FROM `Person` AS `p0`
-    WHERE `p`.`FirstName` = `p0`.`FirstName` OR (`p`.`FirstName` IS NULL AND `p0`.`FirstName` IS NULL)), `p`.`FirstName`
+    WHERE `p`.`FirstName` = `p0`.`FirstName` OR (`p`.`FirstName` IS NULL AND `p0`.`FirstName` IS NULL))
 """);
     }
 
@@ -552,7 +552,7 @@ GROUP BY `p`.`Id`
 ORDER BY (
     SELECT TOP 1 `p0`.`MiddleInitial`
     FROM `Person` AS `p0`
-    WHERE `p0`.`Age` = 20 AND `p`.`Id` = `p0`.`Id`), `p`.`Id`
+    WHERE `p0`.`Age` = 20 AND `p`.`Id` = `p0`.`Id`)
 """);
     }
 
@@ -652,7 +652,7 @@ LEFT JOIN (
     FROM `Person` AS `p0`
     LEFT JOIN `Shoes` AS `s` ON `p0`.`Id` = `s`.`PersonId`
 ) AS `s0` ON `p1`.`FirstName` = `s0`.`FirstName`
-ORDER BY `p1`.`FirstName`, `s0`.`Id`, `s0`.`Id0`
+ORDER BY `p1`.`FirstName`, `s0`.`Id`
 """);
     }
 
@@ -757,7 +757,7 @@ LEFT JOIN (
     WHERE `p2`.`row` <= 1
 ) AS `p3` ON `p1`.`FirstName` = `p3`.`FirstName`
 LEFT JOIN `Shoes` AS `s` ON `p3`.`Id` = `s`.`PersonId`
-ORDER BY `p1`.`FirstName`, `s`.`Id`
+ORDER BY `p1`.`FirstName`
 """);
     }
 

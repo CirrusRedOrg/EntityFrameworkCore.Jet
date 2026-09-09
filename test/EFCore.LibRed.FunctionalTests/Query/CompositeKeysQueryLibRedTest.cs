@@ -28,7 +28,7 @@ SELECT `c`.`Name`, `c`.`Id1`, `c`.`Id2`, `c0`.`Id1`, `c0`.`Id2`, `c0`.`Date`, `c
 FROM (`CompositeOnes` AS `c`
 LEFT JOIN `CompositeTwos` AS `c0` ON `c`.`Id1` = `c0`.`OneToMany_Optional_Inverse2Id1` AND `c`.`Id2` = `c0`.`OneToMany_Optional_Inverse2Id2`)
 LEFT JOIN `CompositeTwos` AS `c1` ON `c`.`Id1` = `c1`.`OneToMany_Required_Inverse2Id1` AND `c`.`Id2` = `c1`.`OneToMany_Required_Inverse2Id2`
-ORDER BY `c`.`Id2`, `c`.`Id1`, `c0`.`Id1`, `c0`.`Id2`, `c1`.`Id1`, `c1`.`Id2`
+ORDER BY `c`.`Id2`, `c`.`Id1`, `c0`.`Id1`, `c0`.`Id2`, `c1`.`Id1`
 """);
     }
 
@@ -42,7 +42,7 @@ SELECT `c`.`Name`, `c`.`Id1`, `c`.`Id2`, `c0`.`Id1`, `c0`.`Id2`, `c0`.`Date`, `c
 FROM (`CompositeOnes` AS `c`
 LEFT JOIN `CompositeTwos` AS `c0` ON `c`.`Id1` = `c0`.`OneToMany_Optional_Inverse2Id1` AND `c`.`Id2` = `c0`.`OneToMany_Optional_Inverse2Id2`)
 LEFT JOIN `CompositeTwos` AS `c1` ON `c`.`Id1` = `c1`.`OneToMany_Required_Inverse2Id1` AND `c`.`Id2` = `c1`.`OneToMany_Required_Inverse2Id2`
-ORDER BY `c`.`Id2`, `c`.`Id1` DESC, `c0`.`Id1`, `c0`.`Id2`, `c1`.`Id1`, `c1`.`Id2`
+ORDER BY `c`.`Id2`, `c`.`Id1` DESC, `c0`.`Id1`, `c0`.`Id2`, `c1`.`Id1`
 """);
     }
 
@@ -56,7 +56,7 @@ SELECT `c`.`Name`, `c`.`Id1`, `c`.`Id2`, `c0`.`Id1`, `c0`.`Id2`, `c0`.`Date`, `c
 FROM (`CompositeOnes` AS `c`
 LEFT JOIN `CompositeTwos` AS `c0` ON `c`.`Id1` = `c0`.`OneToMany_Optional_Inverse2Id1` AND `c`.`Id2` = `c0`.`OneToMany_Optional_Inverse2Id2`)
 LEFT JOIN `CompositeTwos` AS `c1` ON `c`.`Id1` = `c1`.`OneToMany_Required_Inverse2Id1` AND `c`.`Id2` = `c1`.`OneToMany_Required_Inverse2Id2`
-ORDER BY `c`.`Id1`, `c`.`Id2`, `c0`.`Id2`, `c0`.`Id1`, `c1`.`Name` DESC, `c1`.`Id1`, `c1`.`Id2`
+ORDER BY `c`.`Id1`, `c`.`Id2`, `c0`.`Id2`, `c0`.`Id1`, `c1`.`Name` DESC, `c1`.`Id1`
 """);
     }
 
@@ -70,7 +70,7 @@ SELECT `c`.`Name`, `c`.`Id1`, `c`.`Id2`, `c0`.`Id1`, `c0`.`Id2`, `c0`.`Date`, `c
 FROM (`CompositeOnes` AS `c`
 LEFT JOIN `CompositeTwos` AS `c0` ON `c`.`Id1` = `c0`.`OneToMany_Optional_Inverse2Id1` AND `c`.`Id2` = `c0`.`OneToMany_Optional_Inverse2Id2`)
 LEFT JOIN `CompositeTwos` AS `c1` ON `c`.`Id1` = `c1`.`OneToMany_Required_Inverse2Id1` AND `c`.`Id2` = `c1`.`OneToMany_Required_Inverse2Id2`
-ORDER BY `c`.`Id2`, `c`.`Id1`, `c0`.`Id2`, `c0`.`Id1`, `c1`.`Name` DESC, `c1`.`Id1`, `c1`.`Id2`
+ORDER BY `c`.`Id2`, `c`.`Id1`, `c0`.`Id2`, `c0`.`Id1`, `c1`.`Name` DESC, `c1`.`Id1`
 """);
     }
 
@@ -131,7 +131,7 @@ LEFT JOIN (
         LEFT JOIN `CompositeFours` AS `c13` ON `c11`.`Id1` = `c13`.`OneToMany_Required_Inverse4Id1` AND `c11`.`Id2` = `c13`.`OneToMany_Required_Inverse4Id2`
     ) AS `s3` ON `c7`.`Id1` = `s3`.`OneToMany_Optional_Inverse3Id1` AND `c7`.`Id2` = `s3`.`OneToMany_Optional_Inverse3Id2`
 ) AS `s4` ON `c`.`Id1` = `s4`.`OneToMany_Required_Inverse2Id1` AND `c`.`Id2` = `s4`.`OneToMany_Required_Inverse2Id2`
-ORDER BY `c`.`Id1`, `c`.`Id2`, `s1`.`Id1`, `s1`.`Id2`, `s1`.`Id10`, `s1`.`Id20`, `s1`.`Id100`, `s1`.`Id200`, `s1`.`Id11`, `s1`.`Id21`, `s1`.`Id12`, `s1`.`Id22`, `s1`.`Id101`, `s1`.`Id201`, `s1`.`Id110`, `s1`.`Id210`, `s4`.`Id1`, `s4`.`Id2`, `s4`.`Id10`, `s4`.`Id20`, `s4`.`Id100`, `s4`.`Id200`, `s4`.`Id11`, `s4`.`Id21`, `s4`.`Id12`, `s4`.`Id22`, `s4`.`Id101`, `s4`.`Id201`, `s4`.`Id110`, `s4`.`Id210`
+ORDER BY `c`.`Id1`, `c`.`Id2`, `s1`.`Id1`, `s1`.`Id2`, `s1`.`Id10`, `s1`.`Id20`, `s1`.`Id100`, `s1`.`Id200`, `s1`.`Id11`, `s1`.`Id21`, `s1`.`Id12`, `s1`.`Id22`, `s1`.`Id101`, `s1`.`Id201`, `s1`.`Id110`, `s1`.`Id210`, `s4`.`Id1`, `s4`.`Id2`, `s4`.`Id10`, `s4`.`Id20`, `s4`.`Id100`, `s4`.`Id200`, `s4`.`Id11`, `s4`.`Id21`, `s4`.`Id12`, `s4`.`Id22`, `s4`.`Id101`, `s4`.`Id201`, `s4`.`Id110`
 """);
     }
 
@@ -175,7 +175,7 @@ LEFT JOIN (
         LEFT JOIN `CompositeFours` AS `c13` ON `c11`.`Id1` = `c13`.`OneToMany_Required_Inverse4Id1` AND `c11`.`Id2` = `c13`.`OneToMany_Required_Inverse4Id2`
     ) AS `s3` ON `c7`.`Id1` = `s3`.`OneToMany_Optional_Inverse3Id1` AND `c7`.`Id2` = `s3`.`OneToMany_Optional_Inverse3Id2`
 ) AS `s4` ON `c`.`Id1` = `s4`.`OneToMany_Required_Inverse2Id1` AND `c`.`Id2` = `s4`.`OneToMany_Required_Inverse2Id2`
-ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, `s1`.`Id1`, `s1`.`Id2`, `s1`.`Id20` DESC, `s1`.`Id10` DESC, `s1`.`Id100`, `s1`.`Id200`, `s1`.`Id11`, `s1`.`Id21`, `s1`.`Id12`, `s1`.`Id22`, `s1`.`Id101`, `s1`.`Id201`, `s1`.`Id110`, `s1`.`Id210`, `s4`.`c`, `s4`.`Id1`, `s4`.`Id2`, `s4`.`Id10`, `s4`.`Id20`, `s4`.`Id100`, `s4`.`Id200`, `s4`.`Id11`, `s4`.`Id21`, `s4`.`Id12`, `s4`.`Id22`, `s4`.`Id101`, `s4`.`Id201`, `s4`.`c0` DESC, `s4`.`Id110`, `s4`.`Id210`
+ORDER BY `c`.`Name`, `c`.`Id1`, `c`.`Id2`, `s1`.`Id1`, `s1`.`Id2`, `s1`.`Id20` DESC, `s1`.`Id10` DESC, `s1`.`Id100`, `s1`.`Id200`, `s1`.`Id11`, `s1`.`Id21`, `s1`.`Id12`, `s1`.`Id22`, `s1`.`Id101`, `s1`.`Id201`, `s1`.`Id110`, `s1`.`Id210`, `s4`.`c`, `s4`.`Id1`, `s4`.`Id2`, `s4`.`Id10`, `s4`.`Id20`, `s4`.`Id100`, `s4`.`Id200`, `s4`.`Id11`, `s4`.`Id21`, `s4`.`Id12`, `s4`.`Id22`, `s4`.`Id101`, `s4`.`Id201`, `s4`.`c0` DESC, `s4`.`Id110`
 """);
     }
 

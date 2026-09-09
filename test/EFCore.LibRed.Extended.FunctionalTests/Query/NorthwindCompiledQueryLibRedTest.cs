@@ -58,14 +58,14 @@ namespace EntityFrameworkCore.LibRed.Extended.FunctionalTests.Query
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """,
                 //
                 """
 SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -275,7 +275,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = @s1 OR `c`.`CustomerID` = @s2 OR `c`.`CustomerID` = @s3 OR `c`.`CustomerID` = @s4 OR `c`.`CustomerID` = @s5 OR `c`.`CustomerID` = @s6 OR `c`.`CustomerID` = @s7 OR `c`.`CustomerID` = @s8 OR `c`.`CustomerID` = @s9 OR `c`.`CustomerID` = @s10 OR `c`.`CustomerID` = @s11 OR `c`.`CustomerID` = @s12 OR `c`.`CustomerID` = @s13 OR `c`.`CustomerID` = @s14 OR `c`.`CustomerID` = @s15
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """,
                 //
                 """
@@ -343,7 +343,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = @s1 OR `c`.`CustomerID` = @s2 OR `c`.`CustomerID` = @s3 OR `c`.`CustomerID` = @s4 OR `c`.`CustomerID` = @s5 OR `c`.`CustomerID` = @s6 OR `c`.`CustomerID` = @s7 OR `c`.`CustomerID` = @s8 OR `c`.`CustomerID` = @s9 OR `c`.`CustomerID` = @s10 OR `c`.`CustomerID` = @s11 OR `c`.`CustomerID` = @s12 OR `c`.`CustomerID` = @s13 OR `c`.`CustomerID` = @s14 OR `c`.`CustomerID` = @s15
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """,
                 //
                 """
@@ -762,7 +762,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = @customerID
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """,
                 //
                 """
@@ -772,7 +772,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` = @customerID
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 

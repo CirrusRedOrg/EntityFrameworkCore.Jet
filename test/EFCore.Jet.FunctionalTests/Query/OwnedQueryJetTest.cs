@@ -356,7 +356,7 @@ SELECT `o`.`Id`, `m`.`Id`, `m`.`Diameter`, `m`.`PlanetId`
 FROM (`OwnedPerson` AS `o`
 LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
 LEFT JOIN `Moon` AS `m` ON `p`.`Id` = `m`.`PlanetId`
-ORDER BY `o`.`Id`, `m`.`Id`
+ORDER BY `o`.`Id`
 """);
         }
 
@@ -400,7 +400,7 @@ FROM ((`OwnedPerson` AS `o`
 LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
 LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`)
 LEFT JOIN `Element` AS `e` ON `s`.`Id` = `e`.`StarId`
-ORDER BY `o`.`Id`, `e`.`Id`
+ORDER BY `o`.`Id`
 """);
         }
 
@@ -432,7 +432,7 @@ LEFT JOIN `Planet` AS `p` ON `o`.`PersonAddress_Country_PlanetId` = `p`.`Id`)
 LEFT JOIN `Star` AS `s` ON `p`.`StarId` = `s`.`Id`)
 LEFT JOIN `Element` AS `e` ON `s`.`Id` = `e`.`StarId`
 WHERE `s`.`Name` = 'Sol'
-ORDER BY `o`.`Id`, `e`.`Id`
+ORDER BY `o`.`Id`
 """);
         }
 

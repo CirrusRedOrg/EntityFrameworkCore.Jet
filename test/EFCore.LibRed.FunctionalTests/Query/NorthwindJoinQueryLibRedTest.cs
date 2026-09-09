@@ -366,7 +366,7 @@ SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
-ORDER BY `c`.`City`, `o`.`OrderID`
+ORDER BY `c`.`City`
 """);
         }
 
@@ -398,7 +398,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -412,7 +412,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE (`c`.`CustomerID` LIKE 'F%') AND `c`.`City` = 'Lisboa'
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -431,7 +431,7 @@ INNER JOIN (
 ) AS `c1` ON `c`.`CustomerID` = `c1`.`CustomerID`)
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'F%'
-ORDER BY `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -520,7 +520,7 @@ SELECT `o`.`OrderID`, `o`.`CustomerID`, `o`.`EmployeeID`, `o`.`OrderDate`
 FROM `Customers` AS `c`
 INNER JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `o`.`CustomerID` = 'ALFKI' OR `c`.`CustomerID` = 'ANATR'
-ORDER BY `c`.`City`, `o`.`OrderID`
+ORDER BY `c`.`City`
 """);
         }
 
@@ -817,7 +817,7 @@ LEFT JOIN (
     ) AS `o1` ON `o`.`OrderID` = `o1`.`OrderID`
 ) AS `s` ON `c`.`CustomerID` = `s`.`CustomerID`
 WHERE `c`.`CustomerID` LIKE 'A%'
-ORDER BY `c`.`CustomerID`, `s`.`OrderID0`, `s`.`OrderID`, `s`.`ProductID`
+ORDER BY `c`.`CustomerID`, `s`.`OrderID0`, `s`.`OrderID`
 """);
         }
 

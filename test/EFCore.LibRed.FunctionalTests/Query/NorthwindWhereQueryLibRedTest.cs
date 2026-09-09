@@ -1440,7 +1440,7 @@ FROM (
     WHERE `c`.`CustomerID` = 'ALFKI'
 ) AS `c0`
 LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c0`.`CustomerID`
 """,
                 //
                 """
@@ -1726,7 +1726,7 @@ WHERE (
     SELECT COUNT(*)
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
-ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -1744,7 +1744,7 @@ WHERE 'ALFKI' IN (
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = `c`.`CustomerID`
 )
-ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -1761,7 +1761,7 @@ WHERE (
     SELECT COUNT(*)
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
-ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -1779,7 +1779,7 @@ WHERE 'ALFKI' IN (
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = `c`.`CustomerID`
 )
-ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -1796,7 +1796,7 @@ WHERE (
     SELECT COUNT(*)
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
-ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -1814,7 +1814,7 @@ WHERE 'ALFKI' IN (
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = `c`.`CustomerID`
 )
-ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -1836,7 +1836,7 @@ WHERE NOT (IIF('ALFKI' IN (
         FROM `Orders` AS `o`
         WHERE `o`.`CustomerID` = `c`.`CustomerID`
     )))
-ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -1853,7 +1853,7 @@ WHERE (
     SELECT COUNT(*)
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
-ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 
@@ -1870,7 +1870,7 @@ WHERE (
     SELECT COUNT(*)
     FROM `Orders` AS `o`
     WHERE `o`.`CustomerID` = `c`.`CustomerID`) = 0
-ORDER BY `c`.`CustomerID`, `o0`.`OrderID`
+ORDER BY `c`.`CustomerID`
 """);
         }
 

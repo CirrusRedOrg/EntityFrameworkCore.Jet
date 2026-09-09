@@ -293,12 +293,12 @@ FROM `BasicTypesEntities` AS `b`
 
         AssertSql(
             """
-SELECT `b0`.`A`, `b0`.`Id`
+SELECT `b0`.`A`
 FROM (
-    SELECT FIX(`b`.`Double`) AS `A`, `b`.`Id`
+    SELECT FIX(`b`.`Double`) AS `A`
     FROM `BasicTypesEntities` AS `b`
 ) AS `b0`
-ORDER BY `b0`.`A`, `b0`.`Id`
+ORDER BY `b0`.`A`
 """);
     }
 
@@ -314,12 +314,12 @@ ORDER BY `b0`.`A`, `b0`.`Id`
 
         AssertSql(
             """
-SELECT `b0`.`A`, `b0`.`Id`
+SELECT `b0`.`A`
 FROM (
-    SELECT FIX(`b`.`Double`) AS `A`, `b`.`Id`
+    SELECT FIX(`b`.`Double`) AS `A`
     FROM `BasicTypesEntities` AS `b`
 ) AS `b0`
-ORDER BY `b0`.`A` DESC, `b0`.`Id`
+ORDER BY `b0`.`A` DESC
 """);
     }
 
@@ -335,12 +335,12 @@ ORDER BY `b0`.`A` DESC, `b0`.`Id`
 
         AssertSql(
             """
-SELECT `b0`.`A`, `b0`.`Id`
+SELECT `b0`.`A`
 FROM (
-    SELECT FIX(`b`.`Double`) AS `A`, `b`.`Id`
+    SELECT FIX(`b`.`Double`) AS `A`
     FROM `BasicTypesEntities` AS `b`
 ) AS `b0`
-ORDER BY `b0`.`A` DESC, `b0`.`Id`
+ORDER BY `b0`.`A` DESC
 """);
     }
 

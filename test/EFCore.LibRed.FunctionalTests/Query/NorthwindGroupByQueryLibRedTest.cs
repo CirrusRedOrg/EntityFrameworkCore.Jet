@@ -2518,7 +2518,7 @@ FROM (
     GROUP BY `c`.`City`
 ) AS `c1`
 LEFT JOIN `Customers` AS `c0` ON `c1`.`City` = `c0`.`City`
-ORDER BY `c1`.`City`, `c0`.`CustomerID`
+ORDER BY `c1`.`City`
 """);
         }
 
@@ -2535,7 +2535,7 @@ FROM (
     GROUP BY `c`.`City`
 ) AS `c1`
 LEFT JOIN `Customers` AS `c0` ON `c1`.`City` = `c0`.`City`
-ORDER BY `c1`.`City`, `c0`.`CustomerID`
+ORDER BY `c1`.`City`
 """);
         }
 
@@ -2556,7 +2556,7 @@ LEFT JOIN (
     FROM `Customers` AS `c0`
     WHERE `c0`.`CustomerID` LIKE 'A%'
 ) AS `c2` ON `c1`.`City` = `c2`.`City`
-ORDER BY `c1`.`City`, `c2`.`CustomerID`
+ORDER BY `c1`.`City`
 """);
         }
 
@@ -3629,7 +3629,7 @@ FROM (
     GROUP BY `o`.`CustomerID`
 ) AS `o1`
 LEFT JOIN `Orders` AS `o0` ON `o1`.`CustomerID` = `o0`.`CustomerID`
-ORDER BY `o1`.`CustomerID`, `o0`.`OrderID`
+ORDER BY `o1`.`CustomerID`
 """);
         }
 
@@ -3966,7 +3966,7 @@ FROM (
     HAVING `c`.`CustomerID` LIKE 'F%'
 ) AS `c0`
 LEFT JOIN `Orders` AS `o` ON `c0`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `c0`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c0`.`CustomerID`
 """);
         }
 
@@ -3984,7 +3984,7 @@ FROM (
     HAVING `o`.`CustomerID` LIKE 'F%'
 ) AS `o1`
 LEFT JOIN `Orders` AS `o0` ON `o1`.`CustomerID` = `o0`.`CustomerID`
-ORDER BY `o1`.`CustomerID`, `o0`.`OrderID`
+ORDER BY `o1`.`CustomerID`
 """);
         }
 
@@ -4062,7 +4062,7 @@ ORDER BY [c].[CustomerID]
                 """
 SELECT `c`.`City`, `c`.`CustomerID`, `c`.`Address`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY `c`.`City`, `c`.`CustomerID`
+ORDER BY `c`.`City`
 """);
         }
 
@@ -4076,7 +4076,7 @@ SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Cont
 FROM `Orders` AS `o`
 LEFT JOIN `Customers` AS `c` ON `o`.`CustomerID` = `c`.`CustomerID`
 WHERE `o`.`OrderID` < 10500
-ORDER BY `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, `o`.`OrderID`
+ORDER BY `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 """);
         }
 
@@ -4089,7 +4089,7 @@ ORDER BY `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`Co
 SELECT `o`.`OrderID`, `o`.`ProductID`, `o`.`Discount`, `o`.`Quantity`, `o`.`UnitPrice`
 FROM `Order Details` AS `o`
 WHERE `o`.`OrderID` < 10500
-ORDER BY `o`.`OrderID`, `o`.`ProductID`
+ORDER BY `o`.`OrderID`
 """);
         }
 
@@ -4101,7 +4101,7 @@ ORDER BY `o`.`OrderID`, `o`.`ProductID`
                 """
 SELECT `c`.`City`, `c`.`ContactName`, `c`.`ContactTitle`
 FROM `Customers` AS `c`
-ORDER BY `c`.`City`, `c`.`CustomerID`
+ORDER BY `c`.`City`
 """);
         }
 
@@ -4113,7 +4113,7 @@ ORDER BY `c`.`City`, `c`.`CustomerID`
                 """
 SELECT `c`.`City`, `c`.`Region`, `c`.`CustomerID`, `c`.`Address`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`
 FROM `Customers` AS `c`
-ORDER BY `c`.`City`, `c`.`Region`, `c`.`CustomerID`
+ORDER BY `c`.`City`, `c`.`Region`
 """);
         }
 
@@ -4128,7 +4128,7 @@ FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, 1 AS `Constant`
     FROM `Customers` AS `c`
 ) AS `c0`
-ORDER BY `c0`.`City`, `c0`.`Region`, `c0`.`Constant`, `c0`.`CustomerID`
+ORDER BY `c0`.`City`, `c0`.`Region`, `c0`.`Constant`
 """);
         }
 
@@ -4143,7 +4143,7 @@ FROM (
     SELECT `c`.`CustomerID`, `c`.`Address`, `c`.`City`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`, 1 AS `Constant`
     FROM `Customers` AS `c`
 ) AS `c0`
-ORDER BY `c0`.`City`, `c0`.`Constant`, `c0`.`CustomerID`
+ORDER BY `c0`.`City`, `c0`.`Constant`
 """);
         }
 
@@ -4155,7 +4155,7 @@ ORDER BY `c0`.`City`, `c0`.`Constant`, `c0`.`CustomerID`
                 """
 SELECT `c`.`City`, `c`.`ContactName`, `c`.`ContactTitle`
 FROM `Customers` AS `c`
-ORDER BY `c`.`City`, `c`.`CustomerID`
+ORDER BY `c`.`City`
 """);
         }
 
@@ -4169,7 +4169,7 @@ SELECT `c`.`City`, `c`.`CustomerID`, `c`.`Address`, `c`.`CompanyName`, `c`.`Cont
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`Country` = 'USA'
-ORDER BY `c`.`City`, `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`City`, `c`.`CustomerID`
 """);
         }
 
@@ -4183,7 +4183,7 @@ SELECT `c`.`City`, `c`.`CustomerID`, `o`.`OrderID`, `o`.`CustomerID`, `o`.`Emplo
 FROM `Customers` AS `c`
 LEFT JOIN `Orders` AS `o` ON `c`.`CustomerID` = `o`.`CustomerID`
 WHERE `c`.`Country` = 'USA'
-ORDER BY `c`.`City`, `c`.`CustomerID`, `o`.`OrderID`
+ORDER BY `c`.`City`, `c`.`CustomerID`
 """);
         }
 
@@ -4201,7 +4201,7 @@ LEFT JOIN (
     WHERE `o`.`OrderID` < 11000
 ) AS `o0` ON `c`.`CustomerID` = `o0`.`CustomerID`
 WHERE `c`.`Country` = 'USA'
-ORDER BY `c`.`City`, `c`.`CustomerID`, `o0`.`OrderID`
+ORDER BY `c`.`City`, `c`.`CustomerID`
 """);
         }
 
@@ -4241,7 +4241,7 @@ ORDER BY [c].[City], [c].[CustomerID]
 
 SELECT `c`.`City`, `c`.`CustomerID`, `c`.`Address`, `c`.`CompanyName`, `c`.`ContactName`, `c`.`ContactTitle`, `c`.`Country`, `c`.`Fax`, `c`.`Phone`, `c`.`PostalCode`, `c`.`Region`
 FROM `Customers` AS `c`
-ORDER BY `c`.`City`, `c`.`CustomerID`
+ORDER BY `c`.`City`
 """);
         }
 

@@ -36,7 +36,7 @@ WHERE ((
     SELECT COUNT(*)
     FROM `AssociateType` AS `a`
     WHERE `r`.`Id` = `a`.`CollectionRootId`) = 2) AND (`a1`.`RequiredNestedAssociateId` IS NOT NULL AND `n2`.`Id` IS NOT NULL)
-ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`, `n6`.`Id`, `n7`.`Id`
+ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`, `n6`.`Id`
 """);
     }
 
@@ -67,7 +67,7 @@ WHERE ((
     SELECT COUNT(*)
     FROM `AssociateType` AS `a`
     WHERE `r`.`Id` = `a`.`CollectionRootId` AND `a`.`Int` <> 8) = 2) AND (`a1`.`RequiredNestedAssociateId` IS NOT NULL AND `n2`.`Id` IS NOT NULL)
-ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`, `n6`.`Id`, `n7`.`Id`
+ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`, `n6`.`Id`
 """);
     }
 
@@ -250,7 +250,7 @@ WHERE (16 IN (
     WHERE `r`.`Id` = `a`.`CollectionRootId`
     GROUP BY `a`.`String`
 )) AND (`a1`.`RequiredNestedAssociateId` IS NOT NULL AND `n2`.`Id` IS NOT NULL)
-ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`, `n6`.`Id`, `n7`.`Id`
+ORDER BY `r`.`Id`, `s`.`Id`, `s`.`Id0`, `n6`.`Id`
 """);
     }
 

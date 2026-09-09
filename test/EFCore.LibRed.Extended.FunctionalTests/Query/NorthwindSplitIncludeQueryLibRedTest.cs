@@ -1184,7 +1184,7 @@ FROM (
     ORDER BY `c`.`CustomerID`
 ) AS `c1`
 CROSS JOIN `Customers` AS `c0`
-ORDER BY `c1`.`CustomerID`, `c0`.`CustomerID`
+ORDER BY `c1`.`CustomerID`
 """);
     }
 
@@ -1311,7 +1311,7 @@ FROM (
 ) AS `s`
 LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`
 LEFT JOIN `Customers` AS `c0` ON `s`.`CustomerID0` = `c0`.`CustomerID`
-ORDER BY `s`.`CustomerID`, `s`.`OrderID`, `s`.`OrderID0`
+ORDER BY `s`.`CustomerID`, `s`.`OrderID`
 """);
     }
 
@@ -1339,7 +1339,7 @@ FROM (
     ) AS `o2`
 ) AS `s`
 LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID` = `c`.`CustomerID`
-ORDER BY `s`.`OrderID`, `s`.`OrderID0`
+ORDER BY `s`.`OrderID`
 """);
     }
 
@@ -1367,7 +1367,7 @@ FROM (
     ) AS `o2`
 ) AS `s`
 LEFT JOIN `Customers` AS `c` ON `s`.`CustomerID0` = `c`.`CustomerID`
-ORDER BY `s`.`OrderID`, `s`.`OrderID0`
+ORDER BY `s`.`OrderID`
 """);
     }
 

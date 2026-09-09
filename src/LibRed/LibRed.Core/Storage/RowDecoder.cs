@@ -43,7 +43,11 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
 
             // Jet stores Boolean (YesNo) columns with no fixed/variable data: the value
             // IS the null-bitmap bit (set = true). Booleans are never null.
-            if (column.Type == JetDataType.Boolean)
+            //
+            // A CALCULATED Boolean is the exception, and a silent one: it carries a real variable-length
+            // slot, and its bitmap bit means "present" like every other calculated column, so it is set
+            // for a stored False too. Reading the bit here would report True for every row.
+            if (column.Type == JetDataType.Boolean && !column.IsCalculated)
             {
                 values[column.Index] = present;
                 continue;
@@ -58,6 +62,18 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
             ReadOnlySpan<byte> raw = column.IsFixedLength
                 ? FixedSlice(row, layout, column)
                 : layout.VarChunk(column.VariableIndex);
+
+            // A calculated column stores ACE's cached result wrapped in an envelope, routed through a
+            // long-value descriptor when the column owns a long-value map (which is how a calculated Memo
+            // arrives — ACE declares it Text, so the Memo branch below would never fire for it).
+            if (column.IsCalculated)
+            {
+                ReadOnlySpan<byte> envelope = column.HasLongValueMap && _longValues is not null
+                    ? _longValues.Resolve(raw)
+                    : raw;
+                values[column.Index] = CalculatedValue.Decode(column, envelope);
+                continue;
+            }
 
             // Memo / OLE columns store a long-value descriptor, not the data itself.
             if (_longValues is not null && column.Type is JetDataType.Memo or JetDataType.Ole)
@@ -87,8 +103,10 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
 
         ReadOnlySpan<byte> nullBitmap = row[^nullBitmapSize..];
 
+        // Keyed on owning a long-value map rather than on the declared type: a calculated Memo is declared
+        // Text and still stores a descriptor, so a type test alone walks past its pages and orphans them.
         foreach (ColumnDef column in _columns)
-            if (column.Type is JetDataType.Memo or JetDataType.Ole
+            if ((column.Type is JetDataType.Memo or JetDataType.Ole || column.HasLongValueMap)
                 && IsPresent(nullBitmap, layout.ColumnCount, column.ColumnId))
                 result[column.Index] = layout.VarChunk(column.VariableIndex).ToArray();
 

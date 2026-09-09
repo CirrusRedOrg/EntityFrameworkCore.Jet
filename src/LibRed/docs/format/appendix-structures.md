@@ -127,6 +127,23 @@ Nullability is **not** in the descriptor — it's the `Required` property in `Lv
 
 ---
 
+## Calculated-column value envelope — variable slot, *n* + 23 bytes → [page-02b §3.4a](page-02b-columns.md)
+
+| Offset | Size | Meaning |
+| --- | --- | --- |
+| `0x00` | 16 | Reserved (zero) |
+| `0x10` | 4 | Payload length, little-endian |
+| `0x14` | *n* | Payload — the value in its ordinary encoding |
+| `0x14`+*n* | 3 | Padding (zero) |
+
+The descriptor's type at `0x00` is a **promoted storage type**; the payload length says the real one
+(Int16+1 = Boolean, Int32+1 = Byte, Int32+2 = Int16, Double+4 = Single). Length `0` means Null, and the
+null-bitmap bit is set regardless — including for a calculated Boolean storing False. A calculated Memo is
+declared Text with length `0`, owns a long-value map entry, and reaches the envelope through a long-value
+descriptor.
+
+---
+
 ## Index statistics block — 12 bytes, one per real index → [page-02d](page-02d-constraints.md)
 
 | Offset | Size | Meaning |

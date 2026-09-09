@@ -79,6 +79,56 @@
 > [system-catalog.md](system-catalog.md), and the **`DEFAULT` expression semantics** (what a default may
 > contain, how it is evaluated) in [page-02c-default-values.md](page-02c-default-values.md).
 
+### 3.4a Calculated columns
+
+A calculated column (extended flag `0xC0` at `0x10`, ACE 14+) does not store a bare value. It is **always
+variable-length**, and its slot holds a fixed envelope around the result ACE last computed:
+
+| Offset | Size | Meaning |
+| --- | --- | --- |
+| `0x00` | 16 | Reserved; zero in every row measured |
+| `0x10` | 4 | Payload length, little-endian |
+| `0x14` | *n* | Payload — the value in its ordinary on-disk encoding for its type |
+| `0x14`+*n* | 3 | Padding; zero in every row measured |
+
+so a stored value occupies *n* + 23 bytes. The payload is encoded exactly as the same value would be in an
+ordinary column — text keeps the usual compressed (`FF FE` prefix) or raw UTF-16LE choice — so it can go
+straight to the normal type codec.
+
+> **The descriptor's type is a *storage* type, not the result type.** ACE widens the declared type to the
+> next one in its family and stores the payload at the result's natural width, so reading `0x17` bytes for
+> the declared type reads the wrong number. The payload length is what says how to decode it:
+>
+> | Descriptor type (`0x00`) | Payload length | Value is |
+> | --- | --- | --- |
+> | `0x03` Int16 | 1 | Boolean |
+> | `0x04` Int32 | 1 | Byte |
+> | `0x04` Int32 | 2 | Int16 |
+> | `0x04` Int32 | 4 | Int32 |
+> | `0x07` Double | 4 | Single |
+> | `0x07` Double | 8 | Double |
+> | `0x05` Currency | 8 | Currency |
+> | `0x08` DateTime | 8 | DateTime |
+> | `0x0A` Text | *n* | Text |
+> | any | 0 | **Null** |
+>
+> The pair is unambiguous: Boolean and Byte both store one byte but promote to *different* declared types.
+> A Null result is a zero-length payload — the null-bitmap bit stays **set**, so the bit means "present"
+> here and nothing more. That also makes a calculated **Boolean** a trap: an ordinary Boolean *is* its
+> bitmap bit, but a calculated one carries a real payload (`FF`/`00`) and its bit is set even when the
+> value is False. The declared length at `0x17` is `39` for these columns and is not the payload size.
+>
+> **A calculated Memo arrives through the long-value machinery.** ACE declares it `0x0A` Text with a
+> declared length of `0`, gives it a **long-value map entry**, and stores a long-value descriptor in the
+> slot; the envelope above is what that descriptor resolves to. So a long-value map may name a column whose
+> declared type is not Memo/OLE — a guard that assumed otherwise rejected the TDEF, and because the catalog
+> loads every TDEF that made the whole database unopenable.
+>
+> Measured against ACE-authored columns of every type DAO will create (`CalculatedColumnAccessTests`), and
+> against `AdventureWorks_Learn_To_Write_DAX.accdb`, a database in the wild whose `fctSales.OrderDate` is
+> a calculated `DateTime`. LibRed **reads** these values; it does not create calculated columns or
+> re-evaluate an expression, so a row it writes cannot refresh one.
+
 > `0x0B`–`0x0C` is a union keyed by type: for a Decimal/Numeric column (type `0x10`) it holds
 > the **precision** (`0x0B`) and **scale** (`0x0C`) — verified with a `DECIMAL(12,3)` column,
 > which reads precision = 12, scale = 3; for every other type it reads the constant `0x0409`

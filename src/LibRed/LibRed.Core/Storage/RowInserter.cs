@@ -225,7 +225,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Free the deleted row's chained long-value pages.
         var oldDescriptors = new RowDecoder(_table.Columns, format).LongValueRaw(ReadRowBytes(id));
         foreach (ColumnDef column in _table.Columns)
-            if (column.Type is JetDataType.Memo or JetDataType.Ole && oldDescriptors.TryGetValue(column.Index, out byte[]? d))
+            if ((column.Type is JetDataType.Memo or JetDataType.Ole || column.HasLongValueMap)
+                && oldDescriptors.TryGetValue(column.Index, out byte[]? d))
                 FreeLongValue(column, d);
 
         byte[] page = ArrayPool<byte>.Shared.Rent(format.PageSize);

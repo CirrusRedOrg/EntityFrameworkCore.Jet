@@ -111,6 +111,17 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     internal static byte[] AssembleRow(int maxColumnId, ReadOnlySpan<byte> fixedRegion,
         IReadOnlyList<byte[]> varChunks, IReadOnlyList<ColumnDef> columns, object?[] values)
     {
+        // A calculated column's slot is not a value but an envelope holding ACE's cached result
+        // (page-02b §3.4a), and only ACE can evaluate the expression that fills it. Encoding the decoded
+        // value back would write a bare value into that slot, which ACE then reads as a corrupt envelope.
+        // Refusing is the honest outcome until LibRed can evaluate the expression itself: LibRed reads
+        // these tables, and until this guard existed reading them was impossible anyway.
+        foreach (ColumnDef column in columns)
+            if (column.IsCalculated)
+                throw new NotSupportedException(
+                    $"Table has calculated column '{column.Name}', whose stored value only ACE can compute. " +
+                    "LibRed reads calculated columns but cannot write a row that contains one.");
+
         foreach (ColumnDef column in columns)
             if (!column.IsFixedLength && column.VariableIndex >= 0 && column.VariableIndex < varChunks.Count)
                 EnsureFitsDeclaredLength(column, varChunks[column.VariableIndex]);

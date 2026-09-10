@@ -73,6 +73,13 @@
   > block when it was the last check) — ACE-verified: after the drop ACE stops enforcing the check. (In
   > Jet/ACE `DROP CONSTRAINT` is polymorphic over the name — FK / PK / unique index / CHECK.)
   >
+  > The `MSysDb` object — an `MSysObjects` row of `Type=2` with no table behind it — carries the
+  > database-level properties, among them `AccessVersion`. Access writes those, not the engine: a DAO-created
+  > database has none, at any `dbVersion`, and Access adds them (with `MSysAccessStorage` and the nav-pane
+  > tables) the first time it opens the file. Which is why `DatabaseCreator` does not write them either. The
+  > one place the value matters is [data-types.md](data-types.md), where it says which files carry the
+  > unmodelled `0x11` column.
+  >
   > **Property-reader/writer guardrails.** LibRed validates the signature and consumes the blob exactly to
   > its end. Every block, pooled UTF-16 name, owner record, property entry, name-pool index, and value length
   > must remain within its declared parent and use the exact nested lengths above. `Read`,

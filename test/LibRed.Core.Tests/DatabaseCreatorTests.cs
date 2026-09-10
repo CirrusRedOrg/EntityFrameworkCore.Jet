@@ -69,6 +69,57 @@ public class DatabaseCreatorTests
         finally { if (File.Exists(path)) TemporaryDatabase.Delete(path); }
     }
 
+    // Jet 4 — the Access 2000 / 2002-2003 .mdb — is creatable too, not just the ACCDB versions. The identifier
+    // has to follow the version byte: "Standard Jet DB" with 0x01, because Detect refuses a mismatched pair
+    // and the file would then be one this method wrote and could not reopen.
+    [Fact]
+    public void Creates_a_jet4_database_that_reopens()
+    {
+        string path = TemporaryDatabase.CreatePath("libred_jet4_")
+            .Replace(".accdb", ".mdb", StringComparison.OrdinalIgnoreCase);
+        try
+        {
+            DatabaseCreator.CreateEmpty(path, version: 0x01);
+
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                Assert.Equal("Standard Jet DB", db.DefinitionPage.FormatIdentifier);
+                Assert.Equal(0x01, db.DefinitionPage.JetVersion);
+
+                db.CreateTable("People", [
+                    new ColumnSpec("Id", JetDataType.Int32, 4, true),
+                    new ColumnSpec("Name", JetDataType.Text, 100, false)]);
+                db.Catalog.Invalidate();
+                db.OpenTable("People").Insert([1, "Ada"]);
+            }
+
+            using (var db = JetDatabase.Open(path))
+            {
+                Table people = db.OpenTable("People");
+                Assert.Equal("Ada", people.Rows().Single()[people.Definition.FindColumn("Name")!.Index]);
+            }
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // The one byte that moves with the version: 0x15 is 0x01 only for the 2010 format. Both Jet 4 files and
+    // ACE 12 leave it zero -- measured on an Access 2000 and an Access 2002 .mdb, which are byte-identical
+    // from 0x14 to 0x23 and differ only in their catalog.
+    [Theory]
+    [InlineData((byte)0x01, "Standard Jet DB", (byte)0x00)]
+    [InlineData((byte)0x02, "Standard ACE DB", (byte)0x00)]
+    [InlineData((byte)0x03, "Standard ACE DB", (byte)0x01)]
+    public void Synthesized_page0_pairs_the_identifier_with_the_version(byte version, string id, byte minor)
+    {
+        byte[] page = DatabaseCreator.BuildDefinitionPage(
+            version, isAccdb: id.StartsWith("Standard ACE", StringComparison.Ordinal),
+            1252, Collation.GeneralLegacy, 46000);
+
+        Assert.Equal(id, System.Text.Encoding.ASCII.GetString(page, 0x04, id.Length));
+        Assert.Equal(version, page[0x14]);
+        Assert.Equal(minor, page[0x15]);
+    }
+
     [Fact]
     public void Synthesized_page0_round_trips_through_the_reader()
     {

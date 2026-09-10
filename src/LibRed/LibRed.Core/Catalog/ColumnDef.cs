@@ -64,6 +64,18 @@ public sealed class ColumnDef
     /// result can outgrow the row, which ACE gives a map whatever the column's declared type.</summary>
     public bool HasLongValueMap { get; internal set; }
 
+    /// <summary>A calculated column's expression, from the table's <c>LvProp</c> blob. ACE evaluates this
+    /// text on every write that touches a column it references; the value in the row is only a cache of the
+    /// last result. Null when the column is not calculated (or the blob is missing).</summary>
+    public string? CalculatedExpression { get; internal set; }
+
+    /// <summary>The type a calculated column's stored payload is really encoded in — the <c>ResultType</c>
+    /// property of the <c>LvProp</c> blob, which is the type the column was DECLARED with. It is not
+    /// <see cref="Type"/>: that is the promoted storage type of the *expression*, and the two part company
+    /// (a <c>CDbl</c> expression on a column declared LONG reads Double here and Int32 there). Null when the
+    /// column is not calculated, or when the blob did not carry the property.</summary>
+    public JetDataType? CalculatedResultType { get; internal set; }
+
     /// <summary>AutoNumber (COUNTER) seed and increment. The increment is read from the TDEF header (0x18);
     /// the seed is the header's last-assigned value (0x14) plus the increment — which equals the original
     /// seed on a freshly created table (before any inserts advance the last value). Default 1/1.</summary>

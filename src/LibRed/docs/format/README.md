@@ -18,9 +18,11 @@ Implemented by `src/LibRed/LibRed.Core/`. The canonical offsets live in
 
 > **This reference is split across several files** — one per page type, plus cross-cutting topics; each is
 > self-contained (its structures *and* its read/write mechanics live together). Most describe the **on-disk
-> format**; [page-02c-default-values.md](page-02c-default-values.md) is the exception — it covers `DEFAULT`
-> **semantics** (engine behaviour), sitting with the column pages because it's a column feature. This README
-> is the map. For a bare field-layout lookup with no prose, see the [structures appendix](appendix-structures.md).
+> format**; [page-02c-default-values.md](page-02c-default-values.md) and
+> [page-02e-calculated-columns.md](page-02e-calculated-columns.md) are the exceptions — they cover `DEFAULT`
+> and calculated-column **semantics** (engine behaviour), sitting with the column pages because both are
+> column features. This README is the map. For a bare field-layout lookup with no prose, see the
+> [structures appendix](appendix-structures.md).
 
 ---
 
@@ -34,6 +36,7 @@ Implemented by `src/LibRed/LibRed.Core/`. The canonical offsets live in
 | [page-02b-columns.md](page-02b-columns.md) | TDEF **columns**: the 25-byte descriptor, and column maintenance incl. the in-place **`ALTER COLUMN`** type/length change |
 | [page-02c-default-values.md](page-02c-default-values.md) | Column **`DEFAULT`** value *semantics* — what an expression may contain, the DDL-parser-vs-expression-service split (engine behaviour; the on-disk `LvProp` storage is in [system-catalog.md](system-catalog.md)) |
 | [page-02d-constraints.md](page-02d-constraints.md) | TDEF **indexes / keys / constraints**: index-data, index-info and stats blocks (PK / unique / FK metadata) |
+| [page-02e-calculated-columns.md](page-02e-calculated-columns.md) | **Calculated column** *semantics* — the expression language ACE accepts, when the cached result is recomputed, and what DDL may do to one (engine behaviour; the descriptor and value envelope are in [page-02b](page-02b-columns.md)) |
 | [page-03-04-index-btree.md](page-03-04-index-btree.md) | Index B-tree pages (types `0x03` node / `0x04` leaf): header, entries, prefix compression, key encoding, splitting |
 | [page-05-usage-maps.md](page-05-usage-maps.md) | Per-table owned/free usage maps, `0x05` bitmap pages, and the global free-pages map (allocation) |
 | [long-values.md](long-values.md) | Memo / OLE long values, LVAL pages, and the per-column usage-map list |

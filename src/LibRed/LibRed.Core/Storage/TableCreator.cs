@@ -117,8 +117,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // CREATE TABLE, but a spec can carry an explicit id — the faithful-rebuild path does, and ids are
         // never reused after a DROP COLUMN — and the TDEF's long-value map is read back by id, so using the
         // position there silently points a Memo/OLE column's usage maps at the wrong column.
+        // A calculated column with a Memo RESULT needs the maps too, and its declared type does not say so:
+        // ACE declares such a column Text with length 0 and reaches the value through a long-value
+        // descriptor, so keying off Type alone leaves it without maps and its result nowhere to go (§3.4a).
         var longValueCols = columns.Select((c, i) => (Column: c, Id: c.ColumnId ?? i))
-            .Where(x => x.Column.Type is JetDataType.Memo or JetDataType.Ole)
+            .Where(x => x.Column.Type is JetDataType.Memo or JetDataType.Ole
+                        || x.Column.CalculatedResultType is JetDataType.Memo)
             .ToList();
 
         // The table's data-block indexes: the primary key (unique), then a unique index per UNIQUE
@@ -135,6 +139,15 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             indexPlans.Add((unique.Name, unique.Columns, false, true, null));
         foreach (RelationshipSpec fk in relationships)
             indexPlans.Add((fk.Name, fk.Columns.Select(c => c.Column).ToList(), false, false, fk));
+
+        // Every index this CREATE would build, including the ones arriving as a PRIMARY KEY or UNIQUE
+        // constraint rather than as an index — the inline `col type PRIMARY KEY` form is refused earlier, at
+        // the SQL layer, but the table-level CONSTRAINT form reaches here.
+        foreach (var plan in indexPlans)
+            RejectCalculatedIndexColumns(plan.Name, plan.Columns,
+                n => columns.FirstOrDefault(
+                    c => c.CalculatedExpression is not null
+                         && string.Equals(c.Name, n, StringComparison.OrdinalIgnoreCase))?.Name);
 
         // Usage-map layout (verified vs ACE): the primary page holds row 0 = table owned, row 1 = table
         // free, then one row per index, then two rows (owned + free) per long-value (memo/OLE) column — as
@@ -263,6 +276,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 columnProps.Add(new PropertyBlob.Property(col.Name, PropertyBlob.DefaultValueProperty, def.DefaultSql));
             if (!col.IsNullable && !col.IsAutoNumber)
                 columnProps.Add(PropertyBlob.Bool(col.Name, PropertyBlob.RequiredProperty, true));
+            columnProps.AddRange(CalculatedProperties(col));
         }
 
         AddCatalogRow(name, tdefPage, columnProps, checkConstraints);
@@ -272,6 +286,36 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         foreach (IncomingRelationship inc in incoming)
             AddIncomingRelationshipBlock(inc);
     }
+
+    /// <summary>The property-blob entries that make a column calculated (§3.4a), or nothing for an ordinary
+    /// one. All three pieces have to agree or Access reads the payload wrongly: <c>Expression</c> is the text
+    /// the engine evaluates, <c>ResultType</c> is the authority on the payload's encoding, and the three
+    /// <c>FCMin*Ver</c> strings declare the Access floor a calculated column forces. The version properties
+    /// are <b>not</b> DDL properties, unlike the first two — matching what ACE writes.</summary>
+    private static IEnumerable<PropertyBlob.Property> CalculatedProperties(ColumnSpec column)
+    {
+        if (column.CalculatedExpression is not { } expression) yield break;
+
+        JetDataType resultType = column.CalculatedResultType ?? column.Type;
+        yield return new PropertyBlob.Property(
+            column.Name, PropertyBlob.ExpressionProperty, expression, JetDataType.Memo);
+        // A Byte property is one raw byte, so the value has to be supplied as RawValue -- a Value string
+        // would be written as UTF-16 text and read back as a nonsense type code.
+        yield return new PropertyBlob.Property(
+            column.Name, PropertyBlob.ResultTypeProperty,
+            ((byte)resultType).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            JetDataType.Byte, RawValue: [(byte)resultType]);
+        foreach (string version in CalculatedVersionProperties)
+            yield return new PropertyBlob.Property(
+                column.Name, version, CalculatedMinimumVersion, JetDataType.Text) { IsDdl = false };
+    }
+
+    private static readonly string[] CalculatedVersionProperties =
+        ["FCMinReadVer", "FCMinWriteVer", "FCMinDesignVer"];
+
+    /// <summary>Access 2010 (ACE 14) is the floor a calculated column declares, which is also the on-disk
+    /// version byte it needs — see <see cref="RaiseFormatForCalculated"/>.</summary>
+    private const string CalculatedMinimumVersion = "14.0.0000.0000";
 
     // Index-info block field values (§3.6), verified against ACE-created relationships.
     // (PlainAction and the index-type bytes are shared with the reader via IndexBlockFormat.)
@@ -405,10 +449,31 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         if (table.Indexes.Any(i => string.Equals(i.Name, indexName, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException(
                 $"Table '{table.Name}' already has an index named '{indexName}'.");
+        RejectCalculatedIndexColumns(indexName, columns.Select(c => c.Column),
+            n => table.Columns.FirstOrDefault(
+                c => c.IsCalculated && string.Equals(c.Name, n, StringComparison.OrdinalIgnoreCase))?.Name);
         var slots = ResolveSlots(table, columns.Select(c => (c.Column, Ascending: !c.Descending)));
         InsertIndex(table, indexName, slots,
             unique: isUnique || isPrimary, required: isPrimary || disallowNull, ignoreNulls,
             (num, ord) => BuildPlainInfoBlock(num, ord, isPrimary));
+    }
+
+    /// <summary>Refuses an index over a calculated column, on whichever route asked for it.
+    /// <para>This matches Access and diverges only from ACE's SQL layer, which is the one that gets it wrong.
+    /// Access's <b>designer</b> does not offer a calculated column in the Indexes dialog at all and will not
+    /// let it be the primary key; the <b>storage engine</b> agrees, refusing every INSERT into a table whose
+    /// calculated column is indexed — <i>"Operation is not supported for this type of object."</i> Only
+    /// <b>ACE via SQL</b> accepts <c>CREATE INDEX</c> (and even <c>CREATE UNIQUE INDEX</c>) on one, and what
+    /// it produces is a table into which no row can ever be written. Measured for Int16 and Int32 results,
+    /// with the index created both before and after rows exist (page-02e-calculated-columns).</para></summary>
+    private static void RejectCalculatedIndexColumns(
+        string indexName, IEnumerable<string> columnNames, Func<string, string?> findCalculated)
+    {
+        foreach (string name in columnNames)
+            if (findCalculated(name) is { } calculated)
+                throw new NotSupportedException(
+                    $"Index '{indexName}' cannot include calculated column '{calculated}'. Access does not "
+                    + "offer one for indexing, and an index over it makes the table refuse every insert.");
     }
 
     /// <summary>Resolves index column names to (columnId, ascending) slots against a table.</summary>
@@ -1006,14 +1071,60 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             if (values[idIndex] is null || Convert.ToInt32(values[idIndex]) != tdefPage) continue;
             if (values[lvProp.Index] is not byte[] { Length: > 0 } blob) return;
 
-            byte[] renamed = PropertyBlob.RenameOwner(blob, oldName, newName);
-            if (renamed.AsSpan().SequenceEqual(blob)) return; // the column had no property block
+            byte[] renamed = RewriteCalculatedReferences(
+                PropertyBlob.RenameOwner(blob, oldName, newName), oldName, newName);
+            // Nothing owned by, or referring to, this column — leave the blob exactly as it was.
+            if (renamed.AsSpan().SequenceEqual(blob)) return;
 
             byte[] descriptor = new RowInserter(_channel, msys).StorePackedLongValue(lvProp.ColumnId, renamed);
             values[lvProp.Index] = new LongValueDescriptor(descriptor);
             table.Update(id, values, new HashSet<int> { lvProp.Index });
             return;
         }
+    }
+
+    /// <summary>The calculated columns of <paramref name="table"/> whose expression reads
+    /// <paramref name="column"/>. A malformed expression counts as reading nothing rather than throwing:
+    /// refusing to drop is a safeguard, and it must not turn into a refusal to drop anything at all because
+    /// some other column's expression cannot be parsed.</summary>
+    private static List<string> CalculatedColumnsReading(TableDef table, ColumnDef column)
+    {
+        var dependents = new List<string>();
+        foreach (ColumnDef candidate in table.Columns)
+        {
+            if (!candidate.IsCalculated || candidate.CalculatedExpression is null) continue;
+            try
+            {
+                if (CalculatedValue.ReferencedIndexes(candidate, table.Columns).Contains(column.Index))
+                    dependents.Add(candidate.Name);
+            }
+            catch (Calculated.CalculatedExpressionException) { /* unparseable: reads nothing we can prove */ }
+        }
+        return dependents;
+    }
+
+    /// <summary>Repoints every calculated <c>Expression</c> in the blob that READS the renamed column.
+    /// <see cref="PropertyBlob.RenameOwner"/> moves the renamed column's own properties; this is about the
+    /// OTHER columns that mention it, which nothing else would fix. Measured: without it a rename leaves
+    /// <c>[Qty]*2</c> pointing at a column that no longer exists, and ACE fails every read of the calculated
+    /// column — a table broken by an operation that named a different column entirely.</summary>
+    private static byte[] RewriteCalculatedReferences(byte[] blob, string oldName, string newName)
+    {
+        var properties = PropertyBlob.Read(blob).ToList();
+        bool changed = false;
+        for (int i = 0; i < properties.Count; i++)
+        {
+            if (properties[i].Name != PropertyBlob.ExpressionProperty) continue;
+            string rewritten = Calculated.CalculatedExpression.RenameColumnReference(
+                properties[i].Value, oldName, newName);
+            if (rewritten == properties[i].Value) continue;
+            // Drop RawValue so the new text is encoded rather than the original bytes replayed.
+            properties[i] = properties[i] with { Value = rewritten, RawValue = null };
+            changed = true;
+        }
+        return changed
+            ? PropertyBlob.Write(properties, blob.Length >= 4 ? blob.AsSpan(0, 4) : default)
+            : blob;
     }
 
     /// <summary>Repoints every relationship that names this column, on whichever side owns it. Unlike a table
@@ -1200,7 +1311,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         if (table.Columns.Count >= MaxColumnsPerTable)
             throw new NotSupportedException($"Table '{tableName}' already has {MaxColumnsPerTable} columns (Jet/ACE limit).");
         JetFormatBase format = _channel.Format;
-        bool isLongValue = spec.Type is JetDataType.Memo or JetDataType.Ole;
+        // As on the create path, a calculated column with a Memo RESULT needs the long-value maps even though
+        // its declared type is Text — the value reaches a page through a descriptor either way (§3.4a).
+        bool isLongValue = spec.Type is JetDataType.Memo or JetDataType.Ole
+                           || spec.CalculatedResultType is JetDataType.Memo;
         TdefParts parts = ParseTdef(table.DefinitionPage); // stitches continuation pages for a multi-page TDEF
 
         int maxCols = BinaryPrimitives.ReadUInt16LittleEndian(parts.Header.AsSpan(format.TdefMaxColumnsOffset, 2));
@@ -1262,6 +1376,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             Scale = spec.Scale,
             IsNullable = spec.IsNullable,
             Collation = spec.Type == JetDataType.FixedPoint ? Collation.GeneralLegacy : _collation,
+            // Without this the descriptor gets no 0xC0 and the column reads back as an ordinary one: its
+            // Expression and ResultType properties are written, nothing looks at them, and every row stores
+            // NULL where the computed value should be.
+            IsCalculated = spec.CalculatedExpression is not null,
+            CalculatedExpression = spec.CalculatedExpression,
+            CalculatedResultType = spec.CalculatedResultType,
         };
 
         AppendColumnToParts(parts, colCount, TdefBuilder.BuildColumnDescriptor(newColumn, format), spec.Name, format);
@@ -1318,6 +1438,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         var props = new List<PropertyBlob.Property>();
         if (defaultValue is not null) props.Add(new PropertyBlob.Property(spec.Name, PropertyBlob.DefaultValueProperty, defaultValue));
         if (!spec.IsNullable) props.Add(PropertyBlob.Bool(spec.Name, PropertyBlob.RequiredProperty, true));
+        props.AddRange(CalculatedProperties(spec));
         if (props.Count > 0) SetColumnProperties(table.DefinitionPage, spec.Name, props);
 
         _catalog.Invalidate();
@@ -2274,6 +2395,19 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found.");
         ColumnDef? col = table.Columns.FirstOrDefault(c => string.Equals(c.Name, columnName, StringComparison.OrdinalIgnoreCase));
         if (col is null) return false;
+
+        // A DELIBERATE divergence from ACE. ACE accepts dropping a column a calculated expression reads and
+        // simply leaves that column unevaluatable — measured: every subsequent read of it fails, and there is
+        // no way back short of recreating the column, because ACE offers no route to edit an expression at
+        // all. Refusing keeps the file readable, and the caller who really wants it gone can drop the
+        // calculated column first.
+        if (CalculatedColumnsReading(table, col) is { Count: > 0 } dependents)
+            throw new InvalidOperationException(
+                $"Column '{col.Name}' cannot be dropped because "
+                + $"{string.Join(", ", dependents.Select(d => $"'{d}'"))} "
+                + (dependents.Count == 1
+                    ? "is a calculated column that reads it. Drop it first."
+                    : "are calculated columns that read it. Drop those first."));
 
         // ACE rejects dropping a column that participates in a relationship (as the child FK column or the
         // referenced parent key) — even a NO INDEX FK with no backing index — with "It is part of one or more

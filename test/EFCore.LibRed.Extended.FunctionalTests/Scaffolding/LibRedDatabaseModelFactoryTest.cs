@@ -1235,15 +1235,15 @@ namespace EntityFrameworkCore.LibRed.Extended.FunctionalTests.Scaffolding
                     var columns = dbModel.Tables.Single().Columns;
 
                     var column = columns.Single(c => c.Name == "A");
-                    Assert.Equal("(CONVERT([datetime2],getdate()))", column.DefaultValueSql);
+                    Assert.Equal("(CONVERT([datetime2],(getdate())))", column.DefaultValueSql);
                     Assert.Null(column.FindAnnotation(RelationalAnnotationNames.DefaultValue));
 
                     column = columns.Single(c => c.Name == "B");
-                    Assert.Equal("(getdate())", column.DefaultValueSql);
+                    Assert.Equal("getdate()", column.DefaultValueSql);
                     Assert.Null(column.FindAnnotation(RelationalAnnotationNames.DefaultValue));
 
                     column = columns.Single(c => c.Name == "C");
-                    Assert.Equal("(CONVERT([datetime2],'12-01-16 12:32'))", column.DefaultValueSql);
+                    Assert.Equal("((CONVERT([datetime2],('12-01-16 12:32'))))", column.DefaultValueSql);
                     Assert.Null(column.FindAnnotation(RelationalAnnotationNames.DefaultValue));
                 },
                 "DROP TABLE MyTable;");

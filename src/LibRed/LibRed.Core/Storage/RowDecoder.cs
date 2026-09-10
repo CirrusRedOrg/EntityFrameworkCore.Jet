@@ -113,6 +113,24 @@ public sealed class RowDecoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         return result;
     }
 
+    /// <summary>Returns each calculated column's stored slot verbatim (keyed by <see cref="ColumnDef.Index"/>)
+    /// — the envelope, or the long-value descriptor wrapping it — WITHOUT decoding or resolving it. An UPDATE
+    /// that touches nothing the expression reads writes these back unchanged, which is what ACE does.</summary>
+    public Dictionary<int, byte[]> CalculatedRaw(ReadOnlySpan<byte> row)
+    {
+        var result = new Dictionary<int, byte[]>();
+        RowLayout layout = ParseLayout(row);
+        ReadOnlySpan<byte> nullBitmap = row[^layout.NullBitmapSize..];
+
+        foreach (ColumnDef column in _columns)
+            if (column.IsCalculated && !column.IsFixedLength
+                && IsPresent(nullBitmap, layout.ColumnCount, column.ColumnId)
+                && column.VariableIndex >= 0 && column.VariableIndex < layout.NumVar)
+                result[column.Index] = layout.VarChunk(column.VariableIndex).ToArray();
+
+        return result;
+    }
+
     private ReadOnlySpan<byte> FixedSlice(ReadOnlySpan<byte> row, RowLayout layout, ColumnDef column)
     {
         int start = _format.RowColumnCountSize + column.FixedOffset;

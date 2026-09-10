@@ -86,14 +86,34 @@ variable-length**, and its slot holds a fixed envelope around the result ACE las
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 16 | Reserved; zero in every row measured |
+| `0x00` | 4 | **VBA error number**, little-endian — zero when the expression produced a value (or Null) |
+| `0x04` | 12 | Reserved; zero in every row measured |
 | `0x10` | 4 | Payload length, little-endian |
 | `0x14` | *n* | Payload — the value in its ordinary on-disk encoding for its type |
 | `0x14`+*n* | 3 | Padding; zero in every row measured |
 
-so a stored value occupies *n* + 23 bytes. The payload is encoded exactly as the same value would be in an
-ordinary column — text keeps the usual compressed (`FF FE` prefix) or raw UTF-16LE choice — so it can go
-straight to the normal type codec.
+> **An error is stored, and it is not the same as Null.** The expression service raises rather than
+> propagating in some cases — notably the conversions, which is why `CDbl(Null)` is an error and not a Null
+> result — and ACE caches the failure instead of a value. Measured on a `Double`-result column:
+>
+> | expression, over the bad input | envelope |
+> | --- | --- |
+> | `[Qty]/3` over Null (propagates) | all 23 bytes zero — a zero-length payload, i.e. Null |
+> | `CDbl([Qty])/3` over Null | starts `5E 00 00 00`, 38 bytes — **94**, VBA "Invalid use of Null" |
+> | `CDbl([A])` over `'hello'` | starts `0D 00 00 00`, 38 bytes — **13**, VBA "Type mismatch" |
+>
+> So the leading field is the VBA runtime error number, and an error envelope is 38 bytes against 23 for a
+> Null. Reading such a column through OLE DB fails with *"Multiple-step OLE DB operation generated errors"* —
+> ACE will not hand back a row whose calculated column is in an error state. Anything decoding the payload
+> alone reads it as Null, which is what LibRed does today and is a silent disagreement, not a Null.
+
+so a stored value occupies *n* + 23 bytes. The payload is encoded as the same value would be in an ordinary
+column, with one measured exception: **text compression follows the declared type, not the payload.** A
+calculated **Text** payload takes the usual compressed (`FF FE` prefix) form, and takes it even though the
+column's extended flags carry `0xC0` and not `0x01` — so the compressed-capable flag does not gate it here,
+the same exemption inline long values get. A calculated **Memo** payload is **never** compressed, at any
+length. Measured: `"hello-x"` in a Text column stores as 9 compressed bytes, `"hello-memo"` in a Memo column
+as 20 bytes of raw UTF-16LE.
 
 > **The descriptor's type is a *storage* type, not the result type.** ACE widens the declared type to the
 > next one in its family and stores the payload at the result's natural width, so reading `0x17` bytes for
@@ -116,7 +136,14 @@ straight to the normal type codec.
 > A Null result is a zero-length payload — the null-bitmap bit stays **set**, so the bit means "present"
 > here and nothing more. That also makes a calculated **Boolean** a trap: an ordinary Boolean *is* its
 > bitmap bit, but a calculated one carries a real payload (`FF`/`00`) and its bit is set even when the
-> value is False. The declared length at `0x17` is `39` for these columns and is not the payload size.
+> value is False.
+>
+> **The declared length at `0x17` is a constant per result-type family, not a payload size.** Swept across
+> every type DAO will create: `0` for a Memo result, `509` for Text at *any* requested size (10, 60 and 255
+> all give 509), `510` for Binary, and `39` for everything else including GUID — which, like Memo and Binary,
+> takes descriptor type `0x0A` Text, so only the length tells the three apart. Nothing moves these: not the
+> size requested, not the length of the expression. Because the requested size is discarded, ACE does **not**
+> truncate — a `Text(5)` calculated column stores and returns a much longer result in full.
 >
 > **A calculated Memo arrives through the long-value machinery.** ACE declares it `0x0A` Text with a
 > declared length of `0`, gives it a **long-value map entry**, and stores a long-value descriptor in the
@@ -124,10 +151,19 @@ straight to the normal type codec.
 > declared type is not Memo/OLE — a guard that assumed otherwise rejected the TDEF, and because the catalog
 > loads every TDEF that made the whole database unopenable.
 >
+> That descriptor obeys the ordinary long-value rules: the value inlines while it is at most 64 bytes and
+> otherwise takes its own LVAL page. What is measured against that limit is the **whole envelope**, 23 bytes
+> of frame plus the uncompressed payload, so a calculated Memo crosses it sooner than the text alone
+> suggests — `"hello-memo"` inlines at 43 bytes, while a 36-character result is 95 and spills.
+>
 > Measured against ACE-authored columns of every type DAO will create (`CalculatedColumnAccessTests`), and
 > against `AdventureWorks_Learn_To_Write_DAX.accdb`, a database in the wild whose `fctSales.OrderDate` is
-> a calculated `DateTime`. LibRed **reads** these values; it does not create calculated columns or
-> re-evaluate an expression, so a row it writes cannot refresh one.
+> a calculated `DateTime`. LibRed reads **and writes** these values: it evaluates the expression itself and
+> refreshes the cache on exactly the writes ACE would — when an UPDATE touches a column the expression reads,
+> and not otherwise. It also **creates** them, and ACE accepts, evaluates and recomputes the result for every
+> result type (`Creates_a_calculated_column_ace_accepts`). Three things must agree or Access reads the payload
+> at the wrong width: the descriptor's promoted type, the constant declared length, and `ResultType` in the
+> blob. A Memo result additionally needs long-value maps, which its *declared* type does not indicate.
 
 > `0x0B`–`0x0C` is a union keyed by type: for a Decimal/Numeric column (type `0x10`) it holds
 > the **precision** (`0x0B`) and **scale** (`0x0C`) — verified with a `DECIMAL(12,3)` column,

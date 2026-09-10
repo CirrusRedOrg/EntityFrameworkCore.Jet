@@ -215,7 +215,13 @@ public static class JetTypeCodec
     /// one reaches here as the pre-built descriptor of a value
     /// <see cref="LibRed.Storage.RowInserter"/> has already put on LVAL pages.
     /// </summary>
-    public static byte[] Encode(ColumnDef column, object value)
+    public static byte[] Encode(ColumnDef column, object value) => Encode(column, column.Type, value);
+
+    /// <summary>Encodes <paramref name="value"/> as <paramref name="type"/> rather than the column's declared
+    /// type — the write-side counterpart of the <see cref="Decode(ColumnDef, JetDataType, ReadOnlySpan{byte})"/>
+    /// overload, and needed for the same reason: a calculated column's payload is encoded in its
+    /// <c>ResultType</c>, not in the promoted type its descriptor carries.</summary>
+    internal static byte[] Encode(ColumnDef column, JetDataType type, object value)
     {
         var c = System.Globalization.CultureInfo.InvariantCulture;
 
@@ -231,7 +237,7 @@ public static class JetTypeCodec
         if (value is bool boolean)
             value = (short)(boolean ? -1 : 0);
 
-        switch (column.Type)
+        switch (type)
         {
             case JetDataType.Byte:
                 return [Convert.ToByte(value, c)];
@@ -453,7 +459,7 @@ public static class JetTypeCodec
     /// This is the exact shape <see cref="LibRed.Storage.LongValueReader"/> reads back for an inline
     /// value.
     /// </summary>
-    private static byte[] EncodeInlineLongValue(ReadOnlySpan<byte> payload)
+    internal static byte[] EncodeInlineLongValue(ReadOnlySpan<byte> payload)
     {
         LongValueFormat.ValidateLength(payload.Length);
         var result = new byte[12 + payload.Length];

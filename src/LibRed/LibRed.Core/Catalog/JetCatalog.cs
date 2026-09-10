@@ -132,6 +132,12 @@ public sealed class JetCatalog(PageChannel channel, int catalogPage = 2)
                     if (required.Contains(column.Name))
                         column.IsNullable = false;
                     (column.ValidationRule, column.ValidationText) = PropertyBlob.ReadValidation(blob, column.Name);
+                    // A calculated column's expression and REAL result type live here, not in the descriptor
+                    // (§3.4a). Without them the stored payload can only be guessed from its width, which is
+                    // wrong whenever the declared and expression types differ.
+                    if (column.IsCalculated)
+                        (column.CalculatedExpression, column.CalculatedResultType) =
+                            PropertyBlob.ReadCalculated(blob, column.Name);
                 }
 
                 var checks = PropertyBlob.ReadCheckConstraints(blob);

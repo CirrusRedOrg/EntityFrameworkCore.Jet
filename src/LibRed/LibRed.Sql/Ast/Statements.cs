@@ -131,7 +131,11 @@ public sealed record ColumnDefinition(
     bool PrimaryKey,
     string? Default = null,
     /// <summary>WITH COMPRESSION / WITH COMP — Text and Memo only.</summary>
-    bool Compressed = false);
+    bool Compressed = false,
+    /// <summary>A calculated column's expression, from the LibRed-only <c>AS (…)</c> clause, kept as source
+    /// text because that text is what goes on disk and what the engine re-evaluates. Null for an ordinary
+    /// column.</summary>
+    string? Calculated = null);
 
 /// <summary>Referential action for a foreign key's ON DELETE / ON UPDATE clause. Jet records only
 /// enforce + cascade-update + cascade-delete, so NoAction/SetNull/SetDefault collapse to "no cascade".</summary>

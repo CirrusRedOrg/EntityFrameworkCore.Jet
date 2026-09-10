@@ -893,6 +893,35 @@ namespace Microsoft.EntityFrameworkCore.Migrations
         }
 
         /// <summary>
+        ///     Generates a SQL fragment for a computed column definition for the given column metadata.
+        /// </summary>
+        /// <param name="schema">The schema that contains the table, or <see langword="null" /> to use the default schema.</param>
+        /// <param name="table">The table that contains the column.</param>
+        /// <param name="name">The column name.</param>
+        /// <param name="operation">The column metadata.</param>
+        /// <param name="model">The target model which may be <see langword="null" /> if the operations exist without a model.</param>
+        /// <param name="builder">The command builder to use to add the SQL fragment.</param>
+        protected override void ComputedColumnDefinition(
+            string? schema,
+            string table,
+            string name,
+            ColumnOperation operation,
+            IModel? model,
+            MigrationCommandListBuilder builder)
+        {
+            builder.Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(name));
+
+            builder.Append(" ");
+
+            builder.Append(operation.ColumnType!);
+
+            builder
+                .Append(" AS (")
+                .Append(operation.ComputedColumnSql!)
+                .Append(")");
+        }
+
+        /// <summary>
         ///     Generates a SQL fragment for the given referential action.
         /// </summary>
         /// <param name="referentialAction"> The referential action. </param>

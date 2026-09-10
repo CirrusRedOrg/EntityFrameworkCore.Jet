@@ -115,6 +115,12 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                 // DefaultValue is the expression's source text (e.g. "0", "'hi'"), read from the same blob.
                 string? defaultValueSql = column.DefaultValue;
 
+                // A calculated column's expression IS its ComputedColumnSql, reported verbatim in the Access
+                // expression service's own syntax ("[X] + [Y]"). Always stored: the value is cached on disk
+                // and neither engine re-derives it on read, so there is no virtual form to report.
+                string? computedColumnSql = column.IsCalculated ? column.CalculatedExpression : null;
+                bool? computedIsStored = computedColumnSql is null ? null : true;
+
                 _logger.ColumnFound(
                     table.Name,
                     column.Name,
@@ -126,8 +132,8 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                     nullable,
                     column.IsAutoNumber,
                     defaultValueSql,
-                    null,  // computedValue
-                    null); // computed-is-stored
+                    computedColumnSql,
+                    computedIsStored);
 
                 // Identity seed/increment (matching EFCore.Jet's scaffolder), read from the column's COUNTER
                 // config; a non-identity column carries a null seed/increment as Jet's does.
@@ -145,6 +151,8 @@ public class LibRedDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaf
                     // parsed to a CLR value when it's a simple literal (so the scaffolded model uses HasDefaultValue).
                     DefaultValueSql = defaultValueSql,
                     DefaultValue = ParseDefaultValue(column.Type, defaultValueSql),
+                    ComputedColumnSql = computedColumnSql,
+                    IsStored = computedIsStored,
                     ValueGenerated = column.IsAutoNumber ? ValueGenerated.OnAdd : null,
                 };
 

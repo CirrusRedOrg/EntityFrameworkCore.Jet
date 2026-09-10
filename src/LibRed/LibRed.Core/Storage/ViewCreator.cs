@@ -113,11 +113,11 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         if (spec.Kind == ActionQueryKind.DataDefinition)
         {
             // The whole DDL statement is stored verbatim in one row; Access records it with a leading space.
-            Row(mq, objectId, StoredQueryFormat.AttrAction, order: 1, flag: StoredQueryFormat.ActionDdl, expression: " " + spec.DdlSql);
+            Row(mq, objectId, StoredQueryFormat.AttrOperation, order: 1, flag: StoredQueryFormat.ActionDdl, expression: " " + spec.DdlSql);
         }
         else
         {
-            Row(mq, objectId, StoredQueryFormat.AttrAction, order: 1, flag: StoredQueryFormat.ActionAppend, name1: spec.TargetTable);
+            Row(mq, objectId, StoredQueryFormat.AttrOperation, order: 1, flag: StoredQueryFormat.ActionAppend, name1: spec.TargetTable);
             // Each appended column: Name2 = target column, Expression = the (literal) value; the 0x8000 flag
             // marks a VALUES append (as opposed to an INSERT … SELECT, whose columns carry Flag 0).
             var values = spec.Values ?? [];
@@ -143,13 +143,15 @@ public sealed class ViewCreator(PageChannel channel, JetCatalog catalog)
         for (int i = 0; i < (spec.Parameters?.Count ?? 0); i++)
             Row(mq, objectId, StoredQueryFormat.AttrParameter, order: i + 1,
                 flag: spec.Parameters![i].TypeCode, name1: spec.Parameters[i].Name);
-        // DISTINCT and TOP are both StoredQueryFormat.AttrFlag (0x03) rows, distinguished by their Flag bits; a TOP row also
-        // carries the count in Name1. Give them distinct Order values so the composite PK stays unique.
+        // DISTINCT and TOP are both StoredQueryFormat.AttrOption (0x03) rows, distinguished by their Flag bits; a TOP row also
+        // carries the count in Name1. The bits are cumulative, so Access can put both on one row -- writing
+        // them separately is equally valid and keeps the two spec fields independent here.
+        // Give them distinct Order values so the composite PK stays unique.
         int flagOrder = 1;
         if (spec.Distinct)
-            Row(mq, objectId, StoredQueryFormat.AttrFlag, order: flagOrder++, flag: StoredQueryFormat.FlagDistinct);
+            Row(mq, objectId, StoredQueryFormat.AttrOption, order: flagOrder++, flag: StoredQueryFormat.FlagDistinct);
         if (spec.Top is { } top)
-            Row(mq, objectId, StoredQueryFormat.AttrFlag, order: flagOrder++, flag: StoredQueryFormat.FlagTop, name1: top.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Row(mq, objectId, StoredQueryFormat.AttrOption, order: flagOrder++, flag: StoredQueryFormat.FlagTop, name1: top.ToString(System.Globalization.CultureInfo.InvariantCulture));
         for (int i = 0; i < spec.Tables.Count; i++)
         {
             ViewTableSpec t = spec.Tables[i];

@@ -222,11 +222,13 @@
   > Order)`.
 
   The query itself is stored in **MSysQueries**, decomposed into rows keyed by `ObjectId`, each with an `Attribute`
-  byte (Jackcess "query rows", verified vs ACE for the "simple SELECT" a view may contain): `0x00` =
-  query type (`Flag 1` = SELECT), `0x02` = a **declared parameter** (`Name1`=parameter name, `Flag`=Jet
-  type code — same codes as on-disk column types, e.g. `8`=DateTime; one row per parameter, `Order`
-  1-based), `0x03` = flags (`Flag 2` = DISTINCT; **`Flag 0x10` = TOP**, with `Name1` = the count as text,
-  e.g. `Name1=10`), `0x05` = FROM source, `0x06` =
+  byte (verified vs ACE for the "simple SELECT" a view may contain): `0x00` =
+  start record (`Flag 1` = SELECT), **`0x01` = the OPERATION row** (see below), `0x02` = a **declared parameter**
+  (`Name1`=parameter name, `Flag`=Jet
+  type code — same codes as on-disk column types, e.g. `8`=DateTime; **`Flag 0` is not a type code but Access's
+  untyped parameter, rendered as the keyword `Value`**; one row per parameter, `Order`
+  1-based), `0x03` = **options** (see below), `0x04` = the connection string of a **pass-through** query,
+  `0x05` = FROM source, `0x06` =
   output column (`Expression`=verbatim text; **`Name1`=the column's output alias** when it has one, e.g.
   `Expression=Customers.CompanyName`, `Name1=CustomerName`; a computed column stores its whole verbatim
   expression, `Expression=(FirstName + ' ' + LastName)`, `Name1=Salesperson`), `0x07` = join
@@ -234,12 +236,58 @@
   `Customers.CustomerID = Orders.CustomerID` → `Name1=Customers`, `Name2=Orders`), `0x08` = WHERE
   (`Expression`), `0x09` = a **GROUP BY** column (`Expression`; one row per group column, in order —
   their presence makes it a "totals" query, and the aggregate output columns are ordinary `0x06` rows,
-  e.g. `Expression=Sum(...)`), `0x0B` = an **ORDER BY** key (`Expression`=the sort column, `Name1`=`"d"`
+  e.g. `Expression=Sum(...)`), `0x0A` = a **HAVING** predicate (`Expression`), `0x0B` = an **ORDER BY** key (`Expression`=the sort column, `Name1`=`"d"`
   for **descending**, absent for ascending; one row per key, `Order` 1-based — verified against Northwind's
-  "Ten Most Expensive Products", `SELECT TOP 10 … ORDER BY Products.UnitPrice DESC`), `0xFF` = end. A **FROM source** (`0x05`) is either a **named table**
-  (`Name1`=table, `Name2`=alias) or a **derived table / subquery** (`Expression`=the verbatim inner
+  "Ten Most Expensive Products", `SELECT TOP 10 … ORDER BY Products.UnitPrice DESC`), `0x0C` = **complex-type
+  data** (`Flag 1` = long-text version history, `Flag 2` = MVF / attachment), `0xFF` = end. A **FROM source** (`0x05`) is either a **named table**
+  (`Name1`=table, `Name2`=alias), a **derived table / subquery** (`Expression`=the verbatim inner
   subquery SQL — outer parens and `AS alias` stripped, whitespace preserved — `Name2`=alias, **no `Name1`**;
-  verified against Northwind's "Customer and Suppliers by City"). **Nested / parenthesised joins are stored
+  verified against Northwind's "Customer and Suppliers by City"), or, on a UNION query, one **UNION segment's
+  own SQL** (`Name2` = that segment's identifier).
+
+  > **The `0x01` OPERATION row is the query KIND, and SELECT is one of its values** — its presence does *not*
+  > mean the query is an action query. Access writes it on plain SELECTs as well, and omits it entirely on
+  > others; both shapes are common. Measured by cross-tabulating the `Flag` against DAO's `QueryDef.Type`
+  > over every stored query in a 19-file corpus (592 objects):
+  >
+  > | `Flag` | kind | DAO `QueryDef.Type` | corpus samples |
+  > |---|---|---|---|
+  > | `1` | SELECT | `0` dbQSelect | 221 |
+  > | `2` | make-table (`SELECT … INTO`; target in `Name1`, external db path in `Name2`) | `80` dbQMakeTable | 3 |
+  > | `3` | append (`INSERT`; target table in `Name1`) | `64` dbQAppend | 27 |
+  > | `4` | UPDATE | `48` dbQUpdate | 19 |
+  > | `5` | DELETE | `32` dbQDelete | 5 |
+  > | `6` | crosstab (`TRANSFORM`) | `16` dbQCrosstab | 5 |
+  > | `7` | data definition (whole SQL in `Expression`, leading space) | `96` dbQDDL | *(none in corpus; verified by LibRed's own write/read round-trip)* |
+  > | `8` | pass-through | `112` dbQSQLPassThrough | *(no sample — from the published MSysQueries tables, unverified here)* |
+  > | `9` | UNION | `128` dbQSetOperation | 28 |
+  >
+  > On a crosstab, the `0x06` and `0x09` rows carry the extra structure in their own `Flag`: `0` = the
+  > `TRANSFORM` value / an ordinary GROUP BY column, `1` = the `PIVOT` column heading, `2` = a row heading.
+  > On an append query, `0x06` `Flag` `-32768` (`0x8000`) marks an `INSERT … VALUES` literal, as against
+  > `Flag 0` for a column sourced from an `INSERT … SELECT`.
+
+  > **The `0x03` OPTION row's `Flag` is a bit set, and the bits are cumulative** — one row can carry several,
+  > and Access may also split them across rows, so read them as a union of every `0x03` row's `Flag`:
+  >
+  > | bit | meaning |
+  > |---|---|
+  > | `0x01` | output-all-fields; also `UNION ALL` on a UNION query, and part of the record-source form below |
+  > | `0x02` | `DISTINCT` |
+  > | `0x04` | `WITH OWNERACCESS OPTION` |
+  > | `0x08` | `DISTINCTROW` |
+  > | `0x10` | `TOP` (count as text in `Name1`) |
+  > | `0x20` | `PERCENT` — only ever alongside `0x10`, i.e. `48` = `TOP n PERCENT` |
+  >
+  > So `18` = `DISTINCT TOP`, `24` = `DISTINCTROW TOP`, `50` = `DISTINCT TOP PERCENT`, `56` =
+  > `DISTINCTROW TOP PERCENT`. `DISTINCT` and `DISTINCTROW` are separate bits and separate keywords —
+  > `DISTINCT` dedupes output rows, `DISTINCTROW` dedupes by contributing base rows. **`Flag 9`
+  > (`0x08|0x01`) is what Access writes for its auto-generated form/report record-source queries**, the
+  > `~sq_f…` / `~sq_r…` / `~sq_c…` objects, which it renders as `SELECT DISTINCTROW * FROM <table>`
+  > (measured: 107 such queries in the corpus, every one of them `DISTINCTROW`).
+
+  > **A query with no `0x06` rows at all is `SELECT *`.** The absence of output columns is the encoding, not a
+  > sign of an unreadable query — every auto-generated record-source query takes this shape. **Nested / parenthesised joins are stored
   flat** — one `0x05` per base table and one `0x07` per join condition, no grouping — so Access re-derives
   the join tree from the conditions (verified against "Invoices": 6 tables, 5 flat joins). `Order` is a 4-byte **big-endian**
   per-attribute counter (stored in the Binary `Order` column). MSysQueries' only index is the composite PK

@@ -82,7 +82,10 @@ which is a different job.
   including **action-query** bodies (`CREATE TABLE` / `INSERT … VALUES`); and **`EXECUTE`/`EXEC`**.
   LibRed's own engine **reads them all back** — reconstructing the SQL from `MSysQueries` and expanding a
   view referenced in `FROM` (or inside an expression subquery) to a derived table — so they run through
-  LibRed too. (`HAVING`, and the INSERT…SELECT/UPDATE/DELETE action-query write-back, are still TODO.)
+  LibRed too. Reading is not limited to what LibRed writes: the `Attribute=1` operation row is read as the
+  query **kind** (Access writes it on plain SELECTs as well as on action queries), a query with no column
+  rows is Access's `SELECT *`, and `DISTINCTROW` and `TOP … PERCENT` are decoded from their own option bits.
+  (`HAVING`, and the INSERT…SELECT/UPDATE/DELETE action-query write-back, are still TODO.)
 - **Write** — row insert with order-preserving index-key encoding and **full B-tree maintenance**
   (descend to the target leaf, insert with prefix compression, **leaf/node splitting and root growth**);
   `CREATE TABLE` (heap + primary key) that **Access opens and round-trips**; AutoNumber generation
@@ -224,12 +227,15 @@ LibRed-side `CHECK` enforcement, self-pointing self-references, and writing Memo
 
 *SQL surface / engine gaps:*
 
-- **Stored action queries** — INSERT…VALUES + DDL bodies are written and read back; INSERT…SELECT /
-  UPDATE / DELETE bodies are not. The gap is the `MSysQueries` write-back, not the grammar: all three parse
-  and execute as statements. `HAVING` in a stored view needs its `MSysQueries` attribute probed.
-- **`!` bang notation** (`[Table]![Col]`, `Forms![f]![ctl]`) — grammar gap; and the stored-query
-  reconstructor only rebuilds simple SELECTs + a few action kinds, so a real app's parameterized/combo-box
-  query layer reads back as unsupported.
+- **Stored action queries** — INSERT…VALUES + DDL bodies are written and read back; the other kinds
+  (INSERT…SELECT, UPDATE, DELETE, make-table, crosstab, UNION, pass-through) are read back as a *named*
+  refusal, not executed. The gap is the `MSysQueries` write-back, not the grammar: those parse and execute
+  as statements. `HAVING` is attribute `0x0A` and is now identified, but a view carrying one is still
+  refused rather than rebuilt.
+- **`!` bang notation** (`[Table]![Col]`, `Forms![f]![ctl]`) — grammar gap. The stored-query *reader* now
+  rebuilds a real app's query layer (over a corpus of 19 real-world databases, 479 of 592 stored queries
+  come back as views, up from 170), but ~13% of those rebuild into SQL LibRed's own parser then rejects,
+  almost all of it bang notation referencing a form control — which has no meaning outside Access anyway.
 - **Function surface** — the evaluator's whitelist isn't proven identical to ACE's JES; `Format` named
   date/currency formats are locale-dependent by design (not byte-identical cross-locale). Argument **arity**
   *is* now checked against a per-function range table, so a wrong count raises rather than being ignored.

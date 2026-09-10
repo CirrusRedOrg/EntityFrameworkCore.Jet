@@ -492,7 +492,7 @@ jobs:
             exit 2
           }
           exit 0
-      - name: 'Run Tests: EFCore.Jet.FunctionalTests (Shard 3 - Non-Query)'
+      - name: 'Run Tests: EFCore.Jet.FunctionalTests (Shard 3 - Non-Query, excluding CompiledModel)'
         if: always() && env.skipTests != 'true'
         shell: pwsh
         run: |
@@ -504,7 +504,52 @@ jobs:
             }
 
             $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
-            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName!~.FunctionalTests.Query."
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName!~.FunctionalTests.Query.&FullyQualifiedName!~CompiledModel"
+
+            #
+            # Check for test runner crashes:
+            #
+
+            $currentTestRunTrx = Get-ChildItem $shardDir -Filter '*.trx' | Sort-Object LastWriteTime | Select-Object -Last 1
+            if ($null -eq $currentTestRunTrx) {
+                echo 'Test runner log file is missing.'
+                exit 3
+            }
+
+            $currentTestRunDir = Join-Path $shardDir $currentTestRunTrx.BaseName
+            if (Test-Path $currentTestRunDir) {
+              if ($null -ne (Get-ChildItem $currentTestRunDir -Filter 'Sequence_*' -Recurse)) {
+                # Split string because searching the log for that phrase should only show actual crashes and not this line.
+                echo ('Test runner cras' + 'hed.')
+                continue
+              }
+            }
+
+            echo 'Test runner ran until the end.'
+            break
+          }
+
+          $establishedGreenTestsFilePath = ".\test\EFCore.Jet.FunctionalTests\GreenTests\ace_${{ matrix.aceVersion }}_$('${{ matrix.dataAccessProviderType }}'.Replace(' ', '').ToLowerInvariant())_${{ matrix.aceArchitecture }}.txt"
+          $failIfKeepsCrashing = Test-Path $establishedGreenTestsFilePath
+
+          if ($i -ge 3 -and $failIfKeepsCrashing) {
+            echo 'Test runner keeps crashing.'
+            exit 2
+          }
+          exit 0
+      - name: 'Run Tests: EFCore.Jet.FunctionalTests (Shard 4 - CompiledModel)'
+        if: always() && env.skipTests != 'true'
+        shell: pwsh
+        run: |
+          $shardDir = '.\test\EFCore.Jet.FunctionalTests\TestResults\shard4'
+
+          for ($i = 0; $i -lt 3; $i++) {
+            if (Test-Path $shardDir -PathType Container) {
+              Get-ChildItem $shardDir | Remove-Item -Recurse -Force
+            }
+
+            $env:EFCoreJet_DefaultConnection = '${{ env.defaultConnection }}'
+            & '${{ env.dotnetExecutable }}' test .\test\EFCore.Jet.FunctionalTests --configuration '${{ env.buildConfiguration }}' -p:FixedTestOrder=${{ env.deterministicTests }} --logger trx --blame-hang-timeout 3m --results-directory $shardDir --filter "FullyQualifiedName~CompiledModel"
 
             #
             # Check for test runner crashes:

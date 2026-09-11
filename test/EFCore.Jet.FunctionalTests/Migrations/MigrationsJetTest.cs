@@ -551,6 +551,7 @@ ALTER TABLE `Entity` ADD `OwnedRequiredReference` longchar NOT NULL DEFAULT '{}'
 """);
     }
 
+    [Theory(Skip = "jet doesnt do computed columns")]
     public override async Task Add_column_with_computedSql(bool? stored)
     {
         await base.Add_column_with_computedSql(stored);
@@ -563,7 +564,7 @@ ALTER TABLE [People] ADD [Sum] AS [X] + [Y]{computedColumnTypeSql};
 """);
     }
 
-    [Fact]
+    [Fact(Skip = "jet doesnt do computed columns")]
     public virtual async Task Add_column_generates_exec_when_computed_and_idempotent()
     {
         await Test(
@@ -2176,20 +2177,7 @@ ALTER TABLE `Customers` ADD `Numbers` varchar(255) NOT NULL DEFAULT 'some number
 
     private string? GetDatabaseCollation()
     {
-        using var ctx = CreateContext();
-        var connection = ctx.Database.GetDbConnection();
-        using var command = connection.CreateCommand();
-
-        command.CommandText = $"""
-            
-            SELECT collation_name
-            FROM sys.databases
-            WHERE name = '{connection.Database}';
-            """;
-
-        return command.ExecuteScalar() is string collation
-            ? collation
-            : null;
+        return "";
     }
 
     protected override bool AssertComments => false;

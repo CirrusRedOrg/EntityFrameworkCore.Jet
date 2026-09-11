@@ -580,13 +580,13 @@ ALTER TABLE `People` ADD `Sum` varchar(255) AS (`X` + `Y`);
                 var table = Assert.Single(model.Tables);
                 Assert.Equal(2, table.Columns.Count);
                 var column = Assert.Single(table.Columns, c => c.Name == "IdPlusOne");
-                Assert.Equal("([Id]+(1))", column.ComputedColumnSql);
+                Assert.Equal("[Id] + 1", column.ComputedColumnSql);
             },
             migrationsSqlGenerationOptions: MigrationsSqlGenerationOptions.Idempotent);
 
         AssertSql(
             """
-EXEC(N'ALTER TABLE [People] ADD [IdPlusOne] AS [Id] + 1');
+ALTER TABLE `People` ADD `IdPlusOne` integer AS ([Id] + 1);
 """);
     }
 

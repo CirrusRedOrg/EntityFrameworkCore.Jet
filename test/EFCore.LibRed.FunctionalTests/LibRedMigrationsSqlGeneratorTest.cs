@@ -938,9 +938,8 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
 
             AssertSql(
                 """
-                    EXEC(N'ALTER TABLE [Table1] ADD [Column2] AS [Column1] + 1');
-
-                    """);
+                ALTER TABLE `Table1` ADD `Column2`  AS ([Column1] + 1);
+                """);
         }
 
         [Fact]

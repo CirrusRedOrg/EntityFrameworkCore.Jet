@@ -24,11 +24,12 @@ public class BloggingContext : DbContext
     public DbSet<Blog> Blogs => Set<Blog>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        => optionsBuilder.UseLibRed(@"C:\Data\Blogging.accdb");
+        => optionsBuilder.UseLibRed("data/Blogging.accdb");
 }
 ```
 
-The connection string is the path to the database file.
+The connection string is the path to the database file — nothing else to configure, and no driver to match.
+If the file does not exist, `EnsureCreated()` / `Migrate()` will create it.
 
 ## SQL modes
 
@@ -47,10 +48,15 @@ generates, not what the engine accepts.
 ## What works
 
 Reading and writing every page type, full B-tree index maintenance, `CREATE`/`ALTER`/`DROP TABLE`, primary
-and foreign keys with referential integrity and cascade actions, `DEFAULT` and `CHECK` constraints, views and
+and foreign keys with referential integrity and cascade actions, `DEFAULT` and `CHECK` constraints, calculated
+columns (they map to EF Core's `ComputedColumnSql`, and scaffold back out of an existing database), views and
 stored procedures written the way Access writes them, transactions with real commit and rollback, and text
 index keys for both sort-order versions across the whole Basic Multilingual Plane plus the locale sort
-orders. Databases LibRed creates from nothing open cleanly in Access.
+orders.
+
+Databases LibRed creates from nothing open cleanly in Access, in any format from Jet 4 (`.mdb`) through
+ACE 17, defaulting to the Access 2007 format. Pointed at a database somebody else built, it reads the saved
+queries too — an existing Access application's query layer shows up as views.
 
 The ACE 16/17 types `BIGINT` and `DATETIME2` are supported, including raising a file's format version when
 DDL introduces one — which is what Access itself does.
@@ -63,11 +69,14 @@ AES-256 and RC4, and the legacy Jet page encoding, plus setting, changing and re
 This is an **alpha**. It is used against Entity Framework Core's own specification suite, but it has not
 been through production use.
 
-- **Single writer.** LibRed tolerates extra open handles, but implements no concurrency control: no lock
-  file, no read isolation. Safe for any number of readers with no writer, or one writer with serialized
-  access. Two concurrent writers will corrupt the file.
+- **Single writer.** LibRed tolerates extra open handles, but implements no multi-user concurrency control:
+  no lock file, and none of the page/record locking Access coordinates through its side-car `.laccdb`/`.ldb`.
+  Safe for any number of readers with no writer, or one writer with serialized access. Two concurrent writers
+  will corrupt the file, so this is not the library for a shared network database.
 - Jet 3 (Access 97) files are not supported; the Jet 4 / ACE family is.
-- Multi-user access is not implemented — see the single-writer note above.
+- **Validation rules authored in the Access UI are read but not enforced.** They survive a round trip and are
+  reported through `INFORMATION_SCHEMA`, but LibRed will accept a row that Access would have rejected. SQL
+  `CHECK` constraints *are* enforced.
 
 ## Packages
 

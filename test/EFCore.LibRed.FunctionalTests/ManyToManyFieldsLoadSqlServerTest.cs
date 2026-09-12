@@ -47,7 +47,7 @@ LEFT JOIN (
     WHERE `e1`.`Id` = @p
 ) AS `s0` ON `s`.`Id` = `s0`.`TwoId`
 WHERE `e`.`Id` = @p
-ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`OneId`, `s0`.`TwoId`
+ORDER BY `e`.`Id`, `s`.`OneId`, `s`.`TwoId`, `s0`.`OneId`
 """);
     }
 
@@ -73,7 +73,7 @@ LEFT JOIN (
     WHERE `e3`.`Id` = @p
 ) AS `s0` ON `s`.`Id` = `s0`.`TwoSkipSharedId`
 WHERE `e`.`Id` = @p
-ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`
+ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`
 """);
     }
 
@@ -135,7 +135,7 @@ LEFT JOIN (
     INNER JOIN `EntityThrees` AS `e4` ON `j`.`ThreeId` = `e4`.`Id`
 ) AS `s1` ON `s`.`Id` = `s1`.`TwoId`
 WHERE `e`.`Id` = @p
-ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`, `s1`.`ThreeId`, `s1`.`TwoId`
+ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`, `s1`.`ThreeId`
 """);
     }
 
@@ -167,7 +167,7 @@ LEFT JOIN (
     WHERE `e4`.`Id` IN (13, 11)
 ) AS `s1` ON `s`.`Id` = `s1`.`TwoId`
 WHERE `e`.`Id` = @p
-ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`, `s1`.`ThreeId`, `s1`.`TwoId`
+ORDER BY `e`.`Id`, `s`.`OneSkipSharedId`, `s`.`TwoSkipSharedId`, `s0`.`OneSkipSharedId`, `s0`.`TwoSkipSharedId`, `s1`.`ThreeId`
 """);
     }
 

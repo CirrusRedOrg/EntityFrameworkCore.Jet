@@ -278,6 +278,12 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitColumnDefinition([NotNull] AccessSqlParser.ColumnDefinitionContext context);
 	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.calculatedClause"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCalculatedClause([NotNull] AccessSqlParser.CalculatedClauseContext context);
+	/// <summary>
 	/// Visit a parse tree produced by <see cref="AccessSqlParser.dataType"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>

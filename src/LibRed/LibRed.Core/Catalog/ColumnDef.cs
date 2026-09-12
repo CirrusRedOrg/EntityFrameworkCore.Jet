@@ -54,9 +54,27 @@ public sealed class ColumnDef
     /// <summary>The column can store compressed Unicode text (§7) — extended-flag bit 0x10/0x01.</summary>
     public bool SupportsCompressedUnicode { get; init; }
 
-    /// <summary>A calculated (computed) column (ACE 14+) — extended-flag bits 0x10/0xC0. LibRed reads and
-    /// preserves the flag; evaluating a calculated column's expression is separate (see the format spec).</summary>
+    /// <summary>A calculated (computed) column (ACE 14+) — extended-flag bits 0x10/0xC0. LibRed reads the
+    /// flag, preserves it, and decodes the cached result ACE stores for the column; evaluating the
+    /// expression itself is separate (see the format spec).</summary>
     public bool IsCalculated { get; init; }
+
+    /// <summary>The column owns a long-value (LVAL) map in the TDEF, so its stored chunk is a long-value
+    /// descriptor rather than the value itself. True for Memo/OLE — and for a calculated column whose
+    /// result can outgrow the row, which ACE gives a map whatever the column's declared type.</summary>
+    public bool HasLongValueMap { get; internal set; }
+
+    /// <summary>A calculated column's expression, from the table's <c>LvProp</c> blob. ACE evaluates this
+    /// text on every write that touches a column it references; the value in the row is only a cache of the
+    /// last result. Null when the column is not calculated (or the blob is missing).</summary>
+    public string? CalculatedExpression { get; internal set; }
+
+    /// <summary>The type a calculated column's stored payload is really encoded in — the <c>ResultType</c>
+    /// property of the <c>LvProp</c> blob, which is the type the column was DECLARED with. It is not
+    /// <see cref="Type"/>: that is the promoted storage type of the *expression*, and the two part company
+    /// (a <c>CDbl</c> expression on a column declared LONG reads Double here and Int32 there). Null when the
+    /// column is not calculated, or when the blob did not carry the property.</summary>
+    public JetDataType? CalculatedResultType { get; internal set; }
 
     /// <summary>AutoNumber (COUNTER) seed and increment. The increment is read from the TDEF header (0x18);
     /// the seed is the header's last-assigned value (0x14) plus the increment — which equals the original

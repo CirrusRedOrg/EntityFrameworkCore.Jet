@@ -141,13 +141,13 @@ CREATE TABLE `People` (
         var storedSql = stored == true ? " PERSISTED" : "";
 
         AssertSql(
-            $"""
-CREATE TABLE [People] (
-    [Id] int NOT NULL IDENTITY,
-    [Sum] AS [X] + [Y]{storedSql},
-    [X] int NOT NULL,
-    [Y] int NOT NULL,
-    CONSTRAINT [PK_People] PRIMARY KEY ([Id])
+            """
+CREATE TABLE `People` (
+    `Id` counter NOT NULL,
+    `Sum` varchar(255) AS (`X` + `Y`),
+    `X` integer NOT NULL,
+    `Y` integer NOT NULL,
+    CONSTRAINT `PK_People` PRIMARY KEY (`Id`)
 );
 """);
     }
@@ -563,8 +563,8 @@ ALTER TABLE `Entity` ADD `OwnedRequiredReference` longchar NOT NULL DEFAULT '{}'
         var computedColumnTypeSql = stored == true ? " PERSISTED" : "";
 
         AssertSql(
-            $"""
-ALTER TABLE [People] ADD [Sum] AS [X] + [Y]{computedColumnTypeSql};
+            """
+ALTER TABLE `People` ADD `Sum` varchar(255) AS (`X` + `Y`);
 """);
     }
 
@@ -580,13 +580,13 @@ ALTER TABLE [People] ADD [Sum] AS [X] + [Y]{computedColumnTypeSql};
                 var table = Assert.Single(model.Tables);
                 Assert.Equal(2, table.Columns.Count);
                 var column = Assert.Single(table.Columns, c => c.Name == "IdPlusOne");
-                Assert.Equal("([Id]+(1))", column.ComputedColumnSql);
+                Assert.Equal("[Id] + 1", column.ComputedColumnSql);
             },
             migrationsSqlGenerationOptions: MigrationsSqlGenerationOptions.Idempotent);
 
         AssertSql(
             """
-EXEC(N'ALTER TABLE [People] ADD [IdPlusOne] AS [Id] + 1');
+ALTER TABLE `People` ADD `IdPlusOne` integer AS ([Id] + 1);
 """);
     }
 
@@ -861,15 +861,10 @@ CREATE INDEX `IX_People_FirstName_LastName` ON `People` (`FirstName`, `LastName`
         var computedColumnTypeSql = stored == true ? " PERSISTED" : "";
 
         AssertSql(
-            $"""
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'Sum');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] DROP COLUMN [Sum];
-ALTER TABLE [People] ADD [Sum] AS [X] + [Y]{computedColumnTypeSql};
+            """
+ALTER TABLE `People` ALTER COLUMN `Sum` DROP DEFAULT;
+ALTER TABLE `People` DROP COLUMN `Sum`;
+ALTER TABLE `People` ADD `Sum` integer AS (`X` + `Y`);
 """);
     }
 
@@ -879,14 +874,9 @@ ALTER TABLE [People] ADD [Sum] AS [X] + [Y]{computedColumnTypeSql};
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'Sum');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] DROP COLUMN [Sum];
-ALTER TABLE [People] ADD [Sum] AS [X] - [Y];
+ALTER TABLE `People` ALTER COLUMN `Sum` DROP DEFAULT;
+ALTER TABLE `People` DROP COLUMN `Sum`;
+ALTER TABLE `People` ADD `Sum` integer AS (`X` - `Y`);
 """);
     }
 
@@ -917,16 +907,7 @@ CREATE INDEX [IX_People_Sum] ON [People] ([Sum]);
         await base.Alter_column_change_computed_type();
 
         AssertSql(
-            """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'Sum');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] DROP COLUMN [Sum];
-ALTER TABLE [People] ADD [Sum] AS [X] + [Y] PERSISTED;
-""");
+);
     }
 
     public override async Task Alter_column_make_non_computed()
@@ -935,14 +916,9 @@ ALTER TABLE [People] ADD [Sum] AS [X] + [Y] PERSISTED;
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'Sum');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] DROP COLUMN [Sum];
-ALTER TABLE [People] ADD [Sum] int NOT NULL;
+ALTER TABLE `People` ALTER COLUMN `Sum` DROP DEFAULT;
+ALTER TABLE `People` DROP COLUMN `Sum`;
+ALTER TABLE `People` ADD `Sum` integer NOT NULL;
 """);
     }
 
@@ -1217,23 +1193,13 @@ ALTER TABLE `People` DROP COLUMN `Id`;
 
         AssertSql(
             """
-DECLARE @var0 sysname;
-SELECT @var0 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'Y');
-IF @var0 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var0 + '];');
-ALTER TABLE [People] DROP COLUMN [Y];
+ALTER TABLE `People` ALTER COLUMN `Y` DROP DEFAULT;
+ALTER TABLE `People` DROP COLUMN `Y`;
 """,
             //
             """
-DECLARE @var1 sysname;
-SELECT @var1 = [d].[name]
-FROM [sys].[default_constraints] [d]
-INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
-WHERE ([d].[parent_object_id] = OBJECT_ID(N'[People]') AND [c].[name] = N'X');
-IF @var1 IS NOT NULL EXEC(N'ALTER TABLE [People] DROP CONSTRAINT [' + @var1 + '];');
-ALTER TABLE [People] DROP COLUMN [X];
+ALTER TABLE `People` ALTER COLUMN `X` DROP DEFAULT;
+ALTER TABLE `People` DROP COLUMN `X`;
 """);
     }
 

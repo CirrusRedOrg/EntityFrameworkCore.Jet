@@ -16,12 +16,21 @@ namespace LibRed.Storage;
 /// an end-first offset table. A memo/OLE column's value is written as an *inline* long-value
 /// (12-byte descriptor + payload, §8) when it is small enough; anything larger is stored on LVAL
 /// pages by <see cref="RowInserter"/> before the row reaches here, so only the descriptor is encoded.
+/// A calculated column is the exception, because its value is derived here rather than supplied: an
+/// oversized result is spilled through the <c>spillCalculated</c> callback the writer passes in.
 /// </summary>
 public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase format,
-    int? fixedDataLength = null, int? variableColumnCount = null)
+    int? fixedDataLength = null, int? variableColumnCount = null,
+    Func<ColumnDef, byte[], byte[]>? spillCalculated = null)
 {
     private readonly IReadOnlyList<ColumnDef> _columns = columns;
     private readonly JetFormatBase _format = format;
+
+    // How an oversized calculated result reaches an LVAL page, returning the in-row descriptor. A calculated
+    // column is the one value the encoder DERIVES rather than receives, so it cannot have been materialised
+    // before the row arrived here the way a plain memo is; the writer that owns the pages supplies this
+    // instead. Null for a standalone encode, which has no channel to write to and so must refuse.
+    private readonly Func<ColumnDef, byte[], byte[]>? _spillCalculated = spillCalculated;
 
     // How many variable slots a row carries. The TDEF's 0x2B when the caller has it — a high-water that
     // never decrements — else the tight maximum over the live columns, which is the same number until the
@@ -33,7 +42,15 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     // passes the TDEF's actual fixed-row size so the on-disk layout matches Access.
     private readonly int _fixedDataLength = fixedDataLength ?? ComputeFixedDataLength(columns);
 
-    public byte[] Encode(object?[] values)
+    public byte[] Encode(object?[] values) => Encode(values, null);
+
+    /// <summary>Encodes a row, recomputing its calculated columns.</summary>
+    /// <param name="preservedCalculated">Envelopes to carry over verbatim, keyed by
+    /// <see cref="ColumnDef.Index"/>. An UPDATE that touches nothing a calculated column reads must leave
+    /// the cached value exactly as it was: ACE recomputes only when a referenced column is written, so
+    /// recomputing unconditionally would write bytes ACE would not have (§3.4a). Null on INSERT, where every
+    /// calculated column is computed fresh.</param>
+    public byte[] Encode(object?[] values, IReadOnlyDictionary<int, byte[]>? preservedCalculated)
     {
         if (values.Length != _columns.Count)
             throw new ArgumentException($"Expected {_columns.Count} values, got {values.Length}.", nameof(values));
@@ -71,11 +88,42 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         Array.Fill(varChunks, []);          // a dropped column's slot stays present, and empty
         foreach (ColumnDef column in varCols)
         {
+            if (column.IsCalculated)
+            {
+                varChunks[column.VariableIndex] = EncodeCalculated(column, values, preservedCalculated);
+                continue;
+            }
             object? v = values[column.Index];
             varChunks[column.VariableIndex] = v is null ? [] : JetTypeCodec.Encode(column, v);
         }
 
         return AssembleRow(maxColumnId, fixedRegion, varChunks, _columns, values);
+    }
+
+    /// <summary>The slot for a calculated column: the envelope holding the result, wrapped in a long-value
+    /// descriptor when the column owns a long-value map (which is how ACE stores a calculated Memo).</summary>
+    private byte[] EncodeCalculated(ColumnDef column, object?[] values,
+        IReadOnlyDictionary<int, byte[]>? preservedCalculated)
+    {
+        if (preservedCalculated is not null && preservedCalculated.TryGetValue(column.Index, out byte[]? kept))
+            return kept;
+
+        byte[] envelope = CalculatedValue.Encode(column, CalculatedValue.Evaluate(column, _columns, values));
+        if (!column.HasLongValueMap) return envelope;
+
+        // A memo-backed result inlines while it fits and spills to an LVAL page once it does not — the same
+        // 64-byte boundary a plain memo uses, and for the same reason: Access reads an inlined long value
+        // back but refuses one that should have been on a page. What goes on the page is the WHOLE envelope,
+        // header and padding included, because that is what the in-row slot would otherwise have held.
+        if (envelope.Length <= LongValueFormat.MaxInlineValue)
+            return JetTypeCodec.EncodeInlineLongValue(envelope);
+
+        return _spillCalculated is not null
+            ? _spillCalculated(column, envelope)
+            : throw new NotSupportedException(
+                $"Calculated column '{column.Name}' produced a {envelope.Length}-byte value, too large to "
+                + "store inline. Encoding it needs a writer that can allocate long-value pages, which a "
+                + "standalone RowEncoder has no channel for — insert or update through RowInserter.");
     }
 
     /// <summary>Rejects a variable TEXT/BINARY value longer than its column's declared width, as ACE does
@@ -111,8 +159,12 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     internal static byte[] AssembleRow(int maxColumnId, ReadOnlySpan<byte> fixedRegion,
         IReadOnlyList<byte[]> varChunks, IReadOnlyList<ColumnDef> columns, object?[] values)
     {
+        // A calculated column is exempt from the declared-width check: its length field is a constant ACE
+        // writes (39 for a value type, 509 for any Text, whatever size was asked for), not a limit — a
+        // Text(5) calculated column stores a far longer result and ACE reads it back in full (§3.4a).
         foreach (ColumnDef column in columns)
-            if (!column.IsFixedLength && column.VariableIndex >= 0 && column.VariableIndex < varChunks.Count)
+            if (!column.IsFixedLength && !column.IsCalculated
+                && column.VariableIndex >= 0 && column.VariableIndex < varChunks.Count)
                 EnsureFitsDeclaredLength(column, varChunks[column.VariableIndex]);
 
         const int countSize = 2;
@@ -153,7 +205,12 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         foreach (ColumnDef column in columns)
         {
             liveIds.Add(column.ColumnId);
-            bool present = column.Type == JetDataType.Boolean ? IsTruthy(values[column.Index]) : values[column.Index] is not null;
+            // A calculated column is always present, even when its expression evaluated to Null — ACE marks
+            // the bit and stores a zero-length payload, so here the bit means "has an envelope" and says
+            // nothing about the value (§3.4a). It is also why a calculated Boolean cannot use the bit as its
+            // value the way a real one does.
+            bool present = column.IsCalculated
+                || (column.Type == JetDataType.Boolean ? IsTruthy(values[column.Index]) : values[column.Index] is not null);
             if (present) row[bitmapPos + (column.ColumnId >> 3)] |= (byte)(1 << (column.ColumnId & 7));
         }
         for (int id = 0; id <= maxColumnId; id++)   // dead ids read present in ACE

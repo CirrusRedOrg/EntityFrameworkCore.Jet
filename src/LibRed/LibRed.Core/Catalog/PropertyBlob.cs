@@ -29,6 +29,12 @@ public static class PropertyBlob
     public const string ValidationRuleProperty = "ValidationRule";
     public const string ValidationTextProperty = "ValidationText";
 
+    /// <summary>A calculated column's expression text (§3.4a).</summary>
+    public const string ExpressionProperty = "Expression";
+
+    /// <summary>A calculated column's real result type, as a one-byte Jet type code (§3.4a).</summary>
+    public const string ResultTypeProperty = "ResultType";
+
     /// <summary>A single property: the owning column (or "" for the table), the property name, its value
     /// (text; for a boolean, <c>"1"</c>/<c>"0"</c>), and its stored type. The type is an ordinary
     /// <see cref="JetDataType"/> code — the same byte used by column descriptors and MSysQueries — so Access
@@ -259,6 +265,24 @@ public static class PropertyBlob
         return (rule, text);
     }
 
+    /// <summary>Extracts a calculated column's <c>Expression</c> and <c>ResultType</c> properties for the
+    /// given column; each is null if absent. <c>ResultType</c> is a single byte holding the Jet type code
+    /// the payload is encoded in — the type the column was declared with, which is NOT the descriptor's
+    /// type (see page-02b §3.4a).</summary>
+    public static (string? Expression, JetDataType? ResultType) ReadCalculated(ReadOnlySpan<byte> blob, string owner)
+    {
+        string? expression = null;
+        JetDataType? resultType = null;
+        foreach (Property p in Read(blob))
+        {
+            if (!string.Equals(p.Owner, owner, StringComparison.OrdinalIgnoreCase)) continue;
+            if (p.Name == ExpressionProperty) expression = p.Value.Length > 0 ? p.Value : null;
+            else if (p.Name == ResultTypeProperty && p.RawValue is { Length: > 0 } raw)
+                resultType = (JetDataType)raw[0];
+        }
+        return (expression, resultType);
+    }
+
     /// <summary>Extracts the table's CHECK constraints (name, expression) from a blob. The
     /// <c>CheckConstraints</c> table property stores them as a <c>name\0expression\0</c> list, terminated
     /// by an empty entry.</summary>
@@ -272,10 +296,18 @@ public static class PropertyBlob
 
     /// <summary>Serialises CHECK constraints into the <c>CheckConstraints</c> property value: each is
     /// <c>name\0expression\0</c>, then a trailing <c>\0</c> terminator.</summary>
+    /// <remarks>Identifier quoting is normalised on the way in. A CHECK is evaluated by the Access
+    /// <b>expression service</b>, which does not understand SQL's <c>`backtick`</c> quoting — measured, it
+    /// reads <c>`Qty`</c> as a field whose name includes the backticks and fails "Could not find field". The
+    /// DDL parser accepts such a constraint quite happily and stores it, so the table is created and then
+    /// refuses every INSERT. This is the single point where check text becomes stored bytes, so normalising
+    /// here is what stops any route reaching the blob with SQL-flavoured quoting.</remarks>
     public static string WriteCheckList(IReadOnlyList<(string Name, string Expression)> checks)
     {
         var sb = new StringBuilder();
-        foreach (var (name, expr) in checks) sb.Append(name).Append('\0').Append(expr).Append('\0');
+        foreach (var (name, expr) in checks)
+            sb.Append(name).Append('\0')
+              .Append(Storage.Calculated.CalculatedExpression.NormaliseIdentifierQuoting(expr)).Append('\0');
         sb.Append('\0');
         return sb.ToString();
     }

@@ -61,6 +61,16 @@ capabilities.
 2. **The expression *service*** (used to *evaluate* a stored default at insert, and by field validation rules)
    handles the full expression language.
 
+> **They do not even share a lexer.** ACE's SQL parser accepts `` `backtick` `` identifier quoting — it is
+> what EF Core's Jet provider emits for every identifier — and the expression service does **not**. It reads
+> `` `Qty` `` as a field whose name literally includes the backticks and fails with *"Could not find field
+> '`Qty`'"*. Measured in two unrelated features: a calculated column's `Expression`, and a `CHECK` constraint,
+> where `ALTER TABLE … CHECK (`Qty` > 0)` is **accepted and stored** and every later INSERT is then refused.
+> That is the same smuggling route as the compound defaults above, but it lands the other way round: the DDL
+> parser stores something the service cannot evaluate, so the table ends up unusable rather than usefully
+> extended. Any expression text LibRed writes into `LvProp` therefore has to be in the service's own syntax —
+> brackets, not backticks — whatever quoting the SQL it came from used.
+
 Consequence: a compound default that the DDL parser refuses can still be **stored** (via the table designer, DAO,
 or LibRed writing `LvProp` directly) and is then **read and applied** by ACE at insert. Verified:
 `"INV-" & Year(Now())` → `INV-2026`, `1 + 2` → `3`, `Year(Now())` → `2026`, `CBool(Choose(1,0,1,2))` → `False`,

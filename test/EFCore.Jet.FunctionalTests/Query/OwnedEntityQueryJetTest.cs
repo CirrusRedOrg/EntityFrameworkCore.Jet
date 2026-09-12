@@ -129,7 +129,7 @@ FROM (`Companies` AS `c`
 LEFT JOIN `CustomerData` AS `c0` ON `c`.`Id` = `c0`.`CompanyId`)
 LEFT JOIN `SupplierData` AS `s` ON `c`.`Id` = `s`.`CompanyId`
 WHERE `c0`.`CompanyId` IS NOT NULL
-ORDER BY `c`.`Id`, `s`.`CompanyId`
+ORDER BY `c`.`Id`
 """);
     }
 
@@ -145,7 +145,7 @@ LEFT JOIN `IntermediateOwnedEntity` AS `i` ON `o`.`Id` = `i`.`OwnerId`)
 LEFT JOIN `IM_CustomerData` AS `i0` ON `i`.`OwnerId` = `i0`.`IntermediateOwnedEntityOwnerId`)
 LEFT JOIN `IM_SupplierData` AS `i1` ON `i`.`OwnerId` = `i1`.`IntermediateOwnedEntityOwnerId`
 WHERE `i0`.`IntermediateOwnedEntityOwnerId` IS NOT NULL
-ORDER BY `o`.`Id`, `i1`.`IntermediateOwnedEntityOwnerId`
+ORDER BY `o`.`Id`
 """);
     }
 
@@ -157,7 +157,7 @@ ORDER BY `o`.`Id`, `i1`.`IntermediateOwnedEntityOwnerId`
             """
 SELECT `r`.`Id`, `r`.`Buyer`, `r`.`Rot_ApartmentNo`, `r`.`Rot_ServiceType`, `r`.`Rut_Value`
 FROM `RotRutCases` AS `r`
-ORDER BY `r`.`Buyer`, `r`.`Id`
+ORDER BY `r`.`Buyer`
 """);
     }
 

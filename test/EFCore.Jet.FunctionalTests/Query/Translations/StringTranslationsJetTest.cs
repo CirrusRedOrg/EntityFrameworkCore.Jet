@@ -22,9 +22,9 @@ public class StringTranslationsJetTest : StringTranslationsRelationalTestBase<Ba
 
     #region Equals
 
-    public override async Task Equals()
+    public override async Task Instance_Equals()
     {
-        await base.Equals();
+        await base.Instance_Equals();
 
         AssertSql(
             """
@@ -1328,7 +1328,7 @@ FROM (
     GROUP BY `b`.`Int`
 ) AS `b1`
 LEFT JOIN `BasicTypesEntities` AS `b0` ON `b1`.`Int` = `b0`.`Int`
-ORDER BY `b1`.`Int`, `b0`.`Id`
+ORDER BY `b1`.`Int`
 """);
     }
 
@@ -1360,7 +1360,7 @@ ORDER BY `n3`.`Key`
         await base.Join_with_predicate();
 
         AssertSql(
-    """
+            """
 SELECT `b1`.`Int`, `b2`.`String`, `b2`.`Id`
 FROM (
     SELECT `b`.`Int`
@@ -1372,7 +1372,7 @@ LEFT JOIN (
     FROM `BasicTypesEntities` AS `b0`
     WHERE LEN(`b0`.`String`) > 6
 ) AS `b2` ON `b1`.`Int` = `b2`.`Int`
-ORDER BY `b1`.`Int`, `b2`.`Id`
+ORDER BY `b1`.`Int`
 """);
     }
 
@@ -1428,7 +1428,7 @@ WHERE (`b`.`String` & 'Boston') = 'SeattleBoston'
         await base.Concat_aggregate();
 
         AssertSql(
-    """
+            """
 SELECT `b1`.`Int`, `b0`.`String`, `b0`.`Id`
 FROM (
     SELECT `b`.`Int`
@@ -1436,7 +1436,7 @@ FROM (
     GROUP BY `b`.`Int`
 ) AS `b1`
 LEFT JOIN `BasicTypesEntities` AS `b0` ON `b1`.`Int` = `b0`.`Int`
-ORDER BY `b1`.`Int`, `b0`.`Id`
+ORDER BY `b1`.`Int`
 """);
     }
 

@@ -257,7 +257,7 @@ LEFT JOIN (
     FROM `Globalizations` AS `g0`
     LEFT JOIN `Languages` AS `l0` ON `g0`.`LanguageName` = `l0`.`Name`
 ) AS `s0` ON `m0`.`DefaultText` = `s0`.`ComplexNavigationStringDefaultText`
-ORDER BY `f`.`Name`, `s`.`Text`, `s0`.`Text`
+ORDER BY `f`.`Name`, `s`.`Text`
 """);
         }
 
@@ -1369,7 +1369,7 @@ LEFT JOIN (
     FROM `LevelTwo` AS `l1`
     LEFT JOIN `LevelThree` AS `l2` ON `l1`.`Id` = `l2`.`Level2_Optional_Id`
 ) AS `s` ON `m`.`Id` = `s`.`OneToMany_Optional_Inverse2Id`
-ORDER BY `m`.`Id`, `l0`.`Id`, `s`.`Id`
+ORDER BY `m`.`Id`, `l0`.`Id`
 """);
         }
 
@@ -1515,7 +1515,7 @@ WHERE EXISTS (
 SELECT `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`
 FROM `LevelThree` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Level2_Required_Id` = `l0`.`Id`
-ORDER BY `l0`.`Id`, `l`.`Id`
+ORDER BY `l0`.`Id`
 """);
         }
 
@@ -1528,7 +1528,7 @@ ORDER BY `l0`.`Id`, `l`.`Id`
 SELECT `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`
 FROM `LevelThree` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Level2_Required_Id` = `l0`.`Id`
-ORDER BY `l0`.`Id`, `l`.`Id`
+ORDER BY `l0`.`Id`
 """);
         }
 
@@ -1541,7 +1541,7 @@ ORDER BY `l0`.`Id`, `l`.`Id`
 SELECT `l0`.`Id`, `l0`.`Date`, `l0`.`Level1_Optional_Id`, `l0`.`Level1_Required_Id`, `l0`.`Name`, `l0`.`OneToMany_Optional_Inverse2Id`, `l0`.`OneToMany_Optional_Self_Inverse2Id`, `l0`.`OneToMany_Required_Inverse2Id`, `l0`.`OneToMany_Required_Self_Inverse2Id`, `l0`.`OneToOne_Optional_PK_Inverse2Id`, `l0`.`OneToOne_Optional_Self2Id`
 FROM `LevelThree` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Level2_Required_Id` = `l0`.`Id`
-ORDER BY `l0`.`Id`, `l`.`Id`
+ORDER BY `l0`.`Id`
 """);
         }
 
@@ -1556,7 +1556,7 @@ FROM (`LevelThree` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Level2_Required_Id` = `l0`.`Id`)
 LEFT JOIN `LevelOne` AS `l1` ON `l0`.`Level1_Required_Id` = `l1`.`Id`
 WHERE `l0`.`Level1_Required_Id` IS NOT NULL AND `l1`.`Id` IS NOT NULL
-ORDER BY `l0`.`Id`, `l`.`Id`
+ORDER BY `l0`.`Id`
 """);
         }
 
@@ -1592,7 +1592,7 @@ ORDER BY `s`.`Id0`
 SELECT TOP @p `l0`.`Name`
 FROM `LevelThree` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Level2_Required_Id` = `l0`.`Id`
-ORDER BY `l0`.`Id`, `l`.`Id`
+ORDER BY `l0`.`Id`
 """);
         }
 
@@ -1645,7 +1645,7 @@ FROM (`LevelTwo` AS `l`
 INNER JOIN `LevelOne` AS `l0` ON `l`.`Level1_Required_Id` = `l0`.`Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Required_Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`Level2_Required_Id` IS NOT NULL
-ORDER BY `l0`.`Id`, `l`.`Id`
+ORDER BY `l0`.`Id`
 """);
         }
 
@@ -1663,7 +1663,7 @@ FROM (`LevelTwo` AS `l`
 INNER JOIN `LevelOne` AS `l0` ON `l`.`Level1_Required_Id` = `l0`.`Id`)
 LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Required_Id`
 WHERE `l0`.`Id` IS NOT NULL AND `l1`.`Level2_Required_Id` IS NOT NULL
-ORDER BY `l0`.`Id`, `l`.`Id`
+ORDER BY `l0`.`Id`
 """);
         }
 
@@ -3056,7 +3056,7 @@ FROM ((`InheritanceOne` AS `i`
 LEFT JOIN `InheritanceLeafOne` AS `i0` ON `i`.`Id` = `i0`.`DifferentTypeReference_InheritanceDerived1Id`)
 LEFT JOIN `InheritanceLeafTwo` AS `i1` ON `i`.`Id` = `i1`.`DifferentTypeReference_InheritanceDerived2Id`)
 LEFT JOIN `InheritanceTwo` AS `i2` ON `i1`.`Id` = `i2`.`InheritanceLeaf2Id`
-ORDER BY `i`.`Id`, `i2`.`Id`
+ORDER BY `i`.`Id`
 """);
         }
 
@@ -3070,7 +3070,7 @@ SELECT `i`.`Id`, `i`.`Discriminator`, `i`.`InheritanceBase2Id`, `i`.`Inheritance
 FROM (`InheritanceOne` AS `i`
 LEFT JOIN `InheritanceLeafOne` AS `i0` ON `i`.`Id` = `i0`.`InheritanceDerived1Id1`)
 LEFT JOIN `InheritanceLeafOne` AS `i1` ON `i`.`Id` = `i1`.`InheritanceDerived2Id`
-ORDER BY `i`.`Id`, `i0`.`Id`, `i1`.`Id`
+ORDER BY `i`.`Id`, `i0`.`Id`
 """);
         }
 
@@ -3084,7 +3084,7 @@ SELECT `i`.`Id`, `i`.`Discriminator`, `i`.`InheritanceBase2Id`, `i`.`Inheritance
 FROM (`InheritanceOne` AS `i`
 LEFT JOIN `InheritanceLeafOne` AS `i0` ON `i`.`Id` = `i0`.`InheritanceDerived1Id`)
 LEFT JOIN `InheritanceLeafTwo` AS `i1` ON `i`.`Id` = `i1`.`InheritanceDerived2Id`
-ORDER BY `i`.`Id`, `i0`.`Id`, `i1`.`Id`
+ORDER BY `i`.`Id`, `i0`.`Id`
 """);
         }
 
@@ -3106,7 +3106,7 @@ LEFT JOIN (
     FROM `InheritanceLeafTwo` AS `i1`
     LEFT JOIN `InheritanceTwo` AS `i2` ON `i1`.`Id` = `i2`.`InheritanceLeaf2Id`
 ) AS `s` ON `i`.`Id` = `s`.`InheritanceDerived2Id`
-ORDER BY `i`.`Id`, `i0`.`Id`, `s`.`Id`, `s`.`Id0`
+ORDER BY `i`.`Id`, `i0`.`Id`, `s`.`Id`
 """);
         }
 
@@ -3127,7 +3127,7 @@ LEFT JOIN (
     LEFT JOIN `InheritanceLeafOne` AS `i4` ON `i3`.`Id` = `i4`.`SameTypeReference_InheritanceDerived1Id`)
     LEFT JOIN `InheritanceLeafOne` AS `i5` ON `i3`.`Id` = `i5`.`SameTypeReference_InheritanceDerived2Id`
 ) AS `s` ON `i`.`Id` = `s`.`InheritanceBase2Id1`
-ORDER BY `i`.`Id`, `i1`.`Id`, `i2`.`Id`, `s`.`Id`
+ORDER BY `i`.`Id`, `i1`.`Id`, `i2`.`Id`
 """);
         }
 
@@ -3577,7 +3577,7 @@ FROM ((`LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
 LEFT JOIN `LevelTwo` AS `l1` ON `l`.`Id` = `l1`.`Level1_Optional_Id`)
 LEFT JOIN `LevelThree` AS `l2` ON `l0`.`Id` = `l2`.`OneToMany_Optional_Inverse3Id`
-ORDER BY `l`.`Id`, `l2`.`Id`
+ORDER BY `l`.`Id`
 """);
         }
 
@@ -3788,7 +3788,7 @@ FROM (
     LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`Level1_Required_Id`)
     LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Required_Id`
 ) AS `s`
-ORDER BY `s`.`c`, `s`.`Name0`, `s`.`Id`
+ORDER BY `s`.`c`, `s`.`Name0`
 """);
         }
 
@@ -4344,7 +4344,7 @@ ORDER BY `l`.`Id`
 SELECT TOP @p `l0`.`Name`
 FROM `LevelOne` AS `l`
 INNER JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToMany_Optional_Inverse2Id`
-ORDER BY `l`.`Id`, `l0`.`Id`
+ORDER BY `l`.`Id`
 """);
         }
 
@@ -4358,7 +4358,7 @@ SELECT `l`.`Id`, `l`.`Date`, `l`.`Name`, `l`.`OneToMany_Optional_Self_Inverse1Id
 FROM (`LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToMany_Optional_Inverse2Id`)
 LEFT JOIN `LevelTwo` AS `l1` ON `l`.`Id` = `l1`.`OneToMany_Required_Inverse2Id`
-ORDER BY `l`.`Id`, `l0`.`Id`, `l1`.`Id`
+ORDER BY `l`.`Id`, `l0`.`Id`
 """);
         }
 
@@ -4759,7 +4759,7 @@ INNER JOIN `LevelTwo` AS `l0` ON `l`.`OneToMany_Required_Inverse3Id` = `l0`.`Id`
 LEFT JOIN `LevelOne` AS `l1` ON `l0`.`OneToMany_Required_Inverse2Id` = `l1`.`Id`)
 LEFT JOIN `LevelFour` AS `l2` ON `l`.`Id` = `l2`.`OneToMany_Optional_Inverse4Id`
 WHERE (`l1`.`Name` = 'L1 01') AND (`l0`.`OneToMany_Required_Inverse2Id` IS NOT NULL AND `l1`.`Id` IS NOT NULL)
-ORDER BY `l`.`Id`, `l2`.`Id`
+ORDER BY `l`.`Id`
 """);
         }
 
@@ -4819,7 +4819,7 @@ LEFT JOIN (
     LEFT JOIN `LevelThree` AS `l1` ON `l0`.`Id` = `l1`.`Level2_Required_Id`)
     LEFT JOIN `LevelFour` AS `l2` ON `l1`.`Id` = `l2`.`Level3_Required_Id`
 ) AS `s` ON `l4`.`Id` = `s`.`OneToMany_Optional_Inverse2Id`
-ORDER BY `l4`.`Id`, `s`.`Id`
+ORDER BY `l4`.`Id`
 """);
         }
 

@@ -125,7 +125,7 @@ LEFT JOIN (
     INNER JOIN `SplitEntityOnePart3` AS `s` ON `e0`.`Id` = `s`.`Id`
     INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e0`.`Id` = `s0`.`Id`
 ) AS `s1` ON `e`.`Id` = `s1`.`EntityThreeId`
-ORDER BY `e`.`Id`, `s1`.`Id`
+ORDER BY `e`.`Id`
 """);
     }
 
@@ -162,7 +162,7 @@ LEFT JOIN (
     INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e0`.`Id` = `s0`.`Id`
     LEFT JOIN `EntityTwo` AS `e1` ON `e0`.`Id` = `e1`.`EntityOneId`
 ) AS `s1` ON `e`.`Id` = `s1`.`EntityThreeId`
-ORDER BY `e`.`Id`, `s1`.`Id`, `s1`.`Id0`
+ORDER BY `e`.`Id`, `s1`.`Id`
 """);
     }
 
@@ -191,7 +191,7 @@ FROM `EntityOne` AS `e`
 INNER JOIN `SplitEntityOnePart3` AS `s` ON `e`.`Id` = `s`.`Id`
 INNER JOIN `SplitEntityOnePart2` AS `s0` ON `e`.`Id` = `s0`.`Id`
 LEFT JOIN `EntityTwo` AS `e0` ON `e`.`Id` = `e0`.`EntityOneId`
-ORDER BY `e`.`Id`, `e0`.`Id`
+ORDER BY `e`.`Id`
 """);
     }
 
@@ -725,7 +725,7 @@ LEFT JOIN (
     INNER JOIN `OwnedReferencePart4` AS `o0` ON `o`.`BaseEntityId` = `o0`.`BaseEntityId` AND `o`.`Id` = `o0`.`Id`
     INNER JOIN `OwnedReferencePart3` AS `o1` ON `o`.`BaseEntityId` = `o1`.`BaseEntityId` AND `o`.`Id` = `o1`.`Id`
 ) AS `s0` ON `u`.`Id` = `s0`.`BaseEntityId`
-ORDER BY `u`.`Id`, `s0`.`BaseEntityId`
+ORDER BY `u`.`Id`, `s0`.`BaseEntityId`, `s0`.`Id`
 """);
     }
 
@@ -771,7 +771,7 @@ LEFT JOIN (
     INNER JOIN `OwnedReferencePart4` AS `o0` ON `o`.`MiddleEntityId` = `o0`.`MiddleEntityId` AND `o`.`Id` = `o0`.`Id`
     INNER JOIN `OwnedReferencePart3` AS `o1` ON `o`.`MiddleEntityId` = `o1`.`MiddleEntityId` AND `o`.`Id` = `o1`.`Id`
 ) AS `s0` ON `u`.`Id` = `s0`.`MiddleEntityId`
-ORDER BY `u`.`Id`, `s0`.`MiddleEntityId`
+ORDER BY `u`.`Id`, `s0`.`MiddleEntityId`, `s0`.`Id`
 """);
     }
 

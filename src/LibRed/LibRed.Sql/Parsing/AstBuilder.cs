@@ -285,9 +285,13 @@ internal sealed class AstBuilder
         // matching Access — e.g. "42", "'hi'"). Re-parsed and evaluated when a column is omitted on insert.
         string? defaultSql = ctx.columnConstraint().OfType<DefaultConstraintContext>()
             .FirstOrDefault()?.expression().GetText();
+        // OriginalText, not GetText: the expression is stored verbatim and re-read by whichever engine opens
+        // the file, so its spacing and quoting have to survive the round trip through the parser.
+        string? calculated = ctx.calculatedClause() is { } calc ? OriginalText(calc.expression()) : null;
 
         return new ColumnDefinition(
-            Identifier(ctx.name), typeName, size, scale, notNull, primaryKey, defaultSql, compressed);
+            Identifier(ctx.name), typeName, size, scale, notNull, primaryKey, defaultSql, compressed,
+            calculated);
     }
 
     private static SqlStatement BuildCreateIndex(CreateIndexStatementContext ctx)

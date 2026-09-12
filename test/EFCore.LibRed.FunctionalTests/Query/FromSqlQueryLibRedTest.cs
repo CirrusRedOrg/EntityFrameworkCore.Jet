@@ -537,7 +537,7 @@ FROM (
     SELECT * FROM `Customers`
 ) AS `m`
 LEFT JOIN `Orders` AS `o` ON `m`.`CustomerID` = `o`.`CustomerID`
-ORDER BY `m`.`CustomerID`, `o`.`OrderID`
+ORDER BY `m`.`CustomerID`
 """);
     }
 
@@ -553,7 +553,7 @@ FROM (
 ) AS `m`
 LEFT JOIN `Orders` AS `o` ON `m`.`CustomerID` = `o`.`CustomerID`
 WHERE `m`.`City` = 'London'
-ORDER BY `m`.`CustomerID`, `o`.`OrderID`
+ORDER BY `m`.`CustomerID`
 """);
     }
 
@@ -662,7 +662,7 @@ FROM (
     SELECT * FROM `Customers` WHERE `CustomerID` = 'AROUT'
 ) AS `m0`
 LEFT JOIN `Orders` AS `o` ON `m0`.`CustomerID` = `o`.`CustomerID`)
-ORDER BY `m`.`CustomerID`, `m0`.`CustomerID`, `o`.`OrderID`
+ORDER BY `m`.`CustomerID`, `m0`.`CustomerID`
 """);
     }
 

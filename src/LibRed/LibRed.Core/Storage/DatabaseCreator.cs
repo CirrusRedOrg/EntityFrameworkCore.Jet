@@ -227,7 +227,9 @@ public static class DatabaseCreator
 
     /// <summary>
     /// Creates a new, empty database at <paramref name="path"/> from scratch — no DAO/ADOX. Hand-builds the
-    /// bootstrap (page 0, the page-1 free map, and the <c>MSysObjects</c>/<c>MSysACEs</c> TDEFs with their
+    /// bootstrap for the given <paramref name="version"/> — Jet 4 (<c>0x01</c>, the Access 2000 /
+    /// 2002-2003 <c>.mdb</c>) or any ACCDB version — (page 0, the page-1 free map, and the
+    /// <c>MSysObjects</c>/<c>MSysACEs</c> TDEFs with their
     /// usage maps + self-registering catalog rows), then the file is a normal LibRed database: further tables
     /// are added through the ordinary writers. The file opens in the Access GUI: the <c>0xE00</c> user
     /// commit-byte table is seeded here, and Access adds the system tables it wants (MSysAccessStorage, the
@@ -252,13 +254,23 @@ public static class DatabaseCreator
         Collation sortOrder = collation ?? Collation.GeneralLegacy;
         JetFormatBase format = JetFormatBase.FromVersionByte(version);
 
-        // Only the ACCDB versions can be created. Page 0 is stamped "Standard ACE DB" below, and pairing that
-        // identifier with a Jet-4 version byte produces exactly the mismatch JetFormatBase.Detect refuses — a
-        // file this method wrote and could not then reopen. Jet 3 is rejected by FromVersionByte already.
-        if (!format.IsAccdb)
-            throw new NotSupportedException(
-                $"Cannot create a database at version 0x{version:X2} ({format.Version}): LibRed creates ACCDB " +
-                $"formats only (0x02 ACE 12 through 0x06 ACE 17).");
+        // Jet 4 (0x01, the Access 2000 / 2002-2003 `.mdb`) and the ACCDB versions can both be created; the
+        // identifier follows the version byte in BuildDefinitionPage, so the pair is always consistent and the
+        // file reopens. Jet 3 is rejected by FromVersionByte already — DAO cannot create one either
+        // ("Could not find installable ISAM"), so there is nothing to compare against.
+        //
+        // A Jet 4 file needs no other difference: DAO's own dbVersion40 database contains exactly the same
+        // four core system tables this method builds. Access adds MSysAccessStorage, the navigation-pane
+        // tables and the MSysDb properties (AccessVersion, Build, ProjVer, …) when it first opens the file,
+        // for a Jet 4 file just as for an ACCDB — measured by diffing a DAO-created Access 2000 database
+        // before and after Access opened it.
+        //
+        // It adds AccessVersion **09.50** and MSysAccessStorage even to a Jet 4 file. The legacy
+        // MSysAccessObjects store (08.50, and the only place the unmodelled 0x11 type appears) comes from
+        // Access *creating* the database itself in the Access 2000 generation — a new file from its own New
+        // dialog. So the generation is chosen at creation by Access, and a file created by anything else gets
+        // the modern one when Access first opens it. Nothing a creator can or should reproduce: DAO does not,
+        // and neither does this.
         // The four core system tables live at the exact pages the page-0 bootstrap pointers name (2/3/4/5);
         // their usage maps follow at 6..9. Access uses those pointers to find the catalog.
         const int objPage = 2, acesPage = 3, queriesPage = 4, relPage = 5;

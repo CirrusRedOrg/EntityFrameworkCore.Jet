@@ -2001,7 +2001,7 @@ INNER JOIN (
     HAVING COUNT(*) = 1
 ) AS `i0` ON `t`.`ParcelNumber` = `i0`.`Parcel`
 WHERE `t`.`TableId` = 123
-ORDER BY `t`.`ParcelNumber`, `i0`.`Parcel`
+ORDER BY `t`.`ParcelNumber`
 """);
     }
 
@@ -2133,7 +2133,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2150,7 +2150,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2167,7 +2167,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2184,7 +2184,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2218,7 +2218,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2235,7 +2235,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2270,7 +2270,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2287,7 +2287,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2304,7 +2304,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2321,7 +2321,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2338,7 +2338,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2355,7 +2355,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2372,7 +2372,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2389,7 +2389,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2406,7 +2406,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2476,7 +2476,7 @@ FROM (
         GROUP BY `r`.`PickupStatusId`
     ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
 ) AS `s0`
-ORDER BY `s0`.`PickupStatusId`, `s0`.`pickupStatusId0`
+ORDER BY `s0`.`PickupStatusId`
 """);
     }
 
@@ -2513,7 +2513,7 @@ FROM (
         GROUP BY `r`.`PickupStatusId`
     ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
 ) AS `s0`
-ORDER BY `s0`.`PickupStatusId`, `s0`.`pickupStatusId0`
+ORDER BY `s0`.`PickupStatusId`
 """);
     }
 
@@ -2534,7 +2534,7 @@ FROM (
     ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
 ) AS `s1`
 INNER JOIN `Statuses` AS `s0` ON `s1`.`PickupStatusId` = `s0`.`PickupStatusId`
-ORDER BY `s0`.`PickupStatusId`, `s1`.`pickupStatusId0`
+ORDER BY `s0`.`PickupStatusId`
 """);
     }
 
@@ -2558,7 +2558,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2575,7 +2575,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2599,7 +2599,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2616,7 +2616,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2634,7 +2634,7 @@ LEFT JOIN (
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
 INNER JOIN `Statuses` AS `s0` ON `s`.`PickupStatusId` = `s0`.`PickupStatusId`
-ORDER BY `s0`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s0`.`PickupStatusId`
 """);
     }
 
@@ -2647,7 +2647,7 @@ ORDER BY `s0`.`PickupStatusId`, `r0`.`pickupStatusId`
 SELECT `s`.`PickupStatusId`, `r`.`PickupStatusId`, 1 AS `Count`
 FROM `Statuses` AS `s`
 LEFT JOIN `Requests` AS `r` ON `s`.`PickupStatusId` = `r`.`PickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r`.`Id`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2694,7 +2694,7 @@ LEFT JOIN (
     FROM `Requests` AS `r`
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`PickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r0`.`PickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2871,7 +2871,7 @@ LEFT JOIN (
     FROM `Requests` AS `r1`
     GROUP BY `r1`.`PickupStatusId`
 ) AS `r2` ON `s`.`PickupStatusId` = `r2`.`pickupStatusId`
-ORDER BY `s`.`PickupStatusId`, `r2`.`pickupStatusId`
+ORDER BY `s`.`PickupStatusId`
 """);
     }
 
@@ -2890,7 +2890,7 @@ LEFT JOIN (
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
 INNER JOIN `Statuses` AS `s0` ON `s`.`PickupStatusId` = `s0`.`PickupStatusId`
 INNER JOIN `Statuses` AS `s1` ON `s0`.`PickupStatusId` = `s1`.`PickupStatusId`
-ORDER BY `s1`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s1`.`PickupStatusId`
 """);
     }
 
@@ -2908,7 +2908,7 @@ LEFT JOIN (
     GROUP BY `r`.`PickupStatusId`
 ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
 INNER JOIN `Statuses` AS `s0` ON `s`.`PickupStatusId` = `s0`.`PickupStatusId`
-ORDER BY `s0`.`PickupStatusId`, `r0`.`pickupStatusId`
+ORDER BY `s0`.`PickupStatusId`
 """);
     }
 
@@ -2946,7 +2946,7 @@ FROM (
         GROUP BY `r`.`PickupStatusId`
     ) AS `r0` ON `s`.`PickupStatusId` = `r0`.`pickupStatusId`
 ) AS `s0`
-ORDER BY `s0`.`PickupStatusId`, `s0`.`pickupStatusId0`
+ORDER BY `s0`.`PickupStatusId`
 """);
     }
 

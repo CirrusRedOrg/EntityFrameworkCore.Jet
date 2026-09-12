@@ -28,8 +28,6 @@ namespace EntityFrameworkCore.LibRed.FunctionalTests
             typeof(JsonQueryTestBase<>),
             typeof(JsonQueryRelationalTestBase<>),
             typeof(JsonUpdateTestBase<>),
-            typeof(AdHocJsonQueryRelationalTestBase),
-            typeof(AdHocJsonQueryTestBase),
             typeof(OwnedJsonBulkUpdateRelationalTestBase<>),
             typeof(OwnedJsonCollectionRelationalTestBase<>),
             typeof(OwnedJsonMiscellaneousRelationalTestBase<>),

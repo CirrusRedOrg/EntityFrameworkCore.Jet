@@ -125,7 +125,17 @@ withOption
     | IGNORE NULL    # WithIgnoreNull
     ;
 
-columnDefinition : name=identifier dataType columnConstraint* ;
+columnDefinition : name=identifier dataType calculatedClause? columnConstraint* ;
+
+// A calculated column. This is a LibRed EXTENSION: Access SQL has no syntax for one at all, and ACE can
+// only create them through DAO's object model, so nothing here will run against ACE. Shaped after SQL
+// Server's computed column, with one difference — the data type is REQUIRED rather than inferred, because
+// the declared type is what decides how the cached result is encoded on disk (page-02e-calculated-columns).
+// The parentheses are REQUIRED, unlike SQL Server's computed column. The expression is not parsed by this
+// grammar — it is captured as raw text and handed to CalculatedExpression, a separate parser for the Access
+// expression service — so an explicit delimiter is what makes "where the expression ends" unambiguous to
+// both. Without it, `AS x + y NOT NULL` has the expression rule and columnConstraint* competing for NOT.
+calculatedClause : AS LPAREN expression RPAREN ;
 
 // A second word handles two-word ANSI aliases like CHARACTER VARYING / BIT VARYING.
 // Up to three words to cover multi-word SQL type names: "char varying", "national character varying", etc.

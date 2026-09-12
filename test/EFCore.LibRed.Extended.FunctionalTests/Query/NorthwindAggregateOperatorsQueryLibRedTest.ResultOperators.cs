@@ -885,7 +885,7 @@ FROM `Orders` AS `o`
 
 SELECT TOP @p `e`.`EmployeeID`, `e`.`City`, `e`.`Country`, `e`.`FirstName`, `e`.`ReportsTo`, `e`.`Title`
 FROM `Employees` AS `e`
-ORDER BY 1, `e`.`EmployeeID`
+ORDER BY 1
 """);
         }
 

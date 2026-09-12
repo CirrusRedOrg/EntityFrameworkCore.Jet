@@ -15,78 +15,7 @@ using System.Linq;
 
 namespace EntityFrameworkCore.LibRed.FunctionalTests
 {
-    public class F1LibRedFixture : F1LibRedFixtureBase<byte[]>
-    {
-        protected override void BuildModelExternal(ModelBuilder modelBuilder)
-        {
-            base.BuildModelExternal(modelBuilder);
-
-            var converter = new BinaryVersionConverter();
-            var comparer = new BinaryVersionComparer();
-
-            modelBuilder
-                .Entity<Fan>()
-                .Property(e => e.BinaryVersion)
-                .HasConversion(converter, comparer)
-                .IsRowVersion();
-
-            modelBuilder
-                .Entity<FanTpt>()
-                .Property(e => e.BinaryVersion)
-                .HasConversion(converter, comparer)
-                .IsRowVersion();
-
-            modelBuilder
-                .Entity<FanTpc>()
-                .Property(e => e.BinaryVersion)
-                .HasConversion(converter, comparer)
-                .IsRowVersion();
-
-            modelBuilder
-                .Entity<Circuit>()
-                .Property(e => e.BinaryVersion)
-                .HasConversion(converter, comparer)
-                .IsRowVersion();
-
-            modelBuilder
-                .Entity<CircuitTpt>()
-                .Property(e => e.BinaryVersion)
-                .HasConversion(converter, comparer)
-                .IsRowVersion();
-
-            modelBuilder
-                .Entity<CircuitTpc>()
-                .Property(e => e.BinaryVersion)
-                .HasConversion(converter, comparer)
-                .IsRowVersion();
-        }
-
-        private class BinaryVersionConverter() : ValueConverter<List<byte>, byte[]>(
-            v => v == null ? null : v.ToArray(),
-            v => v == null ? null : v.ToList());
-
-        private class BinaryVersionComparer() : ValueComparer<List<byte>>(
-            (l, r) => (l == null && r == null) || (l != null && r != null && l.SequenceEqual(r)),
-            v => CalculateHashCode(v),
-            v => v == null ? null : v.ToList())
-        {
-            private static int CalculateHashCode(List<byte> source)
-            {
-                if (source == null)
-                {
-                    return 0;
-                }
-
-                var hash = new HashCode();
-                foreach (var el in source)
-                {
-                    hash.Add(el);
-                }
-
-                return hash.ToHashCode();
-            }
-        }
-    }
+    public class F1LibRedFixture : F1LibRedFixtureBase<byte[]>;
 
     public abstract class F1LibRedFixtureBase<TRowVersion> : F1RelationalFixture<TRowVersion>
     {

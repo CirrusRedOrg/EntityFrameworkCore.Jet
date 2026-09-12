@@ -13,8 +13,9 @@ namespace LibRed.Engine.Execution;
 /// </summary>
 internal static class AccessTypeMapper
 {
-    public static ColumnSpec ToColumnSpec(ColumnDefinition column, JetVersion version) =>
-        MapType(column, version) with
+    public static ColumnSpec ToColumnSpec(ColumnDefinition column, JetVersion version)
+    {
+        ColumnSpec spec = MapType(column, version) with
         {
             IsNullable = !column.NotNull,
             // WITH COMPRESSION is only meaningful on the two types ACE accepts it for; Access rejects it
@@ -25,6 +26,34 @@ internal static class AccessTypeMapper
                         $"WITH COMPRESSION on column '{column.Name}': only text and memo columns can be compressed.")
                 : false,
         };
+
+        if (column.Calculated is not { } expression) return spec;
+
+        // Everything a calculated column cannot also be. Each of these is refused rather than ignored,
+        // because each would otherwise produce a column that looks declared one way and behaves another.
+        if (column.PrimaryKey)
+            throw new NotSupportedException(
+                $"Column '{column.Name}' cannot be both calculated and a key: ACE accepts an index on a "
+                + "calculated column and then refuses every insert into the table, so such a table can never "
+                + "hold a row.");
+        if (column.Default is not null)
+            throw new NotSupportedException(
+                $"Column '{column.Name}' cannot have a DEFAULT as well as a calculated expression — its value "
+                + "always comes from the expression.");
+        if (column.NotNull)
+            throw new NotSupportedException(
+                $"Column '{column.Name}' cannot be NOT NULL: a calculated column stores whatever its "
+                + "expression evaluates to, and that includes Null.");
+        if (column.Compressed)
+            throw new NotSupportedException(
+                $"Column '{column.Name}' cannot be declared WITH COMPRESSION: whether a calculated result is "
+                + "compressed follows its result type, and the engine decides it.");
+
+        // The DECLARED type is the result type, not the storage type — the descriptor carries a promoted type
+        // and a constant length — so rebuild through the factory that knows those rules rather than patching
+        // the mapped spec here (page-02e-calculated-columns).
+        return ColumnSpec.Calculated(spec.Name, spec.Type, expression);
+    }
 
     /// <summary>Whether WITH COMPRESSION applies to this column's type. Mapped at the HIGHEST version so the
     /// version gate inside <see cref="MapType"/> cannot fire here: asking at Version4 made

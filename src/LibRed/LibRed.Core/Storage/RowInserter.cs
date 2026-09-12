@@ -31,6 +31,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     public void Insert(object?[] values, bool updateIndexes)
     {
         JetFormatBase format = _channel.Format;
+        RejectExplicitCalculatedValues(values, null);
 
         // Assign AutoNumber ids for any AutoNumber column the caller left unset (the usual case —
         // Jet SQL omits the AutoNumber column from the insert). An explicitly supplied value is kept
@@ -48,7 +49,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Encode first: the fixed-region length is pinned by any existing row (to match Access),
         // or derived from the columns for a just-created empty table.
         var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format),
-            _table.VariableColumnCount);
+            _table.VariableColumnCount, SpillCalculated);
         byte[] record = encoder.Encode(values);
 
         EnsureRecordFits(format, record);
@@ -90,16 +91,47 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     public void Update(RowId id, object?[] values, IReadOnlySet<int> changedColumns)
     {
         JetFormatBase format = _channel.Format;
+        RejectExplicitCalculatedValues(values, changedColumns);
 
         // Long-value (memo/OLE) columns: keep an unchanged column's on-disk descriptor verbatim (so it is not
         // needlessly re-materialised onto fresh LVAL pages), and free a changed column's old chained pages.
-        var oldDescriptors = new RowDecoder(_table.Columns, format).LongValueRaw(ReadRowBytes(id));
+        byte[] oldRow = ReadRowBytes(id);
+        var decoder = new RowDecoder(_table.Columns, format);
+        var oldDescriptors = decoder.LongValueRaw(oldRow);
+        var oldCalculated = decoder.CalculatedRaw(oldRow);
         foreach (ColumnDef column in _table.Columns)
         {
             if (column.Type is not (JetDataType.Memo or JetDataType.Ole)) continue;
             if (!oldDescriptors.TryGetValue(column.Index, out byte[]? oldDescriptor)) continue; // old value was null
             if (changedColumns.Contains(column.Index)) FreeLongValue(column, oldDescriptor);
             else values[column.Index] = new LongValueDescriptor(oldDescriptor);
+        }
+
+        // A calculated column is recomputed only when the UPDATE writes a column its expression READS —
+        // measured against ACE, which leaves the cached value untouched otherwise and refreshes it even when
+        // a referenced column is rewritten with the value it already had (§3.4a). Carrying the old envelope
+        // over verbatim is therefore not an optimisation: recomputing every time would write bytes ACE never
+        // would, and a cache neither engine re-derives on read is exactly where that stays invisible.
+        Dictionary<int, byte[]>? preservedCalculated = null;
+        foreach (ColumnDef column in _table.Columns)
+        {
+            if (!column.IsCalculated) continue;
+            if (CalculatedValue.ReferencedIndexes(column, _table.Columns).Overlaps(changedColumns)) continue;
+            if (!oldCalculated.TryGetValue(column.Index, out byte[]? kept)) continue;
+            (preservedCalculated ??= [])[column.Index] = kept;
+        }
+
+        // A calculated column that IS being recomputed abandons whatever its old result occupied, so a
+        // memo-backed one has to give its LVAL pages back — nothing else will, and the row's new descriptor
+        // overwrites the only reference to them. A preserved column keeps its pages precisely because the
+        // descriptor carried over verbatim still points at them.
+        foreach (ColumnDef column in _table.Columns)
+        {
+            if (!column.IsCalculated || !column.HasLongValueMap) continue;
+            if (preservedCalculated?.ContainsKey(column.Index) == true) continue;
+            if (oldCalculated.TryGetValue(column.Index, out byte[]? stale)
+                && stale.Length >= LongValueFormat.DescriptorSize)
+                FreeLongValue(column, stale);
         }
 
         MaterializeLongValues(values);
@@ -109,8 +141,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // parse returns a negative length for an all-fixed-column table (no variable columns — e.g. Northwind
         // Order Details), which without the guard would overflow `new byte[len]`.
         var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format),
-            _table.VariableColumnCount);
-        byte[] record = encoder.Encode(values);
+            _table.VariableColumnCount, SpillCalculated);
+        byte[] record = encoder.Encode(values, preservedCalculated);
 
         // Here as well as on the insert path, and before the in-place rewrite rather than beside the
         // page-search: a row that grows past the cap but still fits its current page is rewritten where it
@@ -225,7 +257,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Free the deleted row's chained long-value pages.
         var oldDescriptors = new RowDecoder(_table.Columns, format).LongValueRaw(ReadRowBytes(id));
         foreach (ColumnDef column in _table.Columns)
-            if (column.Type is JetDataType.Memo or JetDataType.Ole && oldDescriptors.TryGetValue(column.Index, out byte[]? d))
+            if ((column.Type is JetDataType.Memo or JetDataType.Ole || column.HasLongValueMap)
+                && oldDescriptors.TryGetValue(column.Index, out byte[]? d))
                 FreeLongValue(column, d);
 
         byte[] page = ArrayPool<byte>.Shared.Rent(format.PageSize);
@@ -664,7 +697,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// </summary>
     private void MaterializeLongValues(object?[] values)
     {
-        const int maxInline = 64; // Jackcess MAX_INLINE_LONG_VALUE_SIZE (Jet3 and Jet4)
+        const int maxInline = LongValueFormat.MaxInlineValue;
         LongValueWriter? writer = null;
         TableDefinitionPage? definition = null;
 
@@ -699,6 +732,34 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     // payload — anything up to 64 inlines — plus its 2-byte row-directory entry).
     private const int MaxLvalRowSize = 4076; // one LVAL page row (Jackcess MAX_LONG_VALUE_ROW_SIZE, Jet4)
     private const int MinLvalRow = 65 + 2;
+
+    /// <summary>Rejects a caller-supplied value for a calculated column, as ACE does — it refuses both an
+    /// INSERT naming one and an UPDATE setting one, with <i>"Cannot update 'x'; field not updateable."</i>
+    /// Refusing beats ignoring: a caller who passes a value expects it stored, and quietly computing
+    /// something else instead is the harder bug to find.
+    /// <para>On INSERT the test is a value in the slot, because nothing else would put one there. On UPDATE
+    /// it has to be <paramref name="changedColumns"/> — callers hand back the whole row they just read, so
+    /// the slot legitimately still holds the cached value and its presence means nothing.</para></summary>
+    private void RejectExplicitCalculatedValues(object?[] values, IReadOnlySet<int>? changedColumns)
+    {
+        foreach (ColumnDef column in _table.Columns)
+        {
+            if (!column.IsCalculated) continue;
+            bool written = changedColumns is null
+                ? values[column.Index] is not null
+                : changedColumns.Contains(column.Index);
+            if (written)
+                throw new InvalidOperationException(
+                    $"Cannot update '{column.Name}'; field not updateable. It is a calculated column, so its "
+                    + "value comes from its expression and cannot be supplied.");
+        }
+    }
+
+    /// <summary>Writes an oversized calculated result to an LVAL page and returns its in-row descriptor.
+    /// Handed to <see cref="RowEncoder"/>, which derives the value and so is the only place that knows how
+    /// big it turned out; the pages and their usage maps stay this class's business.</summary>
+    private byte[] SpillCalculated(ColumnDef column, byte[] envelope)
+        => StorePackedLongValue(column.ColumnId, envelope);
 
     /// <summary>Stores <paramref name="payload"/> on an LVAL page for long-value column
     /// <paramref name="columnId"/> — packing onto a free page as usual — and returns the in-row descriptor.

@@ -210,12 +210,17 @@ public sealed class TableDefinitionPage : Page
             ColumnDef? column = _columns.FirstOrDefault(c => c.ColumnId == colNum);
             if (column is null)
                 throw new InvalidDataException($"TDEF long-value map references unknown column id {colNum}.");
-            if (column.Type is not (JetDataType.Memo or JetDataType.Ole))
+            // A calculated column also gets a map, whatever its declared type: its cached result is stored
+            // as an envelope in the variable section and spills to an LVAL page when it outgrows the row.
+            // ACE writes one for a calculated Memo declared as Text, which this guard used to reject —
+            // and because the catalog loads every TDEF, that made the whole database unopenable.
+            if (column.Type is not (JetDataType.Memo or JetDataType.Ole) && !column.IsCalculated)
                 throw new InvalidDataException(
                     $"TDEF long-value map references non-long-value column '{column.Name}' ({column.Type}).");
             if (!seen.Add(colNum))
                 throw new InvalidDataException($"TDEF contains duplicate long-value map entries for column id {colNum}.");
 
+            column.HasLongValueMap = true;
             _longValueOwnedMaps[colNum] = (buffer.ReadByte(pos + 2), buffer.ReadInt24(pos + 3));
             _longValueFreeMaps[colNum] = (buffer.ReadByte(pos + 6), buffer.ReadInt24(pos + 7));
             pos += 10;

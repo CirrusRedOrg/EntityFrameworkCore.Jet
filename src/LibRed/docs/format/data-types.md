@@ -20,9 +20,38 @@
 | `0x0C` | Memo | long value (§8); text once resolved |
 | `0x0F` | GUID | 16 raw bytes. Stored as a *variable*-length column when declared through SQL (see below) |
 | `0x10` | FixedPoint (Numeric/Decimal) | 17 bytes: sign byte (`0x80` = negative) + 128-bit magnitude (four 32-bit little-endian words, low word last); value = magnitude / 10^scale. Precision/scale from the column descriptor (§3.4) |
+| `0x11` | *unmodelled* — see below | raw bytes |
 | `0x12` | Complex (multi-value / attachment) | descriptor parsed; contents not materialized (out of scope for SQL/EF) |
 | `0x13` | Int64 — **BIGINT** (ACE 16 / Access 2016) | 8-byte little-endian signed integer. Stored as a *variable*-length column (see below) |
 | `0x14` | DateTimeExtended — **DATETIME2** (ACE 17 / Access 2019+) | fixed 42-byte ASCII `<day>:<time>:<precision>` (see below) |
+
+> **Unmodelled codes are read, not refused.** `0x0D`, `0x0E` and `0x11` are held open in `JetDataType` as
+> `Unknown*` placeholders: a TDEF carrying one still parses, the column decodes to its **raw bytes**, and only
+> *writing* such a column is refused. This is not tidiness — the catalog reads **every** table's definition,
+> so one unrecognised column previously made the whole database unopenable. Measured: three of four real Jet 4
+> `.mdb` files taken off the web failed to open at all for this reason, and read cleanly afterwards
+> (69 tables, ~204k rows across the four).
+>
+> **`0x11` is the only one seen in the wild**, and never on a user column: it is always
+> `MSysAccessObjects.Data`, fixed length, 3992 bytes. The contents are chunks of an **OLE Compound File**
+> (signature `D0 CF 11 E0 A1 B1 1A E1`) — Access's own object storage, holding the VBA project and its
+> type-library references (one chunk reads `ado\msado21.tlb#Microsoft…`). A single stream sliced across rows.
+> LibRed hands the bytes back and does not interpret the container.
+>
+> **It belongs to the legacy object-storage table, not to any feature.** Access later replaced
+> `MSysAccessObjects` with `MSysAccessStorage`, which uses modelled types, and a file has one or the other.
+> The discriminator is **not** the format version — every Jet 4 `.mdb` measured carries page-0 version byte
+> `0x01`, and they split either way. It is the generation Access chose **when it created the database**,
+> recorded as the `AccessVersion` property on the `MSysDb` object: `08.50` (Access 2000) uses the legacy
+> store, `09.50` (Access 2002+) does not. Measured on two new databases from one Access install's New dialog,
+> one in each format. Adding a type-library reference to a current `.accdb` does **not** produce it, tested
+> because the readable chunk made that the obvious suspicion.
+>
+> So a current Access still writes `0x11` today if asked for a new Access 2000 database — but only that way.
+> A file created by anything else (DAO, LibRed) gets `MSysAccessStorage` when Access first opens it, whatever
+> its engine format, and so never grows a `0x11` column afterwards.
+>
+> `0x0D` and `0x0E` have never been observed; they are placeholders only.
 
 LibRed's scalar reader requires the exact fixed widths listed above before invoking the numeric,
 GUID, date, or decimal codec. Text, Binary, Memo/OLE descriptors, and Complex values remain

@@ -2,10 +2,12 @@
 
 using EntityFrameworkCore.Jet.FunctionalTests.TestUtilities.Xunit;
 using Xunit;
+using Xunit.Sdk;
+using Xunit.v3;
 
 #if FIXED_TEST_ORDER
 
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
+[assembly: Parallelization(Mode = ParallelMode.None)]
 [assembly: TestCollectionOrderer(typeof(AscendingTestCollectionOrderer))]
 [assembly: TestCaseOrderer(typeof(AscendingTestCaseOrderer))]
 

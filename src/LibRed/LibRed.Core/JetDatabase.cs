@@ -248,6 +248,8 @@ public sealed class JetDatabase : IDisposable
         IReadOnlyList<(string Name, string Expression)>? checkConstraints = null,
         string? primaryKeyName = null)
     {
+        ValidateCalculated(columns, [.. columns.Select(c => c.Name)]);
+        EnsureFormatForCalculated(columns);
         new Storage.TableCreator(_channel, Catalog, Collation)
             .Create(name, columns, primaryKey, relationships, uniqueConstraints, columnDefaults, checkConstraints,
                 primaryKeyName);
@@ -380,8 +382,42 @@ public sealed class JetDatabase : IDisposable
 
     /// <summary>Adds a column — ALTER TABLE … ADD COLUMN. Appends the descriptor/name and bumps the counts;
     /// existing rows read it as NULL. Returns false if the column already exists; throws for memo/OLE.</summary>
-    public bool AddColumn(string table, Catalog.ColumnSpec column, string? defaultValue = null) =>
-        new Storage.TableCreator(_channel, Catalog, Collation).AddColumn(table, column, defaultValue);
+    public bool AddColumn(string table, Catalog.ColumnSpec column, string? defaultValue = null)
+    {
+        if (column.CalculatedExpression is not null)
+        {
+            // An added column can read the ones already there, and itself is now among them.
+            List<string> visible = [.. OpenTable(table).Definition.Columns.Select(c => c.Name), column.Name];
+            ValidateCalculated([column], visible);
+            EnsureFormatForCalculated([column]);
+        }
+        return new Storage.TableCreator(_channel, Catalog, Collation).AddColumn(table, column, defaultValue);
+    }
+
+    /// <summary>Raises the file to ACE 14 when a calculated column is being created — the floor its own
+    /// <c>FCMinReadVer</c> property declares. Raising rather than refusing is what ACE does for a feature the
+    /// file is too old for, and is how <c>BIGINT</c> and <c>DATETIME2</c> are already handled; it joins the
+    /// caller's transaction, so a failed CREATE takes the version back down with it.</summary>
+    private void EnsureFormatForCalculated(IReadOnlyList<Catalog.ColumnSpec> columns)
+    {
+        foreach (Catalog.ColumnSpec column in columns)
+            if (column.CalculatedExpression is not null)
+            {
+                EnsureFormatAtLeast(JetVersion.Version14_2010);
+                return;
+            }
+    }
+
+    /// <summary>Validates every calculated column in <paramref name="columns"/> against
+    /// <paramref name="visible"/> before any of it is written. Runs first because the failure it prevents is
+    /// unrecoverable in place: a column whose expression ACE rejects cannot be read or populated at all.</summary>
+    private static void ValidateCalculated(
+        IReadOnlyList<Catalog.ColumnSpec> columns, IReadOnlyCollection<string> visible)
+    {
+        foreach (Catalog.ColumnSpec column in columns)
+            if (column.CalculatedExpression is { } expression)
+                Storage.Calculated.CalculatedExpression.ParseValidated(expression, visible, column.Name);
+    }
 
     /// <summary>Drops an index — DROP INDEX … ON table. Removes its TDEF blocks and frees its B-tree root.
     /// Returns false if the index doesn't exist; throws if it backs a relationship.</summary>

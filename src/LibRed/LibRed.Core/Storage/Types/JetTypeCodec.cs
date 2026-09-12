@@ -14,9 +14,16 @@ namespace LibRed.Storage.Types;
 public static class JetTypeCodec
 {
     /// <summary>Decodes a single non-null column value from its raw bytes.</summary>
-    public static object? Decode(ColumnDef column, ReadOnlySpan<byte> value)
+    public static object? Decode(ColumnDef column, ReadOnlySpan<byte> value) => Decode(column, column.Type, value);
+
+    /// <summary>Decodes <paramref name="value"/> as <paramref name="type"/> rather than the column's declared
+    /// type. Only a calculated column needs this: ACE promotes its descriptor type to a wider storage type
+    /// (Boolean→Int16, Byte/Int16→Int32, Single→Double) while storing the payload at its natural width, so the
+    /// stored width is what says how to read it. <paramref name="column"/> still supplies the name for errors
+    /// and the scale for <c>FixedPoint</c>.</summary>
+    internal static object? Decode(ColumnDef column, JetDataType type, ReadOnlySpan<byte> value)
     {
-        int expectedLength = column.Type switch
+        int expectedLength = type switch
         {
             JetDataType.Byte => 1,
             JetDataType.Int16 => 2,
@@ -29,9 +36,9 @@ public static class JetTypeCodec
         };
         if (expectedLength >= 0 && value.Length != expectedLength)
             throw new InvalidDataException(
-                $"Column '{column.Name}' ({column.Type}) has {value.Length} bytes; expected {expectedLength}.");
+                $"Column '{column.Name}' ({type}) has {value.Length} bytes; expected {expectedLength}.");
 
-        switch (column.Type)
+        switch (type)
         {
             case JetDataType.Boolean:
                 return value.Length > 0 && value[0] != 0;
@@ -208,7 +215,13 @@ public static class JetTypeCodec
     /// one reaches here as the pre-built descriptor of a value
     /// <see cref="LibRed.Storage.RowInserter"/> has already put on LVAL pages.
     /// </summary>
-    public static byte[] Encode(ColumnDef column, object value)
+    public static byte[] Encode(ColumnDef column, object value) => Encode(column, column.Type, value);
+
+    /// <summary>Encodes <paramref name="value"/> as <paramref name="type"/> rather than the column's declared
+    /// type — the write-side counterpart of the <see cref="Decode(ColumnDef, JetDataType, ReadOnlySpan{byte})"/>
+    /// overload, and needed for the same reason: a calculated column's payload is encoded in its
+    /// <c>ResultType</c>, not in the promoted type its descriptor carries.</summary>
+    internal static byte[] Encode(ColumnDef column, JetDataType type, object value)
     {
         var c = System.Globalization.CultureInfo.InvariantCulture;
 
@@ -224,7 +237,7 @@ public static class JetTypeCodec
         if (value is bool boolean)
             value = (short)(boolean ? -1 : 0);
 
-        switch (column.Type)
+        switch (type)
         {
             case JetDataType.Byte:
                 return [Convert.ToByte(value, c)];
@@ -446,7 +459,7 @@ public static class JetTypeCodec
     /// This is the exact shape <see cref="LibRed.Storage.LongValueReader"/> reads back for an inline
     /// value.
     /// </summary>
-    private static byte[] EncodeInlineLongValue(ReadOnlySpan<byte> payload)
+    internal static byte[] EncodeInlineLongValue(ReadOnlySpan<byte> payload)
     {
         LongValueFormat.ValidateLength(payload.Length);
         var result = new byte[12 + payload.Length];

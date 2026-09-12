@@ -39,7 +39,7 @@ Version byte → format:
 | `0x01` | Jet 4 (Access 2000–2003) | 4096 | MDB |
 | `0x02` | ACE 12 (Access 2007) | 4096 | ACCDB |
 | `0x03` | ACE 14 (Access 2010) | 4096 | ACCDB |
-| `0x04` | ACE 15 (Access 2013) — **reserved, never emitted** | 4096 | ACCDB |
+| `0x04` | ACE 15 (Access 2013) — **never emitted, and ACE refuses to open a file carrying it** | 4096 | ACCDB |
 | `0x05` | ACE 16 (Access 2016) — triggered by **Large Number** | 4096 | ACCDB |
 | `0x06` | ACE 17 (Access 2019+) — triggered by **Date/Time Extended** | 4096 | ACCDB |
 
@@ -53,9 +53,22 @@ The version byte is **"the minimum ACE engine whose format features this file us
 byte per engine release whether or not that release adds a format-forcing feature. The only features that push
 past `0x03` are the two new *data types*: **Large Number** (Int64) → `0x05`, and **Date/Time Extended** (datetime2)
 → `0x06`. Access **2010 through 2019 all default to `0x03`** unless a file actually uses one of those types.
-**`0x04` (ACE 15 / Access 2013) is reserved but never stamped** — 2013 added no format-forcing data type, so its
+**`0x04` (ACE 15 / Access 2013) is never stamped** — 2013 added no format-forcing data type, so its
 files fall back to `0x03` (verified: a real `db2013` reads `0x03`; jackcess ships no 2013 fixture; Access 2013
 defaults to the 2007-2016 format). LibRed maps `0x04` to the `0x03` (2010) layout rather than a clone class.
+
+> **And ACE does not merely avoid `0x04` — it REFUSES it.** Measured 2026-09-13: an otherwise well-formed,
+> *empty* database created at `0x04` cannot be opened by any installed provider, and restamping offset `0x14`
+> to `0x03` makes the identical bytes open
+> (`AceWriteValiditySweepProbeTests.Ace_refuses_the_0x04_version_byte_and_nothing_else_about_the_file`).
+>
+> This supersedes the earlier wording, which called the byte "reserved". That was an inference from **absence**
+> — no `0x04` file had ever been seen, and no 2013 feature was known that could force one — not a measurement,
+> and it left open the possibility that the byte was merely unused. It is not: the engine rejects it. Because
+> the file format at `0x04` is otherwise exactly `0x03`, a reader has nothing to gain by refusing the byte and a
+> writer has everything to lose by emitting it, so LibRed is **asymmetric** about it on purpose:
+> `FromVersionByte` still accepts `0x04` and reads it as the 2010 layout, while `DatabaseCreator.CreateEmpty`
+> refuses to *write* it and points the caller at `Version14_2010`.
 A genuinely **unknown** version byte on an `.accdb` that still carries the cleartext `"4.0"` engine string at
 `0x9C` is read as the **latest known ACE** layout (currently ACE 17) — the format grows conservatively, so an
 unrecognised byte is almost certainly a newer 4KB ACE variant; the `"4.0"` guard stops a genuinely different

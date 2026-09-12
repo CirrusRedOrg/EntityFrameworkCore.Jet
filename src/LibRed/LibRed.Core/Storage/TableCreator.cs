@@ -2045,7 +2045,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // 3. Pre-check: convert every target value in memory BEFORE touching disk. An unconvertible value
         //    (e.g. non-numeric text → INT) throws here, with nothing written — the caller sees a clean failure.
         foreach (object?[] row in rows)
-            row[targetIndex] = ConvertValue(row[targetIndex], newColumnSpec.Type);
+            row[targetIndex] = ConvertValue(row[targetIndex], newColumnSpec.Type, newColumnSpec.Name);
 
         // 4. Apply the rebuild atomically: wrap it in a page-level transaction so any failure that slips past the
         //    pre-check (a unique-index collision after narrowing, NOT NULL, an I/O or allocation error) rolls the
@@ -2228,7 +2228,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         var rows = new Table(_channel, oldDef).Rows().WithIds()
             .Select(r => (r.Id, Raw: reader.ReadRow(r.Id), Values: (object?[])r.Values.Clone()))
             .ToList();
-        foreach (var r in rows) r.Values[oldTarget.Index] = ConvertValue(r.Values[oldTarget.Index], newSpec.Type);
+        foreach (var r in rows)
+            r.Values[oldTarget.Index] = ConvertValue(r.Values[oldTarget.Index], newSpec.Type, newSpec.Name);
 
         // The fixed-region length is authoritative from the existing rows (their var-data-start), NOT the live
         // column descriptors — those diverge once a high-offset column has been retyped to variable and left a
@@ -2487,9 +2488,36 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
     /// <summary>Converts a stored value to the CLR type for a new column type (ALTER COLUMN). NULL stays NULL;
     /// an unconvertible value throws (as ACE's rewrite would).</summary>
-    private static object? ConvertValue(object? value, JetDataType type)
+    /// <remarks>Throwing is the intent; the type has to be actionable. The bare <c>Convert.To*</c> calls leaked
+    /// <see cref="InvalidCastException"/>/<see cref="FormatException"/>/<see cref="OverflowException"/>, none
+    /// naming the column and none distinguishable from a bug in the rewrite.</remarks>
+    private static object? ConvertValue(object? value, JetDataType type, string columnName)
     {
         if (value is null) return null;
+        try
+        {
+            return ConvertCore(value, type);
+        }
+        catch (Exception ex) when (ex is InvalidCastException or FormatException or OverflowException
+                                      or ArgumentException)
+        {
+            throw new InvalidOperationException(
+                $"Column '{columnName}' cannot be changed to {type}: the existing value "
+                + $"'{Describe(value)}' ({value.GetType().Name}) cannot be converted to it.", ex);
+        }
+    }
+
+    /// <summary>Bounded rendering for an error message, so a memo does not paste thousands of characters into
+    /// one.</summary>
+    private static string Describe(object value) => value switch
+    {
+        byte[] bytes => $"{bytes.Length} bytes",
+        string { Length: > 40 } text => $"{text[..40]}…",
+        _ => value.ToString() ?? "",
+    };
+
+    private static object? ConvertCore(object value, JetDataType type)
+    {
         var inv = System.Globalization.CultureInfo.InvariantCulture;
         return type switch
         {

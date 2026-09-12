@@ -219,6 +219,40 @@ public static class TdefBuilder
         return new Result(page, columns);
     }
 
+    /// <summary>The precision written to the descriptor. A declared 0 resolves to <b>18</b> — ACE's default for
+    /// a bare <c>DECIMAL</c>, and <c>AccessTypeMapper</c>'s — because a 0 on disk leaves the value with no
+    /// declared shape and ACE cannot materialise such a column (<c>AceCoreApiShapeProbeTests</c>,
+    /// <c>decimal-precision-zero</c>). FixedPoint only: elsewhere those bytes are the LANGID.</summary>
+    private static byte EffectivePrecision(ColumnSpec spec) =>
+        spec.Type == JetDataType.FixedPoint && spec.Precision == 0
+            ? DefaultNumericPrecision
+            : spec.Precision;
+
+    /// <summary>What ACE declares for a bare <c>DECIMAL</c> or <c>NUMERIC</c> — measured, not assumed
+    /// (<c>AceDecimalDeclarationProbeTest</c>), and the SQL front end's default too. ACE never writes precision
+    /// 0: none of the 127 FixedPoint columns across 36 fixtures carries one.</summary>
+    private const byte DefaultNumericPrecision = 18;
+
+    /// <summary>A NUMERIC/DECIMAL column's declared precision and scale, which nothing else checked — the width
+    /// check covers only the fixed 17 bytes. <c>AccessTypeMapper</c> enforces this on the SQL path; a direct
+    /// Core caller bypasses it. Precision 0 means "unspecified" (see <see cref="EffectivePrecision"/>), not zero
+    /// digits, so only a positively wrong declaration is refused.</summary>
+    private static void ValidateNumericPrecision(ColumnSpec spec)
+    {
+        if (spec.Type is not JetDataType.FixedPoint || spec.Precision == 0) return;
+
+        if (spec.Precision > Storage.Types.JetTypeCodec.MaxNumericPrecision)
+            throw new NotSupportedException(
+                $"Column '{spec.Name}' declares NUMERIC precision {spec.Precision}; Jet/ACE allows at most "
+                + $"{Storage.Types.JetTypeCodec.MaxNumericPrecision}.");
+
+        if (spec.Scale > spec.Precision)
+            throw new NotSupportedException(
+                $"Column '{spec.Name}' declares NUMERIC scale {spec.Scale} under precision {spec.Precision}; "
+                + "the scale cannot exceed the precision — that would be more digits after the decimal point "
+                + "than the column has in total.");
+    }
+
     private static void ValidateColumnSpecs(JetFormatBase format, IReadOnlyList<ColumnSpec> specs)
     {
         if (specs.Count > MaxColumnsPerTable)
@@ -249,6 +283,7 @@ public static class TdefBuilder
                     $"Column '{spec.Name}' has byte length {spec.Length}, which does not fit the TDEF field.");
             RecordLayout.ValidateFieldWidth(spec.Name, spec.Type, spec.Length);
             JetDataTypeVersions.EnsureStorable(spec.Type, format.Version, spec.Name);
+            ValidateNumericPrecision(spec);
             if (spec.IsFixedLength && spec.Type != JetDataType.Boolean)
                 fixedBytes += spec.Length;
             if (!spec.IsFixedLength) variableColumns++;
@@ -517,7 +552,7 @@ public static class TdefBuilder
                 CalculatedExpression = s.CalculatedExpression,
                 CalculatedResultType = s.CalculatedResultType,
                 SystemFlags = s.SystemFlags,
-                Precision = s.Precision,
+                Precision = EffectivePrecision(s),
                 Scale = s.Scale,
                 // Numeric columns carry no collation (their 0x0B/0x0C bytes are precision/scale); every
                 // other column inherits the database's collating order.

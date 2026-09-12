@@ -58,6 +58,29 @@ GUID, date, or decimal codec. Text, Binary, Memo/OLE descriptors, and Complex va
 variable-length. A width mismatch is treated as row corruption (`InvalidDataException`) rather
 than being allowed to fail incidentally inside a primitive decoder.
 
+**A `NUMERIC`/`DECIMAL` column's declared precision is a contract the payload cannot express, and ACE enforces
+it on write.** The stored form is the same 17 bytes — a sign byte plus a 128-bit magnitude — whatever the column
+declares, so a 20-digit value occupies a `DECIMAL(18,4)` exactly as comfortably as a 2-digit one and nothing on
+disk records that it is out of contract. ACE therefore checks the value against the declaration instead, and
+refuses what will not fit with *"The decimal field's precision is too small to accept the numeric you attempted
+to add."* The permitted magnitude follows the standard rule: `p` total digits with `s` after the point, so at
+most `p − s` before it, and `DECIMAL(18,4)` accepts up to `99999999999999.9999` and refuses `10^14`.
+
+The enforcement covers **every path that can put a value in the column** — `INSERT`, `UPDATE`,
+`INSERT … SELECT`, and an `ALTER COLUMN` that *narrows* the declaration over rows already stored. That last one
+is what makes it an invariant over the whole column rather than a filter on one statement: ACE will not shrink
+a declaration to something its existing data would violate.
+
+> Scale is treated differently and is **not** refused: excess decimals are coerced, and **ACE truncates toward
+> zero**. `1.23456` into a `DECIMAL(18,4)` stores `1.2345`, `1.99999` stores `1.9999`, `-1.23455` stores
+> `-1.2345` — measured over both midpoint parities and both signs, and equal to truncation in every case.
+>
+> LibRed matches it in `JetTypeCodec.EncodeNumeric`, and `IndexKeyEncoder.EncodeFixedPoint` **must** quantise
+> identically: the key is the same unscaled integer the row stores, so quantising one differently files a value
+> under a number its row does not contain. Until 2026-09-13 both used `decimal.Round(…, 0)` (`ToEven`), storing
+> `1.2346` and `2.0000` for ACE's `1.2345` and `1.9999` — consistently with each other, which is why only a
+> differential test could see it.
+
 **`BIGINT` is variable-length despite being a fixed 8 bytes.** ACE puts it behind the row's variable offset
 table rather than in the fixed region — a descriptor carrying length 8 with the fixed flag clear (verified: a
 column ACE created reads back `length=8 fixed=False`, and the row lays the value out at a variable-column
@@ -235,8 +258,17 @@ Points verified against ACE that aren't obvious from that page:
   row-assembly path for variable ones (`RowEncoder.AssembleRow`, so the ALTER re-lay passes it too).
 - **Narrowing an existing column is checked against its rows.** `ALTER TABLE … ALTER COLUMN c TEXT(5)` on a
   column holding wider values is refused rather than leaving rows that violate the declaration.
-- `DECIMAL(p,s)` / `NUMERIC(p,s)` use precision `1..28` and scale `0..p`; LibRed rejects dimensions outside
-  those ACE/.NET decimal bounds before allocating or writing a table definition.
+- `DECIMAL(p,s)` / `NUMERIC(p,s)` use precision `1..28` and scale `0..p`, and these are **ACE's own bounds,
+  refused at DDL with two distinct messages**: *"Invalid precision for decimal data type."* for `(0)`, `(0,0)`
+  and `(29)`, *"Invalid scale for decimal data type."* for `(5,7)`. `(1,0)` and `(28,28)` are both accepted, so
+  scale may equal precision — and `(28,28)` is usable rather than merely declarable: with no digits left in
+  front of the point it holds values below 1, keeping all 28 decimals, and both engines refuse `1`. **Size-less `DECIMAL` and `NUMERIC` default to precision 18, scale 0** — the same
+  kind of default as the 255/510 above — while an explicit `(p)`/`(p,s)` is stamped exactly as written; the
+  column is 17 bytes and fixed-length either way. **A precision of 0 cannot be declared at all**, which fits
+  ACE's own OLE DB reader being unable to materialise such a column — a 0 leaves the value no declared shape to
+  be read back into. Measured in `AceDecimalDeclarationProbeTest`. LibRed rejects out-of-range dimensions in
+  `AccessTypeMapper` and, because a direct Core caller bypasses that, in `TdefBuilder` too; an unspecified
+  precision resolves to 18 on write rather than reaching the file as 0.
 - The grammar parses **two-word** type names (`CHARACTER VARYING`, `BIT VARYING`); three-word
   (`NATIONAL CHARACTER VARYING`) is not parsed yet. `HYPERLINK`/`XML`/`SQL_VARIANT`/`VARIANT`/`COMP` have no
   mapping (rejected, as ACE also rejects them).

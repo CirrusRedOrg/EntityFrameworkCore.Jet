@@ -309,7 +309,9 @@ public static class IndexKeyEncoder
     {
         decimal factor = 1m;
         for (int i = 0; i < scale; i++) factor *= 10m;
-        decimal magnitude = decimal.Truncate(decimal.Round(Math.Abs(value) * factor, 0));
+        // Truncated toward zero, matching ACE and — necessarily — JetTypeCodec.EncodeNumeric: quantise a key
+        // differently from its row and the value is indexed under a number the row does not contain.
+        decimal magnitude = decimal.Truncate(Math.Abs(value) * factor);
         int[] bits = decimal.GetBits(magnitude); // [lo, mid, hi, flags]; magnitude has scale 0
 
         var key = new byte[17];

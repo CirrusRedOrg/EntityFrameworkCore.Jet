@@ -2027,7 +2027,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         var specs = def.Columns.Select(c => c.Index == targetIndex
             ? newColumnSpec with { IsNullable = target.IsNullable, RawDescriptor = null }
             : new ColumnSpec(c.Name, c.Type, c.Length, c.IsFixedLength, c.IsAutoNumber, c.Precision, c.Scale,
-                c.IsNullable, c.Seed, c.Increment, RawDescriptor: c.RawDescriptor)).ToList();
+                c.IsNullable, c.Seed, c.Increment, RawDescriptor: c.RawDescriptor,
+                CalculatedExpression: c.CalculatedExpression, CalculatedResultType: c.CalculatedResultType)).ToList();
 
         IndexDef? pk = def.Indexes.FirstOrDefault(i => i.IsPrimaryKey);
         IReadOnlyList<string>? primaryKey = pk?.Columns.Select(c => c.Column.Name).ToList();
@@ -2072,7 +2073,17 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             _catalog.Invalidate();
 
             var dest = new Table(_channel, _catalog.FindTable(tableName)!);
-            foreach (object?[] row in rows) dest.Insert(row);
+            int[] calculatedColumns = dest.Definition.Columns
+                .Where(c => c.IsCalculated)
+                .Select(c => c.Index)
+                .ToArray();
+            foreach (object?[] row in rows)
+            {
+                // A calculated value is a cache, not caller-supplied data. Recompute it from its expression
+                // while rebuilding, as an ordinary insert does; reinserting the old cache is rejected.
+                foreach (int index in calculatedColumns) row[index] = null;
+                dest.Insert(row);
+            }
 
             // Restore each index AS IT WAS. IgnoreNulls and Required are read off the 0x2E flags word and are
             // right here on the IndexDef; hard-coding them false made an ALTER COLUMN on an unrelated column
@@ -2395,34 +2406,81 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         return newRoot;
     }
 
-    /// <summary>Recycles an index's owned-pages usage-map row exactly the way ACE does on a rebuild: append a
-    /// fresh row and set the new root's bit (ACE's first write, at the appended slot), then MOVE that map into
-    /// the old row's freed slot and soft-delete the old row (a 0-length deleted+overflow tombstone) — leaving
-    /// the appended slot's bytes stale in free space, byte-for-byte as ACE does. Returns the new row number.</summary>
+    /// <summary>
+    /// Recycles an index's owned-pages usage-map row the way ACE does on a rebuild, in the two writes whose
+    /// combined result is observable on disk: <b>(1)</b> append a fresh row at the bottom of the holder page
+    /// and set the new root's bit — those bytes are then abandoned and stay as a stale copy; <b>(2)</b> lay
+    /// the page out again with the old row's record <b>reclaimed</b>: its slot becomes a 0-length
+    /// deleted+overflow tombstone at the preceding record's offset, every later row keeps its number while its
+    /// record slides up, and the fresh map takes the position freed at the end of the live region under the
+    /// appended row number. Returns that number — the only pointer the caller re-points, because no other
+    /// row's number changes and each one's data travels with it.
+    /// </summary>
+    /// <remarks>
+    /// Both halves are load-bearing and each was missed once. The stale copy decides a whole-file byte diff
+    /// against ACE on a single byte (the new root's bit, at offset 49 of the abandoned record) and is
+    /// invisible to free-space accounting, since it lies below the lowest live record inside the region free
+    /// space already covers. The compaction is invisible to slot offsets alone and shows up only when records
+    /// are identified by content — ACE's own page, before → after, with a long-value column's maps below the
+    /// index's:
+    /// <code>
+    /// before  row2 @3889 pages=[353]   row3 @3820 pages=[]   row4 @3751 pages=[]
+    /// after   row2 @3958 TOMBSTONE     row3 @3889 pages=[]   row4 @3820 pages=[]   row5 @3751 pages=[355]
+    ///         stale: @3731 = 0x08      (the abandoned append, at 3682)
+    /// </code>
+    /// The long-value maps slid up a record width and kept rows 3 and 4; only the index's pointer moved, to
+    /// the appended row 5. Writing step (1)'s record into the old row's slot instead — which produces the same
+    /// bytes whenever the recycled row happens to be the LAST one, the only case an ACE-built schema gives —
+    /// points a slot back up the page as soon as it is not, and no reader can walk that: a row's extent runs
+    /// to where the previous slot begins. <c>AlterColumnTypeInPlace</c> scans the table through this map
+    /// immediately afterwards, so the <c>ALTER</c> failed outright on any table that had gained a Memo or OLE
+    /// column after its index.
+    /// </remarks>
     private int RecycleOwnedMapRow(JetFormatBase format, int usageMapPage, int oldRow, int newRoot)
     {
-        const int MapLength = 1 + 4 + 64;
         int dir = format.DataRowDirectoryOffset;
-        int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(_channel.ReadPage(usageMapPage).Span.Slice(format.DataRowCountOffset, 2));
+        int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(
+            _channel.ReadPage(usageMapPage).Span.Slice(format.DataRowCountOffset, 2));
         int newRow = rowCount;
+        if (oldRow < 0 || oldRow >= rowCount)
+            throw new InvalidDataException(
+                $"Usage-map row {usageMapPage}:{oldRow} does not exist; the page has {rowCount} rows.");
 
-        // ACE's first write: append a fresh row and set the new root's bit (this copy is later left stale).
+        // (1) ACE's first write, kept verbatim: the appended row is where the new root's bit is set, and the
+        // bytes it leaves behind are part of the file ACE produces.
         AppendEmptyUsageMapRow(format, usageMapPage, newRow);
         new UsageMapWriter(_channel).SetBit(newRow, usageMapPage, newRoot, set: true);
 
-        // Then move that map into the old row's freed slot and turn the old row into a tombstone; the appended
-        // slot's bytes are left in place (stale, in free space) — matching ACE's leftover.
+        // (2) Re-lay the live records. Starting from the page as it stands keeps everything this does not
+        // write — the abandoned append included — exactly where ACE leaves it.
         byte[] page = _channel.ReadPage(usageMapPage).Span.ToArray();
-        int freshOffset = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir + newRow * 2, 2)) & RowPointer.OffsetMask;
-        int oldOffset = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir + oldRow * 2, 2)) & RowPointer.OffsetMask;
-        int aboveOffset = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(dir + (oldRow - 1) * 2, 2)) & RowPointer.OffsetMask;
+        var holder = new DataPage();
+        holder.Read(_channel.ReadPage(usageMapPage), format);
 
-        Array.Copy(page, freshOffset, page, oldOffset, MapLength);                 // move the map into the old slot
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir + newRow * 2, 2), (ushort)oldOffset);
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir + oldRow * 2, 2),
-            (ushort)(aboveOffset | RowPointer.DeletedFlag | RowPointer.OverflowFlag)); // old row → 0-length tombstone
+        var records = new byte[rowCount + 1][];
+        var flags = new ushort[rowCount + 1];
+        for (int i = 0; i <= rowCount; i++)
+        {
+            records[i] = i == oldRow ? [] : page.AsSpan(holder.Rows[i].Offset, holder.Rows[i].Length).ToArray();
+            flags[i] = (ushort)((i == oldRow || holder.Rows[i].IsDeleted ? RowPointer.DeletedFlag : 0)
+                                | (i == oldRow || holder.Rows[i].HasOverflow ? RowPointer.OverflowFlag : 0));
+        }
+
+        int directoryEnd = dir + (rowCount + 1) * 2;
+        int offset = format.PageSize;
+        for (int i = 0; i <= rowCount; i++)
+        {
+            offset -= records[i].Length;                  // a 0-length tombstone lands on the previous start
+            if (offset < directoryEnd)
+                throw new InvalidOperationException(
+                    $"Usage-map page {usageMapPage} has no room to recycle row {oldRow}: {rowCount} rows already. "
+                    + "The new map belongs on a page of its own.");
+            records[i].CopyTo(page.AsSpan(offset));
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir + i * 2, 2),
+                (ushort)(flags[i] | (offset & RowPointer.OffsetMask)));
+        }
         BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
-            (ushort)(oldOffset - (dir + (rowCount + 1) * 2)));
+            (ushort)(offset - directoryEnd));
         _channel.WritePage(usageMapPage, page);
         return newRow;
     }

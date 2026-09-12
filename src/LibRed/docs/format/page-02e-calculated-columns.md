@@ -242,6 +242,10 @@ type including a spilled Memo (`Creates_a_calculated_column_ace_accepts`).
 
 **`ALTER` is measured, not assumed.** `ADD COLUMN`, `DROP COLUMN`, `ALTER COLUMN` (retype) and
 `RenameColumn` all leave a calculated column working — the last only since the reference-repointing fix.
+Where an unrelated column's retype requires LibRed's full table rebuild (for example Memo → Text), the
+rebuild carries each calculated column's `Expression`/`ResultType` properties along with its descriptor and
+regenerates its cached value from the expression; a cached value is not caller-supplied data and cannot be
+reinserted verbatim.
 Dropping a column an expression reads is **refused**, which ACE does not do; see the probe below.
 
 **Text compression follows the declared type**, and the encoding rule is in

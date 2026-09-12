@@ -109,12 +109,38 @@ numbers, so appended pointer-shaped bytes or pointers to ordinary data pages can
 > **Owned-row recycle on an index rebuild (verified vs ACE, §3.8).** When ACE rebuilds an index (e.g. an
 > `ALTER COLUMN` on an indexed column) it gives the index a **new** owned-pages usage-map row rather than
 > editing the old one in place, in two steps whose leftover is observable on disk: **(1)** append a fresh row
-> at the end of the usage-map data page and set the new root's bit; **(2)** **move** that map into the *old*
-> row's freed slot (its row-directory entry now points there) and turn the **old** row into a **0-length
-> deleted + overflow tombstone** — leaving the bytes at the *appended* slot **stale in free space** (never
-> reclaimed). The index-data block's usage-map row field (`0x22`, §3.5) is re-pointed to the recycled row
-> number. LibRed reproduces this exactly (`RecycleOwnedMapRow`), including the stale appended bytes, so the
-> whole file matches ACE byte-for-byte.
+> at the end of the usage-map data page and set the new root's bit — those bytes are then **abandoned** and
+> stay behind, stale, in free space; **(2)** **re-lay** the live records with the *old* row's record
+> **reclaimed**: its slot becomes a **0-length deleted + overflow tombstone** at the preceding record's
+> offset, every later row **keeps its number** while its record slides up by the reclaimed width, and the
+> fresh map takes the position freed at the end of the live region under the appended row number. The
+> index-data block's usage-map row field (`0x22`, §3.5) is re-pointed to that number; **no other pointer
+> changes**, because no other row's number does. LibRed reproduces this exactly (`RecycleOwnedMapRow`),
+> abandoned bytes included, so the whole file matches ACE byte-for-byte
+> (`OwnedMapRecycleAccessTests`). Measured on ACE's own page, records identified by content, with a
+> long-value column's maps sitting below the index's:
+>
+> ```
+> before  row2 @3889 pages=[353]   row3 @3820 pages=[]   row4 @3751 pages=[]     free=3727
+> after   row2 @3958 TOMBSTONE     row3 @3889 pages=[]   row4 @3820 pages=[]     free=3725
+>         row5 @3751 pages=[355]   ← the new map, under the appended row number
+>         stale @3731 = 0x08       ← step (1)'s abandoned record, at 3682
+> ```
+>
+> The long-value maps slid up a record width and kept rows 3 and 4; only the index's pointer moved, to row 5.
+>
+> > **Each half hides from a different measurement, and each was got wrong once.** The abandoned copy lies
+> > *below* the lowest live record, inside the region free space already covers, so slot offsets and
+> > free-space arithmetic both read the page as though it were not there — which is how one investigation
+> > concluded "nothing is left stale" and dropped step (1), costing a single byte against ACE. The re-lay is
+> > invisible to offsets alone, because a moved record and a slid record occupy the same places; only
+> > identifying records **by content** separates them. And the two are indistinguishable altogether when the
+> > recycled row is the **last** one — the only kind an ACE-built schema produces, since a long-value column
+> > declared in `CREATE TABLE` takes its map rows before the index's. So writing step (1)'s record into the
+> > old row's slot passes every last-row shape, and then points a slot back **up** the page the moment a
+> > Memo/OLE column is added *after* an index — which no reader can walk, a row's extent running to where the
+> > previous slot begins. Only the whole-file byte diff against ACE catches both halves; it is the standard
+> > this section is held to.
 
 
 ### 9.1 Global free-pages map — page 1 (page allocation)

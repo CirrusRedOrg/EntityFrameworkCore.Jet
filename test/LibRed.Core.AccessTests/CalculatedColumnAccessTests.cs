@@ -1522,6 +1522,39 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // A Memo/OLE retype takes the full RewriteColumn path rather than the in-place descriptor edit.
+    // That rebuild must carry the calculated column's LvProp entries as well as its descriptor: the
+    // descriptor's calculated flag alone is not sufficient for ACE to know the cached payload's type.
+    [Fact]
+    public void Access_reads_a_calculated_column_after_an_unrelated_full_column_rewrite()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "calc-rewrite-");
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                db.CreateTable("CalcRewrite",
+                [
+                    new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                    new ColumnSpec("Qty", JetDataType.Int32, 4, IsFixedLength: true),
+                    ColumnSpec.Calculated("TwiceQty", JetDataType.Int32, "[Qty] * 2"),
+                    new ColumnSpec("Notes", JetDataType.Memo, 0, IsFixedLength: false),
+                ], primaryKey: ["Id"]);
+                db.OpenTable("CalcRewrite").Insert([1, 7, null, "before rewrite"]);
+
+                // Memo -> Text cannot be an in-place edit, so it exercises RewriteColumn.
+                db.AlterColumn("CalcRewrite", "Notes",
+                    new ColumnSpec("Notes", JetDataType.Text, 200, IsFixedLength: false));
+            }
+
+            using var connection = AceTestDatabase.Open(path);
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT TwiceQty FROM CalcRewrite WHERE Id = 1";
+            Assert.Equal(14, Convert.ToInt32(command.ExecuteScalar()));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     /// <summary>Opens the database with DAO, applies <paramref name="mutate"/> to one field of a saved
     /// TableDef, and reports what happened.</summary>
     private static string DaoField(object workspace, string path, string table, string column, Action<object> mutate)

@@ -350,7 +350,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// <c>0FED 0FDA CFDA</c>, with free space rising by 19 in each case.
     /// </para>
     /// </summary>
-    private static void ReclaimRow(JetFormatBase format, byte[] page, int row)
+    internal static void ReclaimRow(JetFormatBase format, byte[] page, int row)
     {
         int rowCount = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowCountOffset, 2));
         int Offset(int i) => BinaryPrimitives.ReadUInt16LittleEndian(

@@ -949,6 +949,30 @@ this is the practical cost of General over General Legacy, invisible in the sche
   re-encoding each stored key's row value; descending has no ACE fixture and is extrapolated from the
   verified GUID descending (ordering-tested for internal consistency). `IndexKeyEncoder.EncodeBinaryChunked`.
 
+### 10.4a Entry removal — LibRed compacts a leaf harder than ACE does
+
+Removing entries leaves the two engines with **identical index content and byte-different pages**. LibRed
+rewrites the leaf without the removed entries; ACE returns less of their space.
+
+> Measured after the same `DROP TABLE` on copies of one file. All three catalog index roots touched held the
+> *same entries in the same order* in both files, while their free-space fields diverged:
+>
+> | index root | before | ACE | LibRed |
+> |---|---|---|---|
+> | `MSysObjects.ParentIdName` | 3,046 | 3,064 | 3,136 |
+> | `MSysObjects.Id` | 3,436 | 3,445 | 3,463 |
+> | `MSysACEs.ObjectId` | 3,256 | 3,274 | 3,311 |
+>
+> Since the surviving entries then sit at different offsets, the pages differ widely (528 / 141 / 288 bytes)
+> despite agreeing on every entry. This is index maintenance, not a drop artefact — any `DELETE` removing
+> entries does it.
+
+**Not currently treated as a defect.** The logical content matches, and ACE goes on writing into these very
+indexes in a LibRed-compacted file — after a LibRed drop it inserted rows, allocated pages and added catalog
+entries normally. Packing tighter is also the conservative direction. What is *not* established is why ACE
+leaves the space; if a scenario ever turns up that requires matching it byte for byte, this is the knob, and
+matching would mean deliberately compacting **less**.
+
 ### 10.5 Insertion and splitting
 
 To insert a key, descend from the index root (§3.5 offset `0x26`) following node separators — a

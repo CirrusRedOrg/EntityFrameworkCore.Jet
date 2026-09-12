@@ -876,11 +876,101 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
 
         int tdefPage = table.DefinitionPage;
         var allocator = new PageAllocator(_channel);
+        var maps = new UsageMap(_channel, table);
+
+        // A Memo/OLE (or calculated long) column owns its LVAL pages through a PER-COLUMN usage map, whose
+        // pointer sits in the TDEF keyed by column id. Those pages are not in the table's data-page map, so
+        // freeing only the data pages leaves every long value stranded — and for a memo-heavy table that is
+        // nearly the whole table. Measured against ACE: dropping a 60-row memo table returned 123 pages
+        // through ACE and 2 through LibRed, the missing 121 being LVAL pages.
+        // Collect before freeing anything: the pointers are read out of the TDEF, which this method frees.
+        var owned = new HashSet<int>();
+        // Through the chain reader: a wide table's definition spans continuation pages, and parsing only the
+        // first one throws on the declared length. (The map POINTERS below are at fixed offsets inside the
+        // first page, so those are read from it directly, as UsageMap does.)
+        var definition = new TableDefinitionPage();
+        definition.Read(_channel, tdefPage);
+        var usageMaps = new UsageMapWriter(_channel);
+        foreach (ColumnDef column in table.Columns)
+        {
+            if (!definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) map)
+                || map.Page == 0)
+                continue;
+            definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) columnFree);
+
+            // Clear each page's bit on the way out, exactly as releasing a single value does. ACE does the
+            // same and it shows on disk: the map record's bitmap bytes are zeroed before its row is retired,
+            // so a drop that only frees pages leaves a populated map inside the reclaimed space.
+            foreach (int lvalPage in maps.PagesInMap(map.Row, map.Page).ToList())
+            {
+                owned.Add(lvalPage);
+                usageMaps.SetBit(map.Row, map.Page, lvalPage, set: false);
+                if (columnFree.Page != 0) usageMaps.SetBit(columnFree.Row, columnFree.Page, lvalPage, set: false);
+            }
+        }
+
         foreach (IndexDef index in table.Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()))
-            allocator.Free(index.RootPage);
-        foreach (int dataPage in new UsageMap(_channel, table).DataPages())
-            allocator.Free(dataPage);
-        allocator.Free(tdefPage);
+            owned.Add(index.RootPage);
+        foreach (int dataPage in maps.DataPages())
+            owned.Add(dataPage);
+        owned.Add(tdefPage);
+
+        // The map RECORDS live as rows on owner-zero data pages, and ACE frees such a holder once the dropped
+        // table's records are the only thing left on it — measured: for a one-memo-column table ACE returned
+        // the long-value map's holder and LibRed did not, the single page by which the two drops differed.
+        // A holder can carry records for several columns or tables as separate rows, so releasing one that
+        // still serves another map would hand away a live page: corruption rather than a leak. Hence the
+        // holder goes only when every live row on it is one this drop is retiring.
+        PageBuffer tdef = _channel.ReadPage(tdefPage);
+        var ourRows = new Dictionary<int, HashSet<int>>();
+        void Claim((int Row, int Page) pointer)
+        {
+            if (pointer.Page <= 1 || pointer.Page >= _channel.PageCount) return;
+            (ourRows.TryGetValue(pointer.Page, out HashSet<int>? rows) ? rows : ourRows[pointer.Page] = [])
+                .Add(pointer.Row);
+        }
+
+        Claim((tdef.ReadByte(_channel.Format.TdefOwnedPagesOffset),
+               tdef.ReadInt24(_channel.Format.TdefOwnedPagesOffset + 1)));
+        Claim((tdef.ReadByte(_channel.Format.TdefFreePagesOffset),
+               tdef.ReadInt24(_channel.Format.TdefFreePagesOffset + 1)));
+        foreach (ColumnDef column in table.Columns)
+        {
+            if (definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) o)) Claim(o);
+            if (definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) f)) Claim(f);
+        }
+
+        foreach ((int holderPage, HashSet<int> rows) in ourRows)
+        {
+            // Take the records off the page the way ACE does — tombstone the slot, slide the rows below it
+            // up, return the bytes to the page's free count — rather than leaving dead maps behind. On a
+            // shared holder that is the whole fix: the page survives and must not keep records for a table
+            // that no longer exists. Descending slot order so each reclaim sees the slots it expects.
+            byte[] page = _channel.ReadPage(holderPage).Span.ToArray();
+            foreach (int row in rows.OrderByDescending(r => r))
+                RowInserter.ReclaimRow(_channel.Format, page, row);
+            _channel.WritePage(holderPage, page);
+
+            // Emptied of every live record, the holder itself goes back to the global map — which is what
+            // ACE does, and was the single page by which the two engines' drops used to differ.
+            var holder = new DataPage();
+            holder.Read(_channel.ReadPage(holderPage), _channel.Format);
+            bool live = false;
+            for (int row = 0; row < holder.RowCount && !live; row++)
+                live = !holder.Rows[row].IsDeleted && holder.Rows[row].Length > 0;
+            if (!live) owned.Add(holderPage);
+        }
+
+        // Access marks the released definition page itself: its type byte becomes 0x08 and nothing else on
+        // the page changes, so the old definition is still sitting there when Compact comes to reclaim it.
+        // Measured across an ACE DROP TABLE: exactly one byte of the 4,096 differs. Only the TDEF is marked —
+        // the data, long-value and map-holder pages ACE frees keep their 0x01.
+        byte[] released = _channel.ReadPage(tdefPage).Span.ToArray();
+        released[0] = (byte)PageType.ReleasedTableDefinition;
+        _channel.WritePage(tdefPage, released);
+
+        foreach (int page in owned)
+            allocator.Free(page);
 
         DeleteCatalogRows("MSysObjects", "Id", tdefPage);
         DeleteCatalogRows("MSysACEs", "ObjectId", tdefPage);

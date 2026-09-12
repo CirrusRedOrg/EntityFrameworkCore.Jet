@@ -141,6 +141,79 @@ one cleared bit per page taken.
 > global map's sense), clears the bit on that bitmap page, and returns `slot × (pageSize−4)×8 + bit`.
 > `Free` is the inverse (sets the bit). A page outside a pre-existing map's coverage cannot be recorded
 > as free until that coverage exists.
+
+**Releasing a table means walking every map it owns, not just the data-page one.** A Memo/OLE (or
+calculated long-value) column holds its LVAL pages in a **per-column owned map**, whose (row, page) pointer
+sits in the TDEF keyed by column id — those pages never appear in the table's own data-page owned map. A
+`DROP TABLE` that frees only the data pages therefore strands the entire content of the table.
+
+> Measured. A 60-row table of 3,000-character memo values occupies ~120 pages, of which its data-page map
+> names **one**: the row records, each holding a 12-byte descriptor, fit on a single page while the text
+> lives on LVAL pages. Dropping it through ACE returns **123** pages to the global free map; freeing only
+> the data pages and the TDEF returns **2**. Refilling the file after an ACE drop reuses the space and the
+> file stays at 167 pages; after the incomplete drop, ACE grows it to 286 — the engine reuses exactly what
+> the global map offers it, and nothing else.
+
+**A map's records are retired from their holder, and the holder goes back once nothing else lives on it.**
+The records are rows on owner-zero data pages, and one holder can carry records for several columns or
+tables. Dropping a table does three things to each: clears every freed page's bit in the map, tombstones the
+map's row, and — if no live row is left — frees the holder page itself.
+
+> Measured against an ACE drop of the same table, page by page. ACE clears the bitmap bytes of the record as
+> it frees each page (the zeroing is visible inside the space the row then gives up), tombstones the four
+> 69-byte map records with `0xD000` slots, raises the page's free-space field by the 276 bytes they occupied,
+> and returns the page. Doing all three makes the holder **byte-identical** between the two engines; doing
+> only the last left 26 bytes differing.
+>
+> The exclusivity test matters — releasing a holder that still carries another map's row would hand away a
+> live page, which is corruption rather than a leak. It is also the case that *only* clearing the bits is
+> not enough on a shared holder: the row has to go, or the dropped table's map records outlive it.
+>
+**The released definition page is marked.** Access sets the dropped table's TDEF page type to
+**`0x08`** (`PageType.ReleasedTableDefinition`) and changes nothing else on it — the old definition stays
+where it was until Compact reclaims the page. The other pages a drop frees (data, long-value, map holders)
+keep their original type bytes.
+
+> Measured by diffing the TDEF page across an ACE `DROP TABLE`: **exactly one byte of the 4,096 differs**,
+> offset `0x000`, `0x02` → `0x08`. This is what the `0x08` pages found in real-world files are — released
+> TDEFs still carrying their definitions, which is why they read as structured rather than blank. LibRed
+> writes the same marker.
+>
+> With the per-column maps, the holder retirement and this marker all in place, an ACE drop and a LibRed drop
+> of the same table leave **163 of the file's 167 pages byte-identical**. What still differs is the three
+> catalog **index root pages**: they hold identical entries in identical order, but LibRed compacts a leaf
+> harder than ACE does after removing entries (§10.4a) — index maintenance, not a drop artefact. Page 0 also
+> differs by one byte, but that is the opening user's commit slot at `0xE02` (§2.2), which moves for any
+> write at all.
+>
+> Still not released by either path here: a reference-form map's dedicated bitmap pages (type `0x05`), which
+> a table large enough to need one would own.
+
+#### Page type `0x09` — a released page whose producer is not identified
+
+Real-world files carry pages whose type byte is `0x09`. They are **released, not orphaned**: their bit is set
+in the global free map, so ACE reuses them and Compact reclaims them. Structurally they are an emptied data
+page — one row slot, tombstoned, ~4,080 bytes free — and most carry the `LVAL` signature at offset 4, so they
+were long-value pages. **Nothing needs to handle them specially:** reading is unaffected, and allocation
+selects on the free map without consulting the type byte, so one can be handed out and overwritten normally.
+
+> Measured over a 39-file corpus: 3,401 such pages in 27 files, of which 3,206 carry the `LVAL` signature and
+> 195 do not. They appear at **every format version** — Jet 4, ACE 12, ACE 14, ACE 16 — and the Jet 4 members
+> are files created in 2001–2004, so the mechanism long predates ACE. Their presence tracks a file's *history*
+> rather than its format: heavily-edited applications hold hundreds (822, 806, 328), while freshly created or
+> untouched files hold none.
+>
+> **What does NOT produce one**, each tried against ACE over OLE DB on a fresh file: `DROP TABLE` (which frees
+> ~120 data and long-value pages and leaves every one at `0x01`), `DELETE` of all or some rows, `UPDATE`
+> shortening a memo or setting it null, `ALTER TABLE DROP COLUMN` on the memo, `DROP INDEX`, and
+> `SELECT … INTO` followed by `DROP` — the last marking a TDEF `0x08` and nothing else. Repeated across five
+> long-value size bands (120 / 400 / 1,200 / 2,000 / 3,000 characters) to cover the inline, single-page and
+> chained forms. None produced a `0x09`.
+>
+> The remaining hypothesis, untested because it needs the Access UI rather than the engine, is that Access's
+> own object storage writes them — forms, reports, modules and the VBA project live as long binary in
+> `MSysAccessStorage`, and editing one would release its old pages. The experiment is to take a file with no
+> `0x09`, perform one GUI action at a time, and re-walk the pages after each.
 >
 > **Global-map growth.** The inline growth rule in §9 applies, but ACE leaves **4 bytes free in the
 > holder page** before promoting the global map to reference form. With a 69-byte companion row,

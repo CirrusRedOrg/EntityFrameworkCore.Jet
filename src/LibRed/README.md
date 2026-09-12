@@ -98,7 +98,12 @@ Treat the number as of its date — an EF Core version bump moves it.
   round-trips**; AutoNumber generation and high-water tracking (including the two's-complement wrap past
   `int32`, which ACE does not treat as an error either); unique-index statistics; allocation through the
   global free-pages map; `MSysObjects` / `MSysACEs` catalog rows. `UPDATE`/`DELETE` write in place, relocate
-  rows that no longer fit, maintain every index, and reclaim LVAL pages.
+  rows that no longer fit, maintain every index, and reclaim LVAL pages. `DROP TABLE` returns the table's
+  pages to that map — including each Memo/OLE column's long-value pages, which hang off a per-column usage
+  map rather than the table's own and are most of a memo-heavy table. It also retires each map's records from
+  their holder page and frees the holder once no other map's row is left, and marks the released TDEF `0x08`
+  the way Access does. Measured against ACE on the same file: **both engines free the same 123 pages**, ACE
+  then reuses the space rather than growing the file, and 163 of the 167 pages are left byte-identical.
 - **Encryption** — read *and* write, in every scheme the format has: `DatabaseEncryption` sets, changes and
   removes passwords for Agile, Office Standard AES-256 and RC4 (selectable key length and hash), and the
   legacy Jet 4 database password **byte-identically to Access**; `SetJetEncoding` writes legacy RC4 page
@@ -215,9 +220,13 @@ Format-level detail on each on-disk gap lives in `docs/format/`.
   same blob, read by the same code, and *is* enforced.
 - **`AllowZeroLength` not modelled**, and column-level `CHECK` persistence is unprobed (its ACE storage
   differs from the table-level form).
-- **`DROP TABLE` leaks until Compact** — multi-page TDEFs, non-root index pages, LVAL pages, and dedicated
-  usage-map pages aren't freed; byte-faithful **child-in-relationship** `DROP TABLE` (ACE cascades the FK;
-  LibRed requires dropping the FK first).
+- **`DROP TABLE` still leaks a little until Compact** — multi-page TDEFs, non-root index pages and a
+  reference-form map's dedicated bitmap pages aren't freed. Nearly byte-faithful: an ACE drop and a LibRed
+  drop of the same table leave 163 of 167 pages identical, the remainder being three catalog index roots —
+  identical entries, but LibRed compacts a leaf harder than ACE after removing them, which is index
+  maintenance rather than a drop artefact and is recorded in the spec (§10.4a) rather than treated as a
+  defect. And for a **child-in-relationship** table ACE cascades the FK where LibRed requires dropping it
+  first.
 - **Jet 3** format; strict **DAO Compact & Repair** compatibility (checklist captured — only relevant if
   targeting DAO C&R rather than "ACE opens + queries").
 - **`CREATE TEMPORARY TABLE`** — parsed only to throw `NotSupportedException`.

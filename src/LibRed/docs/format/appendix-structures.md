@@ -16,6 +16,8 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | `0x03` | Index B-tree node |
 | `0x04` | Index B-tree leaf |
 | `0x05` | Page-usage bitmap |
+| `0x08` | Released table definition — a dropped table's TDEF, otherwise unchanged |
+| `0x09` | Released long-value page — a packed LVAL page emptied of its values |
 
 ---
 

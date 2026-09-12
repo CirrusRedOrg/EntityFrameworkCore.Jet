@@ -195,52 +195,20 @@ map's row, and — if no live row is left — frees the holder page itself.
 > live page, which is corruption rather than a leak. It is also the case that *only* clearing the bits is
 > not enough on a shared holder: the row has to go, or the dropped table's map records outlive it.
 >
-**The released definition page is marked.** Access sets the dropped table's TDEF page type to
-**`0x08`** (`PageType.ReleasedTableDefinition`) and changes nothing else on it — the old definition stays
-where it was until Compact reclaims the page. The other pages a drop frees (data, long-value, map holders)
-keep their original type bytes.
+**The released definition page is marked.** Access sets the dropped table's TDEF page type to **`0x08`**
+and changes nothing else on it; the other pages a drop frees (data, long-value, map holders) keep their
+original type bytes. The marker, what survives on the page and how close a LibRed drop lands to an ACE one are
+in [page-08](page-08-released-tdef.md).
 
-> Measured by diffing the TDEF page across an ACE `DROP TABLE`: **exactly one byte of the 4,096 differs**,
-> offset `0x000`, `0x02` → `0x08`. This is what the `0x08` pages found in real-world files are — released
-> TDEFs still carrying their definitions, which is why they read as structured rather than blank. LibRed
-> writes the same marker.
->
-> With the per-column maps, the holder retirement and this marker all in place, an ACE drop and a LibRed drop
-> of the same table leave **163 of the file's 167 pages byte-identical**. What still differs is the three
-> catalog **index root pages**: they hold identical entries in identical order, but LibRed compacts a leaf
-> harder than ACE does after removing entries (§10.4a) — index maintenance, not a drop artefact. Page 0 also
-> differs by one byte, but that is the opening user's commit slot at `0xE02` (§2.2), which moves for any
-> write at all.
->
 > Still not released by either path here: a reference-form map's dedicated bitmap pages (type `0x05`), which
 > a table large enough to need one would own.
 
-#### Page type `0x09` — a released page whose producer is not identified
+#### A long-value page is released on its own terms
 
-Real-world files carry pages whose type byte is `0x09`. They are **released, not orphaned**: their bit is set
-in the global free map, so ACE reuses them and Compact reclaims them. Structurally they are an emptied data
-page — one row slot, tombstoned, ~4,080 bytes free — and most carry the `LVAL` signature at offset 4, so they
-were long-value pages. **Nothing needs to handle them specially:** reading is unaffected, and allocation
-selects on the free map without consulting the type byte, so one can be handed out and overwritten normally.
+Deleting the last value that shared a packed long-value page releases the page and stamps it **`0x09`**,
+clearing it from the column's owned and free maps here. That mechanism, and the page it leaves behind, are in
+[page-09](page-09-released-long-value.md).
 
-> Measured over a 39-file corpus: 3,401 such pages in 27 files, of which 3,206 carry the `LVAL` signature and
-> 195 do not. They appear at **every format version** — Jet 4, ACE 12, ACE 14, ACE 16 — and the Jet 4 members
-> are files created in 2001–2004, so the mechanism long predates ACE. Their presence tracks a file's *history*
-> rather than its format: heavily-edited applications hold hundreds (822, 806, 328), while freshly created or
-> untouched files hold none.
->
-> **What does NOT produce one**, each tried against ACE over OLE DB on a fresh file: `DROP TABLE` (which frees
-> ~120 data and long-value pages and leaves every one at `0x01`), `DELETE` of all or some rows, `UPDATE`
-> shortening a memo or setting it null, `ALTER TABLE DROP COLUMN` on the memo, `DROP INDEX`, and
-> `SELECT … INTO` followed by `DROP` — the last marking a TDEF `0x08` and nothing else. Repeated across five
-> long-value size bands (120 / 400 / 1,200 / 2,000 / 3,000 characters) to cover the inline, single-page and
-> chained forms. None produced a `0x09`.
->
-> The remaining hypothesis, untested because it needs the Access UI rather than the engine, is that Access's
-> own object storage writes them — forms, reports, modules and the VBA project live as long binary in
-> `MSysAccessStorage`, and editing one would release its old pages. The experiment is to take a file with no
-> `0x09`, perform one GUI action at a time, and re-walk the pages after each.
->
 > **Global-map growth.** The inline growth rule in §9 applies, but ACE leaves **4 bytes free in the
 > holder page** before promoting the global map to reference form. With a 69-byte companion row,
 > the final inline record is 4005 bytes, covering 32,000 pages. LibRed matches this transition and

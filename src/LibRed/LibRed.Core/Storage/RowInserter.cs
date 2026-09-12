@@ -452,13 +452,21 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         byte flags = (byte)(descriptor[3] & LongValueFormat.FlagMask);
         if (flags is not (LongValueFormat.FlagInline or LongValueFormat.FlagSinglePage or LongValueFormat.FlagChained))
             throw new InvalidDataException($"Long-value descriptor has unknown flags 0x{flags:X2}.");
-        // Inline (0x80) has no pages; single-page (0x40) shares its page with other values — neither is
-        // reclaimed here. Only a chained value owns pages outright.
-        if (flags != LongValueFormat.FlagChained) return;
+        // Inline (0x80) keeps its payload in the row, so there is nothing to give back.
+        if (flags == LongValueFormat.FlagInline) return;
 
         TableDefinitionPage definition = ReadDefinition();
         definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) owned);
         definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) free);
+
+        // A single-page (0x40) value shares its page with other values, so the page goes back only once the
+        // last of them is gone — until then just its own row is retired.
+        if (flags == LongValueFormat.FlagSinglePage)
+        {
+            ReleasePackedValue(column, descriptor[5] | (descriptor[6] << 8) | (descriptor[7] << 16),
+                descriptor[4], owned, free);
+            return;
+        }
         var allocator = new PageAllocator(_channel);
         var reader = new LongValueReader(_channel);
         _ = reader.ResolveWithPages(descriptor, out IReadOnlyList<int> pages);
@@ -478,6 +486,80 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             _usageMaps.SetBit(owned.Row, owned.Page, page, set: false);
             _usageMaps.SetBit(free.Row, free.Page, page, set: false);
         }
+    }
+
+    /// <summary>
+    /// Retires one value from a shared (single-page form) long-value page: its row becomes a <b>0-length
+    /// deleted+overflow tombstone</b> and the page is re-laid, the surviving records packing from the page end
+    /// in slot order so the freed space is reclaimed. When nothing live is left the page is given back — its
+    /// type byte set to <see cref="PageType.ReleasedLongValuePage"/>, its bit cleared from the column's owned
+    /// and free maps, and the page returned to the global allocator.
+    /// </summary>
+    /// <remarks>
+    /// Measured against ACE, deleting 4 of 12 rows whose 400-character memos shared one page, then all 12:
+    /// <code>
+    /// start   0x01 n=5 free=72   [3296,2496,1696,896,96]
+    /// 4 gone  0x01 n=5 free=3272 [4096DO,4096DO,4096DO,4096DO,3296]   the survivor slid to the top
+    /// all     0x09 n=5 free=4072 [4096DO x5]
+    /// </code>
+    /// This is where page type <c>0x09</c> comes from — an emptied packed long-value page, which the spec had
+    /// recorded as a released page of unidentified origin (page-09). Chained values are unaffected: they own
+    /// their pages outright and are freed below, leaving them at <c>0x01</c>, which is why no experiment that
+    /// used a memo large enough to chain ever produced one.
+    /// </remarks>
+    private void ReleasePackedValue(ColumnDef column, int pageNumber, int row,
+        (int Row, int Page) owned, (int Row, int Page) free)
+    {
+        JetFormatBase format = _channel.Format;
+        if (pageNumber <= 0 || pageNumber >= _channel.PageCount)
+            throw new InvalidDataException($"Long-value page pointer {pageNumber} is outside the file.");
+
+        byte[] page = _channel.ReadPage(pageNumber).Span.ToArray();
+        var holder = new DataPage();
+        holder.Read(new PageBuffer(page, pageNumber), format);
+        if (!holder.IsLongValuePage)
+            throw new InvalidDataException($"Long-value pointer {pageNumber}:{row} targets a non-LVAL data page.");
+        if (row < 0 || row >= holder.RowCount)
+            throw new InvalidDataException(
+                $"Long-value row pointer {pageNumber}:{row} is outside the page's 0..{holder.RowCount - 1} range.");
+        if (holder.Rows[row].IsDeleted) return;   // already retired; freeing twice must not double-count
+
+        int dir = format.DataRowDirectoryOffset;
+        var records = new byte[holder.RowCount][];
+        var flags = new ushort[holder.RowCount];
+        for (int i = 0; i < holder.RowCount; i++)
+        {
+            bool dead = i == row || holder.Rows[i].IsDeleted;
+            records[i] = dead ? [] : page.AsSpan(holder.Rows[i].Offset, holder.Rows[i].Length).ToArray();
+            flags[i] = (ushort)((dead ? RowPointer.DeletedFlag : 0)
+                                | (dead || holder.Rows[i].HasOverflow ? RowPointer.OverflowFlag : 0));
+        }
+
+        int offset = format.PageSize;
+        for (int i = 0; i < holder.RowCount; i++)
+        {
+            offset -= records[i].Length;       // a 0-length tombstone lands on the page end, as ACE writes it
+            records[i].CopyTo(page.AsSpan(offset));
+            BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(dir + i * 2, 2),
+                (ushort)(flags[i] | (offset & RowPointer.OffsetMask)));
+        }
+        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.DataFreeSpaceOffset, 2),
+            (ushort)(offset - (dir + holder.RowCount * 2)));
+
+        bool emptied = records.All(r => r.Length == 0);
+        if (emptied) page[0] = (byte)PageType.ReleasedLongValuePage;
+        _channel.WritePage(pageNumber, page);
+
+        // A page that survives has room again, so it goes back into the column's free-pages map — the same
+        // map TryAppend consults when looking for somewhere to pack the next small value.
+        if (!emptied)
+        {
+            _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: true);
+            return;
+        }
+        _usageMaps.SetBit(owned.Row, owned.Page, pageNumber, set: false);
+        _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: false);
+        new PageAllocator(_channel).Free(pageNumber);
     }
 
     /// <summary>The raw bytes of slot <paramref name="slot"/> on a data page (walks the packed rows).</summary>

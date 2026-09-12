@@ -15,7 +15,10 @@ The in-row value for a Memo/OLE column is a **12-byte descriptor**, not the data
 
 Flags (byte `0x03` masked with `0xC0`; its low six bits belong to the length):
 - `0x80` **inline** — the payload follows the descriptor in the row.
-- `0x40` **single LVAL page** — the row at (page, row) *is* the whole payload.
+- `0x40` **single LVAL page** — the row at (page, row) *is* the whole payload. Several such values **share**
+  a page; deleting one retires its row to a 0-length deleted + overflow tombstone and re-lays the page, and
+  the page is released as type `0x09` once the last of them is gone
+  ([page-05 §9](page-05-usage-maps.md)).
 - `0x00` **multi-page** — the payload is chained across LVAL pages; each chunk's row begins
   with a 4-byte pointer (`[row:1][page:3]`) to the next chunk (zero on the last), followed by chunk
   data. Each chunk row is **`MAX_LONG_VALUE_ROW_SIZE` = 4076 bytes** (Jet4; Jet3 = 2032) — a 4-byte

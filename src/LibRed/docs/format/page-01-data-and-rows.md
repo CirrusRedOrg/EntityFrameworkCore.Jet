@@ -21,15 +21,33 @@
 >
 > Only narrow rows get there: 256 rows fit a 4 KB page once each is under about 14 bytes, which in practice
 > means an all-fixed-column table of a few small columns. LibRed did exactly that and packed 314 rows onto a
-> page — the rows wrote and scanned back correctly (a scan walks slots directly and never forms a pointer), but
-> **every row past slot 255 was unaddressable by any index**, and its index entry aliased a different row on
-> another page. A silent wrong answer on every indexed read, with no error anywhere. `RowInserter`'s page
-> placer now refuses a page at `RowPointer.MaxRowsPerPage` instead of trusting free space alone; the guard is
-> `IndexBuildOrderingTests`.
+> page — the rows wrote and scanned back through **LibRed** correctly, since a scan walks slots directly and
+> never forms a pointer, which is what made it look harmless. It is not: every row past slot 255 is
+> **unaddressable by any index**, its entry aliasing a different row on another page, and **ACE cannot read
+> those rows at all**. `RowInserter`'s page placer now refuses a page at `RowPointer.MaxRowsPerPage` instead
+> of trusting free space alone; the guard is `IndexBuildOrderingTests`.
 >
-> The pointer layout is ACE-verified, so the 256-slot ceiling follows from it. What is **not** measured is what
-> ACE itself does on reaching it — whether it caps at 256 or lower, and whether it leaves the page in the
-> free-pages map. LibRed's choice of 256 is the maximum the pointer allows, not an observation of ACE.
+> > **ACE reads the full 16-bit count and then caps at 256 slots.** Measured: LibRed wrote 900 rows as pages
+> > of 400 / 400 / 100 and read all 900 back; ACE counted **612**, exactly 256 + 256 + 100. A reader taking
+> > only the low byte would have seen `0x90` = 144 and returned 388, so the high byte is genuinely parsed —
+> > the rows beyond slot 255 are simply dropped, with no error. Overfilling a page loses data to Access on a
+> > plain table scan, not merely on an indexed read.
+>
+> **ACE's own ceiling is 255, one below what the pointer allows** — measured by inserting 3,000 rows of a
+> single `BYTE` column through ACE: eleven consecutive pages of exactly 255 rows, then a partial one. It is
+> not a space limit; each full page still had **2,297 of its 4,096 bytes free**. ACE also **removes the page
+> from the table's free-pages map** on reaching the cap, treating it exactly as it treats a full page — only
+> the partial page stayed in the map. So a reader must not infer remaining room from free space, and must not
+> infer it from free-map membership either.
+>
+> **The row count really is two bytes, though nothing ACE writes proves it.** Across 48,167 data pages in 76
+> files the high byte at `0x0D` is never once set, and the highest count seen anywhere is 255 — so authored
+> files alone cannot distinguish a two-byte field from a one-byte one. What settles it is the other direction:
+> LibRed wrote a table whose pages hold **256** rows and ACE read it back correctly (600 rows across three
+> pages). A one-byte reader would have seen `0x00` for those pages and reported 88.
+>
+> LibRed's `RowPointer.MaxRowsPerPage` is therefore **255**, matching ACE rather than the pointer's maximum,
+> so every page it writes is a shape Access also produces.
 
 Row slot entry: lower 13 bits (`& 0x1FFF`) = the row's byte offset in the page; `0x8000` =
 deleted, `0x4000` = overflow/lookup pointer (not an inline row). Rows are packed from the end
@@ -159,6 +177,34 @@ malformed pointers fail with `InvalidDataException`.
   **15 bytes** `03 00 | 0B000000 16000000 21000000 | 07`, not 19. The fixed-region length is recovered from the
   schema (column offsets), so the row needs no var-data-start pointer. (A reader keyed on fixed offsets +
   null bitmap decodes both forms; a *writer* must omit the section to be byte-faithful.)
+
+- **An all-fixed row's fixed region is padded out to a minimum of 2 bytes**, so the shortest record ACE writes
+  is 5: `[colCount:2][fixed:2][nullBitmap:1]`. It is a **floor, not an alignment** — `T(A,B,C BYTE)` keeps its
+  odd 3-byte region (record 6) — and a row with a **variable trailer is exempt**: a `TEXT`-only table's region
+  stays 0 and a `BYTE`+`TEXT` one stays 1. Only regions of 0 or 1 are touched, and the pad is zero bytes
+  between the fixed values and the null bitmap. Booleans occupy no fixed bytes (below), so a table of nothing
+  but Booleans is the shape with a 0-byte region. Verified vs ACE across both, one row per shape
+  (`MinimumRecordSizeAccessTests`):
+
+  | table | natural | ACE | record |
+  |---|---|---|---|
+  | `A YESNO` | 3 | **5** | `01 00 \| 00 00 \| 01` |
+  | `A BYTE` | 4 | **5** | `01 00 \| 01 00 \| 01` |
+  | `A BYTE, B BYTE` | 5 | 5 | `02 00 \| 01 02 \| 03` |
+  | `A BYTE, B BYTE, C BYTE` | 6 | 6 | `03 00 \| 01 02 03 \| 07` |
+  | 9 × `YESNO` | 4 | **6** | `09 00 \| 00 00 \| FF 01` |
+  | `A TEXT(10)` | 13 | 13 | region 0, unpadded |
+
+  The nine-Boolean row is what distinguishes the rule from a flat minimum *record* length: a 5-byte floor on
+  the record would have left it at 5, and ACE wrote 6. **The TDEF keeps the true, unpadded fixed-row length** —
+  ACE stores 1 for a one-`BYTE` table while writing 5-byte rows into it — so this rounding happens at
+  row-write time and is not recoverable from the definition.
+  - Matching it is **not cosmetic**. Below 4 bytes **ACE misreads the record**: an all-Boolean table of ≤8
+    columns encodes to 3 bytes without the pad, and ACE then reports every Boolean in it **False**, whichever
+    engine created the table (measured both ways round — ACE's own table filled by LibRed read False, LibRed's
+    table filled by ACE read True, which is what places the fault in the record and not the TDEF). A 4-byte
+    record reads back correctly (16 Booleans, 2-byte bitmap), so the reader's cliff is one byte below what
+    ACE's writer guarantees. **Why** the floor is 2 rather than 1 is not established.
 
 - **`colCount` is `max(column id) + 1`, not the live column count** — the two coincide only while ids are
   contiguous (a fresh table, or after ADD COLUMN, which keeps ids contiguous). They **diverge** once ids have a

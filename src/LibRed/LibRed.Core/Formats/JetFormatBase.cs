@@ -248,6 +248,16 @@ public abstract class JetFormatBase
     /// <summary>Offset of the 4-byte owning-table TDEF page (or the "LVAL" marker on long-value pages).</summary>
     public virtual int DataOwnerOffset => 0x04;
 
+    /// <summary>
+    /// Offset of the 4-byte <b>chain stamp</b> on a data page. Zero on every page but the <b>first</b> of a
+    /// multi-page long-value chain, where it must equal the pointing descriptor's own stamp or ACE refuses to
+    /// materialise the value — see <c>docs/format/long-values.md</c>. Jet 3 has the row count at this offset
+    /// instead (which is why Jet 4's row count sits four bytes later), so a Jet 3 file has nowhere to put one;
+    /// <c>Jet3Format</c> does not override the data-page offsets today, and this is one of the things it will
+    /// have to when Jet 3 writing is built out.
+    /// </summary>
+    public virtual int DataChainStampOffset => 0x08;
+
     /// <summary>Offset of the 2-byte row count on a data page.</summary>
     public virtual int DataRowCountOffset => 0x0C;
 

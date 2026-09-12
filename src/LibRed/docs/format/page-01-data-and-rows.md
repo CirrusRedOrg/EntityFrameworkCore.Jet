@@ -10,7 +10,7 @@
 | `0x01` | 1 | Flags (observed constant `0x01`; the same byte appears on TDEF and index pages — verified) |
 | `0x02` | 2 | Free space |
 | `0x04` | 4 | Owning table's TDEF page — **or** the ASCII marker `LVAL` (`0x4C41564C`) for long-value pages |
-| `0x08` | 4 | Jet4-only; purpose unknown — **zero** on every page observed (data, usage-map, LVAL). Jet3 has the row count here instead (which is why Jet4's row count sits 4 bytes later). LibRed writes zero. |
+| `0x08` | 4 | Jet4-only. **Zero on every page except the FIRST page of a multi-page long-value chain**, where it carries a stamp that must equal the pointing descriptor's own `0x08` — see [long-values](long-values.md). Jet3 has the row count here instead (which is why Jet4's row count sits 4 bytes later). LibRed writes it and checks it. |
 | `0x0C` | 2 | Row count on this page. **Capped at 256 in practice, whatever the free space** — see the slot-count limit below. |
 | `0x0E` | 2×N | Row slot directory: one 2-byte entry per row |
 

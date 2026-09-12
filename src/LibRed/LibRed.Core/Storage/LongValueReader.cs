@@ -10,7 +10,8 @@ namespace LibRed.Storage;
 /// </summary>
 /// <remarks>
 /// Descriptor layout: bytes 0-3 = length with storage flags in the high two bits, bytes 4-7 = a
-/// row+page pointer to the first LVAL chunk, bytes 8-11 reserved. Flags:
+/// row+page pointer to the first LVAL chunk, bytes 8-11 the chain stamp (chained form only, checked against
+/// the first chain page — see <see cref="VerifyChainStamp"/>). Flags:
 /// 0x80 = inline (payload follows the descriptor); 0x40 = single LVAL page (the row is
 /// the whole payload); otherwise the payload is chained across LVAL pages, each row
 /// beginning with a 4-byte pointer to the next chunk.
@@ -54,7 +55,35 @@ public sealed class LongValueReader(PageChannel channel)
             return value;
         }
 
+        VerifyChainStamp(descriptor, page);
         return ReadChain(page, row, length, out pages);
+    }
+
+    /// <summary>
+    /// A chained descriptor and the <b>first</b> page of its chain carry the same 4-byte stamp, minted when
+    /// the chain was written. Disagreement means the page is no longer the one this descriptor was written
+    /// against — the chain was rewritten, or its pages were freed and reused under another value — so the
+    /// bytes behind the pointer belong to something else and must not be returned as this value.
+    /// </summary>
+    /// <remarks>
+    /// ACE enforces this and reports it as <i>"you and another user are attempting to change the same data at
+    /// the same time"</i>; the diagnosis is the point, even if the wording is about the cause rather than what
+    /// was found. LibRed is single-writer, so it cannot produce the interleaving ACE guards against, but it
+    /// can be handed a file another engine wrote and must not read a stale chain as though it were live.
+    /// Only the entry page is checked, because every chunk after it is reached from a page already validated.
+    /// </remarks>
+    private void VerifyChainStamp(ReadOnlySpan<byte> descriptor, int page)
+    {
+        if (page <= 0 || page >= _channel.PageCount) return;   // ReadChain reports the bad pointer itself
+
+        uint declared = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(
+            descriptor.Slice(LongValueFormat.ChainStampOffset, 4));
+        uint stored = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(
+            _channel.ReadPageShared(page).Span.Slice(_channel.Format.DataChainStampOffset, 4));
+        if (declared != stored)
+            throw new InvalidDataException(
+                $"Long-value chain at page {page} carries stamp 0x{stored:X8} but its descriptor declares "
+                + $"0x{declared:X8}; the chain is not the one this row was written against.");
     }
 
     private byte[] ReadChain(int page, int row, int length, out IReadOnlyList<int> pages)

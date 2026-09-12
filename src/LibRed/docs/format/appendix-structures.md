@@ -58,7 +58,7 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | `0x01` | 1 | Flags (`0x01`) |
 | `0x02` | 2 | Free space |
 | `0x04` | 4 | Owning TDEF page — or ASCII `LVAL` (`0x4C41564C`) for long-value pages |
-| `0x08` | 4 | Jet4-only, zero observed |
+| `0x08` | 4 | Jet4-only; zero except on the **first page of a long-value chain**, where it is the chain stamp matching the pointing descriptor's `0x08` |
 | `0x0C` | 2 | Row count |
 | `0x0E` | 2×N | Row-slot directory |
 
@@ -189,7 +189,7 @@ descriptor.
 | `0x00` | 4 | Little-endian word: length in bits 0–29; flags in bits 30–31 (`0x80000000` inline, `0x40000000` single LVAL page, `0x00000000` chain) |
 | `0x04` | 1 | Row |
 | `0x05` | 3 | Page |
-| `0x08` | 4 | Reserved |
+| `0x08` | 4 | **Chain stamp**, chained form only (zero on inline and single-page): must equal the first chain page's header `0x08`, or ACE refuses the record. ACE stamps `GetTickCount()`; the value is arbitrary, the agreement is not. LibRed stamps both and verifies them on read |
 
 **Per-long-value-column usage-map list entry (10 bytes; list ends at `col_num == 0xFFFF`):**
 

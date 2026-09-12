@@ -11,7 +11,7 @@ The in-row value for a Memo/OLE column is a **12-byte descriptor**, not the data
 | `0x00` | 4 | Little-endian word: byte length in bits 0–29, flags in bits 30–31 |
 | `0x04` | 1 | Row |
 | `0x05` | 3 | Page |
-| `0x08` | 4 | reserved |
+| `0x08` | 4 | **Chain stamp** — must equal the first chain page's header `0x08`. Non-zero only on the multi-page form; zero on inline and single-page |
 
 Flags (byte `0x03` masked with `0xC0`; its low six bits belong to the length):
 - `0x80` **inline** — the payload follows the descriptor in the row.
@@ -21,6 +21,38 @@ Flags (byte `0x03` masked with `0xC0`; its low six bits belong to the length):
   data. Each chunk row is **`MAX_LONG_VALUE_ROW_SIZE` = 4076 bytes** (Jet4; Jet3 = 2032) — a 4-byte
   pointer + up to 4072 data bytes — except the last, which is shorter. Verified against ACE's own
   chained OLE (Northwind Employee photos: 4076, 4076, 2606-byte chunk rows).
+
+> **The chain stamp binds a descriptor to its first chain page, and ACE enforces it.** A multi-page
+> descriptor's `0x08` and the header `0x08` of the **first** page of its chain hold the same four bytes;
+> later chunk pages, single-page (`0x40`) LVAL pages, and ordinary data pages all hold zero. Only the first
+> page is bound: patching every *later* chunk page's `0x08` while leaving the descriptor and the first page
+> alone changes nothing ACE notices, and patching the first page alone is refused. Which is what the check
+> is for — the descriptor is the only way into the chain that a stale pointer can arrive by, since every
+> chunk after it is reached from a page already validated. ACE writes
+> `GetTickCount()` there — milliseconds since the writing machine booted, so it is machine- and
+> boot-relative and reproduces nowhere, like the database creation date. **The value is arbitrary; only the
+> agreement matters.** Measured by patching an ACE-written file behind its back: setting *both* copies to
+> `DEADBEEF` reads back fine, setting *both* to zero reads back fine, and changing *either one alone* — to
+> any value, zero included — makes ACE refuse the record. It refuses it as *"you and another user are
+> attempting to change the same data at the same time"*, the same misleading concurrency message an
+> oversized record gets, and `CompactDatabase` does not repair such a row: it drops the value.
+>
+> **The tag is minted per write of the chain**, not per write of the row: inserting stamps both copies,
+> rewriting the value writes a new chain and a fresh stamp in both, updating another column of the same row
+> leaves it untouched, and a value that shrinks to the single-page form drops both to zero. The check also
+> fires only when the long value is **materialised** — ACE will happily `UPDATE` another column of a row
+> whose stamp disagrees, and refuse the moment anything reads the memo.
+>
+> That reading also explains the choice of clock. A chain's pages can be freed and reused by a later value,
+> and a stale descriptor would then point at a page holding someone else's data; a stamp that differs
+> between successive uses of the same page catches exactly that, and needs to be distinct rather than
+> meaningful. **LibRed writes the same stamp in both places and checks it on read**, refusing a chain whose
+> entry page disagrees with the descriptor that reached it. Like the database creation date, the value does
+> not reproduce between two runs and is not expected to. LibRed is single-writer and so cannot produce the
+> interleaving ACE guards against, but it can be handed a file another engine wrote — and the guard is
+> groundwork for multi-user concurrency, where this is exactly the check that has to exist.
+>
+> Files written by earlier LibRed carry zero in both places, which agrees, and keep reading.
 
 ACE accepts an OLE/binary payload of `0x3FFFFFFF` bytes (1 GiB − 1) and rejects `0x40000000`. That is a
 **byte** limit, so the Memo **character** limit is it divided by the two bytes a character costs: Jet 4
@@ -77,11 +109,11 @@ character at both ends, 536,870,911 accepted and 536,870,912 refused, and the ac
 | uncompressed length | form | flag |
 | --- | --- | --- |
 | ≤ 64 bytes | inline, payload follows the descriptor | `0x80` |
-| 66 … 3816 bytes | one LVAL page | `0x40` |
-| > 3816 bytes | chained across LVAL pages | `0x00` |
+| 65 … 3816 bytes | one LVAL page | `0x40` |
+| ≥ 3817 bytes | chained across LVAL pages | `0x00` |
 
 > **3816 is not the same number as the 4076-byte chunk row**, and conflating them was a real bug: LibRed used
-> 4076 as its single-page threshold and so kept 3818–4076 byte values on one page where ACE chains them.
+> 4076 as its single-page threshold and so kept 3817–4076 byte values on one page where ACE chains them.
 > Measured both ways — a plain `LONGCHAR` and a `WITH COMP` one behave identically, 1908 characters (3816
 > bytes) staying single-page and 1909 (3818) chaining. What fixes the boundary at 3816, rather than the 4076
 > a row can actually hold, is **not established**; the ~260-byte margin is unexplained.

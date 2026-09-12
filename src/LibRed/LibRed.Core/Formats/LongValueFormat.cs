@@ -22,7 +22,7 @@ internal static class LongValueFormat
     /// The largest value ACE keeps on a <b>single</b> LVAL page; anything longer is chained. Measured
     /// (<c>LongTextStorageAccessTests</c>): 3816 bytes stays single-page, 3818 chains, for a plain and a
     /// <c>WITH COMPRESSION</c> column alike. Distinct from the 4076-byte chunk row a chained value uses —
-    /// conflating the two made LibRed keep 3818–4076 byte values on one page where ACE chains them. What
+    /// conflating the two made LibRed keep 3817–4076 byte values on one page where ACE chains them. What
     /// fixes the boundary at 3816 rather than the 4076 a row can hold is not established.
     /// </summary>
     /// <remarks>The decision is made on the <b>uncompressed</b> length, as are the inline and chained ones;
@@ -37,6 +37,16 @@ internal static class LongValueFormat
     /// reading any field — the descriptor arrives as a row's variable chunk, so its width is whatever the
     /// offset table declared, not something the column guarantees.</summary>
     public const int DescriptorSize = 12;
+
+    /// <summary>
+    /// Offset within the descriptor of the 4-byte <b>chain stamp</b>, which must equal the header stamp
+    /// (<see cref="JetFormatBase.DataChainStampOffset"/>) of the first page of the chain it points at.
+    /// Non-zero only on the chained form; ACE leaves it zero on inline and single-page values and checks it
+    /// on neither. The value itself is arbitrary — ACE writes <c>GetTickCount()</c> and so does LibRed —
+    /// because what it proves is that the descriptor and the chain came from the same write, not when.
+    /// Patching either copy alone makes ACE refuse to materialise the value.
+    /// </summary>
+    public const int ChainStampOffset = 8;
 
     /// <summary>Descriptor flag: the payload follows the descriptor inline (no LVAL page).</summary>
     public const byte FlagInline = 0x80;

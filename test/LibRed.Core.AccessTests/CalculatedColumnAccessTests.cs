@@ -518,6 +518,60 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // The raise a calculated column forces lands ON the 2010 format, whose created files carry minor byte 0x01
+    // -- yet ACE's raise writes 0x00 there. One 2007 base, copied, so ACE's raise and LibRed's start from
+    // identical bytes and page 0 can be compared whole -- everything but the commit-byte table from 0xE00,
+    // which moves for any write.
+    [Fact]
+    public void A_calculated_column_raises_page_zero_as_ACE_does()
+    {
+        object? engine = CreateDbEngine();
+        Assert.SkipWhen(engine is null, "DAO is unavailable in this process; it authors the fixture.");
+
+        string basePath = TemporaryDatabase.CreatePath("calc-raise-base-");
+        string acePath = TemporaryDatabase.CreatePath("calc-raise-ace-");
+        string libPath = TemporaryDatabase.CreatePath("calc-raise-lib-");
+        try
+        {
+            DatabaseCreator.CreateEmpty(basePath);
+            File.Copy(basePath, acePath, overwrite: true);
+            File.Copy(basePath, libPath, overwrite: true);
+
+            object workspace = Invoke(engine!, "CreateWorkspace", "", "admin", "", UseJet)!;
+            object database = Invoke(workspace, "OpenDatabase", acePath)!;
+            AppendCalculatedTable(database, "CLong", DbLong, 0, "[Qty]*2");
+            Invoke(database, "Close");
+
+            using (var db = JetDatabase.Open(libPath, readOnly: false))
+                db.CreateTable("T_CLong", [
+                    new ColumnSpec("Id", JetDataType.Int32, 4, IsFixedLength: true),
+                    new ColumnSpec("Qty", JetDataType.Int32, 4, IsFixedLength: true),
+                    ColumnSpec.Calculated("CLong", JetDataType.Int32, "[Qty]*2"),
+                ]);
+
+            byte[] ace = PageZero(acePath), lib = PageZero(libPath);
+            output.WriteLine($"ACE: version 0x{ace[0x14]:X2} minor 0x{ace[0x15]:X2}");
+            output.WriteLine($"lib: version 0x{lib[0x14]:X2} minor 0x{lib[0x15]:X2}");
+            var differences = Enumerable.Range(0, 0xE00)
+                .Where(i => ace[i] != lib[i])
+                .Select(i => $"0x{i:X3} ace={ace[i]:X2} lib={lib[i]:X2}")
+                .ToList();
+            Assert.True(differences.Count == 0, string.Join("; ", differences));
+        }
+        finally
+        {
+            TemporaryDatabase.Delete(basePath);
+            TemporaryDatabase.Delete(acePath);
+            TemporaryDatabase.Delete(libPath);
+        }
+    }
+
+    private static byte[] PageZero(string path)
+    {
+        using var channel = LibRed.IO.PageChannel.Open(path, readOnly: true);
+        return channel.ReadPage(0).Span.ToArray();
+    }
+
     // Validation is mandatory, not a courtesy: an expression ACE rejects produces a column it refuses to read
     // at all, so LibRed must never author one. These are the four refusal shapes ACE has.
     [Theory]

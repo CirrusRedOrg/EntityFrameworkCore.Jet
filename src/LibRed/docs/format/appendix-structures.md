@@ -30,7 +30,7 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | `0x04` | 15 | Format id ASCII: `Standard Jet DB` (`0x00`/`0x01`) / `Jet System DB` (`0x01`) / `Standard ACE DB` (`0x02`+) |
 | `0x13` | 1 | NUL terminator of the id string |
 | `0x14` | 1 | Version byte (`0x00` Jet3, `0x01` Jet4, `0x02` ACE12, `0x03` ACE14, `0x04` ACE15/2013 reserved-unemitted, `0x05` ACE16, `0x06` ACE17) |
-| `0x15` | 1 | Version minor/update byte (`0x01` on ACE14/Access 2010, else `0x00`) |
+| `0x15` | 1 | Version minor byte (`0x01` on a file created as ACE14/Access 2010, else `0x00`; a version raise writes `0x00`) |
 | `0x16` | 2 | Unknown (zero) |
 | `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with the fixed 128-byte mask; the `0x18`–`0x72` fields below are offsets into it (Jet3 masks 126) |
 | `0x18`, `0x1C` | 4+4 | Fixed constants `0x00000100` / `0x00000101` |

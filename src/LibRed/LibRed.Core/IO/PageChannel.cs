@@ -463,15 +463,16 @@ public sealed class PageChannel : IDisposable
     }
 
     /// <summary>
-    /// Raises the file's format version byte (page 0, <c>0x14</c>) to <paramref name="version"/>, in place, and
-    /// swaps <see cref="Format"/> to match. Returns false — writing nothing — when the file already meets it,
+    /// Raises the file's format version byte (page 0, <c>0x14</c>) to <paramref name="version"/>, in place,
+    /// clears the minor byte at <c>0x15</c> as ACE's own raise does — to <c>0x00</c> whatever the target, even
+    /// <c>0x03</c>, whose created files carry <c>0x01</c> — and swaps <see cref="Format"/> to match. Returns false — writing nothing — when the file already meets it,
     /// so callers can call this unconditionally.
     /// </summary>
     /// <remarks>
     /// The write goes through <see cref="WritePage"/> rather than to the stream, so it joins the calling
     /// statement's transaction overlay: the upgrade commits with the DDL that needed it, or is discarded with
     /// it. Page 0 is never page-encrypted, so the write is byte-transparent even on an encrypted file.
-    /// Only the version byte moves. The ACE format classes above 0x02 override nothing but
+    /// Only those two bytes move. The ACE format classes above 0x02 override nothing but
     /// <see cref="JetFormatBase.Version"/> — same page size, same offsets — so the swap changes what the
     /// database reports about itself and nothing about how it is parsed.
     /// </remarks>
@@ -490,6 +491,7 @@ public sealed class PageChannel : IDisposable
                 "The statement needs a data type this format cannot store.");
 
         page0[JetFormatBase.VersionOffset] = version;
+        page0[JetFormatBase.MinorVersionOffset] = 0x00;
         WritePage(0, page0);
         Format = JetFormatBase.FromVersionByte(version);
         return true;

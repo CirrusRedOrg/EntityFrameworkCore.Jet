@@ -15,6 +15,15 @@ public abstract class JetFormatBase
     /// <summary>Offset of the one-byte format version marker within page 0.</summary>
     public const int VersionOffset = 0x14;
 
+    /// <summary>Offset of the one-byte minor version that follows the version byte.</summary>
+    public const int MinorVersionOffset = 0x15;
+
+    /// <summary>The minor byte ACE writes when it CREATES a database of <paramref name="version"/>: <c>0x01</c>
+    /// for the 2010 format (<c>0x03</c>), <c>0x00</c> for every other. A version raise writes <c>0x00</c>
+    /// whatever the target, so a 2007 file raised to <c>0x03</c> does not carry the <c>0x01</c> a created one
+    /// does.</summary>
+    public static byte CreatedMinorVersion(byte version) => (byte)(version == 0x03 ? 0x01 : 0x00);
+
     /// <summary>Offset of the cleartext ASCII engine-version string ("4.0", NUL-terminated) — past the masked
     /// header window, so readable directly. Present on both Jet 4 (<c>.mdb</c>) and ACE (<c>.accdb</c>), which
     /// are both the Jet-4.0 engine. Used to confirm an unknown version byte is still a 4.0-family database

@@ -11,7 +11,7 @@
 | `0x04` | 15 | Format identifier ASCII: `Standard Jet DB` or `Standard ACE DB` |
 | `0x13` | 1 | NUL terminator of the identifier string |
 | `0x14` | 1 | Version byte (see below). mdbtools reads `jet_version` as a 4-byte word at `0x14`; the version is its low byte |
-| `0x15` | 1 | Version **minor/update** byte: **`0x01` on ACE 14 / Access 2010 (version `0x03`)**, `0x00` on every other version tested (Jet 4, ACE 12/17). mdbtools says this is always zero — not universally true. Purpose beyond distinguishing the 2010 format unknown. **An in-place version raise moves `0x14` only**, so raising a 2010 file leaves the pair `(0x05, 0x01)`, which no ACE-authored file carries — measured, and **ACE opens the result and reads and writes it normally** (`AuditRegressionAccessTests`), so the pair is tolerated |
+| `0x15` | 1 | Version **minor** byte: **`0x01` on a database created in the 2010 format (version `0x03`)**, `0x00` when created in any other. **A version raise writes `0x00`** whatever the target — including a raise *onto* `0x03`. Purpose otherwise unknown |
 | `0x16` | 2 | Unknown (zero observed) |
 | `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with a fixed 128-byte mask (§2.1). Jet 3 masks 126 bytes. Fields below are offsets into it. |
 | `0x18`, `0x1C` | 4+4 | Fixed constants `0x00000100`, `0x00000101` (not page pointers — out of range in small files) |
@@ -20,7 +20,7 @@
 | `0x3C` | 2 | **ANSI code page** — LE (`0x04E4` = 1252, `0x04E2` = 1250) |
 | `0x3E` | 4 | **Database (encryption) key** — 0 when there is no password |
 | `0x42` | 40 | **Password** (Jet 4; Jet 3 = 20 bytes) — additionally masked by a creation-date-derived value, so an empty password does not read as zeroes |
-| `0x6A` | 4 | Fixed constant `0x000011A6` — invariant across the entire Jet 4 lineage (every version/engine/collation/language tested); likely a validation sentinel/marker (cf. the `0x0659` TDEF record marker, §3.1), exact purpose unconfirmed |
+| `0x6A` | 4 | **Creating engine's build number** — `0x000011A6` (4518) on everything ACE writes, but **not a constant**: Jet-4-authored files carry the build of the `msjet40.dll` that created them (see below) |
 | `0x6E` | 4 | **Default text collating sort order** — a 32-bit LCID with the version in its unused top byte: LANGID (2, LE, `0x0409` = 1033 en-US), **sort id** at `0x70`, **sort-order version** at `0x71` (0 = legacy table, 1 = the Access-2010 order). Byte-for-byte the same layout as a column descriptor's `0x0B`–`0x0E` |
 | `0x72` | 8 | **Database creation timestamp** — OLE automation `double` (days from 1899-12-30) |
 | `0x98` | 4 | **Past the masked window** (cleartext). Fixed constant `0x00000654` (1620), undecoded |
@@ -57,28 +57,17 @@ past `0x03` are the two new *data types*: **Large Number** (Int64) → `0x05`, a
 files fall back to `0x03` (verified: a real `db2013` reads `0x03`; jackcess ships no 2013 fixture; Access 2013
 defaults to the 2007-2016 format). LibRed maps `0x04` to the `0x03` (2010) layout rather than a clone class.
 
-> **And ACE does not merely avoid `0x04` — it REFUSES it.** Measured 2026-09-13: an otherwise well-formed,
-> *empty* database created at `0x04` cannot be opened by any installed provider, and restamping offset `0x14`
-> to `0x03` makes the identical bytes open
+> **ACE does not merely avoid `0x04` — it refuses it.** An otherwise well-formed, *empty* database carrying the
+> byte cannot be opened by any provider; restamping `0x14` to `0x03` makes the identical bytes open
 > (`AceWriteValiditySweepProbeTests.Ace_refuses_the_0x04_version_byte_and_nothing_else_about_the_file`).
 >
-> This supersedes the earlier wording, which called the byte "reserved". That was an inference from **absence**
-> — no `0x04` file had ever been seen, and no 2013 feature was known that could force one — not a measurement,
-> and it left open the possibility that the byte was merely unused. It is not: the engine rejects it. Because
-> the file format at `0x04` is otherwise exactly `0x03`, a reader has nothing to gain by refusing the byte and a
-> writer has everything to lose by emitting it, so LibRed is **asymmetric** about it on purpose:
-> `FromVersionByte` still accepts `0x04` and reads it as the 2010 layout, while `DatabaseCreator.CreateEmpty`
-> refuses to *write* it and points the caller at `Version14_2010`.
+> The format at `0x04` is otherwise exactly `0x03`, so LibRed is deliberately **asymmetric**: `FromVersionByte`
+> accepts the byte and reads the 2010 layout, while `DatabaseCreator.CreateEmpty` refuses to write it and points
+> the caller at `Version14_2010`.
 A genuinely **unknown** version byte on an `.accdb` that still carries the cleartext `"4.0"` engine string at
 `0x9C` is read as the **latest known ACE** layout (currently ACE 17) — the format grows conservatively, so an
 unrecognised byte is almost certainly a newer 4KB ACE variant; the `"4.0"` guard stops a genuinely different
 future engine (e.g. a `"5.0"` string) from being mis-read as ACE.
-
-**Upgrading an existing file is that byte and nothing else** (verified 2026-08-26 against ACE over OLE DB,
-from a DAO-created ACE 12 baseline — `dbVersion120`, version `0x02`). Adding a `DATETIME2` column through ACE
-changes exactly one byte of page 0: `0x14`, `0x02` → `0x06`. A control arm adding an ordinary `DATETIME` column
-to the same baseline is what isolates it — the only other byte either arm touched was the opening user's
-commit slot at `0xE02` (§2.2), which moves for any write at all.
 
 The byte is **sufficient, not merely necessary**: writing `0x06` to `0x14` by hand upgrades an ACE 12 file in
 place. ACE then opens it, data written before the flip is still readable, and `ALTER TABLE … ADD COLUMN …
@@ -92,7 +81,7 @@ to `0x06`, confirming the two types really do sit at different formats. Guard:
 `BigIntKeyEncodingTests.Adding_a_bigint_column_makes_ace_raise_the_file_to_ace16`.
 
 **LibRed performs this upgrade itself**, as ACE does: DDL introducing a type the open file is too old for
-raises the version byte instead of refusing (`StatementExecutor.MapColumn` →
+raises the version byte, and clears the minor, instead of refusing (`StatementExecutor.MapColumn` →
 `JetDatabase.EnsureFormatAtLeast` → `PageChannel.RaiseFormatVersion`). Three properties are worth recording,
 because each is a place the obvious implementation goes wrong:
 
@@ -148,6 +137,27 @@ TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` an
 > long-value usage-map block is). E.g. `MSysComplexColumns.ComplexID` is the 2nd descriptor with id 4, and
 > `MSysComplexType_Attachment.FileURL` is the last descriptor with id 0. Sorting is by name, not
 > fixed-before-variable: `ColumnName` is variable-length and still sorts first.
+
+### `0x6A` — the creating engine's build number
+
+The build number of the engine that created the file, stamped once and preserved across copy and compact.
+Observed values:
+
+| value | engine build |
+| --- | --- |
+| `0x000011A6` (4518) | ACE `12.0.4518` — Office 2007 RTM |
+| `0x0000261C` (9756) | Jet `4.0.9756` |
+| `0x000021AA` (8618) | Jet `4.0.8618` |
+| `0x00000B6F` (2927) | Jet `4.0.2927` — SP3 |
+| `0x000009D9` (2521) | Jet `4.0.2521` — RTM |
+
+**ACE writes 4518 unconditionally** — every ACE version (12/14/16/17) stamps its own RTM build, including when
+writing a Jet 4 `.mdb`. A Jet 4 build appears only in a file a real `msjet40.dll` created, and is that engine's
+service-pack build.
+
+> That the value *is* an engine build is **inferred** — from the observed values coinciding with shipped build
+> numbers — not measured; confirming it needs those engines. That the field varies, and varies only across Jet
+> 4 files of differing vintage, is measured. LibRed writes 4518.
 
 ### 2.1 The obfuscated header (`0x18`–`0x98`)
 

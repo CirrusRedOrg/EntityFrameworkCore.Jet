@@ -39,7 +39,7 @@ public static class DatabaseCreator
         string id = isAccdb ? JetFormatBase.AceIdentifier : JetFormatBase.JetIdentifier;
         Encoding.ASCII.GetBytes(id).CopyTo(page, JetFormatBase.FormatIdentifierOffset); // 0x04, 15 bytes; 0x13 stays NUL
         page[JetFormatBase.VersionOffset] = version;                                     // 0x14
-        page[0x15] = (byte)(version == 0x03 ? 0x01 : 0x00);                              // 2010-format minor byte
+        page[JetFormatBase.MinorVersionOffset] = JetFormatBase.CreatedMinorVersion(version); // 0x15
 
         // --- Masked header (0x18..0x97): build the clear image, then XOR the fixed mask over it. ---
         int b = JetFormatBase.PageZeroHeaderMaskStart;

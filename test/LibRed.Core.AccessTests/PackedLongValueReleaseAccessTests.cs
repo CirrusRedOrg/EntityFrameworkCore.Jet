@@ -20,6 +20,7 @@ namespace LibRed.Core.Tests;
 /// experiment using a memo large enough to chain ever produced a <c>0x09</c>, and why the type went
 /// unexplained for so long. Both bands are covered below.
 /// </remarks>
+[Collection(AceCollection.Name)]
 public class PackedLongValueReleaseAccessTests(ITestOutputHelper output) : TempDatabaseTest
 {
     private const int PageSize = 4096, Packed = 400, Chained = 20_000;

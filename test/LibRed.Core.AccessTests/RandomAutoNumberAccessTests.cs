@@ -8,6 +8,7 @@ namespace LibRed.Core.Tests;
 // Byte-faithful check: a LibRed-written "Random" AutoNumber (COUNTER DEFAULT GenUniqueID()) is read by Access.
 // ACE opens the file without repair, sees it as a proper AutoNumber (rejects a supplied Id, auto-assigns on
 // insert), and continues issuing random-looking (non-sequential) ids of its own.
+[Collection(AceCollection.Name)]
 public class RandomAutoNumberAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

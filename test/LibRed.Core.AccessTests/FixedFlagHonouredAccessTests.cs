@@ -29,6 +29,7 @@ namespace LibRed.Core.Tests;
 // the 2016-era build, and Large Number arrived in a later servicing build - so "needs ACE 16" is about the
 // Access version, not about anything named 2016. Hence the skip: an engine that cannot create a BIGINT
 // cannot open a file holding one, and that says nothing about the descriptor behaviour under test.
+[Collection(AceCollection.Name)]
 public class FixedFlagHonouredAccessTests : TempDatabaseTest
 {
     public static TheoryData<JetDataType, int, bool> Shapes => new()

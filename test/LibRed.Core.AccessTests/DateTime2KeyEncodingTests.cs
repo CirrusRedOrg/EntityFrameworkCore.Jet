@@ -16,6 +16,7 @@ namespace LibRed.Core.Tests;
 //
 // The fixture is Northwind (ACE 12) raised to version byte 0x06, which is the entire upgrade - see
 // AceDateTime2UpgradeTests, which proves ACE asks for nothing more.
+[Collection(AceCollection.Name)]
 public class DateTime2KeyEncodingTests
 {
     // Spread across the range, and deliberately including a January date: ACE's own OLE DB reader cannot

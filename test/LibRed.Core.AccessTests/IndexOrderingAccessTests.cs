@@ -7,6 +7,7 @@ using Xunit;
 namespace LibRed.Core.Tests;
 
 /// <summary>Checks boundary-value index byte encoding and traversal order against ACE's actual ORDER BY.</summary>
+[Collection(AceCollection.Name)]
 public class IndexOrderingAccessTests
 {
     public static TheoryData<string, OleDbType, object?[]> KeyFamilies => new()

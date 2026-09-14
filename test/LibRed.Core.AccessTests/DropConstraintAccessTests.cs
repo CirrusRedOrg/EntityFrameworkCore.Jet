@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 /// After LibRed drops a foreign key (soft-deleting its MSysRelationships rows), Access still opens the
 /// file and reads the tables — the soft delete is a normal Jet delete, not corruption.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class DropConstraintAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

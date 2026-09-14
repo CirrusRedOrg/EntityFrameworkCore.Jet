@@ -10,6 +10,7 @@ namespace LibRed.Core.Tests;
 /// blob (absent for a nullable column). LibRed writes it byte-faithfully, reads it back onto
 /// <see cref="ColumnDef.IsNullable"/>, and ACE enforces it on a LibRed-created table.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class RequiredColumnTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

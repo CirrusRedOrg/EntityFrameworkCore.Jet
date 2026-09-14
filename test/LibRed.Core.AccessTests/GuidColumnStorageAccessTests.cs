@@ -15,6 +15,7 @@ namespace LibRed.Core.Tests;
 // spend record budget ACE does not spend, so a 252-GUID table ACE creates without complaint used to exceed
 // LibRed's declared-record limit (ColumnWidthLimitAccessTests). The mapping itself lives in the engine, so
 // LibRed's own side of this is asserted in LibRed.Engine.AccessTests.
+[Collection(AceCollection.Name)]
 public class GuidColumnStorageAccessTests : TempDatabaseTest
 {
     [Theory]

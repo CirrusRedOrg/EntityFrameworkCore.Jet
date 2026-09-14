@@ -17,6 +17,7 @@ namespace LibRed.Core.Tests;
 // ACE may well have inherited the same weirdness, in which case LibRed is already bug-compatible and should stay
 // that way. This probe establishes which it is. The existing DateAdd/DateDiff functional tests do not cover it:
 // they all use modern (Northwind-era) dates, where the serial is positive and the anomaly cannot appear.
+[Collection(AceCollection.Name)]
 public class AcePreEpochDateRegressionTests(ITestOutputHelper output)
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

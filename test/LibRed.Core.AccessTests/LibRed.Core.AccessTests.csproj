@@ -45,12 +45,6 @@
     <Using Include="LibRed.Tests.Shared" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Include="xunit.runner.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
   <!-- The fixtures live in LibRed.Core.Tests\Data and are copied into both outputs rather than duplicated on
        disk: several of these tests read an Access-authored file and hand the same path to ACE, so the two
        projects need the identical set. -->

@@ -15,6 +15,7 @@ namespace LibRed.Core.Tests;
 // "Unrecognized database format". A 100-character table name happened to survive, and the bracketed names
 // only broke SQL that tried to reference them, so the column case is the one that did real damage - but the
 // create path refuses all of them and a rename has no reason to be more permissive.
+[Collection(AceCollection.Name)]
 public class RenameNameValidationAccessTests : TempDatabaseTest
 {
     private static List<ColumnSpec> Specs() =>

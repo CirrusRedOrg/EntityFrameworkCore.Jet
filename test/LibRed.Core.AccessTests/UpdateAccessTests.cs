@@ -10,6 +10,7 @@ namespace LibRed.Core.Tests;
 /// LibRed rewrites a row in place (row id preserved) and Access reads the updated values back — including a
 /// memo that grew onto an LVAL page and a variable-text column that grew the row (page repacked in place).
 /// </summary>
+[Collection(AceCollection.Name)]
 public class UpdateAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

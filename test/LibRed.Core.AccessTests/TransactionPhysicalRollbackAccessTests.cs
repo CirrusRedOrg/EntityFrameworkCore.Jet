@@ -7,6 +7,7 @@ using Xunit;
 namespace LibRed.Core.Tests;
 
 /// <summary>Rollback coverage for page allocation, B-tree splits, relocation, and long-value ownership.</summary>
+[Collection(AceCollection.Name)]
 public class TransactionPhysicalRollbackAccessTests
 {
     [Fact]

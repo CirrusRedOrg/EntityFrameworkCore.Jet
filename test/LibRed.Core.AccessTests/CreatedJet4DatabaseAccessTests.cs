@@ -7,6 +7,7 @@ namespace LibRed.Core.Tests;
 // LibRed creates the Access 2000 / 2002-2003 `.mdb` (Jet 4, version byte 0x01) as well as the ACCDB formats.
 // Creating it is only half the claim — ACE has to open the result, read what LibRed wrote, and write into it
 // itself, which is what separates a plausible file from a valid one.
+[Collection(AceCollection.Name)]
 public class CreatedJet4DatabaseAccessTests(ITestOutputHelper output)
 {
     [Fact]

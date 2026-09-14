@@ -12,6 +12,7 @@ namespace LibRed.Core.Tests;
 /// real-world databases that was 221 of 592 stored queries. These author each shape through DAO, exactly as
 /// the Access UI does, and check LibRed classifies and rebuilds it.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class StoredQueryKindAccessTests
 {
     [Fact]

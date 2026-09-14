@@ -17,6 +17,7 @@ namespace LibRed.Core.Tests;
 //   Generate_general_coverage                      — everything General v0 does not yet encode, per block
 //   Generate_diacritic_weights_missing_from_general — combining marks whose secondary weight is missing
 //   Generate_tailoring_for                          — one locale's overrides against General
+[Collection(AceCollection.Name)]
 public class TailoringGeneratorProbeTest(ITestOutputHelper output)
 {
     /// <summary>The blocks worth sweeping for General v0 coverage: everything a Jet/ACE text column is

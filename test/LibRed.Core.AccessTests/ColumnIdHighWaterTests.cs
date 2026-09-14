@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 // The column-id high-water (TDEF 0x29) never decrements on DROP COLUMN, so once 255 ids have been handed out
 // no further column can be added — even when the *live* count is lower — until the database is compacted.
 // ACE enforces this ("Too many fields defined"); LibRed must too, rather than write a 256th id ACE can't read.
+[Collection(AceCollection.Name)]
 public class ColumnIdHighWaterTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

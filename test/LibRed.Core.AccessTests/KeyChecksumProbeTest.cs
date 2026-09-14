@@ -12,6 +12,7 @@ namespace LibRed.Core.Tests;
 // plain truncation. Not knowing it is the only reason LibRed refuses those values instead of matching them.
 //
 // Opt-in via LIBRED_CHECKSUM=1.
+[Collection(AceCollection.Name)]
 public class KeyChecksumProbeTest(ITestOutputHelper output)
 {
     /// <summary>

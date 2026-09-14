@@ -15,6 +15,7 @@ namespace LibRed.Core.Tests;
 /// Verified against ACE: the union of a table's index maps equals exactly the set of index pages ACE itself
 /// marks, and LibRed reproduces that.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class IndexUsageMapTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

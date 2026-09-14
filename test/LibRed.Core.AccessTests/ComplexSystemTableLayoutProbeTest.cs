@@ -10,6 +10,7 @@ namespace LibRed.Core.Tests;
 //
 // Complex columns (multi-value / attachment) arrived with Access 2007 / ACE 12, so these tables exist only
 // from version byte 0x02 up; a Jet 4 (.mdb) database has none of them.
+[Collection(AceCollection.Name)]
 public class ComplexSystemTableLayoutProbeTest(ITestOutputHelper output)
 {
     [Fact]

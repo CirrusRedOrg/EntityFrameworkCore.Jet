@@ -7,6 +7,7 @@ using Xunit;
 namespace LibRed.Core.Tests;
 
 /// <summary>A database LibRed creates from scratch (no DAO/ADOX) is opened, queried, and written by real Access.</summary>
+[Collection(AceCollection.Name)]
 public class AceCreatedDatabaseTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

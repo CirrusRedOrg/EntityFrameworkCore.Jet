@@ -41,6 +41,7 @@ namespace LibRed.Core.Tests;
 //           --filter "FullyQualifiedName~CollationSurveyProbeTests.Survey_dao_acceptance"
 //       dotnet test test\LibRed.Core.Tests\LibRed.Core.Tests.csproj
 //           --filter "FullyQualifiedName~CollationSurveyProbeTests.Survey_keys_batch_04"
+[Collection(AceCollection.Name)]
 public class CollationSurveyProbeTests(ITestOutputHelper output)
 {
     private const int UseJet = 2;

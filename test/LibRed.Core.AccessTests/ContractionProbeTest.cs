@@ -15,6 +15,7 @@ namespace LibRed.Core.Tests;
 // So: for each order, the component letters on their own, every digraph, the doubled forms (Hungarian writes
 // a doubled digraph by doubling only its first letter - "ggy" is "gy"+"gy", not "g"+"gy"), and real words.
 // Printed in full, no capping, so the structure is visible rather than inferred.
+[Collection(AceCollection.Name)]
 public class ContractionProbeTest(ITestOutputHelper output)
 {
     private static readonly (string Fixture, string[] Samples)[] Cases =

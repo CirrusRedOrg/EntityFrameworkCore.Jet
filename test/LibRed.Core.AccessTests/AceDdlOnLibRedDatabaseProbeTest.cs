@@ -16,6 +16,7 @@ namespace LibRed.Core.Tests;
 //
 // Ace_runs_ddl_against_a_libred_created_database is the regression guard and asserts; the rest report.
 // Keep the guard: LibRed reading its own file back proves nothing about whether Access will accept it.
+[Collection(AceCollection.Name)]
 public class AceDdlOnLibRedDatabaseProbeTest(ITestOutputHelper output)
 {
     [Theory]

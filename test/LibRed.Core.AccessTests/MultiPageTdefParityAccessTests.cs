@@ -15,6 +15,7 @@ namespace LibRed.Core.Tests;
 //
 // Stitching alone would not catch a wrong split — the same content can be divided differently and still
 // reassemble — so the definition page's own next-page link and free space are compared as well.
+[Collection(AceCollection.Name)]
 public class MultiPageTdefParityAccessTests : TempDatabaseTest
 {
     [Theory]

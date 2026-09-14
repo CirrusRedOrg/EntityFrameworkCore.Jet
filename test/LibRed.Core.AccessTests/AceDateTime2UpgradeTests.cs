@@ -14,6 +14,7 @@ namespace LibRed.Core.Tests;
 // heap-corrupts (0xC0000374) under connection churn in this shape, reproducibly, and takes the test process
 // with it - so each phase uses ONE connection for all of its statements. A connection is only reopened where
 // the file has to be closed in between.
+[Collection(AceCollection.Name)]
 public class AceDateTime2UpgradeTests(ITestOutputHelper output)
 {
     // The guard for the half of the finding LibRed would come to depend on: that the byte is SUFFICIENT, not

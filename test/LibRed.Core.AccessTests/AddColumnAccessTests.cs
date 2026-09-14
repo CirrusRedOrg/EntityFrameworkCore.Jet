@@ -8,6 +8,7 @@ namespace LibRed.Core.Tests;
 // ADD COLUMN is a metadata TDEF edit (inverse of DROP COLUMN): the descriptor/name are appended, the new id
 // comes from the 0x29 high-water, counts bump, rows are untouched (read NULL). Verify ACE opens a
 // LibRed-column-added file, reads existing rows with the new column NULL, and can insert using it.
+[Collection(AceCollection.Name)]
 public class AddColumnAccessTests
 {
     private static OleDbConnection Open(string path) => AceTestDatabase.Open(path);

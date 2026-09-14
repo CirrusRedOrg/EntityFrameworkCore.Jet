@@ -12,6 +12,7 @@ namespace LibRed.Core.Tests;
 // Regressions for the spec-vs-code audit. Each one is a defect that shipped, so each is pinned by the
 // smallest sequence that reproduced it rather than by a unit test of the fix — most of these were bugs
 // precisely because a single path looked correct in isolation and only diverged from its sibling.
+[Collection(AceCollection.Name)]
 public class AuditRegressionAccessTests(ITestOutputHelper output)
 {
     // ------------------------------------------------------------------ format version

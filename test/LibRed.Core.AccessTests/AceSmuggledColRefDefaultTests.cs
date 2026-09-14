@@ -10,6 +10,7 @@ namespace LibRed.Core.Tests;
 // the column-reference prohibition is enforced by ACE's expression service at INSERT (evaluation) time, not by
 // its DDL parser. So ACE inserts nothing — it rejects the row with the same "field in a default" error it gives
 // at create time. There is no way to smuggle a working column-ref default past the engine.
+[Collection(AceCollection.Name)]
 public class AceSmuggledColRefDefaultTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

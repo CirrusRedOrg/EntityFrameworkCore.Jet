@@ -13,6 +13,7 @@ namespace LibRed.Core.Tests;
 // Every page is labelled from its own header (type byte, and the owning TDEF for data/index pages) and
 // cross-referenced against the catalog: each table's TDEF page, its index roots, and the usage-map pages its
 // TDEF points at.
+[Collection(AceCollection.Name)]
 public class DaoPageLayoutProbeTest(ITestOutputHelper output)
 {
     [Fact]

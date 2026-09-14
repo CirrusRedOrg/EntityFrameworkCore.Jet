@@ -20,6 +20,7 @@ namespace LibRed.Core.Tests;
 // Every case logs what happened (the id assigned, or the engine's own error text) plus the resulting 0x14
 // high-water read back through LibRed's catalog, so ACE's and LibRed's behaviour sit side by side in the
 // output — and then asserts it. Nothing here is asserted that was not first observed against ACE.
+[Collection(AceCollection.Name)]
 public class AceAutoNumberOverflowRegressionTests(ITestOutputHelper output)
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

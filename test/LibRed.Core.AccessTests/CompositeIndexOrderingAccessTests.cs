@@ -7,6 +7,7 @@ using Xunit;
 namespace LibRed.Core.Tests;
 
 /// <summary>Checks mixed-type, mixed-direction composite index keys against a live ACE-created B-tree.</summary>
+[Collection(AceCollection.Name)]
 public class CompositeIndexOrderingAccessTests
 {
     [Fact]

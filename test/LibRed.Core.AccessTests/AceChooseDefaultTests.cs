@@ -8,6 +8,7 @@ namespace LibRed.Core.Tests;
 // Byte-faithful: a LibRed-written Choose()/CBool(Choose()) default is read and applied by ACE. Confirms LibRed's
 // Choose support matches ACE (which has the VBA Choose function), incl. the nested CBool(Choose(...)) form that
 // ACE's OLE DB DDL parser rejects at CREATE but its expression service applies at insert.
+[Collection(AceCollection.Name)]
 public class AceChooseDefaultTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

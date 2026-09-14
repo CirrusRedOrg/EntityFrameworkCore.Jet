@@ -15,6 +15,7 @@ namespace LibRed.Core.Tests;
 //
 // If ACE agrees, French costs one flag rather than a table of overrides, and so do the other orders that
 // carry it. Opt-in via LIBRED_REVERSE_DW=1.
+[Collection(AceCollection.Name)]
 public class ReverseDiacriticProbeTest(ITestOutputHelper output)
 {
     // The measured French keys, as ACE stored them in an index. French tailors no letter at all: it is

@@ -15,6 +15,7 @@ namespace LibRed.Core.Tests;
 /// values, that a full page leaves the free map while the current one stays free, and that both LibRed
 /// and Access read every value back.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class LongValuePackingAccessTests
 {
     private const int N = 20; // each ~310 bytes → LVAL, but ~10 fit per page

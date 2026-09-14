@@ -8,6 +8,7 @@ namespace LibRed.Core.Tests;
 // Byte-faithful: ACE reads and ENFORCES a LibRed-written CHECK (via AddCheckConstraint, the ALTER path) and a
 // LibRed-written UNIQUE index (via CreateIndex, the ADD CONSTRAINT UNIQUE path). Confirms both write byte-faithful
 // structures — answering "does AddUnique write it the way ACE does": ACE accepts and enforces it.
+[Collection(AceCollection.Name)]
 public class AceAlterConstraintTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 /// Access runs a LibRed-created DISTINCT view with a RIGHT JOIN and a BETWEEN/date WHERE — Northwind's
 /// "Quarterly Orders". DISTINCT is the MSysQueries flag row; the WHERE is stored verbatim.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class DistinctViewAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

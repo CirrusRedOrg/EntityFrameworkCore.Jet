@@ -7,6 +7,7 @@ using Xunit;
 namespace LibRed.Core.Tests;
 
 /// <summary>Cross-engine update/delete coverage for split indexes and relocated indexed rows.</summary>
+[Collection(AceCollection.Name)]
 public class IndexMaintenanceAccessTests
 {
     private const int RowCount = 900;

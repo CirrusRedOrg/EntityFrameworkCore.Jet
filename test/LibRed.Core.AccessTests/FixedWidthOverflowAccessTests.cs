@@ -17,6 +17,7 @@ namespace LibRed.Core.Tests;
 //
 // The CHAR/BINARY half also establishes that the fixed form is reachable from ordinary ACE DDL — it is not a
 // LibRed-only construct that only the Core API can produce.
+[Collection(AceCollection.Name)]
 public class FixedWidthOverflowAccessTests
 {
     [Fact]

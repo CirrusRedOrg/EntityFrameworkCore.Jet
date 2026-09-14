@@ -14,6 +14,7 @@ namespace LibRed.Core.Tests;
 /// record in place (256-bit chunks) rather than switching to a reference map. LibRed does the same, so
 /// large tables keep working and Access still reads them.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class UsageMapGrowthTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

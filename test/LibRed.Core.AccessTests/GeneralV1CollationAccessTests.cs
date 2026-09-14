@@ -13,6 +13,7 @@ namespace LibRed.Core.Tests;
 // is also the point: nothing else here can make one. DAO always writes v0, ignoring the application setting,
 // and Access only honours "New database sort order" through its own UI. So this doubles as the test that
 // LibRed's create-with-collation produces a file ACE accepts as a General database.
+[Collection(AceCollection.Name)]
 public class GeneralV1CollationAccessTests
 {
     private static readonly string[] Samples =

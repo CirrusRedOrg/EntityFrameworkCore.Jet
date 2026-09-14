@@ -16,6 +16,7 @@ namespace LibRed.Core.Tests;
 // The sample set is deliberately much wider than the tailoring: the whole ASCII range, every Latin-1 and
 // Latin Extended-A letter, and words. A tailoring is only trustworthy if it is also correct for the
 // characters it does *not* mention.
+[Collection(AceCollection.Name)]
 public class LocaleCollationAccessTests(ITestOutputHelper output)
 {
     public static TheoryData<string> Fixtures() =>

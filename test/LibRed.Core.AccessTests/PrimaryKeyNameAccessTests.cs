@@ -13,6 +13,7 @@ namespace LibRed.Core.Tests;
 /// EF Core scaffolder reads). When unnamed, LibRed writes its stable "PrimaryKey" fallback, which Access reads
 /// back unchanged (ACE creating an unnamed PK via SQL would instead generate a random "Index_<hex>").
 /// </summary>
+[Collection(AceCollection.Name)]
 public class PrimaryKeyNameAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

@@ -12,6 +12,7 @@ namespace LibRed.Core.Tests;
 //
 // Northwind is ACE 12 (version byte 0x02); Large Number needs ACE 16 (0x05). Unlike the DATETIME2 tests
 // nothing flips the byte by hand here — ACE is left to do it, because whether it does was the open question.
+[Collection(AceCollection.Name)]
 public class BigIntKeyEncodingTests
 {
     // Both extremes and both signs. The key transform is a sign-bit flip, so a sample of positives would pass

@@ -8,6 +8,7 @@ namespace LibRed.Core.Tests;
 // DROP COLUMN must remove the dropped column's DefaultValue/Required entries from the table's
 // MSysObjects.LvProp blob — verified this is what ACE does. LibRed's drop does the same (surgical removal
 // of the column's property block), and ACE still opens/reads the result.
+[Collection(AceCollection.Name)]
 public class DropColumnLvPropAccessTests
 {
     private static OleDbConnection Open(string path) => AceTestDatabase.Open(path);

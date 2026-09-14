@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 /// A table wide enough that its TDEF spans continuation pages (the owned-types / proxy shape). LibRed writes
 /// the definition split across pages; Access opens it, reports every column, and round-trips a row.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class WideTableAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

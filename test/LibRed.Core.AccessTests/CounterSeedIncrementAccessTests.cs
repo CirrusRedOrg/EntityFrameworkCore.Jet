@@ -8,6 +8,7 @@ namespace LibRed.Core.Tests;
 
 // Byte-faithful check: a LibRed-written COUNTER(seed, increment) is read by Access — it opens the file without
 // repair, and continues the AutoNumber sequence from the seed with the custom increment.
+[Collection(AceCollection.Name)]
 public class CounterSeedIncrementAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

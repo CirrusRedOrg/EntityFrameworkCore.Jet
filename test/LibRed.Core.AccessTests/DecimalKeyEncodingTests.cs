@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 // Byte-faithful: a FixedPoint (Numeric/Decimal) index key is a sign byte plus the 16-byte big-endian unscaled
 // magnitude (|value| * 10^scale). Non-negative uses sign 0xFF; a negative value is the bitwise complement of
 // the whole 17-byte positive form. Verified against keys Access itself wrote.
+[Collection(AceCollection.Name)]
 public class DecimalKeyEncodingTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 // 0x14 high-water to the *last inserted value* (not the max), so the next auto id re-derives from it and
 // collides with an existing row — the "duplicate values in the index/primary key" error. LibRed diverges (it
 // advances 0x14 monotonically and is immune — see AutoNumberSeedImmunityTests in LibRed.Engine.Tests).
+[Collection(AceCollection.Name)]
 public class AutoNumberSeedTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

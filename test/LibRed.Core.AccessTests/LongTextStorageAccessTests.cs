@@ -15,6 +15,7 @@ namespace LibRed.Core.Tests;
 //
 // Scope: this is the SQL-created column. A column Access's designer creates with Unicode Compression set
 // to Yes carries the flag, and LibRed reads that form back (the all-compressed case) but never writes it.
+[Collection(AceCollection.Name)]
 public class LongTextStorageAccessTests(ITestOutputHelper output) : TempDatabaseTest
 {
     [Theory]

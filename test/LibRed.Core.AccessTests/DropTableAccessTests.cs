@@ -7,6 +7,7 @@ namespace LibRed.Core.Tests;
 // ACE's DROP TABLE removes the object's MSysObjects + MSysACEs rows and frees its pages (a later create
 // reuses them). LibRed mirrors this: after a LibRed DROP TABLE, ACE opens the file, no longer sees the
 // table, reads the other tables, and reuses the freed pages when creating a new table.
+[Collection(AceCollection.Name)]
 public class DropTableAccessTests
 {
     private static OleDbConnection Open(string path) => AceTestDatabase.Open(path);

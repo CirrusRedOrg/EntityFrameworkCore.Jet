@@ -21,6 +21,7 @@ namespace LibRed.Core.Tests;
 /// rows before the index's. Adding the Memo column afterwards is what puts the index's row in the middle, so
 /// the last shape below is the one that matters and the first three are the shapes that were already covered.
 /// </remarks>
+[Collection(AceCollection.Name)]
 public class OwnedMapRecycleAccessTests(ITestOutputHelper output) : TempDatabaseTest
 {
     private const int PageSize = 4096;

@@ -18,6 +18,7 @@ namespace LibRed.Core.Tests;
 // For each: does DAO accept the locale, what LCID lands on disk, will ACE open the result at all, and do the
 // index keys actually differ from General v0? DAO can only author version 0 (DaoDatabaseCreationProbeTest),
 // so any difference here is a locale difference, not a sort-order-version one.
+[Collection(AceCollection.Name)]
 public class DaoLocaleCollationProbeTest(ITestOutputHelper output)
 {
     private const int UseJet = 2;

@@ -6,6 +6,7 @@ using Xunit;
 
 namespace LibRed.Core.Tests;
 
+[Collection(AceCollection.Name)]
 public class TextKeyEncodingTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

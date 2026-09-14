@@ -17,6 +17,7 @@ namespace LibRed.Core.Tests;
 // ACE does not squeeze it in either - it spills, exactly as it does for the columns, leaving the full page
 // alone and putting the new index's map at row 0 of a page of its own. That rule was already in LibRed for
 // long-value columns in Create and AddColumn; InsertIndex was the one write path without it.
+[Collection(AceCollection.Name)]
 public class WideMemoUsageMapAccessTests(ITestOutputHelper output) : TempDatabaseTest
 {
     private const int WideMemoColumns = 40; // more than the ~27 that fit alongside the table and index maps

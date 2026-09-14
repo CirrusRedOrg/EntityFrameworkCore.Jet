@@ -10,6 +10,7 @@ namespace LibRed.Core.Tests;
 /// LibRed soft-deletes a row (slot flagged, index entries removed, TDEF row count decremented) and Access
 /// reads the table without it — the deleted row is gone from scans, seeks, and COUNT.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class DeleteAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

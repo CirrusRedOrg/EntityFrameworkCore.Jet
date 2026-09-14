@@ -24,6 +24,7 @@ namespace LibRed.Core.Tests;
 // Scope: whatever ACE is installed. The provider is logged, since the scheme dates from Jet 4.0 and an
 // older engine may differ; 12.0 and 16.0 were checked by hand and agree byte for byte, but only one ACE is
 // installed at a time so the test cannot assert both.
+[Collection(AceCollection.Name)]
 public class MixedCompressionAccessTests(ITestOutputHelper output) : TempDatabaseTest
 {
     // name, payload, stored bytes, mode switches in the payload

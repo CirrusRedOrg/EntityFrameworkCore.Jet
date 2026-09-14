@@ -15,6 +15,7 @@ namespace LibRed.Core.Tests;
 // data byte, and every measurement behind the rule happened to use an all-text key. These tests pin down both
 // halves against ACE, because a wrong key here is the silent kind of wrong: neither engine errors, ACE writes
 // its own key into the same index, and seeks quietly miss rows.
+[Collection(AceCollection.Name)]
 public class IndexKeyTruncationAccessTests(ITestOutputHelper output)
 {
     [Fact]

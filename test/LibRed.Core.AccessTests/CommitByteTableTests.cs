@@ -12,6 +12,7 @@ namespace LibRed.Core.Tests;
 //
 // ONE connection for the whole sequence — ACE heap-corrupts under connection churn (0xC0000374) and takes the
 // test process with it.
+[Collection(AceCollection.Name)]
 public class CommitByteTableTests
 {
     private const int Slot1 = 0xE02;   // 0xE00 is slot 0 (exclusive mode); slot 1 is the first shared user

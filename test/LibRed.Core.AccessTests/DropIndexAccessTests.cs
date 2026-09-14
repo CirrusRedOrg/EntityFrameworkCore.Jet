@@ -7,6 +7,7 @@ namespace LibRed.Core.Tests;
 // ACE's DROP INDEX removes the index's TDEF blocks and frees its B-tree root; it allows dropping plain,
 // unique and even the primary-key index, but REJECTS an FK-backing index ("used in a relationship").
 // LibRed mirrors this, and ACE opens+reads a LibRed-index-dropped file.
+[Collection(AceCollection.Name)]
 public class DropIndexAccessTests
 {
     private static OleDbConnection Open(string path) => AceTestDatabase.Open(path);

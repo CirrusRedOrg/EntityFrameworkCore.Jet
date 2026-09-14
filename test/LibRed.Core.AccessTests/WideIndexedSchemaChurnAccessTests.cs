@@ -10,6 +10,7 @@ namespace LibRed.Core.Tests;
 /// An ACE-oracle stress shape: a multi-page TDEF with split indexes and live rows is edited through both
 /// metadata-only and full-rebuild paths. ACE must be able to read, seek, append and update the result.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class WideIndexedSchemaChurnAccessTests
 {
     private const int ExtraColumns = 240;

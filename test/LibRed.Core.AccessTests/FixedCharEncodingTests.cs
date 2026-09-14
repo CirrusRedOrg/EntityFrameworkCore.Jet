@@ -8,6 +8,7 @@ namespace LibRed.Core.Tests;
 // A fixed-length text (CHAR/NCHAR) column stores space-padded to its full width — matching ACE. Previously
 // LibRed's encoder didn't pad, so inserting a short value into a fixed CHAR threw
 // "Column ... encoded to N bytes, expected M". This covers the round-trip and the ACE read-back.
+[Collection(AceCollection.Name)]
 public class FixedCharEncodingTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

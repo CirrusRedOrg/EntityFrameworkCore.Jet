@@ -5,6 +5,7 @@ using Xunit;
 
 namespace LibRed.Core.Tests;
 
+[Collection(AceCollection.Name)]
 public class TextPrimaryKeyInsertTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

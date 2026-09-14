@@ -9,6 +9,7 @@ namespace LibRed.Core.Tests;
 /// key). LibRed back-fills the new index B-tree from the existing rows and appends its usage-map row
 /// without disturbing the data/other-index maps; Access reads every row and enforces the key.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class AddIndexToPopulatedTableAccessTests
 {
     private static OleDbConnection OpenOleDb(string path) => AceTestDatabase.Open(path);

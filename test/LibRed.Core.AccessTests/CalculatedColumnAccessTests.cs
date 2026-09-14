@@ -15,6 +15,7 @@ namespace LibRed.Core.Tests;
 // LibRed cannot create a calculated column (Access SQL has no syntax for one), so DAO's object model is
 // the author here — the same path Access's UI uses. Each column gets its own table because ACE validates
 // the expression when the TableDef is appended, and one rejected expression would take the rest with it.
+[Collection(AceCollection.Name)]
 public class CalculatedColumnAccessTests(ITestOutputHelper output)
 {
     private const int UseJet = 2;

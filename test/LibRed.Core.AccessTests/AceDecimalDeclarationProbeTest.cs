@@ -11,6 +11,7 @@ namespace LibRed.Core.Tests;
 // grounds that 18 is ACE's own default for a bare DECIMAL. That figure was inherited from AccessTypeMapper
 // (`column.Size ?? 18`) rather than measured, so this measures it: ACE creates the columns, LibRed reads the
 // descriptor bytes back.
+[Collection(AceCollection.Name)]
 public class AceDecimalDeclarationProbeTest(ITestOutputHelper output)
 {
     [Fact]

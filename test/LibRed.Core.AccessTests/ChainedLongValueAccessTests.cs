@@ -12,6 +12,7 @@ namespace LibRed.Core.Tests;
 /// each chunk row beginning with a 4-byte pointer to the next. This checks a large value round-trips
 /// through LibRed and that Access reads it back intact.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class ChainedLongValueAccessTests
 {
     // 20 000 chars = 40 000 bytes → several chained LVAL pages (chunk data is 4072 bytes/page).

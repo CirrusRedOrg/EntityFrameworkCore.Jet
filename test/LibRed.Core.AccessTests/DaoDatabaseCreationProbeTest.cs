@@ -14,6 +14,7 @@ namespace LibRed.Core.Tests;
 // documented string carries only LANGID/CP/COUNTRY, i.e. the locale, not the version.
 //
 // Each attempt is created, then opened with LibRed to read the sort-order version byte (page 0, 0x71).
+[Collection(AceCollection.Name)]
 public class DaoDatabaseCreationProbeTest(ITestOutputHelper output)
 {
     private const int UseJet = 2;

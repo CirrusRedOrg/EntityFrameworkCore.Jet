@@ -10,6 +10,7 @@ namespace LibRed.Core.Tests;
 // ACE authors the database here; LibRed only reads. That direction is the point — it fails on the old
 // 24-bit reader and passes on the fixed one. Separately measured against ACE: 0x3FFFFFFF bytes are
 // accepted and 0x40000000 rejected, fixing the ceiling at 1 GiB — see long-values.md.
+[Collection(AceCollection.Name)]
 public class LongValueLengthAccessTests : TempDatabaseTest
 {
     [Fact]

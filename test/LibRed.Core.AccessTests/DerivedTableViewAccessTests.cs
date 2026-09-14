@@ -13,6 +13,7 @@ namespace LibRed.Core.Tests;
 /// inner subquery SQL in <c>Expression</c> and the alias in <c>Name2</c> (no <c>Name1</c>). This checks
 /// LibRed writes it that way and that Access opens the file and runs the view.
 /// </summary>
+[Collection(AceCollection.Name)]
 public class DerivedTableViewAccessTests
 {
     private const string Subquery =

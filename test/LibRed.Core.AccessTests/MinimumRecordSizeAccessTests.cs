@@ -16,6 +16,7 @@ namespace LibRed.Core.Tests;
 // every Boolean in it as False. The cliff is at four bytes rather than five - sixteen Booleans, whose bitmap
 // is two bytes wide, read back correctly - but ACE's own writer never emits a record under five, so the short
 // form is simply a shape its reader has never met, and it misreads it silently rather than refusing it.
+[Collection(AceCollection.Name)]
 public class MinimumRecordSizeAccessTests(ITestOutputHelper output) : TempDatabaseTest
 {
     /// <summary>The record bytes of the single row in <paramref name="table"/>.</summary>

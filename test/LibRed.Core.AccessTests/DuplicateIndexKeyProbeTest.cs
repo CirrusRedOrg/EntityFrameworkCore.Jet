@@ -14,6 +14,7 @@ namespace LibRed.Core.Tests;
 //
 // The cause was that the shared prefix covers the whole entry, trailer included — see IndexPageReader — so
 // the stored remainder can be two bytes. These cases now assert, since nothing about them is exotic.
+[Collection(AceCollection.Name)]
 public class DuplicateIndexKeyProbeTest(ITestOutputHelper output)
 {
     [Theory]

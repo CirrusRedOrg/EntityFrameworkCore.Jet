@@ -2124,30 +2124,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         }
     }
 
-    /// <summary>The TDEF-page step of the in-place column type change: bump the <c>0x29</c> high-water and rewrite
-    /// ONLY the target descriptor (type, burned id, fixed-offset appended to the end of the fixed region with the
-    /// old slot left dead, length), leaving the TDEF page number and every other descriptor byte-identical to ACE.
-    /// This alone is not a self-consistent change — <see cref="AlterColumnTypeInPlace"/> wraps it with the row
-    /// re-lay and index rebuild; this entry point exists so a byte-diff test can isolate the TDEF page.</summary>
-    public void AlterColumnTypeInPlaceTdef(string tableName, string columnName, ColumnSpec newSpec, int? fixedEndOverride = null)
-    {
-        TableDef def = _catalog.FindTable(tableName)
-            ?? throw new InvalidOperationException($"Table '{tableName}' does not exist.");
-        ColumnDef target = def.FindColumn(columnName)
-            ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
-        EnsureColumnIsNotInRelationship(def, target);
-        JetFormatBase format = _channel.Format;
-
-        TdefParts parts = ParseTdef(def.DefinitionPage);
-        // The fixed-region end must include dead slots, so callers with rows pass the row-derived length.
-        int fixedEnd = fixedEndOverride ?? def.Columns.Where(c => c.IsFixedLength && c.Type != JetDataType.Boolean)
-            .Select(c => c.FixedOffset + c.Length).DefaultIfEmpty(0).Max();
-
-        EditTargetDescriptor(parts, target, newSpec, fixedEnd, _collation, format);
-        WriteTdef(def.DefinitionPage, parts);
-        _catalog.Invalidate();
-    }
-
     /// <summary>Applies ACE's in-place column retype to the target descriptor within <paramref name="parts"/>
     /// (no page write — the caller writes the TDEF once): the target becomes a NEW column with a fresh id from the
     /// <c>0x29</c> high-water and its fixed data appended to the END of the current fixed region (its old slot left
@@ -2190,9 +2166,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         return maxCols;
     }
 
-    /// <summary>Full in-place column type change, byte-for-byte like ACE (currently: an all-fixed, non-boolean
-    /// table whose target stays fixed and is not indexed; falls back to <see cref="RewriteColumn"/> otherwise).
-    /// Edits the TDEF in place (<see cref="AlterColumnTypeInPlaceTdef"/>) and re-lays every row — the target's
+    /// <summary>Full in-place column type change, byte-for-byte like ACE for fixed and variable columns and
+    /// targets, fixed↔variable, and indexed targets; a Memo/OLE source or target falls back to
+    /// <see cref="RewriteColumn"/>. Edits the TDEF in place (<see cref="EditTargetDescriptor"/>) and re-lays every row — the target's
     /// OLD fixed slot is kept as dead space, its converted value appended at the new offset, count + null bitmap
     /// updated. Converts values in memory first (throws on bad data before any write); runs in a transaction.</summary>
     public void AlterColumnTypeInPlace(string tableName, string columnName, ColumnSpec newSpec)

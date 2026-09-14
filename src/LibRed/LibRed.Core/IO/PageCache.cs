@@ -224,19 +224,4 @@ internal sealed class PageCache
             if (_map.TryGetValue(page, out var node))
                 node.Value.Parsed = parsed;
     }
-
-    /// <summary>Drops every cached page numbered <paramref name="fromPageInclusive"/> or higher — used after a
-    /// rollback truncates the file so freshly-allocated (now non-existent) pages don't linger in the pool.</summary>
-    public void EvictFrom(int fromPageInclusive)
-    {
-        lock (_gate)
-        {
-            var drop = _map.Keys.Where(p => p >= fromPageInclusive).ToList();
-            foreach (int p in drop)
-            {
-                _lru.Remove(_map[p]);
-                _map.Remove(p);
-            }
-        }
-    }
 }

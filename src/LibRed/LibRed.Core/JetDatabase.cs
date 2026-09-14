@@ -300,21 +300,6 @@ public sealed class JetDatabase : IDisposable
         Catalog.Invalidate();
     }
 
-    /// <summary>Just the in-place TDEF descriptor edit of a column type-change (bump 0x29 + rewrite only the
-    /// target descriptor), matching ACE byte-for-byte — the TDEF-page step of <see cref="AlterColumnTypeInPlace"/>,
-    /// exposed on its own so a byte-diff test can isolate the TDEF page. It does NOT re-lay rows or rebuild
-    /// indexes; call <see cref="AlterColumnTypeInPlace"/> for the full, self-consistent change.</summary>
-    /// <param name="fixedEndOverride">Where the current fixed region ends, for placing the retyped column's
-    /// new slot. On a table with rows this MUST come from an existing row (its variable-data start), not from
-    /// the live column descriptors: a previous retype leaves a dead fixed slot that the descriptors no longer
-    /// account for, so deriving it from them lands the new slot on top of the dead one. Omit it only for an
-    /// empty table. Without this parameter the method could not be called correctly from outside Core.</param>
-    public void AlterColumnTypeInPlaceTdef(string table, string column, ColumnSpec newSpec, int? fixedEndOverride = null)
-    {
-        new Storage.TableCreator(_channel, Catalog).AlterColumnTypeInPlaceTdef(table, column, newSpec, fixedEndOverride);
-        Catalog.Invalidate();
-    }
-
     /// <summary>Full in-place column type change, byte-for-byte like ACE for every shape (fixed/variable columns
     /// and targets, fixed↔variable, and indexed targets): TDEF edit + row re-lay preserving the dead old slot +
     /// index rebuild. Falls back to the logical rebuild only for a Memo/OLE (long-value) source or target.</summary>

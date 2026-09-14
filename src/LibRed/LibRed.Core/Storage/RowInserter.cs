@@ -562,19 +562,6 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         new PageAllocator(_channel).Free(pageNumber);
     }
 
-    /// <summary>The raw bytes of slot <paramref name="slot"/> on a data page (walks the packed rows).</summary>
-    private static byte[] SlotBytes(byte[] page, JetFormatBase format, int slot)
-    {
-        int prevEnd = format.PageSize;
-        for (int i = 0; i <= slot; i++)
-        {
-            int offset = BinaryPrimitives.ReadUInt16LittleEndian(page.AsSpan(format.DataRowDirectoryOffset + i * 2, 2)) & RowPointer.OffsetMask;
-            if (i == slot) return page.AsSpan(offset, prevEnd - offset).ToArray();
-            prevEnd = offset;
-        }
-        throw new ArgumentOutOfRangeException(nameof(slot));
-    }
-
     /// <summary>Rejects the insert if a UNIQUE or PRIMARY index would gain a duplicate key. A row with a
     /// null in any of a unique index's columns is skipped — Jet treats nulls as distinct, so a unique index
     /// allows multiple nulls (verified vs ACE). Runs before the row is written so nothing is half-inserted.</summary>

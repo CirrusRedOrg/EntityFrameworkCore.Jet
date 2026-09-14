@@ -39,7 +39,8 @@ public class AceWriteValiditySweepProbeTests(ITestOutputHelper output) : TempDat
         // Asked once: a BIGINT workload on an ACE 12 engine would fail for a reason unrelated to the file.
         string northwind = Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb");
         bool bigInt = AceTestDatabase.SupportsColumnType(northwind, "BIGINT");
-        output.WriteLine($"seed {seed}, {workloads} workloads; ACE supports BIGINT={bigInt}");
+        JetVersion newest = NewestVersionAceOpens(northwind);
+        output.WriteLine($"seed {seed}, {workloads} workloads; ACE supports BIGINT={bigInt}, opens up to {newest}");
 
         // FINDING = a file ACE will not accept, which is what this exists for. LEAK = a statement that threw
         // outside the refusal contract; a real defect but a caller-facing one, so the workload carries on and
@@ -49,7 +50,7 @@ public class AceWriteValiditySweepProbeTests(ITestOutputHelper output) : TempDat
         for (int i = 0; i < workloads; i++)
         {
             int workloadSeed = seed + i;
-            Plan plan = Plan.Generate(new Random(workloadSeed), bigInt);
+            Plan plan = Plan.Generate(new Random(workloadSeed), bigInt, newest);
 
             Outcome outcome = RunAndValidate(plan, plan.Steps.Count);
             leaks.AddRange(outcome.Leaks);
@@ -76,6 +77,15 @@ public class AceWriteValiditySweepProbeTests(ITestOutputHelper output) : TempDat
             + $"contract:\n\n" + string.Join("\n", grouped));
     }
 
+    /// <summary>The newest format the installed ACE opens. An older engine refuses a file whose version byte is
+    /// past it ("requires a newer version of Microsoft Access") — CI's ACE 2016 redistributable opens neither
+    /// 0x05 nor 0x06. Asked through the type each format was introduced for, the same probe the rest of the
+    /// suite gates on.</summary>
+    private static JetVersion NewestVersionAceOpens(string northwind) =>
+        AceTestDatabase.SupportsColumnType(northwind, "DATETIME2") ? JetVersion.Version17_2019
+        : AceTestDatabase.SupportsColumnType(northwind, "BIGINT") ? JetVersion.Version16_2016
+        : JetVersion.Version14_2010;
+
     /// <summary>A workload's two verdicts — see the note in the test body.</summary>
     private sealed record Outcome(string? AceVerdict, List<Leak> Leaks);
 
@@ -94,6 +104,11 @@ public class AceWriteValiditySweepProbeTests(ITestOutputHelper output) : TempDat
     [InlineData(JetVersion.Version17_2019, ".accdb")]
     public void Ace_opens_an_empty_database_at_every_format_libred_creates(JetVersion version, string extension)
     {
+        string northwind = Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb");
+        Assert.SkipWhen(version > NewestVersionAceOpens(northwind),
+            $"The installed ACE predates {version} and refuses the file as needing a newer Access, which says "
+            + "nothing about LibRed.");
+
         string path = TemporaryDatabase.CreatePath("libred-empty-", extension);
         File.Delete(path);
         try
@@ -283,15 +298,18 @@ public class AceWriteValiditySweepProbeTests(ITestOutputHelper output) : TempDat
         public string Describe() =>
             $"{Version}, collation v{Collation.Version}, {Steps.Count} steps";
 
-        public static Plan Generate(Random random, bool bigInt)
+        public static Plan Generate(Random random, bool bigInt, JetVersion newest)
         {
             // Jet 4 through ACE 17. Version3 LibRed does not create at all; Version15_2013 it now refuses,
             // because ACE will not open a 0x04 file — see Libred_refuses_to_create_an_ace_15_database.
+            // A version newer than the installed ACE is clamped rather than dropped from the list, so a seed
+            // consumes the same random numbers — and so describes the same statements — on every engine.
             JetVersion version = Pick(random,
             [
                 JetVersion.Version4, JetVersion.Version12_2007, JetVersion.Version14_2010,
                 JetVersion.Version16_2016, JetVersion.Version17_2019,
             ]);
+            if (version > newest) version = newest;
 
             var generator = new Generator(random, version, bigInt);
             return new Plan

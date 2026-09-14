@@ -5,11 +5,10 @@
 > and the function catalog in [`../functions.md`](../functions.md).
 
 Reference for how a column's `DEFAULT` behaves in the Jet/ACE engine and how LibRed matches it. Everything here
-is **verified against ACE** (probed via `Microsoft.ACE.OLEDB.16.0`) and, where noted, corroborated by the DAO
+is **verified against ACE** (`Microsoft.ACE.OLEDB.16.0`) and, where noted, corroborated by the DAO
 [`Field2.DefaultValue`](https://learn.microsoft.com/office/client-developer/access/desktop-database-reference/field2-defaultvalue-property-dao)
-reference. Companion tests live in `LibRed.Engine.Tests` (engine semantics) and `LibRed.Core.Tests` (ACE
-round-trips); the on-disk storage of the default text is covered in
-[`system-catalog.md`](system-catalog.md) (LvProp / `DefaultValue`).
+reference. The on-disk storage of the default text is covered in [`system-catalog.md`](system-catalog.md)
+(LvProp / `DefaultValue`).
 
 ## The mental model: more than a constant, less than a computed value
 
@@ -64,7 +63,7 @@ capabilities.
 > **They do not even share a lexer.** ACE's SQL parser accepts `` `backtick` `` identifier quoting — it is
 > what EF Core's Jet provider emits for every identifier — and the expression service does **not**. It reads
 > `` `Qty` `` as a field whose name literally includes the backticks and fails with *"Could not find field
-> '`Qty`'"*. Measured in two unrelated features: a calculated column's `Expression`, and a `CHECK` constraint,
+> '`Qty`'"*. It shows in two unrelated features: a calculated column's `Expression`, and a `CHECK` constraint,
 > where `ALTER TABLE … CHECK (`Qty` > 0)` is **accepted and stored** and every later INSERT is then refused.
 > That is the same smuggling route as the compound defaults above, but it lands the other way round: the DDL
 > parser stores something the service cannot evaluate, so the table ends up unusable rather than usefully
@@ -105,13 +104,14 @@ cannot be smuggled past it: a column-ref default written to `LvProp` opens clean
 ## Functions in a default
 
 A default may call any of LibRed's supported scalar functions — the full catalog (with the JES-vs-Access
-two-services distinction, the `$`/`B`/`W` variants, and the aggregate set) now lives in its own page:
+two-services distinction, the `$`/`B`/`W` variants, and the aggregate set) lives in its own page:
 **[functions.md](../functions.md)**. Defaults are the *narrowest* place functions are used; the same evaluator
 serves `SELECT` / `WHERE` / `ORDER BY` / `CHECK`.
 
 Default-specific points: `GenUniqueID()` / `GenGUID()` are valid **only** as a default (ACE rejects them in a
 `SELECT`); the niladic `Now` works bare; and Access forbids a handful of categories in a default even though
 they are otherwise valid expressions (see the table below).
+
 ## LibRed specifics
 
 - **One evaluator.** Defaults, `SELECT` projections, `WHERE`, and `ORDER BY` share `ExpressionEvaluator`. Adding
@@ -127,10 +127,10 @@ they are otherwise valid expressions (see the table below).
 
 ### Parity of the forbidden categories
 
-| Category | ACE | LibRed | Test |
-|---|---|---|---|
-| Column reference | reject | reject ("Column not found") | `DateTimeDefaultTests`, `AceSmuggledColRefDefaultTests` |
-| Table / query (subquery) | reject | reject (parse) | `DateTimeDefaultTests` |
-| SQL aggregate (`Sum`/`Count`) | reject | reject | `AceDefaultExpressionLimitsTests`, `DateTimeDefaultTests` |
-| Domain aggregate (`DCount`) | reject | reject | same |
-| Unknown / user-defined function | reject | reject ("not supported") | — |
+| Category | ACE | LibRed |
+|---|---|---|
+| Column reference | reject | reject ("Column not found") |
+| Table / query (subquery) | reject | reject (parse) |
+| SQL aggregate (`Sum`/`Count`) | reject | reject |
+| Domain aggregate (`DCount`) | reject | reject |
+| Unknown / user-defined function | reject | reject ("not supported") |

@@ -23,7 +23,7 @@ tombstone**, the rest free — still carrying the `LVAL` signature at offset `0x
 Deleting the **last** value sharing the page. Each delete tombstones that value's row and re-lays the page,
 the survivors packing from the page end in slot order; the page type changes only when nothing live is left.
 
-> Measured against ACE — 12 rows of 400-character memos spread over three pages, deleting 4 and then all 12:
+> Measured against ACE — one LVAL page of five packed 400-character memos, as its values are deleted:
 >
 > ```
 > start   0x01 n=5 free=72    [3296,2496,1696,896,96]
@@ -31,19 +31,15 @@ the survivors packing from the page end in slot order; the page type changes onl
 > all     0x09 n=5 free=4072  [4096DO x5]
 > ```
 >
-> It reproduces through OLE DB SQL, DAO SQL and a DAO recordset alike, so no Access UI is involved, and the
-> count of released pages tracks the number of pages emptied exactly (4 rows of 12 → one page; all 12 → three;
-> 40 rows → eight).
+> It happens through OLE DB SQL, DAO SQL and a DAO recordset alike, so no Access UI is involved, and exactly
+> one page is released per page emptied.
 
-**A chained value never produces one.** Those own their pages outright and are freed at `0x01`. That is why
-the type went unexplained for so long: every sweep that used a memo large enough to chain found nothing, and
-the one size band that would have shown it was recorded as producing none.
+**A chained value never produces one.** Those own their pages outright and are freed at `0x01`.
 
-> Measured over a 39-file corpus: 3,401 such pages in 27 files, of which 3,206 carry the `LVAL` signature and
-> 195 do not. They appear at **every format version** — Jet 4, ACE 12, ACE 14, ACE 16 — and the Jet 4 members
-> are files created in 2001–2004, so the mechanism long predates ACE. Their presence tracks a file's *history*
-> rather than its format: heavily-edited applications hold hundreds (822, 806, 328), while freshly created or
-> untouched files hold none. The 195 without the signature are not yet accounted for.
+> These pages appear at **every format version** — Jet 4, ACE 12, ACE 14, ACE 16 — including in Jet-4-era
+> files, so the mechanism long predates ACE. Their presence tracks a file's *history* rather than its format:
+> heavily-edited applications hold hundreds, while freshly created or untouched files hold none. Some `0x09`
+> pages in real files do **not** carry the `LVAL` signature; those are not yet accounted for.
 
 ## Reading
 
@@ -57,8 +53,8 @@ LibRed does the same, in `RowInserter.ReleasePackedValue`: tombstone the value's
 and when the last one goes set the type, clear the page from the column's owned and free maps, and return it
 to the allocator. A page that survives goes back into the column's **free** map, having room again.
 
-Pinned by `PackedLongValueReleaseAccessTests`, which compares every byte of every page against ACE's own
-delete for the partial, full, multi-page and chained cases.
+Verified byte-for-byte, every page, against ACE's own delete for the partial, full, multi-page and chained
+cases.
 
 ## Related
 

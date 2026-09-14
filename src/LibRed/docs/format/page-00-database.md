@@ -54,16 +54,16 @@ byte per engine release whether or not that release adds a format-forcing featur
 past `0x03` are the two new *data types*: **Large Number** (Int64) → `0x05`, and **Date/Time Extended** (datetime2)
 → `0x06`. Access **2010 through 2019 all default to `0x03`** unless a file actually uses one of those types.
 **`0x04` (ACE 15 / Access 2013) is never stamped** — 2013 added no format-forcing data type, so its
-files fall back to `0x03` (verified: a real `db2013` reads `0x03`; jackcess ships no 2013 fixture; Access 2013
-defaults to the 2007-2016 format). LibRed maps `0x04` to the `0x03` (2010) layout rather than a clone class.
+files fall back to `0x03` (verified; Access 2013 defaults to the 2007-2016 format). LibRed maps `0x04` to the
+`0x03` (2010) layout rather than a clone class.
 
 > **ACE does not merely avoid `0x04` — it refuses it.** An otherwise well-formed, *empty* database carrying the
-> byte cannot be opened by any provider; restamping `0x14` to `0x03` makes the identical bytes open
-> (`AceWriteValiditySweepProbeTests.Ace_refuses_the_0x04_version_byte_and_nothing_else_about_the_file`).
+> byte cannot be opened by any provider; restamping `0x14` to `0x03` makes the identical bytes open.
 >
 > The format at `0x04` is otherwise exactly `0x03`, so LibRed is deliberately **asymmetric**: `FromVersionByte`
 > accepts the byte and reads the 2010 layout, while `DatabaseCreator.CreateEmpty` refuses to write it and points
 > the caller at `Version14_2010`.
+
 A genuinely **unknown** version byte on an `.accdb` that still carries the cleartext `"4.0"` engine string at
 `0x9C` is read as the **latest known ACE** layout (currently ACE 17) — the format grows conservatively, so an
 unrecognised byte is almost certainly a newer 4KB ACE variant; the `"4.0"` guard stops a genuinely different
@@ -72,13 +72,12 @@ future engine (e.g. a `"5.0"` string) from being mis-read as ACE.
 The byte is **sufficient, not merely necessary**: writing `0x06` to `0x14` by hand upgrades an ACE 12 file in
 place. ACE then opens it, data written before the flip is still readable, and `ALTER TABLE … ADD COLUMN …
 DATETIME2`, `INSERT`, `SELECT` and `CREATE TABLE` with the type all work — ACE adding nothing further to page 0
-of its own. Guard: `AceDateTime2UpgradeTests`. ACE's DDL accepts only the bare spelling **`DATETIME2`**;
-`DATETIME2(7)`, `DATETIMEEXTENDED`, `DATE/TIME EXTENDED` and `DATETIMEOFFSET` are all syntax errors.
+of its own. ACE's DDL accepts only the bare spelling **`DATETIME2`**; `DATETIME2(7)`, `DATETIMEEXTENDED`,
+`DATE/TIME EXTENDED` and `DATETIMEOFFSET` are all syntax errors.
 
-The `0x05` / **Large Number** route behaves the same way and is now measured too (verified 2026-08-26): a
-`CREATE TABLE … BIGINT` issued through ACE against an ACE 12 file moves `0x14` from `0x02` to **`0x05`** — not
-to `0x06`, confirming the two types really do sit at different formats. Guard:
-`BigIntKeyEncodingTests.Adding_a_bigint_column_makes_ace_raise_the_file_to_ace16`.
+The `0x05` / **Large Number** route behaves the same way (verified): a `CREATE TABLE … BIGINT` issued through
+ACE against an ACE 12 file moves `0x14` from `0x02` to **`0x05`** — not to `0x06`; the two types sit at
+different formats.
 
 **LibRed performs this upgrade itself**, as ACE does: DDL introducing a type the open file is too old for
 raises the version byte, and clears the minor, instead of refusing (`StatementExecutor.MapColumn` →
@@ -95,8 +94,7 @@ because each is a place the obvious implementation goes wrong:
   That is inherent — the column it would find is one it could not read either.
 
 Verified against the real engine: ACE opens a file LibRed upgraded in place and reads the value that forced
-the upgrade (`DateTime2CreatedDatabaseAccessTests`). A saved query's *parameter* type is deliberately excluded
-— it declares no storage, and what ACE does with a new-type parameter in `MSysQueries` has not been probed.
+the upgrade. A saved query's *parameter* type is deliberately excluded — it declares no storage, and what ACE does with a new-type parameter in `MSysQueries` has not been probed.
 
 **Catalog bootstrap.** Reading the database is a two-step hop from page 0: the pointer at `0x20` gives the
 `MSysObjects` TDEF page (2), and `MSysObjects` then lists every other object (each table's row `Id` is *its*
@@ -107,13 +105,13 @@ TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` an
 > **Creation from scratch (implemented — `DatabaseCreator`).** A minimal bootable page 0 needs the mask, the
 > code page / collation / creation date, and this pointer block aimed at the four core system tables
 > (`MSysObjects`, `MSysACEs`, `MSysQueries`, `MSysRelationships`) — the minimum catalog a new file must
-> contain. LibRed now synthesises all of this natively (no DAO/ADOX, no template copy) and the result opens
-> **clean in the Access desktop GUI** (no permission popups, no auto-compact error). Two non-obvious facts made
-> that work, both recorded below: the **creation date is bound to the on-disk security SIDs** (§2.3), and the
-> file must **not** hand-create the `MSysAccessStorage` / `MSysNavPane*` tables — real DAO files omit them and
-> Access adds them (with the nav-pane long SID) on first open (verified across ~135 pure-DAO files).
+> contain. LibRed synthesises all of this natively (no DAO/ADOX, no template copy) and the result opens
+> **clean in the Access desktop GUI** (no permission popups, no auto-compact error). Two requirements are
+> non-obvious: the **creation date is bound to the on-disk security SIDs** (§2.3), and the file must **not**
+> hand-create the `MSysAccessStorage` / `MSysNavPane*` tables — real DAO files omit them and Access adds them
+> (with the nav-pane long SID) on first open (verified).
 
-> **How the reference engine lays out a new file** (DAO-created ACE 12, 42 pages — `DaoPageLayoutProbeTest`).
+> **How the reference engine lays out a new file** (DAO-created ACE 12, 42 pages).
 > Per table the allocation order is **TDEF → usage-map page → one page per index root**, in table-creation
 > order; both usage maps share one page (owned = row 0, free = row 1, inline), which is what every TDEF's
 > `0x37`/`0x3B` pointers show. **Data pages are allocated lazily on first insert**, so they appear out of
@@ -156,8 +154,8 @@ writing a Jet 4 `.mdb`. A Jet 4 build appears only in a file a real `msjet40.dll
 service-pack build.
 
 > That the value *is* an engine build is **inferred** — from the observed values coinciding with shipped build
-> numbers — not measured; confirming it needs those engines. That the field varies, and varies only across Jet
-> 4 files of differing vintage, is measured. LibRed writes 4518.
+> numbers — not measured. That the field varies, and varies only across Jet 4 files of differing vintage, is
+> measured. LibRed writes 4518.
 
 ### 2.1 The obfuscated header (`0x18`–`0x98`)
 
@@ -181,19 +179,11 @@ DF B1 77 F4 13 43 CF AF B1 33 34 61 79 5B 92 B5   ; 0x58
 CF 65 ED FF 07 C7 46 A1 78 16 0C ED E9 2D 62 D4   ; 0x88
 ```
 
-**Verification (why this is recorded despite being an external mask).** The mask is Jackcess's
-`BASE_HEADER_MASK`, but it is **not adopted on faith** — it is confirmed against real files two ways:
-
-1. **Reproduces bytes recovered from first principles.** Independently, by a known-plaintext attack —
-   varying one Access setting and reading its plaintext from an unobfuscated in-file copy — LibRed
-   recovered the mask at three fields: the code page (`mask[0x3C]=7B,42` — de-obfuscation yields the
-   canonical Windows code pages `0x04E4`/`0x04E2`), the collation LCID (`mask[0x6E]=01,1B`, checked
-   against each column descriptor's own locale at `0x0B`–`0x0C` over five distinct LCIDs), and the
-   creation date (`mask[0x72]=12 4F 4A 94 6C 3E 60 26`, matching `MSysObjects.DateCreate` to the
-   second). The Jackcess mask matches all twelve of those bytes exactly.
-2. **Decodes every fixture sensibly.** Applied whole, it yields valid code pages (1252/1250), the
-   expected LCIDs, correct creation dates, a zero database key (no-password files), and an empty
-   password that unmasks to the creation-date-derived pattern (below).
+**Verified** against real files: at the code page (`mask[0x3C]=7B,42`) the mask yields the canonical
+Windows code pages `0x04E4`/`0x04E2`; at the collation LCID (`mask[0x6E]=01,1B`) it agrees with each
+column descriptor's own locale at `0x0B`–`0x0C`; at the creation date (`mask[0x72]=12 4F 4A 94 6C 3E 60 26`)
+it matches `MSysObjects.DateCreate` to the second. Applied whole, it also yields a zero database key on
+no-password files and an empty password that unmasks to the creation-date-derived pattern (below).
 
 **Decoded fields** (all little-endian; `DatabaseDefinitionPage` → `JetDatabase`):
 
@@ -207,23 +197,16 @@ CF 65 ED FF 07 C7 46 A1 78 16 0C ED E9 2D 62 D4   ; 0x88
 - **Password (`0x42`, 40 bytes)** — *not* decoded to a value, and the two families differ:
   - **Jet 4 `.mdb`**: light access-control obfuscation only — the field is the password XOR the base
     mask XOR an **additional 4-byte mask = `(int)creationDate`** (repeated). An empty password
-    therefore unmasks to that creation-date pattern, not zeroes (this is the per-file variation once
-    mistaken for a signature — there is no ESE-style machine signature here). The plaintext is
-    recoverable, as mdbtools/Jackcess do. **`(int)creationDate` = the 8-byte creation-date double at
-    `0x72` truncated to a 32-bit int, written little-endian and cycled over the 40-byte field** (matching
-    jackcess `getPasswordMask`; the high 2 bytes are usually 0, so half the field is plaintext UTF-16).
+    therefore unmasks to that creation-date pattern, not zeroes — the per-file variation is this mask,
+    not a signature (there is no ESE-style machine signature here). The plaintext is recoverable, as
+    mdbtools does. **`(int)creationDate` = the 8-byte creation-date double at `0x72` truncated to a 32-bit
+    int, written little-endian and cycled over the 40-byte field** (the high 2 bytes are usually 0, so half
+    the field is plaintext UTF-16). The mask depends on the creation date alone, not on the password.
     **Setting/removing this password is implemented** (`DatabaseEncryption.SetJetPassword` /
     `RemoveJetPassword`): write `UTF-16LE(password)` zero-padded to 40 bytes, XOR the date mask, then the
-    base header mask — the exact inverse of the read. **Verified byte-identical to Access's own output**:
-    `SetJetPassword` on a copy of `2002plain.mdb` reproduces Access-set `Test1`/`Test2`/`AAAA`/`z` files
-    bit-for-bit in the `0x42` field (`LegacyJetPasswordTests.SetJetPassword_matches_access_output`). Those
-    fixtures are not committed, so that case **skips with a reason** unless they are present — point
-    `LIBRED_ENCTEST_DIR` at them to run it. The rest of `LegacyJetPasswordTests` builds its own Jet 4 header and
-    covers the field transformation, limits, removal, and encoding independence on every platform. This is
-    password-only obfuscation — the
-    data pages stay plaintext (`0x3E` key = 0); it is a *different* feature from Jet RC4 page encryption
-    (§2.4), which the "Encode/Encrypt" menu applies. The earlier "per-file SID mask = f(date,password)"
-    theory was a misdiagnosis — the mask is simply `(int)creationDate`.
+    base header mask — the exact inverse of the read. **Verified byte-identical to Access's own output** in
+    the `0x42` field. This is password-only obfuscation — the data pages stay plaintext (`0x3E` key = 0);
+    it is a *different* feature from Jet RC4 page encryption (§2.4), which the "Encode/Encrypt" menu applies.
   - **ACE `.accdb`**: real encryption — this region is an encryption **verifier**, not recoverable
     plaintext (an actual password decodes to random-looking bytes under the Jet 4 scheme). Recovering
     it is a crypto attack, not format work.
@@ -241,16 +224,13 @@ CF 65 ED FF 07 C7 46 A1 78 16 0C ED E9 2D 62 D4   ; 0x88
   column. The block's semantics — what a non-zero sort id means, which version is which — belong to that
   descriptor field and are [page-02b §3.4](page-02b-columns.md).
 - **Creation date (`0x72`, 8 bytes)** → `CreationDate` — an OLE `double`. Matches the earliest
-  `MSysObjects.DateCreate`; on an *edited* database (e.g. Northwind) it is the **file's** creation
-  instant and can differ from the first object's by minutes. **Unlike a normal Jet/ACE `DateTime`
-  column (whole-second resolution), this header stamp carries sub-second precision** — verified across
-  144 files, every value sits a whole number of milliseconds off a whole second (−284, −383, +78, +462 ms…),
-  i.e. ~1 ms resolution, consistent with a Windows `SYSTEMTIME`. The column codec truncates to seconds;
-  this field is written straight from the OS clock and keeps the milliseconds. See §2.3 — those low bits
-  matter because the security SIDs are bound to them.
-
-Regression tests: `DatabaseDefinitionPageTests.Decodes_creation_date_matching_catalog` and
-`Decodes_code_page_and_default_collation`.
+  `MSysObjects.DateCreate`; on an *edited* database it is the **file's** creation instant and can
+  differ from the first object's by minutes. **Unlike a normal Jet/ACE `DateTime` column (whole-second
+  resolution), this header stamp carries sub-second precision** — verified: every value sits a whole
+  number of milliseconds off a whole second (−284, −383, +78, +462 ms…), i.e. ~1 ms resolution,
+  consistent with a Windows `SYSTEMTIME`. The column codec truncates to seconds; this field is written
+  straight from the OS clock and keeps the milliseconds. See §2.3 — those low bits matter because the
+  security SIDs are bound to them.
 
 ### 2.2 The user commit-byte table (`0xE00`–`0xFFF`)
 
@@ -270,12 +250,11 @@ page-level read/write registration. **`00 00` means "mid-write to disk"**, and `
 "accessed a corrupted page" — either one *without a matching user lock* makes Jet declare the database
 suspect and demand a repair before it will open.
 
-#### The slot is a little-endian commit counter (verified 2026-08-26)
+#### The slot is a little-endian commit counter (verified)
 
 Above those low reserved values, a slot is **one 16-bit little-endian counter of that user's committed
-writes** — not an enumerated state, which is how this file previously described it and how the note in
-[page-05](page-05-usage-maps.md) half-described it ("bumps a counter … not yet decoded"). Measured against
-`Microsoft.ACE.OLEDB.16.0` on one connection, watching `0xE02` (slot 1, the first shared user):
+writes** — not an enumerated state. Slot 1 (`0xE02`, the first shared user) across a sequence of
+statements on one ACE connection:
 
 | | slot 1 | as LE16 |
 | --- | --- | --- |
@@ -288,7 +267,7 @@ writes** — not an enumerated state, which is how this file previously describe
 | +40 inserts | `01 03` | 769 — exactly +40 |
 | +240 more | `F1 03` | 1009 — exactly +240 |
 
-Four properties fall out, each of which the "state" reading would have got wrong:
+Four properties follow:
 
 - **The two bytes are one value.** Driving the low byte past `0xFF` carries into the high byte —
   `0x03F1` + 16 = `0x0401` — which independent bytes would not do. It also explains why a well-used file
@@ -299,34 +278,32 @@ Four properties fall out, each of which the "state" reading would have got wrong
 - **The on-disk value lags the last write by one.** A statement's increment is not flushed until the *next*
   write, or until the connection closes (which lands the pending one plus its own). So a burst of *n* inserts
   reads as *n−1* until something follows it. Measure between two mid-burst samples and the lag cancels.
-- **Every committed write costs exactly one**, DDL included. The lag makes this easy to misread: in the run
-  above `CREATE INDEX` appears to move it by 2 and the first `INSERT` by 0, but the whole seven-statement
-  sequence is 722 → 729, exactly +7. Isolating `CREATE INDEX` — the same trailing five inserts with and
-  without it — gives +5 versus +6, so it is one commit like anything else.
+- **Every committed write costs exactly one**, DDL included. The lag makes this easy to misread: in the
+  sequence above `CREATE INDEX` appears to move it by 2 and the first `INSERT` by 0, but the whole
+  seven-statement sequence is 722 → 729, exactly +7. The same five inserts with and without a
+  `CREATE INDEX` differ by one.
 
 **Reopening does not reset it; compacting does.** The counter carries straight across a close and reopen
 (`…DA` before, `…DA` after). A DAO `CompactDatabase` writes a whole new file and its slot 1 starts at **256**,
 the idle value, then counts normally from there (744 → 256 → 260 after five inserts).
 
-Tests: `CommitByteTableTests`. LibRed still does not read or maintain the table — ACE opens and queries
-LibRed-created tables with the counter untouched — so this is documentation of the format, not a dependency.
+LibRed does not read or maintain the table — ACE opens and queries LibRed-created tables with the counter
+untouched.
 
-This region is **undocumented by mdbtools and Jackcess** — LibRed's own decode, cross-checked three ways:
-the white paper's Jet 2.x/3.x structure, the raw bytes of real ACE files, and the Microsoft **LDBView**
-utility (Jet 2/3 only), which shows `1` for every unregistered slot — matching the idle `00 01`.
+mdbtools does not document this region. The Microsoft **LDBView** utility (Jet 2/3 only) shows `1` for every
+unregistered slot — matching the idle `00 01`.
 
 > **Creation must seed this.** A freshly created file has no users, so every slot must be the neutral
 > `00 01`, **not** zero — an all-zero table reads as "every user is mid-write," which Access rejects as
 > corrupt. `DatabaseCreator.BuildDefinitionPage` fills `0xE00`–`0xFFF` with the repeating `00 01`.
-> LibRed itself does not read the table.
 
 ### 2.3 Creation date ⇄ security-SID coupling (verified)
 
-Access opens the **workgroup file** (`System.mdw`, in `%AppData%\Microsoft\Access`) *before* the database —
-confirmed with Process Monitor — and authenticates the current user against it. `System.mdw` is itself a Jet 4
-DB (identifier `"Jet System DB"`, version byte `0x01`) with **legacy Jet RC4 page encryption** (§2.4); LibRed
-reads it directly. Its `MSysAccounts`/`MSysGroups` hold the **default-workgroup account SIDs**, which LibRed
-now decodes to exactly the values Access shows (cross-checked against a VBA `Debug.Print` of the `SID` column):
+Access opens the **workgroup file** (`System.mdw`, in `%AppData%\Microsoft\Access`) *before* the database and
+authenticates the current user against it. `System.mdw` is itself a Jet 4 DB (identifier `"Jet System DB"`,
+version byte `0x01`) with **legacy Jet RC4 page encryption** (§2.4); LibRed reads it directly. Its
+`MSysAccounts`/`MSysGroups` hold the **default-workgroup account SIDs**, which LibRed decodes to exactly the
+values Access shows in the `SID` column:
 
 | Account | kind | SID |
 |---|---|---|
@@ -341,7 +318,7 @@ SID cluster opens cross-PC). Object ownership in a database uses the **"user" fo
 `Engine`/`Creator`.
 
 The 2-byte on-disk SIDs in `MSysACEs.SID` / `MSysObjects.Owner` are each a **workgroup account SID XOR'd with a
-per-file 2-byte mask**. Verified against WideTable (mask `24-CC`): `Users 02-01 ^ 24-CC = 26-CD`,
+per-file 2-byte mask**. Verified, e.g. with mask `24-CC`: `Users 02-01 ^ 24-CC = 26-CD`,
 `admin 03-01 ^ 24-CC = 27-CD` (read grantee), `Engine 03-03 ^ 24-CC = 27-CF` (system-object owner),
 `Creator 03-04 ^ 24-CC = 27-C8` (inheritable container grant). The long `Admins` SID isn't emitted — Access
 materialises it (as a 98-byte SID) on first open.
@@ -349,22 +326,22 @@ materialises it (as a 98-byte SID) on first open.
 That mask is **bound to the exact millisecond-precise creation-date `double`** at `0x72`: a file with
 self-consistent SIDs but a *different* creation date is rejected with *"Record(s) cannot be read; no read
 permission on 'MSysObjects'/'MSysACEs'"* (Jet 3112). Grafting a real file's date **and** SIDs together opens
-clean; either alone fails. There is **no closed-form `date → mask` function** — tested against all 144
-reference files (word XOR/sum, CRC-16, MSVCRT `rand`, VBA LCG, multiplicative hashes: 0 hits) and same-second
-files have unrelated masks; Access most likely draws both the mask and the sub-second creation bits from one
+clean; either alone fails. There is **no known closed-form `date → mask` function** — word XOR/sum, CRC-16,
+MSVCRT `rand`, the VBA LCG and multiplicative hashes do not fit, and files created in the same second have
+unrelated masks; Access most likely draws both the mask and the sub-second creation bits from one
 PRNG state, so they correlate but neither derives from the other. `DatabaseCreator` therefore **bakes one
-verified `(SeedCreationDateBits, SidMask)` pair** (`0x40E68F1E8943D217` + `24-CC`, from WideTable) rather than
-computing it — the from-scratch analogue of the account-SID constants. Limitations (deferred): every
-LibRed-created file reports the same creation instant, and only the **default** workgroup is supported;
-per-file-random dates and custom/secured workgroups both need the date↔mask coupling cracked (reading a
-custom `System.mdw` itself now works — §2.4).
+verified `(SeedCreationDateBits, SidMask)` pair** (`0x40E68F1E8943D217` + `24-CC`) rather than computing it —
+the from-scratch analogue of the account-SID constants. Limitations (deferred): every LibRed-created file
+reports the same creation instant, and only the **default** workgroup is supported; per-file-random dates and
+custom/secured workgroups both need the date↔mask coupling cracked (reading a custom `System.mdw` itself
+works — §2.4).
 
 ### 2.4 Legacy Jet 3/4 RC4 page encryption (verified)
 
-The pre-ACE engine-level encryption (used by password-protected `.mdb` files and *always* by the `.mdw`
+The pre-ACE engine-level encryption (used by *encoded* `.mdb` files and *always* by the `.mdw`
 workgroup file, which is why its account/password data isn't readable in a hex editor). The 4-byte **database
 key** at page-0 `0x3E` is the whole secret — there is **no password or key derivation** (unlike ACE Agile,
-§2 above). Every page **except page 0** is RC4-encrypted with a per-page key of
+§2.6 below). Every page **except page 0** is RC4-encrypted with a per-page key of
 
 ```
 key = LE32(pageNumber XOR databaseKey)
@@ -372,39 +349,35 @@ key = LE32(pageNumber XOR databaseKey)
 
 and the page bytes are the RC4 keystream XOR'd over the plaintext. This is the same per-page key mixing ACE
 Agile uses (`LE32(pageNumber) XOR encodingKey`), just feeding RC4 directly instead of deriving an AES IV.
-Verified against a real `System.mdw` (`databaseKey = 0xABBB315C`): with XOR (not ADD) page-number mixing,
-every page decrypts to a valid page-type byte (page 1 → `01` data, pages 2/3 → `02` TDEF, index pages → `04`),
-`MSysObjects`/`MSysACEs` parse, and `MSysAccounts` yields the account SIDs in §2.3. Implemented as
-`LibRed.Crypto.JetLegacyEncryption`; `PageChannel` selects it for non-ACE (`!IsAccdb`) files with a nonzero
-database key. Regression tests in `JetLegacyEncryptionTests` (published RC4 vector + independent-oracle
-key-derivation check).
+Verified against a real `System.mdw`: the page-number mixing is XOR, not ADD; every page decrypts to a valid
+page-type byte (page 1 → `01` data, pages 2/3 → `02` TDEF, index pages → `04`), `MSysObjects`/`MSysACEs`
+parse, and `MSysAccounts` yields the account SIDs in §2.3. Implemented as `LibRed.Crypto.JetLegacyEncryption`;
+`PageChannel` selects it for non-ACE (`!IsAccdb`) files with a nonzero database key.
 
 **Creating/removing the encoding (implemented).** `DatabaseEncryption.SetJetEncoding` picks a fresh random
 `0x3E` key, writes it (header-masked), and RC4s every page `1..n` in place; `RemoveJetEncoding` decrypts and clears
 the key (RC4 is symmetric, so this reuses the read codec). This is the "Encode Database" feature and is
 **completely independent of the database password** (§2, the `0x42` field): legacy Jet4 stores the encoding key
-plainly at `0x3E` — it is *not* password-derived (verified: the encoded fixtures `2002encoded`/`db-enc` have a
-nonzero `0x3E` key and an *empty* password; MSISAM/Money's password-derived key is a different format). A file may
-carry both — encoding scrambles the pages, the password gates opening — and the `0x42` field lives on page 0 which
-is never page-encrypted, so the two don't interact. Verified: encode-then-decode of `2002plain.mdb` is
-byte-identical, the encoded output re-opens through the codec, and the password field survives encoding unchanged.
-Jet 3 (`version byte 0x14 == 0`, 2048-byte pages) is rejected — unsupported. Tests: `LegacyJetPasswordTests`.
+plainly at `0x3E` — it is *not* password-derived (verified: an encoded file carries a nonzero `0x3E` key and an
+*empty* password; MSISAM/Money's password-derived key is a different format). A file may carry both — encoding
+scrambles the pages, the password gates opening — and the `0x42` field lives on page 0 which is never
+page-encrypted, so the two don't interact. Verified: encode-then-decode is byte-identical, the encoded output
+re-opens through the codec, and the password field survives encoding unchanged. Jet 3 (`version byte 0x14 == 0`,
+2048-byte pages) is rejected — unsupported.
 
-**Combined encode + password — confirmed against a real Access file** (`2002encodedpw.mdb`, dbKey `0xaca0f84c`,
-password `Test1`): LibRed opens Access's combined file and reads its table (our RC4 decode matches Access's encode);
-the `0x42` password field is byte-identical to the password-only `2002plainpw.mdb`; and `RemoveJetEncoding` yields
-valid re-openable plaintext. (`2002encodedpw` was made by copying `2002encoded` and adding a password, so it shares
-that file's dbKey `0xaca0f84c` — this is *not* evidence of a derived key; the encoding key is treated as opaque per
-file, read straight from `0x3E`.) Setting a password on an already-encoded file is identical to on a plain file,
-since `0x42` is on the never-encrypted page 0. Access's "Encode Database" **also compacts** (`2002plain` 245760 →
-`2002encoded` 237568; the later password add kept 237568), so a byte-for-byte reproduction from an un-compacted
-source isn't achievable — our `SetJetEncoding` is a pure in-place RC4, a valid encoding without the compact.
+**Combined encode + password — verified against a real Access file:** LibRed opens Access's combined file and
+reads its table (the RC4 decode matches Access's encode); the `0x42` password field is byte-identical to the
+same password on an unencoded file; and `RemoveJetEncoding` yields valid re-openable plaintext. The encoding key
+is opaque per file, read straight from `0x3E`. Setting a password on an already-encoded file is identical to on
+a plain file, since `0x42` is on the never-encrypted page 0. Access's "Encode Database" **also compacts** (adding
+a password does not), so a byte-for-byte reproduction from an un-compacted source isn't achievable — LibRed's
+`SetJetEncoding` is a pure in-place RC4, a valid encoding without the compact.
 
 ### 2.5 Office "Standard"/CryptoAPI page encryption (verified)
 
-> **Why RC4 (background, per Wayne Phillips / EverythingAccess — explains the behaviour we verified).** Access 2007
-> encrypts at **page level but writes at record level** (record-level locking rewrites a single record, not the
-> whole 4096-byte page), so it needs a **stream cipher** (encrypts byte-by-byte). Block ciphers (AES) can't do
+> **Why RC4 (background).** Access 2007 encrypts at **page level but writes at record level** (record-level
+> locking rewrites a single record, not the whole 4096-byte page), so it needs a **stream cipher** (encrypts
+> byte-by-byte). Block ciphers (AES) can't do
 > partial-page writes, and RC4 is the only stream cipher in the standard Windows CSPs — hence Access 2007 is
 > RC4-only. **Access 2010's AES works only by forcibly disabling record-level locking**, and that path is Agile
 > (XML descriptor), *not* this binary AES-"Standard" descriptor. The default is Base provider / **RC4-40 / SHA-1**;
@@ -415,13 +388,11 @@ source isn't achievable — our `SetJetEncoding` is a pure in-place RC4, a valid
 The pre-Agile `.accdb` encryption, carried by a **binary** `EncryptionInfo` header (version x.2, no XML) rather
 than the Agile XML — covering **RC4-CryptoAPI** and an **AES "non-standard"** variant. `LibRed.Crypto.
 OfficeStandardEncryption`; `PageChannel` selects it for an ACE file when no Agile descriptor is present.
-Algorithm (matched to jackcess-encrypt and verified against real fixtures — db2007-oldenc = RC4-40 / `Test123`;
-db-nonstandard = AES-256 / `password`):
+Algorithm (verified against real RC4-40 and AES-256 files):
 
 The **hashing algorithm is parameterised by the header `AlgIDHash` field** (offset `h+12`), *not* fixed to SHA-1:
-Access and third-party tools (e.g. EverythingAccess's "Encryption Manager for Access 2007") let the encryptor
-pick it independently of the cipher. Verified values: `0x8003` MD5, `0x8004` SHA-1, `0x800c` SHA-256, `0x800d`
-SHA-384, `0x800e` SHA-512 (MD2 `0x8001` / MD4 `0x8002` have no managed implementation → unsupported). The same
+Access and third-party tools let the encryptor pick it independently of the cipher. Verified values: `0x8003`
+MD5, `0x8004` SHA-1, `0x800c` SHA-256, `0x800d` SHA-384, `0x800e` SHA-512 (MD2 `0x8001` / MD4 `0x8002` have no managed implementation → unsupported). The same
 algorithm is used for `baseHash`, the per-block `H`, and the AES `0x36`/`0x5C` expansion. Let `hash = f(AlgIDHash)`:
 
 - `baseHash = hash(salt ‖ UTF16LE(password))`.
@@ -444,25 +415,21 @@ algorithm is used for `baseHash`, the per-block `H`, and the AES `0x36`/`0x5C` e
 - cipher: RC4 (re-keyed per page; the verifier + verifier-hash decrypt as one continuous stream) or **AES-ECB**.
 
 The applicable `(key length, RC4 pad, AES iteration count)` is decided by whichever authenticates the verifier.
-Fixture-free known-answer tests (real salt + verifier vectors, synthetic page 0) live in
-`OfficeStandardEncryptionTests`; `DatabaseEncryptionTests` exercise generated RC4 key/hash variants end-to-end,
-and `OfficeStandardVariantReadTests` mutate generated descriptors to verify clean rejection of unsupported
-ciphers and hashes. The broader **RC4 and AES-128/192/256 × MD5/SHA-1/SHA-256/SHA-384/SHA-512 ×
-`KeySize=0`** sweep was verified against Access-tool re-encryptions of `db2007-oldenc` during format research.
+Verified across **RC4 and AES-128/192/256 × MD5/SHA-1/SHA-256/SHA-384/SHA-512 × `KeySize=0`**; unsupported
+ciphers and hashes are rejected cleanly.
 
-> **LibRed reads more than Access opens.** Verified on EverythingAccess-re-encrypted `db2007-oldenc` variants:
-> **AES-128/AES-256 with MD5 or SHA-512 hashing** authenticate and decode correctly in LibRed, but **Access refuses
-> them** ("your encryption settings are not valid — reinstall Microsoft Access"). Those files *are* validly
+> **LibRed reads more than Access opens.** Verified: **AES-128/AES-256 with MD5 or SHA-512 hashing**
+> authenticate and decode correctly in LibRed, but **Access refuses them** ("your encryption settings are not valid — reinstall Microsoft Access"). Those files *are* validly
 > encrypted; Access's open path just whitelists cipher/hash combinations. Genuinely unsupported by both (LibRed
 > throws a clean `NotSupportedException`, never mis-reads ciphertext as plaintext): **3DES-168** (`0x6603`),
 > **3DES-112** (`0x6609`), **DES** (`0x6601`), **RC2** (`0x6602`), and **MD2 hashing** (`0x8001`, no managed impl).
 > These are weak legacy algorithms — deliberately not implemented.
 >
-> **What a stock Access install opens (observed across all re-encrypted variants).** The `EncryptionEnhancer`
-> add-in is required **only for the block ciphers** (AES/DES/3DES/RC2) — **RC4 always opens natively**:
+> **What a stock Access install opens (observed).** The `EncryptionEnhancer` add-in is required **only for the
+> block ciphers** (AES/DES/3DES/RC2) — **RC4 always opens natively**:
 > - **RC4, every key length (40–128) and every hash (MD2/MD4/MD5/SHA-1/SHA-256/384/512): opens with no add-in**
->   (verified — the user opened all created RC4 files in Access). The descriptor may name the Enhanced RSA/AES
->   *provider* (for >56-bit or SHA-2), but that CSP ships with Windows, so Access reads it fine.
+>   (verified). The descriptor may name the Enhanced RSA/AES *provider* (for >56-bit or SHA-2), but that CSP
+>   ships with Windows, so Access reads it fine.
 > - **AES/DES/3DES/RC2 (binary "Standard" descriptor): require the withdrawn EncryptionEnhancer COM add-in** to open
 >   in Access. These are **validly encrypted** — a plain Access install refusing them (returning "incorrect
 >   password" / "settings not valid") is a **deliberate guard**, not a validity failure: the add-in made Access
@@ -477,10 +444,10 @@ ciphers and hashes. The broader **RC4 and AES-128/192/256 × MD5/SHA-1/SHA-256/S
 > record-level-locking corruption risk, so it can safely **read and write** these files. The only files LibRed does
 > **not** read that Access opens are
 > **RC4 + MD2/MD4** (`AlgIDHash 0x8001/0x8002`): .NET has no MD2/MD4, so those throw `NotSupported`. Implementing
-> the two hashes from scratch (~130 lines) would close the gap; **deferred** as 1980s hashes unlikely in any real
-> database. (Modern Access AES is Agile, not this binary AES-Standard descriptor — a separate codec.)
+> the two hashes would close the gap; **deferred** as 1980s hashes unlikely in any real database. (Modern Access
+> AES is Agile, not this binary AES-Standard descriptor — a separate codec.)
 
-An encrypted file (`databaseKey != 0`) whose descriptor no codec recognises now fails with a clear
+An encrypted file (`databaseKey != 0`) whose descriptor no codec recognises fails with a clear
 `NotSupportedException` in `PageChannel.Open` instead of decoding ciphertext as plaintext.
 Remaining unsupported: **Jet 3** (Access 97) encryption, which also needs Jet 3 format support (2048-byte pages).
 
@@ -488,11 +455,11 @@ Remaining unsupported: **Jet 3** (Access 97) encryption, which also needs Jet 3 
 `EncryptionInfo` sits at a **fixed page-0 offset `0x29B`**, immediately preceded by a **2-byte blob length at
 `0x299`**. That length is **Access's "is this file encrypted?" signal**: on open Access reads `len@0x299` and, if
 nonzero, parses `len` bytes of `EncryptionInfo` at `0x29B`; if **zero it treats the file as unencrypted** — even
-with a nonzero `0x3E` key and a valid descriptor present. Verified across `db-nonstandard`/`db2007-oldenc`/
-`db2013` (each length equals its exact blob size: 224 / 190 / 1055) and by experiment: a file with the key +
-descriptor but `len@0x299 = 0` makes Access read ciphertext as plaintext and offer to "recover"; writing the
-length makes it prompt for the password and open. LibRed likewise treats the length as authoritative: binary or
-XML content outside the declared frame is ignored, and a frame extending beyond page 0 is rejected as malformed.
+with a nonzero `0x3E` key and a valid descriptor present. Verified: the length equals the exact blob size, and a
+file with the key + descriptor but `len@0x299 = 0` makes Access read ciphertext as plaintext and offer to
+"recover"; writing the length makes it prompt for the password and open. LibRed likewise treats the length as
+authoritative: binary or XML content outside the declared frame is ignored, and a frame extending beyond page 0
+is rejected as malformed.
 The Agile XML descriptor uses the same `len@0x299` + blob-at-`0x29B` framing.
 
 > **Creating encryption from scratch (implemented — Office Standard).** `LibRed.Crypto.DatabaseEncryption`
@@ -503,7 +470,7 @@ The Agile XML descriptor uses the same `len@0x299` + blob-at-`0x29B` framing.
 > length signal, and encrypt every page. **Verified: AES-256, RC4-40, and Agile files created this way open in
 > the Access desktop GUI with the password.** For **Agile**, the same path emits the XML descriptor (version 4.4
 > prefix `04 00 04 00 40 00 00 00` + UTF-8 XML) with a random data key wrapped via the 100000-spin SHA-512 KDF —
-> Access's `.accdb` Agile has **no `<dataIntegrity>` element** (verified against `db2013` and a created file), so
+> Access's `.accdb` Agile has **no `<dataIntegrity>` element** (verified), so
 > none is emitted. `ChangePassword` = decrypt + re-encrypt. **Jet 3 remains unimplemented.** Legacy Jet is
 > implemented, but under its own names rather than through `SetPassword`: an `.mdb` has two independent
 > mechanisms — the database password at `0x42` (`SetJetPassword`/`RemoveJetPassword`) and RC4 page encoding
@@ -516,8 +483,8 @@ The Agile XML descriptor uses the same `len@0x299` + blob-at-`0x29B` framing.
 > name follows the CryptoAPI split: Base provider for RC4 ≤56-bit with MD5/SHA-1, else Enhanced RSA/AES. RC4 always
 > uses the truncated hash (no `0x36/0x5C` expansion) and only the 40-bit case zero-pads to 128. `keyBits == 40`,
 > `Sha1` reproduces the byte-identical Access-2007-default RC4-40 descriptor. **Every RC4 combo produced this way
-> opens natively in Access** — no add-in needed (the add-in is only for the block ciphers). Round-tripped in
-> `DatabaseEncryptionTests` across the key-length × hash matrix.
+> opens natively in Access** — no add-in needed (the add-in is only for the block ciphers). Round-trips across
+> the key-length × hash matrix.
 
 > **Writing to an existing encrypted database (implemented).** `IPageCodec.EncryptPage` is the inverse of
 > `DecryptPage`, so `PageChannel.WritePage` encrypts each page on the way to disk (page 0 stays clear) while the
@@ -535,8 +502,8 @@ Access 2010+ "Set Database Password" on an `.accdb` uses **Office Agile encrypti
 the password (SHA-512 KDF, 100 000-spin), validates the verifier (wrong password → `UnauthorizedAccessException`),
 then decrypts each data page. **Access's one deviation from stock Agile:** the per-page IV block key is
 `LE32(pageNumber) XOR databaseKey` (the 4-byte key at `0x3E`), so `IV = SHA512(keyDataSalt ‖ blockKey)[:blockSize]`
-and the page is `AES-256-CBC(dataKey, IV)`. Page 0 is never page-encrypted. Verified end-to-end against a
-known-password fixture (decrypted pages match the unencrypted twin; `AgileEncryptionTests`).
+and the page is `AES-256-CBC(dataKey, IV)`. Page 0 is never page-encrypted. Verified end-to-end: decrypted
+pages match the unencrypted original.
 
 LibRed supports the exact Access profile verified from real files and its own Access-openable writer:
 AES-256-CBC, SHA-512, 16-byte salts/blocks, and `spinCount=100000`. These cleartext dimensions are validated

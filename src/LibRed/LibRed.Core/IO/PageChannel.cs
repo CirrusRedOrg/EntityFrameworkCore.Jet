@@ -47,6 +47,14 @@ public sealed class PageChannel : IDisposable
     private bool _schemaDirty;
     private int _txPageCount;
 
+    // Pages freed by this handle that are held until it closes, as ACE holds them (page-05 §9.1): `_releasing` is
+    // what the open transaction has staged, `_released` what has committed. A commit moves the one into the other,
+    // a rollback discards the staged pages, and a savepoint rollback truncates them to the savepoint's count.
+    private readonly List<int> _releasing = [];
+    private readonly List<int> _released = [];
+    // Whether anything this channel wrote has been published, so a close knows the session changed the file.
+    private bool _published;
+
     private PageChannel(FileStream stream, JetFormatBase format, bool readOnly, string path, IPageCodec? codec, ILockManager? locks)
     {
         _stream = stream;
@@ -62,6 +70,27 @@ public sealed class PageChannel : IDisposable
 
     /// <summary>Whether a transaction is currently open on this channel.</summary>
     public bool InTransaction => _active is not null;
+
+    /// <summary>Whether this channel was opened read-only, so it can never write a page.</summary>
+    internal bool IsReadOnly => _readOnly;
+
+    /// <summary>Holds a freed page until this channel closes. Inside a transaction the page is staged with it —
+    /// released only if the transaction commits; outside one it is committed at once.</summary>
+    internal void ReleaseAtClose(int page)
+    {
+        if (_readOnly)
+            throw new InvalidOperationException("This channel was opened read-only.");
+        (_active is not null ? _releasing : _released).Add(page);
+    }
+
+    /// <summary>The committed pages held for release at close, in the order they were freed.</summary>
+    internal IReadOnlyList<int> PagesReleasedAtClose => _released;
+
+    /// <summary>Forgets the held pages once they have been returned to the global free map.</summary>
+    internal void ClearPagesReleasedAtClose() => _released.Clear();
+
+    /// <summary>Whether this channel has published a page write since it opened.</summary>
+    internal bool HasPublishedWrites => _published;
 
     /// <summary>
     /// The resolved on-disk format. Settable only by <see cref="RaiseFormatVersion"/> and its rollback
@@ -329,6 +358,7 @@ public sealed class PageChannel : IDisposable
             // Write through: the pool now holds the just-written (plaintext) image, so a subsequent read (this
             // channel or any other on the file) sees it without touching disk.
             _cache.Store(pageNumber, source[..PageSize]);
+            _published = true;
         }
         finally { _locks?.ExitExclusive(pageNumber); }
     }
@@ -362,6 +392,7 @@ public sealed class PageChannel : IDisposable
             throw new InvalidOperationException("A transaction is already in progress.");
         _overlay.Clear();
         _commitBaselines.Clear();
+        _releasing.Clear();
         _schemaDirty = false;
         _txPageCount = PageCount; // committed count at start (PageCount is still file-based while _active is null)
         return _active = new Transaction(_txPageCount);
@@ -441,6 +472,8 @@ public sealed class PageChannel : IDisposable
             _active = null;
             _overlay.Clear();
             _commitBaselines.Clear();
+            _released.AddRange(_releasing);
+            _releasing.Clear();
             if (_schemaDirty) _cache.MarkSchemaChanged();
             _schemaDirty = false;
         });
@@ -457,6 +490,7 @@ public sealed class PageChannel : IDisposable
         if (_active is null) return;
         _overlay.Clear();
         _commitBaselines.Clear();
+        _releasing.Clear();   // a rolled-back free frees nothing
         _schemaDirty = false;
         _active = null;
         ResyncFormatVersion();   // a discarded format raise must not stay raised in memory
@@ -512,7 +546,7 @@ public sealed class PageChannel : IDisposable
     {
         if (_active is null)
             throw new InvalidOperationException("No transaction is in progress.");
-        return _active.Save(_txPageCount);
+        return _active.Save(_txPageCount, _releasing.Count);
     }
 
     /// <summary>Rolls the transaction back to <paramref name="savepoint"/>: undoes every write made since it was
@@ -521,8 +555,10 @@ public sealed class PageChannel : IDisposable
     {
         if (_active is null)
             throw new InvalidOperationException("No transaction is in progress.");
+        int releaseCount = _active.ReleaseCountAt(savepoint);
         var (before, pageCount) = _active.TakeForRollbackTo(savepoint);
         RestoreOverlay(before, pageCount);
+        _releasing.RemoveRange(releaseCount, _releasing.Count - releaseCount);
     }
 
     /// <summary>Releases <paramref name="savepoint"/>, merging its changes into the enclosing scope. Only the

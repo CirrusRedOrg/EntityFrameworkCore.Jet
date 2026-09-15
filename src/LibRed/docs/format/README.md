@@ -98,7 +98,7 @@ table says which file each section lives in.
 | §7 | Compressed Unicode | [data-types.md](data-types.md) |
 | §8 | Long values (Memo / OLE) | [long-values.md](long-values.md) |
 | §9 | Usage maps | [page-05-usage-maps.md](page-05-usage-maps.md) |
-| §9.1 | Global free-pages map | [page-05-usage-maps.md](page-05-usage-maps.md) |
+| §9.1 | Global usage maps (free and released pages) | [page-05-usage-maps.md](page-05-usage-maps.md) |
 | — | Released pages (`0x08`, `0x09`) | [page-08](page-08-released-tdef.md) / [page-09](page-09-released-long-value.md) — no §-number |
 | §10 | Index B-tree pages | [page-03-04-index-btree.md](page-03-04-index-btree.md) |
 | §11 | System catalog | [system-catalog.md](system-catalog.md) |

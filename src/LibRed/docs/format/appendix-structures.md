@@ -33,7 +33,8 @@ All integers little-endian unless noted; offsets are hex, relative to the struct
 | `0x15` | 1 | Version minor byte (`0x01` on a file created as ACE14/Access 2010, else `0x00`; a version raise writes `0x00`) |
 | `0x16` | 2 | Unknown (zero) |
 | `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with the fixed 128-byte mask; the `0x18`–`0x72` fields below are offsets into it (Jet3 masks 126) |
-| `0x18`, `0x1C` | 4+4 | Fixed constants `0x00000100` / `0x00000101` |
+| `0x18` | 4 | Global free-pages map pointer `[row:1][page:3]` (`0x00000100` = page 1 row 0) |
+| `0x1C` | 4 | Global released-pages map pointer `[row:1][page:3]` (`0x00000101` = page 1 row 1) |
 | `0x20`–`0x2C` | 4×4 | Catalog bootstrap pointers — `MSysObjects`/`MSysACEs`/`MSysQueries`/`MSysRelationships` TDEF pages (`2`/`3`/`4`/`5`); `0x20` = catalog root |
 | `0x30`–`0x3B` | 12 | Reserved (zero) |
 | `0x3C` | 2 | ANSI code page (LE; `0x04E4` = 1252) |
@@ -133,10 +134,11 @@ Nullability is **not** in the descriptor — it's the `Required` property in `Lv
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 16 | Reserved (zero) |
+| `0x00` | 4 | VBA error number, little-endian — `0` for a value or Null; an error envelope is 38 bytes |
+| `0x04` | 12 | Reserved (zero in every row observed) |
 | `0x10` | 4 | Payload length, little-endian |
 | `0x14` | *n* | Payload — the value in its ordinary encoding |
-| `0x14`+*n* | 3 | Padding (zero) |
+| `0x14`+*n* | 3 | Padding (zero in every row observed) |
 
 The descriptor's type at `0x00` is a **promoted storage type**; the payload length says the real one
 (Int16+1 = Boolean, Int32+1 = Byte, Int32+2 = Int16, Double+4 = Single). Length `0` means Null, and the
@@ -208,7 +210,8 @@ descriptor.
 **Inline (type `0x00`):** `[0x00][startPage:4][bitmap…]` — bit `i` ⇒ page `startPage+i` owned.
 **Reference (type `0x01`, 69 bytes):** `[0x01][17 × 4-byte bitmap-page pointers]`.
 **Bitmap page (type `0x05`):** header `[0x05][0x01][0][0]`, bitmap from offset 4.
-Global free-pages map: **page 1, row 0**, inline or reference — set bit = **free** (opposite of a table map).
+Global maps, located by page 0: free pages at `0x18` (page 1 row 0 as ACE writes it) — set bit = **free**
+(opposite of a table map); released pages at `0x1C` (page 1 row 1) — set bit = freed, not reusable until close.
 
 ---
 

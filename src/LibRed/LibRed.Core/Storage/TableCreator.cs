@@ -829,7 +829,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 WriteTdef(parent.DefinitionPage, parentParts);
             }
 
-            new PageAllocator(_channel).Free(fkIndex.RootPage);
+            new PageAllocator(_channel).Release(fkIndex.RootPage);
         }
 
         SoftDeleteRelationshipRows(name);
@@ -840,8 +840,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <summary>
     /// Drops a table — <c>DROP TABLE table</c>. Removes the object's <c>MSysObjects</c> row and its
     /// <c>MSysACEs</c> permission rows (soft-delete, as ACE does), and frees the table's pages back to the
-    /// global free map so a later create reuses them (verified vs ACE): its index B-tree roots, its data
-    /// pages (owned-pages usage map), and the TDEF page. Returns false if the table doesn't exist.
+    /// global free map when the database closes (verified vs ACE): every page of its indexes, its data and
+    /// long-value pages, the TDEF page and its continuation pages, a reference-form map's bitmap pages, and any
+    /// usage-map holder left with no live record. Returns false if the table doesn't exist.
     ///
     /// A table that is the <em>child</em> (referencing) side of relationships can be dropped directly: ACE
     /// lets you drop the referencing table while the parent stays, so each such relationship is removed first
@@ -849,9 +850,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// child cannot be dropped — drop the referencing table (or the relationship) first. EF drops FKs before
     /// tables, but database-first scaffolding cleanup drops child tables directly, which must work.
     /// </summary>
-    /// <remarks>Multi-page TDEFs, multi-level index trees (non-root pages), memo/OLE LVAL pages and dedicated
-    /// usage-map pages are not yet freed (they leak until Compact); the catalog removal is complete regardless,
-    /// so the table disappears and Access opens the file.</remarks>
     public bool DropTable(string tableName)
     {
         TableDef? table = _catalog.FindTable(tableName);
@@ -878,11 +876,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         var allocator = new PageAllocator(_channel);
         var maps = new UsageMap(_channel, table);
 
-        // A Memo/OLE (or calculated long) column owns its LVAL pages through a PER-COLUMN usage map, whose
-        // pointer sits in the TDEF keyed by column id. Those pages are not in the table's data-page map, so
-        // freeing only the data pages leaves every long value stranded — and for a memo-heavy table that is
-        // nearly the whole table. Measured against ACE: dropping a 60-row memo table returned 123 pages
-        // through ACE and 2 through LibRed, the missing 121 being LVAL pages.
         // Collect before freeing anything: the pointers are read out of the TDEF, which this method frees.
         var owned = new HashSet<int>();
         // Through the chain reader: a wide table's definition spans continuation pages, and parsing only the
@@ -891,68 +884,98 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         var definition = new TableDefinitionPage();
         definition.Read(_channel, tdefPage);
         var usageMaps = new UsageMapWriter(_channel);
+
+        // The map RECORDS live as rows on owner-zero data pages, and each is retired in turn — its bits cleared
+        // first where ACE clears them, then its row reclaimed, which slides every record below it up the page.
+        // The order is ACE's and it shows on disk: a slide leaves a copy of the records it moved in the space
+        // they vacated, so retiring the same records in another order leaves different bytes behind. Measured
+        // by whole-file diff against ACE drops: each long-value column's owned then free map, bits cleared;
+        // then each index's owned map in index order, bits cleared; then the table's own owned map, bits
+        // cleared, and its free map, whose bits stay.
+        var retire = new List<((int Row, int Page) Map, IReadOnlyList<(int Row, int Page)> Clear, IReadOnlyList<int> Pages)>();
+
+        // A Memo/OLE (or calculated long) column owns its LVAL pages through a PER-COLUMN usage map, whose
+        // pointer sits in the TDEF keyed by column id. Those pages are not in the table's data-page map, so
+        // freeing only the data pages leaves every long value stranded — and for a memo-heavy table that is
+        // nearly the whole table. Measured against ACE: dropping a 60-row memo table returned 123 pages
+        // through ACE and 2 through LibRed, the missing 121 being LVAL pages.
         foreach (ColumnDef column in table.Columns)
         {
-            if (!definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) map)
-                || map.Page == 0)
-                continue;
+            definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) map);
             definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) columnFree);
-
-            // Clear each page's bit on the way out, exactly as releasing a single value does. ACE does the
-            // same and it shows on disk: the map record's bitmap bytes are zeroed before its row is retired,
-            // so a drop that only frees pages leaves a populated map inside the reclaimed space.
-            foreach (int lvalPage in maps.PagesInMap(map.Row, map.Page).ToList())
+            if (map.Page != 0)
             {
-                owned.Add(lvalPage);
-                usageMaps.SetBit(map.Row, map.Page, lvalPage, set: false);
-                if (columnFree.Page != 0) usageMaps.SetBit(columnFree.Row, columnFree.Page, lvalPage, set: false);
+                // Clear each page's bit on the way out, exactly as releasing a single value does: the record's
+                // bitmap bytes are zeroed before its row is retired.
+                List<int> pages = maps.PagesInMap(map.Row, map.Page).ToList();
+                owned.UnionWith(pages);
+                retire.Add((map, columnFree.Page != 0 ? [map, columnFree] : [map], pages));
             }
+            if (columnFree.Page != 0) retire.Add((columnFree, [], []));
         }
 
+        // Each real index keeps its B-tree pages in its own owned map, whose (row, page) pointer sits in its data
+        // block. Freeing only the root strands every other page of a multi-level index, and leaving the map's
+        // record live keeps its holder from ever being freed.
+        foreach (byte[] block in ParseTdef(tdefPage).DataBlocks)
+        {
+            int at = IndexBlockFormat.UsageMapRowOffset;
+            (int Row, int Page) map = (block[at], block[at + 1] | block[at + 2] << 8 | block[at + 3] << 16);
+            if (map.Page == 0) continue;
+            List<int> pages = maps.PagesInMap(map.Row, map.Page).ToList();
+            owned.UnionWith(pages);
+            retire.Add((map, [map], pages));
+        }
         foreach (IndexDef index in table.Indexes.Where(i => i.RootPage > 0).GroupBy(i => i.RootPage).Select(g => g.First()))
             owned.Add(index.RootPage);
-        foreach (int dataPage in maps.DataPages())
-            owned.Add(dataPage);
+        List<int> dataPages = maps.DataPages().ToList();
+        owned.UnionWith(dataPages);
         owned.Add(tdefPage);
+        // A wide table's definition continues on further pages. ACE frees them too, and leaves every byte of
+        // them alone — only the first page is marked released.
+        owned.UnionWith(TdefChainReader.Read(_channel, tdefPage).ContinuationPages);
 
-        // The map RECORDS live as rows on owner-zero data pages, and ACE frees such a holder once the dropped
-        // table's records are the only thing left on it — measured: for a one-memo-column table ACE returned
-        // the long-value map's holder and LibRed did not, the single page by which the two drops differed.
-        // A holder can carry records for several columns or tables as separate rows, so releasing one that
-        // still serves another map would hand away a live page: corruption rather than a leak. Hence the
-        // holder goes only when every live row on it is one this drop is retiring.
         PageBuffer tdef = _channel.ReadPage(tdefPage);
-        var ourRows = new Dictionary<int, HashSet<int>>();
-        void Claim((int Row, int Page) pointer)
+        (int Row, int Page) dataOwned = (tdef.ReadByte(_channel.Format.TdefOwnedPagesOffset),
+                                         tdef.ReadInt24(_channel.Format.TdefOwnedPagesOffset + 1));
+        retire.Add((dataOwned, [dataOwned], dataPages));
+        retire.Add(((tdef.ReadByte(_channel.Format.TdefFreePagesOffset),
+                     tdef.ReadInt24(_channel.Format.TdefFreePagesOffset + 1)), [], []));
+
+        // Take the records off the page the way ACE does — tombstone the slot, slide the rows below it up, return
+        // the bytes to the page's free count — rather than leaving dead maps behind. On a shared holder that is
+        // the whole fix: the page survives and must not keep records for a table that no longer exists.
+        var holders = new List<int>();
+        var retired = new HashSet<(int Row, int Page)>();
+        foreach (((int Row, int Page) map, IReadOnlyList<(int Row, int Page)> clear, IReadOnlyList<int> pages) in retire)
         {
-            if (pointer.Page <= 1 || pointer.Page >= _channel.PageCount) return;
-            (ourRows.TryGetValue(pointer.Page, out HashSet<int>? rows) ? rows : ourRows[pointer.Page] = [])
-                .Add(pointer.Row);
+            if (map.Page <= 1 || map.Page >= _channel.PageCount || !retired.Add(map)) continue;
+            foreach ((int Row, int Page) cleared in clear)
+                foreach (int page in pages)
+                    usageMaps.SetBit(cleared.Row, cleared.Page, page, set: false);
+
+            // A reference-form record keeps its bitmap on dedicated pages. ACE zeroes each one's bitmap — even
+            // for the table's own owned map, whose bits an inline record keeps — leaves its header, and frees it.
+            foreach (int bitmapPage in maps.BitmapPagesOf(map.Row, map.Page))
+            {
+                byte[] bitmap = _channel.ReadPage(bitmapPage).Span.ToArray();
+                bitmap.AsSpan(4).Clear();
+                _channel.WritePage(bitmapPage, bitmap);
+                owned.Add(bitmapPage);
+            }
+
+            byte[] holderBytes = _channel.ReadPage(map.Page).Span.ToArray();
+            RowInserter.ReclaimRow(_channel.Format, holderBytes, map.Row);
+            _channel.WritePage(map.Page, holderBytes);
+            if (!holders.Contains(map.Page)) holders.Add(map.Page);
         }
 
-        Claim((tdef.ReadByte(_channel.Format.TdefOwnedPagesOffset),
-               tdef.ReadInt24(_channel.Format.TdefOwnedPagesOffset + 1)));
-        Claim((tdef.ReadByte(_channel.Format.TdefFreePagesOffset),
-               tdef.ReadInt24(_channel.Format.TdefFreePagesOffset + 1)));
-        foreach (ColumnDef column in table.Columns)
+        // ACE frees a holder once the dropped table's records were the only thing on it — measured: for a
+        // one-memo-column table ACE returned the long-value map's holder. A holder can carry records for several
+        // columns or tables as separate rows, so releasing one that still serves another map would hand away a
+        // live page: corruption rather than a leak. Hence the holder goes only when no live row is left on it.
+        foreach (int holderPage in holders)
         {
-            if (definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) o)) Claim(o);
-            if (definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) f)) Claim(f);
-        }
-
-        foreach ((int holderPage, HashSet<int> rows) in ourRows)
-        {
-            // Take the records off the page the way ACE does — tombstone the slot, slide the rows below it
-            // up, return the bytes to the page's free count — rather than leaving dead maps behind. On a
-            // shared holder that is the whole fix: the page survives and must not keep records for a table
-            // that no longer exists. Descending slot order so each reclaim sees the slots it expects.
-            byte[] page = _channel.ReadPage(holderPage).Span.ToArray();
-            foreach (int row in rows.OrderByDescending(r => r))
-                RowInserter.ReclaimRow(_channel.Format, page, row);
-            _channel.WritePage(holderPage, page);
-
-            // Emptied of every live record, the holder itself goes back to the global map — which is what
-            // ACE does, and was the single page by which the two engines' drops used to differ.
             var holder = new DataPage();
             holder.Read(_channel.ReadPage(holderPage), _channel.Format);
             bool live = false;
@@ -970,7 +993,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         _channel.WritePage(tdefPage, released);
 
         foreach (int page in owned)
-            allocator.Free(page);
+            allocator.Release(page);   // reusable only after this handle closes, as ACE holds them
 
         DeleteCatalogRows("MSysObjects", "Id", tdefPage);
         DeleteCatalogRows("MSysACEs", "ObjectId", tdefPage);
@@ -1346,7 +1369,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         RemoveTdefBlocks(parts, removeDataOrdinal: index.RealIndexOrdinal,
             removeLogical: b => NameOf(b.Name).Equals(indexName, StringComparison.OrdinalIgnoreCase));
         WriteTdef(table.DefinitionPage, parts);
-        new PageAllocator(_channel).Free(index.RootPage);
+        new PageAllocator(_channel).Release(index.RootPage);
         _catalog.Invalidate();
         return true;
     }
@@ -2280,7 +2303,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             foreach (var p in pending)
             {
                 BackfillIndex(tableName, p.Name, p.IgnoreNulls, validateUnique: true);
-                _allocator.Free(p.OldRoot);
+                _allocator.Release(p.OldRoot);
             }
 
             if (ownTx) _channel.CommitTransaction();

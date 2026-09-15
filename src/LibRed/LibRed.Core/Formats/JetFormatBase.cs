@@ -59,6 +59,15 @@ public abstract class JetFormatBase
     /// <summary>Start offset of the obfuscated page-0 header region (also the mask's first byte).</summary>
     public const int PageZeroHeaderMaskStart = 0x18;
 
+    /// <summary>Offset of the 4-byte <c>[row:1][page:3]</c> pointer to the global free-pages usage map — the
+    /// map every allocation takes a page from. Page 1 row 0 in every file ACE writes, but ACE follows the
+    /// pointer, row included, so a reader must too (docs/format/page-05-usage-maps.md §9.1).</summary>
+    public const int FreePagesMapPointerOffset = 0x18;
+
+    /// <summary>Offset of the 4-byte <c>[row:1][page:3]</c> pointer to the global released-pages usage map:
+    /// pages released but not yet reusable, which ACE never allocates. Page 1 row 1 in every file ACE writes.</summary>
+    public const int ReleasedPagesMapPointerOffset = 0x1C;
+
     /// <summary>Offset of the 4-byte page number of the <c>MSysObjects</c> TDEF — the catalog root, the
     /// bootstrap pointer that lets the engine find the system catalog before it can read any table. It is
     /// the first of four system-table pointers (<c>MSysObjects</c>/<c>MSysACEs</c>/<c>MSysQueries</c>/

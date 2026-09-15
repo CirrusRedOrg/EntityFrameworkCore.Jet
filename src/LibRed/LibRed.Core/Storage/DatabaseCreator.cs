@@ -45,8 +45,9 @@ public static class DatabaseCreator
         int b = JetFormatBase.PageZeroHeaderMaskStart;
         Span<byte> clear = stackalloc byte[JetFormatBase.PageZeroHeaderMask.Length];
 
-        BinaryPrimitives.WriteInt32LittleEndian(clear[(0x18 - b)..], 0x00000100);        // 0x18 fixed constant
-        BinaryPrimitives.WriteInt32LittleEndian(clear[(0x1C - b)..], 0x00000101);        // 0x1C fixed constant
+        // 0x18/0x1C: [row][page] pointers to the global usage maps on page 1 — free pages (row 0), released pages (row 1).
+        BinaryPrimitives.WriteInt32LittleEndian(clear[(JetFormatBase.FreePagesMapPointerOffset - b)..], 0x00000100);     // free map: page 1, row 0
+        BinaryPrimitives.WriteInt32LittleEndian(clear[(JetFormatBase.ReleasedPagesMapPointerOffset - b)..], 0x00000101); // released map: page 1, row 1
         // 0x20..0x2C: system-catalog bootstrap pointers = MSysObjects/ACEs/Queries/Relationships pages.
         BinaryPrimitives.WriteInt32LittleEndian(clear[(0x20 - b)..], 2);
         BinaryPrimitives.WriteInt32LittleEndian(clear[(0x24 - b)..], 3);

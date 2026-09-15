@@ -43,6 +43,32 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
     /// pages holding a table's Memo/OLE content are invisible to <see cref="DataPages"/>.</summary>
     public IEnumerable<int> PagesInMap(int mapRow, int mapPage) => ReadMapAt(mapRow, mapPage);
 
+    /// <summary>The dedicated bitmap pages (type 0x05) a reference-form map record at the pointer names, each
+    /// validated; none for an inline record.</summary>
+    public IReadOnlyList<int> BitmapPagesOf(int mapRow, int mapPage)
+    {
+        if (mapPage <= 1 || mapPage >= _channel.PageCount)
+            throw new InvalidDataException(
+                $"Usage-map pointer names page {mapPage}, outside the file's 2..{_channel.PageCount - 1} range.");
+        var holder = new DataPage();
+        holder.Read(_channel.ReadPage(mapPage), _channel.Format);
+        if (mapRow < 0 || mapRow >= holder.RowCount)
+            throw new InvalidDataException($"Usage-map row {mapPage}:{mapRow} does not exist.");
+        ReadOnlySpan<byte> map = holder.GetRow(mapRow);
+        if (map.Length == 0 || map[0] != MapTypeReference) return [];
+
+        ValidateReferenceRecord(map);
+        var pages = new List<int>();
+        for (int e = 0; e < ReferenceMapSlots; e++)
+        {
+            int bitmapPage = BinaryPrimitives.ReadInt32LittleEndian(map.Slice(1 + e * 4, 4));
+            if (bitmapPage == 0) continue;
+            _ = ReadBitmapPage(bitmapPage);
+            pages.Add(bitmapPage);
+        }
+        return pages;
+    }
+
     /// <summary>The highest-numbered data page the table owns, or -1 when it owns none.</summary>
     /// <remarks>
     /// Scans the bitmap backwards rather than enumerating <see cref="DataPages"/> and taking the maximum:

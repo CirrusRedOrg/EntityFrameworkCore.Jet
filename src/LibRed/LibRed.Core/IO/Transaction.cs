@@ -23,6 +23,8 @@ public sealed class Transaction
         // page -> overlay bytes before this frame's first write to it; null = the page was not in the overlay.
         public readonly Dictionary<int, byte[]?> Before = [];
         public int StartPageCount;
+        // How many pages the transaction had staged for release at close when this frame opened.
+        public int StartReleaseCount;
     }
 
     private readonly List<Frame> _frames;
@@ -46,10 +48,18 @@ public sealed class Transaction
 
     /// <summary>Opens a savepoint over the given current logical page count; returns a handle for
     /// <see cref="TakeForRollbackTo"/> / <see cref="Release"/>.</summary>
-    internal Savepoint Save(int currentPageCount)
+    internal Savepoint Save(int currentPageCount, int currentReleaseCount = 0)
     {
-        _frames.Add(new Frame { StartPageCount = currentPageCount });
+        _frames.Add(new Frame { StartPageCount = currentPageCount, StartReleaseCount = currentReleaseCount });
         return new Savepoint(_frames.Count - 1);
+    }
+
+    /// <summary>How many pages were staged for release when <paramref name="sp"/> was created — the count to
+    /// truncate back to when rolling back to it.</summary>
+    internal int ReleaseCountAt(Savepoint sp)
+    {
+        ValidateFrame(sp.Index);
+        return _frames[sp.Index].StartReleaseCount;
     }
 
     /// <summary>Collects the overlay before-images to restore (newest first, so the oldest image wins for a page

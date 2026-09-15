@@ -103,7 +103,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         {
             if (column.Type is not (JetDataType.Memo or JetDataType.Ole)) continue;
             if (!oldDescriptors.TryGetValue(column.Index, out byte[]? oldDescriptor)) continue; // old value was null
-            if (changedColumns.Contains(column.Index)) FreeLongValue(column, oldDescriptor);
+            if (changedColumns.Contains(column.Index)) FreeLongValue(column, oldDescriptor, releaseAtClose: false);
             else values[column.Index] = new LongValueDescriptor(oldDescriptor);
         }
 
@@ -131,7 +131,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             if (preservedCalculated?.ContainsKey(column.Index) == true) continue;
             if (oldCalculated.TryGetValue(column.Index, out byte[]? stale)
                 && stale.Length >= LongValueFormat.DescriptorSize)
-                FreeLongValue(column, stale);
+                FreeLongValue(column, stale, releaseAtClose: false);
         }
 
         MaterializeLongValues(values);
@@ -254,12 +254,12 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     {
         JetFormatBase format = _channel.Format;
 
-        // Free the deleted row's chained long-value pages.
+        // Free the deleted row's chained long-value pages — held until close, as ACE holds them.
         var oldDescriptors = new RowDecoder(_table.Columns, format).LongValueRaw(ReadRowBytes(id));
         foreach (ColumnDef column in _table.Columns)
             if ((column.Type is JetDataType.Memo or JetDataType.Ole || column.HasLongValueMap)
                 && oldDescriptors.TryGetValue(column.Index, out byte[]? d))
-                FreeLongValue(column, d);
+                FreeLongValue(column, d, releaseAtClose: true);
 
         byte[] page = ArrayPool<byte>.Shared.Rent(format.PageSize);
         try
@@ -438,7 +438,12 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// Inline (0x80) values have no pages; single-page (0x40) values share a page with others, so reclaiming
     /// their row is deferred (they are left in place — a small, shared-page leak).
     /// </summary>
-    private void FreeLongValue(ColumnDef column, byte[] descriptor)
+    /// <remarks>
+    /// Measured against ACE on one connection: the pages of a value an UPDATE replaces are set in the global
+    /// free map at once, while a DELETE's are not reusable until the connection closes
+    /// (<paramref name="releaseAtClose"/>, see <see cref="PageAllocator.Release"/>).
+    /// </remarks>
+    private void FreeLongValue(ColumnDef column, byte[] descriptor, bool releaseAtClose)
     {
         // The descriptor comes off the row's variable chunk, so its width is whatever the offset table said.
         // LongValueReader requires the full 12 bytes before reading any field; reclaiming has to agree, or a
@@ -464,7 +469,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         if (flags == LongValueFormat.FlagSinglePage)
         {
             ReleasePackedValue(column, descriptor[5] | (descriptor[6] << 8) | (descriptor[7] << 16),
-                descriptor[4], owned, free);
+                descriptor[4], owned, free, releaseAtClose);
             return;
         }
         var allocator = new PageAllocator(_channel);
@@ -482,7 +487,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // one per statement); a direct Core caller without one gets no more than any other multi-page write.
         foreach (int page in pages)
         {
-            allocator.Free(page);
+            if (releaseAtClose) allocator.Release(page);
+            else allocator.Free(page);
             _usageMaps.SetBit(owned.Row, owned.Page, page, set: false);
             _usageMaps.SetBit(free.Row, free.Page, page, set: false);
         }
@@ -508,7 +514,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// used a memo large enough to chain ever produced one.
     /// </remarks>
     private void ReleasePackedValue(ColumnDef column, int pageNumber, int row,
-        (int Row, int Page) owned, (int Row, int Page) free)
+        (int Row, int Page) owned, (int Row, int Page) free, bool releaseAtClose)
     {
         JetFormatBase format = _channel.Format;
         if (pageNumber <= 0 || pageNumber >= _channel.PageCount)
@@ -559,7 +565,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         }
         _usageMaps.SetBit(owned.Row, owned.Page, pageNumber, set: false);
         _usageMaps.SetBit(free.Row, free.Page, pageNumber, set: false);
-        new PageAllocator(_channel).Free(pageNumber);
+        if (releaseAtClose) new PageAllocator(_channel).Release(pageNumber);
+        else new PageAllocator(_channel).Free(pageNumber);
     }
 
     /// <summary>Rejects the insert if a UNIQUE or PRIMARY index would gain a duplicate key. A row with a

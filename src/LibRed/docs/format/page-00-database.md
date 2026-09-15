@@ -14,7 +14,8 @@
 | `0x15` | 1 | Version **minor** byte: **`0x01` on a database created in the 2010 format (version `0x03`)**, `0x00` when created in any other. **A version raise writes `0x00`** whatever the target — including a raise *onto* `0x03`. Purpose otherwise unknown |
 | `0x16` | 2 | Unknown (zero observed) |
 | `0x18`–`0x98` | 128 | **Obfuscated header** — XOR'd with a fixed 128-byte mask (§2.1). Jet 3 masks 126 bytes. Fields below are offsets into it. |
-| `0x18`, `0x1C` | 4+4 | Fixed constants `0x00000100`, `0x00000101` (not page pointers — out of range in small files) |
+| `0x18` | 4 | **Global free-pages map pointer** — `[row:1][page:3]`; `0x00000100` = page 1 row 0 in every file ACE writes ([page-05 §9.1](page-05-usage-maps.md)) |
+| `0x1C` | 4 | **Global released-pages map pointer** — `[row:1][page:3]`; `0x00000101` = page 1 row 1 ([page-05 §9.1](page-05-usage-maps.md)) |
 | `0x20`–`0x2C` | 4×4 | **System-catalog bootstrap pointers**: TDEF pages of `MSysObjects` / `MSysACEs` / `MSysQueries` / `MSysRelationships` = `2, 3, 4, 5`. `0x20` is the **catalog root** (how the engine finds `MSysObjects`). |
 | `0x30`–`0x3B` | 12 | Reserved (zero) |
 | `0x3C` | 2 | **ANSI code page** — LE (`0x04E4` = 1252, `0x04E2` = 1250) |
@@ -96,6 +97,13 @@ because each is a place the obvious implementation goes wrong:
 Verified against the real engine: ACE opens a file LibRed upgraded in place and reads the value that forced
 the upgrade. A saved query's *parameter* type is deliberately excluded — it declares no storage, and what ACE does with a new-type parameter in `MSysQueries` has not been probed.
 
+**Allocation bootstrap.** `0x18` and `0x1C` are the two things an engine needs before it can allocate a page,
+and so cannot look up through the catalog: record pointers to the global free-pages map and the global
+released-pages map. They are `[row:1][page:3]` pointers, like a TDEF's usage-map pointers, because a usage
+map is a record on a data page; the catalog pointers that follow are plain page numbers because a table
+definition is a page. What the maps hold, and how ACE validates and follows the pointers, is
+[page-05 §9.1](page-05-usage-maps.md).
+
 **Catalog bootstrap.** Reading the database is a two-step hop from page 0: the pointer at `0x20` gives the
 `MSysObjects` TDEF page (2), and `MSysObjects` then lists every other object (each table's row `Id` is *its*
 TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` and hands it to `JetCatalog`
@@ -119,7 +127,7 @@ TDEF page). LibRed reads `0x20` into `DatabaseDefinitionPage.CatalogRootPage` an
 >
 > | pages | contents |
 > | --- | --- |
-> | `0`, `1` | database definition; global free-pages map |
+> | `0`, `1` | database definition; the global free-pages (row 0) and released-pages (row 1) maps |
 > | `2`–`5` | the four core TDEFs — fixed, because page 0's bootstrap pointers name them |
 > | `6`, `9`, `11`, `13` | usage maps for MSysObjects / MSysACEs / MSysQueries / MSysRelationships |
 > | `7`, `8`, `10`, `12`, `14`–`16` | their index roots (2 + 1 + 1 + 3), each a leaf page |

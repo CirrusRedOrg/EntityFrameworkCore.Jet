@@ -14,6 +14,7 @@ namespace LibRed;
 public sealed class JetDatabase : IDisposable
 {
     private readonly PageChannel _channel;
+    private bool _disposed;
 
     private JetDatabase(PageChannel channel)
     {
@@ -21,6 +22,12 @@ public sealed class JetDatabase : IDisposable
 
         DefinitionPage = new DatabaseDefinitionPage();
         DefinitionPage.Read(channel.ReadPage(0), channel.Format);
+
+        // A writable open checks page 0's global map pointers now rather than at the first allocation: ACE marks
+        // a file corrupt when one names a page past the end, and fails its first allocation when one names
+        // anything but a usage map. A read-only open never allocates, so it reads such a file as ACE would.
+        if (!channel.IsReadOnly)
+            new PageAllocator(channel).ValidateGlobalMaps();
 
         // Find MSysObjects via the page-0 bootstrap pointer (0x20); fall back to the format default
         // if it reads as 0 (never observed — every file points at page 2).
@@ -448,8 +455,30 @@ public sealed class JetDatabase : IDisposable
         return new Table(_channel, def);
     }
 
+    /// <summary>Closes the database. A writable handle first returns the pages it released to the global free
+    /// map, as ACE does only at close (docs/format/page-05-usage-maps.md §9.1). A transaction still open is
+    /// discarded, as it would be by the close anyway, so the pages it released stay unreleased.</summary>
     public void Dispose()
     {
-        _channel.Dispose();
+        if (_disposed) return;
+        _disposed = true;
+        try
+        {
+            if (!_channel.IsReadOnly)
+            {
+                _channel.RollbackTransaction();
+                new PageAllocator(_channel).ReturnReleasedPages();
+            }
+        }
+        catch (InvalidDataException)
+        {
+            // The global maps were damaged after the open validated them. The release runs in its own transaction,
+            // so nothing of it was written: the released pages simply stay unreusable, which Compact reclaims —
+            // better than a close that throws out of a using block and hides whatever was already unwinding.
+        }
+        finally
+        {
+            _channel.Dispose();
+        }
     }
 }

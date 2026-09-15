@@ -23,7 +23,7 @@ public class DropTableReclamationTests
             DatabaseCreator.CreateEmpty(path);
             string big = new('x', 3000);   // far past the inline threshold, so each value owns LVAL pages
 
-            int filled, freedPages, tdefPage;
+            int filled, freeBefore, tdefPage;
             byte[] releasedTdef;
             using (var db = JetDatabase.Open(path, readOnly: false))
             {
@@ -37,13 +37,19 @@ public class DropTableReclamationTests
 
                 filled = victim.Channel.PageCount;
                 tdefPage = db.Catalog.FindTable("Victim")!.DefinitionPage;
-                int freeBefore = FreePages(db);
+                freeBefore = FreePages(db);
                 db.DropTable("Victim");
-                freedPages = FreePages(db) - freeBefore;
+
+                // Held until this handle closes, as ACE holds a dropped table's pages.
+                Assert.Equal(freeBefore, FreePages(db));
 
                 releasedTdef = new byte[victim.Channel.PageSize];
                 victim.Channel.ReadPage(tdefPage, releasedTdef);
             }
+
+            int freedPages;
+            using (var db = JetDatabase.Open(path))
+                freedPages = FreePages(db) - freeBefore;
 
             // Access marks the released definition page and leaves the rest of it alone — measured, exactly
             // one byte of the 4,096 changes across an ACE drop. The pages it frees alongside keep their types.

@@ -29,12 +29,14 @@ public class GlobalReferenceFreeMapTests
             creationDays: 45000).CopyTo(file, 0);
 
         // Page 1 — a data page whose row 0 is a reference-type global free map: slot 0 → bitmap page 2,
-        // slot 1 → bitmap page 3. (The 69-byte record is packed at the page end, as ACE packs rows.)
+        // slot 1 → bitmap page 3. (The 69-byte record is packed at the page end, as ACE packs rows.) Row 1 is the
+        // released-pages map page 0 points at (0x1C), empty, as every real file carries it.
         int p1 = pageSize;
         file[p1] = 0x01; // page type: data page
-        BinaryPrimitives.WriteUInt16LittleEndian(file.AsSpan(p1 + format.DataRowCountOffset, 2), 1);
+        BinaryPrimitives.WriteUInt16LittleEndian(file.AsSpan(p1 + format.DataRowCountOffset, 2), 2);
         int mapOffset = pageSize - 69;
         BinaryPrimitives.WriteUInt16LittleEndian(file.AsSpan(p1 + format.DataRowDirectoryOffset, 2), (ushort)mapOffset);
+        BinaryPrimitives.WriteUInt16LittleEndian(file.AsSpan(p1 + format.DataRowDirectoryOffset + 2, 2), (ushort)(mapOffset - 69));
         file[p1 + mapOffset] = 0x01; // reference map type
         BinaryPrimitives.WriteInt32LittleEndian(file.AsSpan(p1 + mapOffset + 1 + 0 * 4, 4), 2); // slot 0 → page 2
         BinaryPrimitives.WriteInt32LittleEndian(file.AsSpan(p1 + mapOffset + 1 + 1 * 4, 4), 3); // slot 1 → page 3

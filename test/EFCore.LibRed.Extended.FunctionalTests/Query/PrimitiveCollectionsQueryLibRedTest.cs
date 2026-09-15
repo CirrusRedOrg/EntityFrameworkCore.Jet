@@ -257,9 +257,7 @@ WHERE `p`.`Id` NOT IN (2, 999)
             """
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE (
-    SELECT MIN(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`)) AS `v`) = 30
+WHERE LEAST(30, `p`.`Int`) = 30
 """);
     }
 
@@ -271,9 +269,7 @@ WHERE (
             """
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE (
-    SELECT MIN(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`)) AS `v`) = 30
+WHERE LEAST(30, `p`.`Int`) = 30
 """);
     }
 
@@ -285,9 +281,7 @@ WHERE (
             """
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE (
-    SELECT MAX(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`)) AS `v`) = 30
+WHERE GREATEST(30, `p`.`Int`) = 30
 """);
     }
 
@@ -299,9 +293,7 @@ WHERE (
             """
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE (
-    SELECT MAX(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`)) AS `v`) = 30
+WHERE GREATEST(30, `p`.`Int`) = 30
 """);
     }
 
@@ -315,9 +307,7 @@ WHERE (
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE (
-    SELECT MIN(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`), (@i)) AS `v`) = 25
+WHERE LEAST(30, `p`.`Int`, @i) = 25
 """);
     }
 
@@ -331,9 +321,7 @@ WHERE (
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE (
-    SELECT MIN(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`), (@i)) AS `v`) = 25
+WHERE LEAST(30, `p`.`Int`, @i) = 25
 """);
     }
 
@@ -347,9 +335,7 @@ WHERE (
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE (
-    SELECT MAX(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`), (@i)) AS `v`) = 35
+WHERE GREATEST(30, `p`.`Int`, @i) = 35
 """);
     }
 
@@ -363,9 +349,7 @@ WHERE (
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE (
-    SELECT MAX(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`), (@i)) AS `v`) = 35
+WHERE GREATEST(30, `p`.`Int`, @i) = 35
 """);
     }
 
@@ -379,9 +363,7 @@ WHERE (
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE (
-    SELECT MIN(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`), (@i)) AS `v`) = 25
+WHERE LEAST(30, `p`.`Int`, @i) = 25
 """);
     }
 
@@ -395,9 +377,7 @@ WHERE (
 
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE (
-    SELECT MAX(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`), (@i)) AS `v`) = 35
+WHERE GREATEST(30, `p`.`Int`, @i) = 35
 """);
     }
 
@@ -409,9 +389,7 @@ WHERE (
             """
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE (
-    SELECT MIN(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`NullableInt`), (NULL)) AS `v`) = 30
+WHERE LEAST(30, `p`.`NullableInt`, NULL) = 30
 """);
     }
 
@@ -423,9 +401,7 @@ WHERE (
             """
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE (
-    SELECT MAX(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`NullableInt`), (NULL)) AS `v`) = 30
+WHERE GREATEST(30, `p`.`NullableInt`, NULL) = 30
 """);
     }
 
@@ -1581,9 +1557,7 @@ WHERE `p`.`Int` IN (10, 999)
             """
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE (
-    SELECT MIN(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`)) AS `v`) = 30
+WHERE LEAST(30, `p`.`Int`) = 30
 """);
     }
 
@@ -1595,9 +1569,7 @@ WHERE (
             """
 SELECT `p`.`Id`, `p`.`Bool`, `p`.`Bools`, `p`.`DateTime`, `p`.`DateTimes`, `p`.`Enum`, `p`.`Enums`, `p`.`Int`, `p`.`Ints`, `p`.`NullableInt`, `p`.`NullableInts`, `p`.`NullableString`, `p`.`NullableStrings`, `p`.`NullableWrappedId`, `p`.`NullableWrappedIdWithNullableComparer`, `p`.`String`, `p`.`Strings`, `p`.`WrappedId`
 FROM `PrimitiveCollectionsEntity` AS `p`
-WHERE (
-    SELECT MAX(`v`.`Value`)
-    FROM (SELECT CLNG(30) AS `Value` UNION ALL VALUES (`p`.`Int`)) AS `v`) = 30
+WHERE GREATEST(30, `p`.`Int`) = 30
 """);
     }
 

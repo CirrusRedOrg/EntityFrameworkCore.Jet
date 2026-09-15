@@ -173,6 +173,8 @@ internal sealed class ExpressionEvaluator(
             "SWITCH" => Switch(f),
             "NULLIF" => NullIf(f),
             "COALESCE" => Coalesce(f),
+            "GREATEST" => Extreme(f, greatest: true),
+            "LEAST" => Extreme(f, greatest: false),
             "DATEPART" => DatePart(Evaluate(f.Arguments[0]), Evaluate(f.Arguments[1])),
             "ROUND" => Round(f),
             "FIX" => Numeric1(f, Math.Truncate, Math.Truncate),  // toward zero
@@ -359,6 +361,8 @@ internal sealed class ExpressionEvaluator(
             // COALESCE(expression [, ...n]). SQL Server insists on two, but one is harmless and the standard's
             // own grammar allows it, so only an empty list is rejected.
             "COALESCE" => (1, int.MaxValue),
+            // GREATEST/LEAST(expression [, ...n]), as SQL Server and PostgreSQL take them: one argument or more.
+            "GREATEST" or "LEAST" => (1, int.MaxValue),
 
             "NOW" or "DATE" or "TIME" or "TIMER" or "GENUNIQUEID" or "GENGUID" => (0, 0),
             "DATEADD" => (3, 3),
@@ -459,6 +463,32 @@ internal sealed class ExpressionEvaluator(
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// <c>GREATEST(a, b, …)</c> and <c>LEAST(a, b, …)</c> — the largest or smallest of the arguments, compared
+    /// as the <c>&lt;</c> and <c>&gt;</c> operators compare. Access/ACE has neither, so like COALESCE they are
+    /// reachable from LibRed's extended SQL mode and from hand-written SQL.
+    /// </summary>
+    /// <remarks>
+    /// NULL arguments are ignored and the answer is NULL only when every argument is NULL — SQL Server's and
+    /// PostgreSQL's rule, and the one EF Core translates <c>Math.Max</c>/<c>Math.Min</c> and a <c>Max()</c>/
+    /// <c>Min()</c> over an inline collection against. (MySQL and Oracle instead return NULL when any argument
+    /// is NULL.) Every argument is evaluated, each once. Of equal values the first is returned.
+    /// </remarks>
+    private object? Extreme(FunctionCall f, bool greatest)
+    {
+        object? result = null;
+        foreach (Expression argument in f.Arguments)
+        {
+            object? value = Evaluate(argument);
+            if (value is null)
+                continue;
+            if (result is null || (greatest ? Compare(value, result) > 0 : Compare(value, result) < 0))
+                result = value;
+        }
+
+        return result;
     }
 
     /// <summary>Access <c>Switch(cond-1, value-1, cond-2, value-2, …)</c>: evaluates the conditions left to

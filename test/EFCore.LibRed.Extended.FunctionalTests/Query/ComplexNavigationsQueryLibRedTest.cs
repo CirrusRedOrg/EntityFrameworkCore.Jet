@@ -3118,10 +3118,7 @@ ORDER BY `i`.`Id`, `i1`.`Id`, `i2`.`Id`
 
             AssertSql(
                 """
-SELECT CASE
-    WHEN `l0`.`Level1_Required_Id` > 7 THEN `l0`.`Level1_Required_Id`
-    ELSE 7
-END
+SELECT GREATEST(`l0`.`Level1_Required_Id`, 7)
 FROM `LevelOne` AS `l`
 LEFT JOIN `LevelTwo` AS `l0` ON `l`.`Id` = `l0`.`OneToOne_Optional_PK_Inverse2Id`
 WHERE `l0`.`Id` IS NOT NULL

@@ -2,16 +2,18 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using System.Text;
+using EntityFrameworkCore.Jet;
 using EntityFrameworkCore.Jet.Internal;
 using ExpressionExtensions = Microsoft.EntityFrameworkCore.Query.ExpressionExtensions;
 
-namespace EntityFrameworkCore.Jet.Query.Internal;
+namespace EntityFrameworkCore.LibRed.Query.Internal;
 
 /// <summary>
-///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
-///     the same compatibility standards as public APIs. It may be changed or removed without notice in
-///     any release. You should only use it directly in your code with extreme caution and knowing that
-///     doing so can result in application failures when updating to a new Entity Framework Core release.
+///     LibRed's own SQL translating expression visitor, used in <see cref="Infrastructure.LibRedSqlMode.Extended" />
+///     mode. It is a copy of the shared <c>JetSqlTranslatingExpressionVisitor</c> — which the compatible mode keeps
+///     using, because ACE has to run what that mode generates — and differs where LibRed's engine goes beyond ACE:
+///     <c>Math.Max</c>/<c>Math.Min</c>, and a <c>Max()</c>/<c>Min()</c> over an inline collection, become the
+///     standard <c>GREATEST</c>/<c>LEAST</c> rather than a nest of <c>CASE</c> comparisons.
 /// </summary>
 /// <remarks>
 ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
@@ -19,7 +21,7 @@ namespace EntityFrameworkCore.Jet.Query.Internal;
 ///     any release. You should only use it directly in your code with extreme caution and knowing that
 ///     doing so can result in application failures when updating to a new Entity Framework Core release.
 /// </remarks>
-public class JetSqlTranslatingExpressionVisitor(
+public class LibRedSqlTranslatingExpressionVisitor(
     RelationalSqlTranslatingExpressionVisitorDependencies dependencies,
     QueryCompilationContext queryCompilationContext,
     QueryableMethodTranslatingExpressionVisitor queryableMethodTranslatingExpressionVisitor) : RelationalSqlTranslatingExpressionVisitor(dependencies, queryCompilationContext, queryableMethodTranslatingExpressionVisitor)
@@ -76,7 +78,7 @@ public class JetSqlTranslatingExpressionVisitor(
         = typeof(string).GetRuntimeMethod(nameof(string.Contains), [typeof(char)])!;
 
     private static readonly MethodInfo EscapeLikePatternParameterMethod =
-        typeof(JetSqlTranslatingExpressionVisitor).GetTypeInfo().GetDeclaredMethod(nameof(ConstructLikePatternParameter))!;
+        typeof(LibRedSqlTranslatingExpressionVisitor).GetTypeInfo().GetDeclaredMethod(nameof(ConstructLikePatternParameter))!;
 
     private static readonly MethodInfo StringJoinMethodInfo
         = typeof(string).GetRuntimeMethod(nameof(string.Join), [typeof(string), typeof(string[])])!;
@@ -538,7 +540,7 @@ public class JetSqlTranslatingExpressionVisitor(
                     "ASCB",
                     [ Dependencies.SqlExpressionFactory.Function(
                         "MIDB",
-                        [ 
+                        [
                             sqlArray,
                             Dependencies.SqlExpressionFactory.Add(
                                 Dependencies.SqlExpressionFactory.ApplyDefaultTypeMapping(sqlIndex),
@@ -554,25 +556,21 @@ public class JetSqlTranslatingExpressionVisitor(
                 : QueryCompilationContext.NotTranslatedExpression;
     }
 
+    /// <summary>
+    ///     <c>GREATEST(a, b, …)</c>, which LibRed's engine evaluates as SQL Server and PostgreSQL do: NULL arguments
+    ///     are ignored, and the result is NULL only when every argument is.
+    /// </summary>
     public override SqlExpression? GenerateGreatest(IReadOnlyList<SqlExpression> expressions, Type resultType)
-    {
-        if (expressions.Count == 0)
-        {
-            return null;
-        }
+        => GenerateGreatestOrLeast("GREATEST", expressions, resultType);
 
-        IReadOnlyList<SqlExpression> mappedExpressions = ApplyMinMaxResultTypeMapping(expressions, resultType);
-        return mappedExpressions.Aggregate((current, next) =>
-            Dependencies.SqlExpressionFactory.Case(
-                [
-                    new CaseWhenClause(
-                        Dependencies.SqlExpressionFactory.GreaterThan(current, next),
-                        current)
-                ],
-                elseResult: next));
-    }
-
+    /// <summary>
+    ///     <c>LEAST(a, b, …)</c>, which LibRed's engine evaluates as SQL Server and PostgreSQL do: NULL arguments are
+    ///     ignored, and the result is NULL only when every argument is.
+    /// </summary>
     public override SqlExpression? GenerateLeast(IReadOnlyList<SqlExpression> expressions, Type resultType)
+        => GenerateGreatestOrLeast("LEAST", expressions, resultType);
+
+    private SqlExpression? GenerateGreatestOrLeast(string name, IReadOnlyList<SqlExpression> expressions, Type resultType)
     {
         if (expressions.Count == 0)
         {
@@ -580,21 +578,23 @@ public class JetSqlTranslatingExpressionVisitor(
         }
 
         IReadOnlyList<SqlExpression> mappedExpressions = ApplyMinMaxResultTypeMapping(expressions, resultType);
-        return mappedExpressions.Aggregate((current, next) =>
-            Dependencies.SqlExpressionFactory.Case(
-                [
-                    new CaseWhenClause(
-                        Dependencies.SqlExpressionFactory.LessThan(current, next),
-                        current)
-                ],
-                elseResult: next));
+
+        // A NULL argument is skipped rather than propagated, so no argument's nullability carries into the result
+        // on its own; the result is still nullable, for when every argument is NULL.
+        return _sqlExpressionFactory.Function(
+            name,
+            mappedExpressions,
+            nullable: true,
+            argumentsPropagateNullability: Enumerable.Repeat(false, mappedExpressions.Count),
+            resultType,
+            ExpressionExtensions.InferTypeMapping(mappedExpressions.ToArray()));
     }
 
     /// <summary>
     /// Math.Min/Max operands can arrive with different store mappings even though their CLR expression has one
-    /// declared result type. Prefer an operand mapping for that result type and apply it to every arm before
-    /// building the CASE/IIF tree; otherwise the first arm can incorrectly force (for example) an Int16 mapping
-    /// onto an Int32 constant in an outer nested Min/Max.
+    /// declared result type. Prefer an operand mapping for that result type and apply it to every argument;
+    /// otherwise the first argument can incorrectly force (for example) an Int16 mapping onto an Int32 constant
+    /// in an outer nested Min/Max.
     /// </summary>
     private IReadOnlyList<SqlExpression> ApplyMinMaxResultTypeMapping(
         IReadOnlyList<SqlExpression> expressions, Type resultType)

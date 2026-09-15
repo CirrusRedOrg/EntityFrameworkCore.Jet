@@ -190,8 +190,9 @@ Treat the number as of its date — an EF Core version bump moves it.
   - `FULL [OUTER] JOIN` — ACE offers only inner/left/right, and its query designer cannot express a full one.
   - **`OFFSET … ROWS FETCH NEXT … ROWS ONLY`** paging, where the count may be any expression, not just a
     literal. Access has only `TOP n`, and only with a literal.
-  - **Standard scalar syntax** ACE lacks: `CASE`, `COALESCE`, `NULLIF`, and the `VALUES` table value
-    constructor standing in for a query.
+  - **Standard scalar syntax** ACE lacks: `CASE`, `COALESCE`, `NULLIF`, `GREATEST`/`LEAST` (NULL arguments
+    ignored, as SQL Server and PostgreSQL treat them — extended mode translates `Math.Max`/`Math.Min` to
+    them), and the `VALUES` table value constructor standing in for a query.
   - **Set operations in a subquery predicate** — `IN (… UNION …)`, `EXISTS (… EXCEPT …)`, and a scalar
     subquery over a set operation.
   - **`ORDER BY` bound to the query expression**, so it applies to a whole set operation rather than to its

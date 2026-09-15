@@ -872,6 +872,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             // the highest-precedence type among them. Unified the same way, which also means a bare NULL
             // argument contributes no type rather than erasing the others.
             "COALESCE" => UnifiedType(function.Arguments, columns),
+            // GREATEST/LEAST return one of their arguments, so they declare the type the arguments unify to —
+            // SQL Server's "highest precedence type" rule, the same as COALESCE.
+            "GREATEST" or "LEAST" => UnifiedType(function.Arguments, columns),
             // NULLIF returns its first expression, or a NULL of that expression's type — so unlike COALESCE
             // it takes the first argument's type outright rather than unifying across both. The second
             // argument only ever participates in the comparison.

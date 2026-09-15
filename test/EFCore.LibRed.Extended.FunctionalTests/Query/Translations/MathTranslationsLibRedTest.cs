@@ -540,10 +540,7 @@ FROM `BasicTypesEntities` AS `b`
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE CASE
-    WHEN `b`.`Int` > (`b`.`Short` - CINT(3)) THEN `b`.`Int`
-    ELSE `b`.`Short` - CINT(3)
-END = `b`.`Int`
+WHERE GREATEST(`b`.`Int`, `b`.`Short` - CINT(3)) = `b`.`Int`
 """);
     }
 
@@ -555,16 +552,7 @@ END = `b`.`Int`
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE CASE
-    WHEN CASE
-        WHEN (`b`.`Short` - CINT(3)) > `b`.`Int` THEN `b`.`Short` - CINT(3)
-        ELSE `b`.`Int`
-    END > 1 THEN CASE
-        WHEN (`b`.`Short` - CINT(3)) > `b`.`Int` THEN `b`.`Short` - CINT(3)
-        ELSE `b`.`Int`
-    END
-    ELSE 1
-END = `b`.`Int`
+WHERE GREATEST(`b`.`Short` - CINT(3), `b`.`Int`, 1) = `b`.`Int`
 """);
     }
 
@@ -576,28 +564,7 @@ END = `b`.`Int`
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE CASE
-    WHEN CASE
-        WHEN CASE
-            WHEN 1 > `b`.`Int` THEN 1
-            ELSE `b`.`Int`
-        END > 2 THEN CASE
-            WHEN 1 > `b`.`Int` THEN 1
-            ELSE `b`.`Int`
-        END
-        ELSE 2
-    END > (`b`.`Short` - CINT(3)) THEN CASE
-        WHEN CASE
-            WHEN 1 > `b`.`Int` THEN 1
-            ELSE `b`.`Int`
-        END > 2 THEN CASE
-            WHEN 1 > `b`.`Int` THEN 1
-            ELSE `b`.`Int`
-        END
-        ELSE 2
-    END
-    ELSE `b`.`Short` - CINT(3)
-END = `b`.`Int`
+WHERE GREATEST(1, `b`.`Int`, 2, `b`.`Short` - CINT(3)) = `b`.`Int`
 """);
     }
 
@@ -609,10 +576,7 @@ END = `b`.`Int`
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE CASE
-    WHEN `b`.`Int` < (`b`.`Short` + CINT(3)) THEN `b`.`Int`
-    ELSE `b`.`Short` + CINT(3)
-END = `b`.`Int`
+WHERE LEAST(`b`.`Int`, `b`.`Short` + CINT(3)) = `b`.`Int`
 """);
     }
 
@@ -624,16 +588,7 @@ END = `b`.`Int`
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE CASE
-    WHEN CASE
-        WHEN (`b`.`Short` + CINT(3)) < `b`.`Int` THEN `b`.`Short` + CINT(3)
-        ELSE `b`.`Int`
-    END < 99999 THEN CASE
-        WHEN (`b`.`Short` + CINT(3)) < `b`.`Int` THEN `b`.`Short` + CINT(3)
-        ELSE `b`.`Int`
-    END
-    ELSE 99999
-END = `b`.`Int`
+WHERE LEAST(`b`.`Short` + CINT(3), `b`.`Int`, 99999) = `b`.`Int`
 """);
     }
 
@@ -645,28 +600,7 @@ END = `b`.`Int`
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE CASE
-    WHEN CASE
-        WHEN CASE
-            WHEN 99999 < `b`.`Int` THEN 99999
-            ELSE `b`.`Int`
-        END < 99998 THEN CASE
-            WHEN 99999 < `b`.`Int` THEN 99999
-            ELSE `b`.`Int`
-        END
-        ELSE 99998
-    END < (`b`.`Short` + CINT(3)) THEN CASE
-        WHEN CASE
-            WHEN 99999 < `b`.`Int` THEN 99999
-            ELSE `b`.`Int`
-        END < 99998 THEN CASE
-            WHEN 99999 < `b`.`Int` THEN 99999
-            ELSE `b`.`Int`
-        END
-        ELSE 99998
-    END
-    ELSE `b`.`Short` + CINT(3)
-END = `b`.`Int`
+WHERE LEAST(99999, `b`.`Int`, 99998, `b`.`Short` + CINT(3)) = `b`.`Int`
 """);
     }
 

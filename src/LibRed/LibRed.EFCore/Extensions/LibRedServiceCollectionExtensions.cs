@@ -55,7 +55,7 @@ public static class LibRedServiceCollectionExtensions
             .TryAdd<IAggregateMethodCallTranslatorProvider, JetAggregateMethodCallTranslatorProvider>()
             .TryAdd<IMemberTranslatorProvider, JetMemberTranslatorProvider>()
             .TryAdd<IQuerySqlGeneratorFactory, LibRedQuerySqlGeneratorFactory>()
-            .TryAdd<IRelationalSqlTranslatingExpressionVisitorFactory, JetSqlTranslatingExpressionVisitorFactory>()
+            .TryAdd<IRelationalSqlTranslatingExpressionVisitorFactory, LibRedSqlTranslatingExpressionVisitorFactory>()
             .TryAdd<ISqlExpressionFactory, JetSqlExpressionFactory>()
             .TryAdd<IQueryTranslationPreprocessorFactory, JetQueryTranslationPreprocessorFactory>()
             .TryAdd<IQueryTranslationPostprocessorFactory, LibRedQueryTranslationPostprocessorFactory>()

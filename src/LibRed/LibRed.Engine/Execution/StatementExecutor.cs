@@ -66,16 +66,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             ValidateColumnDefault(spec, def.Default);
         IReadOnlyList<string>? primaryKey = statement.PrimaryKey.Count > 0 ? statement.PrimaryKey : null;
 
-        var relationships = statement.ForeignKeys.Select(fk => new RelationshipSpec(
-            Name: fk.Name ?? DefaultRelationshipName(statement.Table, fk),
-            ReferencedTable: fk.ReferencedTable,
-            Columns: PairColumns(fk),
-            IsEnforced: true,
-            CascadeUpdate: fk.OnUpdate == ReferentialAction.Cascade,
-            CascadeDelete: fk.OnDelete == ReferentialAction.Cascade,
-            NoIndex: fk.NoIndex,
-            DeleteSetNull: fk.OnDelete == ReferentialAction.SetNull,
-            UpdateSetNull: fk.OnUpdate == ReferentialAction.SetNull)).ToList();
+        var relationships = statement.ForeignKeys.Select(fk => ToRelationshipSpec(statement.Table, fk)).ToList();
 
         var uniques = statement.UniqueConstraints.Select((u, i) => new UniqueIndexSpec(
             Name: u.Name ?? $"UQ_{statement.Table}_{i}",
@@ -138,14 +129,22 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                     "Enter a value that the expression for this field can accept.");
     }
 
-    /// <summary>Pairs each child FK column with its referenced parent column, in key order.</summary>
-    private static List<(string Column, string ReferencedColumn)> PairColumns(ForeignKeyConstraint fk)
-    {
-        if (fk.ReferencedColumns.Count != fk.Columns.Count)
-            throw new InvalidOperationException(
-                $"Foreign key on '{fk.ReferencedTable}' has {fk.Columns.Count} columns but references {fk.ReferencedColumns.Count}.");
-        return fk.Columns.Zip(fk.ReferencedColumns).ToList();
-    }
+    /// <summary>The relationship a parsed foreign key creates on <paramref name="childTable"/>, for CREATE TABLE and
+    /// ALTER TABLE alike. A <c>REFERENCES table</c> with no column list names only its child columns; the table
+    /// creator resolves it to the parent's primary key.</summary>
+    private static RelationshipSpec ToRelationshipSpec(string childTable, ForeignKeyConstraint fk) => new(
+        Name: fk.Name ?? DefaultRelationshipName(childTable, fk),
+        ReferencedTable: fk.ReferencedTable,
+        Columns: fk.ReferencedColumns.Count == 0
+            ? RelationshipSpec.ChildColumnsOnly(fk.Columns)
+            : RelationshipSpec.PairColumns(fk.ReferencedTable, fk.Columns, fk.ReferencedColumns),
+        IsEnforced: true,
+        CascadeUpdate: fk.OnUpdate == ReferentialAction.Cascade,
+        CascadeDelete: fk.OnDelete == ReferentialAction.Cascade,
+        NoIndex: fk.NoIndex,
+        DeleteSetNull: fk.OnDelete == ReferentialAction.SetNull,
+        UpdateSetNull: fk.OnUpdate == ReferentialAction.SetNull,
+        ReferencesPrimaryKey: fk.ReferencedColumns.Count == 0);
 
     /// <summary>Access-style fallback name when the constraint is unnamed: "childparent".</summary>
     private static string DefaultRelationshipName(string childTable, ForeignKeyConstraint fk) =>
@@ -448,7 +447,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // MSysRelationships, so removing those rows disables it.
         DropConstraintAction drop => DropConstraint(statement.Table, drop.Name),
         // ADD COLUMN: append the column's descriptor/name to the TDEF (existing rows read it as NULL).
-        AddColumnAction add => AddColumn(statement.Table, add.Column),
+        AddColumnAction add => AddColumn(statement.Table, add),
         // DROP COLUMN: a metadata-only TDEF edit (remove the descriptor + name, decrement ColumnCount).
         DropColumnAction dropCol => DropColumn(statement.Table, dropCol.Field),
         // ALTER COLUMN field type: change the column's declared type (a variable text/binary length change is a
@@ -525,13 +524,23 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             "constraint of that name exists.");
     }
 
-    private int AddColumn(string table, ColumnDefinition column)
+    private int AddColumn(string table, AddColumnAction add)
     {
+        ColumnDefinition column = add.Column;
         // NOT NULL and DEFAULT are written to the column's LvProp properties (Required / DefaultValue).
         ColumnSpec spec = MapColumn(column);
         ValidateColumnDefault(spec, column.Default);
         if (!_database.AddColumn(table, spec, column.Default))
             throw new InvalidOperationException($"ALTER TABLE '{table}' ADD COLUMN '{column.Name}': the column already exists.");
+        // The column's constraints apply to it as in CREATE TABLE — a primary key, a unique index, a relationship —
+        // in that order, as ACE's ADD COLUMN does. Each fails the whole statement when ACE's would: a second
+        // primary key, or a primary key over a column the existing rows leave NULL.
+        if (column.PrimaryKey)
+            AddPrimaryKey(table, new AddPrimaryKeyAction(add.PrimaryKeyName, [column.Name]));
+        if (add.Unique is { } unique)
+            AddUnique(table, new AddUniqueAction(unique));
+        if (add.References is { } references)
+            AddForeignKey(table, references);
         return 0;
     }
 
@@ -619,7 +628,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int AlterColumn(string table, AlterColumnAction alter)
     {
-        var colDef = new ColumnDefinition(alter.Field, alter.TypeName, alter.Size, alter.Scale, NotNull: false, PrimaryKey: false);
+        var colDef = new ColumnDefinition(alter.Field, alter.TypeName, alter.Size, alter.Scale, NotNull: false, PrimaryKey: false,
+            Identity: alter.Identity);
         ColumnSpec spec = MapColumn(colDef);
         // Validated against the column's NEW type, and before the type change, so a rejected DEFAULT leaves
         // the whole statement having done nothing.
@@ -648,16 +658,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int AddForeignKey(string table, ForeignKeyConstraint fk)
     {
-        _database.AddForeignKey(table, new RelationshipSpec(
-            Name: fk.Name ?? DefaultRelationshipName(table, fk),
-            ReferencedTable: fk.ReferencedTable,
-            Columns: PairColumns(fk),
-            IsEnforced: true,
-            CascadeUpdate: fk.OnUpdate == ReferentialAction.Cascade,
-            CascadeDelete: fk.OnDelete == ReferentialAction.Cascade,
-            NoIndex: fk.NoIndex,
-            DeleteSetNull: fk.OnDelete == ReferentialAction.SetNull,
-            UpdateSetNull: fk.OnUpdate == ReferentialAction.SetNull));
+        _database.AddForeignKey(table, ToRelationshipSpec(table, fk));
         return 0;
     }
 

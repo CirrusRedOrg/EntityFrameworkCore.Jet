@@ -139,7 +139,9 @@ calculatedClause : AS LPAREN expression RPAREN ;
 
 // A second word handles two-word ANSI aliases like CHARACTER VARYING / BIT VARYING.
 // Up to three words to cover multi-word SQL type names: "char varying", "national character varying", etc.
-dataType : typeName=identifier extra=identifier? extra2=identifier? (LPAREN size=signedInteger (COMMA scale=signedInteger)? RPAREN)? ;
+// IDENTITY is reserved, as ACE reserves it, so it is named here as a type of its own: `Id IDENTITY(5, 2)`. After a
+// type it is a column constraint instead (see IdentityConstraint).
+dataType : (typeName=identifier | identityType=IDENTITY) extra=identifier? extra2=identifier? (LPAREN size=signedInteger (COMMA scale=signedInteger)? RPAREN)? ;
 
 // A possibly-negative integer — needed for a descending COUNTER(seed, increment) whose increment is negative.
 signedInteger : MINUS? INTEGER_LITERAL ;
@@ -160,6 +162,10 @@ columnConstraint
     | (CONSTRAINT cname=identifier)? REFERENCES refTable=identifier
         (LPAREN refColumns+=identifier (COMMA refColumns+=identifier)* RPAREN)?
         foreignKeyAction*                            # ColumnReferencesConstraint
+    // IDENTITY [(seed [, increment])] — ACE's AutoNumber attribute. It may follow only the type, NULL/NOT NULL or
+    // another IDENTITY, which the AST builder checks; it makes a Long column an AutoNumber and is ignored on any
+    // other type, both as ACE does.
+    | IDENTITY (LPAREN seed=signedInteger (COMMA increment=signedInteger)? RPAREN)?  # IdentityConstraint
     ;
 
 // EF Core emits named table constraints: CONSTRAINT `PK_x` PRIMARY KEY (`col`, ...) and
@@ -567,6 +573,8 @@ NO         : [Nn][Oo] ;
 UNIQUE     : [Uu][Nn][Ii][Qq][Uu][Ee] ;
 // Reserved as ACE reserves them: neither may name a table, column or alias unbracketed.
 CLUSTERED    : [Cc][Ll][Uu][Ss][Tt][Ee][Rr][Ee][Dd] ;
+// Reserved as ACE reserves it. @@IDENTITY still lexes as one SYSVAR token, the longer match.
+IDENTITY     : [Ii][Dd][Ee][Nn][Tt][Ii][Tt][Yy] ;
 NONCLUSTERED : [Nn][Oo][Nn][Cc][Ll][Uu][Ss][Tt][Ee][Rr][Ee][Dd] ;
 INDEX      : [Ii][Nn][Dd][Ee][Xx] ;
 TEMPORARY  : [Tt][Ee][Mm][Pp][Oo][Rr][Aa][Rr][Yy] ;

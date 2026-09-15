@@ -551,6 +551,17 @@ public partial class AccessSqlBaseVisitor<Result> : AbstractParseTreeVisitor<Res
 	/// <return>The visitor result.</return>
 	public virtual Result VisitColumnReferencesConstraint([NotNull] AccessSqlParser.ColumnReferencesConstraintContext context) { return VisitChildren(context); }
 	/// <summary>
+	/// Visit a parse tree produced by the <c>IdentityConstraint</c>
+	/// labeled alternative in <see cref="AccessSqlParser.columnConstraint"/>.
+	/// <para>
+	/// The default implementation returns the result of calling <see cref="AbstractParseTreeVisitor{Result}.VisitChildren(IRuleNode)"/>
+	/// on <paramref name="context"/>.
+	/// </para>
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	public virtual Result VisitIdentityConstraint([NotNull] AccessSqlParser.IdentityConstraintContext context) { return VisitChildren(context); }
+	/// <summary>
 	/// Visit a parse tree produced by the <c>PrimaryKeyTableConstraint</c>
 	/// labeled alternative in <see cref="AccessSqlParser.tableConstraint"/>.
 	/// <para>

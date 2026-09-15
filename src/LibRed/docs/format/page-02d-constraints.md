@@ -43,7 +43,7 @@ statistics:
 | `0x23` | 3 | Usage-map page |
 | `0x26` | 4 | **B-tree root page** |
 | `0x2A` | 4 | Unknown / reserved (zero observed). mdbtools places a 1-byte index-flags field at `+0x2A`, but ACE's effective flags are at `0x2E` and this is zero in every file checked |
-| `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+). Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. |
+| `0x2E` | 2 | Flags: `0x01` unique, `0x02` ignore-nulls (`WITH IGNORE NULL` — null-keyed rows excluded from the index), `0x08` required (`WITH DISALLOW NULL` / part of a primary key), `0x80` always-set (Access 2000+). Verified vs ACE: a plain index is `0x0080`, `IGNORE NULL` `0x0082`, `DISALLOW NULL` `0x0088`, a PK `0x0089`. There is **no clustered flag**: `CLUSTERED`/`NONCLUSTERED` after `PRIMARY KEY` or `UNIQUE` in a constraint is accepted and stores nothing (the file is byte-identical without it), and DAO's `Index.Clustered` reads `False` even on an index created with it set. |
 | `0x30` | 4 | Unknown / reserved (zero observed) — trailing bytes of the 52-byte block |
 
 > **The 10-column cap must be enforced on the incremental path too**, as must the 32-index cap below.
@@ -65,6 +65,15 @@ statistics:
 > TDEF is written, so a rejected statement leaves the file untouched. A `WITH IGNORE NULL` index
 > (`0x02`) additionally leaves null-keyed rows out of the B-tree entirely; a PK (`0x08` required) forbids
 > nulls, so the question doesn't arise.
+
+> **Required (`0x08`) and the primary key over existing rows (verified vs ACE).** A table has **one** primary
+> key: adding a second — by `ALTER TABLE … ADD CONSTRAINT … PRIMARY KEY` or `ADD COLUMN … PRIMARY KEY` — is
+> refused with *"Primary key already exists."* A required index (a primary key, by any of the three ways of
+> adding one, or `WITH DISALLOW NULL`) over rows that already exist is refused when a row has a NULL key —
+> *"Index or primary key cannot contain a Null value."* That is what an `ADD COLUMN … PRIMARY KEY` on a table
+> holding rows meets, since the new column is NULL on every old row; the exception is an AutoNumber column,
+> which numbers the old rows as it is added (§3.1) and so takes the key. A `WITH IGNORE NULL`
+> index is not required and is accepted over the same rows.
 
 A table has **at most 32 index-data blocks** (the `0x33` count, §3.1) — the Jet/ACE "32 indexes per
 table" limit, counting the indexes that back primary keys, unique constraints and the child side of
@@ -149,6 +158,19 @@ physical (data-block) index, prefer a real index's name over a foreign-key relat
 > The parent key must be a **unique or primary** index over the referenced columns. Over a plain
 > non-unique index ACE refuses the relationship — *"No unique index found for the referenced field of the
 > primary table"* — while the same shape over a `PRIMARY KEY` succeeds.
+>
+> **Each child column must have its parent column's storage type** (verified vs ACE over every pairing of the
+> column types). Lengths do not matter: `TEXT(5)`, `TEXT(20)` and `CHAR(10)` pair with one another, `DECIMAL`s
+> of any precision and scale pair, and `BINARY` pairs with `VARBINARY`. An AutoNumber is a Long on either side.
+> Any other pairing is refused — *"Relationship must be on the same number of fields with the same data types."*
+> — as is a column count that differs between the two sides.
+>
+> **`REFERENCES table` with no column list references the parent's primary key** (verified vs ACE): the child
+> columns pair with the key's columns in order, whatever either side's columns are named, and
+> `MSysRelationships` records those key columns. The parent must have a primary key — a unique index does not
+> stand in for one — or the relationship is refused with *"Cannot create relationship. Referenced table '…'
+> does not have a primary key."* In a table referencing itself, `CREATE TABLE` resolves the reference against a
+> primary key declared **earlier** in the statement; with the key declared after the reference, it is refused.
 > Cascade `ON UPDATE`/`ON DELETE` set `0x15`/`0x16` to `0x01` on **both** ends' blocks.
 >
 > **Self-reference** (a table whose FK targets itself): both ends live in the **one** TDEF, each with

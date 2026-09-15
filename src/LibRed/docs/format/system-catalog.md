@@ -86,8 +86,9 @@
   > bytes; unmodelled `RawValue` payloads still round-trip verbatim.
   >
   > **`Required` (NOT NULL)** is a per-column **boolean** property (`dataType 0x01`, one `0x01` byte); a
-  > **nullable** column simply has **no** `Required` property, and an AutoNumber column is left without one
-  > too (verified vs ACE). Within a column's map ACE orders `DefaultValue` **before** `Required`; the
+  > **nullable** column simply has **no** `Required` property. An AutoNumber column follows the same rule: one
+  > declared `NOT NULL` (`COUNTER NOT NULL`, `INT NOT NULL IDENTITY`) carries `Required`, and one declared
+  > without it has none (verified vs ACE). Within a column's map ACE orders `DefaultValue` **before** `Required`; the
   > name-pool order follows first appearance across all properties — **not** alphabetical (verified): names
   > first appearing as `Required`, then `DefaultValue`, then `CheckConstraints` are pooled as
   > `["Required","DefaultValue","CheckConstraints"]`, not `["CheckConstraints","DefaultValue","Required"]`.

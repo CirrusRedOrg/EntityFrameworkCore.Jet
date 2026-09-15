@@ -122,24 +122,24 @@ internal sealed class AstBuilder
         // The PRIMARY KEY constraint's name, from whichever form declared it (column- or table-level).
         string? primaryKeyName = null;
 
+        // Where each foreign key and the primary key sit in the statement's text, for a self-reference below.
+        var foreignKeyTokens = new List<int>();
+        int primaryKeyToken = int.MaxValue;
+
         // Column-level UNIQUE and REFERENCES (the single-field forms) apply to the column they follow.
         foreach (ColumnDefinitionContext cd in ctx.columnDefinition())
         {
-            string columnName = Identifier(cd.name);
-            foreach (ColumnConstraintContext cc in cd.columnConstraint())
+            ColumnKeys keys = ColumnKeysOf(cd);
+            foreach (PrimaryKeyConstraintContext p in keys.PrimaryKeys)
             {
-                switch (cc)
-                {
-                    case PrimaryKeyConstraintContext p when p.cname is not null:
-                        primaryKeyName = Identifier(p.cname);
-                        break;
-                    case UniqueColumnConstraintContext u:
-                        uniques.Add(new UniqueConstraint(u.cname is null ? null : Identifier(u.cname), [columnName]));
-                        break;
-                    case ColumnReferencesConstraintContext r:
-                        foreignKeys.Add(BuildColumnReferences(r, columnName));
-                        break;
-                }
+                if (p.cname is not null) primaryKeyName = Identifier(p.cname);
+                primaryKeyToken = Math.Min(primaryKeyToken, p.Start.TokenIndex);
+            }
+            uniques.AddRange(keys.Uniques);
+            foreach ((ForeignKeyConstraint fk, int token) in keys.References)
+            {
+                foreignKeys.Add(fk);
+                foreignKeyTokens.Add(token);
             }
         }
 
@@ -150,12 +150,14 @@ internal sealed class AstBuilder
                 case PrimaryKeyTableConstraintContext pk:
                     primaryKey.AddRange(pk._columns.Select(Identifier));
                     if (pk.name is not null) primaryKeyName = Identifier(pk.name);
+                    primaryKeyToken = Math.Min(primaryKeyToken, pk.Start.TokenIndex);
                     break;
                 case UniqueTableConstraintContext uq:
                     uniques.Add(new UniqueConstraint(uq.name is null ? null : Identifier(uq.name), uq._columns.Select(Identifier).ToList()));
                     break;
                 case ForeignKeyTableConstraintContext fk:
                     foreignKeys.Add(BuildForeignKey(fk));
+                    foreignKeyTokens.Add(fk.Start.TokenIndex);
                     break;
                 case CheckTableConstraintContext ck:
                     checks.Add(new CheckConstraint(
@@ -164,7 +166,22 @@ internal sealed class AstBuilder
             }
         }
 
-        return new CreateTableStatement(Identifier(ctx.table), columns, primaryKey, foreignKeys, uniques, checks, primaryKeyName);
+        // REFERENCES with no column list names the parent's primary key. For a table referencing itself that is
+        // the key this statement declares, but only if it is declared earlier in the text: ACE resolves each
+        // reference as it reaches it, so against a key declared after it there is none yet (verified — ACE then
+        // reports that the table has no primary key). Resolved here, where the text order is known; a reference
+        // left without columns is refused when the statement runs.
+        string table = Identifier(ctx.table);
+        for (int i = 0; i < foreignKeys.Count; i++)
+        {
+            ForeignKeyConstraint fk = foreignKeys[i];
+            if (fk.ReferencedColumns.Count == 0
+                && string.Equals(fk.ReferencedTable, table, StringComparison.OrdinalIgnoreCase)
+                && primaryKeyToken < foreignKeyTokens[i])
+                foreignKeys[i] = fk with { ReferencedColumns = primaryKey.ToList() };
+        }
+
+        return new CreateTableStatement(table, columns, primaryKey, foreignKeys, uniques, checks, primaryKeyName);
     }
 
     /// <summary>The verbatim source text of a parse context (preserving spacing), via the input stream —
@@ -179,14 +196,15 @@ internal sealed class AstBuilder
     {
         AlterTableAction action = ctx.alterTableAction() switch
         {
-            AddColumnActionContext a => new AddColumnAction(BuildColumnDefinition(a.columnDefinition())),
+            AddColumnActionContext a => BuildAddColumn(a.columnDefinition()),
             AddConstraintActionContext a => BuildAddConstraint(a.tableConstraint()),
             AlterColumnActionContext a => new AlterColumnAction(
                 Identifier(a.field), TypeName(a.dataType()), Size(a.dataType()), Scale(a.dataType()),
                 a.columnConstraint().OfType<DefaultConstraintContext>().FirstOrDefault()?.expression().GetText(),
                 // NOT NULL → true, NULL → false, neither → null (leave the column's nullability unchanged).
                 a.columnConstraint().OfType<NotNullConstraintContext>().Any() ? true
-                    : a.columnConstraint().OfType<NullableConstraintContext>().Any() ? false : null),
+                    : a.columnConstraint().OfType<NullableConstraintContext>().Any() ? false : null,
+                IdentityOf(a.columnConstraint())),
             AlterColumnSetDefaultActionContext a => new AlterColumnSetDefaultAction(
                 Identifier(a.field), OriginalText(a.expression())),
             AlterColumnDropDefaultActionContext a => new AlterColumnDropDefaultAction(Identifier(a.field)),
@@ -198,6 +216,38 @@ internal sealed class AstBuilder
             _ => throw new SqlParseException("Unsupported ALTER TABLE action."),
         };
         return new AlterTableStatement(Identifier(ctx.table), action);
+    }
+
+    /// <summary>ADD COLUMN with the constraints its column carries: they apply to the new column, as in CREATE
+    /// TABLE.</summary>
+    private static AddColumnAction BuildAddColumn(ColumnDefinitionContext ctx)
+    {
+        ColumnKeys keys = ColumnKeysOf(ctx);
+        return new AddColumnAction(
+            BuildColumnDefinition(ctx),
+            keys.References.FirstOrDefault().Constraint,
+            keys.Uniques.FirstOrDefault(),
+            keys.PrimaryKeys.FirstOrDefault()?.cname is { } name ? Identifier(name) : null);
+    }
+
+    /// <summary>The keys a column's own constraints declare, for CREATE TABLE and ADD COLUMN alike: its PRIMARY KEY
+    /// constraints, a unique constraint per UNIQUE, and a foreign key per REFERENCES with where each sits in the
+    /// statement's text.</summary>
+    private readonly record struct ColumnKeys(
+        List<PrimaryKeyConstraintContext> PrimaryKeys,
+        List<UniqueConstraint> Uniques,
+        List<(ForeignKeyConstraint Constraint, int Token)> References);
+
+    private static ColumnKeys ColumnKeysOf(ColumnDefinitionContext column)
+    {
+        string name = Identifier(column.name);
+        ColumnConstraintContext[] constraints = column.columnConstraint();
+        return new ColumnKeys(
+            constraints.OfType<PrimaryKeyConstraintContext>().ToList(),
+            constraints.OfType<UniqueColumnConstraintContext>()
+                .Select(u => new UniqueConstraint(u.cname is null ? null : Identifier(u.cname), [name])).ToList(),
+            constraints.OfType<ColumnReferencesConstraintContext>()
+                .Select(r => (BuildColumnReferences(r, name), r.Start.TokenIndex)).ToList());
     }
 
     private static AlterTableAction BuildAddConstraint(TableConstraintContext tc) => tc switch
@@ -212,8 +262,11 @@ internal sealed class AstBuilder
         _ => throw new SqlParseException("Unsupported ALTER TABLE ADD CONSTRAINT."),
     };
 
-    private static int? Size(DataTypeContext type) => type.size is { } s ? int.Parse(s.GetText(), CultureInfo.InvariantCulture) : null;
-    private static int? Scale(DataTypeContext type) => type.scale is { } s ? int.Parse(s.GetText(), CultureInfo.InvariantCulture) : null;
+    private static int? Size(DataTypeContext type) => SignedInteger(type.size);
+    private static int? Scale(DataTypeContext type) => SignedInteger(type.scale);
+
+    private static int? SignedInteger(SignedIntegerContext? value) =>
+        value is null ? null : int.Parse(value.GetText(), CultureInfo.InvariantCulture);
 
     private static ForeignKeyConstraint BuildForeignKey(ForeignKeyTableConstraintContext ctx)
     {
@@ -273,8 +326,8 @@ internal sealed class AstBuilder
     private static ColumnDefinition BuildColumnDefinition(ColumnDefinitionContext ctx)
     {
         DataTypeContext type = ctx.dataType();
-        int? size = type.size is { } s ? int.Parse(s.GetText(), CultureInfo.InvariantCulture) : null;
-        int? scale = type.scale is { } sc ? int.Parse(sc.GetText(), CultureInfo.InvariantCulture) : null;
+        int? size = Size(type);
+        int? scale = Scale(type);
 
         string typeName = TypeName(type);
 
@@ -291,7 +344,35 @@ internal sealed class AstBuilder
 
         return new ColumnDefinition(
             Identifier(ctx.name), typeName, size, scale, notNull, primaryKey, defaultSql, compressed,
-            calculated);
+            calculated, IdentityOf(ctx.columnConstraint()));
+    }
+
+    /// <summary>A column's IDENTITY attribute — the last one written, when there are several — or null. ACE takes
+    /// it only straight after the type, NULL/NOT NULL or another IDENTITY: after DEFAULT, PRIMARY KEY or any
+    /// other constraint it is a syntax error there (verified), so it is one here too.</summary>
+    private static IdentityAttribute? IdentityOf(IEnumerable<ColumnConstraintContext> constraints)
+    {
+        IdentityAttribute? identity = null;
+        bool afterOtherConstraint = false;
+        foreach (ColumnConstraintContext constraint in constraints)
+        {
+            switch (constraint)
+            {
+                case IdentityConstraintContext id:
+                    if (afterOtherConstraint)
+                        throw new SqlParseException(
+                            "Syntax error in field definition: IDENTITY must come before DEFAULT, PRIMARY KEY and the " +
+                            "column's other constraints.");
+                    identity = new IdentityAttribute(SignedInteger(id.seed), SignedInteger(id.increment));
+                    break;
+                case NotNullConstraintContext or NullableConstraintContext:
+                    break;
+                default:
+                    afterOtherConstraint = true;
+                    break;
+            }
+        }
+        return identity;
     }
 
     private static SqlStatement BuildCreateIndex(CreateIndexStatementContext ctx)
@@ -392,9 +473,9 @@ internal sealed class AstBuilder
     /// <summary>The declared type name of a data type — up to three words (e.g. "national character varying")
     /// joined by single spaces.</summary>
     private static string TypeName(DataTypeContext type) => string.Join(' ',
-        new[] { type.typeName, type.extra, type.extra2 }
-            .Where(t => t is not null)
-            .Select(Identifier));
+        new[] { type.identityType is null ? null : "IDENTITY" }
+            .Concat(new[] { type.typeName, type.extra, type.extra2 }.Where(t => t is not null).Select(Identifier))
+            .Where(t => t is not null));
 
     // ---- PARAMETERS-clause lowering: unqualified references to a declared parameter become parameters ----
 

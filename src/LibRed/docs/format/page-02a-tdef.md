@@ -89,6 +89,7 @@
 > **`ADD` / `DROP COLUMN` are metadata-only edits — the three column counts behave differently
 > (all probed vs ACE).** ACE never renumbers surviving columns or rewrites existing rows; a dropped
 > column's bytes become dead space, and an added column reads NULL on old rows (via the null bitmap).
+> The one exception is an added **AutoNumber** column, which gives every existing row a value (below).
 > - **`0x2D` column count** — the **live** count. `DROP COLUMN` decrements it; `ADD COLUMN` increments it.
 > - **`0x29` maximum column count** — a **high-water** = the *next* column id to assign. `ADD COLUMN`
 >   takes the current value as the new column's id, then increments `0x29`; `DROP COLUMN` **leaves it**
@@ -106,6 +107,15 @@
 >   increments it (the new column's variable index = the old value); `DROP COLUMN` of a variable column
 >   **leaves it unchanged**, so survivors keep their stored variable index (§3.4) and existing rows keep the
 >   same number of variable slots. (A fixed column doesn't touch `0x2B`.)
+>
+> **An AutoNumber added to a table that already has rows numbers them** (verified vs ACE). The existing rows
+> take `1, 2, 3 …` in table order, whatever the column's seed and increment. `0x14` is then set as follows:
+> - **Default seed 1, increment 1** — `COUNTER`, `COUNTER(1, 1)`, `AUTOINCREMENT`, `IDENTITY`, however
+>   spelled: `0x14` = the number of rows, so the next insert continues after them (two rows take `1` and `2`,
+>   the next insert `3`).
+> - **Any other seed or increment**: `0x14` = `Seed - Increment`, as on a new table, so the next insert
+>   starts at the seed even where that repeats a value the rows were given — `COUNTER(2, 1)` over two rows
+>   goes on `2, 3, 4`, and `COUNTER(1, 5)` goes on `1, 6, 11`.
 >
 > An added **fixed** column's fixed offset is the current end of the fixed region (`max(offset+length)`);
 > an added **variable** column appends. A dropped column's descriptor + name are removed from the column

@@ -105,6 +105,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             throw new InvalidOperationException(
                 $"Table '{name}' has {columns.Count} columns; Jet/ACE tables are limited to {MaxColumnsPerTable}.");
 
+        relationships = relationships.Select(fk => ResolvePrimaryKeyReference(fk, creatingTable: name)).ToList();
+        foreach (RelationshipSpec fk in relationships)
+            EnsureSameDataTypes(fk, ColumnOf(columns), string.Equals(fk.ReferencedTable, name, StringComparison.OrdinalIgnoreCase)
+                ? ColumnOf(columns)
+                : ColumnOf(_catalog.FindTable(fk.ReferencedTable)));
+
         JetFormatBase format = _channel.Format;
 
         // Allocate the pages the table needs through the global free-pages map (so Access accounts
@@ -266,15 +272,16 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         WriteDefinition(tdefPage, tdef[..defEnd], []);
 
         // Per-column extended properties, in column order with DefaultValue before Required (matching ACE):
-        // a DEFAULT is a memo property; a NOT NULL column carries a boolean Required property (Access omits
-        // it for a nullable column, and — verified — for an AutoNumber, which is implicitly required).
+        // a DEFAULT is a memo property; a NOT NULL column carries a boolean Required property, and a nullable
+        // one none. An AutoNumber follows the same rule — ACE writes Required for COUNTER NOT NULL and not for
+        // a bare COUNTER (verified by reading its property blob back).
         var columnProps = new List<PropertyBlob.Property>();
         foreach (ColumnSpec col in columns)
         {
             var def = columnDefaults.FirstOrDefault(d => string.Equals(d.Column, col.Name, StringComparison.OrdinalIgnoreCase));
             if (def.DefaultSql is not null)
                 columnProps.Add(new PropertyBlob.Property(col.Name, PropertyBlob.DefaultValueProperty, def.DefaultSql));
-            if (!col.IsNullable && !col.IsAutoNumber)
+            if (!col.IsNullable)
                 columnProps.Add(PropertyBlob.Bool(col.Name, PropertyBlob.RequiredProperty, true));
             columnProps.AddRange(CalculatedProperties(col));
         }
@@ -338,6 +345,31 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int ParentPage, int Number, int ReferencedOrdinal, uint ChildBlockNumber, int ChildPage,
         byte UpdateAction, byte DeleteAction);
 
+    /// <summary>
+    /// ACE's "same data types" rule for a relationship, measured over every pairing of the column types: each child
+    /// column must have its parent column's storage type, whatever either one's length — <c>TEXT(5)</c>,
+    /// <c>TEXT(20)</c> and <c>CHAR(10)</c> all pair with one another, as do <c>DECIMAL</c>s of any precision and
+    /// scale and <c>BINARY</c> with <c>VARBINARY</c>. An AutoNumber is a Long on either side. Checked before
+    /// anything is written. A column that is not found is left to the check that reports it.
+    /// </summary>
+    private static void EnsureSameDataTypes(RelationshipSpec fk,
+        Func<string, JetDataType?> childColumn, Func<string, JetDataType?> parentColumn)
+    {
+        foreach ((string column, string referenced) in fk.Columns)
+        {
+            if (childColumn(column) is not { } child || parentColumn(referenced) is not { } parent) continue;
+            if (child != parent)
+                throw new InvalidOperationException(
+                    "Relationship must be on the same number of fields with the same data types. " +
+                    $"'{column}' ({child}) cannot reference '{fk.ReferencedTable}.{referenced}' ({parent}).");
+        }
+    }
+
+    private static Func<string, JetDataType?> ColumnOf(IReadOnlyList<ColumnSpec> columns) =>
+        name => columns.FirstOrDefault(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase))?.Type;
+
+    private static Func<string, JetDataType?> ColumnOf(TableDef? table) => name => table?.FindColumn(name)?.Type;
+
     /// <summary>The data-block ordinal of the index over a self-reference's referenced columns, found
     /// among the indexes being created for this table (the table is not in the catalog yet).</summary>
     private static int SelfReferencedOrdinal(
@@ -384,10 +416,42 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         return maxNum + 1;
     }
 
+    /// <summary>A relationship's parent table, or ACE's error when it does not exist.</summary>
+    private TableDef ReferencedTableOf(RelationshipSpec fk) =>
+        _catalog.FindTable(fk.ReferencedTable)
+        ?? throw new InvalidOperationException(
+            $"Cannot find table or constraint: the referenced table '{fk.ReferencedTable}' does not exist.");
+
+    /// <summary>
+    /// Resolves <c>REFERENCES table</c> with no column list (<see cref="RelationshipSpec.ReferencesPrimaryKey"/>)
+    /// to the parent's primary key, pairing the child columns with the key's in order whatever either side's
+    /// columns are named — as ACE does. Any other relationship comes back unchanged.
+    /// </summary>
+    /// <remarks>
+    /// ACE refuses it when the parent has no primary key (a unique index does not stand in for one) and when the
+    /// columns differ in number (verified). A table referencing itself in its own CREATE TABLE
+    /// (<paramref name="creatingTable"/>) has no key in the catalog yet; the SQL parser pairs such a reference
+    /// with a key the statement declares earlier, so one still unpaired here has no key to reference.
+    /// </remarks>
+    private RelationshipSpec ResolvePrimaryKeyReference(RelationshipSpec fk, string? creatingTable)
+    {
+        if (!fk.ReferencesPrimaryKey) return fk;
+        bool selfInCreate = creatingTable is not null
+                            && string.Equals(fk.ReferencedTable, creatingTable, StringComparison.OrdinalIgnoreCase);
+        IndexDef primaryKey = (selfInCreate ? null : ReferencedTableOf(fk).Indexes.FirstOrDefault(i => i.IsPrimaryKey))
+            ?? throw new InvalidOperationException(
+                $"Cannot create relationship. Referenced table '{fk.ReferencedTable}' does not have a primary key.");
+        return fk with
+        {
+            Columns = RelationshipSpec.PairColumns(fk.ReferencedTable,
+                fk.Columns.Select(c => c.Column).ToList(), primaryKey.Columns.Select(c => c.Column.Name).ToList()),
+            ReferencesPrimaryKey = false,
+        };
+    }
+
     private (int Page, int ReferencedOrdinal, int NextIndexNumber) ResolveParent(RelationshipSpec fk, int childPage)
     {
-        TableDef parent = _catalog.FindTable(fk.ReferencedTable)
-            ?? throw new InvalidOperationException($"Referenced table '{fk.ReferencedTable}' was not found.");
+        TableDef parent = ReferencedTableOf(fk);
         if (parent.DefinitionPage == childPage)
             throw new InvalidOperationException($"Self-referencing foreign key '{fk.Name}' should have been handled inline.");
 
@@ -453,6 +517,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             n => table.Columns.FirstOrDefault(
                 c => c.IsCalculated && string.Equals(c.Name, n, StringComparison.OrdinalIgnoreCase))?.Name);
         var slots = ResolveSlots(table, columns.Select(c => (c.Column, Ascending: !c.Descending)));
+        // A table has one primary key, and ACE refuses a second (verified).
+        if (isPrimary && table.Indexes.Any(i => i.IsPrimaryKey))
+            throw new InvalidOperationException($"Primary key already exists on table '{table.Name}'.");
         InsertIndex(table, indexName, slots,
             unique: isUnique || isPrimary, required: isPrimary || disallowNull, ignoreNulls,
             (num, ord) => BuildPlainInfoBlock(num, ord, isPrimary));
@@ -509,13 +576,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         (LibRed.IO.PageBuffer buf, IReadOnlyList<int> existingContinuations) = ReadDefinition(table.DefinitionPage);
         int existingRowCount = buf.ReadInt32(format.TdefRowCountOffset);
 
-        // A unique index over rows that already exist has to be rejected if those rows aren't unique — ACE
-        // refuses the DDL too. Done *here*, before a single byte of the TDEF moves, rather than during the
-        // back-fill: this path is not transactional, so a failure discovered mid-back-fill would leave the
-        // index committed to the TDEF and half-populated. Scanning first means a rejected CREATE INDEX
-        // leaves the file exactly as it was.
-        if (unique && existingRowCount != 0)
-            EnsureNoDuplicateKeys(table, indexName, slots);
+        // A unique index over rows that already exist has to be rejected if those rows aren't unique, and a
+        // required one if any row leaves a key column NULL — ACE refuses the DDL for both. Done *here*, before a
+        // single byte of the TDEF moves, rather than during the back-fill: this path is not transactional, so a
+        // failure discovered mid-back-fill would leave the index committed to the TDEF and half-populated.
+        // Scanning first means a rejected CREATE INDEX leaves the file exactly as it was.
+        if ((unique || required) && existingRowCount != 0)
+            EnsureExistingRowsFitIndex(table, indexName, slots, unique, required);
 
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);
         int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset);
@@ -637,12 +704,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     }
 
     /// <summary>
-    /// Throws if the table's existing rows already hold a duplicate key for a would-be unique index. Purely a
-    /// read: it encodes each row's key and looks for a repeat, touching nothing on disk, so it is safe to call
-    /// before the index exists. Rows with a null in any key column are exempt — Jet's uniqueness is over the
-    /// non-null keys only, so several rows may be null (verified vs ACE; see the constraints page). That skip
-    /// is unconditional: a WITH IGNORE NULL index leaves null-keyed rows out of the B-tree altogether, so
-    /// either way they cannot collide.
+    /// Throws if the table's existing rows cannot go into a would-be index: a duplicate key for a unique one, or
+    /// a NULL in any key column for a required one — a primary key or WITH DISALLOW NULL, which ACE refuses with
+    /// "Index or primary key cannot contain a Null value" (verified; an ADD COLUMN … PRIMARY KEY on a table that
+    /// already holds rows is the usual way to get there). Purely a read, touching nothing on disk, so it is safe
+    /// to call before the index exists. For uniqueness, rows with a null in any key column are exempt — Jet's
+    /// uniqueness is over the non-null keys only, so several rows may be null (verified vs ACE; see the
+    /// constraints page); a WITH IGNORE NULL index leaves them out of the B-tree altogether, so either way they
+    /// cannot collide.
     /// </summary>
     /// <remarks>
     /// Comparison is on the encoded key, not the raw values, which is deliberate: the encoding is what the
@@ -650,8 +719,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// uniqueness domain, and it keeps this agreeing with the insert- and update-time checks, which compare
     /// the same way via <see cref="IndexWriter.KeyExists"/>.
     /// </remarks>
-    private void EnsureNoDuplicateKeys(
-        TableDef table, string indexName, IReadOnlyList<(int Id, bool Ascending)> slots)
+    private void EnsureExistingRowsFitIndex(
+        TableDef table, string indexName, IReadOnlyList<(int Id, bool Ascending)> slots, bool unique, bool required)
     {
         var keyColumns = slots
             .Select(s => (Column: table.Columns.First(c => c.ColumnId == s.Id), s.Ascending))
@@ -660,8 +729,14 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         var seen = new HashSet<string>();
         foreach (object?[] values in new Table(_channel, table).Rows())
         {
-            if (keyColumns.Any(k => values[k.Column.Index] is null)) continue;
-            if (!seen.Add(Convert.ToHexString(IndexKeyEncoder.Encode(keyColumns, values))))
+            if (keyColumns.Any(k => values[k.Column.Index] is null))
+            {
+                if (required)
+                    throw new InvalidOperationException(
+                        $"Index or primary key cannot contain a Null value: a row of '{table.Name}' has no value for index '{indexName}'.");
+                continue;
+            }
+            if (unique && !seen.Add(Convert.ToHexString(IndexKeyEncoder.Encode(keyColumns, values))))
                 throw new InvalidOperationException(
                     $"Cannot create unique index '{indexName}' on '{table.Name}': duplicate key values exist.");
         }
@@ -676,7 +751,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// replaced by the next entry. Sorting first lets each leaf be filled and written once.
     /// <para>Uniqueness moves with it: on sorted keys a duplicate is an adjacent pair, so the per-row
     /// <see cref="IndexWriter.KeyExists"/> descent is gone. The comparison is still on the encoded key, which
-    /// is Access's uniqueness domain (see <see cref="EnsureNoDuplicateKeys"/>).</para>
+    /// is Access's uniqueness domain (see <see cref="EnsureExistingRowsFitIndex"/>).</para>
     /// </remarks>
     private void BackfillIndex(string tableName, string indexName, bool ignoreNulls, bool validateUnique)
     {
@@ -755,6 +830,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         if (fk.NoIndex)
             throw new NotSupportedException("ALTER TABLE ADD FOREIGN KEY … NO INDEX is not supported yet.");
         if (fk.UpdateSetNull) throw UpdateSetNullNotImplemented();
+
+        fk = ResolvePrimaryKeyReference(fk, creatingTable: null);
+        EnsureSameDataTypes(fk, ColumnOf(child), ColumnOf(_catalog.FindTable(fk.ReferencedTable)));
 
         byte upd = fk.CascadeUpdate ? CascadeAction : NoCascadeAction;
         byte del = fk.CascadeDelete ? CascadeAction : fk.DeleteSetNull ? SetNullAction : NoCascadeAction;
@@ -1555,7 +1633,42 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         if (props.Count > 0) SetColumnProperties(table.DefinitionPage, spec.Name, props);
 
         _catalog.Invalidate();
+        if (spec.IsAutoNumber) NumberExistingRows(tableName, spec);
         return true;
+    }
+
+    /// <summary>
+    /// Gives the rows already in a table values in an AutoNumber column just added to it, as ACE does rather than
+    /// leaving them NULL, and sets where the counter carries on (all verified).
+    /// </summary>
+    /// <remarks>
+    /// The existing rows are numbered 1, 2, 3 … in table order whatever the column's seed and increment. A counter
+    /// with the default seed 1 and increment 1 — however it was spelled — then continues after them: two rows take
+    /// 1 and 2, the next insert 3. Any other counter restarts at its own seed, even where that repeats a value the
+    /// rows were given: <c>COUNTER(2, 1)</c> over two rows goes on 2, 3, 4, and <c>COUNTER(1, 5)</c> 1, 6, 11. A
+    /// primary key over the new column has a value in every row either way.
+    /// </remarks>
+    private void NumberExistingRows(string tableName, ColumnSpec spec)
+    {
+        TableDef table = _catalog.FindTable(tableName)
+            ?? throw new InvalidOperationException($"Table '{tableName}' was not found after adding column '{spec.Name}'.");
+        ColumnDef column = table.FindColumn(spec.Name)!;
+        int increment = spec.Increment == 0 ? 1 : spec.Increment;
+
+        var rows = new Table(_channel, table).Rows().WithIds().ToList();
+        if (rows.Count > 0)
+        {
+            var writer = new RowInserter(_channel, table);
+            var changed = new HashSet<int> { column.Index };
+            int number = 0;
+            foreach ((RowId id, object?[] values) in rows)
+            {
+                values[column.Index] = ++number;
+                writer.Update(id, values, changed);
+            }
+        }
+
+        ReseedCounter(table, column, spec.Seed == 1 && increment == 1 ? rows.Count + 1 : spec.Seed, increment);
     }
 
     /// <summary>Inserts a long-value (memo/OLE) column's 10-byte §3.3.2 usage-map entry

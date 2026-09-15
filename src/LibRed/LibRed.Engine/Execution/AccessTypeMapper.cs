@@ -15,7 +15,7 @@ internal static class AccessTypeMapper
 {
     public static ColumnSpec ToColumnSpec(ColumnDefinition column, JetVersion version)
     {
-        ColumnSpec spec = MapType(column, version) with
+        ColumnSpec spec = WithIdentity(MapType(column, version), column.Identity) with
         {
             IsNullable = !column.NotNull,
             // WITH COMPRESSION is only meaningful on the two types ACE accepts it for; Access rejects it
@@ -53,6 +53,19 @@ internal static class AccessTypeMapper
         // and a constant length — so rebuild through the factory that knows those rules rather than patching
         // the mapped spec here (page-02e-calculated-columns).
         return ColumnSpec.Calculated(spec.Name, spec.Type, expression);
+    }
+
+    /// <summary>
+    /// Applies a trailing <c>IDENTITY [(seed [, increment])]</c> the way ACE does: a Long column becomes an
+    /// AutoNumber counting from the attribute's seed by its increment, each 1 when omitted. Those replace whatever
+    /// the type declared — <c>COUNTER(5, 2) IDENTITY(9, 3)</c> counts 9, 12, 15 and <c>COUNTER(5, 2) IDENTITY</c>
+    /// counts 1, 2, 3. Every other type is left exactly as declared: <c>SHORT</c>, <c>BIGINT</c>, <c>TEXT(10)</c>,
+    /// <c>GUID</c> and the rest accept the word and ignore it (all verified).
+    /// </summary>
+    internal static ColumnSpec WithIdentity(ColumnSpec spec, IdentityAttribute? identity)
+    {
+        if (identity is null || spec.Type != JetDataType.Int32) return spec;
+        return spec with { IsAutoNumber = true, Seed = identity.Seed ?? 1, Increment = identity.Increment ?? 1 };
     }
 
     /// <summary>Whether WITH COMPRESSION applies to this column's type. Mapped at the HIGHEST version so the
@@ -99,9 +112,9 @@ internal static class AccessTypeMapper
         return t switch
         {
             // AutoNumber. COUNTER(seed, increment) parses seed/increment as the (size, scale) pair; a plain
-            // COUNTER defaults to 1/1. INTEGER IDENTITY(seed, increment) is the ANSI-style spelling.
+            // COUNTER defaults to 1/1. IDENTITY after another type — INTEGER IDENTITY(seed, increment) — is a
+            // column attribute rather than part of the type name, applied by WithIdentity.
             "COUNTER" or "AUTOINCREMENT" or "IDENTITY"
-            or "INTEGER IDENTITY" or "INT IDENTITY" or "LONG IDENTITY"
                 => new ColumnSpec(column.Name, JetDataType.Int32, 4, IsFixedLength: true, IsAutoNumber: true,
                     Seed: column.Size ?? 1, Increment: column.Scale ?? 1),
             "INTEGER" or "INT" or "LONG" or "INTEGER4"

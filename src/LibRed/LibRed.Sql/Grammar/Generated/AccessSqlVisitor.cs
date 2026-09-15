@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-// Generated from AccessSql.g4 by ANTLR 4.13.1
+// Generated from D:/toolkits/efcorejetlibred/src/LibRed/LibRed.Sql/Grammar/AccessSql.g4 by ANTLR 4.13.1
 
 // Unreachable code detected
 #pragma warning disable 0162
@@ -967,5 +967,11 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitWindowSpecification([NotNull] AccessSqlParser.WindowSpecificationContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.clusteredOption"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitClusteredOption([NotNull] AccessSqlParser.ClusteredOptionContext context);
 }
 } // namespace LibRed.Sql.Grammar

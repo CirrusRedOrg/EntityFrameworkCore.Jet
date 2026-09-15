@@ -145,14 +145,18 @@ dataType : typeName=identifier extra=identifier? extra2=identifier? (LPAREN size
 signedInteger : MINUS? INTEGER_LITERAL ;
 
 // Single-field constraints (after the column's data type). A CONSTRAINT name may prefix any of them.
+// PRIMARY KEY and UNIQUE take an optional CLUSTERED or NONCLUSTERED, in a column or table constraint alike, as
+// ACE's CONSTRAINT clause does. ACE stores nothing for either word — the file is byte-identical without it and
+// DAO reports Clustered = False — so it is parsed and dropped. ACE rejects it anywhere else: after FOREIGN KEY,
+// between PRIMARY and KEY, on a bare column, or in CREATE INDEX.
 columnConstraint
     : NOT NULL                                       # NotNullConstraint
     | NULL                                           # NullableConstraint
     | DEFAULT expression                             # DefaultConstraint
     | WITH (COMPRESSION | COMP)                       # CompressionConstraint
     | (CONSTRAINT cname=identifier)? CHECK LPAREN checkBody RPAREN  # CheckColumnConstraint
-    | (CONSTRAINT cname=identifier)? PRIMARY KEY     # PrimaryKeyConstraint
-    | (CONSTRAINT cname=identifier)? UNIQUE          # UniqueColumnConstraint
+    | (CONSTRAINT cname=identifier)? PRIMARY KEY clusteredOption?   # PrimaryKeyConstraint
+    | (CONSTRAINT cname=identifier)? UNIQUE clusteredOption?        # UniqueColumnConstraint
     | (CONSTRAINT cname=identifier)? REFERENCES refTable=identifier
         (LPAREN refColumns+=identifier (COMMA refColumns+=identifier)* RPAREN)?
         foreignKeyAction*                            # ColumnReferencesConstraint
@@ -161,9 +165,9 @@ columnConstraint
 // EF Core emits named table constraints: CONSTRAINT `PK_x` PRIMARY KEY (`col`, ...) and
 // CONSTRAINT `FK_x` FOREIGN KEY (`col`, ...) REFERENCES `Parent` (`col`, ...) ON DELETE CASCADE.
 tableConstraint
-    : (CONSTRAINT name=identifier)? PRIMARY KEY
+    : (CONSTRAINT name=identifier)? PRIMARY KEY clusteredOption?
         LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN                        # PrimaryKeyTableConstraint
-    | (CONSTRAINT name=identifier)? UNIQUE
+    | (CONSTRAINT name=identifier)? UNIQUE clusteredOption?
         LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN                        # UniqueTableConstraint
     | (CONSTRAINT name=identifier)? FOREIGN KEY (noIndex=NO INDEX)?
         LPAREN columns+=identifier (COMMA columns+=identifier)* RPAREN
@@ -472,6 +476,10 @@ windowSpecification
     : LPAREN (PARTITION BY partition+=expression (COMMA partition+=expression)*)? orderByClause? RPAREN
     ;
 
+// CLUSTERED / NONCLUSTERED after PRIMARY KEY or UNIQUE — accepted and ignored (see columnConstraint). Kept after
+// the existing parser rules so adding it does not renumber their ids.
+clusteredOption : CLUSTERED | NONCLUSTERED ;
+
 // ---- Lexer ----
 
 SELECT : [Ss][Ee][Ll][Ee][Cc][Tt] ;
@@ -557,6 +565,9 @@ SET        : [Ss][Ee][Tt] ;
 DEFAULT    : [Dd][Ee][Ff][Aa][Uu][Ll][Tt] ;
 NO         : [Nn][Oo] ;
 UNIQUE     : [Uu][Nn][Ii][Qq][Uu][Ee] ;
+// Reserved as ACE reserves them: neither may name a table, column or alias unbracketed.
+CLUSTERED    : [Cc][Ll][Uu][Ss][Tt][Ee][Rr][Ee][Dd] ;
+NONCLUSTERED : [Nn][Oo][Nn][Cc][Ll][Uu][Ss][Tt][Ee][Rr][Ee][Dd] ;
 INDEX      : [Ii][Nn][Dd][Ee][Xx] ;
 TEMPORARY  : [Tt][Ee][Mm][Pp][Oo][Rr][Aa][Rr][Yy] ;
 WITH       : [Ww][Ii][Tt][Hh] ;

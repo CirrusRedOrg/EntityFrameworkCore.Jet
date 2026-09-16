@@ -37,12 +37,16 @@ public class LeftRightEdgeCasesTests : TempDatabaseTest
         => Assert.Null(Eval(expr));
 
     [Theory]
-    [InlineData("Left('abcdef', -1)")]      // negative → Invalid procedure call
-    [InlineData("Right('abcdef', -1)")]
     [InlineData("Left('abc', Null)")]       // null length → Data type mismatch
     [InlineData("Right('abc', Null)")]
     public void Error_cases(string expr)
         => Assert.Throws<InvalidOperationException>(() => Eval(expr));
+
+    [Theory]
+    [InlineData("Left('abcdef', -1)")]      // negative → Invalid procedure call
+    [InlineData("Right('abcdef', -1)")]
+    public void Negative_length_is_an_invalid_procedure_call(string expr)
+        => Assert.Throws<ArgumentException>(() => Eval(expr));
 
     [Fact]
     public void Split_is_not_a_scalar_function() // matches ACE ("Undefined function 'Split'")

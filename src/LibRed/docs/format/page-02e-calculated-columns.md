@@ -90,6 +90,9 @@ the whole surface, not a sample.
 **Operators** — `+` `-` `*` `/` `^` `&`, `+` as concatenation, `=` `<>` `<` `>` `<=` `>=`, `And`, `Or`,
 `Not`, `Is Null`, `Like`, `In`, unary minus, parentheses, literal-only expressions.
 
+**Text literals** — in double or single quotes, a doubled quote standing for itself: `[A] & "it's"` and
+`[A] & 'it''s'` are both accepted, stored as written in `Expression`, and give the same values.
+
 **Math** — `Abs` `Sgn` `Int` `Fix` `Round` `Sqr` `Exp` `Log` `Sin` `Cos` `Tan` `Atn`.
 
 **String** — `Len` `LCase` `UCase` `Trim` `Left` `Right` `Mid` `InStr` `Space` `String` `Str` `Asc`.

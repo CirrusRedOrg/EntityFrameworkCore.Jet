@@ -9,42 +9,31 @@ namespace LibRed.Engine.Tests;
 /// otherwise adds, reading text as a number; <c>&amp;</c> writes each operand as text and binds looser than
 /// <c>+</c>. The expected values were measured against ACE.
 /// </summary>
-public class PlusAndConcatenationTests : TempDatabaseTest
+public class PlusAndConcatenationTests(PlusAndConcatenationTests.Database database)
+    : TempDatabaseTest, IClassFixture<PlusAndConcatenationTests.Database>
 {
     private const string Guid = "{00112233-4455-6677-8899-AABBCCDDEEFF}";
 
-    private static QueryEngine Fresh()
-    {
-        string path = TemporaryDatabase.CopyPath(
-            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "plus-concat-");
-        var engine = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
-        engine.ExecuteNonQuery(
-            "CREATE TABLE T (Id LONG, N LONG, S TEXT(60), NT TEXT(60), D DATETIME, G GUID, B BINARY(4), M DECIMAL(18,4))");
-        engine.ExecuteNonQuery("INSERT INTO T (Id, N, S, D, M) VALUES (1, 3, 'a', #2020-01-02 12:00:00#, 4.5)");
-        engine.ExecuteNonQuery($"UPDATE T SET G = {Guid}");
-        engine.ExecuteNonQuery("UPDATE T SET B = 0x41004200");
-        return engine;
-    }
+    private static readonly string[] Setup =
+    [
+        "CREATE TABLE T (Id LONG, N LONG, S TEXT(60), NT TEXT(60), D DATETIME, G GUID, B BINARY(4), M DECIMAL(18,4))",
+        "INSERT INTO T (Id, N, S, D, M) VALUES (1, 3, 'a', #2020-01-02 12:00:00#, 4.5)",
+        $"UPDATE T SET G = {Guid}",
+        "UPDATE T SET B = 0x41004200",
+    ];
 
-    private static object? Scalar(string expression) => Scalar(Fresh(), expression);
+    public sealed class Database() : SharedDatabase("plus-concat-", Setup);
+
+    private static QueryEngine Fresh() => SharedDatabase.Fresh("plus-concat-", Setup);
+
+    private object? Scalar(string expression) => Scalar(database.Engine, expression);
 
     private static readonly CultureInfo EnUs = CultureInfo.GetCultureInfo("en-US");
 
     // Both operators follow the regional settings (date format, separators, currency symbol), so each
     // expression is evaluated under en-US whatever the machine's culture.
-    private static object? Scalar(QueryEngine engine, string expression)
-    {
-        CultureInfo previous = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = EnUs;
-        try
-        {
-            return engine.ExecuteQuery($"SELECT {expression} FROM T").Rows.First()[0];
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = previous;
-        }
-    }
+    private static object? Scalar(QueryEngine engine, string expression) =>
+        SharedDatabase.Scalar(engine, $"SELECT {expression} FROM T", EnUs);
 
     [Theory]
     [InlineData("'1' + 1", 2d)]

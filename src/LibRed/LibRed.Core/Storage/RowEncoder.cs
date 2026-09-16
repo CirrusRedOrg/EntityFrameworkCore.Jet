@@ -50,7 +50,11 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
     /// the cached value exactly as it was: ACE recomputes only when a referenced column is written, so
     /// recomputing unconditionally would write bytes ACE would not have (§3.4a). Null on INSERT, where every
     /// calculated column is computed fresh.</param>
-    public byte[] Encode(object?[] values, IReadOnlyDictionary<int, byte[]>? preservedCalculated)
+    /// <param name="logicalValues">The row as its columns hold it, for the calculated columns to read, when
+    /// <paramref name="values"/> already carries long values as their on-disk descriptors. A memo's text is
+    /// what an expression reads, not the descriptor that points at it. Null when the two are the same.</param>
+    public byte[] Encode(object?[] values, IReadOnlyDictionary<int, byte[]>? preservedCalculated,
+        object?[]? logicalValues = null)
     {
         if (values.Length != _columns.Count)
             throw new ArgumentException($"Expected {_columns.Count} values, got {values.Length}.", nameof(values));
@@ -90,7 +94,7 @@ public sealed class RowEncoder(IReadOnlyList<ColumnDef> columns, JetFormatBase f
         {
             if (column.IsCalculated)
             {
-                varChunks[column.VariableIndex] = EncodeCalculated(column, values, preservedCalculated);
+                varChunks[column.VariableIndex] = EncodeCalculated(column, logicalValues ?? values, preservedCalculated);
                 continue;
             }
             object? v = values[column.Index];

@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.Storage.Types;
@@ -280,7 +281,7 @@ public static class IndexKeyEncoder
             case JetDataType.Int32:
                 return EncodeInteger(Convert.ToInt32(value, c), 4);
             case JetDataType.Currency:
-                return EncodeInteger((long)decimal.Round(Convert.ToDecimal(value, c) * 10000m), 8);
+                return EncodeInteger((long)decimal.Round(JetDecimalConverter.ToDecimal(value, c) * 10000m), 8);
             case JetDataType.Int64: // BIGINT — verified against ACE across 0, ±1, ±42 and both extremes
                 return EncodeInteger(Convert.ToInt64(value, c), 8);
             case JetDataType.Single:
@@ -290,7 +291,7 @@ public static class IndexKeyEncoder
             case JetDataType.DateTime:
                 return EncodeFloatBits(BitConverter.DoubleToInt64Bits(Convert.ToDateTime(value, c).ToOADate()), 8);
             case JetDataType.FixedPoint:
-                return EncodeFixedPoint(Convert.ToDecimal(value, c), column.Scale);
+                return EncodeFixedPoint(JetDecimalConverter.ToDecimal(value, c), column.Scale);
             default:
                 throw new NotSupportedException($"Index key type {column.Type} is not encodable.");
         }

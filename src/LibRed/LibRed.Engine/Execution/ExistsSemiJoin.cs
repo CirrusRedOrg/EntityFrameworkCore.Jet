@@ -1,3 +1,4 @@
+using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
 using LibRed.Engine.Plan;
 using LibRed.Engine.Planning;
@@ -198,7 +199,7 @@ internal sealed class ExistsSemiJoin
         return !subquery.TopPercent
             && subquery.Top is LiteralExpression { Value: { } value }
             && IsNumeric(value)
-            && Convert.ToDecimal(value, System.Globalization.CultureInfo.InvariantCulture) >= 1m;
+            && JetDecimalConverter.ToDecimal(value, System.Globalization.CultureInfo.InvariantCulture) >= 1m;
     }
 
     private static bool IsNumeric(object v)

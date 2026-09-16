@@ -59,6 +59,6 @@ public class DateDiffMillisecondTests : TempDatabaseTest
     // is what EF used to emit and what the Jet translators now no longer send.
     [Fact]
     public void The_full_word_is_not_an_interval()
-        => Assert.Throws<NotSupportedException>(
+        => Assert.Throws<ArgumentException>(
             () => Eval(Fresh(), "DATEDIFF('millisecond', #2020-01-01 00:00:00#, #2020-01-01 00:00:01#)"));
 }

@@ -11,8 +11,6 @@
   <ItemGroup>
     <ProjectReference Include="..\LibRed.Core\LibRed.Core.csproj" />
     <ProjectReference Include="..\LibRed.Sql\LibRed.Sql.csproj" />
-    <!-- The OLE Automation double-to-decimal conversion, shared with EntityFrameworkCore.Jet.Data. -->
-    <Compile Include="..\..\Shared\Data\JetDecimalConverter.cs" Link="Execution\JetDecimalConverter.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -8,23 +8,22 @@ namespace LibRed.Engine.Tests;
 /// condition: every value is False when it reads as 0 and True otherwise, Null follows the VBA truth tables, and the
 /// operators bind in that order. The expected values were measured against ACE.
 /// </summary>
-public class LogicalOperatorTests : TempDatabaseTest
+public class LogicalOperatorTests(LogicalOperatorTests.Database database)
+    : TempDatabaseTest, IClassFixture<LogicalOperatorTests.Database>
 {
-    private static QueryEngine Fresh()
-    {
-        string path = TemporaryDatabase.CopyPath(
-            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "logic-ops-");
-        var engine = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
-        engine.ExecuteNonQuery("CREATE TABLE T (Id LONG, TN TEXT(60), NT TEXT(60), D DATETIME, G GUID, B BINARY(4))");
-        engine.ExecuteNonQuery("INSERT INTO T (Id, TN, D) VALUES (1, '7', #2020-01-02 12:00:00#)");
-        engine.ExecuteNonQuery("UPDATE T SET G = {00112233-4455-6677-8899-AABBCCDDEEFF}");
-        engine.ExecuteNonQuery("UPDATE T SET B = 0x41004200");
-        return engine;
-    }
+    private static readonly string[] Setup =
+    [
+        "CREATE TABLE T (Id LONG, TN TEXT(60), NT TEXT(60), D DATETIME, G GUID, B BINARY(4))",
+        "INSERT INTO T (Id, TN, D) VALUES (1, '7', #2020-01-02 12:00:00#)",
+        "UPDATE T SET G = {00112233-4455-6677-8899-AABBCCDDEEFF}",
+        "UPDATE T SET B = 0x41004200",
+    ];
 
-    private static object? Query(string sql) => Fresh().ExecuteQuery(sql).Rows.First()[0];
+    public sealed class Database() : SharedDatabase("logic-ops-", Setup);
 
-    private static object? Scalar(string expression) => Query($"SELECT {expression} FROM T");
+    private object? Query(string sql) => database.Engine.ExecuteQuery(sql).Rows.First()[0];
+
+    private object? Scalar(string expression) => Query($"SELECT {expression} FROM T");
 
     [Theory]
     [InlineData("NOT 10", false)]

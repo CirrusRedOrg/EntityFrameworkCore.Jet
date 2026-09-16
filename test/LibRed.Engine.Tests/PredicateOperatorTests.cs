@@ -8,29 +8,29 @@ namespace LibRed.Engine.Tests;
 
 /// <summary>
 /// The predicates <c>LIKE</c>, <c>BETWEEN</c>, <c>IN</c> and <c>IS NULL</c>. LIKE takes the ANSI-92 wildcards EF
-/// emits, BETWEEN takes its bounds in either order, and IN skips a Null item. The expected values were measured
-/// against ACE.
+/// emits, BETWEEN takes its bounds in either order, and IN is unknown when it misses and meets a Null item. The
+/// expected values were measured against ACE, except for that last rule, where ACE skips the Null item.
 /// </summary>
-public class PredicateOperatorTests : TempDatabaseTest
+public class PredicateOperatorTests(PredicateOperatorTests.Database database)
+    : TempDatabaseTest, IClassFixture<PredicateOperatorTests.Database>
 {
-    private static QueryEngine Fresh()
-    {
-        string path = TemporaryDatabase.CopyPath(
-            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "predicate-ops-");
-        var engine = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
-        engine.ExecuteNonQuery(
-            "CREATE TABLE T (Id LONG, TN TEXT(60), NT TEXT(60), D DATETIME, G GUID, B BINARY(4), SG REAL, DC DECIMAL(18,4))");
-        engine.ExecuteNonQuery("INSERT INTO T (Id, TN, D, SG, DC) VALUES (1, '7', #2020-01-02 12:00:00#, 1.5, 4.5)");
-        engine.ExecuteNonQuery("UPDATE T SET G = {00112233-4455-6677-8899-AABBCCDDEEFF}");
-        engine.ExecuteNonQuery("UPDATE T SET B = 0x41004200");
-        return engine;
-    }
+    private static readonly string[] Setup =
+    [
+        "CREATE TABLE T (Id LONG, TN TEXT(60), NT TEXT(60), D DATETIME, G GUID, B BINARY(4), SG REAL, DC DECIMAL(18,4))",
+        "INSERT INTO T (Id, TN, D, SG, DC) VALUES (1, '7', #2020-01-02 12:00:00#, 1.5, 4.5)",
+        "UPDATE T SET G = {00112233-4455-6677-8899-AABBCCDDEEFF}",
+        "UPDATE T SET B = 0x41004200",
+    ];
 
-    private static object? Query(string sql) => Fresh().ExecuteQuery(sql).Rows.First()[0];
+    public sealed class Database() : SharedDatabase("predicate-ops-", Setup);
 
-    private static object? Scalar(string expression) => Query($"SELECT {expression} FROM T");
+    private static QueryEngine Fresh() => SharedDatabase.Fresh("predicate-ops-", Setup);
 
-    private static object? Count(string condition) => Query($"SELECT COUNT(*) FROM T WHERE {condition}");
+    private object? Query(string sql) => database.Engine.ExecuteQuery(sql).Rows.First()[0];
+
+    private object? Scalar(string expression) => Query($"SELECT {expression} FROM T");
+
+    private object? Count(string condition) => Query($"SELECT COUNT(*) FROM T WHERE {condition}");
 
     [Theory]
     [InlineData("'abc' LIKE '%'", true)]
@@ -261,8 +261,7 @@ public class PredicateOperatorTests : TempDatabaseTest
     [Theory]
     [InlineData("5 IN (1, 5)", true)]
     [InlineData("5 IN (5, NULL)", true)]
-    [InlineData("5 IN (1, NULL)", false)]
-    [InlineData("5 NOT IN (1, NULL)", true)]
+    [InlineData("5 NOT IN (5, NULL)", false)]
     [InlineData("5 NOT IN (1, 2)", true)]
     [InlineData("NOT 5 IN (5)", false)]
     [InlineData("LEFT('7', 1) IN (7)", true)]
@@ -285,14 +284,19 @@ public class PredicateOperatorTests : TempDatabaseTest
     [InlineData("1.5 IN (DC)", false)]
     [InlineData("5 IN (5, 'abc')", true)]
     [InlineData("1 IN (1, 2) AND 1 = 2", false)]
-    public void In_compares_each_item_as_equals_does_and_skips_null_items(string expression, bool expected) =>
+    public void In_compares_each_item_as_equals_does(string expression, bool expected) =>
         Assert.Equal(expected, Scalar(expression));
 
+    // Standard SQL: a miss is unknown when an item is Null. ACE instead skips the Null item, making these False and
+    // True; LibRed follows the standard here.
     [Theory]
     [InlineData("NULL IN (1)")]
     [InlineData("NULL IN (NULL)")]
     [InlineData("NULL NOT IN (1)")]
-    public void In_is_null_when_the_value_is(string expression) =>
+    [InlineData("5 IN (1, NULL)")]
+    [InlineData("5 NOT IN (1, NULL)")]
+    [InlineData("5 NOT IN (NULL)")]
+    public void In_is_null_when_the_value_is_or_a_miss_meets_a_null_item(string expression) =>
         Assert.Null(Scalar(expression));
 
     [Theory]
@@ -305,9 +309,10 @@ public class PredicateOperatorTests : TempDatabaseTest
 
     [Theory]
     [InlineData("5 IN (1, NULL)", 0)]
-    [InlineData("5 NOT IN (1, NULL)", 1)]
+    [InlineData("5 NOT IN (1, NULL)", 0)]
     [InlineData("5 IN (5, NULL)", 1)]
-    public void A_where_condition_skips_null_items_too(string condition, int expected) =>
+    [InlineData("5 NOT IN (5, NULL)", 0)]
+    public void A_where_condition_matches_no_row_on_an_unknown_in(string condition, int expected) =>
         Assert.Equal(expected, Count(condition));
 
     [Theory]

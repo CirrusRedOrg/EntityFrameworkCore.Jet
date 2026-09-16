@@ -9,43 +9,27 @@ namespace LibRed.Engine.Tests;
 /// how they read text and dates, their errors, and the decimal places ACE keeps in a Decimal result. The expected
 /// values were measured against ACE.
 /// </summary>
-public class ArithmeticOperatorTests : TempDatabaseTest
+public class ArithmeticOperatorTests(ArithmeticOperatorTests.Database database)
+    : TempDatabaseTest, IClassFixture<ArithmeticOperatorTests.Database>
 {
     private static readonly CultureInfo EnUs = CultureInfo.GetCultureInfo("en-US");
 
-    private static QueryEngine Fresh()
-    {
-        string path = TemporaryDatabase.CopyPath(
-            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "arith-ops-");
-        var engine = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
-        engine.ExecuteNonQuery(
-            "CREATE TABLE T (Id LONG, N LONG, SI SHORT, SG REAL, CY CURRENCY, DC DECIMAL(18,4), D DATETIME, "
-            + "S TEXT(60), NT TEXT(60), G GUID, B BINARY(4))");
-        engine.ExecuteNonQuery(
-            "INSERT INTO T (Id, N, SI, SG, CY, DC, D, S) VALUES (1, 3, 2, 1.5, 3.25, 4.5, #2020-01-02 12:00:00#, 'abc')");
-        engine.ExecuteNonQuery("UPDATE T SET G = {00112233-4455-6677-8899-AABBCCDDEEFF}");
-        engine.ExecuteNonQuery("UPDATE T SET B = 0x41004200");
-        return engine;
-    }
+    private static readonly string[] Setup =
+    [
+        "CREATE TABLE T (Id LONG, N LONG, SI SHORT, SG REAL, CY CURRENCY, DC DECIMAL(18,4), D DATETIME, "
+            + "S TEXT(60), NT TEXT(60), G GUID, B BINARY(4))",
+        "INSERT INTO T (Id, N, SI, SG, CY, DC, D, S) VALUES (1, 3, 2, 1.5, 3.25, 4.5, #2020-01-02 12:00:00#, 'abc')",
+        "UPDATE T SET G = {00112233-4455-6677-8899-AABBCCDDEEFF}",
+        "UPDATE T SET B = 0x41004200",
+    ];
 
-    private static object? Scalar(string expression) => Query($"SELECT {expression} FROM T");
+    public sealed class Database() : SharedDatabase("arith-ops-", Setup);
+
+    private object? Scalar(string expression) => Query($"SELECT {expression} FROM T");
 
     // Text is read in the regional separators and currency symbol, so each query runs under en-US whatever the
     // machine's culture.
-    private static object? Query(string sql)
-    {
-        QueryEngine engine = Fresh();
-        CultureInfo previous = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = EnUs;
-        try
-        {
-            return engine.ExecuteQuery(sql).Rows.First()[0];
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = previous;
-        }
-    }
+    private object? Query(string sql) => database.Scalar(sql, EnUs);
 
     [Theory]
     [InlineData("7 \\ 2 * 3", 1)]
@@ -191,10 +175,11 @@ public class ArithmeticOperatorTests : TempDatabaseTest
         Assert.Equal(expected, Assert.IsType<int>(Scalar(expression)));
 
     [Theory]
-    [InlineData("TRUE / SG", -0.6666666865348816d)]
-    [InlineData("SI / SG", 1.3333333730697632d)]
-    public void A_single_divided_with_integers_or_booleans_divides_in_single_precision(string expression, double expected) =>
-        Assert.Equal(expected, Assert.IsType<double>(Scalar(expression)));
+    [InlineData("TRUE / SG", -0.6666667f)]
+    [InlineData("SI / SG", 1.3333334f)]
+    [InlineData("CSNG(1) / CSNG(10)", 0.1f)]
+    public void A_single_divided_with_integers_or_booleans_stays_a_single(string expression, float expected) =>
+        Assert.Equal(expected, Assert.IsType<float>(Scalar(expression)));
 
     [Theory]
     [InlineData("1 / 1.5", 0.6d)]

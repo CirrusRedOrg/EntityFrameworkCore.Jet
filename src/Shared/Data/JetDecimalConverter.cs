@@ -35,12 +35,27 @@ namespace EntityFrameworkCore.Jet.Data
     ///         15th significant digit.
     ///     </para>
     ///     <para>
-    ///         The source is shared: it is compiled into both EntityFrameworkCore.Jet.Data and LibRed.Engine, which
-    ///         reference neither each other nor a common assembly that could hold it.
+    ///         The source is shared: it is compiled into both EntityFrameworkCore.Jet.Data and LibRed.Core, which
+    ///         reference neither each other nor a common assembly that could hold it. Every LibRed assembly uses the
+    ///         LibRed.Core copy. Any conversion that may meet a <see cref="double" /> or <see cref="float" /> goes
+    ///         through here — <see cref="ToDecimal" /> in place of <c>Convert.ToDecimal</c>, never a cast.
     ///     </para>
     /// </summary>
     public static class JetDecimalConverter
     {
+        /// <summary>
+        ///     <see cref="System.Convert.ToDecimal(object, IFormatProvider)" />, except that a <see cref="double" /> or
+        ///     <see cref="float" /> is converted at its real precision (<see cref="FromDouble" />,
+        ///     <see cref="FromSingle" />).
+        /// </summary>
+        public static decimal ToDecimal(object? value, IFormatProvider? provider = null)
+            => value switch
+            {
+                double d => FromDouble(d),
+                float f => FromSingle(f),
+                _ => System.Convert.ToDecimal(value, provider),
+            };
+
         private const int DecScaleMax = 28;
         private const int ScaleShift = 16;
 

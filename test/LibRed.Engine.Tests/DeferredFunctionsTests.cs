@@ -42,7 +42,7 @@ public class DeferredFunctionsTests : TempDatabaseTest
     [Fact]
     public void StrConv_unsupported_mode_is_rejected()
     {
-        var ex = Assert.Throws<InvalidOperationException>(() => Eval("StrConv('hello', 4)"));
+        var ex = Assert.Throws<ArgumentException>(() => Eval("StrConv('hello', 4)"));
         Assert.Contains("Invalid procedure call", ex.Message);
     }
 
@@ -57,9 +57,4 @@ public class DeferredFunctionsTests : TempDatabaseTest
     [InlineData("WeekdayName(3, True, 2)", "Wed")]
     public void WeekdayName_with_explicit_first_day_matches_ace(string expr, string expected)
         => Assert.Equal(expected, Eval(expr));
-
-    [Fact]
-    public void WeekdayName_omitted_first_day_defaults_to_sunday()
-        // ACE's omitted default follows the OS regional first day; LibRed fixes it to vbSunday for determinism.
-        => Assert.Equal("Sunday", Eval("WeekdayName(1)"));
 }

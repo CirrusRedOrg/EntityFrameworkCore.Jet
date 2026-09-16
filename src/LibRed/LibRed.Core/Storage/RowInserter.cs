@@ -19,6 +19,8 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     private readonly UsageMapWriter _usageMaps = new(channel);
     private readonly TableDef _table = table;
 
+    private bool HasCalculatedColumns => _table.Columns.Any(c => c.IsCalculated);
+
     /// <summary>Encodes and writes <paramref name="values"/> (aligned to column Index) into the table.</summary>
     public void Insert(object?[] values) => Insert(values, updateIndexes: true);
 
@@ -43,14 +45,16 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Index keys are encoded from the *logical* values. MaterializeLongValues replaces a memo/OLE value
         // with its on-disk LongValueDescriptor, and a Memo column IS indexable (its key is the collation key
         // of the first 255 characters), so snapshot the values first and key the index off that snapshot.
-        object?[] keyValues = updateIndexes ? (object?[])values.Clone() : values;
+        // A calculated column reads the same logical values, so the snapshot serves it too.
+        bool calculated = HasCalculatedColumns;
+        object?[] keyValues = updateIndexes || calculated ? (object?[])values.Clone() : values;
         MaterializeLongValues(values);
 
         // Encode first: the fixed-region length is pinned by any existing row (to match Access),
         // or derived from the columns for a just-created empty table.
         var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format),
             _table.VariableColumnCount, SpillCalculated);
-        byte[] record = encoder.Encode(values);
+        byte[] record = encoder.Encode(values, null, calculated ? keyValues : null);
 
         EnsureRecordFits(format, record);
 
@@ -92,6 +96,10 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     {
         JetFormatBase format = _channel.Format;
         RejectExplicitCalculatedValues(values, changedColumns);
+
+        // The row as its columns hold it, for a recomputed calculated column to read: the loop below swaps an
+        // unchanged memo's text for its on-disk descriptor, and MaterializeLongValues the changed ones.
+        object?[]? logicalValues = HasCalculatedColumns ? (object?[])values.Clone() : null;
 
         // Long-value (memo/OLE) columns: keep an unchanged column's on-disk descriptor verbatim (so it is not
         // needlessly re-materialised onto fresh LVAL pages), and free a changed column's old chained pages.
@@ -142,7 +150,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         // Order Details), which without the guard would overflow `new byte[len]`.
         var encoder = new RowEncoder(_table.Columns, format, InferFixedDataLength(format),
             _table.VariableColumnCount, SpillCalculated);
-        byte[] record = encoder.Encode(values, preservedCalculated);
+        byte[] record = encoder.Encode(values, preservedCalculated, logicalValues);
 
         // Here as well as on the insert path, and before the in-place rewrite rather than beside the
         // page-search: a row that grows past the cap but still fits its current page is rewritten where it

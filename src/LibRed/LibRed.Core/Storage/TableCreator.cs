@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
@@ -2640,7 +2641,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             JetDataType.Int64 => Convert.ToInt64(value, inv),
             JetDataType.Single => Convert.ToSingle(value, inv),
             JetDataType.Double => Convert.ToDouble(value, inv),
-            JetDataType.Currency or JetDataType.FixedPoint => Convert.ToDecimal(value, inv),
+            JetDataType.Currency or JetDataType.FixedPoint => JetDecimalConverter.ToDecimal(value, inv),
             JetDataType.DateTime => value is DateTime d ? d : Convert.ToDateTime(value, inv),
             JetDataType.Text or JetDataType.Memo => Convert.ToString(value, inv),
             JetDataType.Guid => value is Guid g ? g : Guid.Parse(value.ToString()!),

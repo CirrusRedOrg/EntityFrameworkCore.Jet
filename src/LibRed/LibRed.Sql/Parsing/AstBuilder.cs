@@ -1034,9 +1034,13 @@ internal sealed class AstBuilder
         new BetweenExpression(BuildExpression(ctx.val), BuildExpression(ctx.lo), BuildExpression(ctx.hi), ctx.not is not null);
 
     /// <summary>Parses an Access <c>#…#</c> date literal (e.g. <c>#1/1/1997#</c>, month/day/year) to a
-    /// <see cref="DateTime"/>.</summary>
-    private static DateTime ParseDate(string text) =>
-        DateTime.Parse(text.Trim('#'), CultureInfo.InvariantCulture);
+    /// <see cref="DateTime"/>. A time without a date is on 1899-12-30, day zero (verified vs ACE: #13:45:30# is
+    /// 1899-12-30 13:45:30), not on today.</summary>
+    private static DateTime ParseDate(string text)
+    {
+        DateTime value = DateTime.Parse(text.Trim('#'), CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault);
+        return value.Date == DateTime.MinValue ? new DateTime(1899, 12, 30).Add(value.TimeOfDay) : value;
+    }
 
     /// <summary>The exact value of a number written without an exponent; none for 1E5 or 1.5E2, or past a Decimal.</summary>
     private static decimal? WrittenDecimal(string text) =>

@@ -37,8 +37,21 @@ public class CalculatedEvaluatorTests
     [InlineData("\"a\" & \"b\"", "ab")]
     [InlineData("\"n=\" & 1", "n=1")]
     [InlineData("\"a\" + \"b\"", "ab")]     // '+' concatenates when BOTH sides are text
+    [InlineData("'a' + ' ' + 'b'", "a b")]  // single quotes too, as ACE accepts them (verified through DAO)
+    [InlineData("'it''s' & \"x\"", "it'sx")]
+    [InlineData("\"say \"\"hi\"\"\" & 'x'", "say \"hi\"x")]
     public void Evaluates_concatenation(string expression, string expected)
         => Assert.Equal(expected, Eval(expression));
+
+    [Fact]
+    public void Single_quoted_text_joins_columns() =>
+        Assert.Equal("x y", Eval("FirstName + ' ' + LastName", ("FirstName", "x"), ("LastName", "y")));
+
+    [Theory]
+    [InlineData("'abc")]
+    [InlineData("\"abc'")]
+    public void An_unclosed_quote_is_an_error(string expression) =>
+        Assert.Throws<CalculatedExpressionException>(() => CalculatedExpression.Parse(expression));
 
     // The asymmetry MSDN uses to introduce the feature: '+' propagates Null, '&' swallows it. Reversing
     // them leaves a stray space in the classic full-name expression, which nothing would ever flag.

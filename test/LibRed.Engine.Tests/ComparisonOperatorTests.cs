@@ -10,42 +10,27 @@ namespace LibRed.Engine.Tests;
 /// <c>NOT</c> binds. The expected values were measured against ACE, except that a text literal or text column
 /// compared with a number reads as a number here, as in SQL Server, where ACE refuses it.
 /// </summary>
-public class ComparisonOperatorTests : TempDatabaseTest
+public class ComparisonOperatorTests(ComparisonOperatorTests.Database database)
+    : TempDatabaseTest, IClassFixture<ComparisonOperatorTests.Database>
 {
     private const string Guid = "{00112233-4455-6677-8899-AABBCCDDEEFF}";
     private static readonly CultureInfo EnUs = CultureInfo.GetCultureInfo("en-US");
 
-    private static QueryEngine Fresh()
-    {
-        string path = TemporaryDatabase.CopyPath(
-            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "compare-ops-");
-        var engine = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
-        engine.ExecuteNonQuery(
-            "CREATE TABLE T (Id LONG, N LONG, S TEXT(60), NT TEXT(60), D DATETIME, G GUID, B BINARY(4), YN YESNO)");
-        engine.ExecuteNonQuery("INSERT INTO T (Id, N, S, D, YN) VALUES (1, 3, '7', #2020-01-02 12:00:00#, TRUE)");
-        engine.ExecuteNonQuery($"UPDATE T SET G = {Guid}");
-        engine.ExecuteNonQuery("UPDATE T SET B = 0x41004200");
-        return engine;
-    }
+    private static readonly string[] Setup =
+    [
+        "CREATE TABLE T (Id LONG, N LONG, S TEXT(60), NT TEXT(60), D DATETIME, G GUID, B BINARY(4), YN YESNO)",
+        "INSERT INTO T (Id, N, S, D, YN) VALUES (1, 3, '7', #2020-01-02 12:00:00#, TRUE)",
+        $"UPDATE T SET G = {Guid}",
+        "UPDATE T SET B = 0x41004200",
+    ];
 
-    private static object? Scalar(string expression) => Query($"SELECT {expression} FROM T");
+    public sealed class Database() : SharedDatabase("compare-ops-", Setup);
+
+    private object? Scalar(string expression) => Query($"SELECT {expression} FROM T");
 
     // Text is read as a number in the regional separators, so each query runs under en-US whatever the machine's
     // culture.
-    private static object? Query(string sql)
-    {
-        QueryEngine engine = Fresh();
-        CultureInfo previous = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = EnUs;
-        try
-        {
-            return engine.ExecuteQuery(sql).Rows.First()[0];
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = previous;
-        }
-    }
+    private object? Query(string sql) => database.Scalar(sql, EnUs);
 
     [Theory]
     [InlineData("CASE WHEN @p = '' THEN 0 ELSE 1 END", 'e', 1)]
@@ -60,7 +45,7 @@ public class ComparisonOperatorTests : TempDatabaseTest
     public void A_char_parameter_is_one_character_of_text(string expression, char value, object expected)
     {
         var parameters = new Dictionary<string, object?> { ["p"] = value };
-        Assert.Equal(expected, Fresh().ExecuteQuery($"SELECT {expression} FROM T", parameters).Rows.First()[0]);
+        Assert.Equal(expected, database.Engine.ExecuteQuery($"SELECT {expression} FROM T", parameters).Rows.First()[0]);
     }
 
     [Theory]

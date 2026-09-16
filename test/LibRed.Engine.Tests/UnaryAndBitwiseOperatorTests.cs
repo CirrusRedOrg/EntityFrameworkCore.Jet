@@ -10,42 +10,26 @@ namespace LibRed.Engine.Tests;
 /// against ACE, except where ACE reads the raw bytes of a value that is not a whole number and returns garbage or
 /// crashes; LibRed reads such a value as a number there.
 /// </summary>
-public class UnaryAndBitwiseOperatorTests : TempDatabaseTest
+public class UnaryAndBitwiseOperatorTests(UnaryAndBitwiseOperatorTests.Database database)
+    : TempDatabaseTest, IClassFixture<UnaryAndBitwiseOperatorTests.Database>
 {
     private static readonly CultureInfo EnUs = CultureInfo.GetCultureInfo("en-US");
 
-    private static QueryEngine Fresh()
-    {
-        string path = TemporaryDatabase.CopyPath(
-            Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "unary-bitwise-");
-        var engine = new QueryEngine(TemporaryDatabase.OpenTracked(path, readOnly: false));
-        engine.ExecuteNonQuery(
-            "CREATE TABLE T (Id LONG, BT BYTE, SI SHORT, LG LONG, DC DECIMAL(18,4), TN TEXT(60), MM MEMO, NT TEXT(60), "
-            + "DT DATETIME, YN YESNO, G GUID)");
-        engine.ExecuteNonQuery(
-            "INSERT INTO T (Id, BT, SI, LG, DC, TN, MM, DT, YN) VALUES (1, 1, 2, 3, 4.5, '7', '8', #2020-01-02 12:00:00#, TRUE)");
-        engine.ExecuteNonQuery("UPDATE T SET G = {00112233-4455-6677-8899-AABBCCDDEEFF}");
-        return engine;
-    }
+    private static readonly string[] Setup =
+    [
+        "CREATE TABLE T (Id LONG, BT BYTE, SI SHORT, LG LONG, DC DECIMAL(18,4), TN TEXT(60), MM MEMO, NT TEXT(60), "
+            + "DT DATETIME, YN YESNO, G GUID)",
+        "INSERT INTO T (Id, BT, SI, LG, DC, TN, MM, DT, YN) VALUES (1, 1, 2, 3, 4.5, '7', '8', #2020-01-02 12:00:00#, TRUE)",
+        "UPDATE T SET G = {00112233-4455-6677-8899-AABBCCDDEEFF}",
+    ];
+
+    public sealed class Database() : SharedDatabase("unary-bitwise-", Setup);
 
     // Text is read as a number in the regional separators, so each query runs under en-US whatever the machine's
     // culture.
-    private static object? Query(string sql)
-    {
-        QueryEngine engine = Fresh();
-        CultureInfo previous = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = EnUs;
-        try
-        {
-            return engine.ExecuteQuery(sql).Rows.First()[0];
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = previous;
-        }
-    }
+    private object? Query(string sql) => database.Scalar(sql, EnUs);
 
-    private static object? Scalar(string expression) => Query($"SELECT {expression} FROM T");
+    private object? Scalar(string expression) => Query($"SELECT {expression} FROM T");
 
     [Theory]
     [InlineData("1 BOR 40000", 40001)]

@@ -1,3 +1,4 @@
+using EntityFrameworkCore.Jet.Data;
 using LibRed.Engine.Plan;
 using LibRed.Engine.Planning;
 using LibRed.Sql.Ast;
@@ -867,8 +868,15 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         return name switch
         {
             "COUNT" => typeof(int),
-            "SUM" or "MIN" or "MAX" or "FIRST" or "LAST" => argument,
+            "MIN" or "MAX" or "FIRST" or "LAST" => argument,
+            // Keep in lock-step with SumPreservingType.
+            "SUM" => argument == null ? null
+                : argument == typeof(decimal) || argument == typeof(float) || argument == typeof(long) ? argument
+                : argument == typeof(ulong) ? typeof(long)
+                : argument == typeof(double) || argument == typeof(string) || argument == typeof(DateTime) ? typeof(double)
+                : typeof(int),
             "AVG" => argument == typeof(decimal) ? typeof(decimal) : typeof(double),
+            "VAR" or "VARP" or "STDEV" or "STDEVP" or "STDDEV" or "STDDEVP" => typeof(double),
             "CBOOL" or "ISDATE" => typeof(bool),
             "CBYTE" => typeof(byte),
             "CINT" => typeof(short),
@@ -884,7 +892,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             "CDATE" or "NOW" or "DATE" or "TIME" or "DATEADD" or "DATESERIAL" or "TIMESERIAL"
                 or "DATEVALUE" or "TIMEVALUE" => typeof(DateTime),
             "SQR" or "SIN" or "COS" or "TAN" or "ATN" or "LOG" or "EXP" or "RND"
-                or "PMT" or "FV" or "PV" or "NPER" or "IPMT" or "PPMT" or "DDB" or "RATE" => typeof(double),
+                or "PMT" or "FV" or "PV" or "NPER" or "IPMT" or "PPMT" or "DDB" or "RATE" or "SLN" or "SYD" => typeof(double),
             "IIF" when function.Arguments.Count == 3 => SameType(
                 DeclaredType(function.Arguments[1], columns), DeclaredType(function.Arguments[2], columns)),
             // The standard makes COALESCE shorthand for a CASE over its arguments, so it takes the same rule:
@@ -921,8 +929,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
         if (op == BinaryOperator.Power)
             return typeof(double);
+        // Keep in lock-step with ExpressionEvaluator.Divide: a Single with only Singles, Integers or Booleans stays one.
         if (op == BinaryOperator.Divide)
-            return left == typeof(decimal) || right == typeof(decimal) ? typeof(decimal) : typeof(double);
+            return left == typeof(decimal) || right == typeof(decimal) ? typeof(decimal)
+                : (left == typeof(float) || right == typeof(float)) && IsSingleWidth(left) && IsSingleWidth(right) ? typeof(float)
+                : typeof(double);
         if (op is BinaryOperator.Modulo or BinaryOperator.IntDivide
             or BinaryOperator.BitAnd or BinaryOperator.BitOr or BinaryOperator.BitXor)
             return IsInt64(left) || IsInt64(right) ? typeof(long) : typeof(int);
@@ -962,6 +973,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     }
 
     private static bool IsInt64(Type type) => type == typeof(long) || type == typeof(ulong);
+
+    private static bool IsSingleWidth(Type type) => type == typeof(float) || type == typeof(short) || type == typeof(bool);
 
     private static bool IsConcatText(Type type) => type == typeof(string) || type == typeof(Guid) || type == typeof(byte[]);
 
@@ -1711,49 +1724,106 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         // unaffected by dedup, but applying it uniformly keeps the one code path.
         if (call.Distinct)
             values = DistinctValues(values);
+        if (name is "MIN" or "MAX")
+            return Extreme(values, name == "MAX");
         if (values.Count == 0)
-            return null; // SUM/AVG/MIN/MAX of nothing is NULL (COUNT already returned above)
+            return null; // SUM/AVG/… of nothing is NULL (COUNT already returned above)
+
+        // The numeric aggregates read each value as the conversion functions read it (verified vs ACE): text as a
+        // number (text that is not one is a type mismatch), a date as its serial, True as -1; a GUID or binary value
+        // is a type mismatch.
+        List<object> numbers = values.Select(v => ExpressionEvaluator.ConversionNumber(v!)).ToList();
 
         // Result types: SUM **preserves the input type** (int→int, long→long, decimal→decimal, …) so the EF
         // provider (which emits a bare SUM and reads by the LINQ operand type) round-trips without a cast.
-        // AVG is Double unless the input is Currency/Decimal (matches Access and LINQ). MIN/MAX keep the
-        // column's own value and type.
+        // AVG is Double unless the input is Currency/Decimal (matches Access and LINQ). A Decimal average keeps its full
+        // precision, as LINQ's does; ACE rounds a Currency average to four places and cuts a Decimal one to ten.
         var inv = System.Globalization.CultureInfo.InvariantCulture;
         return name switch
         {
-            "SUM" => SumPreservingType(values, inv),
-            "AVG" => values[0] is decimal ? values.Average(v => Convert.ToDecimal(v, inv)) : values.Average(v => Convert.ToDouble(v, inv)),
-            "MIN" => values.Aggregate((a, b) => ExpressionEvaluator.CompareForSort(a, b) <= 0 ? a : b),
-            "MAX" => values.Aggregate((a, b) => ExpressionEvaluator.CompareForSort(a, b) >= 0 ? a : b),
-            // Statistical aggregates. Sample forms (StDev/Var) divide by n-1 and are NULL for a single value;
-            // population forms (StDevP/VarP) divide by n. Verified vs ACE.
-            "VAR" or "STDEV" or "STDDEV" or "VARP" or "STDEVP" or "STDDEVP" => Statistic(name, values, inv),
+            "SUM" => SumPreservingType(numbers, inv),
+            "AVG" => numbers[0] is decimal ? numbers.Average(v => JetDecimalConverter.ToDecimal(v, inv)) : numbers.Average(v => Convert.ToDouble(v, inv)),
+            "VAR" or "STDEV" or "STDDEV" or "VARP" or "STDEVP" or "STDDEVP" =>
+                Statistic(name, numbers, ExpressionEvaluator.NumberTypeOf(arg!, columns, e => DeclaredType(e, columns)).Class == NumberClass.Currency),
             _ => throw new NotSupportedException($"Aggregate {call.Name} is not supported."),
         };
     }
 
-    /// <summary>Access statistical aggregates over the non-null values (verified vs ACE). VAR/STDEV are the
-    /// **sample** forms (divide by n−1, NULL for a single value); VARP/STDEVP the **population** forms (divide by
-    /// n). STDEV/STDEVP are the square roots of VAR/VARP.</summary>
-    private static object? Statistic(string name, List<object?> values, System.Globalization.CultureInfo inv)
+    /// <summary>
+    /// MIN or MAX in the sort order, keeping the value and its type. Empty text wins against any other text but then
+    /// counts as no value, so the next value replaces it, and empty text left at the end is Null (verified vs ACE:
+    /// Min of '5', 'x', '', '7' is '7', and Min of '5', '' is Null).
+    /// </summary>
+    private static object? Extreme(List<object?> values, bool max)
     {
-        int n = values.Count;
-        double mean = values.Average(v => Convert.ToDouble(v, inv));
-        double sumSq = values.Sum(v => { double d = Convert.ToDouble(v, inv) - mean; return d * d; });
-        bool sample = !name.EndsWith("P", StringComparison.Ordinal);   // VAR/STDEV sample; VARP/STDEVP population
-        if (sample && n < 2) return null;                              // sample variance of one value is undefined
-        double variance = sumSq / (sample ? n - 1 : n);
-        bool stdev = name.Contains("DEV", StringComparison.Ordinal);
-        return stdev ? Math.Sqrt(variance) : variance;
+        object? result = null;
+        foreach (object? value in values)
+        {
+            if (result is null or string { Length: 0 })
+                result = value;
+            else if (max ? ExpressionEvaluator.CompareForSort(value, result) > 0 : ExpressionEvaluator.CompareForSort(value, result) < 0)
+                result = value;
+        }
+        return result is string { Length: 0 } ? null : result;
+    }
+
+    /// <summary>
+    /// Access statistical aggregates (verified vs ACE, to the last bit). VAR/STDEV are the **sample** forms, Null for a
+    /// single value; VARP/STDEVP the **population** forms; STDEV/STDEVP are the square roots. ACE works them out as
+    /// (n·Σx² − (Σx)²) / (n·(n−1)), or / n² for the population, in doubles; a Single is squared in single precision,
+    /// and a Currency's square and squared sum are Currency products, rounded to four places.
+    /// </summary>
+    private static object? Statistic(string name, List<object> values, bool currency)
+    {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        bool sample = !name.EndsWith("P", StringComparison.Ordinal);
+        if (sample && values.Count < 2)
+            return null;
+
+        double sum = 0, squares = 0, squaredSum;
+        if (currency && values.All(v => v is decimal))
+        {
+            decimal exactSum = 0, exactSquares = 0;
+            foreach (object value in values)
+            {
+                decimal m = (decimal)value;
+                exactSum += m;
+                exactSquares += decimal.Round(m * m, 4);
+            }
+            squares = (double)exactSquares;
+            squaredSum = (double)decimal.Round(exactSum * exactSum, 4);
+        }
+        else
+        {
+            foreach (object value in values)
+            {
+                if (value is float f)
+                {
+                    sum += f;
+                    squares += f * f;
+                }
+                else
+                {
+                    double d = Convert.ToDouble(value, inv);
+                    sum += d;
+                    squares += d * d;
+                }
+            }
+            squaredSum = sum * sum;
+        }
+
+        double n = values.Count;
+        double variance = (n * squares - squaredSum) / (sample ? n * (n - 1) : n * n);
+        return name.Contains("DEV", StringComparison.Ordinal) ? Math.Sqrt(variance) : variance;
     }
 
     /// <summary>SUM keeping the operand's numeric type (as LINQ's <c>Sum</c> overloads do): integer types
-    /// (byte/short/int) sum to Int32, Int64 to Int64, Single to Single, Double to Double, Decimal/Currency
-    /// to Decimal.</summary>
-    private static object SumPreservingType(List<object?> values, System.Globalization.CultureInfo inv) =>
+    /// (Boolean/byte/short/int) sum to Int32, Int64 to Int64, Single to Single, Double to Double (text and dates
+    /// included, as their numbers), Decimal/Currency to Decimal.</summary>
+    private static object SumPreservingType(List<object> values, System.Globalization.CultureInfo inv) =>
         values[0] switch
         {
-            decimal => values.Sum(v => Convert.ToDecimal(v, inv)),
+            decimal => values.Sum(v => JetDecimalConverter.ToDecimal(v, inv)),
             double => values.Sum(v => Convert.ToDouble(v, inv)),
             float => (float)values.Sum(v => Convert.ToDouble(v, inv)),
             long or ulong => values.Sum(v => Convert.ToInt64(v, inv)),

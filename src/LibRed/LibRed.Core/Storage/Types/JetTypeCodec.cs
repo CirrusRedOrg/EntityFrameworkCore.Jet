@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text;
+using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
 using LibRed.Formats;
 
@@ -256,7 +257,7 @@ public static class JetTypeCodec
             case JetDataType.DateTimeExtended: // ACE 17 DATETIME2
                 return EncodeExtendedDateTime(Convert.ToDateTime(value, c));
             case JetDataType.Currency:
-                return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, (long)decimal.Round(Convert.ToDecimal(value, c) * 10000m)));
+                return Bytes(8, b => BinaryPrimitives.WriteInt64LittleEndian(b, (long)decimal.Round(JetDecimalConverter.ToDecimal(value, c) * 10000m)));
             case JetDataType.Guid:
                 // Coerced, not cast: every other type here accepts what the caller has (AsText, AsBinary, ToOaDate,
         // Convert.To*), and TableCreator.ConvertValue already parses a string GUID on the ALTER path. A hard
@@ -274,7 +275,7 @@ public static class JetTypeCodec
             case JetDataType.Binary:
                 return EncodeBinary(column, AsBinary(column, value));
             case JetDataType.FixedPoint:
-                return EncodeNumeric(column, Convert.ToDecimal(value, c));
+                return EncodeNumeric(column, JetDecimalConverter.ToDecimal(value, c));
 
             // Long values (memo/OLE): store the payload inline after the 12-byte descriptor (memo
             // text as UTF-16LE, OLE as raw bytes). LongValueReader reads this back via the inline

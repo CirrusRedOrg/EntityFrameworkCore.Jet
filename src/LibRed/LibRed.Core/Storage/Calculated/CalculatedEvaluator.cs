@@ -1,4 +1,5 @@
 using System.Globalization;
+using EntityFrameworkCore.Jet.Data;
 using LibRed.Catalog;
 
 namespace LibRed.Storage.Calculated;
@@ -574,7 +575,7 @@ internal static class CalculatedEvaluator
             JetDataType.Int64 => (long)Math.Round(ToNumber(value), MidpointRounding.ToEven),
             JetDataType.Single => (float)ToNumber(value),
             JetDataType.Double => ToNumber(value),
-            JetDataType.Currency => Math.Round((decimal)ToNumber(value), 4, MidpointRounding.ToEven),
+            JetDataType.Currency => Math.Round(JetDecimalConverter.FromDouble(ToNumber(value)), 4, MidpointRounding.ToEven),
             JetDataType.DateTime => ToDate(value),
             JetDataType.Text or JetDataType.Memo => ToText(value),
             _ => throw new CalculatedExpressionException($"Cannot store a calculated {type} value."),

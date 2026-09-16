@@ -67,14 +67,10 @@ internal static class SubqueryHoisting
         ColumnReference => false,
         LiteralExpression or ParameterExpression or SystemVariableExpression
             or StarExpression or QualifiedStarExpression => false,
-        BinaryExpression b => HasUnqualifiedColumn(b.Left) || HasUnqualifiedColumn(b.Right),
-        UnaryExpression u => HasUnqualifiedColumn(u.Operand),
-        FunctionCall f => f.Arguments.Any(HasUnqualifiedColumn),
-        InListExpression il => HasUnqualifiedColumn(il.Value) || il.Items.Any(HasUnqualifiedColumn),
         ScalarSubquery sq => StatementHasUnqualified(sq.Query),
         ExistsExpression ex => StatementHasUnqualified(ex.Query),
         InSubqueryExpression isq => HasUnqualifiedColumn(isq.Value) || StatementHasUnqualified(isq.Query),
-        _ => true, // unknown shape: assume the worst
+        _ => expression.Operands()?.Any(HasUnqualifiedColumn) ?? true, // unknown shape: assume the worst
     };
 
     private static bool StatementHasUnqualified(SqlStatement statement)
@@ -133,13 +129,9 @@ internal static class SubqueryHoisting
         ColumnReference => false,
         LiteralExpression or ParameterExpression or SystemVariableExpression
             or StarExpression or QualifiedStarExpression => false,
-        BinaryExpression b => Expr(b.Left, outer) || Expr(b.Right, outer),
-        UnaryExpression u => Expr(u.Operand, outer),
-        FunctionCall f => f.Arguments.Any(a => Expr(a, outer)),
-        InListExpression il => Expr(il.Value, outer) || il.Items.Any(i => Expr(i, outer)),
         ScalarSubquery sq => Statement(sq.Query, outer),
         ExistsExpression ex => Statement(ex.Query, outer),
         InSubqueryExpression isq => Expr(isq.Value, outer) || Statement(isq.Query, outer),
-        _ => true, // unknown expression shape
+        _ => e.Operands()?.Any(o => Expr(o, outer)) ?? true, // unknown expression shape
     };
 }

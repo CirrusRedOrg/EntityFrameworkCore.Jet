@@ -525,9 +525,6 @@ internal sealed class AstBuilder
     private static Expression LowerExpr(Expression e, HashSet<string> names) => e switch
     {
         ColumnReference { Table: null, Column: var c } when names.Contains(c) => new ParameterExpression(c),
-        BinaryExpression b => b with { Left = LowerExpr(b.Left, names), Right = LowerExpr(b.Right, names) },
-        UnaryExpression u => u with { Operand = LowerExpr(u.Operand, names) },
-        FunctionCall f => f with { Arguments = f.Arguments.Select(a => LowerExpr(a, names)).ToList() },
         // A window function lowers like any other call — arguments AND the OVER clause, since a PARAMETERS name
         // can appear in a PARTITION BY or ORDER BY expression just as readily as in an argument.
         WindowFunction w => w with
@@ -543,7 +540,7 @@ internal sealed class AstBuilder
         ScalarSubquery s => new ScalarSubquery(LowerParameters(s.Query, names)),
         ExistsExpression x => new ExistsExpression(LowerParameters(x.Query, names)),
         InSubqueryExpression i => i with { Value = LowerExpr(i.Value, names), Query = LowerParameters(i.Query, names) },
-        _ => e,
+        _ => e.MapOperands(o => LowerExpr(o, names)),
     };
 
     /// <summary>Decomposes a view's "simple SELECT" into the columns/tables/joins/where Access stores as
@@ -631,13 +628,13 @@ internal sealed class AstBuilder
         var qualifiers = new List<string>();
         void Walk(Expression e)
         {
-            switch (e)
+            if (e is ColumnReference { Table: { } q })
             {
-                case ColumnReference { Table: { } q } when !qualifiers.Contains(q): qualifiers.Add(q); break;
-                case BinaryExpression b: Walk(b.Left); Walk(b.Right); break;
-                case UnaryExpression u: Walk(u.Operand); break;
-                case FunctionCall f: foreach (Expression a in f.Arguments) Walk(a); break;
+                if (!qualifiers.Contains(q)) qualifiers.Add(q);
+                return;
             }
+            foreach (Expression operand in e.Operands() ?? [])
+                Walk(operand);
         }
         Walk(BuildExpression(condition));
         return (qualifiers.ElementAtOrDefault(0) ?? "", qualifiers.ElementAtOrDefault(1) ?? "");
@@ -934,12 +931,20 @@ internal sealed class AstBuilder
 
     internal static Expression BuildExpression(ExpressionContext ctx) => ctx switch
     {
-        NotExprContext n => new UnaryExpression(UnaryOperator.Not, BuildExpression(n.expression())),
-        BitNotExprContext n => new UnaryExpression(UnaryOperator.BitNot, BuildExpression(n.expression())),
-        NegateExprContext n => new UnaryExpression(UnaryOperator.Negate, BuildExpression(n.expression())),
-        PowExprContext p => new BinaryExpression(BinaryOperator.Power, BuildExpression(p.left), BuildExpression(p.right)),
+        NotExprContext n => new UnaryExpression(
+            n.op.Type == BNOT ? UnaryOperator.BitNot : UnaryOperator.Not, BuildExpression(n.expression())),
+        // A unary plus leaves its operand as it is.
+        NegateExprContext n => n.op.Type == PLUS
+            ? BuildExpression(n.expression())
+            : SignedNumber(n) is { } signed
+                ? PowerChain(signed.Number, signed.Exponents)
+                : new UnaryExpression(UnaryOperator.Negate, BuildExpression(n.expression())),
+        PowExprContext p => BuildPower(p),
         MulDivExprContext m => Binary(m.op, m.left, m.right),
-        AddConcatExprContext a => Binary(a.op, a.left, a.right),
+        IntDivExprContext d => Binary(d.op, d.left, d.right),
+        ModExprContext m => Binary(m.op, m.left, m.right),
+        AddSubExprContext a => Binary(a.op, a.left, a.right),
+        ConcatExprContext c => Binary(c.op, c.left, c.right),
         ComparisonExprContext c => Binary(c.op, c.left, c.right),
         BetweenExprContext b => BuildBetween(b),
         InExprContext i => BuildIn(i),
@@ -949,9 +954,11 @@ internal sealed class AstBuilder
             ? new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))
             : new UnaryExpression(UnaryOperator.Not, new BinaryExpression(BinaryOperator.Like, BuildExpression(l.left), BuildExpression(l.right))),
         IsNullExprContext n => new UnaryExpression(n.not is null ? UnaryOperator.IsNull : UnaryOperator.IsNotNull, BuildExpression(n.operand)),
-        BitwiseExprContext b => Binary(b.op, b.left, b.right),
-        AndExprContext a => new BinaryExpression(BinaryOperator.And, BuildExpression(a.left), BuildExpression(a.right)),
-        OrExprContext o => new BinaryExpression(BinaryOperator.Or, BuildExpression(o.left), BuildExpression(o.right)),
+        AndExprContext a => Binary(a.op, a.left, a.right),
+        OrExprContext o => Binary(o.op, o.left, o.right),
+        XorExprContext x => Binary(x.op, x.left, x.right),
+        EqvExprContext e => Binary(e.op, e.left, e.right),
+        ImpExprContext i => Binary(i.op, i.left, i.right),
         PrimaryExprContext p => BuildPrimary(p.primary()),
         _ => throw new SqlParseException($"Unsupported expression: {ctx.GetText()}"),
     };
@@ -1012,8 +1019,6 @@ internal sealed class AstBuilder
     private static Expression BuildColumn(ColumnRefContext ctx) =>
         new ColumnReference(OptionalIdentifier(ctx.qualifier), Identifier(ctx.name));
 
-    /// <summary>Lowers <c>x [NOT] BETWEEN lo AND hi</c> to <c>(x &gt;= lo AND x &lt;= hi)</c> (negated for NOT),
-    /// so no dedicated node is needed and the evaluator handles it via the comparison operators.</summary>
     /// <summary><c>x IN (a, b, …)</c> becomes a flat <see cref="InListExpression"/> evaluated iteratively — NOT a
     /// deep <c>(x = a) OR (x = b) OR …</c> tree, which recurses once per item and overflows the stack when EF Core
     /// inlines a "huge number of values" Contains (thousands of constants). The evaluator reproduces the same
@@ -1025,24 +1030,70 @@ internal sealed class AstBuilder
         return new InListExpression(value, items, ctx.not is not null);
     }
 
-    private static Expression BuildBetween(BetweenExprContext ctx)
-    {
-        Expression value = BuildExpression(ctx.val), lo = BuildExpression(ctx.lo), hi = BuildExpression(ctx.hi);
-        Expression range = new BinaryExpression(BinaryOperator.And,
-            new BinaryExpression(BinaryOperator.GreaterThanOrEqual, value, lo),
-            new BinaryExpression(BinaryOperator.LessThanOrEqual, value, hi));
-        return ctx.not is null ? range : new UnaryExpression(UnaryOperator.Not, range);
-    }
+    private static Expression BuildBetween(BetweenExprContext ctx) =>
+        new BetweenExpression(BuildExpression(ctx.val), BuildExpression(ctx.lo), BuildExpression(ctx.hi), ctx.not is not null);
 
     /// <summary>Parses an Access <c>#…#</c> date literal (e.g. <c>#1/1/1997#</c>, month/day/year) to a
     /// <see cref="DateTime"/>.</summary>
     private static DateTime ParseDate(string text) =>
         DateTime.Parse(text.Trim('#'), CultureInfo.InvariantCulture);
 
+    /// <summary>The exact value of a number written without an exponent; none for 1E5 or 1.5E2, or past a Decimal.</summary>
+    private static decimal? WrittenDecimal(string text) =>
+        text.IndexOfAny(['E', 'e']) < 0
+        && decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal value)
+            ? value : null;
+
+    /// <summary>
+    /// A minus written directly against a number that begins with a digit is part of that number, which is then a single
+    /// operand binding tighter than <c>^</c> (verified vs ACE: <c>-2 ^ 2</c> is 4 and <c>2 ^ -2 ^ 2</c> is 0.0625, while
+    /// <c>- 2 ^ 2</c>, <c>-(2) ^ 2</c> and <c>-.5 ^ 2</c> are -4, -4 and -0.25). The parser gives the minus the powers
+    /// that follow, so this returns the signed number and the exponents to apply to it in turn, or null when the minus
+    /// is an ordinary negation.
+    /// </summary>
+    private static (LiteralExpression Number, List<ExpressionContext> Exponents)? SignedNumber(NegateExprContext negation)
+    {
+        if (negation.op.Type != MINUS)
+            return null;
+
+        var exponents = new List<ExpressionContext>();
+        ExpressionContext leftmost = negation.expression();
+        while (leftmost is PowExprContext power)
+        {
+            exponents.Insert(0, power.right);
+            leftmost = power.left;
+        }
+        if (leftmost is not PrimaryExprContext primary || primary.primary() is not LiteralPrimaryContext literalPrimary)
+            return null;
+
+        LiteralContext literal = literalPrimary.literal();
+        string text = literal.GetText();
+        if (literal is not (IntLiteralContext or NumberLiteralContext)
+            || literal.Start.StartIndex != negation.op.StopIndex + 1
+            || !char.IsDigit(text[0]))
+            return null;
+
+        return (BuildNumber("-" + text, literal is IntLiteralContext ? INTEGER_LITERAL : NUMBER_LITERAL), exponents);
+    }
+
+    private static Expression PowerChain(Expression @base, IEnumerable<ExpressionContext> exponents) =>
+        exponents.Aggregate(@base, (result, exponent) =>
+            new BinaryExpression(BinaryOperator.Power, result, BuildExpression(exponent)));
+
+    private static Expression BuildPower(PowExprContext power) =>
+        power.right is NegateExprContext negation && SignedNumber(negation) is { } signed
+            ? PowerChain(new BinaryExpression(BinaryOperator.Power, BuildExpression(power.left), signed.Number), signed.Exponents)
+            : new BinaryExpression(BinaryOperator.Power, BuildExpression(power.left), BuildExpression(power.right));
+
+    /// <summary>A number literal, with the sign when a minus is written against it.</summary>
+    private static LiteralExpression BuildNumber(string text, int tokenType) => tokenType == INTEGER_LITERAL
+        ? new LiteralExpression(ParseInteger(text))
+        : new LiteralExpression(double.Parse(text, CultureInfo.InvariantCulture), WrittenDecimal(text));
+
     private static Expression BuildLiteral(LiteralContext ctx) => ctx switch
     {
-        IntLiteralContext i => new LiteralExpression(ParseInteger(i.GetText())),
-        NumberLiteralContext n => new LiteralExpression(double.Parse(n.GetText(), CultureInfo.InvariantCulture)),
+        IntLiteralContext i => BuildNumber(i.GetText(), INTEGER_LITERAL),
+        NumberLiteralContext n => BuildNumber(n.GetText(), NUMBER_LITERAL),
         HexLiteralContext h => new LiteralExpression(ParseHexBytes(h.GetText())),
         StringLiteralContext s => new LiteralExpression(Unquote(s.GetText())),
         DateLiteralContext d => new LiteralExpression(ParseDate(d.GetText())),
@@ -1071,6 +1122,11 @@ internal sealed class AstBuilder
         MOD => BinaryOperator.Modulo,
         BACKSLASH => BinaryOperator.IntDivide,
         AMP => BinaryOperator.Concat,
+        AND => BinaryOperator.And,
+        OR => BinaryOperator.Or,
+        XOR => BinaryOperator.Xor,
+        EQV => BinaryOperator.Eqv,
+        IMP => BinaryOperator.Imp,
         BAND => BinaryOperator.BitAnd,
         BOR => BinaryOperator.BitOr,
         BXOR => BinaryOperator.BitXor,

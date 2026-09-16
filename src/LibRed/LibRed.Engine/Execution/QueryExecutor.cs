@@ -4,8 +4,41 @@ using LibRed.Sql.Ast;
 
 namespace LibRed.Engine.Execution;
 
-/// <summary>A column produced by a plan node: an optional table-alias qualifier and a name.</summary>
-internal readonly record struct OutputColumn(string? Qualifier, string Name, Type? ClrType = null);
+/// <summary>A column produced by a plan node: an optional table-alias qualifier and a name. <paramref name="Currency"/>
+/// marks a Currency value, which shares <see cref="decimal"/> with Decimal but calculates differently, and
+/// <paramref name="Scale"/> a Decimal's places.</summary>
+internal readonly record struct OutputColumn(
+    string? Qualifier, string Name, Type? ClrType = null, bool Currency = false, int? Scale = null)
+{
+    /// <summary>The output of a stored column.</summary>
+    public static OutputColumn Of(string? qualifier, LibRed.Catalog.ColumnDef column) =>
+        new(qualifier, column.Name, Schema.JetClrTypeMap.ToClrType(column.Type),
+            column.Type == LibRed.Catalog.JetDataType.Currency,
+            column.Type == LibRed.Catalog.JetDataType.FixedPoint ? column.Scale : null);
+
+    /// <summary>A computed column of <paramref name="type"/>.</summary>
+    public static OutputColumn Computed(string name, Type? clrType, NumberType type) =>
+        new(null, name, clrType, type.Class == NumberClass.Currency,
+            type.Class == NumberClass.Decimal ? type.Places : null);
+
+    /// <summary>The column <paramref name="reference"/> names, or null when none or more than one does (execution
+    /// reports the ambiguous reference).</summary>
+    public static OutputColumn? Find(IReadOnlyList<OutputColumn> columns, ColumnReference reference)
+    {
+        OutputColumn? result = null;
+        foreach (OutputColumn column in columns)
+        {
+            if (!string.Equals(column.Name, reference.Column, StringComparison.OrdinalIgnoreCase)
+                || reference.Table is not null
+                && !string.Equals(column.Qualifier, reference.Table, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (result is not null) return null;
+            result = column;
+        }
+        return result;
+    }
+}
 
 /// <summary>
 /// Interprets a logical plan tree against the storage layer, producing a
@@ -453,8 +486,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 var table = _database.OpenTable(scan.Table);
                 string alias = scan.Alias ?? scan.Table;
-                var columns = table.Definition.Columns
-                    .Select(c => new OutputColumn(alias, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList();
+                var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, c)).ToList();
                 return (columns, table.Rows());
             }
 
@@ -462,8 +494,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 var table = _database.OpenTable(seek.Table);
                 string alias = seek.Alias ?? seek.Table;
-                var columns = table.Definition.Columns
-                    .Select(c => new OutputColumn(alias, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList();
+                var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, c)).ToList();
 
                 // Evaluate the key(s) in the outer scope (so an index-nested-loop join can key off the outer
                 // row); a single-table seek's key is a constant/parameter.
@@ -479,8 +510,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             {
                 var table = _database.OpenTable(range.Table);
                 string alias = range.Alias ?? range.Table;
-                var columns = table.Definition.Columns
-                    .Select(c => new OutputColumn(alias, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList();
+                var columns = table.Definition.Columns.Select(c => OutputColumn.Of(alias, c)).ToList();
 
                 var evaluator = new ExpressionEvaluator(new EvalScope([], [], outer), this, parameters: _parameters, session: _session);
                 int col = range.Index.Columns[0].Column.Index;
@@ -497,7 +527,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case DerivedTableNode derived:
             {
                 var (inner, rows) = Execute(derived.Input, outer);
-                var columns = inner.Select(c => new OutputColumn(derived.Alias, c.Name, c.ClrType)).ToList();
+                var columns = inner.Select(c => c with { Qualifier = derived.Alias }).ToList();
                 return (columns, rows);
             }
 
@@ -546,7 +576,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 var projected = rows.Select(row =>
                 {
                     var eval = Eval(columns, row, outer);
-                    return plan.Select(p => p.InputIndex >= 0 ? row[p.InputIndex] : eval.Evaluate(p.Expr!)).ToArray();
+                    return plan.Select(p => p.InputIndex >= 0
+                        ? row[p.InputIndex]
+                        : ExpressionEvaluator.ToResultPlaces(eval.Evaluate(p.Expr!), p.Type)).ToArray();
                 });
 
                 return (schema.Columns, projected);
@@ -686,7 +718,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// <summary>A ProjectNode's flattened output: the per-item plan (source input index, or an expression to
     /// evaluate) and the resulting output columns. Structural — the same for every outer row.</summary>
     private sealed record ProjectionSchema(
-        List<(OutputColumn Column, int InputIndex, Expression? Expr)> Plan, List<OutputColumn> Columns);
+        List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type)> Plan, List<OutputColumn> Columns);
 
     /// <summary>Builds — or reuses — a ProjectNode's schema. Flattens the projection, expanding a qualified star
     /// (Table.*) into the input columns of that source (passed through by index); every other item is an
@@ -696,19 +728,20 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (_projectionSchemas.TryGetValue(project, out ProjectionSchema? cached))
             return cached;
 
-        var plan = new List<(OutputColumn Column, int InputIndex, Expression? Expr)>();
+        var plan = new List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type)>();
         foreach (SelectItem item in project.Projection)
         {
             if (item.Value is QualifiedStarExpression star)
             {
                 for (int ci = 0; ci < columns.Count; ci++)
                     if (string.Equals(columns[ci].Qualifier, star.Table, StringComparison.OrdinalIgnoreCase))
-                        plan.Add((columns[ci], ci, null));
+                        plan.Add((columns[ci], ci, null, default));
             }
             else
             {
                 string name = item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{plan.Count + 1}");
-                plan.Add((new OutputColumn(null, name, DeclaredType(item.Value, columns)), -1, item.Value));
+                NumberType type = ExpressionEvaluator.NumberTypeOf(item.Value, columns, e => DeclaredType(e, columns));
+                plan.Add((OutputColumn.Computed(name, DeclaredType(item.Value, columns), type), -1, item.Value, type));
             }
         }
 
@@ -732,16 +765,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case SystemVariableExpression variable:
                 return variable.Name.Equals("ROWCOUNT", StringComparison.OrdinalIgnoreCase)
                     ? typeof(int) : _session?.LastIdentity?.GetType();
-            case ExistsExpression or InSubqueryExpression or InListExpression:
+            case ExistsExpression or InSubqueryExpression or InListExpression or BetweenExpression:
                 return typeof(bool);
             case UnaryExpression unary:
                 return unary.Operator is UnaryOperator.Not or UnaryOperator.IsNull or UnaryOperator.IsNotNull
-                    ? typeof(bool) : DeclaredType(unary.Operand, columns);
+                    ? typeof(bool) : DeclaredUnaryType(unary.Operator, DeclaredType(unary.Operand, columns));
             case BinaryExpression binary:
                 if (binary.Operator is BinaryOperator.Equal or BinaryOperator.NotEqual
                     or BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual
                     or BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual
-                    or BinaryOperator.And or BinaryOperator.Or or BinaryOperator.Like or BinaryOperator.In)
+                    or BinaryOperator.And or BinaryOperator.Or or BinaryOperator.Xor or BinaryOperator.Eqv
+                    or BinaryOperator.Imp or BinaryOperator.Like or BinaryOperator.In)
                     return typeof(bool);
                 if (binary.Operator == BinaryOperator.Concat)
                     return typeof(string);
@@ -823,23 +857,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             || type == typeof(int) || type == typeof(uint) || IsInt64(type)
             || type == typeof(float) || type == typeof(double) || type == typeof(decimal);
 
-    private static Type? DeclaredColumnType(ColumnReference reference, IReadOnlyList<OutputColumn> columns)
-    {
-        Type? result = null;
-        bool found = false;
-        foreach (OutputColumn column in columns)
-        {
-            if (!string.Equals(column.Name, reference.Column, StringComparison.OrdinalIgnoreCase)
-                || reference.Table is not null
-                && !string.Equals(column.Qualifier, reference.Table, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            if (found) return null; // execution will report the ambiguous reference
-            found = true;
-            result = column.ClrType;
-        }
-        return result;
-    }
+    private static Type? DeclaredColumnType(ColumnReference reference, IReadOnlyList<OutputColumn> columns) =>
+        OutputColumn.Find(columns, reference)?.ClrType;
 
     private Type? DeclaredFunctionType(FunctionCall function, IReadOnlyList<OutputColumn> columns)
     {
@@ -890,8 +909,16 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (left is null || right is null)
             return null;
 
-        if (op == BinaryOperator.Add && (left == typeof(string) || right == typeof(string)))
+        // '+' concatenates only two texts (a GUID or binary value counts as text). Otherwise an arithmetic
+        // operator reads text as a Double. Keep in lock-step with ExpressionEvaluator.Add and NumericOperand.
+        if (op == BinaryOperator.Add && IsConcatText(left) && IsConcatText(right))
             return typeof(string);
+        if (op is BinaryOperator.Add or BinaryOperator.Subtract or BinaryOperator.Multiply or BinaryOperator.Divide
+            or BinaryOperator.IntDivide or BinaryOperator.Modulo or BinaryOperator.Power)
+        {
+            if (left == typeof(string)) left = typeof(double);
+            if (right == typeof(string)) right = typeof(double);
+        }
         if (op == BinaryOperator.Power)
             return typeof(double);
         if (op == BinaryOperator.Divide)
@@ -918,7 +945,25 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         return typeof(int);
     }
 
+    /// <summary>The type of <c>-x</c> or <c>BNOT x</c>. Keep in lock-step with ExpressionEvaluator.Negate and BitNot:
+    /// negation reads text as a Double and widens an Integer, Byte or Boolean to a Long; BNOT gives a Long, or an
+    /// Int64 from an Int64.</summary>
+    private static Type? DeclaredUnaryType(UnaryOperator op, Type? operand)
+    {
+        if (operand is null)
+            return null;
+        if (op == UnaryOperator.BitNot)
+            return IsInt64(operand) ? typeof(long) : typeof(int);
+        if (operand == typeof(string))
+            return typeof(double);
+        if (operand == typeof(short) || operand == typeof(byte) || operand == typeof(bool))
+            return typeof(int);
+        return IsInt64(operand) ? typeof(long) : operand;
+    }
+
     private static bool IsInt64(Type type) => type == typeof(long) || type == typeof(ulong);
+
+    private static bool IsConcatText(Type type) => type == typeof(string) || type == typeof(Guid) || type == typeof(byte[]);
 
     /// <summary>The set of source-table qualifiers that supply the DISTINCTROW projection's output columns.
     /// An unqualified column is resolved to its source table via the input's columns.</summary>
@@ -943,11 +988,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         ColumnReference c => [(c.Table, c.Column)],
         QualifiedStarExpression qs => [(qs.Table, "*")],
-        BinaryExpression b => ColumnRefs(b.Left).Concat(ColumnRefs(b.Right)),
-        UnaryExpression u => ColumnRefs(u.Operand),
-        FunctionCall f => f.Arguments.SelectMany(ColumnRefs),
-        InListExpression il => ColumnRefs(il.Value).Concat(il.Items.SelectMany(ColumnRefs)),
-        _ => [],
+        _ => expression.Operands()?.SelectMany(ColumnRefs) ?? [],
     };
 
     /// <summary>
@@ -1014,8 +1055,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             var innerTable = _database.OpenTable(seek.Table);
             string innerAlias = seek.Alias ?? seek.Table;
             int innerWidth = innerTable.Definition.Columns.Count;
-            var seekColumns = innerTable.Definition.Columns
-                .Select(c => new OutputColumn(innerAlias, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList();
+            var seekColumns = innerTable.Definition.Columns.Select(c => OutputColumn.Of(innerAlias, c)).ToList();
             var joinColumns = leftColumns.Concat(seekColumns).ToList();
             int[] keyCols = seek.Index.Columns.Select(c => c.Column.Index).ToArray();
 
@@ -1506,10 +1546,13 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         var (inColumns, inRowsEnum) = Execute(node.Input, outer);
 
+        var outTypes = node.Projection
+            .Select(item => ExpressionEvaluator.NumberTypeOf(item.Value, inColumns, e => DeclaredType(e, inColumns))).ToList();
         var outColumns = node.Projection
-            .Select((item, i) => new OutputColumn(null,
+            .Select((item, i) => OutputColumn.Computed(
                 item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}"),
-                DeclaredType(item.Value, inColumns)))
+                DeclaredType(item.Value, inColumns),
+                outTypes[i]))
             .ToList();
 
         // A bare `SELECT COUNT(*)` wants the number of rows, not the rows. Everything below materialises the
@@ -1555,7 +1598,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             if (node.Having is not null && !eval.IsTrue(node.Having))
                 continue;
 
-            object?[] row = node.Projection.Select(item => eval.Evaluate(item.Value)).ToArray();
+            object?[] row = node.Projection
+                .Select((item, i) => ExpressionEvaluator.ToResultPlaces(eval.Evaluate(item.Value), outTypes[i])).ToArray();
             object?[] sortKeys = node.OrderBy.Select(k => eval.Evaluate(k.Value)).ToArray();
             object?[] groupKeys = node.GroupBy.Select(k => eval.Evaluate(k)).ToArray();
             outRows.Add((row, sortKeys, groupKeys));
@@ -1723,15 +1767,6 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case FunctionCall f when QueryPlanner.IsAggregate(f.Name):
                 yield return f;
                 break;
-            case FunctionCall f:
-                foreach (FunctionCall a in f.Arguments.SelectMany(Aggregates)) yield return a;
-                break;
-            case BinaryExpression b:
-                foreach (FunctionCall a in Aggregates(b.Left).Concat(Aggregates(b.Right))) yield return a;
-                break;
-            case UnaryExpression u:
-                foreach (FunctionCall a in Aggregates(u.Operand)) yield return a;
-                break;
             // Descend into subqueries: an aggregate over an *outer* column may appear there (a correlated
             // subquery). Its own aggregates come along too, but are skipped when they can't be computed in
             // this group's scope.
@@ -1744,17 +1779,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             case InSubqueryExpression i:
                 foreach (FunctionCall a in Aggregates(i.Value).Concat(AggregatesInSelect(i.Query))) yield return a;
                 break;
-            case InListExpression i:
-                foreach (FunctionCall a in Aggregates(i.Value).Concat(i.Items.SelectMany(Aggregates))) yield return a;
-                break;
-            // Both halves of every arm, and the ELSE. An aggregate in a CASE is computed for the group up
-            // front and handed to the evaluator by reference — the standard specifies the same order, that
-            // aggregates in a WHEN are evaluated before the CASE rather than by it. Conditions matter as much
+            // Operands include both halves of every CASE arm, and the ELSE. An aggregate in a CASE is computed for
+            // the group up front and handed to the evaluator by reference — the standard specifies the same order,
+            // that aggregates in a WHEN are evaluated before the CASE rather than by it. Conditions matter as much
             // as results: `HAVING CASE WHEN COUNT(*) > 1 THEN …` carries the aggregate in the condition.
-            case CaseExpression c:
-                foreach (FunctionCall a in c.WhenClauses
-                    .SelectMany(w => Aggregates(w.Condition).Concat(Aggregates(w.Result)))
-                    .Concat(c.ElseResult is { } e2 ? Aggregates(e2) : []))
+            default:
+                foreach (FunctionCall a in e.Operands()?.SelectMany(Aggregates) ?? [])
                     yield return a;
                 break;
         }

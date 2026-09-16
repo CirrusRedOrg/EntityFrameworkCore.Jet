@@ -3,8 +3,10 @@ namespace LibRed.Sql.Ast;
 /// <summary>Base type for scalar/boolean expressions.</summary>
 public abstract record Expression : SqlNode;
 
-/// <summary>A literal constant (number, string, date, boolean or null).</summary>
-public sealed record LiteralExpression(object? Value) : Expression;
+/// <summary>A literal constant (number, string, date, boolean or null). <paramref name="Written"/> is the exact value of
+/// a number written with a decimal point and no exponent, its scale the digits written after the point (<c>1.50</c> is
+/// 1.50); ACE reads such a literal as a Decimal and keeps no more places than that in a product or quotient.</summary>
+public sealed record LiteralExpression(object? Value, decimal? Written = null) : Expression;
 
 /// <summary>A reference to a column, optionally table-qualified.</summary>
 public sealed record ColumnReference(string? Table, string Column) : Expression;
@@ -29,7 +31,7 @@ public enum BinaryOperator
 {
     Add, Subtract, Multiply, Divide, Modulo, IntDivide, Power, Concat,
     Equal, NotEqual, LessThan, LessThanOrEqual, GreaterThan, GreaterThanOrEqual,
-    And, Or, Like, In,
+    And, Or, Xor, Eqv, Imp, Like, In,
     BitAnd, BitOr, BitXor, // Access bitwise operators BAND / BOR / BXOR (integers only)
 }
 
@@ -92,6 +94,10 @@ public sealed record InSubqueryExpression(Expression Value, SqlStatement Query, 
 /// of constants — evaluates iteratively instead of recursing once per item and overflowing the stack. Same SQL
 /// three-valued semantics as <see cref="InSubqueryExpression"/>.</summary>
 public sealed record InListExpression(Expression Value, IReadOnlyList<Expression> Items, bool Negated) : Expression;
+
+/// <summary><c>value [NOT] BETWEEN low AND high</c>: inclusive, with the bounds in either order, and Null when any of
+/// the three is Null.</summary>
+public sealed record BetweenExpression(Expression Value, Expression Low, Expression High, bool Negated) : Expression;
 
 /// <summary>
 /// The <c>DEFAULT</c> keyword used as a row value in an INSERT's table value constructor:

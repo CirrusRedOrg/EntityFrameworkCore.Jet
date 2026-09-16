@@ -223,7 +223,7 @@ contract.
 > underneath us. It did: dotnet/runtime#130566 (.NET 11 preview 7) dropped `Convert.ToDecimal`'s 15-significant-digit
 > rounding, which came from OA's own `VarDecFromR8` and had been stable since the 1990s. That turned
 > `SUM(ROUND(UnitPrice, 2))` into `58.600000000000001421085471520`. The fix was to own it:
-> `src/EFCore.Jet.Data/JetDecimalConverter.cs`. **When a long-stable conversion suddenly misbehaves with no code
+> `src/Shared/Data/JetDecimalConverter.cs` (compiled into both EFCore.Jet.Data and LibRed.Engine). **When a long-stable conversion suddenly misbehaves with no code
 > change on our side, suspect the runtime's OA-era compatibility behaviour before suspecting the provider.**
 
 ## LibRed — Native Managed Engine

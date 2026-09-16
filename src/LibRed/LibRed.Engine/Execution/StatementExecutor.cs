@@ -1,4 +1,5 @@
 using LibRed.Catalog;
+using LibRed.Engine.Planning;
 using LibRed.Sql.Ast;
 using LibRed.Sql.Parsing;
 using LibRed.Storage;
@@ -119,8 +120,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     private void EnforceCheckConstraints(TableDef definition, object?[] values)
     {
         if (definition.CheckConstraints.Count == 0) return;
-        var schema = definition.Columns
-            .Select(c => new OutputColumn(definition.Name, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList();
+        var schema = definition.Columns.Select(c => OutputColumn.Of(definition.Name, c)).ToList();
         var evaluator = new ExpressionEvaluator(new EvalScope(schema, values, null), _scalarRunner, _parameters, _session);
         foreach (var (name, expression) in definition.CheckConstraints)
             if (evaluator.Evaluate(_parser.ParseExpression(expression)) is false)
@@ -978,8 +978,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         {
             Table t = _database.OpenTable(n.Name);
             string alias = n.Alias ?? n.Name;
-            tables.Add(new SourceTable(alias, t, t.Definition.Columns
-                .Select(c => new OutputColumn(alias, c.Name, Schema.JetClrTypeMap.ToClrType(c.Type))).ToList(), null));
+            tables.Add(new SourceTable(alias, t, t.Definition.Columns.Select(c => OutputColumn.Of(alias, c)).ToList(), null));
             kinds.Add(kind);
             ons.Add(on);
         }
@@ -1011,7 +1010,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 plan, new EvalScope(outerColumns, new object?[outerColumns.Count], null));
 
             tables.Add(new SourceTable(
-                alias, null, columns.Select(c => new OutputColumn(alias, c.Name, c.ClrType)).ToList(), null, plan));
+                alias, null, columns.Select(c => c with { Qualifier = alias }).ToList(), null, plan));
             kinds.Add(kind);
             ons.Add(on);
         }
@@ -1242,19 +1241,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         IndexDef? index = def.Indexes.FirstOrDefault(ix => ix.RootPage > 0 && ix.Columns.Count == 1
             && string.Equals(ix.Columns[0].Column.Name, c.Column, StringComparison.OrdinalIgnoreCase));
-        return index is not null && ReferencesOnly(keySide, earlier) ? (index, keySide) : null;
+        return index is not null && IndexSelection.ReferencesOnly(keySide, earlier) ? (index, keySide) : null;
     }
-
-    private static bool ReferencesOnly(Expression e, HashSet<string> aliases) => e switch
-    {
-        ColumnReference { Table: { } t } => aliases.Contains(t),
-        ColumnReference => false, // unqualified — can't attribute it to an earlier table safely
-        LiteralExpression or ParameterExpression or SystemVariableExpression => true,
-        BinaryExpression b => ReferencesOnly(b.Left, aliases) && ReferencesOnly(b.Right, aliases),
-        UnaryExpression u => ReferencesOnly(u.Operand, aliases),
-        FunctionCall f => f.Arguments.All(a => ReferencesOnly(a, aliases)),
-        _ => false,
-    };
 
     /// <summary>The source-table index a SET assignment (or a delete target) applies to: the alias/table-name
     /// qualifier if given, else the single table (ambiguous when there are several).</summary>

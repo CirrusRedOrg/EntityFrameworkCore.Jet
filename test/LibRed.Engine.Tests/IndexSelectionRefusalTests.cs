@@ -43,8 +43,14 @@ public class IndexSelectionRefusalTests : TempDatabaseTest
     [Theory]
     [InlineData("SELECT Id FROM T WHERE A > (SELECT MAX(A) FROM T)")]
     [InlineData("SELECT Id FROM T WHERE A = B")]
+    [InlineData("SELECT Id FROM T WHERE Id > CASE WHEN A = 10 THEN 0 ELSE 5 END")]
+    [InlineData("SELECT Id FROM T WHERE Id BETWEEN A AND 5")]
     public void A_row_or_subquery_dependent_value_is_not_a_seek_bound(string sql)
         => Assert.False(ContainsSeek(Fresh().PlanFor(sql)));
+
+    [Fact]
+    public void A_case_over_the_row_is_evaluated_per_row()
+        => Assert.Single(Fresh().ExecuteQuery("SELECT Id FROM T WHERE Id > CASE WHEN A = 10 THEN 0 ELSE 5 END").Rows);
 
     [Fact]
     public void A_computed_derived_projection_is_not_assumed_hash_compatible()

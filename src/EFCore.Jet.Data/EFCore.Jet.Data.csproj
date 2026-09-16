@@ -11,6 +11,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<Compile Include="..\Shared\Data\JetDecimalConverter.cs" Link="JetDecimalConverter.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatform">
 			<_Parameter1>windows</_Parameter1>
 		</AssemblyAttribute>

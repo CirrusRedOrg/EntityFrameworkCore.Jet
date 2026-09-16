@@ -4,11 +4,35 @@
 // derived-table subqueries, WHERE, ORDER BY, TOP. The parse tree is lowered into
 // LibRed.Sql.Ast by AstBuilder, so the rest of the engine never sees these generated types.
 //
-// Dialect notes (vs ANSI): '&' string concat; MOD / '\' operators; '*'/'?' LIKE wildcards;
-// TOP n (no OFFSET); #1/1/2020# date literals; [bracketed] and `backtick` identifiers;
-// booleans -1/0.
+// Dialect notes (vs ANSI): '&' string concat; MOD / '\' operators; TOP n (no OFFSET);
+// #1/1/2020# date literals; [bracketed] and `backtick` identifiers; booleans -1/0.
 
 grammar AccessSql;
+
+@lexer::members {
+    // Whether the input ahead is any number of dashes and then a number: a digit, or a point and a digit.
+    private bool DashesThenNumber()
+    {
+        int i = 1;
+        while (InputStream.LA(i) == '-')
+            i++;
+        int c = InputStream.LA(i);
+        return c is >= '0' and <= '9' || c == '.' && InputStream.LA(i + 1) is >= '0' and <= '9';
+    }
+}
+
+@parser::members {
+    // The precedence the generated parser gives a BETWEEN's upper bound: that of the comparisons, one above BETWEEN.
+    private const int BetweenBoundPrecedence = 13;
+
+    // ANTLR parses the middle operand of an alternative at precedence 0 and has no syntax to raise it, which lets a
+    // BETWEEN's lower bound swallow the AND that ends it: `x BETWEEN 1 AND 10 AND y = 2` would read as
+    // `x BETWEEN (1 AND 10) AND (y = 2)`. The lower bound is the only operand parsed while its BETWEEN has no lower
+    // bound yet, so it is given the upper bound's precedence here.
+    public override void EnterRecursionRule(ParserRuleContext localctx, int state, int ruleIndex, int precedence) =>
+        base.EnterRecursionRule(localctx, state, ruleIndex,
+            localctx.Parent is BetweenExprContext { lo: null } ? Math.Max(precedence, BetweenBoundPrecedence) : precedence);
+}
 
 // A single statement, optionally terminated by ';' (EF Core emits a trailing semicolon).
 statement : parametersClause? (ifThenStatement | createTableStatement | createIndexStatement | createViewStatement | createProcedureStatement | alterTableStatement | dropStatement | insertStatement | updateStatement | deleteStatement | transactionStatement | executeStatement | systemVariableSelect | queryExpression) SEMI? EOF ;
@@ -374,21 +398,39 @@ orderByClause : ORDER BY orderByItem (COMMA orderByItem)* ;
 orderByItem : expression (dir=(ASC | DESC))? ;
 
 expression
-    : NOT expression                                                        # NotExpr
-    | BNOT expression                                                       # BitNotExpr
-    | MINUS expression                                                      # NegateExpr
-    | left=expression CARET right=expression                                 # PowExpr
-    | left=expression op=(STAR | SLASH | MOD | BACKSLASH) right=expression   # MulDivExpr
-    | left=expression op=(PLUS | MINUS | AMP) right=expression               # AddConcatExpr
+    : left=expression CARET right=expression                                 # PowExpr
+    // Negation binds looser than '^' and tighter than '*' (VBA operator precedence), except that a minus written
+    // against a number is part of that number (see AstBuilder.SignedNumber). A unary plus sits with it and leaves its
+    // operand as it is, text included (verified vs ACE: +'abc' is 'abc').
+    | op=(MINUS | PLUS) expression                                          # NegateExpr
+    // '*' '/', then '\', then MOD, each its own level (VBA operator precedence; verified vs ACE: 7 \ 2 * 3 is 1,
+    // 5 MOD 3 * 2 is 5, 10 MOD 4 \ 2 is 0).
+    | left=expression op=(STAR | SLASH) right=expression                     # MulDivExpr
+    | left=expression op=BACKSLASH right=expression                           # IntDivExpr
+    | left=expression op=MOD right=expression                                 # ModExpr
+    | left=expression op=(PLUS | MINUS) right=expression                     # AddSubExpr
+    // '&' binds looser than '+'/'-' and tighter than the comparisons (VBA operator precedence; verified vs
+    // ACE: 1 & 2 + 3 is '15').
+    | left=expression op=AMP right=expression                                 # ConcatExpr
     | left=expression op=(EQ | NEQ | LT | LTE | GT | GTE) right=expression   # ComparisonExpr
+    // The lower bound is parsed at the upper bound's precedence (see EnterRecursionRule above), so the AND between
+    // them is never taken into it.
     | val=expression not=NOT? BETWEEN lo=expression AND hi=expression        # BetweenExpr
     | left=expression not=NOT? LIKE right=expression                        # LikeExpr
     | val=expression not=NOT? IN LPAREN sub=queryExpression RPAREN                            # InSubqueryExpr
     | val=expression not=NOT? IN LPAREN items+=expression (COMMA items+=expression)* RPAREN  # InExpr
     | operand=expression IS not=NOT? NULL                                   # IsNullExpr
-    | left=expression op=(BAND | BOR | BXOR) right=expression               # BitwiseExpr
-    | left=expression AND right=expression                                  # AndExpr
-    | left=expression OR right=expression                                   # OrExpr
+    // NOT binds looser than the comparisons and tighter than AND (VBA operator precedence; verified vs ACE:
+    // NOT 1 = 2 is True). BNOT sits with it, and each bitwise operator with its logical one, left to right
+    // (verified vs ACE: BNOT 1 + 1 is -3, NOT 0 BAND 1 is 1, 2 AND 1 BAND 3 is 3, 0 OR 0 BOR 4 is 4).
+    | op=(NOT | BNOT) expression                                            # NotExpr
+    | left=expression op=(AND | BAND) right=expression                      # AndExpr
+    | left=expression op=(OR | BOR) right=expression                        # OrExpr
+    // XOR, then EQV, then IMP, each looser than the one before (VBA operator precedence; verified vs ACE:
+    // TRUE XOR TRUE OR TRUE is False, FALSE IMP FALSE EQV FALSE is True).
+    | left=expression op=(XOR | BXOR) right=expression                      # XorExpr
+    | left=expression op=EQV right=expression                               # EqvExpr
+    | left=expression op=IMP right=expression                               # ImpExpr
     | primary                                                               # PrimaryExpr
     ;
 
@@ -496,6 +538,9 @@ AS     : [Aa][Ss] ;
 AND    : [Aa][Nn][Dd] ;
 OR     : [Oo][Rr] ;
 NOT    : [Nn][Oo][Tt] ;
+XOR    : [Xx][Oo][Rr] ;
+EQV    : [Ee][Qq][Vv] ;
+IMP    : [Ii][Mm][Pp] ;
 BAND   : [Bb][Aa][Nn][Dd] ;
 BOR    : [Bb][Oo][Rr] ;
 BXOR   : [Bb][Xx][Oo][Rr] ;
@@ -642,5 +687,7 @@ IDENTIFIER      : [A-Za-z_][A-Za-z_0-9]* '$'? ;
 
 WS      : [ \t\r\n]+ -> skip ;
 // SQL comments — EF Core query tags prepend a `-- tag` line comment to the statement; also block comments.
-LINE_COMMENT  : '--' ~[\r\n]* -> skip ;
+// '--' starts a comment unless nothing but more dashes stands between it and a number, so '--2' and '---2' are
+// repeated negation as in ACE (which has no comments at all), while '--Before' is a comment.
+LINE_COMMENT  : '--' {!DashesThenNumber()}? ~[\r\n]* -> skip ;
 BLOCK_COMMENT : '/*' .*? '*/' -> skip ;

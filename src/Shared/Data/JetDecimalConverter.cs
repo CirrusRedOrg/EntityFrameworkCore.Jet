@@ -34,6 +34,10 @@ namespace EntityFrameworkCore.Jet.Data
     ///         divergence and sweeps 20,000 values to confirm the two never differ by more than one unit in the
     ///         15th significant digit.
     ///     </para>
+    ///     <para>
+    ///         The source is shared: it is compiled into both EntityFrameworkCore.Jet.Data and LibRed.Engine, which
+    ///         reference neither each other nor a common assembly that could hold it.
+    ///     </para>
     /// </summary>
     public static class JetDecimalConverter
     {

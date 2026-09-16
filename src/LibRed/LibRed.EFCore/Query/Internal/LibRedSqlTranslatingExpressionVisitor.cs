@@ -83,9 +83,6 @@ public class LibRedSqlTranslatingExpressionVisitor(
     private static readonly MethodInfo StringJoinMethodInfo
         = typeof(string).GetRuntimeMethod(nameof(string.Join), [typeof(string), typeof(string[])])!;
 
-    private const char LikeEscapeChar = '\\';
-    private const string LikeEscapeString = "\\";
-
     /// <summary>
     ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
     ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
@@ -300,8 +297,8 @@ public class LibRedSqlTranslatingExpressionVisitor(
             {
                 case SqlConstantExpression patternConstant:
                     {
-                        // The pattern is constant. Aside from null and empty string, we escape all special characters (%, _, \) and send a
-                        // simple LIKE
+                        // The pattern is constant. Aside from null and empty string, we bracket every wildcard character (see
+                        // IsLikeWildChar) and send a simple LIKE
                         translation = patternConstant.Value switch
                         {
                             null => _sqlExpressionFactory.Like(translatedInstance, _sqlExpressionFactory.Constant(null,typeof(string), stringTypeMapping)),
@@ -349,18 +346,18 @@ public class LibRedSqlTranslatingExpressionVisitor(
                                             _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
                                         })),
 
+                            // LibRed, like Jet, has no ESCAPE clause, so a wildcard character is bracketed as in a string pattern.
                             char s => _sqlExpressionFactory.Like(
                                 translatedInstance,
                                 _sqlExpressionFactory.Constant(
                                     methodType switch
                                     {
-                                        StartsEndsWithContains.StartsWith => LikeEscapeChar + s + "%",
-                                        StartsEndsWithContains.EndsWith => "%" + LikeEscapeChar + s,
-                                        StartsEndsWithContains.Contains => $"%{LikeEscapeChar}{s}%",
+                                        StartsEndsWithContains.StartsWith => EscapeLikePattern(s.ToString()) + "%",
+                                        StartsEndsWithContains.EndsWith => "%" + EscapeLikePattern(s.ToString()),
+                                        StartsEndsWithContains.Contains => $"%{EscapeLikePattern(s.ToString())}%",
 
                                         _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
-                                    }),
-                                _sqlExpressionFactory.Constant(LikeEscapeString)),
+                                    })),
 
                             _ => throw new UnreachableException()
                         };
@@ -485,9 +482,9 @@ public class LibRedSqlTranslatingExpressionVisitor(
 
             char s => methodType switch
             {
-                StartsEndsWithContains.StartsWith => LikeEscapeChar + s + "%",
-                StartsEndsWithContains.EndsWith => "%" + LikeEscapeChar + s,
-                StartsEndsWithContains.Contains => $"%{LikeEscapeChar}{s}%",
+                StartsEndsWithContains.StartsWith => EscapeLikePattern(s.ToString()) + "%",
+                StartsEndsWithContains.EndsWith => "%" + EscapeLikePattern(s.ToString()),
+                StartsEndsWithContains.Contains => $"%{EscapeLikePattern(s.ToString())}%",
                 _ => throw new ArgumentOutOfRangeException(nameof(methodType), methodType, null)
             },
 

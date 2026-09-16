@@ -183,16 +183,11 @@ public sealed class QueryPlanner
     internal static bool HasAggregate(Expression e) => e switch
     {
         FunctionCall f when IsAggregate(f.Name) => true,
-        FunctionCall f => f.Arguments.Any(HasAggregate),
-        BinaryExpression b => HasAggregate(b.Left) || HasAggregate(b.Right),
-        UnaryExpression u => HasAggregate(u.Operand),
-        // An aggregate inside a CASE has to be found here so it is computed per group and handed to the
-        // evaluator, rather than being reached during evaluation when no group scope can resolve it. The
-        // standard says the same: aggregates in a WHEN are evaluated before the CASE, not by it. Conditions
-        // count as well as results — HAVING CASE WHEN COUNT(*) > 1 … puts the aggregate in the condition.
-        CaseExpression c => c.WhenClauses.Any(w => HasAggregate(w.Condition) || HasAggregate(w.Result))
-            || (c.ElseResult is not null && HasAggregate(c.ElseResult)),
-        _ => false,
+        // Operands include a CASE's: an aggregate inside a CASE has to be found here so it is computed per group
+        // and handed to the evaluator, rather than being reached during evaluation when no group scope can
+        // resolve it. The standard says the same: aggregates in a WHEN are evaluated before the CASE, not by it.
+        // Conditions count as well as results — HAVING CASE WHEN COUNT(*) > 1 … puts the aggregate in the condition.
+        _ => e.Operands()?.Any(HasAggregate) ?? false,
     };
 
     /// <summary>
@@ -222,48 +217,19 @@ public sealed class QueryPlanner
     private static bool HasWindow(Expression e) => e switch
     {
         WindowFunction => true,
-        FunctionCall f => f.Arguments.Any(HasWindow),
-        BinaryExpression b => HasWindow(b.Left) || HasWindow(b.Right),
-        UnaryExpression u => HasWindow(u.Operand),
-        CaseExpression c => c.WhenClauses.Any(w => HasWindow(w.Condition) || HasWindow(w.Result))
-            || (c.ElseResult is not null && HasWindow(c.ElseResult)),
-        InListExpression il => HasWindow(il.Value) || il.Items.Any(HasWindow),
-        _ => false,
+        _ => e.Operands()?.Any(HasWindow) ?? false,
     };
 
     private static Expression LiftWindows(Expression e, List<WindowOutput> windows)
     {
-        switch (e)
-        {
-            case WindowFunction w:
-                // A name no identifier can spell: IDENTIFIER allows '$' only as a trailing character, so this
-                // cannot collide with a real column and be silently shadowed.
-                string name = $"$window{windows.Count}";
-                windows.Add(new WindowOutput(name, w));
-                return new ColumnReference(null, name);
-            case FunctionCall f:
-                return f with { Arguments = f.Arguments.Select(a => LiftWindows(a, windows)).ToList() };
-            case BinaryExpression b:
-                return b with { Left = LiftWindows(b.Left, windows), Right = LiftWindows(b.Right, windows) };
-            case UnaryExpression u:
-                return u with { Operand = LiftWindows(u.Operand, windows) };
-            case CaseExpression c:
-                return c with
-                {
-                    WhenClauses = c.WhenClauses
-                        .Select(w => w with { Condition = LiftWindows(w.Condition, windows), Result = LiftWindows(w.Result, windows) })
-                        .ToList(),
-                    ElseResult = c.ElseResult is null ? null : LiftWindows(c.ElseResult, windows),
-                };
-            case InListExpression il:
-                return il with
-                {
-                    Value = LiftWindows(il.Value, windows),
-                    Items = il.Items.Select(i => LiftWindows(i, windows)).ToList(),
-                };
-            default:
-                return e;
-        }
+        if (e is not WindowFunction w)
+            return e.MapOperands(o => LiftWindows(o, windows));
+
+        // A name no identifier can spell: IDENTIFIER allows '$' only as a trailing character, so this cannot
+        // collide with a real column and be silently shadowed.
+        string name = $"$window{windows.Count}";
+        windows.Add(new WindowOutput(name, w));
+        return new ColumnReference(null, name);
     }
 
     private static PlanNode PlanFrom(TableReference? from) => from switch
@@ -382,11 +348,8 @@ public sealed class QueryPlanner
             ColumnReference { Table: { } t } => Add(acc, t),
             ColumnReference => false, // unqualified — can't determine its table
             LiteralExpression or ParameterExpression or SystemVariableExpression => true,
-            BinaryExpression b => Collect(b.Left, acc) && Collect(b.Right, acc),
-            UnaryExpression u => Collect(u.Operand, acc),
-            FunctionCall f => f.Arguments.All(a => Collect(a, acc)),
-            InListExpression il => Collect(il.Value, acc) && il.Items.All(a => Collect(a, acc)),
-            _ => false, // subqueries (scalar/EXISTS/IN), qualified star, etc. — don't push
+            // Anything without operands — subqueries (scalar/EXISTS/IN), qualified star, etc. — isn't pushed.
+            _ => e.Operands()?.All(a => Collect(a, acc)) ?? false,
         };
         static bool Add(HashSet<string> acc, string t) { acc.Add(t); return true; }
     }

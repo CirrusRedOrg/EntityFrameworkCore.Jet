@@ -62,14 +62,7 @@ internal static class ViewExpander
             Value = RewriteExpression(i.Value, views, parser, active),
             Query = Rewrite(i.Query, views, parser, active),
         },
-        BinaryExpression b => b with
-        {
-            Left = RewriteExpression(b.Left, views, parser, active),
-            Right = RewriteExpression(b.Right, views, parser, active),
-        },
-        UnaryExpression u => u with { Operand = RewriteExpression(u.Operand, views, parser, active) },
-        FunctionCall f => f with { Arguments = f.Arguments.Select(a => RewriteExpression(a, views, parser, active)).ToList() },
-        _ => expr,
+        _ => expr.MapOperands(o => RewriteExpression(o, views, parser, active)),
     };
 
     private static TableReference RewriteSource(

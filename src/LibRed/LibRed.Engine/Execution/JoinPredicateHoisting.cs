@@ -76,30 +76,9 @@ internal static class JoinPredicateHoisting
                 return;
             }
 
-            switch (e)
+            foreach (Expression operand in e.Operands() ?? [])
             {
-                case BinaryExpression b:
-                    Walk(b.Left);
-                    Walk(b.Right);
-                    break;
-                case UnaryExpression u:
-                    Walk(u.Operand);
-                    break;
-                case FunctionCall f:
-                    foreach (Expression a in f.Arguments)
-                    {
-                        Walk(a);
-                    }
-
-                    break;
-                case InListExpression il:
-                    Walk(il.Value);
-                    foreach (Expression i in il.Items)
-                    {
-                        Walk(i);
-                    }
-
-                    break;
+                Walk(operand);
             }
         }
     }
@@ -112,21 +91,7 @@ internal static class JoinPredicateHoisting
     internal static Expression Substitute(Expression on, IReadOnlyDictionary<Expression, object?> values) =>
         values.TryGetValue(on, out object? value)
             ? new LiteralExpression(value)
-            : on switch
-            {
-                BinaryExpression b => b with
-                {
-                    Left = Substitute(b.Left, values),
-                    Right = Substitute(b.Right, values),
-                },
-                UnaryExpression u => u with { Operand = Substitute(u.Operand, values) },
-                FunctionCall f => f with { Arguments = f.Arguments.Select(a => Substitute(a, values)).ToList() },
-                InListExpression il => il with
-                {
-                    Value = Substitute(il.Value, values),
-                    Items = il.Items.Select(i => Substitute(i, values)).ToList(),
-                },
-                InSubqueryExpression isq => isq with { Value = Substitute(isq.Value, values) },
-                _ => on,
-            };
+            : on is InSubqueryExpression isq
+                ? isq with { Value = Substitute(isq.Value, values) }
+                : on.MapOperands(o => Substitute(o, values));
 }

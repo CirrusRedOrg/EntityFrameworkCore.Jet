@@ -4,9 +4,8 @@ using Xunit;
 
 namespace LibRed.Engine.Tests;
 
-// Access/Jet LIKE wildcards, including the bracket char class [ ... ] / [! ... ] and the # digit wildcard.
-// EF escapes literal special chars by bracketing them (Contains("C#") -> LIKE '%C[#]%'), so [#] must match
-// a literal '#', not the three characters "[#]".
+// ANSI-92 LIKE wildcards, including the bracket char class [ ... ] / [! ... ]. EF escapes special chars by
+// bracketing them (Contains("C#") -> LIKE '%C[#]%'), so [#] must match a literal '#', not the three characters "[#]".
 public class LikeTests : TempDatabaseTest
 {
     private static QueryEngine Fresh(params string[] values)
@@ -33,10 +32,12 @@ public class LikeTests : TempDatabaseTest
     }
 
     [Fact]
-    public void Hash_is_a_digit_wildcard_when_not_bracketed()
+    public void Hash_star_and_question_mark_are_plain_characters()
     {
-        var e = Fresh("A5", "AB", "A0", "A");
-        Assert.Equal(["A5", "A0"], Match(e, "A#"));
+        var e = Fresh("A5", "A#", "A*", "A?", "AB");
+        Assert.Equal(["A#"], Match(e, "A#"));
+        Assert.Equal(["A*"], Match(e, "A*"));
+        Assert.Equal(["A?"], Match(e, "A?"));
     }
 
     [Fact]

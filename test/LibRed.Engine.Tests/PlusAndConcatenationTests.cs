@@ -200,13 +200,9 @@ public class PlusAndConcatenationTests(PlusAndConcatenationTests.Database databa
     [Fact]
     public void Ampersand_writes_a_time_alone_on_the_epoch_day_and_both_otherwise()
     {
-        // The long time pattern is taken from the culture rather than written out: ICU versions differ on the
-        // space before AM/PM.
-        string longTime = EnUs.DateTimeFormat.LongTimePattern;
-        Assert.Equal(new DateTime(1899, 12, 30, 13, 0, 0).ToString(longTime, EnUs),
-            Scalar("'' & #1899-12-30 13:00:00#"));
-        Assert.Equal("1/2/2020 " + new DateTime(2020, 1, 2, 12, 0, 0).ToString(longTime, EnUs),
-            Scalar("D & ''"));
+        // A plain space before AM/PM on every platform, as ACE writes it, though newer ICU data has a narrow one.
+        Assert.Equal("1:00:00 PM", Scalar("'' & #1899-12-30 13:00:00#"));
+        Assert.Equal("1/2/2020 12:00:00 PM", Scalar("D & ''"));
     }
 
     [Theory]

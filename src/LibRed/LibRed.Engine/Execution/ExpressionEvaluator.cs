@@ -219,7 +219,7 @@ internal sealed partial class ExpressionEvaluator(
             // round half to even, as Convert.ToInt16/Int32/Byte do, and a value past the type is an overflow. ACE
             // raises "Invalid use of Null" for a Null argument; LibRed returns Null. CVar passes its argument
             // through (LibRed has no Variant type; ACE hands the value back as text).
-            "CCUR" => Convert1(f, v => ToCurrency(v)),
+            "CCUR" => DecimalArgument(f, ToCurrency),
             "CBOOL" => Convert1(f, v => VbaBool(v)),
             "CBYTE" => Convert1(f, v => Convert.ToByte(ConversionNumber(v), CultureInfo.InvariantCulture)),
             "CINT" => Convert1(f, v => (short)AsInteger(v)),
@@ -228,7 +228,7 @@ internal sealed partial class ExpressionEvaluator(
             "CDBL" => Convert1(f, v => Dbl(ConversionNumber(v))),
             // CDec has no ACE equivalent — the Jet Expression Service has no such function — so this is a
             // LibRed extension with no parity contract to honour. CCur is ACE's route to a decimal.
-            "CDEC" => Convert1(f, v => ArithmeticDecimal(ConversionNumber(v))),
+            "CDEC" => DecimalArgument(f, number => number),
             "CSTR" => Convert1(f, ConcatText),
             "CDATE" => Convert1(f, v => ToDate(v)),
             "CVAR" => Evaluate(f.Arguments[0]),
@@ -1372,10 +1372,28 @@ internal sealed partial class ExpressionEvaluator(
     /// as its serial and a Boolean as -1 or 0; a GUID or binary value is a type mismatch.</summary>
     internal static object ConversionNumber(object v) => Numeric(Serial(NumericOperand(v)!));
 
-    /// <summary>Access <c>CCur</c>: the value to four places, half to even; past a Currency is an overflow.</summary>
-    private static decimal ToCurrency(object v)
+    /// <summary>
+    /// A <c>CCur</c> or <c>CDec</c> argument as a Decimal, exactly where it can be: a number written with a decimal
+    /// point as written, and text that reads as a number within a Decimal's range as it reads (verified vs ACE:
+    /// CCur('12345678901234.5678') and CCur(12345678901234.5678) keep every place). Anything else is read as the
+    /// conversion functions read it. Null for a Null argument.
+    /// </summary>
+    private object? DecimalArgument(FunctionCall f, Func<decimal, decimal> convert)
     {
-        decimal value = decimal.Round(ArithmeticDecimal(ConversionNumber(v)), 4, MidpointRounding.ToEven);
+        if (WrittenValue(f.Arguments[0]) is decimal written)
+            return convert(written);
+        return Evaluate(f.Arguments[0]) switch
+        {
+            null => null,
+            (string or char) and var text when TextAsDecimal(text.ToString()!) is decimal exact => convert(exact),
+            var value => convert(ArithmeticDecimal(ConversionNumber(value))),
+        };
+    }
+
+    /// <summary>Access <c>CCur</c>: the value to four places, half to even; past a Currency is an overflow.</summary>
+    private static decimal ToCurrency(decimal number)
+    {
+        decimal value = decimal.Round(number, 4, MidpointRounding.ToEven);
         return Math.Abs(value) <= 922337203685477.5807m || value == -922337203685477.5808m
             ? value
             : throw new OverflowException($"Overflow: {value} is outside the range of a Currency.");

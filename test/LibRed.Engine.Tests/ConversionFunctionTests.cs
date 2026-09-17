@@ -87,7 +87,23 @@ public class ConversionFunctionTests(ConversionFunctionTests.Database database)
     [InlineData("CCUR('(5)')", "-5")]
     [InlineData("CCUR(1.23456)", "1.2346")]
     [InlineData("CCUR(TRUE)", "-1")]
+    // A number written with a decimal point, and text, are read exactly rather than as a Double (verified vs ACE).
+    [InlineData("CCUR('12345678901234.5678')", "12345678901234.5678")]
+    [InlineData("CCUR(12345678901234.5678)", "12345678901234.5678")]
+    [InlineData("CCUR('922337203685477.5807')", "922337203685477.5807")]
+    [InlineData("CCUR('1234567890123.45678')", "1234567890123.4568")]
     public void Ccur_converts_to_four_places(string expression, string expected) =>
+        Assert.Equal(decimal.Parse(expected, CultureInfo.InvariantCulture), Scalar(expression));
+
+    // CDec is a LibRed extension (ACE's expression service refuses it), reading its argument as CCur does.
+    [Theory]
+    [InlineData("CDEC(12345678901234567.123456789)", "12345678901234567.123456789")]
+    [InlineData("CDEC(-12345678901234567.123456789)", "-12345678901234567.123456789")]
+    [InlineData("CDEC('12345678901234567.123456789')", "12345678901234567.123456789")]
+    [InlineData("CDEC('1e3')", "1000")]
+    [InlineData("CDEC('&HFF')", "255")]
+    [InlineData("CDEC(0.1) + CDEC(0.2)", "0.3")]
+    public void Cdec_keeps_every_written_place(string expression, string expected) =>
         Assert.Equal(decimal.Parse(expected, CultureInfo.InvariantCulture), Scalar(expression));
 
     [Theory]

@@ -160,12 +160,16 @@ namespace EntityFrameworkCore.Jet.Data
                 ActiveTransaction = null;
             }
 
+            // The pool is keyed by the connection string the inner connection was opened with, which Open()
+            // rebuilds from _connectionString. Returning it under _connectionString would never be found again,
+            // so every Open() would create a new native connection and the pool would hold them all open.
+            var activeConnectionString = ActiveConnectionString;
             ActiveConnectionString = null;
 
             if (InnerConnection != null)
             {
                 InnerConnection.StateChange -= WrappedConnection_StateChange;
-                InnerConnectionFactory.Instance.CloseConnection(_connectionString, InnerConnection);
+                InnerConnectionFactory.Instance.CloseConnection(activeConnectionString, InnerConnection);
                 InnerConnection = null;
             }
 

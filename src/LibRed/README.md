@@ -184,9 +184,12 @@ Treat the number as of its date — an EF Core version bump moves it.
   what extended mode generates against (see the EF Core section below):
   - `CROSS APPLY` / `OUTER APPLY` — a lateral join, with the right side re-evaluated per left row. ACE has
     no syntax for either.
-  - **Window functions** — `ROW_NUMBER()`, `RANK()` and `DENSE_RANK()` with
-    `OVER (PARTITION BY … ORDER BY …)`. `OVER` hangs off any function call, so adding another is a registry
-    entry rather than a grammar change.
+  - **Window functions** — `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `NTILE(n)`, `PERCENT_RANK()`,
+    `CUME_DIST()`, `LAG`/`LEAD(x [, offset [, default]])`, and the aggregates (`COUNT`, `SUM`,
+    `AVG`, `MIN`, `MAX` and the statistical ones) over the standard's default frame, with
+    `OVER (PARTITION BY … ORDER BY …)`: with an ORDER BY a running value to the current row and its peers,
+    without one the whole partition. `OVER` hangs off any function call, so adding another is a registry entry
+    rather than a grammar change.
   - `FULL [OUTER] JOIN` — ACE offers only inner/left/right, and its query designer cannot express a full one.
   - **`OFFSET … ROWS FETCH NEXT … ROWS ONLY`** paging, where the count may be any expression, not just a
     literal. Access has only `TOP n`, and only with a literal.

@@ -133,9 +133,9 @@ public class WindowFunctionTests : TempDatabaseTest
     public void An_unknown_window_function_is_reported_by_name()
     {
         var ex = Assert.ThrowsAny<Exception>(() => Seeded().ExecuteQuery(
-            "SELECT NTILE(4) OVER (ORDER BY `Id`) AS `r` FROM `W`"));
+            "SELECT NTH_VALUE(`Id`, 2) OVER (ORDER BY `Id`) AS `r` FROM `W`"));
 
-        Assert.Contains("NTILE", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("NTH_VALUE", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

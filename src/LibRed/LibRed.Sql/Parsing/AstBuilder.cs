@@ -1005,9 +1005,14 @@ internal sealed class AstBuilder
             : ctx.expression().Select(BuildExpression).ToList();
         // An OVER clause turns the same call into a window function, which is a different kind of node rather
         // than a FunctionCall carrying a spec — see WindowFunction for why the distinction has to be in the type.
-        return ctx.windowSpecification() is { } over
-            ? new WindowFunction(FunctionName(ctx.name), args, BuildWindowSpec(over))
-            : new FunctionCall(FunctionName(ctx.name), args, Distinct: ctx.distinct is not null);
+        // A windowed aggregate takes no DISTINCT, as SQL Server and PostgreSQL refuse it.
+        if (ctx.windowSpecification() is { } over)
+        {
+            return ctx.distinct is null
+                ? new WindowFunction(FunctionName(ctx.name), args, BuildWindowSpec(over))
+                : throw new SqlParseException("DISTINCT is not allowed in a window function.");
+        }
+        return new FunctionCall(FunctionName(ctx.name), args, Distinct: ctx.distinct is not null);
     }
 
     private static WindowSpec BuildWindowSpec(WindowSpecificationContext ctx) =>

@@ -1,4 +1,3 @@
-using EntityFrameworkCore.Jet.Data;
 using LibRed.Engine.Plan;
 using LibRed.Engine.Planning;
 using LibRed.Sql.Ast;
@@ -971,22 +970,29 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private static Type? DeclaredColumnType(ColumnReference reference, IReadOnlyList<OutputColumn> columns) =>
         OutputColumn.Find(columns, reference)?.ClrType;
 
+    /// <summary>The declared type of an aggregate (upper-case name) over an argument of <paramref name="argument"/>,
+    /// grouped or windowed. Keep in lock-step with <see cref="RunningAggregate"/>.</summary>
+    internal static Type? AggregateResultType(string name, Type? argument) => name switch
+    {
+        "COUNT" => typeof(int),
+        "SUM" => argument == null ? null
+            : argument == typeof(decimal) || argument == typeof(float) || argument == typeof(long) ? argument
+            : argument == typeof(ulong) ? typeof(long)
+            : argument == typeof(double) || argument == typeof(string) || argument == typeof(DateTime) ? typeof(double)
+            : typeof(int),
+        "AVG" => argument == typeof(decimal) ? typeof(decimal) : typeof(double),
+        "VAR" or "VARP" or "STDEV" or "STDEVP" or "STDDEV" or "STDDEVP" => typeof(double),
+        _ => argument,   // MIN, MAX, FIRST and LAST keep the argument's type
+    };
+
     private Type? DeclaredFunctionType(FunctionCall function, IReadOnlyList<OutputColumn> columns)
     {
         string name = function.Name.TrimEnd('$').ToUpperInvariant();
         Type? argument = function.Arguments.Count > 0 ? DeclaredType(function.Arguments[0], columns) : null;
+        if (QueryPlanner.IsAggregate(name))
+            return AggregateResultType(name, argument);
         return name switch
         {
-            "COUNT" => typeof(int),
-            "MIN" or "MAX" or "FIRST" or "LAST" => argument,
-            // Keep in lock-step with SumPreservingType.
-            "SUM" => argument == null ? null
-                : argument == typeof(decimal) || argument == typeof(float) || argument == typeof(long) ? argument
-                : argument == typeof(ulong) ? typeof(long)
-                : argument == typeof(double) || argument == typeof(string) || argument == typeof(DateTime) ? typeof(double)
-                : typeof(int),
-            "AVG" => argument == typeof(decimal) ? typeof(decimal) : typeof(double),
-            "VAR" or "VARP" or "STDEV" or "STDEVP" or "STDDEV" or "STDDEVP" => typeof(double),
             "CBOOL" or "ISDATE" => typeof(bool),
             "CBYTE" => typeof(byte),
             "CINT" => typeof(short),
@@ -1576,11 +1582,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     {
         var (inColumns, inRowsEnum) = Execute(node.Input, outer);
 
-        var columns = inColumns.Concat(node.Outputs.Select(o => new OutputColumn(
-            null,
+        // A windowed aggregate's column is typed as the grouped aggregate's, Currency and places included.
+        var types = node.Outputs
+            .Select(o => WindowFunctions.Lookup(o.Function.Name).ResultType(new WindowTyping(this, o.Function.Arguments, inColumns)))
+            .ToList();
+        var columns = inColumns.Concat(node.Outputs.Select((o, i) => OutputColumn.Computed(
             o.Name,
-            WindowFunctions.Lookup(o.Function.Name).ResultType(
-                o.Function.Arguments.Count > 0 ? DeclaredType(o.Function.Arguments[0], inColumns) : null)))).ToList();
+            types[i],
+            QueryPlanner.IsAggregate(o.Function.Name)
+                ? ExpressionEvaluator.NumberTypeOf(new FunctionCall(o.Function.Name, o.Function.Arguments), inColumns, e => DeclaredType(e, inColumns))
+                : default,
+            o.Function))).ToList();
 
         IEnumerable<object?[]> Rows()
         {
@@ -1590,7 +1602,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 values[i] = new object?[node.Outputs.Count];
 
             for (int slot = 0; slot < node.Outputs.Count; slot++)
-                ComputeWindow(node.Outputs[slot].Function, rows, inColumns, outer, values, slot);
+                ComputeWindow(node.Outputs[slot].Function, rows, inColumns, outer, values, slot, types[slot]);
 
             for (int i = 0; i < rows.Count; i++)
                 yield return [.. rows[i], .. values[i]];
@@ -1599,10 +1611,27 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         return (columns, Rows());
     }
 
-    /// <summary>Computes one window function into <paramref name="slot"/> of every row's value array.</summary>
+    /// <summary>A window function's view of its arguments' declared types.</summary>
+    private sealed class WindowTyping(QueryExecutor executor, IReadOnlyList<Expression> arguments, IReadOnlyList<OutputColumn> columns)
+        : IWindowTyping
+    {
+        public Type? ArgumentType(int argument) =>
+            argument < arguments.Count ? executor.DeclaredType(arguments[argument], columns) : null;
+
+        public Type? SharedType(params int[] indexes)
+        {
+            var present = indexes.Where(i => i < arguments.Count).Select(i => arguments[i]).ToList();
+            return present.Any(a => a is not LiteralExpression { Value: null } && executor.DeclaredType(a, columns) is null)
+                ? null
+                : executor.UnifiedType(present, columns);
+        }
+    }
+
+    /// <summary>Computes one window function into <paramref name="slot"/> of every row's value array, each value as
+    /// the <paramref name="declared"/> type the column has.</summary>
     private void ComputeWindow(
         WindowFunction fn, List<object?[]> rows, IReadOnlyList<OutputColumn> columns, EvalScope? outer,
-        object?[][] values, int slot)
+        object?[][] values, int slot, Type? declared)
     {
         WindowFunctionDef def = WindowFunctions.Lookup(fn.Name);
         if (fn.Arguments.Count < def.MinArguments || fn.Arguments.Count > def.MaxArguments)
@@ -1637,8 +1666,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
             arguments[i] = fn.Arguments.Count == 0 ? [] : new object?[fn.Arguments.Count];
             for (int k = 0; k < fn.Arguments.Count; k++)
-                arguments[i][k] = eval.Evaluate(fn.Arguments[k]);
+                arguments[i][k] = fn.Arguments[k] is StarExpression ? null : eval.Evaluate(fn.Arguments[k]);
         }
+
+        bool star = fn.Arguments is [StarExpression];
+        bool currency = fn.Arguments is [var first] && !star && IsCurrency(first, columns);
 
         foreach (List<int> members in partitions.Values)
         {
@@ -1664,11 +1696,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
             var output = new object?[members.Count];
             def.Evaluate(
-                new WindowPartition(peerStart, peerOrdinal, members.Select(m => arguments[m]).ToList()), output);
+                new WindowPartition(peerStart, peerOrdinal, members.Select(m => arguments[m]).ToList(), star, currency),
+                output);
 
             // Scatter back to the input positions: the node emits rows in input order, not window order.
             for (int i = 0; i < members.Count; i++)
-                values[members[i]][slot] = output[i];
+                values[members[i]][slot] = ExpressionEvaluator.AsColumnType(output[i], declared, currency: false);
         }
     }
 
@@ -1824,14 +1857,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         ExpressionEvaluator.ValidateArity(name, call.Arguments.Count);
         Expression? arg = call.Arguments.Count > 0 ? call.Arguments[0] : null;
 
-        // COUNT is an Access Long Integer (32-bit) — EF reads it with GetInt32, so return int, not long.
-        if (name == "COUNT")
-        {
-            if (arg is StarExpression or null)
-                return group.Count; // COUNT(*) counts rows; DISTINCT is meaningless (and EF never emits it)
-            var counted = group.Select(r => Eval(columns, r, outer).Evaluate(arg)).Where(v => v is not null);
-            return call.Distinct ? DistinctValues(counted).Count : counted.Count();
-        }
+        // COUNT(*) counts rows; DISTINCT is meaningless there (and EF never emits it).
+        if (name == "COUNT" && arg is StarExpression or null)
+            return group.Count;
 
         // FIRST/LAST return the argument's value from the first/last row of the group in scan order — NOT
         // null-filtered (verified vs ACE: First over a leading NULL row returns NULL).
@@ -1840,116 +1868,21 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (name == "LAST")
             return group.Count == 0 ? null : Eval(columns, group[^1], outer).Evaluate(arg!);
 
-        var values = group.Select(r => Eval(columns, r, outer).Evaluate(arg!)).Where(v => v is not null).ToList();
-        // SUM(DISTINCT)/AVG(DISTINCT)/… aggregate the distinct set of the argument's values. MIN/MAX are
+        IEnumerable<object?> values = group.Select(r => Eval(columns, r, outer).Evaluate(arg!));
+        // COUNT(DISTINCT)/SUM(DISTINCT)/… aggregate the distinct set of the argument's values. MIN/MAX are
         // unaffected by dedup, but applying it uniformly keeps the one code path.
         if (call.Distinct)
-            values = DistinctValues(values);
-        if (name is "MIN" or "MAX")
-            return Extreme(values, name == "MAX");
-        if (values.Count == 0)
-            return null; // SUM/AVG/… of nothing is NULL (COUNT already returned above)
+            values = DistinctValues(values.Where(v => v is not null));
 
-        // The numeric aggregates read each value as the conversion functions read it (verified vs ACE): text as a
-        // number (text that is not one is a type mismatch), a date as its serial, True as -1; a GUID or binary value
-        // is a type mismatch.
-        List<object> numbers = values.Select(v => ExpressionEvaluator.ConversionNumber(v!)).ToList();
-
-        // Result types: SUM **preserves the input type** (int→int, long→long, decimal→decimal, …) so the EF
-        // provider (which emits a bare SUM and reads by the LINQ operand type) round-trips without a cast.
-        // AVG is Double unless the input is Currency/Decimal (matches Access and LINQ). A Decimal average keeps its full
-        // precision, as LINQ's does; ACE rounds a Currency average to four places and cuts a Decimal one to ten.
-        var inv = System.Globalization.CultureInfo.InvariantCulture;
-        return name switch
-        {
-            "SUM" => SumPreservingType(numbers, inv),
-            "AVG" => numbers[0] is decimal ? numbers.Average(v => JetDecimalConverter.ToDecimal(v, inv)) : numbers.Average(v => Convert.ToDouble(v, inv)),
-            "VAR" or "STDEV" or "STDDEV" or "VARP" or "STDEVP" or "STDDEVP" =>
-                Statistic(name, numbers, ExpressionEvaluator.NumberTypeOf(arg!, columns, e => DeclaredType(e, columns)).Class == NumberClass.Currency),
-            _ => throw new NotSupportedException($"Aggregate {call.Name} is not supported."),
-        };
-    }
-
-    /// <summary>
-    /// MIN or MAX in the sort order, keeping the value and its type. Empty text wins against any other text but then
-    /// counts as no value, so the next value replaces it, and empty text left at the end is Null (verified vs ACE:
-    /// Min of '5', 'x', '', '7' is '7', and Min of '5', '' is Null).
-    /// </summary>
-    private static object? Extreme(List<object?> values, bool max)
-    {
-        object? result = null;
+        var aggregate = new RunningAggregate(name, countRows: false, currency: IsCurrency(arg!, columns));
         foreach (object? value in values)
-        {
-            if (result is null or string { Length: 0 })
-                result = value;
-            else if (max ? ExpressionEvaluator.CompareForSort(value, result) > 0 : ExpressionEvaluator.CompareForSort(value, result) < 0)
-                result = value;
-        }
-        return result is string { Length: 0 } ? null : result;
+            aggregate.Add(value);
+        return aggregate.Result;
     }
 
-    /// <summary>
-    /// Access statistical aggregates (verified vs ACE, to the last bit). VAR/STDEV are the **sample** forms, Null for a
-    /// single value; VARP/STDEVP the **population** forms; STDEV/STDEVP are the square roots. ACE works them out as
-    /// (n·Σx² − (Σx)²) / (n·(n−1)), or / n² for the population, in doubles; a Single is squared in single precision,
-    /// and a Currency's square and squared sum are Currency products, rounded to four places.
-    /// </summary>
-    private static object? Statistic(string name, List<object> values, bool currency)
-    {
-        var inv = System.Globalization.CultureInfo.InvariantCulture;
-        bool sample = !name.EndsWith("P", StringComparison.Ordinal);
-        if (sample && values.Count < 2)
-            return null;
-
-        double sum = 0, squares = 0, squaredSum;
-        if (currency && values.All(v => v is decimal))
-        {
-            decimal exactSum = 0, exactSquares = 0;
-            foreach (object value in values)
-            {
-                decimal m = (decimal)value;
-                exactSum += m;
-                exactSquares += decimal.Round(m * m, 4);
-            }
-            squares = (double)exactSquares;
-            squaredSum = (double)decimal.Round(exactSum * exactSum, 4);
-        }
-        else
-        {
-            foreach (object value in values)
-            {
-                if (value is float f)
-                {
-                    sum += f;
-                    squares += f * f;
-                }
-                else
-                {
-                    double d = Convert.ToDouble(value, inv);
-                    sum += d;
-                    squares += d * d;
-                }
-            }
-            squaredSum = sum * sum;
-        }
-
-        double n = values.Count;
-        double variance = (n * squares - squaredSum) / (sample ? n * (n - 1) : n * n);
-        return name.Contains("DEV", StringComparison.Ordinal) ? Math.Sqrt(variance) : variance;
-    }
-
-    /// <summary>SUM keeping the operand's numeric type (as LINQ's <c>Sum</c> overloads do): integer types
-    /// (Boolean/byte/short/int) sum to Int32, Int64 to Int64, Single to Single, Double to Double (text and dates
-    /// included, as their numbers), Decimal/Currency to Decimal.</summary>
-    private static object SumPreservingType(List<object> values, System.Globalization.CultureInfo inv) =>
-        values[0] switch
-        {
-            decimal => values.Sum(v => JetDecimalConverter.ToDecimal(v, inv)),
-            double => values.Sum(v => Convert.ToDouble(v, inv)),
-            float => (float)values.Sum(v => Convert.ToDouble(v, inv)),
-            long or ulong => values.Sum(v => Convert.ToInt64(v, inv)),
-            _ => values.Sum(v => Convert.ToInt32(v, inv)),
-        };
+    /// <summary>Whether an aggregate's argument is a Currency, which the statistical aggregates square exactly.</summary>
+    private bool IsCurrency(Expression argument, IReadOnlyList<OutputColumn> columns) =>
+        ExpressionEvaluator.NumberTypeOf(argument, columns, e => DeclaredType(e, columns)).Class == NumberClass.Currency;
 
     private static IEnumerable<FunctionCall> Aggregates(Expression e)
     {

@@ -181,34 +181,52 @@ public class ReferencesAndIdentityAccessTests : TempDatabaseTest
     private static void AssertSameOutcome(string statements, string table, string? insertColumn, bool? accepted)
     {
         string[] sql = statements.Split(';');
-        string ace = Run(sql, table, insertColumn, (path, statement) =>
+        (string ace, string? aceError) = Run(sql, table, insertColumn, (path, statement) =>
         {
             using OleDbConnection connection = AceTestDatabase.Open(path);
             using OleDbCommand command = connection.CreateCommand();
             command.CommandText = statement;
             command.ExecuteNonQuery();
         });
-        string libred = Run(sql, table, insertColumn, (path, statement) =>
+        (string libred, string? libredError) = Run(sql, table, insertColumn, (path, statement) =>
         {
             using var db = JetDatabase.Open(path, readOnly: false);
             new QueryEngine(db).ExecuteNonQuery(statement);
         });
-        if (accepted is bool expected) Assert.Equal(expected, ace != "refused");
-        Assert.Equal(ace, libred);
+
+        // Say which side refused and why: a bare True/False cannot tell a real difference from a statement this ACE
+        // cannot run at all (a type it predates, say).
+        if (accepted is bool expected && expected != (aceError is null))
+        {
+            Assert.Fail(expected
+                ? $"ACE refused what the test expects it to accept. {aceError}"
+                : $"ACE accepted what the test expects it to refuse: {ace}");
+        }
+        if (ace != libred)
+        {
+            Assert.Fail($"LibRed and ACE differ.{Environment.NewLine}"
+                + $"ACE:    {ace} {aceError}{Environment.NewLine}"
+                + $"LibRed: {libred} {libredError}");
+        }
     }
 
-    /// <summary>Runs the statements on a fresh copy and describes the result: refused, or the table's columns and
-    /// relationships as LibRed's catalog reads them, then the ids three inserts receive.</summary>
-    private static string Run(string[] sql, string table, string? insertColumn, Action<string, string> execute)
+    /// <summary>Runs the statements on a fresh copy and describes the result: refused, with the statement and error
+    /// that refused it, or the table's columns and relationships as LibRed's catalog reads them, then the ids three
+    /// inserts receive.</summary>
+    private static (string Description, string? Error) Run(string[] sql, string table, string? insertColumn,
+        Action<string, string> execute)
     {
         string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "refident-");
-        try
+        foreach (string statement in sql)
         {
-            foreach (string statement in sql) execute(path, statement);
-        }
-        catch (Exception)
-        {
-            return "refused";
+            try
+            {
+                execute(path, statement);
+            }
+            catch (Exception e)
+            {
+                return ("refused", $"[{statement}] {e.GetType().Name}: {e.Message}");
+            }
         }
 
         var description = new List<string>();
@@ -246,6 +264,6 @@ public class ReferencesAndIdentityAccessTests : TempDatabaseTest
             }
         }
 
-        return string.Join("; ", description);
+        return (string.Join("; ", description), null);
     }
 }

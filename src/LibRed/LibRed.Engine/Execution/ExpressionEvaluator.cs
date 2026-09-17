@@ -62,6 +62,7 @@ internal sealed partial class ExpressionEvaluator(
             ? parameters.Resolve(p.Name)
             : throw new InvalidOperationException($"No parameters were supplied for '{p.Name}'."),
         SystemVariableExpression v => ResolveSystemVariable(v.Name),
+        OutputColumnPosition p => scope.At(p.Position),
         _ => throw new NotSupportedException($"Cannot evaluate {expression.GetType().Name}."),
     };
 

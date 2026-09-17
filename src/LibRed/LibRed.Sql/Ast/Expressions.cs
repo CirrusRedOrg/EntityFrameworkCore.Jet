@@ -20,6 +20,11 @@ public sealed record ParameterExpression(string Name) : Expression;
 /// without the leading <c>@@</c>.</summary>
 public sealed record SystemVariableExpression(string Name) : Expression;
 
+/// <summary>The <paramref name="Position"/>th (1-based) column of the rows being sorted — what <c>ORDER BY n</c> names
+/// where those rows are already the query's output (a <c>SELECT *</c>, or a set operation). Made by the planner, never
+/// parsed.</summary>
+public sealed record OutputColumnPosition(int Position) : Expression;
+
 /// <summary><c>*</c> in a projection or aggregate.</summary>
 public sealed record StarExpression : Expression;
 

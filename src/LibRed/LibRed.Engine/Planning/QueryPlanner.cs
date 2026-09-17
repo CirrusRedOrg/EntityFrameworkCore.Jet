@@ -25,7 +25,7 @@ public sealed class QueryPlanner
         // rows in the wrong order (measured against ACE).
         SetOperationStatement set => PageAndSort(
             new SetOperationNode(PlanStatement(set.Left), PlanStatement(set.Right), set.Operator),
-            set.OrderBy ?? [], set.Top, set.Offset),
+            OrderByPositions(set.OrderBy ?? [], _ => null), set.Top, set.Offset),
         ValuesStatement values => new ValuesNode(values.Rows),
         _ => throw new NotImplementedException(
             $"Planning for {statement.GetType().Name} is not yet implemented."),
@@ -52,6 +52,18 @@ public sealed class QueryPlanner
         // Shape: From (Scan/Join/Derived) → Filter → Sort → Project → Limit. ORDER BY is
         // applied over the source columns (before projection) so it can reference them.
         PlanNode node = PlanFrom(select.From);
+
+        // The sort runs on the source rows, below the projection, so a position becomes the projected expression
+        // it names; only a SELECT * sorts rows that are already its output.
+        if (select.OrderBy.Count > 0)
+        {
+            SelectStatement written = select;
+            select = select with
+            {
+                OrderBy = OrderByPositions(written.OrderBy,
+                    written.IsSelectStar ? _ => null : position => ProjectedAt(written, position)),
+            };
+        }
 
         if (select.Where is not null)
             node = PushPredicates(node, select.Where);
@@ -117,6 +129,39 @@ public sealed class QueryPlanner
         }
 
         return node;
+    }
+
+    /// <summary>
+    /// ORDER BY items that are a whole number written as such name the output column at that position (verified vs
+    /// ACE, as SQL-92 has it: ORDER BY 2 DESC sorts by the second column, and so does (2)); any other constant —
+    /// 1.5, '2', 1 + 1 — is left as a constant. A position below 1 names nothing and is an error, as is one past the
+    /// last column. <paramref name="projected"/> gives the expression at a position, or null where the rows sorted
+    /// are the output itself and the position is read from them.
+    /// </summary>
+    private static IReadOnlyList<OrderByItem> OrderByPositions(
+        IReadOnlyList<OrderByItem> orderBy, Func<int, Expression?> projected) =>
+        orderBy.Select(item => item.Value is LiteralExpression { Value: int or long or short or byte } literal
+            ? item with
+            {
+                Value = Convert.ToInt32(literal.Value, System.Globalization.CultureInfo.InvariantCulture) is var position
+                        && position >= 1
+                    ? projected(position) ?? new OutputColumnPosition(position)
+                    : throw NoSuchPosition(literal.Value!),
+            }
+            : item).ToList();
+
+    private static InvalidOperationException NoSuchPosition(object position) =>
+        new($"'{position}' is not a valid field name or expression: ORDER BY {position} names no output column.");
+
+    /// <summary>The projected expression at a 1-based position. A <c>table.*</c> before it would need the table's
+    /// columns counted, which the planner cannot, and is refused.</summary>
+    private static Expression ProjectedAt(SelectStatement select, int position)
+    {
+        if (position > select.Projection.Count)
+            throw NoSuchPosition(position);
+        if (select.Projection.Take(position).Any(item => item.Value is StarExpression or QualifiedStarExpression))
+            throw new NotSupportedException($"ORDER BY {position} after a table.* in the projection is not supported.");
+        return select.Projection[position - 1].Value;
     }
 
     /// <summary>

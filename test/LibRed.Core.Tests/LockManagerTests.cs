@@ -5,6 +5,10 @@ namespace LibRed.Core.Tests;
 
 public class LockManagerTests
 {
+    // How long to wait for the other thread to get in when it should. Only a failing test waits this long, so it is
+    // generous: a busy CI runner can take seconds to schedule the thread.
+    private const int Patience = 30_000;
+
     [Fact]
     public void Multiple_readers_hold_the_same_page_concurrently()
     {
@@ -15,9 +19,9 @@ public class LockManagerTests
         try
         {
             var secondEntered = new ManualResetEventSlim();
-            var t = Task.Run(() => { m.EnterShared(5); m.ExitShared(5); secondEntered.Set(); });
-            Assert.True(secondEntered.Wait(2000)); // not blocked by the first reader
-            t.Wait(2000);
+            Thread t = StartThread(() => { m.EnterShared(5); m.ExitShared(5); secondEntered.Set(); });
+            Assert.True(secondEntered.Wait(Patience)); // not blocked by the first reader
+            t.Join(Patience);
         }
         finally { m.ExitShared(5); }
     }
@@ -28,13 +32,24 @@ public class LockManagerTests
         var m = new MonitorLockManager();
         m.EnterExclusive(5);
 
+        var readerStarted = new ManualResetEventSlim();
         var readerEntered = new ManualResetEventSlim();
-        var reader = Task.Run(() => { m.EnterShared(5); m.ExitShared(5); readerEntered.Set(); });
+        Thread reader = StartThread(() => { readerStarted.Set(); m.EnterShared(5); m.ExitShared(5); readerEntered.Set(); });
 
+        Assert.True(readerStarted.Wait(Patience));
         Assert.False(readerEntered.Wait(250)); // the writer holds the page, so the reader can't enter
         m.ExitExclusive(5);
-        Assert.True(readerEntered.Wait(2000)); // released — the reader proceeds
-        reader.Wait(2000);
+        Assert.True(readerEntered.Wait(Patience)); // released — the reader proceeds
+        reader.Join(Patience);
+    }
+
+    // A thread of its own rather than Task.Run: the thread pool is shared with every test running in parallel, and
+    // can leave a queued item waiting longer than any sensible timeout.
+    private static Thread StartThread(Action body)
+    {
+        var thread = new Thread(() => body()) { IsBackground = true };
+        thread.Start();
+        return thread;
     }
 
     [Fact]

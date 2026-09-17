@@ -2324,12 +2324,17 @@ internal sealed partial class ExpressionEvaluator(
 
     private static readonly DateTime OaEpoch = new(1899, 12, 30);
 
+    /// <summary>The culture's long time pattern, with the narrow no-break space newer ICU data puts before AM/PM
+    /// (U+202F, on Linux and macOS) written as the plain space of Windows' regional settings, and so of ACE. A date
+    /// then writes the same text on every platform.</summary>
+    private static string LongTimePattern(DateTimeFormatInfo format) => format.LongTimePattern.Replace(' ', ' ');
+
     /// <summary>A date as <see cref="ConcatText"/> writes it; the year is not zero-padded (year 100 is "100") unless
     /// <paramref name="padYear"/> asks for it, as Format does.</summary>
     private static string DateText(DateTime d, bool padYear = false)
     {
         DateTimeFormatInfo format = CultureInfo.CurrentCulture.DateTimeFormat;
-        string time = d.ToString(format.LongTimePattern, CultureInfo.CurrentCulture);
+        string time = d.ToString(LongTimePattern(format), CultureInfo.CurrentCulture);
         if (d.Date == OaEpoch) return time;
         string datePattern = padYear
             ? format.ShortDatePattern

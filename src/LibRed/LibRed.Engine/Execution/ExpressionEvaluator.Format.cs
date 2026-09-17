@@ -350,7 +350,7 @@ internal sealed partial class ExpressionEvaluator
                 ('w', _) => WeekOfYear(date, first, rule).ToString(culture),
                 ('q', _) => ((date.Month + 2) / 3).ToString(culture),
                 ('c', _) => DateText(date, padYear: true),
-                _ => date.ToString(names.LongTimePattern, culture),
+                _ => date.ToString(LongTimePattern(names), culture),
             });
             afterHour = symbol == 'h';
             i += length;

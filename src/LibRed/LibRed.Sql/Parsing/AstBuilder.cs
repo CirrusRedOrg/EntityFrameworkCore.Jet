@@ -85,7 +85,7 @@ internal sealed class AstBuilder
 
     private static DeleteStatement BuildDelete(DeleteStatementContext ctx) =>
         new(OptionalIdentifier(ctx.target),
-            BuildTableSource(ctx.tableSource()),
+            BuildTableSources(ctx.tableSource()),
             ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null);
 
     private static UpdateStatement BuildUpdate(UpdateStatementContext ctx)
@@ -95,7 +95,7 @@ internal sealed class AstBuilder
                 OptionalIdentifier(a.target.qualifier), Identifier(a.target.name), BuildExpression(a.expression())))
             .ToList();
         Expression? where = ctx.whereClause() is { } w ? BuildExpression(w.expression()) : null;
-        return new UpdateStatement(BuildTableSource(ctx.tableSource()), assignments, where);
+        return new UpdateStatement(BuildTableSources(ctx.tableSource()), assignments, where);
     }
 
     private static SystemVariableSelectStatement BuildSystemVariableSelect(SystemVariableSelectContext ctx)
@@ -875,11 +875,13 @@ internal sealed class AstBuilder
         _ => throw new SqlParseException($"Unsupported select item: {ctx.GetText()}"),
     };
 
-    private static TableReference BuildFrom(FromClauseContext ctx)
+    private static TableReference BuildFrom(FromClauseContext ctx) => BuildTableSources(ctx.tableSource());
+
+    /// <summary>A comma list of table sources, which is an implicit cross join (no ON).</summary>
+    private static TableReference BuildTableSources(TableSourceContext[] sources)
     {
-        TableReference table = BuildTableSource(ctx.tableSource(0));
-        // Comma between sources is an implicit cross join (no ON).
-        foreach (TableSourceContext src in ctx.tableSource().Skip(1))
+        TableReference table = BuildTableSource(sources[0]);
+        foreach (TableSourceContext src in sources.Skip(1))
             table = new JoinTable(table, BuildTableSource(src), JoinKind.Cross, null);
         return table;
     }

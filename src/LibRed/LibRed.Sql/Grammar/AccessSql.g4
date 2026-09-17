@@ -49,14 +49,16 @@ executeStatement : (EXECUTE | EXEC) name=identifier (expression (COMMA expressio
 // UPDATE table SET col = expr, … [WHERE criteria]. The WHERE criteria is an ordinary expression, the same
 // as a SELECT's; each SET value expression may reference the row's current column values.
 // UPDATE tableexpression SET col=expr, … [WHERE …]. The tableexpression is a table SOURCE (Access allows a
-// join here), and a SET target may be table-qualified (col or alias.col) to touch a specific joined table.
-updateStatement : UPDATE tableSource SET assignment (COMMA assignment)* whereClause? ;
+// join here) or, as in a FROM clause, a comma list of them (verified vs ACE: UPDATE a, b SET … is accepted), and a
+// SET target may be table-qualified (col or alias.col) to touch a specific joined table.
+updateStatement : UPDATE tableSource (COMMA tableSource)* SET assignment (COMMA assignment)* whereClause? ;
 assignment : target=columnRef EQ expression ;
 
 // DELETE [table.* | *] FROM tableexpression [WHERE …]. For a join, the `table.*` target selects which
 // table's rows to delete; a bare `*` (or no target) is only valid for a single table — a join without a
 // `table.*` target is ambiguous and rejected at execution (matching Access, which asks you to specify it).
-deleteStatement : DELETE (target=identifier DOT STAR | STAR)? FROM tableSource whereClause? ;
+// As in a FROM clause, the tableexpression may be a comma list of sources (verified vs ACE).
+deleteStatement : DELETE (target=identifier DOT STAR | STAR)? FROM tableSource (COMMA tableSource)* whereClause? ;
 
 // A FROM-less SELECT of system variables only — ACE allows `SELECT @@IDENTITY` / `SELECT @@ROWCOUNT`
 // (and a comma list of them) with no FROM clause. Listed before queryExpression so it is preferred; a

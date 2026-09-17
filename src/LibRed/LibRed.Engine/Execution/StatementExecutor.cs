@@ -797,6 +797,40 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// from: NULL stores NULL, DEFAULT takes whatever the column declares.</summary>
     private static readonly object DefaultRowValue = new();
 
+    /// <summary>A table's columns with a DEFAULT value (parsed once), and its AutoNumber column if it has one — Jet
+    /// allows at most one, and its value after an insert is @@IDENTITY.</summary>
+    private sealed record RowDefaults(List<(int Index, Expression Expression)> Columns, ColumnDef? AutoNumber);
+
+    /// <summary>
+    /// The defaults a new row takes for the columns it omits, matching Access — EF Core relies on the store default
+    /// rather than supplying the value itself. AutoNumber columns are excluded: their value is assigned by the row
+    /// inserter (sequential counter, or a random Int32 for a GenUniqueID() "Random" AutoNumber), not by evaluating
+    /// the DefaultValue — and GenUniqueID() is not a callable expression, so parsing it as a default would fail.
+    /// </summary>
+    private RowDefaults DefaultsOf(TableDef definition) => new(
+        definition.Columns
+            .Where(c => c.DefaultValue is not null && !c.IsAutoNumber)
+            .Select(c => (c.Index, Expression: ParseDefaultExpression(c.DefaultValue!)))
+            .ToList(),
+        definition.Columns.FirstOrDefault(c => c.IsAutoNumber));
+
+    /// <summary>Writes a new row: every column not in <paramref name="provided"/> takes its default (an explicit
+    /// NULL is left as NULL), the row is checked as any insert is, and it is written. Returns its AutoNumber value,
+    /// if it has one.</summary>
+    private object? InsertNewRow(string tableName, Table table, RowDefaults defaults, object?[] values, IReadOnlySet<int> provided)
+    {
+        var evaluator = new ExpressionEvaluator(new EvalScope([], [], null), _scalarRunner, parameters: _parameters);
+        foreach (var (index, expression) in defaults.Columns)
+            if (!provided.Contains(index))
+                values[index] = evaluator.Evaluate(expression);
+
+        EnforceRequired(tableName, table.Definition.Columns, values);
+        EnforceReferentialIntegrity(tableName, table, values);
+        EnforceCheckConstraints(table.Definition, values);
+        table.Insert(values); // fills values[autoNumber.Index] with the generated id (array mutated in place)
+        return defaults.AutoNumber is { } autoNumber ? values[autoNumber.Index] : null;
+    }
+
     private int ExecuteInsert(InsertStatement statement)
     {
         Table table = _database.OpenTable(statement.Table);
@@ -812,19 +846,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         var evaluator = new ExpressionEvaluator(
             new EvalScope([], [], null), _scalarRunner, parameters: _parameters);
-
-        // Columns with a DEFAULT value (parsed once): applied to any row that omits the column, matching
-        // Access — EF Core relies on the store default rather than supplying the value itself.
-        // AutoNumber columns are excluded: their value is assigned by the row inserter (sequential counter, or
-        // a random Int32 for a GenUniqueID() "Random" AutoNumber), not by evaluating the DefaultValue — and
-        // GenUniqueID() is not a callable expression, so parsing it as a default would fail.
-        var defaultColumns = columns
-            .Where(c => c.DefaultValue is not null && !c.IsAutoNumber)
-            .Select(c => (c.Index, Expression: ParseDefaultExpression(c.DefaultValue!)))
-            .ToList();
-
-        // Jet allows at most one AutoNumber column; its post-insert value is @@IDENTITY.
-        ColumnDef? autoNumber = columns.FirstOrDefault(c => c.IsAutoNumber);
+        RowDefaults defaults = DefaultsOf(table.Definition);
 
         int affected = 0;
         object? lastIdentity = null;
@@ -845,7 +867,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                     ?? throw new InvalidOperationException($"Column '{targets[i]}' does not exist in '{statement.Table}'.");
 
                 // An explicit DEFAULT is not a value: leaving the column out of `provided` routes it through
-                // the default-filling loop below, so it takes its declared default, or stays NULL when it has
+                // InsertNewRow's default filling, so it takes its declared default, or stays NULL when it has
                 // none — which is what the standard specifies. A NOT NULL column with no default then fails
                 // EnforceRequired, as it should. An AutoNumber column takes its generated id, the same as it
                 // would from INSERT INTO t DEFAULT VALUES.
@@ -856,17 +878,9 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 provided.Add(column.Index);
             }
 
-            // Fill defaults for columns the insert didn't mention (an explicit NULL is left as NULL).
-            foreach (var (index, expression) in defaultColumns)
-                if (!provided.Contains(index))
-                    values[index] = evaluator.Evaluate(expression);
-
-            EnforceRequired(statement.Table, columns, values);
-            EnforceReferentialIntegrity(statement.Table, table, values);
-            EnforceCheckConstraints(table.Definition, values);
-            table.Insert(values); // fills values[autoNumber.Index] with the generated id (array mutated in place)
-            if (autoNumber is not null)
-                lastIdentity = values[autoNumber.Index];
+            object? identity = InsertNewRow(statement.Table, table, defaults, values, provided);
+            if (defaults.AutoNumber is not null)
+                lastIdentity = identity;
             affected++;
         }
 
@@ -916,7 +930,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         if (_session is not null)
         {
             _session.RowCount = affected;
-            if (autoNumber is not null)
+            if (defaults.AutoNumber is not null)
                 _session.LastIdentity = lastIdentity;
         }
         return affected;
@@ -928,8 +942,19 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// <see cref="Table"/> null and its already-materialised <see cref="DerivedRows"/> (never a target).</summary>
     /// <param name="Lateral">The plan of a LATERAL source — an APPLY's right side — which is re-executed once
     /// per outer row instead of being materialised, because it may correlate to the rows joined before it.</param>
+    /// <remarks>A writable derived table is one source table per table it reads, in a run: the first carries the
+    /// joined rows the derived query chose (<see cref="Combos"/>, <see cref="ComboWidth"/> tables wide) and the rest
+    /// are <see cref="InCombo"/>, filled from them. <see cref="CacheKey"/> tells a table's rows apart from another
+    /// table's under the same alias.</remarks>
     private sealed record SourceTable(string Alias, Table? Table, IReadOnlyList<OutputColumn> Columns,
-        IReadOnlyList<object?[]>? DerivedRows, Plan.PlanNode? Lateral = null);
+        IReadOnlyList<object?[]>? DerivedRows, Plan.PlanNode? Lateral = null)
+    {
+        public IReadOnlyList<(RowId Id, object?[] Values)[]>? Combos { get; init; }
+        public int ComboWidth { get; init; } = 1;
+        public bool InCombo { get; init; }
+        public string? Key { get; init; }
+        public string CacheKey => Key ?? Alias;
+    }
 
     /// <summary>How a join kind is handled in a DML source.</summary>
     private enum JoinShape
@@ -967,12 +992,16 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     /// <summary>Flattens the UPDATE/DELETE table source into its tables in order, each paired with the join that
     /// introduced it: its <see cref="JoinKind"/> and ON condition (the first/base table is Inner with a null ON).
-    /// INNER/CROSS/LEFT joins over named tables are supported — the left-deep form EF and Access emit.</summary>
-    private (List<SourceTable> Tables, List<JoinKind> Kinds, List<Expression?> Ons) ResolveSource(TableReference from)
+    /// INNER/CROSS/LEFT joins over named tables are supported — the left-deep form EF and Access emit — and the
+    /// bracketed groups WalkGroup describes. A table's group base, when it has one, is the table it is null-extended
+    /// with.</summary>
+    private (List<SourceTable> Tables, List<JoinKind> Kinds, List<Expression?> Ons, List<int?> GroupBases) ResolveSource(
+        TableReference from)
     {
         var tables = new List<SourceTable>();
         var kinds = new List<JoinKind>();
         var ons = new List<Expression?>();
+        var groupBases = new List<int?>();
 
         void EmitTable(NamedTable n, JoinKind kind, Expression? on)
         {
@@ -981,15 +1010,33 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             tables.Add(new SourceTable(alias, t, t.Definition.Columns.Select(c => OutputColumn.Of(alias, c)).ToList(), null));
             kinds.Add(kind);
             ons.Add(on);
+            groupBases.Add(null);
         }
 
         void EmitDerived(SubqueryTable sq, JoinKind kind, Expression? on)
         {
-            string alias = sq.Alias ?? throw new NotSupportedException("A derived table in an UPDATE/DELETE source requires an alias.");
+            if (WritableDerivedTable(sq) is { } writable)
+            {
+                // The ON and join kind go with the run's first table, which brings in all of the run's rows.
+                foreach (SourceTable table in writable)
+                {
+                    tables.Add(table);
+                    kinds.Add(table.InCombo ? JoinKind.Inner : kind);
+                    ons.Add(table.InCombo ? null : on);
+                    groupBases.Add(null);
+                }
+                return;
+            }
+
+            // Without an alias a derived table can only be the one being written, which this one cannot be.
+            string alias = sq.Alias ?? throw new NotSupportedException(
+                "Operation must use an updateable query: a derived table written to must select from one table, "
+                + "with no grouping or DISTINCT.");
             var (columns, rows) = ExecuteDerivedSource(sq.Query, alias);
             tables.Add(new SourceTable(alias, null, columns, rows));
             kinds.Add(kind);
             ons.Add(on);
+            groupBases.Add(null);
         }
 
         void EmitLateral(SubqueryTable sq, JoinKind kind, Expression? on)
@@ -1013,6 +1060,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 alias, null, columns.Select(c => c with { Qualifier = alias }).ToList(), null, plan));
             kinds.Add(kind);
             ons.Add(on);
+            groupBases.Add(null);
         }
 
         void Walk(TableReference r, JoinKind kind, Expression? on)
@@ -1044,6 +1092,10 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                     Walk(j.Right, j.Kind, j.On);
                     break;
 
+                case JoinShape.Conditional when j.Right is JoinTable group:
+                    WalkGroup(j, group);
+                    break;
+
                 // RIGHT JOIN keeps the right side: model it as the right side preserved (the base) with the left
                 // side LEFT-joined onto it. The SET/DELETE target is usually that left side — which then becomes
                 // the nullable side, so a right row with no match yields a null target that the WHERE drops.
@@ -1070,8 +1122,166 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             }
         }
 
+        // A join onto a bracketed group — UPDATE a, b INNER JOIN c ON … parses as a CROSS (b INNER c) — lays the
+        // group's tables out after the left side's, which gives the same rows in the shapes ACE accepts (verified):
+        //  - an inner or cross join whose ON reads only the tables before the group's first outer join, checked once
+        //    those have joined (a INNER JOIN (b LEFT JOIN c) ON a.x = b.x);
+        //  - a LEFT join onto a table followed only by LEFT joins, whose ON reads only that first table; when the
+        //    first table is null-extended so is the rest of the group (a LEFT JOIN (b LEFT JOIN c) ON a.x = b.x).
+        // ACE refuses the others ("JOIN expression not supported"), a LEFT join onto an inner join among them.
+        void WalkGroup(JoinTable j, JoinTable group)
+        {
+            Walk(j.Left, JoinKind.Inner, null);
+            int first = tables.Count;
+            Walk(group, JoinKind.Inner, null);
+            int end = tables.Count;
+
+            // The group's tables as units: a writable derived table's run is one, joined and null-extended whole
+            // (verified vs ACE, which accepts a derived join anywhere a table can be in these shapes).
+            List<int> units = Enumerable.Range(first, end - first).Where(t => !tables[t].InCombo).ToList();
+            int innerUnits = 1;
+            while (innerUnits < units.Count && kinds[units[innerUnits]] is JoinKind.Inner or JoinKind.Cross)
+                innerUnits++;
+            int innerEnd = innerUnits < units.Count ? units[innerUnits] : end;
+            bool left = j.Kind == JoinKind.Left;
+            HashSet<string> readable = tables.Take(left ? first + tables[first].ComboWidth : innerEnd)
+                .Select(t => t.Alias).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            bool onFits = j.On is null || Planning.IndexSelection.ReferencesOnly(j.On, readable);
+
+            if (!left && onFits)
+            {
+                int last = units[innerUnits - 1];
+                if (j.On is not null)
+                {
+                    ons[last] = ons[last] is { } own ? new BinaryExpression(BinaryOperator.And, own, j.On) : j.On;
+                    kinds[last] = JoinKind.Inner;
+                }
+            }
+            else if (left && onFits && innerUnits == 1 && units.Skip(1).All(u => kinds[u] == JoinKind.Left))
+            {
+                kinds[first] = JoinKind.Left;
+                ons[first] = j.On;
+                for (int i = first + tables[first].ComboWidth; i < end; i++)
+                    groupBases[i] ??= first;
+            }
+            else
+            {
+                throw new NotSupportedException($"UPDATE/DELETE over a {j.Kind} join onto this group is not supported.");
+            }
+        }
+
         Walk(from, JoinKind.Inner, null);
-        return (tables, kinds, ons);
+        return (tables, kinds, ons, groupBases);
+    }
+
+    /// <summary>
+    /// A derived table an UPDATE or DELETE can write through, as ACE allows (verified: UPDATE (SELECT TOP 2 * FROM t
+    /// ORDER BY Id DESC) SET x = 1 updates those two rows of t, and DELETE * FROM (SELECT …) deletes them): a SELECT
+    /// filtered, ordered and cut by its TOP or OFFSET, with no grouping or DISTINCT, over a table or a join. Its rows
+    /// are its tables' rows, so they can be written back: it becomes one source table per table it reads, whose
+    /// rows come together, as the query chose them. Without an alias it takes the name of the one table it reads.
+    /// <para>Only the columns it selects can be read or set, under the names it gives them (verified vs ACE: SELECT X
+    /// AS Y makes SET Y write X, and a column not selected is unknown). A computed item neither stops the rest being
+    /// written nor can itself be read. Null for any other query.</para>
+    /// </summary>
+    private List<SourceTable>? WritableDerivedTable(SubqueryTable sq)
+    {
+        if (sq.Query is not SelectStatement
+            {
+                From: NamedTable or JoinTable, GroupBy.Count: 0, Having: null, Distinct: false, Into: null,
+            } select
+            || select.Projection.Any(item => item.Value is StarExpression or QualifiedStarExpression && item.Alias is not null))
+            return null;
+
+        var (inner, kinds, ons, groupBases) = ResolveSource(select.From);
+        var innerColumns = inner.SelectMany(t => t.Columns).ToList();
+
+        // The name each column goes by, per table and by position; a column the query does not select has none.
+        var names = inner.Select(t => new string?[t.Columns.Count]).ToArray();
+        void Name(int table, int column, string name) => names[table][column] = name;
+        if (select.IsSelectStar)
+            for (int t = 0; t < inner.Count; t++)
+                for (int c = 0; c < inner[t].Columns.Count; c++) Name(t, c, inner[t].Columns[c].Name);
+        foreach (SelectItem item in select.Projection)
+        {
+            if (item.Value is ColumnReference reference)
+            {
+                // The one table's column it names; an ambiguous or unknown one exposes nothing.
+                var found = FindColumns(inner, reference.Table, reference.Column);
+                if (found.Count == 1)
+                    Name(found[0].Table, found[0].Position, item.Alias ?? inner[found[0].Table].Columns[found[0].Position].Name);
+                continue;
+            }
+            for (int t = 0; t < inner.Count; t++)
+            {
+                if (item.Value is StarExpression
+                    || item.Value is QualifiedStarExpression star && string.Equals(star.Table, inner[t].Alias, StringComparison.OrdinalIgnoreCase))
+                {
+                    for (int c = 0; c < inner[t].Columns.Count; c++) names[t][c] ??= inner[t].Columns[c].Name;
+                }
+            }
+        }
+        ExpressionEvaluator Over(object?[] values) =>
+            new(new EvalScope(innerColumns, values, null), _scalarRunner, _parameters, _session);
+
+        var rows = JoinRows(inner, kinds, ons, groupBases, select.Where, innerColumns);
+        object?[] Flat((RowId Id, object?[] Values)[] combo) => combo.SelectMany(c => c.Values).ToArray();
+        if (select.OrderBy.Count > 0)
+        {
+            // Stable, as a SELECT's ORDER BY is: rows with equal keys keep the order they were read in.
+            rows = rows
+                .Select(row => (Row: row, Keys: select.OrderBy.Select(o => Over(Flat(row)).Evaluate(o.Value)).ToArray()))
+                .OrderBy(keyed => keyed.Keys, Comparer<object?[]>.Create((a, b) =>
+                {
+                    for (int i = 0; i < a.Length; i++)
+                    {
+                        int order = ExpressionEvaluator.CompareForSort(a[i], b[i]);
+                        if (order != 0)
+                            return select.OrderBy[i].Direction == SortDirection.Descending ? -order : order;
+                    }
+                    return 0;
+                }))
+                .Select(keyed => keyed.Row)
+                .ToList();
+        }
+
+        var counts = new ExpressionEvaluator(new EvalScope([], [], null), _scalarRunner, _parameters, _session);
+        int Count(Expression e) => Convert.ToInt32(counts.Evaluate(e), System.Globalization.CultureInfo.InvariantCulture);
+        if (select.Offset is { } offset)
+            rows = rows.Skip(Math.Max(0, Count(offset))).ToList();
+        if (select.Top is { } top)
+        {
+            // TOP n PERCENT takes ceil(rows × n / 100), as a SELECT does.
+            int n = Count(top);
+            rows = rows.Take(select.TopPercent ? (int)(((long)rows.Count * n + 99) / 100) : Math.Max(0, n)).ToList();
+        }
+
+        // A column without a name stays in the row, where writing it back needs it, under a name no SQL can write.
+        string alias = sq.Alias ?? (inner.Count == 1 ? inner[0].Alias : "\0derived");
+        return inner.Select((t, i) => t with
+        {
+            Alias = alias,
+            Key = $"{alias}\0{t.CacheKey}",
+            Columns = t.Columns.Select((c, position) => c with { Qualifier = alias, Name = names[i][position] ?? HiddenColumn }).ToList(),
+            Combos = i == 0 ? rows : null,
+            ComboWidth = i == 0 ? inner.Count : 1,
+            InCombo = i > 0,
+        }).ToList();
+    }
+
+    private const string HiddenColumn = "\0hidden";
+
+    /// <summary>The table and position of every source column named <paramref name="column"/>: among the tables
+    /// <paramref name="qualifier"/> names — by alias, or failing that by table name — or among all of them.</summary>
+    private static List<(int Table, int Position)> FindColumns(List<SourceTable> tables, string? qualifier, string column)
+    {
+        IEnumerable<int> candidates = qualifier is null ? Enumerable.Range(0, tables.Count) : NamedTables(tables, qualifier);
+        var found = new List<(int, int)>();
+        foreach (int t in candidates)
+            for (int c = 0; c < tables[t].Columns.Count; c++)
+                if (string.Equals(tables[t].Columns[c].Name, column, StringComparison.OrdinalIgnoreCase))
+                    found.Add((t, c));
+        return found;
     }
 
     /// <summary>Runs a derived-table subquery (uncorrelated — a FROM/JOIN source) through the full query
@@ -1095,7 +1305,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// value accumulates across matches — matching Access (e.g. a "one"-side counter incremented per match).
     /// </summary>
     private List<(RowId Id, object?[] Values)[]> JoinRows(
-        List<SourceTable> tables, List<JoinKind> kinds, List<Expression?> ons, Expression? where, IReadOnlyList<OutputColumn> columns)
+        List<SourceTable> tables, List<JoinKind> kinds, List<Expression?> ons, List<int?> groupBases, Expression? where,
+        IReadOnlyList<OutputColumn> columns)
     {
         // A physical row's value array is shared across every join row it appears in (see the method summary).
         var cache = new Dictionary<(string, RowId), object?[]>();
@@ -1129,6 +1340,19 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
         var result = new List<(RowId, object?[])[]>();
         var acc = new (RowId, object?[])[tables.Count];
+        var nullExtended = new bool[tables.Count];
+
+        // A writable derived table's run of tables is null-extended, like its rows are joined, together.
+        void NullExtend(int i)
+        {
+            int width = tables[i].ComboWidth;
+            for (int k = i; k < i + width; k++)
+            {
+                acc[k] = (default, new object?[tables[k].Columns.Count]);
+                nullExtended[k] = true;
+            }
+            Recurse(i + width);
+        }
 
         bool Holds(Expression? predicate, int depth) =>
             predicate is null || new ExpressionEvaluator(
@@ -1141,6 +1365,38 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             {
                 if (Holds(where, tables.Count))
                     result.Add(((RowId, object?[])[])acc.Clone());
+                return;
+            }
+
+            // A table inside a LEFT-joined group has no row when the group's first table has none.
+            if (groupBases[i] is { } groupBase && nullExtended[groupBase])
+            {
+                NullExtend(i);
+                return;
+            }
+            nullExtended[i] = false;
+
+            // A writable derived table's rows, already joined, filtered, ordered and cut: each fills its run of
+            // tables at once, and this table's ON is checked once all of them are in.
+            if (tables[i].Combos is { } combos)
+            {
+                int width = tables[i].ComboWidth;
+                bool comboMatched = false;
+                foreach ((RowId, object?[])[] combo in combos)
+                {
+                    for (int k = 0; k < width; k++)
+                    {
+                        acc[i + k] = combo[k];
+                        nullExtended[i + k] = false;
+                    }
+                    if (Holds(ons[i], i + width))
+                    {
+                        comboMatched = true;
+                        Recurse(i + width);
+                    }
+                }
+                if (kinds[i] is JoinKind.Left or JoinKind.OuterApply && !comboMatched)
+                    NullExtend(i);
                 return;
             }
 
@@ -1177,7 +1433,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             {
                 // Share a physical row's array across the combos it appears in (counter-accumulation semantics);
                 // a derived row has no identity to share on, so use it directly.
-                acc[i] = tables[i].Table is null ? (id, values) : (id, Shared(tables[i].Alias, id, values));
+                acc[i] = tables[i].Table is null ? (id, values) : (id, Shared(tables[i].CacheKey, id, values));
                 if (Holds(ons[i], i + 1))
                 {
                     matched = true;
@@ -1188,10 +1444,7 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
             // LEFT join, and OUTER APPLY for the same reason: an outer row with no matching inner row is still
             // emitted, with the inner side all-null.
             if (kinds[i] is JoinKind.Left or JoinKind.OuterApply && !matched)
-            {
-                acc[i] = (default, new object?[tables[i].Columns.Count]);
-                Recurse(i + 1);
-            }
+                NullExtend(i);
         }
 
         Recurse(0);
@@ -1211,7 +1464,8 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
     /// expression (to seek it per outer row); else null (scan it).</summary>
     private static (IndexDef Index, Expression Key)? SeekPlanFor(int i, List<SourceTable> tables, Expression? on)
     {
-        if (on is null || tables[i].Table is null) return null; // a derived table has no index to seek
+        // A derived table has no index to seek, and a writable one's rows are already chosen.
+        if (on is null || tables[i].Table is null || tables[i].Combos is not null || tables[i].InCombo) return null;
         TableDef def = tables[i].Table!.Definition;
         string alias = tables[i].Alias;
         HashSet<string> earlier = tables.Take(i).Select(t => t.Alias).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -1244,17 +1498,31 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         return index is not null && IndexSelection.ReferencesOnly(keySide, earlier) ? (index, keySide) : null;
     }
 
-    /// <summary>The source-table index a SET assignment (or a delete target) applies to: the alias/table-name
-    /// qualifier if given, else the single table (ambiguous when there are several).</summary>
-    private static int TargetIndex(List<SourceTable> tables, string? qualifier, string what)
+    /// <summary>The tables a qualifier names: by alias, or failing that by table name.</summary>
+    private static List<int> NamedTables(List<SourceTable> tables, string qualifier)
     {
+        var byAlias = Enumerable.Range(0, tables.Count)
+            .Where(t => string.Equals(tables[t].Alias, qualifier, StringComparison.OrdinalIgnoreCase)).ToList();
+        return byAlias.Count > 0
+            ? byAlias
+            : Enumerable.Range(0, tables.Count)
+                .Where(t => string.Equals(tables[t].Table?.Name, qualifier, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    /// <summary>The source table a DELETE removes rows from: the one its <c>target.*</c> names, or the only one (a
+    /// join without a target is ambiguous). A writable derived table over a join is never one, as in ACE (verified:
+    /// "Could not delete from specified tables").</summary>
+    private static int DeleteTarget(List<SourceTable> tables, string? qualifier)
+    {
+        List<int> named = qualifier is null ? [.. Enumerable.Range(0, tables.Count)] : NamedTables(tables, qualifier);
+        if (named.Any(t => tables[t].ComboWidth > 1 || tables[t].InCombo))
+            throw new InvalidOperationException("Could not delete from specified tables.");
         if (qualifier is null)
             return tables.Count == 1 ? 0
-                : throw new InvalidOperationException($"{what} must be table-qualified when the statement joins several tables.");
-        int i = tables.FindIndex(t =>
-            string.Equals(t.Alias, qualifier, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(t.Table?.Name, qualifier, StringComparison.OrdinalIgnoreCase));
-        return i >= 0 ? i : throw new InvalidOperationException($"{what} '{qualifier}' is not one of the statement's tables.");
+                : throw new InvalidOperationException("DELETE target must be table-qualified when the statement joins several tables.");
+        return named.Count > 0
+            ? named[0]
+            : throw new InvalidOperationException($"DELETE target '{qualifier}' is not one of the statement's tables.");
     }
 
     /// <summary>The physical <see cref="Table"/> a SET/DELETE targets — a derived table (subquery source) has no
@@ -1264,39 +1532,73 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     /// <summary>
     /// Executes UPDATE tableexpression SET col = expr, … [WHERE criteria]. The table expression may be a join,
-    /// and each SET target may name a specific joined table (Access's multi-table update). Each SET expression
-    /// may reference the current values; the WHERE is an ordinary expression (correlated EXISTS included).
-    /// Rows are rewritten in place (row id preserved). @@ROWCOUNT = matched join rows.
+    /// and each SET target may name a specific joined table (Access's multi-table update). The WHERE is an
+    /// ordinary expression (correlated EXISTS included). Rows are rewritten in place (row id preserved).
+    /// @@ROWCOUNT = matched join rows.
+    /// <para>Every SET expression reads the joined row as it was before any of its SETs, so SET x = y, y = x
+    /// swaps the two (verified vs ACE). A target row that several joined rows match is updated once per match, each
+    /// match reading what the one before left (verified vs ACE: SET a.x = a.x + 1 over two matches adds 2). A column
+    /// set twice is an error, as in ACE ("Duplicate output destination").</para>
+    /// <para>A SET on the side of an outer join that a joined row has no match in writes a new row into that table,
+    /// one per such joined row, holding the SET values and the table's defaults (verified vs ACE: SET b.v = 3 over
+    /// a LEFT JOIN b adds a row with v = 3 for each unmatched row of the left table, even when the value is
+    /// Null).</para>
     /// </summary>
     private int ExecuteUpdate(UpdateStatement statement)
     {
-        var (tables, kinds, ons) = ResolveSource(statement.From);
+        var (tables, kinds, ons, groupBases) = ResolveSource(statement.From);
         var columns = tables.SelectMany(t => t.Columns).ToList();
-        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, statement.Where, columns);
+        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, groupBases, statement.Where, columns);
 
         // Resolve each assignment to its (table index, column) once.
         var targets = statement.Assignments.Select(a =>
         {
-            int ti = TargetIndex(tables, a.Table, "UPDATE SET column");
+            // By the name the source gives the column, which a writable derived table may change or leave out. An
+            // unqualified name is looked for in every table, as ACE does, and must be in exactly one.
+            var found = FindColumns(tables, a.Table, a.Column);
+            if (found.Count > 1)
+                throw new InvalidOperationException(
+                    $"The specified field '{a.Column}' could refer to more than one table listed in the FROM clause.");
+            if (found.Count == 0)
+                throw new InvalidOperationException(a.Table is not null && NamedTables(tables, a.Table).Count == 0
+                    ? $"UPDATE SET column '{a.Table}' is not one of the statement's tables."
+                    : $"Column '{(a.Table is null ? "" : a.Table + ".")}{a.Column}' does not exist.");
+            (int ti, int position) = found[0];
             Table tt = TargetTable(tables, ti);
-            ColumnDef col = tt.Definition.FindColumn(a.Column)
-                ?? throw new InvalidOperationException($"Column '{a.Column}' does not exist in '{tt.Name}'.");
+            ColumnDef col = tt.Definition.Columns[position];
             return (TableIndex: ti, Column: col, a.Value);
         }).ToList();
+        if (targets.GroupBy(t => (t.TableIndex, t.Column.Index)).FirstOrDefault(g => g.Count() > 1) is { } duplicate)
+            throw new InvalidOperationException(
+                $"Duplicate output destination '{tables[duplicate.Key.TableIndex].Alias}.{duplicate.First().Column.Name}'.");
 
         // Apply SETs to the shared value arrays; snapshot each touched row's original bytes on first touch.
         var dirty = new Dictionary<(string, RowId), (Table Table, RowId Id, object?[] Original, object?[] Values)>();
+        // A null-extended side's value array is the joined row's own, so it keys the new row it becomes.
+        var newRows = new Dictionary<object?[], (Table Table, HashSet<int> Provided)>(ReferenceEqualityComparer.Instance);
         foreach (var combo in joinRows)
         {
-            foreach ((int ti, ColumnDef col, Expression valueExpr) in targets)
-            {
-                object?[] shared = combo[ti].Values;
-                var key = (tables[ti].Alias, combo[ti].Id);
-                if (!dirty.ContainsKey(key)) dirty[key] = (TargetTable(tables, ti), combo[ti].Id, (object?[])shared.Clone(), shared);
+            // Every SET of this joined row reads the row as it was before any of them.
+            object?[] flat = combo.SelectMany(c => c.Values).ToArray();
+            var eval = new ExpressionEvaluator(new EvalScope(columns, flat, null), _scalarRunner, _parameters, _session);
+            object?[] results = targets.Select(t => eval.Evaluate(t.Value)).ToArray();
 
-                object?[] flat = combo.SelectMany(c => c.Item2).ToArray();
-                var eval = new ExpressionEvaluator(new EvalScope(columns, flat, null), _scalarRunner, _parameters, _session);
-                shared[col.Index] = eval.Evaluate(valueExpr);
+            for (int i = 0; i < targets.Count; i++)
+            {
+                (int ti, ColumnDef col, _) = targets[i];
+                object?[] shared = combo[ti].Values;
+                if (IsNullExtended(combo[ti]))
+                {
+                    if (!newRows.TryGetValue(shared, out var newRow))
+                        newRows[shared] = newRow = (TargetTable(tables, ti), []);
+                    newRow.Provided.Add(col.Index);
+                }
+                else
+                {
+                    var key = (tables[ti].CacheKey, combo[ti].Id);
+                    if (!dirty.ContainsKey(key)) dirty[key] = (TargetTable(tables, ti), combo[ti].Id, (object?[])shared.Clone(), shared);
+                }
+                shared[col.Index] = results[i];
             }
         }
 
@@ -1342,34 +1644,48 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
                 table.MoveIndexEntry(index, original, values, id);
         }
 
+        foreach (var (values, (table, provided)) in newRows)
+            InsertNewRow(table.Name, table, DefaultsOf(table.Definition), values, provided);
+
         int affected = joinRows.Count;
         if (_session is not null) _session.RowCount = affected;
         return affected;
     }
 
+    /// <summary>Whether a joined row's entry for a table is the null row an outer join supplies where the table has
+    /// no match. Row id 0/0 is never a data row: page 0 is the database header.</summary>
+    private static bool IsNullExtended((RowId Id, object?[] Values) entry) => entry.Id.Equals(default(RowId));
+
     /// <summary>
     /// Executes DELETE [target.*] FROM tableexpression [WHERE criteria]. The table expression may be a join;
     /// <c>target.*</c> selects which joined table's rows to delete (defaults to the single table). Each
     /// matched target row's index entries are removed and the row is soft-deleted (row id kept, TDEF row
-    /// count decremented). @@ROWCOUNT = distinct rows deleted.
+    /// count decremented). @@ROWCOUNT = distinct rows deleted, plus the joined rows where an outer join left the
+    /// target without a row, which delete nothing but which ACE counts (verified).
     /// </summary>
     private int ExecuteDelete(DeleteStatement statement)
     {
-        var (tables, kinds, ons) = ResolveSource(statement.From);
+        var (tables, kinds, ons, groupBases) = ResolveSource(statement.From);
         var columns = tables.SelectMany(t => t.Columns).ToList();
-        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, statement.Where, columns);
+        List<(RowId Id, object?[] Values)[]> joinRows = JoinRows(tables, kinds, ons, groupBases, statement.Where, columns);
 
-        int ti = TargetIndex(tables, statement.TargetTable, "DELETE target");
+        int ti = DeleteTarget(tables, statement.TargetTable);
         Table target = TargetTable(tables, ti);
 
         var deleted = new Dictionary<RowId, object?[]>();
+        int withoutRow = 0;
         foreach (var combo in joinRows)
-            deleted.TryAdd(combo[ti].Id, combo[ti].Values); // one delete per distinct target row
+        {
+            if (IsNullExtended(combo[ti]))
+                withoutRow++;
+            else
+                deleted.TryAdd(combo[ti].Id, combo[ti].Values); // one delete per distinct target row
+        }
 
         // Delete the distinct target rows and everything ON DELETE CASCADE reaches, children before parents.
         CascadeDelete(target, deleted.Select(kv => (kv.Key, kv.Value)));
 
-        int affected = deleted.Count;
+        int affected = deleted.Count + withoutRow;
         if (_session is not null) _session.RowCount = affected;
         return affected;
     }

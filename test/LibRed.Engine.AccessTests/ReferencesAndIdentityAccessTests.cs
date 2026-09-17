@@ -21,7 +21,9 @@ namespace LibRed.Engine.Tests;
 [Collection(AceCollection.Name)]
 public class ReferencesAndIdentityAccessTests : TempDatabaseTest
 {
-    private const string Parent = "CREATE TABLE P (Id LONG CONSTRAINT pkP PRIMARY KEY, Code TEXT(10) CONSTRAINT uqCode UNIQUE)";
+    private static string Northwind => Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb");
+
+    private const string Parent ="CREATE TABLE P (Id LONG CONSTRAINT pkP PRIMARY KEY, Code TEXT(10) CONSTRAINT uqCode UNIQUE)";
     private const string Parent2 = "CREATE TABLE P2 (A LONG, B LONG, CONSTRAINT pkP2 PRIMARY KEY (A, B))";
     private const string NoKey = "CREATE TABLE P3 (Id LONG, Code TEXT(10) CONSTRAINT uq3 UNIQUE)";
 
@@ -95,7 +97,16 @@ public class ReferencesAndIdentityAccessTests : TempDatabaseTest
     [Theory]
     [MemberData(nameof(Identities))]
     public void Identity_matches_ace(string column, bool accepted)
-        => AssertSameOutcome($"CREATE TABLE T ({column}, V TEXT(10))", "T", insertColumn: "V", accepted);
+    {
+        // An ACE older than the Large Number type refuses the column as a syntax error, which says nothing about
+        // IDENTITY. CI's 2016 redistributable is one.
+        if (column.Contains("BIGINT", StringComparison.Ordinal))
+        {
+            Assert.SkipUnless(AceTestDatabase.SupportsColumnType(Northwind, "BIGINT"),
+                AceTestDatabase.UnsupportedColumnTypeReason("BIGINT"));
+        }
+        AssertSameOutcome($"CREATE TABLE T ({column}, V TEXT(10))", "T", insertColumn: "V", accepted);
+    }
 
     // A relationship needs the same storage type on both sides, whatever the lengths — an AutoNumber being a Long on
     // either side. Measured over every pairing of the column types; these are representative.
@@ -216,7 +227,7 @@ public class ReferencesAndIdentityAccessTests : TempDatabaseTest
     private static (string Description, string? Error) Run(string[] sql, string table, string? insertColumn,
         Action<string, string> execute)
     {
-        string path = TemporaryDatabase.CopyPath(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "refident-");
+        string path = TemporaryDatabase.CopyPath(Northwind, "refident-");
         foreach (string statement in sql)
         {
             try

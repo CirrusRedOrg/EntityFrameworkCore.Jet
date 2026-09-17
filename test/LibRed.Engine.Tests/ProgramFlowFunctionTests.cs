@@ -47,9 +47,9 @@ public class ProgramFlowFunctionTests(ProgramFlowFunctionTests.Database database
         Assert.Equal(expected, Scalar($"IIF({condition}, 'T', 'F')"));
 
     [Theory]
-    [InlineData("IIF(TRUE, 1, 1/0)", 1)]
-    [InlineData("IIF(FALSE, 1/0, 2)", 2)]
-    public void Iif_evaluates_only_the_branch_it_takes(string expression, int expected) =>
+    [InlineData("IIF(TRUE, 1, 1/0)", 1.0)]
+    [InlineData("IIF(FALSE, 1/0, 2)", 2.0)]
+    public void Iif_evaluates_only_the_branch_it_takes(string expression, double expected) =>
         Assert.Equal(expected, Scalar(expression));
 
     [Theory]

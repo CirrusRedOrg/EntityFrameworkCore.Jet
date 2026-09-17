@@ -1614,7 +1614,9 @@ internal sealed partial class ExpressionEvaluator(
     /// <c>BAND</c>, <c>BOR</c> and <c>BXOR</c> on the operands' bits. When either operand is 16 bits, only the low 16
     /// bits are combined and the rest are the left operand's: its own upper bits, or the sign of the 16-bit result when
     /// it is 16 bits itself (verified vs ACE: 1 BOR TRUE is 65535, CLNG(-1) BAND CINT(1) is -65535, CINT(1) BOR 70000
-    /// is 4465, CINT(-2) BOR 1 is -1). Otherwise the result has the wider operand's width.
+    /// is 4465, CINT(-2) BOR 1 is -1). Otherwise the result has the wider operand's width. The result is an Integer
+    /// only when both operands are 16 bits, and otherwise a Long or an Int64 (verified vs ACE: TRUE BAND CINT(-2) is
+    /// an Integer, CINT(-2) BAND 70000 and a Byte BAND a Byte are Longs).
     /// </summary>
     private static object BitwiseOp(object a, object b, Func<long, long, long> op)
     {
@@ -1624,7 +1626,9 @@ internal sealed partial class ExpressionEvaluator(
             return Signed(op(left, right), Math.Max(leftWidth, rightWidth));
 
         long low = op(left, right) & 0xFFFF;
-        return leftWidth == 16 ? Signed(low, 16) : Signed(left & ~0xFFFFL | low, leftWidth);
+        return leftWidth != 16 ? Signed(left & ~0xFFFFL | low, leftWidth)
+            : rightWidth == 16 ? Signed(low, 16)
+            : Signed((short)low, 32);
     }
 
     /// <summary>
@@ -1644,7 +1648,8 @@ internal sealed partial class ExpressionEvaluator(
         var n => checked(-Int(n)),
     };
 
-    /// <summary><c>BNOT</c>: every bit of the operand flipped.</summary>
+    /// <summary><c>BNOT</c>: every bit of the operand flipped, an Integer for a Boolean or an Integer (verified vs ACE:
+    /// BNOT of a Yes/No column is an Integer, of a Byte a Long).</summary>
     private static object BitNot(object v)
     {
         (long bits, int width) = BitOperand(v);
@@ -1667,11 +1672,12 @@ internal sealed partial class ExpressionEvaluator(
         _ => ((uint)Int(Serial(NumericOperand(v)!)), 32),
     };
 
-    /// <summary>The low <paramref name="width"/> bits read as a signed number: an Int32 for 16 or 32 bits, an Int64 for 64.</summary>
+    /// <summary>The low <paramref name="width"/> bits read as a signed number: an Int16 for 16 bits, an Int32 for 32,
+    /// an Int64 for 64.</summary>
     private static object Signed(long bits, int width) => width switch
     {
-        // Each arm boxed on its own, or the switch would widen the Int32s to Int64.
-        16 => (object)(int)(short)bits,
+        // Each arm boxed on its own, or the switch would widen them all to Int64.
+        16 => (object)(short)bits,
         32 => (object)(int)bits,
         _ => (object)bits,
     };
@@ -2182,6 +2188,46 @@ internal sealed partial class ExpressionEvaluator(
             double or float => CutFloating(value, type.Places),
             _ => value,
         };
+
+    /// <summary>
+    /// A value converted to the type its result column declares, when it has another: a number to a wider number
+    /// (a Boolean as -1 or 0, a Double into a Decimal the OLE Automation way), anything to text as <c>&amp;</c> writes
+    /// it, and anything to binary as its bytes (<see cref="ColumnBytes"/>). Null, or no <paramref name="type"/>, leaves
+    /// the value as it is.
+    /// </summary>
+    internal static object? AsColumnType(object? value, Type? type, bool currency)
+    {
+        if (value is null || type is null || value.GetType() == type)
+            return value;
+        if (type == typeof(string)) return ConcatText(value);
+        if (type == typeof(byte[])) return ColumnBytes(value, currency);
+        if (type == typeof(decimal)) return Dec(value);
+        if (type == typeof(double)) return Dbl(value);
+        return Convert.ChangeType(Numeric(value), type, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// A value in a binary result column (verified vs ACE, which writes it so where a UNION mixes binary or GUID
+    /// values with others): text as UTF-16, a GUID as its 16 bytes, a Boolean as a 16-bit -1 or 0, a Byte or a Long
+    /// as 4 bytes, an Integer as 2, a Single as 4 and a Double or a date's serial as 8, Currency as its 8-byte scaled
+    /// integer, and a Decimal or a Large Number as its text. ACE cuts a Large Number's text to 8 bytes, which LibRed
+    /// does not.
+    /// </summary>
+    private static byte[] ColumnBytes(object value, bool currency) => value switch
+    {
+        byte[] bytes => bytes,
+        string text => Encoding.Unicode.GetBytes(text),
+        Guid guid => guid.ToByteArray(),
+        bool b => BitConverter.GetBytes((short)(b ? -1 : 0)),
+        byte b => BitConverter.GetBytes((int)b),
+        short s => BitConverter.GetBytes(s),
+        int i => BitConverter.GetBytes(i),
+        float f => BitConverter.GetBytes(f),
+        double d => BitConverter.GetBytes(d),
+        DateTime date => BitConverter.GetBytes(date.ToOADate()),
+        decimal m when currency => BitConverter.GetBytes(decimal.ToOACurrency(m)),
+        _ => Encoding.Unicode.GetBytes(ConcatText(value)),
+    };
 
     private static object CutFloating(object value, int places)
     {

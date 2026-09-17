@@ -38,11 +38,17 @@ public class UnaryAndBitwiseOperatorTests(UnaryAndBitwiseOperatorTests.Database 
     [InlineData("BT BOR SI", 3)]
     [InlineData("40000 BAND BT", 0)]
     [InlineData("-1 BAND 3", 3)]
-    [InlineData("CINT(-2) BAND CINT(-3)", -4)]
     [InlineData("TRUE BAND 1", 1)]
-    [InlineData("TRUE BXOR SI", -3)]
     [InlineData("TRUE BOR BT", -1)]
-    public void Whole_numbers_combine_their_bits(string expression, int expected) =>
+    // Two 16-bit operands give an Integer.
+    [InlineData("CINT(-2) BAND CINT(-3)", (short)-4)]
+    [InlineData("TRUE BXOR SI", (short)-3)]
+    [InlineData("TRUE BAND TRUE", (short)-1)]
+    [InlineData("SI BOR SI", (short)2)]
+    [InlineData("YN BAND YN", (short)-1)]
+    [InlineData("YN BXOR SI", (short)-3)]
+    [InlineData("BT BAND BT", 1)]
+    public void Whole_numbers_combine_their_bits(string expression, object expected) =>
         Assert.Equal(expected, Scalar(expression));
 
     [Theory]
@@ -117,10 +123,13 @@ public class UnaryAndBitwiseOperatorTests(UnaryAndBitwiseOperatorTests.Database 
 
     [Theory]
     [InlineData("BNOT 5", -6)]
-    [InlineData("BNOT TRUE", 0)]
-    [InlineData("BNOT FALSE", -1)]
-    [InlineData("BNOT SI", -3)]
-    [InlineData("BNOT CINT(-32768)", 32767)]
+    [InlineData("BNOT TRUE", (short)0)]
+    [InlineData("BNOT FALSE", (short)-1)]
+    [InlineData("BNOT SI", (short)-3)]
+    [InlineData("BNOT YN", (short)0)]
+    [InlineData("BNOT BNOT YN", (short)-1)]
+    [InlineData("BNOT CINT(-32768)", (short)32767)]
+    [InlineData("BNOT BT", -2)]
     [InlineData("BNOT CLNG(-2147483648)", 2147483647)]
     [InlineData("BNOT 1.5", -3)]
     [InlineData("BNOT 2.5", -3)]
@@ -135,16 +144,16 @@ public class UnaryAndBitwiseOperatorTests(UnaryAndBitwiseOperatorTests.Database 
     [InlineData("BNOT BNOT 5", 5)]
     [InlineData("-BNOT 5", 6)]
     [InlineData("BNOT -5", 4)]
-    public void Bnot_flips_every_bit(string expression, int expected) =>
+    public void Bnot_flips_every_bit(string expression, object expected) =>
         Assert.Equal(expected, Scalar(expression));
 
     [Theory]
     [InlineData("BNOT 1 + 1", -3)]
     [InlineData("BNOT 2 * 3", -7)]
     [InlineData("BNOT 2 ^ 2", -5)]
-    [InlineData("BNOT 3 = 3 + 10", -1)]
-    [InlineData("BNOT 0 IS NULL", -1)]
-    [InlineData("BNOT NULL IS NULL", 0)]
+    [InlineData("BNOT 3 = 3 + 10", (short)-1)]
+    [InlineData("BNOT 0 IS NULL", (short)-1)]
+    [InlineData("BNOT NULL IS NULL", (short)0)]
     [InlineData("BNOT 0 BAND 3", 3)]
     [InlineData("NOT 0 BAND 1", 1)]
     [InlineData("NOT 1 BAND 2", 0)]
@@ -163,7 +172,7 @@ public class UnaryAndBitwiseOperatorTests(UnaryAndBitwiseOperatorTests.Database 
     [InlineData("3 BAND 1 = 1", 3)]
     [InlineData("12 BAND 10 + 1", 8)]
     [InlineData("1 BAND 3 IS NULL", 0)]
-    public void Bnot_sits_with_not_and_each_bitwise_operator_with_its_logical_one(string expression, int expected) =>
+    public void Bnot_sits_with_not_and_each_bitwise_operator_with_its_logical_one(string expression, object expected) =>
         Assert.Equal(expected, Scalar(expression));
 
     [Theory]

@@ -7,9 +7,10 @@ namespace LibRed.Engine.Execution;
 
 /// <summary>A column produced by a plan node: an optional table-alias qualifier and a name. <paramref name="Currency"/>
 /// marks a Currency value, which shares <see cref="decimal"/> with Decimal but calculates differently, and
-/// <paramref name="Scale"/> a Decimal's places.</summary>
+/// <paramref name="Scale"/> a Decimal's places. <paramref name="Null"/> marks a column that is a bare <c>NULL</c>, which
+/// has no type of its own, unlike one whose type is merely unknown.</summary>
 internal readonly record struct OutputColumn(
-    string? Qualifier, string Name, Type? ClrType = null, bool Currency = false, int? Scale = null)
+    string? Qualifier, string Name, Type? ClrType = null, bool Currency = false, int? Scale = null, bool Null = false)
 {
     /// <summary>The output of a stored column.</summary>
     public static OutputColumn Of(string? qualifier, LibRed.Catalog.ColumnDef column) =>
@@ -17,10 +18,10 @@ internal readonly record struct OutputColumn(
             column.Type == LibRed.Catalog.JetDataType.Currency,
             column.Type == LibRed.Catalog.JetDataType.FixedPoint ? column.Scale : null);
 
-    /// <summary>A computed column of <paramref name="type"/>.</summary>
-    public static OutputColumn Computed(string name, Type? clrType, NumberType type) =>
+    /// <summary>A computed column of <paramref name="type"/>, computed by <paramref name="expression"/>.</summary>
+    public static OutputColumn Computed(string name, Type? clrType, NumberType type, Expression expression) =>
         new(null, name, clrType, type.Class == NumberClass.Currency,
-            type.Class == NumberClass.Decimal ? type.Places : null);
+            type.Class == NumberClass.Decimal ? type.Places : null, expression is LiteralExpression { Value: null });
 
     /// <summary>The column <paramref name="reference"/> names, or null when none or more than one does (execution
     /// reports the ambiguous reference).</summary>
@@ -579,7 +580,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     var eval = Eval(columns, row, outer);
                     return plan.Select(p => p.InputIndex >= 0
                         ? row[p.InputIndex]
-                        : ExpressionEvaluator.ToResultPlaces(eval.Evaluate(p.Expr!), p.Type)).ToArray();
+                        : ExpressionEvaluator.ToResultPlaces(
+                            ExpressionEvaluator.AsColumnType(eval.Evaluate(p.Expr!), p.ConvertTo, currency: false), p.Type)).ToArray();
                 });
 
                 return (schema.Columns, projected);
@@ -587,10 +589,15 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
             case SetOperationNode setOp:
             {
-                // Column names come from the left (leading) query, per SQL.
-                var (columns, leftRows) = Execute(setOp.Left, outer);
-                var (_, rightRows) = Execute(setOp.Right, outer);
-                return (columns, ExecuteSetOp(setOp.Operator, leftRows, rightRows));
+                // Column names come from the left (leading) query, per SQL; each column's type is the one both
+                // queries' values fit, and every value is converted to it before rows are compared.
+                var (leftColumns, leftRows) = Execute(setOp.Left, outer);
+                var (rightColumns, rightRows) = Execute(setOp.Right, outer);
+                if (leftColumns.Count != rightColumns.Count)
+                    return (leftColumns, ExecuteSetOp(setOp.Operator, leftRows, rightRows));
+                var columns = leftColumns.Zip(rightColumns, SetOperationColumn).ToList();
+                return (columns, ExecuteSetOp(setOp.Operator,
+                    ToColumnTypes(leftRows, leftColumns, columns), ToColumnTypes(rightRows, rightColumns, columns)));
             }
 
             case LimitNode limit:
@@ -667,6 +674,58 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
     }
 
+    /// <summary>
+    /// A set operation's column: the left query's, typed as ACE types it (verified vs ACE). A bare <c>NULL</c> takes
+    /// the other query's type. Numbers widen on <see cref="CommonNumericType"/>, a Boolean counting as an Integer
+    /// (-1); a GUID or binary value with anything else makes a binary column; any other mix — text, or a date with a
+    /// number or a Boolean — makes a text column. An unknown type on either side leaves the column untyped.
+    /// </summary>
+    private static OutputColumn SetOperationColumn(OutputColumn left, OutputColumn right)
+    {
+        if (right.Null)
+            return left;
+        if (left.Null)
+            return left with { ClrType = right.ClrType, Currency = right.Currency, Scale = right.Scale, Null = false };
+
+        // A Decimal column is Currency unless one side is a Decimal of its own, and keeps a scale both sides share.
+        bool leftDecimal = left.ClrType == typeof(decimal) && !left.Currency;
+        bool rightDecimal = right.ClrType == typeof(decimal) && !right.Currency;
+        Type? type = left.ClrType is not { } l || right.ClrType is not { } r ? null
+            : l == r ? l
+            : l == typeof(Guid) || r == typeof(Guid) || l == typeof(byte[]) || r == typeof(byte[]) ? typeof(byte[])
+            : CommonNumericType(AsInteger(l), AsInteger(r), currency: !leftDecimal && !rightDecimal) ?? typeof(string);
+        bool isDecimal = type == typeof(decimal);
+        return left with
+        {
+            ClrType = type,
+            Currency = isDecimal && !leftDecimal && !rightDecimal,
+            Scale = !isDecimal ? null
+                : leftDecimal && rightDecimal ? (left.Scale == right.Scale ? left.Scale : null)
+                : leftDecimal ? left.Scale : rightDecimal ? right.Scale : null,
+        };
+
+        static Type AsInteger(Type type) => type == typeof(bool) ? typeof(short) : type;
+    }
+
+    /// <summary>The rows with each value converted to its output column's type, where the query's own column had
+    /// another.</summary>
+    private static IEnumerable<object?[]> ToColumnTypes(
+        IEnumerable<object?[]> rows, IReadOnlyList<OutputColumn> from, IReadOnlyList<OutputColumn> to)
+    {
+        int[] changed = Enumerable.Range(0, to.Count)
+            .Where(i => to[i].ClrType is { } type && !from[i].Null && from[i].ClrType != type)
+            .ToArray();
+        if (changed.Length == 0)
+            return rows;
+        return rows.Select(row =>
+        {
+            var converted = (object?[])row.Clone();
+            foreach (int i in changed)
+                converted[i] = ExpressionEvaluator.AsColumnType(converted[i], to[i].ClrType, from[i].Currency);
+            return converted;
+        });
+    }
+
     private static IEnumerable<object?[]> ExecuteSetOp(SetOperator op, IEnumerable<object?[]> left, IEnumerable<object?[]> right)
     {
         switch (op)
@@ -717,9 +776,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// null for expressions whose result type depends on runtime coercion; the ADO layer can still fall back
     /// to a non-null runtime value in those cases without publishing misleading metadata for empty results.</summary>
     /// <summary>A ProjectNode's flattened output: the per-item plan (source input index, or an expression to
-    /// evaluate) and the resulting output columns. Structural — the same for every outer row.</summary>
+    /// evaluate, with the type its values are converted to, if any) and the resulting output columns.
+    /// Structural — the same for every outer row.</summary>
     private sealed record ProjectionSchema(
-        List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type)> Plan, List<OutputColumn> Columns);
+        List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo)> Plan,
+        List<OutputColumn> Columns);
 
     /// <summary>Builds — or reuses — a ProjectNode's schema. Flattens the projection, expanding a qualified star
     /// (Table.*) into the input columns of that source (passed through by index); every other item is an
@@ -729,20 +790,21 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         if (_projectionSchemas.TryGetValue(project, out ProjectionSchema? cached))
             return cached;
 
-        var plan = new List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type)>();
+        var plan = new List<(OutputColumn Column, int InputIndex, Expression? Expr, NumberType Type, Type? ConvertTo)>();
         foreach (SelectItem item in project.Projection)
         {
             if (item.Value is QualifiedStarExpression star)
             {
                 for (int ci = 0; ci < columns.Count; ci++)
                     if (string.Equals(columns[ci].Qualifier, star.Table, StringComparison.OrdinalIgnoreCase))
-                        plan.Add((columns[ci], ci, null, default));
+                        plan.Add((columns[ci], ci, null, default, null));
             }
             else
             {
                 string name = item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{plan.Count + 1}");
                 NumberType type = ExpressionEvaluator.NumberTypeOf(item.Value, columns, e => DeclaredType(e, columns));
-                plan.Add((OutputColumn.Computed(name, DeclaredType(item.Value, columns), type), -1, item.Value, type));
+                plan.Add((OutputColumn.Computed(name, DeclaredType(item.Value, columns), type, item.Value), -1, item.Value,
+                    type, ChoiceConversion(item.Value, columns)));
             }
         }
 
@@ -797,7 +859,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// result_expressions and the optional else_result_expression". A branch whose own type is unknown
     /// contributes nothing rather than poisoning the answer, which is what makes a bare <c>NULL</c> arm
     /// harmless: a NULL literal has no type and the standard ignores it for precedence too. Numeric branches
-    /// widen along the same ladder as arithmetic, so <c>THEN 1 ELSE 2.5</c> declares decimal. A genuine mix
+    /// widen on <see cref="CommonNumericType"/>, so <c>THEN 1 ELSE 2.5</c> declares Double. A genuine mix
     /// (a string branch and a numeric one) declares nothing rather than guessing, leaving the column untyped
     /// exactly as it was before CASE was understood at all.
     /// </summary>
@@ -812,46 +874,94 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             yield return c.ElseResult;
     }
 
-    /// <summary>The single type a set of alternative expressions declares — shared by CASE and COALESCE,
-    /// which the standard defines in terms of CASE and gives the same precedence rule.</summary>
+    /// <summary>The single type a set of alternative expressions declares — shared by CASE, IIF, COALESCE,
+    /// GREATEST and LEAST, which the standard defines in terms of CASE or gives the same precedence rule.</summary>
     private Type? UnifiedType(IEnumerable<Expression> alternatives, IReadOnlyList<OutputColumn> columns)
     {
         Type? result = null;
+        bool currency = false;   // whether a Decimal result so far is a Currency
 
         foreach (Expression alternative in alternatives)
         {
             Type? branchType = DeclaredType(alternative, columns);
             if (branchType is null)
                 continue;
+            bool branchCurrency = branchType == typeof(decimal)
+                && ExpressionEvaluator.NumberTypeOf(alternative, columns, e => DeclaredType(e, columns)).Class
+                    == NumberClass.Currency;
 
-            if (result is null)
+            if (result is null || result == branchType)
             {
+                currency = result is null ? branchCurrency : currency && branchCurrency;
                 result = branchType;
                 continue;
             }
 
-            if (result == branchType)
-                continue;
-
-            result = WidenNumeric(result, branchType);
+            bool decimalIsCurrency = result == typeof(decimal) ? currency : branchCurrency;
+            result = CommonNumericType(result, branchType, decimalIsCurrency);
             if (result is null)
                 return null;
+            currency = result == typeof(decimal) && decimalIsCurrency;
         }
 
         return result;
     }
 
-    /// <summary>The wider of two numeric types, on the same ladder <see cref="DeclaredBinaryType"/> uses for
-    /// arithmetic. Null when either side is not numeric, meaning the two cannot be reconciled.</summary>
-    private static Type? WidenNumeric(Type left, Type right)
+    /// <summary>
+    /// The type an expression that picks one of several alternatives (<see cref="UnifiedType"/>) converts its value
+    /// to, so the value has the type the column declares; null when nothing is converted. Only when every
+    /// alternative's type is known is the declared type sure to hold each of them.
+    /// </summary>
+    private Type? ChoiceConversion(Expression expression, IReadOnlyList<OutputColumn> columns)
+    {
+        IEnumerable<Expression>? alternatives = expression switch
+        {
+            CaseExpression @case => CaseResults(@case),
+            FunctionCall function => function.Name.TrimEnd('$').ToUpperInvariant() switch
+            {
+                "IIF" when function.Arguments.Count == 3 => function.Arguments.Skip(1),
+                "COALESCE" or "GREATEST" or "LEAST" => function.Arguments,
+                _ => null,
+            },
+            _ => null,
+        };
+        if (alternatives is null
+            || alternatives.Any(a => a is not LiteralExpression { Value: null } && DeclaredType(a, columns) is null))
+            return null;
+        return DeclaredType(expression, columns);
+    }
+
+    /// <summary>
+    /// The type the values of two numeric types share (verified vs ACE, as it types a UNION): the wider whole
+    /// number of the two; a Single with a Byte or an Integer, and a Double for a Single with anything wider; a
+    /// Decimal (or Currency) with a whole number, and a Double with a Double. A Currency (<paramref name="currency"/>,
+    /// when the Decimal side is one) cannot hold a Large Number, so the two make a Double. A Decimal with a Single,
+    /// which was not measured, is a Double too. Null when either side is not a number, meaning the two cannot be
+    /// reconciled.
+    /// </summary>
+    private static Type? CommonNumericType(Type left, Type right, bool currency = false)
     {
         if (!IsNumeric(left) || !IsNumeric(right)) return null;
-        if (left == typeof(decimal) || right == typeof(decimal)) return typeof(decimal);
+        if (left == right) return left;
         if (left == typeof(double) || right == typeof(double)) return typeof(double);
-        if (left == typeof(float) || right == typeof(float)) return typeof(float);
-        if (IsInt64(left) || IsInt64(right)) return typeof(long);
-        return typeof(int);
+        int leftRank = WholeRank(left), rightRank = WholeRank(right);
+        if (left == typeof(decimal) || right == typeof(decimal))
+            return Math.Max(leftRank, rightRank) is var whole && whole < 0 || currency && whole > 2
+                ? typeof(double) : typeof(decimal);
+        if (left == typeof(float) || right == typeof(float))
+            return Math.Max(leftRank, rightRank) <= 1 ? typeof(float) : typeof(double);
+        return WholeTypes[Math.Max(leftRank, rightRank)];
     }
+
+    private static readonly Type[] WholeTypes = [typeof(byte), typeof(short), typeof(int), typeof(long)];
+
+    /// <summary>A whole number type's place in <see cref="WholeTypes"/> (the narrowest that holds it), or -1.</summary>
+    private static int WholeRank(Type type) =>
+        type == typeof(byte) ? 0
+        : type == typeof(sbyte) || type == typeof(short) ? 1
+        : type == typeof(ushort) || type == typeof(int) ? 2
+        : type == typeof(uint) || IsInt64(type) ? 3
+        : -1;
 
     private static bool IsNumeric(Type type)
         => type == typeof(byte) || type == typeof(sbyte) || type == typeof(short) || type == typeof(ushort)
@@ -893,8 +1003,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 or "DATEVALUE" or "TIMEVALUE" => typeof(DateTime),
             "SQR" or "SIN" or "COS" or "TAN" or "ATN" or "LOG" or "EXP" or "RND"
                 or "PMT" or "FV" or "PV" or "NPER" or "IPMT" or "PPMT" or "DDB" or "RATE" or "SLN" or "SYD" => typeof(double),
-            "IIF" when function.Arguments.Count == 3 => SameType(
-                DeclaredType(function.Arguments[1], columns), DeclaredType(function.Arguments[2], columns)),
+            // IIF chooses between two values as CASE does, so it takes CASE's rule rather than ACE's own (which
+            // makes every whole number a Long and lets Currency beat Double).
+            "IIF" when function.Arguments.Count == 3 => UnifiedType(function.Arguments.Skip(1), columns),
             // The standard makes COALESCE shorthand for a CASE over its arguments, so it takes the same rule:
             // the highest-precedence type among them. Unified the same way, which also means a bare NULL
             // argument contributes no type rather than erasing the others.
@@ -910,7 +1021,6 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         };
     }
 
-    private static Type? SameType(Type? left, Type? right) => left == right ? left : null;
 
     private static Type? DeclaredBinaryType(BinaryOperator op, Type? left, Type? right)
     {
@@ -934,6 +1044,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             return left == typeof(decimal) || right == typeof(decimal) ? typeof(decimal)
                 : (left == typeof(float) || right == typeof(float)) && IsSingleWidth(left) && IsSingleWidth(right) ? typeof(float)
                 : typeof(double);
+        // Keep in lock-step with ExpressionEvaluator.BitwiseOp: two 16-bit operands give an Integer.
+        if (op is BinaryOperator.BitAnd or BinaryOperator.BitOr or BinaryOperator.BitXor
+            && IsSixteenBits(left) && IsSixteenBits(right))
+            return typeof(short);
         if (op is BinaryOperator.Modulo or BinaryOperator.IntDivide
             or BinaryOperator.BitAnd or BinaryOperator.BitOr or BinaryOperator.BitXor)
             return IsInt64(left) || IsInt64(right) ? typeof(long) : typeof(int);
@@ -957,14 +1071,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     }
 
     /// <summary>The type of <c>-x</c> or <c>BNOT x</c>. Keep in lock-step with ExpressionEvaluator.Negate and BitNot:
-    /// negation reads text as a Double and widens an Integer, Byte or Boolean to a Long; BNOT gives a Long, or an
-    /// Int64 from an Int64.</summary>
+    /// negation reads text as a Double and widens an Integer, Byte or Boolean to a Long; BNOT gives an Integer from
+    /// an Integer or a Boolean, an Int64 from an Int64, and otherwise a Long.</summary>
     private static Type? DeclaredUnaryType(UnaryOperator op, Type? operand)
     {
         if (operand is null)
             return null;
         if (op == UnaryOperator.BitNot)
-            return IsInt64(operand) ? typeof(long) : typeof(int);
+            return IsSixteenBits(operand) ? typeof(short) : IsInt64(operand) ? typeof(long) : typeof(int);
         if (operand == typeof(string))
             return typeof(double);
         if (operand == typeof(short) || operand == typeof(byte) || operand == typeof(bool))
@@ -973,6 +1087,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     }
 
     private static bool IsInt64(Type type) => type == typeof(long) || type == typeof(ulong);
+
+    /// <summary>A bitwise operand of 16 bits: an Integer or a Boolean (ExpressionEvaluator.BitOperand).</summary>
+    private static bool IsSixteenBits(Type? type) => type == typeof(short) || type == typeof(bool);
 
     private static bool IsSingleWidth(Type type) => type == typeof(float) || type == typeof(short) || type == typeof(bool);
 
@@ -1565,8 +1682,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             .Select((item, i) => OutputColumn.Computed(
                 item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}"),
                 DeclaredType(item.Value, inColumns),
-                outTypes[i]))
+                outTypes[i],
+                item.Value))
             .ToList();
+        var conversions = node.Projection.Select(item => ChoiceConversion(item.Value, inColumns)).ToList();
 
         // A bare `SELECT COUNT(*)` wants the number of rows, not the rows. Everything below materialises the
         // whole input first — which for this shape is the entire cost, and pure waste: holding every decoded row
@@ -1612,7 +1731,9 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 continue;
 
             object?[] row = node.Projection
-                .Select((item, i) => ExpressionEvaluator.ToResultPlaces(eval.Evaluate(item.Value), outTypes[i])).ToArray();
+                .Select((item, i) => ExpressionEvaluator.ToResultPlaces(
+                    ExpressionEvaluator.AsColumnType(eval.Evaluate(item.Value), conversions[i], currency: false), outTypes[i]))
+                .ToArray();
             object?[] sortKeys = node.OrderBy.Select(k => eval.Evaluate(k.Value)).ToArray();
             object?[] groupKeys = node.GroupBy.Select(k => eval.Evaluate(k)).ToArray();
             outRows.Add((row, sortKeys, groupKeys));

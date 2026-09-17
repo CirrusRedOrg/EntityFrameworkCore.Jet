@@ -32,13 +32,24 @@ public abstract class SharedDatabase : IDisposable
     public object? Scalar(string sql, CultureInfo culture) => Scalar(Engine, sql, culture);
 
     /// <inheritdoc cref="Scalar(string, CultureInfo)"/>
-    public static object? Scalar(QueryEngine engine, string sql, CultureInfo culture)
+    public static object? Scalar(QueryEngine engine, string sql, CultureInfo culture) =>
+        Under(culture, () => engine.ExecuteQuery(sql).Rows.First()[0]);
+
+    /// <summary>The query's declared column types and all its rows, run under <paramref name="culture"/>.</summary>
+    public (IReadOnlyList<Type> ColumnTypes, List<object?[]> Rows) Query(string sql, CultureInfo culture) =>
+        Under(culture, () =>
+        {
+            var result = Engine.ExecuteQuery(sql);
+            return (result.ColumnTypes, result.Rows.ToList());
+        });
+
+    private static T Under<T>(CultureInfo culture, Func<T> run)
     {
         CultureInfo previous = CultureInfo.CurrentCulture;
         CultureInfo.CurrentCulture = culture;
         try
         {
-            return engine.ExecuteQuery(sql).Rows.First()[0];
+            return run();
         }
         finally
         {

@@ -970,11 +970,15 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private static Type? DeclaredColumnType(ColumnReference reference, IReadOnlyList<OutputColumn> columns) =>
         OutputColumn.Find(columns, reference)?.ClrType;
 
-    /// <summary>The declared type of an aggregate (upper-case name) over an argument of <paramref name="argument"/>,
-    /// grouped or windowed. Keep in lock-step with <see cref="RunningAggregate"/>.</summary>
-    internal static Type? AggregateResultType(string name, Type? argument) => name switch
+    /// <summary>The declared type of an aggregate (upper-case name) over an argument of <paramref name="argument"/> —
+    /// for an ordered-set aggregate, its WITHIN GROUP key — grouped or windowed. Keep in lock-step with
+    /// <see cref="RunningAggregate"/> and <see cref="Percentile"/>.</summary>
+    internal static Type? AggregateResultType(string name, Type? argument) => RunningAggregate.Canonical(name) switch
     {
-        "COUNT" => typeof(int),
+        "LISTAGG" => typeof(string),
+        "PERCENTILE_CONT" or "PERCENTILE_DISC" => Percentile.ResultType(name, argument),
+        "COUNT" or "REGR_COUNT" => typeof(int),
+        var pair when RunningAggregate.IsPair(pair) => typeof(double),
         "SUM" => argument == null ? null
             : argument == typeof(decimal) || argument == typeof(float) || argument == typeof(long) ? argument
             : argument == typeof(ulong) ? typeof(long)
@@ -988,7 +992,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private Type? DeclaredFunctionType(FunctionCall function, IReadOnlyList<OutputColumn> columns)
     {
         string name = function.Name.TrimEnd('$').ToUpperInvariant();
-        Type? argument = function.Arguments.Count > 0 ? DeclaredType(function.Arguments[0], columns) : null;
+        Type? argument = function.Arguments.Count == 0 ? null
+            : DeclaredType(function.Arguments[function.WithinGroup is null ? 0 : ^1], columns);
         if (QueryPlanner.IsAggregate(name))
             return AggregateResultType(name, argument);
         return name switch
@@ -1581,18 +1586,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteWindow(WindowNode node, EvalScope? outer)
     {
         var (inColumns, inRowsEnum) = Execute(node.Input, outer);
-
-        // A windowed aggregate's column is typed as the grouped aggregate's, Currency and places included.
-        var types = node.Outputs
-            .Select(o => WindowFunctions.Lookup(o.Function.Name).ResultType(new WindowTyping(this, o.Function.Arguments, inColumns)))
-            .ToList();
-        var columns = inColumns.Concat(node.Outputs.Select((o, i) => OutputColumn.Computed(
-            o.Name,
-            types[i],
-            QueryPlanner.IsAggregate(o.Function.Name)
-                ? ExpressionEvaluator.NumberTypeOf(new FunctionCall(o.Function.Name, o.Function.Arguments), inColumns, e => DeclaredType(e, inColumns))
-                : default,
-            o.Function))).ToList();
+        var (types, columns) = WindowColumns(node.Outputs, inColumns);
 
         IEnumerable<object?[]> Rows()
         {
@@ -1601,14 +1595,44 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             for (int i = 0; i < rows.Count; i++)
                 values[i] = new object?[node.Outputs.Count];
 
+            // One scope/evaluator rebound per row, as the joins do: partition keys, sort keys and arguments are all
+            // evaluated once per row and a fresh pair each time is the dominant cost otherwise.
+            var scope = new EvalScope(inColumns, [], outer);
+            var eval = new ExpressionEvaluator(scope, this, parameters: _parameters, session: _session);
             for (int slot = 0; slot < node.Outputs.Count; slot++)
-                ComputeWindow(node.Outputs[slot].Function, rows, inColumns, outer, values, slot, types[slot]);
+            {
+                ComputeWindow(node.Outputs[slot].Function, rows.Count, i =>
+                {
+                    scope.Rebind(rows[i]);
+                    return eval;
+                }, inColumns, values, slot, types[slot]);
+            }
 
             for (int i = 0; i < rows.Count; i++)
                 yield return [.. rows[i], .. values[i]];
         }
 
         return (columns, Rows());
+    }
+
+    /// <summary>The declared type of each window's column, and <paramref name="inColumns"/> with those columns
+    /// appended. A windowed aggregate's column is typed as the grouped aggregate's, Currency and places included.</summary>
+    private (List<Type?> Types, List<OutputColumn> Columns) WindowColumns(
+        IReadOnlyList<WindowOutput> windows, IReadOnlyList<OutputColumn> inColumns)
+    {
+        var types = windows
+            .Select(o => WindowFunctions.Lookup(o.Function.Name).ResultType(new WindowTyping(this, o.Function.Arguments, inColumns)))
+            .ToList();
+        var columns = inColumns.Concat(windows.Select((o, i) => OutputColumn.Computed(
+            o.Name,
+            types[i],
+            QueryPlanner.IsAggregate(o.Function.Name)
+                ? ExpressionEvaluator.NumberTypeOf(
+                    new FunctionCall(o.Function.Name, o.Function.Arguments, WithinGroup: o.Function.WithinGroup),
+                    inColumns, e => DeclaredType(e, inColumns))
+                : default,
+            o.Function))).ToList();
+        return (types, columns);
     }
 
     /// <summary>A window function's view of its arguments' declared types.</summary>
@@ -1628,29 +1652,34 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     }
 
     /// <summary>Computes one window function into <paramref name="slot"/> of every row's value array, each value as
-    /// the <paramref name="declared"/> type the column has.</summary>
+    /// the <paramref name="declared"/> type the column has. The rows are <paramref name="count"/> input rows or, over
+    /// a grouped query, groups; <paramref name="evaluatorFor"/> gives the evaluator that sees the one at an index, and
+    /// <paramref name="columns"/> is their schema.</summary>
     private void ComputeWindow(
-        WindowFunction fn, List<object?[]> rows, IReadOnlyList<OutputColumn> columns, EvalScope? outer,
+        WindowFunction fn, int count, Func<int, ExpressionEvaluator> evaluatorFor, IReadOnlyList<OutputColumn> columns,
         object?[][] values, int slot, Type? declared)
     {
         WindowFunctionDef def = WindowFunctions.Lookup(fn.Name);
         if (fn.Arguments.Count < def.MinArguments || fn.Arguments.Count > def.MaxArguments)
             throw new InvalidOperationException(
                 $"{fn.Name} takes {(def.MinArguments == def.MaxArguments ? $"{def.MinArguments}" : $"{def.MinArguments} to {def.MaxArguments}")} argument(s).");
-
-        // One scope/evaluator rebound per row, as the joins do: partition keys, sort keys and arguments are all
-        // evaluated once per row and a fresh pair each time is the dominant cost otherwise.
-        var scope = new EvalScope(columns, [], outer);
-        var eval = new ExpressionEvaluator(scope, this, parameters: _parameters, session: _session);
+        CheckOptions(fn, def);
+        WindowFrame? frame = fn.Over.Frame;
+        if (frame is not null)
+            CheckFrame(fn, frame);
 
         // Partition, preserving input order within each. A null partition key groups with other nulls exactly as
         // GROUP BY does, because this is the same key type.
         var partitions = new Dictionary<GroupKey, List<int>>();
-        var sortKeys = new object?[rows.Count][];
-        var arguments = new object?[rows.Count][];
-        for (int i = 0; i < rows.Count; i++)
+        var sortKeys = new object?[count][];
+        var arguments = new object?[count][];
+        // A frame's offsets, as each row evaluates them; the standard makes them constants, which is a special case.
+        var startOffsets = frame?.Start.Offset is null ? null : new object?[count];
+        var endOffsets = frame?.End.Offset is null ? null : new object?[count];
+        var included = fn.Filter is null ? null : new bool[count];
+        for (int i = 0; i < count; i++)
         {
-            scope.Rebind(rows[i]);
+            ExpressionEvaluator eval = evaluatorFor(i);
             var key = new object?[fn.Over.PartitionBy.Count];
             for (int k = 0; k < key.Length; k++)
                 key[k] = eval.Evaluate(fn.Over.PartitionBy[k]);
@@ -1667,10 +1696,22 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             arguments[i] = fn.Arguments.Count == 0 ? [] : new object?[fn.Arguments.Count];
             for (int k = 0; k < fn.Arguments.Count; k++)
                 arguments[i][k] = fn.Arguments[k] is StarExpression ? null : eval.Evaluate(fn.Arguments[k]);
+            if (startOffsets is not null)
+                startOffsets[i] = eval.Evaluate(frame!.Start.Offset!);
+            if (endOffsets is not null)
+                endOffsets[i] = eval.Evaluate(frame!.End.Offset!);
+            if (included is not null)
+                included[i] = eval.IsTrue(fn.Filter!);
         }
 
         bool star = fn.Arguments is [StarExpression];
-        bool currency = fn.Arguments is [var first] && !star && IsCurrency(first, columns);
+        var call = new WindowCall(
+            Star: star,
+            Currency: fn.Arguments is [var first] && !star && IsCurrency(first, columns),
+            Distinct: fn.Distinct,
+            IgnoreNulls: fn.IgnoreNulls == true,
+            FromLast: fn.FromLast == true,
+            WithinGroup: fn.WithinGroup);
 
         foreach (List<int> members in partitions.Values)
         {
@@ -1694,9 +1735,17 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 peerOrdinal[i] = samePeer ? peerOrdinal[i - 1] : peerOrdinal[i - 1] + 1;
             }
 
+            WindowFrameInput? frameInput = frame is null ? null : new WindowFrameInput(
+                frame,
+                startOffsets is null ? [] : members.Select(m => startOffsets[m]).ToList(),
+                endOffsets is null ? [] : members.Select(m => endOffsets[m]).ToList(),
+                frame.Unit == FrameUnit.Range && fn.Over.OrderBy.Count == 1 ? members.Select(m => sortKeys[m][0]).ToList() : null,
+                fn.Over.OrderBy is [{ Direction: SortDirection.Descending }]);
+
             var output = new object?[members.Count];
             def.Evaluate(
-                new WindowPartition(peerStart, peerOrdinal, members.Select(m => arguments[m]).ToList(), star, currency),
+                new WindowPartition(peerStart, peerOrdinal, members.Select(m => arguments[m]).ToList(), call, frameInput,
+                    included is null ? null : members.Select(m => included[m]).ToList()),
                 output);
 
             // Scatter back to the input positions: the node emits rows in input order, not window order.
@@ -1705,20 +1754,52 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
     }
 
+    /// <summary>What the call is written with has to be what the function takes (<see cref="WindowOptions"/>): a frame
+    /// clause, RESPECT/IGNORE NULLS, FROM FIRST/LAST, DISTINCT.</summary>
+    private static void CheckOptions(WindowFunction fn, WindowFunctionDef def)
+    {
+        void Require(bool written, WindowOptions option, string what)
+        {
+            if (written && !def.Options.HasFlag(option))
+                throw new InvalidOperationException($"{fn.Name} takes no {what}.");
+        }
+        Require(fn.Over.Frame is not null, WindowOptions.Frame, "window frame");
+        Require(fn.IgnoreNulls is not null, WindowOptions.NullTreatment, "RESPECT NULLS or IGNORE NULLS");
+        Require(fn.FromLast is not null, WindowOptions.FromLast, "FROM FIRST or FROM LAST");
+        Require(fn.Distinct, WindowOptions.Distinct, "DISTINCT");
+        Require(fn.Filter is not null, WindowOptions.Filter, "FILTER");
+    }
+
+    /// <summary>
+    /// The standard's rules for a frame clause that the window, not the syntax, decides: GROUPS counts peer groups,
+    /// so needs an ORDER BY; and a RANGE offset measures from one ORDER BY key, so needs exactly one.
+    /// </summary>
+    private static void CheckFrame(WindowFunction fn, WindowFrame frame)
+    {
+        if (frame.Unit == FrameUnit.Groups && fn.Over.OrderBy.Count == 0)
+            throw new InvalidOperationException("A GROUPS frame needs an ORDER BY in its window.");
+        if (frame.Unit == FrameUnit.Range && (frame.Start.Offset ?? frame.End.Offset) is not null && fn.Over.OrderBy.Count != 1)
+            throw new InvalidOperationException("A RANGE frame with an offset needs exactly one ORDER BY key in its window.");
+    }
+
     private (IReadOnlyList<OutputColumn> Columns, IEnumerable<object?[]> Rows) ExecuteAggregate(AggregateNode node, EvalScope? outer)
     {
         var (inColumns, inRowsEnum) = Execute(node.Input, outer);
 
+        // Windows over the groups publish a column each, which the projection and ORDER BY read as any other.
+        IReadOnlyList<WindowOutput> windows = node.Windows ?? [];
+        var (windowTypes, columns) = WindowColumns(windows, inColumns);
+
         var outTypes = node.Projection
-            .Select(item => ExpressionEvaluator.NumberTypeOf(item.Value, inColumns, e => DeclaredType(e, inColumns))).ToList();
+            .Select(item => ExpressionEvaluator.NumberTypeOf(item.Value, columns, e => DeclaredType(e, columns))).ToList();
         var outColumns = node.Projection
             .Select((item, i) => OutputColumn.Computed(
                 item.Alias ?? (item.Value is ColumnReference c ? c.Column : $"Expr{i + 1}"),
-                DeclaredType(item.Value, inColumns),
+                DeclaredType(item.Value, columns),
                 outTypes[i],
                 item.Value))
             .ToList();
-        var conversions = node.Projection.Select(item => ChoiceConversion(item.Value, inColumns)).ToList();
+        var conversions = node.Projection.Select(item => ChoiceConversion(item.Value, columns)).ToList();
 
         // A bare `SELECT COUNT(*)` wants the number of rows, not the rows. Everything below materialises the
         // whole input first — which for this shape is the entire cost, and pure waste: holding every decoded row
@@ -1730,16 +1811,15 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         var inRows = inRowsEnum.ToList();
         // Aggregates can appear in the projection, HAVING (e.g. HAVING COUNT(*) > 30) and ORDER BY
         // (e.g. ORDER BY COUNT(*)); precompute all of them per group so each instance resolves.
+        // A window's arguments and keys may hold aggregates too — RANK() OVER (ORDER BY SUM(x)).
         var aggregateCalls = node.Projection.SelectMany(i => Aggregates(i.Value))
             .Concat(node.Having is { } h ? Aggregates(h) : [])
             .Concat(node.OrderBy.SelectMany(k => Aggregates(k.Value)))
+            .Concat(windows.SelectMany(w => w.Function.Expressions().SelectMany(Aggregates)))
             .ToList();
 
-        // Each output row carries its ORDER BY key values AND its grouping-key values, evaluated in the same
-        // group scope as the projection, to sort the groups afterward: by ORDER BY if present, otherwise —
-        // matching Access, which returns GROUP BY results ascending by the grouping columns — by the group key
-        // (this also makes a TOP-1-over-a-GROUP-BY deterministic, as Access/SQL Server do).
-        var outRows = new List<(object?[] Row, object?[] SortKeys, object?[] GroupKeys)>();
+        // The groups HAVING keeps, each with the row that resolves its keys and its aggregates' values.
+        var groups = new List<(object?[] KeyRow, Dictionary<FunctionCall, object?> Values, ExpressionEvaluator Eval)>();
         foreach (List<object?[]> group in GroupRows(inRows, node.GroupBy, inColumns, outer))
         {
             var values = new Dictionary<FunctionCall, object?>(ReferenceComparer.Instance);
@@ -1762,6 +1842,27 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             // HAVING filters whole groups after aggregation.
             if (node.Having is not null && !eval.IsTrue(node.Having))
                 continue;
+            groups.Add((keyRow, values, eval));
+        }
+
+        // The windows see the groups as their rows, as the standard orders it: after HAVING, before the projection.
+        var windowValues = new object?[groups.Count][];
+        for (int i = 0; i < groups.Count; i++)
+            windowValues[i] = new object?[windows.Count];
+        for (int slot = 0; slot < windows.Count; slot++)
+            ComputeWindow(windows[slot].Function, groups.Count, i => groups[i].Eval, inColumns, windowValues, slot, windowTypes[slot]);
+
+        // Each output row carries its ORDER BY key values AND its grouping-key values, evaluated in the same
+        // group scope as the projection, to sort the groups afterward: by ORDER BY if present, otherwise —
+        // matching Access, which returns GROUP BY results ascending by the grouping columns — by the group key
+        // (this also makes a TOP-1-over-a-GROUP-BY deterministic, as Access/SQL Server do).
+        var outRows = new List<(object?[] Row, object?[] SortKeys, object?[] GroupKeys)>();
+        for (int g = 0; g < groups.Count; g++)
+        {
+            var (keyRow, values, eval) = groups[g];
+            if (windows.Count > 0)
+                eval = new ExpressionEvaluator(
+                    new EvalScope(columns, [.. keyRow, .. windowValues[g]], outer, values), this, _parameters, _session);
 
             object?[] row = node.Projection
                 .Select((item, i) => ExpressionEvaluator.ToResultPlaces(
@@ -1805,7 +1906,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         node.GroupBy.Count == 0
         && node.Having is null
         && node.OrderBy.Count == 0
-        && node.Projection is [{ Value: FunctionCall { Distinct: false, Arguments: [StarExpression] } call }]
+        && node.Projection is [{ Value: FunctionCall { Distinct: false, Filter: null, Arguments: [StarExpression] } call }]
         && string.Equals(call.Name, "COUNT", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Counts a row sequence without retaining it. COUNT is an Access Long Integer, so the count is an
@@ -1857,6 +1958,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         ExpressionEvaluator.ValidateArity(name, call.Arguments.Count);
         Expression? arg = call.Arguments.Count > 0 ? call.Arguments[0] : null;
 
+        // FILTER (WHERE …) narrows the group before anything else looks at it — COUNT(*) included.
+        if (call.Filter is { } filter)
+            group = group.Where(r => Eval(columns, r, outer).IsTrue(filter)).ToList();
+
         // COUNT(*) counts rows; DISTINCT is meaningless there (and EF never emits it).
         if (name == "COUNT" && arg is StarExpression or null)
             return group.Count;
@@ -1867,6 +1972,44 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             return group.Count == 0 ? null : Eval(columns, group[0], outer).Evaluate(arg!);
         if (name == "LAST")
             return group.Count == 0 ? null : Eval(columns, group[^1], outer).Evaluate(arg!);
+
+        if (call.WithinGroup is { } directions)
+        {
+            if (group.Count == 0)
+                return null;
+            if (name == "LISTAGG")
+            {
+                IReadOnlyList<Expression> keys = call.WithinGroupKeys;
+                return ListAgg.Of(
+                    group.Select(r =>
+                    {
+                        ExpressionEvaluator e = Eval(columns, r, outer);
+                        return (e.Evaluate(call.Arguments[0]), keys.Select(k => e.Evaluate(k)).ToArray());
+                    }),
+                    call.Arguments.Count - keys.Count == 2 ? (string)((LiteralExpression)call.Arguments[1]).Value! : "",
+                    directions,
+                    call.Distinct);
+            }
+            // The fraction is the group's, so any row gives it; the standard makes it a constant.
+            return Percentile.Of(name,
+                group.Select(r => Eval(columns, r, outer).Evaluate(call.Arguments[1])),
+                Eval(columns, group[0], outer).Evaluate(call.Arguments[0]),
+                directions[0]);
+        }
+
+        // A binary set function reads a pair from each row; the standard gives it no DISTINCT.
+        if (RunningAggregate.IsPair(name))
+        {
+            if (call.Distinct)
+                throw new NotSupportedException($"{call.Name} takes no DISTINCT.");
+            var pair = new RunningAggregate(name, countRows: false, currency: false);
+            foreach (object?[] row in group)
+            {
+                ExpressionEvaluator rowEval = Eval(columns, row, outer);
+                pair.AddPair(rowEval.Evaluate(call.Arguments[0]), rowEval.Evaluate(call.Arguments[1]));
+            }
+            return pair.Result;
+        }
 
         IEnumerable<object?> values = group.Select(r => Eval(columns, r, outer).Evaluate(arg!));
         // COUNT(DISTINCT)/SUM(DISTINCT)/… aggregate the distinct set of the argument's values. MIN/MAX are
@@ -1935,7 +2078,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
     /// <summary>Groups by structural equality of the key value tuple.</summary>
     // DISTINCT / GROUP BY / INTERSECT / EXCEPT key. String keys use Access text semantics — case-insensitive
     // and trailing-space-insensitive — so 'London' and 'LONDON ' group together as Access does.
-    private sealed class GroupKey(object?[] values) : IEquatable<GroupKey>
+    internal sealed class GroupKey(object?[] values) : IEquatable<GroupKey>
     {
         private readonly object?[] _values = values;
 

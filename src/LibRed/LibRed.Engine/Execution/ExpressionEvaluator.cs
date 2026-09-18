@@ -197,6 +197,8 @@ internal sealed partial class ExpressionEvaluator(
         // value in the Jet expression service — so a trailing "$" is stripped and dispatched to the base name.
         string name = f.Name.ToUpperInvariant();
         if (name.Length > 1 && name[^1] == '$') name = name[..^1];
+        if (f.Filter is not null && !Planning.QueryPlanner.IsAggregate(name))
+            throw new InvalidOperationException($"{f.Name} takes no FILTER; only an aggregate does.");
         ValidateArity(name, f.Arguments.Count);
 
         return name switch
@@ -425,8 +427,10 @@ internal sealed partial class ExpressionEvaluator(
             "SYD" => (4, 4),
             "DDB" => (4, 5),
 
-            "COUNT" or "SUM" or "AVG" or "MIN" or "MAX" or "FIRST" or "LAST" or "STDEV" or "VAR"
-                or "STDEVP" or "VARP" or "STDDEV" or "STDDEVP" => (1, 1),
+            "FIRST" or "LAST" => (1, 1),
+            _ when RunningAggregate.Supports(name) => RunningAggregate.IsPair(name) ? (2, 2) : (1, 1),
+            // The fraction and the WITHIN GROUP key, which the parser appends; it has checked the call's shape.
+            "PERCENTILE_CONT" or "PERCENTILE_DISC" => (2, 2),
             _ => null,
         };
         bool invalidPairs = name == "SWITCH" && count % 2 != 0;
@@ -2146,6 +2150,9 @@ internal sealed partial class ExpressionEvaluator(
             case FunctionCall { Arguments: [var argument] } function
                 when function.Name.ToUpperInvariant() is "SUM" or "MIN" or "MAX" or "FIRST" or "LAST":
                 return Of(argument);
+            case FunctionCall { WithinGroup: not null, Arguments: [_, var key] } function
+                when function.Name.Equals("PERCENTILE_DISC", StringComparison.OrdinalIgnoreCase):
+                return Of(key);
             case FunctionCall function:
                 Type? returns = declaredType(function);
                 return returns == typeof(string) ? new(NumberClass.Text)
@@ -2341,7 +2348,7 @@ internal sealed partial class ExpressionEvaluator(
     /// date is written in the regional short date and long time, without the time at midnight and without the
     /// date on 1899-12-30; a GUID is braced upper case; a binary value is read as UTF-16 text.
     /// </summary>
-    private static string ConcatText(object v) => v switch
+    internal static string ConcatText(object v) => v switch
     {
         string s => s,
         bool b => b ? "-1" : "0",

@@ -185,11 +185,26 @@ Treat the number as of its date — an EF Core version bump moves it.
   - `CROSS APPLY` / `OUTER APPLY` — a lateral join, with the right side re-evaluated per left row. ACE has
     no syntax for either.
   - **Window functions** — `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `NTILE(n)`, `PERCENT_RANK()`,
-    `CUME_DIST()`, `LAG`/`LEAD(x [, offset [, default]])`, and the aggregates (`COUNT`, `SUM`,
-    `AVG`, `MIN`, `MAX` and the statistical ones) over the standard's default frame, with
-    `OVER (PARTITION BY … ORDER BY …)`: with an ORDER BY a running value to the current row and its peers,
-    without one the whole partition. `OVER` hangs off any function call, so adding another is a registry entry
-    rather than a grammar change.
+    `CUME_DIST()`, `LAG`/`LEAD(x [, offset [, default]])`, and `FIRST_VALUE`, `LAST_VALUE`,
+    `NTH_VALUE(x, n) [FROM FIRST | FROM LAST]` and the aggregates (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`, Access's
+    `First`/`Last`, the statistical ones under their Access and standard names, the percentiles, and
+    `CORR`/`COVAR_*`/`REGR_*`, `LISTAGG`) with `OVER (PARTITION BY … ORDER BY … [frame])`; the one-argument
+    aggregates also take `DISTINCT`, and every aggregate `FILTER (WHERE …)`. Over a grouped query the windows
+    run over the groups `HAVING` keeps, so `RANK() OVER (ORDER BY SUM(x) DESC)` and `SUM(SUM(x)) OVER ()` rank
+    and total the groups. `LAG`, `LEAD` and the three value functions take
+    `RESPECT NULLS` or `IGNORE NULLS` before the `OVER`. The frame is the standard's: `ROWS`, `RANGE` or
+    `GROUPS`, `BETWEEN` any of `UNBOUNDED PRECEDING`, `n PRECEDING`, `CURRENT ROW`, `n FOLLOWING` and
+    `UNBOUNDED FOLLOWING`, with an optional `EXCLUDE CURRENT ROW | GROUP | TIES | NO OTHERS`. A `RANGE` offset
+    measures a number or date `ORDER BY` key (a date in days). Without a frame it is the default: with an ORDER BY
+    a running value to the current row and its peers, without one the whole partition. The words these clauses
+    add are not reserved, so a column named `Range` or `Current`, or a table named `Last`, still works
+    unbracketed. `OVER` hangs off any function call, so adding another function is a registry entry rather than
+    a grammar change.
+  - **Ordered-set aggregates** — `PERCENTILE_CONT(p)` and `PERCENTILE_DISC(p) WITHIN GROUP (ORDER BY x [DESC])`,
+    grouped or over a window. `PERCENTILE_CONT` interpolates between numbers or dates; `PERCENTILE_DISC` returns
+    one of the values, so it also takes text. `LISTAGG([DISTINCT] x [, 'separator']) WITHIN GROUP (ORDER BY …)`
+    joins the values as text.
+  - **`FILTER (WHERE …)`** on any aggregate, grouped or windowed: `COUNT(*) FILTER (WHERE Amount > 100)`.
   - `FULL [OUTER] JOIN` — ACE offers only inner/left/right, and its query designer cannot express a full one.
   - **`OFFSET … ROWS FETCH NEXT … ROWS ONLY`** paging, where the count may be any expression, not just a
     literal. Access has only `TOP n`, and only with a literal.

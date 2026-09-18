@@ -81,14 +81,17 @@ public sealed record HashJoinNode(
 /// <summary>
 /// Groups input rows by the <paramref name="GroupBy"/> key expressions and emits one row per
 /// group by evaluating <paramref name="Projection"/> — where aggregate calls are computed over
-/// the group and other expressions see the group's key values.
+/// the group and other expressions see the group's key values. <paramref name="Windows"/> are computed over the
+/// groups HAVING keeps, each a row, and published to the projection and ORDER BY as <see cref="WindowNode"/>
+/// publishes them.
 /// </summary>
 public sealed record AggregateNode(
     PlanNode Input,
     IReadOnlyList<Expression> GroupBy,
     IReadOnlyList<SelectItem> Projection,
     Expression? Having,
-    IReadOnlyList<OrderByItem> OrderBy) : PlanNode
+    IReadOnlyList<OrderByItem> OrderBy,
+    IReadOnlyList<WindowOutput>? Windows = null) : PlanNode
 {
     public override IReadOnlyList<PlanNode> Children => [Input];
 }

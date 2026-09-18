@@ -48,16 +48,59 @@ public sealed record UnaryExpression(UnaryOperator Operator, Expression Operand)
 
 /// <summary>A scalar/aggregate function call, e.g. <c>Count(*)</c>, <c>IIf(...)</c>, <c>Format(...)</c>.
 /// <paramref name="Distinct"/> is set for the ANSI aggregate form <c>COUNT(DISTINCT col)</c> — the aggregate
-/// runs over the distinct set of the argument's values (not distinct rows).</summary>
-public sealed record FunctionCall(string Name, IReadOnlyList<Expression> Arguments, bool Distinct = false) : Expression;
+/// runs over the distinct set of the argument's values (not distinct rows).
+/// <paramref name="WithinGroup"/> is set for an ordered-set aggregate, <c>PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY
+/// x DESC)</c>: its ORDER BY keys are the last of the <paramref name="Arguments"/>, so that every walker sees them as
+/// it sees an argument, and this holds their directions, one per key. <paramref name="Filter"/> is an aggregate's
+/// <c>FILTER (WHERE …)</c>: only the rows it is true for go in.</summary>
+public sealed record FunctionCall(
+    string Name, IReadOnlyList<Expression> Arguments, bool Distinct = false,
+    IReadOnlyList<SortDirection>? WithinGroup = null, Expression? Filter = null) : Expression
+{
+    /// <summary>Whether <paramref name="name"/> is an ordered-set aggregate, which takes WITHIN GROUP and needs it.</summary>
+    public static bool IsOrderedSetAggregate(string name) =>
+        name.Equals("PERCENTILE_CONT", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("PERCENTILE_DISC", StringComparison.OrdinalIgnoreCase)
+        || name.Equals("LISTAGG", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The WITHIN GROUP keys: the last arguments, one per direction.</summary>
+    public IReadOnlyList<Expression> WithinGroupKeys =>
+        WithinGroup is null ? [] : Arguments.Skip(Arguments.Count - WithinGroup.Count).ToList();
+}
 
 /// <summary>The <c>OVER (…)</c> of a window function: how the input is cut into partitions and how rows are
 /// ordered within one. An empty <paramref name="PartitionBy"/> means a single partition over the whole input;
-/// an empty <paramref name="OrderBy"/> means every row of a partition is a peer. A frame clause belongs here
-/// when one is needed — adding it is a new optional property on this record and nothing else.</summary>
+/// an empty <paramref name="OrderBy"/> means every row of a partition is a peer. A null <paramref name="Frame"/>
+/// is the standard's default frame, <c>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</c>
+/// (<see cref="WindowFrame.Default"/>).</summary>
 public sealed record WindowSpec(
     IReadOnlyList<Expression> PartitionBy,
-    IReadOnlyList<OrderByItem> OrderBy) : SqlNode;
+    IReadOnlyList<OrderByItem> OrderBy,
+    WindowFrame? Frame = null) : SqlNode;
+
+/// <summary>How a frame's bounds are counted: in rows, in ORDER BY values, or in peer groups.</summary>
+public enum FrameUnit { Rows, Range, Groups }
+
+/// <summary>The kinds of frame bound, in window order — a frame's start never comes after its end in this order.</summary>
+public enum FrameBoundKind { UnboundedPreceding, Preceding, CurrentRow, Following, UnboundedFollowing }
+
+/// <summary>One end of a window frame; <paramref name="Offset"/> is set for <c>n PRECEDING</c> and <c>n FOLLOWING</c>.</summary>
+public sealed record FrameBound(FrameBoundKind Kind, Expression? Offset = null) : SqlNode;
+
+/// <summary>The rows a frame leaves out around the current row: none, the row itself, its peer group, or its peers
+/// but not itself.</summary>
+public enum FrameExclusion { NoOthers, CurrentRow, Group, Ties }
+
+/// <summary>A window's frame: the rows of the partition, around the current row, that a frame-reading function —
+/// an aggregate, <c>FIRST_VALUE</c>, … — sees.</summary>
+public sealed record WindowFrame(FrameUnit Unit, FrameBound Start, FrameBound End, FrameExclusion Exclusion = FrameExclusion.NoOthers)
+    : SqlNode
+{
+    /// <summary><c>RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW</c>: with an ORDER BY, the partition up to the
+    /// current row's last peer; without one, the whole partition, every row then being a peer.</summary>
+    public static readonly WindowFrame Default =
+        new(FrameUnit.Range, new(FrameBoundKind.UnboundedPreceding), new(FrameBoundKind.CurrentRow));
+}
 
 /// <summary>
 /// A window function call: <c>ROW_NUMBER() OVER (PARTITION BY … ORDER BY …)</c>. Access has none of these —
@@ -70,10 +113,30 @@ public sealed record WindowSpec(
 /// AggregateNode. As a sibling record it falls through to "not an aggregate", which is correct — a window
 /// function returns one value per ROW, not per group, whatever its name.
 /// </remarks>
+/// <param name="Distinct">A windowed aggregate over the distinct values of its argument in each frame.</param>
+/// <param name="IgnoreNulls">IGNORE NULLS (true) or RESPECT NULLS (false); null when neither is written.</param>
+/// <param name="FromLast">FROM LAST (true) or FROM FIRST (false); null when neither is written.</param>
+/// <param name="WithinGroup">An ordered-set aggregate's ordering, as on <see cref="FunctionCall"/>.</param>
+/// <param name="Filter">An aggregate's FILTER (WHERE …), as on <see cref="FunctionCall"/>.</param>
 public sealed record WindowFunction(
     string Name,
     IReadOnlyList<Expression> Arguments,
-    WindowSpec Over) : Expression;
+    WindowSpec Over,
+    bool Distinct = false,
+    bool? IgnoreNulls = null,
+    bool? FromLast = null,
+    IReadOnlyList<SortDirection>? WithinGroup = null,
+    Expression? Filter = null) : Expression
+{
+    /// <summary>Every expression the call evaluates on a row: arguments, FILTER, partition and sort keys, and frame
+    /// offsets.</summary>
+    public IEnumerable<Expression> Expressions() =>
+        Arguments
+            .Concat(Filter is null ? [] : [Filter])
+            .Concat(Over.PartitionBy)
+            .Concat(Over.OrderBy.Select(o => o.Value))
+            .Concat(new[] { Over.Frame?.Start.Offset, Over.Frame?.End.Offset }.OfType<Expression>());
+}
 
 /// <summary>A subquery used as a scalar value: <c>(SELECT … )</c>. May correlate to the outer query.</summary>
 /// <remarks>

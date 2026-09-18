@@ -1008,5 +1008,53 @@ public interface IAccessSqlVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitClusteredOption([NotNull] AccessSqlParser.ClusteredOptionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.windowFrame"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitWindowFrame([NotNull] AccessSqlParser.WindowFrameContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.frameBound"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitFrameBound([NotNull] AccessSqlParser.FrameBoundContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.frameExclusion"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitFrameExclusion([NotNull] AccessSqlParser.FrameExclusionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.nonReservedKeyword"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitNonReservedKeyword([NotNull] AccessSqlParser.NonReservedKeywordContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.filterClause"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitFilterClause([NotNull] AccessSqlParser.FilterClauseContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.withinGroup"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitWithinGroup([NotNull] AccessSqlParser.WithinGroupContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.nthRowFrom"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitNthRowFrom([NotNull] AccessSqlParser.NthRowFromContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="AccessSqlParser.nullTreatment"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitNullTreatment([NotNull] AccessSqlParser.NullTreatmentContext context);
 }
 } // namespace LibRed.Sql.Grammar

@@ -132,6 +132,25 @@ The complete Access SQL aggregate set (`QueryPlanner` + `QueryExecutor`), each s
 null-filtered) · `StDev` / `Var` (sample: ÷ n−1, NULL for n < 2) · `StDevP` / `VarP` (population: ÷ n).
 `StdDev` / `StdDevP` are accepted spellings.
 
+Beyond Access, the standard's names for the statistics — `STDDEV_SAMP`, `STDDEV_POP`, `VAR_SAMP`, `VAR_POP`, the
+same aggregates as `StDev`, `StDevP`, `Var` and `VarP` — and its binary set functions over `(y, x)` pairs, using
+only the pairs where neither is Null: `CORR`, `COVAR_POP`, `COVAR_SAMP`, `REGR_COUNT`, `REGR_AVGX`, `REGR_AVGY`,
+`REGR_SXX`, `REGR_SYY`, `REGR_SXY`, `REGR_SLOPE`, `REGR_INTERCEPT` and `REGR_R2`. `REGR_COUNT` is a `Long`, the
+rest `Double`s; they take no `DISTINCT`. Every x the same makes the slope, intercept, R² and correlation Null;
+every y the same makes the correlation Null and R² 1.
+
+And the standard's ordered-set aggregates `PERCENTILE_CONT(p)` and `PERCENTILE_DISC(p)
+WITHIN GROUP (ORDER BY x [DESC])`: the value at fraction `p` (0 to 1) of the ordered non-Null values.
+`PERCENTILE_CONT` interpolates linearly (a `Double`, or a date for dates); `PERCENTILE_DISC` is the first value
+whose cumulative share reaches `p`, in the key's own type. Neither takes `DISTINCT`. `LISTAGG([DISTINCT] x
+[, 'separator']) WITHIN GROUP (ORDER BY k [DESC], …)` lists the non-Null values as text (each written as `&`
+writes it) in that order, joined by the separator — a string literal, as the standard has it, and none when
+left out; Null when there are no values.
+
+Every aggregate takes the standard's `FILTER (WHERE condition)`, after the call (and after `WITHIN GROUP`): only
+the rows the condition is true for go in, so `COUNT(*) FILTER (WHERE x > 1)` counts those rows and a group none
+of whose rows pass has what an empty group has.
+
 **Result-type contract** (matches Access + LINQ so the EF provider round-trips without a cast): `Sum`
 **preserves the input type** (int→int, long→long, decimal→decimal); `Avg` is `Double` unless the input is
 Currency/Decimal; `Min`/`Max` keep the column's own value and type; `Sum`/`Avg`/`Min`/`Max` of no rows is

@@ -8,14 +8,14 @@ public static class ExpressionTree
 {
     /// <summary>
     /// The expressions directly inside <paramref name="expression"/> and evaluated in its scope: operands, function
-    /// arguments, IN-list items, BETWEEN bounds, and a CASE's conditions and results. Null for anything else — a leaf,
+    /// arguments (and an aggregate's FILTER), IN-list items, BETWEEN bounds, and a CASE's conditions and results. Null for anything else — a leaf,
     /// a subquery, an IN subquery or a window function — which each walker treats in its own way.
     /// </summary>
     public static IEnumerable<Expression>? Operands(this Expression expression) => expression switch
     {
         BinaryExpression b => new[] { b.Left, b.Right },
         UnaryExpression u => new[] { u.Operand },
-        FunctionCall f => f.Arguments,
+        FunctionCall f => f.Filter is null ? f.Arguments : f.Arguments.Append(f.Filter),
         InListExpression il => il.Items.Prepend(il.Value),
         BetweenExpression be => new[] { be.Value, be.Low, be.High },
         CaseExpression c => c.WhenClauses
@@ -30,7 +30,7 @@ public static class ExpressionTree
     {
         BinaryExpression b => b with { Left = map(b.Left), Right = map(b.Right) },
         UnaryExpression u => u with { Operand = map(u.Operand) },
-        FunctionCall f => f with { Arguments = f.Arguments.Select(map).ToList() },
+        FunctionCall f => f with { Arguments = f.Arguments.Select(map).ToList(), Filter = f.Filter is null ? null : map(f.Filter) },
         InListExpression il => il with { Value = map(il.Value), Items = il.Items.Select(map).ToList() },
         BetweenExpression be => be with { Value = map(be.Value), Low = map(be.Low), High = map(be.High) },
         CaseExpression c => c with

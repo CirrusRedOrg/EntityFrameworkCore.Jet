@@ -530,10 +530,14 @@ internal sealed class AstBuilder
         WindowFunction w => w with
         {
             Arguments = w.Arguments.Select(a => LowerExpr(a, names)).ToList(),
+            Filter = w.Filter is null ? null : LowerExpr(w.Filter, names),
             Over = w.Over with
             {
                 PartitionBy = w.Over.PartitionBy.Select(p => LowerExpr(p, names)).ToList(),
                 OrderBy = w.Over.OrderBy.Select(o => o with { Value = LowerExpr(o.Value, names) }).ToList(),
+                Frame = w.Over.Frame is { } frame
+                    ? frame with { Start = LowerBound(frame.Start, names), End = LowerBound(frame.End, names) }
+                    : null,
             },
         },
         // LowerParameters, not LowerSelect: a subquery may be a set operation or a table value constructor.
@@ -542,6 +546,9 @@ internal sealed class AstBuilder
         InSubqueryExpression i => i with { Value = LowerExpr(i.Value, names), Query = LowerParameters(i.Query, names) },
         _ => e.MapOperands(o => LowerExpr(o, names)),
     };
+
+    private static FrameBound LowerBound(FrameBound bound, HashSet<string> names) =>
+        bound.Offset is null ? bound : bound with { Offset = LowerExpr(bound.Offset, names) };
 
     /// <summary>Decomposes a view's "simple SELECT" into the columns/tables/joins/where Access stores as
     /// MSysQueries rows. Rejects anything Access itself rejects in a view (UNION, GROUP BY/aggregates,
@@ -1000,24 +1007,107 @@ internal sealed class AstBuilder
 
     private static Expression BuildFunctionCall(FunctionCallContext ctx)
     {
-        IReadOnlyList<Expression> args = ctx.star is not null
+        string name = FunctionName(ctx.name);
+        List<Expression> args = ctx.star is not null
             ? [new StarExpression()]
             : ctx.expression().Select(BuildExpression).ToList();
+        IReadOnlyList<SortDirection>? withinGroup = BuildWithinGroup(ctx, name, args);
+        Expression? filter = ctx.filterClause() is { } f ? BuildExpression(f.condition) : null;
+
         // An OVER clause turns the same call into a window function, which is a different kind of node rather
         // than a FunctionCall carrying a spec — see WindowFunction for why the distinction has to be in the type.
-        // A windowed aggregate takes no DISTINCT, as SQL Server and PostgreSQL refuse it.
         if (ctx.windowSpecification() is { } over)
         {
-            return ctx.distinct is null
-                ? new WindowFunction(FunctionName(ctx.name), args, BuildWindowSpec(over))
-                : throw new SqlParseException("DISTINCT is not allowed in a window function.");
+            return new WindowFunction(name, args, BuildWindowSpec(over),
+                Distinct: ctx.distinct is not null,
+                IgnoreNulls: ctx.nullTreatment() is { } nulls ? nulls.treatment.Type == IGNORE : null,
+                FromLast: ctx.nthRowFrom() is { } from ? from.edge.Type == LAST : null,
+                WithinGroup: withinGroup,
+                Filter: filter);
         }
-        return new FunctionCall(FunctionName(ctx.name), args, Distinct: ctx.distinct is not null);
+        return new FunctionCall(name, args, Distinct: ctx.distinct is not null, WithinGroup: withinGroup, Filter: filter);
+    }
+
+    /// <summary>
+    /// An ordered-set aggregate's WITHIN GROUP: its ORDER BY keys, appended to <paramref name="args"/>, and their
+    /// directions. The syntax belongs to those aggregates alone, and they cannot go without it. A percentile takes
+    /// one argument, the fraction, no DISTINCT and one key; LISTAGG takes the value and optionally a separator, which
+    /// the standard makes a string literal, and any number of keys.
+    /// </summary>
+    private static IReadOnlyList<SortDirection>? BuildWithinGroup(FunctionCallContext ctx, string name, List<Expression> args)
+    {
+        bool orderedSet = FunctionCall.IsOrderedSetAggregate(name);
+        if (ctx.withinGroup() is not { } within)
+        {
+            return orderedSet
+                ? throw new SqlParseException($"{name} needs WITHIN GROUP (ORDER BY …).")
+                : null;
+        }
+        if (!orderedSet)
+            throw new SqlParseException($"{name} takes no WITHIN GROUP.");
+        if (ctx.star is not null)
+            throw new SqlParseException($"{name} takes no *.");
+
+        var keys = within.orderByClause().orderByItem().Select(BuildOrderByItem).ToList();
+        if (name.Equals("LISTAGG", StringComparison.OrdinalIgnoreCase))
+        {
+            if (args.Count is not (1 or 2) || args is [_, not LiteralExpression { Value: string }])
+                throw new SqlParseException("LISTAGG takes a value and, optionally, a separator written as a string.");
+        }
+        else if (ctx.distinct is not null || args.Count != 1 || keys.Count != 1)
+            throw new SqlParseException($"{name} takes one argument, the fraction, no DISTINCT, and orders by one key.");
+
+        args.AddRange(keys.Select(k => k.Value));
+        return keys.Select(k => k.Direction).ToList();
     }
 
     private static WindowSpec BuildWindowSpec(WindowSpecificationContext ctx) =>
         new(ctx._partition.Select(BuildExpression).ToList(),
-            ctx.orderByClause() is { } o ? o.orderByItem().Select(BuildOrderByItem).ToList() : []);
+            ctx.orderByClause() is { } o ? o.orderByItem().Select(BuildOrderByItem).ToList() : [],
+            ctx.windowFrame() is { } frame ? BuildWindowFrame(frame) : null);
+
+    /// <summary>
+    /// A frame clause, held to the standard's syntax rules: the start is not UNBOUNDED FOLLOWING, the end is not
+    /// UNBOUNDED PRECEDING, and the start does not come after the end in window order — so <c>CURRENT ROW AND 1
+    /// PRECEDING</c> is refused, and a lone <c>n FOLLOWING</c>, which ends at the current row, is too.
+    /// </summary>
+    private static WindowFrame BuildWindowFrame(WindowFrameContext ctx)
+    {
+        FrameBound start = BuildFrameBound(ctx.start);
+        FrameBound end = ctx.end is null ? new FrameBound(FrameBoundKind.CurrentRow) : BuildFrameBound(ctx.end);
+        if (start.Kind == FrameBoundKind.UnboundedFollowing)
+            throw new SqlParseException("A window frame cannot start at UNBOUNDED FOLLOWING.");
+        if (end.Kind == FrameBoundKind.UnboundedPreceding)
+            throw new SqlParseException("A window frame cannot end at UNBOUNDED PRECEDING.");
+        if (start.Kind > end.Kind)
+            throw new SqlParseException("A window frame cannot start after it ends.");
+
+        FrameUnit unit = ctx.unit.Type switch
+        {
+            ROWS => FrameUnit.Rows,
+            RANGE => FrameUnit.Range,
+            _ => FrameUnit.Groups,
+        };
+        FrameExclusion exclusion = ctx.exclusion switch
+        {
+            null => FrameExclusion.NoOthers,
+            { } e when e.CURRENT() is not null => FrameExclusion.CurrentRow,
+            { } e when e.GROUP() is not null => FrameExclusion.Group,
+            { } e when e.TIES() is not null => FrameExclusion.Ties,
+            _ => FrameExclusion.NoOthers, // NO OTHERS
+        };
+        return new WindowFrame(unit, start, end, exclusion);
+    }
+
+    private static FrameBound BuildFrameBound(FrameBoundContext ctx)
+    {
+        if (ctx.CURRENT() is not null)
+            return new FrameBound(FrameBoundKind.CurrentRow);
+        bool preceding = ctx.direction.Type == PRECEDING;
+        return ctx.UNBOUNDED() is not null
+            ? new FrameBound(preceding ? FrameBoundKind.UnboundedPreceding : FrameBoundKind.UnboundedFollowing)
+            : new FrameBound(preceding ? FrameBoundKind.Preceding : FrameBoundKind.Following, BuildExpression(ctx.offset));
+    }
 
     /// <summary>A function name: an identifier, or the LEFT/RIGHT keyword tokens as Left()/Right().</summary>
     private static string FunctionName(FunctionNameContext ctx) =>

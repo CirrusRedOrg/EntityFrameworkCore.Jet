@@ -470,17 +470,22 @@ caseWhen : WHEN condition=expression THEN result=expression ;
 // a new window function cost NO grammar at all: ROW_NUMBER, RANK, NTILE and friends already lex as IDENTIFIER
 // and reach here through `functionName`, and `SUM(x) OVER (…)` — an aggregate over a window — parses for free
 // as the same shape. Access has no window functions; this is a LibRed extension for extended mode.
+// WITHIN GROUP gives an ordered-set aggregate (PERCENTILE_CONT, PERCENTILE_DISC, LISTAGG) its ordering, and FILTER
+// an aggregate the rows it takes in. FROM FIRST/LAST and RESPECT/IGNORE NULLS sit between the call and OVER, where
+// the standard puts them, and only with an OVER: a lone `FROM Last` after a call is the FROM clause naming a table
+// called Last, which the lookahead to OVER tells apart.
 functionCall
     : name=functionName LPAREN (star=STAR | (distinct=DISTINCT? expression (COMMA expression)*))? RPAREN
-      (OVER windowSpecification)?
+      withinGroup? filterClause?
+      (nthRowFrom? nullTreatment? OVER windowSpecification)?
     ;
 // A function name is an identifier, or the LEFT/RIGHT/ASC keywords used as the Left()/Right()/Asc() functions —
 // unambiguous with LEFT/RIGHT JOIN and ORDER BY ... ASC because a function call is always followed by '(' and
 // never appears in the FROM/ORDER BY clause.
 // Keywords that are also function names have to be readmitted here or the lexer's keyword token wins and the
 // call stops parsing: Left/Right/Asc, and FIRST — which `offsetFetchClause` needs as a keyword for
-// `FETCH FIRST`, but which is also the Access aggregate First(). (LAST is not listed because nothing else
-// claims it as a keyword.)
+// `FETCH FIRST`, but which is also the Access aggregate First(). (LAST is not listed because it is a non-reserved
+// keyword, which `identifier` already admits.)
 // PARTITION is readmitted for the same reason: `PARTITION BY` makes it a keyword, but Access has a real VBA
 // Partition(number, start, stop, interval) function that LibRed implements and tests. A function call is always
 // followed by '(' and `PARTITION BY` never is, so the two never collide.
@@ -488,7 +493,7 @@ functionName : identifier | LEFT | RIGHT | ASC | FIRST | PARTITION ;
 
 columnRef : (qualifier=identifier DOT)? name=identifier ;
 
-identifier : IDENTIFIER | BRACKET_ID | BACKTICK_ID ;
+identifier : IDENTIFIER | BRACKET_ID | BACKTICK_ID | nonReservedKeyword ;
 
 literal
     : INTEGER_LITERAL   # IntLiteral
@@ -519,16 +524,49 @@ standaloneExpression : expression EOF ;
 // A window function's OVER (…). Both parts are optional here even though EF Core always emits both and the
 // standard's defaults differ (no PARTITION BY = one partition over the whole input; no ORDER BY = every row a
 // peer), because rejecting them in the grammar would report a parse error where a semantic one is clearer.
-// A frame clause (ROWS/RANGE BETWEEN …) goes before the RPAREN when something needs one — nothing emits one
-// today, and admitting it now would reserve five more keywords (RANGE, PRECEDING, FOLLOWING, UNBOUNDED,
-// CURRENT) to buy nothing. Kept after the existing parser rules so adding it does not renumber their ids.
+// Kept after the existing parser rules so adding it does not renumber their ids.
 windowSpecification
-    : LPAREN (PARTITION BY partition+=expression (COMMA partition+=expression)*)? orderByClause? RPAREN
+    : LPAREN (PARTITION BY partition+=expression (COMMA partition+=expression)*)? orderByClause? windowFrame? RPAREN
     ;
 
 // CLUSTERED / NONCLUSTERED after PRIMARY KEY or UNIQUE — accepted and ignored (see columnConstraint). Kept after
 // the existing parser rules so adding it does not renumber their ids.
 clusteredOption : CLUSTERED | NONCLUSTERED ;
+
+// A window frame, as the standard has it: the rows of the partition a frame-reading function (an aggregate,
+// FIRST_VALUE, …) sees from the current row. A lone bound is the frame's start, ending at the current row.
+//   ROWS | RANGE | GROUPS   [BETWEEN start AND end | start]   [EXCLUDE CURRENT ROW | GROUP | TIES | NO OTHERS]
+// UNBOUNDED is listed before the offset form so `UNBOUNDED PRECEDING` is the bound, not a column named Unbounded
+// (ANTLR settles an ambiguity on the lower alternative); bracket such a column to use it as an offset.
+windowFrame
+    : unit=(ROWS | RANGE | GROUPS) (BETWEEN start=frameBound AND end=frameBound | start=frameBound)
+      (EXCLUDE exclusion=frameExclusion)?
+    ;
+frameBound
+    : UNBOUNDED direction=(PRECEDING | FOLLOWING)
+    | CURRENT ROW
+    | offset=expression direction=(PRECEDING | FOLLOWING)
+    ;
+frameExclusion : CURRENT ROW | GROUP | TIES | NO OTHERS ;
+
+// The window clauses' words are keywords only there: each is also admitted as an identifier, so a column named
+// Range or Current keeps working unbracketed, as it does in ACE, which reserves none of them.
+nonReservedKeyword
+    : RANGE | GROUPS | UNBOUNDED | PRECEDING | FOLLOWING | CURRENT | EXCLUDE | TIES | OTHERS
+    | WITHIN | LAST | RESPECT | NULLS | FILTER
+    ;
+
+// An aggregate's FILTER: only the rows for which the condition is true go into it.
+filterClause : FILTER LPAREN WHERE condition=expression RPAREN ;
+
+// An ordered-set aggregate's ordering: PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY x).
+withinGroup : WITHIN GROUP LPAREN orderByClause RPAREN ;
+
+// NTH_VALUE's direction: counted from the frame's first row (the default) or its last.
+nthRowFrom : FROM edge=(FIRST | LAST) ;
+
+// Whether LAG, LEAD, FIRST_VALUE, LAST_VALUE and NTH_VALUE count the rows whose value is Null (the default) or skip them.
+nullTreatment : treatment=(RESPECT | IGNORE) NULLS ;
 
 // ---- Lexer ----
 
@@ -641,6 +679,21 @@ DESC   : [Dd][Ee][Ss][Cc] ;
 TRUE   : [Tt][Rr][Uu][Ee] ;
 FALSE  : [Ff][Aa][Ll][Ss][Ee] ;
 NULL   : [Nn][Uu][Ll][Ll] ;
+// The window clauses' words — not reserved; see nonReservedKeyword.
+RANGE     : [Rr][Aa][Nn][Gg][Ee] ;
+GROUPS    : [Gg][Rr][Oo][Uu][Pp][Ss] ;
+UNBOUNDED : [Uu][Nn][Bb][Oo][Uu][Nn][Dd][Ee][Dd] ;
+PRECEDING : [Pp][Rr][Ee][Cc][Ee][Dd][Ii][Nn][Gg] ;
+FOLLOWING : [Ff][Oo][Ll][Ll][Oo][Ww][Ii][Nn][Gg] ;
+CURRENT   : [Cc][Uu][Rr][Rr][Ee][Nn][Tt] ;
+EXCLUDE   : [Ee][Xx][Cc][Ll][Uu][Dd][Ee] ;
+TIES      : [Tt][Ii][Ee][Ss] ;
+OTHERS    : [Oo][Tt][Hh][Ee][Rr][Ss] ;
+WITHIN    : [Ww][Ii][Tt][Hh][Ii][Nn] ;
+LAST      : [Ll][Aa][Ss][Tt] ;
+RESPECT   : [Rr][Ee][Ss][Pp][Ee][Cc][Tt] ;
+NULLS     : [Nn][Uu][Ll][Ll][Ss] ;
+FILTER    : [Ff][Ii][Ll][Tt][Ee][Rr] ;
 
 STAR     : '*' ;
 SLASH    : '/' ;

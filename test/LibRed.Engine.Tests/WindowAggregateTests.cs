@@ -98,9 +98,36 @@ public class WindowAggregateTests(WindowAggregateTests.Database database)
     public void A_windowed_currency_sum_is_a_currency() =>
         Assert.Equal("Currency", Query("SELECT TYPENAME(SUM(M) OVER ()) AS r FROM W").Rows[0][0]);
 
-    [Fact]
-    public void Distinct_is_not_allowed() =>
-        Assert.Contains("DISTINCT", Assert.ThrowsAny<Exception>(() => Query("SELECT SUM(DISTINCT V) OVER () AS r FROM W")).Message);
+    // V runs 10, 20, 20, 5, Null by Id: the second 20 counts once in every frame that holds both.
+    [Theory]
+    [InlineData("COUNT(DISTINCT V)", "PARTITION BY G", "1:2 2:2 3:2 4:1 5:1")]
+    [InlineData("SUM(DISTINCT V)", "ORDER BY Id", "1:10 2:30 3:30 4:35 5:35")]
+    [InlineData("SUM(DISTINCT V)", "ORDER BY Id ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING", "1:35 2:25 3:25 4:5 5:")]
+    [InlineData("SUM(DISTINCT V)", "ORDER BY Id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING", "1:30 2:30 3:25 4:25 5:5")]
+    [InlineData("COUNT(DISTINCT T)", "", "1:5 2:5 3:5 4:5 5:5")]
+    public void Distinct_counts_each_value_of_the_frame_once(string function, string over, string expected) =>
+        Assert.Equal(expected, ById(function, over));
+
+    [Theory]
+    [InlineData("COUNT(DISTINCT V)")]
+    [InlineData("SUM(DISTINCT V)")]
+    [InlineData("AVG(DISTINCT V)")]
+    [InlineData("STDEV(DISTINCT M)")]
+    public void A_distinct_aggregate_over_the_whole_input_is_the_grouped_one(string aggregate)
+    {
+        var (groupedTypes, grouped) = Query($"SELECT {aggregate} AS r FROM W");
+        var (windowedTypes, windowed) = Query($"SELECT {aggregate} OVER () AS r FROM W");
+
+        Assert.Equal(groupedTypes[0], windowedTypes[0]);
+        Assert.All(windowed, row => Assert.Equal(grouped[0][0], row[0]));
+    }
+
+    [Theory]
+    [InlineData("FIRST_VALUE(DISTINCT V) OVER (ORDER BY Id)")]
+    [InlineData("LAG(DISTINCT V) OVER (ORDER BY Id)")]
+    [InlineData("NTILE(DISTINCT 2) OVER (ORDER BY Id)")]
+    public void Only_an_aggregate_takes_distinct(string expression) =>
+        Assert.Throws<InvalidOperationException>(() => Query($"SELECT {expression} AS r FROM W"));
 
     [Fact]
     public void Only_count_takes_a_star() =>

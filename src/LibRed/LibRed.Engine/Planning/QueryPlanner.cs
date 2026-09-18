@@ -75,25 +75,21 @@ public sealed class QueryPlanner
         var windows = new List<WindowOutput>();
         select = ExtractWindows(select, windows);
 
+        // A window whose arguments or keys hold an aggregate — RANK() OVER (ORDER BY SUM(x)) — makes the query
+        // grouped by itself, as an aggregate in the projection does.
         bool aggregate = select.GroupBy.Count > 0 || select.Having is not null
-            || select.Projection.Any(i => HasAggregate(i.Value));
+            || select.Projection.Any(i => HasAggregate(i.Value))
+            || windows.Any(w => w.Function.Expressions().Any(HasAggregate));
 
-        if (windows.Count > 0)
-        {
-            if (aggregate)
-                // AggregateNode owns the projection, HAVING and ORDER BY and collapses rows, so a window over
-                // grouped output would need its projection split across the two nodes. EF Core always puts such
-                // a window in its own derived table, so nothing needs this yet — refuse loudly rather than hand
-                // the call to AggregateNode, whose per-group evaluation swallows the resulting error.
-                throw new NotSupportedException(
-                    "A window function over a grouped query (GROUP BY / HAVING / an aggregate projection) is not supported.");
+        // Over a grouped query the windows run over the groups, after HAVING and before the projection and ORDER BY
+        // — the standard's order — so the aggregate node computes them itself.
+        if (windows.Count > 0 && !aggregate)
             node = new WindowNode(node, windows);
-        }
 
         if (aggregate)
             // The aggregate node owns ORDER BY: its keys are evaluated in the group scope (so they can
             // reference grouping expressions / aggregates), not over the already-projected output.
-            node = new AggregateNode(node, select.GroupBy, select.Projection, select.Having, select.OrderBy);
+            node = new AggregateNode(node, select.GroupBy, select.Projection, select.Having, select.OrderBy, windows);
         else if (select.OrderBy.Count > 0)
             node = PushSort(node, select.OrderBy);
 
@@ -220,10 +216,14 @@ public sealed class QueryPlanner
 
     /// <summary>The aggregate function names recognised by the planner/executor. Includes the Access statistical
     /// aggregates StDev/StDevP (sample/population standard deviation) and Var/VarP (sample/population variance);
-    /// the "StdDev"/"StdDevP" spellings are accepted as aliases.</summary>
+    /// the "StdDev"/"StdDevP" spellings are accepted as aliases. Beyond Access, a LibRed extension: the standard's
+    /// names for the statistics, its binary set functions (CORR, COVAR_*, REGR_*) — all of them
+    /// <see cref="Execution.RunningAggregate"/>'s — and its ordered-set aggregates PERCENTILE_CONT, PERCENTILE_DISC
+    /// and LISTAGG.</summary>
     internal static bool IsAggregate(string name) =>
-        name.ToUpperInvariant() is "COUNT" or "SUM" or "AVG" or "MIN" or "MAX" or "FIRST" or "LAST"
-            or "STDEV" or "STDEVP" or "STDDEV" or "STDDEVP" or "VAR" or "VARP";
+        name.ToUpperInvariant() is var upper
+        && (upper is "FIRST" or "LAST" or "PERCENTILE_CONT" or "PERCENTILE_DISC" or "LISTAGG"
+            || Execution.RunningAggregate.Supports(upper));
 
     internal static bool HasAggregate(Expression e) => e switch
     {

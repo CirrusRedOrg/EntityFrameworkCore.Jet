@@ -23,13 +23,38 @@ namespace LibRed.Engine.Execution;
 /// <para>The statistical aggregates are verified vs ACE to the last bit. VAR and STDEV are the sample forms, Null for
 /// a single value; VARP and STDEVP the population forms; the STDEVs are the square roots. ACE works them out as
 /// (n·Σx² − (Σx)²) / (n·(n−1)), or / n² for the population, in doubles; a Single is squared in single precision, and
-/// a Currency's square and squared sum are Currency products, rounded to four places.</para>
+/// a Currency's square and squared sum are Currency products, rounded to four places. The standard's names —
+/// STDDEV_SAMP, STDDEV_POP, VAR_SAMP and VAR_POP — are the same aggregates.</para>
+/// <para>The standard's binary set functions — CORR, COVAR_POP, COVAR_SAMP and the REGR_ family — take a pair, the
+/// dependent value first (<see cref="AddPair"/>), and use only the pairs where neither is Null. ACE has none of them,
+/// so there is nothing to match bit for bit: the sums of squares and products are kept by the Youngs–Cramer update,
+/// as PostgreSQL keeps them, which does not lose the small differences that the textbook Σx² − (Σx)²/n cancels away.
+/// REGR_COUNT is an int, as COUNT is; the rest are Doubles, Null over no pairs. The standard's rules for a degenerate
+/// input apply: COVAR_SAMP needs two pairs; REGR_SLOPE, REGR_INTERCEPT and REGR_R2 are Null when every x is the same,
+/// and CORR when every x or every y is; REGR_R2 is 1 when every y is the same.</para>
 /// </remarks>
 internal sealed class RunningAggregate
 {
+    private static readonly Dictionary<string, string> StandardNames = new()
+    {
+        ["STDDEV_SAMP"] = "STDEV",
+        ["STDDEV_POP"] = "STDEVP",
+        ["VAR_SAMP"] = "VAR",
+        ["VAR_POP"] = "VARP",
+    };
+
+    private static readonly HashSet<string> PairNames =
+    [
+        "CORR", "COVAR_POP", "COVAR_SAMP", "REGR_COUNT", "REGR_AVGX", "REGR_AVGY", "REGR_SXX", "REGR_SYY", "REGR_SXY",
+        "REGR_SLOPE", "REGR_INTERCEPT", "REGR_R2",
+    ];
+
     private readonly string _name;
     private readonly bool _countRows;
     private readonly bool _currency;
+
+    // The pair aggregates: sums of x and y, and the sums of squared and multiplied deviations from their means.
+    private double _sumX, _sumY, _sxx, _syy, _sxy;
 
     private int _count;
     private object? _extreme;
@@ -49,14 +74,43 @@ internal sealed class RunningAggregate
     /// exactly.</param>
     public RunningAggregate(string name, bool countRows, bool currency)
     {
-        _name = Supports(name) ? name : throw new NotSupportedException($"Aggregate {name} is not supported.");
+        _name = Supports(name) ? Canonical(name) : throw new NotSupportedException($"Aggregate {name} is not supported.");
         _countRows = countRows;
         _currency = currency;
     }
 
     /// <summary>Whether <paramref name="name"/> (upper case) is an aggregate this computes.</summary>
     public static bool Supports(string name) =>
-        name is "COUNT" or "SUM" or "AVG" or "MIN" or "MAX" or "VAR" or "VARP" or "STDEV" or "STDEVP" or "STDDEV" or "STDDEVP";
+        Canonical(name) is "COUNT" or "SUM" or "AVG" or "MIN" or "MAX" or "VAR" or "VARP" or "STDEV" or "STDEVP"
+            or "STDDEV" or "STDDEVP"
+        || IsPair(name);
+
+    /// <summary>Whether <paramref name="name"/> (upper case) is a binary set function, fed by <see cref="AddPair"/>.</summary>
+    public static bool IsPair(string name) => PairNames.Contains(name);
+
+    /// <summary>The Access name for one of the standard's: STDDEV_SAMP is STDEV, VAR_POP is VARP, ….</summary>
+    public static string Canonical(string name) => StandardNames.GetValueOrDefault(name, name);
+
+    /// <summary>Adds a pair to a binary set function: <paramref name="y"/>, the dependent value, and
+    /// <paramref name="x"/>. The pair counts only when neither is Null; each is read as the conversion functions
+    /// read a value.</summary>
+    public void AddPair(object? y, object? x)
+    {
+        if (y is null || x is null)
+            return;
+        double dy = Convert.ToDouble(ExpressionEvaluator.ConversionNumber(y), CultureInfo.InvariantCulture);
+        double dx = Convert.ToDouble(ExpressionEvaluator.ConversionNumber(x), CultureInfo.InvariantCulture);
+        double n = ++_count;
+        _sumX += dx;
+        _sumY += dy;
+        if (n > 1)
+        {
+            double tx = dx * n - _sumX, ty = dy * n - _sumY, scale = 1.0 / (n * (n - 1));
+            _sxx += tx * tx * scale;
+            _syy += ty * ty * scale;
+            _sxy += tx * ty * scale;
+        }
+    }
 
     private static bool IsStatistic(string name) => name is not ("COUNT" or "SUM" or "AVG" or "MIN" or "MAX");
 
@@ -132,9 +186,10 @@ internal sealed class RunningAggregate
     /// <summary>The aggregate of the values added so far.</summary>
     public object? Result => _name switch
     {
-        "COUNT" => _count,
+        "COUNT" or "REGR_COUNT" => _count,
         "MIN" or "MAX" => _extreme is string { Length: 0 } ? null : _extreme,
         _ when _count == 0 => null,
+        _ when IsPair(_name) => PairResult(),
         "SUM" => _first switch
         {
             decimal => _decimalSum,
@@ -146,6 +201,25 @@ internal sealed class RunningAggregate
         "AVG" => _first is decimal ? _decimalSum / _count : _doubleSum / _count,
         _ => Statistic(),
     };
+
+    private double? PairResult()
+    {
+        double n = _count;
+        return _name switch
+        {
+            "COVAR_POP" => _sxy / n,
+            "COVAR_SAMP" => n < 2 ? null : _sxy / (n - 1),
+            "CORR" => _sxx == 0 || _syy == 0 ? null : _sxy / (Math.Sqrt(_sxx) * Math.Sqrt(_syy)),
+            "REGR_AVGX" => _sumX / n,
+            "REGR_AVGY" => _sumY / n,
+            "REGR_SXX" => _sxx,
+            "REGR_SYY" => _syy,
+            "REGR_SXY" => _sxy,
+            "REGR_SLOPE" => _sxx == 0 ? null : _sxy / _sxx,
+            "REGR_INTERCEPT" => _sxx == 0 ? null : (_sumY - _sumX * _sxy / _sxx) / n,
+            _ => _sxx == 0 ? null : _syy == 0 ? 1.0 : _sxy * _sxy / (_sxx * _syy), // REGR_R2
+        };
+    }
 
     private object? Statistic()
     {

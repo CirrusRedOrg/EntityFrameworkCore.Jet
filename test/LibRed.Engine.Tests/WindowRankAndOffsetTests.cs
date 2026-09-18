@@ -4,7 +4,8 @@ using Xunit;
 namespace LibRed.Engine.Tests;
 
 /// <summary>
-/// <c>NTILE</c>, <c>PERCENT_RANK</c>, <c>CUME_DIST</c>, <c>LAG</c> and <c>LEAD</c>, as the SQL standard defines them.
+/// <c>NTILE</c>, <c>PERCENT_RANK</c>, <c>CUME_DIST</c>, <c>LAG</c>, <c>LEAD</c>, <c>FIRST_VALUE</c>, <c>LAST_VALUE</c>
+/// and <c>NTH_VALUE</c>, as the SQL standard defines them, and Access's <c>First</c> and <c>Last</c> over a window.
 /// Access has no window functions; this is a LibRed extension.
 /// </summary>
 public class WindowRankAndOffsetTests(WindowRankAndOffsetTests.Database database)
@@ -65,6 +66,23 @@ public class WindowRankAndOffsetTests(WindowRankAndOffsetTests.Database database
         Assert.Equal(expected, ById(expression));
 
     [Theory]
+    [InlineData("FIRST_VALUE(Id) OVER (PARTITION BY G ORDER BY V)", "1:1 2:1 3:1 4:1 5:6 6:6")]
+    [InlineData("FIRST_VALUE(V) OVER (PARTITION BY G ORDER BY V)", "1:10 2:10 3:10 4:10 5: 6:")]
+    [InlineData("LAST_VALUE(Id) OVER (PARTITION BY G ORDER BY V)", "1:1 2:3 3:3 4:4 5:5 6:6")]
+    [InlineData("LAST_VALUE(Id) OVER (PARTITION BY G)", "1:4 2:4 3:4 4:4 5:6 6:6")]
+    [InlineData("NTH_VALUE(Id, 2) OVER (PARTITION BY G ORDER BY V)", "1: 2:2 3:2 4:2 5:5 6:")]
+    [InlineData("NTH_VALUE(Id, 3) OVER (ORDER BY Id)", "1: 2: 3:3 4:3 5:3 6:3")]
+    [InlineData("NTH_VALUE(Id, 5) OVER (PARTITION BY G)", "1: 2: 3: 4: 5: 6:")]
+    [InlineData("NTH_VALUE(Id, NULL) OVER (ORDER BY Id)", "1: 2: 3: 4: 5: 6:")]
+    [InlineData("FIRST(V) OVER (PARTITION BY G ORDER BY Id DESC)", "1:40 2:40 3:40 4:40 5: 6:")]
+    [InlineData("LAST(M) OVER (ORDER BY Id)", "1:1.5 2:2.25 3:3 4:4 5:5 6:6")]
+    public void Value_functions_read_a_row_of_the_frame(string expression, string expected) =>
+        Assert.Equal(expected, ById(expression));
+
+    [Theory]
+    [InlineData("FIRST_VALUE(M) OVER (ORDER BY Id)", typeof(decimal))]
+    [InlineData("LAST_VALUE(G) OVER (ORDER BY Id)", typeof(string))]
+    [InlineData("NTH_VALUE(V, 2) OVER (ORDER BY Id)", typeof(int))]
     [InlineData("NTILE(4) OVER (ORDER BY Id)", typeof(int))]
     [InlineData("PERCENT_RANK() OVER (ORDER BY Id)", typeof(double))]
     [InlineData("CUME_DIST() OVER (ORDER BY Id)", typeof(double))]
@@ -94,6 +112,7 @@ public class WindowRankAndOffsetTests(WindowRankAndOffsetTests.Database database
     [InlineData("NTILE(-1) OVER (ORDER BY Id)")]
     [InlineData("LAG(V, -1) OVER (ORDER BY Id)")]
     [InlineData("LEAD(V, -2, 0) OVER (ORDER BY Id)")]
+    [InlineData("NTH_VALUE(V, 0) OVER (ORDER BY Id)")]
     public void A_count_or_offset_out_of_range_is_an_invalid_procedure_call(string expression) =>
         Assert.Throws<ArgumentException>(() => Query(expression));
 
@@ -102,6 +121,7 @@ public class WindowRankAndOffsetTests(WindowRankAndOffsetTests.Database database
     [InlineData("LAG() OVER (ORDER BY Id)")]
     [InlineData("LAG(V, 1, 0, 0) OVER (ORDER BY Id)")]
     [InlineData("PERCENT_RANK(V) OVER (ORDER BY Id)")]
+    [InlineData("NTH_VALUE(V) OVER (ORDER BY Id)")]
     public void The_wrong_number_of_arguments_is_refused(string expression) =>
         Assert.Throws<InvalidOperationException>(() => Query(expression));
 }

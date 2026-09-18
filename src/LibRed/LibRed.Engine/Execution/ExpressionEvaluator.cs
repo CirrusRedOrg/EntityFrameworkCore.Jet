@@ -1910,8 +1910,24 @@ internal sealed partial class ExpressionEvaluator(
             };
         }
 
-        object? left = Evaluate(b.Left);
-        object? right = Evaluate(b.Right);
+        // A date plus or less a span (IsSpan) is the date moved by it. Which side is the span is settled before
+        // either is evaluated, so neither side is worked out twice; beside anything but a date, the span side is
+        // evaluated as it always is — as the time on the epoch.
+        object? left, right;
+        if (SpanSide(b) is { } spanOnRight)
+        {
+            object? other = Evaluate(spanOnRight ? b.Left : b.Right);
+            if (other is DateTime date)
+                return SpanOf(spanOnRight ? b.Right : b.Left) is { } span
+                    ? Shift(date, spanOnRight && b.Operator == BinaryOperator.Subtract ? -span : span)
+                    : null;
+            (left, right) = spanOnRight ? (other, Evaluate(b.Right)) : (Evaluate(b.Left), other);
+        }
+        else
+        {
+            left = Evaluate(b.Left);
+            right = Evaluate(b.Right);
+        }
 
         // '&' treats a single Null as "" but is Null when both sides are (verified vs ACE).
         if (b.Operator == BinaryOperator.Concat)
@@ -1984,6 +2000,102 @@ internal sealed partial class ExpressionEvaluator(
             BinaryOperator.BitXor => BitwiseOp(left, right, (x, y) => x ^ y),
             _ => throw new NotSupportedException($"Binary operator {b.Operator}."),
         };
+    }
+
+    /// <summary>
+    /// Whether <paramref name="expression"/> is a span — known before any row is read, as a Currency result is.
+    /// A span starts from a TimeSpan or TimeOnly parameter (<paramref name="duration"/>); only a parameter can say it
+    /// is one, since a time column or a time written into the SQL is a date on the epoch, as Jet stores it. A span
+    /// stays one under negation, added to or less another span, times or divided by something that is not a span,
+    /// and chosen by IIF, COALESCE or CASE from spans and Nulls. A date plus or less a span is the date moved by it
+    /// (<see cref="SpanOf"/>) — a date, where a date less a date is a day count.
+    /// </summary>
+    internal static bool IsSpan(Expression expression, Func<string, TimeSpan?> duration)
+    {
+        bool Span(Expression e) => IsSpan(e, duration);
+        bool SpanOrNull(Expression e) => e is LiteralExpression { Value: null } || Span(e);
+        bool Choice(IEnumerable<Expression> results) => results.All(SpanOrNull) && results.Any(Span);
+
+        return expression switch
+        {
+            ParameterExpression parameter => duration(parameter.Name) is not null,
+            UnaryExpression { Operator: UnaryOperator.Negate } negation => Span(negation.Operand),
+            BinaryExpression { Operator: BinaryOperator.Add or BinaryOperator.Subtract } sum => Span(sum.Left) && Span(sum.Right),
+            BinaryExpression { Operator: BinaryOperator.Multiply } product => Span(product.Left) != Span(product.Right),
+            BinaryExpression { Operator: BinaryOperator.Divide } quotient => Span(quotient.Left) && !Span(quotient.Right),
+            FunctionCall call when call.Name.Equals("IIF", StringComparison.OrdinalIgnoreCase) && call.Arguments.Count >= 2 =>
+                Choice(call.Arguments.Skip(1)),
+            FunctionCall call when call.Name.Equals("COALESCE", StringComparison.OrdinalIgnoreCase) => Choice(call.Arguments),
+            CaseExpression @case => Choice(@case.WhenClauses.Select(w => w.Result)
+                .Concat(@case.ElseResult is { } otherwise ? [otherwise] : [])),
+            _ => false,
+        };
+    }
+
+    /// <summary>Which side of a <c>+</c> or <c>-</c> is a span that a date beside it would move by: true for the right,
+    /// false for the left (only for <c>+</c>, since a span less a date is no date), null when neither.</summary>
+    private bool? SpanSide(BinaryExpression b)
+    {
+        if (parameters is null || b.Operator is not (BinaryOperator.Add or BinaryOperator.Subtract))
+            return null;
+        if (IsSpan(b.Right, parameters.Duration))
+            return true;
+        return b.Operator == BinaryOperator.Add && IsSpan(b.Left, parameters.Duration) ? false : null;
+    }
+
+    /// <summary>The value of a span (<see cref="IsSpan"/>), to the tick; null when it is Null. A factor or divisor is read
+    /// as a number as the arithmetic operators read one.</summary>
+    private TimeSpan? SpanOf(Expression expression)
+    {
+        switch (expression)
+        {
+            case ParameterExpression parameter:
+                return parameters!.Duration(parameter.Name);
+            case LiteralExpression { Value: null }:
+                return null;
+            case UnaryExpression negation:
+                return -SpanOf(negation.Operand);
+            case BinaryExpression { Operator: BinaryOperator.Add or BinaryOperator.Subtract } sum:
+                return SpanOf(sum.Left) is { } a && SpanOf(sum.Right) is { } b
+                    ? checked(sum.Operator == BinaryOperator.Add ? a + b : a - b)
+                    : null;
+            case BinaryExpression product:
+            {
+                bool spanOnLeft = product.Operator == BinaryOperator.Divide || IsSpan(product.Left, parameters!.Duration);
+                if (SpanOf(spanOnLeft ? product.Left : product.Right) is not { } span
+                    || Evaluate(spanOnLeft ? product.Right : product.Left) is not { } by)
+                    return null;
+                double factor = Dbl(ConversionNumber(by));
+                if (product.Operator == BinaryOperator.Divide)
+                    factor = factor != 0 ? 1 / factor : throw new DivideByZeroException("Division by zero.");
+                return TimeSpan.FromTicks(checked((long)Math.Round(span.Ticks * factor)));
+            }
+            case FunctionCall call when call.Name.Equals("IIF", StringComparison.OrdinalIgnoreCase):
+                return Evaluate(call.Arguments[0]) is { } condition && IifCondition(condition)
+                    ? SpanOf(call.Arguments[1])
+                    : call.Arguments.Count == 3 ? SpanOf(call.Arguments[2]) : null;
+            case FunctionCall coalesce:
+                foreach (Expression argument in coalesce.Arguments)
+                    if (SpanOf(argument) is { } first)
+                        return first;
+                return null;
+            case CaseExpression @case:
+                foreach (CaseWhen when in @case.WhenClauses)
+                    if (IsTrue(when.Condition))
+                        return SpanOf(when.Result);
+                return @case.ElseResult is { } otherwise ? SpanOf(otherwise) : null;
+            default:
+                throw new InvalidOperationException($"{expression.GetType().Name} is not a span.");
+        }
+    }
+
+    /// <summary>A date moved by a span, to the tick; outside the dates Jet holds, an overflow.</summary>
+    private static DateTime Shift(DateTime date, TimeSpan by)
+    {
+        long ticks = date.Ticks + by.Ticks;
+        return ticks >= new DateTime(100, 1, 1).Ticks && ticks <= DateTime.MaxValue.Ticks
+            ? new DateTime(ticks)
+            : throw new OverflowException($"Overflow: {date} moved by {by} is outside the range of a date.");
     }
 
     /// <summary>

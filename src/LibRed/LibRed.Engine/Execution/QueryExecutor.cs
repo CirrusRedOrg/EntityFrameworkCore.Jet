@@ -820,6 +820,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                 return value.GetType();
             case LiteralExpression:
                 return null;
+            // A parameter is typed by the value bound to it, as a literal is by its own — so `d + @p` declares the
+            // date it returns rather than nothing, which left the reader to guess from the first row. The value is
+            // the one the engine sees: the ADO layer has already turned a TimeSpan or TimeOnly into a DateTime.
+            case ParameterExpression parameter:
+                return _parameters.TypeOf(parameter.Name);
             case ColumnReference column:
                 return DeclaredColumnType(column, columns)
                     ?? (column.Table is null && column.Column.Equals("Now", StringComparison.OrdinalIgnoreCase)
@@ -843,6 +848,11 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
                     return typeof(string);
                 Type? left = DeclaredType(binary.Left, columns);
                 Type? right = DeclaredType(binary.Right, columns);
+                // A date plus or less a span is a date — ExpressionEvaluator.IsSpan, which the evaluator moves it by.
+                if (left == typeof(DateTime) && IsSpan(binary.Right)
+                    && binary.Operator is BinaryOperator.Add or BinaryOperator.Subtract
+                    || right == typeof(DateTime) && IsSpan(binary.Left) && binary.Operator == BinaryOperator.Add)
+                    return typeof(DateTime);
                 return DeclaredBinaryType(binary.Operator, left, right);
             case FunctionCall function:
                 return DeclaredFunctionType(function, columns);
@@ -1040,6 +1050,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         };
     }
 
+
+    private bool IsSpan(Expression expression) => ExpressionEvaluator.IsSpan(expression, _parameters.Duration);
 
     private static Type? DeclaredBinaryType(BinaryOperator op, Type? left, Type? right)
     {

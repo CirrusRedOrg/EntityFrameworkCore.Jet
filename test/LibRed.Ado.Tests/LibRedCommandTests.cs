@@ -154,6 +154,80 @@ public class LibRedCommandTests
     }
 
     [Fact]
+    public void A_date_plus_a_time_parameter_is_declared_a_date_whatever_the_first_row_holds()
+    {
+        // The time becomes a date on the OLE epoch at this boundary, and the engine types the parameter by that
+        // value — so GetFieldType says DateTime even when the first row's date is Null.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-ts-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+            foreach (string sql in new[]
+            {
+                "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `D` DATETIME)",
+                "INSERT INTO `T` (`Id`, `D`) VALUES (1, NULL)",
+                "INSERT INTO `T` (`Id`, `D`) VALUES (2, #2020-01-02 12:00:00#)",
+            })
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = sql;
+                cmd.ExecuteNonQuery();
+            }
+
+            using var q = conn.CreateCommand();
+            q.CommandText = "SELECT `D` + @ts FROM `T` ORDER BY `Id`";
+            var p = q.CreateParameter(); p.ParameterName = "@ts"; p.Value = TimeSpan.FromHours(6); q.Parameters.Add(p);
+            using var reader = q.ExecuteReader();
+            Assert.Equal(typeof(DateTime), reader.GetFieldType(0));
+            Assert.True(reader.Read());
+            Assert.True(reader.IsDBNull(0));
+            Assert.True(reader.Read());
+            Assert.Equal(new DateTime(2020, 1, 2, 18, 0, 0), reader.GetDateTime(0));
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
+    public void A_date_less_a_time_parameter_is_a_date()
+    {
+        // A DbType.Time TimeSpan beside a date is a span: less an hour is a date an hour earlier, not the day count a
+        // date less a date is — in both arms of a UNION ALL, as the report that found it had it.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-tsminus-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+            foreach (string sql in new[]
+            {
+                "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `D` DATETIME)",
+                "INSERT INTO `T` (`Id`, `D`) VALUES (1, #2020-02-29 17:55:00#)",
+            })
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = sql;
+                cmd.ExecuteNonQuery();
+            }
+
+            using var q = conn.CreateCommand();
+            q.CommandText = "SELECT [t].[D] - @ts FROM [T] [t] UNION ALL SELECT [t_1].[D] - @ts FROM [T] [t_1]";
+            var p = q.CreateParameter();
+            p.ParameterName = "@ts"; p.DbType = DbType.Time; p.Value = TimeSpan.FromHours(1);
+            q.Parameters.Add(p);
+            using var reader = q.ExecuteReader();
+            Assert.Equal(typeof(DateTime), reader.GetFieldType(0));
+            for (int i = 0; i < 2; i++)
+            {
+                Assert.True(reader.Read());
+                Assert.Equal(new DateTime(2020, 2, 29, 16, 55, 0), reader.GetDateTime(0));
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void CreateDatabase_creates_a_native_usable_file()
     {
         // Native, DAO/ADOX-free creation through the ADO surface: create the file, then CREATE/INSERT/SELECT.

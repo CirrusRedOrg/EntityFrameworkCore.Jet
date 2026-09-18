@@ -161,16 +161,14 @@ public sealed class LibRedCommand : DbCommand
         return map;
     }
 
-    /// <summary>The OLE epoch (1899-12-30): Jet stores every temporal as a DateTime relative to it — a time as
-    /// the epoch date + time-of-day, a date at midnight.</summary>
-    private static readonly DateTime OleEpoch = new(1899, 12, 30);
-
     /// <summary>
     /// Coerces a parameter value to what the engine should see. Jet/ACE has no native TimeSpan, TimeOnly,
-    /// DateOnly or DateTimeOffset — they are all stored as a <see cref="DateTime"/> on the 1899-12-30 epoch — so
-    /// this boundary (the single point EF parameters enter the engine) converts each to that DateTime, exactly as
-    /// the literal path does (a TimeSpan literal renders as a <c>#…#</c>/TIMEVALUE DateTime). The engine then only
-    /// ever handles DateTime for temporals, and the reader converts back on the way out.
+    /// DateOnly or DateTimeOffset — they are all stored as a <see cref="DateTime"/> — so this boundary (the single
+    /// point EF parameters enter the engine) converts DateOnly and DateTimeOffset to that DateTime, and the reader
+    /// converts back on the way out. A TimeSpan or TimeOnly goes in as itself: the engine's parameter bag turns it
+    /// into the time on the 1899-12-30 epoch wherever it is read — saved, compared, passed to a function — exactly
+    /// as the literal path does, but first remembers it was a span, because a date less a span is a date where a
+    /// date less a date is a day count.
     /// </summary>
     /// <remarks>
     /// Values are truncated to whole MILLISECONDS, not whole seconds. ACE has one-second resolution, but that is
@@ -190,8 +188,8 @@ public sealed class LibRedCommand : DbCommand
         DateTime d => Milliseconds(d),
         // DateTimeOffset is read back at offset zero, so store its UTC instant.
         DateTimeOffset dto => Milliseconds(dto.UtcDateTime),
-        TimeSpan t => OleEpoch + Milliseconds(t),
-        TimeOnly to => OleEpoch + Milliseconds(to.ToTimeSpan()),
+        TimeSpan t => Milliseconds(t),
+        TimeOnly to => TimeOnly.FromTimeSpan(Milliseconds(to.ToTimeSpan())),
         DateOnly d => d.ToDateTime(TimeOnly.MinValue),
         _ => value,
     };

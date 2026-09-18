@@ -1008,7 +1008,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             "CSTR" or "FORMAT" or "LCASE" or "UCASE" or "TRIM" or "LTRIM" or "RTRIM"
                 or "LEFT" or "RIGHT" or "MID" or "REPLACE" or "STRING" or "SPACE" or "HEX"
                 or "OCT" or "WEEKDAYNAME" or "MONTHNAME" or "PARTITION" => typeof(string),
-            "LEN" or "DATALENGTH" or "INSTR" or "INSTRREV" or "ASC" or "ASCW" or "DATEPART" or "DATEDIFF"
+            // DateDiff's "ms", LibRed's own interval, counts in Int64 — a millisecond difference passes Int32 after
+            // 25 days — where every other interval is a Long Integer. Only a written interval says which: one read
+            // from a parameter or a column is declared as the Long Integer the rest give.
+            "DATEDIFF" => function.Arguments is [LiteralExpression { Value: string interval }, ..]
+                          && interval.Equals("ms", StringComparison.OrdinalIgnoreCase)
+                ? typeof(long)
+                : typeof(int),
+            "LEN" or "DATALENGTH" or "INSTR" or "INSTRREV" or "ASC" or "ASCW" or "DATEPART"
                 or "YEAR" or "MONTH" or "DAY" or "HOUR" or "MINUTE" or "SECOND" or "WEEKDAY" => typeof(int),
             "CDATE" or "NOW" or "DATE" or "TIME" or "DATEADD" or "DATESERIAL" or "TIMESERIAL"
                 or "DATEVALUE" or "TIMEVALUE" => typeof(DateTime),

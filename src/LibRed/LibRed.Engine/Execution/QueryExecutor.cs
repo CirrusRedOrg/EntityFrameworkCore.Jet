@@ -1002,6 +1002,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             "CBYTE" => typeof(byte),
             "CINT" => typeof(short),
             "CLNG" => typeof(int),
+            "CLNGLNG" => typeof(long),
             "CSNG" => typeof(float),
             "CDBL" => typeof(double),
             "CDEC" or "CCUR" => typeof(decimal),

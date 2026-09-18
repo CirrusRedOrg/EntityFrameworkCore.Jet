@@ -41,10 +41,12 @@ by the same contract instead of bypassing scalar validation.
 
 ## Scalar functions
 
-**Type conversion** — `CBool` `CByte` `CInt` `CLng` `CSng` `CDbl` `CCur` `CDec` `CStr` `CDate` `CVar`
+**Type conversion** — `CBool` `CByte` `CInt` `CLng` `CLngLng` `CSng` `CDbl` `CCur` `CDec` `CStr` `CDate` `CVar`
 (`CVar` is a pass-through — LibRed has no distinct Variant type; `CCur` rounds to 4 dp). A **Boolean**
 converts as VARIANT_BOOL, so True is **-1**, not 1 — `CInt`/`CLng`/`CSng`/`CDbl`/`CCur` all yield -1, and
-`CByte` overflows because a byte cannot hold it. `CStr` renders a Double at **15 significant digits** and a
+`CByte` overflows because a byte cannot hold it. `CLngLng` — VBA's LongLong conversion, which ACE does not have, so a
+LibRed extension — reads its argument as `CLng` does into an **Int64**, reading text exactly rather than through a
+Double. `CStr` renders a Double at **15 significant digits** and a
 Single at **7** (the OA/VB convention, not .NET's shortest round-trippable form), and a Boolean as `"-1"` —
 note that is the Jet Expression Service's answer, where the VBA runtime proper would say `"True"`. `CBool`
 accepts a numeric string (`"-1"`) and a non-integral number. `CDec` has **no ACE equivalent** — the

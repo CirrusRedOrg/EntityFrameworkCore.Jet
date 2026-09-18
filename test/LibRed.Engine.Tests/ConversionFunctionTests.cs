@@ -7,7 +7,8 @@ namespace LibRed.Engine.Tests;
 /// <summary>
 /// The conversion functions <c>CBool</c> <c>CByte</c> <c>CInt</c> <c>CLng</c> <c>CSng</c> <c>CDbl</c> <c>CCur</c>
 /// <c>CStr</c> <c>CDate</c> <c>CVar</c>: how each reads its argument, rounds and overflows. The expected values were
-/// measured against ACE, except that a Null argument gives Null where ACE raises "Invalid use of Null".
+/// measured against ACE, except that a Null argument gives Null where ACE raises "Invalid use of Null". <c>CLngLng</c>,
+/// which ACE does not have, follows <c>CLng</c>.
 /// </summary>
 public class ConversionFunctionTests(ConversionFunctionTests.Database database)
     : TempDatabaseTest, IClassFixture<ConversionFunctionTests.Database>
@@ -55,6 +56,30 @@ public class ConversionFunctionTests(ConversionFunctionTests.Database database)
     [InlineData("CLNG(2147483647.4)", 2147483647)]
     public void Clng_converts_to_a_long(string expression, int expected) =>
         Assert.Equal(expected, Scalar(expression));
+
+    // CLngLng is VBA's LongLong conversion and a LibRed extension (ACE reports it undefined): CLng's reading, into an
+    // Int64. Text is read exactly, so the ends of an Int64 survive where a Double would round them.
+    [Theory]
+    [InlineData("CLNGLNG(2.5)", 2L)]
+    [InlineData("CLNGLNG(3.5)", 4L)]
+    [InlineData("CLNGLNG(-2.5)", -2L)]
+    [InlineData("CLNGLNG(TRUE)", -1L)]
+    [InlineData("CLNGLNG(#2020-01-02#)", 43832L)]
+    [InlineData("CLNGLNG(DC)", 4L)]
+    [InlineData("CLNGLNG(TN)", 7L)]
+    [InlineData("CLNGLNG('1.5')", 2L)]
+    [InlineData("CLNGLNG('1,000')", 1000L)]
+    [InlineData("CLNGLNG('&H10')", 16L)]
+    [InlineData("CLNGLNG(1E12)", 1000000000000L)]
+    [InlineData("CLNGLNG(9223372036854775807)", long.MaxValue)]
+    [InlineData("CLNGLNG('9223372036854775807')", long.MaxValue)]
+    [InlineData("CLNGLNG('-9223372036854775808')", long.MinValue)]
+    public void Clnglng_converts_to_an_int64(string expression, long expected) =>
+        Assert.Equal(expected, Scalar(expression));
+
+    [Fact]
+    public void Clnglng_is_declared_an_int64() =>
+        Assert.Equal(typeof(long), database.Query("SELECT CLNGLNG(Id) FROM T", EnUs).ColumnTypes[0]);
 
     [Theory]
     [InlineData("CBYTE(254.5)", 254)]
@@ -263,6 +288,7 @@ public class ConversionFunctionTests(ConversionFunctionTests.Database database)
     [InlineData("CBYTE(NULL)")]
     [InlineData("CINT(NT)")]
     [InlineData("CLNG(NULL)")]
+    [InlineData("CLNGLNG(NULL)")]
     [InlineData("CSNG(NULL)")]
     [InlineData("CDBL(NULL)")]
     [InlineData("CCUR(NT)")]
@@ -279,6 +305,8 @@ public class ConversionFunctionTests(ConversionFunctionTests.Database database)
     [InlineData("CBYTE(TRUE)")]
     [InlineData("CINT(32767.5)")]
     [InlineData("CLNG(2147483647.5)")]
+    [InlineData("CLNGLNG('9223372036854775808')")]
+    [InlineData("CLNGLNG(1E19)")]
     [InlineData("CSNG(1E300)")]
     [InlineData("CCUR(1234567890123456)")]
     [InlineData("CDATE(1E300)")]
@@ -290,6 +318,8 @@ public class ConversionFunctionTests(ConversionFunctionTests.Database database)
     [InlineData("CINT('abc')")]
     [InlineData("CDBL('')")]
     [InlineData("CLNG(G)")]
+    [InlineData("CLNGLNG(G)")]
+    [InlineData("CLNGLNG('abc')")]
     [InlineData("CDATE('abc')")]
     [InlineData("CDATE(B)")]
     public void A_value_that_does_not_convert_is_a_type_mismatch(string expression) =>

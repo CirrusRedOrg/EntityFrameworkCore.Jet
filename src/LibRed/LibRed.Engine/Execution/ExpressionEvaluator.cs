@@ -230,6 +230,9 @@ internal sealed partial class ExpressionEvaluator(
             "CBYTE" => Convert1(f, v => Convert.ToByte(ConversionNumber(v), CultureInfo.InvariantCulture)),
             "CINT" => Convert1(f, v => (short)AsInteger(v)),
             "CLNG" => Convert1(f, v => AsLong(v)),
+            // CLngLng is VBA's LongLong conversion, which the Jet Expression Service does not have (verified: ACE
+            // reports it undefined), so a LibRed extension. It reads its argument as CLng does, into an Int64.
+            "CLNGLNG" => Convert1(f, v => AsLongLong(v)),
             "CSNG" => Convert1(f, v => Finite(Sng(ConversionNumber(v)))),
             "CDBL" => Convert1(f, v => Dbl(ConversionNumber(v))),
             // CDec has no ACE equivalent — the Jet Expression Service has no such function — so this is a
@@ -383,7 +386,7 @@ internal sealed partial class ExpressionEvaluator(
         (int Min, int Max)? range = name switch
         {
             // Conversion, unary numeric/string/date/inspection functions and single-argument aliases.
-            "CBOOL" or "CBYTE" or "CINT" or "CLNG" or "CSNG" or "CDBL" or "CCUR" or "CDEC"
+            "CBOOL" or "CBYTE" or "CINT" or "CLNG" or "CLNGLNG" or "CSNG" or "CDBL" or "CCUR" or "CDEC"
                 or "CSTR" or "CDATE" or "CVAR"
                 or "ABS" or "SGN" or "INT" or "FIX" or "SQR" or "EXP" or "LOG" or "SIN" or "COS"
                 or "TAN" or "ATN"
@@ -574,6 +577,13 @@ internal sealed partial class ExpressionEvaluator(
 
     /// <summary>A value read as CLng reads it: half to even, and past a Long is an overflow.</summary>
     private static int AsLong(object v) => Int(ConversionNumber(v));
+
+    /// <summary>A value read as CLngLng reads it: as CLng, half to even, and past an Int64 an overflow. Text that
+    /// reads as a number is read exactly, not through a Double, so '9223372036854775807' loses no digit.</summary>
+    private static long AsLongLong(object v) =>
+        v is string or char && TextAsDecimal(v.ToString()!) is decimal exact
+            ? Convert.ToInt64(exact, CultureInfo.InvariantCulture)
+            : Lng(ConversionNumber(v));
 
     /// <summary>A whole-number argument, where outside <paramref name="least"/>-<paramref name="most"/> is an invalid
     /// procedure call.</summary>

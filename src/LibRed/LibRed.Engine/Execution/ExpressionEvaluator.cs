@@ -1938,6 +1938,21 @@ internal sealed partial class ExpressionEvaluator(
         if (b.Operator is BinaryOperator.Equal or BinaryOperator.NotEqual && TruthTest(b, left, right) is bool truth)
             return b.Operator == BinaryOperator.Equal ? truth : !truth;
 
+        // A result that is a Currency (NumberTypeOf) is one at every step, not only in the result column: its four
+        // places and its range apply to it where it is worked out, as CCur applies them (verified vs ACE: Currency
+        // 1.2345 * 1.2345 is 1.524, 0.0003 * 1.2345 is 0.0004, and the largest Currency + 1 or * 3 is an
+        // overflow). A Currency with a written decimal or a Double is not one, so those are left as they are.
+        if (b.Operator is BinaryOperator.Add or BinaryOperator.Subtract or BinaryOperator.Multiply)
+        {
+            object result = b.Operator switch
+            {
+                BinaryOperator.Add => Add(left, right),
+                BinaryOperator.Subtract => Arithmetic(left, right, '-'),
+                _ => Arithmetic(left, right, '*'),
+            };
+            return result is decimal money && IsCurrency(b) ? ToCurrency(money) : result;
+        }
+
         return b.Operator switch
         {
             BinaryOperator.Equal => CompareAsKinds(left, right) == 0,
@@ -1950,9 +1965,6 @@ internal sealed partial class ExpressionEvaluator(
             // value becomes text too, so LIKE is case-insensitive over a binary column even though '=' on the same
             // column is byte-wise: `B LIKE 'A%'` matches both 0x4100 ('A') and 0x6100 ('a').
             BinaryOperator.Like => LikeMatcher.IsMatch(ConcatText(left), ConcatText(right)),
-            BinaryOperator.Add => Add(left, right),
-            BinaryOperator.Subtract => Arithmetic(left, right, '-'),
-            BinaryOperator.Multiply => Arithmetic(left, right, '*'),
             BinaryOperator.Divide => Divide(left, right), // Access '/' is floating division
             BinaryOperator.Modulo => IntegerOp(left, right, '%'),
             BinaryOperator.IntDivide => IntegerOp(left, right, '\\'),
@@ -2114,8 +2126,8 @@ internal sealed partial class ExpressionEvaluator(
     /// <c>Pmt(0.05 / 12, …)</c> uses the whole rate while <c>SELECT 1 / 1.5</c> is 0.6.
     /// <list type="bullet">
     /// <item>A number written with a decimal point is a Decimal of the places written less trailing zeros
-    /// (<c>334.90</c> has one; <c>3.0</c> is a whole number); a Decimal column has its scale; Currency counts as
-    /// four places.</item>
+    /// (<c>334.90</c> has one; <c>3.0</c> is a whole number), and so is a whole number too big for a Long, with
+    /// none; a Decimal column has its scale; Currency counts as four places.</item>
     /// <item><c>*</c> and <c>/</c>: a Decimal with whole numbers, dates, Booleans or text stays that Decimal
     /// (DECIMAL(18,4) 4.5 / 7 is 0.6428; 1.5 / '2.5' is 0.6); two Decimals of the same places stay it (1.5 * 1.5 is
     /// 2.2); two of different places, a Double or Single, or a Currency divided give a Double (1.5 * 1.25 is
@@ -2142,7 +2154,10 @@ internal sealed partial class ExpressionEvaluator(
             case LiteralExpression literal:
                 return literal.Value switch
                 {
-                    int or long or short or byte or bool => new(NumberClass.Whole),
+                    // A whole number too big for a Long is a Decimal to ACE, so Currency * 864000000000 is a Double
+                    // there rather than an overflowing Currency (verified vs ACE); LibRed keeps the value an Int64.
+                    long => new(NumberClass.Decimal, 0),
+                    int or short or byte or bool => new(NumberClass.Whole),
                     double or float => new(NumberClass.Double),
                     string => new(NumberClass.Text),
                     DateTime => new(NumberClass.Date),
@@ -2568,13 +2583,18 @@ internal sealed partial class ExpressionEvaluator(
     /// integer (half to even), a date as its serial, and the result keeps the operand's integer type (int, or
     /// long if either is Int64) — so <c>int \ int</c> is Int32, matching the EF contract. Anything MOD -1 is 0,
     /// even the smallest Long (verified vs ACE).</summary>
+    /// <remarks>An Int32 result is worked out in Int64 all the same, and only the result has to fit: ACE squeezes
+    /// each operand into a Long first, so a Double, Decimal or Currency past one overflows even where the answer
+    /// would not — <c>1E12 MOD 7</c>, whose remainder is below 7. Here that is 1, and a quotient past a Long is still
+    /// an overflow, since the column's type is settled before any value is seen. A LibRed extension.</remarks>
     private static object IntegerOp(object left, object right, char op)
     {
         left = Serial(left);
         right = Serial(right);
-        if (left is long or ulong || right is long or ulong)
-        { long a = Lng(left), b = Lng(right); return op == '%' ? (b == -1 ? 0L : a % b) : a / b; }
-        int x = Int(left), y = Int(right); return op == '%' ? (y == -1 ? 0 : x % y) : x / y;
+        long a = Lng(left), b = Lng(right);
+        long result = op == '%' ? (b == -1 ? 0L : a % b) : a / b;
+        // Each branch boxed on its own: a bare `? result : (int)result` is a long, and would widen the Int32 back.
+        return left is long or ulong || right is long or ulong ? (object)result : checked((int)result);
     }
 
     /// <summary>VBA <c>CBool</c> (verified vs ACE): "True" and "False" as written, otherwise whether the value

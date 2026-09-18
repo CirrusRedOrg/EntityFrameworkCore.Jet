@@ -16,13 +16,7 @@ public class ComplexSystemTableLayoutProbeTest(ITestOutputHelper output)
     [Fact]
     public void Probe_complex_system_table_layout()
     {
-        object? engine = null;
-        foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
-        {
-            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{n}");
-            if (type is null) continue;
-            try { engine = Activator.CreateInstance(type); break; } catch (Exception) { }
-        }
+        object? engine = AceTestDatabase.CreateDaoEngine();
         if (engine is null) { output.WriteLine("DAO unavailable."); return; }
 
         string path = TemporaryDatabase.CreatePath("complex-layout-");

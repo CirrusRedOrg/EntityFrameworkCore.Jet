@@ -147,14 +147,5 @@ public class DateTime2LocaleAccessTests(ITestOutputHelper output) : TempDatabase
         return result;
     }
 
-    private static object? DaoEngine()
-    {
-        foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
-        {
-            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{n}");
-            if (type is null) continue;
-            try { return Activator.CreateInstance(type); } catch (Exception) { }
-        }
-        return null;
-    }
+    private static object? DaoEngine() => AceTestDatabase.CreateDaoEngine();
 }

@@ -164,13 +164,7 @@ public class StoredQueryKindAccessTests
     /// skipped) where DAO is not registered.</summary>
     private static bool Author(string path, params (string Name, string Sql)[] queries)
     {
-        object? engine = null;
-        foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
-        {
-            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{n}");
-            if (type is null) continue;
-            try { engine = Activator.CreateInstance(type); break; } catch (Exception) { }
-        }
+        object? engine = AceTestDatabase.CreateDaoEngine();
         if (engine is null) return false;
 
         object database = Invoke(engine, "OpenDatabase", path, false, false, "")!;

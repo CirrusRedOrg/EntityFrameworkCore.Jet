@@ -132,13 +132,7 @@ public class AceDateTime2UpgradeTests(ITestOutputHelper output)
             AceTestDatabase.UnsupportedColumnTypeReason("DATETIME2"));
 
         path = "";
-        object? engine = null;
-        foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
-        {
-            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{n}");
-            if (type is null) continue;
-            try { engine = Activator.CreateInstance(type); break; } catch (Exception) { }
-        }
+        object? engine = AceTestDatabase.CreateDaoEngine();
         if (engine is null) { output.WriteLine("DAO unavailable - skipped."); return false; }
 
         path = TemporaryDatabase.CreatePath(prefix);

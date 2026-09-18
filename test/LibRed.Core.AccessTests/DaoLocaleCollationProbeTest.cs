@@ -203,6 +203,7 @@ public class DaoLocaleCollationProbeTest(ITestOutputHelper output)
 
     private static object? CreateDbEngine(out string progId)
     {
+        AceTestDatabase.ReleaseAbandonedComObjects();
         foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
         {
             progId = $"DAO.DBEngine.{n}";

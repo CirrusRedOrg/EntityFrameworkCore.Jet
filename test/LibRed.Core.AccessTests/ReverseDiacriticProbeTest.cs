@@ -231,6 +231,7 @@ public class ReverseDiacriticProbeTest(ITestOutputHelper output)
     /// yet encode that order's keys.</summary>
     private static bool CreateWithDao(string path, string langId)
     {
+        AceTestDatabase.ReleaseAbandonedComObjects();
         object? engine = null;
         foreach (int n in (int[])[120, 36])
         {

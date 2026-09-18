@@ -121,16 +121,7 @@ public class CommitByteTableTests
         }
     }
 
-    private static object? DaoEngine()
-    {
-        foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
-        {
-            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{n}");
-            if (type is null) continue;
-            try { return Activator.CreateInstance(type); } catch (Exception) { }
-        }
-        return null;
-    }
+    private static object? DaoEngine() => AceTestDatabase.CreateDaoEngine();
 
     private static object? Invoke(object target, string member, params object?[] args) =>
         target.GetType().InvokeMember(member, System.Reflection.BindingFlags.InvokeMethod, null, target, args);

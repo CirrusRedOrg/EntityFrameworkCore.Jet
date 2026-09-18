@@ -934,17 +934,7 @@ public class CalculatedColumnAccessTests(ITestOutputHelper output)
         _ => $"{value} ({value.GetType().Name})",
     };
 
-    private static object? CreateDbEngine()
-    {
-        foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
-        {
-            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{n}");
-            if (type is null) continue;
-            try { return Activator.CreateInstance(type); }
-            catch (Exception) { /* registered but not instantiable in this bitness */ }
-        }
-        return null;
-    }
+    private static object? CreateDbEngine() => AceTestDatabase.CreateDaoEngine();
 
     // What ACE writes for a conversion over Null. CDbl does NOT propagate Null the way every other function
     // here does -- the VBA conversions raise on it -- so ACE is caching an error state rather than a value,

@@ -82,13 +82,7 @@ public class AceDdlOnLibRedDatabaseProbeTest(ITestOutputHelper output)
     [Fact]
     public void Probe_ace_ddl_against_a_dao_created_database()
     {
-        object? engine = null;
-        foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
-        {
-            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{n}");
-            if (type is null) continue;
-            try { engine = Activator.CreateInstance(type); break; } catch (Exception) { }
-        }
+        object? engine = AceTestDatabase.CreateDaoEngine();
         if (engine is null) { output.WriteLine("DAO unavailable."); return; }
 
         string path = TemporaryDatabase.CreatePath("ace-ddl-dao-");
@@ -122,13 +116,7 @@ public class AceDdlOnLibRedDatabaseProbeTest(ITestOutputHelper output)
     [InlineData("MSysQueries")]
     public void Probe_which_system_table_ace_ddl_needs(string drop)
     {
-        object? engine = null;
-        foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
-        {
-            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{n}");
-            if (type is null) continue;
-            try { engine = Activator.CreateInstance(type); break; } catch (Exception) { }
-        }
+        object? engine = AceTestDatabase.CreateDaoEngine();
         if (engine is null) { output.WriteLine("DAO unavailable."); return; }
 
         string path = TemporaryDatabase.CreatePath($"ace-ddl-drop-");
@@ -165,13 +153,7 @@ public class AceDdlOnLibRedDatabaseProbeTest(ITestOutputHelper output)
     [Fact]
     public void Probe_what_ace_writes_to_complex_columns()
     {
-        object? engine = null;
-        foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
-        {
-            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{n}");
-            if (type is null) continue;
-            try { engine = Activator.CreateInstance(type); break; } catch (Exception) { }
-        }
+        object? engine = AceTestDatabase.CreateDaoEngine();
         if (engine is null) { output.WriteLine("DAO unavailable."); return; }
 
         string path = TemporaryDatabase.CreatePath("complex-cols-");
@@ -214,13 +196,7 @@ public class AceDdlOnLibRedDatabaseProbeTest(ITestOutputHelper output)
     [Fact]
     public void Probe_which_operations_need_complex_columns()
     {
-        object? engine = null;
-        foreach (int n in new[] { 170, 160, 150, 140, 130, 120 })
-        {
-            Type? type = Type.GetTypeFromProgID($"DAO.DBEngine.{n}");
-            if (type is null) continue;
-            try { engine = Activator.CreateInstance(type); break; } catch (Exception) { }
-        }
+        object? engine = AceTestDatabase.CreateDaoEngine();
         if (engine is null) { output.WriteLine("DAO unavailable."); return; }
 
         string path = TemporaryDatabase.CreatePath("complex-need-");

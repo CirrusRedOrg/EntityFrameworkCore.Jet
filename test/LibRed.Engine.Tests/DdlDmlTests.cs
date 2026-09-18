@@ -199,6 +199,32 @@ public class DdlDmlTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // A DATETIME2 keeps 100-ns ticks, and three values inside one millisecond stay three values: they sort by tick,
+    // and equality and ranges see the ticks too — comparing by the millisecond OA serial alone made them all equal.
+    [Fact]
+    public void Datetime2_values_within_one_millisecond_stay_distinct()
+    {
+        var millisecond = new DateTime(2021, 3, 4, 5, 6, 7, 8);
+        string path = CopyToTemp();
+        try
+        {
+            SetVersionByte(path, 0x06);
+            using var db = JetDatabase.Open(path, readOnly: false);
+            var e = new QueryEngine(db);
+            e.ExecuteNonQuery("CREATE TABLE `E` (`Id` INTEGER PRIMARY KEY, `V` DATETIME2 NULL)");
+            foreach ((int id, int ticks) in new[] { (1, 3), (2, 1), (3, 2) })
+                e.ExecuteNonQuery("INSERT INTO `E` (`Id`, `V`) VALUES (@id, @v)",
+                    new Dictionary<string, object?> { ["id"] = id, ["v"] = millisecond.AddTicks(ticks) });
+
+            var middle = new Dictionary<string, object?> { ["v"] = millisecond.AddTicks(2) };
+            Assert.Equal([2, 3, 1], e.ExecuteQuery("SELECT `Id` FROM `E` ORDER BY `V`").Rows.Select(r => Convert.ToInt32(r[0])));
+            Assert.Equal([3], e.ExecuteQuery("SELECT `Id` FROM `E` WHERE `V` = @v", middle).Rows.Select(r => Convert.ToInt32(r[0])));
+            Assert.Equal([1], e.ExecuteQuery("SELECT `Id` FROM `E` WHERE `V` > @v", middle).Rows.Select(r => Convert.ToInt32(r[0])));
+            Assert.Equal(3, e.ExecuteQuery("SELECT COUNT(*) FROM (SELECT DISTINCT `V` FROM `E`) AS `D`").Rows.Single()[0]);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     /// <summary>Raises a copied file to the ACE 17 format. Page 0 offset 0x14 is the entire upgrade — see
     /// docs/format/page-00-database.md and AceDateTime2UpgradeTests.</summary>
     private static void SetVersionByte(string path, byte version)

@@ -107,6 +107,53 @@ public class LibRedCommandTests
     }
 
     [Fact]
+    public void A_DateTime2_parameter_keeps_its_ticks()
+    {
+        // A DATETIME2 column stores 100-ns ticks, not the OA double, so a parameter that says DbType.DateTime2 is
+        // passed through whole - as SqlClient passes one - and the same value typed DateTime is still truncated.
+        string path = Path.Combine(Path.GetTempPath(), $"libred-dt2-{Guid.NewGuid():N}.accdb");
+        File.Copy(Northwind, path);
+        try
+        {
+            using var conn = new LibRedConnection($"Data Source={path}");
+            conn.Open();
+
+            using (var create = conn.CreateCommand())
+            { create.CommandText = "CREATE TABLE `T` (`Id` INTEGER PRIMARY KEY, `D` DATETIME2)"; create.ExecuteNonQuery(); }
+
+            var subMs = new DateTime(2020, 1, 2, 3, 4, 5, 678).AddTicks(4567);
+            foreach ((int id, DbType type) in new[] { (1, DbType.DateTime2), (2, DbType.DateTime) })
+            {
+                using var ins = conn.CreateCommand();
+                ins.CommandText = "INSERT INTO `T` (`Id`, `D`) VALUES (@id, @d)";
+                var i = ins.CreateParameter(); i.ParameterName = "@id"; i.Value = id; ins.Parameters.Add(i);
+                var p = ins.CreateParameter(); p.ParameterName = "@d"; p.Value = subMs; p.DbType = type; ins.Parameters.Add(p);
+                Assert.Equal(1, ins.ExecuteNonQuery());
+            }
+
+            using (var sel = conn.CreateCommand())
+            {
+                sel.CommandText = "SELECT `D` FROM `T` ORDER BY `Id`";
+                using var reader = sel.ExecuteReader();
+                Assert.True(reader.Read());
+                Assert.Equal(subMs, reader.GetDateTime(0));
+                Assert.True(reader.Read());
+                Assert.Equal(subMs.AddTicks(-4567), reader.GetDateTime(0));
+            }
+
+            // Matched exactly: each parameter finds its own row and only that one.
+            foreach ((DbType type, int expected) in new[] { (DbType.DateTime2, 1), (DbType.DateTime, 2) })
+            {
+                using var q = conn.CreateCommand();
+                q.CommandText = "SELECT SUM(`Id`) FROM `T` WHERE `D` = @d";
+                var p = q.CreateParameter(); p.ParameterName = "@d"; p.Value = subMs; p.DbType = type; q.Parameters.Add(p);
+                Assert.Equal(expected, Convert.ToInt32(q.ExecuteScalar()));
+            }
+        }
+        finally { try { File.Delete(path); } catch (IOException) { } }
+    }
+
+    [Fact]
     public void CreateDatabase_creates_a_native_usable_file()
     {
         // Native, DAO/ADOX-free creation through the ADO surface: create the file, then CREATE/INSERT/SELECT.

@@ -2638,8 +2638,16 @@ internal sealed partial class ExpressionEvaluator(
         // while the index compares by serial made an index seek and a table scan return DIFFERENT rows for a
         // pre-epoch range (see PreEpochDateOrderingTests). From the epoch onward the two orders are identical,
         // so this only affects pre-1899 dates.
+        //
+        // ToOADate keeps whole milliseconds, which is all a Date/Time column holds, but a DATETIME2 keeps 100-ns
+        // ticks: two of those in the same millisecond are settled by their ticks, the way the serial would run —
+        // later first below the epoch — so they neither compare equal nor sort as a tie.
         if (left is DateTime leftDate && right is DateTime rightDate)
-            return leftDate.ToOADate().CompareTo(rightDate.ToOADate());
+        {
+            int bySerial = leftDate.ToOADate().CompareTo(rightDate.ToOADate());
+            return bySerial != 0 ? bySerial
+                : leftDate.Ticks.CompareTo(rightDate.Ticks) * (leftDate < OaEpoch ? -1 : 1);
+        }
 
         if (left is IComparable c && left.GetType() == right.GetType())
             return c.CompareTo(right);

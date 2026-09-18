@@ -157,7 +157,7 @@ public sealed class LibRedCommand : DbCommand
     {
         var map = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         foreach (LibRedParameter parameter in _parameters.Cast<LibRedParameter>())
-            map[parameter.ParameterName] = Normalize(parameter.EffectiveValue);
+            map[parameter.ParameterName] = Normalize(parameter.EffectiveValue, parameter.DbType);
         return map;
     }
 
@@ -178,10 +178,15 @@ public sealed class LibRedCommand : DbCommand
     /// (measured: 12:34:56.123 round-trips with zero tick loss). Below a millisecond nothing survives whatever
     /// this does, because .NET's ToOADate/FromOADate quantise there; truncating to the same boundary the store
     /// uses is what keeps <c>WHERE d = @p</c> matching, which is the reason this truncates at all.
+    /// <para>A <see cref="DbType.DateTime2"/> parameter is the exception, as it is for SqlClient: a DATETIME2 column
+    /// stores the value's 100-ns ticks rather than the OA double, so its sub-millisecond part is kept. The
+    /// parameter has to say so — a DateTime value alone infers <see cref="DbType.DateTime"/> — because this
+    /// boundary cannot see which column the value is for.</para>
     /// </remarks>
-    private static object? Normalize(object? value) => value switch
+    private static object? Normalize(object? value, DbType dbType) => value switch
     {
         DBNull => null,
+        DateTime d when dbType == DbType.DateTime2 => d,
         DateTime d => Milliseconds(d),
         // DateTimeOffset is read back at offset zero, so store its UTC instant.
         DateTimeOffset dto => Milliseconds(dto.UtcDateTime),

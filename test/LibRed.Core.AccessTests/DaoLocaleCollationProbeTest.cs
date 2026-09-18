@@ -16,8 +16,12 @@ namespace LibRed.Core.Tests;
 // directions, and it is worth knowing which of DAO's names still do anything.
 //
 // For each: does DAO accept the locale, what LCID lands on disk, will ACE open the result at all, and do the
-// index keys actually differ from General v0? DAO can only author version 0 (DaoDatabaseCreationProbeTest),
-// so any difference here is a locale difference, not a sort-order-version one.
+// index keys actually differ from General v0? DAO can only author version 0 (measured by
+// DaoDatabaseCreationProbeTest, now in git history), so any difference here is a locale difference, not a
+// sort-order-version one.
+//
+// Collation.cs cites this as the evidence that the five are inert. A survey rather than a test: it runs only
+// with LIBRED_ACE_SURVEYS=1 (AceSurveys).
 [Collection(AceCollection.Name)]
 public class DaoLocaleCollationProbeTest(ITestOutputHelper output)
 {
@@ -75,6 +79,7 @@ public class DaoLocaleCollationProbeTest(ITestOutputHelper output)
     [Fact]
     public void Probe_dao_only_collating_orders()
     {
+        AceSurveys.RequireOptIn();
         object? engine = CreateDbEngine(out string progId);
         if (engine is null) { output.WriteLine("DAO unavailable in this process."); return; }
         output.WriteLine($"DAO engine: {progId}");

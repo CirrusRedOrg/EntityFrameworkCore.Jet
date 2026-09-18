@@ -37,9 +37,13 @@ namespace LibRed.Core.Tests;
 // Results are written to %TEMP%\libred-collation-survey (override with LIBRED_SURVEY_OUT) as well as to the
 // test output, because the departure lists are long.
 //
-// Run:  dotnet test test\LibRed.Core.Tests\LibRed.Core.Tests.csproj
+// A survey rather than a test, and the heaviest DAO user in the suite, so both passes run only when asked for
+// (AceSurveys):
+//
+// Run:  set LIBRED_ACE_SURVEYS=1
+//       dotnet test test\LibRed.Core.AccessTests\LibRed.Core.AccessTests.csproj
 //           --filter "FullyQualifiedName~CollationSurveyProbeTests.Survey_dao_acceptance"
-//       dotnet test test\LibRed.Core.Tests\LibRed.Core.Tests.csproj
+//       dotnet test test\LibRed.Core.AccessTests\LibRed.Core.AccessTests.csproj
 //           --filter "FullyQualifiedName~CollationSurveyProbeTests.Survey_keys_batch_04"
 [Collection(AceCollection.Name)]
 public class CollationSurveyProbeTests(ITestOutputHelper output)
@@ -248,6 +252,7 @@ public class CollationSurveyProbeTests(ITestOutputHelper output)
     [Fact]
     public void Survey_dao_acceptance()
     {
+        AceSurveys.RequireOptIn();
         object? engine = CreateDbEngine(out string progId);
         Assert.SkipWhen(engine is null, "DAO is not available in this process.");
         object workspace = Invoke(engine!, "CreateWorkspace", "", "admin", "", UseJet)!;
@@ -587,12 +592,14 @@ public class CollationSurveyProbeTests(ITestOutputHelper output)
 
     private void SurveyBatch(int batch)
     {
+        AceSurveys.RequireOptIn();
+        // Whether there is anything to measure is settled before DAO is touched, so an empty batch costs nothing.
+        Candidate[] members = [.. KeyCandidates().Where(c => c.Batch == batch)];
+        Assert.SkipWhen(members.Length == 0, $"batch {batch} is empty");
+
         object? engine = CreateDbEngine(out string progId);
         Assert.SkipWhen(engine is null, "DAO is not available in this process.");
         object workspace = Invoke(engine!, "CreateWorkspace", "", "admin", "", UseJet)!;
-
-        Candidate[] members = [.. KeyCandidates().Where(c => c.Batch == batch)];
-        Assert.SkipWhen(members.Length == 0, $"batch {batch} is empty");
 
         string[] samples = Samples(members.Select(m => m.Script));
         var report = new StringBuilder();

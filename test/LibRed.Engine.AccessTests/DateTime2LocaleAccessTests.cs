@@ -37,10 +37,8 @@ public class DateTime2LocaleAccessTests(ITestOutputHelper output) : TempDatabase
     [MemberData(nameof(Locales))]
     public void Ace_gives_date_time_extended_only_the_primary_language_id(string locale, int langId)
     {
-        object? engine = DaoEngine();
-        Assert.SkipWhen(engine is null, "DAO is unavailable in this process.");
-
-        string path = Recollated(engine!, locale);
+        object engine = DateTime2AndDao();
+        string path = Recollated(engine, locale);
         try
         {
             CreateThroughAce(path);
@@ -67,11 +65,9 @@ public class DateTime2LocaleAccessTests(ITestOutputHelper output) : TempDatabase
     [InlineData(";LANGID=0x041D;CP=1252;COUNTRY=0")]
     public void Libred_writes_the_same_descriptor_as_ace(string locale)
     {
-        object? engine = DaoEngine();
-        Assert.SkipWhen(engine is null, "DAO is unavailable in this process.");
-
-        string ace = Recollated(engine!, locale);
-        string libred = Recollated(engine!, locale);
+        object engine = DateTime2AndDao();
+        string ace = Recollated(engine, locale);
+        string libred = Recollated(engine, locale);
         try
         {
             CreateThroughAce(ace);
@@ -147,5 +143,16 @@ public class DateTime2LocaleAccessTests(ITestOutputHelper output) : TempDatabase
         return result;
     }
 
-    private static object? DaoEngine() => AceTestDatabase.CreateDaoEngine();
+    /// <summary>A DAO engine, once this ACE is known to take DATETIME2. An ACE below 17 cannot create the column
+    /// at all — CI installs the 2016 redistributable — so that is asked first, rather than after a DAO compaction
+    /// that could only end in a skip.</summary>
+    private static object DateTime2AndDao()
+    {
+        Assert.SkipUnless(
+            AceTestDatabase.SupportsColumnType(Path.Combine(AppContext.BaseDirectory, "Data", "Northwind.accdb"), "DATETIME2"),
+            AceTestDatabase.UnsupportedColumnTypeReason("DATETIME2"));
+        object? engine = AceTestDatabase.CreateDaoEngine();
+        Assert.SkipWhen(engine is null, "DAO is unavailable in this process.");
+        return engine!;
+    }
 }

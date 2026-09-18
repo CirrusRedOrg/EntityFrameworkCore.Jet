@@ -21,6 +21,20 @@ public sealed class AceCollection
 }
 
 /// <summary>
+/// The opt-in for the ACE surveys: tools that measure ACE over a large space — every DAO collating order, say —
+/// and report rather than assert. They drive DAO heavily and prove nothing in an ordinary build, so they run only
+/// when asked for with <c>LIBRED_ACE_SURVEYS=1</c>.
+/// </summary>
+internal static class AceSurveys
+{
+    public const string Variable = "LIBRED_ACE_SURVEYS";
+
+    public static void RequireOptIn() =>
+        Assert.SkipUnless(Environment.GetEnvironmentVariable(Variable) == "1",
+            $"An ACE survey, not a test: set {Variable}=1 to run it.");
+}
+
+/// <summary>
 /// Releases, as each test ends, the COM objects it left to the finalizer — the DAO objects the probes never
 /// release, whose locals a Debug build keeps alive to the end of the test — so their teardown inside ACE happens
 /// now, with no test running, rather than at the next GC in the middle of a later one. See

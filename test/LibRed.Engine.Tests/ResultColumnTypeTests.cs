@@ -40,8 +40,11 @@ public class ResultColumnTypeTests(ResultColumnTypeTests.Database database)
         $"SELECT {left} AS c FROM T WHERE Id = 1 UNION ALL SELECT {right} FROM T WHERE Id = 1";
 
     [Theory]
-    [InlineData("CASE WHEN M >= 5.1 THEN M ELSE 5.1 END", typeof(double))]
-    [InlineData("IIF(M >= 5.1, M, 5.1)", typeof(double))]
+    // A number written with a decimal point is a Decimal to the ladder, as ACE reads it, so money with one stays money.
+    [InlineData("CASE WHEN M >= 5.1 THEN M ELSE 5.1 END", typeof(decimal))]
+    [InlineData("IIF(M >= 5.1, M, 5.1)", typeof(decimal))]
+    [InlineData("IIF(Id = 1, 0.5, Id)", typeof(decimal))]
+    [InlineData("IIF(Id = 1, 0.5, F)", typeof(double))]              // a Double still wins
     [InlineData("CASE WHEN Id = 1 THEN Id ELSE F END", typeof(double))]
     [InlineData("IIF(Id = 1, B, S)", typeof(short))]
     [InlineData("IIF(Id = 1, B, 5)", typeof(int))]
@@ -120,10 +123,20 @@ public class ResultColumnTypeTests(ResultColumnTypeTests.Database database)
         Assert.Equal(new object?[] { 3 }, values);
     }
 
+    // EF's Sum with a default writes the decimal zero as 0.0; the money sum stays a Decimal, to the last place.
+    [Fact]
+    public void A_money_sum_with_a_written_zero_stays_money()
+    {
+        var (types, rows) = database.Query("SELECT IIF(SUM(M) IS NULL, 0.0, SUM(M)) AS c FROM T", CultureInfo.GetCultureInfo("en-US"));
+        Assert.Equal(typeof(decimal), types[0]);
+        Assert.IsType<decimal>(rows.Single()[0]);
+    }
+
     [Fact]
     public void Values_keep_their_widened_value()
     {
+        // Money with a written decimal is a Decimal, and the literal's value is the one written.
         (_, object?[] values) = Column("SELECT Id, IIF(M >= 5.1, M, 5.1) AS c FROM T ORDER BY Id");
-        Assert.Equal(new object?[] { 10.5, 5.1 }, values);
+        Assert.Equal(new object?[] { 10.5m, 5.1m }, values);
     }
 }

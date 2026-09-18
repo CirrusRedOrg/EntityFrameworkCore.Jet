@@ -88,7 +88,8 @@ public class WindowRankAndOffsetTests(WindowRankAndOffsetTests.Database database
     [InlineData("CUME_DIST() OVER (ORDER BY Id)", typeof(double))]
     [InlineData("LAG(V) OVER (ORDER BY Id)", typeof(int))]
     [InlineData("LEAD(M) OVER (ORDER BY Id)", typeof(decimal))]
-    [InlineData("LAG(V, 1, 0.5) OVER (ORDER BY Id)", typeof(double))]
+    [InlineData("LAG(V, 1, 0.5) OVER (ORDER BY Id)", typeof(decimal))]   // a written decimal is a Decimal to the ladder
+    [InlineData("LAG(V, 1, CDBL(0.5)) OVER (ORDER BY Id)", typeof(double))]
     [InlineData("LAG(M, 1, 0) OVER (ORDER BY Id)", typeof(decimal))]
     [InlineData("LAG(V, 1, NULL) OVER (ORDER BY Id)", typeof(int))]
     public void Every_value_has_the_declared_type(string expression, Type expected)

@@ -885,6 +885,10 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
     /// <summary>The single type a set of alternative expressions declares — shared by CASE, IIF, COALESCE,
     /// GREATEST and LEAST, which the standard defines in terms of CASE or gives the same precedence rule.</summary>
+    /// <remarks>A number written with a decimal point counts as a Decimal here, as ACE reads it (NumberTypeOf), though
+    /// its value is held as a Double: EF writes a decimal zero as <c>0.0</c>, so its Sum-with-a-default shape
+    /// <c>IIF(SUM(x) IS NULL, 0.0, SUM(x))</c> would otherwise make every money sum a Double. A Double still wins
+    /// where one is present.</remarks>
     private Type? UnifiedType(IEnumerable<Expression> alternatives, IReadOnlyList<OutputColumn> columns)
     {
         Type? result = null;
@@ -892,7 +896,7 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
         foreach (Expression alternative in alternatives)
         {
-            Type? branchType = DeclaredType(alternative, columns);
+            Type? branchType = IsWrittenDecimal(alternative) ? typeof(decimal) : DeclaredType(alternative, columns);
             if (branchType is null)
                 continue;
             bool branchCurrency = branchType == typeof(decimal)
@@ -914,6 +918,14 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
         }
 
         return result;
+    }
+
+    /// <summary>Whether <paramref name="expression"/> is a number written with a decimal point, negated or not.</summary>
+    private static bool IsWrittenDecimal(Expression expression)
+    {
+        while (expression is UnaryExpression { Operator: UnaryOperator.Negate } negation)
+            expression = negation.Operand;
+        return expression is LiteralExpression { Written: decimal };
     }
 
     /// <summary>
@@ -1016,6 +1028,12 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             "CSNG" => typeof(float),
             "CDBL" => typeof(double),
             "CDEC" or "CCUR" => typeof(decimal),
+            // Round, Abs, Int and Fix keep their operand's type — ExpressionEvaluator.Round and Numeric1. Undeclared,
+            // a Round beside a whole number in IIF, CASE or COALESCE left the Integer to declare the column while
+            // the Round arm returned a Decimal.
+            "ROUND" or "ABS" => KeptNumberType(argument, typeof(double)),
+            "INT" or "FIX" => KeptNumberType(argument, typeof(DateTime)),
+            "SGN" => typeof(int),
             "CSTR" or "FORMAT" or "LCASE" or "UCASE" or "TRIM" or "LTRIM" or "RTRIM"
                 or "LEFT" or "RIGHT" or "MID" or "REPLACE" or "STRING" or "SPACE" or "HEX"
                 or "OCT" or "WEEKDAYNAME" or "MONTHNAME" or "PARTITION" => typeof(string),
@@ -1052,6 +1070,18 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
 
 
     private bool IsSpan(Expression expression) => ExpressionEvaluator.IsSpan(expression, _parameters.Duration);
+
+    /// <summary>The type Round, Abs, Int and Fix give over an operand of <paramref name="operand"/>: a Decimal, Double,
+    /// Single or Int64 as it is, a narrower integer or a Boolean as a Long Integer, text as a Double, and a date as
+    /// <paramref name="whenDate"/>. (Abs of the smallest Long Integer is the one value past a Long, and a Double.)</summary>
+    private static Type? KeptNumberType(Type? operand, Type whenDate) =>
+        operand == typeof(decimal) || operand == typeof(double) || operand == typeof(float) || operand == typeof(long)
+            ? operand
+        : operand == typeof(int) || operand == typeof(short) || operand == typeof(byte) || operand == typeof(bool)
+            ? typeof(int)
+        : operand == typeof(DateTime) ? whenDate
+        : operand == typeof(string) || operand == typeof(char) ? typeof(double)
+        : null;
 
     private static Type? DeclaredBinaryType(BinaryOperator op, Type? left, Type? right)
     {

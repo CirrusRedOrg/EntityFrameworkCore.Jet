@@ -56,7 +56,13 @@ ACE's route to a decimal. (All verified against ACE in
 `Exp` `Log` (natural) `Sin` `Cos` `Tan` `Atn` `Rnd` `Timer`.
 
 **String** — `Len` `LCase` `UCase` `Trim` `LTrim` `RTrim` `Left` `Right` `Mid` `InStr` `InStrRev` `Replace`
-`Space` `String` `StrReverse` `StrComp` `StrConv` `Str` `Val` `Chr` `Asc` `Hex` `Oct`.
+`Space` `String` `StrReverse` `StrComp` `StrConv` `Str` `Val` `Chr` `Asc` `Hex` `Oct`. `Trim`/`LTrim`/`RTrim`
+strip the space and the ideographic space U+3000 — nothing else.
+
+**Storage size** — `DataLength`, SQL Server's, a LibRed extension: the bytes a value takes as Access stores it.
+Text is 2 per character (UTF-16, trailing spaces counted, on-disk compression ignored), binary its length, Byte 1,
+Integer 2, Long/Single 4, Double/Currency/Date/BIGINT 8, GUID 16, Decimal 17; a Boolean — a bit of the null
+bitmap on disk — counts 1, as SQL Server counts a `bit`. A `Long`; Null for Null.
 
 **Formatting** — `Format` (VBA→.NET custom + named formats; culture-driven, so date/currency named formats
 are locale-dependent by design) · `FormatCurrency` `FormatNumber` `FormatPercent` `FormatDateTime` ·

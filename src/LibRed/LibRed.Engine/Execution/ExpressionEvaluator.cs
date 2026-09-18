@@ -186,6 +186,10 @@ internal sealed partial class ExpressionEvaluator(
         return c.ElseResult is null ? null : Evaluate(c.ElseResult);
     }
 
+    // What Trim, LTrim and RTrim strip (verified vs ACE): the space and the ideographic space U+3000, in any mixture —
+    // not a tab, CR, LF, no-break space, the other Unicode spaces or a zero-width one.
+    private static readonly char[] TrimmedSpaces = [' ', '　'];
+
     private object? EvaluateFunction(FunctionCall f)
     {
         // Aggregate calls are precomputed per group and resolved by reference — including an outer
@@ -243,9 +247,9 @@ internal sealed partial class ExpressionEvaluator(
             "LEN" => Convert1(f, v => ConcatText(v).Length),
             "LCASE" => Convert1(f, v => ConcatText(v).ToLowerInvariant()),
             "UCASE" => Convert1(f, v => ConcatText(v).ToUpperInvariant()),
-            "TRIM" => Convert1(f, v => ConcatText(v).Trim(' ')),
-            "LTRIM" => Convert1(f, v => ConcatText(v).TrimStart(' ')),
-            "RTRIM" => Convert1(f, v => ConcatText(v).TrimEnd(' ')),
+            "TRIM" => Convert1(f, v => ConcatText(v).Trim(TrimmedSpaces)),
+            "LTRIM" => Convert1(f, v => ConcatText(v).TrimStart(TrimmedSpaces)),
+            "RTRIM" => Convert1(f, v => ConcatText(v).TrimEnd(TrimmedSpaces)),
             "LEFT" => StringInt(f, static (s, n) => n <= 0 ? "" : n >= s.Length ? s : s[..n]),
             "RIGHT" => StringInt(f, static (s, n) => n <= 0 ? "" : n >= s.Length ? s : s[^n..]),
             "MID" => Mid(f),
@@ -351,6 +355,7 @@ internal sealed partial class ExpressionEvaluator(
             // InStrB(1,'abc','b')=3). ChrB is intentionally absent — ACE's expression service has no ChrB.
             "ASCB" => Convert1(f, v => (int)ToBytes(FirstCharacter(v))[0]),
             "LENB" => Convert1(f, v => ToBytes(v).Length),
+            "DATALENGTH" => Convert1(f, v => DataLength(v, IsCurrency(f.Arguments[0]))),
             "LEFTB" => ByteLeft(f),
             "RIGHTB" => ByteRight(f),
             "MIDB" => ByteMid(f),
@@ -386,7 +391,7 @@ internal sealed partial class ExpressionEvaluator(
                 or "STRREVERSE" or "STR" or "VAL" or "CHR" or "ASC" or "HEX" or "OCT"
                 or "DATEVALUE" or "TIMEVALUE" or "YEAR" or "MONTH" or "DAY" or "HOUR" or "MINUTE"
                 or "SECOND" or "ISDATE" or "ISNULL" or "ISNUMERIC" or "ISERROR" or "TYPENAME" or "VARTYPE"
-                or "QBCOLOR" or "ASCW" or "CHRW" or "ASCB" or "LENB" => (1, 1),
+                or "QBCOLOR" or "ASCW" or "CHRW" or "ASCB" or "LENB" or "DATALENGTH" => (1, 1),
 
             "LEFT" or "RIGHT" or "STRING" or "LEFTB" or "RIGHTB" => (2, 2),
             "MID" or "MIDB" => (2, 3),
@@ -1055,6 +1060,28 @@ internal sealed partial class ExpressionEvaluator(
         Array.Copy(bytes, padded, bytes.Length);
         return padded;
     }
+
+    /// <summary>
+    /// SQL Server's <c>DATALENGTH</c>, a LibRed extension (Access has none): the bytes a value takes as Access stores
+    /// it. Text is two per character — Access text is UTF-16, as <c>nvarchar</c> is — with trailing spaces counted and
+    /// no account of the on-disk Unicode compression; a binary value is its length, unpadded (LenB pads an odd one).
+    /// A Byte is 1, an Integer 2, a Long and a Single 4, a Double, a Currency, a date and a BIGINT 8, a GUID 16 and a
+    /// Decimal 17 — its sign byte and 16-byte magnitude. A Boolean is stored as a bit of the row's null bitmap and so
+    /// takes no byte of its own; it counts 1, as SQL Server counts a <c>bit</c>.
+    /// </summary>
+    private static int DataLength(object value, bool currency) => value switch
+    {
+        string s => checked(s.Length * 2),
+        char => 2,
+        byte[] bytes => bytes.Length,
+        bool or byte or sbyte => 1,
+        short or ushort => 2,
+        int or uint or float => 4,
+        long or ulong or double or DateTime => 8,
+        decimal => currency ? 8 : 17,
+        Guid => 16,
+        _ => checked(ConcatText(value).Length * 2),
+    };
 
     /// <summary>Successive byte pairs as UTF-16 code units (low byte first), dropping a trailing odd byte — matching
     /// ACE (MidB(x, 1, 3) yields one character from three bytes). A lone surrogate is kept as it is.</summary>

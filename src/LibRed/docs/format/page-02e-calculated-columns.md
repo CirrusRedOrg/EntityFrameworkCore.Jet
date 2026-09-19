@@ -84,7 +84,7 @@ Reading `ResultType` removes the guess entirely.
 
 ## The expression language ACE accepts
 
-Enumerated over every scalar function [functions.md](../functions.md) catalogues plus every operator. This is
+Enumerated over every Access / VBA scalar function [functions.md](../functions.md) catalogues plus every operator. This is
 the whole surface, not a sample.
 
 **Operators** — `+` `-` `*` `/` `^` `&`, `+` as concatenation, `=` `<>` `<` `>` `<=` `>=`, `And`, `Or`,

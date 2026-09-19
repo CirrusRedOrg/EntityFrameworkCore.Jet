@@ -14,7 +14,7 @@ LibRed reads and writes the file format directly.
 > the repo-root `CLAUDE.md`. Record only facts verified against real files or Access's own engine.
 >
 > **SQL surface:** [`docs/functions.md`](docs/functions.md) catalogs the supported VBA/Access functions
-> (usable in `SELECT`/`WHERE`/`ORDER BY`/`DEFAULT`/`CHECK`); [`docs/format/page-02c-default-values.md`](docs/format/page-02c-default-values.md)
+> and LibRed's extended ones (usable in `SELECT`/`WHERE`/`ORDER BY`/`DEFAULT`/`CHECK`); [`docs/format/page-02c-default-values.md`](docs/format/page-02c-default-values.md)
 > covers column `DEFAULT` semantics.
 
 ## Projects

@@ -270,7 +270,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         WriteInt24(tdef, format.TdefFreePagesOffset + 1, usageMapPage);
         // A wide table's definition can exceed one page; write it split across continuation pages if needed.
         int defEnd = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(format.TdefLengthOffset, 4));
-        WriteDefinition(tdefPage, tdef[..defEnd], []);
+        WriteDefinition(tdefPage, tdef[..defEnd], [], rewrite: false);
 
         // Per-column extended properties, in column order with DefaultValue before Required (matching ACE):
         // a DEFAULT is a memo property; a NOT NULL column carries a boolean Required property, and a nullable
@@ -695,7 +695,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLogicalIndexCountOffset, 4), logicalCount + 1);
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLengthOffset, 4), newDefEnd);
 
-        WriteDefinition(table.DefinitionPage, def, existingContinuations);
+        WriteDefinition(table.DefinitionPage, def, existingContinuations, rewrite: true);
         _catalog.Invalidate();
 
         // Back-fill the new (empty) index B-tree with an entry per existing row, so the index is complete.
@@ -2908,9 +2908,9 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLogicalIndexCountOffset, 4), parts.Logical.Count);
         BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLengthOffset, 4), defEnd);
 
-        // Write across the first page and continuation pages as needed (reusing the existing ones) — handles a
+        // Write across the first page and continuation pages as needed (fresh ones, the old released) — handles a
         // definition that shrinks to one page, stays multi-page, or grows past a page (e.g. ADD COLUMN).
-        WriteDefinition(tdefPage, def, parts.Continuations);
+        WriteDefinition(tdefPage, def, parts.Continuations, rewrite: true);
     }
 
     /// <summary>Marks a row deleted by setting the deleted flag (0x8000) on its slot-directory entry — a
@@ -2985,62 +2985,68 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// Writes a definition buffer across the first page and, if it overflows, continuation pages (each
     /// <c>[0x02][0x01][free:2][next:4]</c> then data). The first page carries the whole definition in its
     /// coordinate space; each continuation contributes <see cref="JetFormatBase.TdefContinuationHeaderSize"/>-offset data.
-    /// Existing continuation pages are reused before allocating new ones.
+    /// <para>Rewriting an existing definition (<paramref name="rewrite"/>) is done as ACE does it (verified by
+    /// whole-file diff, growing and shrinking): the first page is rewritten in place — alone, only the 8-byte
+    /// reserve past the new end is zeroed and older bytes beyond it are left — and continuation data always goes
+    /// to freshly allocated pages, while <paramref name="oldContinuations"/> are released untouched.</para>
     /// </summary>
-    private void WriteDefinition(int firstPage, byte[] def, IReadOnlyList<int> reusePages)
+    private void WriteDefinition(int firstPage, byte[] def, IReadOnlyList<int> oldContinuations, bool rewrite)
     {
         JetFormatBase format = _channel.Format;
         int ps = format.PageSize;
         int nextOffset = format.TdefNextPageOffset;
 
+        foreach (int old in oldContinuations)
+            _allocator.Release(old);   // reusable only after this handle closes, as ACE holds them
+
         if (def.Length + JetFormatBase.TdefContinuationHeaderSize <= ps)
         {
-            var only = new byte[ps];
+            byte[] only = rewrite ? _channel.ReadPage(firstPage).Span.ToArray() : new byte[ps];
             def.CopyTo(only, 0);
+            only.AsSpan(def.Length, JetFormatBase.TdefContinuationHeaderSize).Clear(); // the reserve
             BinaryPrimitives.WriteInt32LittleEndian(only.AsSpan(nextOffset, 4), 0);
             BinaryPrimitives.WriteUInt16LittleEndian(only.AsSpan(format.TdefFreeSpaceOffset, 2), (ushort)(ps - def.Length - JetFormatBase.TdefContinuationHeaderSize));
             _channel.WritePage(firstPage, only);
             return;
         }
 
-        // Plan the continuation chunks: each holds up to (ps - header) data; the last also leaves the reserve.
-        // Each continuation carries PageSize - 8 bytes of definition; the LAST one also leaves the 8-byte
-        // trailing reserve, so it can hold only PageSize - 16. A chunk sized for a middle page that then turns
-        // out to be the last leaves free space of -8, written as 0xFFF8 — an 8-byte window at every page
-        // boundary, reachable by ADD COLUMN growing a definition a few bytes at a time. When the remainder
-        // lands in that window, stop short and let a small tail chunk take the rest.
+        // The chain holds the definition and then its 8-byte trailing reserve, as ACE lays it out (verified): every
+        // page is filled before the next begins, and the reserve follows the last definition byte, spilling onto a
+        // page of its own when it does not fit — so a continuation can hold reserve bytes and no definition. A
+        // 4,090-byte definition fills page 1 with 4,090 bytes and six of the reserve, and its continuation holds the
+        // other two, free 4,086. Each page's free space is what it has left once both are placed.
         int maxMiddle = ps - JetFormatBase.TdefContinuationHeaderSize;
-        int maxLast = maxMiddle - JetFormatBase.TdefContinuationHeaderSize;
-        var chunks = new List<(int Offset, int Length)>();
-        for (int offset = ps; offset < def.Length;)
+        int stored = def.Length + JetFormatBase.TdefContinuationHeaderSize;
+        var chunks = new List<(int Offset, int Length, int Free)>();
+        for (int consumed = ps; consumed < stored;)
         {
-            int remaining = def.Length - offset;
-            int length = remaining <= maxLast ? remaining
-                : remaining > maxMiddle ? maxMiddle
-                : maxLast;
-            chunks.Add((offset, length));
-            offset += length;
+            int placed = Math.Min(maxMiddle, stored - consumed);
+            chunks.Add((consumed, Math.Clamp(def.Length - consumed, 0, placed), maxMiddle - placed));
+            consumed += placed;
         }
 
-        int reuse = 0;
-        int[] pageNumbers = chunks.Select(_ => reuse < reusePages.Count ? reusePages[reuse++] : _allocator.Allocate()).ToArray();
+        // ACE allocates the last continuation first (verified: from free pages 354.. a two-page continuation became
+        // first → 355 → 354, and from the end of a file first → n+1 → n).
+        var pageNumbers = new int[chunks.Count];
+        for (int i = chunks.Count - 1; i >= 0; i--)
+            pageNumbers[i] = _allocator.Allocate();
 
         var page1 = new byte[ps];
-        Array.Copy(def, 0, page1, 0, ps); // page 1 is completely full in a multi-page definition
+        Array.Copy(def, 0, page1, 0, Math.Min(ps, def.Length)); // page 1 is completely full in a multi-page definition
         BinaryPrimitives.WriteInt32LittleEndian(page1.AsSpan(nextOffset, 4), pageNumbers[0]);
         BinaryPrimitives.WriteUInt16LittleEndian(page1.AsSpan(format.TdefFreeSpaceOffset, 2), 0);
         _channel.WritePage(firstPage, page1);
 
         for (int i = 0; i < chunks.Count; i++)
         {
-            var (offset, length) = chunks[i];
+            var (offset, length, free) = chunks[i];
             var page = new byte[ps];
             page[0] = (byte)PageType.TableDefinition;
             page[1] = 0x01;
-            Array.Copy(def, offset, page, JetFormatBase.TdefContinuationHeaderSize, length);
+            if (length > 0) // a page holding only the reserve starts past the definition's end
+                Array.Copy(def, offset, page, JetFormatBase.TdefContinuationHeaderSize, length);
             int next = i + 1 < pageNumbers.Length ? pageNumbers[i + 1] : 0;
             BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(nextOffset, 4), next);
-            int free = next != 0 ? 0 : ps - JetFormatBase.TdefContinuationHeaderSize - length - JetFormatBase.TdefContinuationHeaderSize;
             BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefFreeSpaceOffset, 2), (ushort)free);
             _channel.WritePage(pageNumbers[i], page);
         }

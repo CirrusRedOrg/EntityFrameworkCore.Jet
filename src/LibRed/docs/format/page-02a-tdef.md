@@ -107,6 +107,14 @@
 >   increments it (the new column's variable index = the old value); `DROP COLUMN` of a variable column
 >   **leaves it unchanged**, so survivors keep their stored variable index (§3.4) and existing rows keep the
 >   same number of variable slots. (A fixed column doesn't touch `0x2B`.)
+> - **Past the new end** — when a definition shrinks, ACE zeroes exactly **8 bytes** past the new definition
+>   length (`0x08`) and leaves every byte beyond them as it was, so the old definition's tail stays on the
+>   page. Measured on single-page definitions for `DROP COLUMN` of a fixed, a text, a memo and an OLE column
+>   and for `DROP INDEX`, each with and without long-value columns, and on a two-page definition falling back
+>   to one. A definition that stays multi-page moves its continuation data to fresh pages instead (§3.2,
+>   "Rewriting a multi-page TDEF"). Nothing reads these bytes; LibRed leaves them as ACE does. (A new table's
+>   definition, from `CREATE TABLE`, is written onto a zeroed page — ACE's handling of a reused page there is
+>   not measured.)
 >
 > **An AutoNumber added to a table that already has rows numbers them** (verified vs ACE). The existing rows
 > take `1, 2, 3 …` in table order, whatever the column's seed and increment. `0x14` is then set as follows:
@@ -163,9 +171,24 @@ Reassemble before parsing: take the **first page whole**, then append each conti
 page's bytes **from offset 8** (continuation pages have an 8-byte header). Column offsets are
 absolute from the first page, so parsing is otherwise unchanged.
 
+**The chain holds the definition and then its 8-byte trailing reserve** (verified vs ACE). Every page is
+filled before the next begins, and the reserve follows the last definition byte — so when the definition ends
+within 8 bytes of a page's end, the reserve spills onto a further page, which then holds **reserve bytes and
+no definition**. The page count is therefore set by `length + 8`, not by the length:
+
+| definition length | pages | continuation free space |
+| --- | --- | --- |
+| 4,088 | 1 | — (page 1 exactly full: 4,088 + 8) |
+| 4,090 | 2 | 4,086 (two reserve bytes) |
+| 4,096 | 2 | 4,080 (the whole reserve, no definition) |
+| 4,098 | 2 | 4,078 (two definition bytes + the reserve) |
+| 8,181 | 3 | page 2: 0 (4,085 definition bytes + 3 of the reserve); page 3: 4,083 (the other 5) |
+
+Each page's free space is what it has left once its definition and reserve bytes are placed.
+
 LibRed uses one shared reader for catalog parsing, index-root updates, and DDL surgery. It treats the
-`0x08` definition length as authoritative: the length determines the exact number of continuation
-pages and the exact number of bytes copied from the final page. Every page number must be in-file,
+`0x08` definition length as authoritative: `length + 8` determines the exact number of continuation
+pages, and the length the exact number of bytes copied from the final page. Every page number must be in-file,
 the chain must be acyclic, continuation headers must be `[02 01]`, and the chain must be neither
 shorter nor longer than the declared length. LibRed additionally applies a **1 MiB per-definition
 safety budget** before allocation. That budget is an implementation hardening limit—not a newly
@@ -175,12 +198,23 @@ the documented 255-column, 32-index, and 64-character-name limits.
 > **Writing a multi-page TDEF (verified vs ACE).** The 8-byte continuation header is
 > `[0x02][0x01][free space: 2][next page: 4]` (page type, flags, then the same `0x02` free-space and
 > `0x04` next-page fields as page 1). The **first page is filled completely** (free space `0`) and its
-> `0x04` points to the first continuation; each continuation carries `PageSize − 8` bytes of definition
-> data (from offset 8), the **last** one leaving the usual 8-byte trailing reserve — so its free space is
-> `PageSize − 8 − dataLen − 8`. The definition-length field (`0x08`, on the first page) is the **total**
-> length across all pages. LibRed writes this in `TableCreator.WriteDefinition`, used when `CREATE INDEX`
+> `0x04` points to the first continuation; each continuation carries up to `PageSize − 8` bytes (from offset
+> 8), definition first and then the reserve, as above — so a page the reserve fits on after its last data has
+> free space `PageSize − 8 − dataLen − 8`, and a page that is full has `0`. The definition-length field
+> (`0x08`, on the first page) is the **total** length across all pages. LibRed writes this in `TableCreator.WriteDefinition`, used when `CREATE INDEX`
 > grows a definition past one page (verified: a 30-column, 30-index table spills to one continuation
 > page, `defLen 4115`, exactly as ACE writes it, and Access reads every index).
+
+> **Rewriting a multi-page TDEF (verified vs ACE: `ADD COLUMN`, `DROP COLUMN`, `CREATE INDEX`).** Growing or
+> shrinking, ACE rewrites the **first page in place** but writes the continuation data to **newly allocated
+> pages**, and releases the old continuation pages without touching a byte of them (they keep type `0x02`);
+> they are back in the global free-pages map once the session closes. The new last page is zero past its
+> data. The **last continuation is allocated first**, each allocation taking the lowest free page: from free
+> pages `354…` a two-continuation chain became `first → 355 → 354`, and from the end of a file
+> `first → n+1 → n` (a `CREATE TABLE`'s chain runs the same way). When a definition falls back to one page,
+> the first page's `0x04` next pointer is zeroed and it follows the single-page rule below (8 bytes zeroed
+> past the new end, the rest left); a definition growing onto a second page keeps its first page and takes a
+> fresh continuation. LibRed's `WriteDefinition` does all of this.
 
 
 ### 3.3 Body layout (in order, after the header)

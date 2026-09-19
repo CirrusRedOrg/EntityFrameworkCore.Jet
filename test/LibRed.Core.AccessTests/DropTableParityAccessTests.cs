@@ -181,7 +181,7 @@ public class DropTableParityAccessTests(ITestOutputHelper output) : TempDatabase
     /// page (owner 2, the DateUpdate wall clock) and index pages — removing the catalog rows leaves the two
     /// engines with identical index content on byte-different pages, accepted in page-03-04 §10.4a. The dropped
     /// table's own index pages are compared through the free map instead.</summary>
-    private static string Difference(string acePath, string libredPath)
+    internal static string Difference(string acePath, string libredPath)
     {
         byte[] ace = File.ReadAllBytes(acePath), libred = File.ReadAllBytes(libredPath);
         var differences = new StringBuilder();

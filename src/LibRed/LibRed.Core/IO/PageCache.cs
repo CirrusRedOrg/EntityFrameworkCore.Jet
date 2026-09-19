@@ -40,7 +40,9 @@ internal sealed class PageCache
     // The file's committed length in bytes, shared like the pages: every change to it is made by a channel on this
     // file, which records it here, so measuring the stream again only repeats this number - at the cost of a
     // file-information syscall per measurement, which on Windows made every pointer range check on a read path
-    // expensive. Seeded by the first channel to open the file; -1 until then.
+    // expensive. Seeded by the first channel to open the file; -1 until then. Read and written without _gate:
+    // every range check reads it, and taking the lock every cache hit already takes would add contention
+    // between all the connections on the file for a single value.
     private long _fileLength = -1;
     private readonly Dictionary<int, LinkedListNode<Entry>> _map = [];
     private readonly LinkedList<Entry> _lru = new(); // first = most-recently-used
@@ -203,24 +205,14 @@ internal sealed class PageCache
     }
 
     /// <summary>The file's committed length in bytes (see <see cref="SetFileLength"/>).</summary>
-    public long FileLength
-    {
-        get { lock (_gate) return _fileLength; }
-    }
+    public long FileLength => Interlocked.Read(ref _fileLength);
 
     /// <summary>Seeds the committed length from the first channel to open the file. A later open keeps the value
     /// already held, which the writes of the channels before it have kept current.</summary>
-    public void InitFileLength(long measured)
-    {
-        lock (_gate)
-            if (_fileLength < 0) _fileLength = measured;
-    }
+    public void InitFileLength(long measured) => Interlocked.CompareExchange(ref _fileLength, measured, -1);
 
     /// <summary>Records a change a channel has just made to the file's length.</summary>
-    public void SetFileLength(long length)
-    {
-        lock (_gate) _fileLength = length;
-    }
+    public void SetFileLength(long length) => Interlocked.Exchange(ref _fileLength, length);
 
     /// <summary>Returns a previously cached higher-layer parse of <paramref name="page"/> (see
     /// <see cref="SetParsed"/>), or false if the page is not resident or has no parse cached.</summary>

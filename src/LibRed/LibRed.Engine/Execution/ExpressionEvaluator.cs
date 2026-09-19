@@ -283,21 +283,42 @@ internal sealed partial class ExpressionEvaluator(
             "TIMEVALUE" => Convert1(f, v => DateTime.FromOADate(0).Add(DateValueArgument(v).TimeOfDay)),
             "ISDATE" => TryDateText(Evaluate(f.Arguments[0]), out _),
             // Jet VBA math functions (double precision). SQR = sqrt, ATN = atan, LOG = natural log.
-            // Acos/Asin/Atan2/Floor/Ceiling/Log10/Log-base are emitted by EF as expressions built from
-            // these plus arithmetic, so they need no dedicated cases.
             // ACE's Tan is its Sin over its Cos, which differs from a direct tangent in the last digit.
             "SIN" => UnaryDouble(f, Trigonometric(Math.Sin)),
             "COS" => UnaryDouble(f, Trigonometric(Math.Cos)),
             "TAN" => UnaryDouble(f, Trigonometric(x => Math.Sin(x) / Math.Cos(x))),
             "ATN" => UnaryDouble(f, Math.Atan),
             "EXP" => UnaryDouble(f, Math.Exp),
-            "LOG" => UnaryDouble(f, Math.Log),
+            // Log(base, x), the standard's two-argument form, is a LibRed extension beside Access's natural log.
+            "LOG" => f.Arguments.Count == 2
+                ? BinaryDouble(f, static (b, x) => b <= 0 || b == 1 || x <= 0 ? double.NaN : Math.Log(x, b))
+                : UnaryDouble(f, Math.Log),
             "SQR" => UnaryDouble(f, Math.Sqrt),
             // SGN sits apart from the group above: it takes a double but yields an Integer, both in VBA
             // (Sgn returns Variant/Integer) and in .NET (Math.Sign returns int). Going through UnaryDouble
             // widened that int straight back to a double, which only showed once EF projected the value
             // instead of comparing it - GetInt32 on a boxed Double throws.
             "SGN" => Convert1(f, v => Math.Sign(Dbl(ConversionNumber(v)))),
+            // The standard SQL math functions, LibRed extensions (ACE has none of them). The ones Access has under
+            // another name are that function - Floor is Int, Sqrt is Sqr, Ln is Log, Atan is Atn, Sign is Sgn, and
+            // Power is the ^ operator - so they read their arguments and fail as it does.
+            "FLOOR" => Numeric1(f, Math.Floor, Math.Floor, keepsDate: true),
+            "CEILING" or "CEIL" => Numeric1(f, Math.Ceiling, Math.Ceiling, keepsDate: true),
+            "SIGN" => Convert1(f, v => Math.Sign(Dbl(ConversionNumber(v)))),
+            "SQRT" => UnaryDouble(f, Math.Sqrt),
+            "LN" => UnaryDouble(f, Math.Log),
+            "LOG10" => UnaryDouble(f, Math.Log10),
+            "POWER" => Evaluate(new BinaryExpression(BinaryOperator.Power, f.Arguments[0], f.Arguments[1])),
+            "ASIN" => UnaryDouble(f, Math.Asin),
+            "ACOS" => UnaryDouble(f, Math.Acos),
+            "ATAN" => UnaryDouble(f, Math.Atan),
+            "ATAN2" => BinaryDouble(f, Math.Atan2),
+            "SINH" => UnaryDouble(f, Math.Sinh),
+            "COSH" => UnaryDouble(f, Math.Cosh),
+            "TANH" => UnaryDouble(f, Math.Tanh),
+            "DEGREES" => UnaryDouble(f, x => x * 180 / Math.PI),
+            "RADIANS" => UnaryDouble(f, x => x * Math.PI / 180),
+            "PI" => Math.PI,
 
             // More VBA/Access built-ins (verified vs ACE via the function-whitelist sweep). All NULL-propagating
             // via Convert1 unless noted; positions are 1-based.
@@ -388,8 +409,10 @@ internal sealed partial class ExpressionEvaluator(
             // Conversion, unary numeric/string/date/inspection functions and single-argument aliases.
             "CBOOL" or "CBYTE" or "CINT" or "CLNG" or "CLNGLNG" or "CSNG" or "CDBL" or "CCUR" or "CDEC"
                 or "CSTR" or "CDATE" or "CVAR"
-                or "ABS" or "SGN" or "INT" or "FIX" or "SQR" or "EXP" or "LOG" or "SIN" or "COS"
+                or "ABS" or "SGN" or "INT" or "FIX" or "SQR" or "EXP" or "SIN" or "COS"
                 or "TAN" or "ATN"
+                or "FLOOR" or "CEILING" or "CEIL" or "SIGN" or "SQRT" or "LN" or "LOG10" or "ASIN" or "ACOS"
+                or "ATAN" or "SINH" or "COSH" or "TANH" or "DEGREES" or "RADIANS"
                 or "LEN" or "LCASE" or "UCASE" or "TRIM" or "LTRIM" or "RTRIM" or "SPACE"
                 or "STRREVERSE" or "STR" or "VAL" or "CHR" or "ASC" or "HEX" or "OCT"
                 or "DATEVALUE" or "TIMEVALUE" or "YEAR" or "MONTH" or "DAY" or "HOUR" or "MINUTE"
@@ -421,6 +444,9 @@ internal sealed partial class ExpressionEvaluator(
 
             "RGB" => (3, 3),
             "ROUND" => (1, 2),
+            "LOG" => (1, 2),
+            "POWER" or "ATAN2" => (2, 2),
+            "PI" => (0, 0),
             "RND" => (0, 1),
             "REPLACE" => (3, 6),
             "FORMAT" => (1, 4),
@@ -1569,6 +1595,21 @@ internal sealed partial class ExpressionEvaluator(
         double result = op(x);
         return double.IsNaN(result) || double.IsNegativeInfinity(result) && x == 0
             ? throw new ArgumentException($"Invalid procedure call: the function is not defined at {x}.")
+            : Finite(result);
+    }
+
+    /// <summary>
+    /// A function of two Doubles, read as <see cref="UnaryDouble"/> reads one; NULL-propagating. A result that is not
+    /// a number is an invalid procedure call, and a result past a Double an overflow.
+    /// </summary>
+    private object? BinaryDouble(FunctionCall f, Func<double, double, double> op)
+    {
+        if (Evaluate(f.Arguments[0]) is not { } left || Evaluate(f.Arguments[1]) is not { } right)
+            return null;
+        double x = Dbl(ConversionNumber(left)), y = Dbl(ConversionNumber(right));
+        double result = op(x, y);
+        return double.IsNaN(result)
+            ? throw new ArgumentException($"Invalid procedure call: {f.Name} is not defined at {x}, {y}.")
             : Finite(result);
     }
 

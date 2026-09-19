@@ -1032,8 +1032,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             // a Round beside a whole number in IIF, CASE or COALESCE left the Integer to declare the column while
             // the Round arm returned a Decimal.
             "ROUND" or "ABS" => KeptNumberType(argument, typeof(double)),
-            "INT" or "FIX" => KeptNumberType(argument, typeof(DateTime)),
-            "SGN" => typeof(int),
+            "INT" or "FIX" or "FLOOR" or "CEILING" or "CEIL" => KeptNumberType(argument, typeof(DateTime)),
+            "SGN" or "SIGN" => typeof(int),
             "CSTR" or "FORMAT" or "LCASE" or "UCASE" or "TRIM" or "LTRIM" or "RTRIM"
                 or "LEFT" or "RIGHT" or "MID" or "REPLACE" or "STRING" or "SPACE" or "HEX"
                 or "OCT" or "WEEKDAYNAME" or "MONTHNAME" or "PARTITION" => typeof(string),
@@ -1049,6 +1049,8 @@ public sealed class QueryExecutor : IScalarSubqueryRunner
             "CDATE" or "NOW" or "DATE" or "TIME" or "DATEADD" or "DATESERIAL" or "TIMESERIAL"
                 or "DATEVALUE" or "TIMEVALUE" => typeof(DateTime),
             "SQR" or "SIN" or "COS" or "TAN" or "ATN" or "LOG" or "EXP" or "RND"
+                or "SQRT" or "LN" or "LOG10" or "POWER" or "ASIN" or "ACOS" or "ATAN" or "ATAN2" or "SINH" or "COSH"
+                or "TANH" or "DEGREES" or "RADIANS" or "PI"
                 or "PMT" or "FV" or "PV" or "NPER" or "IPMT" or "PPMT" or "DDB" or "RATE" or "SLN" or "SYD" => typeof(double),
             // IIF chooses between two values as CASE does, so it takes CASE's rule rather than ACE's own (which
             // makes every whole number a Long and lets Currency beat Double).

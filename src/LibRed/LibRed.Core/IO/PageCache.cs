@@ -37,6 +37,11 @@ internal sealed class PageCache
     // scope while each page write re-enters it; an attempted read→write upgrade is rejected explicitly below.
     private readonly ReaderWriterLockSlim _publishGate = new(LockRecursionPolicy.SupportsRecursion);
     private long _schemaGeneration;
+    // The file's committed length in bytes, shared like the pages: every change to it is made by a channel on this
+    // file, which records it here, so measuring the stream again only repeats this number - at the cost of a
+    // file-information syscall per measurement, which on Windows made every pointer range check on a read path
+    // expensive. Seeded by the first channel to open the file; -1 until then.
+    private long _fileLength = -1;
     private readonly Dictionary<int, LinkedListNode<Entry>> _map = [];
     private readonly LinkedList<Entry> _lru = new(); // first = most-recently-used
 
@@ -195,6 +200,26 @@ internal sealed class PageCache
     public void MarkSchemaChanged()
     {
         lock (_gate) _schemaGeneration++;
+    }
+
+    /// <summary>The file's committed length in bytes (see <see cref="SetFileLength"/>).</summary>
+    public long FileLength
+    {
+        get { lock (_gate) return _fileLength; }
+    }
+
+    /// <summary>Seeds the committed length from the first channel to open the file. A later open keeps the value
+    /// already held, which the writes of the channels before it have kept current.</summary>
+    public void InitFileLength(long measured)
+    {
+        lock (_gate)
+            if (_fileLength < 0) _fileLength = measured;
+    }
+
+    /// <summary>Records a change a channel has just made to the file's length.</summary>
+    public void SetFileLength(long length)
+    {
+        lock (_gate) _fileLength = length;
     }
 
     /// <summary>Returns a previously cached higher-layer parse of <paramref name="page"/> (see

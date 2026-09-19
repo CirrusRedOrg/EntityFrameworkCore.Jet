@@ -227,10 +227,10 @@ public sealed class UsageMap(PageChannel channel, TableDef table)
     /// in RowInserter already range-checks; this is the same check.</summary>
     private void AppendSetBits(List<int> pages, ReadOnlySpan<byte> bitmap, int basePage)
     {
-        // Read the bound ONCE. Outside a transaction PageChannel.PageCount is a file-length syscall (inside one
-        // it is a cached field), and this loop runs per set bit on every insert — so testing it per bit made a
-        // non-transactional insert ~1.9x slower while leaving the transactional path untouched, which is what
-        // made the cost so easy to miss. Nothing in the loop writes, so the count cannot move under it.
+        // Read the bound ONCE: this loop runs per set bit on every insert. PageChannel.PageCount used to be a
+        // file-length syscall outside a transaction, which made a per-bit test cost a non-transactional insert
+        // ~1.9x; it is a cached field now, but one read is still all the loop needs. Nothing in the loop writes,
+        // so the count cannot move under it.
         int pageCount = _channel.PageCount;
 
         for (int i = 0; i < bitmap.Length; i++)

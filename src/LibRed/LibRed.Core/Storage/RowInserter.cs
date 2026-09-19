@@ -968,8 +968,7 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
     private void AppendMapBits(List<int> result, ReadOnlySpan<byte> bitmap, int startPage)
     {
-        // Bound read once, for the reason UsageMap.AppendSetBits records: outside a transaction PageCount is a
-        // file-length syscall, and a per-bit test costs real time on a hot path. Nothing here writes.
+        // Bound read once, as UsageMap.AppendSetBits does: the loop runs per bit on a hot path. Nothing here writes.
         int pageCount = _channel.PageCount;
 
         for (int i = 0; i < bitmap.Length; i++)

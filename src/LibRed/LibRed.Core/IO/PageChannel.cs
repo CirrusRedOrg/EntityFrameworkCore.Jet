@@ -66,6 +66,7 @@ public sealed class PageChannel : IDisposable
         _ownsLocks = locks is null;
         _locks = locks ?? MonitorLockManager.Acquire(path);
         _cache = PageCache.Acquire(path, format.PageSize);
+        _cache.InitFileLength(stream.Length);
     }
 
     /// <summary>Whether a transaction is currently open on this channel.</summary>
@@ -110,8 +111,9 @@ public sealed class PageChannel : IDisposable
     public int PageSize => Format.PageSize;
 
     /// <summary>Number of pages currently in the file — or, inside a transaction, the logical count including
-    /// pages the overlay has allocated but not yet written to disk.</summary>
-    public int PageCount => _active is not null ? _txPageCount : (int)(_stream.Length / PageSize);
+    /// pages the overlay has allocated but not yet written to disk. Read from the shared cache's record of the
+    /// file's length rather than the stream, so it costs no syscall.</summary>
+    public int PageCount => _active is not null ? _txPageCount : (int)(_cache.FileLength / PageSize);
 
     /// <summary>
     /// Opens a database file, sniffs its Jet/ACE version from page 0 and resolves the
@@ -350,10 +352,13 @@ public sealed class PageChannel : IDisposable
             }
 
             long offset = (long)pageNumber * PageSize;
-            if (offset > _stream.Length)
+            long length = _cache.FileLength;
+            if (offset > length)
                 _stream.SetLength(offset); // zero-fills the gap up to this page
             _stream.Seek(offset, SeekOrigin.Begin);
             _stream.Write(toDisk);
+            if (offset + PageSize > length)
+                _cache.SetFileLength(offset + PageSize);
 
             // Write through: the pool now holds the just-written (plaintext) image, so a subsequent read (this
             // channel or any other on the file) sees it without touching disk.
@@ -453,6 +458,7 @@ public sealed class PageChannel : IDisposable
                             // A null baseline is a transaction-allocated tail page. Validation proved no other
                             // writer had claimed it, and the publish gate excludes one while we truncate it again.
                             _stream.SetLength((long)page * PageSize);
+                            _cache.SetFileLength((long)page * PageSize);
                             _cache.Remove(page);
                         }
                     }
@@ -589,7 +595,7 @@ public sealed class PageChannel : IDisposable
 
     private byte[]? ReadCommittedPageOrNull(int pageNumber)
     {
-        int committedPageCount = (int)(_stream.Length / PageSize);
+        int committedPageCount = (int)(_cache.FileLength / PageSize);
         if (pageNumber < 0 || pageNumber >= committedPageCount) return null;
 
         var buffer = new byte[PageSize];

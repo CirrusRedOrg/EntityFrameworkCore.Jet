@@ -107,6 +107,9 @@
 >   increments it (the new column's variable index = the old value); `DROP COLUMN` of a variable column
 >   **leaves it unchanged**, so survivors keep their stored variable index (§3.4) and existing rows keep the
 >   same number of variable slots. (A fixed column doesn't touch `0x2B`.)
+> - **The long-value list (§3.3.2)** — `DROP COLUMN` of a memo/OLE column removes its 10-byte entry; the other
+>   entries keep their `col_num` and map pointers. Its maps and pages are retired as described in
+>   [long-values](long-values.md#dropping-a-long-value-column).
 > - **Past the new end** — when a definition shrinks, ACE zeroes exactly **8 bytes** past the new definition
 >   length (`0x08`) and leaves every byte beyond them as it was, so the old definition's tail stays on the
 >   page. Measured on single-page definitions for `DROP COLUMN` of a fixed, a text, a memo and an OLE column

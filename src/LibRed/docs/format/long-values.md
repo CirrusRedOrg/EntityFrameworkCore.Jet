@@ -151,6 +151,20 @@ list (terminator included) counts toward the definition, not free space.
 > type: every entry is a Memo or OLE column, and **a table with Text columns but no memo/OLE has an
 > empty list**. So mdbtools' name is imprecise; the list is keyed to long-value columns.
 
+### Dropping a long-value column
+
+`DROP COLUMN` of a memo or OLE column is a metadata edit like any other drop ([page-02a](page-02a-tdef.md)) —
+existing rows keep the column's bytes, now dead, and its LVAL pages keep their contents — plus three steps for
+the long values:
+
+1. its §3.3.2 entry leaves the definition; the other long-value columns keep theirs, and their map records
+   keep their row numbers;
+2. its owned-map and free-map records are retired from their holder exactly as `DROP TABLE` retires a
+   long-value column's ([page-05 §9](page-05-usage-maps.md)): the owned pages' bits cleared except the page
+   still in its free map, then each row tombstoned, the rows below sliding up;
+3. every page in its owned map — single-value pages and chain pages alike — goes back to the global free-pages
+   map at close.
+
 ## Writing long values
 
 > **Writing.** LibRed inlines a memo/OLE value only up to **64 bytes** (same for Jet3/Jet4): the 12-byte

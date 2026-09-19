@@ -5,6 +5,7 @@ using LibRed.Catalog;
 using LibRed.Formats;
 using LibRed.IO;
 using LibRed.Pages;
+using MapRetirement = ((int Row, int Page) Map, System.Collections.Generic.IReadOnlyList<(int Row, int Page)> Clear, System.Collections.Generic.IReadOnlyList<int> Pages);
 
 namespace LibRed.Storage;
 
@@ -962,7 +963,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // first page, so those are read from it directly, as UsageMap does.)
         var definition = new TableDefinitionPage();
         definition.Read(_channel, tdefPage);
-        var usageMaps = new UsageMapWriter(_channel);
 
         // The map RECORDS live as rows on owner-zero data pages, and each is retired in turn — its bits cleared
         // first where ACE clears them, then its row reclaimed, which slides every record below it up the page.
@@ -971,27 +971,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // by whole-file diff against ACE drops: each long-value column's owned then free map, bits cleared;
         // then each index's owned map in index order, bits cleared; then the table's own owned map, bits
         // cleared, and its free map, whose bits stay.
-        var retire = new List<((int Row, int Page) Map, IReadOnlyList<(int Row, int Page)> Clear, IReadOnlyList<int> Pages)>();
+        var retire = new List<MapRetirement>();
 
-        // A Memo/OLE (or calculated long) column owns its LVAL pages through a PER-COLUMN usage map, whose
-        // pointer sits in the TDEF keyed by column id. Those pages are not in the table's data-page map, so
-        // freeing only the data pages leaves every long value stranded — and for a memo-heavy table that is
-        // nearly the whole table. Measured against ACE: dropping a 60-row memo table returned 123 pages
-        // through ACE and 2 through LibRed, the missing 121 being LVAL pages.
         foreach (ColumnDef column in table.Columns)
-        {
-            definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) map);
-            definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) columnFree);
-            if (map.Page != 0)
-            {
-                // Clear each page's bit on the way out, exactly as releasing a single value does: the record's
-                // bitmap bytes are zeroed before its row is retired.
-                List<int> pages = maps.PagesInMap(map.Row, map.Page).ToList();
-                owned.UnionWith(pages);
-                retire.Add((map, columnFree.Page != 0 ? [map, columnFree] : [map], pages));
-            }
-            if (columnFree.Page != 0) retire.Add((columnFree, [], []));
-        }
+            QueueLongValueMaps(definition, column, maps, owned, retire);
 
         // Each real index keeps its B-tree pages in its own owned map, whose (row, page) pointer sits in its data
         // block. Freeing only the root strands every other page of a multi-level index, and leaving the map's
@@ -1021,9 +1004,63 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         retire.Add(((tdef.ReadByte(_channel.Format.TdefFreePagesOffset),
                      tdef.ReadInt24(_channel.Format.TdefFreePagesOffset + 1)), [], []));
 
-        // Take the records off the page the way ACE does — tombstone the slot, slide the rows below it up, return
-        // the bytes to the page's free count — rather than leaving dead maps behind. On a shared holder that is
-        // the whole fix: the page survives and must not keep records for a table that no longer exists.
+        RetireMapRecords(retire, maps, owned);
+
+        // Access marks the released definition page itself: its type byte becomes 0x08 and nothing else on
+        // the page changes, so the old definition is still sitting there when Compact comes to reclaim it.
+        // Measured across an ACE DROP TABLE: exactly one byte of the 4,096 differs. Only the TDEF is marked —
+        // the data, long-value and map-holder pages ACE frees keep their 0x01.
+        byte[] released = _channel.ReadPage(tdefPage).Span.ToArray();
+        released[0] = (byte)PageType.ReleasedTableDefinition;
+        _channel.WritePage(tdefPage, released);
+
+        foreach (int page in owned)
+            allocator.Release(page);   // reusable only after this handle closes, as ACE holds them
+
+        DeleteCatalogRows("MSysObjects", "Id", tdefPage);
+        DeleteCatalogRows("MSysACEs", "ObjectId", tdefPage);
+        _catalog.Invalidate();
+        return true;
+    }
+
+    /// <summary>
+    /// Queues a long-value column's two usage-map records for <see cref="RetireMapRecords"/>, owned then free, and
+    /// adds the pages its owned map records to <paramref name="owned"/>. A Memo/OLE (or calculated long) column owns
+    /// its LVAL pages through a PER-COLUMN usage map, whose pointer sits in the TDEF keyed by column id. Those pages
+    /// are not in the table's data-page map, so freeing only the data pages leaves every long value stranded — and
+    /// for a memo-heavy table that is nearly the whole table. Measured against ACE: dropping a 60-row memo table
+    /// returned 123 pages through ACE and 2 through LibRed, the missing 121 being LVAL pages. Nothing is queued for
+    /// a column with no long-value maps.
+    /// </summary>
+    private static void QueueLongValueMaps(
+        TableDefinitionPage definition, ColumnDef column, UsageMap maps, HashSet<int> owned, List<MapRetirement> retire)
+    {
+        definition.LongValueOwnedMaps.TryGetValue(column.ColumnId, out (int Row, int Page) map);
+        definition.LongValueFreeMaps.TryGetValue(column.ColumnId, out (int Row, int Page) columnFree);
+        if (map.Page != 0)
+        {
+            // Clear each page's bit on the way out, exactly as releasing a single value does: the record's
+            // bitmap bytes are zeroed before its row is retired. Except a page still in the free map, whose bit
+            // stays in both records — measured by whole-file diff of ACE drops: of an OLE column owning a chain,
+            // two full single-value pages and its current append page, every bit went but the append page's.
+            List<int> pages = maps.PagesInMap(map.Row, map.Page).ToList();
+            owned.UnionWith(pages);
+            HashSet<int> stillFree = columnFree.Page != 0 ? maps.PagesInMap(columnFree.Row, columnFree.Page).ToHashSet() : [];
+            retire.Add((map, columnFree.Page != 0 ? [map, columnFree] : [map], pages.Where(p => !stillFree.Contains(p)).ToList()));
+        }
+        if (columnFree.Page != 0) retire.Add((columnFree, [], []));
+    }
+
+    /// <summary>
+    /// Takes usage-map records off their pages the way ACE does, in the order given — tombstone the slot, slide the
+    /// rows below it up, return the bytes to the page's free count — rather than leaving dead maps behind. On a
+    /// shared holder that is the whole fix: the page survives and must not keep records for a map that no longer
+    /// exists. Each record's <c>Clear</c> maps first have its <c>Pages</c> cleared. Adds to <paramref name="owned"/>
+    /// the pages to release: a reference-form record's bitmap pages, and every holder left with no live row.
+    /// </summary>
+    private void RetireMapRecords(IEnumerable<MapRetirement> retire, UsageMap maps, HashSet<int> owned)
+    {
+        var usageMaps = new UsageMapWriter(_channel);
         var holders = new List<int>();
         var retired = new HashSet<(int Row, int Page)>();
         foreach (((int Row, int Page) map, IReadOnlyList<(int Row, int Page)> clear, IReadOnlyList<int> pages) in retire)
@@ -1049,10 +1086,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             if (!holders.Contains(map.Page)) holders.Add(map.Page);
         }
 
-        // ACE frees a holder once the dropped table's records were the only thing on it — measured: for a
-        // one-memo-column table ACE returned the long-value map's holder. A holder can carry records for several
-        // columns or tables as separate rows, so releasing one that still serves another map would hand away a
-        // live page: corruption rather than a leak. Hence the holder goes only when no live row is left on it.
+        // ACE frees a holder once the dropped records were the only thing on it — measured: for a one-memo-column
+        // table ACE returned the long-value map's holder. A holder can carry records for several columns or tables
+        // as separate rows, so releasing one that still serves another map would hand away a live page: corruption
+        // rather than a leak. Hence the holder goes only when no live row is left on it.
         foreach (int holderPage in holders)
         {
             var holder = new DataPage();
@@ -1062,22 +1099,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 live = !holder.Rows[row].IsDeleted && holder.Rows[row].Length > 0;
             if (!live) owned.Add(holderPage);
         }
-
-        // Access marks the released definition page itself: its type byte becomes 0x08 and nothing else on
-        // the page changes, so the old definition is still sitting there when Compact comes to reclaim it.
-        // Measured across an ACE DROP TABLE: exactly one byte of the 4,096 differs. Only the TDEF is marked —
-        // the data, long-value and map-holder pages ACE frees keep their 0x01.
-        byte[] released = _channel.ReadPage(tdefPage).Span.ToArray();
-        released[0] = (byte)PageType.ReleasedTableDefinition;
-        _channel.WritePage(tdefPage, released);
-
-        foreach (int page in owned)
-            allocator.Release(page);   // reusable only after this handle closes, as ACE holds them
-
-        DeleteCatalogRows("MSysObjects", "Id", tdefPage);
-        DeleteCatalogRows("MSysACEs", "ObjectId", tdefPage);
-        _catalog.Invalidate();
-        return true;
     }
 
     /// <summary>
@@ -1690,6 +1711,22 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         entry.CopyTo(result, at);
         Array.Copy(lval, at, result, at + 10, 2); // the 0xFFFF terminator
         parts.Lval = result;
+    }
+
+    /// <summary>Removes a long-value column's 10-byte §3.3.2 usage-map entry from the list, keeping the other
+    /// entries and the <c>0xFFFF</c> terminator. A no-op for a column without one.</summary>
+    private static void RemoveLongValueMapEntry(TdefParts parts, int columnId)
+    {
+        byte[] lval = parts.Lval;
+        for (int at = 0; at + 2 < lval.Length; at += 10)
+        {
+            if (BinaryPrimitives.ReadUInt16LittleEndian(lval.AsSpan(at, 2)) != columnId) continue;
+            var result = new byte[lval.Length - 10];
+            Array.Copy(lval, 0, result, 0, at);
+            Array.Copy(lval, at + 10, result, at, lval.Length - at - 10);
+            parts.Lval = result;
+            return;
+        }
     }
 
     /// <summary>Sets (replaces) a column's <c>DefaultValue</c> in the table's <c>MSysObjects.LvProp</c> blob —
@@ -2675,8 +2712,11 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <c>VariableColumnCount</c> (0x2B stays a high-water mark), or rewrite existing rows — survivors keep
     /// their stored variable index (§3.4) so old rows still decode (the dropped column's data becomes dead
     /// bytes). Returns false if the column doesn't exist. Multi-page TDEFs are handled. Throws for a column
-    /// that backs an index/key (drop that first) or a memo/OLE column (its long-value usage-map entry/pages
-    /// aren't handled yet).
+    /// that backs an index/key (drop that first).
+    /// <para>A memo/OLE column also owns long-value pages through its own usage maps, and ACE retires those as
+    /// DROP TABLE does (measured by whole-file diff): its §3.3.2 entry leaves the TDEF, its owned and free map
+    /// records are retired from their holder, and its owned pages go back to the global free map at close. The
+    /// pages themselves are left as they were, and the other long-value columns keep their entries and records.</para>
     /// </summary>
     public bool DropColumn(string tableName, string columnName)
     {
@@ -2712,13 +2752,24 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             throw new InvalidOperationException(
                 $"Cannot drop column '{columnName}': it is part of an index or key — drop the index/constraint first.");
 
-        if (col.Type is JetDataType.Memo or JetDataType.Ole)
-            throw new NotSupportedException(
-                $"DROP COLUMN '{columnName}': dropping a memo/OLE (long-value) column is not supported yet.");
+        // A long-value column's maps, read from the TDEF before it loses them.
+        var definition = new TableDefinitionPage();
+        definition.Read(_channel, table.DefinitionPage);
+        var maps = new UsageMap(_channel, table);
+        var owned = new HashSet<int>();
+        var retire = new List<MapRetirement>();
+        QueueLongValueMaps(definition, col, maps, owned, retire);
 
         TdefParts parts = ParseTdef(table.DefinitionPage); // stitches continuation pages for a multi-page TDEF
         RemoveColumnFromParts(parts, table.Columns.Count, col.Index, _channel.Format);
+        RemoveLongValueMapEntry(parts, col.ColumnId);
         WriteTdef(table.DefinitionPage, parts);
+
+        RetireMapRecords(retire, maps, owned);
+        var allocator = new PageAllocator(_channel);
+        foreach (int page in owned)
+            allocator.Release(page);   // reusable only after this handle closes, as ACE holds them
+
         RemoveColumnProperties(table.DefinitionPage, columnName); // drop its DefaultValue/Required from LvProp (ACE does)
         _catalog.Invalidate();
         return true;

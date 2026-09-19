@@ -267,11 +267,14 @@ in the index's data block (`0x22`); ACE frees them all.
 The records are rows on owner-zero data pages, and one holder can carry records for several columns or
 tables. Dropping a table retires each of its map records in turn: it clears the freed pages' bits where it
 clears them, tombstones the record's row, and — once no live row is left — frees the holder page itself.
+Dropping a memo/OLE column retires that column's two records the same way — step 1 below, for that column
+alone ([long-values](long-values.md#dropping-a-long-value-column)).
 
 Each tombstone slides the records below it up the page, and the bytes they vacate are not cleared, so a moved
 record leaves a copy of itself behind. The order is therefore visible on disk, and ACE's is fixed:
 
-1. each long-value column's owned map, then its free map — bits cleared;
+1. each long-value column's owned map, then its free map — bits cleared, except for a page still in the
+   column's free map (its current append page), whose bit stays set in both records;
 2. each index's owned map, in index order — bits cleared;
 3. the table's own data owned map — bits cleared — then its free map — bits left set.
 

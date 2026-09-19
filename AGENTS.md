@@ -7,7 +7,7 @@ It is kept in sync with `CLAUDE.md`; if you change guidance in one, check whethe
 
 EntityFrameworkCore.Jet is an EF Core provider for Microsoft Jet/ACE databases (Microsoft Access `.mdb`/`.accdb` files). The **Jet** provider runs **Windows only** and bridges EF Core to the Access database engine via either ODBC or OLE DB. Alongside it, **LibRed** (also in this repo, on `master`) is a from-scratch managed engine that reads/writes the file format directly and is **cross-platform** — see the LibRed section below.
 
-Current version: `11.0.0-alpha.1` (`Version.props`) targeting EF Core 11 and `net11.0`; `global.json` pins the 11.0.100 RC1 SDK with `rollForward: latestFeature`. The test projects use **xunit v3**.
+Current version: `11.0.0-alpha.3` (`Version.props`) targeting EF Core 11 and `net11.0`; `global.json` pins the 11.0.100 RC1 SDK with `rollForward: latestFeature`. The test projects use **xunit v3**.
 
 ### Which layer am I touching?
 

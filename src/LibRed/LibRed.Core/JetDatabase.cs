@@ -146,8 +146,9 @@ public sealed class JetDatabase : IDisposable
     /// <summary>Begins a page-level transaction; writes are undoable until <see cref="Commit"/>.</summary>
     public void BeginTransaction() => _channel.BeginTransaction();
 
-    /// <summary>Commits the current transaction (writes are already on disk). <paramref name="flush"/> forces
-    /// durability (fsync) for an explicit user commit; an implicit per-statement autocommit passes false.</summary>
+    /// <summary>Commits the current transaction (writes are already on disk). <paramref name="flush"/> hands the
+    /// writes to the OS before returning, for an explicit user commit; an implicit per-statement autocommit passes
+    /// false. Neither forces them to disk, as ACE doesn't.</summary>
     public void Commit(bool flush = true) => _channel.CommitTransaction(flush);
 
     /// <summary>

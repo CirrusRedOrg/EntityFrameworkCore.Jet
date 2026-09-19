@@ -400,10 +400,10 @@ public sealed class PageChannel : IDisposable
 
     /// <summary>Commits the current transaction: publishes every buffered overlay page to disk and the shared
     /// cache — making the writes visible to other channels for the first time — in ascending page order so the
-    /// file grows monotonically. No-op if no transaction is open. <paramref name="flush"/> forces the OS buffers
-    /// to disk (durability) — used by an explicit user commit; an implicit per-statement autocommit passes false,
-    /// matching the pre-transaction behaviour of flushing only on <see cref="Dispose"/> rather than fsyncing
-    /// every statement.</summary>
+    /// file grows monotonically. No-op if no transaction is open. <paramref name="flush"/> hands the stream's
+    /// buffer to the OS before returning — used by an explicit user commit, which ACE writes synchronously; an
+    /// implicit per-statement autocommit passes false. Neither forces the OS cache to disk: ACE never calls
+    /// FlushFileBuffers, on commit or on close, so LibRed doesn't either.</summary>
     public void CommitTransaction(bool flush = true)
     {
         if (_active is null) return;
@@ -478,7 +478,7 @@ public sealed class PageChannel : IDisposable
             _schemaDirty = false;
         });
 
-        if (flush) _stream.Flush(flushToDisk: true);
+        if (flush) _stream.Flush(flushToDisk: false);
     }
 
     /// <summary>
@@ -636,7 +636,7 @@ public sealed class PageChannel : IDisposable
 
     public void Dispose()
     {
-        if (!_readOnly) _stream.Flush(flushToDisk: true);
+        if (!_readOnly) _stream.Flush(flushToDisk: false);
         _stream.Dispose();
         PageCache.Release(_path); // last channel on this file drops the shared pool
         if (_ownsLocks) MonitorLockManager.Release(_path); // and the shared lock manager

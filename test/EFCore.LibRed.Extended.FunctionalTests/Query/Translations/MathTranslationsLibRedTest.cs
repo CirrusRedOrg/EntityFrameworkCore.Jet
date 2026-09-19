@@ -656,7 +656,7 @@ WHERE (`b`.`Float` * (3.1415927 / 180)) > 0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`Double` >= -1.0 AND `b`.`Double` <= 1.0 AND (1.5707963267948966 + ATN(-`b`.`Double` / SQR(-(`b`.`Double` * `b`.`Double`) + 1.0))) > 1.0
+WHERE `b`.`Double` >= -1.0 AND `b`.`Double` <= 1.0 AND (1.5707963267948966 + (ATN(-`b`.`Double` / (SQR(-(`b`.`Double` * `b`.`Double`) + 1.0) + 1.0)) * 2.0)) > 1.0
 """);
     }
 
@@ -668,7 +668,7 @@ WHERE `b`.`Double` >= -1.0 AND `b`.`Double` <= 1.0 AND (1.5707963267948966 + ATN
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`Float` >= -1 AND `b`.`Float` <= 1 AND (1.5707963267948966 + ATN(-`b`.`Float` / SQR(-(`b`.`Float` * `b`.`Float`) + 1))) > 0.0
+WHERE `b`.`Float` >= -1 AND `b`.`Float` <= 1 AND (1.5707963267948966 + (ATN(-`b`.`Float` / (SQR(-(`b`.`Float` * `b`.`Float`) + 1) + 1)) * 2.0)) > 0.0
 """);
     }
 
@@ -683,7 +683,7 @@ WHERE `b`.`Float` >= -1 AND `b`.`Float` <= 1 AND (1.5707963267948966 + ATN(-`b`.
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`Double` >= -1.0 AND `b`.`Double` <= 1.0 AND ATN(`b`.`Double` / SQR(-(`b`.`Double` * `b`.`Double`) + 1.0)) > -1.7976931348623157E+308
+WHERE `b`.`Double` >= -1.0 AND `b`.`Double` <= 1.0 AND (ATN(`b`.`Double` / (SQR(-(`b`.`Double` * `b`.`Double`) + 1.0) + 1.0)) * 2.0) > -1.7976931348623157E+308
 """);
     }
 
@@ -695,7 +695,7 @@ WHERE `b`.`Double` >= -1.0 AND `b`.`Double` <= 1.0 AND ATN(`b`.`Double` / SQR(-(
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE `b`.`Float` >= -1 AND `b`.`Float` <= 1 AND CDBL(ATN(`b`.`Float` / SQR(-(`b`.`Float` * `b`.`Float`) + 1))) > -1.7976931348623157E+308
+WHERE `b`.`Float` >= -1 AND `b`.`Float` <= 1 AND CDBL(ATN(`b`.`Float` / (SQR(-(`b`.`Float` * `b`.`Float`) + 1) + 1)) * 2) > -1.7976931348623157E+308
 """);
     }
 
@@ -737,7 +737,16 @@ WHERE ATN(`b`.`Float`) > 0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE ATN(`b`.`Double` / 1.0) > 0.0
+WHERE CASE
+    WHEN 1.0 = 0.0 THEN SGN(`b`.`Double`) * 1.5707963267948966
+    ELSE ATN(`b`.`Double` / 1.0) + CASE
+        WHEN 1.0 < 0.0 THEN CASE
+            WHEN `b`.`Double` < 0.0 THEN -3.141592653589793
+            ELSE 3.141592653589793
+        END
+        ELSE 0.0
+    END
+END > 0.0
 """);
     }
 
@@ -749,7 +758,16 @@ WHERE ATN(`b`.`Double` / 1.0) > 0.0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE ATN(`b`.`Float` / 1) > 0
+WHERE CASE
+    WHEN 1 = 0 THEN SGN(`b`.`Float`) * 1.5707964
+    ELSE ATN(`b`.`Float` / 1) + CASE
+        WHEN 1 < 0 THEN CASE
+            WHEN `b`.`Float` < 0 THEN -3.1415927
+            ELSE 3.1415927
+        END
+        ELSE 0
+    END
+END > 0
 """);
     }
 

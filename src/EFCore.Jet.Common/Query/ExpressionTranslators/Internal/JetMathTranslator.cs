@@ -122,15 +122,15 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             {
                 return method.Name switch
                 {
-                    // Arccos(X) = Atn(-X / Sqr(-X * X + 1)) + 2 * Atn(1)
+                    // Arccos(X) = 2 * Atn(-X / (Sqr(-X * X + 1) + 1)) + 2 * Atn(1)
                     nameof(Math.Acos) => _sqlExpressionFactory.Add(
                         _sqlExpressionFactory.Constant(Math.Atan(1) * 2),
-                        _sqlExpressionFactory.Function(
+                        _sqlExpressionFactory.Multiply(_sqlExpressionFactory.Function(
                             "ATN",
                             [
                                 _sqlExpressionFactory.Divide(
                                     _sqlExpressionFactory.Negate(arguments[0]),
-                                    Translate(
+                                    _sqlExpressionFactory.Add(Translate(
                                         null,
                                         method.DeclaringType == typeof(MathF)
                                             ? typeof(MathF).GetRuntimeMethod(nameof(MathF.Sqrt), [typeof(float)])!
@@ -147,20 +147,20 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                             )
                                         ],
                                         logger
-                                    )!
+                                    )!, _sqlExpressionFactory.Constant(1d))
                                 )
                             ],
                             true,
                             [true],
-                            method.ReturnType)),
+                            method.ReturnType), _sqlExpressionFactory.Constant(2d))),
 
-                    // Arcsin(X) = Atn(X / Sqr(-X * X + 1))
-                    nameof(Math.Asin) => _sqlExpressionFactory.Function(
+                    // Arcsin(X) = 2 * Atn(X / (Sqr(-X * X + 1) + 1))
+                    nameof(Math.Asin) => _sqlExpressionFactory.Multiply(_sqlExpressionFactory.Function(
                         "ATN",
                         [
                             _sqlExpressionFactory.Divide(
                                 arguments[0],
-                                Translate(
+                                _sqlExpressionFactory.Add(Translate(
                                     null,
                                     method.DeclaringType == typeof(MathF)
                                         ? typeof(MathF).GetRuntimeMethod(nameof(MathF.Sqrt), [typeof(float)])!
@@ -177,12 +177,12 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                                         )
                                     ],
                                     logger
-                                )!
+                                )!, _sqlExpressionFactory.Constant(1d))
                             )
                         ],
                         true,
                         [true],
-                        method.ReturnType),
+                        method.ReturnType), _sqlExpressionFactory.Constant(2d)),
 
                     // Logn(x) = Log(x) / Log(n)
                     nameof(Math.Log10) => _sqlExpressionFactory.Divide(
@@ -199,7 +199,9 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                     nameof(Math.Floor) => CreateFloor(arguments[0], method.ReturnType),
                     nameof(Math.Ceiling) => CreateCeiling(arguments[0], method.ReturnType),
 
-                    nameof(Math.Atan2) => _sqlExpressionFactory.Function(
+                    // Atan2(Y, X) = IIf(X = 0, Sgn(Y) * Pi / 2, Atn(Y / X) + IIf(X < 0, IIf(Y < 0, -Pi, Pi), 0))
+                    nameof(Math.Atan2) => _sqlExpressionFactory.Case([new CaseWhenClause(_sqlExpressionFactory.Equal(arguments[1], _sqlExpressionFactory.Constant(0d)), _sqlExpressionFactory.Multiply(_sqlExpressionFactory.Function("SGN", [arguments[0]], true, [true], method.ReturnType), _sqlExpressionFactory.Constant(Math.PI / 2)))],
+                        _sqlExpressionFactory.Add(_sqlExpressionFactory.Function(
                         "ATN",
                         [
                             _sqlExpressionFactory.Divide(
@@ -209,7 +211,7 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         ],
                         true,
                         [true],
-                        method.ReturnType),
+                        method.ReturnType), _sqlExpressionFactory.Case([new CaseWhenClause(_sqlExpressionFactory.LessThan(arguments[1], _sqlExpressionFactory.Constant(0d)), _sqlExpressionFactory.Case([new CaseWhenClause(_sqlExpressionFactory.LessThan(arguments[0], _sqlExpressionFactory.Constant(0d)), _sqlExpressionFactory.Constant(-Math.PI))], _sqlExpressionFactory.Constant(Math.PI)))], _sqlExpressionFactory.Constant(0d)))),
 
                     nameof(double.DegreesToRadians) => _sqlExpressionFactory.Multiply(arguments[0], _sqlExpressionFactory.Divide(_sqlExpressionFactory.Constant(Math.PI), _sqlExpressionFactory.Constant(180))),
 

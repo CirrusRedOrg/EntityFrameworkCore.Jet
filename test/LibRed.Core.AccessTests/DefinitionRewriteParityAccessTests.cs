@@ -61,6 +61,54 @@ public class DefinitionRewriteParityAccessTests(ITestOutputHelper output) : Temp
         Assert.Equal("", difference);
     }
 
+    // A relationship adds an incoming block to the parent's definition. Into a single page after a drop, the 8
+    // reserve bytes past the new end land on the old tail and are zeroed, the rest left; into a multi-page parent,
+    // the continuation data moves to fresh pages. Only the parent's definition chain is compared: ACE also records
+    // the relationship as a type-8 MSysObjects object with two MSysACEs rows, which LibRed does not write yet.
+    [Theory]
+    [InlineData("a shrunk single-page parent", false)]
+    [InlineData("a multi-page parent", true)]
+    public void Libred_adds_a_relationship_into_the_parents_definition_byte_for_byte_with_ace(string label, bool wide)
+    {
+        string start = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "tdefrel-start-");
+        using (OleDbConnection connection = AceTestDatabase.Open(start))
+        {
+            Exec(connection, wide
+                ? $"CREATE TABLE P (Id LONG CONSTRAINT pkP PRIMARY KEY{Columns(199, "CURRENCY")})"
+                : "CREATE TABLE P (Id LONG CONSTRAINT pkP PRIMARY KEY, abcdefghijklmnopqrst LONG, V LONG)");
+            Exec(connection, "CREATE TABLE C (Id LONG, PId LONG)");
+        }
+        if (!wide)
+            using (OleDbConnection connection = AceTestDatabase.Open(start))
+                Exec(connection, "ALTER TABLE P DROP COLUMN abcdefghijklmnopqrst");
+
+        string ace = TemporaryDatabase.CopyPath(start, "tdefrel-ace-");
+        using (OleDbConnection connection = AceTestDatabase.Open(ace))
+            Exec(connection, "ALTER TABLE C ADD CONSTRAINT fkCP FOREIGN KEY (PId) REFERENCES P (Id)");
+
+        string libred = TemporaryDatabase.CopyPath(start, "tdefrel-lib-");
+        using (var db = JetDatabase.Open(libred, readOnly: false))
+            db.AddForeignKey("C", new RelationshipSpec("fkCP", "P", [("PId", "Id")], IsEnforced: true, CascadeUpdate: false, CascadeDelete: false));
+
+        output.WriteLine(label);
+        (List<int> acePages, byte[] aceBytes) = DefinitionChain(ace, "P");
+        (List<int> libredPages, byte[] libredBytes) = DefinitionChain(libred, "P");
+        Assert.Equal(acePages, libredPages);
+        Assert.Equal(Convert.ToHexString(aceBytes), Convert.ToHexString(libredBytes));
+    }
+
+    /// <summary>A table's definition pages, first page first, and their whole bytes — read from the raw file.</summary>
+    private static (List<int> Pages, byte[] Bytes) DefinitionChain(string path, string table)
+    {
+        int first;
+        using (var db = JetDatabase.Open(path)) first = db.Catalog.FindTable(table)!.DefinitionPage;
+        byte[] file = File.ReadAllBytes(path);
+        var pages = new List<int>();
+        for (int page = first; page != 0 && pages.Count < 10; page = BitConverter.ToInt32(file, page * 4096 + 4))
+            pages.Add(page);
+        return (pages, pages.SelectMany(p => file.AsSpan(p * 4096, 4096).ToArray()).ToArray());
+    }
+
     private static string Columns(int count, string type) =>
         string.Concat(Enumerable.Range(1, count).Select(i => $", c{i:D3} {type}"));
 

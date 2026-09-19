@@ -3149,15 +3149,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <summary>
     /// Adds an incoming-relationship logical index-info block (§3.6) to a parent table's already-written
     /// TDEF: it reuses the parent's referenced-key data block (no new data block), links back to the
-    /// child's outgoing block, and grows the logical-index list by one (kept name-sorted). Single
-    /// definition page only (throws if the definition spans continuation pages).
+    /// child's outgoing block, and grows the logical-index list by one (kept name-sorted). The definition is
+    /// rewritten through <see cref="WriteDefinition"/>, so it may span or spill onto continuation pages.
     /// </summary>
     private void AddIncomingRelationshipBlock(IncomingRelationship inc)
     {
         JetFormatBase format = _channel.Format;
-        var buf = _channel.ReadPage(inc.ParentPage);
-        if (buf.ReadInt32(format.TdefNextPageOffset) != 0)
-            throw new NotSupportedException("Adding a relationship to a multi-page table definition is not supported yet.");
+        (LibRed.IO.PageBuffer buf, IReadOnlyList<int> existingContinuations) = ReadDefinition(inc.ParentPage);
 
         int dataCount = buf.ReadInt32(format.TdefIndexCountOffset);        // 0x33 real data blocks
         int logicalCount = buf.ReadInt32(format.TdefLogicalIndexCountOffset); // 0x2F logical blocks
@@ -3199,20 +3197,17 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         nameBytes.Insert(k, EncodeName(newName));
 
         int newDefEnd = infoStart + blocks.Count * IndexBlockFormat.InfoBlockSize + nameBytes.Sum(n => n.Length) + lvalRegion.Length;
-        if (newDefEnd > format.PageSize - JetFormatBase.TdefContinuationHeaderSize)
-            throw new NotSupportedException("No room in the table definition for another relationship (needs a continuation page).");
 
-        var page = buf.Span.ToArray();
+        var def = new byte[newDefEnd];
+        buf.Span[..infoStart].CopyTo(def);
         int w = infoStart;
-        foreach (byte[] b in blocks) { b.CopyTo(page.AsSpan(w)); w += b.Length; }
-        foreach (byte[] n in nameBytes) { n.CopyTo(page.AsSpan(w)); w += n.Length; }
-        lvalRegion.CopyTo(page.AsSpan(w));
+        foreach (byte[] b in blocks) { b.CopyTo(def.AsSpan(w)); w += b.Length; }
+        foreach (byte[] n in nameBytes) { n.CopyTo(def.AsSpan(w)); w += n.Length; }
+        lvalRegion.CopyTo(def.AsSpan(w));
 
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefLogicalIndexCountOffset, 4), logicalCount + 1);
-        BinaryPrimitives.WriteInt32LittleEndian(page.AsSpan(format.TdefLengthOffset, 4), newDefEnd);
-        BinaryPrimitives.WriteUInt16LittleEndian(page.AsSpan(format.TdefFreeSpaceOffset, 2),
-            (ushort)(format.PageSize - newDefEnd - JetFormatBase.TdefContinuationHeaderSize));
-        _channel.WritePage(inc.ParentPage, page);
+        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLogicalIndexCountOffset, 4), logicalCount + 1);
+        BinaryPrimitives.WriteInt32LittleEndian(def.AsSpan(format.TdefLengthOffset, 4), newDefEnd);
+        WriteDefinition(inc.ParentPage, def, existingContinuations, rewrite: true);
     }
 
     private byte[] BuildIncomingInfoBlock(IncomingRelationship inc)

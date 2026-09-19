@@ -110,11 +110,12 @@
 > - **The long-value list (§3.3.2)** — `DROP COLUMN` of a memo/OLE column removes its 10-byte entry; the other
 >   entries keep their `col_num` and map pointers. Its maps and pages are retired as described in
 >   [long-values](long-values.md#dropping-a-long-value-column).
-> - **Past the new end** — when a definition shrinks, ACE zeroes exactly **8 bytes** past the new definition
->   length (`0x08`) and leaves every byte beyond them as it was, so the old definition's tail stays on the
->   page. Measured on single-page definitions for `DROP COLUMN` of a fixed, a text, a memo and an OLE column
->   and for `DROP INDEX`, each with and without long-value columns, and on a two-page definition falling back
->   to one. A definition that stays multi-page moves its continuation data to fresh pages instead (§3.2,
+> - **Past the new end** — whenever ACE rewrites a single-page definition, shrinking or growing, it zeroes
+>   exactly **8 bytes** past the new definition length (`0x08`) — the trailing reserve — and leaves every byte
+>   beyond them as it was, so an old definition's tail stays on the page. Measured on single-page definitions
+>   for `DROP COLUMN` of a fixed, a text, a memo and an OLE column and for `DROP INDEX`, each with and without
+>   long-value columns; on a two-page definition falling back to one; and, growing in place over such a stale
+>   tail, for `ADD COLUMN` and for a relationship's incoming block (the reserve's stale bytes zeroed). A definition that stays multi-page moves its continuation data to fresh pages instead (§3.2,
 >   "Rewriting a multi-page TDEF"). Nothing reads these bytes; LibRed leaves them as ACE does. (A new table's
 >   definition, from `CREATE TABLE`, is written onto a zeroed page — ACE's handling of a reused page there is
 >   not measured.)

@@ -196,8 +196,8 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
                         _sqlExpressionFactory.Function("LOG", [arguments[1]], true, [true], method.ReturnType)
                     ),
 
-                    nameof(Math.Floor) => CreateFix(arguments, method.ReturnType),
-                    nameof(Math.Ceiling) => CreateCeiling(arguments, method.ReturnType),
+                    nameof(Math.Floor) => CreateFloor(arguments[0], method.ReturnType),
+                    nameof(Math.Ceiling) => CreateCeiling(arguments[0], method.ReturnType),
 
                     nameof(Math.Atan2) => _sqlExpressionFactory.Function(
                         "ATN",
@@ -274,40 +274,25 @@ namespace EntityFrameworkCore.Jet.Query.ExpressionTranslators.Internal
             return null;
         }
 
-        private SqlExpression CreateCeiling(IReadOnlyList<SqlExpression> arguments, Type methodReturnType)
+        // Math.Floor rounds towards negative infinity, which is Access's INT - not FIX, which rounds towards zero
+        // (that is Math.Truncate) and so gave Floor(-1.5) as -1. Math.Ceiling is the mirror image, -INT(-x): the old
+        // IIF(FIX(x) = x, FIX(x), FIX(x) + 1) was one too high for any negative non-integer, and +1 for anything
+        // between -1 and 0. Verified against ACE and LibRed over -2.7, -1.5, -1, -0.5, 0, 1.5 and 2, Double and
+        // Currency; both keep the argument's type, and -INT(-x) keeps .NET's -0 for Math.Ceiling(-0.5).
+        private SqlExpression CreateFloor(SqlExpression argument, Type methodReturnType)
+            => CreateInt(argument, methodReturnType);
+
+        private SqlExpression CreateCeiling(SqlExpression argument, Type methodReturnType)
+            => _sqlExpressionFactory.Negate(CreateInt(_sqlExpressionFactory.Negate(argument), methodReturnType));
+
+        private SqlExpression CreateInt(SqlExpression argument, Type methodReturnType)
         {
-            SqlFunctionExpression fixExpression = (SqlFunctionExpression)CreateFix(arguments, methodReturnType);
-            var addoneexp = _sqlExpressionFactory.Add(fixExpression, _sqlExpressionFactory.Constant(1));
-            return _sqlExpressionFactory.Case(
-                [
-                    new CaseWhenClause(
-                        _sqlExpressionFactory.Equal(
-                            fixExpression,
-                            arguments[0]),
-                        fixExpression)
-                ],
-                addoneexp);
-        }
-
-        private SqlExpression CreateFix(IReadOnlyList<SqlExpression> arguments, Type methodReturnType)
-        {
-            var typeMapping = arguments.Count == 1
-                ? ExpressionExtensions.InferTypeMapping(arguments[0])
-                : ExpressionExtensions.InferTypeMapping(arguments[0], arguments[1]);
-
-            var newArguments = new SqlExpression[arguments.Count];
-            newArguments[0] = _sqlExpressionFactory.ApplyTypeMapping(arguments[0], typeMapping);
-
-            if (arguments.Count == 2)
-            {
-                newArguments[1] = _sqlExpressionFactory.ApplyTypeMapping(arguments[1], typeMapping);
-            }
-
+            var typeMapping = ExpressionExtensions.InferTypeMapping(argument);
             return _sqlExpressionFactory.Function(
-                "FIX",
-                newArguments,
+                "INT",
+                [_sqlExpressionFactory.ApplyTypeMapping(argument, typeMapping)],
                 nullable: true,
-                argumentsPropagateNullability: newArguments.Select(_ => true).ToArray(),
+                argumentsPropagateNullability: [true],
                 methodReturnType,
                 typeMapping);
         }

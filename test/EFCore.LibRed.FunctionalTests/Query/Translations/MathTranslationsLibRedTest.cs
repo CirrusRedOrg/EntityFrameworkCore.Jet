@@ -73,7 +73,7 @@ WHERE IIF(ABS(`b`.`Float`) IS NULL, NULL, CDBL(ABS(`b`.`Float`))) = 9.5
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(FIX(`b`.`Double`) = `b`.`Double`, FIX(`b`.`Double`), FIX(`b`.`Double`) + 1.0) = 9.0
+WHERE -INT(-`b`.`Double`) = 9.0
 """);
     }
 
@@ -85,7 +85,7 @@ WHERE IIF(FIX(`b`.`Double`) = `b`.`Double`, FIX(`b`.`Double`), FIX(`b`.`Double`)
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE IIF(FIX(`b`.`Float`) = `b`.`Float`, FIX(`b`.`Float`), FIX(`b`.`Float`) + 1) = 9
+WHERE -INT(-`b`.`Float`) = 9
 """);
     }
 
@@ -97,7 +97,7 @@ WHERE IIF(FIX(`b`.`Float`) = `b`.`Float`, FIX(`b`.`Float`), FIX(`b`.`Float`) + 1
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE FIX(`b`.`Decimal`) = 8.0
+WHERE INT(`b`.`Decimal`) = 8.0
 """);
     }
 
@@ -109,7 +109,7 @@ WHERE FIX(`b`.`Decimal`) = 8.0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE FIX(`b`.`Double`) = 8.0
+WHERE INT(`b`.`Double`) = 8.0
 """);
     }
 
@@ -121,7 +121,7 @@ WHERE FIX(`b`.`Double`) = 8.0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE FIX(`b`.`Float`) = 8
+WHERE INT(`b`.`Float`) = 8
 """);
     }
 

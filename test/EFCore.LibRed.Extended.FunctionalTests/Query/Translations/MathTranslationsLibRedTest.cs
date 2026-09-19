@@ -73,10 +73,7 @@ WHERE CDBL(ABS(`b`.`Float`)) = 9.5
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE CASE
-    WHEN FIX(`b`.`Double`) = `b`.`Double` THEN FIX(`b`.`Double`)
-    ELSE FIX(`b`.`Double`) + 1.0
-END = 9.0
+WHERE -INT(-`b`.`Double`) = 9.0
 """);
     }
 
@@ -88,10 +85,7 @@ END = 9.0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE CASE
-    WHEN FIX(`b`.`Float`) = `b`.`Float` THEN FIX(`b`.`Float`)
-    ELSE FIX(`b`.`Float`) + 1
-END = 9
+WHERE -INT(-`b`.`Float`) = 9
 """);
     }
 
@@ -103,7 +97,7 @@ END = 9
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE FIX(`b`.`Decimal`) = 8.0
+WHERE INT(`b`.`Decimal`) = 8.0
 """);
     }
 
@@ -115,7 +109,7 @@ WHERE FIX(`b`.`Decimal`) = 8.0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE FIX(`b`.`Double`) = 8.0
+WHERE INT(`b`.`Double`) = 8.0
 """);
     }
 
@@ -127,7 +121,7 @@ WHERE FIX(`b`.`Double`) = 8.0
             """
 SELECT `b`.`Id`, `b`.`Bool`, `b`.`Byte`, `b`.`ByteArray`, `b`.`DateOnly`, `b`.`DateTime`, `b`.`DateTimeOffset`, `b`.`Decimal`, `b`.`Double`, `b`.`Enum`, `b`.`FlagsEnum`, `b`.`Float`, `b`.`Guid`, `b`.`Int`, `b`.`Long`, `b`.`Short`, `b`.`String`, `b`.`TimeOnly`, `b`.`TimeSpan`
 FROM `BasicTypesEntities` AS `b`
-WHERE FIX(`b`.`Float`) = 8
+WHERE INT(`b`.`Float`) = 8
 """);
     }
 

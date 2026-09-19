@@ -63,8 +63,8 @@ public class DefinitionRewriteParityAccessTests(ITestOutputHelper output) : Temp
 
     // A relationship adds an incoming block to the parent's definition. Into a single page after a drop, the 8
     // reserve bytes past the new end land on the old tail and are zeroed, the rest left; into a multi-page parent,
-    // the continuation data moves to fresh pages. Only the parent's definition chain is compared: ACE also records
-    // the relationship as a type-8 MSysObjects object with two MSysACEs rows, which LibRed does not write yet.
+    // the continuation data moves to fresh pages. The relationship's own type-8 MSysObjects object and its two
+    // MSysACEs rows are written as ACE writes them.
     [Theory]
     [InlineData("a shrunk single-page parent", false)]
     [InlineData("a multi-page parent", true)]
@@ -91,22 +91,28 @@ public class DefinitionRewriteParityAccessTests(ITestOutputHelper output) : Temp
             db.AddForeignKey("C", new RelationshipSpec("fkCP", "P", [("PId", "Id")], IsEnforced: true, CascadeUpdate: false, CascadeDelete: false));
 
         output.WriteLine(label);
-        (List<int> acePages, byte[] aceBytes) = DefinitionChain(ace, "P");
-        (List<int> libredPages, byte[] libredBytes) = DefinitionChain(libred, "P");
-        Assert.Equal(acePages, libredPages);
-        Assert.Equal(Convert.ToHexString(aceBytes), Convert.ToHexString(libredBytes));
+        string difference = DropTableParityAccessTests.Difference(ace, libred);
+        output.WriteLine(difference);
+        Assert.Equal("", WithoutNonUniqueIndexCounts(difference, libred, "MSysACEs", "MSysRelationships"));
     }
 
-    /// <summary>A table's definition pages, first page first, and their whole bytes — read from the raw file.</summary>
-    private static (List<int> Pages, byte[] Bytes) DefinitionChain(string path, string table)
+    /// <summary>
+    /// Drops the differences in the unique-entry counts (bytes 4-7 of each 12-byte statistics block at 0x3F) of the
+    /// named tables' definitions. ACE advances a non-unique index's count when a key is new, and LibRed does not yet
+    /// (TODO(non-unique-index-stats), docs/format/page-02d-constraints.md §3.3.1); a relationship adds new keys to
+    /// the non-unique indexes of both these catalog tables.
+    /// </summary>
+    private static string WithoutNonUniqueIndexCounts(string difference, string path, params string[] tables)
     {
-        int first;
-        using (var db = JetDatabase.Open(path)) first = db.Catalog.FindTable(table)!.DefinitionPage;
-        byte[] file = File.ReadAllBytes(path);
-        var pages = new List<int>();
-        for (int page = first; page != 0 && pages.Count < 10; page = BitConverter.ToInt32(file, page * 4096 + 4))
-            pages.Add(page);
-        return (pages, pages.SelectMany(p => file.AsSpan(p * 4096, 4096).ToArray()).ToArray());
+        HashSet<int> pages;
+        using (var db = JetDatabase.Open(path)) pages = [.. tables.Select(t => db.Catalog.FindTable(t)!.DefinitionPage)];
+        return string.Concat(difference.Split('\n').Where(line =>
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(line, @"^page (\d+) .*\+0x([0-9A-F]+):");
+            if (!match.Success) return line.Length > 0;
+            int page = int.Parse(match.Groups[1].Value), offset = Convert.ToInt32(match.Groups[2].Value, 16);
+            return !(pages.Contains(page) && offset >= 0x3F && (offset - 0x3F) % 12 is >= 4 and < 8 && offset < 0x3F + 12 * 32);
+        }).Select(line => line + "\n"));
     }
 
     private static string Columns(int count, string type) =>

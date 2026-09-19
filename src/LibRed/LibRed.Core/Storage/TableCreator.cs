@@ -93,6 +93,10 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // data and a 100-char index name breaks ACE's index enumeration. Only validate caller-supplied names.
         if (primaryKeyName is not null) JetName.Validate(primaryKeyName, "primary key name");
         foreach (RelationshipSpec r in relationships) JetName.Validate(r.Name, "foreign key name");
+        var relationshipNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (RelationshipSpec r in relationships)
+            if (!relationshipNames.Add(r.Name)) throw RelationshipNameTaken(r.Name);
+            else EnsureRelationshipNameFree(r.Name);
         foreach (UniqueIndexSpec u in uniqueConstraints) JetName.Validate(u.Name, "unique constraint name");
         foreach ((string checkName, _) in checkConstraints) JetName.Validate(checkName, "check constraint name");
 
@@ -464,15 +468,28 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         return (parent.DefinitionPage, refIndex.RealIndexOrdinal, NextLogicalIndexNumber(parent.DefinitionPage));
     }
 
+    /// <summary>ACE refuses a relationship name another relationship already has (verified); a table or query may
+    /// share it. Checked before anything is written.</summary>
+    private void EnsureRelationshipNameFree(string name)
+    {
+        if (_catalog.Relationships.Any(r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase)))
+            throw RelationshipNameTaken(name);
+    }
+
+    private static SchemaObjectExistsException RelationshipNameTaken(string name) =>
+        new($"There is already a relationship named '{name}' in the current database.", name);
+
     /// <summary>
     /// Writes the <c>MSysRelationships</c> rows for one relationship — one row per column pair, with
     /// <c>ccolumn</c> = the pair count, <c>icolumn</c> = the 0-based pair index, and <c>grbit</c>
-    /// encoding enforce/cascade (verified against Access: an enforced no-cascade FK stores grbit 0).
+    /// encoding enforce/cascade (verified against Access: an enforced no-cascade FK stores grbit 0) — and the
+    /// relationship's own <c>MSysObjects</c> object, which ACE records for every relationship.
     /// </summary>
     private void AddRelationshipRows(string childTable, RelationshipSpec fk)
     {
         TableDef msys = _catalog.FindTable("MSysRelationships")
             ?? throw new InvalidOperationException("MSysRelationships catalog table was not found.");
+        new ViewCreator(_channel, _catalog).CreateRelationshipObject(fk.Name);
 
         int grbit = 0;
         if (!fk.IsEnforced) grbit |= RelationshipFlags.DontEnforce;
@@ -827,6 +844,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     public void AddForeignKey(string childTable, RelationshipSpec fk)
     {
         JetName.Validate(fk.Name, "foreign key name");
+        EnsureRelationshipNameFree(fk.Name);
         TableDef child = _catalog.FindTable(childTable)
             ?? throw new InvalidOperationException($"Table '{childTable}' was not found.");
         if (fk.NoIndex)
@@ -913,6 +931,13 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         }
 
         SoftDeleteRelationshipRows(name);
+        // Its MSysObjects object and permission rows go with it, as ACE removes them (verified). A relationship
+        // written before LibRed recorded the object has none.
+        if (FindObjectId(name, CatalogFormat.ObjectTypeRelationship) is { } objectId)
+        {
+            DeleteCatalogRows("MSysObjects", "Id", objectId);
+            DeleteCatalogRows("MSysACEs", "ObjectId", objectId);
+        }
         _catalog.Invalidate();
         return true;
     }
@@ -1111,24 +1136,30 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// </summary>
     public bool DropQueryObject(string name)
     {
+        if (FindObjectId(name, StoredQueryFormat.ObjectTypeQuery) is not { } objId) return false;
+
+        DeleteCatalogRows("MSysObjects", "Id", objId);
+        DeleteCatalogRows("MSysQueries", "ObjectId", objId);
+        DeleteCatalogRows("MSysACEs", "ObjectId", objId);
+        _catalog.Invalidate();
+        return true;
+    }
+
+    /// <summary>The <c>MSysObjects</c> id of the object of <paramref name="type"/> named <paramref name="name"/>,
+    /// or null when there is none.</summary>
+    private int? FindObjectId(string name, short type)
+    {
         TableDef mo = _catalog.FindTable("MSysObjects")
             ?? throw new InvalidOperationException("MSysObjects catalog table was not found.");
         int idIdx = (mo.FindColumn("Id") ?? throw new InvalidOperationException("MSysObjects is missing 'Id'.")).Index;
         int nameIdx = (mo.FindColumn("Name") ?? throw new InvalidOperationException("MSysObjects is missing 'Name'.")).Index;
         int typeIdx = (mo.FindColumn("Type") ?? throw new InvalidOperationException("MSysObjects is missing 'Type'.")).Index;
 
-        int? objId = null;
         foreach (object?[] values in new Table(_channel, mo).Rows())
             if (string.Equals(values[nameIdx] as string, name, StringComparison.OrdinalIgnoreCase)
-                && Convert.ToInt16(values[typeIdx] ?? (short)0) == StoredQueryFormat.ObjectTypeQuery)
-            { objId = Convert.ToInt32(values[idIdx]); break; }
-        if (objId is null) return false;
-
-        DeleteCatalogRows("MSysObjects", "Id", objId.Value);
-        DeleteCatalogRows("MSysQueries", "ObjectId", objId.Value);
-        DeleteCatalogRows("MSysACEs", "ObjectId", objId.Value);
-        _catalog.Invalidate();
-        return true;
+                && Convert.ToInt16(values[typeIdx] ?? (short)0) == type)
+                return Convert.ToInt32(values[idIdx]);
+        return null;
     }
 
 

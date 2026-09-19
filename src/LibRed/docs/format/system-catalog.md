@@ -207,6 +207,21 @@
 - **Views / queries** are `MSysObjects` rows of **Type 5** with a **negative synthetic `Id`** (queries
   increment from `0x80000000`), `ParentId 0x0F000001`, `Flags 0x10000000`, `LvProp` null.
 
+- **Relationships** are `MSysObjects` rows of **Type 8** too — one per relationship, alongside its
+  `MSysRelationships` rows (verified vs ACE: every relationship Access or ACE creates has one, whether from
+  `ALTER TABLE … ADD CONSTRAINT` or a `CREATE TABLE` foreign key). `Name` is the relationship's name,
+  `ParentId 0x0F000003` (the Relationships container), `Flags 0`, `Owner 0x690C`, `DateCreate` = `DateUpdate` =
+  the creation time, and `LvProp`, `Lv`, `LvExtra`, `LvModule`, `Connect`, `Database`, `ForeignName`,
+  `RmtInfoShort`, `RmtInfoLong` all null.
+  - **`Id`** is the next negative synthetic id: one past the highest in the file, from the sequence queries draw
+    on, so relationships and queries interleave (`0x8000002C` relationship, `0x8000002D` view,
+    `0x8000002E` relationship), and a dropped relationship's id is taken by the next object.
+  - **Two `MSysACEs` rows**: SID `0x690C` with ACM `0xF00FE`, and SID `0x680C` with ACM `0xFFFFF`.
+  - **Dropping it** — `DROP CONSTRAINT`, or `DROP TABLE` of the referencing table — removes the object and its
+    two `MSysACEs` rows.
+  - **Its name** must differ from every other relationship's (*"There is already a relationship named '…' in
+    the current database."*), but may equal a table's or a query's.
+
   > **MSysQueries columns (8, verified).** The table has exactly: `ObjectId` (Int32, the
   > query object's `Id`), `Attribute` (Byte, the row kind — see below), `Flag` (Int16, attribute-specific),
   > `Name1` and `Name2` (Text, attribute-specific names), `Expression` (Memo, attribute-specific text —

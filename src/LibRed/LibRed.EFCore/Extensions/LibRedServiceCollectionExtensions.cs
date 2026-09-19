@@ -51,7 +51,7 @@ public static class LibRedServiceCollectionExtensions
             .TryAdd<IExecutionStrategyFactory, LibRedExecutionStrategyFactory>()
             .TryAdd<ISingletonOptions, ILibRedOptions>(p => p.GetRequiredService<ILibRedOptions>())
             .TryAdd<IQueryCompilationContextFactory, JetQueryCompilationContextFactory>()
-            .TryAdd<IMethodCallTranslatorProvider, JetMethodCallTranslatorProvider>()
+            .TryAdd<IMethodCallTranslatorProvider, LibRedMethodCallTranslatorProvider>()
             .TryAdd<IAggregateMethodCallTranslatorProvider, JetAggregateMethodCallTranslatorProvider>()
             .TryAdd<IMemberTranslatorProvider, JetMemberTranslatorProvider>()
             .TryAdd<IQuerySqlGeneratorFactory, LibRedQuerySqlGeneratorFactory>()

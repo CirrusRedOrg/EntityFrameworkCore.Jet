@@ -9,28 +9,42 @@ statistics:
 
 | Offset | Size | Meaning |
 | --- | --- | --- |
-| `0x00` | 4 | Total entry count — **compact-time only** (see note): the row count in a *saved/compacted* file, but `0` in a live-edited one |
-| `0x04` | 4 | **Unique entry count** — distinct entries ever added; maintained live on every insert (see note) |
+| `0x00` | 4 | Total entry count — written only when the index is **built** or the file compacted (see note), not on insert |
+| `0x04` | 4 | **Unique entry count** — maintained live on insert, set when the index is built (see note) |
 | `0x08` | 4 | Reserved (zero observed) |
 
 **These two fields are maintained very differently (verified vs ACE):**
 
-- **Total entry count (`+0`) is *not* maintained on insert.** Access leaves it `0` through live
-  inserts and only writes the row count on **compact/repair**. A compacted table reads
-  `total == rowCount`; a freshly SQL-inserted table reads `total == 0` while `rowCount` climbs. A writer
-  should therefore **leave `+0` at `0`** on insert (LibRed does), not set it to the row count —
-  doing so would falsely mark the file as compacted. One exception: ACE's **index rebuild**
-  does bump `+0` (observed 0 → 1), and LibRed reproduces that in `TableCreator` — so "leave it at 0"
-  is a rule about the INSERT path, not about every writer.
-- **Unique entry count (`+4`) *is* maintained live and is cumulative** — Access increments it per
-  insert and **never decrements** it. Verified: after 3 inserts it is `3`; after deleting a row it
-  stays `3` (not decremented); after one more insert it is `4`. It equals the current
-  distinct-value count only with no deletions. A **unique** index gains one distinct key per row,
-  so a writer increments `+4` by one per insert per unique index (LibRed does this in
-  `RowInserter`). A **non-unique** index should advance `+4` only when the inserted key is
-  genuinely new — not yet handled (see the `TODO(non-unique-index-stats)` marker). This applies to
-  **most** indexes LibRed writes, not none: every FK backing index is non-unique, as is any
-  `CREATE INDEX` without `UNIQUE`. LibRed exposes `+4` as `IndexDef.UniqueEntryCount`.
+- **Total entry count (`+0`) is *not* maintained on insert.** Access leaves it unchanged through live
+  inserts, deletes and updates. It is written when the index is **built over the rows present** —
+  `CREATE INDEX` (unique or not), a foreign key's backing index, and the rebuild of an index whose column an
+  `ALTER COLUMN` changes — to the **number of entries the index then holds** (the rows, less those an
+  IGNORE NULL index leaves out); and on **compact/repair**, to the row count. So an index created on an
+  empty table and then filled by inserts reads `0`, while one created over six rows reads `6`. A writer must
+  **not** set it on insert: that would falsely mark the file as compacted.
+- **Unique entry count (`+4`) *is* maintained live and is cumulative** — Access advances it on
+  **INSERT only**, by one when the row brings a key the index **does not hold at that moment**, and **never
+  decrements** it. Verified: after 3 inserts into a unique index it is `3`; after deleting a row it stays
+  `3`; after one more insert it is `4`. It equals the current distinct-key count only with no deletions.
+  - A **unique** index gains a new key with every row, so it advances on every insert.
+  - A **non-unique** index advances only for a key not already in it. Keys are compared as index keys, so
+    collation-equal text (`'a'`, `'A'`) is one key; a **Null is a key** like any other (a second Null adds
+    nothing), except in an **IGNORE NULL** index, which does not hold it and so never counts it. A key whose
+    last row was deleted **counts again** when it returns. A multi-column index compares the whole tuple.
+  - An **UPDATE never advances it**, even one that gives a row a key no other row has.
+  - It is **one count per real index**: a relationship's logical index sharing a real index (a parent's
+    primary key) does not advance it a second time.
+  - **Building the index** — the same builds as `+0` above — sets it to the index's **distinct keys among
+    the rows present**, discarding any earlier history: after two deletions, rebuilding an index whose
+    cumulative count was `4` over rows holding `5, 6, 6, 8` gives `3`.
+  - **Nothing else changes either count**: `ADD`/`DROP COLUMN`, `DROP INDEX` (the other blocks keep their
+    values), and an `ALTER COLUMN` of a column no index covers all leave every block as it was. The same holds
+    for a retype to or from Memo/OLE: only an index over the changed column is rebuilt — a primary key
+    included — and a table referencing this one keeps its foreign-key index's counts.
+
+  LibRed maintains both this way — inserts in `RowInserter`, builds in `TableCreator`'s index back-fill, and
+  the Memo/OLE retype (which LibRed does by rebuilding the whole table) restores every other index's counts
+  afterwards — and exposes `+4` as `IndexDef.UniqueEntryCount`.
 
 
 ### 3.5 Index-data block (52 bytes)

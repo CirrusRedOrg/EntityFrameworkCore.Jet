@@ -168,7 +168,11 @@ Then the value, transformed:
 - **Boolean:** no flag byte — a single constant: ascending `0x00` = true, `0xFF` = false
   (true sorts first).
 - **Memo (Long Text)** is **indexable** in Access (`CREATE INDEX` on a memo column succeeds — only
-  `OLE Object` is rejected, *"Invalid field definition … in definition of index or relationship"*).
+  `OLE Object` is rejected, *"Invalid field definition … in definition of index or relationship"*). ACE
+  refuses an OLE column on **every** route into an index: `CREATE INDEX`, a `PRIMARY KEY` or `UNIQUE`
+  constraint in `CREATE TABLE` or added by `ALTER TABLE`, a foreign key in either place (before its type
+  match is checked), and `ALTER COLUMN` of an indexed column to OLE. It refuses up front and leaves nothing
+  behind — no table from a refused `CREATE TABLE`, the column and its index unchanged after a refused `ALTER`.
   Its key is the **ordinary Text collation key over the value's first 255 characters** — verified
   byte-for-byte vs ACE: a 256- or 300-character memo yields exactly the key of
   its 255-character prefix, so two memos differing only past character 255 share a key (fine for a

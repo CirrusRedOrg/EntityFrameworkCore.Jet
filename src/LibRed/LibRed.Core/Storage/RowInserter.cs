@@ -79,7 +79,9 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
 
         _channel.WritePage(pageNumber, page);
 
-        UpdateTdefCounters(format, values, generatedAutoNumbers);
+        // Asked before the row's own entries go in, so an index "already has" a key only through another row.
+        HashSet<int> newKeys = updateIndexes ? IndexesGainingANewKey(keyValues) : [];
+        UpdateTdefCounters(format, values, generatedAutoNumbers, newKeys);
         if (updateIndexes)
             UpdateIndexes(keyValues, new RowId(pageNumber, rowCount));
     }
@@ -614,6 +616,27 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
         }
     }
 
+    /// <summary>
+    /// The root pages of the non-unique indexes the row brings a key they do not hold yet — the ones whose
+    /// unique-entry count advances (verified vs ACE: a key equal to one already in the index, collation included,
+    /// adds nothing; a key whose last row was deleted counts again; a Null key counts like any other, except in an
+    /// IGNORE NULL index, which does not hold it). A unique index always gains a new key, so it is not asked.
+    /// </summary>
+    private HashSet<int> IndexesGainingANewKey(object?[] values)
+    {
+        var gaining = new HashSet<int>();
+        IndexWriter? writer = null;
+        foreach (IndexDef index in _table.Indexes
+            .Where(i => !i.IsUnique && i.RootPage > 0)
+            .GroupBy(i => i.RootPage).Select(g => g.First()))
+        {
+            if (index.IgnoreNulls && HasNullKey(index, values)) continue;
+            writer ??= new IndexWriter(_channel, _table);
+            if (!writer.KeyExists(index, values)) gaining.Add(index.RootPage);
+        }
+        return gaining;
+    }
+
     private static bool HasNullKey(IndexDef index, object?[] values) =>
         index.Columns.Any(c => values[c.Column.Index] is null or DBNull);
 
@@ -1027,14 +1050,15 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
     /// to pick the *next* id = this + increment; leaving it stale makes Access reissue an existing id and
     /// reject the insert as a duplicate primary key.)</item>
     /// <item>Per-index **unique-entry count** (`0x3F + ordinal×12`, `+4`) — incremented by one for
-    /// each **unique** index (a unique index gets a distinct key per row). This is the cumulative
-    /// count Access advances on every insert and never decrements. The sibling **total-entry count**
-    /// (`+0`) is deliberately left untouched: Access does **not** maintain it live — it stays `0`
-    /// through inserts and is only written (to the row count) on compact/repair (verified: a live
-    /// ACE-inserted table reads total `0` while saved Northwind tables read total = row count).</item>
+    /// each **unique** index (a unique index gets a distinct key per row) and each non-unique index in
+    /// <paramref name="newKeys"/> (the row brings a key it does not hold yet). Access advances it on insert only,
+    /// once per real index, and never decrements it. The sibling **total-entry count**
+    /// (`+0`) is deliberately left untouched: Access does **not** maintain it live — it is written only
+    /// when the index is built (to its entries, in <c>TableCreator</c>'s back-fill) or the file compacted
+    /// (verified: an index created on an empty table reads total `0` through any number of inserts).</item>
     /// </list>
     /// </summary>
-    private void UpdateTdefCounters(JetFormatBase format, object?[] values, bool[]? generatedAutoNumbers)
+    private void UpdateTdefCounters(JetFormatBase format, object?[] values, bool[]? generatedAutoNumbers, IReadOnlySet<int> newKeys)
     {
         byte[] tdef = _channel.ReadPageShared(_table.DefinitionPage).Span.ToArray();
 
@@ -1078,14 +1102,10 @@ public sealed class RowInserter(PageChannel channel, TableDef table)
             column.Seed = unchecked(newHighWater + column.Increment);
         }
 
-        // TODO(non-unique-index-stats): a non-unique index's unique-entry count must advance only
-        // when the inserted key is genuinely new (Access's cumulative-distinct semantics), which
-        // needs a probe of the existing keys. Only unique indexes advance it today — and LibRed does
-        // create non-unique ones (every FK backing index is one, and CREATE INDEX without UNIQUE),
-        // so this gap applies to the majority of indexes written, not to none of them.
-        foreach (IndexDef index in _table.Indexes)
+        // One count per real index, so a relationship's logical index sharing a real one does not advance it twice.
+        foreach (IndexDef index in _table.Indexes.GroupBy(i => i.RealIndexOrdinal).Select(g => g.First()))
         {
-            if (!index.IsUnique) continue;
+            if (!index.IsUnique && !newKeys.Contains(index.RootPage)) continue;
             if (index.IgnoreNulls && HasNullKey(index, values)) continue; // row was excluded from the index
             int statsUnique = format.TdefRealIndexBlockOffset + index.RealIndexOrdinal * format.RealIndexEntrySize + 4;
             int unique = BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(statsUnique, 4));

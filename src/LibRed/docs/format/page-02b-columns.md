@@ -351,8 +351,9 @@ index (its keys change type). Verified:
 - Allocate a **fresh empty root leaf** (an appended page); the old root is freed **last** (so the new root
   gets the appended page, not the recycled old one).
 - **Re-point the index-data block** (§3.5) in the TDEF: the target's **burned id** replaces the old id in
-  its column slot (`0x04` array), the **new root** at `0x26`, the **new usage-map row** at `0x22`, and the
-  index **stats block** (§3.3.1) first word bumped **0→1**.
+  its column slot (`0x04` array), the **new root** at `0x26`, and the **new usage-map row** at `0x22`. The
+  index's **stats block** (§3.3.1) is set from the rebuilt index: total = its entries, unique = its distinct
+  keys among the rows present.
 - **Recycle the owned-pages usage-map row** the way ACE does — the append/move/tombstone dance, and the
   stale bytes it deliberately leaves behind, are [page-05 §9](page-05-usage-maps.md).
 - **Back-fill** the new B-tree with new-type keys (one `AddEntry` per row).

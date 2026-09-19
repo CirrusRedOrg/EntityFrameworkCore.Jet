@@ -93,26 +93,7 @@ public class DefinitionRewriteParityAccessTests(ITestOutputHelper output) : Temp
         output.WriteLine(label);
         string difference = DropTableParityAccessTests.Difference(ace, libred);
         output.WriteLine(difference);
-        Assert.Equal("", WithoutNonUniqueIndexCounts(difference, libred, "MSysACEs", "MSysRelationships"));
-    }
-
-    /// <summary>
-    /// Drops the differences in the unique-entry counts (bytes 4-7 of each 12-byte statistics block at 0x3F) of the
-    /// named tables' definitions. ACE advances a non-unique index's count when a key is new, and LibRed does not yet
-    /// (TODO(non-unique-index-stats), docs/format/page-02d-constraints.md §3.3.1); a relationship adds new keys to
-    /// the non-unique indexes of both these catalog tables.
-    /// </summary>
-    private static string WithoutNonUniqueIndexCounts(string difference, string path, params string[] tables)
-    {
-        HashSet<int> pages;
-        using (var db = JetDatabase.Open(path)) pages = [.. tables.Select(t => db.Catalog.FindTable(t)!.DefinitionPage)];
-        return string.Concat(difference.Split('\n').Where(line =>
-        {
-            var match = System.Text.RegularExpressions.Regex.Match(line, @"^page (\d+) .*\+0x([0-9A-F]+):");
-            if (!match.Success) return line.Length > 0;
-            int page = int.Parse(match.Groups[1].Value), offset = Convert.ToInt32(match.Groups[2].Value, 16);
-            return !(pages.Contains(page) && offset >= 0x3F && (offset - 0x3F) % 12 is >= 4 and < 8 && offset < 0x3F + 12 * 32);
-        }).Select(line => line + "\n"));
+        Assert.Equal("", difference);
     }
 
     private static string Columns(int count, string type) =>

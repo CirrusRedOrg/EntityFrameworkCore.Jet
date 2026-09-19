@@ -111,6 +111,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             throw new InvalidOperationException(
                 $"Table '{name}' has {columns.Count} columns; Jet/ACE tables are limited to {MaxColumnsPerTable}.");
 
+        // Before the foreign keys' type match, as ACE checks it: an OLE column referencing a LONG key gets this.
+        RejectOleIndexColumns(
+            (primaryKey ?? []).Concat(uniqueConstraints.SelectMany(u => u.Columns))
+                .Concat(relationships.SelectMany(r => r.Columns.Select(c => c.Column))),
+            n => columns.FirstOrDefault(c => string.Equals(c.Name, n, StringComparison.OrdinalIgnoreCase))?.Type);
+
         relationships = relationships.Select(fk => ResolvePrimaryKeyReference(fk, creatingTable: name)).ToList();
         foreach (RelationshipSpec fk in relationships)
             EnsureSameDataTypes(fk, ColumnOf(columns), string.Equals(fk.ReferencedTable, name, StringComparison.OrdinalIgnoreCase)
@@ -535,6 +541,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         RejectCalculatedIndexColumns(indexName, columns.Select(c => c.Column),
             n => table.Columns.FirstOrDefault(
                 c => c.IsCalculated && string.Equals(c.Name, n, StringComparison.OrdinalIgnoreCase))?.Name);
+        RejectOleIndexColumns(columns.Select(c => c.Column), n => table.FindColumn(n)?.Type);
         var slots = ResolveSlots(table, columns.Select(c => (c.Column, Ascending: !c.Descending)));
         // A table has one primary key, and ACE refuses a second (verified).
         if (isPrimary && table.Indexes.Any(i => i.IsPrimaryKey))
@@ -560,6 +567,17 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 throw new NotSupportedException(
                     $"Index '{indexName}' cannot include calculated column '{calculated}'. Access does not "
                     + "offer one for indexing, and an index over it makes the table refuse every insert.");
+    }
+
+    /// <summary>Refuses an index over an OLE column — a key, a unique constraint, a relationship's — before anything
+    /// is written, as ACE does on every route (verified: CREATE INDEX, PRIMARY KEY and UNIQUE both in CREATE TABLE and
+    /// added, a foreign key in either place, and ALTER COLUMN of an indexed column to OLE). An OLE value has no index
+    /// key, and without this the definition is accepted on an empty table and every later insert fails.</summary>
+    private static void RejectOleIndexColumns(IEnumerable<string> columnNames, Func<string, JetDataType?> typeOf)
+    {
+        foreach (string name in columnNames)
+            if (typeOf(name) == JetDataType.Ole)
+                throw new InvalidOperationException($"Invalid field definition '{name}' in definition of index or relationship.");
     }
 
     /// <summary>Resolves index column names to (columnId, ascending) slots against a table.</summary>
@@ -771,14 +789,26 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
     /// <para>Uniqueness moves with it: on sorted keys a duplicate is an adjacent pair, so the per-row
     /// <see cref="IndexWriter.KeyExists"/> descent is gone. The comparison is still on the encoded key, which
     /// is Access's uniqueness domain (see <see cref="EnsureExistingRowsFitIndex"/>).</para>
+    /// <para>A built index's statistics are set as ACE sets them (verified, for CREATE INDEX, a foreign key's
+    /// backing index and an ALTER COLUMN's rebuild): the total entry count to the entries it now holds and the
+    /// unique entry count to its distinct keys — both from the rows present, not from any earlier history.</para>
     /// </remarks>
     private void BackfillIndex(string tableName, string indexName, bool ignoreNulls, bool validateUnique)
     {
         TableDef table = _catalog.FindTable(tableName)
             ?? throw new InvalidOperationException($"Table '{tableName}' was not found after adding the index.");
         IndexDef index = table.Indexes.First(ix => string.Equals(ix.Name, indexName, StringComparison.OrdinalIgnoreCase));
-        var keyColumnIds = index.Columns.Select(c => c.Column.Index).ToArray();
+        List<(byte[] Key, int Pointer, bool NullKey)> entries = IndexEntries(table, index, ignoreNulls);
 
+        new IndexWriter(_channel, table).BulkBuild(index, entries, validateUnique && index.IsUnique);
+        SetBuiltStatistics(table, index, entries);
+    }
+
+    /// <summary>The entries an index over the table's current rows holds: every live row's encoded key and row
+    /// pointer, less the rows an IGNORE NULL index leaves out.</summary>
+    private List<(byte[] Key, int Pointer, bool NullKey)> IndexEntries(TableDef table, IndexDef index, bool ignoreNulls)
+    {
+        var keyColumnIds = index.Columns.Select(c => c.Column.Index).ToArray();
         var entries = new List<(byte[] Key, int Pointer, bool NullKey)>();
         foreach ((RowId id, object?[] values) in new Table(_channel, table).Rows().WithIds())
         {
@@ -786,8 +816,36 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             if (ignoreNulls && hasNullKey) continue;
             entries.Add((IndexKeyEncoder.Encode(index.Columns, values), (id.Page << 8) | id.Row, hasNullKey));
         }
+        return entries;
+    }
 
-        new IndexWriter(_channel, table).BulkBuild(index, entries, validateUnique && index.IsUnique);
+    /// <summary>Sets a just-built index's statistics block as ACE sets it: total = the entries it holds, unique =
+    /// its distinct keys among them.</summary>
+    private void SetBuiltStatistics(TableDef table, IndexDef index, List<(byte[] Key, int Pointer, bool NullKey)> entries) =>
+        WriteIndexStatistics(table, index, entries.Count, entries.Select(e => Convert.ToHexString(e.Key)).Distinct().Count());
+
+    /// <summary>Every logical index's statistics — its real index's total and unique entry counts — by index name.
+    /// The blocks sit on the definition's first page.</summary>
+    private Dictionary<string, (int Total, int Unique)> IndexStatistics(TableDef table)
+    {
+        byte[] tdef = _channel.ReadPage(table.DefinitionPage).Span.ToArray();
+        var statistics = new Dictionary<string, (int Total, int Unique)>(StringComparer.OrdinalIgnoreCase);
+        foreach (IndexDef index in table.Indexes)
+        {
+            int at = _channel.Format.TdefRealIndexBlockOffset + index.RealIndexOrdinal * _channel.Format.RealIndexEntrySize;
+            statistics[index.Name] = (BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(at, 4)),
+                BinaryPrimitives.ReadInt32LittleEndian(tdef.AsSpan(at + 4, 4)));
+        }
+        return statistics;
+    }
+
+    private void WriteIndexStatistics(TableDef table, IndexDef index, int total, int unique)
+    {
+        byte[] tdef = _channel.ReadPage(table.DefinitionPage).Span.ToArray();
+        int at = _channel.Format.TdefRealIndexBlockOffset + index.RealIndexOrdinal * _channel.Format.RealIndexEntrySize;
+        BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(at, 4), total);
+        BinaryPrimitives.WriteInt32LittleEndian(tdef.AsSpan(at + 4, 4), unique);
+        _channel.WritePage(table.DefinitionPage, tdef);
     }
 
     /// <summary>Appends one empty inline usage-map record (row <paramref name="newRow"/>) to an existing
@@ -851,6 +909,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
             throw new NotSupportedException("ALTER TABLE ADD FOREIGN KEY … NO INDEX is not supported yet.");
         if (fk.UpdateSetNull) throw UpdateSetNullNotImplemented();
 
+        RejectOleIndexColumns(fk.Columns.Select(c => c.Column), n => child.FindColumn(n)?.Type);
         fk = ResolvePrimaryKeyReference(fk, creatingTable: null);
         EnsureSameDataTypes(fk, ColumnOf(child), ColumnOf(_catalog.FindTable(fk.ReferencedTable)));
 
@@ -2222,6 +2281,12 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         // 1. Materialise all rows (values indexed by column position) before dropping the table.
         var rows = new Table(_channel, def).Rows().Select(r => (object?[])r.Clone()).ToList();
 
+        // Every index's statistics, here and on each table referencing this one: the rebuild re-inserts the rows and
+        // re-creates the indexes, which would recount them all, where ACE's ALTER leaves every index alone but the
+        // ones over the column it changes (verified, for Memo/OLE retypes as for the rest).
+        var statistics = new[] { tableName }.Concat(incoming.Select(r => r.Table)).Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(t => t, t => IndexStatistics(_catalog.FindTable(t)!), StringComparer.OrdinalIgnoreCase);
+
         // 2. Reconstruct the schema — column order preserved, the target re-typed. Every OTHER column keeps its
         //    original descriptor bytes (RawDescriptor passthrough), so fields LibRed doesn't model survive the
         //    rewrite (the faithful round-trip rule); the target builds fresh (RawDescriptor null). Column ids stay
@@ -2319,6 +2384,22 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
                 _catalog.Invalidate();
             }
 
+            // Put the statistics back as ACE leaves them: every index as it was, except one over the changed column,
+            // which ACE rebuilds — counted from the rows it now holds, the primary key too (which the re-insert
+            // counted as inserts).
+            foreach ((string name, Dictionary<string, (int Total, int Unique)> before) in statistics)
+            {
+                TableDef table = _catalog.FindTable(name)!;
+                foreach (IndexDef index in table.Indexes)
+                {
+                    if (string.Equals(name, tableName, oic)
+                        && index.Columns.Any(c => string.Equals(c.Column.Name, columnName, oic)))
+                        SetBuiltStatistics(table, index, IndexEntries(table, index, index.IgnoreNulls));
+                    else if (before.TryGetValue(index.Name, out (int Total, int Unique) kept))
+                        WriteIndexStatistics(table, index, kept.Total, kept.Unique);
+                }
+            }
+
             if (ownTransaction) _channel.CommitTransaction();
         }
         catch when (ownTransaction)
@@ -2383,6 +2464,8 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         ColumnDef oldTarget = oldDef.FindColumn(columnName)
             ?? throw new InvalidOperationException($"Column '{columnName}' does not exist in '{tableName}'.");
         EnsureColumnIsNotInRelationship(oldDef, oldTarget);
+        if (newSpec.Type == JetDataType.Ole && oldDef.Indexes.Any(i => i.Columns.Any(c => c.Column.ColumnId == oldTarget.ColumnId)))
+            RejectOleIndexColumns([oldTarget.Name], _ => JetDataType.Ole);
 
         // Also reached directly, not only through AlterColumn, so it carries the width limits itself.
         // The record-fits check needs the true fixed-region end, so it runs once that is measured, below.
@@ -2574,7 +2657,7 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         int newRow = RecycleOwnedMapRow(format, usageMapPage, oldUsageRow, newRoot);
 
         // Re-point the index-data block: the target's burned id in its column slot, the new root, the new
-        // usage-map row; bump the stats block (+0x00, observed 0→1 on ACE's rebuild).
+        // usage-map row. Its statistics are set by the backfill that follows, from the rows it then holds.
         for (int slot = 0; slot < IndexBlockFormat.MaxColumns; slot++)
         {
             int at = IndexBlockFormat.ColumnsOffset + slot * IndexBlockFormat.ColumnSlotSize;
@@ -2583,8 +2666,6 @@ public sealed class TableCreator(PageChannel channel, JetCatalog catalog, Collat
         }
         block[IndexBlockFormat.UsageMapRowOffset] = (byte)newRow;
         BinaryPrimitives.WriteInt32LittleEndian(block.Slice(IndexBlockFormat.RootPageOffset, 4), newRoot);
-        Span<byte> stats = parts.Stats[index.RealIndexOrdinal];
-        BinaryPrimitives.WriteInt32LittleEndian(stats, BinaryPrimitives.ReadInt32LittleEndian(stats) + 1);
         return newRoot;
     }
 

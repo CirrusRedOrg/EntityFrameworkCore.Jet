@@ -227,6 +227,11 @@ Points verified against ACE that aren't obvious from that page:
   `CHARACTER_MAXIMUM_LENGTH`), **not** 1.
 - **Bare `TEXT` → Memo** (long text); `TEXT(n)` → `varchar(n)` (a Jet quirk, ACE-verified).
 - Sized Text/Binary dimensions must be positive: Text is `1..255` characters and Binary is `1..510` bytes.
+- **A declaration wider than that is refused at DDL time — it is not promoted to Memo and not clamped.**
+  Verified: `VARCHAR(255)` creates a 255-character column, `VARCHAR(256)` and everything above it
+  (`VARCHAR(1000)`, `TEXT(1000)`, `CHAR(1000)`, `VARCHAR(65535)`) fail the whole `CREATE TABLE` with
+  ACE's *"Size of field 'c' is too long."* LibRed refuses the same declarations at the same threshold and
+  opens its message with ACE's wording, so a caller matching on it behaves the same against either engine.
 - **`CHAR(n)` / `BINARY(n)` are FIXED-length columns; `TEXT(n)` / `VARBINARY(n)` are variable** — ACE's own DDL
   produces both forms, so the fixed form is not a LibRed-only construct.
 - **An over-long value is refused on both forms, with one message**: *"The field is too small to accept the

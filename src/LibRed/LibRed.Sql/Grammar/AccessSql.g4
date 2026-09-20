@@ -123,9 +123,11 @@ alterTableAction
     | RENAME INDEX index=identifier TO newName=identifier           # RenameIndexAction
     ;
 
-// A procedure body is any statement Access allows. We store/execute the ones we know (SELECT, INSERT,
-// CREATE TABLE); other action queries (UPDATE/DELETE/DROP/…) are rejected by the builder.
-procedureBody : queryExpression | insertStatement | createTableStatement ;
+// A procedure body is any statement Access allows. We store the ones we can decompose into the MSysQueries
+// rows Access writes for them — a SELECT (a plain view, or a make-table when it has an INTO), an INSERT from
+// either VALUES or a SELECT, an UPDATE, a DELETE, and CREATE TABLE (stored verbatim). The kinds we cannot
+// store (crosstab, pass-through, UNION) are rejected by the builder.
+procedureBody : queryExpression | insertStatement | updateStatement | deleteStatement | createTableStatement ;
 
 // CREATE [UNIQUE] INDEX name ON table (field [ASC|DESC], …) [WITH {PRIMARY|DISALLOW NULL|IGNORE NULL}]
 createIndexStatement

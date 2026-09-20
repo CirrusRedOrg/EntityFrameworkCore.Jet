@@ -232,8 +232,10 @@ public sealed record CreateViewStatement(
     ViewDefinition Definition,
     string QuerySql) : SqlStatement;
 
-/// <summary>A CREATE PROCEDURE parameter: a name and its declared Access SQL type name.</summary>
-public sealed record ProcedureParameter(string Name, string TypeName);
+/// <summary>A CREATE PROCEDURE parameter: a name and its declared Access SQL type, with the
+/// <paramref name="Size"/> and <paramref name="Scale"/> it declares. The size also decides the type code —
+/// <c>Text(50)</c> is a Text parameter where a bare <c>Text</c> is a memo — and both are stored alongside it.</summary>
+public sealed record ProcedureParameter(string Name, string TypeName, int? Size = null, int? Scale = null);
 
 /// <summary>CREATE PROCEDURE name [param datatype, …] AS select — a parameterized stored query. Stored like
 /// a view (the decomposed <see cref="Definition"/>) plus a parameter row per declared parameter.</summary>
@@ -244,21 +246,31 @@ public sealed record CreateProcedureStatement(
     string QuerySql) : SqlStatement;
 
 /// <summary>The kind of non-SELECT (action) CREATE PROCEDURE body.</summary>
-public enum ProcedureActionKind { DataDefinition, Append }
+public enum ProcedureActionKind { DataDefinition, Append, Update, Delete, MakeTable }
 
-/// <summary>One appended column of an INSERT procedure body: the target column and the verbatim value text.</summary>
+/// <summary>One column/value pair of an action procedure body: an appended column of an INSERT and its
+/// verbatim value text, or one assignment of an UPDATE (whose <paramref name="Column"/> is table-qualified
+/// when the update runs over a join). Access stores both the same way.</summary>
 public sealed record AppendColumn(string Column, string ValueExpression);
 
-/// <summary>A CREATE PROCEDURE whose body is an action query (not a SELECT). A
+/// <summary>
+/// A CREATE PROCEDURE whose body is an action query (not a plain SELECT). A
 /// <see cref="ProcedureActionKind.DataDefinition"/> body carries the whole <paramref name="DdlSql"/>
-/// (CREATE/DROP TABLE); an <see cref="ProcedureActionKind.Append"/> body carries the
-/// <paramref name="TargetTable"/> and its appended <paramref name="AppendColumns"/>.</summary>
+/// (CREATE/DROP TABLE) and nothing else — Access stores it verbatim. Every other kind carries its sources,
+/// joins and WHERE in <paramref name="Body"/>, exactly as a view carries them, plus what its own kind needs:
+/// <paramref name="AppendColumns"/> are an INSERT's columns or an UPDATE's assignments,
+/// <paramref name="TargetTable"/> is the table an INSERT or a make-table writes into, and
+/// <paramref name="DeleteTarget"/> is the <c>table.*</c> a DELETE names when it names one.
+/// </summary>
 public sealed record CreateActionProcedureStatement(
     string Name,
     ProcedureActionKind Kind,
     string? DdlSql,
     string? TargetTable,
-    IReadOnlyList<AppendColumn>? AppendColumns) : SqlStatement;
+    IReadOnlyList<AppendColumn>? AppendColumns,
+    ViewDefinition? Body = null,
+    string? DeleteTarget = null,
+    IReadOnlyList<ProcedureParameter>? Parameters = null) : SqlStatement;
 
 /// <summary>One action of an ALTER TABLE statement (Access allows exactly one per statement).</summary>
 public abstract record AlterTableAction;

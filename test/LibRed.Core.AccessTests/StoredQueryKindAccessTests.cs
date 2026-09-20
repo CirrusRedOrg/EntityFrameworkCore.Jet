@@ -104,11 +104,10 @@ public class StoredQueryKindAccessTests
     }
 
     [Theory]
-    [InlineData("UpdQ", "UPDATE Shippers SET Shippers.Phone = '555-0100'", 4, "UPDATE")]
-    [InlineData("DelQ", "DELETE FROM Shippers WHERE Shippers.CompanyName = 'nope'", 5, "DELETE")]
-    [InlineData("UniQ", "SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers", 9, "UNION")]
-    [InlineData("MakeQ", "SELECT Shippers.* INTO ShipCopy FROM Shippers", 2, "Make-table")]
-    public void Action_query_kinds_are_named_in_the_refusal(string name, string sql, int flag, string expected)
+    [InlineData("UpdQ", "UPDATE Shippers SET Shippers.Phone = '555-0100'", 4, "SET")]
+    [InlineData("DelQ", "DELETE FROM Shippers WHERE Shippers.CompanyName = 'nope'", 5, "FROM [Shippers]")]
+    [InlineData("MakeQ", "SELECT Shippers.* INTO ShipCopy FROM Shippers", 2, "INTO [ShipCopy]")]
+    public void Action_query_kinds_authored_through_dao_are_rebuilt(string name, string sql, int flag, string expected)
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "qkind-action-");
         try
@@ -118,11 +117,31 @@ public class StoredQueryKindAccessTests
             using var db = JetDatabase.Open(path);
             Assert.Equal((short)flag, OperationFlag(db, name));
 
+            // Authored the way the Access UI authors them, rather than through ACE's CREATE PROCEDURE — the
+            // rows have to be read the same either way.
+            StoredActionQuery q = db.Catalog.ActionQueries[name];
+            Assert.Null(q.UnsupportedReason);
+            Assert.Contains(expected, q.Sql!, StringComparison.OrdinalIgnoreCase);
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    [Fact]
+    public void A_kind_libred_cannot_run_is_named_in_the_refusal()
+    {
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "qkind-union-");
+        try
+        {
+            if (!Author(path, ("UniQ", "SELECT CompanyName FROM Shippers UNION SELECT CompanyName FROM Customers"))) return;
+
+            using var db = JetDatabase.Open(path);
+            Assert.Equal((short)9, OperationFlag(db, "UniQ"));
+
             // Not executed — but the reason has to say WHICH kind. "Not supported" on its own gives a caller
             // no way to tell an unimplemented feature from a file LibRed failed to read.
-            StoredActionQuery q = db.Catalog.ActionQueries[name];
+            StoredActionQuery q = db.Catalog.ActionQueries["UniQ"];
             Assert.Null(q.Sql);
-            Assert.Contains(expected, q.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("UNION", q.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

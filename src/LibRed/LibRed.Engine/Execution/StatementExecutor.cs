@@ -420,15 +420,26 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
         // hand, and a BIGINT/DATETIME2 parameter on an older format is left to fail. Upgrading a whole
         // database for a saved query's parameter type is a bigger claim than anything measured — what ACE
         // does with a new-type parameter in MSysQueries has not been probed, unlike the column case.
-        var parameters = statement.Parameters
-            .Select(p => new ViewParameterSpec(
-                p.Name,
-                (byte)AccessTypeMapper.ToColumnSpec(
-                    new ColumnDefinition(p.Name, p.TypeName, null, null, false, false), _database.Format.Version).Type))
-            .ToList();
-        _database.CreateView(statement.Name, BuildViewSpec(statement.Definition) with { Parameters = parameters });
+        _database.CreateView(
+            statement.Name,
+            BuildViewSpec(statement.Definition) with { Parameters = BuildParameterSpecs(statement.Parameters) });
         return 0;
     }
+
+    /// <summary>The declared parameters of a stored query as the rows that hold them: each name with the Jet
+    /// type code its declared Access type maps to. An action query declares them exactly as a SELECT does.</summary>
+    private IReadOnlyList<ViewParameterSpec>? BuildParameterSpecs(IReadOnlyList<ProcedureParameter>? parameters) =>
+        parameters is null or { Count: 0 }
+            ? null
+            : parameters
+                .Select(p => new ViewParameterSpec(
+                    p.Name,
+                    // The declared size decides the type code as well as being stored: Text(50) is a Text
+                    // parameter (code 10) where a bare Text is a memo (12), which is what ACE records.
+                    (byte)AccessTypeMapper.ToColumnSpec(
+                        new ColumnDefinition(p.Name, p.TypeName, p.Size, p.Scale, false, false), _database.Format.Version).Type,
+                    p.Size, p.Scale))
+                .ToList();
 
     private int ExecuteAlterTable(AlterTableStatement statement) => statement.Action switch
     {
@@ -664,10 +675,30 @@ internal sealed class StatementExecutor(JetDatabase database, IReadOnlyDictionar
 
     private int ExecuteCreateActionProcedure(CreateActionProcedureStatement statement)
     {
-        ActionQuerySpec spec = statement.Kind == ProcedureActionKind.DataDefinition
-            ? new ActionQuerySpec(ActionQueryKind.DataDefinition, DdlSql: statement.DdlSql)
-            : new ActionQuerySpec(ActionQueryKind.Append, TargetTable: statement.TargetTable,
-                Values: statement.AppendColumns!.Select(c => new AppendColumnSpec(c.Column, c.ValueExpression)).ToList());
+        if (statement.Kind == ProcedureActionKind.DataDefinition)
+        {
+            _database.CreateActionQuery(
+                statement.Name, new ActionQuerySpec(ActionQueryKind.DataDefinition, DdlSql: statement.DdlSql));
+            return 0;
+        }
+
+        // Every other kind stores its sources, joins and WHERE the way a view stores them, so the body maps
+        // through the same builder; only the action row and the meaning of the column rows differ.
+        var spec = new ActionQuerySpec(
+            statement.Kind switch
+            {
+                ProcedureActionKind.Append => ActionQueryKind.Append,
+                ProcedureActionKind.Update => ActionQueryKind.Update,
+                ProcedureActionKind.Delete => ActionQueryKind.Delete,
+                ProcedureActionKind.MakeTable => ActionQueryKind.MakeTable,
+                _ => throw new NotSupportedException($"A {statement.Kind} procedure body is not stored yet."),
+            },
+            TargetTable: statement.TargetTable,
+            Values: statement.AppendColumns?.Select(c => new AppendColumnSpec(c.Column, c.ValueExpression)).ToList(),
+            Body: statement.Body is { } body ? BuildViewSpec(body) : null,
+            Parameters: BuildParameterSpecs(statement.Parameters),
+            DeleteTarget: statement.DeleteTarget);
+
         _database.CreateActionQuery(statement.Name, spec);
         return 0;
     }

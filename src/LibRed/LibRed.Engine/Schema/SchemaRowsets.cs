@@ -329,9 +329,16 @@ public static class SchemaRowsets
                     for (int i = 0; i < parameters.Count; i++)
                     {
                         StoredQueryParameter p = parameters[i];
+                        // The declared facets where the parameter row records them: a text length (reported
+                        // in characters and in bytes, two per character as the Columns collection reports a
+                        // column's), and a decimal's precision and scale. A type that records none falls back
+                        // to the precision its type implies, as a column of it would report.
                         rows.Add([null, null, name, p.Name, i + 1, ParameterTypeInput, false, null, true,
-                            p.Type is { } type ? DataTypeCodeOf(type) : null, null, null,
-                            p.Type is { } precisionType ? NumericPrecisionOf(precisionType) : null, null, null,
+                            p.Type is { } type ? DataTypeCodeOf(type) : null,
+                            p.Size is { } size ? (long)size : null,
+                            p.Size is { } octets ? (long)octets * 2 : null,
+                            p.Precision ?? (p.Type is { } precisionType ? NumericPrecisionOf(precisionType) : null),
+                            p.Scale is { } scale ? (short)scale : null, null,
                             p.Type is { } named ? ProviderTypeName(named) : null,
                             p.Type is { } local ? ProviderTypeName(local) : null]);
                     }

@@ -301,6 +301,14 @@
   > (`0x08|0x01`) is what Access writes for its auto-generated form/report record-source queries**, the
   > `~sq_f…` / `~sq_r…` / `~sq_c…` objects, which it renders as `SELECT DISTINCTROW * FROM <table>`.
 
+  > **A query with no `0x05` rows at all has no FROM clause.** `SELECT 1 AS n` is a query Access stores (as
+  > a view or a procedure) and stores exactly as any other, minus the table rows: the type row, one `0x06`
+  > column row (`Name1` = the alias, `Expression` = the value) and the end row, with the ordinary view flags
+  > `0x10000000`. ACE will **open** such a query and return its row, but refuses to use it as a *source* —
+  > `SELECT n FROM [Q]` fails with "Query input must contain at least one table or query" — on its own files
+  > as much as on LibRed's. LibRed stores the same rows and is the more permissive of the two: its engine
+  > resolves one as a derived table like any other view.
+  >
   > **A query with no `0x06` rows at all is `SELECT *`.** The absence of output columns is the encoding, not a
   > sign of an unreadable query — every auto-generated record-source query takes this shape. **Nested / parenthesised joins are stored
   flat** — one `0x05` per base table and one `0x07` per join condition, no grouping — so Access re-derives
@@ -370,21 +378,66 @@
   > LibRed-created database.
 
   > **Action-query procedure bodies** (a CREATE PROCEDURE body that is not a SELECT) are stored with a
-  > different MSysObjects `Flags` and an `Attribute=0x01` row (verified vs ACE):
-  > - **Delete**: the `0x01` action row has `Flag 5`.
-  > - **Update**: the `0x01` action row has `Flag 4`.
+  > different MSysObjects `Flags` and an `Attribute=0x01` row (verified vs ACE). **Every kind keeps its
+  > sources, predicate and declared parameters exactly where a SELECT keeps them** — one `0x05` row per table,
+  > one `0x07` per join condition, `0x08` for the WHERE, `0x02` per declared parameter — and they differ only
+  > in the action row and in what the `0x06` column rows mean:
   > - **Data-definition** (CREATE TABLE / DROP TABLE): MSysObjects `Flags=0x10000060`; one `0x01` row with
-  >   `Flag 7` and `Expression` = the **whole DDL statement** verbatim (ACE prepends a single space).
+  >   `Flag 7` and `Expression` = the **whole DDL statement** verbatim (ACE prepends a single space). No other
+  >   rows: the statement is not decomposed at all.
   > - **Append** (INSERT): MSysObjects `Flags=0x10000040`; a `0x01` row with `Flag 3` and `Name1` = the
   >   target table, then one `0x06` column row per appended column — `Name2` = target column, `Expression`
   >   = the value; `Flag 0x8000` marks an INSERT … **VALUES** append (an INSERT … **SELECT** instead uses
   >   `Flag 0` on the `0x06` rows plus the usual `0x05` table / `0x08` where rows).
+  > - **Update**: the `0x01` action row has `Flag 4` and nothing else on it — the target is the FROM source.
+  >   One `0x06` row per SET assignment: **`Name2` = the assigned column**, `Expression` = the new value.
+  >   Over a join, `Name2` is **table-qualified** (`Orders.ShipCountry`) and the join is an ordinary `0x07`
+  >   row, so an UPDATE over a join stores exactly what the same join in a SELECT stores.
+  > - **Delete**: the `0x01` action row has `Flag 5`. A `DELETE <table>.* FROM …` keeps that target as a
+  >   single `0x06` row whose `Expression` is the verbatim `<table>.*` and which has no `Name2`; a
+  >   `DELETE FROM …` (no named target) stores **no** `0x06` row at all, and ACE renders it back as
+  >   `DELETE * FROM …`.
+  > - **Make-table** (`SELECT … INTO`): `Flag 2`, with the target table in `Name1` and, when the target is in
+  >   another database file, its path in `Name2`. Everything else is stored as the SELECT it is.
   >
-  > (A plain view/SELECT query uses `Flags=0x10000000` and no `0x01` row.) LibRed writes CREATE TABLE and
-  > INSERT … VALUES bodies; INSERT … SELECT and UPDATE/DELETE are not written yet. **Read-back:** LibRed
-  > reconstructs a stored action query from these rows (DDL → the verbatim SQL; INSERT … VALUES → a rebuilt
-  > `INSERT INTO t (cols) VALUES (…)`) and executes it by name; kinds it can't run (INSERT … SELECT, etc.)
-  > read back with an "unsupported" reason and throw when executed.
+  > **The MSysObjects `Flags` low byte is DAO's own `QueryDef.Type`** — not the `0x01` row's `Flag`, which
+  > numbers the kinds differently. Measured across six kinds: `0x10000000` plus crosstab `0x10`, delete
+  > `0x20`, update `0x30`, append `0x40`, make-table `0x50`, data-definition `0x60` — exactly the DAO values
+  > in the table above (16/32/48/64/80/96).
+  >
+  > **A declared parameter's facets live in the `0x02` row's `LvExtra`**, and Access renders the PARAMETERS
+  > clause from them — a row without them reads back as `Text(255)`. Verified against ACE, declaration by
+  > declaration:
+  >
+  > | declared | `Flag` | `LvExtra` |
+  > |---|---|---|
+  > | `Text(50)` | 10 | `50` — the length |
+  > | `Decimal(18,4)` / `Numeric(18,4)` | 16 | `262162` = `(scale << 16) \| precision` |
+  > | `Numeric(10,2)` | 16 | `131082` = `(2 << 16) \| 10` |
+  > | `Binary(10)` | 9 | *nothing* — a sized binary records no facet |
+  > | `Long`, and every type with no declared size | its code | *nothing* |
+  >
+  > On every *other* row `LvExtra` holds nothing: for one statement ACE left it null with no parameter
+  > declared and wrote `0` and `226` on those same rows once one was, and Northwind's designer-authored query
+  > carries `936840680` throughout. Don't model it outside a parameter row.
+  >
+  > **The `0x02` `Flag` is the Jet on-disk type code**, the same code a column of that type carries — not
+  > DAO's type constants, which agree with it only up to `15` (GUID) and then diverge. Measured across every
+  > declarable type: `Bit 1`, `Byte 2`, `Short 3`, `Long 4`, `Currency 5`, `Single 6`, `Double 7`,
+  > `DateTime 8`, `Binary 9`, `Text 10`, `LongBinary 11`, `Memo 12`, `GUID 15`, `Decimal 16`, **`BigInt 19`**,
+  > **`DateTime2 20`**, and `0` for Access's untyped `Value` parameter. The last two are worth noting twice
+  > over: DAO numbers `dbBigInt` 16, which is Decimal's code here, and ACE accepts a `BigInt` or `DateTime2`
+  > **parameter** on an ACE 12 file, where a *column* of either type is refused — a parameter declares no
+  > storage, so nothing forces the format's hand.
+  >
+  > (A plain view/SELECT query uses `Flags=0x10000000` and no `0x01` row.) LibRed **writes** every kind it
+  > reads: CREATE TABLE verbatim, INSERT from VALUES or from a SELECT, UPDATE (joins included), DELETE (with
+  > or without a `table.*` target) and make-table, each with its declared parameters and their facets — row
+  > for row what ACE writes for the same statement, including the object flags, and ACE runs the result. **Read-back:** LibRed reconstructs and runs
+  > every kind whose statement its engine can execute — DDL (verbatim), INSERT from VALUES or from a SELECT,
+  > UPDATE (joins included), DELETE and make-table — rebuilt with a leading `PARAMETERS` clause when the query
+  > declares parameters, so `EXECUTE name arg, …` binds them. Crosstab, pass-through and UNION read back with
+  > an "unsupported" reason naming the kind, and throw when executed.
 
 - **MSysRelationships** defines foreign keys (one row per relationship column): `szRelationship`
   (name), `szObject` (child/referencing table), `szColumn` (child column), `szReferencedObject`

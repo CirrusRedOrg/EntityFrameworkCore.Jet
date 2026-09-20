@@ -401,7 +401,8 @@ internal sealed class AstBuilder
     private static SqlStatement BuildCreateProcedure(CreateProcedureStatementContext ctx)
     {
         var parameters = (ctx.procParamList()?.procParam() ?? [])
-            .Select(p => new ProcedureParameter(ParamName(p), TypeName(p.dataType())))
+            .Select(p => new ProcedureParameter(
+                ParamName(p), TypeName(p.dataType()), Size(p.dataType()), Scale(p.dataType())))
             .ToList();
 
         // A procedure body is a SELECT (stored as a parameterized query, like a view) or an action query
@@ -411,29 +412,59 @@ internal sealed class AstBuilder
 
         if (body.createTableStatement() is { } ddl)
         {
-            RejectParametersOnAction(parameters);
+            // A data-definition query is stored as its verbatim text, with nothing decomposed — there is no
+            // row for a parameter to reach, so one declared here could never bind.
+            if (parameters.Count > 0)
+                throw new NotSupportedException(
+                    "Parameters on a data-definition procedure are not supported: its SQL is stored verbatim.");
             return new CreateActionProcedureStatement(
                 name, ProcedureActionKind.DataDefinition, OriginalText(ddl), null, null);
         }
-        if (body.insertStatement() is { } insert)
-        {
-            RejectParametersOnAction(parameters);
-            return BuildAppendProcedure(name, insert);
-        }
+        if (body.insertStatement() is { } insert) return BuildAppendProcedure(name, insert, parameters);
+        if (body.updateStatement() is { } update) return BuildUpdateProcedure(name, update, parameters);
+        if (body.deleteStatement() is { } delete) return BuildDeleteProcedure(name, delete, parameters);
 
-        ViewDefinition definition = BuildViewDefinition(body.queryExpression());
-        return new CreateProcedureStatement(name, parameters, definition, OriginalText(body.queryExpression()));
+        QueryExpressionContext query = body.queryExpression();
+        // A SELECT with an INTO is a make-table query — an action query that stores its target on the action
+        // row — not a view of the SELECT.
+        if (MakeTableTarget(query) is { } target)
+            return new CreateActionProcedureStatement(
+                name, ProcedureActionKind.MakeTable, null, target, null,
+                BuildViewDefinition(query), null, parameters);
+
+        ViewDefinition definition = BuildViewDefinition(query);
+        return new CreateProcedureStatement(name, parameters, definition, OriginalText(query));
     }
 
-    private static void RejectParametersOnAction(IReadOnlyList<ProcedureParameter> parameters)
-    {
-        if (parameters.Count > 0)
-            throw new NotSupportedException("Parameters on an action-query procedure are not stored yet.");
-    }
+    /// <summary>The table a <c>SELECT … INTO t</c> body writes into, or null for an ordinary SELECT.</summary>
+    private static string? MakeTableTarget(QueryExpressionContext ctx) =>
+        ctx.setOperator().Length == 0 && ctx.queryTerm(0) is SelectTermContext term
+        && term.querySpecification().into is { } into
+            ? Identifier(into)
+            : null;
 
-    private static SqlStatement BuildAppendProcedure(string name, InsertStatementContext insert)
+    private static SqlStatement BuildAppendProcedure(
+        string name, InsertStatementContext insert, IReadOnlyList<ProcedureParameter> parameters)
     {
         var columns = insert._columns;
+        if (columns.Count == 0)
+            throw new NotSupportedException("An INSERT procedure body must list its target columns.");
+
+        // The multiple-record form: the values come from a SELECT, which is stored as the query's own source
+        // — the same table / join / where rows a view stores — with each column row naming what it reads.
+        if (insert.source is { } source)
+        {
+            ViewDefinition body = BuildViewDefinition(source);
+            if (body.Columns.Count != columns.Count)
+                throw new SqlParseException(
+                    $"INSERT lists {columns.Count} columns but its SELECT returns {body.Columns.Count}.");
+
+            var sourced = columns
+                .Select((col, i) => new AppendColumn(Identifier(col), body.Columns[i].Expression))
+                .ToList();
+            return new CreateActionProcedureStatement(
+                name, ProcedureActionKind.Append, null, Identifier(insert.table), sourced, body, null, parameters);
+        }
 
         // A stored append query keeps its columns and values as text pairs, which has room for exactly one
         // row — so a multi-row table value constructor cannot be stored as a procedure even though it is
@@ -451,8 +482,6 @@ internal sealed class AstBuilder
                 "An INSERT procedure body cannot use DEFAULT as a value.");
 
         var values = rowValues.Select(v => v.expression()).ToArray();
-        if (columns.Count == 0)
-            throw new NotSupportedException("An INSERT procedure body must list its target columns.");
         if (columns.Count != values.Length)
             throw new SqlParseException(
                 $"INSERT lists {columns.Count} columns but {values.Length} values.");
@@ -461,7 +490,47 @@ internal sealed class AstBuilder
             .Select((col, i) => new AppendColumn(Identifier(col), OriginalText(values[i])))
             .ToList();
         return new CreateActionProcedureStatement(
-            name, ProcedureActionKind.Append, null, Identifier(insert.table), appendColumns);
+            name, ProcedureActionKind.Append, null, Identifier(insert.table), appendColumns,
+            null, null, parameters);
+    }
+
+    /// <summary>An UPDATE body: its sources and WHERE are stored exactly as a view's are, and each SET
+    /// assignment becomes a column row naming its target (qualified, over a join) and holding the new
+    /// value's verbatim text.</summary>
+    private static SqlStatement BuildUpdateProcedure(
+        string name, UpdateStatementContext update, IReadOnlyList<ProcedureParameter> parameters)
+    {
+        var assignments = update.assignment()
+            .Select(a => new AppendColumn(OriginalText(a.target), OriginalText(a.expression())))
+            .ToList();
+        return new CreateActionProcedureStatement(
+            name, ProcedureActionKind.Update, null, null, assignments,
+            ActionBody(update.tableSource(), update.whereClause()), null, parameters);
+    }
+
+    /// <summary>A DELETE body: its sources and WHERE, plus the <c>table.*</c> target when the statement names
+    /// one — which Access stores verbatim, and omits entirely for a bare <c>DELETE FROM</c>.</summary>
+    private static SqlStatement BuildDeleteProcedure(
+        string name, DeleteStatementContext delete, IReadOnlyList<ProcedureParameter> parameters)
+    {
+        string? target = delete.target is { } t ? $"{Identifier(t)}.*" : null;
+        return new CreateActionProcedureStatement(
+            name, ProcedureActionKind.Delete, null, null, null,
+            ActionBody(delete.tableSource(), delete.whereClause()), target, parameters);
+    }
+
+    /// <summary>The sources, joins and WHERE of an UPDATE or DELETE body, in the shape a view stores them —
+    /// they carry no output columns of their own.</summary>
+    private static ViewDefinition ActionBody(TableSourceContext[] sources, WhereClauseContext? where)
+    {
+        var tables = new List<ViewSource>();
+        var joins = new List<ViewJoin>();
+        foreach (TableSourceContext ts in sources) CollectSources(ts, tables, joins);
+
+        return new ViewDefinition(
+            Distinct: false, Columns: [], tables, joins,
+            where is null ? null : OriginalText(where.expression()),
+            GroupBy: [], OrderBy: [], Top: null);
     }
 
     /// <summary>A declared parameter's name, with any leading <c>@</c> stripped — Access stores the bare
@@ -495,6 +564,19 @@ internal sealed class AstBuilder
             // The multiple-record form's source is a query in its own right, so a declared parameter can
             // appear in its WHERE just as it can in a VALUES list.
             Source = ins.Source is null ? null : LowerParameters(ins.Source, names),
+        },
+        // An action query declares parameters exactly as a SELECT does, and Access stores UPDATE and DELETE
+        // ones — a stored `UPDATE t SET c = pValue WHERE k = pKey` reads back through here.
+        UpdateStatement upd => upd with
+        {
+            From = LowerFrom(upd.From, names)!,
+            Assignments = upd.Assignments.Select(a => a with { Value = LowerExpr(a.Value, names) }).ToList(),
+            Where = upd.Where is null ? null : LowerExpr(upd.Where, names),
+        },
+        DeleteStatement del => del with
+        {
+            From = LowerFrom(del.From, names)!,
+            Where = del.Where is null ? null : LowerExpr(del.Where, names),
         },
         _ => s,
     };
@@ -582,10 +664,12 @@ internal sealed class AstBuilder
             : select.selectList().selectItem().Select(BuildViewColumn).ToList();
 
         // Flatten the FROM into a flat list of source tables and joins, descending through any parenthesised
-        // join groups (Access stores them flat — one Attribute=5 per table, one Attribute=7 per join).
+        // join groups (Access stores them flat — one Attribute=5 per table, one Attribute=7 per join). A
+        // body with no FROM at all (`SELECT 1 AS n`) is a query Access stores and runs, and it stores it the
+        // same way minus the table rows — so it decomposes to no sources rather than being rejected.
         var tables = new List<ViewSource>();
         var joins = new List<ViewJoin>();
-        foreach (TableSourceContext ts in select.fromClause().tableSource())
+        foreach (TableSourceContext ts in select.fromClause()?.tableSource() ?? [])
             CollectSources(ts, tables, joins);
 
         string? where = select.whereClause() is { } w ? OriginalText(w.expression()) : null;

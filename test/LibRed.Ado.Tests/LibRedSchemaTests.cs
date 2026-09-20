@@ -188,6 +188,9 @@ public class LibRedSchemaTests
         Assert.Equal(1, parameter["PARAMETER_TYPE"]);     // input
         Assert.Equal(130, parameter["DATA_TYPE"]);        // DBTYPE_WSTR
         Assert.Equal("VarChar", parameter["TYPE_NAME"]);
+        // The declared length, read back from the parameter row's LvExtra; octets are two per character.
+        Assert.Equal(5L, parameter["CHARACTER_MAXIMUM_LENGTH"]);
+        Assert.Equal(10L, parameter["CHARACTER_OCTET_LENGTH"]);
     }
 
     [Fact]
@@ -197,7 +200,8 @@ public class LibRedSchemaTests
             Schema("Procedures", null, null, "CustOrdersOrders", null).Rows.Cast<DataRow>());
 
         string definition = (string)procedure["PROCEDURE_DEFINITION"];
-        Assert.StartsWith("PARAMETERS [CustomerID] TEXT;", definition);
+        // Including the length it was declared with, which the parameter row keeps in its LvExtra.
+        Assert.StartsWith("PARAMETERS [CustomerID] TEXT(5);", definition);
         Assert.Contains("FROM [Orders]", definition);
     }
 

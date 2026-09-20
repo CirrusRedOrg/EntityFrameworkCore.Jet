@@ -26,6 +26,29 @@ public class CreateViewTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
+    // A body with no FROM at all. Access stores and runs one — the rows are an ordinary query's minus the
+    // table rows — so this must store, read back and run rather than fail. It used to throw a bare
+    // NullReferenceException out of the decomposer.
+    [Theory]
+    [InlineData("CREATE VIEW `Const` AS SELECT 1 AS `n`")]
+    [InlineData("CREATE PROCEDURE `Const` AS SELECT 1 AS `n`")]
+    public void A_from_less_body_is_stored_and_queryable(string sql)
+    {
+        string path = Fresh();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery(sql);
+
+            using (var db = JetDatabase.Open(path)) // fresh open: read from the file
+            {
+                Assert.Equal("SELECT 1 AS [n]", db.Catalog.Views["Const"]);
+                Assert.Equal(1, new QueryEngine(db).ExecuteQuery("SELECT `n` FROM `Const`").Rows.Single()[0]);
+            }
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
     // A view is read back from the file (its MSysQueries rows), reconstructed to SQL, and resolved as a
     // derived table when queried through LibRed's own engine.
     [Fact]

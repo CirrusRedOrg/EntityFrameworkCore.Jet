@@ -76,35 +76,54 @@ public class ActionQueryProcedureAccessTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
-    // An INSERT ... SELECT stored query (written by ACE) is read back but classified unsupported: LibRed
-    // reconstructs no executable SQL for it, only a reason ("throw on the rest").
-    [Fact]
-    public void Insert_select_stored_query_is_read_back_as_unsupported()
+    /// <summary>
+    /// An ACE-written query of each action kind, read back as the statement LibRed runs. Every kind keeps its
+    /// sources, predicate and declared parameters where a SELECT keeps them — one <c>0x05</c> row per table,
+    /// <c>0x07</c> per join, <c>0x08</c> for the WHERE — and differs only in what the <c>0x06</c> column rows
+    /// mean: a SET assignment names its target in <c>Name2</c> (qualified, over a join), an append names the
+    /// target column there and holds the value in <c>Expression</c>, and a DELETE's single row holds the
+    /// verbatim <c>table.*</c> that Access writes when the query names one.
+    /// </summary>
+    [Theory]
+    // UPDATE (kind 4): one column row per assignment.
+    [InlineData(4, "UPDATE Customers SET ContactTitle = 'Changed' WHERE Country = 'UK'",
+        "UPDATE [Customers] SET [ContactTitle] = 'Changed' WHERE Country = 'UK'")]
+    [InlineData(4, "UPDATE Products SET UnitPrice = UnitPrice * 1.1, Discontinued = True WHERE CategoryID = 1",
+        "UPDATE [Products] SET [UnitPrice] = UnitPrice * 1.1, [Discontinued] = True WHERE CategoryID = 1")]
+    [InlineData(4, "UPDATE Orders INNER JOIN Customers ON Orders.CustomerID = Customers.CustomerID " +
+                   "SET Orders.ShipCountry = Customers.Country WHERE Customers.Country = 'UK'",
+        "UPDATE [Orders] INNER JOIN [Customers] ON Orders.CustomerID = Customers.CustomerID " +
+        "SET [Orders].[ShipCountry] = Customers.Country WHERE Customers.Country = 'UK'")]
+    // DELETE (kind 5): Access writes `DELETE * FROM` when the query names no columns, `DELETE t.* FROM` when
+    // it does, and stores that `t.*` verbatim.
+    [InlineData(5, "DELETE FROM Shippers WHERE CompanyName = 'Does not exist'",
+        "DELETE * FROM [Shippers] WHERE CompanyName = 'Does not exist'")]
+    [InlineData(5, "DELETE Shippers.* FROM Shippers WHERE Phone IS NULL",
+        "DELETE Shippers.* FROM [Shippers] WHERE Phone IS NULL")]
+    // Append (kind 3), from a SELECT rather than from VALUES.
+    [InlineData(3, "INSERT INTO Shippers (CompanyName) SELECT ContactName FROM Customers WHERE Country = 'UK'",
+        "INSERT INTO [Shippers] ([CompanyName]) SELECT ContactName FROM [Customers] WHERE Country = 'UK'")]
+    // Make-table (kind 2): the target is on the action row rather than in the SQL.
+    [InlineData(2, "SELECT ShipperID, CompanyName INTO [ShipperCopy] FROM Shippers WHERE ShipperID > 1",
+        "SELECT ShipperID, CompanyName INTO [ShipperCopy] FROM [Shippers] WHERE ShipperID > 1")]
+    public void Ace_written_action_query_is_read_back_as_runnable_sql(short kind, string body, string expected)
     {
-        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "action-sel-");
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "action-kinds-");
         try
         {
-            using (var conn = OpenOleDb(path))
-            {
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText =
-                    "CREATE PROCEDURE CopyUkShippers AS " +
-                    "INSERT INTO Shippers (CompanyName) SELECT ContactName FROM Customers WHERE Country = 'UK'";
-                cmd.ExecuteNonQuery();
-            }
+            using (var conn = OpenOleDb(path)) CreateProcedure(conn, "P", body);
 
             using var db = JetDatabase.Open(path);
-            StoredActionQuery q = db.Catalog.ActionQueries["CopyUkShippers"];
-            Assert.Null(q.Sql);
-            Assert.Contains("INSERT", q.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("SELECT", q.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);
-            Assert.Equal((short)3, ActionFlag(db, "CopyUkShippers"));
+            StoredActionQuery query = db.Catalog.ActionQueries["P"];
+            Assert.Equal(kind, ActionFlag(db, "P"));
+            Assert.Null(query.UnsupportedReason);
+            Assert.Equal(expected, query.Sql);
         }
         finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
-    public void Ace_parameterized_update_retains_parameter_order_while_remaining_explicitly_unsupported()
+    public void Ace_parameterized_update_is_read_back_with_its_parameters_clause()
     {
         string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "action-params-");
         try
@@ -120,37 +139,37 @@ public class ActionQueryProcedureAccessTests
 
             using var db = JetDatabase.Open(path);
             Assert.Equal(["pTitle", "pCountry"], db.Catalog.QueryParameters["UpdateByCountry"].Select(p => p.Name));
+
             StoredActionQuery query = db.Catalog.ActionQueries["UpdateByCountry"];
-            Assert.Null(query.Sql);
-            Assert.Contains("UPDATE", query.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);
             Assert.Equal((short)4, ActionFlag(db, "UpdateByCountry"));
+            // An action query declares its parameters exactly as a SELECT does, and is rebuilt with the same
+            // leading clause — which is what makes the body's references to them parameters and not columns.
+            // The declared lengths come back too: they are stored in the parameter row's LvExtra.
+            Assert.Equal(
+                "PARAMETERS [pTitle] TEXT(50), [pCountry] TEXT(20); " +
+                "UPDATE [Customers] SET [ContactTitle] = pTitle WHERE Country = pCountry",
+                query.Sql);
+            Assert.Equal([50, 20], db.Catalog.QueryParameters["UpdateByCountry"].Select(p => p.Size));
         }
         finally { TemporaryDatabase.Delete(path); }
     }
 
     [Fact]
-    public void Ace_update_and_delete_procedures_are_retained_with_their_exact_action_kinds()
+    public void A_kind_libred_cannot_run_still_reports_which_kind_it_is()
     {
-        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "action-kinds-");
+        string path = TemporaryDatabase.CopyPath(TestDatabases.NorthwindAccdb, "action-crosstab-");
         try
         {
             using (var conn = OpenOleDb(path))
-            {
-                CreateProcedure(conn, "UpdateUkTitles",
-                    "UPDATE Customers SET ContactTitle = 'Changed' WHERE Country = 'UK'");
-                CreateProcedure(conn, "DeleteNoShipper",
-                    "DELETE FROM Shippers WHERE CompanyName = 'Does not exist'");
-            }
+                CreateProcedure(conn, "ByCountry",
+                    "TRANSFORM Count(*) SELECT Country FROM Customers GROUP BY Country PIVOT City");
 
             using var db = JetDatabase.Open(path);
-            StoredActionQuery update = db.Catalog.ActionQueries["UpdateUkTitles"];
-            StoredActionQuery delete = db.Catalog.ActionQueries["DeleteNoShipper"];
-            Assert.Equal((short)4, ActionFlag(db, "UpdateUkTitles"));
-            Assert.Equal((short)5, ActionFlag(db, "DeleteNoShipper"));
-            Assert.Null(update.Sql);
-            Assert.Contains("UPDATE", update.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);
-            Assert.Null(delete.Sql);
-            Assert.Contains("DELETE", delete.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);
+            StoredActionQuery query = db.Catalog.ActionQueries["ByCountry"];
+            Assert.Null(query.Sql);
+            // "Not supported" that doesn't say what it is leaves a caller no way to tell an unimplemented
+            // feature from an unreadable file.
+            Assert.Contains("Crosstab", query.UnsupportedReason!, StringComparison.OrdinalIgnoreCase);
         }
         finally { TemporaryDatabase.Delete(path); }
     }

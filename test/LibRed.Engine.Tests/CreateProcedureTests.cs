@@ -198,23 +198,83 @@ public class CreateProcedureTests
         finally { TemporaryDatabase.Delete(path); }
     }
 
-    // Bodies we don't support: UPDATE/DELETE/DROP have no grammar; an INSERT without a column list can't be
-    // stored as an append query. Each is rejected.
-    [Theory]
-    [InlineData("CREATE PROCEDURE `DelCust` AS DELETE FROM Customers")]
-    [InlineData("CREATE PROCEDURE `UpdCust` AS UPDATE Customers SET City = 'X'")]
-    [InlineData("CREATE PROCEDURE `AddNoCols` AS INSERT INTO Shippers VALUES ('ZZ Co')")]
-    public void Unsupported_procedure_body_is_rejected(string sql)
+    // An INSERT with no column list can't be stored as an append query: the rows pair each value with the
+    // column it goes in, so there is nowhere to put a positional value list.
+    [Fact]
+    public void Unsupported_procedure_body_is_rejected()
     {
         string path = Fresh();
         try
         {
             using var db = JetDatabase.Open(path, readOnly: false);
-            if (sql.Contains("AddNoCols", StringComparison.Ordinal))
-                Assert.Throws<NotSupportedException>(() => new QueryEngine(db).ExecuteNonQuery(sql));
-            else
-                Assert.Throws<LibRed.Sql.Parsing.SqlParseException>(() =>
-                    new QueryEngine(db).ExecuteNonQuery(sql));
+            Assert.Throws<NotSupportedException>(() => new QueryEngine(db).ExecuteNonQuery(
+                "CREATE PROCEDURE `AddNoCols` AS INSERT INTO Shippers VALUES ('ZZ Co')"));
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    // Each remaining action kind, written and then read back from the file as the statement it was written
+    // from, and run by name. (That the stored rows are the ones ACE writes, and that ACE runs them, is
+    // measured in StoredActionQueryWriteAccessTests — this is the half that needs no engine but LibRed's.)
+    [Theory]
+    [InlineData("UPDATE Customers SET City = 'X' WHERE Country = 'UK'",
+        "UPDATE [Customers] SET [City] = 'X' WHERE Country = 'UK'", 7)]
+    [InlineData("UPDATE Orders INNER JOIN Customers ON Orders.CustomerID = Customers.CustomerID " +
+                "SET Orders.ShipCity = 'X' WHERE Customers.Country = 'UK'",
+        "UPDATE [Orders] INNER JOIN [Customers] ON Orders.CustomerID = Customers.CustomerID " +
+        "SET [Orders].[ShipCity] = 'X' WHERE Customers.Country = 'UK'", 56)]
+    [InlineData("DELETE FROM Shippers WHERE ShipperID > 900",
+        "DELETE * FROM [Shippers] WHERE ShipperID > 900", 0)]
+    [InlineData("DELETE Shippers.* FROM Shippers WHERE ShipperID > 900",
+        "DELETE Shippers.* FROM [Shippers] WHERE ShipperID > 900", 0)]
+    [InlineData("SELECT ShipperID, CompanyName INTO ShipperCopy FROM Shippers WHERE ShipperID > 1",
+        "SELECT ShipperID, CompanyName INTO [ShipperCopy] FROM [Shippers] WHERE ShipperID > 1", 2)]
+    [InlineData("INSERT INTO Shippers (CompanyName) SELECT ContactName FROM Customers WHERE Country = 'UK'",
+        "INSERT INTO [Shippers] ([CompanyName]) SELECT ContactName FROM [Customers] WHERE Country = 'UK'", 7)]
+    public void Action_query_body_round_trips_through_the_file(string body, string expected, int affected)
+    {
+        string path = Fresh();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery($"CREATE PROCEDURE [P] AS {body}");
+
+            using (var db = JetDatabase.Open(path, readOnly: false)) // fresh open: read from the file
+            {
+                Assert.Equal(expected, db.Catalog.ActionQueries["P"].Sql);
+                Assert.Equal(affected, new QueryEngine(db).ExecuteNonQuery("EXECUTE [P]"));
+            }
+        }
+        finally { TemporaryDatabase.Delete(path); }
+    }
+
+    [Fact]
+    public void A_written_action_querys_parameters_bind_when_it_is_executed()
+    {
+        string path = Fresh();
+        try
+        {
+            using (var db = JetDatabase.Open(path, readOnly: false))
+                new QueryEngine(db).ExecuteNonQuery(
+                    "CREATE PROCEDURE [ByCountry] (pCity Text(50), pCountry Text(20)) AS " +
+                    "UPDATE Customers SET City = pCity WHERE Country = pCountry");
+
+            using (var db = JetDatabase.Open(path, readOnly: false))
+            {
+                var engine = new QueryEngine(db);
+                // Read back with the PARAMETERS clause that makes the body's references parameters, declared
+                // lengths and all — they ride in the parameter row's LvExtra.
+                Assert.Equal(
+                    "PARAMETERS [pCity] TEXT(50), [pCountry] TEXT(20); " +
+                    "UPDATE [Customers] SET [City] = pCity WHERE Country = pCountry",
+                    db.Catalog.ActionQueries["ByCountry"].Sql);
+
+                Assert.Equal(7, engine.ExecuteNonQuery("EXECUTE [ByCountry] 'Ankh-Morpork', 'UK'"));
+                Assert.Equal(
+                    7,
+                    engine.ExecuteQuery("SELECT COUNT(*) FROM Customers WHERE City = 'Ankh-Morpork'")
+                        .Rows.Single()[0]);
+            }
         }
         finally { TemporaryDatabase.Delete(path); }
     }

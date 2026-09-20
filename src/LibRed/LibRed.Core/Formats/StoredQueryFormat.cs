@@ -1,3 +1,5 @@
+using LibRed.Catalog;
+
 namespace LibRed.Formats;
 
 /// <summary>
@@ -56,4 +58,27 @@ internal static class StoredQueryFormat
 
     /// <summary>AttrColumn Flag bit marking an appended literal value.</summary>
     public const short AppendValueFlag = unchecked((short)0x8000);
+
+    /// <summary>
+    /// The <c>LvExtra</c> value for a declared parameter's facets, or null for a type that carries none.
+    /// Measured against ACE: a <c>Text(50)</c> parameter stores the length, 50; a <c>Decimal(18,4)</c> packs
+    /// both into one value, <c>(scale &lt;&lt; 16) | precision</c> = 262162; and a sized <c>Binary(10)</c>
+    /// stores nothing at all, as every type without a declared size does. Access renders the query's
+    /// PARAMETERS clause from this, so a parameter with no value here reads back as <c>Text(255)</c>.
+    /// </summary>
+    public static int? PackParameterFacets(JetDataType type, int? size, int? scale) => type switch
+    {
+        JetDataType.Text => size,
+        JetDataType.FixedPoint when size is { } precision => (scale ?? 0) << 16 | precision & 0xFFFF,
+        _ => null,
+    };
+
+    /// <summary>A declared parameter's facets back out of its <c>LvExtra</c> — the inverse of
+    /// <see cref="PackParameterFacets"/>. A text parameter reports its length as the size; a decimal reports
+    /// the precision and scale packed into the one value.</summary>
+    public static (int? Size, int? Precision, int? Scale) UnpackParameterFacets(JetDataType type, int? lvExtra) =>
+        lvExtra is not { } packed ? (null, null, null)
+        : type == JetDataType.FixedPoint ? (null, packed & 0xFFFF, packed >> 16)
+        : type == JetDataType.Text ? (packed, null, null)
+        : (null, null, null);
 }
